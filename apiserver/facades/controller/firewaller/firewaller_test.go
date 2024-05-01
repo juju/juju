@@ -6,7 +6,6 @@ package firewaller_test
 import (
 	"context"
 	"sort"
-	"time"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -17,34 +16,47 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
-	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/facade"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
-	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
 )
 
 type firewallerSuite struct {
 	firewallerBaseSuite
-	*commontesting.ModelWatcherTest
 
-	firewaller     *firewaller.FirewallerAPI
-	subnet         *state.Subnet
-	networkService *MockNetworkService
+	firewaller *firewaller.FirewallerAPI
+	subnet     *state.Subnet
 
-	ctrl *gomock.Controller
+	watcherRegistry     *facademocks.MockWatcherRegistry
+	controllerConfigAPI *MockControllerConfigAPI
+
+	controllerConfigService *MockControllerConfigService
+	modelConfigService      *MockModelConfigService
+	networkService          *MockNetworkService
 }
 
 var _ = gc.Suite(&firewallerSuite{})
 
-func (s *firewallerSuite) SetUpTest(c *gc.C) {
-	s.firewallerBaseSuite.setUpTest(c)
+func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
+
+	s.controllerConfigAPI = NewMockControllerConfigAPI(ctrl)
+
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.networkService = NewMockNetworkService(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+
+	return ctrl
+}
+
+func (s *firewallerSuite) setupAPI(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	subnet, err := st.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -61,29 +73,27 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		common.AuthFuncForTag(s.ControllerModel(c).ModelTag()),
 	)
 
-	s.ctrl = gomock.NewController(c)
-	controllerConfigService := mocks.NewMockControllerConfigService(s.ctrl)
-	controllerConfigAPI := NewMockControllerConfigAPI(s.ctrl)
-	s.networkService = NewMockNetworkService(s.ctrl)
-
 	// Create a firewaller API for the machine.
 	firewallerAPI, err := firewaller.NewStateFirewallerAPI(
 		firewaller.StateShim(st, s.ControllerModel(c)),
 		s.networkService,
 		s.resources,
+		s.watcherRegistry,
 		s.authorizer,
 		cloudSpecAPI,
-		controllerConfigAPI,
-		controllerConfigService,
+		s.controllerConfigAPI,
+		s.controllerConfigService,
+		s.modelConfigService,
 		loggo.GetLogger("juju.apiserver.firewaller"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewaller = firewallerAPI
-	s.ModelWatcherTest = commontesting.NewModelWatcherTest(s.firewaller, st, s.resources)
 }
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
-	defer s.ctrl.Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 
 	constructor := func(ctx facade.ModelContext) error {
 		_, err := firewaller.NewFirewallerAPIV7(ctx)
@@ -93,35 +103,49 @@ func (s *firewallerSuite) TestFirewallerFailsWithNonControllerUser(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestLife(c *gc.C) {
-	defer s.ctrl.Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 
 	s.testLife(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestInstanceId(c *gc.C) {
-	defer s.ctrl.Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 
 	s.testInstanceId(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
-	defer s.ctrl.Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 
 	s.testWatchModelMachines(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestWatch(c *gc.C) {
-	defer s.ctrl.Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 
 	s.testWatch(c, s.firewaller, cannotWatchUnits)
 }
 
 func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
 	s.testWatchUnits(c, s.firewaller)
 }
 
 func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
-	defer s.ctrl.Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 
 	s.testGetAssignedMachine(c, s.firewaller)
 }
@@ -150,7 +174,9 @@ func (s *firewallerSuite) mustOpenPorts(c *gc.C, unit *state.Unit, endpointName 
 }
 
 func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
-	defer s.ctrl.Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
@@ -198,7 +224,9 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
-	defer s.ctrl.Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 
 	st := s.ControllerModel(c).State()
 	m, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
@@ -237,7 +265,9 @@ func (s *firewallerSuite) TestAreManuallyProvisioned(c *gc.C) {
 }
 
 func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
-	defer s.ctrl.Finish()
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 
 	// Set the application to exposed first.
 	err := s.application.MergeExposeSettings(map[string]state.ExposedEndpoint{
@@ -287,77 +317,4 @@ func (s *firewallerSuite) TestGetExposeInfo(c *gc.C) {
 			{Exposed: false},
 		},
 	})
-}
-
-func (s *firewallerSuite) TestWatchSubnets(c *gc.C) {
-	defer s.ctrl.Finish()
-
-	// Set up a spaces with two subnets
-	st := s.ControllerModel(c).State()
-	sp, err := st.AddSpace("outer-space", network.Id("outer-1"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = st.AddSubnet(network.SubnetInfo{
-		CIDR:      "192.168.0.0/24",
-		SpaceID:   sp.Id(),
-		SpaceName: sp.Name(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	sub2, err := st.AddSubnet(network.SubnetInfo{
-		CIDR:      "192.168.42.0/24",
-		SpaceID:   sp.Id(),
-		SpaceName: sp.Name(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	// This accommodates a race that was exposed after the removal of the
-	// model cache and an accompanying test composition aid that had the
-	// serendipitous effect of a short wait.
-	// What can happen is that we can get 2 watch events if we watch an
-	// entity right after its creation. We get the initial event upon
-	// watching, but this can be *before* the change stream has sent the
-	// creation event, meaning we get another unexpected one subsequently.
-	// To work around this we drain the collection's events for a short time.
-	raw := st.WatchSubnets(nil)
-	defer workertest.CleanKill(c, raw)
-drain:
-	for {
-		select {
-		case <-raw.Changes():
-		case <-time.After(testing.ShortWait):
-			break drain
-		}
-	}
-
-	watchSubnetTags := []names.SubnetTag{
-		names.NewSubnetTag(sub2.ID()),
-	}
-	entities := params.Entities{
-		Entities: make([]params.Entity, len(watchSubnetTags)),
-	}
-	for i, tag := range watchSubnetTags {
-		entities.Entities[i].Tag = tag.String()
-	}
-
-	got, err := s.firewaller.WatchSubnets(context.Background(), entities)
-	c.Assert(err, jc.ErrorIsNil)
-	want := params.StringsWatchResult{
-		StringsWatcherId: "1",
-		Changes:          []string{sub2.ID()},
-	}
-	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
-	c.Assert(got.Changes, jc.SameContents, want.Changes)
-
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned"
-	// in the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
-	wc.AssertNoChange()
 }
