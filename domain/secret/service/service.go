@@ -40,7 +40,6 @@ type State interface {
 	ListCharmSecrets(ctx context.Context,
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-	ListUserSecrets(ctx context.Context) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
 	GetSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error)
 	SaveSecretConsumer(ctx context.Context, uri *secrets.URI, unitName string, md *secrets.SecretConsumerMetadata) error
 	GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error)
@@ -56,7 +55,11 @@ type State interface {
 	ListGrantedSecretsForBackend(
 		ctx context.Context, backendID string, accessors []domainsecret.AccessParams, role secrets.SecretRole,
 	) ([]*secrets.SecretRevisionRef, error)
-
+	ListCharmSecretsToDrain(
+		ctx context.Context,
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) ([]*secrets.SecretMetadataForDrain, error)
+	ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error)
 	InitialWatchStatementForObsoleteRevision(
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) (tableName string, statement eventsource.NamespaceQuery)
@@ -415,10 +418,19 @@ func (s *SecretService) GetUserSecretURIByLabel(ctx context.Context, label strin
 	return s.st.GetUserSecretURIByLabel(ctx, label)
 }
 
-// ListUserSecrets returns the secret metadata and revision metadata for any user secrets in the current model.
-// The count of secret and revisions in the result must match.
-func (s *SecretService) ListUserSecrets(ctx context.Context) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
-	return s.st.ListUserSecrets(ctx)
+// ListCharmSecretsToDrain returns secret drain revision info for
+// the secrets owned by the specified apps and units.
+func (s *SecretService) ListCharmSecretsToDrain(
+	ctx context.Context,
+	owners ...CharmSecretOwner,
+) ([]*secrets.SecretMetadataForDrain, error) {
+	appOwners, unitOwners := splitCharmSecretOwners(owners...)
+	return s.st.ListCharmSecretsToDrain(ctx, appOwners, unitOwners)
+}
+
+// ListUserSecretsToDrain returns secret drain revision info for any user secrets.
+func (s *SecretService) ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error) {
+	return s.st.ListUserSecretsToDrain(ctx)
 }
 
 // GetSecretValue returns the value of the specified secret revision.

@@ -251,10 +251,16 @@ type SecretOwnerMetadata struct {
 	Revisions []int
 }
 
+// SecretExternalRevision holds metadata about an external secret revision.
+type SecretExternalRevision struct {
+	Revision int
+	ValueRef *ValueRef
+}
+
 // SecretMetadataForDrain holds a secret metadata and any backend references of revisions for drain.
 type SecretMetadataForDrain struct {
-	Metadata  SecretMetadata
-	Revisions []SecretRevisionMetadata
+	URI       *URI
+	Revisions []SecretExternalRevision
 }
 
 // SecretConsumerMetadata holds metadata about a secret

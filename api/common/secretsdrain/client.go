@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coresecrets "github.com/juju/juju/core/secrets"
@@ -27,48 +26,23 @@ func NewClient(facade base.FacadeCaller) *Client {
 	return &Client{facade: facade}
 }
 
-func processListSecretResult(info params.ListSecretResult) (out coresecrets.SecretMetadata, _ error) {
-	uri, err := coresecrets.ParseURI(info.URI)
-	if err != nil {
-		return out, errors.NotValidf("secret URI %q", info.URI)
-	}
-	owner, err := common.SecretOwnerFromTag(info.OwnerTag)
-	if err != nil {
-		return out, errors.Trace(err)
-	}
-	return coresecrets.SecretMetadata{
-		URI:              uri,
-		Owner:            owner,
-		Description:      info.Description,
-		Label:            info.Label,
-		RotatePolicy:     coresecrets.RotatePolicy(info.RotatePolicy),
-		LatestRevision:   info.LatestRevision,
-		LatestExpireTime: info.LatestExpireTime,
-		NextRotateTime:   info.NextRotateTime,
-	}, nil
-}
-
 // GetSecretsToDrain returns metadata for the secrets that need to be drained.
 func (c *Client) GetSecretsToDrain() ([]coresecrets.SecretMetadataForDrain, error) {
-	var results params.ListSecretResults
+	var results params.SecretRevisionsToDrainResults
 	err := c.facade.FacadeCall(context.TODO(), "GetSecretsToDrain", nil, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	out := make([]coresecrets.SecretMetadataForDrain, len(results.Results))
 	for i, info := range results.Results {
-		md, err := processListSecretResult(info)
+		uri, err := coresecrets.ParseURI(info.URI)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		revisions := make([]coresecrets.SecretRevisionMetadata, len(info.Revisions))
+		revisions := make([]coresecrets.SecretExternalRevision, len(info.Revisions))
 		for i, r := range info.Revisions {
-			rev := coresecrets.SecretRevisionMetadata{
-				Revision:    r.Revision,
-				BackendName: r.BackendName,
-				CreateTime:  r.CreateTime,
-				UpdateTime:  r.UpdateTime,
-				ExpireTime:  r.ExpireTime,
+			rev := coresecrets.SecretExternalRevision{
+				Revision: r.Revision,
 			}
 			if r.ValueRef != nil {
 				rev.ValueRef = &coresecrets.ValueRef{
@@ -78,7 +52,7 @@ func (c *Client) GetSecretsToDrain() ([]coresecrets.SecretMetadataForDrain, erro
 			}
 			revisions[i] = rev
 		}
-		out[i] = coresecrets.SecretMetadataForDrain{Metadata: md, Revisions: revisions}
+		out[i] = coresecrets.SecretMetadataForDrain{URI: uri, Revisions: revisions}
 	}
 	return out, nil
 }

@@ -34796,7 +34796,7 @@
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/ListSecretResults"
+                            "$ref": "#/definitions/SecretRevisionsToDrainResults"
                         }
                     },
                     "description": "GetSecretsToDrain returns metadata for the secrets that need to be drained."
@@ -34812,26 +34812,6 @@
                 }
             },
             "definitions": {
-                "AccessInfo": {
-                    "type": "object",
-                    "properties": {
-                        "role": {
-                            "type": "string"
-                        },
-                        "scope-tag": {
-                            "type": "string"
-                        },
-                        "target-tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "target-tag",
-                        "scope-tag",
-                        "role"
-                    ]
-                },
                 "ChangeSecretBackendArg": {
                     "type": "object",
                     "properties": {
@@ -34915,88 +34895,6 @@
                         "results"
                     ]
                 },
-                "ListSecretResult": {
-                    "type": "object",
-                    "properties": {
-                        "access": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/AccessInfo"
-                            }
-                        },
-                        "create-time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "description": {
-                            "type": "string"
-                        },
-                        "label": {
-                            "type": "string"
-                        },
-                        "latest-expire-time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "latest-revision": {
-                            "type": "integer"
-                        },
-                        "next-rotate-time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "owner-tag": {
-                            "type": "string"
-                        },
-                        "revisions": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SecretRevision"
-                            }
-                        },
-                        "rotate-policy": {
-                            "type": "string"
-                        },
-                        "update-time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "uri": {
-                            "type": "string"
-                        },
-                        "value": {
-                            "$ref": "#/definitions/SecretValueResult"
-                        },
-                        "version": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "uri",
-                        "version",
-                        "owner-tag",
-                        "latest-revision",
-                        "create-time",
-                        "update-time",
-                        "revisions"
-                    ]
-                },
-                "ListSecretResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ListSecretResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
                 "NotifyWatchResult": {
                     "type": "object",
                     "properties": {
@@ -35059,6 +34957,40 @@
                         "revision"
                     ]
                 },
+                "SecretRevisionsToDrainResult": {
+                    "type": "object",
+                    "properties": {
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRevision"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "revisions"
+                    ]
+                },
+                "SecretRevisionsToDrainResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRevisionsToDrainResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "SecretValueRef": {
                     "type": "object",
                     "properties": {
@@ -35074,23 +35006,6 @@
                         "backend-id",
                         "revision-id"
                     ]
-                },
-                "SecretValueResult": {
-                    "type": "object",
-                    "properties": {
-                        "data": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
                 }
             }
         }
@@ -45469,7 +45384,7 @@
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/ListSecretResults"
+                            "$ref": "#/definitions/SecretRevisionsToDrainResults"
                         }
                     },
                     "description": "GetSecretsToDrain returns metadata for the secrets that need to be drained."
@@ -45485,26 +45400,6 @@
                 }
             },
             "definitions": {
-                "AccessInfo": {
-                    "type": "object",
-                    "properties": {
-                        "role": {
-                            "type": "string"
-                        },
-                        "scope-tag": {
-                            "type": "string"
-                        },
-                        "target-tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "target-tag",
-                        "scope-tag",
-                        "role"
-                    ]
-                },
                 "ChangeSecretBackendArg": {
                     "type": "object",
                     "properties": {
@@ -45622,88 +45517,6 @@
                     "additionalProperties": false,
                     "required": [
                         "args"
-                    ]
-                },
-                "ListSecretResult": {
-                    "type": "object",
-                    "properties": {
-                        "access": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/AccessInfo"
-                            }
-                        },
-                        "create-time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "description": {
-                            "type": "string"
-                        },
-                        "label": {
-                            "type": "string"
-                        },
-                        "latest-expire-time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "latest-revision": {
-                            "type": "integer"
-                        },
-                        "next-rotate-time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "owner-tag": {
-                            "type": "string"
-                        },
-                        "revisions": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SecretRevision"
-                            }
-                        },
-                        "rotate-policy": {
-                            "type": "string"
-                        },
-                        "update-time": {
-                            "type": "string",
-                            "format": "date-time"
-                        },
-                        "uri": {
-                            "type": "string"
-                        },
-                        "value": {
-                            "$ref": "#/definitions/SecretValueResult"
-                        },
-                        "version": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "uri",
-                        "version",
-                        "owner-tag",
-                        "latest-revision",
-                        "create-time",
-                        "update-time",
-                        "revisions"
-                    ]
-                },
-                "ListSecretResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/ListSecretResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "NotifyWatchResult": {
@@ -45914,6 +45727,40 @@
                         "pending-delete"
                     ]
                 },
+                "SecretRevisionsToDrainResult": {
+                    "type": "object",
+                    "properties": {
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRevision"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "revisions"
+                    ]
+                },
+                "SecretRevisionsToDrainResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SecretRevisionsToDrainResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "SecretValueRef": {
                     "type": "object",
                     "properties": {
@@ -45929,23 +45776,6 @@
                         "backend-id",
                         "revision-id"
                     ]
-                },
-                "SecretValueResult": {
-                    "type": "object",
-                    "properties": {
-                        "data": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false
                 }
             }
         }

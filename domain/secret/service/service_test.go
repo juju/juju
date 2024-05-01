@@ -530,20 +530,57 @@ func (s *serviceSuite) TestGetUserSecretURIByLabel(c *gc.C) {
 	c.Assert(got, jc.DeepEquals, uri)
 }
 
-func (s *serviceSuite) TestListUserSecrets(c *gc.C) {
+func (s *serviceSuite) TestListCharmSecretsToDrain(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	md := []*coresecrets.SecretMetadata{{Label: "one"}}
-	rev := [][]*coresecrets.SecretRevisionMetadata{{{Revision: 1}}}
+	md := []*coresecrets.SecretMetadataForDrain{{
+		URI: coresecrets.NewURI(),
+		Revisions: []coresecrets.SecretExternalRevision{{
+			Revision: 666,
+			ValueRef: &coresecrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-id",
+			},
+		}},
+	}}
 
 	s.state = NewMockState(ctrl)
-	s.state.EXPECT().ListUserSecrets(gomock.Any()).Return(md, rev, nil)
+	s.state.EXPECT().ListCharmSecretsToDrain(
+		gomock.Any(), domainsecret.ApplicationOwners{"mariadb"}, domainsecret.UnitOwners{"mariadb/0"}).Return(md, nil)
 
-	gotSecrets, gotRevisions, err := s.service().ListUserSecrets(context.Background())
+	got, err := s.service().ListCharmSecretsToDrain(context.Background(), []CharmSecretOwner{{
+		Kind: UnitOwner,
+		ID:   "mariadb/0",
+	}, {
+		Kind: ApplicationOwner,
+		ID:   "mariadb",
+	}}...)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotSecrets, jc.DeepEquals, md)
-	c.Assert(gotRevisions, jc.DeepEquals, rev)
+	c.Assert(got, jc.DeepEquals, md)
+}
+
+func (s *serviceSuite) TestListUserSecretsToDrain(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	md := []*coresecrets.SecretMetadataForDrain{{
+		URI: coresecrets.NewURI(),
+		Revisions: []coresecrets.SecretExternalRevision{{
+			Revision: 666,
+			ValueRef: &coresecrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-id",
+			},
+		}},
+	}}
+
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().ListUserSecretsToDrain(gomock.Any()).Return(md, nil)
+
+	got, err := s.service().ListUserSecretsToDrain(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, md)
 }
 
 func (s *serviceSuite) TestListCharmSecrets(c *gc.C) {

@@ -286,6 +286,23 @@ type ListSecretResult struct {
 	Access           []AccessInfo       `json:"access,omitempty"`
 }
 
+// SecretRevisionsToDrainResults holds secret revisions to drain results.
+type SecretRevisionsToDrainResults struct {
+	Results []SecretRevisionsToDrainResult `json:"results"`
+}
+
+// SecretRevisionsToDrainResult holds secret revisions to drain for a given secret.
+type SecretRevisionsToDrainResult struct {
+	URI       string           `json:"uri"`
+	Revisions []SecretRevision `json:"revisions"`
+}
+
+// SecretExternalRevision holds secret revision metadata for an external revision.
+type SecretExternalRevision struct {
+	Revision int             `json:"revision"`
+	ValueRef *SecretValueRef `json:"value-ref,omitempty"`
+}
+
 // AccessInfo holds info about a secret access information.
 type AccessInfo struct {
 	TargetTag string             `json:"target-tag"`

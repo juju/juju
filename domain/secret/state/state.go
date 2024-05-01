@@ -1259,80 +1259,139 @@ FROM secret_metadata sm
 	return dbSecrets.toSecretMetadata(dbsecretOwners)
 }
 
-// ListUserSecrets returns all of the user secrets.
-func (st State) ListUserSecrets(ctx context.Context) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
+// ListUserSecretsToDrain returns secret drain revision info for any user secrets.
+func (st State) ListUserSecretsToDrain(ctx context.Context) ([]*coresecrets.SecretMetadataForDrain, error) {
 	db, err := st.DB()
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
+	}
+
+	query := `
+SELECT
+     sm.secret_id AS &secretID.id,
+     svr.backend_uuid AS &secretExternalRevision.backend_uuid,
+     svr.revision_id AS &secretExternalRevision.revision_id,
+     rev.revision AS &secretExternalRevision.revision
+FROM secret_metadata sm
+JOIN secret_revision rev ON rev.secret_id = sm.secret_id
+LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid
+JOIN secret_model_owner mso ON mso.secret_id = sm.secret_id`
+
+	queryStmt, err := st.Prepare(query, secretID{}, secretExternalRevision{})
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	var (
-		secrets        []*coresecrets.SecretMetadata
-		revisionResult [][]*coresecrets.SecretRevisionMetadata
+		dbSecrets    secretIDs
+		dbsecretRevs secretExternalRevisions
 	)
+
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var err error
-		secrets, err = st.listUserSecrets(ctx, tx)
-		if err != nil {
-			return errors.Annotate(err, "querying user secrets")
-		}
-		revisionResult = make([][]*coresecrets.SecretRevisionMetadata, len(secrets))
-		for i, secret := range secrets {
-			secretRevisions, err := st.listSecretRevisions(ctx, tx, secret.URI, nil)
-			if err != nil {
-				return errors.Annotatef(err, "querying secret revisions for %q", secret.URI.ID)
-			}
-			revisionResult[i] = secretRevisions
+		err = tx.Query(ctx, queryStmt).GetAll(&dbSecrets, &dbsecretRevs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Trace(err)
 		}
 		return nil
 	}); err != nil {
-		return nil, nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(domain.CoerceError(err))
 	}
 
-	return secrets, revisionResult, nil
+	return dbSecrets.toSecretMetadataForDrain(dbsecretRevs)
 }
 
-func (st State) listUserSecrets(
-	ctx context.Context, tx *sqlair.TX,
-) ([]*coresecrets.SecretMetadata, error) {
-	query := `
-WITH rev AS
-    (SELECT  secret_id, MAX(revision) AS latest_revision
-    FROM     secret_revision
-    GROUP BY secret_id)
-SELECT
-     (sm.secret_id,
-     version,
-     description,
-     auto_prune,
-     create_time,
-     update_time,
-     rev.latest_revision) AS (&secretInfo.*),
-     (so.owner_kind,
-     so.owner_id,
-     so.label) AS (&secretOwner.*)
-FROM secret_metadata sm
-       JOIN rev ON rev.secret_id = sm.secret_id
-       JOIN (
-          SELECT $ownerKind.model_owner_kind AS owner_kind, (SELECT uuid FROM model) AS owner_id, label, secret_id
-          FROM   secret_model_owner
-       ) so ON so.secret_id = sm.secret_id
-`
+// ListCharmSecretsToDrain returns secret drain revision info for
+// the secrets owned by the specified apps and units.
+func (st State) ListCharmSecretsToDrain(
+	ctx context.Context,
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) ([]*coresecrets.SecretMetadataForDrain, error) {
+	if len(appOwners) == 0 && len(unitOwners) == 0 {
+		return nil, errors.New("must supply at least one app owner or unit owner")
+	}
 
-	queryStmt, err := st.Prepare(query, secretInfo{}, secretOwner{}, ownerKindParam)
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	appOwnedSelect := `
+app_owned AS
+    (SELECT secret_id
+     FROM   secret_application_owner so
+     JOIN   application ON application.uuid = so.application_uuid
+     AND application.name IN ($ApplicationOwners[:]))`[1:]
+
+	unitOwnedSelect := `
+unit_owned AS
+    (SELECT secret_id
+     FROM   secret_unit_owner so
+     JOIN   unit ON unit.uuid = so.unit_uuid
+     AND unit.unit_id IN ($UnitOwners[:]))`[1:]
+
+	queryTypes := []any{
+		secretID{},
+		secretExternalRevision{},
+	}
+
+	var (
+		preQueryParts []string
+		ownerParts    []string
+		queryParams   []any
+	)
+	if len(appOwners) > 0 {
+		preQueryParts = append(preQueryParts, appOwnedSelect)
+		ownerParts = append(ownerParts, "SELECT secret_id FROM app_owned")
+		queryParams = append(queryParams, appOwners)
+	}
+	if len(unitOwners) > 0 {
+		preQueryParts = append(preQueryParts, unitOwnedSelect)
+		ownerParts = append(ownerParts, "SELECT secret_id FROM unit_owned")
+		queryParams = append(queryParams, unitOwners)
+	}
+	queryParts := []string{strings.Join(preQueryParts, ",\n")}
+
+	query := `
+SELECT
+     sm.secret_id AS &secretID.id,
+     svr.backend_uuid AS &secretExternalRevision.backend_uuid,
+     svr.revision_id AS &secretExternalRevision.revision_id,
+     rev.revision AS &secretExternalRevision.revision
+FROM secret_metadata sm
+JOIN secret_revision rev ON rev.secret_id = sm.secret_id
+LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid`[1:]
+
+	queryParts = append(queryParts, query)
+
+	ownerJoin := fmt.Sprintf(`
+JOIN (
+%s
+) so ON so.secret_id = sm.secret_id
+`[1:], strings.Join(ownerParts, "\nUNION\n"))
+
+	queryParts = append(queryParts, ownerJoin)
+
+	queryStmt, err := st.Prepare("WITH "+strings.Join(queryParts, "\n"), append(queryTypes, queryParams...)...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var (
-		dbSecrets      secrets
-		dbsecretOwners []secretOwner
+		dbSecrets    secretIDs
+		dbsecretRevs secretExternalRevisions
 	)
-	err = tx.Query(ctx, queryStmt, ownerKindParam).GetAll(&dbSecrets, &dbsecretOwners)
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Trace(err)
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, queryStmt, queryParams...).GetAll(&dbSecrets, &dbsecretRevs)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Trace(err)
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
 	}
-	return dbSecrets.toSecretMetadata(dbsecretOwners)
+
+	return dbSecrets.toSecretMetadataForDrain(dbsecretRevs)
 }
 
 // GetUserSecretURIByLabel returns the URI for the user secret with the specified label,

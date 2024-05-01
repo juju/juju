@@ -4,8 +4,6 @@
 package secretsdrain_test
 
 import (
-	"time"
-
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -39,16 +37,10 @@ func (s *secretsDrainSuite) TestGetSecretsToDrain(c *gc.C) {
 	apiCaller := mocks.NewMockFacadeCaller(ctrl)
 
 	uri := coresecrets.NewURI()
-	now := time.Now()
 	apiCaller.EXPECT().FacadeCall(gomock.Any(), "GetSecretsToDrain", nil, gomock.Any()).SetArg(
-		3, params.ListSecretResults{
-			Results: []params.ListSecretResult{{
-				URI:              uri.String(),
-				OwnerTag:         "application-mariadb",
-				Label:            "label",
-				LatestRevision:   667,
-				NextRotateTime:   &now,
-				LatestExpireTime: &now,
+		3, params.SecretRevisionsToDrainResults{
+			Results: []params.SecretRevisionsToDrainResult{{
+				URI: uri.String(),
 				Revisions: []params.SecretRevision{{
 					Revision: 666,
 					ValueRef: &params.SecretValueRef{
@@ -67,13 +59,8 @@ func (s *secretsDrainSuite) TestGetSecretsToDrain(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	for _, info := range result {
-		c.Assert(info.Metadata.URI.String(), gc.Equals, uri.String())
-		c.Assert(info.Metadata.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"})
-		c.Assert(info.Metadata.Label, gc.Equals, "label")
-		c.Assert(info.Metadata.LatestRevision, gc.Equals, 667)
-		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
-		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
-		c.Assert(info.Revisions, jc.DeepEquals, []coresecrets.SecretRevisionMetadata{
+		c.Assert(info.URI.String(), gc.Equals, uri.String())
+		c.Assert(info.Revisions, jc.DeepEquals, []coresecrets.SecretExternalRevision{
 			{
 				Revision: 666,
 				ValueRef: &coresecrets.ValueRef{

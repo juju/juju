@@ -143,20 +143,20 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 			return errors.Trace(err)
 		}
 		if rev.ValueRef != nil && rev.ValueRef.BackendID == activeBackendID {
-			w.config.Logger.Debugf("secret %q revision %d is already on the active backend %q", md.Metadata.URI, rev.Revision, activeBackendID)
+			w.config.Logger.Debugf("secret %q revision %d is already on the active backend %q", md.URI, rev.Revision, activeBackendID)
 			continue
 		}
-		w.config.Logger.Debugf("draining %s/%d", md.Metadata.URI.ID, rev.Revision)
+		w.config.Logger.Debugf("draining %s/%d", md.URI.ID, rev.Revision)
 
-		secretVal, err := client.GetRevisionContent(md.Metadata.URI, rev.Revision)
+		secretVal, err := client.GetRevisionContent(md.URI, rev.Revision)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		newRevId, err := activeBackend.SaveContent(context.TODO(), md.Metadata.URI, rev.Revision, secretVal)
+		newRevId, err := activeBackend.SaveContent(context.TODO(), md.URI, rev.Revision, secretVal)
 		if err != nil && !errors.Is(err, errors.NotSupported) {
 			return errors.Trace(err)
 		}
-		w.config.Logger.Debugf("saved secret %s/%d to the new backend %q, %#v", md.Metadata.URI.ID, rev.Revision, activeBackendID, err)
+		w.config.Logger.Debugf("saved secret %s/%d to the new backend %q, %#v", md.URI.ID, rev.Revision, activeBackendID, err)
 		var newValueRef *coresecrets.ValueRef
 		data := secretVal.EncodedValues()
 		if err == nil {
@@ -180,7 +180,7 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 				return errors.Trace(err)
 			}
 			cleanUpInExternalBackend = func() error {
-				w.config.Logger.Debugf("cleanup secret %s/%d from old backend %q", md.Metadata.URI.ID, rev.Revision, rev.ValueRef.BackendID)
+				w.config.Logger.Debugf("cleanup secret %s/%d from old backend %q", md.URI.ID, rev.Revision, rev.ValueRef.BackendID)
 				if activeBackendID == rev.ValueRef.BackendID {
 					// Ideally, We should have done all these drain steps in the controller via transaction, but by design, we only allow
 					// uniters to be able to access secret content. So we have to do these extra checks to avoid
@@ -198,7 +198,7 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 		}
 		cleanUpInExternalBackendFuncs = append(cleanUpInExternalBackendFuncs, cleanUpInExternalBackend)
 		args = append(args, secretsdrain.ChangeSecretBackendArg{
-			URI:      md.Metadata.URI,
+			URI:      md.URI,
 			Revision: rev.Revision,
 			ValueRef: newValueRef,
 			Data:     data,
@@ -230,7 +230,7 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 	}
 	if results.ErrorCount() > 0 {
 		// We got failed tasks, so we have to bounce the agent to retry those failed tasks.
-		return errors.Errorf("failed to drain secret revisions for %q to the active backend", md.Metadata.URI)
+		return errors.Errorf("failed to drain secret revisions for %q to the active backend", md.URI)
 	}
 	return nil
 }

@@ -92,9 +92,8 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(c *gc.C, expectedRevions ...
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.token.EXPECT().Check().Return(nil)
 
-	now := time.Now()
 	uri := coresecrets.NewURI()
-	revisions := []*coresecrets.SecretRevisionMetadata{
+	revisions := []coresecrets.SecretExternalRevision{
 		{
 			// External backend.
 			Revision: 666,
@@ -115,7 +114,7 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(c *gc.C, expectedRevions ...
 			},
 		},
 	}
-	s.secretService.EXPECT().ListCharmSecrets(
+	s.secretService.EXPECT().ListCharmSecretsToDrain(
 		gomock.Any(),
 		[]secretservice.CharmSecretOwner{{
 			Kind: secretservice.UnitOwner,
@@ -123,15 +122,10 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(c *gc.C, expectedRevions ...
 		}, {
 			Kind: secretservice.ApplicationOwner,
 			ID:   "mariadb",
-		}}).Return([]*coresecrets.SecretMetadata{{
-		URI:              uri,
-		Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
-		Label:            "label",
-		RotatePolicy:     coresecrets.RotateHourly,
-		LatestRevision:   666,
-		LatestExpireTime: &now,
-		NextRotateTime:   &now,
-	}}, [][]*coresecrets.SecretRevisionMetadata{revisions}, nil)
+		}}).Return([]*coresecrets.SecretMetadataForDrain{{
+		URI:       uri,
+		Revisions: revisions,
+	}}, nil)
 	revInfo := make([]backendservice.RevisionInfo, len(expectedRevions))
 	for i, r := range expectedRevions {
 		revInfo[i] = backendservice.RevisionInfo{
@@ -149,16 +143,10 @@ func (s *secretsDrainSuite) assertGetSecretsToDrain(c *gc.C, expectedRevions ...
 
 	results, err := s.facade.GetSecretsToDrain(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
-		Results: []params.ListSecretResult{{
-			URI:              uri.String(),
-			OwnerTag:         "application-mariadb",
-			Label:            "label",
-			RotatePolicy:     coresecrets.RotateHourly.String(),
-			LatestRevision:   666,
-			LatestExpireTime: &now,
-			NextRotateTime:   &now,
-			Revisions:        expectedRevions,
+	c.Assert(results, jc.DeepEquals, params.SecretRevisionsToDrainResults{
+		Results: []params.SecretRevisionsToDrainResult{{
+			URI:       uri.String(),
+			Revisions: expectedRevions,
 		}},
 	})
 }
