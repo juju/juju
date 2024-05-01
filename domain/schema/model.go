@@ -24,6 +24,7 @@ const (
 	tableSecretRevisionObsolete
 	tableSecretRevisionExpire
 	tableSecretRevision
+	tableSecretReference
 	tableSubnet
 	tableSubnetAssociation
 )
@@ -68,6 +69,7 @@ func ModelDDL() *schema.Schema {
 		// To achieve this and have less performance impact on the event stream watcher,
 		// we watch the changes on the immutable revision field.
 		changeLogTriggersForTableOnColumn("secret_revision", "uuid", "revision", tableSecretRevision),
+		changeLogTriggersForTableOnColumn("secret_reference", "secret_id", "latest_revision", tableSecretReference),
 		changeLogTriggersForTable("subnet", "uuid", tableSubnet),
 		changeLogTriggersForTable("subnet_association", "associated_subnet_uuid", tableSubnetAssociation),
 
@@ -140,8 +142,9 @@ INSERT INTO change_log_namespace VALUES
     (11, 'secret_revision_obsolete', 'Secret revision obsolete changes based on UUID'),
     (12, 'secret_revision_expire', 'Secret revision next expire time changes based on UUID'),
     (13, 'secret_revision', 'Secret revision changes based on UUID'),
-    (14, 'subnet', 'Subnet changes based on UUID'),
-    (15, 'subnet_association', 'Subnet association (fan underlay) changes based on UUID');
+    (14, 'secret_reference', 'Secret reference changes based on UUID'),
+    (15, 'subnet', 'Subnet changes based on UUID'),
+    (16, 'subnet_association', 'Subnet association (fan underlay) changes based on UUID');
 `)
 }
 

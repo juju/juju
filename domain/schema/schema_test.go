@@ -405,6 +405,14 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_secret_metadata_auto_prune_update",
 		"trg_log_secret_metadata_auto_prune_delete",
 
+		"trg_log_secret_rotation_insert",
+		"trg_log_secret_rotation_update",
+		"trg_log_secret_rotation_delete",
+
+		"trg_log_secret_revision_obsolete_obsolete_insert",
+		"trg_log_secret_revision_obsolete_obsolete_update",
+		"trg_log_secret_revision_obsolete_obsolete_delete",
+
 		"trg_log_secret_revision_expire_insert",
 		"trg_log_secret_revision_expire_update",
 		"trg_log_secret_revision_expire_delete",
@@ -413,13 +421,9 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_secret_revision_revision_update",
 		"trg_log_secret_revision_revision_delete",
 
-		"trg_log_secret_revision_obsolete_obsolete_insert",
-		"trg_log_secret_revision_obsolete_obsolete_update",
-		"trg_log_secret_revision_obsolete_obsolete_delete",
-
-		"trg_log_secret_rotation_insert",
-		"trg_log_secret_rotation_update",
-		"trg_log_secret_rotation_delete",
+		"trg_log_secret_reference_latest_revision_insert",
+		"trg_log_secret_reference_latest_revision_update",
+		"trg_log_secret_reference_latest_revision_delete",
 
 		"trg_log_block_device_insert",
 		"trg_log_block_device_update",
@@ -593,6 +597,19 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 1, tableSecretRevision, 3)
 	s.assertChangeLogCount(c, 2, tableSecretRevision, 0)
 	s.assertChangeLogCount(c, 4, tableSecretRevision, 3)
+
+	// secret_reference table triggers.
+	s.assertChangeLogCount(c, 1, tableSecretReference, 0)
+	s.assertChangeLogCount(c, 2, tableSecretReference, 0)
+	s.assertChangeLogCount(c, 4, tableSecretReference, 0)
+
+	s.assertExecSQL(c, `INSERT INTO secret_reference (secret_id, latest_revision) VALUES (?, 1);`, "", secretURI.ID)
+	s.assertExecSQL(c, `UPDATE secret_reference SET latest_revision = 2 WHERE secret_id = ?;`, "", secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_reference WHERE secret_id = ?;`, "", secretURI.ID)
+
+	s.assertChangeLogCount(c, 1, tableSecretReference, 1)
+	s.assertChangeLogCount(c, 2, tableSecretReference, 1)
+	s.assertChangeLogCount(c, 4, tableSecretReference, 1)
 
 	appUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO application (uuid, name, life_id) VALUES (?, 'mysql', 0);`, "", appUUID)
