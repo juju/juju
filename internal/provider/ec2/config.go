@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/schema"
@@ -54,8 +55,8 @@ func (c *environConfig) forceVPCID() bool {
 	return c.attrs["vpc-id-force"].(bool)
 }
 
-func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
-	valid, err := p.Validate(cfg, nil)
+func (p environProvider) newConfig(ctx context.Context, cfg *config.Config) (*environConfig, error) {
+	valid, err := p.Validate(ctx, cfg, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -83,9 +84,9 @@ func (p environProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-func validateConfig(cfg, old *config.Config) (*environConfig, error) {
+func validateConfig(ctx context.Context, cfg, old *config.Config) (*environConfig, error) {
 	// Check for valid changes for the base config values.
-	if err := config.Validate(cfg, old); err != nil {
+	if err := config.Validate(ctx, cfg, old); err != nil {
 		return nil, err
 	}
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)

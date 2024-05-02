@@ -60,7 +60,7 @@ func (s *environSuite) TestProvider(c *gc.C) {
 }
 
 func (s *environSuite) TestSetConfigOkay(c *gc.C) {
-	err := s.Env.SetConfig(s.Config)
+	err := s.Env.SetConfig(context.Background(), s.Config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(lxd.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
@@ -69,7 +69,7 @@ func (s *environSuite) TestSetConfigOkay(c *gc.C) {
 }
 
 func (s *environSuite) TestSetConfigNoAPI(c *gc.C) {
-	err := s.Env.SetConfig(s.Config)
+	err := s.Env.SetConfig(context.Background(), s.Config)
 
 	c.Assert(err, jc.ErrorIsNil)
 }

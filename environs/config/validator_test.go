@@ -4,6 +4,8 @@
 package config_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -28,7 +30,7 @@ func (_ *validatorSuite) TestControllerNotContainingValidator(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rval, err := config.NoControllerAttributesValidator().Validate(cfg, nil)
+	rval, err := config.NoControllerAttributesValidator().Validate(context.Background(), cfg, nil)
 	valErr, is := errors.AsType[*config.ValidationError](err)
 	c.Assert(is, jc.IsTrue)
 	c.Assert(valErr.InvalidAttrs, jc.DeepEquals, []string{controller.AllowModelAccessKey, controller.ControllerName})
@@ -46,7 +48,7 @@ func (_ *validatorSuite) TestModelValidator(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rval, err := config.ModelValidator().Validate(cfg, nil)
+	rval, err := config.ModelValidator().Validate(context.Background(), cfg, nil)
 	valErr, is := errors.AsType[*config.ValidationError](err)
 	c.Assert(is, jc.IsTrue)
 	c.Assert(valErr.InvalidAttrs, jc.DeepEquals, []string{config.AgentVersionKey})
@@ -67,7 +69,7 @@ func (_ *validatorSuite) TestModelValidatorFailsForControllerAttrs(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	rval, err := config.ModelValidator().Validate(cfg, nil)
+	rval, err := config.ModelValidator().Validate(context.Background(), cfg, nil)
 	valErr, is := errors.AsType[*config.ValidationError](err)
 	c.Assert(is, jc.IsTrue)
 	c.Assert(valErr.InvalidAttrs, jc.DeepEquals, []string{controller.AllowModelAccessKey, controller.ControllerName})

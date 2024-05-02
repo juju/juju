@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	stdcontext "context"
 	"net"
 	"net/url"
@@ -68,7 +69,7 @@ func newEnviron(
 	spec environscloudspec.CloudSpec,
 	cfg *config.Config,
 ) (*environ, error) {
-	ecfg, err := newValidConfig(cfg)
+	ecfg, err := newValidConfig(ctx, cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
@@ -148,10 +149,10 @@ func (env *environ) Provider() environs.EnvironProvider {
 }
 
 // SetConfig updates the environ's configuration.
-func (env *environ) SetConfig(cfg *config.Config) error {
+func (env *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
-	ecfg, err := newValidConfig(cfg)
+	ecfg, err := newValidConfig(ctx, cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}

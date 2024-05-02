@@ -226,7 +226,7 @@ func (m *ModelManagerAPI) newModelConfig(
 			return toolsList, nil
 		},
 	}
-	return creator.NewModelConfig(cloudSpec, baseConfig, joint)
+	return creator.NewModelConfig(ctx, cloudSpec, baseConfig, joint)
 }
 
 func (m *ModelManagerAPI) checkAddModelPermission(ctx context.Context, cloud string, userTag names.UserTag) (bool, error) {

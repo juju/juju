@@ -4,6 +4,7 @@
 package jujutest
 
 import (
+	"context"
 	stdcontext "context"
 	"path/filepath"
 
@@ -154,7 +155,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 		"agent-version": jujuversion.Current.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = e.SetConfig(cfg)
+	err = e.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	insts, err := e.Instances(t.ProviderCallContext, nil)

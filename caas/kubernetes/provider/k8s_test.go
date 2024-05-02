@@ -241,7 +241,7 @@ func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	err := s.broker.SetConfig(s.cfg)
+	err := s.broker.SetConfig(context.Background(), s.cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -305,7 +305,7 @@ func (s *K8sBrokerSuite) setupOperatorStorageConfig(c *gc.C) {
 	var err error
 	cfg, err = cfg.Apply(map[string]interface{}{"operator-storage": "some-storage"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.broker.SetConfig(cfg)
+	err = s.broker.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

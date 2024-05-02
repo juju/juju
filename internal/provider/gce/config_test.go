@@ -4,6 +4,7 @@
 package gce_test
 
 import (
+	"context"
 	stdcontext "context"
 
 	jc "github.com/juju/testing/checkers"
@@ -121,7 +122,7 @@ func (s *ConfigSuite) TestValidateNewConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := gce.Provider.Validate(testConfig, nil)
+		validatedConfig, err := gce.Provider.Validate(context.Background(), testConfig, nil)
 
 		// Check the result
 		if test.err != "" {
@@ -140,7 +141,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
-		_, err := gce.Provider.Validate(s.config, test.newConfig(c))
+		_, err := gce.Provider.Validate(context.Background(), s.config, test.newConfig(c))
 		if test.err != "" {
 			// In this test, we case only about the validating
 			// the old configuration, not about the success cases.
@@ -164,7 +165,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := gce.Provider.Validate(testConfig, s.config)
+		validatedConfig, err := gce.Provider.Validate(context.Background(), testConfig, s.config)
 
 		// Check the result.
 		if test.err != "" {
@@ -186,7 +187,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)
-		err = environ.SetConfig(testConfig)
+		err = environ.SetConfig(context.Background(), testConfig)
 
 		// Check the result.
 		if test.err != "" {

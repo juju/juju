@@ -5,6 +5,7 @@ package manual
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -186,10 +187,10 @@ func (e *manualEnviron) AdoptResources(ctx envcontext.ProviderCallContext, contr
 	return nil
 }
 
-func (e *manualEnviron) SetConfig(cfg *config.Config) error {
+func (e *manualEnviron) SetConfig(ctx context.Context, cfg *config.Config) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	_, err := ManualProvider{}.validate(cfg, e.cfg.Config)
+	_, err := ManualProvider{}.validate(ctx, cfg, e.cfg.Config)
 	if err != nil {
 		return err
 	}

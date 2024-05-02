@@ -4,6 +4,7 @@
 package state
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 
@@ -136,7 +137,9 @@ func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err er
 	if configValidator == nil {
 		return nil, errors.New("policy returned nil configValidator without an error")
 	}
-	return configValidator.Validate(cfg, old)
+	// NOTE(nvinuesa): This context.TODO is scaffolding until we finish
+	// removing the migrated model-config from the legacy state.
+	return configValidator.Validate(context.TODO(), cfg, old)
 }
 
 // Used for tests.

@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	stdcontext "context"
 	"net"
 	"os"
@@ -211,7 +212,7 @@ func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
 
 func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	s.Config = cfg
-	ecfg, err := newValidConfig(cfg)
+	ecfg, err := newValidConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	s.EnvConfig = ecfg
 	uuid := cfg.UUID()
@@ -750,7 +751,7 @@ func (s *EnvironSuite) NewEnviron(c *gc.C, srv Server, cfgEdit map[string]interf
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	eCfg, err := newValidConfig(cfg)
+	eCfg, err := newValidConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	namespace, err := instance.NewNamespace(cfg.UUID())
@@ -774,7 +775,7 @@ func (s *EnvironSuite) NewEnvironWithServerFactory(c *gc.C, srv ServerFactory, c
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	eCfg, err := newValidConfig(cfg)
+	eCfg, err := newValidConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	namespace, err := instance.NewNamespace(cfg.UUID())

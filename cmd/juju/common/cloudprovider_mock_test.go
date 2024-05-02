@@ -10,6 +10,7 @@
 package common
 
 import (
+	context "context"
 	reflect "reflect"
 
 	jsonschema "github.com/juju/jsonschema"
@@ -116,18 +117,18 @@ func (mr *MockTestCloudProviderMockRecorder) Ping(arg0, arg1 any) *gomock.Call {
 }
 
 // PrepareConfig mocks base method.
-func (m *MockTestCloudProvider) PrepareConfig(arg0 environs.PrepareConfigParams) (*config.Config, error) {
+func (m *MockTestCloudProvider) PrepareConfig(arg0 context.Context, arg1 environs.PrepareConfigParams) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareConfig", arg0)
+	ret := m.ctrl.Call(m, "PrepareConfig", arg0, arg1)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareConfig indicates an expected call of PrepareConfig.
-func (mr *MockTestCloudProviderMockRecorder) PrepareConfig(arg0 any) *gomock.Call {
+func (mr *MockTestCloudProviderMockRecorder) PrepareConfig(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareConfig", reflect.TypeOf((*MockTestCloudProvider)(nil).PrepareConfig), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareConfig", reflect.TypeOf((*MockTestCloudProvider)(nil).PrepareConfig), arg0, arg1)
 }
 
 // RegisterCredentials mocks base method.
@@ -146,18 +147,18 @@ func (mr *MockTestCloudProviderMockRecorder) RegisterCredentials(arg0 any) *gomo
 }
 
 // Validate mocks base method.
-func (m *MockTestCloudProvider) Validate(arg0, arg1 *config.Config) (*config.Config, error) {
+func (m *MockTestCloudProvider) Validate(arg0 context.Context, arg1, arg2 *config.Config) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
+	ret := m.ctrl.Call(m, "Validate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Validate indicates an expected call of Validate.
-func (mr *MockTestCloudProviderMockRecorder) Validate(arg0, arg1 any) *gomock.Call {
+func (mr *MockTestCloudProviderMockRecorder) Validate(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockTestCloudProvider)(nil).Validate), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockTestCloudProvider)(nil).Validate), arg0, arg1, arg2)
 }
 
 // Version mocks base method.

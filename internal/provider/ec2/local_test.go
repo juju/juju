@@ -2917,7 +2917,7 @@ func (t *localServerSuite) TestGlobalPorts(c *gc.C) {
 	// Change configuration.
 	oldConfig := t.Env.Config()
 	defer func() {
-		err := t.Env.SetConfig(oldConfig)
+		err := t.Env.SetConfig(context.Background(), oldConfig)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
@@ -2934,7 +2934,7 @@ func (t *localServerSuite) TestGlobalPorts(c *gc.C) {
 	attrs["firewall-mode"] = config.FwGlobal
 	newConfig, err := t.Env.Config().Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	err = t.Env.SetConfig(newConfig)
+	err = t.Env.SetConfig(context.Background(), newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create instances and check open ports on both instances.

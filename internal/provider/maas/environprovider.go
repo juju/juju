@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"net/url"
@@ -107,7 +108,7 @@ func (p EnvironProvider) checkMaas(endpoint, ver string) error {
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p EnvironProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}

@@ -45,7 +45,7 @@ func mockValidCfg() (valid *config.Config, err error) {
 	return valid, nil
 }
 
-func (p *mockConfigValidator) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (p *mockConfigValidator) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
 	p.validateCfg = cfg
 	p.validateOld = old
 	p.validateValid, p.validateError = mockValidCfg()

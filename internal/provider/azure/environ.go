@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"net/url"
@@ -360,7 +361,7 @@ func (env *azureEnviron) Config() *config.Config {
 }
 
 // SetConfig is specified in the Environ interface.
-func (env *azureEnviron) SetConfig(cfg *config.Config) error {
+func (env *azureEnviron) SetConfig(ctx context.Context, cfg *config.Config) error {
 	env.mu.Lock()
 	defer env.mu.Unlock()
 
@@ -368,7 +369,7 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	if env.config != nil {
 		old = env.config.Config
 	}
-	ecfg, err := validateConfig(cfg, old)
+	ecfg, err := validateConfig(context.Background(), cfg, old)
 	if err != nil {
 		return err
 	}

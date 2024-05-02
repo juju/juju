@@ -4,6 +4,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -27,12 +28,12 @@ type Validator interface {
 	//
 	// TODO(axw) Validate should just return an error. We should
 	// use a separate mechanism for updating config.
-	Validate(cfg, old *Config) (valid *Config, _ error)
+	Validate(ctx context.Context, cfg, old *Config) (valid *Config, _ error)
 }
 
 // ValidatorFunc is utility type for declaring funcs that implement the
 // Validator interface.
-type ValidatorFunc func(cfg, old *Config) (*Config, error)
+type ValidatorFunc func(ctx context.Context, cfg, old *Config) (*Config, error)
 
 // ValidationError represents a specific error that has occurred were validating
 // Config. It allows for the placement of one or more attributes with a reason
@@ -70,10 +71,10 @@ func (v *ValidationError) Error() string {
 // validators in the aggregate till either a validator errors or there are no
 // more validators to run. The returned config from each validator is passed
 // into the subsequent validator.
-func (a *AggregateValidator) Validate(cfg, old *Config) (*Config, error) {
+func (a *AggregateValidator) Validate(ctx context.Context, cfg, old *Config) (*Config, error) {
 	var err error
 	for i, validator := range a.Validators {
-		cfg, err = validator.Validate(cfg, old)
+		cfg, err = validator.Validate(ctx, cfg, old)
 		if err != nil {
 			return cfg, fmt.Errorf("config validator %d failed: %w", i, err)
 		}
@@ -82,15 +83,15 @@ func (a *AggregateValidator) Validate(cfg, old *Config) (*Config, error) {
 }
 
 // Validate implements the Validator interface.
-func (v ValidatorFunc) Validate(cfg, old *Config) (*Config, error) {
-	return v(cfg, old)
+func (v ValidatorFunc) Validate(ctx context.Context, cfg, old *Config) (*Config, error) {
+	return v(ctx, cfg, old)
 }
 
 // NoControllerAttributesValidator implements a validator that asserts if the
 // supplied config contains any controller specific configuration attributes. A
 // ValidationError is returned if the config contains controller attributes.
 func NoControllerAttributesValidator() Validator {
-	return ValidatorFunc(func(cfg, _ *Config) (*Config, error) {
+	return ValidatorFunc(func(ctx context.Context, cfg, _ *Config) (*Config, error) {
 		invalidKeysError := ValidationError{
 			InvalidAttrs: []string{},
 			Reason:       "controller only attributes not allowed",
@@ -113,7 +114,7 @@ func NoControllerAttributesValidator() Validator {
 // config. Any attributes found that are not supported in Model Configuration
 // are returned in a ValidationError.
 func ModelValidator() Validator {
-	modelConfigValidator := ValidatorFunc(func(cfg, _ *Config) (*Config, error) {
+	modelConfigValidator := ValidatorFunc(func(ctx context.Context, cfg, _ *Config) (*Config, error) {
 		invalidKeysError := ValidationError{
 			InvalidAttrs: []string{},
 			Reason:       "attributes not allowed in model config",

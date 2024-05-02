@@ -44,7 +44,7 @@ func prepare(ctx *cmd.Context, controllerName string, store jujuclient.ClientSto
 	if _, ok := provider.(caas.ContainerEnvironProvider); ok {
 		return nil, errors.NotSupportedf("preparing environ for CAAS")
 	}
-	cfg, err := provider.PrepareConfig(*params)
+	cfg, err := provider.PrepareConfig(ctx, *params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

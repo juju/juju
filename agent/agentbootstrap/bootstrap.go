@@ -489,7 +489,7 @@ func (b *AgentBootstrap) ensureInitialModel(
 
 	creator := modelmanager.ModelConfigCreator{Provider: b.provider}
 	initialModelConfig, err := creator.NewModelConfig(
-		cloudSpec, stateParams.ControllerModelConfig, attrs,
+		ctx, cloudSpec, stateParams.ControllerModelConfig, attrs,
 	)
 	if err != nil {
 		return errors.Annotate(err, "creating initial model config")

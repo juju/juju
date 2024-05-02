@@ -55,11 +55,11 @@ func (p *environProvider) Version() int {
 }
 
 // Open implements environs.EnvironProvider.
-func (p *environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (p *environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	env, err := newEnviron(p, args.Cloud, args.Config)
+	env, err := newEnviron(ctx, p, args.Cloud, args.Config)
 	return env, errors.Trace(err)
 }
 
@@ -139,7 +139,7 @@ func (p *environProvider) Ping(callCtx callcontext.ProviderCallContext, endpoint
 }
 
 // PrepareConfig implements environs.EnvironProvider.
-func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p *environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -147,21 +147,21 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 }
 
 // Validate implements environs.EnvironProvider.
-func (*environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (*environProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
 	if old == nil {
-		ecfg, err := newValidConfig(cfg)
+		ecfg, err := newValidConfig(ctx, cfg)
 		if err != nil {
 			return nil, errors.Annotate(err, "invalid config")
 		}
 		return ecfg.Config, nil
 	}
 
-	ecfg, err := newValidConfig(old)
+	ecfg, err := newValidConfig(ctx, old)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid base config")
 	}
 
-	if err := ecfg.update(cfg); err != nil {
+	if err := ecfg.update(ctx, cfg); err != nil {
 		return nil, errors.Annotate(err, "invalid config change")
 	}
 

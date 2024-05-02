@@ -116,7 +116,7 @@ func (s *providerSuite) testOpenError(c *gc.C, spec environscloudspec.CloudSpec,
 }
 
 func (s *providerSuite) TestPrepareConfig(c *gc.C) {
-	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+	cfg, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Config: fakeConfig(c),
 		Cloud:  fakeCloudSpec(),
 	})
@@ -126,7 +126,7 @@ func (s *providerSuite) TestPrepareConfig(c *gc.C) {
 
 func (s *providerSuite) TestValidate(c *gc.C) {
 	config := fakeConfig(c)
-	validCfg, err := s.provider.Validate(config, nil)
+	validCfg, err := s.provider.Validate(context.Background(), config, nil)
 	c.Check(err, jc.ErrorIsNil)
 
 	validAttrs := validCfg.AllAttrs()

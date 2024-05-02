@@ -217,7 +217,7 @@ func (s *Service) SetModelConfig(
 		return fmt.Errorf("constructing new model config with model defaults: %w", err)
 	}
 
-	_, err = s.modelValidator.Validate(setCfg, nil)
+	_, err = s.modelValidator.Validate(ctx, setCfg, nil)
 	if err != nil {
 		return fmt.Errorf("validating model config to set for model: %w", err)
 	}
@@ -272,7 +272,7 @@ func (s *Service) UpdateModelConfig(
 		return fmt.Errorf("making updated model configuration: %w", err)
 	}
 
-	_, err = s.updateModelConfigValidator().Validate(newCfg, currCfg)
+	_, err = s.updateModelConfigValidator().Validate(ctx, newCfg, currCfg)
 	if err != nil {
 		return fmt.Errorf("validating updated model configuration: %w", err)
 	}

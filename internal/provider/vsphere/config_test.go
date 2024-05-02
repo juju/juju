@@ -4,6 +4,7 @@
 package vsphere_test
 
 import (
+	"context"
 	stdcontext "context"
 
 	jc "github.com/juju/testing/checkers"
@@ -166,7 +167,7 @@ func (s *ConfigSuite) TestValidateNewConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		fakeConfig := test.newConfig(c)
-		validatedConfig, err := s.provider.Validate(fakeConfig, nil)
+		validatedConfig, err := s.provider.Validate(context.Background(), fakeConfig, nil)
 
 		// Check the result
 		if test.err != "" {
@@ -188,7 +189,7 @@ func (s *ConfigSuite) TestValidateOldConfig(c *gc.C) {
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
-		validatedConfig, err := s.provider.Validate(newcfg, oldcfg)
+		validatedConfig, err := s.provider.Validate(context.Background(), newcfg, oldcfg)
 
 		// Check the result.
 		if test.err != "" {
@@ -223,7 +224,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		fakeConfig := test.newConfig(c)
-		validatedConfig, err := s.provider.Validate(fakeConfig, s.config)
+		validatedConfig, err := s.provider.Validate(context.Background(), fakeConfig, s.config)
 
 		// Check the result.
 		if test.err != "" {
@@ -245,7 +246,7 @@ func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		fakeConfig := test.newConfig(c)
-		err = environ.SetConfig(fakeConfig)
+		err = environ.SetConfig(context.Background(), fakeConfig)
 
 		// Check the result.
 		if test.err != "" {

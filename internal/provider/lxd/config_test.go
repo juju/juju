@@ -4,6 +4,7 @@
 package lxd_test
 
 import (
+	"context"
 	stdcontext "context"
 
 	jc "github.com/juju/testing/checkers"
@@ -159,7 +160,7 @@ func (s *configSuite) TestValidateNewConfig(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := s.provider.Validate(testConfig, nil)
+		validatedConfig, err := s.provider.Validate(context.Background(), testConfig, nil)
 
 		// Check the result
 		if test.err != "" {
@@ -177,14 +178,14 @@ func (s *configSuite) TestValidateOldConfig(c *gc.C) {
 
 		oldcfg := test.newConfig(c)
 		var err error
-		oldcfg, err = s.provider.Validate(oldcfg, nil)
+		oldcfg, err = s.provider.Validate(context.Background(), oldcfg, nil)
 		c.Assert(err, jc.ErrorIsNil)
 		newcfg := test.fixCfg(c, s.config)
 		expected := updateAttrs(lxd.ConfigAttrs, test.insert)
 
 		// Validate the new config (relative to the old one) using the
 		// provider.
-		validatedConfig, err := s.provider.Validate(newcfg, oldcfg)
+		validatedConfig, err := s.provider.Validate(context.Background(), newcfg, oldcfg)
 
 		// Check the result.
 		if test.err != "" {
@@ -215,7 +216,7 @@ func (s *configSuite) TestValidateChange(c *gc.C) {
 		c.Logf("test %d: %s", i, test.info)
 
 		testConfig := test.newConfig(c)
-		validatedConfig, err := s.provider.Validate(testConfig, s.config)
+		validatedConfig, err := s.provider.Validate(context.Background(), testConfig, s.config)
 
 		// Check the result.
 		if test.err != "" {
@@ -237,12 +238,12 @@ func (s *configSuite) TestSetConfig(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		testConfig := test.newConfig(c)
-		err = environ.SetConfig(testConfig)
+		err = environ.SetConfig(context.Background(), testConfig)
 
 		// Check the result.
 		if test.err != "" {
 			test.checkFailure(c, err, "invalid config change")
-			expected, err := s.provider.Validate(s.config, nil)
+			expected, err := s.provider.Validate(context.Background(), s.config, nil)
 			c.Assert(err, jc.ErrorIsNil)
 			test.checkAttrs(c, environ.Config().AllAttrs(), expected)
 		} else {

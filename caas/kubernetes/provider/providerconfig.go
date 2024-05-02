@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/charm/v13"
@@ -63,16 +64,16 @@ type brokerConfig struct {
 	attrs map[string]interface{}
 }
 
-func (p kubernetesEnvironProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
-	newCfg, err := validateConfig(cfg, old)
+func (p kubernetesEnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
+	newCfg, err := validateConfig(ctx, cfg, old)
 	if err != nil {
 		return nil, fmt.Errorf("invalid k8s provider config: %v", err)
 	}
 	return newCfg.Apply(newCfg.attrs)
 }
 
-func (p kubernetesEnvironProvider) newConfig(cfg *config.Config) (*brokerConfig, error) {
-	valid, err := p.Validate(cfg, nil)
+func (p kubernetesEnvironProvider) newConfig(ctx context.Context, cfg *config.Config) (*brokerConfig, error) {
+	valid, err := p.Validate(ctx, cfg, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -100,9 +101,9 @@ func (p kubernetesEnvironProvider) ConfigDefaults() schema.Defaults {
 	return providerConfigDefaults
 }
 
-func validateConfig(cfg, old *config.Config) (*brokerConfig, error) {
+func validateConfig(ctx context.Context, cfg, old *config.Config) (*brokerConfig, error) {
 	// Check for valid changes for the base config values.
-	if err := config.Validate(cfg, old); err != nil {
+	if err := config.Validate(ctx, cfg, old); err != nil {
 		return nil, err
 	}
 	validated, err := cfg.ValidateUnknownAttrs(providerConfigFields, providerConfigDefaults)

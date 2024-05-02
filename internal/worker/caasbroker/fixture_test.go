@@ -252,7 +252,7 @@ func (e *mockBroker) Config() *config.Config {
 	return e.cfg
 }
 
-func (e *mockBroker) SetConfig(cfg *config.Config) error {
+func (e *mockBroker) SetConfig(_ context.Context, cfg *config.Config) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.MethodCall(e, "SetConfig", cfg)

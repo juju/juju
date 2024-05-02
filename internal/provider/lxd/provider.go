@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	stdcontext "context"
 	"net/http"
 	"os"
@@ -188,7 +189,7 @@ func (p *environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint stri
 }
 
 // PrepareConfig implements environs.EnvironProvider.
-func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p *environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -205,8 +206,8 @@ func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*con
 }
 
 // Validate implements environs.EnvironProvider.
-func (*environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	if _, err := newValidConfig(cfg); err != nil {
+func (*environProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
+	if _, err := newValidConfig(ctx, cfg); err != nil {
 		return nil, errors.Annotate(err, "invalid base config")
 	}
 	return cfg, nil

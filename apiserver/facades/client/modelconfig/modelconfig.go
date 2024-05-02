@@ -187,7 +187,7 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 // change is being requested, specifically that of trace and to see if the
 // requesting user has the required permission for the change.
 func LogTracingValidator(isAdmin bool) config.ValidatorFunc {
-	return func(cfg, old *config.Config) (*config.Config, error) {
+	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
 		spec := cfg.LoggingConfig()
 		oldSpec := old.LoggingConfig()
 

@@ -236,7 +236,7 @@ func (s *BaseSuiteUnpatched) initNet(c *gc.C) {
 
 func (s *BaseSuiteUnpatched) setConfig(c *gc.C, cfg *config.Config) {
 	s.Config = cfg
-	ecfg, err := newConfig(cfg, nil)
+	ecfg, err := newConfig(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.EnvConfig = ecfg
 	uuid := cfg.UUID()

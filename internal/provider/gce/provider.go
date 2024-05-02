@@ -4,6 +4,7 @@
 package gce
 
 import (
+	"context"
 	stdcontext "context"
 
 	"github.com/juju/errors"
@@ -58,7 +59,7 @@ func (p environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint strin
 }
 
 // PrepareConfig implements environs.EnvironProvider.
-func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -114,8 +115,8 @@ func configWithDefaults(cfg *config.Config) (*config.Config, error) {
 }
 
 // Validate implements environs.EnvironProvider.Validate.
-func (environProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
-	newCfg, err := newConfig(cfg, old)
+func (environProvider) Validate(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
+	newCfg, err := newConfig(ctx, cfg, old)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}

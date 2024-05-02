@@ -52,7 +52,7 @@ func (s *EnvironProviderSuite) TestPrepareConfig(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
+	_, err = providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Config: config,
 		Cloud:  s.cloudSpec(),
 	})
@@ -66,7 +66,7 @@ func (s *EnvironProviderSuite) TestPrepareConfigInvalidOAuth(c *gc.C) {
 	spec := s.cloudSpec()
 	cred := oauthCredential("wrongly-formatted-oauth-string")
 	spec.Credential = &cred
-	_, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
+	_, err = providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Config: config,
 		Cloud:  spec,
 	})
@@ -79,7 +79,7 @@ func (s *EnvironProviderSuite) TestPrepareConfigInvalidEndpoint(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	spec := s.cloudSpec()
 	spec.Endpoint = "This should have been a URL or host."
-	_, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
+	_, err = providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Config: config,
 		Cloud:  spec,
 	})
@@ -92,7 +92,7 @@ func (s *EnvironProviderSuite) TestPrepareConfigSetsDefaults(c *gc.C) {
 	attrs := testing.FakeConfig().Merge(testing.Attrs{"type": "maas"})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
+	cfg, err := providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Config: config,
 		Cloud:  s.cloudSpec(),
 	})

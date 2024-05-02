@@ -4,6 +4,7 @@
 package validators
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -15,7 +16,7 @@ import (
 // CharmhubURLChange returns a config validator that will check to make sure
 // the charm hub url has not changed.
 func CharmhubURLChange() config.ValidatorFunc {
-	return func(cfg, old *config.Config) (*config.Config, error) {
+	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
 		if v, has := cfg.CharmHubURL(); has {
 			oldURL, _ := old.CharmHubURL()
 			if v != oldURL {
@@ -38,7 +39,7 @@ func CharmhubURLChange() config.ValidatorFunc {
 // config this validator will keep removing it from the new config so that it
 // does not get persisted to state.
 func AgentVersionChange() config.ValidatorFunc {
-	return func(cfg, old *config.Config) (*config.Config, error) {
+	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
 		if v, has := cfg.AgentVersion(); has {
 			oldVersion, has := old.AgentVersion()
 			if !has {
@@ -63,7 +64,7 @@ func AgentVersionChange() config.ValidatorFunc {
 // AuthorizedKeysChange checks to see if there has been any change to a model
 // config authorized keys.
 func AuthorizedKeysChange() config.ValidatorFunc {
-	return func(cfg, old *config.Config) (*config.Config, error) {
+	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
 		if cfg.AuthorizedKeys() == old.AuthorizedKeys() {
 			// No change. Nothing more todo.
 			return cfg, nil
@@ -88,7 +89,7 @@ type SpaceProvider interface {
 // this Juju controller. Should the space not exist an error satisfying
 // config.ValidationError will be returned.
 func SpaceChecker(provider SpaceProvider) config.ValidatorFunc {
-	return func(cfg, old *config.Config) (*config.Config, error) {
+	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
 		spaceName := cfg.DefaultSpace()
 		if spaceName == "" {
 			// No need to verify if the space isn't defined
@@ -123,7 +124,7 @@ const (
 // level logging and the canTrace is set to false we error with an error that
 // satisfies both ErrorLogTracingPermission and config.ValidationError.
 func LoggingTracePermissionChecker(canTrace bool) config.ValidatorFunc {
-	return func(cfg, old *config.Config) (*config.Config, error) {
+	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
 		// If we can trace no point in checking to see if we having tracing.
 		if canTrace {
 			return cfg, nil
@@ -178,7 +179,7 @@ type SecretBackendProvider interface {
 // secret backend has not changed or is the default backend then no validation
 // is performed. Any validation errors will satisfy config.ValidationError.
 func SecretBackendChecker(provider SecretBackendProvider) config.ValidatorFunc {
-	return func(cfg, old *config.Config) (*config.Config, error) {
+	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
 		backendName := cfg.SecretBackend()
 		if backendName == old.SecretBackend() {
 			return cfg, nil

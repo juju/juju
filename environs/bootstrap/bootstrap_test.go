@@ -856,7 +856,7 @@ func (s *bootstrapSuite) TestBootstrapToolsVersion(c *gc.C) {
 		c.Logf("test %d: %+v", i, t)
 		cfg, err := env.Config().Remove([]string{"agent-version"})
 		c.Assert(err, jc.ErrorIsNil)
-		err = env.SetConfig(cfg)
+		err = env.SetConfig(context.Background(), cfg)
 		c.Assert(err, jc.ErrorIsNil)
 		s.PatchValue(&jujuversion.Current, t.currentVersion)
 		tools, err := bootstrap.GetBootstrapToolsVersion(availableTools)
@@ -1473,7 +1473,7 @@ func (e *bootstrapEnviron) Config() *config.Config {
 	return e.cfg
 }
 
-func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
+func (e *bootstrapEnviron) SetConfig(ctx context.Context, cfg *config.Config) error {
 	e.cfg = cfg
 	return nil
 }

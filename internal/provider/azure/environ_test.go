@@ -281,7 +281,7 @@ func prepareForBootstrap(
 ) environs.Environ {
 	// Opening the environment should not incur network communication,
 	// so we don't set s.sender until after opening.
-	cfg, err := provider.PrepareConfig(environs.PrepareConfigParams{
+	cfg, err := provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Config: makeTestModelConfig(c, attrs...),
 		Cloud:  fakeCloudSpec(),
 	})
@@ -709,7 +709,7 @@ func (s *environSuite) TestStartInstanceNoAuthorizedKeys(c *gc.C) {
 	env := s.openEnviron(c)
 	cfg, err := env.Config().Remove([]string{"authorized-keys"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.SetConfig(cfg)
+	err = env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
@@ -740,7 +740,7 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 	env := s.openEnviron(c)
 	cfg, err := env.Config().Remove([]string{"authorized-keys"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.SetConfig(cfg)
+	err = env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.createSenderWithUnauthorisedStatusCode(c)

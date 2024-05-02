@@ -4,6 +4,7 @@
 package environs
 
 import (
+	"context"
 	stdcontext "context"
 	"io"
 
@@ -56,7 +57,7 @@ type EnvironProvider interface {
 	// deterministic output. Any unique values should be based on the
 	// "uuid" attribute of the base configuration. This is called for the
 	// controller model during bootstrap, and also for new hosted models.
-	PrepareConfig(PrepareConfigParams) (*config.Config, error)
+	PrepareConfig(context.Context, PrepareConfigParams) (*config.Config, error)
 }
 
 // A CloudEnvironProvider represents a computing and storage provider
@@ -280,7 +281,7 @@ type ConfigSetter interface {
 	//
 	// Calls to SetConfig do not affect the configuration of
 	// values previously obtained from Storage.
-	SetConfig(cfg *config.Config) error
+	SetConfig(ctx context.Context, cfg *config.Config) error
 }
 
 // CloudSpecSetter implements access to an environment's cloud spec.

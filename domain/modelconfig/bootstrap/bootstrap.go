@@ -73,7 +73,7 @@ func SetModelConfig(
 			return fmt.Errorf("constructing new model config with model defaults: %w", err)
 		}
 
-		_, err = config.ModelValidator().Validate(cfg, nil)
+		_, err = config.ModelValidator().Validate(ctx, cfg, nil)
 		if err != nil {
 			return fmt.Errorf("validating model config to set for model: %w", err)
 		}

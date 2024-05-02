@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"net/http"
@@ -122,7 +123,7 @@ func NewEnviron(ctx stdcontext.Context, cloud environscloudspec.CloudSpec, cfg *
 		shortRetryStrategy: defaultShortRetryStrategy,
 		longRetryStrategy:  defaultLongRetryStrategy,
 	}
-	if err := env.SetConfig(cfg); err != nil {
+	if err := env.SetConfig(ctx, cfg); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := env.SetCloudSpec(ctx, cloud); err != nil {
@@ -221,7 +222,7 @@ func (env *maasEnviron) Config() *config.Config {
 }
 
 // SetConfig is specified in the Environ interface.
-func (env *maasEnviron) SetConfig(cfg *config.Config) error {
+func (env *maasEnviron) SetConfig(ctx context.Context, cfg *config.Config) error {
 	env.ecfgMutex.Lock()
 	defer env.ecfgMutex.Unlock()
 
@@ -231,12 +232,12 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 	if env.ecfgUnlocked != nil {
 		oldCfg = env.ecfgUnlocked.Config
 	}
-	cfg, err := env.Provider().Validate(cfg, oldCfg)
+	cfg, err := env.Provider().Validate(ctx, cfg, oldCfg)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	ecfg, err := providerInstance.newConfig(cfg)
+	ecfg, err := providerInstance.newConfig(ctx, cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}

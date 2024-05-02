@@ -543,7 +543,7 @@ func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 		"network": "net",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst, _ := testing.AssertStartInstance(c, s.env, s.callCtx, s.ControllerUUID, "100")
@@ -557,7 +557,7 @@ func (s *localServerSuite) TestStartInstanceMultiNetworkFound(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
@@ -571,7 +571,7 @@ func (s *localServerSuite) TestStartInstanceExternalNetwork(c *gc.C) {
 		"external-network": "ext-net",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("allocate-public-ip=true")
@@ -586,7 +586,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownLabel(c *gc.C) {
 		"network": "no-network-with-this-label",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
@@ -600,7 +600,7 @@ func (s *localServerSuite) TestStartInstanceExternalNetworkUnknownLabel(c *gc.C)
 		"external-network": "no-network-with-this-label",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("allocate-public-ip=true")
@@ -616,7 +616,7 @@ func (s *localServerSuite) TestStartInstanceNetworkUnknownID(c *gc.C) {
 		"network": "f81d4fae-7dec-11d0-a765-00a0c91e6bf6",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
@@ -639,7 +639,7 @@ func (s *localServerSuite) TestStartInstanceNoNetworksNetworkNotSetNoError(c *gc
 		"network": "",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
@@ -669,7 +669,7 @@ func (s *localServerSuite) TestStartInstanceOneNetworkNetworkNotSetNoError(c *gc
 		"network": "",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
@@ -686,7 +686,7 @@ func (s *localServerSuite) TestStartInstanceNetworksDifferentAZ(c *gc.C) {
 		"external-network": "ext-net", // az = test-available
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("allocate-public-ip=true")
@@ -729,7 +729,7 @@ func (s *localServerSuite) TestStartInstanceNetworksEmptyAZ(c *gc.C) {
 		"network": "no-az-net", // az = nova
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("allocate-public-ip=true")
@@ -744,7 +744,7 @@ func (s *localServerSuite) TestStartInstanceNetworkNoExternalNetInAZ(c *gc.C) {
 		"network": "net", // az = nova
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cons := constraints.MustParse("allocate-public-ip=true")
@@ -757,7 +757,7 @@ func (s *localServerSuite) TestStartInstancePortSecurityEnabled(c *gc.C) {
 		"network": "net",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
@@ -773,7 +773,7 @@ func (s *localServerSuite) TestStartInstancePortSecurityDisabled(c *gc.C) {
 		"network": "net-disabled",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	inst, _, _, err := testing.StartInstance(s.env, s.callCtx, s.ControllerUUID, "100")
@@ -2207,7 +2207,7 @@ func (s *localServerSuite) TestGlobalPorts(c *gc.C) {
 	// Change configuration.
 	oldConfig := s.env.Config()
 	defer func() {
-		err := s.env.SetConfig(oldConfig)
+		err := s.env.SetConfig(context.Background(), oldConfig)
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
@@ -2215,7 +2215,7 @@ func (s *localServerSuite) TestGlobalPorts(c *gc.C) {
 	attrs["firewall-mode"] = config.FwGlobal
 	newConfig, err := s.env.Config().Apply(attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(newConfig)
+	err = s.env.SetConfig(context.Background(), newConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Create instances and check open ports on both instances.
@@ -2710,7 +2710,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 		map[string]interface{}{"image-metadata-url": customURL},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(envConfig)
+	err = s.env.SetConfig(context.Background(), envConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(s.env, ss)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2770,7 +2770,7 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSourcesWithCertificate
 		map[string]interface{}{"image-metadata-url": customURL},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = env.SetConfig(envConfig)
+	err = env.SetConfig(context.Background(), envConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := environs.ImageMetadataSources(env, ss)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2820,7 +2820,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 		map[string]interface{}{"agent-metadata-url": customURL},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(envConfig)
+	err = s.env.SetConfig(context.Background(), envConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	sources, err := tools.GetMetadataSources(s.env, ss)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3873,7 +3873,7 @@ func (s *noSwiftSuite) TestBootstrap(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(bootstrapEnv(c, s.env), jc.ErrorIsNil)

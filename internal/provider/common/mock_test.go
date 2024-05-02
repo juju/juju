@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -77,7 +78,7 @@ func (env *mockEnviron) Config() *config.Config {
 	return env.config()
 }
 
-func (env *mockEnviron) SetConfig(cfg *config.Config) error {
+func (env *mockEnviron) SetConfig(_ context.Context, cfg *config.Config) error {
 	if env.setConfig != nil {
 		return env.setConfig(cfg)
 	}

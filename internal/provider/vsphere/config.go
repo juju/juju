@@ -4,6 +4,8 @@
 package vsphere
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -88,9 +90,9 @@ var configFields = func() schema.Fields {
 
 // newValidConfig builds a new environConfig from the provided Config
 // and returns it. The resulting config values are validated.
-func newValidConfig(cfg *config.Config) (*environConfig, error) {
+func newValidConfig(ctx context.Context, cfg *config.Config) (*environConfig, error) {
 	// Ensure that the provided config is valid.
-	if err := config.Validate(cfg, nil); err != nil {
+	if err := config.Validate(ctx, cfg, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -221,14 +223,14 @@ func (c environConfig) validate() error {
 
 // update applies changes from the provided config to the env config.
 // Changes to any immutable attributes result in an error.
-func (c *environConfig) update(cfg *config.Config) error {
+func (c *environConfig) update(ctx context.Context, cfg *config.Config) error {
 	// Validate the updates. newValidConfig does not modify the "known"
 	// config attributes so it is safe to call Validate here first.
-	if err := config.Validate(cfg, c.Config); err != nil {
+	if err := config.Validate(ctx, cfg, c.Config); err != nil {
 		return errors.Trace(err)
 	}
 
-	updates, err := newValidConfig(cfg)
+	updates, err := newValidConfig(ctx, cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}

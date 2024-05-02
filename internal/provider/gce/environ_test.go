@@ -4,6 +4,7 @@
 package gce_test
 
 import (
+	"context"
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
@@ -48,7 +49,7 @@ func (s *environSuite) TestRegion(c *gc.C) {
 }
 
 func (s *environSuite) TestSetConfig(c *gc.C) {
-	err := s.Env.SetConfig(s.Config)
+	err := s.Env.SetConfig(context.Background(), s.Config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(gce.ExposeEnvConfig(s.Env), jc.DeepEquals, s.EnvConfig)
@@ -56,7 +57,7 @@ func (s *environSuite) TestSetConfig(c *gc.C) {
 }
 
 func (s *environSuite) TestSetConfigFake(c *gc.C) {
-	err := s.Env.SetConfig(s.Config)
+	err := s.Env.SetConfig(context.Background(), s.Config)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(s.FakeConn.Calls, gc.HasLen, 0)

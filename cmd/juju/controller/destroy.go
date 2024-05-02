@@ -621,7 +621,7 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := provider.PrepareConfig(*params)
+	cfg, err := provider.PrepareConfig(ctx, *params)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

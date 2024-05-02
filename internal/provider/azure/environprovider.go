@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"context"
 	stdcontext "context"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -131,7 +132,7 @@ func (prov *azureEnvironProvider) Open(ctx stdcontext.Context, args environs.Ope
 	}
 
 	// Config is needed before cloud spec.
-	if err := environ.SetConfig(args.Config); err != nil {
+	if err := environ.SetConfig(ctx, args.Config); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -153,7 +154,7 @@ func (p azureEnvironProvider) Ping(ctx envcontext.ProviderCallContext, endpoint 
 }
 
 // PrepareConfig is part of the EnvironProvider interface.
-func (prov *azureEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (prov *azureEnvironProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}

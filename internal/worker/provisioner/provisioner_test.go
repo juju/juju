@@ -121,7 +121,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChanges(c *gc.C,
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	if !container {
-		s.broker.EXPECT().SetConfig(modelCfg).Return(nil)
+		s.broker.EXPECT().SetConfig(gomock.Any(), modelCfg).Return(nil)
 	}
 
 	s.sendModelConfigChange(c)
@@ -167,7 +167,7 @@ func (s *CommonProvisionerSuite) assertProvisionerObservesConfigChangesWorkerCou
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(modelCfg, nil)
 
 	if !container {
-		s.broker.EXPECT().SetConfig(modelCfg).Return(nil)
+		s.broker.EXPECT().SetConfig(gomock.Any(), modelCfg).Return(nil)
 	}
 
 	s.sendModelConfigChange(c)

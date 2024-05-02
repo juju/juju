@@ -4,6 +4,7 @@
 package gce
 
 import (
+	"context"
 	stdcontext "context"
 	"strings"
 	"sync"
@@ -111,7 +112,7 @@ var (
 )
 
 func newEnviron(ctx stdcontext.Context, cloud environscloudspec.CloudSpec, cfg *config.Config) (*environ, error) {
-	ecfg, err := newConfig(cfg, nil)
+	ecfg, err := newConfig(ctx, cfg, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
@@ -199,11 +200,11 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 }
 
 // SetConfig updates the env's configuration.
-func (env *environ) SetConfig(cfg *config.Config) error {
+func (env *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 
-	ecfg, err := newConfig(cfg, env.ecfg.config)
+	ecfg, err := newConfig(ctx, cfg, env.ecfg.config)
 	if err != nil {
 		return errors.Annotate(err, "invalid config change")
 	}

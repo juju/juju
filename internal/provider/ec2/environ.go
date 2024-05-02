@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"context"
 	stdcontext "context"
 	"encoding/base64"
 	stderrors "errors"
@@ -134,8 +135,8 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) SetConfig(cfg *config.Config) error {
-	ecfg, err := providerInstance.newConfig(cfg)
+func (e *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
+	ecfg, err := providerInstance.newConfig(ctx, cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}

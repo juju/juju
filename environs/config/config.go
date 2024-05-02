@@ -4,6 +4,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -479,7 +480,7 @@ func New(withDefaults Defaulting, attrs map[string]any) (*Config, error) {
 	}
 
 	// no old config to compare against
-	if err := Validate(c, nil); err != nil {
+	if err := Validate(context.TODO(), c, nil); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Copy unknown attributes onto the type-specific map.
@@ -672,7 +673,7 @@ func CoerceForStorage(attrs map[string]any) map[string]any {
 // Validate ensures that config is a valid configuration.  If old is not nil,
 // it holds the previous environment configuration for consideration when
 // validating changes.
-func Validate(cfg, old *Config) error {
+func Validate(_ctx context.Context, cfg, old *Config) error {
 	// Check that all other fields that have been specified are non-empty,
 	// unless they're allowed to be empty for backward compatibility,
 	for attr, val := range cfg.defined {

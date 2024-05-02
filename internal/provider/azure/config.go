@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -109,16 +110,16 @@ func knownLoadBalancerSkuNames() (skus []string) {
 // Validate ensures that the provided configuration is valid for this
 // provider, and that changes between the old (if provided) and new
 // configurations are valid.
-func (*azureEnvironProvider) Validate(newCfg, oldCfg *config.Config) (*config.Config, error) {
-	_, err := validateConfig(newCfg, oldCfg)
+func (*azureEnvironProvider) Validate(ctx context.Context, newCfg, oldCfg *config.Config) (*config.Config, error) {
+	_, err := validateConfig(ctx, newCfg, oldCfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newCfg, nil
 }
 
-func validateConfig(newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
-	err := config.Validate(newCfg, oldCfg)
+func validateConfig(ctx context.Context, newCfg, oldCfg *config.Config) (*azureModelConfig, error) {
+	err := config.Validate(ctx, newCfg, oldCfg)
 	if err != nil {
 		return nil, err
 	}

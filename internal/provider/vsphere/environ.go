@@ -35,11 +35,12 @@ type environ struct {
 }
 
 func newEnviron(
+	ctx context.Context,
 	provider *environProvider,
 	cloud environscloudspec.CloudSpec,
 	cfg *config.Config,
 ) (*environ, error) {
-	ecfg, err := newValidConfig(cfg)
+	ecfg, err := newValidConfig(ctx, cfg)
 	if err != nil {
 		return nil, errors.Annotate(err, "invalid config")
 	}
@@ -87,7 +88,7 @@ func (env *environ) Provider() environs.EnvironProvider {
 }
 
 // SetConfig is part of the environs.Environ interface.
-func (env *environ) SetConfig(cfg *config.Config) error {
+func (env *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 
@@ -95,7 +96,7 @@ func (env *environ) SetConfig(cfg *config.Config) error {
 		return errors.New("cannot set config on uninitialized env")
 	}
 
-	if err := env.ecfg.update(cfg); err != nil {
+	if err := env.ecfg.update(ctx, cfg); err != nil {
 		return errors.Annotate(err, "invalid config change")
 	}
 	return nil
