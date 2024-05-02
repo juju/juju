@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/secrets/provider"
 )
@@ -31,13 +30,10 @@ func newFacadeV3(ctx facade.ModelContext) (*ModelConfigAPIV3, error) {
 		return nil, errors.Trace(err)
 	}
 
-	modelUUID := ctx.State().ModelUUID()
-
 	serviceFactory := ctx.ServiceFactory()
 	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
-	defaultsService := serviceFactory.ModelDefaults()
 
-	configService := serviceFactory.Config(defaultsService.ModelDefaultsProvider(coremodel.UUID(modelUUID)))
+	configService := serviceFactory.Config()
 	configSchemaSourceGetter := environs.ProviderConfigSchemaSource(ctx.ServiceFactory().Cloud())
 	return NewModelConfigAPI(NewStateBackend(model, configSchemaSourceGetter), backendService, configService, auth)
 }
