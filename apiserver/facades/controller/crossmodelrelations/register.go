@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/secret/service"
 )
 
@@ -42,7 +41,7 @@ func newStateCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelatio
 		ctx.Resources(), ctx.Auth(),
 		authCtxt.(*commoncrossmodel.AuthContext),
 		ctx.ServiceFactory().Secret(service.NotImplementedBackendConfigGetter),
-		ctx.ServiceFactory().Config(ctx.ServiceFactory().ModelDefaults().ModelDefaultsProvider(model.UUID(m.UUID()))),
+		ctx.ServiceFactory().Config(),
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeSuspendedStatus,
 		watchOfferStatus,
