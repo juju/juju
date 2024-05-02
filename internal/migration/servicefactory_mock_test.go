@@ -198,17 +198,17 @@ func (mr *MockServiceFactoryMockRecorder) Cloud() *gomock.Call {
 }
 
 // Config mocks base method.
-func (m *MockServiceFactory) Config(arg0 service12.ModelDefaultsProvider) *service12.WatchableService {
+func (m *MockServiceFactory) Config() *service12.WatchableService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Config", arg0)
+	ret := m.ctrl.Call(m, "Config")
 	ret0, _ := ret[0].(*service12.WatchableService)
 	return ret0
 }
 
 // Config indicates an expected call of Config.
-func (mr *MockServiceFactoryMockRecorder) Config(arg0 any) *gomock.Call {
+func (mr *MockServiceFactoryMockRecorder) Config() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockServiceFactory)(nil).Config), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockServiceFactory)(nil).Config))
 }
 
 // ControllerConfig mocks base method.

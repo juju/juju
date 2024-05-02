@@ -49,7 +49,7 @@ func (s *TestingServiceFactory) AutocertCache() *autocertcacheservice.Service {
 }
 
 // Config returns the model config service.
-func (s *TestingServiceFactory) Config(_ modelconfigservice.ModelDefaultsProvider) *modelconfigservice.WatchableService {
+func (s *TestingServiceFactory) Config() *modelconfigservice.WatchableService {
 	return nil
 }
 

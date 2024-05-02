@@ -27,7 +27,7 @@ import (
 // ServiceFactory is a factory for creating model info services.
 type ServiceFactory interface {
 	ModelInfo() ModelInfoService
-	Config(modeldefaultsservice.ModelDefaultsProviderFunc) ModelConfigService
+	Config() ModelConfigService
 	Network() NetworkService
 }
 
@@ -172,8 +172,8 @@ func (s serviceFactory) ModelInfo() ModelInfoService {
 	return s.serviceFactory.ModelInfo()
 }
 
-func (s serviceFactory) Config(defaults modeldefaultsservice.ModelDefaultsProviderFunc) ModelConfigService {
-	return s.serviceFactory.Config(defaults)
+func (s serviceFactory) Config() ModelConfigService {
+	return s.serviceFactory.Config()
 }
 
 func (s serviceFactory) Network() NetworkService {

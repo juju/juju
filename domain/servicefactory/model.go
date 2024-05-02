@@ -20,6 +20,8 @@ import (
 	modelstate "github.com/juju/juju/domain/model/state"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
+	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
+	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	networkservice "github.com/juju/juju/domain/network/service"
 	networkstate "github.com/juju/juju/domain/network/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
@@ -61,12 +63,13 @@ func NewModelFactory(
 	}
 }
 
-// Config returns the model's configuration service. A ModelDefaultsProvider
-// needs to be supplied for the model config service. The provider can be
-// obtained from the controller service factory model defaults service.
-func (s *ModelFactory) Config(
-	defaultsProvider modelconfigservice.ModelDefaultsProvider,
-) *modelconfigservice.WatchableService {
+// Config returns the model's configuration service.
+func (s *ModelFactory) Config() *modelconfigservice.WatchableService {
+	defaultsProvider := modeldefaultsservice.NewService(
+		modeldefaultsstate.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+		)).ModelDefaultsProvider(s.modelUUID)
+
 	return modelconfigservice.NewWatchableService(
 		defaultsProvider,
 		config.ModelValidator(),
