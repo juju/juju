@@ -420,6 +420,94 @@ func (s *spaceSuite) TestSaveProviderSubnetsIgnoreIPV4LinkLocalUnicast(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *spaceSuite) TestReloadSpacesFromProvider(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	twoSpaces := network.SpaceInfos{
+		{
+			Name:       "name-origin-0",
+			ProviderId: "provider-id-0",
+			Subnets: network.SubnetInfos{
+				{
+					CIDR:       "10.0.0.0/24",
+					ProviderId: "subnet-0",
+					SpaceID:    "bar",
+				},
+				{
+					CIDR:       "10.0.1.0/24",
+					ProviderId: "subnet-1",
+					SpaceID:    "bar",
+				},
+			},
+		},
+		{
+			Name:       "name-origin-1",
+			ProviderId: "provider-id-1",
+			Subnets: network.SubnetInfos{
+				{
+					CIDR:       "10.1.0.0/24",
+					ProviderId: "subnet-2",
+					SpaceID:    "foo",
+				},
+				{
+					CIDR:       "10.1.1.0/24",
+					ProviderId: "subnet-3",
+					SpaceID:    "foo",
+				},
+			},
+		},
+	}
+
+	s.provider.EXPECT().SupportsSpaceDiscovery(gomock.Any()).Return(true, nil)
+	s.provider.EXPECT().Spaces(gomock.Any()).Return(twoSpaces, nil)
+	s.st.EXPECT().GetAllSpaces(gomock.Any()).Return([]network.SpaceInfo{
+		{
+			ID:   network.AlphaSpaceId,
+			Name: network.AlphaSpaceName,
+		},
+	}, nil)
+	s.logger.EXPECT().Infof("discovered spaces: %s", twoSpaces.String())
+	s.st.EXPECT().FanConfig(gomock.Any()).Return("", nil)
+	s.logger.EXPECT().Debugf("Adding space %s from provider %s", string(twoSpaces[0].Name), twoSpaces[0].ProviderId.String())
+	s.logger.EXPECT().Debugf("Adding space %s from provider %s", string(twoSpaces[1].Name), twoSpaces[1].ProviderId.String())
+	var (
+		spUUID0, spUUID1 string
+	)
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), string(twoSpaces[0].Name), twoSpaces[0].ProviderId, []string{}).
+		Do(func(ctx context.Context, uuid string, name string, providerID network.Id, subnetIDs []string) error {
+			spUUID0 = uuid
+			return nil
+		})
+	s.st.EXPECT().AddSpace(gomock.Any(), gomock.Any(), string(twoSpaces[1].Name), twoSpaces[1].ProviderId, []string{}).
+		Do(func(ctx context.Context, uuid string, name string, providerID network.Id, subnetIDs []string) error {
+			spUUID1 = uuid
+			return nil
+		})
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 2)
+			c.Check(subnets[0].CIDR, gc.Equals, twoSpaces[0].Subnets[0].CIDR)
+			c.Check(subnets[1].CIDR, gc.Equals, twoSpaces[0].Subnets[1].CIDR)
+			c.Check(subnets[0].SpaceID, gc.Equals, spUUID0)
+			c.Check(subnets[1].SpaceID, gc.Equals, spUUID0)
+		},
+	)
+	s.st.EXPECT().UpsertSubnets(gomock.Any(), gomock.Any()).Do(
+		func(ctx context.Context, subnets []network.SubnetInfo) {
+			c.Check(subnets, gc.HasLen, 2)
+			c.Check(subnets[0].CIDR, gc.Equals, twoSpaces[1].Subnets[0].CIDR)
+			c.Check(subnets[1].CIDR, gc.Equals, twoSpaces[1].Subnets[1].CIDR)
+			c.Check(subnets[0].SpaceID, gc.Equals, spUUID1)
+			c.Check(subnets[1].SpaceID, gc.Equals, spUUID1)
+		},
+	)
+	s.logger.EXPECT().Tracef(gomock.Any())
+
+	err := NewProviderService(s.st, s.providerGetter, s.logger).
+		ReloadSpaces(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *spaceSuite) TestReloadSpacesUsingSubnets(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

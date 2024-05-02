@@ -327,7 +327,7 @@ func (s *ProviderSpaces) saveSpaces(ctx context.Context, providerSpaces []networ
 			spaceName := network.ConvertSpaceName(string(spaceInfo.Name), spaceNames)
 
 			s.logger.Debugf("Adding space %s from provider %s", spaceName, string(spaceInfo.ProviderId))
-			spaceID, err := s.spaceService.AddSpace(
+			spaceUUID, err := s.spaceService.AddSpace(
 				ctx,
 				network.SpaceInfo{
 					Name:       network.SpaceName(spaceName),
@@ -343,10 +343,11 @@ func (s *ProviderSpaces) saveSpaces(ctx context.Context, providerSpaces []networ
 			// To ensure that we can remove spaces, we back-fill the new spaces
 			// onto the modelSpaceMap.
 			s.modelSpaceMap[spaceInfo.ProviderId] = network.SpaceInfo{
-				ID:         spaceID.String(),
+				ID:         spaceUUID.String(),
 				Name:       network.SpaceName(spaceName),
 				ProviderId: spaceInfo.ProviderId,
 			}
+			spaceID = spaceUUID.String()
 		}
 
 		err = s.spaceService.saveProviderSubnets(ctx, spaceInfo.Subnets, spaceID, fanConfig)
