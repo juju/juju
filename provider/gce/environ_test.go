@@ -78,8 +78,8 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 
 	ctx := envtesting.BootstrapTODOContext(c)
 	params := environs.BootstrapParams{
-		ControllerConfig:         testing.FakeControllerConfig(),
-		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		ControllerConfig:        testing.FakeControllerConfig(),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 	result, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -94,8 +94,8 @@ func (s *environSuite) TestBootstrapInvalidCredentialError(c *gc.C) {
 	s.FakeConn.Err = gce.InvalidCredentialError
 	c.Assert(s.InvalidatedCredentials, jc.IsFalse)
 	params := environs.BootstrapParams{
-		ControllerConfig:         testing.FakeControllerConfig(),
-		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		ControllerConfig:        testing.FakeControllerConfig(),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 	_, err := s.Env.Bootstrap(envtesting.BootstrapTODOContext(c), s.CallCtx, params)
 	c.Check(err, gc.NotNil)
@@ -122,8 +122,8 @@ func (s *environSuite) checkAPIPorts(c *gc.C, config controller.Config, expected
 
 	ctx := envtesting.BootstrapTODOContext(c)
 	params := environs.BootstrapParams{
-		ControllerConfig:         config,
-		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		ControllerConfig:        config,
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 	_, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -151,8 +151,8 @@ func (s *environSuite) checkAPIPorts(c *gc.C, config controller.Config, expected
 func (s *environSuite) TestBootstrapCommon(c *gc.C) {
 	ctx := envtesting.BootstrapTODOContext(c)
 	params := environs.BootstrapParams{
-		ControllerConfig:         testing.FakeControllerConfig(),
-		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		ControllerConfig:        testing.FakeControllerConfig(),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 	_, err := s.Env.Bootstrap(ctx, s.CallCtx, params)
 	c.Assert(err, jc.ErrorIsNil)

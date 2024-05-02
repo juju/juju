@@ -461,8 +461,8 @@ func (k *kubernetesClient) Bootstrap(
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 
-	if args.BootstrapSeries != "" {
-		return nil, errors.NotSupportedf("set series for bootstrapping to kubernetes")
+	if !args.BootstrapBase.Empty() {
+		return nil, errors.NotSupportedf("set base for bootstrapping to kubernetes")
 	}
 
 	storageClass, err := k.validateOperatorStorage()

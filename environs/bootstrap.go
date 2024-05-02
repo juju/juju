@@ -9,8 +9,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/collections/set"
-
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
@@ -49,20 +47,20 @@ type BootstrapParams struct {
 	// in the controller model.
 	StoragePools map[string]storage.Attrs
 
-	// BootstrapSeries, if specified, is the series to use for the
+	// BootstrapBase, if specified, is the base to use for the
 	// initial bootstrap machine.
-	BootstrapSeries string
+	BootstrapBase corebase.Base
 
-	// SupportedBootstrapSeries is a supported set of series to use for
-	// validating against the bootstrap series.
-	SupportedBootstrapSeries set.Strings
+	// SupportedBootstrapBases is a supported set of bases to use for
+	// validating against the bootstrap base.
+	SupportedBootstrapBases []corebase.Base
 
 	// Placement, if non-empty, holds an environment-specific placement
 	// directive used to choose the initial instance.
 	Placement string
 
 	// AvailableTools is a collection of tools which the Bootstrap method
-	// may use to decide which architecture/series to instantiate.
+	// may use to decide which architecture/base to instantiate.
 	AvailableTools tools.List
 
 	// ImageMetadata contains simplestreams image metadata for providers
@@ -73,7 +71,7 @@ type BootstrapParams struct {
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
 
-	// Force is used to allow a bootstrap to be run on unsupported series.
+	// Force is used to allow a bootstrap to be run on unsupported base.
 	Force bool
 }
 

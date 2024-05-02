@@ -1448,11 +1448,11 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "jammy",
-			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			ControllerConfig:        testing.FakeControllerConfig(),
+			AvailableTools:          makeToolsList("ubuntu"),
+			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1482,11 +1482,11 @@ func (s *environSuite) TestBootstrapPrivateIP(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "jammy",
-			BootstrapConstraints:     constraints.MustParse("mem=3.5G allocate-public-ip=false"),
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			ControllerConfig:        testing.FakeControllerConfig(),
+			AvailableTools:          makeToolsList("ubuntu"),
+			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapConstraints:    constraints.MustParse("mem=3.5G allocate-public-ip=false"),
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1516,11 +1516,11 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 	s.requests = nil
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "jammy",
-			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			ControllerConfig:        testing.FakeControllerConfig(),
+			AvailableTools:          makeToolsList("ubuntu"),
+			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1554,11 +1554,11 @@ func (s *environSuite) TestBootstrapWithInvalidCredential(c *gc.C) {
 	c.Assert(s.invalidatedCredential, jc.IsFalse)
 	_, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "jammy",
-			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			ControllerConfig:        testing.FakeControllerConfig(),
+			AvailableTools:          makeToolsList("ubuntu"),
+			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
 	c.Assert(err, gc.NotNil)
@@ -1685,11 +1685,11 @@ func (s *environSuite) TestBootstrapWithAutocert(c *gc.C) {
 	config["autocert-dns-name"] = "example.com"
 	result, err := env.Bootstrap(
 		ctx, s.callCtx, environs.BootstrapParams{
-			ControllerConfig:         config,
-			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "jammy",
-			BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			ControllerConfig:        config,
+			AvailableTools:          makeToolsList("ubuntu"),
+			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

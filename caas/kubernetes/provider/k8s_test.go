@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/assumes"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
@@ -1477,9 +1478,9 @@ func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	callCtx := &context.CloudCallContext{}
 	bootstrapParams := environs.BootstrapParams{
-		ControllerConfig:         testing.FakeControllerConfig(),
-		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
-		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		ControllerConfig:        testing.FakeControllerConfig(),
+		BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 
 	_, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
@@ -1498,9 +1499,9 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	ctx := envtesting.BootstrapContext(stdcontext.TODO(), c)
 	callCtx := &context.CloudCallContext{}
 	bootstrapParams := environs.BootstrapParams{
-		ControllerConfig:         testing.FakeControllerConfig(),
-		BootstrapConstraints:     constraints.MustParse("mem=3.5G"),
-		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+		ControllerConfig:        testing.FakeControllerConfig(),
+		BootstrapConstraints:    constraints.MustParse("mem=3.5G"),
+		SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 	}
 
 	sc := &storagev1.StorageClass{
@@ -1520,7 +1521,7 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	c.Assert(result.Arch, gc.Equals, "amd64")
 	c.Assert(result.CaasBootstrapFinalizer, gc.NotNil)
 
-	bootstrapParams.BootstrapSeries = "bionic"
+	bootstrapParams.BootstrapBase = base.MustParseBaseFromString("ubuntu@18.04")
 	_, err = s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }

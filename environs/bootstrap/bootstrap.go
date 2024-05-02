@@ -694,33 +694,14 @@ func Bootstrap(
 		return errors.Annotate(err, "validating bootstrap parameters")
 	}
 
-	// TODO(stickupkid): Once environs doesn't have a dependency on series, we
-	// can remove this conversion.
-	var bootstrapSeries string
-	if !args.BootstrapBase.Empty() {
-		var err error
-		bootstrapSeries, err = corebase.GetSeriesFromBase(args.BootstrapBase)
-		if err != nil {
-			return errors.NotValidf("base %q", args.BootstrapBase)
-		}
-	}
-	supportedBootstrapSeries := set.NewStrings()
-	for _, base := range args.SupportedBootstrapBases {
-		s, err := corebase.GetSeriesFromBase(base)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		supportedBootstrapSeries.Add(s)
-	}
-
 	bootstrapParams := environs.BootstrapParams{
 		CloudName:                  args.Cloud.Name,
 		CloudRegion:                args.CloudRegion,
 		ControllerConfig:           args.ControllerConfig,
 		ModelConstraints:           args.ModelConstraints,
 		StoragePools:               args.StoragePools,
-		BootstrapSeries:            bootstrapSeries,
-		SupportedBootstrapSeries:   supportedBootstrapSeries,
+		BootstrapBase:              args.BootstrapBase,
+		SupportedBootstrapBases:    args.SupportedBootstrapBases,
 		Placement:                  args.Placement,
 		Force:                      args.Force,
 		ExtraAgentValuesForTesting: args.ExtraAgentValuesForTesting,
