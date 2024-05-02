@@ -15,6 +15,7 @@ import (
 	"github.com/vmware/govmomi/vim25/types"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/internal/provider/vsphere"
@@ -80,12 +81,12 @@ func (v *vmTemplateSuite) SetUpTest(c *gc.C) {
 func (v *vmTemplateSuite) addMockLocalTemplateToClient() {
 	args := vsphereclient.ImportOVAParameters{
 		OVASHA256:    ovatest.FakeOVASHA256(),
-		Series:       "jammy",
+		Base:         base.MustParseBaseFromString("ubuntu@22.04"),
 		Arch:         "amd64",
 		TemplateName: "juju-template-" + ovatest.FakeOVASHA256(),
 		DestinationFolder: object.NewFolder(nil, types.ManagedObjectReference{
 			Type:  "Folder",
-			Value: "custom-templates/jammy",
+			Value: "custom-templates/ubuntu_22.04",
 		}),
 	}
 	v.client.virtualMachineTemplates = []mockTemplateVM{
@@ -110,14 +111,14 @@ func (v *vmTemplateSuite) addMockDownloadedTemplateToClientNoArch() {
 func (v *vmTemplateSuite) mockDownloadedTemplateToClient(arch string) {
 	args := vsphereclient.ImportOVAParameters{
 		OVASHA256:    ovatest.FakeOVASHA256(),
-		Series:       "jammy",
+		Base:         base.MustParseBaseFromString("ubuntu@22.04"),
 		Arch:         arch,
 		TemplateName: "juju-template-" + ovatest.FakeOVASHA256(),
 		DestinationFolder: object.NewFolder(nil, types.ManagedObjectReference{
 			Type: "Folder",
 			// The mocked client does a strings.HasPrefix() on this path when listing templates.
 			// We do a greedy search when looking for already imported templates.
-			Value: "Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/templates/jammy/*",
+			Value: "Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/templates/ubuntu_22.04/*",
 		}),
 	}
 	v.client.virtualMachineTemplates = []mockTemplateVM{
@@ -139,7 +140,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedButImageExist
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "jammy", "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -154,7 +155,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedAndImageDoesN
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	_, _, err := tplMgr.EnsureTemplate(context.Background(), "xenial", "amd64")
+	_, _, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@16.04"), "amd64")
 	c.Assert(err, jc.ErrorIs, environs.ErrAvailabilityZoneIndependent)
 	c.Assert(err.Error(), gc.Matches, "no matching images found for given constraints.*")
 	v.client.CheckCallNames(c, "ListVMTemplates", "EnsureVMFolder")
@@ -163,7 +164,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateNoImageMetadataSuppliedAndImageDoesN
 func (v *vmTemplateSuite) TestEnsureTemplateWithImageMetadataSupplied(c *gc.C) {
 	imgMeta := []*imagemetadata.ImageMetadata{
 		{
-			Id:         "custom-templates/jammy",
+			Id:         "custom-templates/ubuntu_22.04",
 			RegionName: "/datacenter1",
 			Endpoint:   "host1",
 			Arch:       "amd64",
@@ -176,7 +177,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateWithImageMetadataSupplied(c *gc.C) {
 		v.datastore, v.statusUpdateParams, "",
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "jammy", "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, jc.DeepEquals, v.client.virtualMachineTemplates[0].vm)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -187,7 +188,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageNotFoundLocally(c *gc.C) {
 	imgMeta := []*imagemetadata.ImageMetadata{
 		{
 			// this image ID does not exist in our mocked templates.
-			Id:         "custom-templates/xenial",
+			Id:         "custom-templates/ubuntu_16.04",
 			RegionName: "/datacenter1",
 			Endpoint:   "host1",
 			Arch:       "amd64",
@@ -202,7 +203,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageNotFoundLocally(c *gc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 	// jammy exists in the image-download simplestreams
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "jammy", "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -219,7 +220,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImage(c *gc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "jammy", "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "amd64")
@@ -235,7 +236,7 @@ func (v *vmTemplateSuite) TestEnsureTemplateImageCachedImageNoArch(c *gc.C) {
 		coretesting.FakeControllerConfig().ControllerUUID(),
 	)
 
-	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), "jammy", "amd64")
+	tpl, arch, err := tplMgr.EnsureTemplate(context.Background(), base.MustParseBaseFromString("ubuntu@22.04"), "amd64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tpl, gc.NotNil)
 	c.Assert(arch, gc.Equals, "")
