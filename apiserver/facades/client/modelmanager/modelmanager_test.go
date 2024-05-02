@@ -62,6 +62,7 @@ func createArgs(owner names.UserTag) params.ModelCreateArgs {
 type modelManagerSuite struct {
 	jtesting.IsolationSuite
 
+	ctrl           *gomock.Controller
 	st             *mockState
 	ctlrSt         *mockState
 	caasSt         *mockState
@@ -78,17 +79,17 @@ type modelManagerSuite struct {
 
 var _ = gc.Suite(&modelManagerSuite{})
 
-func (s *modelManagerSuite) setUpMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
+func (s *modelManagerSuite) setUpMocks(c *gc.C) {
+	s.ctrl = gomock.NewController(c)
 
-	s.modelExporter = mocks.NewMockModelExporter(ctrl)
-	s.modelService = mocks.NewMockModelService(ctrl)
-	s.accessService = mocks.NewMockAccessService(ctrl)
-	return ctrl
+	s.modelExporter = mocks.NewMockModelExporter(s.ctrl)
+	s.modelService = mocks.NewMockModelService(s.ctrl)
+	s.accessService = mocks.NewMockAccessService(s.ctrl)
 }
 
 func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
+	s.setUpMocks(c)
 
 	var err error
 	s.controllerUUID, err = uuid.UUIDFromString(coretesting.ControllerTag.Id())
@@ -265,6 +266,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TearDownTest(c *gc.C) {
+	s.ctrl.Finish()
 	modelmanager.ResetSupportedFeaturesGetter()
 }
 
@@ -313,7 +315,13 @@ func getModelArgsFor(c *gc.C, mockState *mockState) state.ModelArgs {
 }
 
 func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "user-admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-admin",
@@ -376,6 +384,13 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "user-admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-admin",
@@ -394,6 +409,13 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "user-admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-admin",
@@ -404,6 +426,13 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "user-admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-admin",
@@ -424,6 +453,13 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdminNoDomain(c *gc.
 }
 
 func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, ownerTag string) {
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(
+		[]access.ModelUserInfo{{
+			UserName:    ownerTag,
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: ownerTag,
@@ -438,6 +474,13 @@ func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, owner
 }
 
 func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "user-bob",
+			DisplayName: "Bob",
+			Access:      permission.ReadAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-bob",
@@ -473,8 +516,13 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
-	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil)
-	s.accessService.EXPECT().LastModelConnection(gomock.Any(), gomock.Any(), gomock.Any()).Return(time.Time{}, nil)
+	s.accessService.EXPECT().ModelUserInfo(gomock.Any(), coremodel.UUID(s.st.model.cfg.UUID())).Return(
+		[]access.ModelUserInfo{{
+			UserName:    "user-admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:               "foo",
 		OwnerTag:           "user-admin",
@@ -721,9 +769,6 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-
 	api, err := modelmanager.NewModelManagerAPI(
 		s.st, s.modelExporter, s.ctlrSt,
 		s.controllerUUID,

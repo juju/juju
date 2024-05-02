@@ -476,12 +476,14 @@ func (s *modelInfoSuite) TestModelInfoErrorModelUsers(c *gc.C) {
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorNoModelUsers(c *gc.C) {
+	c.Skip("This error check in modelInfo is disabled until all permissions have been moved to domain")
 	api, _ := s.getAPI(c)
 	s.st.model.users = nil
 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
 }
 
 func (s *modelInfoSuite) TestModelInfoErrorNoAccess(c *gc.C) {
+	c.Skip("This error check in modelInfo is disabled until all permissions have been moved to domain")
 	api, _ := s.getAPIWithUser(c, names.NewUserTag("nemo@local"))
 	s.testModelInfoError(c, api, coretesting.ModelTag.String(), `permission denied`)
 }

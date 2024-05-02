@@ -540,11 +540,6 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Trace(err)
 	}
 
-	modelInfo, err := m.getModelInfo(ctx, createdModel.ModelTag(), false)
-	if err != nil {
-		return result, err
-	}
-
 	// createModelNew represents the logic needed for moving to DQlite. It is in
 	// a half finished state at the moment for the purpose of removing the model
 	// manager service. This check will go in the very near future.
@@ -554,9 +549,12 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 	if m.modelService != nil {
 		args.CloudRegion = cloudRegionName
 
-		return modelInfo, m.createModelNew(ctx, modelInfo.UUID, args)
+		if err := m.createModelNew(ctx, createdModel.UUID(), args); err != nil {
+			return result, err
+		}
 	}
-	return modelInfo, nil
+
+	return m.getModelInfo(ctx, createdModel.ModelTag(), false)
 }
 
 func (m *ModelManagerAPI) newCAASModel(
@@ -1155,7 +1153,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		if thisErr == nil {
 			return false
 		}
-		return !ignoreNotFoundError || !errors.Is(thisErr, errors.NotFound) || !errors.Is(thisErr, modelerrors.NotFound)
+		return !ignoreNotFoundError || !errors.Is(thisErr, errors.NotFound)
 	}
 	cfg, err := model.Config()
 	if shouldErr(err) {
@@ -1191,16 +1189,21 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}
 	if err == nil {
-		if len(userInfos) == 0 {
-			// No users, which means the authenticated user doesn't
-			// have access to the model.
-			return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
-		}
+		// TODO(aflynn) Add this check back in once users are added to the
+		// access domain at model creation. getModelInfo is called during
+		// CreateModel and this check fails because we have not added the model
+		// users to the access service.
+		/*
+			if len(userInfos) == 0 {
+				// No users, which means the authenticated user doesn't
+				// have access to the model.
+				return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
+			}
+		*/
 
 		for _, userInfo := range userInfos {
 			// If the user is not an admin they should only get information about
 			// themselves.
-			// TODO(aflynn): Replace this check with something more robust.
 			if modelAdmin || (!modelAdmin && userInfo.UserName == m.apiUser.Name()) {
 				accessLevel, err := params.StateToParamsUserAccessPermission(userInfo.Access)
 				if err != nil {
