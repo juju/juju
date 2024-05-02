@@ -322,12 +322,12 @@ func (s *Service) updateModelConfigValidator(
 ) config.Validator {
 	agg := &config.AggregateValidator{
 		Validators: []config.Validator{
-			s.modelValidator,
 			validators.AgentVersionChange(),
 			validators.CharmhubURLChange(),
 			validators.SpaceChecker(&dummySpaceProvider{}),
 			validators.SecretBackendChecker(&dummySecretsBackendProvider{}),
 			validators.AuthorizedKeysChange(),
+			s.modelValidator,
 		},
 	}
 	agg.Validators = append(agg.Validators, additional...)

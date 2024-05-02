@@ -114,8 +114,10 @@ func (*validatorsSuite) TestAgentVersionNoChange(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = AgentVersionChange()(newCfg, oldCfg)
+	cfg, err := AgentVersionChange()(newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
+	_, agentVersionSet := cfg.AgentVersion()
+	c.Check(agentVersionSet, jc.IsFalse)
 
 	oldCfg, err = config.New(config.NoDefaults, map[string]any{
 		"name": "wallyworld",
