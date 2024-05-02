@@ -68,7 +68,7 @@ func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.SecretR
 		err     error
 	)
 	if s.authTag.Kind() == names.ModelTagKind {
-		toDrain, err = s.secretService.ListCharmSecretsToDrain(ctx)
+		toDrain, err = s.secretService.ListUserSecretsToDrain(ctx)
 	} else {
 		toDrain, err = s.getCharmSecretsToDrain(ctx)
 	}

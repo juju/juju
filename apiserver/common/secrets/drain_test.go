@@ -189,6 +189,74 @@ func (s *secretsDrainSuite) TestGetSecretsToDrainExternal(c *gc.C) {
 	)
 }
 
+func (s *secretsDrainSuite) TestGetUserSecretsToDrain(c *gc.C) {
+	s.authTag = names.NewModelTag(coretesting.ModelTag.Id())
+
+	defer s.setup(c).Finish()
+
+	uri := coresecrets.NewURI()
+	revisions := []coresecrets.SecretExternalRevision{
+		{
+			// External backend.
+			Revision: 666,
+			ValueRef: &coresecrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-666",
+			},
+		}, {
+			// Internal backend.
+			Revision: 667,
+		},
+		{
+			// k8s backend.
+			Revision: 668,
+			ValueRef: &coresecrets.ValueRef{
+				BackendID:  coretesting.ModelTag.Id(),
+				RevisionID: "rev-668",
+			},
+		},
+	}
+	expectedRevions := []params.SecretRevision{{
+		Revision: 667,
+	},
+		// k8s backend.
+		{
+			Revision: 668,
+			ValueRef: &params.SecretValueRef{
+				BackendID:  coretesting.ModelTag.Id(),
+				RevisionID: "rev-668",
+			},
+		},
+	}
+	s.secretService.EXPECT().ListUserSecretsToDrain(gomock.Any()).Return([]*coresecrets.SecretMetadataForDrain{{
+		URI:       uri,
+		Revisions: revisions,
+	}}, nil)
+	revInfo := make([]backendservice.RevisionInfo, len(expectedRevions))
+	for i, r := range expectedRevions {
+		revInfo[i] = backendservice.RevisionInfo{
+			Revision: r.Revision,
+		}
+		if r.ValueRef != nil {
+			revInfo[i].ValueRef = &coresecrets.ValueRef{
+				BackendID:  r.ValueRef.BackendID,
+				RevisionID: r.ValueRef.RevisionID,
+			}
+		}
+	}
+	s.secretBackendService.EXPECT().GetRevisionsToDrain(gomock.Any(), model.UUID(coretesting.ModelTag.Id()), revisions).
+		Return(revInfo, nil)
+
+	results, err := s.facade.GetSecretsToDrain(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, jc.DeepEquals, params.SecretRevisionsToDrainResults{
+		Results: []params.SecretRevisionsToDrainResult{{
+			URI:       uri.String(),
+			Revisions: expectedRevions,
+		}},
+	})
+}
+
 func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 	defer s.setup(c).Finish()
 

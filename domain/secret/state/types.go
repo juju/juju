@@ -279,7 +279,7 @@ func (rows secretIDs) toSecretMetadataForDrain(revRows secretExternalRevisions) 
 				URI: uri,
 			}
 			current = &md
-			result = append(result, &md)
+			result = append(result, current)
 		}
 		rev := coresecrets.SecretExternalRevision{
 			Revision: revRows[i].Revision,
