@@ -426,15 +426,13 @@ VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestListUserSecretsNone(c *gc.C) {
+func (s *stateSuite) TestListCharmSecretsToDrainNone(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	s.setupUnits(c, "mysql")
 
 	sp := domainsecret.UpsertSecretParams{
-		Description: ptr("my secretMetadata"),
-		Label:       ptr("my label"),
-		Data:        coresecrets.SecretData{"foo": "bar"},
+		Data: coresecrets.SecretData{"foo": "bar"},
 	}
 	uri := coresecrets.NewURI()
 
@@ -442,27 +440,94 @@ func (s *stateSuite) TestListUserSecretsNone(c *gc.C) {
 	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	secrets, revisions, err := st.ListUserSecrets(ctx)
+	toDrain, err := st.ListCharmSecretsToDrain(ctx, domainsecret.ApplicationOwners{"mariadb"}, domainsecret.NilUnitOwners)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(secrets, gc.HasLen, 0)
-	c.Assert(revisions, gc.HasLen, 0)
+	c.Assert(toDrain, gc.HasLen, 0)
 }
 
-func (s *stateSuite) TestListUserSecrets(c *gc.C) {
+func (s *stateSuite) TestListCharmSecretsToDrain(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
 
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mariadb")
+
+	sp := []domainsecret.UpsertSecretParams{{
+		Data: coresecrets.SecretData{"foo": "bar"},
+	}, {
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
+	}}
+	uri := []*coresecrets.URI{
+		coresecrets.NewURI(),
+		coresecrets.NewURI(),
+	}
+
+	ctx := context.Background()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri[0], "mysql", sp[0])
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri[1], "mysql/0", sp[1])
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri3 := coresecrets.NewURI()
+	sp3 := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar"},
+	}
+	err = st.CreateUserSecret(ctx, 1, uri3, sp3)
+	c.Assert(err, jc.ErrorIsNil)
+
+	toDrain, err := st.ListCharmSecretsToDrain(ctx, domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mysql/0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(toDrain, jc.SameContents, []*coresecrets.SecretMetadataForDrain{{
+		URI: uri[0],
+		Revisions: []coresecrets.SecretExternalRevision{{
+			Revision: 1,
+			ValueRef: nil,
+		}},
+	}, {
+		URI: uri[1],
+		Revisions: []coresecrets.SecretExternalRevision{{
+			Revision: 1,
+			ValueRef: &coresecrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-id",
+			},
+		}},
+	}})
+}
+
+func (s *stateSuite) TestListUserSecretsToDrainNone(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar"},
+	}
+	uri := coresecrets.NewURI()
+
+	ctx := context.Background()
+	err := st.CreateCharmUnitSecret(ctx, 1, uri, "mysql/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	toDrain, err := st.ListUserSecretsToDrain(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(toDrain, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestListUserSecretsToDrain(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
 	s.setupUnits(c, "mysql")
 
 	sp := []domainsecret.UpsertSecretParams{{
-		Description: ptr("my secretMetadata"),
-		Label:       ptr("my label"),
-		Data:        coresecrets.SecretData{"foo": "bar"},
-		AutoPrune:   ptr(true),
+		Data: coresecrets.SecretData{"foo": "bar"},
 	}, {
-		Description: ptr("my secretMetadata2"),
-		Label:       ptr("my label2"),
-		Data:        coresecrets.SecretData{"foo": "bar2"},
+		ValueRef: &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		},
 	}}
 	uri := []*coresecrets.URI{
 		coresecrets.NewURI(),
@@ -472,31 +537,34 @@ func (s *stateSuite) TestListUserSecrets(c *gc.C) {
 	ctx := context.Background()
 	err := st.CreateUserSecret(ctx, 1, uri[0], sp[0])
 	c.Assert(err, jc.ErrorIsNil)
-	err = st.CreateCharmUnitSecret(ctx, 1, uri[1], "mysql/0", sp[1])
+	err = st.CreateUserSecret(ctx, 1, uri[1], sp[1])
 	c.Assert(err, jc.ErrorIsNil)
 
-	secrets, revisions, err := st.ListUserSecrets(ctx)
+	uri3 := coresecrets.NewURI()
+	sp3 := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar"},
+	}
+	err = st.CreateCharmUnitSecret(ctx, 1, uri3, "mysql/0", sp3)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(secrets), gc.Equals, 1)
-	c.Assert(len(revisions), gc.Equals, 1)
 
-	now := time.Now()
-
-	md := secrets[0]
-	c.Assert(md.Version, gc.Equals, 1)
-	c.Assert(md.Label, gc.Equals, value(sp[0].Label))
-	c.Assert(md.Description, gc.Equals, value(sp[0].Description))
-	c.Assert(md.LatestRevision, gc.Equals, 1)
-	c.Assert(md.AutoPrune, gc.Equals, value(sp[0].AutoPrune))
-	c.Assert(md.Owner, jc.DeepEquals, coresecrets.Owner{Kind: coresecrets.ModelOwner, ID: s.modelUUID})
-	c.Assert(md.CreateTime, jc.Almost, now)
-	c.Assert(md.UpdateTime, jc.Almost, now)
-
-	revs := revisions[0]
-	c.Assert(revs, gc.HasLen, 1)
-	c.Assert(revs[0].Revision, gc.Equals, 1)
-	c.Assert(revs[0].CreateTime, jc.Almost, now)
-	c.Assert(revs[0].UpdateTime, jc.Almost, now)
+	toDrain, err := st.ListUserSecretsToDrain(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(toDrain, jc.SameContents, []*coresecrets.SecretMetadataForDrain{{
+		URI: uri[0],
+		Revisions: []coresecrets.SecretExternalRevision{{
+			Revision: 1,
+			ValueRef: nil,
+		}},
+	}, {
+		URI: uri[1],
+		Revisions: []coresecrets.SecretExternalRevision{{
+			Revision: 1,
+			ValueRef: &coresecrets.ValueRef{
+				BackendID:  "backend-id",
+				RevisionID: "rev-id",
+			},
+		}},
+	}})
 }
 
 func ptr[T any](v T) *T {

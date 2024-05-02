@@ -1026,7 +1026,7 @@ func (s *serviceSuite) assertGetSecretsToDrain(c *gc.C, backendID string, expect
 			ID: jujuBackendID,
 		}, nil)
 
-	revisions := []*coresecrets.SecretRevisionMetadata{
+	revisions := []coresecrets.SecretExternalRevision{
 		{
 			// External backend.
 			Revision: 666,

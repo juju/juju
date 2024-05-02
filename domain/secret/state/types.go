@@ -124,6 +124,12 @@ type secretValueRef struct {
 	RevisionID   string `db:"revision_id"`
 }
 
+type secretExternalRevision struct {
+	Revision    int    `db:"revision"`
+	BackendUUID string `db:"backend_uuid"`
+	RevisionID  string `db:"revision_id"`
+}
+
 type secretUnitConsumer struct {
 	UnitUUID        string `db:"unit_uuid"`
 	SecretID        string `db:"secret_id"`
@@ -243,6 +249,48 @@ func (rows secrets) toSecretRevisionRef(refs secretValueRefs) ([]*coresecrets.Se
 			URI:        uri,
 			RevisionID: refs[i].RevisionID,
 		}
+	}
+	return result, nil
+}
+
+type (
+	secretIDs               []secretID
+	secretExternalRevisions []secretExternalRevision
+)
+
+func (rows secretIDs) toSecretMetadataForDrain(revRows secretExternalRevisions) ([]*coresecrets.SecretMetadataForDrain, error) {
+	if len(rows) != len(revRows) {
+		// Should never happen.
+		return nil, errors.New("row length mismatch composing secret results")
+	}
+
+	var (
+		result  []*coresecrets.SecretMetadataForDrain
+		current *coresecrets.SecretMetadataForDrain
+	)
+	for i, row := range rows {
+		if current == nil || current.URI.ID != row.ID {
+			// Encountered a new record.
+			uri, err := coresecrets.ParseURI(row.ID)
+			if err != nil {
+				return nil, errors.NotValidf("secret URI %q", row.ID)
+			}
+			md := coresecrets.SecretMetadataForDrain{
+				URI: uri,
+			}
+			current = &md
+			result = append(result, current)
+		}
+		rev := coresecrets.SecretExternalRevision{
+			Revision: revRows[i].Revision,
+		}
+		if revRows[i].BackendUUID != "" {
+			rev.ValueRef = &coresecrets.ValueRef{
+				BackendID:  revRows[i].BackendUUID,
+				RevisionID: revRows[i].RevisionID,
+			}
+		}
+		current.Revisions = append(current.Revisions, rev)
 	}
 	return result, nil
 }

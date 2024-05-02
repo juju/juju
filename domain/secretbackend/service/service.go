@@ -713,7 +713,7 @@ func (s *Service) SetModelSecretBackend(ctx context.Context, modelUUID coremodel
 
 // GetRevisionsToDrain looks at the supplied revisions and returns any which should be
 // drained to a different backend for the specified model.
-func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.UUID, revs []*coresecrets.SecretRevisionMetadata) ([]RevisionInfo, error) {
+func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.UUID, revs []coresecrets.SecretExternalRevision) ([]RevisionInfo, error) {
 	activeBackendDetails, err := s.st.GetModelSecretBackendDetails(ctx, modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)

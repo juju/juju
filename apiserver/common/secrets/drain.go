@@ -62,44 +62,28 @@ func NewSecretsDrainAPI(
 }
 
 // GetSecretsToDrain returns metadata for the secrets that need to be drained.
-func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.ListSecretResults, error) {
+func (s *SecretsDrainAPI) GetSecretsToDrain(ctx context.Context) (params.SecretRevisionsToDrainResults, error) {
 	var (
-		metadata         []*coresecrets.SecretMetadata
-		revisionMetadata [][]*coresecrets.SecretRevisionMetadata
-		err              error
+		toDrain []*coresecrets.SecretMetadataForDrain
+		err     error
 	)
 	if s.authTag.Kind() == names.ModelTagKind {
-		metadata, revisionMetadata, err = s.secretService.ListUserSecrets(ctx)
+		toDrain, err = s.secretService.ListUserSecretsToDrain(ctx)
 	} else {
-		metadata, revisionMetadata, err = s.getCharmSecrets(ctx)
+		toDrain, err = s.getCharmSecretsToDrain(ctx)
 	}
 	if err != nil {
-		return params.ListSecretResults{}, errors.Trace(err)
+		return params.SecretRevisionsToDrainResults{}, errors.Trace(err)
 	}
 
-	var result params.ListSecretResults
-	for i, md := range metadata {
-		ownerTag, err := OwnerTagFromOwner(md.Owner)
-		if err != nil {
-			// This should never happen.
-			return params.ListSecretResults{}, errors.Trace(err)
+	var result params.SecretRevisionsToDrainResults
+	for _, info := range toDrain {
+		secretResult := params.SecretRevisionsToDrainResult{
+			URI: info.URI.String(),
 		}
-		secretResult := params.ListSecretResult{
-			URI:              md.URI.String(),
-			Version:          md.Version,
-			OwnerTag:         ownerTag.String(),
-			RotatePolicy:     md.RotatePolicy.String(),
-			NextRotateTime:   md.NextRotateTime,
-			Description:      md.Description,
-			Label:            md.Label,
-			LatestRevision:   md.LatestRevision,
-			LatestExpireTime: md.LatestExpireTime,
-			CreateTime:       md.CreateTime,
-			UpdateTime:       md.UpdateTime,
-		}
-		toDrain, err := s.secretBackendService.GetRevisionsToDrain(ctx, s.modelUUID, revisionMetadata[i])
+		toDrain, err := s.secretBackendService.GetRevisionsToDrain(ctx, s.modelUUID, info.Revisions)
 		if err != nil {
-			return params.ListSecretResults{}, errors.Trace(err)
+			return params.SecretRevisionsToDrainResults{}, errors.Trace(err)
 		}
 		for _, r := range toDrain {
 			var valueRef *params.SecretValueRef
@@ -160,7 +144,7 @@ func isLeaderUnit(authTag names.Tag, leadershipChecker leadership.Checker) (bool
 	return err == nil, nil
 }
 
-func (s *SecretsDrainAPI) getCharmSecrets(ctx context.Context) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
+func (s *SecretsDrainAPI) getCharmSecretsToDrain(ctx context.Context) ([]*coresecrets.SecretMetadataForDrain, error) {
 	owners := []secretservice.CharmSecretOwner{{
 		Kind: secretservice.UnitOwner,
 		ID:   s.authTag.Id(),
@@ -168,7 +152,7 @@ func (s *SecretsDrainAPI) getCharmSecrets(ctx context.Context) ([]*coresecrets.S
 	// Unit leaders can also get metadata for secrets owned by the app.
 	isLeader, err := isLeaderUnit(s.authTag, s.leadershipChecker)
 	if err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if isLeader {
 		appName, _ := names.UnitApplication(s.authTag.Id())
@@ -177,7 +161,7 @@ func (s *SecretsDrainAPI) getCharmSecrets(ctx context.Context) ([]*coresecrets.S
 			ID:   appName,
 		})
 	}
-	return s.secretService.ListCharmSecrets(ctx, owners...)
+	return s.secretService.ListCharmSecretsToDrain(ctx, owners...)
 }
 
 // ChangeSecretBackend updates the backend for the specified secret after migration done.

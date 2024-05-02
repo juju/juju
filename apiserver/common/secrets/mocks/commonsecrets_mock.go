@@ -111,41 +111,39 @@ func (mr *MockSecretServiceMockRecorder) ChangeSecretBackend(arg0, arg1, arg2, a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSecretBackend", reflect.TypeOf((*MockSecretService)(nil).ChangeSecretBackend), arg0, arg1, arg2, arg3)
 }
 
-// ListCharmSecrets mocks base method.
-func (m *MockSecretService) ListCharmSecrets(arg0 context.Context, arg1 ...service.CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+// ListCharmSecretsToDrain mocks base method.
+func (m *MockSecretService) ListCharmSecretsToDrain(arg0 context.Context, arg1 ...service.CharmSecretOwner) ([]*secrets.SecretMetadataForDrain, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0}
 	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "ListCharmSecrets", varargs...)
-	ret0, _ := ret[0].([]*secrets.SecretMetadata)
-	ret1, _ := ret[1].([][]*secrets.SecretRevisionMetadata)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret := m.ctrl.Call(m, "ListCharmSecretsToDrain", varargs...)
+	ret0, _ := ret[0].([]*secrets.SecretMetadataForDrain)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// ListCharmSecrets indicates an expected call of ListCharmSecrets.
-func (mr *MockSecretServiceMockRecorder) ListCharmSecrets(arg0 any, arg1 ...any) *gomock.Call {
+// ListCharmSecretsToDrain indicates an expected call of ListCharmSecretsToDrain.
+func (mr *MockSecretServiceMockRecorder) ListCharmSecretsToDrain(arg0 any, arg1 ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{arg0}, arg1...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmSecrets", reflect.TypeOf((*MockSecretService)(nil).ListCharmSecrets), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmSecretsToDrain", reflect.TypeOf((*MockSecretService)(nil).ListCharmSecretsToDrain), varargs...)
 }
 
-// ListUserSecrets mocks base method.
-func (m *MockSecretService) ListUserSecrets(arg0 context.Context) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error) {
+// ListUserSecretsToDrain mocks base method.
+func (m *MockSecretService) ListUserSecretsToDrain(arg0 context.Context) ([]*secrets.SecretMetadataForDrain, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListUserSecrets", arg0)
-	ret0, _ := ret[0].([]*secrets.SecretMetadata)
-	ret1, _ := ret[1].([][]*secrets.SecretRevisionMetadata)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret := m.ctrl.Call(m, "ListUserSecretsToDrain", arg0)
+	ret0, _ := ret[0].([]*secrets.SecretMetadataForDrain)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// ListUserSecrets indicates an expected call of ListUserSecrets.
-func (mr *MockSecretServiceMockRecorder) ListUserSecrets(arg0 any) *gomock.Call {
+// ListUserSecretsToDrain indicates an expected call of ListUserSecretsToDrain.
+func (mr *MockSecretServiceMockRecorder) ListUserSecretsToDrain(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUserSecrets", reflect.TypeOf((*MockSecretService)(nil).ListUserSecrets), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUserSecretsToDrain", reflect.TypeOf((*MockSecretService)(nil).ListUserSecretsToDrain), arg0)
 }
 
 // MockSecretBackendService is a mock of SecretBackendService interface.
@@ -172,7 +170,7 @@ func (m *MockSecretBackendService) EXPECT() *MockSecretBackendServiceMockRecorde
 }
 
 // GetRevisionsToDrain mocks base method.
-func (m *MockSecretBackendService) GetRevisionsToDrain(arg0 context.Context, arg1 model.UUID, arg2 []*secrets.SecretRevisionMetadata) ([]service0.RevisionInfo, error) {
+func (m *MockSecretBackendService) GetRevisionsToDrain(arg0 context.Context, arg1 model.UUID, arg2 []secrets.SecretExternalRevision) ([]service0.RevisionInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetRevisionsToDrain", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]service0.RevisionInfo)

@@ -14,12 +14,14 @@ import (
 
 // SecretService instances provide secret service apis.
 type SecretService interface {
-	ListCharmSecrets(context.Context, ...secretservice.CharmSecretOwner) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
-	ListUserSecrets(ctx context.Context) ([]*secrets.SecretMetadata, [][]*secrets.SecretRevisionMetadata, error)
+	ListCharmSecretsToDrain(
+		ctx context.Context, owners ...secretservice.CharmSecretOwner,
+	) ([]*secrets.SecretMetadataForDrain, error)
+	ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error)
 	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params secretservice.ChangeSecretBackendParams) error
 }
 
 // SecretBackendService instances provide secret backend service apis.
 type SecretBackendService interface {
-	GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.UUID, revs []*secrets.SecretRevisionMetadata) ([]backendservice.RevisionInfo, error)
+	GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.UUID, revs []secrets.SecretExternalRevision) ([]backendservice.RevisionInfo, error)
 }
