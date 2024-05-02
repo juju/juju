@@ -856,7 +856,7 @@ AND    grant_to IN (
 `
 	updateQueryStmt, err := st.Prepare(updateQuery, permInOut{})
 	if err != nil {
-		return errors.Annotate(err, "preparing update updateLastLogin query")
+		return errors.Annotate(err, "preparing updatePermission query")
 	}
 
 	in := permInOut{

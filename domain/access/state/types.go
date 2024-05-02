@@ -143,6 +143,11 @@ type userName struct {
 	Name string `db:"name"`
 }
 
+// userUUID is used to retrieve the UUID from the user table.
+type userUUID struct {
+	UUID string `db:"uuid"`
+}
+
 // permInOut is a struct to replace sqlair.M with permission
 // SQL that contains a user name, grant_on and access both
 // input and output.
@@ -150,4 +155,28 @@ type permInOut struct {
 	Name    string `db:"name"`
 	GrantOn string `db:"grant_on"`
 	Access  string `db:"access"`
+}
+
+// dbModelAccess is a struct used to record a users logging in to a particular
+// model.
+type dbModelAccess struct {
+	UserUUID  string `db:"user_uuid"`
+	ModelUUID string `db:"model_uuid"`
+}
+
+// dbModelUUID is a struct used to record a model UUID from the database.
+type dbModelUUID struct {
+	UUID string `db:"uuid"`
+}
+
+// dbModelExists is used to record if a row in the database exists by selecting true
+// into it.
+type dbModelExists struct {
+	Exists bool `db:"exists"`
+}
+
+// loginTime is used to record the last time a user logged in when reading from
+// model_last_login.
+type loginTime struct {
+	Time time.Time `db:"time"`
 }

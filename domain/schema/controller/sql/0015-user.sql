@@ -14,7 +14,6 @@ CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE removed IS FA
 
 CREATE TABLE user_authentication (
     user_uuid      TEXT PRIMARY KEY,
-    last_login     TIMESTAMP,
     disabled       BOOLEAN NOT NULL,
     CONSTRAINT     fk_user_authentication_user
         FOREIGN KEY (user_uuid)
@@ -45,6 +44,5 @@ SELECT u.uuid,
        u.removed,
        u.created_by_uuid, 
        u.created_at,
-       a.last_login, 
        a.disabled
 FROM   user u LEFT JOIN user_authentication a on u.uuid = a.user_uuid;

@@ -30,6 +30,7 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access/service"
@@ -957,8 +958,8 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
-
 	// The user now has last login updated.
+
 	user, err := userService.GetUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(user.LastLogin, jc.Almost, now)
@@ -967,7 +968,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	model := s.ControllerModel(c)
 	modelUser, err := model.State().UserAccess(names.NewUserTag("bobbrown"), model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
-	when, err := model.LastModelConnection(modelUser.UserTag)
+	when, err := userService.LastModelLogin(context.Background(), modelUser.UserTag.Name(), coremodel.UUID(model.UUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, jc.Almost, now)
 }

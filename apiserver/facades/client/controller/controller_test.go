@@ -157,50 +157,6 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *controllerSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
-	c.Check(model.Name, gc.Equals, expected.Name())
-	c.Check(model.UUID, gc.Equals, expected.UUID())
-	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
-}
-
-func (s *controllerSuite) TestAllModels(c *gc.C) {
-	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
-
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "owned", Owner: admin.UserTag()}).Close()
-	remoteUserTag := names.NewUserTag("user@remote")
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "user", Owner: remoteUserTag})
-	defer func() { _ = st.Close() }()
-	model, err := st.Model()
-	c.Assert(err, jc.ErrorIsNil)
-
-	model.AddUser(
-		state.UserAccessSpec{
-			User:        admin.UserTag(),
-			CreatedBy:   remoteUserTag,
-			DisplayName: "Foo Bar",
-			Access:      permission.WriteAccess})
-
-	s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "no-access", Owner: remoteUserTag}).Close()
-
-	response, err := s.controller.AllModels(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	// The results are sorted.
-	expected := []string{"controller", "no-access", "owned", "user"}
-	var obtained []string
-	for _, userModel := range response.UserModels {
-		c.Assert(userModel.Type, gc.Equals, "iaas")
-		obtained = append(obtained, userModel.Name)
-		stateModel, ph, err := s.StatePool.GetModel(userModel.UUID)
-		c.Assert(err, jc.ErrorIsNil)
-		defer ph.Release()
-		s.checkModelMatches(c, userModel.Model, stateModel)
-	}
-	c.Assert(obtained, jc.DeepEquals, expected)
-}
-
 func (s *controllerSuite) TestHostedModelConfigs_OnlyHostedModelsReturned(c *gc.C) {
 	owner := s.Factory.MakeUser(c, nil)
 	s.Factory.MakeModel(c, &factory.ModelParams{
@@ -779,39 +735,6 @@ func (s *controllerSuite) TestGrantControllerInvalidUserTag(c *gc.C) {
 	}
 }
 
-type accessSuite struct {
-	statetesting.StateSuite
-
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
-
-	accessService *mocks.MockControllerAccessService
-}
-
-var _ = gc.Suite(&accessSuite{})
-
-func (s *accessSuite) SetUpSuite(c *gc.C) {
-	s.StateSuite.SetUpSuite(c)
-}
-func (s *accessSuite) SetUpTest(c *gc.C) {
-	// Initial config needs to be set before the StateSuite SetUpTest.
-	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
-		"name": "controller",
-	})
-	controllerCfg := testing.FakeControllerConfig()
-
-	s.StateSuite.ControllerConfig = controllerCfg
-	s.StateSuite.SetUpTest(c)
-
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:      s.Owner,
-		AdminTag: s.Owner,
-	}
-}
-
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	// Check that we don't err out immediately if a model errs.
 	results, err := s.controller.ModelStatus(context.Background(), params.Entities{Entities: []params.Entity{{
@@ -1118,6 +1041,51 @@ func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
 
 }
 
+type accessSuite struct {
+	statetesting.StateSuite
+
+	resources  *common.Resources
+	authorizer apiservertesting.FakeAuthorizer
+
+	accessService *mocks.MockControllerAccessService
+}
+
+var _ = gc.Suite(&accessSuite{})
+
+func (s *accessSuite) SetUpSuite(c *gc.C) {
+	s.StateSuite.SetUpSuite(c)
+}
+
+func (s *accessSuite) SetUpTest(c *gc.C) {
+	// Initial config needs to be set before the StateSuite SetUpTest.
+	s.InitialConfig = testing.CustomModelConfig(c, testing.Attrs{
+		"name": "controller",
+	})
+	controllerCfg := testing.FakeControllerConfig()
+
+	s.StateSuite.ControllerConfig = controllerCfg
+	s.StateSuite.SetUpTest(c)
+
+	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag:      s.Owner,
+		AdminTag: s.Owner,
+	}
+
+}
+
+func (s *accessSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.accessService = mocks.NewMockControllerAccessService(ctrl)
+	return ctrl
+}
+
+func (s *accessSuite) TearDownTest(c *gc.C) {
+	s.StateSuite.TearDownTest(c)
+}
+
 func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 	api, err := controller.NewControllerAPI(
 		context.Background(),
@@ -1142,12 +1110,9 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 }
 
 func (s *accessSuite) TestModifyControllerAccess(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
+	defer s.setupMocks(c).Finish()
 	userName := "test-user"
 
-	s.accessService = mocks.NewMockControllerAccessService(ctrl)
 	updateArgs := access.UpdatePermissionArgs{
 		AccessSpec: permission.ControllerForAccess(permission.SuperuserAccess),
 		AddUser:    true,
@@ -1169,15 +1134,12 @@ func (s *accessSuite) TestModifyControllerAccess(c *gc.C) {
 }
 
 func (s *accessSuite) TestGetControllerAccessPermissions(c *gc.C) {
-	// Set up the user making the call.
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setupMocks(c).Finish()
 
 	userName := "test-user"
 	userTag := names.NewUserTag(userName)
 	differentUser := "different-test-user"
 
-	s.accessService = mocks.NewMockControllerAccessService(ctrl)
 	target := permission.ControllerForAccess(permission.SuperuserAccess)
 	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, target.Target).Return(permission.SuperuserAccess, nil)
 
@@ -1198,6 +1160,53 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	c.Assert(*results.Results[1].Error, gc.DeepEquals, params.Error{
 		Message: "permission denied", Code: "unauthorized access",
 	})
+}
+
+func (s *accessSuite) TestAllModels(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	admin := s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
+
+	s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "owned", Owner: admin.UserTag()}).Close()
+	remoteUserTag := names.NewUserTag("user@remote")
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "user", Owner: remoteUserTag})
+	defer func() { _ = st.Close() }()
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	model.AddUser(
+		state.UserAccessSpec{
+			User:        admin.UserTag(),
+			CreatedBy:   remoteUserTag,
+			DisplayName: "Foo Bar",
+			Access:      permission.WriteAccess})
+
+	s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "no-access", Owner: remoteUserTag}).Close()
+
+	s.accessService.EXPECT().LastModelLogin(gomock.Any(), "test-admin", gomock.Any()).Times(4)
+
+	response, err := s.controllerAPI(c).AllModels(stdcontext.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	// The results are sorted.
+	expected := []string{"controller", "no-access", "owned", "user"}
+	var obtained []string
+	for _, userModel := range response.UserModels {
+		c.Assert(userModel.Type, gc.Equals, "iaas")
+		obtained = append(obtained, userModel.Name)
+		stateModel, ph, err := s.StatePool.GetModel(userModel.UUID)
+		c.Assert(err, jc.ErrorIsNil)
+		defer ph.Release()
+		s.checkModelMatches(c, userModel.Model, stateModel)
+	}
+	c.Assert(obtained, jc.DeepEquals, expected)
+}
+
+func (s *accessSuite) checkModelMatches(c *gc.C, model params.Model, expected *state.Model) {
+	c.Check(model.Name, gc.Equals, expected.Name())
+	c.Check(model.UUID, gc.Equals, expected.UUID())
+	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
 }
 
 type noopRegisterer struct {

@@ -77,4 +77,8 @@ const (
 	// AccessNotFound describes an error that occurs no access is found for a
 	// user on a target.
 	AccessNotFound = errors.ConstError("access not found")
+
+	// UserNeverAccessedModel describes an error that occurs if a user has
+	// never accessed a model.
+	UserNeverAccessedModel = errors.ConstError("user never accessed model")
 )

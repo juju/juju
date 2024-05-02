@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -28,10 +29,12 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/docker"
@@ -65,6 +68,9 @@ type ControllerAccessService interface {
 	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
 	// UpdatePermission updates the access level for a user for the controller.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
+	// LastModelLogin gets the time the specified user last connected to the
+	// model.
+	LastModelLogin(context.Context, string, coremodel.UUID) (time.Time, error)
 }
 
 // ControllerAPI provides the Controller API.
@@ -237,7 +243,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForCAAS(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := dashboardApp.CharmConfig(model.GenerationMaster)
+	cfg, err := dashboardApp.CharmConfig(coremodel.GenerationMaster)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -273,7 +279,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cfg, err := dashboardApp.CharmConfig(model.GenerationMaster)
+	cfg, err := dashboardApp.CharmConfig(coremodel.GenerationMaster)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -404,11 +410,19 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 			},
 		}
 
-		lastConn, err := model.LastModelConnection(c.apiUser)
-		if err != nil {
-			if !state.IsNeverConnectedError(err) {
-				return result, errors.Trace(err)
-			}
+		lastConn, err := c.accessService.LastModelLogin(ctx, c.apiUser.Name(), coremodel.UUID(model.UUID()))
+		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
+			userModel.LastConnection = nil
+		} else if errors.Is(err, modelerrors.NotFound) {
+			// TODO (aflynn): Once models are fully in domain, replace the line
+			// below with a `continue`. When models are still in state, this
+			// case is triggered because the model cannot be found in the domain
+			// db. Generally, it should only be triggered if the model has been
+			// removed since we got the UUID.
+			userModel.LastConnection = nil
+		} else if err != nil {
+			return result, errors.Annotatef(err,
+				"getting model last login time for user %q on model %q", c.apiUser.Name(), model.Name())
 		} else {
 			userModel.LastConnection = &lastConn
 		}

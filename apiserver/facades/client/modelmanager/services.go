@@ -5,6 +5,7 @@ package modelmanager
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/description/v6"
 
@@ -125,6 +126,10 @@ type AccessService interface {
 	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error)
 	// UpdatePermission updates the access level for a user of the model.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
+	// LastModelLogin will return the last login time of the specified
+	// user. An accesserrors.UserNeverAccessedModel error will be returned if
+	// there is no record of the user logging in to this model.
+	LastModelLogin(context.Context, string, coremodel.UUID) (time.Time, error)
 }
 
 // NetworkService is the interface that is used to interact with the

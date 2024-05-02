@@ -314,6 +314,9 @@ func getModelArgsFor(c *gc.C, mockState *mockState) state.ModelArgs {
 }
 
 func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
+	now := time.Now()
+	s.setUpMocks(c)
+	s.accessService.EXPECT().LastModelLogin(gomock.Any(), "user-admin", gomock.Any()).Return(now, nil).Times(3)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-admin",
@@ -339,16 +342,6 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"HAPrimaryMachine",
 		"LatestMigration",
 	)
-
-	// Check that Model.LastModelConnection is called three times
-	// without making the test depend on other calls to Model
-	n := 0
-	for _, call := range s.st.model.Calls() {
-		if call.FuncName == "LastModelConnection" {
-			n = n + 1
-		}
-	}
-	c.Assert(n, gc.Equals, 3)
 
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the
@@ -483,6 +476,7 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
+	s.setUpMocks(c)
 	args := params.ModelCreateArgs{
 		Name:               "foo",
 		OwnerTag:           "user-admin",
@@ -508,15 +502,8 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 	)
 	s.caasBroker.CheckCallNames(c, "Create")
 
-	// Check that Model.LastModelConnection is called just twice
-	// without making the test depend on other calls to Model
-	n := 0
-	for _, call := range s.caasSt.model.Calls() {
-		if call.FuncName == "LastModelConnection" {
-			n = n + 1
-		}
-	}
-	c.Assert(n, gc.Equals, 2)
+	// Check that Model.LastModelLogin is called just twice
+	s.accessService.EXPECT().LastModelLogin(gomock.Any(), "user-admin", gomock.Any()).Times(3)
 
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the

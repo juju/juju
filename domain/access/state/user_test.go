@@ -15,9 +15,12 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/database"
@@ -671,21 +674,41 @@ func (s *userStateSuite) TestRemoveUser(c *gc.C) {
 	err = st.RemoveUser(context.Background(), "userToRemove")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Check that the user was removed correctly.
+	// Check that the user has been successfully removed.
 	db := s.DB()
 
+	// Check that the user password was removed
 	row := db.QueryRow(`
+SELECT user_uuid
+FROM user_password
+WHERE user_uuid = ?
+	`, userToRemoveUUID)
+	// ErrNoRows is not returned by row.Err, it is deferred until row.Scan
+	// is called.
+	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+
+	// Check that the user activation key was removed
+	row = db.QueryRow(`
+SELECT user_uuid
+FROM user_activation_key
+WHERE user_uuid = ?
+	`, userToRemoveUUID)
+	// ErrNoRows is not returned by row.Err, it is deferred until row.Scan
+	// is called.
+	c.Assert(row.Scan(nil), jc.ErrorIs, sql.ErrNoRows)
+
+	// Check that the user was marked as removed.
+	row = db.QueryRow(`
 SELECT removed
 FROM user
 WHERE uuid = ?
 	`, userToRemoveUUID)
 	c.Assert(row.Err(), jc.ErrorIsNil)
-
 	var removed bool
 	err = row.Scan(&removed)
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Check(removed, gc.Equals, true)
+
 }
 
 // TestGetAllUsersWihAuthInfo asserts that we can get all users with auth info from
@@ -1180,49 +1203,6 @@ WHERE user_uuid = ?
 	c.Assert(disabled, gc.Equals, false)
 }
 
-// TestUpdateLastLogin asserts that we can update the last login time for a
-// user.
-func (s *userStateSuite) TestUpdateLastLogin(c *gc.C) {
-	st := NewUserState(s.TxnRunnerFactory())
-
-	// Add admin user with activation key.
-	adminUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	salt, err := auth.NewSalt()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add user with password hash.
-	err = st.AddUserWithPasswordHash(
-		context.Background(), adminUUID,
-		"admin", "admin",
-		adminUUID,
-		controllerLoginAccess(),
-		"passwordHash", salt,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Update last login.
-	err = st.UpdateLastLogin(context.Background(), "admin")
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that the last login was updated correctly.
-	db := s.DB()
-
-	row := db.QueryRow(`
-SELECT last_login
-FROM user_authentication
-WHERE user_uuid = ?
-	`, adminUUID)
-	c.Assert(row.Err(), jc.ErrorIsNil)
-
-	var lastLogin time.Time
-	err = row.Scan(&lastLogin)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(lastLogin, gc.NotNil)
-}
-
 func (s *userStateSuite) TestGetUserUUIDByName(c *gc.C) {
 	st := NewUserState(s.TxnRunnerFactory())
 	uuid, err := user.NewUUID()
@@ -1252,6 +1232,120 @@ func (s *userStateSuite) TestGetUserUUIDByNameNotFound(c *gc.C) {
 	)
 
 	c.Check(err, jc.ErrorIs, usererrors.UserNotFound)
+}
+
+// TestUpdateLastModelLogin asserts that the model_last_login table is updated
+// with the last login time to the model on UpdateLastModelLogin.
+func (s *userStateSuite) TestUpdateLastModelLogin(c *gc.C) {
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-update-last-login-model")
+	st := NewUserState(s.TxnRunnerFactory())
+	name, adminUUID := s.addTestUser(c, st, "admin")
+
+	// Update last login.
+	err := st.UpdateLastModelLogin(context.Background(), name, modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the last login was updated correctly.
+	db := s.DB()
+
+	row := db.QueryRow(`
+SELECT user_uuid, model_uuid, time
+FROM model_last_login
+WHERE user_uuid = ?
+	`, adminUUID)
+	c.Assert(row.Err(), jc.ErrorIsNil)
+
+	var lastLogin time.Time
+	var dbModelUUID string
+	var dbUserUUID string
+	err = row.Scan(&dbUserUUID, &dbModelUUID, &lastLogin)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(lastLogin, gc.NotNil)
+	c.Assert(dbUserUUID, gc.Equals, string(adminUUID))
+	c.Assert(dbModelUUID, gc.Equals, string(modelUUID))
+}
+
+func (s *userStateSuite) TestUpdateLastModelLoginModelNotFound(c *gc.C) {
+	st := NewUserState(s.TxnRunnerFactory())
+	name, _ := s.addTestUser(c, st, "admin")
+	badModelUUID, err := coremodel.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Update last login.
+	err = st.UpdateLastModelLogin(context.Background(), name, badModelUUID)
+	c.Assert(err, gc.ErrorMatches, ".*model not found.*")
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *userStateSuite) TestLastModelLogin(c *gc.C) {
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-login")
+	st := NewUserState(s.TxnRunnerFactory())
+	username1, _ := s.addTestUser(c, st, "user1")
+	username2, _ := s.addTestUser(c, st, "user2")
+
+	// Simulate two logins to the model.
+	err := st.UpdateLastModelLogin(context.Background(), username1, modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.UpdateLastModelLogin(context.Background(), username2, modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check user2 was the last to login.
+	time1, err := st.LastModelLogin(context.Background(), username1, modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	time2, err := st.LastModelLogin(context.Background(), username2, modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(time1.Before(time2), jc.IsTrue, gc.Commentf("time1 is after time2 (%s is after %s)", time1, time2))
+	// Simulate a new login from user1
+	err = st.UpdateLastModelLogin(context.Background(), username1, modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check the time for user1 was updated.
+	time1, err = st.LastModelLogin(context.Background(), username1, modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(time2.Before(time1), jc.IsTrue)
+}
+
+func (s *userStateSuite) TestLastModelLoginModelNotFound(c *gc.C) {
+	st := NewUserState(s.TxnRunnerFactory())
+	name, _ := s.addTestUser(c, st, "admin")
+	badModelUUID, err := coremodel.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get users last login for non existent model.
+	_, err = st.LastModelLogin(context.Background(), name, badModelUUID)
+	c.Assert(err, gc.ErrorMatches, ".*model not found.*")
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *userStateSuite) TestLastModelLoginModelUserNeverAccessedModel(c *gc.C) {
+	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-login")
+	st := NewUserState(s.TxnRunnerFactory())
+	name, _ := s.addTestUser(c, st, "admin")
+
+	// Get users last login for non existent model.
+	_, err := st.LastModelLogin(context.Background(), name, modelUUID)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNeverAccessedModel)
+}
+
+func (s *userStateSuite) addTestUser(c *gc.C, st *UserState, name string) (string, user.UUID) {
+	// Add admin user with activation key.
+	userUUID, err := user.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	salt, err := auth.NewSalt()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add user with password hash.
+	err = st.AddUserWithPasswordHash(
+		context.Background(), userUUID,
+		name, name,
+		userUUID,
+		controllerLoginAccess(),
+		"passwordHash", salt,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	return name, userUUID
 }
 
 func controllerLoginAccess() permission.AccessSpec {

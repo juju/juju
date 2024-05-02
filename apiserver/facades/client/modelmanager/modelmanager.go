@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs"
@@ -825,6 +826,21 @@ func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.Mod
 	}
 
 	for _, mi := range modelInfos {
+		lastConnection, err := m.accessService.LastModelLogin(ctx, userTag.Name(), coremodel.UUID(mi.UUID))
+		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
+			mi.UserLastConnection = nil
+		} else if errors.Is(err, modelerrors.NotFound) {
+			// TODO (aflynn): Once models are fully in domain, replace the line
+			// below with a `continue`. When models are still in state, this
+			// case is triggered because the model cannot be found in the domain
+			// db. Generally, it should only be triggered if the model has been
+			// removed since we got the UUID.
+			mi.UserLastConnection = nil
+		} else if err != nil {
+			return result, errors.Annotatef(err, "getting model last login time for user %q on model %q", userTag.Name(), mi.Name)
+		} else {
+			mi.UserLastConnection = &lastConnection
+		}
 		summary := m.makeModelSummary(mi)
 		result.Results = append(result.Results, params.ModelSummaryResult{Result: summary})
 	}
@@ -977,7 +993,19 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (p
 			logger.Warningf("for model %v, got an invalid owner: %q", mi.UUID, mi.Owner)
 		}
 
-		t := time.Now()
+		var lastConnection *time.Time
+		lc, err := m.accessService.LastModelLogin(ctx, userTag.Name(), mi.UUID)
+		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
+			lastConnection = nil
+		} else if errors.Is(err, modelerrors.NotFound) {
+			// Continue if the model has been removed since we got the UUID.
+			continue
+		} else if err != nil {
+			return result, errors.Annotatef(err, "getting last login time for user %q on model %q", userTag.Name(), mi.Name)
+		} else {
+			lastConnection = &lc
+		}
+
 		result.UserModels = append(result.UserModels, params.UserModel{
 			Model: params.Model{
 				Name:     mi.Name,
@@ -985,10 +1013,9 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (p
 				Type:     string(mi.ModelType),
 				OwnerTag: ownerTag.String(),
 			},
-			LastConnection: &t,
+			LastConnection: lastConnection,
 		})
 	}
-
 	return result, nil
 }
 
