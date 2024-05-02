@@ -182,8 +182,3 @@ func GetSeriesFromBase(v Base) (string, error) {
 func LegacyKubernetesBase() Base {
 	return MakeDefaultBase(UbuntuOS, "20.04")
 }
-
-// LegacyKubernetesSeries is the ubuntu series for legacy k8s charms.
-func LegacyKubernetesSeries() string {
-	return "focal"
-}

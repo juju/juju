@@ -845,12 +845,15 @@ func (s *JujuConnSuite) AddTestingCharmForSeries(c *gc.C, name, series string) *
 
 func (s *JujuConnSuite) AddTestingApplication(c *gc.C, name string, ch *state.Charm) *state.Application {
 	curl := charm.MustParseURL(ch.URL())
+	var base corebase.Base
 	appSeries := curl.Series
 	if appSeries == "kubernetes" {
-		appSeries = corebase.LegacyKubernetesSeries()
+		base = corebase.LegacyKubernetesBase()
+	} else {
+		var err error
+		base, err = corebase.GetBaseFromSeries(appSeries)
+		c.Assert(err, jc.ErrorIsNil)
 	}
-	base, err := corebase.GetBaseFromSeries(appSeries)
-	c.Assert(err, jc.ErrorIsNil)
 	app, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name: name, Charm: ch,
 		CharmOrigin: &state.CharmOrigin{
