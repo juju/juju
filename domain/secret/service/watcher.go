@@ -49,7 +49,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	table, query := s.st.InitialWatchStatementForConsumedSecretsChange(unitName)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		// We are only interested in CREATE changes because
-		// the secret_revision.version is immutable anyway.
+		// the secret_revision.revision is immutable anyway.
 		table, changestream.Create, query,
 	)
 	if err != nil {
@@ -93,7 +93,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	appOwners, unitOwners := splitCharmSecretOwners(owners...)
 	table, query := s.st.InitialWatchStatementForObsoleteRevision(appOwners, unitOwners)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
-		table, changestream.Update, query,
+		table, changestream.Create, query,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)

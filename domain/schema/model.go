@@ -60,16 +60,12 @@ func ModelDDL() *schema.Schema {
 		changeLogTriggersForTable("storage_volume", "uuid", tableVolume),
 		changeLogTriggersForTable("storage_volume_attachment", "uuid", tableVolumeAttachment),
 		changeLogTriggersForTable("storage_volume_attachment_plan", "uuid", tableVolumeAttachmentPlan),
-
 		changeLogTriggersForTableOnColumn("secret_metadata", "secret_id", "auto_prune", tableSecretMetadata),
 		changeLogTriggersForTable("secret_rotation", "secret_id", tableSecretRotation),
-		changeLogTriggersForTableOnColumn("secret_revision_obsolete", "revision_uuid", "obsolete", tableSecretRevisionObsolete),
+		changeLogTriggersForTable("secret_revision_obsolete", "revision_uuid", tableSecretRevisionObsolete),
 		changeLogTriggersForTable("secret_revision_expire", "revision_uuid", tableSecretRevisionExpire),
-		// We only want to watch the new revision INSERT.
-		// To achieve this and have less performance impact on the event stream watcher,
-		// we watch the changes on the immutable revision field.
-		changeLogTriggersForTableOnColumn("secret_revision", "uuid", "revision", tableSecretRevision),
-		changeLogTriggersForTableOnColumn("secret_reference", "secret_id", "latest_revision", tableSecretReference),
+		changeLogTriggersForTable("secret_revision", "uuid", tableSecretRevision),
+		changeLogTriggersForTable("secret_reference", "secret_id", tableSecretReference),
 		changeLogTriggersForTable("subnet", "uuid", tableSubnet),
 		changeLogTriggersForTable("subnet_association", "associated_subnet_uuid", tableSubnetAssociation),
 

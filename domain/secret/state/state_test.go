@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -154,7 +155,6 @@ func (s *stateSuite) assertSecret(c *gc.C, st *State, uri *coresecrets.URI, sp d
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rev.Revision, gc.Equals, revision)
 	c.Assert(rev.CreateTime, jc.Almost, now)
-	c.Assert(rev.UpdateTime, jc.Almost, now)
 	if rev.ExpireTime == nil {
 		c.Assert(md[0].LatestExpireTime, gc.IsNil)
 	} else {
@@ -346,7 +346,6 @@ func (s *stateSuite) TestListSecrets(c *gc.C) {
 		c.Assert(revs, gc.HasLen, 1)
 		c.Assert(revs[0].Revision, gc.Equals, 1)
 		c.Assert(revs[0].CreateTime, jc.Almost, now)
-		c.Assert(revs[0].UpdateTime, jc.Almost, now)
 	}
 }
 
@@ -397,7 +396,6 @@ func (s *stateSuite) TestListSecretsByURI(c *gc.C) {
 	c.Assert(revs, gc.HasLen, 1)
 	c.Assert(revs[0].Revision, gc.Equals, 1)
 	c.Assert(revs[0].CreateTime, jc.Almost, now)
-	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 }
 
 func (s *stateSuite) setupUnits(c *gc.C, appName string) {
@@ -866,7 +864,6 @@ func (s *stateSuite) TestListCharmSecretsByUnit(c *gc.C) {
 		RevisionID: "revision-id",
 	})
 	c.Assert(revs[0].CreateTime, jc.Almost, now)
-	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 }
 
 func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
@@ -917,7 +914,6 @@ func (s *stateSuite) TestListCharmSecretsByApplication(c *gc.C) {
 	c.Assert(revs, gc.HasLen, 1)
 	c.Assert(revs[0].Revision, gc.Equals, 1)
 	c.Assert(revs[0].CreateTime, jc.Almost, now)
-	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 }
 
 func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
@@ -999,7 +995,6 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	c.Assert(revs[0].Revision, gc.Equals, 1)
 	c.Assert(*revs[0].ExpireTime, gc.Equals, expireTime.UTC())
 	c.Assert(revs[0].CreateTime, jc.Almost, now)
-	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 
 	md = secrets[second]
 	c.Assert(md.Version, gc.Equals, 1)
@@ -1017,7 +1012,6 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	c.Assert(revs[0].Revision, gc.Equals, 1)
 	c.Assert(revs[0].ExpireTime, gc.IsNil)
 	c.Assert(revs[0].CreateTime, jc.Almost, now)
-	c.Assert(revs[0].UpdateTime, jc.Almost, now)
 }
 
 func (s *stateSuite) TestSaveSecretConsumer(c *gc.C) {
@@ -1581,7 +1575,6 @@ func (s *stateSuite) TestUpdateSecretContent(c *gc.C) {
 	c.Assert(rev.Revision, gc.Equals, 2)
 	c.Assert(rev.ExpireTime, gc.NotNil)
 	c.Assert(*rev.ExpireTime, gc.Equals, expireTime.UTC())
-	c.Assert(rev.UpdateTime, jc.Almost, now)
 
 	content, valueRef, err := st.GetSecretValue(ctx, uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1646,7 +1639,6 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 	c.Assert(rev.Revision, gc.Equals, 2)
 	c.Assert(rev.ExpireTime, gc.NotNil)
 	c.Assert(*rev.ExpireTime, gc.Equals, expireTime.UTC())
-	c.Assert(rev.UpdateTime, jc.Almost, now)
 
 	content, valueRef, err := st.GetSecretValue(ctx, uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1693,16 +1685,19 @@ func (s *stateSuite) TestUpdateSecretContentObsolete(c *gc.C) {
 
 func (s *stateSuite) getObsolete(c *gc.C, uri *coresecrets.URI, rev int) (bool, bool) {
 	var obsolete, pendingDelete bool
-	_ = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, `
 SELECT obsolete, pending_delete
 FROM secret_revision_obsolete sro
 INNER JOIN secret_revision sr ON sro.revision_uuid = sr.uuid
 WHERE sr.secret_id = ? AND sr.revision = ?`, uri.ID, rev)
 		err := row.Scan(&obsolete, &pendingDelete)
-		c.Check(err, jc.ErrorIsNil)
-		return nil
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
 	})
+	c.Check(err, jc.ErrorIsNil)
 	return obsolete, pendingDelete
 }
 
@@ -1743,7 +1738,6 @@ func (s *stateSuite) TestUpdateSecretContentValueRef(c *gc.C) {
 	rev := revs[0][0]
 	c.Assert(rev.Revision, gc.Equals, 2)
 	c.Assert(rev.ExpireTime, gc.IsNil)
-	c.Assert(rev.UpdateTime, jc.Almost, now)
 
 	content, valueRef, err := st.GetSecretValue(ctx, uri, 2)
 	c.Assert(err, jc.ErrorIsNil)

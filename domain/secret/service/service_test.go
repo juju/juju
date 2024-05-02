@@ -1330,7 +1330,7 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 		domainsecret.ApplicationOwners([]string{"mysql"}),
 		domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
 	).Return("table", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Update, gomock.Any()).Return(mockStringWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Create, gomock.Any()).Return(mockStringWatcher, nil)
 
 	gomock.InOrder(
 		s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(),

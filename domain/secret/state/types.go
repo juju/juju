@@ -98,17 +98,16 @@ type secretRotate struct {
 }
 
 type secretRevision struct {
-	ID       string `db:"uuid"`
-	SecretID string `db:"secret_id"`
-	Revision int    `db:"revision"`
+	ID         string    `db:"uuid"`
+	SecretID   string    `db:"secret_id"`
+	Revision   int       `db:"revision"`
+	CreateTime time.Time `db:"create_time"`
 }
 
 type secretRevisionObsolete struct {
-	ID            string    `db:"revision_uuid"`
-	Obsolete      bool      `db:"obsolete"`
-	PendingDelete bool      `db:"pending_delete"`
-	CreateTime    time.Time `db:"create_time"`
-	UpdateTime    time.Time `db:"update_time"`
+	ID            string `db:"revision_uuid"`
+	Obsolete      bool   `db:"obsolete"`
+	PendingDelete bool   `db:"pending_delete"`
 }
 
 type secretRevisionExpire struct {
@@ -300,13 +299,12 @@ func (rows secretIDs) toSecretMetadataForDrain(revRows secretExternalRevisions) 
 }
 
 type secretRevisions []secretRevision
-type secretRevisionsObsolete []secretRevisionObsolete
 type secretRevisionsExpire []secretRevisionExpire
 
 func (rows secretRevisions) toSecretRevisions(
-	valueRefs secretValueRefs, revObsolete secretRevisionsObsolete, revExpire secretRevisionsExpire,
+	valueRefs secretValueRefs, revExpire secretRevisionsExpire,
 ) ([]*coresecrets.SecretRevisionMetadata, error) {
-	if n := len(rows); n != len(valueRefs) || n != len(revObsolete) || n != len(revExpire) {
+	if n := len(rows); n != len(valueRefs) || n != len(revExpire) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch composing secret revision results")
 	}
@@ -316,8 +314,7 @@ func (rows secretRevisions) toSecretRevisions(
 		result[i] = &coresecrets.SecretRevisionMetadata{
 			Revision:    row.Revision,
 			ValueRef:    nil,
-			CreateTime:  revObsolete[i].CreateTime,
-			UpdateTime:  revObsolete[i].UpdateTime,
+			CreateTime:  row.CreateTime,
 			BackendName: nil,
 		}
 		if tm := revExpire[i].ExpireTime; !tm.IsZero() {

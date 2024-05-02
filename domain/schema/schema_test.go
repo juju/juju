@@ -409,21 +409,21 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_secret_rotation_update",
 		"trg_log_secret_rotation_delete",
 
-		"trg_log_secret_revision_obsolete_obsolete_insert",
-		"trg_log_secret_revision_obsolete_obsolete_update",
-		"trg_log_secret_revision_obsolete_obsolete_delete",
+		"trg_log_secret_revision_obsolete_insert",
+		"trg_log_secret_revision_obsolete_update",
+		"trg_log_secret_revision_obsolete_delete",
 
 		"trg_log_secret_revision_expire_insert",
 		"trg_log_secret_revision_expire_update",
 		"trg_log_secret_revision_expire_delete",
 
-		"trg_log_secret_revision_revision_insert",
-		"trg_log_secret_revision_revision_update",
-		"trg_log_secret_revision_revision_delete",
+		"trg_log_secret_revision_insert",
+		"trg_log_secret_revision_update",
+		"trg_log_secret_revision_delete",
 
-		"trg_log_secret_reference_latest_revision_insert",
-		"trg_log_secret_reference_latest_revision_update",
-		"trg_log_secret_reference_latest_revision_delete",
+		"trg_log_secret_reference_insert",
+		"trg_log_secret_reference_update",
+		"trg_log_secret_reference_delete",
 
 		"trg_log_block_device_insert",
 		"trg_log_block_device_update",

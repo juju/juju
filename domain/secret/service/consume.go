@@ -73,7 +73,7 @@ func (s *SecretService) GetConsumedRevision(ctx context.Context, uri *secrets.UR
 	s.logger.Warningf("GetConsumedRevision: uri: %v, unitName: %v, refresh: %#v, peek: %#v, labelToUpdate: %#v", uri, unitName, refresh, peek, labelToUpdate)
 	consumerInfo, latestRevision, err := s.GetSecretConsumerAndLatest(ctx, uri, unitName)
 	s.logger.Warningf("GetConsumedRevision: consumerInfo: %v, latestRevision: %v, err: %v", consumerInfo, latestRevision, err)
-	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) && !errors.Is(err, secreterrors.SecretNotFound) {
+	if err != nil && !errors.Is(err, secreterrors.SecretConsumerNotFound) {
 		return 0, errors.Trace(err)
 	}
 	refresh = refresh ||

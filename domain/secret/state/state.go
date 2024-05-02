@@ -13,7 +13,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/database"
 	coredatabase "github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -416,16 +415,13 @@ VALUES ($secretID.id)
 	}
 
 	dbRevision := secretRevision{
-		ID:       revisionUUID.String(),
-		SecretID: uri.ID,
-		Revision: 1,
-	}
-	obsolete := secretRevisionObsolete{
 		ID:         revisionUUID.String(),
+		SecretID:   uri.ID,
+		Revision:   1,
 		CreateTime: now,
-		UpdateTime: now,
 	}
-	if err := st.upsertSecretRevision(ctx, tx, dbRevision, obsolete, secret.ExpireTime); err != nil {
+
+	if err := st.upsertSecretRevision(ctx, tx, dbRevision, secret.ExpireTime); err != nil {
 		return errors.Annotatef(err, "inserting revision for secret %q", uri)
 	}
 
@@ -587,16 +583,13 @@ WHERE sm.secret_id = $secretID.id
 
 	nextRevision := existing[0].LatestRevision + 1
 	dbRevision := secretRevision{
-		ID:       revisionUUID.String(),
-		SecretID: uri.ID,
-		Revision: nextRevision,
-	}
-	obsolete := secretRevisionObsolete{
 		ID:         revisionUUID.String(),
+		SecretID:   uri.ID,
+		Revision:   nextRevision,
 		CreateTime: now,
-		UpdateTime: now,
 	}
-	if err := st.upsertSecretRevision(ctx, tx, dbRevision, obsolete, secret.ExpireTime); err != nil {
+
+	if err := st.upsertSecretRevision(ctx, tx, dbRevision, secret.ExpireTime); err != nil {
 		return errors.Annotatef(err, "inserting revision for secret %q", uri)
 	}
 
@@ -627,7 +620,7 @@ WHERE sm.secret_id = $secretID.id
 // markObsoleteRevisions obsoletes the revisions and sets the pending_delete to true in the secret_revision table
 // for the specified secret if the revision is not the latest revision and there are no consumers for the revision.
 func (st State) markObsoleteRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
-	stmt, err := st.Prepare(`
+	query, err := st.Prepare(`
 WITH in_use AS (
     -- revisions that have local consumers.
     SELECT DISTINCT current_revision FROM secret_unit_consumer suc
@@ -641,24 +634,47 @@ UNION
     SELECT MAX(revision) FROM secret_revision rev
     WHERE  rev.secret_id = $secretRef.secret_id
 )
-UPDATE secret_revision_obsolete
-SET    obsolete = true,
-       pending_delete = true,
-       update_time = DATETIME('now')
+SELECT sr.uuid AS &secretRevision.uuid
 FROM   secret_revision sr
-WHERE  secret_revision_obsolete.revision_uuid = sr.uuid
-AND    sr.secret_id = $secretRef.secret_id
-AND    secret_revision_obsolete.obsolete = false
-AND    sr.revision NOT IN (SELECT * FROM in_use)`, secretRef{})
+WHERE  sr.secret_id = $secretRef.secret_id
+AND    sr.revision NOT IN (SELECT * FROM in_use)`, secretRef{}, secretRevision{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = tx.Query(ctx, stmt, secretRef{ID: uri.ID}).Run()
+
+	stmt, err := st.Prepare(`
+INSERT INTO secret_revision_obsolete (*)
+VALUES ($secretRevisionObsolete.*)
+ON CONFLICT(revision_uuid) DO UPDATE SET
+    obsolete=excluded.obsolete,
+    pending_delete=excluded.pending_delete`, secretRevisionObsolete{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var revisionUUIIDs secretRevisions
+	err = tx.Query(ctx, query, secretRef{ID: uri.ID}).GetAll(&revisionUUIIDs)
+	st.logger.Warningf("markObsoleteRevisions: %v, err %#v", revisionUUIIDs, err)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// No obsolete revisions to mark.
 		return nil
 	}
-	return errors.Trace(err)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, revisionUUID := range revisionUUIIDs {
+		obsolete := secretRevisionObsolete{
+			ID:            revisionUUID.ID,
+			Obsolete:      true,
+			PendingDelete: true,
+		}
+		err = tx.Query(ctx, stmt, obsolete).Run()
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 func (st State) upsertSecretLabel(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, label string, owner coresecrets.Owner) error {
@@ -861,8 +877,7 @@ ON CONFLICT(secret_id) DO UPDATE SET
 }
 
 func (st State) upsertSecretRevision(
-	ctx context.Context, tx *sqlair.TX,
-	dbRevision secretRevision, obsolete secretRevisionObsolete, expireTime *time.Time,
+	ctx context.Context, tx *sqlair.TX, dbRevision secretRevision, expireTime *time.Time,
 ) error {
 	insertQuery := `
 INSERT INTO secret_revision (*)
@@ -879,21 +894,8 @@ VALUES ($secretRevision.*)
 		return errors.Trace(err)
 	}
 
-	insertObsoleteQuery := `
-INSERT INTO secret_revision_obsolete (*)
-VALUES ($secretRevisionObsolete.*)
-ON CONFLICT(revision_uuid) DO UPDATE SET
-    pending_delete=excluded.pending_delete,
-    update_time=excluded.update_time
-`
-	insertObsoleteStmt, err := st.Prepare(insertObsoleteQuery, secretRevisionObsolete{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	err = tx.Query(ctx, insertObsoleteStmt, obsolete).Run()
-	if err != nil || expireTime == nil {
-		return errors.Trace(err)
+	if expireTime == nil {
+		return nil
 	}
 
 	insertExpireTimeQuery := `
@@ -1578,10 +1580,9 @@ func (st State) listSecretRevisions(ctx context.Context, tx *sqlair.TX, uri *cor
 	query := `
 SELECT (sr.*) AS (&secretRevision.*),
        (svr.*) AS (&secretValueRef.*),
-       (sre.*) AS (&secretRevisionExpire.*),
-       (sro.*) AS (&secretRevisionObsolete.*)
+       (sre.*) AS (&secretRevisionExpire.*)
 FROM   secret_revision sr
-INNER JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
+LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
 LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = sr.uuid
 LEFT JOIN secret_value_ref svr ON svr.revision_uuid = sr.uuid
 WHERE  secret_id = $secretRevision.secret_id
@@ -1598,17 +1599,16 @@ WHERE  secret_id = $secretRevision.secret_id
 	}
 
 	var (
-		dbSecretRevisions         secretRevisions
-		dbSecretValueRefs         secretValueRefs
-		dbsecretRevisionsObsolete secretRevisionsObsolete
-		dbSecretRevisionsExpire   secretRevisionsExpire
+		dbSecretRevisions       secretRevisions
+		dbSecretValueRefs       secretValueRefs
+		dbSecretRevisionsExpire secretRevisionsExpire
 	)
-	err = tx.Query(ctx, queryStmt, want).GetAll(&dbSecretRevisions, &dbSecretValueRefs, &dbsecretRevisionsObsolete, &dbSecretRevisionsExpire)
+	err = tx.Query(ctx, queryStmt, want).GetAll(&dbSecretRevisions, &dbSecretValueRefs, &dbSecretRevisionsExpire)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return nil, errors.Annotatef(err, "retrieving secret revisions for %q", uri)
 	}
 
-	return dbSecretRevisions.toSecretRevisions(dbSecretValueRefs, dbsecretRevisionsObsolete, dbSecretRevisionsExpire)
+	return dbSecretRevisions.toSecretRevisions(dbSecretValueRefs, dbSecretRevisionsExpire)
 }
 
 // GetSecretValue returns the contents - either data or value reference - of a given secret revision,
@@ -2566,14 +2566,38 @@ type dbrevisionUUIDs []revisionUUID
 
 // InitialWatchStatementForConsumedSecretsChange returns the initial watch statement and the table name for watching consumed secrets.
 func (st State) InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery) {
-	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
-		var revUUIDs dbrevisionUUIDs
-		if err := st.getConsumedSecretURIsWithChanges(ctx, runner,
-			"DISTINCT sr.uuid AS &revisionUUID.uuid", revisionUUID{}, &revUUIDs,
-			unitName,
-		); err != nil {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		q := `
+SELECT
+    DISTINCT sr.uuid AS &revisionUUID.uuid
+FROM secret_unit_consumer suc
+LEFT JOIN unit u ON u.uuid = suc.unit_uuid
+LEFT JOIN secret_revision sr ON sr.secret_id = suc.secret_id
+WHERE u.unit_id = $unit.unit_id
+GROUP BY sr.secret_id
+HAVING suc.current_revision < MAX(sr.revision)`
+
+		queryParams := []any{
+			unit{UnitName: unitName},
+		}
+
+		stmt, err := st.Prepare(q, append([]any{revisionUUID{}}, queryParams...)...)
+		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		var revUUIDs dbrevisionUUIDs
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt, queryParams...).GetAll(&revUUIDs)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				// No consumed secrets found.
+				return nil
+			}
+			return errors.Trace(err)
+		})
+		if err != nil {
+			return nil, errors.Trace(domain.CoerceError(err))
+		}
+
 		result := make([]string, len(revUUIDs))
 		for i, rev := range revUUIDs {
 			result[i] = rev.UUID
@@ -2589,13 +2613,44 @@ func (st State) GetConsumedSecretURIsWithChanges(ctx context.Context, unitName s
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var dbConsumers secretUnitConsumers
-	if err = st.getConsumedSecretURIsWithChanges(ctx, db,
-		"DISTINCT suc.secret_id AS &secretUnitConsumer.secret_id", secretUnitConsumer{}, &dbConsumers,
-		unitName, revisionIDs...,
-	); err != nil {
+
+	q := `
+SELECT
+    DISTINCT suc.secret_id AS &secretUnitConsumer.secret_id
+FROM secret_unit_consumer suc
+LEFT JOIN unit u ON u.uuid = suc.unit_uuid
+LEFT JOIN secret_revision sr ON sr.secret_id = suc.secret_id
+WHERE u.unit_id = $unit.unit_id`
+
+	queryParams := []any{
+		unit{UnitName: unitName},
+	}
+
+	if len(revisionIDs) > 0 {
+		queryParams = append(queryParams, revisionUUIDs(revisionIDs))
+		q += " AND sr.uuid IN ($revisionUUIDs[:])"
+	}
+	q += `
+GROUP BY sr.secret_id
+HAVING suc.current_revision < MAX(sr.revision)`
+
+	stmt, err := st.Prepare(q, append([]any{secretUnitConsumer{}}, queryParams...)...)
+	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	var dbConsumers secretUnitConsumers
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, queryParams...).GetAll(&dbConsumers)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// No consumed secrets found.
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+
 	secretURIs := make([]string, len(dbConsumers))
 	for i, consumer := range dbConsumers {
 		uri, err := coresecrets.ParseURI(consumer.SecretID)
@@ -2607,51 +2662,9 @@ func (st State) GetConsumedSecretURIsWithChanges(ctx context.Context, unitName s
 	return secretURIs, nil
 }
 
-func (st State) getConsumedSecretURIsWithChanges(
-	ctx context.Context, runner coredatabase.TxnRunner,
-	selectStmt string, outputType, result any,
-	unitName string, revUUIDs ...string,
-) error {
-	q := fmt.Sprintf(`
-SELECT
-    %s
-FROM secret_unit_consumer suc
-LEFT JOIN unit u ON u.uuid = suc.unit_uuid
-LEFT JOIN secret_revision sr ON sr.secret_id = suc.secret_id
-WHERE u.unit_id = $unit.unit_id`, selectStmt)
-
-	queryParams := []any{
-		unit{UnitName: unitName},
-	}
-
-	if len(revUUIDs) > 0 {
-		queryParams = append(queryParams,
-			revisionUUIDs(revUUIDs),
-		)
-		q += " AND sr.uuid IN ($revisionUUIDs[:])"
-	}
-	q += `
-GROUP BY sr.secret_id
-HAVING suc.current_revision < MAX(sr.revision)`
-
-	stmt, err := st.Prepare(q, append([]any{outputType}, queryParams...)...)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, queryParams...).GetAll(result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// No consumed secrets found.
-			return nil
-		}
-		return errors.Trace(err)
-	})
-	return errors.Trace(domain.CoerceError(err))
-}
-
 // InitialWatchStatementForRemoteConsumedSecretsChange returns the initial watch statement and the table name for watching remote consumed secrets.
 func (st State) InitialWatchStatementForRemoteConsumedSecretsChange(appName string) (string, eventsource.NamespaceQuery) {
-	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		return st.getRemoteConsumedSecretURIsWithChanges(ctx, runner, appName)
 	}
 	return "secret_reference", queryFunc
@@ -2681,19 +2694,22 @@ func (st State) GetRemoteConsumedSecretURIsWithChanges(ctx context.Context, appN
 type dbSecretIDs []string
 
 func (st State) getRemoteConsumedSecretURIsWithChanges(ctx context.Context, runner coredatabase.TxnRunner, appName string, secretIDs ...string) ([]string, error) {
-	// 	q := `
+	// TODO: sqlair does not support inject parameters into values in quotation marks.
+	// Use sqlair to generate the query once https://github.com/canonical/sqlair/issues/148 is fixed.
+	// q := `
 	// SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
 	// FROM secret_remote_unit_consumer sruc
 	// JOIN secret_reference sr ON sr.secret_id = sruc.secret_id
 	// WHERE sruc.unit_id LIKE '$M.app_name/%'`
 
 	q := fmt.Sprintf(`
-SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
-FROM secret_remote_unit_consumer sruc
-JOIN secret_reference sr ON sr.secret_id = sruc.secret_id
-WHERE sruc.unit_id LIKE '%s/%%'`, appName) // Does sqlair support inject parameters into values in quotation marks?
+	SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
+	FROM secret_remote_unit_consumer sruc
+	JOIN secret_reference sr ON sr.secret_id = sruc.secret_id
+	WHERE sruc.unit_id LIKE '%s/%%'`, appName)
 
 	queryParams := []any{
+		// TODO: enable this once https://github.com/canonical/sqlair/issues/148 is fixed.
 		// sqlair.M{"app_name": appName},
 	}
 	if len(secretIDs) > 0 {
@@ -2731,10 +2747,10 @@ HAVING sruc.current_revision < sr.latest_revision`
 func (st State) InitialWatchStatementForObsoleteRevision(
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 ) (string, eventsource.NamespaceQuery) {
-	queryFunc := func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		var revisions []secretRevision
 		if err := st.getRevisionForObsolete(
-			ctx, runner, "sr.uuid AS &secretRevision.uuid", secretRevision{}, &revisions,
+			ctx, runner, "sro.revision_uuid AS &secretRevision.uuid", secretRevision{}, &revisions,
 			appOwners, unitOwners,
 		); err != nil {
 			return nil, errors.Trace(err)
@@ -2790,8 +2806,8 @@ func (st State) getRevisionForObsolete(
 	q := fmt.Sprintf(`
 SELECT
     %s
-FROM secret_revision sr
-INNER JOIN secret_revision_obsolete sro ON sr.uuid = sro.revision_uuid`, selectStmt)
+FROM secret_revision_obsolete sro
+INNER JOIN secret_revision sr ON sr.uuid = sro.revision_uuid`, selectStmt)
 
 	var queryParams []any
 	var joins []string
@@ -2845,6 +2861,7 @@ INNER JOIN secret_revision_obsolete sro ON sr.uuid = sro.revision_uuid`, selectS
 	}
 	err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, queryParams...).GetAll(result)
+		st.logger.Warningf("err: %#v, Result: %+v", err, result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// It's ok, the revisions probably have already been pruned.
 			return nil

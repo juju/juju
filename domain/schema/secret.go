@@ -183,6 +183,7 @@ CREATE TABLE secret_revision (
     uuid TEXT PRIMARY KEY,
     secret_id TEXT NOT NULL,
     revision INT NOT NULL,
+    create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
     CONSTRAINT fk_secret_revision_secret_metadata_id
         FOREIGN KEY (secret_id)
         REFERENCES secret_metadata (secret_id)
@@ -196,8 +197,6 @@ CREATE TABLE secret_revision_obsolete (
     -- pending_delete is true if the revision is to be deleted.
     -- It will not be drained to a new active backend.
     pending_delete BOOLEAN NOT NULL DEFAULT (FALSE),
-    create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
-    update_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
     CONSTRAINT fk_secret_revision_obsolete_revision_uuid
         FOREIGN KEY (revision_uuid)
         REFERENCES secret_revision (uuid)
