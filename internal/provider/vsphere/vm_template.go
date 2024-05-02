@@ -5,6 +5,7 @@ package vsphere
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"path"
@@ -21,7 +22,7 @@ import (
 )
 
 // vmTemplateManager implements a template registry that
-// can return a proper VMware template given a series and
+// can return a proper VMware template given a base and
 // image metadata.
 type vmTemplateManager struct {
 	imageMetadata    []*imagemetadata.ImageMetadata
@@ -35,29 +36,29 @@ type vmTemplateManager struct {
 	controllerUUID string
 }
 
-// EnsureTemplate will return a virtual machine template for the requested series.
+// EnsureTemplate will return a virtual machine template for the requested base.
 // If image metadata is supplied, this function will first look for "image-ids" entries
 // describing a template already available in the vsphere deployment. If none is found
 // or if no "image-ids" entries exist, it will then try to find a previously imported
 // template via "image-download" simplestreams entries. As a last resort, it will try
 // to import a new template from simplestreams.
-func (v *vmTemplateManager) EnsureTemplate(ctx context.Context, series string, agentArch string) (*object.VirtualMachine, string, error) {
+func (v *vmTemplateManager) EnsureTemplate(ctx context.Context, b base.Base, agentArch string) (*object.VirtualMachine, string, error) {
 	// Attempt to find image in image-metadata
 	logger.Debugf("looking for local templates")
 	tpl, arch, err := v.findTemplate(ctx)
 	if err == nil {
-		logger.Debugf("found requested template for series %s", series)
+		logger.Debugf("found requested template for base %s", b)
 		return tpl, arch, nil
 	}
 	if !errors.Is(err, errors.NotFound) {
 		return nil, "", errors.Annotate(err, "searching for template")
 	}
 
-	logger.Debugf("looking for already imported templates for series %q", series)
+	logger.Debugf("looking for already imported templates for base %q", b)
 	// Attempt to find a previously imported instance template
-	importedTemplate, arch, err := v.getImportedTemplate(ctx, series, agentArch)
+	importedTemplate, arch, err := v.getImportedTemplate(ctx, b, agentArch)
 	if err == nil {
-		logger.Debugf("using already imported template for series %s", series)
+		logger.Debugf("using already imported template for base %s", b)
 		return importedTemplate, arch, nil
 	}
 	logger.Debugf("could not find cached image: %s", err)
@@ -68,12 +69,12 @@ func (v *vmTemplateManager) EnsureTemplate(ctx context.Context, series string, a
 	}
 	logger.Debugf("downloading and importing template from simplestreams")
 	// Last resort, download and import a template.
-	return v.downloadAndImportTemplate(ctx, series, agentArch)
+	return v.downloadAndImportTemplate(ctx, b, agentArch)
 }
 
 // findTemplate uses the imageMetadata provided to find a local template.
 // The imageMetadata parameter holds a list of already filtered templates,
-// that should match the series that was requested.
+// that should match the base that was requested.
 func (v *vmTemplateManager) findTemplate(ctx context.Context) (*object.VirtualMachine, string, error) {
 	if len(v.imageMetadata) == 0 {
 		return nil, "", errors.NotFoundf("image metadata")
@@ -105,9 +106,9 @@ func (v *vmTemplateManager) controllerTemplatesFolder() string {
 	return path.Join(v.vmFolder, templateFolder)
 }
 
-func (v *vmTemplateManager) seriesTemplateFolder(series string) string {
+func (v *vmTemplateManager) baseTemplateFolder(b base.Base) string {
 	templatesPath := v.controllerTemplatesFolder()
-	return path.Join(templatesPath, series)
+	return path.Join(templatesPath, fmt.Sprintf("%s_%s", b.OS, b.Channel.Track))
 }
 
 func (v *vmTemplateManager) getVMArch(ctx context.Context, vmObj *object.VirtualMachine) (string, error) {
@@ -128,21 +129,21 @@ func (v *vmTemplateManager) getVMArch(ctx context.Context, vmObj *object.Virtual
 	return "", errors.NotFoundf("arch tag")
 }
 
-func (v *vmTemplateManager) getImportedTemplate(ctx context.Context, series string, agentArch string) (*object.VirtualMachine, string, error) {
-	logger.Tracef("getImportedTemplate for series %q, arch %q", series, agentArch)
-	seriesTemplatesFolder := v.seriesTemplateFolder(series)
-	seriesTemplates, err := v.client.ListVMTemplates(ctx, path.Join(seriesTemplatesFolder, "*"))
+func (v *vmTemplateManager) getImportedTemplate(ctx context.Context, b base.Base, agentArch string) (*object.VirtualMachine, string, error) {
+	logger.Tracef("getImportedTemplate for base %q, arch %q", b, agentArch)
+	baseTemplateFolder := v.baseTemplateFolder(b)
+	baseTemplates, err := v.client.ListVMTemplates(ctx, path.Join(baseTemplateFolder, "*"))
 	if err != nil {
 		logger.Tracef("failed to fetch templates: %v", err)
 		return nil, "", errors.Trace(err)
 	}
-	logger.Tracef("Series templates: %v", seriesTemplates)
-	if len(seriesTemplates) == 0 {
-		return nil, "", errors.NotFoundf("%s templates", series)
+	logger.Tracef("Base templates: %v", baseTemplates)
+	if len(baseTemplates) == 0 {
+		return nil, "", errors.NotFoundf("%s templates", b)
 	}
 	var vmTpl *object.VirtualMachine
 	var arch string
-	for _, item := range seriesTemplates {
+	for _, item := range baseTemplates {
 		arch, err = v.getVMArch(ctx, item)
 		if err != nil {
 			if errors.Is(err, errors.NotFound) {
@@ -161,7 +162,7 @@ func (v *vmTemplateManager) getImportedTemplate(ctx context.Context, series stri
 	if vmTpl == nil {
 		// Templates created by juju before 2.9, do not have an arch tag.
 		logger.Warningf("using default template since old templates do not contain arch")
-		vmTpl = seriesTemplates[0]
+		vmTpl = baseTemplates[0]
 	}
 
 	return vmTpl, arch, nil
@@ -169,22 +170,18 @@ func (v *vmTemplateManager) getImportedTemplate(ctx context.Context, series stri
 
 func (v *vmTemplateManager) downloadAndImportTemplate(
 	ctx context.Context,
-	series string, arch string,
+	b base.Base, arch string,
 ) (*object.VirtualMachine, string, error) {
 
-	seriesTemplateFolder := v.seriesTemplateFolder(series)
-	if len(v.vmFolder) > 0 && strings.HasPrefix(seriesTemplateFolder, v.vmFolder) {
-		seriesTemplateFolder = seriesTemplateFolder[len(v.vmFolder)+1:]
+	baseTemplateFolder := v.baseTemplateFolder(b)
+	if len(v.vmFolder) > 0 && strings.HasPrefix(baseTemplateFolder, v.vmFolder) {
+		baseTemplateFolder = baseTemplateFolder[len(v.vmFolder)+1:]
 	}
 
 	vmFolder, err := v.client.EnsureVMFolder(
-		ctx, v.vmFolder, seriesTemplateFolder)
+		ctx, v.vmFolder, baseTemplateFolder)
 	if err != nil {
 		return nil, "", errors.Trace(err)
-	}
-	b, err := base.GetBaseFromSeries(series)
-	if err != nil {
-		return nil, "", environs.ZoneIndependentError(err)
 	}
 	img, err := findImageMetadata(ctx, v.env, arch, b)
 	if err != nil {
@@ -208,7 +205,7 @@ func (v *vmTemplateManager) downloadAndImportTemplate(
 		StatusUpdateParams: v.statusUpdateArgs,
 		Datastore:          v.datastore,
 		Arch:               img.Arch,
-		Series:             series,
+		Base:               b,
 	}
 	vmTpl, err := v.client.CreateTemplateVM(ctx, ovaArgs)
 	if err != nil {
