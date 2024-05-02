@@ -25530,7 +25530,7 @@
                             "$ref": "#/definitions/ModelUnset"
                         }
                     },
-                    "description": "ModelUnset implements the server-side part of the\nset-model-config CLI command."
+                    "description": "ModelUnset implements the server-side part of the set-model-config CLI command."
                 },
                 "Sequences": {
                     "type": "object",

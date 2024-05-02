@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type stateSuite struct {
@@ -263,9 +264,10 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 	modelInfo, err := modelSt.Get(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelInfo, gc.Equals, coremodel.Model{
-		UUID:        m.uuid,
-		Cloud:       "my-cloud",
-		CloudRegion: "my-region",
+		AgentVersion: jujuversion.Current,
+		UUID:         m.uuid,
+		Cloud:        "my-cloud",
+		CloudRegion:  "my-region",
 		Credential: corecredential.Key{
 			Cloud: "my-cloud",
 			Owner: "test-user",

@@ -36,6 +36,41 @@ type key struct {
 	Key string `db:"key"`
 }
 
+// agentVersion represents the target agent version from the model table.
+type agentVersion struct {
+	TargetAgentVersion string `db:"target_agent_version"`
+}
+
+// AgentVersion returns the current models agent version. If no agent version
+// can be found an error satisfying [errors.NotFound] will be returned.
+func (st *State) AgentVersion(ctx context.Context) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	q := `SELECT &agentVersion.target_agent_version FROM model`
+
+	rval := agentVersion{}
+
+	stmt, err := st.Prepare(q, rval)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).Get(&rval)
+	})
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", fmt.Errorf("agent version %w", errors.NotFound)
+	} else if err != nil {
+		return "", fmt.Errorf("retrieving current agent version: %w", domain.CoerceError(err))
+	}
+
+	return rval.TargetAgentVersion, nil
+}
+
 // AllKeysQuery returns a SQL statement that will return all known model config
 // keys.
 func (st *State) AllKeysQuery() string {

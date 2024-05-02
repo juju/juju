@@ -32,6 +32,8 @@ func newFacadeV3(ctx facade.ModelContext) (*ModelConfigAPIV3, error) {
 
 	serviceFactory := ctx.ServiceFactory()
 	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
+
+	configService := serviceFactory.Config()
 	configSchemaSourceGetter := environs.ProviderConfigSchemaSource(ctx.ServiceFactory().Cloud())
-	return NewModelConfigAPI(NewStateBackend(model, configSchemaSourceGetter), backendService, auth)
+	return NewModelConfigAPI(NewStateBackend(model, configSchemaSourceGetter), backendService, configService, auth)
 }

@@ -23,6 +23,8 @@ import (
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
+	modelconfigbootstrap "github.com/juju/juju/domain/modelconfig/bootstrap"
+	modeldefaultsbootstrap "github.com/juju/juju/domain/modeldefaults/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	backendbootstrap "github.com/juju/juju/domain/secretbackend/bootstrap"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
@@ -155,6 +157,14 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	err = modelbootstrap.CreateReadOnlyModel(uuid, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
 	c.Assert(err, jc.ErrorIsNil)
 
+	fn = modelconfigbootstrap.SetModelConfig(
+		uuid,
+		nil,
+		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, nil),
+	)
+	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	c.Assert(err, jc.ErrorIsNil)
+
 	modelArgs := modeldomain.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.CloudName,
@@ -170,6 +180,14 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	s.DefaultModelUUID = uuid
 
 	err = modelbootstrap.CreateReadOnlyModel(uuid, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	c.Assert(err, jc.ErrorIsNil)
+
+	fn = modelconfigbootstrap.SetModelConfig(
+		uuid,
+		nil,
+		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, nil),
+	)
+	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

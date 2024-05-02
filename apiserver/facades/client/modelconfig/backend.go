@@ -18,10 +18,7 @@ type Backend interface {
 	common.BlockGetter
 	ControllerTag() names.ControllerTag
 	ModelTag() names.ModelTag
-	ModelConfigValues() (config.ConfigValues, error)
-	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 	Sequences() (map[string]int, error)
-	SpaceByName(string) error
 	SetModelConstraints(value constraints.Value) error
 	ModelConstraints() (constraints.Value, error)
 }
@@ -30,14 +27,6 @@ type stateShim struct {
 	*state.State
 	model                    *state.Model
 	configSchemaSourceGetter config.ConfigSchemaSourceGetter
-}
-
-func (st stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
-	return st.model.UpdateModelConfig(st.configSchemaSourceGetter, u, r, a...)
-}
-
-func (st stateShim) ModelConfigValues() (config.ConfigValues, error) {
-	return st.model.ModelConfigValues(st.configSchemaSourceGetter)
 }
 
 func (st stateShim) ModelTag() names.ModelTag {

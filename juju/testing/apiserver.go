@@ -205,6 +205,7 @@ func multiWatcher(c *gc.C, statePool *state.StatePool, clock clock.Clock) *wmult
 
 func (s *ApiServerSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
+	s.ServiceFactorySuite.SetUpSuite(c)
 	s.ControllerSuite.SetUpSuite(c)
 }
 
@@ -389,6 +390,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 
 func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
+	s.ServiceFactorySuite.SetUpTest(c)
 
 	s.InstancePrechecker = func(c *gc.C, s *state.State) environs.InstancePrechecker {
 		return state.NoopInstancePrechecker{}

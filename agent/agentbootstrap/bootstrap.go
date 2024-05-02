@@ -274,7 +274,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		secretbackendbootstrap.CreateDefaultBackends(model.ModelType(modelType)),
 		controllerModelCreateFunc,
 		modelbootstrap.CreateReadOnlyModel(controllerModelArgs.UUID, controllerUUID),
-		modelconfigbootstrap.SetModelConfig(stateParams.ControllerModelConfig, controllerModelDefaults),
+		modelconfigbootstrap.SetModelConfig(controllerModelArgs.UUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),
 	}
 	if !isCAAS {
 		// TODO(wallyworld) - this is just a placeholder for now

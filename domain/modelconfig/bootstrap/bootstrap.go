@@ -9,6 +9,8 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
+	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
 	"github.com/juju/juju/environs/config"
@@ -19,11 +21,14 @@ import (
 // replace with the new config provided. The new config will not be hydrated
 // with any model default attributes that have not been set on the config.
 func SetModelConfig(
-	cfg *config.Config,
+	modelID coremodel.UUID,
+	attrs map[string]any,
 	defaultsProvider service.ModelDefaultsProvider,
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
-		attrs := cfg.AllAttrs()
+		if attrs == nil {
+			attrs = map[string]any{}
+		}
 		defaults, err := defaultsProvider.ModelDefaults(ctx)
 		if err != nil {
 			return fmt.Errorf("getting model defaults: %w", err)
@@ -35,6 +40,21 @@ func SetModelConfig(
 				attrs[k] = attrVal
 			}
 		}
+
+		var m coremodel.Model
+		err = controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+			var err error
+			m, err = modelstate.Get(ctx, tx, modelID)
+			return err
+		})
+
+		if err != nil {
+			return fmt.Errorf("setting model %q config: %w", modelID, err)
+		}
+
+		attrs[config.UUIDKey] = m.UUID
+		attrs[config.TypeKey] = m.ModelType
+		attrs[config.NameKey] = m.Name
 
 		// TODO (tlm): Currently the Juju client passes agent version to a
 		// bootstrap controller via model config. Yep very very very silly.
@@ -48,7 +68,7 @@ func SetModelConfig(
 		// - add migration logic to get rid of agent version out of config.
 		delete(attrs, config.AgentVersionKey)
 
-		cfg, err = config.New(config.NoDefaults, attrs)
+		cfg, err := config.New(config.NoDefaults, attrs)
 		if err != nil {
 			return fmt.Errorf("constructing new model config with model defaults: %w", err)
 		}

@@ -5,7 +5,16 @@ package modelconfig
 
 import (
 	"context"
+
+	"github.com/juju/juju/environs/config"
 )
+
+// ModelConfigService is an interface for interacting with a model's underlying
+// model configuration values.
+type ModelConfigService interface {
+	ModelConfigValues(context.Context) (config.ConfigValues, error)
+	UpdateModelConfig(context.Context, map[string]any, []string, ...config.Validator) error
+}
 
 // SecretBackendService is an interface for interacting with secret backend service.
 type SecretBackendService interface {
