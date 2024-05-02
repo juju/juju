@@ -51,11 +51,15 @@ func NewModelWatcher(modelConfigService ModelConfigService, watcherRegistry faca
 // so we use the regular error return.
 func (m *ModelWatcher) WatchForModelConfigChanges(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	watcher, err := m.modelConfigService.Watch()
+	w, err := m.modelConfigService.Watch()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[[]string](ctx, m.watcherRegistry, watcher)
+	notifyWatcher, err := watcher.Normalise[[]string](w)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](ctx, m.watcherRegistry, notifyWatcher)
 	return result, err
 }
 
