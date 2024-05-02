@@ -53,7 +53,8 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 		application := applications[name]
 		// Legacy k8s charms - assume ubuntu focal.
 		if application.Series == kubernetes {
-			application.Series = corebase.LegacyKubernetesSeries()
+			application.Series = ""
+			application.Base = corebase.LegacyKubernetesBase().String()
 		}
 		existingApp := existing.GetApplication(name)
 		computedBase, err := computeApplicationBase(application, defaultBase)
