@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
-	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -35,20 +35,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.apiserver.client")
-
-// ControllerConfigService is an interface for getting controller configuration.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-	// GetAllSubnets returns all the subnets for the model.
-	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
-}
 
 type API struct {
 	stateAccessor           Backend
@@ -77,10 +63,11 @@ func (api *API) state() *state.State {
 
 // Client serves client-specific API methods.
 type Client struct {
-	api             *API
-	newEnviron      common.NewEnvironFunc
-	check           *common.BlockChecker
-	registryAPIFunc func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
+	api              *API
+	newEnviron       common.NewEnvironFunc
+	check            *common.BlockChecker
+	registryAPIFunc  func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
+	modelInfoService ModelInfoService
 }
 
 // ClientV6 serves the (v6) client-specific API methods.
@@ -180,6 +167,7 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 			session:                  nil,
 			configSchemaSourceGetter: environs.ProviderConfigSchemaSource(serviceFactory.Cloud()),
 		},
+		ctx.ServiceFactory().ModelInfo(),
 		&poolShim{pool: ctx.StatePool()},
 		storageAccessor,
 		serviceFactory.BlockDevice(),
@@ -201,6 +189,7 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 // TODO(aflynn): Create an args struct for this.
 func NewClient(
 	backend Backend,
+	modelInfoService ModelInfoService,
 	pool Pool,
 	storageAccessor StorageInterface,
 	blockDeviceService BlockDeviceService,
@@ -234,9 +223,10 @@ func NewClient(
 			multiwatcherFactory:     factory,
 			networkService:          networkService,
 		},
-		newEnviron:      newEnviron,
-		check:           blockChecker,
-		registryAPIFunc: registryAPIFunc,
+		modelInfoService: modelInfoService,
+		newEnviron:       newEnviron,
+		check:            blockChecker,
+		registryAPIFunc:  registryAPIFunc,
 	}
 	return client, nil
 }
@@ -292,7 +282,7 @@ func (c *Client) FindTools(ctx context.Context, args params.FindToolsParams) (pa
 	if err := c.checkCanWrite(); err != nil {
 		return params.FindToolsResult{}, err
 	}
-	model, err := c.api.stateAccessor.Model()
+	model, err := c.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return params.FindToolsResult{}, errors.Trace(err)
 	}
@@ -311,7 +301,8 @@ func (c *Client) FindTools(ctx context.Context, args params.FindToolsParams) (pa
 		List:  list,
 		Error: apiservererrors.ServerError(err),
 	}
-	if model.Type() != state.ModelTypeCAAS {
+
+	if model.Type != coremodel.CAAS {
 		// We return now for non CAAS model.
 		return result, errors.Annotate(err, "finding tool version from simple streams")
 	}
@@ -324,15 +315,7 @@ func (c *Client) FindTools(ctx context.Context, args params.FindToolsParams) (pa
 		streamsVersions.Add(a.Version.Number.String())
 	}
 	logger.Tracef("versions from simplestream %v", streamsVersions.SortedValues())
-	mCfg, err := model.Config()
-	if err != nil {
-		return result, errors.Annotate(err, "getting model config")
-	}
-	currentVersion, ok := mCfg.AgentVersion()
-	if !ok {
-		return result, errors.NotValidf("agent version is not set for model %q", model.Name())
-	}
-	return c.toolVersionsForCAAS(ctx, args, streamsVersions, currentVersion)
+	return c.toolVersionsForCAAS(ctx, args, streamsVersions, model.AgentVersion)
 }
 
 func (c *Client) toolVersionsForCAAS(ctx context.Context, args params.FindToolsParams, streamsVersions set.Strings, current version.Number) (params.FindToolsResult, error) {

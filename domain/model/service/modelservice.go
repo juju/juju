@@ -6,6 +6,8 @@ package service
 import (
 	"context"
 
+	"github.com/juju/version/v2"
+
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/internal/uuid"
@@ -14,11 +16,18 @@ import (
 // ModelState is the model state required by this service. This is the model
 // database state, not the controller state.
 type ModelState interface {
+	// AgentVersion is responsible for reporting the currently stored target
+	// agent version for the model.
+	AgentVersion(context.Context) (version.Number, error)
+
 	// Create creates a new model with all of its associated metadata.
 	Create(context.Context, model.ReadOnlyModelCreationArgs) error
 
 	// Delete deletes a model.
 	Delete(ctx context.Context, uuid coremodel.UUID) error
+
+	// Model returns a read-only model for the given uuid.
+	Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 }
 
 // ModelGetterState represents the state required for reading all model information.
@@ -39,6 +48,19 @@ func NewModelService(modelGetterSt ModelGetterState, st ModelState) *ModelServic
 		modelGetterSt: modelGetterSt,
 		st:            st,
 	}
+}
+
+// AgentVersion returns the target agent version currently set for the
+// model. If no agent version happens to be set for the model an error
+// satisfying [errors.NotFound] will be returned.
+func (s *ModelService) AgentVersion(ctx context.Context) (version.Number, error) {
+	return s.st.AgentVersion(ctx)
+}
+
+// GetModelInfo returns the readonly model information for the model in
+// question.
+func (s *ModelService) GetModelInfo(ctx context.Context) (coremodel.ReadOnlyModel, error) {
+	return s.st.Model(ctx)
 }
 
 // CreateModel is responsible for creating a new model within the model
