@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/secrets/provider"
 )
@@ -46,26 +47,46 @@ func NewWatchableService(
 // WatchConsumedSecretsChanges watches secrets consumed by the specified unit
 // and returns a watcher which notifies of secret URIs that have had a new revision added.
 func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error) {
-	table, query := s.st.InitialWatchStatementForConsumedSecretsChange(unitName)
-	w, err := s.watcherFactory.NewNamespaceWatcher(
+	tableLocal, queryLocal := s.st.InitialWatchStatementForConsumedSecretsChange(unitName)
+	wLocal, err := s.watcherFactory.NewNamespaceWatcher(
 		// We are only interested in CREATE changes because
 		// the secret_revision.revision is immutable anyway.
-		table, changestream.Create, query,
+		tableLocal, changestream.Create, queryLocal,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
+	processLocalChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
 		return s.st.GetConsumedSecretURIsWithChanges(ctx, unitName, revisionUUIDs...)
 	}
-	return newStringsWatcher(w, s.logger, processChanges)
+	sWLocal, err := newStringsWatcher(wLocal, s.logger, processLocalChanges)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	tableRemote, queryRemote := s.st.InitialWatchStatementForConsumedRemoteSecretsChange(unitName)
+	wRemote, err := s.watcherFactory.NewNamespaceWatcher(
+		// We are interested in both CREATE and UPDATE changes on secret_reference table.
+		tableRemote, changestream.All, queryRemote,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	processRemoteChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
+		return s.st.GetConsumedRemoteSecretURIsWithChanges(ctx, unitName, secretIDs...)
+	}
+	sWRemote, err := newStringsWatcher(wRemote, s.logger, processRemoteChanges)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return eventsource.NewMultiStringsWatcher(ctx, sWLocal, sWRemote)
 }
 
 // WatchRemoteConsumedSecretsChanges watches secrets remotely consumed by any unit
 // of the specified app and retuens a watcher which notifies of secret URIs
 // that have had a new revision added.
 func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context, appName string) (watcher.StringsWatcher, error) {
-	table, query := s.st.InitialWatchStatementForRemoteConsumedSecretsChange(appName)
+	table, query := s.st.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName)
 	w, err := s.watcherFactory.NewNamespaceWatcher(
 		table, changestream.All, query,
 	)
@@ -73,7 +94,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 		return nil, errors.Trace(err)
 	}
 	processChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
-		return s.st.GetRemoteConsumedSecretURIsWithChanges(ctx, appName, secretIDs...)
+		return s.st.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appName, secretIDs...)
 	}
 	return newStringsWatcher(w, s.logger, processChanges)
 }

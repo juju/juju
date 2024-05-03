@@ -19,7 +19,7 @@ const (
 	tableVolume
 	tableVolumeAttachment
 	tableVolumeAttachmentPlan
-	tableSecretMetadata
+	tableSecretMetadataAutoPrune
 	tableSecretRotation
 	tableSecretRevisionObsolete
 	tableSecretRevisionExpire
@@ -60,7 +60,7 @@ func ModelDDL() *schema.Schema {
 		changeLogTriggersForTable("storage_volume", "uuid", tableVolume),
 		changeLogTriggersForTable("storage_volume_attachment", "uuid", tableVolumeAttachment),
 		changeLogTriggersForTable("storage_volume_attachment_plan", "uuid", tableVolumeAttachmentPlan),
-		changeLogTriggersForTableOnColumn("secret_metadata", "secret_id", "auto_prune", tableSecretMetadata),
+		changeLogTriggersForTableOnColumn("secret_metadata", "secret_id", "auto_prune", tableSecretMetadataAutoPrune),
 		changeLogTriggersForTable("secret_rotation", "secret_id", tableSecretRotation),
 		changeLogTriggersForTable("secret_revision_obsolete", "revision_uuid", tableSecretRevisionObsolete),
 		changeLogTriggersForTable("secret_revision_expire", "revision_uuid", tableSecretRevisionExpire),

@@ -67,11 +67,16 @@ type State interface {
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUID ...string,
 	) ([]string, error)
 
+	// For watching consumed local secret changes.
 	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
-	GetConsumedSecretURIsWithChanges(ctx context.Context, unitName string, consumerIDs ...string) ([]string, error)
+	GetConsumedSecretURIsWithChanges(ctx context.Context, unitName string, revisionIDs ...string) ([]string, error)
+	// For watching consumed remote secret changes.
+	InitialWatchStatementForConsumedRemoteSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
+	GetConsumedRemoteSecretURIsWithChanges(ctx context.Context, unitName string, secretIDs ...string) (secretURIs []string, err error)
 
-	InitialWatchStatementForRemoteConsumedSecretsChange(appName string) (string, eventsource.NamespaceQuery)
-	GetRemoteConsumedSecretURIsWithChanges(ctx context.Context, appName string, secretIDs ...string) ([]string, error)
+	// For watching local secret changes that consumed by remote consumers.
+	InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName string) (string, eventsource.NamespaceQuery)
+	GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx context.Context, appName string, secretIDs ...string) ([]string, error)
 }
 
 // WatcherFactory describes methods for creating watchers.

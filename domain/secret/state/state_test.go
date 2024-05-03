@@ -2980,6 +2980,64 @@ func (s *stateSuite) TestGetConsumedSecretURIsWithChanges(c *gc.C) {
 }
 
 func (s *stateSuite) prepareWatchForRemoteConsumedSecrets(c *gc.C, ctx context.Context, st *State) (*coresecrets.URI, *coresecrets.URI) {
+	s.setupUnits(c, "mediawiki")
+
+	saveConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
+		consumer := &coresecrets.SecretConsumerMetadata{
+			CurrentRevision: revision,
+		}
+		err := st.SaveSecretConsumer(ctx, uri, consumerID, consumer)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	sourceModelUUID := uuid.MustNewUUID()
+	uri1 := coresecrets.NewURI()
+	uri1.SourceUUID = sourceModelUUID.String()
+
+	uri2 := coresecrets.NewURI()
+	uri2.SourceUUID = sourceModelUUID.String()
+
+	// The consumed revision 1.
+	saveConsumer(uri1, 1, "mediawiki/0")
+	// The consumed revision 1.
+	saveConsumer(uri2, 1, "mediawiki/0")
+
+	err := st.UpdateRemoteSecretRevision(ctx, uri1, 2)
+	c.Assert(err, jc.ErrorIsNil)
+	return uri1, uri2
+}
+
+func (s *stateSuite) TestInitialWatchStatementForConsumedRemoteSecretsChange(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+	uri1, _ := s.prepareWatchForRemoteConsumedSecrets(c, ctx, st)
+
+	tableName, f := st.InitialWatchStatementForConsumedRemoteSecretsChange("mediawiki/0")
+	c.Assert(tableName, gc.Equals, "secret_reference")
+	result, err := f(ctx, s.TxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.SameContents, []string{
+		uri1.ID,
+	})
+}
+
+func (s *stateSuite) TestGetConsumedRemoteSecretURIsWithChanges(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+	uri1, uri2 := s.prepareWatchForRemoteConsumedSecrets(c, ctx, st)
+
+	result, err := st.GetConsumedRemoteSecretURIsWithChanges(ctx, "mediawiki/0",
+		uri1.ID,
+		uri2.ID,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+	c.Assert(result, jc.SameContents, []string{
+		uri1.String(),
+	})
+}
+
+func (s *stateSuite) prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide(c *gc.C, ctx context.Context, st *State) (*coresecrets.URI, *coresecrets.URI) {
 	s.setupUnits(c, "mysql")
 
 	saveRemoteConsumer := func(uri *coresecrets.URI, revision int, consumerID string) {
@@ -2996,10 +3054,12 @@ func (s *stateSuite) prepareWatchForRemoteConsumedSecrets(c *gc.C, ctx context.C
 	uri1 := coresecrets.NewURI()
 	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
+	uri1.SourceUUID = s.modelUUID
 
 	uri2 := coresecrets.NewURI()
 	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp)
 	c.Assert(err, jc.ErrorIsNil)
+	uri2.SourceUUID = s.modelUUID
 
 	// The consumed revision 1.
 	saveRemoteConsumer(uri1, 1, "mediawiki/0")
@@ -3014,28 +3074,29 @@ func (s *stateSuite) prepareWatchForRemoteConsumedSecrets(c *gc.C, ctx context.C
 	return uri1, uri2
 }
 
-func (s *stateSuite) TestInitialWatchStatementForRemoteConsumedSecretsChange(c *gc.C) {
+func (s *stateSuite) TestInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 	ctx := context.Background()
-	uri1, _ := s.prepareWatchForRemoteConsumedSecrets(c, ctx, st)
+	uri1, _ := s.prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide(c, ctx, st)
 
-	tableName, f := st.InitialWatchStatementForRemoteConsumedSecretsChange("mediawiki")
-	c.Assert(tableName, gc.Equals, "secret_reference")
+	tableName, f := st.InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide("mediawiki")
+	c.Assert(tableName, gc.Equals, "secret_revision")
 	result, err := f(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.SameContents, []string{
-		uri1.ID,
+		getRevUUID(c, s.DB(), uri1, 2),
 	})
 }
 
-func (s *stateSuite) TestGetRemoteConsumedSecretURIsWithChanges(c *gc.C) {
+func (s *stateSuite) TestGetRemoteConsumedSecretURIsWithChangesFromOfferingSide(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 	ctx := context.Background()
-	uri1, uri2 := s.prepareWatchForRemoteConsumedSecrets(c, ctx, st)
+	uri1, uri2 := s.prepareWatchForRemoteConsumedSecretsChangesFromOfferingSide(c, ctx, st)
 
-	result, err := st.GetRemoteConsumedSecretURIsWithChanges(ctx, "mediawiki",
-		uri1.ID,
-		uri2.ID,
+	result, err := st.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, "mediawiki",
+		getRevUUID(c, s.DB(), uri1, 1),
+		getRevUUID(c, s.DB(), uri1, 2),
+		getRevUUID(c, s.DB(), uri2, 1),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)

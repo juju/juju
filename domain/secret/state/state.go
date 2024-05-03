@@ -654,7 +654,6 @@ ON CONFLICT(revision_uuid) DO UPDATE SET
 
 	var revisionUUIIDs secretRevisions
 	err = tx.Query(ctx, query, secretRef{ID: uri.ID}).GetAll(&revisionUUIIDs)
-	st.logger.Warningf("markObsoleteRevisions: %v, err %#v", revisionUUIIDs, err)
 	if errors.Is(err, sqlair.ErrNoRows) {
 		// No obsolete revisions to mark.
 		return nil
@@ -664,6 +663,7 @@ ON CONFLICT(revision_uuid) DO UPDATE SET
 	}
 
 	for _, revisionUUID := range revisionUUIIDs {
+		// TODO: use bulk insert.
 		obsolete := secretRevisionObsolete{
 			ID:            revisionUUID.ID,
 			Obsolete:      true,
@@ -890,12 +890,8 @@ VALUES ($secretRevision.*)
 	}
 
 	err = tx.Query(ctx, insertStmt, dbRevision).Run()
-	if err != nil {
+	if err != nil || expireTime == nil {
 		return errors.Trace(err)
-	}
-
-	if expireTime == nil {
-		return nil
 	}
 
 	insertExpireTimeQuery := `
@@ -2571,8 +2567,8 @@ func (st State) InitialWatchStatementForConsumedSecretsChange(unitName string) (
 SELECT
     DISTINCT sr.uuid AS &revisionUUID.uuid
 FROM secret_unit_consumer suc
-LEFT JOIN unit u ON u.uuid = suc.unit_uuid
-LEFT JOIN secret_revision sr ON sr.secret_id = suc.secret_id
+INNER JOIN unit u ON u.uuid = suc.unit_uuid
+INNER JOIN secret_revision sr ON sr.secret_id = suc.secret_id
 WHERE u.unit_id = $unit.unit_id
 GROUP BY sr.secret_id
 HAVING suc.current_revision < MAX(sr.revision)`
@@ -2585,6 +2581,7 @@ HAVING suc.current_revision < MAX(sr.revision)`
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
 		var revUUIDs dbrevisionUUIDs
 		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 			err := tx.Query(ctx, stmt, queryParams...).GetAll(&revUUIDs)
@@ -2618,8 +2615,8 @@ func (st State) GetConsumedSecretURIsWithChanges(ctx context.Context, unitName s
 SELECT
     DISTINCT suc.secret_id AS &secretUnitConsumer.secret_id
 FROM secret_unit_consumer suc
-LEFT JOIN unit u ON u.uuid = suc.unit_uuid
-LEFT JOIN secret_revision sr ON sr.secret_id = suc.secret_id
+INNER JOIN unit u ON u.uuid = suc.unit_uuid
+INNER JOIN secret_revision sr ON sr.secret_id = suc.secret_id
 WHERE u.unit_id = $unit.unit_id`
 
 	queryParams := []any{
@@ -2662,70 +2659,195 @@ HAVING suc.current_revision < MAX(sr.revision)`
 	return secretURIs, nil
 }
 
-// InitialWatchStatementForRemoteConsumedSecretsChange returns the initial watch statement and the table name for watching remote consumed secrets.
-func (st State) InitialWatchStatementForRemoteConsumedSecretsChange(appName string) (string, eventsource.NamespaceQuery) {
+type remoteSecrets []remoteSecret
+
+// InitialWatchStatementForConsumedRemoteSecretsChange returns the initial watch statement and the table name for watching consumed secrets hosted in a different model.
+func (st State) InitialWatchStatementForConsumedRemoteSecretsChange(unitName string) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
-		return st.getRemoteConsumedSecretURIsWithChanges(ctx, runner, appName)
+		q := `
+SELECT
+    DISTINCT sr.secret_id AS &remoteSecret.secret_id
+FROM secret_unit_consumer suc
+INNER JOIN unit u ON u.uuid = suc.unit_uuid
+INNER JOIN secret_reference sr ON sr.secret_id = suc.secret_id
+WHERE u.unit_id = $unit.unit_id
+GROUP BY sr.secret_id
+HAVING suc.current_revision < sr.latest_revision`
+
+		queryParams := []any{
+			unit{UnitName: unitName},
+		}
+
+		stmt, err := st.Prepare(q, append([]any{remoteSecret{}}, queryParams...)...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var referenceIDs remoteSecrets
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt, queryParams...).GetAll(&referenceIDs)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				// No consumed remote secrets found.
+				return nil
+			}
+			return errors.Trace(err)
+		})
+		if err != nil {
+			return nil, errors.Trace(domain.CoerceError(err))
+		}
+
+		result := make([]string, len(referenceIDs))
+		for i, rev := range referenceIDs {
+			result[i] = rev.SecretID
+		}
+		return result, nil
 	}
 	return "secret_reference", queryFunc
 }
 
-// GetRemoteConsumedSecretURIsWithChanges returns the URIs of the secrets consumed by the specified remote application that has new revisions.
-func (st State) GetRemoteConsumedSecretURIsWithChanges(ctx context.Context, appName string, secretIDs ...string) ([]string, error) {
+// GetConsumedRemoteSecretURIsWithChanges returns the URIs of the secrets consumed by the specified unit that have new revisions and are hosted on a different model.
+func (st State) GetConsumedRemoteSecretURIsWithChanges(ctx context.Context, unitName string, secretIDs ...string) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretIDs, err = st.getRemoteConsumedSecretURIsWithChanges(ctx, db, appName, secretIDs...)
+
+	q := `
+SELECT
+    suc.secret_id AS &secretUnitConsumer.secret_id,
+    suc.source_model_uuid AS &secretUnitConsumer.source_model_uuid
+FROM secret_unit_consumer suc
+INNER JOIN unit u ON u.uuid = suc.unit_uuid
+INNER JOIN secret_reference sr ON sr.secret_id = suc.secret_id
+WHERE u.unit_id = $unit.unit_id`
+
+	queryParams := []any{
+		unit{UnitName: unitName},
+	}
+
+	if len(secretIDs) > 0 {
+		queryParams = append(queryParams, dbSecretIDs(secretIDs))
+		q += " AND sr.secret_id IN ($dbSecretIDs[:])"
+	}
+	q += `
+GROUP BY sr.secret_id
+HAVING suc.current_revision < sr.latest_revision`
+
+	stmt, err := st.Prepare(q, append([]any{secretUnitConsumer{}}, queryParams...)...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	secretURIs := make([]string, len(secretIDs))
-	for i, secretID := range secretIDs {
-		uri, err := coresecrets.ParseURI(secretID)
+	var consumers secretUnitConsumers
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, queryParams...).GetAll(&consumers)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// No consumed secrets found.
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+
+	secretURIs := make([]string, len(consumers))
+	for i, consumer := range consumers {
+		uri, err := coresecrets.ParseURI(consumer.SecretID)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		uri.SourceUUID = consumer.SourceModelUUID
 		secretURIs[i] = uri.String()
 	}
 	return secretURIs, nil
 }
 
-type dbSecretIDs []string
+// InitialWatchStatementForRemoteConsumedSecretsChange returns the initial watch statement and the table name for watching remote consumed secrets.
+func (st State) InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName string) (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 
-func (st State) getRemoteConsumedSecretURIsWithChanges(ctx context.Context, runner coredatabase.TxnRunner, appName string, secretIDs ...string) ([]string, error) {
+		// TODO: sqlair does not support inject parameters into values in quotation marks.
+		// Use sqlair to generate the query once https://github.com/canonical/sqlair/issues/148 is fixed.
+		// q := `
+		// SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
+		// FROM secret_remote_unit_consumer sruc
+		// LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
+		// WHERE sruc.unit_id LIKE '$M.app_name/%'`
+
+		q := fmt.Sprintf(`
+SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
+FROM secret_remote_unit_consumer sruc
+LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
+WHERE sruc.unit_id LIKE '%s/%%'`, appName)
+
+		queryParams := []any{
+			// TODO: enable this once https://github.com/canonical/sqlair/issues/148 is fixed.
+			// sqlair.M{"app_name": appName},
+		}
+		q += `
+GROUP BY sruc.secret_id
+HAVING sruc.current_revision < MAX(sr.revision)`
+		stmt, err := st.Prepare(q, append([]any{revisionUUID{}}, queryParams...)...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		var revisionUUIDs dbrevisionUUIDs
+		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			err := tx.Query(ctx, stmt, queryParams...).GetAll(&revisionUUIDs)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				// No consumed secrets found.
+				return nil
+			}
+			return errors.Trace(err)
+		})
+		if err != nil {
+			return nil, errors.Trace(domain.CoerceError(err))
+		}
+		revUUIDs := make([]string, len(revisionUUIDs))
+		for i, rev := range revisionUUIDs {
+			revUUIDs[i] = rev.UUID
+		}
+		return revUUIDs, nil
+	}
+	return "secret_revision", queryFunc
+}
+
+// GetRemoteConsumedSecretURIsWithChanges returns the URIs of the secrets consumed by the specified remote application that has new revisions.
+func (st State) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx context.Context, appName string, revUUIDs ...string) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	// TODO: sqlair does not support inject parameters into values in quotation marks.
 	// Use sqlair to generate the query once https://github.com/canonical/sqlair/issues/148 is fixed.
 	// q := `
 	// SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
 	// FROM secret_remote_unit_consumer sruc
-	// JOIN secret_reference sr ON sr.secret_id = sruc.secret_id
+	// LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
 	// WHERE sruc.unit_id LIKE '$M.app_name/%'`
 
 	q := fmt.Sprintf(`
-	SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
-	FROM secret_remote_unit_consumer sruc
-	JOIN secret_reference sr ON sr.secret_id = sruc.secret_id
-	WHERE sruc.unit_id LIKE '%s/%%'`, appName)
+SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
+FROM secret_remote_unit_consumer sruc
+LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
+WHERE sruc.unit_id LIKE '%s/%%'`, appName)
 
 	queryParams := []any{
 		// TODO: enable this once https://github.com/canonical/sqlair/issues/148 is fixed.
 		// sqlair.M{"app_name": appName},
 	}
-	if len(secretIDs) > 0 {
-		queryParams = append(queryParams, dbSecretIDs(secretIDs))
-		q += " AND sruc.secret_id IN ($dbSecretIDs[:])"
+	if len(revUUIDs) > 0 {
+		queryParams = append(queryParams, revisionUUIDs(revUUIDs))
+		q += " AND sr.uuid IN ($revisionUUIDs[:])"
 	}
 	q += `
 GROUP BY sruc.secret_id
-HAVING sruc.current_revision < sr.latest_revision`
-	st.logger.Warningf("Query: %s", q)
+HAVING sruc.current_revision < MAX(sr.revision)`
 	stmt, err := st.Prepare(q, append([]any{secretRemoteUnitConsumer{}}, queryParams...)...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var remoteConsumers secretRemoteUnitConsumers
-	err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, queryParams...).GetAll(&remoteConsumers)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// No consumed secrets found.
@@ -2736,12 +2858,24 @@ HAVING sruc.current_revision < sr.latest_revision`
 	if err != nil {
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
-	secretIDResult := make([]string, len(remoteConsumers))
-	for i, consumer := range remoteConsumers {
-		secretIDResult[i] = consumer.SecretID
+	modelUUID, err := st.GetModelUUID(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return secretIDResult, nil
+	secretURIs := make([]string, len(remoteConsumers))
+	for i, consumer := range remoteConsumers {
+		uri, err := coresecrets.ParseURI(consumer.SecretID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		// We need to set the source model UUID to mark it as a remote secret for comsumer side to use.
+		uri.SourceUUID = modelUUID
+		secretURIs[i] = uri.String()
+	}
+	return secretURIs, nil
 }
+
+type dbSecretIDs []string
 
 // InitialWatchStatementForObsolete returns the initial watch statement and the table name for watching obsolete revisions.
 func (st State) InitialWatchStatementForObsoleteRevision(

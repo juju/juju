@@ -1389,17 +1389,26 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
 	mockStringWatcher.EXPECT().Kill().AnyTimes()
 
-	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
-		return []string{"revision-uuid-1", "revision-uuid-2"}, nil
-	}
-	s.state.EXPECT().InitialWatchStatementForConsumedSecretsChange("mysql/0").Return("table", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Create, gomock.Any()).Return(mockStringWatcher, nil)
+	chRemote := make(chan []string)
+	mockStringWatcherRemote := NewMockStringsWatcher(ctrl)
+	mockStringWatcherRemote.EXPECT().Changes().Return(chRemote).AnyTimes()
+	mockStringWatcherRemote.EXPECT().Wait().Return(nil).AnyTimes()
+	mockStringWatcherRemote.EXPECT().Kill().AnyTimes()
 
-	gomock.InOrder(
-		s.state.EXPECT().GetConsumedSecretURIsWithChanges(gomock.Any(),
-			"mysql/0", "revision-uuid-1", "revision-uuid-2",
-		).Return([]string{uri1.String(), uri2.String()}, nil),
-	)
+	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
+		return nil, nil
+	}
+	s.state.EXPECT().InitialWatchStatementForConsumedSecretsChange("mysql/0").Return("secret_revision", namespaceQuery)
+	s.state.EXPECT().InitialWatchStatementForConsumedRemoteSecretsChange("mysql/0").Return("secret_reference", namespaceQuery)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision", changestream.Create, gomock.Any()).Return(mockStringWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_reference", changestream.All, gomock.Any()).Return(mockStringWatcherRemote, nil)
+
+	s.state.EXPECT().GetConsumedSecretURIsWithChanges(gomock.Any(),
+		"mysql/0", "revision-uuid-1",
+	).Return([]string{uri1.String()}, nil)
+	s.state.EXPECT().GetConsumedRemoteSecretURIsWithChanges(gomock.Any(),
+		"mysql/0", "revision-uuid-2",
+	).Return([]string{uri2.String()}, nil)
 
 	svc := NewWatchableService(s.state, coretesting.NewCheckLogger(c), mockWatcherFactory, nil)
 	w, err := svc.WatchConsumedSecretsChanges(context.Background(), "mysql/0")
@@ -1409,7 +1418,12 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	wC := watchertest.NewStringsWatcherC(c, w)
 
 	select {
-	case ch <- []string{"revision-uuid-1", "revision-uuid-2"}:
+	case ch <- []string{"revision-uuid-1"}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for the initial changes")
+	}
+	select {
+	case chRemote <- []string{"revision-uuid-2"}:
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for the initial changes")
 	}
@@ -1438,14 +1452,14 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	mockStringWatcher.EXPECT().Kill().AnyTimes()
 
 	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
-		return []string{uri1.ID, uri2.ID}, nil
+		return nil, nil
 	}
-	s.state.EXPECT().InitialWatchStatementForRemoteConsumedSecretsChange("mysql").Return("table", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.All, gomock.Any()).Return(mockStringWatcher, nil)
+	s.state.EXPECT().InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide("mysql").Return("secret_revision", namespaceQuery)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision", changestream.All, gomock.Any()).Return(mockStringWatcher, nil)
 
 	gomock.InOrder(
-		s.state.EXPECT().GetRemoteConsumedSecretURIsWithChanges(gomock.Any(),
-			"mysql", uri1.ID, uri2.ID,
+		s.state.EXPECT().GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(gomock.Any(),
+			"mysql", "revision-uuid-1", "revision-uuid-2",
 		).Return([]string{uri1.String(), uri2.String()}, nil),
 	)
 
@@ -1457,7 +1471,7 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	wC := watchertest.NewStringsWatcherC(c, w)
 
 	select {
-	case ch <- []string{uri1.ID, uri2.ID}:
+	case ch <- []string{"revision-uuid-1", "revision-uuid-2"}:
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for the initial changes")
 	}

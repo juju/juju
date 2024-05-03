@@ -21,7 +21,6 @@ import (
 // along with an error satisfying [secreterrors.SecretConsumerNotFound].
 func (s *SecretService) GetSecretConsumerAndLatest(ctx context.Context, uri *secrets.URI, unitName string) (*secrets.SecretConsumerMetadata, int, error) {
 	consumerMetadata, latestRevision, err := s.st.GetSecretConsumer(ctx, uri, unitName)
-
 	if err != nil {
 		return nil, latestRevision, errors.Trace(err)
 	}

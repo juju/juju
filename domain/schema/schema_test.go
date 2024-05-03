@@ -527,9 +527,9 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.applyDDL(c, ModelDDL())
 
 	// secret table triggers.
-	s.assertChangeLogCount(c, 1, tableSecretMetadata, 0)
-	s.assertChangeLogCount(c, 2, tableSecretMetadata, 0)
-	s.assertChangeLogCount(c, 4, tableSecretMetadata, 0)
+	s.assertChangeLogCount(c, 1, tableSecretMetadataAutoPrune, 0)
+	s.assertChangeLogCount(c, 2, tableSecretMetadataAutoPrune, 0)
+	s.assertChangeLogCount(c, 4, tableSecretMetadataAutoPrune, 0)
 
 	secretURI := coresecrets.NewURI()
 	s.assertExecSQL(c, `INSERT INTO secret (id) VALUES (?);`, "", secretURI.ID)
@@ -537,9 +537,9 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertExecSQL(c, `UPDATE secret_metadata SET auto_prune = true WHERE secret_id = ?;`, "", secretURI.ID)
 	s.assertExecSQL(c, `DELETE FROM secret_metadata WHERE secret_id = ?;`, "", secretURI.ID)
 
-	s.assertChangeLogCount(c, 1, tableSecretMetadata, 1)
-	s.assertChangeLogCount(c, 2, tableSecretMetadata, 1)
-	s.assertChangeLogCount(c, 4, tableSecretMetadata, 1)
+	s.assertChangeLogCount(c, 1, tableSecretMetadataAutoPrune, 1)
+	s.assertChangeLogCount(c, 2, tableSecretMetadataAutoPrune, 1)
+	s.assertChangeLogCount(c, 4, tableSecretMetadataAutoPrune, 1)
 
 	// secret_rotation table triggers.
 	s.assertChangeLogCount(c, 1, tableSecretRotation, 0)
