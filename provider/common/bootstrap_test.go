@@ -153,12 +153,12 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 
 	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		BootstrapConstraints:     checkCons,
-		ModelConstraints:         checkCons,
-		Placement:                checkPlacement,
-		AvailableTools:           fakeAvailableTools(),
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		BootstrapConstraints:    checkCons,
+		ModelConstraints:        checkCons,
+		Placement:               checkPlacement,
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 	// We do this check to make sure that errors propagated from start instance
@@ -187,9 +187,9 @@ func (s *BootstrapSuite) TestBootstrapInstanceCancelled(c *gc.C) {
 	cancel()
 	ctx := modelcmd.BootstrapContext(stdCtx, cmdtesting.Context(c))
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		AvailableTools:           fakeAvailableTools(),
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
 	c.Assert(err, gc.ErrorMatches, `starting controller \(cancelled\): some kind of error`)
 }
@@ -202,13 +202,12 @@ func (s *BootstrapSuite) TestBootstrapSeries(c *gc.C) {
 		config:        fakeMinimalConfig(c),
 	}
 	ctx := envtesting.BootstrapTODOContext(c)
-	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		BootstrapSeries:          bootstrapSeries,
-		AvailableTools:           availableTools,
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		BootstrapBase:           jujuversion.DefaultSupportedLTSBase(),
+		AvailableTools:          availableTools,
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
@@ -223,15 +222,14 @@ func (s *BootstrapSuite) TestBootstrapInvalidSeries(c *gc.C) {
 		config:        fakeMinimalConfig(c),
 	}
 	ctx := envtesting.BootstrapTODOContext(c)
-	bootstrapSeries := "spock"
 	availableTools := fakeAvailableTools()
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		BootstrapSeries:          bootstrapSeries,
-		AvailableTools:           availableTools,
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		BootstrapBase:           corebase.MustParseBaseFromString("spoke@7"),
+		AvailableTools:          availableTools,
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
-	c.Assert(err, gc.ErrorMatches, `series "spock" not valid`)
+	c.Assert(err, gc.ErrorMatches, `non-ubuntu bootstrap base "spoke@7/stable" not valid`)
 }
 
 func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
@@ -242,13 +240,11 @@ func (s *BootstrapSuite) TestBootstrapFallbackSeries(c *gc.C) {
 		config:        fakeMinimalConfig(c),
 	}
 	ctx := envtesting.BootstrapTODOContext(c)
-	bootstrapSeries := ""
 	availableTools := fakeAvailableTools()
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		BootstrapSeries:          bootstrapSeries,
-		AvailableTools:           availableTools,
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          availableTools,
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
@@ -263,14 +259,13 @@ func (s *BootstrapSuite) TestBootstrapSeriesWithForce(c *gc.C) {
 		config:        fakeMinimalConfig(c),
 	}
 	ctx := envtesting.BootstrapTODOContext(c)
-	bootstrapSeries := "xenial"
 	availableTools := fakeAvailableTools()
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		BootstrapSeries:          bootstrapSeries,
-		AvailableTools:           availableTools,
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
-		Force:                    true,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@16.04"),
+		AvailableTools:          availableTools,
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
+		Force:                   true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
@@ -301,9 +296,9 @@ func (s *BootstrapSuite) TestStartInstanceDerivedZone(c *gc.C) {
 
 	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		AvailableTools:           fakeAvailableTools(),
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
 	c.Assert(err, gc.ErrorMatches,
 		`cannot start bootstrap instance in availability zone "derived-zone": bloop`,
@@ -341,9 +336,9 @@ func (s *BootstrapSuite) TestStartInstanceAttemptAllZones(c *gc.C) {
 
 	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		AvailableTools:           fakeAvailableTools(),
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
 	c.Assert(err, gc.ErrorMatches,
 		`(?ms)cannot start bootstrap instance in any availability zone \(z0, z2\).*`,
@@ -383,9 +378,9 @@ func (s *BootstrapSuite) TestStartInstanceAttemptZoneConstrained(c *gc.C) {
 
 	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		AvailableTools:           fakeAvailableTools(),
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 		BootstrapConstraints: constraints.Value{
 			Zones: &[]string{"z0", "z2"},
 		},
@@ -428,9 +423,9 @@ func (s *BootstrapSuite) TestStartInstanceNoMatchingConstraintZones(c *gc.C) {
 
 	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		AvailableTools:           fakeAvailableTools(),
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 		BootstrapConstraints: constraints.Value{
 			Zones: &[]string{"z4", "z5"},
 		},
@@ -471,9 +466,9 @@ func (s *BootstrapSuite) TestStartInstanceStopOnZoneIndependentError(c *gc.C) {
 
 	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		AvailableTools:           fakeAvailableTools(),
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot start bootstrap instance: bloop`)
 	c.Assert(callZones, jc.SameContents, []string{"z0"})
@@ -497,9 +492,9 @@ func (s *BootstrapSuite) TestStartInstanceNoUsableZones(c *gc.C) {
 
 	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		AvailableTools:           fakeAvailableTools(),
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
 	c.Assert(err, gc.ErrorMatches, `cannot start bootstrap instance: no usable availability zones`)
 }
@@ -528,10 +523,10 @@ func (s *BootstrapSuite) TestStartInstanceRootDisk(c *gc.C) {
 	ctx := envtesting.BootstrapTODOContext(c)
 	availableTools := fakeAvailableTools()
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		AvailableTools:           availableTools,
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
-		BootstrapConstraints:     constraints.MustParse("root-disk-source=spool"),
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          availableTools,
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
+		BootstrapConstraints:    constraints.MustParse("root-disk-source=spool"),
 		StoragePools: map[string]corestorage.Attrs{
 			"spool": {
 				"type": "dummy",
@@ -603,9 +598,9 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	inner := cmdtesting.Context(c)
 	ctx := modelcmd.BootstrapContext(context.Background(), inner)
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		AvailableTools:           fakeAvailableTools(),
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		AvailableTools:          fakeAvailableTools(),
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Arch, gc.Equals, "ppc64el") // based on hardware characteristics
@@ -698,13 +693,12 @@ func (s *BootstrapSuite) TestBootstrapFinalizeCloudInitUserData(c *gc.C) {
 		},
 	}
 	ctx := envtesting.BootstrapTODOContext(c)
-	bootstrapSeries := jujuversion.DefaultSupportedLTS()
 	availableTools := fakeAvailableTools()
 	result, err := common.Bootstrap(ctx, env, s.callCtx, environs.BootstrapParams{
-		ControllerConfig:         coretesting.FakeControllerConfig(),
-		BootstrapSeries:          bootstrapSeries,
-		AvailableTools:           availableTools,
-		SupportedBootstrapSeries: coretesting.FakeSupportedJujuSeries,
+		ControllerConfig:        coretesting.FakeControllerConfig(),
+		BootstrapBase:           jujuversion.DefaultSupportedLTSBase(),
+		AvailableTools:          availableTools,
+		SupportedBootstrapBases: coretesting.FakeSupportedJujuBases,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

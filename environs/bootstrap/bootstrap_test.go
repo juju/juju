@@ -169,7 +169,7 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	env.args.AvailableTools = nil
-	env.args.SupportedBootstrapSeries = nil
+	env.args.SupportedBootstrapBases = nil
 	c.Assert(env.args, gc.DeepEquals, environs.BootstrapParams{
 		ControllerConfig:     coretesting.FakeControllerConfig(),
 		BootstrapConstraints: constraints.MustParse("mem=3.5G"),
@@ -241,7 +241,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedBootstrapSeries(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "jammy")
+	c.Check(env.args.BootstrapBase, gc.Equals, corebase.MustParseBaseFromString("ubuntu@22.04"))
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
@@ -286,7 +286,7 @@ func (s *bootstrapSuite) TestBootstrapForcedBootstrapSeries(c *gc.C) {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "focal")
+	c.Check(env.args.BootstrapBase, gc.Equals, corebase.MustParseBaseFromString("ubuntu@20.04"))
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
@@ -307,7 +307,7 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapBase(c *gc.C) {
 			BootstrapBase:           corebase.MustParseBaseFromString("spock@1"),
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, gc.ErrorMatches, `base "spock@1/stable" not valid`)
+	c.Assert(err, gc.ErrorMatches, `non-ubuntu bootstrap base "spock@1/stable" not valid`)
 }
 
 func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapSeries(c *gc.C) {
@@ -327,7 +327,7 @@ func (s *bootstrapSuite) TestBootstrapWithInvalidBootstrapSeries(c *gc.C) {
 			BootstrapBase:           corebase.MustParseBaseFromString("spock@1"),
 			SupportedBootstrapBases: supportedJujuBases,
 		})
-	c.Assert(err, gc.ErrorMatches, `base "spock@1/stable" not valid`)
+	c.Assert(err, gc.ErrorMatches, `non-ubuntu bootstrap base "spock@1/stable" not valid`)
 }
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
@@ -644,7 +644,7 @@ func (s *bootstrapSuite) TestBootstrapLocalTools(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "jammy")
+	c.Check(env.args.BootstrapBase, gc.Equals, corebase.MustParseBaseFromString("ubuntu@22.04"))
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
@@ -697,7 +697,7 @@ func (s *bootstrapSuite) TestBootstrapLocalToolsDifferentLinuxes(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(env.bootstrapCount, gc.Equals, 1)
-	c.Check(env.args.BootstrapSeries, gc.Equals, "jammy")
+	c.Check(env.args.BootstrapBase, gc.Equals, corebase.MustParseBaseFromString("ubuntu@22.04"))
 	c.Check(env.args.AvailableTools.AllReleases(), jc.SameContents, []string{"ubuntu"})
 }
 
@@ -1477,13 +1477,9 @@ func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, callCtx envc
 		e.instanceConfig = icfg
 		return nil
 	}
-	base := jujuversion.DefaultSupportedLTSBase()
-	if args.BootstrapSeries != "" {
-		var err error
-		base, err = corebase.GetBaseFromSeries(args.BootstrapSeries)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+	base := args.BootstrapBase
+	if base.Empty() {
+		base = jujuversion.DefaultSupportedLTSBase()
 	}
 	arch, _ := args.AvailableTools.OneArch()
 	return &environs.BootstrapResult{

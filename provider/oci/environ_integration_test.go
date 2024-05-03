@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
@@ -912,10 +913,10 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := s.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
-			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "jammy",
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			ControllerConfig:        testing.FakeControllerConfig(),
+			AvailableTools:          makeToolsList("ubuntu"),
+			BootstrapBase:           base.MustParseBaseFromString("ubuntu@22.04"),
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		})
 	c.Assert(err, gc.IsNil)
 }
@@ -932,11 +933,11 @@ func (s *environSuite) TestBootstrapFlexibleShape(c *gc.C) {
 	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := s.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
-			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "jammy",
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
-			BootstrapConstraints:     constraints.MustParse("cpu-cores=32"),
+			ControllerConfig:        testing.FakeControllerConfig(),
+			AvailableTools:          makeToolsList("ubuntu"),
+			BootstrapBase:           base.MustParseBaseFromString("ubuntu@22.04"),
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+			BootstrapConstraints:    constraints.MustParse("cpu-cores=32"),
 		})
 	c.Assert(err, gc.IsNil)
 }
@@ -960,11 +961,11 @@ func (s *environSuite) TestBootstrapNoAllocatePublicIP(c *gc.C) {
 	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := s.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
-			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("ubuntu"),
-			BootstrapSeries:          "jammy",
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
-			BootstrapConstraints:     constraints.MustParse("allocate-public-ip=false"),
+			ControllerConfig:        testing.FakeControllerConfig(),
+			AvailableTools:          makeToolsList("ubuntu"),
+			BootstrapBase:           base.MustParseBaseFromString("ubuntu@22.04"),
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+			BootstrapConstraints:    constraints.MustParse("allocate-public-ip=false"),
 		})
 	c.Assert(err, gc.IsNil)
 }
@@ -990,10 +991,10 @@ func (s *environSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	ctx := envtesting.BootstrapTODOContext(c)
 	_, err := s.env.Bootstrap(ctx, nil,
 		environs.BootstrapParams{
-			ControllerConfig:         testing.FakeControllerConfig(),
-			AvailableTools:           makeToolsList("centos"),
-			BootstrapSeries:          "jammy",
-			SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
+			ControllerConfig:        testing.FakeControllerConfig(),
+			AvailableTools:          makeToolsList("centos"),
+			BootstrapBase:           base.MustParseBaseFromString("ubuntu@22.04"),
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
 		})
 	c.Assert(err, gc.ErrorMatches, "no matching agent binaries available")
 
