@@ -2995,7 +2995,6 @@ INNER JOIN secret_revision sr ON sr.uuid = sro.revision_uuid`, selectStmt)
 	}
 	err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, queryParams...).GetAll(result)
-		st.logger.Warningf("err: %#v, Result: %+v", err, result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// It's ok, the revisions probably have already been pruned.
 			return nil
