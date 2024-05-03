@@ -71,29 +71,10 @@ type bootstrapSuite struct {
 
 var _ = gc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) TestUUIDIsCreated(c *gc.C) {
-	uuid, fn := CreateModel(model.ModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        s.cloudName,
-		Credential: credential.Key{
-			Cloud: s.cloudName,
-			Name:  s.credentialName,
-			Owner: coreuser.AdminUserName,
-		},
-		Name:  "test",
-		Owner: s.adminUserUUID,
-	})
-
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(uuid.String() == "", jc.IsFalse)
-}
-
 func (s *bootstrapSuite) TestUUIDIsRespected(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 
-	uuid, fn := CreateModel(model.ModelCreationArgs{
+	fn := CreateModel(model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        s.cloudName,
 		Credential: credential.Key{
@@ -108,8 +89,6 @@ func (s *bootstrapSuite) TestUUIDIsRespected(c *gc.C) {
 
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(uuid, gc.Equals, modelUUID)
 }
 
 type modelBootstrapSuite struct {
@@ -142,7 +121,7 @@ func (s *modelBootstrapSuite) TestCreateReadOnlyModel(c *gc.C) {
 	}
 
 	// Create a model and then create a read-only model from it.
-	_, fn := CreateModel(args)
+	fn := CreateModel(args)
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 

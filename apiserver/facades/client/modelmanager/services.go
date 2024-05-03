@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/model"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
@@ -50,7 +51,7 @@ type ModelConfigService interface {
 // ModelService defines a interface for interacting with the underlying state.
 type ModelService interface {
 	// CreateModel creates a model.
-	CreateModel(context.Context, model.ModelCreationArgs) (coremodel.UUID, func(context.Context) error, error)
+	CreateModel(context.Context, model.ModelCreationArgs) (func(context.Context) error, error)
 
 	// DefaultModelCloudNameAndCredential returns the default cloud name and
 	// credential that should be used for newly created models that haven't had
@@ -114,8 +115,10 @@ type AccessService interface {
 	// GetUserByName returns a User for the given name.
 	GetUserByName(context.Context, string) (coreuser.User, error)
 	// ReadUserAccessLevelForTarget returns the Access level for the given
-	// subject (user) on the given target.
+	// subject (user) on the given target (model).
 	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error)
+	// UpdatePermission updates the access level for a user of the model.
+	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
 }
 
 // NetworkService is the interface that is used to interact with the

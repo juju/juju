@@ -147,22 +147,21 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 		UUID:         s.ControllerModelUUID,
 	}
 
-	uuid, fn := modelbootstrap.CreateModel(controllerArgs)
+	fn := modelbootstrap.CreateModel(controllerArgs)
 	c.Assert(backendbootstrap.CreateDefaultBackends(coremodel.IAAS)(
-		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String())), jc.ErrorIsNil)
+		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String())), jc.ErrorIsNil)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
-	s.ControllerModelUUID = uuid
 
-	err = modelbootstrap.CreateReadOnlyModel(uuid, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	err = modelbootstrap.CreateReadOnlyModel(s.ControllerModelUUID, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	fn = modelconfigbootstrap.SetModelConfig(
-		uuid,
+		s.ControllerModelUUID,
 		nil,
 		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, nil),
 	)
-	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelArgs := modeldomain.ModelCreationArgs{
@@ -174,20 +173,19 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 		UUID:         s.DefaultModelUUID,
 	}
 
-	uuid, fn = modelbootstrap.CreateModel(modelArgs)
+	fn = modelbootstrap.CreateModel(modelArgs)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
-	s.DefaultModelUUID = uuid
 
-	err = modelbootstrap.CreateReadOnlyModel(uuid, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	err = modelbootstrap.CreateReadOnlyModel(s.DefaultModelUUID, controllerUUID)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.DefaultModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
 
 	fn = modelconfigbootstrap.SetModelConfig(
-		uuid,
+		s.DefaultModelUUID,
 		nil,
 		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, nil),
 	)
-	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, uuid.String()))
+	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.DefaultModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
 }
 

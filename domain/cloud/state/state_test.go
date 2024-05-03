@@ -602,12 +602,12 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = modelSt.Create(
 		context.Background(),
-		modelUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud: testCloud.Name,
 			Name:  coremodel.ControllerModelName,
 			Owner: user.UUID(s.adminUUID.String()),
+			UUID:  modelUUID,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

@@ -17,6 +17,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
+	access "github.com/juju/juju/domain/access"
 	model0 "github.com/juju/juju/domain/model"
 	service "github.com/juju/juju/domain/secretbackend/service"
 	gomock "go.uber.org/mock/gomock"
@@ -73,6 +74,20 @@ func (m *MockAccessService) ReadUserAccessLevelForTarget(arg0 context.Context, a
 func (mr *MockAccessServiceMockRecorder) ReadUserAccessLevelForTarget(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadUserAccessLevelForTarget", reflect.TypeOf((*MockAccessService)(nil).ReadUserAccessLevelForTarget), arg0, arg1, arg2)
+}
+
+// UpdatePermission mocks base method.
+func (m *MockAccessService) UpdatePermission(arg0 context.Context, arg1 access.UpdatePermissionArgs) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdatePermission", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdatePermission indicates an expected call of UpdatePermission.
+func (mr *MockAccessServiceMockRecorder) UpdatePermission(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdatePermission", reflect.TypeOf((*MockAccessService)(nil).UpdatePermission), arg0, arg1)
 }
 
 // MockSecretBackendService is a mock of SecretBackendService interface.
@@ -137,13 +152,12 @@ func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 }
 
 // CreateModel mocks base method.
-func (m *MockModelService) CreateModel(arg0 context.Context, arg1 model0.ModelCreationArgs) (model.UUID, func(context.Context) error, error) {
+func (m *MockModelService) CreateModel(arg0 context.Context, arg1 model0.ModelCreationArgs) (func(context.Context) error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1)
-	ret0, _ := ret[0].(model.UUID)
-	ret1, _ := ret[1].(func(context.Context) error)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(func(context.Context) error)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // CreateModel indicates an expected call of CreateModel.

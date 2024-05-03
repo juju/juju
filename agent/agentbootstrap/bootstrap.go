@@ -250,7 +250,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		Credential:   credential.KeyFromTag(cloudCredTag),
 		UUID:         controllerModelUUID,
 	}
-	_, controllerModelCreateFunc := modelbootstrap.CreateModel(controllerModelArgs)
+	controllerModelCreateFunc := modelbootstrap.CreateModel(controllerModelArgs)
 
 	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
 		nil,

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
@@ -75,7 +76,8 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 
-	id, fn := modelbootstrap.CreateModel(model.ModelCreationArgs{
+	modelUUID := modeltesting.GenModelUUID(c)
+	modelFn := modelbootstrap.CreateModel(model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        cloudName,
 		Credential: credential.Key{
@@ -85,10 +87,11 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 		},
 		Name:  "test",
 		Owner: userID,
+		UUID:  modelUUID,
 	})
-	s.modelID = id
+	s.modelID = modelUUID
 
-	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

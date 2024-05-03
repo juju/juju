@@ -154,7 +154,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
@@ -225,7 +225,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
@@ -300,7 +300,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
@@ -375,7 +375,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(modelUUID, finaliser, nil)
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)

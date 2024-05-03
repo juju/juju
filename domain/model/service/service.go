@@ -42,7 +42,7 @@ type State interface {
 	ModelTypeState
 
 	// Create creates a new model with all of its associated metadata.
-	Create(context.Context, coremodel.UUID, coremodel.ModelType, model.ModelCreationArgs) error
+	Create(context.Context, coremodel.ModelType, model.ModelCreationArgs) error
 
 	// Finalise is responsible for setting a model as fully constructed and
 	// indicates the final system state for the model is ready for use.
@@ -180,14 +180,14 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 func (s *Service) CreateModel(
 	ctx context.Context,
 	args model.ModelCreationArgs,
-) (coremodel.UUID, func(context.Context) error, error) {
+) (func(context.Context) error, error) {
 	if err := args.Validate(); err != nil {
-		return coremodel.UUID(""), nil, err
+		return nil, err
 	}
 
 	modelType, err := ModelTypeForCloud(ctx, s.st, args.Cloud)
 	if err != nil {
-		return coremodel.UUID(""), nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"determining model type when creating model %q: %w",
 			args.Name, err,
 		)
@@ -199,27 +199,19 @@ func (s *Service) CreateModel(
 	}
 
 	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
-		return coremodel.UUID(""), nil, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"creating model %q with agent version %q: %w",
 			args.Name, agentVersion, err,
 		)
 	}
 
 	args.AgentVersion = agentVersion
-	uuid := args.UUID
-	if uuid == "" {
-		var err error
-		uuid, err = coremodel.NewUUID()
-		if err != nil {
-			return coremodel.UUID(""), nil, fmt.Errorf("generating new model uuid: %w", err)
-		}
-	}
 
 	finaliser := ModelFinaliser(func(ctx context.Context) error {
-		return s.st.Finalise(ctx, uuid)
+		return s.st.Finalise(ctx, args.UUID)
 	})
 
-	return uuid, finaliser, s.st.Create(ctx, uuid, modelType, args)
+	return finaliser, s.st.Create(ctx, modelType, args)
 }
 
 // Model returns the model associated with the provided uuid.
