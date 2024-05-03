@@ -16,7 +16,7 @@ type suite struct{}
 
 var _ = gc.Suite(&suite{})
 
-var isDevTests = []struct {
+var isPreReleaseTests = []struct {
 	num semversion.Number
 	dev bool
 }{{
@@ -52,10 +52,10 @@ var isDevTests = []struct {
 	num: semversion.Number{Major: 1, Minor: 21},
 }}
 
-func (*suite) TestIsDev(c *gc.C) {
-	for i, test := range isDevTests {
+func (*suite) TestIsPreRelease(c *gc.C) {
+	for i, test := range isPreReleaseTests {
 		c.Logf("test %d", i)
-		c.Check(IsDev(test.num), gc.Equals, test.dev)
+		c.Check(IsPreRelease(test.num), gc.Equals, test.dev)
 	}
 }
 

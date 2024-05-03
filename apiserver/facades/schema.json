@@ -33472,6 +33472,18 @@
                     },
                     "description": "AbortModelUpgrade aborts and archives the model upgrade\nsynchronisation record, if any."
                 },
+                "RequiredArchitectures": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ModelParam"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsResult"
+                        }
+                    },
+                    "description": "RequiredArchitectures returns all the architectures used by this model."
+                },
                 "UpgradeModel": {
                     "type": "object",
                     "properties": {
@@ -33550,6 +33562,21 @@
                         "Patch",
                         "Build"
                     ]
+                },
+                "StringsResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "UpgradeModelParams": {
                     "type": "object",

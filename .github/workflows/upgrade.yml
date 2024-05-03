@@ -55,8 +55,8 @@ jobs:
       CHARM_localhost: apache2
       CHARM_microk8s: prometheus-k8s
       DOCKER_REGISTRY: 10.152.183.69
-      UPGRADE_FLAGS_localhost: --build-agent
-      UPGRADE_FLAGS_microk8s: --agent-stream=develop
+      UPGRADE_FLAGS_localhost: --dev
+      UPGRADE_FLAGS_microk8s: --dev
       MODEL_TYPE_localhost: iaas
       MODEL_TYPE_microk8s: caas
 
@@ -226,11 +226,16 @@ jobs:
           
           $GITHUB_WORKSPACE/.github/verify-${CHARM_${{ matrix.cloud }}}.sh 30
 
+      - name: setup env
+        shell: bash
+        run: |
+          echo "JUJU_METADATA_SOURCE=$GITHUB_WORKSPACE/_build/simplestreams" >> $GITHUB_ENV
+
       - name: Update Juju
         shell: bash
         run: |
           sudo snap remove juju --purge
-          make go-install
+          make simplestreams
 
       - name: Build jujud image
         if: matrix.cloud == 'microk8s'
@@ -260,6 +265,12 @@ jobs:
           set -euxo pipefail
           juju status
           juju version
+
+      - name: Sync binaries
+        shell: bash
+        run: |
+          set -euxo pipefail
+          juju sync-agent-binary --agent-version $(juju version | rev | cut -d- -f3- | rev) --local-dir=${JUJU_METADATA_SOURCE}
 
       - name: Test upgrade controller
         shell: bash

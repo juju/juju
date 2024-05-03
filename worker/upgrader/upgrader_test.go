@@ -85,7 +85,6 @@ func (s *UpgraderSuite) patchVersion(v version.Binary) {
 	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
 	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 	vers := v.Number
-	vers.Build = 666
 	s.PatchValue(&jujuversion.Current, vers)
 }
 
@@ -152,7 +151,6 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	gotTools, err := s.machine.AgentTools()
 
 	c.Assert(err, jc.ErrorIsNil)
-	agentTools.Version.Build = 666
 	envtesting.CheckTools(c, gotTools, agentTools)
 }
 
@@ -176,7 +174,6 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
-	vers.Build = 666
 	c.Assert(gotTools, gc.DeepEquals, &coretools.Tools{Version: vers})
 }
 

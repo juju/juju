@@ -141,6 +141,21 @@ func (mr *MockStateMockRecorder) AllCharmURLs() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllCharmURLs", reflect.TypeOf((*MockState)(nil).AllCharmURLs))
 }
 
+// AllMachines mocks base method.
+func (m *MockState) AllMachines() ([]modelupgrader.Machine, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllMachines")
+	ret0, _ := ret[0].([]modelupgrader.Machine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllMachines indicates an expected call of AllMachines.
+func (mr *MockStateMockRecorder) AllMachines() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachines", reflect.TypeOf((*MockState)(nil).AllMachines))
+}
+
 // AllModelUUIDs mocks base method.
 func (m *MockState) AllModelUUIDs() ([]string, error) {
 	m.ctrl.T.Helper()

@@ -22,18 +22,22 @@ GO_MOD_VERSION=$(shell grep "^go" go.mod | awk '{print $$2}')
 GO_INSTALLED_VERSION=$(shell go version | awk '{print $$3}' | sed -e /.*go/s///)
 GO_INSTALL_PATH=$(if $(value GOBIN),$(value GOBIN),$(shell go env GOPATH)/bin)
 
-# Build number passed in must be a monotonic int representing
-# the build.
-JUJU_BUILD_NUMBER ?=
-
-# JUJU_VERSION is the JUJU version currently being represented in this
-# repository.
-JUJU_VERSION=$(shell go run -ldflags "-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)" version/helper/main.go)
-
 # BUILD_DIR is the directory relative to this project where we place build
 # artifacts created by this Makefile.
 BUILD_DIR ?= $(PROJECT_DIR)/_build
 BIN_DIR ?= ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
+
+# Build number passed in must be a monotonic int representing
+# the build.
+JUJU_BUILD_NUMBER ?= $(shell cat $(BUILD_DIR)/build.number 2>/dev/null || printf 1)
+
+# JUJU_VERSION is the JUJU version currently being represented in this
+# repository.
+JUJU_VERSION=$(shell GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) CGO_ENABLED=0 go run -ldflags "-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)" version/helper/main.go)
+
+# JUJU_VERSION_CLEAN is the JUJU version currently being represented in this
+# repository.
+JUJU_VERSION_CLEAN=$(shell GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) CGO_ENABLED=0 go run -ldflags "-X $(PROJECT)/version.build=0" version/helper/main.go)
 
 # JUJU_METADATA_SOURCE is the directory where we place simple streams archives
 # for built juju binaries.
@@ -257,6 +261,26 @@ define run_cgo_build
 			-v ${PACKAGE}
 endef
 
+
+PATCH_ELF_WITH_VERSION_FUNC=bash -c '. "${PROJECT_DIR}/make_functions.sh"; patch_elf_with_version "$$@"' patch_elf_with_version
+define patch_elf_with_version
+	$(eval BINARY = $(shell go build -n -mod=$(JUJU_GOMOD_MODE) -o ${BBIN_DIR} ${PACKAGE} 2>&1 | awk '$$1 == "mv" && $$2 ~ /.out$$/ {print $$3}'))
+	$(eval JUJU_VERSION_FILE = $(shell mktemp))
+	@GOOS=$(GOHOSTOS) GOARCH=$(GOHOSTARCH) CGO_ENABLED=0 go run -ldflags "-X $(PROJECT)/version.build=${JUJU_BUILD_NUMBER}" version/elfnote/main.go ${JUJU_VERSION_FILE} ${GOARCH}
+	@$(PATCH_ELF_WITH_VERSION_FUNC) ${JUJU_VERSION_FILE} ${BINARY}
+	@rm ${JUJU_VERSION_FILE}
+endef
+
+define run_go_build_with_elf_patch
+	$(run_go_build)
+	$(patch_elf_with_version)
+endef
+
+define run_cgo_build_with_elf_patch
+	$(run_cgo_build)
+	$(patch_elf_with_version)
+endef
+
 define run_go_install
 	@echo "Installing ${PACKAGE}"
 	@go install \
@@ -295,30 +319,20 @@ juju:
 	${run_go_install}
 
 .PHONY: jujuc
-jujuc: PACKAGE = github.com/juju/juju/cmd/jujuc
-jujuc:
-## jujuc: Install jujuc without updating dependencies
-	${run_go_install}
+jujuc: ${BUILD_DIR}/${GOOS}_${GOARCH}/bin/jujuc
+## jujuc: Build jujuc without updating dependencies
 
 .PHONY: jujud
-jujud: PACKAGE = github.com/juju/juju/cmd/jujud
-jujud:
-## jujud: Install jujud without updating dependencies
-	${run_go_install}
-	mv $(GO_INSTALL_PATH)/jujud $(GO_INSTALL_PATH)/jujud-junk
+jujud: ${BUILD_DIR}/${GOOS}_${GOARCH}/bin/jujud
+## jujud: Build jujud without updating dependencies
 
 .PHONY: jujud-controller
-jujud-controller: PACKAGE = github.com/juju/juju/cmd/jujud-controller
-jujud-controller: musl-install-if-missing dqlite-install-if-missing
-## jujud: Install jujud without updating dependencies
-	${run_cgo_install}
-	mv $(GO_INSTALL_PATH)/jujud-controller $(GO_INSTALL_PATH)/jujud
+jujud-controller: ${BUILD_DIR}/${GOOS}_${GOARCH}/bin/jujud-controller
+## jujud: Build jujud without updating dependencies
 
 .PHONY: containeragent
-containeragent: PACKAGE = github.com/juju/juju/cmd/containeragent
-containeragent:
-## containeragent: Install containeragent without updating dependencies
-	${run_go_install}
+containeragent: ${BUILD_DIR}/${GOOS}_${GOARCH}/bin/containeragent
+## containeragent: Build containeragent without updating dependencies
 
 .PHONY: juju-metadata
 juju-metadata: PACKAGE = github.com/juju/juju/cmd/plugins/juju-metadata
@@ -327,10 +341,8 @@ juju-metadata:
 	${run_go_install}
 
 .PHONY: pebble
-pebble: PACKAGE = github.com/canonical/pebble/cmd/pebble
-pebble:
-## pebble: Install pebble without updating dependencies
-	${run_go_install}
+pebble: ${BUILD_DIR}/${GOOS}_${GOARCH}/bin/pebble
+## pebble: Build pebble without updating dependencies
 
 .PHONY: phony_explicit
 phony_explicit:
@@ -349,7 +361,7 @@ ${BUILD_DIR}/%/bin/jujuc: phony_explicit
 ${BUILD_DIR}/%/bin/jujud: PACKAGE = github.com/juju/juju/cmd/jujud
 ${BUILD_DIR}/%/bin/jujud: phony_explicit
 # build for jujud
-	$(run_go_build)
+	$(run_go_build_with_elf_patch)
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
@@ -358,7 +370,7 @@ ${BUILD_DIR}/%/bin/jujud: phony_explicit
 ${BUILD_DIR}/%/bin/jujud-controller: PACKAGE = github.com/juju/juju/cmd/jujud-controller
 ${BUILD_DIR}/%/bin/jujud-controller: phony_explicit musl-install-if-missing dqlite-install-if-missing
 # build for jujud-controller
-	$(run_cgo_build)
+	$(run_cgo_build_with_elf_patch)
 	$(eval OS = $(word 1,$(subst _, ,$*)))
 	$(eval ARCH = $(word 2,$(subst _, ,$*)))
 	$(eval BBIN_DIR = ${BUILD_DIR}/${OS}_${ARCH}/bin)
@@ -379,7 +391,7 @@ ${BUILD_DIR}/%/bin/pebble: phony_explicit
 # build for pebble
 	$(run_go_build)
 
-${JUJU_METADATA_SOURCE}/tools/released/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS)
+${JUJU_METADATA_SOURCE}/tools/released/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS) $(BUILD_CGO_AGENT_TARGETS)
 	@echo "Packaging simplestream tools for juju ${JUJU_VERSION} on $*"
 	@mkdir -p ${JUJU_METADATA_SOURCE}/tools/released
 	@tar czf "$@" -C $(call bin_platform_paths,$(subst -,/,$*)) .
@@ -404,7 +416,7 @@ go-client-build: $(BUILD_CLIENT_TARGETS)
 
 .PHONY: go-build
 go-build: go-agent-build go-client-build
-## build: builds all the targets withouth rebuilding a new schema.
+## go-build: builds all the targets without rebuilding a new schema.
 
 .PHONY: release-build
 release-build: go-agent-build
@@ -601,7 +613,6 @@ OPERATOR_IMAGE_BUILD_SRC   ?= true
 # For the k8s operator.
 BUILD_OPERATOR_IMAGE=bash -c '. "${PROJECT_DIR}/make_functions.sh"; build_push_operator_image "$$@"' build_push_operator_image
 OPERATOR_IMAGE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_path "$$@"' operator_image_path
-OPERATOR_IMAGE_RELEASE_PATH=bash -c '. "${PROJECT_DIR}/make_functions.sh"; operator_image_release_path "$$@"' operator_image_release_path
 UPDATE_MICROK8S_OPERATOR=bash -c '. "${PROJECT_DIR}/make_functions.sh"; microk8s_operator_update "$$@"' microk8s_operator_update
 SEED_REPOSITORY=bash -c '. "${PROJECT_DIR}/make_functions.sh"; seed_repository "$$@"' seed_repository
 
@@ -704,3 +715,10 @@ static-analysis: dqlite-install-if-missing
 	@cd tests && CGO_ENABLED=1 \
 		CGO_LDFLAGS_ALLOW="(-Wl,-wrap,pthread_create)|(-Wl,-z,now)" \
 		./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
+
+.PHONY: rev-build-number
+rev-build-number:
+## rev-build-number: increase the builder number
+	@mkdir -p $(BUILD_DIR)
+	@printf $$(($(JUJU_BUILD_NUMBER)+1)) > $(BUILD_DIR)/build.number
+	@cat $(BUILD_DIR)/build.number

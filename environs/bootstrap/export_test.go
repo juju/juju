@@ -5,7 +5,6 @@ package bootstrap
 
 var (
 	FinalizePodBootstrapConfig = finalizePodBootstrapConfig
-	ValidateUploadAllowed      = validateUploadAllowed
 	GetBootstrapToolsVersion   = getBootstrapToolsVersion
 	FindTools                  = &findTools
 	FindBootstrapTools         = findBootstrapTools

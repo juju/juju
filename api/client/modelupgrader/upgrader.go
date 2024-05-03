@@ -46,6 +46,23 @@ func (c *Client) AbortModelUpgrade(modelUUID string) error {
 	return c.facade.FacadeCall("AbortModelUpgrade", args, nil)
 }
 
+// RequiredArchitectures returns a list of all the architectures
+// used by this model.
+func (c *Client) RequiredArchitectures(modelUUID string) ([]string, error) {
+	args := params.ModelParam{
+		ModelTag: names.NewModelTag(modelUUID).String(),
+	}
+	var result params.StringsResult
+	err := c.facade.FacadeCall("RequiredArchitectures", args, &result)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if result.Error != nil {
+		err = apiservererrors.RestoreError(result.Error)
+	}
+	return result.Result, errors.Trace(err)
+}
+
 // UpgradeModel upgrades the model to the provided agent version.
 // The provided target version could be version.Zero, in which case
 // the best version is selected by the controller and returned as

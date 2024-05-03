@@ -50,6 +50,7 @@ import (
 	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
+	"github.com/juju/juju/internal/devtools"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -218,7 +219,6 @@ type bootstrapCommand struct {
 	BootstrapSeries          string
 	BootstrapBase            string
 	BootstrapImage           string
-	BuildAgent               bool
 	JujuDbSnapPath           string
 	JujuDbSnapAssertionsPath string
 	MetadataSource           string
@@ -250,6 +250,9 @@ type bootstrapCommand struct {
 
 	// Force is used to allow a bootstrap to be run on unsupported series.
 	Force bool
+
+	Dev       bool
+	devSrcDir string
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
@@ -318,7 +321,6 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated use bootstrap-base)")
 	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires --bootstrap-constraints specifying architecture)")
-	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
 	f.StringVar(&c.JujuDbSnapPath, "db-snap", "",
 		"Path to a locally built .snap to use as the internal juju-db service.")
 	f.StringVar(&c.JujuDbSnapAssertionsPath, "db-snap-asserts", "", "Path to a local .assert file. Requires --db-snap")
@@ -345,6 +347,9 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ControllerCharmChannelStr, "controller-charm-channel",
 		fmt.Sprintf("%d.%d/stable", jujuversion.Current.Major, jujuversion.Current.Minor),
 		"The Charmhub channel to download the controller charm from (if not using a local charm)")
+	if jujuversion.IsDev() {
+		f.BoolVar(&c.Dev, "dev", false, "Use local build for development")
+	}
 }
 
 func (c *bootstrapCommand) Init(args []string) (err error) {
@@ -373,6 +378,14 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 		if _, err := corebase.ParseBaseFromString(c.BootstrapBase); err != nil {
 			return errors.NotValidf("base %q", c.BootstrapBase)
 		}
+	}
+
+	if c.Dev {
+		devSrcDir, err := devtools.SourceDir()
+		if err != nil {
+			return fmt.Errorf("local dev mode %w", err)
+		}
+		c.devSrcDir = devSrcDir
 	}
 
 	// fill in JujuDbSnapAssertionsPath from the same directory as JujuDbSnapPath
@@ -426,8 +439,8 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 	if c.showRegionsForCloud != "" {
 		return cmd.CheckEmpty(args)
 	}
-	if c.AgentVersionParam != "" && c.BuildAgent {
-		return errors.New("--agent-version and --build-agent can't be used together")
+	if c.AgentVersionParam != "" && c.Dev {
+		return errors.New("--agent-version and --dev can't be used together")
 	}
 	if c.initialModelName == "" {
 		c.initialModelName = os.Getenv("JUJU_BOOTSTRAP_MODEL")
@@ -913,7 +926,8 @@ to create a new model to deploy %sworkloads.
 		SupportedBootstrapBases:   supportedBootstrapBases,
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
-		BuildAgent:                c.BuildAgent,
+		Dev:                       c.Dev,
+		DevSrcDir:                 c.devSrcDir,
 		BuildAgentTarball:         sync.BuildAgentTarball,
 		AgentVersion:              c.AgentVersion,
 		Cloud:                     cloud,

@@ -4,6 +4,5 @@
 package sync
 
 var (
-	SyncBuiltTools         = syncBuiltTools
 	SelectSourceDatasource = selectSourceDatasource
 )

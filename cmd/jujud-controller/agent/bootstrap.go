@@ -219,7 +219,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if ok && desiredVersion != jujuversion.Current {
 		if isCAAS {
 			currentVersion := jujuversion.Current
-			currentVersion.Build = 0
 			if desiredVersion != currentVersion {
 				// For CAAS, the agent-version in controller config should
 				// always equals to current juju version.

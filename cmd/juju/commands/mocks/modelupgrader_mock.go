@@ -69,6 +69,21 @@ func (mr *MockModelUpgraderAPIMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockModelUpgraderAPI)(nil).Close))
 }
 
+// RequiredArchitectures mocks base method.
+func (m *MockModelUpgraderAPI) RequiredArchitectures(arg0 string) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RequiredArchitectures", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RequiredArchitectures indicates an expected call of RequiredArchitectures.
+func (mr *MockModelUpgraderAPIMockRecorder) RequiredArchitectures(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequiredArchitectures", reflect.TypeOf((*MockModelUpgraderAPI)(nil).RequiredArchitectures), arg0)
+}
+
 // UpgradeModel mocks base method.
 func (m *MockModelUpgraderAPI) UpgradeModel(arg0 string, arg1 version.Number, arg2 string, arg3, arg4 bool) (version.Number, error) {
 	m.ctrl.T.Helper()

@@ -247,7 +247,7 @@ func PreferredStreams(vers *version.Number, forceDevel bool, stream string) []st
 	}
 	// Devel versions are alpha or beta etc as defined by the version tag.
 	// The user can also force the use of devel streams via config.
-	if forceDevel || jujuversion.IsDev(*vers) {
+	if forceDevel || jujuversion.IsPreRelease(*vers) {
 		return copyStrings(streamFallbacks[DevelStream])
 	}
 	return copyStrings(streamFallbacks[ReleasedStream])

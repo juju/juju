@@ -4,14 +4,11 @@
 package tools
 
 var (
-	FindExecutable                = findExecutable
 	CheckToolsReleases            = checkToolsReleases
 	ArchiveAndSHA256              = archiveAndSHA256
 	WriteMetadataFiles            = &writeMetadataFiles
 	CurrentStreamsVersion         = currentStreamsVersion
 	MarshalToolsMetadataIndexJSON = marshalToolsMetadataIndexJSON
-	GetVersionFromJujud           = getVersionFromJujud
-	BundleToolsForTest            = bundleTools
 )
 
 func VersionsMatchingHash(v *Versions, h string) []string {

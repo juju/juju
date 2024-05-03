@@ -31,14 +31,6 @@ func (BSInteractSuite) TestInitEmpty(c *gc.C) {
 	c.Assert(cmd.interactive, jc.IsTrue)
 }
 
-func (BSInteractSuite) TestInitBuildAgent(c *gc.C) {
-	cmd := &bootstrapCommand{}
-	err := cmdtesting.InitCommand(cmd, []string{"--build-agent"})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmd.interactive, jc.IsTrue)
-	c.Assert(cmd.BuildAgent, jc.IsTrue)
-}
-
 func (BSInteractSuite) TestInitArg(c *gc.C) {
 	cmd := &bootstrapCommand{}
 	err := cmdtesting.InitCommand(cmd, []string{"foo"})
