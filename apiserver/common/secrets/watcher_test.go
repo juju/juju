@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -30,13 +30,14 @@ func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	modelConfigChangesWatcher := mocks.NewMockNotifyWatcher(ctrl)
-	model := mocks.NewMockModelConfig(ctrl)
-
 	ch := make(chan struct{}, 3)
 	done := make(chan struct{})
 	receiverReady := make(chan struct{})
 	defer close(receiverReady)
+
+	backendWatcher := watchertest.NewMockNotifyWatcher(ch)
+	backendGetter := mocks.NewMockSecretBackendGetter(ctrl)
+
 	go func() {
 		for {
 			_, ok := <-receiverReady
@@ -48,70 +49,18 @@ func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 	}()
 	receiverReady <- struct{}{}
 
-	modelConfigChangesWatcher.EXPECT().Wait().Return(nil)
-	modelConfigChangesWatcher.EXPECT().Changes().Return(ch).AnyTimes()
-
 	gomock.InOrder(
-		model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
-			// Initail call to get the current secret backend.
-			func(_ context.Context) (*config.Config, error) {
-				configAttrs := map[string]interface{}{
-					"name":           "some-name",
-					"type":           "some-type",
-					"uuid":           coretesting.ModelTag.Id(),
-					"secret-backend": "backend-id",
-				}
-				cfg, err := config.New(config.NoDefaults, configAttrs)
-				c.Assert(err, jc.ErrorIsNil)
-				return cfg, nil
-			},
-		),
-		model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
-			// Call to get the current secret backend after the first change(no change, but we always send the initial event).
-			func(_ context.Context) (*config.Config, error) {
-				configAttrs := map[string]interface{}{
-					"name":           "some-name",
-					"type":           "some-type",
-					"uuid":           coretesting.ModelTag.Id(),
-					"secret-backend": "backend-id",
-				}
-				cfg, err := config.New(config.NoDefaults, configAttrs)
-				c.Assert(err, jc.ErrorIsNil)
-				return cfg, nil
-			},
-		),
-		model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
-			// Call to get the current secret backend after the first change(no change, we won'ts send the event).
-			func(_ context.Context) (*config.Config, error) {
-				configAttrs := map[string]interface{}{
-					"name":           "some-name",
-					"type":           "some-type",
-					"uuid":           coretesting.ModelTag.Id(),
-					"secret-backend": "backend-id",
-				}
-				cfg, err := config.New(config.NoDefaults, configAttrs)
-				c.Assert(err, jc.ErrorIsNil)
-				return cfg, nil
-			},
-		),
-		model.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(
-			// Call to get the current secret backend after the second change - backend changed.
-			func(_ context.Context) (*config.Config, error) {
-				configAttrs := map[string]interface{}{
-					"name":           "some-name",
-					"type":           "some-type",
-					"uuid":           coretesting.ModelTag.Id(),
-					"secret-backend": "a-different-backend-id",
-				}
-				cfg, err := config.New(config.NoDefaults, configAttrs)
-				c.Assert(err, jc.ErrorIsNil)
-				close(done)
-				return cfg, nil
-			},
-		),
+		// Initial call to get the current secret backend.
+		backendGetter.EXPECT().GetSecretBackendID(gomock.Any()).Return("backend-id", nil),
+		// Call to get the current secret backend after the first change(no change, but we always send the initial event).
+		backendGetter.EXPECT().GetSecretBackendID(gomock.Any()).Return("backend-id", nil),
+		// Call to get the current secret backend after the first change(no change, we won't send the event).
+		backendGetter.EXPECT().GetSecretBackendID(gomock.Any()).Return("backend-id", nil),
+		// Call to get the current secret backend after the second change - backend changed.
+		backendGetter.EXPECT().GetSecretBackendID(gomock.Any()).Return("a-different-backend-id", nil),
 	)
 
-	w, err := secrets.NewSecretBackendModelConfigWatcher(context.Background(), model, modelConfigChangesWatcher, loggo.GetLogger("juju.apiserver.secretsdrain"))
+	w, err := secrets.NewSecretBackendModelConfigWatcher(context.Background(), backendGetter, backendWatcher, loggo.GetLogger("juju.apiserver.secretsdrain"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
 

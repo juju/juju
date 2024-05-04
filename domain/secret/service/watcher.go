@@ -280,3 +280,10 @@ func (s *WatchableService) SecretRotated(ctx context.Context, uri *secrets.URI, 
 	// TODO(secrets)
 	return nil
 }
+
+// WatchSecretBackendChanged notifies when the model secret backend has changed.
+func (s *WatchableService) WatchSecretBackendChanged(ctx context.Context) (watcher.NotifyWatcher, error) {
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+	return watchertest.NewMockNotifyWatcher(ch), nil
+}
