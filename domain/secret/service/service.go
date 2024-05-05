@@ -622,6 +622,12 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context
 	return nil, notFoundErr
 }
 
+// GetSecretBackendID returns the current backend for the model.
+func (s *WatchableService) GetSecretBackendID(ctx context.Context) (string, error) {
+	//TODO(secrets)
+	return "", nil
+}
+
 // ChangeSecretBackend sets the secret backend where the specified secret revision is stored.
 // It returns [secreterrors.SecretNotFound] is there's no such secret.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.

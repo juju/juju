@@ -11,31 +11,31 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/core/watcher"
 )
 
 type secretBackendModelConfigWatcher struct {
-	catacomb          catacomb.Catacomb
-	out               chan struct{}
-	src               state.NotifyWatcher
-	modelConfigGetter ModelConfig
-	logger            loggo.Logger
+	catacomb      catacomb.Catacomb
+	out           chan struct{}
+	src           watcher.NotifyWatcher
+	backendGetter SecretBackendGetter
+	logger        loggo.Logger
 
 	currentSecretBackend string
 }
 
-func newSecretBackendModelConfigWatcher(ctx context.Context, modelConfigGetter ModelConfig, src state.NotifyWatcher, logger loggo.Logger) (state.NotifyWatcher, error) {
+func newSecretBackendModelConfigWatcher(ctx context.Context, backendGetter SecretBackendGetter, src watcher.NotifyWatcher, logger loggo.Logger) (watcher.NotifyWatcher, error) {
 	w := &secretBackendModelConfigWatcher{
-		out:               make(chan struct{}),
-		src:               src,
-		modelConfigGetter: modelConfigGetter,
-		logger:            logger,
+		out:           make(chan struct{}),
+		src:           src,
+		backendGetter: backendGetter,
+		logger:        logger,
 	}
-	modelConfig, err := w.modelConfigGetter.ModelConfig(ctx)
+	var err error
+	w.currentSecretBackend, err = w.backendGetter.GetSecretBackendID(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	w.currentSecretBackend = modelConfig.SecretBackend()
 
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -108,11 +108,10 @@ func (w *secretBackendModelConfigWatcher) processModelChange() (bool, error) {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	modelConfig, err := w.modelConfigGetter.ModelConfig(ctx)
+	latest, err := w.backendGetter.GetSecretBackendID(ctx)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	latest := modelConfig.SecretBackend()
 	if w.currentSecretBackend == latest {
 		return false, nil
 	}

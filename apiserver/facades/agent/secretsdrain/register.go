@@ -49,7 +49,6 @@ func newSecretsDrainAPI(ctx facade.ModelContext) (*commonsecrets.SecretsDrainAPI
 		ctx.Logger().Child("secretsdrain"),
 		leadershipChecker,
 		modelUUID,
-		model,
 		ctx.ServiceFactory().Secret(secretBackendAdminConfigGetter),
 		secretBackendService,
 		ctx.WatcherRegistry(),

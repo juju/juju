@@ -52,7 +52,6 @@ func newUserSecretsDrainAPI(context facade.ModelContext) (*SecretsDrainAPI, erro
 		context.Logger().Child("usersecretsdrain"),
 		leadershipChecker,
 		modelUUID,
-		model,
 		secretService,
 		backendService,
 		context.WatcherRegistry(),

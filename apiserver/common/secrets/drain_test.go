@@ -5,7 +5,6 @@ package secrets_test
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -19,9 +18,9 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/watcher/watchertest"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	backendservice "github.com/juju/juju/domain/secretbackend/service"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -32,12 +31,10 @@ type secretsDrainSuite struct {
 	authorizer      *facademocks.MockAuthorizer
 	watcherRegistry *facademocks.MockWatcherRegistry
 
-	leadership                *mocks.MockChecker
-	token                     *mocks.MockToken
-	secretService             *mocks.MockSecretService
-	secretBackendService      *mocks.MockSecretBackendService
-	model                     *mocks.MockModelConfig
-	modelConfigChangesWatcher *mocks.MockNotifyWatcher
+	leadership           *mocks.MockChecker
+	token                *mocks.MockToken
+	secretService        *mocks.MockSecretService
+	secretBackendService *mocks.MockSecretBackendService
 
 	authTag names.Tag
 
@@ -62,8 +59,6 @@ func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 	s.token = mocks.NewMockToken(ctrl)
 	s.secretService = mocks.NewMockSecretService(ctrl)
 	s.secretBackendService = mocks.NewMockSecretBackendService(ctrl)
-	s.model = mocks.NewMockModelConfig(ctrl)
-	s.modelConfigChangesWatcher = mocks.NewMockNotifyWatcher(ctrl)
 	s.expectAuthUnitAgent()
 
 	var err error
@@ -73,7 +68,6 @@ func (s *secretsDrainSuite) setup(c *gc.C) *gomock.Controller {
 		loggo.GetLogger("juju.apiserver.secretsdrain"),
 		s.leadership,
 		model.UUID(coretesting.ModelTag.Id()),
-		s.model,
 		s.secretService,
 		s.secretBackendService,
 		s.watcherRegistry,
@@ -323,25 +317,11 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	done := make(chan struct{})
 	changeChan := make(chan struct{}, 1)
 	changeChan <- struct{}{}
-	s.modelConfigChangesWatcher.EXPECT().Wait().DoAndReturn(func() error {
-		close(done)
-		return nil
-	})
-	s.modelConfigChangesWatcher.EXPECT().Changes().Return(changeChan).AnyTimes()
-
-	s.model.EXPECT().WatchForModelConfigChanges().Return(s.modelConfigChangesWatcher)
-	configAttrs := map[string]interface{}{
-		"name":           "some-name",
-		"type":           "some-type",
-		"uuid":           coretesting.ModelTag.Id(),
-		"secret-backend": "backend-id",
-	}
-	cfg, err := config.New(config.NoDefaults, configAttrs)
-	c.Assert(err, jc.ErrorIsNil)
-	s.model.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).Times(2)
+	w := watchertest.NewMockNotifyWatcher(changeChan)
+	s.secretService.EXPECT().WatchSecretBackendChanged(gomock.Any()).Return(w, nil)
+	s.secretService.EXPECT().GetSecretBackendID(gomock.Any()).Return("backend-id", nil).Times(2)
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("11", nil)
 
@@ -350,11 +330,4 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{
 		NotifyWatcherId: "11",
 	})
-
-	select {
-	case <-done:
-		// We need to wait for the watcher to fully start to ensure that all expected methods are called.
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for 2nd loop")
-	}
 }

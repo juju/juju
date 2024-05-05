@@ -27,8 +27,6 @@ type SecretsDrainAPI struct {
 	leadershipChecker leadership.Checker
 	watcherRegistry   facade.WatcherRegistry
 
-	modelConfig ModelConfig
-
 	modelUUID            model.UUID
 	secretService        SecretService
 	secretBackendService SecretBackendService
@@ -41,7 +39,6 @@ func NewSecretsDrainAPI(
 	logger loggo.Logger,
 	leadershipChecker leadership.Checker,
 	modelUUID model.UUID,
-	modelConfig ModelConfig,
 	secretService SecretService,
 	secretBackendService SecretBackendService,
 	watcherRegistry facade.WatcherRegistry,
@@ -54,7 +51,6 @@ func NewSecretsDrainAPI(
 		logger:               logger,
 		leadershipChecker:    leadershipChecker,
 		modelUUID:            modelUUID,
-		modelConfig:          modelConfig,
 		secretService:        secretService,
 		secretBackendService: secretBackendService,
 		watcherRegistry:      watcherRegistry,
@@ -209,8 +205,13 @@ func toChangeSecretBackendParams(accessor secretservice.SecretAccessor, token le
 
 // WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
 func (s *SecretsDrainAPI) WatchSecretBackendChanged(ctx context.Context) (params.NotifyWatchResult, error) {
-	stateWatcher := s.modelConfig.WatchForModelConfigChanges()
-	w, err := newSecretBackendModelConfigWatcher(ctx, s.modelConfig, stateWatcher, s.logger)
+	backendWatcher, err := s.secretService.WatchSecretBackendChanged(ctx)
+	if err != nil {
+		return params.NotifyWatchResult{
+			Error: apiservererrors.ServerError(err),
+		}, nil
+	}
+	w, err := newSecretBackendModelConfigWatcher(ctx, s.secretService, backendWatcher, s.logger)
 	if err != nil {
 		return params.NotifyWatchResult{
 			Error: apiservererrors.ServerError(err),
