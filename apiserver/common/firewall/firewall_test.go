@@ -7,6 +7,7 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -14,6 +15,8 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -27,6 +30,8 @@ type FirewallSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mockState
+
+	modelConfigService *MockModelConfigService
 }
 
 func (s *FirewallSuite) SetUpTest(c *gc.C) {
@@ -43,7 +48,26 @@ func (s *FirewallSuite) SetUpTest(c *gc.C) {
 	s.st = newMockState(coretesting.ModelTag.Id())
 }
 
+func (s *FirewallSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+
+	return ctrl
+}
+
 func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	mcw := watchertest.NewMockStringsWatcher(ch)
+	s.modelConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+		return mcw, nil
+	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(&config.Config{}, nil)
+
 	db2Relation := newMockRelation(123)
 	db2Relation.ruwApp = "django"
 	// Initial event.
@@ -85,7 +109,7 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	s.st.applications["django"] = app
 
 	result, err := firewall.WatchEgressAddressesForRelations(
-		s.resources, s.st,
+		s.resources, s.st, s.modelConfigService,
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
 		}}})
@@ -120,6 +144,9 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 }
 
 func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	db2Relation := newMockRelation(123)
 	// Initial event.
 	db2Relation.ew.changes <- []string{}
@@ -142,7 +169,7 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelationsIgnoresProvider(c *g
 	s.st.remoteEntities[names.NewRelationTag("remote-db2:db django:db")] = "token-db2:db django:db"
 
 	result, err := firewall.WatchEgressAddressesForRelations(
-		s.resources, s.st,
+		s.resources, s.st, s.modelConfigService,
 		params.Entities{Entities: []params.Entity{{
 			Tag: names.NewRelationTag("remote-db2:db django:db").String(),
 		}}})

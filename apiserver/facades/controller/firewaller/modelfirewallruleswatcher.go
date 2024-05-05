@@ -12,8 +12,8 @@ import (
 )
 
 type modelFirewallRulesWatcher struct {
-	catacomb catacomb.Catacomb
-	backend  State
+	catacomb           catacomb.Catacomb
+	modelConfigService ModelConfigService
 
 	out chan struct{}
 
@@ -24,10 +24,10 @@ type modelFirewallRulesWatcher struct {
 // determining the model firewall rules takes place
 //
 // NOTE: At this time, ssh-allow model config item is the only thing that needs to be watched
-func NewModelFirewallRulesWatcher(st State) (*modelFirewallRulesWatcher, error) {
+func NewModelFirewallRulesWatcher(modelConfigService ModelConfigService) (*modelFirewallRulesWatcher, error) {
 	w := &modelFirewallRulesWatcher{
-		backend: st,
-		out:     make(chan struct{}),
+		modelConfigService: modelConfigService,
+		out:                make(chan struct{}),
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{
@@ -40,7 +40,10 @@ func NewModelFirewallRulesWatcher(st State) (*modelFirewallRulesWatcher, error) 
 func (w *modelFirewallRulesWatcher) loop() error {
 	defer close(w.out)
 
-	configWatcher := w.backend.WatchForModelConfigChanges()
+	configWatcher, err := w.modelConfigService.Watch()
+	if err != nil {
+		return errors.Trace(err)
+	}
 	if err := w.catacomb.Add(configWatcher); err != nil {
 		return errors.Trace(err)
 	}
@@ -81,7 +84,7 @@ func (w *modelFirewallRulesWatcher) getSSHAllow() (set.Strings, error) {
 	ctx, cancel := w.scopedContext()
 	defer cancel()
 
-	cfg, err := w.backend.ModelConfig(ctx)
+	cfg, err := w.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

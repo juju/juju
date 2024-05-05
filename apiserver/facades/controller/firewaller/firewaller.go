@@ -18,12 +18,15 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
+	statewatcher "github.com/juju/juju/state/watcher"
 )
 
 // ControllerConfigService is an interface that provides access to the
@@ -32,10 +35,17 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// ModelConfigService is an interface that provides access to the
+// model configuration.
+type ModelConfigService interface {
+	ModelConfig(ctx context.Context) (*config.Config, error)
+	Watch() (watcher.StringsWatcher, error)
+}
+
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
 	*common.LifeGetter
-	*common.MongoModelWatcher
+	*common.ModelWatcher
 	*common.AgentEntityWatcher
 	*common.UnitsWatcher
 	*common.ModelMachinesWatcher
@@ -46,6 +56,7 @@ type FirewallerAPI struct {
 	st                State
 	networkService    NetworkService
 	resources         facade.Resources
+	watcherRegistry   facade.WatcherRegistry
 	authorizer        facade.Authorizer
 	accessUnit        common.GetAuthFunc
 	accessApplication common.GetAuthFunc
@@ -57,6 +68,7 @@ type FirewallerAPI struct {
 	appEndpointBindings map[string]map[string]string
 
 	controllerConfigService ControllerConfigService
+	modelConfigService      ModelConfigService
 }
 
 // NewStateFirewallerAPI creates a new server-side FirewallerAPIV7 facade.
@@ -64,10 +76,12 @@ func NewStateFirewallerAPI(
 	st State,
 	networkService NetworkService,
 	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	authorizer facade.Authorizer,
 	cloudSpecAPI cloudspec.CloudSpecer,
 	controllerConfigAPI ControllerConfigAPI,
 	controllerConfigService ControllerConfigService,
+	modelConfigService ModelConfigService,
 	logger loggo.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
@@ -89,9 +103,9 @@ func NewStateFirewallerAPI(
 	)
 	// ModelConfig() and WatchForModelConfigChanges() are allowed
 	// with unrestricted access.
-	modelWatcher := common.NewMongoModelWatcher(
-		st,
-		resources,
+	modelWatcher := common.NewModelWatcher(
+		modelConfigService,
+		watcherRegistry,
 	)
 	// Watch() is supported for applications only.
 	entityWatcher := common.NewAgentEntityWatcher(
@@ -118,7 +132,7 @@ func NewStateFirewallerAPI(
 
 	return &FirewallerAPI{
 		LifeGetter:              lifeGetter,
-		MongoModelWatcher:       modelWatcher,
+		ModelWatcher:            modelWatcher,
 		AgentEntityWatcher:      entityWatcher,
 		UnitsWatcher:            unitsWatcher,
 		ModelMachinesWatcher:    machinesWatcher,
@@ -127,12 +141,14 @@ func NewStateFirewallerAPI(
 		ControllerConfigAPI:     controllerConfigAPI,
 		st:                      st,
 		resources:               resources,
+		watcherRegistry:         watcherRegistry,
 		authorizer:              authorizer,
 		accessUnit:              accessUnit,
 		accessApplication:       accessApplication,
 		accessMachine:           accessMachine,
 		accessModel:             accessModel,
 		controllerConfigService: controllerConfigService,
+		modelConfigService:      modelConfigService,
 		networkService:          networkService,
 		logger:                  logger,
 	}, nil
@@ -180,13 +196,13 @@ func (f *FirewallerAPI) watchOneModelOpenedPorts(tag names.Tag) (string, []strin
 	if changes, ok := <-watch.Changes(); ok {
 		return f.resources.Register(watch), changes, nil
 	}
-	return "", nil, watcher.EnsureErr(watch)
+	return "", nil, statewatcher.EnsureErr(watch)
 }
 
 // ModelFirewallRules returns the firewall rules that this model is
 // configured to open
 func (f *FirewallerAPI) ModelFirewallRules(ctx context.Context) (params.IngressRulesResult, error) {
-	cfg, err := f.st.ModelConfig(ctx)
+	cfg, err := f.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return params.IngressRulesResult{Error: apiservererrors.ServerError(err)}, nil
 	}
@@ -218,17 +234,15 @@ func (f *FirewallerAPI) ModelFirewallRules(ctx context.Context) (params.IngressR
 // WatchModelFirewallRules returns a NotifyWatcher that notifies of
 // potential changes to a model's configured firewall rules
 func (f *FirewallerAPI) WatchModelFirewallRules(ctx context.Context) (params.NotifyWatchResult, error) {
-	watch, err := NewModelFirewallRulesWatcher(f.st)
+	watch, err := NewModelFirewallRulesWatcher(f.modelConfigService)
 	if err != nil {
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}
-
-	if _, ok := <-watch.Changes(); ok {
-		return params.NotifyWatchResult{NotifyWatcherId: f.resources.Register(watch)}, nil
-	} else {
-		err := watcher.EnsureErr(watch)
+	watcherId, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, f.watcherRegistry, watch)
+	if err != nil {
 		return params.NotifyWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}
+	return params.NotifyWatchResult{NotifyWatcherId: watcherId}, nil
 }
 
 // GetAssignedMachine returns the assigned machine tag (if any) for
@@ -313,7 +327,7 @@ func (f *FirewallerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineT
 // connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required for ingress for the relation.
 func (f *FirewallerAPI) WatchEgressAddressesForRelations(ctx context.Context, relations params.Entities) (params.StringsWatchResults, error) {
-	return firewall.WatchEgressAddressesForRelations(f.resources, f.st, relations)
+	return firewall.WatchEgressAddressesForRelations(f.resources, f.st, f.modelConfigService, relations)
 }
 
 // WatchIngressAddressesForRelations creates a watcher that returns the ingress networks
@@ -337,7 +351,7 @@ func (f *FirewallerAPI) WatchIngressAddressesForRelations(ctx context.Context, r
 		w := rel.WatchRelationIngressNetworks()
 		changes, ok := <-w.Changes()
 		if !ok {
-			return "", nil, apiservererrors.ServerError(watcher.EnsureErr(w))
+			return "", nil, apiservererrors.ServerError(statewatcher.EnsureErr(w))
 		}
 		return f.resources.Register(w), changes, nil
 	}
@@ -642,11 +656,7 @@ func (f *FirewallerAPI) WatchSubnets(ctx context.Context, args params.Entities) 
 		return params.StringsWatchResult{}, apiservererrors.ServerError(apiservererrors.ErrPerm)
 	}
 
-	var (
-		subnetsToWatch set.Strings
-		result         = params.StringsWatchResult{}
-	)
-
+	var subnetsToWatch set.Strings
 	if len(args.Entities) != 0 {
 		subnetsToWatch = set.NewStrings()
 		for _, arg := range args.Entities {
@@ -654,32 +664,20 @@ func (f *FirewallerAPI) WatchSubnets(ctx context.Context, args params.Entities) 
 			if err != nil {
 				return params.StringsWatchResult{}, apiservererrors.ServerError(err)
 			}
-
 			subnetsToWatch.Add(subnetTag.Id())
 		}
 	}
 
-	watcherId, initial, err := f.watchModelSubnets(ctx, subnetsToWatch)
-	if err != nil {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-	result.StringsWatcherId = watcherId
-	result.Changes = initial
-	return result, nil
-}
-
-func (f *FirewallerAPI) watchModelSubnets(ctx context.Context, subnetsToWatch set.Strings) (string, []string, error) {
 	watch, err := f.networkService.WatchSubnets(ctx, subnetsToWatch)
 	if err != nil {
-		return "", nil, errors.Trace(err)
+		return params.StringsWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 
-	// Consume the initial event and forward it to the result.
-	if changes, ok := <-watch.Changes(); ok {
-		return f.resources.Register(watch), changes, nil
+	watcherId, initial, err := internal.EnsureRegisterWatcher[[]string](ctx, f.watcherRegistry, watch)
+	if err != nil {
+		return params.StringsWatchResult{Error: apiservererrors.ServerError(err)}, nil
 	}
-	return "", nil, nil
+	return params.StringsWatchResult{StringsWatcherId: watcherId, Changes: initial}, nil
 }
 
 func setEquals(a, b set.Strings) bool {

@@ -10,20 +10,22 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
+	"github.com/juju/juju/core/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&ModelFirewallRulesWatcherSuite{})
 
 type ModelFirewallRulesWatcherSuite struct {
-	st *MockState
+	modelConfigService *MockModelConfigService
 }
 
-func (s *ModelFirewallRulesWatcherSuite) setup(c *gc.C) *gomock.Controller {
+func (s *ModelFirewallRulesWatcherSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.st = NewMockState(ctrl)
+
+	s.modelConfigService = NewMockModelConfigService(ctrl)
 
 	return ctrl
 }
@@ -35,84 +37,72 @@ func cfg(c *gc.C, in map[string]interface{}) *config.Config {
 	return cfg
 }
 
-func mockNotifyWatcher(ctrl *gomock.Controller) (*MockNotifyWatcher, chan struct{}) {
-	ch := make(chan struct{})
-	watcher := NewMockNotifyWatcher(ctrl)
-	watcher.EXPECT().Changes().Return(ch).MinTimes(1)
-	watcher.EXPECT().Wait().AnyTimes()
-	watcher.EXPECT().Kill().AnyTimes()
-	watcher.EXPECT().Stop().AnyTimes()
-	return watcher, ch
-}
-
 func (s *ModelFirewallRulesWatcherSuite) TestInitial(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	watcher, notifyCh := mockNotifyWatcher(ctrl)
-	defer close(notifyCh)
-	s.st.EXPECT().WatchForModelConfigChanges().Return(watcher)
+	notifyCh := make(chan []string)
+	watcher := watchertest.NewMockStringsWatcher(notifyCh)
+	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
 
-	s.st.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
 
-	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
+	w, err := firewaller.NewModelFirewallRulesWatcher(s.modelConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 
 	// Initial event
-	notifyCh <- struct{}{}
-	wc.AssertChanges(1)
+	notifyCh <- []string{}
+	wc.AssertChanges(testing.ShortWait)
 }
 
 func (s *ModelFirewallRulesWatcherSuite) TestConfigChange(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	watcher, notifyCh := mockNotifyWatcher(ctrl)
-	defer close(notifyCh)
+	notifyCh := make(chan []string)
+	watcher := watchertest.NewMockStringsWatcher(notifyCh)
+	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
 
-	s.st.EXPECT().WatchForModelConfigChanges().Return(watcher)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "192.168.0.0/24"}), nil)
 
-	s.st.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
-	s.st.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "192.168.0.0/24"}), nil)
-
-	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
+	w, err := firewaller.NewModelFirewallRulesWatcher(s.modelConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 
 	// Initial event
-	notifyCh <- struct{}{}
-	wc.AssertChanges(1)
+	notifyCh <- []string{}
+	wc.AssertChanges(testing.ShortWait)
 
 	// Config change
-	notifyCh <- struct{}{}
-	wc.AssertChanges(1)
+	notifyCh <- []string{"ssh-allow"}
+	wc.AssertChanges(testing.ShortWait)
 }
 
 func (s *ModelFirewallRulesWatcherSuite) TestIrrelevantConfigChange(c *gc.C) {
-	ctrl := s.setup(c)
+	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	watcher, notifyCh := mockNotifyWatcher(ctrl)
-	defer close(notifyCh)
+	notifyCh := make(chan []string)
+	watcher := watchertest.NewMockStringsWatcher(notifyCh)
+	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
 
-	s.st.EXPECT().WatchForModelConfigChanges().Return(watcher)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
 
-	s.st.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
-	s.st.EXPECT().ModelConfig(gomock.Any()).Return(cfg(c, map[string]interface{}{config.SSHAllowKey: "0.0.0.0/0"}), nil)
-
-	w, err := firewaller.NewModelFirewallRulesWatcher(s.st)
+	w, err := firewaller.NewModelFirewallRulesWatcher(s.modelConfigService)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 
 	// Initial event
-	notifyCh <- struct{}{}
-	wc.AssertChanges(1)
+	notifyCh <- []string{}
+	wc.AssertChanges(testing.ShortWait)
 
 	// Config change
-	notifyCh <- struct{}{}
+	notifyCh <- []string{"ssh-allow"}
 	wc.AssertNoChange()
 }

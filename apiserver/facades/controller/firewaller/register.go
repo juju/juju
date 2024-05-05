@@ -49,10 +49,12 @@ func newFirewallerAPIV7(ctx facade.ModelContext) (*FirewallerAPI, error) {
 		stShim,
 		serviceFactory.Network(),
 		ctx.Resources(),
+		ctx.WatcherRegistry(),
 		ctx.Auth(),
 		cloudSpecAPI,
 		controllerConfigAPI,
 		serviceFactory.ControllerConfig(),
+		serviceFactory.Config(),
 		ctx.Logger().Child("firewaller"),
 	)
 }

@@ -15,7 +15,6 @@ import (
 // remote firewaller facade.
 type State interface {
 	state.ModelMachinesWatcher
-	state.ModelAccessor
 
 	KeyRelation(string) (Relation, error)
 

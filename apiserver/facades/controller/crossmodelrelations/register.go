@@ -27,7 +27,7 @@ func Register(registry facade.FacadeRegistry) {
 func newStateCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelationsAPIv3, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 	st := ctx.State()
-	model, err := st.Model()
+	m, err := st.Model()
 	if err != nil {
 		return nil, err
 	}
@@ -37,10 +37,11 @@ func newStateCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelatio
 			st:      st,
 			Backend: commoncrossmodel.GetBackend(st),
 		},
-		firewall.StateShim(st, model),
+		firewall.StateShim(st, m),
 		ctx.Resources(), ctx.Auth(),
 		authCtxt.(*commoncrossmodel.AuthContext),
 		ctx.ServiceFactory().Secret(service.NotImplementedBackendConfigGetter),
+		ctx.ServiceFactory().Config(),
 		firewall.WatchEgressAddressesForRelations,
 		watchRelationLifeSuspendedStatus,
 		watchOfferStatus,

@@ -41,7 +41,7 @@ type firewallerBaseSuite struct {
 	resources  *common.Resources
 }
 
-func (s *firewallerBaseSuite) setUpTest(c *gc.C) {
+func (s *firewallerBaseSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 
 	// Reset previous machines and units (if any) and create 3
