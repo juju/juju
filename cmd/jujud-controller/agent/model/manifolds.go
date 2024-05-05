@@ -297,20 +297,22 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Logger:        config.LoggingContext.GetLogger("juju.worker.cleaner"),
 		})),
 		statusHistoryPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			NewWorker:     statushistorypruner.New,
-			NewClient:     statushistorypruner.NewClient,
-			PruneInterval: config.StatusHistoryPrunerInterval,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.pruner.statushistory"),
+			APICallerName:      apiCallerName,
+			ServiceFactoryName: serviceFactoryName,
+			Clock:              config.Clock,
+			NewWorker:          statushistorypruner.New,
+			NewClient:          statushistorypruner.NewClient,
+			PruneInterval:      config.StatusHistoryPrunerInterval,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.pruner.statushistory"),
 		})),
 		actionPrunerName: ifNotMigrating(pruner.Manifold(pruner.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-			NewWorker:     actionpruner.New,
-			NewClient:     actionpruner.NewClient,
-			PruneInterval: config.ActionPrunerInterval,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.pruner.action"),
+			APICallerName:      apiCallerName,
+			ServiceFactoryName: serviceFactoryName,
+			Clock:              config.Clock,
+			NewWorker:          actionpruner.New,
+			NewClient:          actionpruner.NewClient,
+			PruneInterval:      config.ActionPrunerInterval,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.pruner.action"),
 		})),
 		// The provider upgrader runs on all controller agents, and
 		// unlocks the gate when the provider is up-to-date. The
@@ -660,6 +662,8 @@ const (
 	clockName            = "clock"
 	apiConfigWatcherName = "api-config-watcher"
 	apiCallerName        = "api-caller"
+
+	serviceFactoryName = "service-factory"
 
 	isResponsibleFlagName = "is-responsible-flag"
 	notDeadFlagName       = "not-dead-flag"

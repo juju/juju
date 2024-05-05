@@ -36,11 +36,12 @@ func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldConfigSuite) validConfig() pruner.ManifoldConfig {
 	return pruner.ManifoldConfig{
-		APICallerName: "api-caller",
-		Clock:         clock.WallClock,
-		NewWorker:     func(pruner.Config) (worker.Worker, error) { return nil, nil },
-		NewClient:     func(caller base.APICaller) pruner.Facade { return nil },
-		Logger:        loggo.GetLogger("test"),
+		APICallerName:      "api-caller",
+		ServiceFactoryName: "service-factory",
+		Clock:              clock.WallClock,
+		NewWorker:          func(pruner.Config) (worker.Worker, error) { return nil, nil },
+		NewClient:          func(caller base.APICaller) pruner.Facade { return nil },
+		Logger:             loggo.GetLogger("test"),
 	}
 }
 
@@ -51,6 +52,11 @@ func (s *ManifoldConfigSuite) TestValid(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
 	s.config.APICallerName = ""
 	s.checkNotValid(c, "empty APICallerName not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingServiceFactoryName(c *gc.C) {
+	s.config.ServiceFactoryName = ""
+	s.checkNotValid(c, "empty ServiceFactoryName not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingClock(c *gc.C) {

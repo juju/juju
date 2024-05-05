@@ -30,45 +30,46 @@ var _ = gc.Suite(&PrunerSuite{})
 
 type newPrunerFunc func(pruner.Config) (worker.Worker, error)
 
-func (s *PrunerSuite) setupPruner(c *gc.C, newPruner newPrunerFunc) (*fakeFacade, *testclock.Clock) {
-	facade := newFakeFacade()
+func (s *PrunerSuite) setupPruner(c *gc.C, newPruner newPrunerFunc) (*fakeBackend, *testclock.Clock) {
+	backend := newFakeFacade()
 	attrs := coretesting.FakeConfig()
 	attrs["max-status-history-age"] = "1s"
 	attrs["max-status-history-size"] = "3M"
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	facade.modelConfig = cfg
+	backend.modelConfig = cfg
 
 	testClock := testclock.NewClock(time.Time{})
 	conf := pruner.Config{
-		Facade:        facade,
-		PruneInterval: coretesting.ShortWait,
-		Clock:         testClock,
-		Logger:        loggo.GetLogger("test"),
+		Facade:             backend,
+		ModelConfigService: backend,
+		PruneInterval:      coretesting.ShortWait,
+		Clock:              testClock,
+		Logger:             loggo.GetLogger("test"),
 	}
 
 	pruner, err := newPruner(conf)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) {
 		c.Assert(worker.Stop(pruner), jc.ErrorIsNil)
 	})
 
-	facade.modelChangesWatcher.changes <- struct{}{}
+	backend.modelChangesWatcher.changes <- []string{}
 
-	return facade, testClock
+	return backend, testClock
 }
 
-func (s *PrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeFacade, testClock *testclock.Clock, collectionSize int) {
+func (s *PrunerSuite) assertWorkerCallsPrune(c *gc.C, backend *fakeBackend, testClock *testclock.Clock, collectionSize int) {
 	// NewTimer/Reset will have been called with the PruneInterval.
 	testClock.WaitAdvance(coretesting.ShortWait-time.Nanosecond, coretesting.LongWait, 1)
 	select {
-	case <-facade.pruned:
+	case <-backend.pruned:
 		c.Fatal("unexpected call to Prune")
 	case <-time.After(coretesting.ShortWait):
 	}
 	testClock.Advance(time.Nanosecond)
 	select {
-	case args := <-facade.pruned:
+	case args := <-backend.pruned:
 		c.Assert(args.maxHistoryMB, gc.Equals, collectionSize)
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for call to Prune")
@@ -76,8 +77,8 @@ func (s *PrunerSuite) assertWorkerCallsPrune(c *gc.C, facade *fakeFacade, testCl
 }
 
 func (s *PrunerSuite) TestWorkerCallsPrune(c *gc.C) {
-	facade, clock := s.setupPruner(c, statushistorypruner.New)
-	s.assertWorkerCallsPrune(c, facade, clock, 3)
+	backend, clock := s.setupPruner(c, statushistorypruner.New)
+	s.assertWorkerCallsPrune(c, backend, clock, 3)
 }
 
 func (s *PrunerSuite) TestWorkerWontCallPruneBeforeFiringTimer(c *gc.C) {
@@ -97,14 +98,14 @@ func (s *PrunerSuite) TestModelConfigChange(c *gc.C) {
 	var err error
 	facade.modelConfig, err = facade.modelConfig.Apply(map[string]interface{}{"max-status-history-size": "4M"})
 	c.Assert(err, jc.ErrorIsNil)
-	facade.modelChangesWatcher.changes <- struct{}{}
+	facade.modelChangesWatcher.changes <- []string{}
 
 	s.assertWorkerCallsPrune(c, facade, clock, 4)
 }
 
-type fakeFacade struct {
+type fakeBackend struct {
 	pruned              chan pruneParams
-	modelChangesWatcher *mockNotifyWatcher
+	modelChangesWatcher *mockStringsWatcher
 	modelConfig         *config.Config
 }
 
@@ -113,15 +114,15 @@ type pruneParams struct {
 	maxHistoryMB int
 }
 
-func newFakeFacade() *fakeFacade {
-	return &fakeFacade{
+func newFakeFacade() *fakeBackend {
+	return &fakeBackend{
 		pruned:              make(chan pruneParams, 1),
-		modelChangesWatcher: newMockNotifyWatcher(),
+		modelChangesWatcher: newMockStringsWatcher(),
 	}
 }
 
 // Prune implements Facade
-func (f *fakeFacade) Prune(maxAge time.Duration, maxHistoryMB int) error {
+func (f *fakeBackend) Prune(maxAge time.Duration, maxHistoryMB int) error {
 	select {
 	case f.pruned <- pruneParams{maxAge, maxHistoryMB}:
 	case <-time.After(coretesting.LongWait):
@@ -130,13 +131,13 @@ func (f *fakeFacade) Prune(maxAge time.Duration, maxHistoryMB int) error {
 	return nil
 }
 
-// WatchForModelConfigChanges implements Facade
-func (f *fakeFacade) WatchForModelConfigChanges() (watcher.NotifyWatcher, error) {
+// Watch implements ModelConfigService.
+func (f *fakeBackend) Watch() (watcher.StringsWatcher, error) {
 	return f.modelChangesWatcher, nil
 }
 
-// ModelConfig implements Facade
-func (f *fakeFacade) ModelConfig(_ context.Context) (*config.Config, error) {
+// ModelConfig implements ModelConfigService.
+func (f *fakeBackend) ModelConfig(_ context.Context) (*config.Config, error) {
 	return f.modelConfig, nil
 }
 
@@ -173,18 +174,18 @@ func (w *mockWatcher) Stopped() bool {
 	}
 }
 
-func newMockNotifyWatcher() *mockNotifyWatcher {
-	return &mockNotifyWatcher{
+func newMockStringsWatcher() *mockStringsWatcher {
+	return &mockStringsWatcher{
 		mockWatcher: newMockWatcher(),
-		changes:     make(chan struct{}, 1),
+		changes:     make(chan []string, 1),
 	}
 }
 
-type mockNotifyWatcher struct {
+type mockStringsWatcher struct {
 	*mockWatcher
-	changes chan struct{}
+	changes chan []string
 }
 
-func (w *mockNotifyWatcher) Changes() watcher.NotifyChannel {
+func (w *mockStringsWatcher) Changes() watcher.StringsChannel {
 	return w.changes
 }

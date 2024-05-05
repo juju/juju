@@ -26,8 +26,13 @@ var (
 // Facade represents an API that implements status history pruning.
 type Facade interface {
 	Prune(time.Duration, int) error
-	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
-	ModelConfig(context.Context) (*config.Config, error)
+}
+
+// ModelConfigService is an interface that provides access to the
+// model configuration.
+type ModelConfigService interface {
+	ModelConfig(ctx context.Context) (*config.Config, error)
+	Watch() (watcher.StringsWatcher, error)
 }
 
 // PrunerWorker prunes status history or action records at regular intervals.
@@ -58,7 +63,7 @@ func (w *PrunerWorker) Config() *Config {
 
 // Work is the main body of generic pruner loop.
 func (w *PrunerWorker) Work(getPrunerConfig func(*config.Config) (time.Duration, uint)) error {
-	modelConfigWatcher, err := w.config.Facade.WatchForModelConfigChanges()
+	modelConfigWatcher, err := w.config.ModelConfigService.Watch()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -86,7 +91,7 @@ func (w *PrunerWorker) Work(getPrunerConfig func(*config.Config) (time.Duration,
 			if !ok {
 				return errors.New("model configuration watcher closed")
 			}
-			modelConfig, err := w.config.Facade.ModelConfig(context.TODO())
+			modelConfig, err := w.config.ModelConfigService.ModelConfig(context.TODO())
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}

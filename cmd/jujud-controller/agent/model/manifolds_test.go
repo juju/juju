@@ -217,6 +217,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
+		"service-factory",
 	},
 
 	"secrets-pruner": {
@@ -432,6 +433,7 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
+		"service-factory",
 	},
 
 	"undertaker": {
@@ -455,6 +457,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
 		"not-dead-flag",
+		"service-factory",
 	},
 
 	"secrets-pruner": {
@@ -685,6 +688,7 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
 		"not-dead-flag",
+		"service-factory",
 	},
 
 	"storage-provisioner": {

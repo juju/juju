@@ -17,10 +17,11 @@ type Logger interface {
 
 // Config holds all necessary attributes to start a pruner worker.
 type Config struct {
-	Facade        Facade
-	PruneInterval time.Duration
-	Clock         clock.Clock
-	Logger        Logger
+	Facade             Facade
+	ModelConfigService ModelConfigService
+	PruneInterval      time.Duration
+	Clock              clock.Clock
+	Logger             Logger
 }
 
 // Validate will err unless basic requirements for a valid
@@ -28,6 +29,9 @@ type Config struct {
 func (c *Config) Validate() error {
 	if c.Facade == nil {
 		return errors.New("missing Facade")
+	}
+	if c.ModelConfigService == nil {
+		return errors.New("missing ModelConfigService")
 	}
 	if c.Clock == nil {
 		return errors.New("missing Clock")

@@ -13,23 +13,25 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/servicefactory"
 )
 
 // ManifoldConfig describes the resources and configuration on which the
 // statushistorypruner worker depends.
 type ManifoldConfig struct {
-	APICallerName string
-	Clock         clock.Clock
-	PruneInterval time.Duration
-	NewWorker     func(Config) (worker.Worker, error)
-	NewClient     func(base.APICaller) Facade
-	Logger        Logger
+	APICallerName      string
+	Clock              clock.Clock
+	PruneInterval      time.Duration
+	NewWorker          func(Config) (worker.Worker, error)
+	NewClient          func(base.APICaller) Facade
+	Logger             Logger
+	ServiceFactoryName string
 }
 
 // Manifold returns a Manifold that encapsulates the statushistorypruner worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
-		Inputs: []string{config.APICallerName},
+		Inputs: []string{config.APICallerName, config.ServiceFactoryName},
 		Start:  config.start,
 	}
 }
@@ -44,12 +46,18 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	var modelServiceFactory servicefactory.ModelServiceFactory
+	if err := getter.Get(config.ServiceFactoryName, &modelServiceFactory); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	facade := config.NewClient(apiCaller)
 	prunerConfig := Config{
-		Facade:        facade,
-		PruneInterval: config.PruneInterval,
-		Clock:         config.Clock,
-		Logger:        config.Logger,
+		Facade:             facade,
+		ModelConfigService: modelServiceFactory.Config(),
+		PruneInterval:      config.PruneInterval,
+		Clock:              config.Clock,
+		Logger:             config.Logger,
 	}
 	w, err := config.NewWorker(prunerConfig)
 	if err != nil {
@@ -62,6 +70,9 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 func (config ManifoldConfig) Validate() error {
 	if config.APICallerName == "" {
 		return errors.NotValidf("empty APICallerName")
+	}
+	if config.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
