@@ -82,7 +82,7 @@ type SpaceProvider interface {
 	// HasSpace checks if the supplied space exists within the controller. If
 	// during the course of checking for space existence false and an error will
 	// be returned.
-	HasSpace(string) (bool, error)
+	HasSpace(context.Context, string) (bool, error)
 }
 
 // SpaceChecker will validate a model config's space to see if it exists within
@@ -96,7 +96,7 @@ func SpaceChecker(provider SpaceProvider) config.ValidatorFunc {
 			return cfg, nil
 		}
 
-		has, err := provider.HasSpace(spaceName)
+		has, err := provider.HasSpace(ctx, spaceName)
 		if err != nil {
 			return cfg, fmt.Errorf("checking for space %q existence to validate model config: %w", spaceName, err)
 		}

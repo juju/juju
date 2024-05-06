@@ -16,7 +16,7 @@ import (
 
 type dummySecretBackendProviderFunc func(string) (bool, error)
 
-type dummySpaceProviderFunc func(string) (bool, error)
+type dummySpaceProviderFunc func(context.Context, string) (bool, error)
 
 type validatorsSuite struct{}
 
@@ -26,8 +26,8 @@ func (d dummySecretBackendProviderFunc) HasSecretsBackend(s string) (bool, error
 	return d(s)
 }
 
-func (d dummySpaceProviderFunc) HasSpace(s string) (bool, error) {
-	return d(s)
+func (d dummySpaceProviderFunc) HasSpace(ctx context.Context, s string) (bool, error) {
+	return d(ctx, s)
 }
 
 func (*validatorsSuite) TestCharmhubURLChange(c *gc.C) {
@@ -141,7 +141,7 @@ func (*validatorsSuite) TestAgentVersionNoChange(c *gc.C) {
 }
 
 func (*validatorsSuite) TestSpaceCheckerFound(c *gc.C) {
-	provider := dummySpaceProviderFunc(func(s string) (bool, error) {
+	provider := dummySpaceProviderFunc(func(ctx context.Context, s string) (bool, error) {
 		c.Assert(s, gc.Equals, "foobar")
 		return true, nil
 	})
@@ -167,7 +167,7 @@ func (*validatorsSuite) TestSpaceCheckerFound(c *gc.C) {
 }
 
 func (*validatorsSuite) TestSpaceCheckerNotFound(c *gc.C) {
-	provider := dummySpaceProviderFunc(func(s string) (bool, error) {
+	provider := dummySpaceProviderFunc(func(ctx context.Context, s string) (bool, error) {
 		c.Assert(s, gc.Equals, "foobar")
 		return false, nil
 	})
@@ -196,7 +196,7 @@ func (*validatorsSuite) TestSpaceCheckerNotFound(c *gc.C) {
 
 func (*validatorsSuite) TestSpaceCheckerError(c *gc.C) {
 	providerErr := errors.New("some error")
-	provider := dummySpaceProviderFunc(func(s string) (bool, error) {
+	provider := dummySpaceProviderFunc(func(ctx context.Context, s string) (bool, error) {
 		c.Assert(s, gc.Equals, "foobar")
 		return false, providerErr
 	})
