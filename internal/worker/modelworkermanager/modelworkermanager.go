@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
 
@@ -72,6 +73,10 @@ type ModelMetrics interface {
 	ForModel(names.ModelTag) MetricSink
 }
 
+// GetControllerConfigFunc is a function that returns the controller config,
+// from the given service.
+type GetControllerConfigFunc func(ctx context.Context, controllerConfigService ControllerConfigService) (controller.Config, error)
+
 // NewModelConfig holds the information required by the NewModelWorkerFunc
 // to start the workers for the specified model
 type NewModelConfig struct {
@@ -84,6 +89,7 @@ type NewModelConfig struct {
 	ModelMetrics                 MetricSink
 	ControllerConfig             controller.Config
 	ProviderServiceFactoryGetter ProviderServiceFactoryGetter
+	ServiceFactory               servicefactory.ServiceFactory
 }
 
 // NewModelWorkerFunc should return a worker responsible for running
@@ -101,11 +107,12 @@ type Config struct {
 	ModelMetrics                 ModelMetrics
 	Mux                          *apiserverhttp.Mux
 	Controller                   Controller
-	ControllerConfigGetter       ControllerConfigGetter
 	NewModelWorker               NewModelWorkerFunc
 	ErrorDelay                   time.Duration
 	LogSink                      corelogger.ModelLogger
 	ProviderServiceFactoryGetter ProviderServiceFactoryGetter
+	ServiceFactoryGetter         servicefactory.ServiceFactoryGetter
+	GetControllerConfig          GetControllerConfigFunc
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -129,9 +136,6 @@ func (config Config) Validate() error {
 	if config.Controller == nil {
 		return errors.NotValidf("nil Controller")
 	}
-	if config.ControllerConfigGetter == nil {
-		return errors.NotValidf("nil ControllerConfigGetter")
-	}
 	if config.NewModelWorker == nil {
 		return errors.NotValidf("nil NewModelWorker")
 	}
@@ -143,6 +147,12 @@ func (config Config) Validate() error {
 	}
 	if config.ProviderServiceFactoryGetter == nil {
 		return errors.NotValidf("nil ProviderServiceFactoryGetter")
+	}
+	if config.ServiceFactoryGetter == nil {
+		return errors.NotValidf("nil ServiceFactoryGetter")
+	}
+	if config.GetControllerConfig == nil {
+		return errors.NotValidf("nil GetControllerConfig")
 	}
 	return nil
 }
@@ -267,18 +277,21 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		modelName := fmt.Sprintf("%q (%s)", corelogger.ModelFilePrefix(cfg.ModelOwner, cfg.ModelName), cfg.ModelUUID)
 		m.config.Logger.Debugf("starting workers for model %s", modelName)
 
+		// Get the provider service factory for the model.
+		cfg.ProviderServiceFactoryGetter = m.config.ProviderServiceFactoryGetter
+		cfg.ServiceFactory = m.config.ServiceFactoryGetter.FactoryForModel(modelUUID)
+
 		// Get the controller config for the model worker so that we correctly
 		// handle the case where the controller config changes between model
 		// worker restarts.
 		ctx := m.catacomb.Context(context.Background())
-		controllerConfig, err := m.config.ControllerConfigGetter.ControllerConfig(ctx)
+
+		controllerConfigService := cfg.ServiceFactory.ControllerConfig()
+		controllerConfig, err := m.config.GetControllerConfig(ctx, controllerConfigService)
 		if err != nil {
 			return nil, errors.Annotate(err, "unable to get controller config")
 		}
 		cfg.ControllerConfig = controllerConfig
-
-		// Get the provider service factory for the model.
-		cfg.ProviderServiceFactoryGetter = m.config.ProviderServiceFactoryGetter
 
 		logSink, err := m.config.LogSink.GetLogWriter(modelUUID, cfg.ModelName, cfg.ModelOwner)
 		if err != nil {

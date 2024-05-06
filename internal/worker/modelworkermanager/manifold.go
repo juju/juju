@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
 	coredependency "github.com/juju/juju/core/dependency"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
@@ -58,6 +59,10 @@ type ManifoldConfig struct {
 	// intermediary type.
 	GetProviderServiceFactoryGetter GetProviderServiceFactoryGetterFunc
 
+	// GetControllerConfig is used to get the controller config from the
+	// controller service.
+	GetControllerConfig GetControllerConfigFunc
+
 	// NewWorker is the function that creates the worker.
 	NewWorker func(Config) (worker.Worker, error)
 	// NewModelWorker is the function that creates the model worker.
@@ -103,6 +108,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.GetProviderServiceFactoryGetter == nil {
 		return errors.NotValidf("nil GetProviderServiceFactoryGetter")
 	}
+	if config.GetControllerConfig == nil {
+		return errors.NotValidf("nil GetControllerConfig")
+	}
 	return nil
 }
 
@@ -141,8 +149,8 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	var controllerServiceFactory servicefactory.ControllerServiceFactory
-	if err := getter.Get(config.ServiceFactoryName, &controllerServiceFactory); err != nil {
+	var serviceFactoryGetter servicefactory.ServiceFactoryGetter
+	if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -172,10 +180,11 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 			StatePool: statePool,
 		},
 		LogSink:                      logSink,
-		ControllerConfigGetter:       controllerServiceFactory.ControllerConfig(),
 		NewModelWorker:               config.NewModelWorker,
 		ErrorDelay:                   jworker.RestartDelay,
+		ServiceFactoryGetter:         serviceFactoryGetter,
 		ProviderServiceFactoryGetter: providerServiceFactoryGetter,
+		GetControllerConfig:          config.GetControllerConfig,
 	})
 	if err != nil {
 		_ = stTracker.Done()
@@ -190,6 +199,16 @@ func GetProviderServiceFactoryGetter(getter dependency.Getter, name string) (Pro
 	return coredependency.GetDependencyByName(getter, name, func(factoryGetter servicefactory.ProviderServiceFactoryGetter) ProviderServiceFactoryGetter {
 		return providerServiceFactoryGetter{factoryGetter: factoryGetter}
 	})
+}
+
+// ControllerConfigService is an interface that returns the controller config.
+type ControllerConfigService interface {
+	ControllerConfig(ctx context.Context) (controller.Config, error)
+}
+
+// GetControllerConfig returns the controller config from the given service.
+func GetControllerConfig(ctx context.Context, controllerConfigService ControllerConfigService) (controller.Config, error) {
+	return controllerConfigService.ControllerConfig(ctx)
 }
 
 type providerServiceFactoryGetter struct {

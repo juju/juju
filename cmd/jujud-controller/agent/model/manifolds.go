@@ -24,6 +24,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/pki"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/actionpruner"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/apicaller"
@@ -123,6 +124,9 @@ type ManifoldsConfig struct {
 
 	// ProviderServiceFactoryGetter is used to access the provider service.
 	ProviderServiceFactoryGetter modelworkermanager.ProviderServiceFactoryGetter
+
+	// ServiceFactory is used to access the service factory.
+	ServiceFactory servicefactory.ServiceFactory
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
@@ -158,6 +162,14 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		providerServiceFactoriesName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
 				return engine.NewValueWorker(config.ProviderServiceFactoryGetter)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
+
+		// ServiceFactory is used to access the service factory.
+		serviceFactoryName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.ServiceFactory)
 			},
 			Output: engine.ValueWorkerOutput,
 		},
@@ -691,6 +703,7 @@ const (
 	loggingConfigUpdaterName     = "logging-config-updater"
 	instanceMutaterName          = "instance-mutater"
 	providerServiceFactoriesName = "provider-service-factories"
+	serviceFactoryName           = "service-factory"
 
 	caasFirewallerName             = "caas-firewaller"
 	caasModelOperatorName          = "caas-model-operator"

@@ -63,6 +63,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"provider-upgrader",
 		"remote-relations",
 		"secrets-pruner",
+		"service-factory",
 		"state-cleaner",
 		"status-history-pruner",
 		"storage-provisioner",
@@ -111,6 +112,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"provider-upgrader",
 		"remote-relations",
 		"secrets-pruner",
+		"service-factory",
 		"state-cleaner",
 		"status-history-pruner",
 		"undertaker",
@@ -134,6 +136,7 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
 		"provider-upgrader",
+		"service-factory",
 		"valid-credential-flag",
 	)
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
@@ -412,6 +415,8 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 		"provider-upgraded-flag",
 	},
 
+	"service-factory": {},
+
 	"state-cleaner": {
 		"agent",
 		"api-caller",
@@ -664,7 +669,10 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"migration-inactive-flag",
 		"provider-upgrade-gate",
 		"provider-upgraded-flag",
-		"not-dead-flag"},
+		"not-dead-flag",
+	},
+
+	"service-factory": {},
 
 	"state-cleaner": {
 		"agent",
