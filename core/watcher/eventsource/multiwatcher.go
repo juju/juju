@@ -88,10 +88,16 @@ func (w *MultiWatcher[T]) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case payload = <-w.staging:
+		case v := <-w.staging:
+			payload = w.applier(payload, v)
 			out = w.changes
 		case out <- payload:
 			out = nil
+
+			// Ensure we reset the payload to the initial value after
+			// sending it to the channel.
+			var init T
+			payload = init
 		}
 	}
 }
@@ -114,6 +120,11 @@ func (w *MultiWatcher[T]) copyEvents(in <-chan T) {
 			outC = w.staging
 		case outC <- payload:
 			outC = nil
+
+			// Ensure we reset the payload to the initial value after
+			// sending it to the channel.
+			var init T
+			payload = init
 		}
 	}
 }

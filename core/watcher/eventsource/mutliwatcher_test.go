@@ -13,11 +13,11 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 )
 
-type multiNotifyWatcherSuite struct{}
+type multiWatcherSuite struct{}
 
-var _ = gc.Suite(&multiNotifyWatcherSuite{})
+var _ = gc.Suite(&multiWatcherSuite{})
 
-func (*multiNotifyWatcherSuite) TestMultiWatcher(c *gc.C) {
+func (*multiWatcherSuite) TestNotifyMultiWatcher(c *gc.C) {
 	ch0 := make(chan struct{}, 1)
 	w0 := watchertest.NewMockNotifyWatcher(ch0)
 	defer workertest.DirtyKill(c, w0)
@@ -49,7 +49,45 @@ func (*multiNotifyWatcherSuite) TestMultiWatcher(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (*multiNotifyWatcherSuite) TestMultiWatcherStop(c *gc.C) {
+func (*multiWatcherSuite) TestStringsMultiWatcher(c *gc.C) {
+	ch0 := make(chan []string, 1)
+	w0 := watchertest.NewMockStringsWatcher(ch0)
+	defer workertest.DirtyKill(c, w0)
+
+	ch1 := make(chan []string, 1)
+	w1 := watchertest.NewMockStringsWatcher(ch1)
+	defer workertest.DirtyKill(c, w1)
+
+	// Initial events are consumed by the multiwatcher.
+	ch0 <- []string{}
+	ch1 <- []string{}
+
+	w, err := NewMultiStringsWatcher(context.Background(), w0, w1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc := watchertest.NewStringsWatcherC(c, w)
+	defer workertest.DirtyKill(c, w)
+
+	wc.AssertChange()
+
+	ch0 <- []string{"a", "b"}
+	ch1 <- []string{"c", "d"}
+
+	wc.AssertChange("a", "b", "c", "d")
+
+	ch0 <- []string{"e"}
+	wc.AssertChange("e")
+	ch1 <- []string{"f"}
+	wc.AssertChange("f")
+
+	ch0 <- []string{"g"}
+	ch1 <- []string{"h"}
+	wc.AssertAtLeastOneChange()
+
+	workertest.CleanKill(c, w)
+}
+
+func (*multiWatcherSuite) TestMultiWatcherStop(c *gc.C) {
 	ch0 := make(chan struct{}, 1)
 	w0 := watchertest.NewMockNotifyWatcher(ch0)
 	defer workertest.DirtyKill(c, w0)
