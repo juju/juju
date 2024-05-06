@@ -71,7 +71,11 @@ func (s *baseSuite) expectControllerDBGet() {
 }
 
 func (s *baseSuite) expectDBGet(namespace string, txnRunner coredatabase.TxnRunner) {
-	s.dbGetter.EXPECT().GetDB(namespace).Return(txnRunner, nil)
+	s.expectDBGetTimes(namespace, txnRunner, 1)
+}
+
+func (s *baseSuite) expectDBGetTimes(namespace string, txnRunner coredatabase.TxnRunner, amount int) {
+	s.dbGetter.EXPECT().GetDB(namespace).Return(txnRunner, nil).Times(amount)
 }
 
 func (s *baseSuite) expectAnyLogs(c *gc.C) {
