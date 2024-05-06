@@ -20,10 +20,15 @@ import (
 
 type dummyModelState struct {
 	models map[coremodel.UUID]model.ReadOnlyModelCreationArgs
+	setID  coremodel.UUID
 }
 
 func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCreationArgs) error {
+	if d.setID != coremodel.UUID("") {
+		return modelerrors.AlreadyExists
+	}
 	d.models[args.UUID] = args
+	d.setID = args.UUID
 	return nil
 }
 
@@ -49,12 +54,12 @@ func (d *dummyModelState) Get(ctx context.Context, id coremodel.UUID) (coremodel
 	}, nil
 }
 
-func (d *dummyModelState) Model(ctx context.Context, id coremodel.UUID) (coremodel.ReadOnlyModel, error) {
-	args, exists := d.models[id]
-	if !exists {
+func (d *dummyModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error) {
+	if d.setID == coremodel.UUID("") {
 		return coremodel.ReadOnlyModel{}, modelerrors.NotFound
 	}
 
+	args := d.models[d.setID]
 	return coremodel.ReadOnlyModel{
 		UUID:            args.UUID,
 		AgentVersion:    args.AgentVersion,
@@ -104,9 +109,16 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 	err := svc.CreateModel(context.Background(), s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	got, exists := s.state.models[id]
-	c.Assert(exists, jc.IsTrue)
-	c.Check(got, gc.Equals, s.state.models[id])
+	readonlyVal, err := svc.GetModelInfo(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(readonlyVal, gc.Equals, coremodel.ReadOnlyModel{
+		UUID:           id,
+		ControllerUUID: s.controllerUUID,
+		Name:           "my-awesome-model",
+		Cloud:          "aws",
+		CloudRegion:    "myregion",
+		Type:           coremodel.IAAS,
+	})
 }
 
 func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
