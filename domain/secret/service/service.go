@@ -61,14 +61,22 @@ type State interface {
 	) ([]*secrets.SecretMetadataForDrain, error)
 	ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error)
 	InitialWatchStatementForObsoleteRevision(
-		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) (tableName string, statement eventsource.NamespaceQuery)
 	GetRevisionIDsForObsolete(
-		ctx context.Context,
-		appOwners domainsecret.ApplicationOwners,
-		unitOwners domainsecret.UnitOwners,
-		revisionUUID ...string,
+		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUID ...string,
 	) ([]string, error)
+
+	// For watching consumed local secret changes.
+	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
+	GetConsumedSecretURIsWithChanges(ctx context.Context, unitName string, revisionIDs ...string) ([]string, error)
+	// For watching consumed remote secret changes.
+	InitialWatchStatementForConsumedRemoteSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
+	GetConsumedRemoteSecretURIsWithChanges(ctx context.Context, unitName string, secretIDs ...string) (secretURIs []string, err error)
+
+	// For watching local secret changes that consumed by remote consumers.
+	InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName string) (string, eventsource.NamespaceQuery)
+	GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx context.Context, appName string, secretIDs ...string) ([]string, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -501,7 +509,7 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 // This method returns the resulting uri, and optionally the label to update for the consumer.
 func (s *SecretService) ProcessCharmSecretConsumerLabel(
 	ctx context.Context, unitName string, uri *secrets.URI, label string, token leadership.Token,
-) (*secrets.URI, *string, error) {
+) (_ *secrets.URI, _ *string, err error) {
 	modelUUID, err := s.st.GetModelUUID(ctx)
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "getting model uuid")

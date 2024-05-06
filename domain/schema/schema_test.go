@@ -310,6 +310,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"secret_value_ref",
 		"secret_content",
 		"secret_revision",
+		"secret_revision_obsolete",
 		"secret_revision_expire",
 		"secret_application_owner",
 		"secret_model_owner",
@@ -404,6 +405,14 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_secret_metadata_auto_prune_update",
 		"trg_log_secret_metadata_auto_prune_delete",
 
+		"trg_log_secret_rotation_insert",
+		"trg_log_secret_rotation_update",
+		"trg_log_secret_rotation_delete",
+
+		"trg_log_secret_revision_obsolete_insert",
+		"trg_log_secret_revision_obsolete_update",
+		"trg_log_secret_revision_obsolete_delete",
+
 		"trg_log_secret_revision_expire_insert",
 		"trg_log_secret_revision_expire_update",
 		"trg_log_secret_revision_expire_delete",
@@ -412,9 +421,9 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_secret_revision_update",
 		"trg_log_secret_revision_delete",
 
-		"trg_log_secret_rotation_insert",
-		"trg_log_secret_rotation_update",
-		"trg_log_secret_rotation_delete",
+		"trg_log_secret_reference_insert",
+		"trg_log_secret_reference_update",
+		"trg_log_secret_reference_delete",
 
 		"trg_log_block_device_insert",
 		"trg_log_block_device_update",
@@ -518,9 +527,9 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.applyDDL(c, ModelDDL())
 
 	// secret table triggers.
-	s.assertChangeLogCount(c, 1, tableSecretAutoPrune, 0)
-	s.assertChangeLogCount(c, 2, tableSecretAutoPrune, 0)
-	s.assertChangeLogCount(c, 4, tableSecretAutoPrune, 0)
+	s.assertChangeLogCount(c, 1, tableSecretMetadataAutoPrune, 0)
+	s.assertChangeLogCount(c, 2, tableSecretMetadataAutoPrune, 0)
+	s.assertChangeLogCount(c, 4, tableSecretMetadataAutoPrune, 0)
 
 	secretURI := coresecrets.NewURI()
 	s.assertExecSQL(c, `INSERT INTO secret (id) VALUES (?);`, "", secretURI.ID)
@@ -528,9 +537,9 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertExecSQL(c, `UPDATE secret_metadata SET auto_prune = true WHERE secret_id = ?;`, "", secretURI.ID)
 	s.assertExecSQL(c, `DELETE FROM secret_metadata WHERE secret_id = ?;`, "", secretURI.ID)
 
-	s.assertChangeLogCount(c, 1, tableSecretAutoPrune, 1)
-	s.assertChangeLogCount(c, 2, tableSecretAutoPrune, 1)
-	s.assertChangeLogCount(c, 4, tableSecretAutoPrune, 1)
+	s.assertChangeLogCount(c, 1, tableSecretMetadataAutoPrune, 1)
+	s.assertChangeLogCount(c, 2, tableSecretMetadataAutoPrune, 1)
+	s.assertChangeLogCount(c, 4, tableSecretMetadataAutoPrune, 1)
 
 	// secret_rotation table triggers.
 	s.assertChangeLogCount(c, 1, tableSecretRotation, 0)
@@ -553,7 +562,9 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 4, tableSecretRevisionObsolete, 0)
 
 	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, "", revisionUUID, secretURI.ID)
-	s.assertExecSQL(c, `UPDATE secret_revision SET obsolete = true WHERE uuid = ?;`, "", revisionUUID)
+	s.assertExecSQL(c, `INSERT INTO secret_revision_obsolete (revision_uuid) VALUES (?);`, "", revisionUUID)
+	s.assertExecSQL(c, `UPDATE secret_revision_obsolete SET obsolete = true WHERE revision_uuid = ?;`, "", revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision_obsolete WHERE revision_uuid = ?;`, "", revisionUUID)
 	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, "", revisionUUID)
 
 	s.assertChangeLogCount(c, 1, tableSecretRevisionObsolete, 1)
@@ -569,10 +580,36 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertExecSQL(c, `INSERT INTO secret_revision_expire (revision_uuid, expire_time) VALUES (?, datetime('now', '+1 day'));`, "", revisionUUID)
 	s.assertExecSQL(c, `UPDATE secret_revision_expire SET expire_time = datetime('now', '+2 day') WHERE revision_uuid = ?;`, "", revisionUUID)
 	s.assertExecSQL(c, `DELETE FROM secret_revision_expire WHERE revision_uuid = ?;`, "", revisionUUID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, "", revisionUUID)
 
 	s.assertChangeLogCount(c, 1, tableSecretRevisionExpire, 1)
 	s.assertChangeLogCount(c, 2, tableSecretRevisionExpire, 1)
 	s.assertChangeLogCount(c, 4, tableSecretRevisionExpire, 1)
+
+	// secret_revision table triggers.
+	s.assertChangeLogCount(c, 1, tableSecretRevision, 2)
+	s.assertChangeLogCount(c, 2, tableSecretRevision, 0)
+	s.assertChangeLogCount(c, 4, tableSecretRevision, 2)
+
+	s.assertExecSQL(c, `INSERT INTO secret_revision (uuid, secret_id, revision) VALUES (?, ?, 1);`, "", revisionUUID, secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_revision WHERE uuid = ?;`, "", revisionUUID)
+
+	s.assertChangeLogCount(c, 1, tableSecretRevision, 3)
+	s.assertChangeLogCount(c, 2, tableSecretRevision, 0)
+	s.assertChangeLogCount(c, 4, tableSecretRevision, 3)
+
+	// secret_reference table triggers.
+	s.assertChangeLogCount(c, 1, tableSecretReference, 0)
+	s.assertChangeLogCount(c, 2, tableSecretReference, 0)
+	s.assertChangeLogCount(c, 4, tableSecretReference, 0)
+
+	s.assertExecSQL(c, `INSERT INTO secret_reference (secret_id, latest_revision) VALUES (?, 1);`, "", secretURI.ID)
+	s.assertExecSQL(c, `UPDATE secret_reference SET latest_revision = 2 WHERE secret_id = ?;`, "", secretURI.ID)
+	s.assertExecSQL(c, `DELETE FROM secret_reference WHERE secret_id = ?;`, "", secretURI.ID)
+
+	s.assertChangeLogCount(c, 1, tableSecretReference, 1)
+	s.assertChangeLogCount(c, 2, tableSecretReference, 1)
+	s.assertChangeLogCount(c, 4, tableSecretReference, 1)
 
 	appUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO application (uuid, name, life_id) VALUES (?, 'mysql', 0);`, "", appUUID)

@@ -19,10 +19,12 @@ const (
 	tableVolume
 	tableVolumeAttachment
 	tableVolumeAttachmentPlan
-	tableSecretAutoPrune
+	tableSecretMetadataAutoPrune
 	tableSecretRotation
 	tableSecretRevisionObsolete
 	tableSecretRevisionExpire
+	tableSecretRevision
+	tableSecretReference
 	tableSubnet
 	tableSubnetAssociation
 )
@@ -58,14 +60,14 @@ func ModelDDL() *schema.Schema {
 		changeLogTriggersForTable("storage_volume", "uuid", tableVolume),
 		changeLogTriggersForTable("storage_volume_attachment", "uuid", tableVolumeAttachment),
 		changeLogTriggersForTable("storage_volume_attachment_plan", "uuid", tableVolumeAttachmentPlan),
+		changeLogTriggersForTableOnColumn("secret_metadata", "secret_id", "auto_prune", tableSecretMetadataAutoPrune),
 		changeLogTriggersForTable("secret_rotation", "secret_id", tableSecretRotation),
-		changeLogTriggersForTable("secret_revision", "uuid", tableSecretRevisionObsolete),
+		changeLogTriggersForTable("secret_revision_obsolete", "revision_uuid", tableSecretRevisionObsolete),
 		changeLogTriggersForTable("secret_revision_expire", "revision_uuid", tableSecretRevisionExpire),
-		changeLogTriggersForTableOnColumn("secret_metadata", "secret_id", "auto_prune", tableSecretAutoPrune),
-		changeLogTriggersForTable(
-			"subnet", "uuid", tableSubnet),
-		changeLogTriggersForTable(
-			"subnet_association", "associated_subnet_uuid", tableSubnetAssociation),
+		changeLogTriggersForTable("secret_revision", "uuid", tableSecretRevision),
+		changeLogTriggersForTable("secret_reference", "secret_id", tableSecretReference),
+		changeLogTriggersForTable("subnet", "uuid", tableSubnet),
+		changeLogTriggersForTable("subnet_association", "associated_subnet_uuid", tableSubnetAssociation),
 
 		triggersForImmutableTable("model", "", "model table is immutable"),
 
@@ -131,13 +133,14 @@ INSERT INTO change_log_namespace VALUES
     (6, 'storage_volume', 'Storage volume changes based on UUID'),
     (7, 'storage_volume_attachment', 'Volume attachment changes based on UUID'),
     (8, 'storage_volume_attachment_plan', 'Volume attachment plan changes based on UUID'),
-    (9, 'secret', 'Secret auto prune changes based on UUID'),
+    (9, 'secret_metadata', 'Secret auto prune changes based on UUID'),
     (10, 'secret_rotation', 'Secret rotation changes based on UUID'),
-    (11, 'secret_revision', 'Secret revision obsolete changes based on UUID'),
+    (11, 'secret_revision_obsolete', 'Secret revision obsolete changes based on UUID'),
     (12, 'secret_revision_expire', 'Secret revision next expire time changes based on UUID'),
-    (13, 'subnet', 'Subnet changes based on UUID'),
-    (14, 'subnet_association', 'Subnet association (fan underlay) changes based on UUID'),
-    (15, 'secret_unit_consumer', 'Secret unit consumer current revision changes based on UUID');
+    (13, 'secret_revision', 'Secret revision changes based on UUID'),
+    (14, 'secret_reference', 'Secret reference changes based on UUID'),
+    (15, 'subnet', 'Subnet changes based on UUID'),
+    (16, 'subnet_association', 'Subnet association (fan underlay) changes based on UUID');
 `)
 }
 
