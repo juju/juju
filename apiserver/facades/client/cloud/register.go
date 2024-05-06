@@ -65,7 +65,6 @@ func newFacadeV7(context facade.ModelContext) (*CloudAPI, error) {
 	}
 
 	credentialService = credentialService.WithValidationContextGetter(credentialCallContextGetter)
-	modelCredentialService := context.State()
 
 	controllerInfo, err := systemState.ControllerInfo()
 	if err != nil {
@@ -75,7 +74,6 @@ func newFacadeV7(context facade.ModelContext) (*CloudAPI, error) {
 	return NewCloudAPI(
 		systemState.ControllerTag(),
 		controllerInfo.CloudName,
-		modelCredentialService,
 		serviceFactory.Cloud(),
 		serviceFactory.Access(),
 		credentialService,

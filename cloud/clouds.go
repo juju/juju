@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -195,24 +194,6 @@ type Cloud struct {
 
 	// IsControllerCloud is true when this is the cloud used by the controller.
 	IsControllerCloud bool
-}
-
-// CloudAccess describes the permission access level for a given cloud.
-type CloudAccess struct {
-	// Name is the name of the cloud.
-	Name string
-
-	// Access is the access level the supplied user has on this cloud.
-	Access permission.Access
-}
-
-// CredentialOwnerModelAccess stores cloud credential model information for the credential owner
-// or an error retrieving it.
-type CredentialOwnerModelAccess struct {
-	ModelUUID   string
-	ModelName   string
-	OwnerAccess permission.Access
-	Error       error
 }
 
 // SplitHostCloudRegion splits host cloud region to cloudType and region.

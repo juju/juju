@@ -34,12 +34,11 @@ import (
 type cloudSuite struct {
 	jujutesting.LoggingCleanupSuite
 
-	modelCredentialService *mocks.MockModelCredentialService
-	cloudPermissionService *mocks.MockCloudAccessService
-	cloudService           *mocks.MockCloudService
-	credService            *mocks.MockCredentialService
-	api                    *cloud.CloudAPI
-	authorizer             *apiservertesting.FakeAuthorizer
+	cloudAccessService *mocks.MockCloudAccessService
+	cloudService       *mocks.MockCloudService
+	credService        *mocks.MockCredentialService
+	api                *cloud.CloudAPI
+	authorizer         *apiservertesting.FakeAuthorizer
 
 	credentialValidator credentialservice.CredentialValidator
 }
@@ -51,16 +50,14 @@ func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
 		Tag: userTag,
 	}
 
-	s.modelCredentialService = mocks.NewMockModelCredentialService(ctrl)
-	s.cloudPermissionService = mocks.NewMockCloudAccessService(ctrl)
+	s.cloudAccessService = mocks.NewMockCloudAccessService(ctrl)
 	s.cloudService = mocks.NewMockCloudService(ctrl)
 	s.credService = mocks.NewMockCredentialService(ctrl)
 	s.credentialValidator = mocks.NewMockCredentialValidator(ctrl)
 
 	api, err := cloud.NewCloudAPI(
 		coretesting.ControllerTag, "dummy",
-		s.modelCredentialService,
-		s.cloudService, s.cloudPermissionService, s.credService,
+		s.cloudService, s.cloudAccessService, s.credService,
 		s.authorizer, loggo.GetLogger("juju.apiserver.cloud"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -114,7 +111,7 @@ func (s *cloudSuite) TestClouds(c *gc.C) {
 	bruce := names.NewUserTag("bruce")
 	defer s.setup(c, bruce).Finish()
 
-	cloudPermissionService := s.cloudPermissionService.EXPECT()
+	cloudPermissionService := s.cloudAccessService.EXPECT()
 
 	cloudPermissionService.ReadUserAccessLevelForTarget(gomock.Any(),
 		bruce.Id(), permission.ID{ObjectType: permission.Cloud, Key: "my-cloud"}).Return(permission.AddModelAccess, nil)
@@ -151,7 +148,7 @@ func (s *cloudSuite) TestCloudInfoAdmin(c *gc.C) {
 	ctrl := s.setup(c, names.NewUserTag("admin"))
 	defer ctrl.Finish()
 
-	cloudPermissionService := s.cloudPermissionService.EXPECT()
+	cloudPermissionService := s.cloudAccessService.EXPECT()
 	userPerm := []permission.UserAccess{
 		{UserID: "fred", DisplayName: "display-fred", Access: permission.AddModelAccess},
 		{UserID: "mary", DisplayName: "display-mary", Access: permission.AdminAccess},
@@ -205,7 +202,7 @@ func (s *cloudSuite) TestCloudInfoNonAdmin(c *gc.C) {
 	ctrl := s.setup(c, fredTag)
 	defer ctrl.Finish()
 
-	cloudPermissionService := s.cloudPermissionService.EXPECT()
+	cloudPermissionService := s.cloudAccessService.EXPECT()
 	permID := permission.ID{
 		ObjectType: permission.Cloud,
 		Key:        "my-cloud",
@@ -878,7 +875,7 @@ func (s *cloudSuite) TestModifyCloudAccess(c *gc.C) {
 	adminTag := names.NewUserTag("admin")
 	defer s.setup(c, adminTag).Finish()
 
-	cloudPermissionService := s.cloudPermissionService.EXPECT()
+	cloudPermissionService := s.cloudAccessService.EXPECT()
 	fredSpec := access.UpdatePermissionArgs{
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
@@ -940,6 +937,16 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *gc.C) {
 		attrs: map[string]string{
 			"username": "admin",
 		}})
+	keyOne := credential.Key{
+		Cloud: tagOne.Cloud().Id(),
+		Owner: tagOne.Owner().Id(),
+		Name:  tagOne.Name(),
+	}
+	keyTwo := credential.Key{
+		Cloud: tagTwo.Cloud().Id(),
+		Owner: tagTwo.Owner().Id(),
+		Name:  tagTwo.Name(),
+	}
 
 	credentialTwo.Invalid = true
 	creds := map[credential.Key]jujucloud.Credential{
@@ -953,14 +960,15 @@ func (s *cloudSuite) TestCredentialContentsAllNoSecrets(c *gc.C) {
 		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
 	}
 
+	ctx := stdcontext.Background()
 	s.credService.EXPECT().AllCloudCredentialsForOwner(gomock.Any(), bruceTag.Id()).Return(creds, nil)
 
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "meep").Return(&cloud, nil)
-	modelCredentialService := s.modelCredentialService.EXPECT()
-	modelCredentialService.CredentialModelsAndOwnerAccess(tagOne).Return([]jujucloud.CredentialOwnerModelAccess{}, nil)
-	modelCredentialService.CredentialModelsAndOwnerAccess(tagTwo).Return([]jujucloud.CredentialOwnerModelAccess{}, nil)
+	modelCredentialService := s.cloudAccessService.EXPECT()
+	modelCredentialService.AllModelAccessForCloudCredential(ctx, keyOne).Return([]access.CredentialOwnerModelAccess{}, nil)
+	modelCredentialService.AllModelAccessForCloudCredential(ctx, keyTwo).Return([]access.CredentialOwnerModelAccess{}, nil)
 
-	results, err := s.api.CredentialContents(stdcontext.Background(), params.CloudCredentialArgs{})
+	results, err := s.api.CredentialContents(ctx, params.CloudCredentialArgs{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	_true := true

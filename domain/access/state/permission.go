@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -430,6 +431,56 @@ AND     u.removed = false
 	}
 
 	return userAccess, nil
+}
+
+// AllModelAccessForCloudCredential for a given (cloud) credential key, return all
+// model name and model access level combinations.
+func (st *PermissionState) AllModelAccessForCloudCredential(ctx context.Context, key credential.Key) ([]access.CredentialOwnerModelAccess, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	type input struct {
+		OwnerName string `db:"owner_name"`
+		CloudName string `db:"cloud_name"`
+		CredName  string `db:"cred_name"`
+	}
+
+	query := `
+SELECT m.name AS &CredentialOwnerModelAccess.model_name, 
+       p.access_type AS &CredentialOwnerModelAccess.access_type
+FROM   v_model m
+       JOIN v_permission AS p ON m.uuid = p.grant_on
+WHERE  m.cloud_credential_owner_name = $input.owner_name 
+AND    m.cloud_credential_cloud_name = $input.cloud_name
+AND    m.cloud_credential_name = $input.cred_name
+`
+	readStmt, err := st.Prepare(query, input{}, access.CredentialOwnerModelAccess{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	in := input{
+		OwnerName: key.Owner,
+		CloudName: key.Cloud,
+		CredName:  key.Name,
+	}
+	var results []access.CredentialOwnerModelAccess
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, readStmt, in).GetAll(&results)
+		if err != nil && errors.Is(err, sql.ErrNoRows) {
+			return errors.Annotatef(accesserrors.PermissionNotFound, "for %q on %q", key.Owner, key.Cloud)
+		} else if err != nil {
+			return errors.Annotatef(err, "getting permissions for %q on %q", key.Owner, key.Cloud)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+
+	return results, nil
 }
 
 // findUserByName finds the user provided exists, hasn't been removed and is not

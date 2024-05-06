@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/credential"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/internal/uuid"
@@ -217,4 +218,14 @@ func (s *serviceSuite) TestReadAllAccessForUserAndObjectTypeError(c *gc.C) {
 		"testme",
 		"failme")
 	c.Assert(err, jc.ErrorIs, errors.NotValid, gc.Commentf("%+v", err))
+}
+
+func (s *serviceSuite) TestAllModelAccessForCloudCredential(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().AllModelAccessForCloudCredential(gomock.Any(), gomock.AssignableToTypeOf(credential.Key{})).Return(nil, nil)
+
+	_, err := NewPermissionService(s.state).AllModelAccessForCloudCredential(
+		context.Background(),
+		credential.Key{})
+	c.Assert(err, jc.ErrorIsNil)
 }

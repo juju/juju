@@ -42,3 +42,10 @@ func (args UpdatePermissionArgs) Validate() error {
 	}
 	return nil
 }
+
+// CredentialOwnerModelAccess stores cloud credential model information for the credential owner
+// or an error retrieving it.
+type CredentialOwnerModelAccess struct {
+	ModelName   string            `db:"model_name"`
+	OwnerAccess permission.Access `db:"access_type"`
+}
