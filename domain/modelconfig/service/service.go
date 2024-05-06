@@ -30,6 +30,7 @@ type ModelDefaultsProvider interface {
 // model configuration values.
 type State interface {
 	ProviderState
+	SpaceValidatorState
 
 	// AgentVersion returns the current models agent version. If no agent
 	// version has been set for the current model then a error satisfying
@@ -48,7 +49,11 @@ type State interface {
 	// UpdateModelConfig is responsible for both inserting, updating and
 	// removing model config values for the current model.
 	UpdateModelConfig(context.Context, map[string]string, []string) error
+}
 
+// SpaceValidatorState represents the state entity for validating space-related
+// model config.
+type SpaceValidatorState interface {
 	// SpaceExists checks if the space identified by the given space name exists.
 	SpaceExists(ctx context.Context, spaceName string) (bool, error)
 }
@@ -305,15 +310,13 @@ func (*dummySecretsBackendProvider) HasSecretsBackend(_ string) (bool, error) {
 
 // spaceValidator implements validators.SpaceProvider.
 type spaceValidator struct {
-	st State
+	st SpaceValidatorState
 }
 
 // HasSpace implements validators.SpaceProvider. It checks whether the
 // given space exists.
-func (v *spaceValidator) HasSpace(spaceName string) (bool, error) {
-	// TODO(nvinuesa): We should inject the context into this function,
-	// which will come from the environs ValidateFunc.
-	return v.st.SpaceExists(context.TODO(), spaceName)
+func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (bool, error) {
+	return v.st.SpaceExists(ctx, spaceName)
 }
 
 // updateModelConfigValidator returns a config validator to use on model config
