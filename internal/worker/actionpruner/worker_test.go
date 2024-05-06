@@ -4,7 +4,6 @@
 package actionpruner_test
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -30,31 +29,29 @@ func (s *PrunerSuite) TestRunStop(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	cfg, err := config.New(false, map[string]interface{}{
-		"name":                    "test",
-		"type":                    "manual",
-		"uuid":                    coretesting.ModelTag.Id(),
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	w := watchertest.NewMockStringsWatcher(ch)
+
+	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"max-action-results-age":  "2h",
 		"max-action-results-size": "2GiB",
 	})
+	modelConfig, err := config.New(false, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
-	w := watchertest.NewMockNotifyWatcher(ch)
-
 	facade := mocks.NewMockFacade(ctrl)
-	facade.EXPECT().WatchForModelConfigChanges().Return(w, nil)
 
-	// Depending on the host compute speed, the loop may select either
-	// the watcher change event, or the catacomb's dying event first.
-	facade.EXPECT().ModelConfig(context.Background()).Return(cfg, nil).AnyTimes()
+	service := mocks.NewMockModelConfigService(ctrl)
+	service.EXPECT().Watch().Return(w, nil)
+	service.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil).AnyTimes()
 
 	updater, err := actionpruner.New(pruner.Config{
-		Facade:        facade,
-		PruneInterval: time.Minute,
-		Clock:         testclock.NewClock(time.Now()),
-		Logger:        loggo.GetLogger("test"),
+		Facade:             facade,
+		ModelConfigService: service,
+		PruneInterval:      time.Minute,
+		Clock:              testclock.NewClock(time.Now()),
+		Logger:             loggo.GetLogger("test"),
 	})
 
 	c.Assert(err, jc.ErrorIsNil)

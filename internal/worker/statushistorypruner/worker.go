@@ -45,7 +45,7 @@ func New(conf pruner.Config) (worker.Worker, error) {
 	}
 
 	w := &Worker{
-		pruner.New(conf),
+		PrunerWorker: pruner.New(conf),
 	}
 
 	err := catacomb.Invoke(catacomb.Plan{

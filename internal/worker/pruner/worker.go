@@ -11,7 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4/catacomb"
 
-	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -26,8 +26,6 @@ var (
 // Facade represents an API that implements status history pruning.
 type Facade interface {
 	Prune(time.Duration, int) error
-	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
-	ModelConfig(context.Context) (*config.Config, error)
 }
 
 // PrunerWorker prunes status history or action records at regular intervals.
@@ -58,35 +56,36 @@ func (w *PrunerWorker) Config() *Config {
 
 // Work is the main body of generic pruner loop.
 func (w *PrunerWorker) Work(getPrunerConfig func(*config.Config) (time.Duration, uint)) error {
-	modelConfigWatcher, err := w.config.Facade.WatchForModelConfigChanges()
+	modelConfigService := w.config.ModelConfigService
+	modelConfigWatcher, err := modelConfigService.Watch()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = w.catacomb.Add(modelConfigWatcher)
-	if err != nil {
+
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	if err := w.addWatcher(ctx, modelConfigWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
 	var (
-		maxAge             time.Duration
-		maxCollectionMB    uint
-		modelConfigChanges = modelConfigWatcher.Changes()
-		// We will also get an initial event, but need to ensure that event is
-		// received before doing any pruning.
-	)
+		maxAge          time.Duration
+		maxCollectionMB uint
 
-	var timer clock.Timer
-	var timerCh <-chan time.Time
+		timer   clock.Timer
+		timerCh <-chan time.Time
+	)
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 
-		case _, ok := <-modelConfigChanges:
+		case _, ok := <-modelConfigWatcher.Changes():
 			if !ok {
 				return errors.New("model configuration watcher closed")
 			}
-			modelConfig, err := w.config.Facade.ModelConfig(context.TODO())
+			modelConfig, err := modelConfigService.ModelConfig(ctx)
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}
@@ -112,4 +111,27 @@ func (w *PrunerWorker) Work(getPrunerConfig func(*config.Config) (time.Duration,
 			timer.Reset(w.config.PruneInterval)
 		}
 	}
+}
+
+// scopedContext returns a context that is in the scope of the worker lifetime.
+// It returns a cancellable context that is cancelled when the action has
+// completed.
+func (w *PrunerWorker) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	return w.catacomb.Context(ctx), cancel
+}
+
+func (w *PrunerWorker) addWatcher(ctx context.Context, watcher eventsource.Watcher[[]string]) error {
+	if err := w.catacomb.Add(watcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Consume the initial events from the watchers. The watcher will
+	// dispatch an initial event when it is created, so we need to consume
+	// that event before we can start watching.
+	if _, err := eventsource.ConsumeInitialEvent[[]string](ctx, watcher); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
