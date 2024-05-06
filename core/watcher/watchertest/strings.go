@@ -68,6 +68,19 @@ type StringsWatcherC struct {
 	Watcher watcher.StringsWatcher
 }
 
+// AssertOneChange fails if no change is sent before a long time has passed; or
+// if, subsequent to that, any further change is sent before a short time has
+// passed.
+func (c StringsWatcherC) AssertOneChange() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
+	c.AssertNoChange()
+}
+
 // AssertChanges fails if it cannot read a value from Changes despite waiting a
 // long time. It logs, but does not check, the received changes; but will fail
 // if the Changes chan is closed.
@@ -80,6 +93,17 @@ func (c StringsWatcherC) AssertChanges() {
 		c.Fatalf("watcher did not send change")
 	}
 	c.AssertNoChange()
+}
+
+// AssertAtLeastOneChange fails if no change is sent before a long time has
+// passed.
+func (c StringsWatcherC) AssertAtLeastOneChange() {
+	select {
+	case _, ok := <-c.Watcher.Changes():
+		c.Assert(ok, jc.IsTrue)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher did not send change")
+	}
 }
 
 // AssertNoChange fails if it manages to read a value from Changes before a
