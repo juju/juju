@@ -176,11 +176,11 @@ func (s *stateSuite) TestCheckSpace(c *gc.C) {
 	_, err := db.Exec("INSERT INTO space (uuid, name) VALUES ('1', 'foo')")
 	c.Assert(err, jc.ErrorIsNil)
 
-	exists, err := st.CheckSpace(context.Background(), "bar")
+	exists, err := st.SpaceExists(context.Background(), "bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(exists, jc.IsFalse)
 
-	exists, err = st.CheckSpace(context.Background(), "foo")
+	exists, err = st.SpaceExists(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(exists, jc.IsTrue)
 }

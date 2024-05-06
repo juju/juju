@@ -127,7 +127,7 @@ func (s *MemoryState) UpdateModelConfig(
 	return s.FeedChange(ctx, "model_config", changestream.Update, changes)
 }
 
-// CheckSpace checks if the space identified by the given space name exists.
-func (st *MemoryState) CheckSpace(ctx context.Context, spaceName string) (bool, error) {
+// SpaceExists checks if the space identified by the given space name exists.
+func (st *MemoryState) SpaceExists(ctx context.Context, spaceName string) (bool, error) {
 	return false, nil
 }

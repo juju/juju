@@ -49,8 +49,8 @@ type State interface {
 	// removing model config values for the current model.
 	UpdateModelConfig(context.Context, map[string]string, []string) error
 
-	// CheckSpace checks if the space identified by the given space name exists.
-	CheckSpace(ctx context.Context, spaceName string) (bool, error)
+	// SpaceExists checks if the space identified by the given space name exists.
+	SpaceExists(ctx context.Context, spaceName string) (bool, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -313,7 +313,7 @@ type spaceValidator struct {
 func (v *spaceValidator) HasSpace(spaceName string) (bool, error) {
 	// TODO(nvinuesa): We should inject the context into this function,
 	// which will come from the environs ValidateFunc.
-	return v.st.CheckSpace(context.TODO(), spaceName)
+	return v.st.SpaceExists(context.TODO(), spaceName)
 }
 
 // updateModelConfigValidator returns a config validator to use on model config

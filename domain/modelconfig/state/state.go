@@ -245,8 +245,8 @@ WHERE key = excluded.key
 	})
 }
 
-// CheckSpace checks if the space identified by the given space name exists.
-func (st *State) CheckSpace(ctx context.Context, spaceName string) (bool, error) {
+// SpaceExists checks if the space identified by the given space name exists.
+func (st *State) SpaceExists(ctx context.Context, spaceName string) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -260,7 +260,7 @@ func (st *State) CheckSpace(ctx context.Context, spaceName string) (bool, error)
 		if err := row.Scan(&res); errors.Is(err, sql.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return domain.CoerceError(err)
+			return domain.CoerceError(errors.Annotatef(err, "checking space %q exists", spaceName))
 		}
 		exists = true
 		return nil
