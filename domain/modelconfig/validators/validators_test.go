@@ -4,6 +4,8 @@
 package validators
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -46,7 +48,7 @@ func (*validatorsSuite) TestCharmhubURLChange(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var validationError *config.ValidationError
-	_, err = CharmhubURLChange()(newCfg, oldCfg)
+	_, err = CharmhubURLChange()(context.Background(), newCfg, oldCfg)
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"charmhub-url"})
 }
@@ -68,7 +70,7 @@ func (*validatorsSuite) TestCharmhubURLNoChange(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = CharmhubURLChange()(newCfg, oldCfg)
+	_, err = CharmhubURLChange()(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -90,7 +92,7 @@ func (*validatorsSuite) TestAgentVersionChanged(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var validationError *config.ValidationError
-	_, err = AgentVersionChange()(newCfg, oldCfg)
+	_, err = AgentVersionChange()(context.Background(), newCfg, oldCfg)
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"agent-version"})
 }
@@ -114,7 +116,7 @@ func (*validatorsSuite) TestAgentVersionNoChange(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := AgentVersionChange()(newCfg, oldCfg)
+	cfg, err := AgentVersionChange()(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
 	_, agentVersionSet := cfg.AgentVersion()
 	c.Check(agentVersionSet, jc.IsFalse)
@@ -134,7 +136,7 @@ func (*validatorsSuite) TestAgentVersionNoChange(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = AgentVersionChange()(newCfg, oldCfg)
+	_, err = AgentVersionChange()(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -160,7 +162,7 @@ func (*validatorsSuite) TestSpaceCheckerFound(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = SpaceChecker(provider)(newCfg, oldCfg)
+	_, err = SpaceChecker(provider)(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -186,7 +188,7 @@ func (*validatorsSuite) TestSpaceCheckerNotFound(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = SpaceChecker(provider)(newCfg, oldCfg)
+	_, err = SpaceChecker(provider)(context.Background(), newCfg, oldCfg)
 	var validationError *config.ValidationError
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"default-space"})
@@ -215,7 +217,7 @@ func (*validatorsSuite) TestSpaceCheckerError(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = SpaceChecker(provider)(newCfg, oldCfg)
+	_, err = SpaceChecker(provider)(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIs, providerErr)
 }
 
@@ -235,7 +237,7 @@ func (*validatorsSuite) TestLoggincTracePermissionNoTrace(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = LoggingTracePermissionChecker(false)(newCfg, oldCfg)
+	_, err = LoggingTracePermissionChecker(false)(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -255,7 +257,7 @@ func (*validatorsSuite) TestLoggincTracePermissionTrace(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = LoggingTracePermissionChecker(false)(newCfg, oldCfg)
+	_, err = LoggingTracePermissionChecker(false)(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIs, ErrorLogTracingPermission)
 
 	var validationError *config.ValidationError
@@ -279,7 +281,7 @@ func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = LoggingTracePermissionChecker(true)(newCfg, oldCfg)
+	_, err = LoggingTracePermissionChecker(true)(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -305,7 +307,7 @@ func (*validatorsSuite) TestSecretsBackendChecker(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = SecretBackendChecker(provider)(newCfg, oldCfg)
+	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -331,7 +333,7 @@ func (*validatorsSuite) TestSecretsBackendCheckerNoExist(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = SecretBackendChecker(provider)(newCfg, oldCfg)
+	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
 	var validationError *config.ValidationError
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"secret-backend"})
@@ -360,7 +362,7 @@ func (*validatorsSuite) TestSecretsBackendCheckerProviderError(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = SecretBackendChecker(provider)(newCfg, oldCfg)
+	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIs, providerErr)
 }
 
@@ -383,7 +385,7 @@ func (*validatorsSuite) TestAuthorizedKeysChanged(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = AuthorizedKeysChange()(newCfg, oldCfg)
+	_, err = AuthorizedKeysChange()(context.Background(), newCfg, oldCfg)
 	var validationError *config.ValidationError
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"authorized-keys"})
@@ -408,6 +410,6 @@ func (*validatorsSuite) TestAuthorizedKeysChangedNoChange(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = AuthorizedKeysChange()(newCfg, oldCfg)
+	_, err = AuthorizedKeysChange()(context.Background(), newCfg, oldCfg)
 	c.Check(err, jc.ErrorIsNil)
 }

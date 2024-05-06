@@ -4,6 +4,8 @@
 package openstack
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -50,7 +52,7 @@ func (t configTest) check(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	e := &Environ{}
-	err = e.SetConfig(cfg)
+	err = e.SetConfig(context.Background(), cfg)
 
 	if t.change != nil {
 		c.Assert(err, jc.ErrorIsNil)
@@ -63,9 +65,9 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Keep err for validation below.
-		valid, err = providerInstance.Validate(changed, old)
+		valid, err = providerInstance.Validate(context.Background(), changed, old)
 		if err == nil {
-			err = osenv.SetConfig(valid)
+			err = osenv.SetConfig(context.Background(), valid)
 		}
 	}
 	if t.err != "" {
@@ -251,7 +253,7 @@ func (s *ConfigSuite) TestDeprecatedAttributesRemoved(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 	// Keep err for validation below.
-	valid, err := providerInstance.Validate(cfg, nil)
+	valid, err := providerInstance.Validate(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check deprecated attributes removed.
 	allAttrs := valid.AllAttrs()
@@ -270,7 +272,7 @@ func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
 	_, ok := cfg.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsFalse)
 
-	cfg, err = providerInstance.PrepareConfig(prepareConfigParams(cfg))
+	cfg, err = providerInstance.PrepareConfig(context.Background(), prepareConfigParams(cfg))
 	c.Assert(err, jc.ErrorIsNil)
 	source, ok := cfg.StorageDefaultBlockSource()
 	c.Assert(ok, jc.IsTrue)

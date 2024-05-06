@@ -454,7 +454,7 @@ func (e *minModelWorkersEnviron) Config() *config.Config {
 	return cfg
 }
 
-func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
+func (e *minModelWorkersEnviron) SetConfig(context.Context, *config.Config) error {
 	return nil
 }
 

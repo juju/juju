@@ -199,17 +199,17 @@ func (mr *MockBootstrapEnvironMockRecorder) PrepareForBootstrap(arg0, arg1 any) 
 }
 
 // SetConfig mocks base method.
-func (m *MockBootstrapEnviron) SetConfig(arg0 *config.Config) error {
+func (m *MockBootstrapEnviron) SetConfig(arg0 context.Context, arg1 *config.Config) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetConfig", arg0)
+	ret := m.ctrl.Call(m, "SetConfig", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetConfig indicates an expected call of SetConfig.
-func (mr *MockBootstrapEnvironMockRecorder) SetConfig(arg0 any) *gomock.Call {
+func (mr *MockBootstrapEnvironMockRecorder) SetConfig(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockBootstrapEnviron)(nil).SetConfig), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockBootstrapEnviron)(nil).SetConfig), arg0, arg1)
 }
 
 // StorageProvider mocks base method.

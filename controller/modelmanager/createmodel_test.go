@@ -4,6 +4,8 @@
 package modelmanager_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -56,7 +58,7 @@ func (s *ModelConfigCreatorSuite) SetUpTest(c *gc.C) {
 
 func (s *ModelConfigCreatorSuite) newModelConfig(attrs map[string]interface{}) (*config.Config, error) {
 	cloudSpec := environscloudspec.CloudSpec{Type: "fake"}
-	return s.creator.NewModelConfig(cloudSpec, s.baseConfig, attrs)
+	return s.creator.NewModelConfig(context.Background(), cloudSpec, s.baseConfig, attrs)
 }
 
 func (s *ModelConfigCreatorSuite) TestCreateModelValidatesConfig(c *gc.C) {
@@ -185,12 +187,12 @@ type fakeProvider struct {
 	restrictedConfigAttributes []string
 }
 
-func (p *fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
+func (p *fakeProvider) Validate(_ context.Context, cfg, old *config.Config) (*config.Config, error) {
 	p.MethodCall(p, "Validate", cfg, old)
 	return cfg, p.NextErr()
 }
 
-func (p *fakeProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p *fakeProvider) PrepareConfig(_ context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	p.MethodCall(p, "PrepareConfig", args)
 	return args.Config, p.NextErr()
 }

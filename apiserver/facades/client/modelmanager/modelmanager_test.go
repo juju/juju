@@ -4,6 +4,7 @@
 package modelmanager_test
 
 import (
+	"context"
 	stdcontext "context"
 	"time"
 
@@ -1717,7 +1718,7 @@ type fakeProvider struct {
 	environs.CloudEnvironProvider
 }
 
-func (*fakeProvider) Validate(cfg, old *config.Config) (*config.Config, error) {
+func (*fakeProvider) Validate(_ context.Context, cfg, old *config.Config) (*config.Config, error) {
 	return cfg, nil
 }
 

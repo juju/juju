@@ -4,6 +4,8 @@
 package azure_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -72,46 +74,46 @@ Please choose a name of no more than 80 characters.`)
 
 func (s *configSuite) TestValidateLoadBalancerSkuNameCanChange(c *gc.C) {
 	cfgOld := makeTestModelConfig(c, testing.Attrs{"load-balancer-sku-name": "Standard"})
-	_, err := s.provider.Validate(cfgOld, cfgOld)
+	_, err := s.provider.Validate(context.Background(), cfgOld, cfgOld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfgNew := makeTestModelConfig(c, testing.Attrs{"load-balancer-sku-name": "Basic"})
-	_, err = s.provider.Validate(cfgNew, cfgOld)
+	_, err = s.provider.Validate(context.Background(), cfgNew, cfgOld)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.provider.Validate(cfgOld, cfgNew)
+	_, err = s.provider.Validate(context.Background(), cfgOld, cfgNew)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *configSuite) TestValidateResourceGroupNameCantChange(c *gc.C) {
 	cfgOld := makeTestModelConfig(c, testing.Attrs{"resource-group-name": "foo"})
-	_, err := s.provider.Validate(cfgOld, cfgOld)
+	_, err := s.provider.Validate(context.Background(), cfgOld, cfgOld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfgNew := makeTestModelConfig(c, testing.Attrs{"resource-group-name": "bar"})
-	_, err = s.provider.Validate(cfgNew, cfgOld)
+	_, err = s.provider.Validate(context.Background(), cfgNew, cfgOld)
 	c.Assert(err, gc.ErrorMatches, `cannot change immutable "resource-group-name" config \(foo -> bar\)`)
 }
 
 func (s *configSuite) TestValidateVirtualNetworkNameCantChange(c *gc.C) {
 	cfgOld := makeTestModelConfig(c, testing.Attrs{"network": "foo"})
-	_, err := s.provider.Validate(cfgOld, cfgOld)
+	_, err := s.provider.Validate(context.Background(), cfgOld, cfgOld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfgNew := makeTestModelConfig(c, testing.Attrs{"network": "bar"})
-	_, err = s.provider.Validate(cfgNew, cfgOld)
+	_, err = s.provider.Validate(context.Background(), cfgNew, cfgOld)
 	c.Assert(err, gc.ErrorMatches, `cannot change immutable "network" config \(foo -> bar\)`)
 }
 
 func (s *configSuite) assertConfigValid(c *gc.C, attrs testing.Attrs) {
 	cfg := makeTestModelConfig(c, attrs)
-	_, err := s.provider.Validate(cfg, nil)
+	_, err := s.provider.Validate(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *configSuite) assertConfigInvalid(c *gc.C, attrs testing.Attrs, expect string) {
 	cfg := makeTestModelConfig(c, attrs)
-	_, err := s.provider.Validate(cfg, nil)
+	_, err := s.provider.Validate(context.Background(), cfg, nil)
 	c.Assert(err, gc.ErrorMatches, expect)
 }
 

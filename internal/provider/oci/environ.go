@@ -339,8 +339,8 @@ func (e *Environ) ConstraintsValidator(ctx envcontext.ProviderCallContext) (cons
 }
 
 // SetConfig implements environs.Environ.
-func (e *Environ) SetConfig(cfg *config.Config) error {
-	ecfg, err := e.p.newConfig(cfg)
+func (e *Environ) SetConfig(ctx context.Context, cfg *config.Config) error {
+	ecfg, err := e.p.newConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}

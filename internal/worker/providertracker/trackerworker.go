@@ -200,7 +200,7 @@ func (t *trackerWorker) loop() (err error) {
 			if err != nil {
 				return errors.Annotate(err, "reading model config")
 			}
-			if err = t.provider.SetConfig(modelConfig); err != nil {
+			if err = t.provider.SetConfig(ctx, modelConfig); err != nil {
 				return errors.Annotate(err, "updating provider config")
 			}
 

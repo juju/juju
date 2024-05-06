@@ -63,7 +63,7 @@ func (s *providerSuite) testPrepareForBootstrap(c *gc.C, endpoint, region string
 		Endpoint: endpoint,
 		Region:   region,
 	}
-	testConfig, err = manual.ProviderInstance.PrepareConfig(environs.PrepareConfigParams{
+	testConfig, err = manual.ProviderInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Config: testConfig,
 		Cloud:  cloudSpec,
 	})
@@ -100,7 +100,7 @@ func (s *providerSuite) TestDisablesUpdatesByDefault(c *gc.C) {
 	c.Check(testConfig.EnableOSRefreshUpdate(), jc.IsTrue)
 	c.Check(testConfig.EnableOSUpgrade(), jc.IsTrue)
 
-	validCfg, err := p.Validate(testConfig, nil)
+	validCfg, err := p.Validate(context.Background(), testConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Unless specified, update should default to true,
@@ -119,7 +119,7 @@ func (s *providerSuite) TestDefaultsCanBeOverriden(c *gc.C) {
 
 	testConfig, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
-	validCfg, err := p.Validate(testConfig, nil)
+	validCfg, err := p.Validate(context.Background(), testConfig, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Our preferences should not have been overwritten.

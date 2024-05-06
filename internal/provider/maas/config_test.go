@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"context"
+
 	"github.com/juju/gomaasapi/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -33,7 +35,7 @@ func newConfig(values map[string]interface{}) (*maasModelConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return providerInstance.newConfig(cfg)
+	return providerInstance.newConfig(context.Background(), cfg)
 }
 
 func (s *configSuite) SetUpTest(c *gc.C) {
@@ -54,7 +56,7 @@ func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 	newCfg, err := oldCfg.Apply(map[string]interface{}{"name": newName})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = EnvironProvider{}.Validate(newCfg, oldCfg.Config)
+	_, err = EnvironProvider{}.Validate(context.Background(), newCfg, oldCfg.Config)
 
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, ".*cannot change name.*")

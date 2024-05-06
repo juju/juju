@@ -149,7 +149,7 @@ func newK8sBroker(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	newCfg, err := providerInstance.newConfig(cfg)
+	newCfg, err := providerInstance.newConfig(ctx, cfg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -317,10 +317,10 @@ func (k *kubernetesClient) Config() *config.Config {
 }
 
 // SetConfig is specified in the Environ interface.
-func (k *kubernetesClient) SetConfig(cfg *config.Config) error {
+func (k *kubernetesClient) SetConfig(ctx context.Context, cfg *config.Config) error {
 	k.lock.Lock()
 	defer k.lock.Unlock()
-	newCfg, err := providerInstance.newConfig(cfg)
+	newCfg, err := providerInstance.newConfig(ctx, cfg)
 	if err != nil {
 		return errors.Trace(err)
 	}

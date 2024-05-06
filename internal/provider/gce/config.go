@@ -4,6 +4,8 @@
 package gce
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
@@ -45,9 +47,9 @@ type environConfig struct {
 // newConfig builds a new environConfig from the provided Config
 // filling in default values, if any. It returns an error if the
 // resulting configuration is not valid.
-func newConfig(cfg, old *config.Config) (*environConfig, error) {
+func newConfig(ctx context.Context, cfg, old *config.Config) (*environConfig, error) {
 	// Ensure that the provided config is valid.
-	if err := config.Validate(cfg, old); err != nil {
+	if err := config.Validate(ctx, cfg, old); err != nil {
 		return nil, errors.Trace(err)
 	}
 	attrs, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
@@ -59,7 +61,7 @@ func newConfig(cfg, old *config.Config) (*environConfig, error) {
 		// There's an old configuration. Validate it so that any
 		// default values are correctly coerced for when we check
 		// the old values later.
-		oldEcfg, err := newConfig(old, nil)
+		oldEcfg, err := newConfig(ctx, old, nil)
 		if err != nil {
 			return nil, errors.Annotatef(err, "invalid base config")
 		}

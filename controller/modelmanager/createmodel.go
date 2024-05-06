@@ -4,6 +4,8 @@
 package modelmanager
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
@@ -46,6 +48,7 @@ type ModelConfigCreator struct {
 //
 // The config will be validated with the provider before being returned.
 func (c ModelConfigCreator) NewModelConfig(
+	ctx context.Context,
 	cloud environscloudspec.CloudSpec,
 	base *config.Config,
 	attrs map[string]interface{},
@@ -69,7 +72,7 @@ func (c ModelConfigCreator) NewModelConfig(
 	}
 	attrs[config.TypeKey] = cloud.Type
 
-	cfg, err := finalizeConfig(provider, cloud, attrs)
+	cfg, err := finalizeConfig(ctx, provider, cloud, attrs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -133,6 +136,7 @@ func (c *ModelConfigCreator) checkVersion(base *config.Config, attrs map[string]
 // finalizeConfig creates the config object from attributes,
 // and calls EnvironProvider.PrepareConfig.
 func finalizeConfig(
+	ctx context.Context,
 	provider environs.EnvironProvider,
 	cloud environscloudspec.CloudSpec,
 	attrs map[string]interface{},
@@ -141,14 +145,14 @@ func finalizeConfig(
 	if err != nil {
 		return nil, errors.Annotate(err, "creating config from values failed")
 	}
-	cfg, err = provider.PrepareConfig(environs.PrepareConfigParams{
+	cfg, err = provider.PrepareConfig(ctx, environs.PrepareConfigParams{
 		Cloud:  cloud,
 		Config: cfg,
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "provider config preparation failed")
 	}
-	cfg, err = provider.Validate(cfg, nil)
+	cfg, err = provider.Validate(ctx, cfg, nil)
 	if err != nil {
 		return nil, errors.Annotate(err, "provider config validation failed")
 	}

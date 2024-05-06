@@ -79,9 +79,9 @@ func (t configTest) check(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Keep err for validation below.
-		valid, err = providerInstance.Validate(changed, old)
+		valid, err = providerInstance.Validate(context.Background(), changed, old)
 		if err == nil {
-			err = ec2env.SetConfig(valid)
+			err = ec2env.SetConfig(context.Background(), valid)
 		}
 	}
 	if t.err != "" {
@@ -305,7 +305,7 @@ func (s *ConfigSuite) TestPrepareConfigSetsDefaultBlockSource(c *gc.C) {
 			"secret-key": "y",
 		},
 	)
-	cfg, err = providerInstance.PrepareConfig(environs.PrepareConfigParams{
+	cfg, err = providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Config: cfg,
 		Cloud: environscloudspec.CloudSpec{
 			Type:       "ec2",
@@ -335,7 +335,7 @@ func (s *ConfigSuite) TestPrepareSetsDefaultBlockSource(c *gc.C) {
 			"secret-key": "y",
 		},
 	)
-	cfg, err := providerInstance.PrepareConfig(environs.PrepareConfigParams{
+	cfg, err := providerInstance.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Config: baseConfig,
 		Cloud: environscloudspec.CloudSpec{
 			Type:       "ec2",

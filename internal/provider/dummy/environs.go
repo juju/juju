@@ -4,6 +4,7 @@
 package dummy
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"os"
@@ -216,8 +217,8 @@ func (c *environConfig) broken() string {
 	return c.attrs["broken"].(string)
 }
 
-func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
-	valid, err := p.Validate(cfg, nil)
+func (p *environProvider) newConfig(ctx context.Context, cfg *config.Config) (*environConfig, error) {
+	valid, err := p.Validate(ctx, cfg, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -274,9 +275,9 @@ func (*environProvider) DetectRegions() ([]cloud.Region, error) {
 	return []cloud.Region{{Name: "dummy"}}, nil
 }
 
-func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (p *environProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
 	// Check for valid changes for the base config values.
-	if err := config.Validate(cfg, old); err != nil {
+	if err := config.Validate(ctx, cfg, old); err != nil {
 		return nil, err
 	}
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
@@ -302,10 +303,10 @@ func (*environProvider) Version() int {
 	return 0
 }
 
-func (p *environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (p *environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	ecfg, err := p.newConfig(args.Config)
+	ecfg, err := p.newConfig(ctx, args.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -334,8 +335,8 @@ func (p *environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint stri
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
-func (p *environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
-	if _, err := dummy.newConfig(args.Config); err != nil {
+func (p *environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
+	if _, err := dummy.newConfig(ctx, args.Config); err != nil {
 		return nil, err
 	}
 	return args.Config, nil
@@ -487,11 +488,11 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) SetConfig(cfg *config.Config) error {
+func (e *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 	if err := e.checkBroken("SetConfig"); err != nil {
 		return err
 	}
-	ecfg, err := dummy.newConfig(cfg)
+	ecfg, err := dummy.newConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}

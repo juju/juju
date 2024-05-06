@@ -4,6 +4,7 @@
 package bootstrap
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"os"
@@ -292,7 +293,7 @@ func bootstrapCAAS(
 		jujuVersion = *args.AgentVersion
 	}
 	// set agent version before finalizing bootstrap config
-	if err := setBootstrapAgentVersion(environ, jujuVersion); err != nil {
+	if err := setBootstrapAgentVersion(ctx, environ, jujuVersion); err != nil {
 		return errors.Trace(err)
 	}
 	podConfig.JujuVersion = jujuVersion
@@ -563,7 +564,7 @@ func bootstrapIAAS(
 	}); err != nil {
 		return errors.Trace(err)
 	}
-	if err = environ.SetConfig(cfg); err != nil {
+	if err = environ.SetConfig(ctx, cfg); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -618,7 +619,7 @@ func bootstrapIAAS(
 	// in that case the specific version will be the only version available.
 	newestToolVersion, _ := matchingTools.Newest()
 	// set agent version before finalizing bootstrap config
-	if err := setBootstrapAgentVersion(environ, newestToolVersion); err != nil {
+	if err := setBootstrapAgentVersion(ctx, environ, newestToolVersion); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1011,14 +1012,14 @@ func getBootstrapToolsVersion(possibleTools coretools.List) (coretools.List, err
 }
 
 // setBootstrapAgentVersion updates the agent-version configuration attribute.
-func setBootstrapAgentVersion(environ environs.Configer, toolsVersion version.Number) error {
+func setBootstrapAgentVersion(ctx context.Context, environ environs.Configer, toolsVersion version.Number) error {
 	cfg := environ.Config()
 	if agentVersion, _ := cfg.AgentVersion(); agentVersion != toolsVersion {
 		cfg, err := cfg.Apply(map[string]interface{}{
 			"agent-version": toolsVersion.String(),
 		})
 		if err == nil {
-			err = environ.SetConfig(cfg)
+			err = environ.SetConfig(ctx, cfg)
 		}
 		if err != nil {
 			return errors.Errorf("failed to update model configuration: %v", err)

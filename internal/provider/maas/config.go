@@ -4,6 +4,8 @@
 package maas
 
 import (
+	"context"
+
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
@@ -27,8 +29,8 @@ type maasModelConfig struct {
 	attrs map[string]interface{}
 }
 
-func (p EnvironProvider) newConfig(cfg *config.Config) (*maasModelConfig, error) {
-	validCfg, err := p.Validate(cfg, nil)
+func (p EnvironProvider) newConfig(ctx context.Context, cfg *config.Config) (*maasModelConfig, error) {
+	validCfg, err := p.Validate(ctx, cfg, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +61,9 @@ func (p EnvironProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-func (p EnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
+func (p EnvironProvider) Validate(ctx context.Context, cfg, oldCfg *config.Config) (*config.Config, error) {
 	// Validate base configuration change before validating MAAS specifics.
-	err := config.Validate(cfg, oldCfg)
+	err := config.Validate(ctx, cfg, oldCfg)
 	if err != nil {
 		return nil, err
 	}

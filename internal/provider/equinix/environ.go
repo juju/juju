@@ -4,6 +4,7 @@
 package equinix
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -225,10 +226,10 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &environProvider{}
 }
 
-func (e *environ) SetConfig(cfg *config.Config) error {
+func (e *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
-	ecfg, err := providerInstance.newConfig(cfg)
+	ecfg, err := providerInstance.newConfig(ctx, cfg)
 	if err != nil {
 		return errors.Annotate(err, "invalid config change")
 	}

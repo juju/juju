@@ -4,6 +4,7 @@
 package oci
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"net"
@@ -113,12 +114,12 @@ var credentialSchema = map[cloud.AuthType]cloud.CredentialSchema{
 	},
 }
 
-func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+func (p EnvironProvider) newConfig(ctx context.Context, cfg *config.Config) (*environConfig, error) {
 	if cfg == nil {
 		return nil, errors.New("cannot set config on uninitialized env")
 	}
 
-	valid, err := p.Validate(cfg, nil)
+	valid, err := p.Validate(ctx, cfg, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +190,7 @@ func validateCloudSpec(c environscloudspec.CloudSpec) error {
 }
 
 // PrepareConfig implements environs.EnvironProvider.
-func (e EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (e EnvironProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -198,7 +199,7 @@ func (e EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*conf
 }
 
 // Open implements environs.EnvironProvider.
-func (e *EnvironProvider) Open(_ stdcontext.Context, params environs.OpenParams) (environs.Environ, error) {
+func (e *EnvironProvider) Open(ctx stdcontext.Context, params environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", params.Config.Name())
 
 	if err := validateCloudSpec(params.Cloud); err != nil {
@@ -254,7 +255,7 @@ func (e *EnvironProvider) Open(_ stdcontext.Context, params environs.OpenParams)
 		p:          e,
 	}
 
-	if err := env.SetConfig(params.Config); err != nil {
+	if err := env.SetConfig(ctx, params.Config); err != nil {
 		return nil, err
 	}
 
@@ -372,8 +373,8 @@ func (e EnvironProvider) FinalizeCredential(
 }
 
 // Validate implements config.Validator.
-func (e EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	if err := config.Validate(cfg, old); err != nil {
+func (e EnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
+	if err := config.Validate(ctx, cfg, old); err != nil {
 		return nil, err
 	}
 	newAttrs, err := cfg.ValidateUnknownAttrs(

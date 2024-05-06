@@ -4,6 +4,7 @@
 package config_test
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	stdtesting "testing"
@@ -918,7 +919,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 		c.Logf("test %d: %s", i, test.about)
 		newConfig := newTestConfig(c, test.new)
 		oldConfig := newTestConfig(c, test.old)
-		err := config.Validate(newConfig, oldConfig)
+		err := config.Validate(context.Background(), newConfig, oldConfig)
 		if test.err == "" {
 			c.Check(err, jc.ErrorIsNil)
 		} else {

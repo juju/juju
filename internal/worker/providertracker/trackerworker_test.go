@@ -233,7 +233,7 @@ func (s *trackerWorkerSuite) expectCloudSpec(c *gc.C, cfg *config.Config) {
 
 func (s *trackerWorkerSuite) expectEnvironSetConfig(c *gc.C, cfg *config.Config) {
 	s.configService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
-	s.environ.EXPECT().SetConfig(cfg)
+	s.environ.EXPECT().SetConfig(gomock.Any(), cfg)
 }
 
 func (s *trackerWorkerSuite) expectEnvironSetSpecUpdate(c *gc.C) {

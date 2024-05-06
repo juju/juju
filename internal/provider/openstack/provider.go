@@ -6,6 +6,7 @@
 package openstack
 
 import (
+	"context"
 	stdcontext "context"
 	"crypto/tls"
 	"crypto/x509"
@@ -177,7 +178,7 @@ func (p EnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) 
 		flavorFilter: p.FlavorFilter,
 	}
 
-	if err := e.SetConfig(args.Config); err != nil {
+	if err := e.SetConfig(ctx, args.Config); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := e.SetCloudSpec(ctx, args.Cloud); err != nil {
@@ -260,7 +261,7 @@ func newGooseClient(endpoint string) client.AuthenticatingClient {
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
-func (p EnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p EnvironProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -299,8 +300,8 @@ func (p EnvironProvider) metadataLookupParams(region string) (*simplestreams.Met
 	}, nil
 }
 
-func (p EnvironProvider) newConfig(cfg *config.Config) (*environConfig, error) {
-	valid, err := p.Validate(cfg, nil)
+func (p EnvironProvider) newConfig(ctx context.Context, cfg *config.Config) (*environConfig, error) {
+	valid, err := p.Validate(ctx, cfg, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -889,8 +890,8 @@ var authenticateClient = func(auth authenticator) error {
 	return nil
 }
 
-func (e *Environ) SetConfig(cfg *config.Config) error {
-	ecfg, err := providerInstance.newConfig(cfg)
+func (e *Environ) SetConfig(ctx context.Context, cfg *config.Config) error {
+	ecfg, err := providerInstance.newConfig(ctx, cfg)
 	if err != nil {
 		return err
 	}

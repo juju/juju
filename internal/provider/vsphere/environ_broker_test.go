@@ -346,7 +346,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c 
 		"datastore": "datastore0",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	startInstArgs := s.createStartInstanceArgs(c)
@@ -446,7 +446,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
 		"datastore": "datastore0",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.env.StartInstance(s.callCtx, s.createStartInstanceArgs(c))
@@ -463,7 +463,7 @@ func (s *legacyEnvironBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
 		"datastore": "datastore0",
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.env.SetConfig(cfg)
+	err = s.env.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := s.createStartInstanceArgs(c)

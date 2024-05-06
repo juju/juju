@@ -4,6 +4,7 @@
 package equinix
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"net/http"
@@ -48,7 +49,7 @@ func (p environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint strin
 }
 
 // PrepareConfig is part of the EnvironProvider interface.
-func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -79,7 +80,7 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 // the cloud API, as it will be called frequently.
 //
 // Open is part of the CloudEnvironProvider interface.
-func (p environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (p environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", args.Config.Name())
 
 	e := new(environ)
@@ -89,7 +90,7 @@ func (p environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (e
 		return nil, errors.Trace(err)
 	}
 
-	if err := e.SetConfig(args.Config); err != nil {
+	if err := e.SetConfig(ctx, args.Config); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -102,7 +103,7 @@ func (p environProvider) Open(_ stdcontext.Context, args environs.OpenParams) (e
 	return e, nil
 }
 
-func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (environProvider) Validate(_ context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
 	newEcfg, err := validateConfig(cfg, old)
 	if err != nil {
 		return nil, fmt.Errorf("invalid Equnix provider config: %v", err)
@@ -110,8 +111,8 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	return newEcfg.config.Apply(newEcfg.attrs)
 }
 
-func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
-	valid, err := p.Validate(cfg, nil)
+func (p environProvider) newConfig(ctx context.Context, cfg *config.Config) (*environConfig, error) {
+	valid, err := p.Validate(ctx, cfg, nil)
 	if err != nil {
 		return nil, err
 	}

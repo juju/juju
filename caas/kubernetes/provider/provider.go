@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	stdcontext "context"
 	"net/url"
 	osexec "os/exec"
@@ -214,7 +215,7 @@ func (p kubernetesEnvironProvider) Ping(ctx envcontext.ProviderCallContext, endp
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
-func (p kubernetesEnvironProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p kubernetesEnvironProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}

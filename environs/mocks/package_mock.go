@@ -269,17 +269,17 @@ func (mr *MockEnvironMockRecorder) Provider() *gomock.Call {
 }
 
 // SetConfig mocks base method.
-func (m *MockEnviron) SetConfig(arg0 *config.Config) error {
+func (m *MockEnviron) SetConfig(arg0 context.Context, arg1 *config.Config) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetConfig", arg0)
+	ret := m.ctrl.Call(m, "SetConfig", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetConfig indicates an expected call of SetConfig.
-func (mr *MockEnvironMockRecorder) SetConfig(arg0 any) *gomock.Call {
+func (mr *MockEnvironMockRecorder) SetConfig(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockEnviron)(nil).SetConfig), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockEnviron)(nil).SetConfig), arg0, arg1)
 }
 
 // StartInstance mocks base method.
@@ -646,17 +646,17 @@ func (mr *MockNetworkingEnvironMockRecorder) ReleaseContainerAddresses(arg0, arg
 }
 
 // SetConfig mocks base method.
-func (m *MockNetworkingEnviron) SetConfig(arg0 *config.Config) error {
+func (m *MockNetworkingEnviron) SetConfig(arg0 context.Context, arg1 *config.Config) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetConfig", arg0)
+	ret := m.ctrl.Call(m, "SetConfig", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetConfig indicates an expected call of SetConfig.
-func (mr *MockNetworkingEnvironMockRecorder) SetConfig(arg0 any) *gomock.Call {
+func (mr *MockNetworkingEnvironMockRecorder) SetConfig(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockNetworkingEnviron)(nil).SetConfig), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockNetworkingEnviron)(nil).SetConfig), arg0, arg1)
 }
 
 // Spaces mocks base method.
@@ -924,33 +924,33 @@ func (mr *MockCloudEnvironProviderMockRecorder) Ping(arg0, arg1 any) *gomock.Cal
 }
 
 // PrepareConfig mocks base method.
-func (m *MockCloudEnvironProvider) PrepareConfig(arg0 environs.PrepareConfigParams) (*config.Config, error) {
+func (m *MockCloudEnvironProvider) PrepareConfig(arg0 context.Context, arg1 environs.PrepareConfigParams) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareConfig", arg0)
+	ret := m.ctrl.Call(m, "PrepareConfig", arg0, arg1)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareConfig indicates an expected call of PrepareConfig.
-func (mr *MockCloudEnvironProviderMockRecorder) PrepareConfig(arg0 any) *gomock.Call {
+func (mr *MockCloudEnvironProviderMockRecorder) PrepareConfig(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareConfig", reflect.TypeOf((*MockCloudEnvironProvider)(nil).PrepareConfig), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareConfig", reflect.TypeOf((*MockCloudEnvironProvider)(nil).PrepareConfig), arg0, arg1)
 }
 
 // Validate mocks base method.
-func (m *MockCloudEnvironProvider) Validate(arg0, arg1 *config.Config) (*config.Config, error) {
+func (m *MockCloudEnvironProvider) Validate(arg0 context.Context, arg1, arg2 *config.Config) (*config.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
+	ret := m.ctrl.Call(m, "Validate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*config.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Validate indicates an expected call of Validate.
-func (mr *MockCloudEnvironProviderMockRecorder) Validate(arg0, arg1 any) *gomock.Call {
+func (mr *MockCloudEnvironProviderMockRecorder) Validate(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockCloudEnvironProvider)(nil).Validate), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockCloudEnvironProvider)(nil).Validate), arg0, arg1, arg2)
 }
 
 // Version mocks base method.

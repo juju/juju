@@ -5,6 +5,7 @@ package manual
 
 import (
 	"bytes"
+	"context"
 	stdcontext "context"
 	"fmt"
 	"strings"
@@ -109,11 +110,11 @@ func pingMachine(endpoint string) error {
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
-func (p ManualProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p ManualProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Trace(err)
 	}
-	envConfig, err := p.validate(args.Config, nil)
+	envConfig, err := p.validate(ctx, args.Config, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -125,11 +126,11 @@ func (ManualProvider) Version() int {
 	return 0
 }
 
-func (p ManualProvider) Open(_ stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (p ManualProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Trace(err)
 	}
-	_, err := p.validate(args.Config, nil)
+	_, err := p.validate(ctx, args.Config, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +142,7 @@ func (p ManualProvider) Open(_ stdcontext.Context, args environs.OpenParams) (en
 	if i := strings.IndexRune(host, '@'); i >= 0 {
 		user, host = host[:i], host[i+1:]
 	}
-	return p.open(host, user, envConfig)
+	return p.open(ctx, host, user, envConfig)
 }
 
 func validateCloudSpec(spec environscloudspec.CloudSpec) error {
@@ -154,18 +155,18 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	return nil
 }
 
-func (p ManualProvider) open(host, user string, cfg *environConfig) (environs.Environ, error) {
+func (p ManualProvider) open(ctx context.Context, host, user string, cfg *environConfig) (environs.Environ, error) {
 	env := &manualEnviron{host: host, user: user, cfg: cfg}
 	// Need to call SetConfig to initialise storage.
-	if err := env.SetConfig(cfg.Config); err != nil {
+	if err := env.SetConfig(ctx, cfg.Config); err != nil {
 		return nil, err
 	}
 	return env, nil
 }
 
-func (p ManualProvider) validate(cfg, old *config.Config) (*environConfig, error) {
+func (p ManualProvider) validate(ctx context.Context, cfg, old *config.Config) (*environConfig, error) {
 	// Check for valid changes for the base config values.
-	if err := config.Validate(cfg, old); err != nil {
+	if err := config.Validate(ctx, cfg, old); err != nil {
 		return nil, err
 	}
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
@@ -191,8 +192,8 @@ func (p ManualProvider) validate(cfg, old *config.Config) (*environConfig, error
 	return envConfig, nil
 }
 
-func (p ManualProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	envConfig, err := p.validate(cfg, old)
+func (p ManualProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
+	envConfig, err := p.validate(ctx, cfg, old)
 	if err != nil {
 		return nil, err
 	}

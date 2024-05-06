@@ -254,7 +254,8 @@ func (p *environProvisioner) loop() error {
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}
-			if err := p.setConfig(modelConfig); err != nil {
+
+			if err := p.setConfig(context.TODO(), modelConfig); err != nil {
 				return errors.Annotate(err, "loaded invalid model configuration")
 			}
 			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
@@ -273,8 +274,8 @@ func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 
 // setConfig updates the environment configuration and notifies
 // the config observer.
-func (p *environProvisioner) setConfig(modelConfig *config.Config) error {
-	if err := p.environ.SetConfig(modelConfig); err != nil {
+func (p *environProvisioner) setConfig(ctx context.Context, modelConfig *config.Config) error {
+	if err := p.environ.SetConfig(ctx, modelConfig); err != nil {
 		return errors.Trace(err)
 	}
 	p.configObserver.notify(modelConfig)

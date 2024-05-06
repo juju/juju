@@ -533,7 +533,7 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	provider, err := environs.Provider(cfg.Type())
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
-	cfg, err = provider.PrepareConfig(environs.PrepareConfigParams{
+	cfg, err = provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Config: cfg,
 	})
 	c.Assert(err, jc.ErrorIsNil)

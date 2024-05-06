@@ -4,6 +4,7 @@
 package openstack
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -114,9 +115,9 @@ func (p EnvironProvider) ConfigDefaults() schema.Defaults {
 	return configDefaults
 }
 
-func (p EnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (p EnvironProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
 	// Check for valid changes for the base config values.
-	if err := config.Validate(cfg, old); err != nil {
+	if err := config.Validate(ctx, cfg, old); err != nil {
 		return nil, err
 	}
 

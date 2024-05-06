@@ -517,12 +517,12 @@ type fakeProvider struct {
 	environ *fakeEnviron
 }
 
-func (p *fakeProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p *fakeProvider) PrepareConfig(_ context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	p.MethodCall(p, "PrepareConfig", args)
 	return args.Config, p.NextErr()
 }
 
-func (p *fakeProvider) Validate(newCfg, oldCfg *config.Config) (*config.Config, error) {
+func (p *fakeProvider) Validate(_ context.Context, newCfg, oldCfg *config.Config) (*config.Config, error) {
 	p.MethodCall(p, "Validate", newCfg, oldCfg)
 	return newCfg, p.NextErr()
 }

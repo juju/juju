@@ -466,7 +466,7 @@ func (s *providerSuite) TestValidate(c *gc.C) {
 
 	deps := s.createProvider(ctrl)
 
-	validCfg, err := deps.provider.Validate(s.Config, nil)
+	validCfg, err := deps.provider.Validate(context.Background(), s.Config, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	validAttrs := validCfg.AllAttrs()
 
@@ -484,7 +484,7 @@ func (s *providerSuite) TestValidateWithInvalidConfig(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	_, err = deps.provider.Validate(config, nil)
+	_, err = deps.provider.Validate(context.Background(), config, nil)
 	c.Assert(err, gc.NotNil)
 }
 
@@ -560,7 +560,7 @@ func (s *ProviderFunctionalSuite) TestOpen(c *gc.C) {
 }
 
 func (s *ProviderFunctionalSuite) TestPrepareConfig(c *gc.C) {
-	cfg, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+	cfg, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Cloud:  lxdCloudSpec(),
 		Config: s.Config,
 	})
@@ -571,7 +571,7 @@ func (s *ProviderFunctionalSuite) TestPrepareConfig(c *gc.C) {
 func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedEndpointScheme(c *gc.C) {
 	cloudSpec := lxdCloudSpec()
 	cloudSpec.Endpoint = "unix://foo"
-	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+	_, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Cloud:  cloudSpec,
 		Config: s.Config,
 	})
@@ -580,7 +580,7 @@ func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedEndpointScheme(c *
 
 func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) {
 	cred := cloud.NewCredential("foo", nil)
-	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+	_, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Cloud: environscloudspec.CloudSpec{
 			Type:       "lxd",
 			Name:       "remotehost",
@@ -592,7 +592,7 @@ func (s *ProviderFunctionalSuite) TestPrepareConfigUnsupportedAuthType(c *gc.C) 
 
 func (s *ProviderFunctionalSuite) TestPrepareConfigInvalidCertificateAttrs(c *gc.C) {
 	cred := cloud.NewCredential(cloud.CertificateAuthType, map[string]string{})
-	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+	_, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Cloud: environscloudspec.CloudSpec{
 			Type:       "lxd",
 			Name:       "remotehost",
@@ -604,7 +604,7 @@ func (s *ProviderFunctionalSuite) TestPrepareConfigInvalidCertificateAttrs(c *gc
 
 func (s *ProviderFunctionalSuite) TestPrepareConfigEmptyAuthNonLocal(c *gc.C) {
 	cred := cloud.NewEmptyCredential()
-	_, err := s.provider.PrepareConfig(environs.PrepareConfigParams{
+	_, err := s.provider.PrepareConfig(context.Background(), environs.PrepareConfigParams{
 		Cloud: environscloudspec.CloudSpec{
 			Type:       "lxd",
 			Name:       "remotehost",

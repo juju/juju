@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 
@@ -54,7 +55,7 @@ func (p environProvider) Open(ctx stdcontext.Context, args environs.OpenParams) 
 		return nil, err
 	}
 
-	if err := e.SetConfig(args.Config); err != nil {
+	if err := e.SetConfig(ctx, args.Config); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return e, nil
@@ -72,7 +73,7 @@ func (p environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint strin
 }
 
 // PrepareConfig is specified in the EnvironProvider interface.
-func (p environProvider) PrepareConfig(args environs.PrepareConfigParams) (*config.Config, error) {
+func (p environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -102,8 +103,8 @@ func validateCloudSpec(c environscloudspec.CloudSpec) error {
 }
 
 // Validate is specified in the EnvironProvider interface.
-func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	newEcfg, err := validateConfig(cfg, old)
+func (environProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
+	newEcfg, err := validateConfig(ctx, cfg, old)
 	if err != nil {
 		return nil, fmt.Errorf("invalid EC2 provider config: %v", err)
 	}

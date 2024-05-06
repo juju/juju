@@ -162,7 +162,7 @@ func (t *Tracker) loop() error {
 			if err != nil {
 				return errors.Annotate(err, "cannot read model config")
 			}
-			if err = t.broker.SetConfig(modelConfig); err != nil {
+			if err = t.broker.SetConfig(context.TODO(), modelConfig); err != nil {
 				return errors.Annotate(err, "cannot update model config")
 			}
 		case _, ok := <-cloudWatcherChanges:

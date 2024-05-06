@@ -178,7 +178,7 @@ func (s *modelconfigSuite) TestAdminCanSetLogTrace(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := modelconfig.LogTracingValidator(true)(newConfig, oldConfig)
+	cfg, err := modelconfig.LogTracingValidator(true)(context.Background(), newConfig, oldConfig)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cfg.AllAttrs(), jc.DeepEquals, newConfig.AllAttrs())
 }
@@ -201,7 +201,7 @@ func (s *modelconfigSuite) TestUserCanSetLogNoTrace(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := modelconfig.LogTracingValidator(true)(newConfig, oldConfig)
+	cfg, err := modelconfig.LogTracingValidator(true)(context.Background(), newConfig, oldConfig)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(cfg.AllAttrs(), jc.DeepEquals, newConfig.AllAttrs())
 }
@@ -236,7 +236,7 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = modelconfig.LogTracingValidator(false)(newConfig, oldConfig)
+	_, err = modelconfig.LogTracingValidator(false)(context.Background(), newConfig, oldConfig)
 	var validationErr *config.ValidationError
 	c.Check(errors.As(err, &validationErr), jc.IsTrue)
 	c.Check(*validationErr, jc.DeepEquals, config.ValidationError{
