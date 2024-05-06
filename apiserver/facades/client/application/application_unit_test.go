@@ -1695,6 +1695,20 @@ func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 	curl := "ch:focal/riak-42"
 	s.backend.EXPECT().Charm(curl).Return(ch, nil).MinTimes(1)
 	s.model.EXPECT().UUID().Return("").AnyTimes()
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), "a-space").
+		AnyTimes().
+		Return(&network.SpaceInfo{
+			ID:   "a-space-ID",
+			Name: "a-space",
+		}, nil)
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), "").
+		AnyTimes().
+		Return(nil, errors.New("boom"))
+	s.networkService.EXPECT().SpaceByName(gomock.Any(), "42").
+		Return(&network.SpaceInfo{
+			ID:   "42-ID",
+			Name: "42",
+		}, nil)
 
 	args := []params.ApplicationDeploy{{
 		ApplicationName: "old",
@@ -1721,11 +1735,11 @@ func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*bindings map with empty space ID not valid.*")
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, "boom")
 	c.Assert(results.Results[1].Error, gc.IsNil)
 
 	c.Assert(s.deployParams["regular"].EndpointBindings, gc.DeepEquals, map[string]string{
-		"endpoint": "42",
+		"endpoint": "42-ID",
 	})
 }
 
