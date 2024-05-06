@@ -49,6 +49,25 @@ func (d *dummyModelState) Get(ctx context.Context, id coremodel.UUID) (coremodel
 	}, nil
 }
 
+func (d *dummyModelState) Model(ctx context.Context, id coremodel.UUID) (coremodel.ReadOnlyModel, error) {
+	args, exists := d.models[id]
+	if !exists {
+		return coremodel.ReadOnlyModel{}, modelerrors.NotFound
+	}
+
+	return coremodel.ReadOnlyModel{
+		UUID:            args.UUID,
+		AgentVersion:    args.AgentVersion,
+		ControllerUUID:  args.ControllerUUID,
+		Name:            args.Name,
+		Type:            args.Type,
+		Cloud:           args.Cloud,
+		CloudRegion:     args.CloudRegion,
+		CredentialOwner: args.CredentialOwner,
+		CredentialName:  args.CredentialName,
+	}, nil
+}
+
 func (d *dummyModelState) Delete(ctx context.Context, modelUUID coremodel.UUID) error {
 	delete(d.models, modelUUID)
 	return nil
@@ -72,9 +91,9 @@ func (s *modelServiceSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
-	svc := NewModelService(s.state, s.state)
-
 	id := modeltesting.GenModelUUID(c)
+	svc := NewModelService(id, s.state, s.state)
+
 	s.state.models[id] = model.ReadOnlyModelCreationArgs{
 		UUID:        id,
 		Name:        "my-awesome-model",
@@ -82,7 +101,7 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 		CloudRegion: "myregion",
 		Type:        coremodel.IAAS,
 	}
-	err := svc.CreateModel(context.Background(), id, s.controllerUUID)
+	err := svc.CreateModel(context.Background(), s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	got, exists := s.state.models[id]
@@ -91,9 +110,9 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 }
 
 func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
-	svc := NewModelService(s.state, s.state)
-
 	id := modeltesting.GenModelUUID(c)
+	svc := NewModelService(id, s.state, s.state)
+
 	s.state.models[id] = model.ReadOnlyModelCreationArgs{
 		UUID:        id,
 		Name:        "my-awesome-model",
@@ -101,10 +120,10 @@ func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
 		CloudRegion: "myregion",
 		Type:        coremodel.IAAS,
 	}
-	err := svc.CreateModel(context.Background(), id, s.controllerUUID)
+	err := svc.CreateModel(context.Background(), s.controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = svc.DeleteModel(context.Background(), id)
+	err = svc.DeleteModel(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, exists := s.state.models[id]

@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
@@ -20,11 +19,6 @@ import (
 	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/uuid"
 )
-
-// agentVersion represents the target agent version from the model table.
-type agentVersion struct {
-	TargetAgentVersion string `db:"target_agent_version"`
-}
 
 // ModelState represents a type for interacting with the underlying model
 // database state.
@@ -40,48 +34,6 @@ func NewModelState(
 	return &ModelState{
 		StateBase: domain.NewStateBase(factory),
 	}
-}
-
-// AgentVersion reports the currently set target agent version for the model.
-// For the unlikely case that the models agent version is not set an error
-// satisfying errors.NotFound will be returned. Should the agent version be
-// invalid an error satisfying [errors.NotValid] will be returned.
-func (s *ModelState) AgentVersion(ctx context.Context) (version.Number, error) {
-	db, err := s.DB()
-	if err != nil {
-		return version.Zero, errors.Trace(err)
-	}
-
-	q := `SELECT &agentVersion.target_agent_version FROM model`
-
-	rval := agentVersion{}
-
-	stmt, err := s.Prepare(q, rval)
-	if err != nil {
-		return version.Zero, errors.Trace(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt).Get(&rval)
-	})
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return version.Zero, fmt.Errorf("agent version %w", errors.NotFound)
-	} else if err != nil {
-		return version.Zero, fmt.Errorf("retrieving current agent version: %w", domain.CoerceError(err))
-	}
-
-	v, err := version.Parse(rval.TargetAgentVersion)
-	if err != nil {
-		return version.Zero, fmt.Errorf(
-			"parsing model agent version %q: %w%w",
-			rval.TargetAgentVersion,
-			err,
-			errors.Hide(errors.NotValid),
-		)
-	}
-
-	return v, nil
 }
 
 // Create creates a new read-only model.
@@ -138,7 +90,9 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	return nil
 }
 
-// Model returns a read-only model for the given uuid.
+// Model returns a read-only model information that has been set in the database.
+// If no model has been set then an error satisfying [modelerrors.NotFound] is
+// returned.
 func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -155,7 +109,7 @@ SELECT uuid,
        cloud_region, 
        credential_owner, 
        credential_name
-FROM model;
+FROM model
 `
 
 	var (
@@ -182,7 +136,7 @@ FROM model;
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return coremodel.ReadOnlyModel{}, fmt.Errorf("model %w", modelerrors.NotFound)
+			return coremodel.ReadOnlyModel{}, fmt.Errorf("getting model read only information %w", modelerrors.NotFound)
 		}
 		return coremodel.ReadOnlyModel{}, errors.Trace(err)
 	}

@@ -164,6 +164,7 @@ func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfig
 
 func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
 	return modelservice.NewModelService(
+		s.modelUUID,
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)

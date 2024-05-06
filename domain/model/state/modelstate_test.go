@@ -6,7 +6,6 @@ package state
 import (
 	"context"
 
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -65,42 +64,6 @@ func (s *modelSuite) TestCreateModel(c *gc.C) {
 		CredentialOwner: "myowner",
 		CredentialName:  "mycredential",
 	})
-}
-
-// TestAgentVersion is testing the happy path of AgentVersion to make sure the
-// correct value is being reported back.
-func (s *modelSuite) TestAgentVersion(c *gc.C) {
-	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner)
-
-	id := modeltesting.GenModelUUID(c)
-	args := model.ReadOnlyModelCreationArgs{
-		UUID:            id,
-		AgentVersion:    jujuversion.Current,
-		ControllerUUID:  s.controllerUUID,
-		Name:            "my-awesome-model",
-		Type:            coremodel.IAAS,
-		Cloud:           "aws",
-		CloudRegion:     "myregion",
-		CredentialOwner: "myowner",
-		CredentialName:  "mycredential",
-	}
-	err := state.Create(context.Background(), args)
-	c.Check(err, jc.ErrorIsNil)
-
-	version, err := state.AgentVersion(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(version, jc.DeepEquals, jujuversion.Current)
-}
-
-// TestAgentVersionNotFound is testing that when no agent version has been set
-// for the model we get back an error that satisfies [errors.NotFound]
-func (s *modelSuite) TestAgentVersionNotFound(c *gc.C) {
-	runner := s.TxnRunnerFactory()
-	state := NewModelState(runner)
-
-	_, err := state.AgentVersion(context.Background())
-	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *modelSuite) TestDeleteModel(c *gc.C) {

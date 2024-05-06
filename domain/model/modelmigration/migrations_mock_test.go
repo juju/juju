@@ -184,17 +184,17 @@ func (m *MockReadOnlyModelService) EXPECT() *MockReadOnlyModelServiceMockRecorde
 }
 
 // CreateModel mocks base method.
-func (m *MockReadOnlyModelService) CreateModel(arg0 context.Context, arg1 model.UUID, arg2 uuid.UUID) error {
+func (m *MockReadOnlyModelService) CreateModel(arg0 context.Context, arg1 uuid.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CreateModel indicates an expected call of CreateModel.
-func (mr *MockReadOnlyModelServiceMockRecorder) CreateModel(arg0, arg1, arg2 any) *MockReadOnlyModelServiceCreateModelCall {
+func (mr *MockReadOnlyModelServiceMockRecorder) CreateModel(arg0, arg1 any) *MockReadOnlyModelServiceCreateModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModel", reflect.TypeOf((*MockReadOnlyModelService)(nil).CreateModel), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateModel", reflect.TypeOf((*MockReadOnlyModelService)(nil).CreateModel), arg0, arg1)
 	return &MockReadOnlyModelServiceCreateModelCall{Call: call}
 }
 
@@ -210,29 +210,29 @@ func (c *MockReadOnlyModelServiceCreateModelCall) Return(arg0 error) *MockReadOn
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReadOnlyModelServiceCreateModelCall) Do(f func(context.Context, model.UUID, uuid.UUID) error) *MockReadOnlyModelServiceCreateModelCall {
+func (c *MockReadOnlyModelServiceCreateModelCall) Do(f func(context.Context, uuid.UUID) error) *MockReadOnlyModelServiceCreateModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReadOnlyModelServiceCreateModelCall) DoAndReturn(f func(context.Context, model.UUID, uuid.UUID) error) *MockReadOnlyModelServiceCreateModelCall {
+func (c *MockReadOnlyModelServiceCreateModelCall) DoAndReturn(f func(context.Context, uuid.UUID) error) *MockReadOnlyModelServiceCreateModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DeleteModel mocks base method.
-func (m *MockReadOnlyModelService) DeleteModel(arg0 context.Context, arg1 model.UUID) error {
+func (m *MockReadOnlyModelService) DeleteModel(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteModel", arg0, arg1)
+	ret := m.ctrl.Call(m, "DeleteModel", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteModel indicates an expected call of DeleteModel.
-func (mr *MockReadOnlyModelServiceMockRecorder) DeleteModel(arg0, arg1 any) *MockReadOnlyModelServiceDeleteModelCall {
+func (mr *MockReadOnlyModelServiceMockRecorder) DeleteModel(arg0 any) *MockReadOnlyModelServiceDeleteModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteModel", reflect.TypeOf((*MockReadOnlyModelService)(nil).DeleteModel), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteModel", reflect.TypeOf((*MockReadOnlyModelService)(nil).DeleteModel), arg0)
 	return &MockReadOnlyModelServiceDeleteModelCall{Call: call}
 }
 
@@ -248,13 +248,13 @@ func (c *MockReadOnlyModelServiceDeleteModelCall) Return(arg0 error) *MockReadOn
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReadOnlyModelServiceDeleteModelCall) Do(f func(context.Context, model.UUID) error) *MockReadOnlyModelServiceDeleteModelCall {
+func (c *MockReadOnlyModelServiceDeleteModelCall) Do(f func(context.Context) error) *MockReadOnlyModelServiceDeleteModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReadOnlyModelServiceDeleteModelCall) DoAndReturn(f func(context.Context, model.UUID) error) *MockReadOnlyModelServiceDeleteModelCall {
+func (c *MockReadOnlyModelServiceDeleteModelCall) DoAndReturn(f func(context.Context) error) *MockReadOnlyModelServiceDeleteModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
