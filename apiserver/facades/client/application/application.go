@@ -574,7 +574,11 @@ func (api *APIBase) deployApplication(
 		attachStorage[i] = tag
 	}
 
-	bindings, err := state.NewBindings(api.backend, args.EndpointBindings)
+	bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(ctx, args.EndpointBindings)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	bindings, err := state.NewBindings(api.backend, bindingsWithSpaceIDs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2968,6 +2972,12 @@ func (api *APIBase) DeployFromRepository(ctx context.Context, args params.Deploy
 
 	results := make([]params.DeployFromRepositoryResult, len(args.Args))
 	for i, entity := range args.Args {
+		bindingsWithSpaceIDs, err := api.convertSpacesToIDInBindings(ctx, entity.EndpointBindings)
+		if err != nil {
+			results[i].Errors = []*params.Error{apiservererrors.ServerError(err)}
+			continue
+		}
+		entity.EndpointBindings = bindingsWithSpaceIDs
 		info, pending, errs := api.repoDeploy.DeployFromRepository(ctx, entity)
 		if len(errs) > 0 {
 			results[i].Errors = apiservererrors.ServerErrors(errs)
