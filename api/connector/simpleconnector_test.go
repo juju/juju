@@ -77,7 +77,7 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 			},
 		},
 		{
-			name: "with neither username nre client id",
+			name: "with neither username nor client id",
 			opts: SimpleConfig{
 				ControllerAddresses: []string{"some.host:9999"},
 				ModelUUID:           "some-uuid",
