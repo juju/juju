@@ -180,13 +180,3 @@ func (f *fakeMachineLock) Acquire(spec machinelock.Spec) (func(), error) {
 func (f *fakeMachineLock) Report(opts ...machinelock.ReportOption) (string, error) {
 	return "", nil
 }
-
-type noOpLogger struct {
-}
-
-func (noOpLogger) Errorf(format string, values ...interface{})   {}
-func (noOpLogger) Warningf(format string, values ...interface{}) {}
-func (noOpLogger) Infof(format string, values ...interface{})    {}
-func (noOpLogger) Debugf(format string, values ...interface{})   {}
-func (noOpLogger) Tracef(format string, values ...interface{})   {}
-func (noOpLogger) IsTraceEnabled() bool                          { return false }

@@ -173,7 +173,7 @@ type ManifoldsConfig struct {
 
 	// MachineStartup is passed to the machine manifold. It does
 	// machine setup work which relies on an API connection.
-	MachineStartup func(context.Context, api.Connection, Logger) error
+	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
 
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to

@@ -743,7 +743,7 @@ var (
 	newBroker     = broker.New
 )
 
-func (a *MachineAgent) machineStartup(ctx stdcontext.Context, apiConn api.Connection, logger machine.Logger) error {
+func (a *MachineAgent) machineStartup(ctx stdcontext.Context, apiConn api.Connection, logger corelogger.Logger) error {
 	logger.Tracef("machineStartup called")
 	// CAAS agents do not have machines.
 	if a.isCaasAgent {
@@ -863,7 +863,7 @@ func (a *MachineAgent) validateMigration(ctx stdcontext.Context, apiCaller base.
 
 // setupContainerSupport determines what containers can be run on this machine and
 // passes the result to the juju controller.
-func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Connection, logger machine.Logger) error {
+func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Connection, logger corelogger.Logger) error {
 	logger.Tracef("setupContainerSupport called")
 	pr := apiprovisioner.NewClient(st)
 	mTag, ok := a.CurrentConfig().Tag().(names.MachineTag)
