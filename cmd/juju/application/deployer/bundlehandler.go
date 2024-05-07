@@ -347,11 +347,9 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		var base corebase.Base
 		if spec.Base != "" {
 			base, err = corebase.ParseBaseFromString(spec.Base)
-		} else if spec.Series != "" {
-			base, err = corebase.GetBaseFromSeries(spec.Series)
-		}
-		if err != nil {
-			return errors.Trace(err)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 
 		// We return early with local charms, so here we know the charm must be from charmhub.

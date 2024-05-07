@@ -1,4 +1,4 @@
-series: jammy
+default-base: ubuntu@22.04
 machines:
   '0': {}
   '1': {}

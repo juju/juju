@@ -37,7 +37,7 @@ func (r *resolver) handleApplications() (map[string]string, error) {
 	add := r.changes.add
 	applications := r.bundle.Applications
 	existing := r.model
-	defaultBase, err := computeBase(r.bundle.DefaultBase, r.bundle.Series, corebase.Base{})
+	defaultBase, err := computeBase(r.bundle.DefaultBase, corebase.Base{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -314,12 +314,6 @@ func (r *resolver) allowCharmUpgrade(existingApp *Application, bundleApp *charm.
 			err  error
 			base corebase.Base
 		)
-		if bundleApp.Series != "" {
-			base, err = corebase.GetBaseFromSeries(bundleApp.Series)
-			if err != nil {
-				return false, errors.Trace(err)
-			}
-		}
 		if bundleApp.Base != "" {
 			base, err = corebase.ParseBaseFromString(bundleApp.Base)
 			if err != nil {
@@ -409,7 +403,7 @@ func (r *resolver) handleMachines() (map[string]*AddMachineChange, error) {
 	add := r.changes.add
 	machines := r.bundle.Machines
 	existing := r.model
-	defaultBase, err := computeBase(r.bundle.DefaultBase, r.bundle.Series, corebase.Base{})
+	defaultBase, err := computeBase(r.bundle.DefaultBase, corebase.Base{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -430,7 +424,7 @@ func (r *resolver) handleMachines() (map[string]*AddMachineChange, error) {
 		if machine == nil {
 			machine = &charm.MachineSpec{}
 		}
-		computedBase, err := computeBase(machine.Base, machine.Series, defaultBase)
+		computedBase, err := computeBase(machine.Base, defaultBase)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1142,7 +1136,7 @@ func (r *resolver) handleUnits(addedApplications map[string]string, addedMachine
 	for _, v := range addedMachines {
 		machChangeIDs.Add(v.Id())
 	}
-	defaultBase, err := computeBase(r.bundle.DefaultBase, r.bundle.Series, corebase.Base{})
+	defaultBase, err := computeBase(r.bundle.DefaultBase, corebase.Base{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1262,10 +1256,7 @@ func applicationKey(charm, arch string, base corebase.Base, channel string, revi
 func computeApplicationBase(application *charm.ApplicationSpec, defaultBase corebase.Base) (corebase.Base, error) {
 	if application.Base != "" {
 		return corebase.ParseBaseFromString(application.Base)
-	} else if application.Series != "" {
-		return corebase.GetBaseFromSeries(application.Series)
 	}
-
 	if !charm.IsValidLocalCharmOrBundlePath(application.Charm) {
 		return defaultBase, nil
 	}
@@ -1294,11 +1285,9 @@ func computeApplicationBase(application *charm.ApplicationSpec, defaultBase core
 	return base, nil
 }
 
-func computeBase(base string, series string, defaultBase corebase.Base) (corebase.Base, error) {
+func computeBase(base string, defaultBase corebase.Base) (corebase.Base, error) {
 	if base != "" {
 		return corebase.ParseBaseFromString(base)
-	} else if series != "" {
-		return corebase.GetBaseFromSeries(series)
 	}
 	return defaultBase, nil
 }

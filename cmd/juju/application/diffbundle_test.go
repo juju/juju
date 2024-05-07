@@ -612,6 +612,7 @@ type mockBundle struct {
 }
 
 func (b *mockBundle) Data() *charm.BundleData { return b.data }
+func (b *mockBundle) BundleBytes() []byte     { return []byte{} }
 func (b *mockBundle) ReadMe() string          { return "" }
 func (b *mockBundle) ContainsOverlays() bool  { return false }
 

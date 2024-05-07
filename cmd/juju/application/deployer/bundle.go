@@ -90,7 +90,7 @@ func (d *deployBundle) deploy(
 	}
 	d.printDryRunUnmarshalErrors(ctx, unmarshalErrors)
 
-	err = d.checkExplicitSeries(bundleData)
+	err = d.checkExplicitBase(bundleData)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -119,9 +119,9 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 	return nil
 }
 
-// checkExplicitSeries returns an error if the image-id constraint is used and
+// checkExplicitBase returns an error if the image-id constraint is used and
 // there is no series explicitly defined by the user.
-func (d *deployBundle) checkExplicitSeries(bundleData *charm.BundleData) error {
+func (d *deployBundle) checkExplicitBase(bundleData *charm.BundleData) error {
 	for _, applicationSpec := range bundleData.Applications {
 		// First we check if the app is deployed "to" a machine that
 		// has the image-id constraint
@@ -161,9 +161,7 @@ func (d *deployBundle) checkExplicitSeries(bundleData *charm.BundleData) error {
 		// We check if series are defined when any of the constraints
 		// above have image-id
 		if (appHasImageID || modelHasImageID || machineHasImageID) &&
-			applicationSpec.Series == "" &&
 			applicationSpec.Base == "" &&
-			bundleData.Series == "" &&
 			bundleData.DefaultBase == "" {
 			return errors.Forbiddenf("base must be explicitly provided for %q when image-id constraint is used", applicationSpec.Charm)
 		}

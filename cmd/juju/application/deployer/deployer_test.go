@@ -234,6 +234,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithChannel(c *gc.C) {
 	s.expectModelType()
 	s.expectGetBundle(nil)
 	s.expectData()
+	s.expectBundleBytes()
 
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.modelConfigGetter, s.resolver)
@@ -254,6 +255,7 @@ func (s *deployerSuite) TestGetDeployerCharmHubBundleWithRevision(c *gc.C) {
 	s.expectModelType()
 	s.expectGetBundle(nil)
 	s.expectData()
+	s.expectBundleBytes()
 
 	s.expectResolveBundleURL(nil, 1)
 	factory := s.newDeployerFactory()
@@ -468,6 +470,10 @@ func (s *deployerSuite) expectGetBundle(err error) {
 
 func (s *deployerSuite) expectData() {
 	s.bundle.EXPECT().Data().Return(&charm.BundleData{})
+}
+
+func (s *deployerSuite) expectBundleBytes() {
+	s.bundle.EXPECT().BundleBytes().Return([]byte{})
 }
 
 // TODO (stickupkid): Remove this in favour of better unit tests with mocks.

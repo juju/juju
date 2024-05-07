@@ -41,7 +41,7 @@ relations:
     - mysql:shared-db
   - - nova-cloud-controller:neutron-api
     - neutron-api:neutron-api
-series: focal
+default-base: ubuntu@20.04
 applications:
   glance:
     annotations:

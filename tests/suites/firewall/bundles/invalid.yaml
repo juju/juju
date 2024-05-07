@@ -1,7 +1,7 @@
 # This bundle is invalid because it contains both an
 # "expose: true" field and a list of exposed endpoint
 # parameters in its overlay section
-series: jammy
+default-base: ubuntu@22.04
 applications:
   ubuntu-lite:
     charm: ubuntu

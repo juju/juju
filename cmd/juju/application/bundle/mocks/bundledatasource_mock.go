@@ -77,6 +77,44 @@ func (c *MockBundleDataSourceBasePathCall) DoAndReturn(f func() string) *MockBun
 	return c
 }
 
+// BundleBytes mocks base method.
+func (m *MockBundleDataSource) BundleBytes() []byte {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BundleBytes")
+	ret0, _ := ret[0].([]byte)
+	return ret0
+}
+
+// BundleBytes indicates an expected call of BundleBytes.
+func (mr *MockBundleDataSourceMockRecorder) BundleBytes() *MockBundleDataSourceBundleBytesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BundleBytes", reflect.TypeOf((*MockBundleDataSource)(nil).BundleBytes))
+	return &MockBundleDataSourceBundleBytesCall{Call: call}
+}
+
+// MockBundleDataSourceBundleBytesCall wrap *gomock.Call
+type MockBundleDataSourceBundleBytesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockBundleDataSourceBundleBytesCall) Return(arg0 []byte) *MockBundleDataSourceBundleBytesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockBundleDataSourceBundleBytesCall) Do(f func() []byte) *MockBundleDataSourceBundleBytesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockBundleDataSourceBundleBytesCall) DoAndReturn(f func() []byte) *MockBundleDataSourceBundleBytesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Parts mocks base method.
 func (m *MockBundleDataSource) Parts() []*charm.BundleDataPart {
 	m.ctrl.T.Helper()

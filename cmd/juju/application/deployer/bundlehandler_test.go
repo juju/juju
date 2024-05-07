@@ -192,13 +192,13 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraint
 }
 
 const wordpressBundle = `
-series: jammy
+default-base: ubuntu@22.04
 applications:
   mysql:
     charm: ch:mysql
     revision: 42
     channel: stable
-    series: focal
+    base: ubuntu@20.04
     num_units: 1
     options:
       foo: bar
@@ -208,15 +208,15 @@ applications:
     charm: ch:wordpress
     revision: 47
     channel: stable
-    series: focal
+    base: ubuntu@20.04
     num_units: 1
     to:
     - "1"
 machines:
   "0":
-    series: focal
+    base: ubuntu@20.04
   "1":
-    series: focal
+    base: ubuntu@20.04
 relations:
 - - wordpress:db
   - mysql:db
@@ -546,7 +546,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 }
 
 const wordpressBundleWithStorage = `
-series: jammy
+default-base: ubuntu@22.04
 applications:
   mysql:
     charm: ch:mysql
@@ -707,11 +707,11 @@ applications:
     dashboard4miner:
         charm: dashboard4miner
         num_units: 1
-        series: focal
+        base: ubuntu@20.04
     bitcoin-miner:
         charm: bitcoin-miner
         num_units: 1
-        series: focal
+        base: ubuntu@20.04
 relations:
     - ["dashboard4miner:miner", "bitcoin-miner:miner"]
 `
@@ -818,7 +818,7 @@ const charmWithResourcesBundle = `
 applications:
     django:
         charm: ch:django
-        series: jammy
+        base: ubuntu@22.04
 `
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *gc.C) {
@@ -870,7 +870,7 @@ const specifyResourcesBundle = `
 applications:
     django:
         charm: ch:django
-        series: focal
+        base: ubuntu@20.04
         resources:
             one: 4
 `
@@ -922,7 +922,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *gc.C) 
 }
 
 const wordpressBundleWithStorageUpgradeConstraints = `
-series: jammy
+default-base: ubuntu@22.04
 applications:
   wordpress:
     charm: ch:wordpress
@@ -1002,7 +1002,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C
 }
 
 const wordpressBundleWithStorageUpgradeRelations = `
-series: jammy
+default-base: ubuntu@22.04
 applications:
   mysql:
     charm: ch:mysql
@@ -1089,9 +1089,9 @@ const machineUnitPlacementBundle = `
                   - new
       machines:
           1:
-              series: jammy
+              base: ubuntu@22.04
           2:
-              series: jammy
+              base: ubuntu@22.04
   `
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleMachinesUnitsPlacement(c *gc.C) {
@@ -1143,14 +1143,14 @@ const machineAttributesBundle = `
 applications:
     django:
         charm: ch:django
-        series: jammy
+        base: ubuntu@22.04
         num_units: 2
         to:
             - 1
             - new
 machines:
     1:
-        series: jammy
+        base: ubuntu@22.04
         constraints: "cores=4 mem=4G"
         annotations:
             foo: bar
@@ -1220,7 +1220,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
 applications:
     django:
         charm: ch:django
-        series: focal
+        base: ubuntu@20.04
         num_units: 2
 `)
 
@@ -1237,7 +1237,7 @@ applications:
 applications:
     django:
         charm: ch:django
-        series: focal
+        base: ubuntu@20.04
         num_units: 5
    `)
 }
@@ -1359,14 +1359,14 @@ const unitColocationWithUnitBundle = `
                charm: ch:mem
                revision: 47
                channel: stable
-               series: focal
+               base: ubuntu@20.04
                num_units: 3
                to: [1, new]
            django:
                charm: ch:django
                revision: 42
                channel: stable
-               series: focal
+               base: ubuntu@20.04
                num_units: 5
                to:
                    - mem/0
@@ -1375,14 +1375,14 @@ const unitColocationWithUnitBundle = `
                    - lxd:ror
            ror:
                charm: ch:rails
-               series: focal
+               base: ubuntu@20.04
                num_units: 2
                to:
                    - new
                    - 1
        machines:
            1:
-               series: focal
+               base: ubuntu@20.04
    `
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *gc.C) {
@@ -1460,11 +1460,11 @@ const switchBundle = `
 applications:
   django:
     charm: ch:django
-    series: jammy
+    base: ubuntu@22.04
     num_units: 1
   rails:
     charm: ch:rails
-    series: jammy
+    base: ubuntu@22.04
     num_units: 1
 `
 
@@ -1524,10 +1524,10 @@ applications:
         to: [0]
 machines:
     0:
-        series: jammy
+        base: ubuntu@22.04
     1:
         annotations: {foo: bar}
-        series: jammy
+        base: ubuntu@22.04
 `
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *gc.C) {
@@ -1568,7 +1568,7 @@ applications:
 machines:
     1:
         annotations: {answer: 42}
-        series: jammy
+        base: ubuntu@22.04
 `
 
 func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotationsChanges(c *gc.C) {
@@ -1643,7 +1643,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerTyp
 	s.expectAddMachine("1", "22.04")
 
 	quickBundle := `
-series: jammy
+default-base: ubuntu@22.04
 applications:
     wp:
         charm: ch:wordpress
@@ -1701,7 +1701,7 @@ func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *gc
 	s.expectAddOneUnit("wp", "5/lxd/0", "6")
 
 	quickBundle := `
-series: jammy
+default-base: ubuntu@22.04
 applications:
     wp:
         charm: ch:wordpress
@@ -1808,7 +1808,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C)
 	s.expectAddRelation([]string{"wordpress:db", "mysql:server"})
 	s.expectAddRelation([]string{"varnish:webcache", "wordpress:cache"})
 	content := `
-series: jammy
+default-base: ubuntu@22.04
 applications:
     wordpress:
         charm: ch:wordpress
@@ -1877,7 +1877,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	s.expectAddRelation([]string{"wordpress:db", "mysql:server"})
 
 	content := `
-series: focal
+default-base: ubuntu@20.04
 applications:
     wordpress:
         charm: %s
@@ -1949,7 +1949,7 @@ func (s *BundleDeployRepositorySuite) assertDeployBundleLocalPathInvalidSeriesWi
 	s.expectAddRelation([]string{"wordpress:db", "mysql:server"})
 
 	content := `
-series: focal
+default-base: ubuntu@20.04
 applications:
     wordpress:
         charm: %s
@@ -2074,12 +2074,12 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBinding
 }
 
 const grafanaBundleEndpointBindings = `
-series: jammy
+default-base: ubuntu@22.04
 applications:
   grafana:
     charm: grafana
     num_units: 1
-    series: jammy
+    base: ubuntu@22.04
     to:
     - "0"
     bindings:
@@ -2087,7 +2087,7 @@ applications:
       "db": beta
 machines:
   "0":
-    series: jammy
+    base: ubuntu@22.04
 `
 
 func (s *BundleDeployRepositorySuite) bundleDeploySpec() bundleDeploySpec {
@@ -2170,7 +2170,6 @@ func (s *BundleDeployRepositorySuite) setupCharmUnits(charmUnits []charmUnit) {
 			Revision: chUnit.curl.Revision,
 			URL:      chUnit.curl.String(),
 			Meta: &charm.Meta{
-				//Series:     chUnit
 				Containers: map[string]charm.Container{"mysql": {}},
 			},
 			Manifest: &charm.Manifest{Bases: []charm.Base{

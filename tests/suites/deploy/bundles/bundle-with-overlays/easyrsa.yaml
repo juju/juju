@@ -1,10 +1,10 @@
-series: focal
+default-base: ubuntu@20.04
 applications:
   easyrsa:
     charm: easyrsa
     scale: 1
 ---
-series: focal
+default-base: ubuntu@20.04
 applications:
   easyrsa:
     offers:
