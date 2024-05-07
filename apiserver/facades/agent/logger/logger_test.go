@@ -8,116 +8,123 @@ import (
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
+	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/apiserver/facade/facadetest"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/logger"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+)
+
+var (
+	defaultMachineTag = names.NewMachineTag("0")
 )
 
 type loggerSuite struct {
-	statetesting.StateSuite
-
-	// These are raw State objects. Use them for setup and assertions, but
-	// should never be touched by the API calls themselves
-	rawMachine *state.Machine
 	logger     *logger.LoggerAPI
-	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
+
+	watcherRegistry *facademocks.MockWatcherRegistry
+
+	modelConfigService *MockModelConfigService
 }
 
 var _ = gc.Suite(&loggerSuite{})
 
-func (s *loggerSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+func (s *loggerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
-	// Create a machine to work with
-	var err error
-	s.rawMachine, err = s.State.AddMachine(s.InstancePrechecker(c, s.State), state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 
-	// The default auth is as the machine agent
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.rawMachine.Tag(),
-	}
+	s.modelConfigService = NewMockModelConfigService(ctrl)
 
-	s.logger, err = s.makeLoggerAPI(s.authorizer)
-	c.Assert(err, jc.ErrorIsNil)
+	return ctrl
 }
 
-func (s *loggerSuite) makeLoggerAPI(auth facade.Authorizer) (*logger.LoggerAPI, error) {
-	ctx := facadetest.ModelContext{
-		Auth_:      auth,
-		Resources_: s.resources,
-		State_:     s.State,
+func (s *loggerSuite) setupAPI(c *gc.C) {
+	var err error
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: defaultMachineTag,
 	}
-	return logger.NewLoggerAPI(ctx)
+	s.logger, err = logger.NewLoggerAPI(s.authorizer, s.watcherRegistry, s.modelConfigService)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *loggerSuite) TestNewLoggerAPIRefusesNonAgent(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	// We aren't even a machine agent
-	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = names.NewUserTag("some-user")
-	endPoint, err := s.makeLoggerAPI(anAuthorizer)
-	c.Assert(endPoint, gc.IsNil)
+	var err error
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: names.NewUserTag("some-user"),
+	}
+	s.logger, err = logger.NewLoggerAPI(s.authorizer, s.watcherRegistry, s.modelConfigService)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *loggerSuite) TestNewLoggerAPIAcceptsUnitAgent(c *gc.C) {
-	// We aren't even a machine agent
-	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = names.NewUnitTag("germany/7")
-	endPoint, err := s.makeLoggerAPI(anAuthorizer)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	var err error
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: names.NewUnitTag("germany/7"),
+	}
+	s.logger, err = logger.NewLoggerAPI(s.authorizer, s.watcherRegistry, s.modelConfigService)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(endPoint, gc.NotNil)
 }
 
 func (s *loggerSuite) TestNewLoggerAPIAcceptsApplicationAgent(c *gc.C) {
-	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = names.NewApplicationTag("germany")
-	endPoint, err := s.makeLoggerAPI(anAuthorizer)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
+	var err error
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: names.NewApplicationTag("germany"),
+	}
+	s.logger, err = logger.NewLoggerAPI(s.authorizer, s.watcherRegistry, s.modelConfigService)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(endPoint, gc.NotNil)
 }
 
 func (s *loggerSuite) TestWatchLoggingConfigNothing(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 	// Not an error to watch nothing
 	results := s.logger.WatchLoggingConfig(context.Background(), params.Entities{})
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
-func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
-	attr := map[string]interface{}{
-		"logging-config": loggingConfig,
-	}
-	err := s.Model.UpdateModelConfig(s.ConfigSchemaSourceGetter(c), attr, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
+	notifyCh := make(chan []string, 1)
+	notifyCh <- []string{}
+	watcher := watchertest.NewMockStringsWatcher(notifyCh)
+	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
+
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
+		Entities: []params.Entity{{Tag: defaultMachineTag.String()}},
 	}
 	results := s.logger.WatchLoggingConfig(context.Background(), args)
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
-	c.Assert(resource, gc.NotNil)
-
-	_, ok := resource.(state.NotifyWatcher)
-	c.Assert(ok, jc.IsTrue)
-	// The watcher implementation is tested in the cache package.
 }
 
 func (s *loggerSuite) TestWatchLoggingConfigRefusesWrongAgent(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 	// We are a machine agent, but not the one we are trying to track
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "machine-12354"}},
@@ -130,12 +137,21 @@ func (s *loggerSuite) TestWatchLoggingConfigRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *loggerSuite) TestLoggingConfigForNoone(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
 	// Not an error to request nothing, dumb, but not an error.
 	results := s.logger.LoggingConfig(context.Background(), params.Entities{})
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
 func (s *loggerSuite) TestLoggingConfigRefusesWrongAgent(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, nil)
+
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: "machine-12354"}},
 	}
@@ -146,15 +162,26 @@ func (s *loggerSuite) TestLoggingConfigRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *loggerSuite) TestLoggingConfigForAgent(c *gc.C) {
-	newLoggingConfig := "<root>=WARN;juju.log.test=DEBUG;unit=INFO"
-	s.setLoggingConfig(c, newLoggingConfig)
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.setupAPI(c)
+
+	cfg, err := config.New(false, map[string]any{
+		"name": "donotuse",
+		"type": "donotuse",
+		"uuid": "00000000-0000-0000-0000-000000000000",
+
+		"logging-config": "<root>=WARN;juju.log.test=DEBUG;unit=INFO",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
+		Entities: []params.Entity{{Tag: defaultMachineTag.String()}},
 	}
 	results := s.logger.LoggingConfig(context.Background(), args)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
-	c.Assert(result.Result, gc.Equals, newLoggingConfig)
+	c.Assert(result.Result, gc.Equals, "<root>=WARN;juju.log.test=DEBUG;unit=INFO")
 }

@@ -6,13 +6,13 @@ package logger
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // Logger defines the methods on the logger API end point.  Unfortunately, the
@@ -27,12 +27,31 @@ type Logger interface {
 // LoggerAPI implements the Logger interface and is the concrete
 // implementation of the api end point.
 type LoggerAPI struct {
-	model      *state.Model
-	resources  facade.Resources
-	authorizer facade.Authorizer
+	authorizer      facade.Authorizer
+	watcherRegistry facade.WatcherRegistry
+
+	modelConfigService ModelConfigService
 }
 
 var _ Logger = (*LoggerAPI)(nil)
+
+// NewLoggerAPI returns a LoggerAPI facade.
+func NewLoggerAPI(authorizer facade.Authorizer,
+	watcherRegistry facade.WatcherRegistry,
+	modelConfigService ModelConfigService) (*LoggerAPI, error) {
+	if !authorizer.AuthMachineAgent() &&
+		!authorizer.AuthUnitAgent() &&
+		!authorizer.AuthApplicationAgent() &&
+		!authorizer.AuthModelAgent() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	return &LoggerAPI{
+		authorizer:         authorizer,
+		watcherRegistry:    watcherRegistry,
+		modelConfigService: modelConfigService,
+	}, nil
+}
 
 // WatchLoggingConfig starts a watcher to track changes to the logging config
 // for the agents specified..  Unfortunately the current infrastructure makes
@@ -46,21 +65,29 @@ func (api *LoggerAPI) WatchLoggingConfig(ctx context.Context, arg params.Entitie
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if api.authorizer.AuthOwner(tag) {
-			// TODO(wallyworld) - only trigger on logging change
-			watch := api.model.WatchForModelConfigChanges()
-			// Consume the initial event. Technically, API calls to Watch
-			// 'transmit' the initial event in the Watch response. But
-			// NotifyWatchers have no state to transmit.
-			if _, ok := <-watch.Changes(); ok {
-				result[i].NotifyWatcherId = api.resources.Register(watch)
-				err = nil
-			} else {
-				err = errors.New("programming error: channel should not be closed")
-			}
+		if !api.authorizer.AuthOwner(tag) {
+			result[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		result[i].Error = apiservererrors.ServerError(err)
+
+		// TODO(wallyworld) - only trigger on logging change
+		watch, err := api.modelConfigService.Watch()
+		if err != nil {
+			result[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		notifyWatcher, err := watcher.Normalise[[]string](watch)
+		if err != nil {
+			result[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		result[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](ctx, api.watcherRegistry, notifyWatcher)
+		if err != nil {
+			result[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
 	return params.NotifyWatchResults{Results: result}
 }
@@ -71,23 +98,22 @@ func (api *LoggerAPI) LoggingConfig(ctx context.Context, arg params.Entities) pa
 		return params.StringResults{}
 	}
 	results := make([]params.StringResult, len(arg.Entities))
-	config, configErr := api.model.ModelConfig(ctx)
+	config, configErr := api.modelConfigService.ModelConfig(ctx)
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if api.authorizer.AuthOwner(tag) {
-			if configErr == nil {
-				results[i].Result = config.LoggingConfig()
-				err = nil
-			} else {
-				err = configErr
-			}
+		if !api.authorizer.AuthOwner(tag) {
+			results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		results[i].Error = apiservererrors.ServerError(err)
+		if configErr != nil {
+			results[i].Error = apiservererrors.ServerError(configErr)
+			continue
+		}
+		results[i].Result = config.LoggingConfig()
 	}
 	return params.StringResults{Results: results}
 }
