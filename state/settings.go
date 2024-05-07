@@ -488,12 +488,6 @@ func (st *State) NewSettings() *StateSettings {
 	return &StateSettings{st, settingsC}
 }
 
-// NewControllerSettings returns a new StateSettings reference for working with
-// controller settings in the current database.
-func (st *State) NewControllerSettings() *StateSettings {
-	return &StateSettings{st, controllersC}
-}
-
 // NewStateSettings creates a StateSettings from a modelBackend (e.g. State).
 // TODO (manadart 2020-01-21): Usage of this method should be phased out in
 // favour of NewSettings, above.

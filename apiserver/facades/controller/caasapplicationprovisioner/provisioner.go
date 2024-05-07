@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/bootstrap"
@@ -52,6 +53,7 @@ import (
 // ControllerConfigService provides the controller configuration.
 type ControllerConfigService interface {
 	ControllerConfig(ctx context.Context) (controller.Config, error)
+	Watch() (corewatcher.StringsWatcher, error)
 }
 
 type APIGroup struct {
@@ -262,13 +264,21 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 	}
 
 	appWatcher := app.Watch()
-	controllerConfigWatcher := a.ctrlSt.WatchControllerConfig()
+	controllerConfigWatcher, err := a.controllerConfigService.Watch()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	controllerConfigNotifyWatcher, err := corewatcher.Normalise(controllerConfigWatcher)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+
 	controllerAPIHostPortsWatcher := a.ctrlSt.WatchAPIHostPortsForAgents()
 	modelConfigWatcher := model.WatchForModelConfigChanges()
 
 	multiWatcher, err := eventsource.NewMultiNotifyWatcher(ctx,
 		appWatcher,
-		controllerConfigWatcher,
+		controllerConfigNotifyWatcher,
 		controllerAPIHostPortsWatcher,
 		modelConfigWatcher,
 	)

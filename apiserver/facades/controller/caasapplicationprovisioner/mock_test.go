@@ -27,6 +27,8 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
@@ -45,7 +47,6 @@ type mockState struct {
 	app                          *mockApplication
 	resource                     *mockResources
 	operatorRepo                 string
-	controllerConfigWatcher      *statetesting.MockNotifyWatcher
 	apiHostPortsForAgentsWatcher *statetesting.MockNotifyWatcher
 	isController                 bool
 }
@@ -66,11 +67,6 @@ func (st *mockState) ApplyOperation(op state.ModelOperation) error {
 func (st *mockState) Unit(unit string) (caasapplicationprovisioner.Unit, error) {
 	st.MethodCall(st, "Unit")
 	return nil, nil
-}
-
-func (st *mockState) WatchControllerConfig() state.NotifyWatcher {
-	st.MethodCall(st, "WatchControllerConfig")
-	return st.controllerConfigWatcher
 }
 
 func (st *mockState) WatchApplications() state.StringsWatcher {
@@ -170,11 +166,17 @@ func (m *mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name str
 
 type mockControllerConfigService struct {
 	testing.Stub
+	controllerConfigWatcher *watchertest.MockStringsWatcher
 }
 
 func (m *mockControllerConfigService) ControllerConfig(_ context.Context) (controller.Config, error) {
 	m.MethodCall(m, "ControllerConfig")
 	return coretesting.FakeControllerConfig(), nil
+}
+
+func (m *mockControllerConfigService) Watch() (watcher.StringsWatcher, error) {
+	m.MethodCall(m, "Watch")
+	return m.controllerConfigWatcher, nil
 }
 
 type mockModel struct {
