@@ -4,6 +4,7 @@
 package connector
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
@@ -56,11 +57,16 @@ func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnect
 	// When the client intends to login via client credentials (like a service
 	// account) they leave `SimpleConfig.Username` empty and assign the client
 	// credentials to `SimpleConfig.ClientID` and `SimpleConfig.ClientSecret`.
-	// In such cases, assigning a user tag to `info.Tag` will result in panic.
+	// To ensure that `info.Tag` is never empty, we should assign it with
+	// username or client ID, whichever is not empty.
 	if opts.Username != "" {
 		info.Tag = names.NewUserTag(opts.Username)
 		info.Password = opts.Password
 		info.Macaroons = opts.Macaroons
+	} else if opts.ClientID != "" {
+		info.Tag = names.NewUserTag(opts.ClientID)
+	} else {
+		return nil, errors.New("either Username or ClientID should be set")
 	}
 
 	if err := info.Validate(); err != nil {
