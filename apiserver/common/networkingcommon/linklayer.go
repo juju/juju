@@ -120,27 +120,14 @@ type LinkLayerState interface {
 	// Machine returns the machine for which link-layer data is being set.
 	Machine(string) (LinkLayerMachine, error)
 
-	// AllSubnetInfos returns all known model subnets.
-	// It is used for correctly setting the subnet
-	// of addresses in Fan networks.
-	AllSubnetInfos() (network.SubnetInfos, error)
-
 	// ApplyOperation applied the model operation that sets link-layer data.
 	ApplyOperation(state.ModelOperation) error
-}
-
-// AddSubnetsState describes methods required to add new subnets.
-type AddSubnetsState interface {
-	// AddSubnetOps returns transaction operations required to ensure that the
-	// input subnet is added to state.
-	AddSubnetOps(network.SubnetInfo) ([]txn.Op, error)
 }
 
 // LinkLayerAndSubnetsState describes a persistence indirection that includes
 // the ability to update link-layer data and add discovered subnets.
 type LinkLayerAndSubnetsState interface {
 	LinkLayerState
-	AddSubnetsState
 }
 
 // MachineLinkLayerOp is a base type for model operations that update

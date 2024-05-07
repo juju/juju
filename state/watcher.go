@@ -3636,26 +3636,6 @@ func (st *State) WatchRemoteRelations() StringsWatcher {
 	return newRelationLifeSuspendedWatcher(st, nil, filter, tr)
 }
 
-// WatchSubnets returns a StringsWatcher that notifies of changes to
-// the subnets in the model.
-func (st *State) WatchSubnets(subnetFilter func(id interface{}) bool) StringsWatcher {
-	filter := func(id interface{}) bool {
-		subnet, err := st.strictLocalID(id.(string))
-		if err != nil {
-			return false
-		}
-		if subnetFilter == nil {
-			return true
-		}
-		return subnetFilter(subnet)
-	}
-
-	return newCollectionWatcher(st, colWCfg{
-		col:    subnetsC,
-		filter: filter,
-	})
-}
-
 // isLocalID returns a watcher filter func that rejects ids not specific
 // to the supplied modelBackend.
 func isLocalID(st modelBackend) func(interface{}) bool {

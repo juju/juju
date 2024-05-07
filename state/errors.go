@@ -33,8 +33,6 @@ var (
 	machineNotAliveErr     = stateerrors.NewNotAliveError("machine")
 	applicationNotAliveErr = stateerrors.NewNotAliveError("application")
 	unitNotAliveErr        = stateerrors.NewNotAliveError("unit")
-	spaceNotAliveErr       = stateerrors.NewNotAliveError("space")
-	subnetNotAliveErr      = stateerrors.NewNotAliveError("subnet")
 	notAliveErr            = stateerrors.NewNotAliveError("")
 )
 

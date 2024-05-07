@@ -236,22 +236,6 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 		// Look for the `validateForMachines()` method on 3.x branch(es).
 	}
 
-	// Ensure that the spaceIDs needed for the bindings exist.
-	spIdMap := set.NewStrings()
-	for _, spID := range b.Map() {
-		// TODO(nvinuesa): When we migrate this to dqlite, we must make sure
-		// that the provided spaceIDs actually correspond to existing spaces in the db.
-		if spIdMap.Contains(spID) {
-			continue
-		}
-		ops = append(ops, txn.Op{
-			C:      spacesC,
-			Id:     spID,
-			Assert: txn.DocExists,
-		})
-		spIdMap.Add(spID)
-	}
-
 	// To avoid a potential race where units may suddenly appear on a new
 	// machine that does not have addresses for all the required spaces
 	// while we are applying the txn, we define an assertion on the unit

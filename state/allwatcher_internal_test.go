@@ -151,16 +151,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	cp, err := m.CharmProfiles()
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Add a space and an address on the space.
-	space, err := st.AddSpace("test-space", "provider-space", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	providerAddr := network.NewSpaceAddress("example.com")
-	providerAddr.SpaceID = space.Id()
-
-	cfg := testing.FakeControllerConfig()
-	err = m.SetProviderAddresses(cfg, providerAddr)
-	c.Assert(err, jc.ErrorIsNil)
-
 	var addresses []network.ProviderAddress
 	for _, addr := range m.Addresses() {
 		addresses = append(addresses, network.ProviderAddress{
@@ -194,8 +184,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		CharmProfiles:           cp,
 		HasVote:                 needController,
 		WantsVote:               needController,
-		PreferredPublicAddress:  providerAddr,
-		PreferredPrivateAddress: providerAddr,
 	})
 
 	wordpress := AddTestingApplication(c, st, s.objectStore, "wordpress", AddTestingCharm(c, st, "wordpress"))

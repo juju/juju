@@ -39,8 +39,9 @@ type networkConfigSuite struct {
 
 	tag names.MachineTag
 
-	state   *mocks.MockLinkLayerAndSubnetsState
-	machine *mocks.MockLinkLayerMachine
+	state          *mocks.MockLinkLayerAndSubnetsState
+	machine        *mocks.MockLinkLayerMachine
+	networkService *mocks.MockNetworkService
 
 	modelOp modelOpRecorder
 }
@@ -53,7 +54,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigMachineNotFoundPermissi
 
 	s.state.EXPECT().Machine("1").Return(nil, errors.NotFoundf("nope"))
 
-	err := s.NewNetworkConfigAPI(s.state, s.getModelOp).SetObservedNetworkConfig(
+	err := s.NewNetworkConfigAPI(s.state, s.networkService, s.getModelOp).SetObservedNetworkConfig(
 		context.Background(),
 		params.SetMachineNetworkConfig{
 			Tag:    "machine-1",
@@ -78,7 +79,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *
 	s.expectMachine()
 
 	// This basically simulates having no Fan subnets.
-	s.state.EXPECT().AllSubnetInfos().Return(nil, nil)
+	s.networkService.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, nil)
 	s.state.EXPECT().ApplyOperation(gomock.Any()).Return(nil)
 
 	s.callAPI(c, []params.NetworkConfig{
@@ -143,7 +144,7 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigFixesFanSubs(c *gc.C) {
 
 	s.expectMachine()
 
-	s.state.EXPECT().AllSubnetInfos().Return(network.SubnetInfos{
+	s.networkService.EXPECT().GetAllSubnets(gomock.Any()).Return(network.SubnetInfos{
 		{
 			CIDR: "10.10.0.0/16",
 			FanInfo: &network.FanCIDRs{
@@ -269,7 +270,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 		},
 	).Return([]txn.Op{{}, {}}, nil)
 
-	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, s.networkService, network.InterfaceInfos{
 		{
 			// Existing device and address.
 			InterfaceName: "lo",
@@ -306,7 +307,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpMultipleAddressSuccess(
 			},
 			GatewayAddress: network.NewMachineAddress("0.20.0.1").AsProviderAddress(),
 		},
-	}, false, s.state)
+	}, false)
 
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -364,7 +365,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 		},
 	).Return([]txn.Op{{}, {}}, nil)
 
-	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, s.networkService, network.InterfaceInfos{
 		{
 			// New device and addresses for eth1 with eth99 as the parent.
 			InterfaceName: "eth1",
@@ -377,7 +378,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpUnobservedParentNotRemo
 			ParentInterfaceName: "eth99",
 			Origin:              network.OriginMachine,
 		},
-	}, false, s.state)
+	}, false)
 
 	_, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -398,11 +399,11 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C
 
 	// Simulate the first 2 being added, and the 3rd already existing.
 	// There will be no addition of the localhost address subnet.
-	s.state.EXPECT().AddSubnetOps(network.SubnetInfo{CIDR: "0.10.0.0/24"}).Return([]txn.Op{{}}, nil)
-	s.state.EXPECT().AddSubnetOps(network.SubnetInfo{CIDR: "10.1.0.0/32"}).Return([]txn.Op{{}}, nil)
-	s.state.EXPECT().AddSubnetOps(network.SubnetInfo{CIDR: "0.20.0.0/24"}).Return(nil, errors.AlreadyExistsf("blat"))
+	s.networkService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{CIDR: "0.10.0.0/24"})
+	s.networkService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{CIDR: "10.1.0.0/32"})
+	s.networkService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{CIDR: "0.20.0.0/24"}).Return(network.Id(""), errors.AlreadyExistsf("blat"))
 
-	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, s.networkService, network.InterfaceInfos{
 		{
 			InterfaceName: "lo",
 			InterfaceType: "loopback",
@@ -429,7 +430,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C
 			},
 			GatewayAddress: network.NewMachineAddress("0.20.0.1").AsProviderAddress(),
 		},
-	}, true, s.state)
+	}, true)
 
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -437,8 +438,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpNewSubnetsAdded(c *gc.C
 	// Expected ops are:
 	// - One each for the 3 new devices.
 	// - One each for the 3 new device addresses.
-	// - One each for the 2 unseen subnets.
-	c.Check(ops, gc.HasLen, 8)
+	c.Check(ops, gc.HasLen, 6)
 }
 
 func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(c *gc.C) {
@@ -474,9 +474,9 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(
 
 	// Since there is a new address, then we process (and therefore add)
 	// subnets.
-	s.state.EXPECT().AddSubnetOps(network.SubnetInfo{CIDR: "0.10.0.0/24"}).Return([]txn.Op{{}}, nil)
+	s.networkService.EXPECT().AddSubnet(gomock.Any(), network.SubnetInfo{CIDR: "0.10.0.0/24"})
 
-	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, s.networkService, network.InterfaceInfos{
 		{
 			InterfaceName: "eth0",
 			InterfaceType: "ethernet",
@@ -487,15 +487,14 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerAddressOpNewSubnetsAdded(
 			GatewayAddress:   network.NewMachineAddress("0.10.0.1").AsProviderAddress(),
 			IsDefaultGateway: true,
 		},
-	}, true, s.state)
+	}, true)
 
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Expected ops are:
 	// - One for the new device address.
-	// - One for the new subnet.
-	c.Check(ops, gc.HasLen, 2)
+	c.Check(ops, gc.HasLen, 1)
 }
 
 func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddress(c *gc.C) {
@@ -551,7 +550,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 	// Device eth0 becomes bridged.
 	// It no longer has an address, but has the bridge as its parent.
 	// The parent device (same MAC) has the IP address.
-	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, s.networkService, network.InterfaceInfos{
 		{
 			InterfaceName:       "eth0",
 			InterfaceType:       "ethernet",
@@ -569,7 +568,7 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpBridgedDeviceMovesAddre
 			GatewayAddress: network.NewMachineAddress("10.0.0.1").AsProviderAddress(),
 			Origin:         network.OriginMachine,
 		},
-	}, false, s.state)
+	}, false)
 
 	_, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -597,14 +596,14 @@ func (s *networkConfigSuite) TestUpdateMachineLinkLayerOpReprocessesDevices(c *g
 		},
 	).Return([]txn.Op{{}, {}}, nil).Times(2)
 
-	op := s.NewUpdateMachineLinkLayerOp(s.machine, network.InterfaceInfos{
+	op := s.NewUpdateMachineLinkLayerOp(s.machine, s.networkService, network.InterfaceInfos{
 		{
 			InterfaceName: "eth0",
 			InterfaceType: "ethernet",
 			MACAddress:    hwAddr,
 			Origin:        network.OriginMachine,
 		},
-	}, false, s.state)
+	}, false)
 
 	_, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
@@ -619,6 +618,7 @@ func (s *networkConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.machine = mocks.NewMockLinkLayerMachine(ctrl)
 	s.state = mocks.NewMockLinkLayerAndSubnetsState(ctrl)
+	s.networkService = mocks.NewMockNetworkService(ctrl)
 
 	return ctrl
 }
@@ -631,7 +631,7 @@ func (s *networkConfigSuite) expectMachine() {
 }
 
 func (s *networkConfigSuite) callAPI(c *gc.C, config []params.NetworkConfig) {
-	c.Assert(s.NewNetworkConfigAPI(s.state, s.getModelOp).SetObservedNetworkConfig(
+	c.Assert(s.NewNetworkConfigAPI(s.state, s.networkService, s.getModelOp).SetObservedNetworkConfig(
 		context.Background(),
 		params.SetMachineNetworkConfig{
 			Tag:    s.tag.String(),

@@ -178,7 +178,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 	storageProviderRegistry := stateenvirons.NewStorageProviderRegistry(env)
 
 	netConfigAPI, err := networkingcommon.NewNetworkConfigAPI(
-		stdCtx, st, serviceFactory.Cloud(), getCanModify)
+		stdCtx, st, serviceFactory.Cloud(), serviceFactory.Network(), getCanModify)
 	if err != nil {
 		return nil, errors.Annotate(err, "instantiating network config API")
 	}

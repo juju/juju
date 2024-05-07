@@ -1033,24 +1033,9 @@ func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {
 	return names.MachineTag{}, nil
 }
 
-func (st *mockState) AddSpace(name string, provider network.Id, subnetIds []string) (*state.Space, error) {
-	st.MethodCall(st, "AddSpace", name, provider, subnetIds)
-	return nil, st.NextErr()
-}
-
 func (st *mockState) DefaultEndpointBindingSpace() (string, error) {
 	st.MethodCall(st, "DefaultEndpointBindingSpace")
 	return "alpha", nil
-}
-
-func (st *mockState) Space(id string) (*state.Space, error) {
-	st.MethodCall(st, "Space", id)
-	return nil, st.NextErr()
-}
-
-func (st *mockState) AllSpaces() ([]*state.Space, error) {
-	st.MethodCall(st, "AllSpaces")
-	return nil, st.NextErr()
 }
 
 func (st *mockState) ConstraintsBySpaceName(spaceName string) ([]*state.Constraints, error) {

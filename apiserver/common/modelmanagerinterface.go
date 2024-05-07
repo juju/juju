@@ -77,14 +77,8 @@ type ModelManagerBackend interface {
 	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
 	SetUserAccess(subject names.UserTag, target names.Tag, access permission.Access) (permission.UserAccess, error)
-	AllSpaces() ([]*state.Space, error)
-	AddSpace(string, network.Id, []string) (*state.Space, error)
 	ConstraintsBySpaceName(string) ([]*state.Constraints, error)
-	// TODO(nvinuesa): This method is necessary only until the spaces
-	// migration to dqlite is finished:
-	Space(id string) (*state.Space, error)
 
-	SaveProviderSubnets([]network.SubnetInfo, string) error
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error

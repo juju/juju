@@ -52,6 +52,13 @@ type ControllerConfigService interface {
 	ControllerConfig(ctx context.Context) (controller.Config, error)
 }
 
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	// GetAllSpaces returns all spaces for the model.
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+}
+
 // HighAvailabilityAPI implements the HighAvailability interface and is the concrete
 // implementation of the api end point.
 type HighAvailabilityAPI struct {
@@ -61,6 +68,7 @@ type HighAvailabilityAPI struct {
 	machineService          MachineService
 	applicationService      ApplicationService
 	controllerConfigService ControllerConfigService
+	networkService          NetworkService
 	authorizer              facade.Authorizer
 	logger                  loggo.Logger
 }
@@ -147,7 +155,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 
 	spec.Constraints.Spaces = cfg.AsSpaceConstraints(spec.Constraints.Spaces)
 
-	if err = validatePlacementForSpaces(st, spec.Constraints.Spaces, spec.Placement); err != nil {
+	if err = validatePlacementForSpaces(ctx, st, api.networkService, spec.Constraints.Spaces, spec.Placement); err != nil {
 		return params.ControllersChanges{}, errors.Trace(err)
 	}
 
@@ -252,7 +260,7 @@ func validateCurrentControllers(st *state.State, cfg controller.Config, machineI
 // and machine placement directives.
 // If there are, checks are made to ensure that the machines specified have at
 // least one address in all of the spaces.
-func validatePlacementForSpaces(st *state.State, spaceNames *[]string, placement []string) error {
+func validatePlacementForSpaces(ctx context.Context, st *state.State, networkService NetworkService, spaceNames *[]string, placement []string) error {
 	if spaceNames == nil || len(*spaceNames) == 0 || len(placement) == 0 {
 		return nil
 	}
@@ -284,7 +292,7 @@ func validatePlacementForSpaces(st *state.State, spaceNames *[]string, placement
 			return errors.Annotate(err, "retrieving machine")
 		}
 
-		spaceInfos, err := st.AllSpaceInfos()
+		spaceInfos, err := networkService.GetAllSpaces(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}

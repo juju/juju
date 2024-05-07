@@ -849,20 +849,6 @@ func (factory *Factory) MakeCAASModel(c *gc.C, params *ModelParams) *state.State
 	return factory.MakeModel(c, params)
 }
 
-// MakeSpace will create a new space with the specified params. If the space
-// name is not set, a unique space name is created.
-func (factory *Factory) MakeSpace(c *gc.C, params *SpaceParams) *state.Space {
-	if params == nil {
-		params = new(SpaceParams)
-	}
-	if params.Name == "" {
-		params.Name = uniqueString("space-")
-	}
-	space, err := factory.st.AddSpace(params.Name, params.ProviderID, params.SubnetIDs)
-	c.Assert(err, jc.ErrorIsNil)
-	return space
-}
-
 func (factory *Factory) currentCfg(c *gc.C) *config.Config {
 	model, err := factory.st.Model()
 	c.Assert(err, jc.ErrorIsNil)

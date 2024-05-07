@@ -97,17 +97,9 @@ func (s stateShim) GetOfferUsers(offerUUID string) (map[string]permission.Access
 	return s.st.GetOfferUsers(offerUUID)
 }
 
-func (s *stateShim) SpaceByName(name string) (Space, error) {
-	return s.st.SpaceByName(name)
-}
-
 func (s *stateShim) Model() (Model, error) {
 	m, err := s.st.Model()
 	return &modelShim{m}, err
-}
-
-func (s *stateShim) AllSpaceInfos() (network.SpaceInfos, error) {
-	return s.st.AllSpaceInfos()
 }
 
 func (s *stateShim) ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error) {

@@ -57,15 +57,19 @@ const (
 
 type baseLoginSuite struct {
 	jujutesting.ApiServerSuite
-	mgmtSpace *state.Space
+	mgmtSpace *network.SpaceInfo
 }
 
 func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 	s.ApiServerSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 
-	var err error
-	s.mgmtSpace, err = s.ControllerModel(c).State().AddSpace("mgmt01", "", nil)
+	networkService := s.ControllerServiceFactory(c).Network()
+	mgmtSpaceID, err := networkService.AddSpace(context.Background(), network.SpaceInfo{
+		Name: "mgmt01",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.mgmtSpace, err = networkService.Space(context.Background(), mgmtSpaceID.String())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := map[string]any{
@@ -232,8 +236,14 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	c.Check(strings.Contains(err.Error(), `unknown facade type "Client"`), jc.IsTrue)
 }
 
-func (s *loginSuite) setupManagementSpace(c *gc.C) *state.Space {
-	mgmtSpace, err := s.ControllerModel(c).State().AddSpace("mgmt01", "", nil)
+func (s *loginSuite) setupManagementSpace(c *gc.C) *network.SpaceInfo {
+
+	networkService := s.ControllerServiceFactory(c).Network()
+	mgmtSpaceID, err := networkService.AddSpace(context.Background(), network.SpaceInfo{
+		Name: "mgmt01",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	mgmtSpace, err := networkService.Space(context.Background(), mgmtSpaceID.String())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cfg := map[string]any{
@@ -292,7 +302,7 @@ func (s *loginSuite) loginHostPorts(
 	return st.Addr(), st.APIHostPorts()
 }
 
-func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *state.Space) {
+func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *network.SpaceInfo) {
 	st := s.ControllerModel(c).State()
 
 	cfg, err := s.ControllerServiceFactory(c).ControllerConfig().ControllerConfig(context.Background())
@@ -321,7 +331,7 @@ func (s *loginSuite) assertAgentLogin(c *gc.C, info *api.Info, mgmtSpace *state.
 		network.NewSpaceAddress("server-1", network.WithScope(network.ScopePublic)),
 		network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
 	}
-	server1Addresses[1].SpaceID = mgmtSpace.Id()
+	server1Addresses[1].SpaceID = mgmtSpace.ID
 
 	server2Addresses := network.SpaceAddresses{
 		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),
@@ -359,7 +369,7 @@ func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 		network.NewSpaceAddress("server-1", network.WithScope(network.ScopePublic)),
 		network.NewSpaceAddress("10.0.0.1", network.WithScope(network.ScopeCloudLocal)),
 	}
-	server1Addresses[1].SpaceID = mgmtSpace.Id()
+	server1Addresses[1].SpaceID = mgmtSpace.ID
 
 	server2Addresses := network.SpaceAddresses{
 		network.NewSpaceAddress("::1", network.WithScope(network.ScopeMachineLocal)),

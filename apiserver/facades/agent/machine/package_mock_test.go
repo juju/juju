@@ -40,6 +40,21 @@ func (m *MockNetworkService) EXPECT() *MockNetworkServiceMockRecorder {
 	return m.recorder
 }
 
+// AddSubnet mocks base method.
+func (m *MockNetworkService) AddSubnet(arg0 context.Context, arg1 network.SubnetInfo) (network.Id, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddSubnet", arg0, arg1)
+	ret0, _ := ret[0].(network.Id)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddSubnet indicates an expected call of AddSubnet.
+func (mr *MockNetworkServiceMockRecorder) AddSubnet(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubnet", reflect.TypeOf((*MockNetworkService)(nil).AddSubnet), arg0, arg1)
+}
+
 // GetAllSpaces mocks base method.
 func (m *MockNetworkService) GetAllSpaces(arg0 context.Context) (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()
@@ -53,4 +68,19 @@ func (m *MockNetworkService) GetAllSpaces(arg0 context.Context) (network.SpaceIn
 func (mr *MockNetworkServiceMockRecorder) GetAllSpaces(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllSpaces", reflect.TypeOf((*MockNetworkService)(nil).GetAllSpaces), arg0)
+}
+
+// GetAllSubnets mocks base method.
+func (m *MockNetworkService) GetAllSubnets(arg0 context.Context) (network.SubnetInfos, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllSubnets", arg0)
+	ret0, _ := ret[0].(network.SubnetInfos)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllSubnets indicates an expected call of GetAllSubnets.
+func (mr *MockNetworkServiceMockRecorder) GetAllSubnets(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllSubnets", reflect.TypeOf((*MockNetworkService)(nil).GetAllSubnets), arg0)
 }

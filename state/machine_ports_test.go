@@ -23,7 +23,6 @@ type MachinePortsDocSuite struct {
 	unit1          *state.Unit
 	unit2          *state.Unit
 	machine        *state.Machine
-	subnet         *state.Subnet
 	machPortRanges state.MachinePortRanges
 }
 
@@ -41,9 +40,6 @@ func (s *MachinePortsDocSuite) SetUpTest(c *gc.C) {
 	s.unit2 = s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: s.machine})
 
 	var err error
-	s.subnet, err = s.State.AddSubnet(network.SubnetInfo{CIDR: "0.1.2.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.machPortRanges, err = s.machine.OpenedPortRanges()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machPortRanges.UniquePortRanges(), gc.HasLen, 0, gc.Commentf("expected no port ranges to be open for machine"))

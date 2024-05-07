@@ -38,11 +38,6 @@ func (st stateShim) ModelTag() names.ModelTag {
 	return m.ModelTag()
 }
 
-func (st stateShim) SpaceByName(name string) error {
-	_, err := st.State.SpaceByName(name)
-	return err
-}
-
 // NewStateBackend creates a backend for the facade to use.
 func NewStateBackend(m *state.Model, configSchemaSourceGetter config.ConfigSchemaSourceGetter) Backend {
 	return stateShim{

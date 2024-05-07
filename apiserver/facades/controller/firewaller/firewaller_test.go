@@ -30,7 +30,6 @@ type firewallerSuite struct {
 	firewallerBaseSuite
 
 	firewaller *firewaller.FirewallerAPI
-	subnet     *state.Subnet
 
 	watcherRegistry     *facademocks.MockWatcherRegistry
 	controllerConfigAPI *MockControllerConfigAPI
@@ -58,9 +57,6 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *firewallerSuite) setupAPI(c *gc.C) {
 	st := s.ControllerModel(c).State()
-	subnet, err := st.AddSubnet(network.SubnetInfo{CIDR: "10.20.30.0/24"})
-	c.Assert(err, jc.ErrorIsNil)
-	s.subnet = subnet
 
 	serviceFactory := s.ControllerServiceFactory(c)
 

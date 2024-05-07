@@ -198,10 +198,12 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 
 	wordpressCharm := s.addWordpressCharm(c)
 	st := s.ControllerModel(c).State()
-	dbSpace, err := st.AddSpace("db", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	publicSpace, err := st.AddSpace("public", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	// dbSpace, err := st.AddSpace("db", "", nil)
+	// c.Assert(err, jc.ErrorIsNil)
+	// publicSpace, err := st.AddSpace("public", "", nil)
+	// c.Assert(err, jc.ErrorIsNil)
+	dbSpaceId := "db-space"
+	publicSpaceId := "public-space"
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -218,8 +220,8 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
-				"":   publicSpace.Id(),
-				"db": dbSpace.Id(),
+				"":   publicSpaceId,
+				"db": dbSpaceId,
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
@@ -228,17 +230,17 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 
 	s.assertBindings(c, app, map[string]string{
 		// default binding
-		"": publicSpace.Id(),
+		"": publicSpaceId,
 		// relation names
-		"url":             publicSpace.Id(),
-		"logging-dir":     publicSpace.Id(),
-		"monitoring-port": publicSpace.Id(),
-		"db":              dbSpace.Id(),
-		"cache":           publicSpace.Id(),
+		"url":             publicSpaceId,
+		"logging-dir":     publicSpaceId,
+		"monitoring-port": publicSpaceId,
+		"db":              dbSpaceId,
+		"cache":           publicSpaceId,
 		// extra-bindings names
-		"db-client": publicSpace.Id(),
-		"admin-api": publicSpace.Id(),
-		"foo-bar":   publicSpace.Id(),
+		"db-client": publicSpaceId,
+		"admin-api": publicSpaceId,
+		"foo-bar":   publicSpaceId,
 	})
 }
 
@@ -247,12 +249,15 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
 	st := s.ControllerModel(c).State()
-	dbSpace, err := st.AddSpace("db", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	publicSpace, err := st.AddSpace("public", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	internalSpace, err := st.AddSpace("internal", "", nil)
-	c.Assert(err, jc.ErrorIsNil)
+	// dbSpace, err := st.AddSpace("db", "", nil)
+	// c.Assert(err, jc.ErrorIsNil)
+	// publicSpace, err := st.AddSpace("public", "", nil)
+	// c.Assert(err, jc.ErrorIsNil)
+	// internalSpace, err := st.AddSpace("internal", "", nil)
+	// c.Assert(err, jc.ErrorIsNil)
+	dbSpaceId := "db-space"
+	publicSpaceId := "public-space"
+	internalSpaceId := "internal-space"
 
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -269,10 +274,10 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
-				"":          publicSpace.Id(),
-				"db":        dbSpace.Id(),
-				"db-client": dbSpace.Id(),
-				"admin-api": internalSpace.Id(),
+				"":          publicSpaceId,
+				"db":        dbSpaceId,
+				"db-client": dbSpaceId,
+				"admin-api": internalSpaceId,
 			},
 			CharmOrigin: corecharm.Origin{Platform: corecharm.Platform{OS: "ubuntu", Channel: "22.04"}},
 		},
@@ -280,16 +285,16 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, app, map[string]string{
-		"":                publicSpace.Id(),
-		"url":             publicSpace.Id(),
-		"logging-dir":     publicSpace.Id(),
-		"monitoring-port": publicSpace.Id(),
-		"db":              dbSpace.Id(),
-		"cache":           publicSpace.Id(),
-		"db-client":       dbSpace.Id(),
-		"admin-api":       internalSpace.Id(),
-		"cluster":         publicSpace.Id(),
-		"foo-bar":         publicSpace.Id(), // like for relations, uses the application-default.
+		"":                publicSpaceId,
+		"url":             publicSpaceId,
+		"logging-dir":     publicSpaceId,
+		"monitoring-port": publicSpaceId,
+		"db":              dbSpaceId,
+		"cache":           publicSpaceId,
+		"db-client":       dbSpaceId,
+		"admin-api":       internalSpaceId,
+		"cluster":         publicSpaceId,
+		"foo-bar":         publicSpaceId, // like for relations, uses the application-default.
 	})
 
 }
@@ -712,7 +717,7 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, app application.Application, 
 	st := s.ControllerModel(c).State()
 	for _, unit := range units {
 		id := unit.UnitTag().Id()
-		res, err := st.AssignStagedUnits(state.NoopInstancePrechecker{}, []string{id})
+		res, err := st.AssignStagedUnits(state.NoopInstancePrechecker{}, nil, []string{id})
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(res[0].Error, jc.ErrorIsNil)
 		c.Assert(res[0].Unit, gc.Equals, id)

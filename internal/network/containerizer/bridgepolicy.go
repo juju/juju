@@ -51,6 +51,9 @@ type BridgePolicy struct {
 	//  - provider
 	//  - local
 	containerNetworkingMethod string
+
+	// networkService provides the network domain functionality.
+	networkService NetworkService
 }
 
 // NewBridgePolicy returns a new BridgePolicy for the input environ config
@@ -72,6 +75,7 @@ func NewBridgePolicy(ctx context.Context, cfgGetter environs.ConfigGetter, netwo
 		allSubnets:                allSubnets,
 		netBondReconfigureDelay:   cfg.NetBondReconfigureDelay(),
 		containerNetworkingMethod: cfg.ContainerNetworkingMethod(),
+		networkService:            networkService,
 	}, nil
 }
 
