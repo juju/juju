@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/state"
 	statewatcher "github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
@@ -136,7 +136,7 @@ func (s *StateSuite) hubWatcherIdleFunc(modelUUID string) {
 // to have finished processing all those events.
 func (s *StateSuite) WaitForModelWatchersIdle(c *gc.C, modelUUID string) {
 	// Use a logger rather than c.Log so we get timestamps.
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 	logger.Infof("waiting for model %s to be idle", modelUUID)
 	// Create idle channel after the sync so as to be sure that at least
 	// one sync is complete before signalling the idle timer.

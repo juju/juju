@@ -10,10 +10,10 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/mongo"
 )
 
@@ -149,7 +149,7 @@ func (p *collectionPruner) pruneByAge(stop <-chan struct{}) error {
 		return errors.Trace(err)
 	}
 	logTemplate := fmt.Sprintf("%s age pruning (%s): %%d rows deleted", p.coll.Name, modelName)
-	deleted, err := deleteInBatches(stop, p.coll, p.childColl, p.parentRefField, iter, logTemplate, loggo.INFO, noEarlyFinish)
+	deleted, err := deleteInBatches(stop, p.coll, p.childColl, p.parentRefField, iter, logTemplate, corelogger.INFO, noEarlyFinish)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -295,7 +295,7 @@ func (p *collectionPruner) pruneBySize(stop <-chan struct{}) error {
 	defer func() { _ = iter.Close() }()
 
 	template := fmt.Sprintf("%s size pruning: deleted %%d of %d (estimated)", p.coll.Name, toDelete)
-	deleted, err := deleteInBatches(stop, p.coll, p.childColl, p.parentRefField, iter, template, loggo.INFO, func() (bool, error) {
+	deleted, err := deleteInBatches(stop, p.coll, p.childColl, p.parentRefField, iter, template, corelogger.INFO, func() (bool, error) {
 		// Check that we still need to delete more
 		collKB, err := getCollectionKB(p.coll)
 		if err != nil {
@@ -322,7 +322,7 @@ func deleteInBatches(
 	childField string,
 	iter mongo.Iterator,
 	logTemplate string,
-	logLevel loggo.Level,
+	logLevel corelogger.Level,
 	shouldStop doneCheck,
 ) (int, error) {
 	var doc bson.M

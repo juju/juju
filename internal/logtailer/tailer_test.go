@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -198,7 +197,7 @@ var logRecords = []*corelogger.LogRecord{
 		Time:      mustParseTime("2024-02-15 06:23:22"),
 		ModelUUID: coretesting.ModelTag.Id(),
 		Entity:    "machine-0",
-		Level:     loggo.DEBUG,
+		Level:     corelogger.DEBUG,
 		Module:    "juju.worker.dependency",
 		Location:  "engine.go:598",
 		Message:   `"db-accessor" manifold worker started at 2024-02-15 06:23:23.006402802 +0000 UTC`,
@@ -207,7 +206,7 @@ var logRecords = []*corelogger.LogRecord{
 		Time:      mustParseTime("2024-02-15 06:23:23"),
 		ModelUUID: coretesting.ModelTag.Id(),
 		Entity:    "machine-0",
-		Level:     loggo.INFO,
+		Level:     corelogger.INFO,
 		Module:    "juju.worker.dbaccessor",
 		Location:  "worker.go:518",
 		Message:   "host is configured to use cloud-local address as a Dqlite node",
@@ -216,7 +215,7 @@ var logRecords = []*corelogger.LogRecord{
 		Time:      mustParseTime("2024-02-15 06:23:24"),
 		ModelUUID: coretesting.ModelTag.Id(),
 		Entity:    "machine-1",
-		Level:     loggo.WARNING,
+		Level:     corelogger.WARNING,
 		Module:    "juju.worker.dependency",
 		Location:  "engine.go:598",
 		Message:   `"lease-manager" manifold worker started at 2024-02-15 06:23:23.016373586 +0000 UTC`,
@@ -225,7 +224,7 @@ var logRecords = []*corelogger.LogRecord{
 		Time:      mustParseTime("2024-02-15 06:23:25"),
 		ModelUUID: coretesting.ModelTag.Id(),
 		Entity:    "machine-0",
-		Level:     loggo.CRITICAL,
+		Level:     corelogger.CRITICAL,
 		Module:    "juju.worker.dependency",
 		Location:  "engine.go:598",
 		Message:   `"change-stream" manifold worker started at 2024-02-15 06:23:23.01677874 +0000 UTC`,
@@ -247,17 +246,17 @@ type LogFilterSuite struct {
 var _ = gc.Suite(&LogFilterSuite{})
 
 func (s *LogFilterSuite) TestLevelFiltering(c *gc.C) {
-	infoLevelRec := &corelogger.LogRecord{Level: loggo.INFO}
-	errorLevelRec := &corelogger.LogRecord{Level: loggo.ERROR}
+	infoLevelRec := &corelogger.LogRecord{Level: corelogger.INFO}
+	errorLevelRec := &corelogger.LogRecord{Level: corelogger.ERROR}
 	logFile := filepath.Join(c.MkDir(), "logs.log")
 	writeLogs := func() string {
-		s.writeLogs(c, logFile, 1, &corelogger.LogRecord{Level: loggo.DEBUG})
+		s.writeLogs(c, logFile, 1, &corelogger.LogRecord{Level: corelogger.DEBUG})
 		s.writeLogs(c, logFile, 1, infoLevelRec)
 		s.writeLogs(c, logFile, 1, errorLevelRec)
 		return logFile
 	}
 	params := logtailer.LogTailerParams{
-		MinLevel: loggo.INFO,
+		MinLevel: corelogger.INFO,
 	}
 	assert := func(tailer logtailer.LogTailer) {
 		s.assertTailer(c, tailer, infoLevelRec, errorLevelRec)
@@ -488,8 +487,8 @@ func (s *LogFilterSuite) normaliseLogTemplate(template *corelogger.LogRecord) *c
 	if rec.Location == "" {
 		rec.Location = "loc"
 	}
-	if rec.Level == loggo.UNSPECIFIED {
-		rec.Level = loggo.INFO
+	if rec.Level == corelogger.UNSPECIFIED {
+		rec.Level = corelogger.INFO
 	}
 	if rec.Message == "" {
 		rec.Message = "message"

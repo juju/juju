@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -29,7 +29,7 @@ type Option = base.Option
 // supplied tracer.
 var WithTracer = base.WithTracer
 
-var logger = loggo.GetLogger("juju.api.modelmanager")
+var logger = internallogger.GetLogger("juju.api.modelmanager")
 
 // Client provides methods that the Juju client command uses to interact
 // with models stored in the Juju Server.

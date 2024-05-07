@@ -6,13 +6,12 @@ package storagecommon
 import (
 	"strings"
 
-	"github.com/juju/loggo/v2"
-
 	"github.com/juju/juju/core/blockdevice"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.storagecommon")
+var logger = internallogger.GetLogger("juju.apiserver.storagecommon")
 
 // MatchingVolumeBlockDevice finds the block device that matches the
 // provided volume info and volume attachment info.

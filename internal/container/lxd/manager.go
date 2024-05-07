@@ -11,7 +11,6 @@ import (
 
 	"github.com/canonical/lxd/shared/api"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	jujuarch "github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
@@ -27,11 +26,12 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/containerinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/network"
 )
 
 var (
-	logger = loggo.GetLogger("juju.container.lxd")
+	logger = internallogger.GetLogger("juju.container.lxd")
 )
 
 const lxdDefaultProfileName = "default"

@@ -8,22 +8,23 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/network"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.container.broker")
+var logger = internallogger.GetLogger("juju.container.broker")
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/internal/container/broker APICalls
 type APICalls interface {
@@ -40,7 +41,7 @@ type APICalls interface {
 var resolvConfFiles = []string{"/etc/resolv.conf", "/etc/systemd/resolved.conf", "/run/systemd/resolve/resolv.conf"}
 
 func prepareContainerInterfaceInfo(
-	api APICalls, machineID string, log loggo.Logger,
+	api APICalls, machineID string, log corelogger.Logger,
 ) (corenetwork.InterfaceInfos, error) {
 	log.Debugf("using multi-bridge networking for container %q", machineID)
 
@@ -133,7 +134,7 @@ func releaseContainerAddresses(
 	api APICalls,
 	instanceID instance.Id,
 	namespace instance.Namespace,
-	log loggo.Logger,
+	log corelogger.Logger,
 ) {
 	containerTag, err := namespace.MachineTag(string(instanceID))
 	if err != nil {
@@ -178,7 +179,7 @@ var newMachineInitReader = cloudconfig.NewMachineInitReader
 func combinedCloudInitData(
 	cloudInitData map[string]interface{},
 	containerInheritProperties string, base corebase.Base,
-	log loggo.Logger,
+	log corelogger.Logger,
 ) (map[string]interface{}, error) {
 	if containerInheritProperties == "" {
 		return cloudInitData, nil

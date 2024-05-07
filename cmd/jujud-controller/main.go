@@ -52,7 +52,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.cmd.jujud")
+var logger = internallogger.GetLogger("juju.cmd.jujud")
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())

@@ -11,9 +11,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/juju/loggo/v2"
-
 	"github.com/juju/juju/core/paths"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 var (
@@ -25,7 +24,7 @@ var (
 	jujuUid   = os.Getuid()
 )
 
-var logger = loggo.GetLogger("juju.wrench")
+var logger = internallogger.GetLogger("juju.wrench")
 
 // IsActive returns true if a "wrench" of a certain category and
 // feature should be "dropped in the works".

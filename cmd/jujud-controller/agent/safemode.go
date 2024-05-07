@@ -316,7 +316,7 @@ func (a *SafeModeMachineAgent) makeEngineCreator(
 	return func() (worker.Worker, error) {
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
 			dependency.DefaultMetrics(),
-			loggo.GetLogger("juju.worker.dependency"),
+			internallogger.GetLogger("juju.worker.dependency"),
 		))
 		if err != nil {
 			return nil, err

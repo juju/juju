@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +20,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/network"
 	coretools "github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -51,7 +52,7 @@ func (s *brokerSuite) SetUpSuite(c *gc.C) {
 
 func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
 	obtained, err := broker.CombinedCloudInitData(nil, "ca-certs,apt-primary",
-		corebase.MakeDefaultBase("ubuntu", "16.04"), loggo.Logger{})
+		corebase.MakeDefaultBase("ubuntu", "16.04"), loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCloudInitUserData(obtained, map[string]interface{}{
@@ -73,7 +74,7 @@ func (s *brokerSuite) TestCombinedCloudInitDataNoCloudInitUserData(c *gc.C) {
 func (s *brokerSuite) TestCombinedCloudInitDataNoContainerInheritProperties(c *gc.C) {
 	containerConfig := fakeContainerConfig()
 	obtained, err := broker.CombinedCloudInitData(containerConfig.CloudInitUserData, "",
-		corebase.MakeDefaultBase("ubuntu", "16.04"), loggo.Logger{})
+		corebase.MakeDefaultBase("ubuntu", "16.04"), loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	assertCloudInitUserData(obtained, containerConfig.CloudInitUserData, c)
 }
@@ -187,7 +188,7 @@ func (f *fakeAPI) HostChangesForContainer(machineTag names.MachineTag) ([]networ
 	return []network.DeviceToBridge{f.fakeDeviceToBridge}, 0, nil
 }
 
-func (f *fakeAPI) PrepareHost(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error {
+func (f *fakeAPI) PrepareHost(containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error {
 	// This is not actually part of the API, however it is something that the
 	// Brokers should be calling, and putting it here means we get a wholistic
 	// view of when what function is getting called.

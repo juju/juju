@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -15,9 +14,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	coreagent "github.com/juju/juju/core/agent"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.worker.stateconfigwatcher")
+var logger = internallogger.GetLogger("juju.worker.stateconfigwatcher")
 
 type ManifoldConfig struct {
 	AgentName          string

@@ -36,7 +36,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-var logger = loggo.GetLogger("juju.cmd.containeragent")
+var logger = internallogger.GetLogger("juju.cmd.containeragent")
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())

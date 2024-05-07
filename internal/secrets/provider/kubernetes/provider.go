@@ -11,7 +11,6 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/caas"
@@ -21,11 +20,12 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.secrets.provider.kubernetes")
+var logger = internallogger.GetLogger("juju.secrets.provider.kubernetes")
 
 const (
 	// BackendName is the name of the Kubernetes secrets backend.

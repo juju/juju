@@ -12,13 +12,13 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	corenetwork "github.com/juju/juju/core/network"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/network/netplan"
 )
 
-var logger = loggo.GetLogger("juju.cloudconfig.cloudinit")
+var logger = internallogger.GetLogger("juju.cloudconfig.cloudinit")
 
 var (
 	systemNetworkInterfacesFile = "/etc/network/interfaces"

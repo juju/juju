@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	"github.com/juju/version/v2"
@@ -23,11 +22,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/password"
 )
 
-var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
+var logger = internallogger.GetLogger("juju.cloudconfig.podcfg")
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
 type ControllerPodConfig struct {

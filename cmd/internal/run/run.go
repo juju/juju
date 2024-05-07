@@ -16,7 +16,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"
@@ -30,11 +29,12 @@ import (
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/paths"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/juju/sockets"
 )
 
-var logger = loggo.GetLogger("juju.cmd.jujud.run")
+var logger = internallogger.GetLogger("juju.cmd.jujud.run")
 
 type RunCommand struct {
 	cmd.CommandBase

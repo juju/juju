@@ -10,7 +10,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/retry"
 	"gopkg.in/macaroon.v2"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/api/controller/crossmodelrelations"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coresecrets "github.com/juju/juju/core/secrets"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
@@ -54,7 +54,7 @@ func NewClientWithCache(caller base.APICallCloser, cache *crossmodelrelations.Ma
 	}
 }
 
-var logger = loggo.GetLogger("juju.api.crossmodelsecrets")
+var logger = internallogger.GetLogger("juju.api.crossmodelsecrets")
 
 func (c *Client) handleDischargeError(ctx context.Context, apiErr error) (macaroon.Slice, error) {
 	errResp := errors.Cause(apiErr).(*params.Error)

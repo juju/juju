@@ -12,17 +12,17 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/container"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.cmd.jujud.reboot")
+var logger = internallogger.GetLogger("juju.cmd.jujud.reboot")
 var timeout = 10 * time.Minute
 var rebootAfter = 15
 

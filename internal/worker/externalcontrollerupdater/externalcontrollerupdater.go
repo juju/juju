@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -19,10 +18,11 @@ import (
 	"github.com/juju/juju/api/controller/crosscontroller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc"
 )
 
-var logger = loggo.GetLogger("juju.worker.externalcontrollerupdater")
+var logger = internallogger.GetLogger("juju.worker.externalcontrollerupdater")
 
 // ExternalControllerUpdaterClient defines the interface for watching changes
 // to the local controller's external controller records, and obtaining and

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/api/client/subnets"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/network"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -69,7 +69,7 @@ type API interface {
 	SubnetAPI
 }
 
-var logger = loggo.GetLogger("juju.cmd.juju.space")
+var logger = internallogger.GetLogger("juju.cmd.juju.space")
 
 // SpaceCommandBase is the base type embedded into all space subcommands.
 type SpaceCommandBase struct {

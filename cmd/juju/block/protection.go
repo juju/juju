@@ -7,14 +7,14 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/api"
 	apiblock "github.com/juju/juju/api/client/block"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.block")
+var logger = internallogger.GetLogger("juju.cmd.juju.block")
 
 const (
 	cmdAll          = "all"

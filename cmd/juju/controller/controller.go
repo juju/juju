@@ -3,6 +3,8 @@
 
 package controller
 
-import "github.com/juju/loggo/v2"
+import (
+	internallogger "github.com/juju/juju/internal/logger"
+)
 
-var logger = loggo.GetLogger("juju.cmd.juju.controller")
+var logger = internallogger.GetLogger("juju.cmd.juju.controller")

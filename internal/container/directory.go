@@ -7,12 +7,13 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 var (
-	logger              = loggo.GetLogger("juju.container")
+	logger              = internallogger.GetLogger("juju.container")
 	ContainerDir        = "/var/lib/juju/containers"
 	RemovedContainerDir = "/var/lib/juju/removed-containers"
 )

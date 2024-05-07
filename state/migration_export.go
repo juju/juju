@@ -13,7 +13,6 @@ import (
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 
@@ -21,11 +20,13 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/state/migrations"
 )
@@ -98,7 +99,7 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 		cfg:     cfg,
 		dbModel: dbModel,
 		store:   store,
-		logger:  loggo.GetLogger("juju.state.export-model"),
+		logger:  internallogger.GetLogger("juju.state.export-model"),
 	}
 	if err := export.readAllStatuses(); err != nil {
 		return nil, errors.Annotate(err, "reading statuses")
@@ -269,7 +270,7 @@ type exporter struct {
 	dbModel *Model
 	model   description.Model
 	store   objectstore.ObjectStore
-	logger  loggo.Logger
+	logger  corelogger.Logger
 
 	constraints             map[string]bson.M
 	modelSettings           map[string]settingsDoc

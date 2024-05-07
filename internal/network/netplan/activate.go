@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/scriptrunner"
 )
 
-var logger = loggo.GetLogger("juju.network.netplan")
+var logger = internallogger.GetLogger("juju.network.netplan")
 
 // ActivationParams contains options to use when bridging interfaces
 type ActivationParams struct {

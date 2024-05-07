@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 	"github.com/juju/version/v2"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/juju/names"
@@ -45,8 +45,9 @@ const (
 )
 
 var (
-	logger                                          = loggo.GetLogger("juju.provider.manual")
-	_      environs.HardwareCharacteristicsDetector = (*manualEnviron)(nil)
+	logger = internallogger.GetLogger("juju.provider.manual")
+
+	_ environs.HardwareCharacteristicsDetector = (*manualEnviron)(nil)
 )
 
 type manualEnviron struct {

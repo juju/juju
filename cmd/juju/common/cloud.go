@@ -9,15 +9,15 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"gopkg.in/juju/environschema.v1"
 
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.common")
+var logger = internallogger.GetLogger("juju.cmd.juju.common")
 
 type chooseCloudRegionError struct {
 	error

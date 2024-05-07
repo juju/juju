@@ -8,10 +8,11 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.downloader")
+var logger = internallogger.GetLogger("juju.downloader")
 
 // Downloader provides the functionality for downloading files.
 type Downloader struct {

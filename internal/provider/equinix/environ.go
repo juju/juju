@@ -16,7 +16,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/retry"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
@@ -38,13 +37,14 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -destination ./mocks/packngo.go -package mocks github.com/packethost/packngo DeviceService,OSService,PlanService,ProjectIPService
 
-var logger = loggo.GetLogger("juju.provider.equinix")
+var logger = internallogger.GetLogger("juju.provider.equinix")
 
 const (
 	sshPort = 22

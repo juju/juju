@@ -14,12 +14,12 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery/form"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 type localLoginHandlers struct {
@@ -32,7 +32,7 @@ const (
 )
 
 var (
-	logger = loggo.GetLogger("juju.apiserver.stateauthenticator")
+	logger = internallogger.GetLogger("juju.apiserver.stateauthenticator")
 )
 
 // AddHandlers adds the local login handlers to the given mux.

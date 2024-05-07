@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
@@ -37,12 +36,13 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage"
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 	coretools "github.com/juju/juju/internal/tools"
 )
 
-var logger = loggo.GetLogger("juju.provider.dummy")
+var logger = internallogger.GetLogger("juju.provider.dummy")
 
 var transientErrorInjection chan error
 

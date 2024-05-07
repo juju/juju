@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/utils"
@@ -513,7 +513,7 @@ func eraseStatusHistory(stop <-chan struct{}, mb modelBackend, globalKey string)
 	deleted, err := deleteInBatches(
 		stop,
 		history.Writeable().Underlying(), nil, "", iter,
-		logFormat, loggo.DEBUG,
+		logFormat, corelogger.DEBUG,
 		noEarlyFinish,
 	)
 	if err != nil {

@@ -5,11 +5,12 @@ package centralhub
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // New returns a new structured hub using yaml marshalling with an origin
@@ -18,7 +19,7 @@ import (
 func New(origin names.Tag, metrics pubsub.Metrics) *pubsub.StructuredHub {
 	return pubsub.NewStructuredHub(
 		&pubsub.StructuredHubConfig{
-			Logger:     loggo.GetLogger("juju.centralhub"),
+			Logger:     internallogger.GetLogger("juju.centralhub"),
 			Marshaller: &yamlMarshaller{},
 			Annotations: map[string]interface{}{
 				"origin": origin.String(),

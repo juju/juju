@@ -5,7 +5,6 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -13,6 +12,7 @@ import (
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/cloudconfig"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -126,7 +126,7 @@ func (s *fromHostSuite) TestCloudConfig(c *gc.C) {
 	c.Assert(obtained, gc.DeepEquals, expectedResult)
 
 	resultMap := reader.ExtractPropertiesFromConfig(
-		[]string{"apt-primary", "ca-certs", "apt-security"}, obtained, loggo.GetLogger("juju.machinecloudconfig"))
+		[]string{"apt-primary", "ca-certs", "apt-security"}, obtained, loggertesting.WrapCheckLog(c))
 	c.Assert(resultMap, gc.DeepEquals,
 		map[string]interface{}{
 			"apt": map[string]interface{}{
@@ -152,7 +152,7 @@ func (s *fromHostSuite) TestCloudConfig(c *gc.C) {
 
 func (s *fromHostSuite) TestCloudConfigVersionNoContainerInheritProperties(c *gc.C) {
 	reader := s.newMachineInitReader(corebase.MakeDefaultBase("ubuntu", "22.04"))
-	resultMap := reader.ExtractPropertiesFromConfig(nil, nil, loggo.GetLogger("juju.machinecloudconfig"))
+	resultMap := reader.ExtractPropertiesFromConfig(nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(resultMap, gc.HasLen, 0)
 }
 
@@ -189,7 +189,7 @@ deb http://us.archive.ubuntu.com/ubuntu $RELEASE-backports universe main multive
 	c.Assert(obtained["apt"], gc.DeepEquals, expected)
 
 	resultMap := reader.ExtractPropertiesFromConfig(
-		[]string{"apt-sources_list"}, obtained, loggo.GetLogger("juju.machinecloudconfig"))
+		[]string{"apt-sources_list"}, obtained, loggertesting.WrapCheckLog(c))
 
 	c.Assert(resultMap["apt"], gc.HasLen, 1)
 	c.Assert(resultMap["apt"].(map[string]interface{})["sources_list"], gc.Equals, expectedSources)

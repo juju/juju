@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mutex/v2"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
@@ -16,6 +15,7 @@ import (
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/container/broker"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -111,7 +111,7 @@ func (cno *cannedNetworkObserver) ObserveNetwork() ([]params.NetworkConfig, erro
 	return cno.config, nil
 }
 
-func (s *hostPreparerSuite) createPreparerParams(bridges []network.DeviceToBridge, observed []params.NetworkConfig) broker.HostPreparerParams {
+func (s *hostPreparerSuite) createPreparerParams(c *gc.C, bridges []network.DeviceToBridge, observed []params.NetworkConfig) broker.HostPreparerParams {
 	observer := &cannedNetworkObserver{
 		Stub:   s.Stub,
 		config: observed,
@@ -125,17 +125,17 @@ func (s *hostPreparerSuite) createPreparerParams(bridges []network.DeviceToBridg
 		CreateBridger:      s.createStubBridger,
 		ObserveNetworkFunc: observer.ObserveNetwork,
 		MachineTag:         names.NewMachineTag("1"),
-		Logger:             loggo.GetLogger("prepare-host.test"),
+		Logger:             loggertesting.WrapCheckLog(c),
 	}
 }
 
-func (s *hostPreparerSuite) createPreparer(bridges []network.DeviceToBridge, observed []params.NetworkConfig) *broker.HostPreparer {
-	params := s.createPreparerParams(bridges, observed)
+func (s *hostPreparerSuite) createPreparer(c *gc.C, bridges []network.DeviceToBridge, observed []params.NetworkConfig) *broker.HostPreparer {
+	params := s.createPreparerParams(c, bridges, observed)
 	return broker.NewHostPreparer(params)
 }
 
 func (s *hostPreparerSuite) TestPrepareHostNoChanges(c *gc.C) {
-	preparer := s.createPreparer(nil, nil)
+	preparer := s.createPreparer(c, nil, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -194,7 +194,7 @@ func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *gc.C) {
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}}
-	preparer := s.createPreparer(devices, cannedObservedNetworkConfig)
+	preparer := s.createPreparer(c, devices, cannedObservedNetworkConfig)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -229,7 +229,7 @@ func (s *hostPreparerSuite) TestPrepareHostNothingObserved(c *gc.C) {
 		BridgeName: "br-eth0",
 	}}
 	observed := []params.NetworkConfig(nil)
-	preparer := s.createPreparer(devices, observed)
+	preparer := s.createPreparer(c, devices, observed)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Assert(err, jc.ErrorIsNil)
@@ -262,7 +262,7 @@ func (s *hostPreparerSuite) TestPrepareHostChangesUnsupported(c *gc.C) {
 		errors.NotSupportedf("container address allocation"),
 		nil,
 	)
-	preparer := s.createPreparer(nil, nil)
+	preparer := s.createPreparer(c, nil, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Assert(err, gc.ErrorMatches, "unable to setup network: container address allocation not supported")
@@ -289,7 +289,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoBridger(c *gc.C) {
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}}
-	preparer := s.createPreparer(devices, nil)
+	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Check(err, gc.ErrorMatches, "unable to find python interpreter")
@@ -316,7 +316,7 @@ func (s *hostPreparerSuite) TestPrepareHostNoLock(c *gc.C) {
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}}
-	preparer := s.createPreparer(devices, nil)
+	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Check(err, gc.ErrorMatches, `failed to acquire machine lock for bridging: timeout acquiring mutex`)
@@ -339,7 +339,7 @@ func (s *hostPreparerSuite) TestPrepareHostBridgeFailure(c *gc.C) {
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}}
-	preparer := s.createPreparer(devices, nil)
+	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Check(err, gc.ErrorMatches, `failed to bridge devices: script invocation error: IOError`)
@@ -377,7 +377,7 @@ func (s *hostPreparerSuite) TestPrepareHostObserveFailure(c *gc.C) {
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}}
-	preparer := s.createPreparer(devices, nil)
+	preparer := s.createPreparer(c, devices, nil)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Check(err, gc.ErrorMatches, `cannot discover observed network config: cannot get network interfaces: enoent`)
@@ -414,7 +414,7 @@ func (s *hostPreparerSuite) TestPrepareHostObservedFailure(c *gc.C) {
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}}
-	preparer := s.createPreparer(devices, cannedObservedNetworkConfig)
+	preparer := s.createPreparer(c, devices, cannedObservedNetworkConfig)
 	containerTag := names.NewMachineTag("1/lxd/0")
 	err := preparer.Prepare(containerTag)
 	c.Check(err, gc.ErrorMatches, `failure`)
@@ -445,7 +445,7 @@ func (s *hostPreparerSuite) TestPrepareHostCancel(c *gc.C) {
 		DeviceName: "eth0",
 		BridgeName: "br-eth0",
 	}}
-	args := s.createPreparerParams(devices, nil)
+	args := s.createPreparerParams(c, devices, nil)
 	ch := make(chan struct{})
 	close(ch)
 	args.AbortChan = ch

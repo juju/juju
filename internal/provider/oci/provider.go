@@ -14,7 +14,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/schema"
 	ociIdentity "github.com/oracle/oci-go-sdk/v65/identity"
 	"gopkg.in/ini.v1"
@@ -26,10 +25,11 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/oci/common"
 )
 
-var logger = loggo.GetLogger("juju.provider.oci")
+var logger = internallogger.GetLogger("juju.provider.oci")
 
 // EnvironProvider type implements environs.EnvironProvider interface
 type EnvironProvider struct{}

@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -22,7 +22,7 @@ type Option = base.Option
 // supplied tracer.
 var WithTracer = base.WithTracer
 
-var logger = loggo.GetLogger("juju.api.applicationscaler")
+var logger = internallogger.GetLogger("juju.api.applicationscaler")
 
 // NewWatcherFunc exists to let us test Watch properly.
 type NewWatcherFunc func(base.APICaller, params.StringsWatchResult) watcher.StringsWatcher

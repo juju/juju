@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/subnets"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/network"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -49,7 +49,7 @@ func (m *mvpAPIShim) ListSubnets(withSpace *names.SpaceTag, withZone string) ([]
 	return m.facade.ListSubnets(withSpace, withZone)
 }
 
-var logger = loggo.GetLogger("juju.cmd.juju.subnet")
+var logger = internallogger.GetLogger("juju.cmd.juju.subnet")
 
 // SubnetCommandBase is the base type embedded into all subnet
 // subcommands.

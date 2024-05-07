@@ -13,7 +13,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/mattn/go-isatty"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -24,9 +23,10 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/resources"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.application.utils")
+var logger = internallogger.GetLogger("juju.cmd.juju.application.utils")
 
 // GetMetaResources retrieves metadata resources for the given
 // charmURL.

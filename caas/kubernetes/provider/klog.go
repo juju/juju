@@ -8,20 +8,22 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/juju/loggo/v2"
 	"golang.org/x/time/rate"
+
+	corelogger "github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // klogAdapter is an adapter for Kubernetes logger onto juju loggo. We use this
 // to suppress logging from client-go and force it through juju logging methods
 type klogAdapter struct {
-	loggo.Logger
+	corelogger.Logger
 }
 
 // newKlogAdaptor creates a new klog adapter to juju loggo
 func newKlogAdaptor() logr.Logger {
 	return logr.New(&klogAdapter{
-		Logger: loggo.GetLogger("juju.kubernetes.klog"),
+		Logger: internallogger.GetLogger("juju.kubernetes.klog"),
 	})
 }
 

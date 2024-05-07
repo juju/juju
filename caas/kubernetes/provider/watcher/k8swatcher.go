@@ -8,15 +8,15 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4/catacomb"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.kubernetes.provider.watcher")
+var logger = internallogger.GetLogger("juju.kubernetes.provider.watcher")
 
 type KubernetesNotifyWatcher = watcher.NotifyWatcher
 

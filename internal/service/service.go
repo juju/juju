@@ -10,15 +10,15 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/systemd"
 )
 
-var logger = loggo.GetLogger("juju.service")
+var logger = internallogger.GetLogger("juju.service")
 
 const (
 	InitSystemSystemd = "systemd"

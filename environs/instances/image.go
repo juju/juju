@@ -8,15 +8,15 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/kr/pretty"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/imagemetadata"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.environs.instances")
+var logger = internallogger.GetLogger("juju.environs.instances")
 
 // InstanceConstraint constrains the possible instances that may be
 // chosen by the environment provider.

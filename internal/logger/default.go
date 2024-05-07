@@ -25,3 +25,17 @@ func LoggerContext(level logger.Level) logger.LoggerContext {
 func DefaultContext() logger.LoggerContext {
 	return WrapLoggoContext(loggo.DefaultContext())
 }
+
+// ConfigureLoggers configures loggers on the default context according to the
+// given string specification, which specifies a set of modules and their
+// associated logging levels.  Loggers are colon- or semicolon-separated; each
+// module is specified as <modulename>=<level>.  White space outside of module
+// names and levels is ignored.  The root module is specified with the name
+// "<root>".
+//
+// An example specification:
+//
+//	`<root>=ERROR; foo.bar=WARNING`
+func ConfigureLoggers(config string) error {
+	return loggo.ConfigureLoggers(config)
+}

@@ -13,14 +13,14 @@ import (
 
 	"github.com/hpcloud/tail"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/vallerion/rscanner"
 	"gopkg.in/tomb.v2"
 
 	corelogger "github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("logger.tailer")
+var logger = internallogger.GetLogger("logger.tailer")
 
 // LogTailer allows for retrieval of Juju's logs.
 // It first returns any matching already recorded logs and
@@ -44,7 +44,7 @@ type LogTailer interface {
 // apply to log records in order to decide which to return.
 type LogTailerParams struct {
 	StartTime     time.Time
-	MinLevel      loggo.Level
+	MinLevel      corelogger.Level
 	InitialLines  int
 	Firehose      bool
 	NoTail        bool

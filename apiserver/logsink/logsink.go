@@ -13,13 +13,13 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/ratelimit"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -34,7 +34,7 @@ const (
 	metricLogReadLabelDisconnect = "disconnect"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.logsink")
+var logger = internallogger.GetLogger("juju.apiserver.logsink")
 
 // LogWriteCloser provides an interface for persisting log records.
 // The LogCloser's Close method should be called to release any

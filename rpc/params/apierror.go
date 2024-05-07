@@ -11,18 +11,18 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"gopkg.in/macaroon.v2"
 
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 const (
 	UpgradeInProgressError = errors.ConstError(CodeUpgradeInProgress)
 )
 
-var logger = loggo.GetLogger("juju.apiserver.params")
+var logger = internallogger.GetLogger("juju.apiserver.params")
 
 // MigrationInProgressError signifies a migration is in progress.
 var MigrationInProgressError = errors.New(CodeMigrationInProgress)

@@ -8,14 +8,14 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 )
 
-var logger = loggo.GetLogger("juju.state.bakerystorage")
+var logger = internallogger.GetLogger("juju.state.bakerystorage")
 
 const (
 	// Key for bakery config attributes.

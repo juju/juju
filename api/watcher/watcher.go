@@ -9,21 +9,22 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/kr/pretty"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api/base"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.api.watcher")
+var logger = internallogger.GetLogger("juju.api.watcher")
 
 const (
 	// WatcherStopTimeout is the time to wait for a watcher to stop.
@@ -293,7 +294,7 @@ func (w *stringsWatcher) Changes() <-chan []string {
 type relationUnitsWatcher struct {
 	commonWatcher
 	caller                 base.APICaller
-	logger                 loggo.Logger
+	logger                 corelogger.Logger
 	relationUnitsWatcherId string
 	out                    chan watcher.RelationUnitsChange
 }
@@ -381,7 +382,7 @@ type RemoteRelationWatcher = watcher.Watcher[params.RemoteRelationChangeEvent]
 type remoteRelationWatcher struct {
 	commonWatcher
 	caller                  base.APICaller
-	logger                  loggo.Logger
+	logger                  corelogger.Logger
 	remoteRelationWatcherId string
 	out                     chan params.RemoteRelationChangeEvent
 }

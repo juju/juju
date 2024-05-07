@@ -9,18 +9,18 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
+	internallogger "github.com/juju/juju/internal/logger"
 	coretools "github.com/juju/juju/internal/tools"
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.environs.tools")
+var logger = internallogger.GetLogger("juju.environs.tools")
 
 func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, majorVersion, minorVersion int,
 	filter coretools.Filter) (*ToolsConstraint, error) {

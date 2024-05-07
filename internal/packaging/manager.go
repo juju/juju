@@ -8,13 +8,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/packaging/v3/manager"
 
 	"github.com/juju/juju/core/base"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.packaging")
+var logger = internallogger.GetLogger("juju.packaging")
 
 // PackageManagerName describes a package manager.
 type PackageManagerName string

@@ -482,7 +482,7 @@ func (c *debugLogCommand) streamLogs(ctx context.Context, controllerAddr []strin
 				if !ok {
 					return ErrConnectionClosed
 				}
-				level, _ := loggo.ParseLevel(msg.Severity)
+				level, _ := corelogger.ParseLevelFromString(msg.Severity)
 				logRecord := corelogger.LogRecord{
 					ModelUUID: msg.ModelUUID,
 					Time:      msg.Timestamp,
@@ -531,13 +531,13 @@ func (c *debugLogCommand) streamLogs(ctx context.Context, controllerAddr []strin
 // is closed.
 var ErrConnectionClosed = errors.ConstError("connection closed")
 
-var SeverityColor = map[loggo.Level]*ansiterm.Context{
-	loggo.TRACE:   ansiterm.Foreground(ansiterm.Default),
-	loggo.DEBUG:   ansiterm.Foreground(ansiterm.Green),
-	loggo.INFO:    ansiterm.Foreground(ansiterm.BrightBlue),
-	loggo.WARNING: ansiterm.Foreground(ansiterm.Yellow),
-	loggo.ERROR:   ansiterm.Foreground(ansiterm.BrightRed),
-	loggo.CRITICAL: {
+var SeverityColor = map[corelogger.Level]*ansiterm.Context{
+	corelogger.TRACE:   ansiterm.Foreground(ansiterm.Default),
+	corelogger.DEBUG:   ansiterm.Foreground(ansiterm.Green),
+	corelogger.INFO:    ansiterm.Foreground(ansiterm.BrightBlue),
+	corelogger.WARNING: ansiterm.Foreground(ansiterm.Yellow),
+	corelogger.ERROR:   ansiterm.Foreground(ansiterm.BrightRed),
+	corelogger.CRITICAL: {
 		Foreground: ansiterm.White,
 		Background: ansiterm.Red,
 	},

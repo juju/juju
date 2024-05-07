@@ -29,11 +29,12 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.environs.config")
+var logger = internallogger.GetLogger("juju.environs.config")
 
 const (
 	// FwInstance requests the use of an individual firewall per instance.

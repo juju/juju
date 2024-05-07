@@ -5,9 +5,9 @@ package broker
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/rpc/params"
 )
@@ -35,7 +35,7 @@ type HostPreparerParams struct {
 	CreateBridger      func() (network.Bridger, error)
 	AbortChan          <-chan struct{}
 	MachineTag         names.MachineTag
-	Logger             loggo.Logger
+	Logger             corelogger.Logger
 }
 
 // HostPreparer calls out to the PrepareAPI to find out what changes need to be
@@ -47,7 +47,7 @@ type HostPreparer struct {
 	createBridger      func() (network.Bridger, error)
 	abortChan          <-chan struct{}
 	machineTag         names.MachineTag
-	logger             loggo.Logger
+	logger             corelogger.Logger
 }
 
 // NewHostPreparer creates a HostPreparer using the supplied parameters

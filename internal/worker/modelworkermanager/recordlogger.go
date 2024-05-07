@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/logger"
-	corelogger "github.com/juju/juju/core/logger"
 )
 
 // newModelLogger returns a buffered database logger that uses the name
@@ -41,12 +40,12 @@ type recordLogger struct {
 }
 
 func (l *recordLogger) Write(entry loggo.Entry) {
-	err := l.recordLogger.Log([]corelogger.LogRecord{{
+	err := l.recordLogger.Log([]logger.LogRecord{{
 		Time:      entry.Timestamp,
 		Entity:    l.name,
 		Module:    entry.Module,
 		Location:  fmt.Sprintf("%s:%d", filepath.Base(entry.Filename), entry.Line),
-		Level:     entry.Level,
+		Level:     logger.Level(entry.Level),
 		Message:   entry.Message,
 		Labels:    entry.Labels,
 		ModelUUID: l.modelUUID,

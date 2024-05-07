@@ -14,7 +14,6 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mutex/v2"
 	"github.com/kr/pretty"
 	"github.com/vmware/govmomi"
@@ -26,6 +25,8 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
+
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 type DiskProvisioningType string
@@ -102,7 +103,7 @@ type ComputeResource struct {
 type Client struct {
 	client       *govmomi.Client
 	datacenter   string
-	logger       loggo.Logger
+	logger       corelogger.Logger
 	clock        clock.Clock
 	acquireMutex func(mutex.Spec) (func(), error)
 }
@@ -115,7 +116,7 @@ func Dial(
 	ctx context.Context,
 	u *url.URL,
 	datacenter string,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*Client, error) {
 	client, err := govmomi.NewClient(ctx, u, true)
 	if err != nil {

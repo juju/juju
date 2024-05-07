@@ -591,13 +591,13 @@ func (a *MachineAgent) makeEngineCreator(
 		controllerMetricsSink := metrics.ForModel(a.CurrentConfig().Model())
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
 			controllerMetricsSink,
-			loggo.GetLogger("juju.worker.dependency"),
+			internallogger.GetLogger("juju.worker.dependency"),
 		))
 		if err != nil {
 			return nil, err
 		}
 		localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-			Logger: loggo.GetLogger("juju.localhub"),
+			Logger: internallogger.GetLogger("juju.localhub"),
 		})
 		pubsubReporter := psworker.NewReporter()
 		presenceRecorder := presence.New(clock.WallClock)
@@ -662,7 +662,7 @@ func (a *MachineAgent) makeEngineCreator(
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return agentengine.DependencyEngineConfig(
 					controllerMetricsSink,
-					loggo.GetLogger("juju.worker.dependency"),
+					internallogger.GetLogger("juju.worker.dependency"),
 				)
 			},
 			SetupLogging:            agentconf.SetupAgentLogging,

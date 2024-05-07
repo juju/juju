@@ -6,13 +6,13 @@ package apiserver
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/metricobserver"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 func newObserverFn(
@@ -25,7 +25,7 @@ func newObserverFn(
 
 	// Common logging of RPC requests
 	observerFactories = append(observerFactories, func() observer.Observer {
-		logger := loggo.GetLogger("juju.apiserver")
+		logger := internallogger.GetLogger("juju.apiserver")
 		ctx := observer.RequestObserverContext{
 			Clock:  clock,
 			Logger: logger,

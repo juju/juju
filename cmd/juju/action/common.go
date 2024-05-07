@@ -22,7 +22,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/mattn/go-isatty"
 	"gopkg.in/yaml.v2"
@@ -31,10 +30,11 @@ import (
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.action")
+var logger = internallogger.GetLogger("juju.cmd.juju.action")
 
 const (
 	// leaderSnippet is a regular expression for unit ID-like syntax that is used

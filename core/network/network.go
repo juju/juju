@@ -9,10 +9,10 @@ import (
 	"net"
 	"sort"
 
-	"github.com/juju/loggo/v2"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.core.network")
+var logger = internallogger.GetLogger("juju.core.network")
 
 // macAddressTemplate is suitable for generating virtual MAC addresses,
 // particularly for use by container devices.

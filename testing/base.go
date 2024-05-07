@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -25,12 +24,13 @@ import (
 	"github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/juju/osenv"
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.testing")
+var logger = internallogger.GetLogger("juju.testing")
 
 // JujuOSEnvSuite isolates the tests from Juju environment variables.
 // This is intended to be only used by existing suites, usually embedded in
@@ -175,7 +175,7 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
 	if s.InitialLoggingConfig != "" {
-		_ = loggo.ConfigureLoggers(s.InitialLoggingConfig)
+		_ = internallogger.ConfigureLoggers(s.InitialLoggingConfig)
 	}
 
 	// We do this to isolate invocations of bash from pulling in the

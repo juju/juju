@@ -229,7 +229,7 @@ type debugLogParams struct {
 	noTail        bool
 	firehose      bool
 	backlog       uint
-	filterLevel   loggo.Level
+	filterLevel   corelogger.Level
 	includeEntity []string
 	excludeEntity []string
 	includeModule []string
@@ -291,10 +291,10 @@ func readDebugLogParams(queryMap url.Values) (debugLogParams, error) {
 
 	if value := queryMap.Get("level"); value != "" {
 		var ok bool
-		level, ok := loggo.ParseLevel(value)
-		if !ok || level < loggo.TRACE || level > loggo.ERROR {
+		level, ok := corelogger.ParseLevelFromString(value)
+		if !ok || level < corelogger.TRACE || level > corelogger.ERROR {
 			return params, errors.Errorf("level value %q is not one of %q, %q, %q, %q, %q",
-				value, loggo.TRACE, loggo.DEBUG, loggo.INFO, loggo.WARNING, loggo.ERROR)
+				value, corelogger.TRACE, corelogger.DEBUG, corelogger.INFO, corelogger.WARNING, corelogger.ERROR)
 		}
 		params.filterLevel = level
 	}

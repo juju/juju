@@ -9,10 +9,10 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // StrategicAuthenticator is responsible for trying multiple Authenticators
@@ -37,7 +37,7 @@ type AuthHandler struct {
 	Authorizer authentication.Authorizer
 }
 
-var logger = loggo.GetLogger("juju.apiserver.httpcontext")
+var logger = internallogger.GetLogger("juju.apiserver.httpcontext")
 
 // ServeHTTP is part of the http.Handler interface and is responsible for
 // performing AuthN and AuthZ on the subsequent http request.

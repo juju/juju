@@ -10,13 +10,13 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.websocket")
+var logger = internallogger.GetLogger("juju.apiserver.websocket")
 
 const (
 	// PongDelay is how long the server will wait for a pong to be sent

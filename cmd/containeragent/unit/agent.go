@@ -19,7 +19,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -52,7 +52,7 @@ import (
 )
 
 var (
-	logger = loggo.GetLogger("juju.cmd.containeragent.unit")
+	logger = internallogger.GetLogger("juju.cmd.containeragent.unit")
 
 	jujuRun        = paths.JujuExec(paths.CurrentOS())
 	jujuIntrospect = paths.JujuIntrospect(paths.CurrentOS())
@@ -257,7 +257,7 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		})
 	}
 	localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		Logger: loggo.GetLogger("juju.localhub"),
+		Logger: internallogger.GetLogger("juju.localhub"),
 	})
 	agentConfig := c.AgentConf.CurrentConfig()
 	cfg := manifoldsConfig{
@@ -288,7 +288,7 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 	workerMetricsSink := metrics.ForModel(agentConfig.Model())
 	eng, err := dependency.NewEngine(engine.DependencyEngineConfig(
 		workerMetricsSink,
-		loggo.GetLogger("juju.worker.dependency"),
+		internallogger.GetLogger("juju.worker.dependency"),
 	))
 	if err != nil {
 		return nil, err
@@ -308,7 +308,7 @@ func (c *containerUnitAgent) workers(sigTermCh chan os.Signal) (worker.Worker, e
 		WorkerFunc:         introspection.NewWorker,
 		Clock:              c.clk,
 		LocalHub:           localHub,
-		Logger:             internallogger.WrapLoggo(logger.Child("introspection")),
+		Logger:             logger.Child("introspection"),
 	}); err != nil {
 		// If the introspection worker failed to start, we just log error
 		// but continue. It is very unlikely to happen in the real world
@@ -390,7 +390,7 @@ func (c *containerUnitAgent) validateMigration(ctx context.Context, apiCaller ba
 }
 
 // AgentDone processes the error returned by an exiting agent.
-func AgentDone(logger loggo.Logger, err error) error {
+func AgentDone(logger corelogger.Logger, err error) error {
 	err = errors.Cause(err)
 	switch err {
 	case jworker.ErrTerminateAgent:

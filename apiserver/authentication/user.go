@@ -15,7 +15,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
@@ -24,6 +23,7 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/auth"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/state"
 )
 
@@ -33,7 +33,7 @@ const (
 	ErrInvalidLoginMacaroon = errors.ConstError("invalid login macaroon")
 )
 
-var logger = loggo.GetLogger("juju.apiserver.authentication")
+var logger = internallogger.GetLogger("juju.apiserver.authentication")
 
 // UserService is the interface that wraps the methods required to
 // authenticate a user.

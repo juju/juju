@@ -7,12 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.kubernetes.provider.resources")
+var logger = internallogger.GetLogger("juju.kubernetes.provider.resources")
 
 var (
 	errConflict = errors.New("resource version conflict")

@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/logsink"
@@ -80,7 +79,7 @@ func (s *migrationLoggingStrategy) Close() error {
 
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *migrationLoggingStrategy) WriteLog(m params.LogRecord) error {
-	level, _ := loggo.ParseLevel(m.Level)
+	level, _ := corelogger.ParseLevelFromString(m.Level)
 	err := s.recordLogWriter.Log([]corelogger.LogRecord{{
 		Time:     m.Time,
 		Entity:   m.Entity,

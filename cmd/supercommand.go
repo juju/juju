@@ -9,9 +9,9 @@ import (
 	"runtime"
 
 	"github.com/juju/cmd/v4"
-	"github.com/juju/loggo/v2"
 	"golang.org/x/crypto/ssh/terminal"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -19,13 +19,13 @@ import (
 func init() {
 	// If the environment key is empty, ConfigureLoggers returns nil and does
 	// nothing.
-	err := loggo.ConfigureLoggers(os.Getenv(osenv.JujuStartupLoggingConfigEnvKey))
+	err := internallogger.ConfigureLoggers(os.Getenv(osenv.JujuStartupLoggingConfigEnvKey))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR parsing %s: %s\n\n", osenv.JujuStartupLoggingConfigEnvKey, err)
 	}
 }
 
-var logger = loggo.GetLogger("juju.cmd")
+var logger = internallogger.GetLogger("juju.cmd")
 
 // DefaultLog is the default command logging implementation.
 var DefaultLog = &cmd.Log{

@@ -10,12 +10,12 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc"
 )
 
-var logger = loggo.GetLogger("juju.rpc.jsoncodec")
+var logger = internallogger.GetLogger("juju.rpc.jsoncodec")
 
 // JSONConn sends and receives messages to an underlying connection
 // in JSON format.

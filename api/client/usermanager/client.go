@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -23,7 +23,7 @@ type Option = base.Option
 // supplied tracer.
 var WithTracer = base.WithTracer
 
-var logger = loggo.GetLogger("juju.api.usermanager")
+var logger = internallogger.GetLogger("juju.api.usermanager")
 
 // Client provides methods that the Juju client command uses to interact
 // with users stored in the Juju Server.

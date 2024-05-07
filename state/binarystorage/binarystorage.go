@@ -9,16 +9,16 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 )
 
-var logger = loggo.GetLogger("juju.state.binarystorage")
+var logger = internallogger.GetLogger("juju.state.binarystorage")
 
 // ManagedStorage instances persist data for a bucket, for a user, or globally.
 // (Only bucket storage is currently implemented).

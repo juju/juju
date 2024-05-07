@@ -15,7 +15,6 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4"
 	"github.com/kballard/go-shellquote"
 	"golang.org/x/crypto/ssh/terminal"
@@ -30,9 +29,10 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/environs/cloudspec"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.kubernetes.provider.exec")
+var logger = internallogger.GetLogger("juju.kubernetes.provider.exec")
 
 const (
 	sigkillRetryDelay = 100 * time.Millisecond

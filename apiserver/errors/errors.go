@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
@@ -17,11 +16,12 @@ import (
 	"github.com/juju/juju/core/upgrade"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.common.errors")
+var logger = internallogger.GetLogger("juju.apiserver.common.errors")
 
 const (
 	// TODO(juju3): move to params

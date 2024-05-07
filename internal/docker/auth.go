@@ -15,10 +15,11 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.docker")
+var logger = internallogger.GetLogger("juju.docker")
 
 // Token defines a token value with expiration time.
 type Token struct {

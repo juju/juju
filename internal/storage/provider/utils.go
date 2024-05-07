@@ -8,10 +8,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.storage.provider")
+var logger = internallogger.GetLogger("juju.storage.provider")
 
 // runCommandFunc is a function type used for running commands
 // on the local machine. We use this rather than os/exec directly

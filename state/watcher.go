@@ -18,7 +18,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
@@ -27,14 +26,16 @@ import (
 
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
 	corewatcher "github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/state/watcher"
 )
 
-var watchLogger = loggo.GetLogger("juju.state.watch")
+var watchLogger = internallogger.GetLogger("juju.state.watch")
 
 // Watcher is implemented by all watchers; the actual
 // changes channel is returned by a watcher-specific
@@ -1249,7 +1250,7 @@ type relationUnitsWatcher struct {
 	appSettingsKeys []string
 	appUpdates      chan watcher.Change
 	out             chan corewatcher.RelationUnitsChange
-	logger          loggo.Logger
+	logger          corelogger.Logger
 }
 
 // Watch returns a watcher that notifies of changes to counterpart units in

@@ -10,10 +10,10 @@ import (
 
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4/shell"
 
 	"github.com/juju/juju/core/paths"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/service/common"
 )
 
@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	logger = loggo.GetLogger("juju.service.systemd")
+	logger = internallogger.GetLogger("juju.service.systemd")
 
 	renderer = shell.BashRenderer{}
 	cmds     = commands{renderer, executable}

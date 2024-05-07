@@ -10,12 +10,12 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	corenetwork "github.com/juju/juju/core/network"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.network")
+var logger = internallogger.GetLogger("juju.network")
 
 // UnknownId can be used whenever an Id is needed but not known.
 const UnknownId = ""

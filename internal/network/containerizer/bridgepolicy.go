@@ -12,15 +12,15 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.network.containerizer")
+var logger = internallogger.GetLogger("juju.network.containerizer")
 
 var skippedDeviceNames = set.NewStrings(
 	network.DefaultLXDBridge,

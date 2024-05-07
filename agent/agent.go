@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/shell"
@@ -30,10 +29,11 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/paths"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 )
 
-var logger = loggo.GetLogger("juju.agent")
+var logger = internallogger.GetLogger("juju.agent")
 
 const (
 	// BootstrapNonce is used as a nonce for the initial controller machine.

@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
@@ -34,6 +33,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	environsContext "github.com/juju/juju/environs/envcontext"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
@@ -43,7 +43,7 @@ import (
 )
 
 var (
-	logger = loggo.GetLogger("juju.apiserver.modelmanager")
+	logger = internallogger.GetLogger("juju.apiserver.modelmanager")
 
 	// Overridden by tests.
 	supportedFeaturesGetter = stateenvirons.SupportedFeatures

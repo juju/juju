@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
 	corebase "github.com/juju/juju/core/base"
+	corelogger "github.com/juju/juju/core/logger"
 	utilsos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/paths"
@@ -27,7 +27,7 @@ type InitReader interface {
 
 	// ExtractPropertiesFromConfig filters the input config data according to
 	// the input list of properties and returns the result
-	ExtractPropertiesFromConfig([]string, map[string]interface{}, loggo.Logger) map[string]interface{}
+	ExtractPropertiesFromConfig([]string, map[string]interface{}, corelogger.Logger) map[string]interface{}
 }
 
 // MachineInitReaderConfig holds configuration values required by
@@ -207,7 +207,7 @@ func fileAsConfigMap(file string) ([]byte, map[string]interface{}, error) {
 // ExtractPropertiesFromConfig filters the input config based on the
 // input properties and returns a map of cloud-init data.
 func (r *MachineInitReader) ExtractPropertiesFromConfig(
-	keys []string, cfg map[string]interface{}, log loggo.Logger,
+	keys []string, cfg map[string]interface{}, log corelogger.Logger,
 ) map[string]interface{} {
 	foundDataMap := make(map[string]interface{})
 	for _, k := range keys {
@@ -241,7 +241,7 @@ func (r *MachineInitReader) ExtractPropertiesFromConfig(
 	return foundDataMap
 }
 
-func nestedAptConfig(key string, val interface{}, log loggo.Logger) map[string]interface{} {
+func nestedAptConfig(key string, val interface{}, log corelogger.Logger) map[string]interface{} {
 	split := strings.Split(key, "-")
 	secondary := split[1]
 

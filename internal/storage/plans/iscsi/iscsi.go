@@ -15,15 +15,15 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/core/blockdevice"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage/plans/common"
 )
 
-var logger = loggo.GetLogger("juju.storage.plans.iscsi")
+var logger = internallogger.GetLogger("juju.storage.plans.iscsi")
 
 const (
 	// ISCSI_ERR_SESS_EXISTS is the error code open-iscsi returns if the

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
@@ -27,12 +26,14 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
+	internallogger "github.com/juju/juju/internal/logger"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -60,7 +61,7 @@ func (ctrl *Controller) Import(
 		return nil, nil, errors.Trace(err)
 	}
 	modelUUID := model.Tag().Id()
-	logger := loggo.GetLogger("juju.state.import-model")
+	logger := internallogger.GetLogger("juju.state.import-model")
 	logger.Debugf("import starting for model %s", modelUUID)
 
 	// At this stage, attempting to import a model with the same
@@ -266,7 +267,7 @@ type importer struct {
 	st      *State
 	dbModel *Model
 	model   description.Model
-	logger  loggo.Logger
+	logger  corelogger.Logger
 	// applicationUnits is populated at the end of loading the applications, and is a
 	// map of application name to the units of that application.
 	applicationUnits map[string]map[string]*Unit

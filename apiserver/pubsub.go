@@ -10,10 +10,11 @@ import (
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/apiserver/websocket"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -27,14 +28,14 @@ func newPubSubHandler(h httpContext, hub Hub) http.Handler {
 	return &pubsubHandler{
 		ctxt:   h,
 		hub:    hub,
-		logger: loggo.GetLogger("juju.apiserver.pubsub"),
+		logger: internallogger.GetLogger("juju.apiserver.pubsub"),
 	}
 }
 
 type pubsubHandler struct {
 	ctxt   httpContext
 	hub    Hub
-	logger loggo.Logger
+	logger corelogger.Logger
 }
 
 // ServeHTTP implements the http.Handler interface.

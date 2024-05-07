@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"gopkg.in/tomb.v2"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/wrench"
 )
 
-var logger = loggo.GetLogger("juju.worker.hostkeyreporter")
+var logger = internallogger.GetLogger("juju.worker.hostkeyreporter")
 
 // Facade exposes controller functionality to a Worker.
 type Facade interface {

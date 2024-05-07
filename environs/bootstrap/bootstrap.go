@@ -13,7 +13,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pki"
 	corestorage "github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
@@ -53,7 +53,7 @@ You may want to use the 'agent-metadata-url' configuration setting to specify th
 `
 
 var (
-	logger = loggo.GetLogger("juju.environs.bootstrap")
+	logger = internallogger.GetLogger("juju.environs.bootstrap")
 
 	errCancelled = errors.New("cancelled")
 )

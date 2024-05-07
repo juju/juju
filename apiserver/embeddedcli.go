@@ -16,7 +16,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/mitchellh/go-linereader"
 
@@ -24,8 +23,10 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/core/database"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -36,14 +37,14 @@ func newEmbeddedCLIHandler(
 ) http.Handler {
 	return &embeddedCLIHandler{
 		ctxt:   ctxt,
-		logger: loggo.GetLogger("juju.apiserver.embeddedcli"),
+		logger: internallogger.GetLogger("juju.apiserver.embeddedcli"),
 	}
 }
 
 // embeddedCLIHandler handles requests to run Juju CLi commands directly on the controller.
 type embeddedCLIHandler struct {
 	ctxt   httpContext
-	logger loggo.Logger
+	logger corelogger.Logger
 }
 
 // ServeHTTP implements the http.Handler interface.
