@@ -8,11 +8,9 @@ import (
 	"reflect"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -27,12 +25,8 @@ func NewSecretBackendsManagerAPI(ctx facade.ModelContext) (*SecretBackendsManage
 	if !ctx.Auth().AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
-	model, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	serviceFactory := ctx.ServiceFactory()
-	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
+	backendService := serviceFactory.SecretBackend()
 	return &SecretBackendsManagerAPI{
 		watcherRegistry: ctx.WatcherRegistry(),
 		backendService:  backendService,

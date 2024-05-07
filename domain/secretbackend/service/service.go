@@ -37,25 +37,22 @@ import (
 type SecretProviderRegistry func(backendType string) (provider.SecretBackendProvider, error)
 
 type Service struct {
-	st             State
-	logger         Logger
-	clock          clock.Clock
-	controllerUUID string
-	registry       SecretProviderRegistry
+	st       State
+	logger   Logger
+	clock    clock.Clock
+	registry SecretProviderRegistry
 }
 
 func newService(
 	st State, logger Logger,
-	controllerUUID string,
 	clk clock.Clock,
 	registry SecretProviderRegistry,
 ) *Service {
 	return &Service{
-		st:             st,
-		logger:         logger,
-		controllerUUID: controllerUUID,
-		clock:          clk,
-		registry:       registry,
+		st:       st,
+		logger:   logger,
+		clock:    clk,
+		registry: registry,
 	}
 }
 
@@ -97,7 +94,7 @@ func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID 
 			}
 		}
 		info.Configs[b.ID] = provider.ModelBackendConfig{
-			ControllerUUID: s.controllerUUID,
+			ControllerUUID: m.ControllerUUID,
 			ModelUUID:      m.ID.String(),
 			ModelName:      m.Name,
 			BackendConfig: provider.BackendConfig{
@@ -752,28 +749,24 @@ type WatchableService struct {
 func NewWatchableService(
 	st State, logger Logger,
 	wf WatcherFactory,
-	controllerUUID string,
-	registry SecretProviderRegistry,
 ) *WatchableService {
 	return newWatchableService(
-		st, logger, wf, controllerUUID, clock.WallClock, registry,
+		st, logger, wf, clock.WallClock, provider.Provider,
 	)
 }
 
 func newWatchableService(
 	st State, logger Logger,
 	wf WatcherFactory,
-	controllerUUID string,
 	clk clock.Clock,
 	registry SecretProviderRegistry,
 ) *WatchableService {
 	return &WatchableService{
 		Service: Service{
-			st:             st,
-			logger:         logger,
-			controllerUUID: controllerUUID,
-			clock:          clk,
-			registry:       registry,
+			st:       st,
+			logger:   logger,
+			clock:    clk,
+			registry: registry,
 		},
 		watcherFactory: wf,
 	}

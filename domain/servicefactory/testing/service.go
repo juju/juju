@@ -160,10 +160,7 @@ func (s *TestingServiceFactory) BlockDevice() *blockdeviceservice.WatchableServi
 }
 
 // SecretBackend returns the secret backend service.
-func (s *TestingServiceFactory) SecretBackend(
-	controllerUUID string,
-	registry secretbackendservice.SecretProviderRegistry,
-) *secretbackendservice.WatchableService {
+func (s *TestingServiceFactory) SecretBackend() *secretbackendservice.WatchableService {
 	return nil
 }
 

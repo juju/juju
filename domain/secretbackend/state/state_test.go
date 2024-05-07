@@ -54,6 +54,19 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
 }
 
+func (s *stateSuite) setupController(c *gc.C) string {
+	controllerUUID := uuid.MustNewUUID().String()
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO controller_config (key, value)
+			VALUES (?, ?)
+		`, "controller-uuid", controllerUUID)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return controllerUUID
+}
+
 func (s *stateSuite) createModel(c *gc.C, modelType coremodel.ModelType) coremodel.UUID {
 	return s.createModelWithName(c, modelType, "my-model")
 }
@@ -1319,11 +1332,13 @@ func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
 }
 
 func (s *stateSuite) TestGetModelSecretBackendDetails(c *gc.C) {
+	controllerUUID := s.setupController(c)
 	modelUUID := s.createModel(c, coremodel.IAAS)
 
 	result, err := s.state.GetModelSecretBackendDetails(context.Background(), modelUUID)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, secretbackend.ModelSecretBackend{
+		ControllerUUID:  controllerUUID,
 		ID:              modelUUID,
 		Name:            "my-model",
 		Type:            "iaas",

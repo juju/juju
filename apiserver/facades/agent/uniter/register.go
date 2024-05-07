@@ -32,7 +32,7 @@ func newUniterAPI(_ context.Context, ctx facade.ModelContext) (*UniterAPI, error
 		return nil, errors.Trace(err)
 	}
 	serviceFactory := ctx.ServiceFactory()
-	secretBackendService := serviceFactory.SecretBackend(m.ControllerUUID(), provider.Provider)
+	secretBackendService := serviceFactory.SecretBackend()
 	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return secretBackendService.GetSecretBackendConfigForAdmin(stdCtx, model.UUID(m.UUID()))
 	}

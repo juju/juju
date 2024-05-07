@@ -33,7 +33,7 @@ func NewUserSecretsManager(ctx facade.ModelContext) (*UserSecretsManager, error)
 	}
 
 	serviceFactory := ctx.ServiceFactory()
-	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
+	backendService := serviceFactory.SecretBackend()
 	backendConfigGetter := func(ctx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
 		return backendService.GetSecretBackendConfigForAdmin(ctx, coremodel.UUID(model.UUID()))
 	}

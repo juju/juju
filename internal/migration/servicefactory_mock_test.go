@@ -380,17 +380,17 @@ func (mr *MockServiceFactoryMockRecorder) Secret(arg0 any) *gomock.Call {
 }
 
 // SecretBackend mocks base method.
-func (m *MockServiceFactory) SecretBackend(arg0 string, arg1 service17.SecretProviderRegistry) *service17.WatchableService {
+func (m *MockServiceFactory) SecretBackend() *service17.WatchableService {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SecretBackend", arg0, arg1)
+	ret := m.ctrl.Call(m, "SecretBackend")
 	ret0, _ := ret[0].(*service17.WatchableService)
 	return ret0
 }
 
 // SecretBackend indicates an expected call of SecretBackend.
-func (mr *MockServiceFactoryMockRecorder) SecretBackend(arg0, arg1 any) *gomock.Call {
+func (mr *MockServiceFactoryMockRecorder) SecretBackend() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretBackend", reflect.TypeOf((*MockServiceFactory)(nil).SecretBackend), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretBackend", reflect.TypeOf((*MockServiceFactory)(nil).SecretBackend))
 }
 
 // Storage mocks base method.

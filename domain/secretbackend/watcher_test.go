@@ -39,7 +39,6 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	svc := service.NewWatchableService(
 		state, logger,
 		domain.NewWatcherFactory(factory, logger),
-		testing.ControllerTag.Id(), nil,
 	)
 
 	watcher, err := svc.WatchSecretBackendRotationChanges()

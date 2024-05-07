@@ -39,7 +39,7 @@ func newSecretsDrainAPI(ctx facade.ModelContext) (*commonsecrets.SecretsDrainAPI
 	modelUUID := coremodel.UUID(model.UUID())
 	authTag := ctx.Auth().GetAuthTag()
 
-	secretBackendService := ctx.ServiceFactory().SecretBackend(model.ControllerUUID(), provider.Provider)
+	secretBackendService := ctx.ServiceFactory().SecretBackend()
 	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return secretBackendService.GetSecretBackendConfigForAdmin(stdCtx, modelUUID)
 	}

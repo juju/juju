@@ -81,6 +81,7 @@ WHERE  uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
 		return secretbackend.ModelSecretBackend{}, fmt.Errorf("invalid model type for model %q", m.Name)
 	}
 	return secretbackend.ModelSecretBackend{
+		ControllerUUID:  m.ControllerUUID,
 		ID:              m.ID,
 		Name:            m.Name,
 		Type:            m.Type,
