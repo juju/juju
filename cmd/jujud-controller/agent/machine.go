@@ -1006,6 +1006,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		NewEnvironFunc:               newEnvirons,
 		NewContainerBrokerFunc:       newCAASBroker,
 		NewMigrationMaster:           migrationmaster.NewWorker,
+		ServiceFactory:               cfg.ServiceFactory,
 		ProviderServiceFactoryGetter: cfg.ProviderServiceFactoryGetter,
 	}
 	if wrench.IsActive("charmrevision", "shortinterval") {

@@ -4,10 +4,14 @@
 package pruner
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs/config"
 )
 
 // Logger defines the methods used by the pruner worker for logging.
@@ -15,12 +19,22 @@ type Logger interface {
 	Infof(string, ...interface{})
 }
 
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(ctx context.Context) (*config.Config, error)
+
+	// Watch returns a watcher that returns keys for any changes to model
+	// config.
+	Watch() (watcher.StringsWatcher, error)
+}
+
 // Config holds all necessary attributes to start a pruner worker.
 type Config struct {
-	Facade        Facade
-	PruneInterval time.Duration
-	Clock         clock.Clock
-	Logger        Logger
+	Facade             Facade
+	ModelConfigService ModelConfigService
+	PruneInterval      time.Duration
+	Clock              clock.Clock
+	Logger             Logger
 }
 
 // Validate will err unless basic requirements for a valid
@@ -28,6 +42,9 @@ type Config struct {
 func (c *Config) Validate() error {
 	if c.Facade == nil {
 		return errors.New("missing Facade")
+	}
+	if c.ModelConfigService == nil {
+		return errors.New("missing ModelConfigService")
 	}
 	if c.Clock == nil {
 		return errors.New("missing Clock")

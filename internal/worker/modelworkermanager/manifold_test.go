@@ -18,8 +18,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/servicefactory"
@@ -37,9 +37,8 @@ type ManifoldSuite struct {
 	getter                       dependency.Getter
 	stateTracker                 stubStateTracker
 	modelLogger                  dummyModelLogger
-	serviceFactory               servicefactory.ServiceFactory
+	serviceFactoryGetter         servicefactory.ServiceFactoryGetter
 	providerServiceFactoryGetter servicefactory.ProviderServiceFactoryGetter
-	controllerConfigGetter       *controllerconfigservice.WatchableService
 
 	state *state.State
 	pool  *state.StatePool
@@ -59,10 +58,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.state = &state.State{}
 	s.pool = &state.StatePool{}
 	s.stateTracker = stubStateTracker{pool: s.pool, state: s.state}
-	s.controllerConfigGetter = &controllerconfigservice.WatchableService{}
-	s.serviceFactory = stubServiceFactory{
-		controllerConfigGetter: s.controllerConfigGetter,
-	}
+	s.serviceFactoryGetter = stubServiceFactoryGetter{}
 	s.providerServiceFactoryGetter = stubProviderServiceFactoryGetter{}
 	s.stub.ResetCalls()
 
@@ -87,6 +83,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			}
 			return providerServiceFactoryGetter{}, nil
 		},
+		GetControllerConfig: func(ctx context.Context, controllerConfigService modelworkermanager.ControllerConfigService) (controller.Config, error) {
+			return jujutesting.FakeControllerConfig(), nil
+		},
 	})
 }
 
@@ -96,7 +95,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 		"authority":                s.authority,
 		"state":                    &s.stateTracker,
 		"log-sink":                 s.modelLogger,
-		"service-factory":          s.serviceFactory,
+		"service-factory":          s.serviceFactoryGetter,
 		"provider-service-factory": s.providerServiceFactoryGetter,
 	}
 	for k, v := range overlay {
@@ -160,7 +159,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	workertest.CleanKill(c, mw)
 	s.stub.CheckCallNames(c, "NewWorker", "NewModelWorker")
 	s.stub.CheckCall(c, 1, "NewModelWorker", modelConfig)
+
 	config.NewModelWorker = nil
+	config.GetControllerConfig = nil
 
 	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
 		Authority:    s.authority,
@@ -169,12 +170,12 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Controller: modelworkermanager.StatePoolController{
 			StatePool: s.pool,
 		},
-		ControllerConfigGetter:       s.controllerConfigGetter,
 		ErrorDelay:                   jworker.RestartDelay,
 		Logger:                       loggo.GetLogger("test"),
 		MachineID:                    "1",
 		LogSink:                      dummyModelLogger{},
 		ProviderServiceFactoryGetter: providerServiceFactoryGetter{},
+		ServiceFactoryGetter:         s.serviceFactoryGetter,
 	})
 }
 
@@ -233,13 +234,8 @@ type stubLogger struct {
 	corelogger.LogWriterCloser
 }
 
-type stubServiceFactory struct {
-	servicefactory.ServiceFactory
-	controllerConfigGetter *controllerconfigservice.WatchableService
-}
-
-func (s stubServiceFactory) ControllerConfig() *controllerconfigservice.WatchableService {
-	return s.controllerConfigGetter
+type stubServiceFactoryGetter struct {
+	servicefactory.ServiceFactoryGetter
 }
 
 type stubProviderServiceFactoryGetter struct {

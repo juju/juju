@@ -5,7 +5,6 @@ package modelworkermanager_test
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -21,8 +20,10 @@ import (
 
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
+	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -34,8 +35,8 @@ type suite struct {
 	authority pki.Authority
 	testing.IsolationSuite
 	workerC                      chan *mockWorker
-	controllerConfigGetter       *stubControllerConfigGetter
 	providerServiceFactoryGetter modelworkermanager.ProviderServiceFactoryGetter
+	serviceFactoryGetter         servicefactory.ServiceFactoryGetter
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
@@ -44,10 +45,8 @@ func (s *suite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.authority = authority
 	s.workerC = make(chan *mockWorker, 100)
-	s.controllerConfigGetter = &stubControllerConfigGetter{
-		controllerConfig: coretesting.FakeControllerConfig(),
-	}
 	s.providerServiceFactoryGetter = providerServiceFactoryGetter{}
+	s.serviceFactoryGetter = servicefactorytesting.NewTestingServiceFactory()
 }
 
 func (s *suite) TestStartEmpty(c *gc.C) {
@@ -194,24 +193,27 @@ func (s *suite) runDirtyTest(c *gc.C, test testFunc) {
 
 func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	watcher := newMockModelWatcher()
-	controller := newMockController()
+	mockController := newMockController()
 	config := modelworkermanager.Config{
 		Authority:                    s.authority,
 		Logger:                       loggo.GetLogger("test"),
 		MachineID:                    "1",
 		ModelWatcher:                 watcher,
-		Controller:                   controller,
-		ControllerConfigGetter:       s.controllerConfigGetter,
+		Controller:                   mockController,
 		NewModelWorker:               s.startModelWorker,
 		ModelMetrics:                 dummyModelMetrics{},
 		ErrorDelay:                   time.Millisecond,
 		LogSink:                      dummyModelLogger{},
 		ProviderServiceFactoryGetter: s.providerServiceFactoryGetter,
+		ServiceFactoryGetter:         s.serviceFactoryGetter,
+		GetControllerConfig: func(ctx context.Context, controllerConfigService modelworkermanager.ControllerConfigService) (controller.Config, error) {
+			return coretesting.FakeControllerConfig(), nil
+		},
 	}
 	w, err := modelworkermanager.New(config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer kill(c, w)
-	test(w, watcher, controller)
+	test(w, watcher, mockController)
 }
 
 type dummyModelMetrics struct{}
@@ -400,16 +402,4 @@ func (w *mockEnvWatcher) Stop() error {
 
 func (w *mockEnvWatcher) Changes() <-chan []string {
 	return w.changes
-}
-
-type stubControllerConfigGetter struct {
-	mutex            sync.Mutex
-	controllerConfig controller.Config
-}
-
-func (s *stubControllerConfigGetter) ControllerConfig(context.Context) (controller.Config, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.controllerConfig, nil
 }

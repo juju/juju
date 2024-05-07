@@ -29,9 +29,9 @@ func (s *PrunerSuite) TestRunStop(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
-	w := watchertest.NewMockNotifyWatcher(ch)
+	ch := make(chan []string, 1)
+	ch <- []string{}
+	w := watchertest.NewMockStringsWatcher(ch)
 
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
 		"max-status-history-size": "0",
@@ -41,14 +41,17 @@ func (s *PrunerSuite) TestRunStop(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	facade := mocks.NewMockFacade(ctrl)
-	facade.EXPECT().WatchForModelConfigChanges().Return(w, nil)
-	facade.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil).AnyTimes()
+
+	service := mocks.NewMockModelConfigService(ctrl)
+	service.EXPECT().Watch().Return(w, nil)
+	service.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil).AnyTimes()
 
 	updater, err := statushistorypruner.New(pruner.Config{
-		Facade:        facade,
-		PruneInterval: 0,
-		Clock:         testclock.NewClock(time.Now()),
-		Logger:        loggo.GetLogger("test"),
+		Facade:             facade,
+		ModelConfigService: service,
+		PruneInterval:      0,
+		Clock:              testclock.NewClock(time.Now()),
+		Logger:             loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, updater)
