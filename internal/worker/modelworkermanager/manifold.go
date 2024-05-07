@@ -185,6 +185,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		ServiceFactoryGetter:         serviceFactoryGetter,
 		ProviderServiceFactoryGetter: providerServiceFactoryGetter,
 		GetControllerConfig:          config.GetControllerConfig,
+		StatePool:                    statePool,
 	})
 	if err != nil {
 		_ = stTracker.Done()

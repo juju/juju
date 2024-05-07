@@ -301,6 +301,35 @@ func (m *Model) UpdateModelConfig(configSchemaGetter config.ConfigSchemaSourceGe
 	return nil
 }
 
+// ForceUpdateModelConfigForDualWrite just smashes in the model config values from dqlite.
+func (m *Model) ForceUpdateModelConfigForDualWrite(allAttrs map[string]any) error {
+	st := m.State()
+	modelSettings, err := readSettings(st.db(), settingsC, modelGlobalKey)
+	if err != nil {
+		return errors.Annotatef(err, "model %q", m.UUID())
+	}
+
+	oldConfig, err := m.ModelConfig(context.Background())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for k := range oldConfig.AllAttrs() {
+		if _, ok := allAttrs[k]; !ok {
+			modelSettings.Delete(k)
+		}
+	}
+	// Some values require marshalling before storage.
+	allAttrs = config.CoerceForStorage(allAttrs)
+
+	modelSettings.Update(allAttrs)
+	_, ops := modelSettings.settingsUpdateOps()
+	if len(ops) > 0 {
+		return modelSettings.write(ops)
+	}
+	return nil
+}
+
 type modelConfigSourceFunc func() (attrValues, error)
 
 type modelConfigSource struct {

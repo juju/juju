@@ -163,7 +163,9 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.NewModelWorker = nil
 	config.GetControllerConfig = nil
 
-	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
+	mc := jc.NewMultiChecker()
+	mc.AddExpr("_.StatePool", jc.Ignore)
+	c.Assert(config, mc, modelworkermanager.Config{
 		Authority:    s.authority,
 		ModelWatcher: s.state,
 		ModelMetrics: dummyModelMetrics{},

@@ -45,6 +45,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 		"charm-revision-updater",
 		"clock",
 		"compute-provisioner",
+		"dual-write-hack-worker",
 		"firewaller",
 		"instance-mutater",
 		"instance-poller",
@@ -98,6 +99,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 		"charm-downloader",
 		"charm-revision-updater",
 		"clock",
+		"dual-write-hack-worker",
 		"is-responsible-flag",
 		"logging-config-updater",
 		"migration-fortress",
@@ -449,6 +451,18 @@ var expectedCAASModelManifoldsWithDependencies = map[string][]string{
 	},
 
 	"valid-credential-flag": {"agent", "api-caller"},
+
+	"dual-write-hack-worker": {
+		"agent",
+		"api-caller",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+		"provider-upgrade-gate",
+		"provider-upgraded-flag",
+		"service-factory",
+	},
 }
 
 var expectedIAASModelManifoldsWithDependencies = map[string][]string{
@@ -731,4 +745,16 @@ var expectedIAASModelManifoldsWithDependencies = map[string][]string{
 		"not-dead-flag"},
 
 	"valid-credential-flag": {"agent", "api-caller"},
+
+	"dual-write-hack-worker": {
+		"agent",
+		"api-caller",
+		"is-responsible-flag",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"not-dead-flag",
+		"provider-upgrade-gate",
+		"provider-upgraded-flag",
+		"service-factory",
+	},
 }

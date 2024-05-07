@@ -90,6 +90,9 @@ type NewModelConfig struct {
 	ControllerConfig             controller.Config
 	ProviderServiceFactoryGetter ProviderServiceFactoryGetter
 	ServiceFactory               servicefactory.ServiceFactory
+
+	// StatePool is for the dualwritehack worker, do not use for anything else.
+	StatePool *state.StatePool
 }
 
 // NewModelWorkerFunc should return a worker responsible for running
@@ -113,6 +116,9 @@ type Config struct {
 	ProviderServiceFactoryGetter ProviderServiceFactoryGetter
 	ServiceFactoryGetter         servicefactory.ServiceFactoryGetter
 	GetControllerConfig          GetControllerConfigFunc
+
+	// StatePool is for the dualwritehack worker, do not use for anything else.
+	StatePool *state.StatePool
 }
 
 // Validate returns an error if config cannot be expected to drive
@@ -256,6 +262,7 @@ func (m *modelWorkerManager) modelChanged(modelUUID string) error {
 		ModelUUID:    modelUUID,
 		ModelType:    model.Type(),
 		ModelMetrics: m.config.ModelMetrics.ForModel(names.NewModelTag(modelUUID)),
+		StatePool:    m.config.StatePool,
 	}
 	return errors.Trace(m.ensure(cfg))
 }
@@ -297,6 +304,9 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+
+		// StatePool is for the dualwritehack worker, don't use it for anything else.
+		cfg.StatePool = m.config.StatePool
 
 		cfg.ModelLogger = newModelLogger(
 			"controller-"+m.config.MachineID,

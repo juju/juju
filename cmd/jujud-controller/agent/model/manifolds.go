@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/internal/worker/cleaner"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
+	"github.com/juju/juju/internal/worker/dualwritehack"
 	"github.com/juju/juju/internal/worker/environupgrader"
 	"github.com/juju/juju/internal/worker/firewaller"
 	"github.com/juju/juju/internal/worker/fortress"
@@ -64,6 +65,7 @@ import (
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/internal/worker/unitassigner"
 	"github.com/juju/juju/rpc/params"
+	"github.com/juju/juju/state"
 )
 
 // ManifoldsConfig holds the dependencies and configuration options for a
@@ -127,6 +129,9 @@ type ManifoldsConfig struct {
 
 	// ServiceFactory is used to access the service factory.
 	ServiceFactory servicefactory.ServiceFactory
+
+	// StatePool is for the dualwritehack worker, do not use for anything else.
+	StatePool *state.StatePool
 }
 
 // commonManifolds returns a set of interdependent dependency manifolds that will
@@ -367,6 +372,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewSecretsDrainFacade: secretsdrainworker.NewUserSecretsDrainFacade,
 			NewWorker:             secretsdrainworker.NewWorker,
 			NewBackendsClient:     secretsdrainworker.NewUserSecretBackendsClient,
+		})),
+
+		dualWriteHackName: ifNotMigrating(dualwritehack.Manifold(dualwritehack.ManifoldConfig{
+			Logger:             loggo.GetLogger("juju.worker.dualwritehack"),
+			ServiceFactoryName: serviceFactoryName,
+			StatePool:          config.StatePool,
 		})),
 	}
 	return result
@@ -717,4 +728,6 @@ const (
 	userSecretsDrainWorker = "user-secrets-drain-worker"
 
 	validCredentialFlagName = "valid-credential-flag"
+
+	dualWriteHackName = "dual-write-hack-worker"
 )
