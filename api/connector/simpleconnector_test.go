@@ -59,7 +59,7 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 			},
 		},
 		{
-			name: "with username/password and client credentials; client credentials should take over",
+			name: "with username/password and client credentials; username/password takes over",
 			opts: SimpleConfig{
 				ControllerAddresses: []string{"some.host:9999"},
 				ModelUUID:           "some-uuid",
@@ -71,11 +71,8 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 			expectedAPIInfo: api.Info{
 				Addrs:    []string{"some.host:9999"},
 				ModelTag: names.NewModelTag("some-uuid"),
-			},
-			expectedDefaultDialOpts: func() api.DialOpts {
-				expected := api.DefaultDialOpts()
-				expected.LoginProvider = api.NewClientCredentialsLoginProvider("some-client-id", "some-client-secret")
-				return expected
+				Tag:      names.NewUserTag("some-username"),
+				Password: "some-password",
 			},
 		},
 	}
