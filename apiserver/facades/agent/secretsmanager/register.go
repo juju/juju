@@ -47,7 +47,7 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 		return nil, errors.Trace(err)
 	}
 
-	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
+	backendService := serviceFactory.SecretBackend()
 	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
 		return backendService.GetSecretBackendConfigForAdmin(stdCtx, coremodel.UUID(model.UUID()))
 	}

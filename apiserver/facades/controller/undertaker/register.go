@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/internal/secrets/provider"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -32,7 +31,7 @@ func newUndertakerFacade(ctx facade.ModelContext) (*UndertakerAPI, error) {
 	serviceFactory := ctx.ServiceFactory()
 	cloudService := serviceFactory.Cloud()
 	credentialService := serviceFactory.Credential()
-	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
+	backendService := serviceFactory.SecretBackend()
 	cloudSpecAPI := cloudspec.NewCloudSpec(
 		ctx.Resources(),
 		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),

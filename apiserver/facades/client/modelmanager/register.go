@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -83,7 +82,7 @@ func newFacadeV10(ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 	apiUser, _ := auth.GetAuthTag().(names.UserTag)
 	backend := common.NewUserAwareModelManagerBackend(configSchemaSource, model, pool, apiUser)
 
-	secretBackendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
+	secretBackendService := serviceFactory.SecretBackend()
 	return NewModelManagerAPI(
 		backend.(StateBackend),
 		ctx.ModelExporter(backend),

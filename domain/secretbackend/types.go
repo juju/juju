@@ -9,6 +9,8 @@ import (
 
 // ModelSecretBackend represents a set of data about a model and its secret backend config.
 type ModelSecretBackend struct {
+	// ControllerUUID is the uuid of the controller.
+	ControllerUUID string
 	// ID is the unique identifier for the model.
 	ID coremodel.UUID
 	// Name is the name of the model.

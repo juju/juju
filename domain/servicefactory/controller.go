@@ -177,10 +177,7 @@ func (s *ControllerFactory) Access() *accessservice.Service {
 	)
 }
 
-func (s *ControllerFactory) SecretBackend(
-	controllerUUID string,
-	registry secretbackendservice.SecretProviderRegistry,
-) *secretbackendservice.WatchableService {
+func (s *ControllerFactory) SecretBackend() *secretbackendservice.WatchableService {
 	logger := s.logger.Child("secretbackend")
 	state := secretbackendstate.NewState(
 		changestream.NewTxnRunnerFactory(s.controllerDB),
@@ -193,6 +190,5 @@ func (s *ControllerFactory) SecretBackend(
 			s.controllerDB,
 			s.logger.Child("watcherfactory"),
 		),
-		controllerUUID, registry,
 	)
 }

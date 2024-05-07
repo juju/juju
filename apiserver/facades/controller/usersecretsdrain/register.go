@@ -38,7 +38,7 @@ func newUserSecretsDrainAPI(context facade.ModelContext) (*SecretsDrainAPI, erro
 	}
 	modelUUID := coremodel.UUID(model.UUID())
 	serviceFactory := context.ServiceFactory()
-	backendService := serviceFactory.SecretBackend(model.ControllerUUID(), provider.Provider)
+	backendService := serviceFactory.SecretBackend()
 
 	secretBackendAdminConfigGetter := func(stdCtx stdcontext.Context) (*provider.ModelBackendConfigInfo, error) {
 		return backendService.GetSecretBackendConfigForAdmin(stdCtx, modelUUID)
