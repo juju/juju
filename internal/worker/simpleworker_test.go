@@ -4,6 +4,7 @@
 package worker
 
 import (
+	"context"
 	"errors"
 
 	gc "gopkg.in/check.v1"
@@ -17,19 +18,19 @@ type simpleWorkerSuite struct {
 
 var _ = gc.Suite(&simpleWorkerSuite{})
 
-var testError = errors.New("test error")
+var errTest = errors.New("test error")
 
 func (s *simpleWorkerSuite) TestWait(c *gc.C) {
-	doWork := func(_ <-chan struct{}) error {
-		return testError
+	doWork := func(context.Context) error {
+		return errTest
 	}
 
 	w := NewSimpleWorker(doWork)
-	c.Assert(w.Wait(), gc.Equals, testError)
+	c.Assert(w.Wait(), gc.Equals, errTest)
 }
 
 func (s *simpleWorkerSuite) TestWaitNil(c *gc.C) {
-	doWork := func(_ <-chan struct{}) error {
+	doWork := func(context.Context) error {
 		return nil
 	}
 
@@ -38,14 +39,14 @@ func (s *simpleWorkerSuite) TestWaitNil(c *gc.C) {
 }
 
 func (s *simpleWorkerSuite) TestKill(c *gc.C) {
-	doWork := func(stopCh <-chan struct{}) error {
-		<-stopCh
-		return testError
+	doWork := func(ctx context.Context) error {
+		<-ctx.Done()
+		return errTest
 	}
 
 	w := NewSimpleWorker(doWork)
 	w.Kill()
-	c.Assert(w.Wait(), gc.Equals, testError)
+	c.Assert(w.Wait(), gc.Equals, errTest)
 
 	// test we can kill again without a panic
 	w.Kill()

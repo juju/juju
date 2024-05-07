@@ -155,11 +155,12 @@ func (u *Undertaker) run() (errOut error) {
 
 	// Watch for changes to model destroy values, if so, cancel the context
 	// and restart the worker.
-	err = u.catacomb.Add(worker.NewSimpleWorker(func(stopCh <-chan struct{}) error {
+	err = u.catacomb.Add(worker.NewSimpleWorker(func(ctx context.Context) error {
 		for {
 			select {
-			case <-stopCh:
+			case <-ctx.Done():
 				return nil
+
 			case <-modelWatcher.Changes():
 				result, err := u.config.Facade.ModelInfo()
 				if errors.Is(err, errors.NotFound) || err != nil || result.Error != nil {

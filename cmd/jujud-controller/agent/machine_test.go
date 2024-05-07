@@ -375,7 +375,7 @@ func (s *MachineSuite) TestMachineAgentRunsDiskManagerWorker(c *gc.C) {
 	started := newSignal()
 	newWorker := func(diskmanager.ListBlockDevicesFunc, diskmanager.BlockDeviceSetter) worker.Worker {
 		started.trigger()
-		return jworker.NewNoOpWorker()
+		return jworker.NoopWorker()
 	}
 	s.PatchValue(&diskmanager.NewWorker, newWorker)
 
@@ -424,7 +424,7 @@ func (s *MachineSuite) TestMachineAgentRunsMachineStorageWorker(c *gc.C) {
 		c.Check(config.Scope, gc.Equals, m.Tag())
 		c.Check(config.Validate(), jc.ErrorIsNil)
 		started.trigger()
-		return jworker.NewNoOpWorker(), nil
+		return jworker.NoopWorker(), nil
 	}
 	s.PatchValue(&storageprovisioner.NewStorageProvisioner, newWorker)
 
@@ -499,7 +499,7 @@ func (s *MachineSuite) setupIgnoreAddresses(c *gc.C, expectedIgnoreValue bool) c
 
 		// The test just cares that NewMachiner is called with the correct
 		// value, nothing else is done with the worker.
-		return newDummyWorker(), nil
+		return jworker.NoopWorker(), nil
 	})
 
 	attrs := coretesting.Attrs{"ignore-machine-addresses": expectedIgnoreValue}
