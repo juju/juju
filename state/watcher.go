@@ -1965,11 +1965,6 @@ func (st *State) WatchControllerInfo() StringsWatcher {
 	return newCollectionWatcher(st, colWCfg{col: controllerNodesC})
 }
 
-// WatchControllerConfig returns a NotifyWatcher for controller settings.
-func (st *State) WatchControllerConfig() NotifyWatcher {
-	return newEntityWatcher(st, controllersC, ControllerSettingsGlobalKey)
-}
-
 // Watch returns a watcher for observing changes to a controller service.
 func (c *CloudService) Watch() NotifyWatcher {
 	return newEntityWatcher(c.st, cloudServicesC, c.doc.DocID)

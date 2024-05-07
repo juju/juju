@@ -24,6 +24,7 @@ import (
 	jujuresource "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/core/watcher/watchertest"
 	envconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/rpc/params"
@@ -163,9 +164,9 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 	appChanged := make(chan struct{}, 1)
 	portsChanged := make(chan struct{}, 1)
 	modelConfigChanged := make(chan struct{}, 1)
-	controllerConfigChanged := make(chan struct{}, 1)
+	controllerConfigChanged := make(chan []string, 1)
 	s.st.apiHostPortsForAgentsWatcher = statetesting.NewMockNotifyWatcher(portsChanged)
-	s.st.model.state.controllerConfigWatcher = statetesting.NewMockNotifyWatcher(controllerConfigChanged)
+	s.controllerConfigService.controllerConfigWatcher = watchertest.NewMockStringsWatcher(controllerConfigChanged)
 	s.st.model.modelConfigChanges = statetesting.NewMockNotifyWatcher(modelConfigChanged)
 	s.st.app = &mockApplication{
 		life: state.Alive,
@@ -178,7 +179,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 	appChanged <- struct{}{}
 	portsChanged <- struct{}{}
 	modelConfigChanged <- struct{}{}
-	controllerConfigChanged <- struct{}{}
+	controllerConfigChanged <- []string{}
 
 	results, err := s.api.WatchProvisioningInfo(context.Background(), params.Entities{
 		Entities: []params.Entity{

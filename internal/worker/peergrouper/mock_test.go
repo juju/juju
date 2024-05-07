@@ -230,10 +230,6 @@ func (st *fakeState) WatchControllerStatusChanges() state.StringsWatcher {
 	return WatchStrings(&st.statuses)
 }
 
-func (st *fakeState) WatchControllerConfig() state.NotifyWatcher {
-	return WatchValue(&st.controllerConfig)
-}
-
 func (st *fakeState) ModelConfig() (*config.Config, error) {
 	attrs := coretesting.FakeConfig()
 	cfg, err := config.New(config.NoDefaults, attrs)
