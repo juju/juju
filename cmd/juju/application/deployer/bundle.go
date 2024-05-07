@@ -93,7 +93,7 @@ func (d *deployBundle) deploy(
 
 	// Compose bundle to be deployed and check its validity before running
 	// any pre/post checks.
-	bundleData, unmarshalErrors, err := bundle.ComposeAndVerifyBundle(d.bundleDataSource, d.bundleOverlayFile)
+	bundleData, unmarshalErrors, err := bundle.ComposeAndVerifyBundle(ctx, d.bundleDataSource, d.bundleOverlayFile)
 	if err != nil {
 		return errors.Annotatef(err, "cannot deploy bundle")
 	}
