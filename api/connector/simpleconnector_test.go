@@ -51,6 +51,7 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 			expectedAPIInfo: api.Info{
 				Addrs:    []string{"some.host:9999"},
 				ModelTag: names.NewModelTag("some-uuid"),
+				Tag:      names.NewUserTag("some-client-id"),
 			},
 			expectedDefaultDialOpts: func() api.DialOpts {
 				expected := api.DefaultDialOpts()
@@ -75,6 +76,14 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 				Password: "some-password",
 			},
 		},
+		{
+			name: "with neither username nre client id",
+			opts: SimpleConfig{
+				ControllerAddresses: []string{"some.host:9999"},
+				ModelUUID:           "some-uuid",
+			},
+			expectedError: "either Username or ClientID should be set",
+		},
 	}
 
 	for _, test := range tests {
@@ -83,7 +92,7 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 		connector, err := NewSimple(test.opts)
 
 		if test.expectedError != "" {
-			c.Assert(err, gc.Equals, test.expectedError)
+			c.Assert(err, gc.ErrorMatches, test.expectedError)
 			c.Assert(connector, gc.IsNil)
 		} else {
 			c.Assert(err, gc.IsNil)
