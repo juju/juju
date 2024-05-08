@@ -243,12 +243,8 @@ func (s *controllerWorkerSuite) TestUpgradeFailureWithAPILostError(c *gc.C) {
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
-	done := make(chan struct{})
-
 	w := s.newWorker(c)
 	w.base.PreUpgradeSteps = func(_ agent.Config, _ bool) error {
-		defer close(done)
-
 		return upgradesteps.NewAPILostDuringUpgrade(errors.New("boom"))
 	}
 	defer workertest.DirtyKill(c, w)
@@ -257,10 +253,18 @@ func (s *controllerWorkerSuite) TestUpgradeFailureWithAPILostError(c *gc.C) {
 	s.dispatchChange(c, chCompleted)
 	s.dispatchChange(c, chFailed)
 
+	// Manually wait for the worker to be done. This ensures that the worker
+	// correctly terminates and we don't encounter a logic race condition for
+	// the mocks in the tests.
+	done := make(chan struct{})
+	go func() {
+		w.Wait()
+		close(done)
+	}()
 	select {
 	case <-done:
 	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting abort")
+		c.Fatalf("timed out waiting for worker to be done")
 	}
 
 	err := workertest.CheckKill(c, w)
