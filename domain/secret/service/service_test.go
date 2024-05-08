@@ -395,10 +395,11 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	p := domainsecret.UpsertSecretParams{
-		RotatePolicy: ptr(domainsecret.RotateDaily),
-		Description:  ptr("a secret"),
-		Label:        ptr("my secret"),
-		Data:         coresecrets.SecretData{"foo": "bar"},
+		RotatePolicy:   ptr(domainsecret.RotateDaily),
+		Description:    ptr("a secret"),
+		Label:          ptr("my secret"),
+		Data:           coresecrets.SecretData{"foo": "bar"},
+		NextRotateTime: ptr(time.Now().AddDate(0, 0, 1)),
 	}
 
 	s.state = NewMockState(ctrl)
@@ -406,7 +407,18 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, p).Return(nil)
+	s.state.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
+		// No rotate policy.
+	}, nil)
+	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, gomock.Any()).DoAndReturn(func(_ context.Context, _ *coresecrets.URI, got domainsecret.UpsertSecretParams) error {
+		c.Assert(got.NextRotateTime, gc.NotNil)
+		c.Assert(*got.NextRotateTime, jc.Almost, *p.NextRotateTime)
+		got.NextRotateTime = nil
+		want := p
+		want.NextRotateTime = nil
+		c.Assert(got, jc.DeepEquals, want)
+		return nil
+	})
 
 	err := s.service(c).UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
 		LeaderToken: successfulToken{},

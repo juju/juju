@@ -361,6 +361,15 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 	}
 	rotatePolicy := domainsecret.MarshallRotatePolicy(params.RotatePolicy)
 	p.RotatePolicy = &rotatePolicy
+	if params.RotatePolicy.WillRotate() {
+		md, err := s.GetSecret(ctx, uri)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !md.RotatePolicy.WillRotate() {
+			p.NextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
+		}
+	}
 	if len(params.Data) > 0 {
 		p.Data = make(map[string]string)
 		for k, v := range params.Data {

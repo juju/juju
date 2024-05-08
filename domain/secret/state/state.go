@@ -496,14 +496,15 @@ WHERE sm.secret_id = $secretID.id
 		return errors.Trace(err)
 	}
 
-	existing, err := dbSecrets.toSecretMetadata(dbsecretOwners)
+	existingResult, err := dbSecrets.toSecretMetadata(dbsecretOwners)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	existing := existingResult[0]
 
 	// Check to be sure a duplicate label won't be used.
 	var checkExists checkExistsFunc
-	switch kind := existing[0].Owner.Kind; kind {
+	switch kind := existing.Owner.Kind; kind {
 	case coresecrets.ModelOwner:
 		checkExists = st.checkUserSecretLabelExists
 	case coresecrets.ApplicationOwner:
@@ -511,13 +512,13 @@ WHERE sm.secret_id = $secretID.id
 			return secreterrors.AutoPruneNotSupported
 		}
 		// Query selects the app uuid as owner id.
-		checkExists = st.checkApplicationSecretLabelExists(existing[0].Owner.ID)
+		checkExists = st.checkApplicationSecretLabelExists(existing.Owner.ID)
 	case coresecrets.UnitOwner:
 		if secret.AutoPrune != nil && *secret.AutoPrune {
 			return secreterrors.AutoPruneNotSupported
 		}
 		// Query selects the unit uuid as owner id.
-		checkExists = st.checkUnitSecretLabelExists(existing[0].Owner.ID)
+		checkExists = st.checkUnitSecretLabelExists(existing.Owner.ID)
 	default:
 		// Should never happen.
 		return errors.Errorf("unexpected secret owner kind %q", kind)
@@ -535,7 +536,7 @@ WHERE sm.secret_id = $secretID.id
 		Version:        dbSecrets[0].Version,
 		Description:    dbSecrets[0].Description,
 		AutoPrune:      dbSecrets[0].AutoPrune,
-		RotatePolicyID: int(domainsecret.MarshallRotatePolicy(&existing[0].RotatePolicy)),
+		RotatePolicyID: int(domainsecret.MarshallRotatePolicy(&existing.RotatePolicy)),
 		UpdateTime:     now,
 	}
 	dbSecret.UpdateTime = now
@@ -545,7 +546,7 @@ WHERE sm.secret_id = $secretID.id
 	}
 
 	if secret.Label != nil {
-		if err := st.upsertSecretLabel(ctx, tx, existing[0].URI, *secret.Label, existing[0].Owner); err != nil {
+		if err := st.upsertSecretLabel(ctx, tx, existing.URI, *secret.Label, existing.Owner); err != nil {
 			return errors.Annotatef(err, "updating label for secret %q", uri)
 		}
 	}
@@ -562,6 +563,11 @@ WHERE sm.secret_id = $secretID.id
 			return errors.Annotatef(err, "deleting next rotate record for secret %q", uri)
 		}
 	}
+	if secret.NextRotateTime != nil {
+		if err := st.upsertSecretNextRotateTime(ctx, tx, uri, *secret.NextRotateTime); err != nil {
+			return errors.Annotatef(err, "updating next rotate time for secret %q", uri)
+		}
+	}
 
 	if len(secret.Data) == 0 && secret.ValueRef == nil {
 		return nil
@@ -572,7 +578,7 @@ WHERE sm.secret_id = $secretID.id
 		return errors.Trace(err)
 	}
 
-	nextRevision := existing[0].LatestRevision + 1
+	nextRevision := existing.LatestRevision + 1
 	dbRevision := secretRevision{
 		ID:         revisionUUID.String(),
 		SecretID:   uri.ID,
