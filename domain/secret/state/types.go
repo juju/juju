@@ -197,9 +197,9 @@ var ownerKindParam = ownerKind{
 	Application: string(coresecrets.ApplicationOwner),
 }
 
-type secrets []secretInfo
+type secretInfos []secretInfo
 
-func (rows secrets) toSecretMetadata(secretOwners []secretOwner) ([]*coresecrets.SecretMetadata, error) {
+func (rows secretInfos) toSecretMetadata(secretOwners []secretOwner) ([]*coresecrets.SecretMetadata, error) {
 	if len(rows) != len(secretOwners) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch composing secret results")
@@ -236,7 +236,7 @@ func (rows secrets) toSecretMetadata(secretOwners []secretOwner) ([]*coresecrets
 	return result, nil
 }
 
-func (rows secrets) toSecretRevisionRef(refs secretValueRefs) ([]*coresecrets.SecretRevisionRef, error) {
+func (rows secretInfos) toSecretRevisionRef(refs secretValueRefs) ([]*coresecrets.SecretRevisionRef, error) {
 	if len(rows) != len(refs) {
 		// Should never happen.
 		return nil, errors.New("row length mismatch composing secret results")

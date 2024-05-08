@@ -484,7 +484,7 @@ WHERE sm.secret_id = $secretID.id
 	}
 
 	var (
-		dbSecrets      secrets
+		dbSecrets      secretInfos
 		dbsecretOwners []secretOwner
 	)
 	secretIDParam := secretID{ID: uri.ID}
@@ -1112,7 +1112,7 @@ FROM secret_metadata sm
 	}
 
 	var (
-		dbSecrets      secrets
+		dbSecrets      secretInfos
 		dbsecretOwners []secretOwner
 	)
 	err = tx.Query(ctx, queryStmt, queryParams...).GetAll(&dbSecrets, &dbsecretOwners)
@@ -1255,7 +1255,7 @@ FROM secret_metadata sm
 	}
 
 	var (
-		dbSecrets      secrets
+		dbSecrets      secretInfos
 		dbsecretOwners []secretOwner
 	)
 	err = tx.Query(ctx, queryStmt, queryParams...).GetAll(&dbSecrets, &dbsecretOwners)
@@ -1423,7 +1423,7 @@ WHERE  mso.label = $M.label
 		return nil, errors.Trace(err)
 	}
 
-	var dbSecrets secrets
+	var dbSecrets secretInfos
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, queryStmt, sqlair.M{"label": label}).GetAll(&dbSecrets)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -2506,7 +2506,7 @@ AND    (subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($u
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		var (
-			dbSecrets   secrets
+			dbSecrets   secretInfos
 			dbValueRefs secretValueRefs
 		)
 		err = tx.Query(ctx, queryStmt, queryParams...).GetAll(&dbSecrets, &dbValueRefs)
@@ -3130,4 +3130,18 @@ DELETE FROM secret WHERE id = $secretID.id`
 		}
 	}
 	return nil
+}
+
+// SecretRotated updates the next rotation time for the specified secret.
+func (st State) SecretRotated(ctx context.Context, uri *coresecrets.URI, next time.Time) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.upsertSecretNextRotateTime(ctx, tx, uri, next)
+		return errors.Trace(err)
+	})
+	return errors.Trace(domain.CoerceError(err))
 }

@@ -3105,3 +3105,28 @@ func (s *stateSuite) TestGetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
 		uri1.String(),
 	})
 }
+
+func (s *stateSuite) TestSecretRotated(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	s.setupUnits(c, "mysql")
+	uri := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	next := time.Now().Add(1 * time.Hour)
+	err = st.SecretRotated(ctx, uri, next)
+	c.Assert(err, jc.ErrorIsNil)
+
+	row := s.DB().QueryRowContext(context.Background(), `
+SELECT next_rotation_time
+FROM secret_rotation
+WHERE secret_id = ?`, uri.ID)
+	var nextRotationTime time.Time
+	err = row.Scan(&nextRotationTime)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nextRotationTime.Equal(next), jc.IsTrue)
+}

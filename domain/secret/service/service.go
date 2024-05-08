@@ -6,6 +6,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -67,6 +68,7 @@ type State interface {
 	GetRevisionIDsForObsolete(
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUID ...string,
 	) ([]string, error)
+	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
 
 	// For watching consumed local secret changes.
 	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
@@ -637,4 +639,39 @@ func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.UR
 
 	// TODO(secrets)
 	return nil
+}
+
+// SecretRotated rotates the secret with the specified URI.
+func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, params SecretRotatedParams) error {
+	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
+		return errors.Trace(err)
+	}
+
+	md, err := s.GetSecret(ctx, uri)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !md.RotatePolicy.WillRotate() {
+		s.logger.Debugf("secret %q was rotated but now is set to not rotate")
+		return nil
+	}
+	lastRotateTime := md.NextRotateTime
+	if lastRotateTime == nil {
+		now := s.clock.Now()
+		lastRotateTime = &now
+	}
+	nextRotateTime := *md.RotatePolicy.NextRotateTime(*lastRotateTime)
+	s.logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.ID, params.OriginalRevision, md.LatestRevision)
+	// If the secret will expire before it is due to be next rotated, rotate sooner to allow
+	// the charm a chance to update it before it expires.
+	willExpire := md.LatestExpireTime != nil && md.LatestExpireTime.Before(nextRotateTime)
+	forcedRotateTime := lastRotateTime.Add(secrets.RotateRetryDelay)
+	if willExpire {
+		s.logger.Warningf("secret %q rev %d will expire before next scheduled rotation", uri.ID, md.LatestRevision)
+	}
+	if willExpire && forcedRotateTime.Before(*md.LatestExpireTime) || !params.Skip && md.LatestRevision == params.OriginalRevision {
+		nextRotateTime = forcedRotateTime
+	}
+	s.logger.Debugf("secret %q next rotate time is now: %s", uri.ID, nextRotateTime.UTC().Format(time.RFC3339))
+	return s.st.SecretRotated(ctx, uri, nextRotateTime)
 }
