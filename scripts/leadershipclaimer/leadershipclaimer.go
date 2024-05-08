@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -35,7 +36,9 @@ var initSleep = gnuflag.String("sleep", "1s", "time to sleep before starting pro
 var agentStart time.Time
 
 func main() {
-	internallogger.ConfigureLoggers("<root>=INFO")
+	if err := internallogger.ConfigureLoggers("<root>=INFO"); err != nil {
+		log.Fatal(err)
+	}
 
 	gnuflag.Parse(true)
 	// make it a little bit easier to have all of the processes start closer to the same time.
