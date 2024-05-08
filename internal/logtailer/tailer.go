@@ -213,7 +213,6 @@ func (t *logTailer) tailFile(seekTo *tail.SeekInfo) (err error) {
 		Location: seekTo,
 		ReOpen:   follow,
 		Follow:   follow,
-		Poll:     true,
 		Logger:   loggerAdaptor{},
 	})
 	if err != nil {

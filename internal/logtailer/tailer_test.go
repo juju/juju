@@ -152,6 +152,9 @@ func (s *TailerSuite) TestProcessForwardTail(c *gc.C) {
 	tailer, err := logtailer.NewLogTailer(coretesting.ModelTag.Id(), testFileName, logtailer.LogTailerParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Allow logtailer to start up.
+	time.Sleep(100 * time.Millisecond)
+
 	s.writeAdditionalLogs(c, testFileName, logLines[2:])
 
 	records := s.fetchLogs(tailer, 4)
@@ -173,6 +176,9 @@ func (s *TailerSuite) TestProcessReverseTail(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	records := s.fetchLogs(tailer, 2)
+
+	// Allow logtailer to start up.
+	time.Sleep(100 * time.Millisecond)
 
 	s.writeAdditionalLogs(c, testFileName, logLines[3:])
 
