@@ -17,7 +17,6 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package stream -destination stream_mock_test.go github.com/juju/juju/internal/changestream/stream FileNotifier
-//go:generate go run go.uber.org/mock/mockgen -typed -package stream -destination logger_mock_test.go github.com/juju/juju/internal/changestream/stream Logger
 //go:generate go run go.uber.org/mock/mockgen -typed -package stream -destination metrics_mock_test.go github.com/juju/juju/internal/changestream/stream MetricsCollector
 //go:generate go run go.uber.org/mock/mockgen -typed -package stream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
