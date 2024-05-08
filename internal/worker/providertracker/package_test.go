@@ -15,10 +15,10 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package providertracker -destination providertracker_mock_test.go github.com/juju/juju/internal/worker/providertracker ServiceFactoryGetter,ServiceFactory,ModelService,CloudService,ConfigService,CredentialService
-//go:generate go run go.uber.org/mock/mockgen -package providertracker -destination environs_mock_test.go github.com/juju/juju/environs Environ,CloudDestroyer,CloudSpecSetter
-//go:generate go run go.uber.org/mock/mockgen -package providertracker -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
-//go:generate go run go.uber.org/mock/mockgen -package providertracker -destination caas_mock_test.go github.com/juju/juju/caas Broker
+//go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination providertracker_mock_test.go github.com/juju/juju/internal/worker/providertracker ServiceFactoryGetter,ServiceFactory,ModelService,CloudService,ConfigService,CredentialService
+//go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination environs_mock_test.go github.com/juju/juju/environs Environ,CloudDestroyer,CloudSpecSetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination storage_mock_test.go github.com/juju/juju/internal/storage ProviderRegistry
+//go:generate go run go.uber.org/mock/mockgen -typed -package providertracker -destination caas_mock_test.go github.com/juju/juju/caas Broker
 
 func TestPackage(t *stdtesting.T) {
 	defer goleak.VerifyNone(t)

@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package controlsocket -destination services_mock_test.go github.com/juju/juju/internal/worker/controlsocket UserService,PermissionService
+//go:generate go run go.uber.org/mock/mockgen -typed -package controlsocket -destination services_mock_test.go github.com/juju/juju/internal/worker/controlsocket UserService,PermissionService
 
 func Test(t *testing.T) {
 	gc.TestingT(t)

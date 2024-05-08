@@ -12,9 +12,9 @@ import (
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package providerservicefactory -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ProviderServiceFactory,ProviderServiceFactoryGetter
-//go:generate go run go.uber.org/mock/mockgen -package providerservicefactory -destination logger_mock_test.go github.com/juju/juju/internal/worker/providerservicefactory Logger
-//go:generate go run go.uber.org/mock/mockgen -package providerservicefactory -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package providerservicefactory -destination servicefactory_mock_test.go github.com/juju/juju/internal/servicefactory ProviderServiceFactory,ProviderServiceFactoryGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package providerservicefactory -destination logger_mock_test.go github.com/juju/juju/internal/worker/providerservicefactory Logger
+//go:generate go run go.uber.org/mock/mockgen -typed -package providerservicefactory -destination changestream_mock_test.go github.com/juju/juju/core/changestream WatchableDBGetter
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

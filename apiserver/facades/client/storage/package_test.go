@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package storage -destination domain_mock.go github.com/juju/juju/apiserver/facades/client/storage StorageService
+//go:generate go run go.uber.org/mock/mockgen -typed -package storage -destination domain_mock.go github.com/juju/juju/apiserver/facades/client/storage StorageService
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)

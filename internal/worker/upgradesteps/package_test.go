@@ -19,12 +19,12 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination clock_mock_test.go github.com/juju/clock Clock
-//go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination api_mock_test.go github.com/juju/juju/api/base APICaller
-//go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
-//go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
-//go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination upgradeservice_mock_test.go github.com/juju/juju/internal/worker/upgradesteps UpgradeService
-//go:generate go run go.uber.org/mock/mockgen -package upgradesteps -destination status_mock_test.go github.com/juju/juju/internal/upgradesteps StatusSetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination clock_mock_test.go github.com/juju/clock Clock
+//go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination api_mock_test.go github.com/juju/juju/api/base APICaller
+//go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination lock_mock_test.go github.com/juju/juju/internal/worker/gate Lock
+//go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination agent_mock_test.go github.com/juju/juju/agent Agent,Config,ConfigSetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination upgradeservice_mock_test.go github.com/juju/juju/internal/worker/upgradesteps UpgradeService
+//go:generate go run go.uber.org/mock/mockgen -typed -package upgradesteps -destination status_mock_test.go github.com/juju/juju/internal/upgradesteps StatusSetter
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)

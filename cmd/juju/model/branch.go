@@ -66,7 +66,7 @@ type branchCommand struct {
 // BranchCommandAPI describes API methods required
 // to execute the branch command.
 //
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination ./mocks/branch_mock.go github.com/juju/juju/cmd/juju/model BranchCommandAPI
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination ./mocks/branch_mock.go github.com/juju/juju/cmd/juju/model BranchCommandAPI
 type BranchCommandAPI interface {
 	Close() error
 	// HasActiveBranch returns true if the model has an

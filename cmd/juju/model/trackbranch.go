@@ -63,7 +63,7 @@ type trackBranchCommand struct {
 // TrackBranchCommandAPI describes API methods required
 // to execute the track command.
 //
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination ./mocks/trackbranch_mock.go github.com/juju/juju/cmd/juju/model TrackBranchCommandAPI
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination ./mocks/trackbranch_mock.go github.com/juju/juju/cmd/juju/model TrackBranchCommandAPI
 type TrackBranchCommandAPI interface {
 	Close() error
 

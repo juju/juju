@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/sshinit"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package sshinit_test -destination sshclient_mock_test.go github.com/juju/utils/v4/ssh Client
+//go:generate go run go.uber.org/mock/mockgen -typed -package sshinit_test -destination sshclient_mock_test.go github.com/juju/utils/v4/ssh Client
 
 type sshInitSuite struct{}
 

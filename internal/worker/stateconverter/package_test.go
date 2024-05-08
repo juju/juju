@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/machiner_mock.go github.com/juju/juju/internal/worker/stateconverter Machiner,Machine
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/dependency_mock.go github.com/juju/worker/v4/dependency Getter
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/agent_mock.go github.com/juju/juju/agent Agent,Config
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/machiner_mock.go github.com/juju/juju/internal/worker/stateconverter Machiner,Machine
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/dependency_mock.go github.com/juju/worker/v4/dependency Getter
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/agent_mock.go github.com/juju/juju/agent Agent,Config
 
 func TestAll(t *testing.T) {
 	gc.TestingT(t)

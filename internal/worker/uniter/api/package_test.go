@@ -9,9 +9,9 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package api -destination uniter_mocks.go -source=./interface_generics.go
-//go:generate go run go.uber.org/mock/mockgen -package api -destination domain_mocks.go github.com/juju/juju/internal/worker/uniter/api Unit,Relation,RelationUnit,Application,Charm
-//go:generate go run go.uber.org/mock/mockgen -package api -destination secrets_mocks.go github.com/juju/juju/internal/worker/uniter/api SecretsClient,SecretsBackend
+//go:generate go run go.uber.org/mock/mockgen -typed -package api -destination uniter_mocks.go -source=./interface_generics.go
+//go:generate go run go.uber.org/mock/mockgen -typed -package api -destination domain_mocks.go github.com/juju/juju/internal/worker/uniter/api Unit,Relation,RelationUnit,Application,Charm
+//go:generate go run go.uber.org/mock/mockgen -typed -package api -destination secrets_mocks.go github.com/juju/juju/internal/worker/uniter/api SecretsClient,SecretsBackend
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

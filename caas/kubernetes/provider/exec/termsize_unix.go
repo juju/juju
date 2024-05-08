@@ -23,7 +23,7 @@ func getTermSize(fd int) (*remotecommand.TerminalSize, error) {
 	return &remotecommand.TerminalSize{Width: uint16(w), Height: uint16(h)}, nil
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/sizequeue_mock.go github.com/juju/juju/caas/kubernetes/provider/exec SizeGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/sizequeue_mock.go github.com/juju/juju/caas/kubernetes/provider/exec SizeGetter
 
 type sizeQueue struct {
 	getSize    SizeGetter

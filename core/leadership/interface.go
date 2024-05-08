@@ -13,7 +13,7 @@ import (
 
 // TODO (manadart 2018-10-05) Add interfaces to the end of this line,
 // separated by commas, as they become required for mocking in tests.
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership Pinner
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/leadership_mock.go github.com/juju/juju/core/leadership Pinner
 
 const (
 	// ErrClaimDenied is the error which will be returned when a

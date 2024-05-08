@@ -59,7 +59,7 @@ type ShowCommitCommand struct {
 
 // ShowCommitCommandAPI defines an API interface to be used during testing.
 //
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination ./mocks/showcommit_mock.go github.com/juju/juju/cmd/juju/model ShowCommitCommandAPI
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination ./mocks/showcommit_mock.go github.com/juju/juju/cmd/juju/model ShowCommitCommandAPI
 type ShowCommitCommandAPI interface {
 	Close() error
 

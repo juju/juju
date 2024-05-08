@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/state/watcher BaseWatcher
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/state/watcher BaseWatcher
 
 // modelBackend collects together some useful internal state methods for
 // accessing mongo and mapping local and global ids to one another.

@@ -17,10 +17,10 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package objectstores3caller -destination package_mock_test.go github.com/juju/juju/core/objectstore Client,Session
-//go:generate go run go.uber.org/mock/mockgen -package objectstores3caller -destination services_mocks_test.go github.com/juju/juju/internal/worker/objectstores3caller ControllerConfigService
-//go:generate go run go.uber.org/mock/mockgen -package objectstores3caller -destination http_mocks_test.go github.com/juju/juju/internal/s3client HTTPClient
-//go:generate go run go.uber.org/mock/mockgen -package objectstores3caller -destination clock_mocks_test.go github.com/juju/clock Clock
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination package_mock_test.go github.com/juju/juju/core/objectstore Client,Session
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination services_mocks_test.go github.com/juju/juju/internal/worker/objectstores3caller ControllerConfigService
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination http_mocks_test.go github.com/juju/juju/internal/s3client HTTPClient
+//go:generate go run go.uber.org/mock/mockgen -typed -package objectstores3caller -destination clock_mocks_test.go github.com/juju/clock Clock
 
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)

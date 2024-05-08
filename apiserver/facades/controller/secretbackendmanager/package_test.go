@@ -17,8 +17,8 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package secretbackendmanager -destination mock_service.go -source service.go BackendService
-//go:generate go run go.uber.org/mock/mockgen -package secretbackendmanager -destination mock_watcher.go github.com/juju/juju/core/watcher SecretBackendRotateWatcher
+//go:generate go run go.uber.org/mock/mockgen -typed -package secretbackendmanager -destination mock_service.go -source service.go BackendService
+//go:generate go run go.uber.org/mock/mockgen -typed -package secretbackendmanager -destination mock_watcher.go github.com/juju/juju/core/watcher SecretBackendRotateWatcher
 
 func NewTestAPI(
 	authorizer facade.Authorizer,

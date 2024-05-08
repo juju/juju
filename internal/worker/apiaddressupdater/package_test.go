@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/facade_mock.go github.com/juju/juju/internal/worker/apiaddressupdater APIAddresser
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/facade_mock.go github.com/juju/juju/internal/worker/apiaddressupdater APIAddresser
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)

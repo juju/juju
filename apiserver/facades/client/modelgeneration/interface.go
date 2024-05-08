@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/core/settings"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration State,Model,Generation,Application
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration State,Model,Generation,Application
 
 // State represents the state of a model required by the model generation API.
 type State interface {

@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/resources_mock.go github.com/juju/juju/state Resources
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/resources_mock.go github.com/juju/juju/state Resources
 
 var _ = gc.Suite(&ResourcesSuite{})
 

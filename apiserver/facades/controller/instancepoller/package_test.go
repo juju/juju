@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package instancepoller_test -destination package_mock_test.go github.com/juju/juju/apiserver/facades/controller/instancepoller NetworkService
+//go:generate go run go.uber.org/mock/mockgen -typed -package instancepoller_test -destination package_mock_test.go github.com/juju/juju/apiserver/facades/controller/instancepoller NetworkService
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
