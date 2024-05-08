@@ -52,12 +52,13 @@ func (m *MapperSuite) TestMapperAdditionSync(c *gc.C) {
 	defer m.ctrl.Finish()
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(1)
-	var eventHandlers cache.ResourceEventHandlerFuncs
+	var eventHandlers cache.ResourceEventHandler
 	m.mockSharedIndexInformer.EXPECT().AddEventHandler(gomock.Any()).
-		DoAndReturn(func(h cache.ResourceEventHandlerFuncs) {
+		DoAndReturn(func(h cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 			eventHandlers = h
 			waitGroup.Done()
-		}).Return(m.mockSharedIndexInformer, nil)
+			return m.mockSharedIndexInformer, nil
+		})
 
 	mapper, err := caasrbacmapper.NewMapper(loggo.Logger{}, m.mockSAInformer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -107,12 +108,13 @@ func (m *MapperSuite) TestRBACMapperUpdateSync(c *gc.C) {
 	defer m.ctrl.Finish()
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(1)
-	var eventHandlers cache.ResourceEventHandlerFuncs
+	var eventHandlers cache.ResourceEventHandler
 	m.mockSharedIndexInformer.EXPECT().AddEventHandler(gomock.Any()).
-		DoAndReturn(func(h cache.ResourceEventHandlerFuncs) {
+		DoAndReturn(func(h cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 			eventHandlers = h
 			waitGroup.Done()
-		}).Return(m.mockSharedIndexInformer, nil)
+			return m.mockSharedIndexInformer, nil
+		})
 
 	mapper, err := caasrbacmapper.NewMapper(loggo.Logger{}, m.mockSAInformer)
 	c.Assert(err, jc.ErrorIsNil)
@@ -188,12 +190,13 @@ func (m *MapperSuite) TestRBACMapperDeleteSync(c *gc.C) {
 	defer m.ctrl.Finish()
 	waitGroup := sync.WaitGroup{}
 	waitGroup.Add(1)
-	var eventHandlers cache.ResourceEventHandlerFuncs
+	var eventHandlers cache.ResourceEventHandler
 	m.mockSharedIndexInformer.EXPECT().AddEventHandler(gomock.Any()).
-		DoAndReturn(func(h cache.ResourceEventHandlerFuncs) {
+		DoAndReturn(func(h cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
 			eventHandlers = h
 			waitGroup.Done()
-		}).Return(m.mockSharedIndexInformer, nil)
+			return m.mockSharedIndexInformer, nil
+		})
 
 	mapper, err := caasrbacmapper.NewMapper(loggo.Logger{}, m.mockSAInformer)
 	c.Assert(err, jc.ErrorIsNil)

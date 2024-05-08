@@ -389,9 +389,9 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 	}
 
 	initialised := make(chan bool)
-	s.firewaller.EXPECT().AllSpaceInfos().DoAndReturn(func() (network.SpaceInfo, error) {
+	s.firewaller.EXPECT().AllSpaceInfos().DoAndReturn(func() (network.SpaceInfos, error) {
 		defer close(initialised)
-		return network.SpaceInfo{}, nil
+		return nil, nil
 	})
 
 	s.envFirewaller.EXPECT().OpenPorts(gomock.Any(), gomock.Any()).DoAndReturn(func(_ envcontext.ProviderCallContext, rules firewall.IngressRules) error {

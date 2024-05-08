@@ -346,7 +346,8 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 	config := RefreshMany(config1, config2)
 
 	restClient := NewMockRESTClient(ctrl)
-	restClient.EXPECT().Post(gomock.Any(), baseURLPath, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ map[string][]string, _ transport.RefreshRequest, responses *transport.RefreshResponses) {
+	restClient.EXPECT().Post(gomock.Any(), baseURLPath, gomock.Any(), body, gomock.Any()).DoAndReturn(func(_ context.Context, _ path.Path, _ http.Header, _ any, r any) (restResponse, error) {
+		responses := r.(*transport.RefreshResponses)
 		responses.Results = []transport.RefreshResponse{{
 			InstanceKey: "instance-key-foo",
 			Name:        id,
@@ -354,7 +355,8 @@ func (s *RefreshSuite) TestRefreshWithRequestMetrics(c *gc.C) {
 			InstanceKey: "instance-key-bar",
 			Name:        id,
 		}}
-	}).Return(restResponse{StatusCode: http.StatusOK}, nil)
+		return restResponse{StatusCode: http.StatusOK}, nil
+	})
 
 	metrics := map[charmmetrics.MetricKey]map[charmmetrics.MetricKey]string{
 		charmmetrics.Controller: {
@@ -399,12 +401,14 @@ func (s *RefreshSuite) TestRefreshFailure(c *gc.C) {
 }
 
 func (s *RefreshSuite) expectPost(client *MockRESTClient, p path.Path, name string, body interface{}) {
-	client.EXPECT().Post(gomock.Any(), p, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ map[string][]string, _ transport.RefreshRequest, responses *transport.RefreshResponses) {
+	client.EXPECT().Post(gomock.Any(), p, gomock.Any(), body, gomock.Any()).Do(func(_ context.Context, _ path.Path, _ http.Header, _ any, r any) (restResponse, error) {
+		responses := r.(*transport.RefreshResponses)
 		responses.Results = []transport.RefreshResponse{{
 			InstanceKey: "instance-key",
 			Name:        name,
 		}}
-	}).Return(restResponse{StatusCode: http.StatusOK}, nil)
+		return restResponse{StatusCode: http.StatusOK}, nil
+	})
 }
 
 func (s *RefreshSuite) expectPostFailure(client *MockRESTClient) {

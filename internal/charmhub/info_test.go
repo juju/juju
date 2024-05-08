@@ -102,7 +102,8 @@ func (s *InfoSuite) expectCharmGet(c *gc.C, client *MockRESTClient, p path.Path,
 	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
 	c.Assert(err, jc.ErrorIsNil)
 
-	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).DoAndReturn(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
+		response := r.(*transport.InfoResponse)
 		response.Type = "charm"
 		response.Name = name
 		response.DefaultRelease = transport.InfoChannelMap{
@@ -110,7 +111,8 @@ func (s *InfoSuite) expectCharmGet(c *gc.C, client *MockRESTClient, p path.Path,
 				MetadataYAML: "YAML",
 			},
 		}
-	}).Return(restResponse{}, nil)
+		return restResponse{}, nil
+	})
 }
 
 func (s *InfoSuite) expectBundleGet(c *gc.C, client *MockRESTClient, p path.Path, name string) {
@@ -119,7 +121,8 @@ func (s *InfoSuite) expectBundleGet(c *gc.C, client *MockRESTClient, p path.Path
 	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
 	c.Assert(err, jc.ErrorIsNil)
 
-	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
+		response := r.(*transport.InfoResponse)
 		response.Type = "bundle"
 		response.Name = name
 		response.DefaultRelease = transport.InfoChannelMap{
@@ -127,7 +130,8 @@ func (s *InfoSuite) expectBundleGet(c *gc.C, client *MockRESTClient, p path.Path
 				BundleYAML: "YAML",
 			},
 		}
-	}).Return(restResponse{}, nil)
+		return restResponse{}, nil
+	})
 }
 
 func (s *InfoSuite) expectGetFailure(client *MockRESTClient) {
@@ -140,11 +144,13 @@ func (s *InfoSuite) expectGetError(c *gc.C, client *MockRESTClient, p path.Path,
 	namedPath, err = namedPath.Query("fields", defaultInfoFilter())
 	c.Assert(err, jc.ErrorIsNil)
 
-	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.InfoResponse) {
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
+		response := r.(*transport.InfoResponse)
 		response.ErrorList = []transport.APIError{{
 			Message: "not found",
 		}}
-	}).Return(restResponse{StatusCode: http.StatusNotFound}, nil)
+		return restResponse{StatusCode: http.StatusNotFound}, nil
+	})
 }
 
 func (s *InfoSuite) TestInfoRequestPayload(c *gc.C) {

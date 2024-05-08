@@ -61,7 +61,7 @@ func (s *baseSuite) expectClock() {
 }
 
 func (s *baseSuite) expectTimeAfter() {
-	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(_ interface{}) <-chan time.Time {
+	s.clock.EXPECT().After(gomock.Any()).DoAndReturn(func(_ time.Duration) <-chan time.Time {
 		ch := make(chan time.Time)
 		close(ch)
 		return ch

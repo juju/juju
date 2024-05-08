@@ -183,9 +183,10 @@ func (s *RESTSuite) TestGet(c *gc.C) {
 	var recievedURL string
 
 	mockHTTPClient := NewMockHTTPClient(ctrl)
-	mockHTTPClient.EXPECT().Do(gomock.Any()).Do(func(req *http.Request) {
+	mockHTTPClient.EXPECT().Do(gomock.Any()).DoAndReturn(func(req *http.Request) (*http.Response, error) {
 		recievedURL = req.URL.String()
-	}).Return(emptyResponse(), nil)
+		return emptyResponse(), nil
+	})
 
 	base := MustMakePath(c, "http://api.foo.bar")
 

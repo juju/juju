@@ -721,7 +721,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *workerSuite) expectStartUpgrade(from, to version.Number, watcher worker.Worker) {
+func (s *workerSuite) expectStartUpgrade(from, to version.Number, watcher watcher.NotifyWatcher) {
 	srv := s.upgradeService.EXPECT()
 	srv.CreateUpgrade(gomock.Any(), from, to).Return(s.upgradeUUID, nil)
 	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(nil)

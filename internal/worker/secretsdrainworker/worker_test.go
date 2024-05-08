@@ -4,6 +4,7 @@
 package secretsdrainworker_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -110,7 +111,7 @@ func (s *workerSuite) TestDrainNoOPS(c *gc.C) {
 				},
 			},
 		}, nil),
-		s.backendClient.EXPECT().GetBackend(nil, true).DoAndReturn(func(*string, bool) (*provider.SecretsBackend, string, error) {
+		s.backendClient.EXPECT().GetBackend(nil, true).DoAndReturn(func(*string, bool) (provider.SecretsBackend, string, error) {
 			close(s.done)
 			return nil, "backend-1", nil
 		}),
@@ -157,7 +158,7 @@ func (s *workerSuite) TestDrainBetweenExternalBackends(c *gc.C) {
 				},
 			},
 		).Return(secretsdrain.ChangeSecretBackendResult{Results: []error{nil}}, nil),
-		oldBackend.EXPECT().DeleteContent(gomock.Any(), "revision-1").DoAndReturn(func(_ any, _ string) error {
+		oldBackend.EXPECT().DeleteContent(gomock.Any(), "revision-1").DoAndReturn(func(_ context.Context, _ string) error {
 			close(s.done)
 			return nil
 		}),
@@ -239,7 +240,7 @@ func (s *workerSuite) TestDrainFromExternalToInternal(c *gc.C) {
 				},
 			},
 		).Return(secretsdrain.ChangeSecretBackendResult{Results: []error{nil}}, nil),
-		oldBackend.EXPECT().DeleteContent(gomock.Any(), "revision-1").DoAndReturn(func(_ any, _ string) error {
+		oldBackend.EXPECT().DeleteContent(gomock.Any(), "revision-1").DoAndReturn(func(_ context.Context, _ string) error {
 			close(s.done)
 			return nil
 		}),
@@ -306,7 +307,7 @@ func (s *workerSuite) TestDrainPartiallyFailed(c *gc.C) {
 			errors.New("failed"), // 2nd one failed.
 		}}, nil),
 		// We only delete for the 1st revision.
-		oldBackend.EXPECT().DeleteContent(gomock.Any(), "revision-1").DoAndReturn(func(_ any, _ string) error {
+		oldBackend.EXPECT().DeleteContent(gomock.Any(), "revision-1").DoAndReturn(func(_ context.Context, _ string) error {
 			close(s.done)
 			return nil
 		}),

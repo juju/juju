@@ -58,7 +58,7 @@ func (s *watcherSuite) TestWatcherStopsOnBlockedNext(c *gc.C) {
 
 	caller.EXPECT().BestFacadeVersion(facadeName).Return(666).AnyTimes()
 	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Stop", nil, gomock.Any()).Return(nil).AnyTimes()
-	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Next", nil, gomock.Any()).DoAndReturn(func(ctx context.Context, _ string, _ int, _ string, _ string, _ any, r *any) error {
+	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Next", nil, gomock.Any()).DoAndReturn(func(ctx context.Context, _ string, _ int, _, _ string, _, _ any) error {
 		close(called)
 
 		select {
@@ -100,20 +100,21 @@ func setupWatcher[T any](c *gc.C, caller *apimocks.MockAPICaller, facadeName str
 	eventCh := make(chan T)
 
 	stopped := make(chan bool)
-	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Stop", nil, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ any, _ any) {
+	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Stop", nil, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ any, _ any) error {
 		select {
 		case stopped <- true:
 		default:
 		}
+		return nil
 	}).Return(nil).AnyTimes()
 
-	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Next", nil, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ any, r *any) error {
+	caller.EXPECT().APICall(gomock.Any(), facadeName, 666, "id-666", "Next", nil, gomock.Any()).DoAndReturn(func(_ context.Context, _ string, _ int, _ string, _ string, _ any, r any) error {
 		select {
 		case ev, ok := <-eventCh:
 			if !ok {
 				c.FailNow()
 			}
-			*(*r).(*any) = ev
+			*(*r.(*any)).(*any) = ev
 			return nil
 		case <-stopped:
 		}

@@ -432,9 +432,12 @@ func (s *workerSuite) expectCharmProfilingInfoSimpleNoChange(machine int) {
 	s.machine[machine].EXPECT().CharmProfilingInfo(gomock.Any()).Return(&apiinstancemutater.UnitProfileInfo{}, nil).Do(do)
 }
 
-func (s *workerSuite) workGroupAddGetDoneFunc() func(ctx context.Context) {
+func (s *workerSuite) workGroupAddGetDoneFunc() func(ctx context.Context) (*apiinstancemutater.UnitProfileInfo, error) {
 	s.doneWG.Add(1)
-	return func(context.Context) { s.doneWG.Done() }
+	return func(context.Context) (*apiinstancemutater.UnitProfileInfo, error) {
+		s.doneWG.Done()
+		return nil, nil
+	}
 }
 
 func (s *workerSuite) workGroupAddGetDoneFuncNoContext() func() {
@@ -447,14 +450,20 @@ func (s *workerSuite) workGroupAddGetDoneWithErrorFunc() func(error) {
 	return func(error) { s.doneWG.Done() }
 }
 
-func (s *workerSuite) workGroupAddGetDoneWithMachineFunc() func(ctx context.Context, tag names.MachineTag) {
+func (s *workerSuite) workGroupAddGetDoneWithMachineFunc() func(ctx context.Context, tag names.MachineTag) (apiinstancemutater.MutaterMachine, error) {
 	s.doneWG.Add(1)
-	return func(ctx context.Context, tag names.MachineTag) { s.doneWG.Done() }
+	return func(ctx context.Context, tag names.MachineTag) (apiinstancemutater.MutaterMachine, error) {
+		s.doneWG.Done()
+		return nil, nil
+	}
 }
 
-func (s *workerSuite) workGroupAddGetDoneWithStatusFunc() func(context.Context, status.Status, string, map[string]interface{}) {
+func (s *workerSuite) workGroupAddGetDoneWithStatusFunc() func(context.Context, status.Status, string, map[string]interface{}) error {
 	s.doneWG.Add(1)
-	return func(context.Context, status.Status, string, map[string]interface{}) { s.doneWG.Done() }
+	return func(context.Context, status.Status, string, map[string]interface{}) error {
+		s.doneWG.Done()
+		return nil
+	}
 }
 
 func (s *workerSuite) expectLXDProfileNamesTrue() {
@@ -520,7 +529,7 @@ func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group
 	mExp := s.machine[machine].EXPECT()
 
 	group.Add(1)
-	notificationSync := func() { group.Done() }
+	notificationSync := func() life.Value { group.Done(); return "" }
 
 	mExp.Refresh(gomock.Any()).Return(nil).Times(2)
 	o1 := mExp.Life().Return(life.Alive).Do(notificationSync)
@@ -532,7 +541,7 @@ func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group
 	s.machine[1].EXPECT().SetModificationStatus(gomock.Any(), status.Applied, "", nil).Return(nil).Do(doWithStatus)
 
 	do := s.workGroupAddGetDoneFuncNoContext()
-	mExp.Life().Return(life.Dead).After(o1).Do(do)
+	mExp.Life().Return(life.Dead).After(o1.Call).Do(do)
 }
 
 func (s *workerSuite) expectModificationStatusApplied(machine int) {
@@ -730,7 +739,7 @@ func (s *workerContainerSuite) setup(c *gc.C) *gomock.Controller {
 
 func (s *workerContainerSuite) expectFacadeContainerTags() {
 	s.facade.EXPECT().Machine(gomock.Any(), s.lxdContainerTag).Return(s.lxdContainer, nil).AnyTimes()
-	s.lxdContainer.EXPECT().Tag().Return(s.lxdContainerTag).AnyTimes()
+	s.lxdContainer.EXPECT().Tag().Return(s.lxdContainerTag.(names.MachineTag)).AnyTimes()
 }
 
 func (s *workerContainerSuite) expectContainerTypes() {

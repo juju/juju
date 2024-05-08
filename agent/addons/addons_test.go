@@ -147,8 +147,9 @@ func (s *registerSuite) TestRegisterEngineMetrics(c *gc.C) {
 
 	registry := NewMockRegisterer(ctrl)
 	registry.EXPECT().Register(collector)
-	registry.EXPECT().Unregister(collector).Do(func(_ prometheus.Collector) {
+	registry.EXPECT().Unregister(collector).Do(func(_ prometheus.Collector) bool {
 		close(done)
+		return false
 	})
 	sink := NewMockMetricSink(ctrl)
 	sink.EXPECT().Unregister()

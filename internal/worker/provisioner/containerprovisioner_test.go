@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/rpc/params"
@@ -133,9 +134,10 @@ func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	s.sendMachineContainersChange(c, c666.Id())
 	s.checkStartInstance(c, c666)
 
-	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).Do(func(ctx interface{}, ids ...interface{}) {
+	s.broker.EXPECT().StopInstances(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx envcontext.ProviderCallContext, ids ...instance.Id) error {
 		c.Assert(len(ids), gc.Equals, 1)
 		c.Assert(ids[0], gc.DeepEquals, instance.Id("inst-666"))
+		return nil
 	})
 
 	c666.SetLife(life.Dead)
