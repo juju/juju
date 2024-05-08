@@ -74,13 +74,13 @@ func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) Re
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) Do(f func(instancemutater.Machine, loggo.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
+func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) Do(f func(instancemutater.Machine, logger.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) DoAndReturn(f func(instancemutater.Machine, loggo.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
+func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) DoAndReturn(f func(instancemutater.Machine, logger.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

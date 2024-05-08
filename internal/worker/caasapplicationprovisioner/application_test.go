@@ -125,7 +125,7 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *gc.C) {
 		ops.EXPECT().AppDead("test", app, broker, facade, unitFacade, clk, s.logger).
 			DoAndReturn(func(_ string, _ caas.Application, _ caasapplicationprovisioner.CAASBroker,
 				_ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade,
-				_ clock.Clock, _ caasapplicationprovisioner.Logger) error {
+				_ clock.Clock, _ logger.Logger) error {
 				close(done)
 				return nil
 			}),
@@ -184,14 +184,14 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		// scaleChan fired
 		ops.EXPECT().EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.NotFound),
 		ops.EXPECT().EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.ConstError("try again")),
-		ops.EXPECT().EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, v life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ caasapplicationprovisioner.Logger) error {
+		ops.EXPECT().EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, v life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
 			trustChan <- nil
 			return nil
 		}),
 
 		// trustChan fired
 		ops.EXPECT().EnsureTrust("test", app, unitFacade, s.logger).Return(errors.NotFound),
-		ops.EXPECT().EnsureTrust("test", app, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ caasapplicationprovisioner.Logger) error {
+		ops.EXPECT().EnsureTrust("test", app, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
 			appUnitsChan <- nil
 			return nil
 		}),
@@ -199,36 +199,36 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		// appUnitsChan fired
 		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).Return(errors.NotFound),
 		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).Return(errors.ConstError("try again")),
-		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.Logger) error {
+		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ caasapplicationprovisioner.CAASProvisionerFacade, _ logger.Logger) error {
 			appChan <- struct{}{}
 			return nil
 		}),
 
 		// appChan fired
-		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ caasapplicationprovisioner.Logger) (map[string]status.StatusInfo, error) {
+		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
 			appReplicasChan <- struct{}{}
 			return nil, nil
 		}),
 		// appReplicasChan fired
-		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ caasapplicationprovisioner.Logger) (map[string]status.StatusInfo, error) {
+		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
 			provisioningInfoChan <- struct{}{}
 			return nil, nil
 		}),
 
 		// provisioningInfoChan fired
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
-		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).DoAndReturn(func(s1 string, _ caas.Application, s2 string, ac *caas.ApplicationConfig, _ caasapplicationprovisioner.CAASProvisionerFacade, c clock.Clock, _ caasapplicationprovisioner.Logger) error {
+		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).DoAndReturn(func(s1 string, _ caas.Application, s2 string, ac *caas.ApplicationConfig, _ caasapplicationprovisioner.CAASProvisionerFacade, c clock.Clock, _ logger.Logger) error {
 			provisioningInfoChan <- struct{}{}
 			return nil
 		}),
 		facade.EXPECT().Life("test").Return(life.Dying, nil),
-		ops.EXPECT().AppDying("test", app, life.Dying, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, v life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ caasapplicationprovisioner.Logger) error {
+		ops.EXPECT().AppDying("test", app, life.Dying, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, v life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
 			provisioningInfoChan <- struct{}{}
 			return nil
 		}),
 		facade.EXPECT().Life("test").Return(life.Dead, nil),
 		ops.EXPECT().AppDying("test", app, life.Dead, facade, unitFacade, s.logger).Return(nil),
-		ops.EXPECT().AppDead("test", app, broker, facade, unitFacade, clk, s.logger).DoAndReturn(func(_ string, _ caas.Application, c1 caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, c2 clock.Clock, _ caasapplicationprovisioner.Logger) error {
+		ops.EXPECT().AppDead("test", app, broker, facade, unitFacade, clk, s.logger).DoAndReturn(func(_ string, _ caas.Application, c1 caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, c2 clock.Clock, _ logger.Logger) error {
 			close(done)
 			return nil
 		}),
@@ -283,12 +283,12 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 		}),
 
 		// appChan fired
-		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ caasapplicationprovisioner.Logger) (map[string]status.StatusInfo, error) {
+		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
 			appReplicasChan <- struct{}{}
 			return nil, nil
 		}),
 		// appReplicasChan fired
-		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ caasapplicationprovisioner.Logger) (map[string]status.StatusInfo, error) {
+		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
 			provisioningInfoChan <- struct{}{}
 			return nil, nil
 		}),

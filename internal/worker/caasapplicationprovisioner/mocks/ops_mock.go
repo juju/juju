@@ -71,13 +71,13 @@ func (c *MockApplicationOpsAppAliveCall) Return(arg0 error) *MockApplicationOpsA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsAppAliveCall) Do(f func(string, caas.Application, string, *caas.ApplicationConfig, caasapplicationprovisioner.CAASProvisionerFacade, clock.Clock, caasapplicationprovisioner.Logger) error) *MockApplicationOpsAppAliveCall {
+func (c *MockApplicationOpsAppAliveCall) Do(f func(string, caas.Application, string, *caas.ApplicationConfig, caasapplicationprovisioner.CAASProvisionerFacade, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsAppAliveCall) DoAndReturn(f func(string, caas.Application, string, *caas.ApplicationConfig, caasapplicationprovisioner.CAASProvisionerFacade, clock.Clock, caasapplicationprovisioner.Logger) error) *MockApplicationOpsAppAliveCall {
+func (c *MockApplicationOpsAppAliveCall) DoAndReturn(f func(string, caas.Application, string, *caas.ApplicationConfig, caasapplicationprovisioner.CAASProvisionerFacade, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -109,13 +109,13 @@ func (c *MockApplicationOpsAppDeadCall) Return(arg0 error) *MockApplicationOpsAp
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsAppDeadCall) Do(f func(string, caas.Application, caasapplicationprovisioner.CAASBroker, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, clock.Clock, caasapplicationprovisioner.Logger) error) *MockApplicationOpsAppDeadCall {
+func (c *MockApplicationOpsAppDeadCall) Do(f func(string, caas.Application, caasapplicationprovisioner.CAASBroker, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, clock.Clock, logger.Logger) error) *MockApplicationOpsAppDeadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsAppDeadCall) DoAndReturn(f func(string, caas.Application, caasapplicationprovisioner.CAASBroker, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, clock.Clock, caasapplicationprovisioner.Logger) error) *MockApplicationOpsAppDeadCall {
+func (c *MockApplicationOpsAppDeadCall) DoAndReturn(f func(string, caas.Application, caasapplicationprovisioner.CAASBroker, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, clock.Clock, logger.Logger) error) *MockApplicationOpsAppDeadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -147,13 +147,13 @@ func (c *MockApplicationOpsAppDyingCall) Return(arg0 error) *MockApplicationOpsA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsAppDyingCall) Do(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, caasapplicationprovisioner.Logger) error) *MockApplicationOpsAppDyingCall {
+func (c *MockApplicationOpsAppDyingCall) Do(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, logger.Logger) error) *MockApplicationOpsAppDyingCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsAppDyingCall) DoAndReturn(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, caasapplicationprovisioner.Logger) error) *MockApplicationOpsAppDyingCall {
+func (c *MockApplicationOpsAppDyingCall) DoAndReturn(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, logger.Logger) error) *MockApplicationOpsAppDyingCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -186,13 +186,13 @@ func (c *MockApplicationOpsCheckCharmFormatCall) Return(arg0 bool, arg1 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsCheckCharmFormatCall) Do(f func(string, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.Logger) (bool, error)) *MockApplicationOpsCheckCharmFormatCall {
+func (c *MockApplicationOpsCheckCharmFormatCall) Do(f func(string, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) (bool, error)) *MockApplicationOpsCheckCharmFormatCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsCheckCharmFormatCall) DoAndReturn(f func(string, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.Logger) (bool, error)) *MockApplicationOpsCheckCharmFormatCall {
+func (c *MockApplicationOpsCheckCharmFormatCall) DoAndReturn(f func(string, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) (bool, error)) *MockApplicationOpsCheckCharmFormatCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -224,13 +224,13 @@ func (c *MockApplicationOpsEnsureScaleCall) Return(arg0 error) *MockApplicationO
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsEnsureScaleCall) Do(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, caasapplicationprovisioner.Logger) error) *MockApplicationOpsEnsureScaleCall {
+func (c *MockApplicationOpsEnsureScaleCall) Do(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, logger.Logger) error) *MockApplicationOpsEnsureScaleCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsEnsureScaleCall) DoAndReturn(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, caasapplicationprovisioner.Logger) error) *MockApplicationOpsEnsureScaleCall {
+func (c *MockApplicationOpsEnsureScaleCall) DoAndReturn(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, logger.Logger) error) *MockApplicationOpsEnsureScaleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -262,13 +262,13 @@ func (c *MockApplicationOpsEnsureTrustCall) Return(arg0 error) *MockApplicationO
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsEnsureTrustCall) Do(f func(string, caas.Application, caasapplicationprovisioner.CAASUnitProvisionerFacade, caasapplicationprovisioner.Logger) error) *MockApplicationOpsEnsureTrustCall {
+func (c *MockApplicationOpsEnsureTrustCall) Do(f func(string, caas.Application, caasapplicationprovisioner.CAASUnitProvisionerFacade, logger.Logger) error) *MockApplicationOpsEnsureTrustCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsEnsureTrustCall) DoAndReturn(f func(string, caas.Application, caasapplicationprovisioner.CAASUnitProvisionerFacade, caasapplicationprovisioner.Logger) error) *MockApplicationOpsEnsureTrustCall {
+func (c *MockApplicationOpsEnsureTrustCall) DoAndReturn(f func(string, caas.Application, caasapplicationprovisioner.CAASUnitProvisionerFacade, logger.Logger) error) *MockApplicationOpsEnsureTrustCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -300,13 +300,13 @@ func (c *MockApplicationOpsReconcileDeadUnitScaleCall) Return(arg0 error) *MockA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsReconcileDeadUnitScaleCall) Do(f func(string, caas.Application, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.Logger) error) *MockApplicationOpsReconcileDeadUnitScaleCall {
+func (c *MockApplicationOpsReconcileDeadUnitScaleCall) Do(f func(string, caas.Application, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) error) *MockApplicationOpsReconcileDeadUnitScaleCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsReconcileDeadUnitScaleCall) DoAndReturn(f func(string, caas.Application, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.Logger) error) *MockApplicationOpsReconcileDeadUnitScaleCall {
+func (c *MockApplicationOpsReconcileDeadUnitScaleCall) DoAndReturn(f func(string, caas.Application, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) error) *MockApplicationOpsReconcileDeadUnitScaleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -338,13 +338,13 @@ func (c *MockApplicationOpsRefreshApplicationStatusCall) Return(arg0 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsRefreshApplicationStatusCall) Do(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.Logger) error) *MockApplicationOpsRefreshApplicationStatusCall {
+func (c *MockApplicationOpsRefreshApplicationStatusCall) Do(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) error) *MockApplicationOpsRefreshApplicationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsRefreshApplicationStatusCall) DoAndReturn(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.Logger) error) *MockApplicationOpsRefreshApplicationStatusCall {
+func (c *MockApplicationOpsRefreshApplicationStatusCall) DoAndReturn(f func(string, caas.Application, life.Value, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) error) *MockApplicationOpsRefreshApplicationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -377,13 +377,13 @@ func (c *MockApplicationOpsUpdateStateCall) Return(arg0 map[string]status.Status
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsUpdateStateCall) Do(f func(string, caas.Application, map[string]status.StatusInfo, caasapplicationprovisioner.CAASBroker, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, caasapplicationprovisioner.Logger) (map[string]status.StatusInfo, error)) *MockApplicationOpsUpdateStateCall {
+func (c *MockApplicationOpsUpdateStateCall) Do(f func(string, caas.Application, map[string]status.StatusInfo, caasapplicationprovisioner.CAASBroker, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, logger.Logger) (map[string]status.StatusInfo, error)) *MockApplicationOpsUpdateStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsUpdateStateCall) DoAndReturn(f func(string, caas.Application, map[string]status.StatusInfo, caasapplicationprovisioner.CAASBroker, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, caasapplicationprovisioner.Logger) (map[string]status.StatusInfo, error)) *MockApplicationOpsUpdateStateCall {
+func (c *MockApplicationOpsUpdateStateCall) DoAndReturn(f func(string, caas.Application, map[string]status.StatusInfo, caasapplicationprovisioner.CAASBroker, caasapplicationprovisioner.CAASProvisionerFacade, caasapplicationprovisioner.CAASUnitProvisionerFacade, logger.Logger) (map[string]status.StatusInfo, error)) *MockApplicationOpsUpdateStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
