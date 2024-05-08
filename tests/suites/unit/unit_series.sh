@@ -6,13 +6,13 @@ run_unit_set_series() {
 	file="${TEST_DIR}/test-unit-series.log"
 	ensure "unit-series" "${file}"
 
-	echo "Deploy ubuntu focal"
+	echo "Deploy ubuntu ubuntu@20.04"
 	juju deploy ubuntu --base ubuntu@20.04
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
-	echo "Change application base to jammy and add-unit"
-	juju set-application-base ubuntu jammy
+	echo "Change application base to ubuntu@22.04 and add-unit"
+	juju set-application-base ubuntu ubuntu@22.04
 	juju add-unit ubuntu
 
 	wait_for "ubuntu" "$(idle_condition "ubuntu" 0 1)"
