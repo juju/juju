@@ -2068,46 +2068,6 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 	c.Assert(imported.Type(), gc.Equals, state.ModelTypeIAAS)
 }
 
-func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesBefore2935(c *gc.C) {
-	defaultBase, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.7.8"))
-	c.Assert(ok, jc.IsFalse, gc.Commentf("value: %q", defaultBase))
-}
-
-func (s *MigrationImportSuite) TestImportingModelWithDefaultSeriesAfter2935(c *gc.C) {
-	defaultBase, ok := s.testImportingModelWithDefaultSeries(c, version.MustParse("2.9.35"))
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(defaultBase, gc.Equals, "ubuntu@22.04/stable")
-}
-
-func (s *MigrationImportSuite) testImportingModelWithDefaultSeries(c *gc.C, toolsVer version.Number) (string, bool) {
-	testModel, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctrlCfg := coretesting.FakeControllerConfig()
-
-	newConfig := testModel.Config()
-	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
-	newConfig["name"] = "something-new"
-	newConfig["default-series"] = "jammy"
-	newConfig["agent-version"] = toolsVer.String()
-	importModel := description.NewModel(description.ModelArgs{
-		Type:           string(state.ModelTypeIAAS),
-		Owner:          testModel.Owner(),
-		Config:         newConfig,
-		EnvironVersion: testModel.EnvironVersion(),
-		Blocks:         testModel.Blocks(),
-		Cloud:          testModel.Cloud(),
-		CloudRegion:    testModel.CloudRegion(),
-	})
-	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg, state.NoopConfigSchemaSource)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { _ = newSt.Close() }()
-
-	importedCfg, err := imported.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	return importedCfg.DefaultBase()
-}
-
 func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C) {
 	state.AddTestingApplication(c, s.State, s.objectStore, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	state.AddTestingApplication(c, s.State, s.objectStore, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
