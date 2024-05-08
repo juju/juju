@@ -17,9 +17,9 @@ import (
 	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package changestreampruner -destination stream_mock_test.go github.com/juju/juju/internal/worker/changestreampruner DBGetter,Logger
-//go:generate go run go.uber.org/mock/mockgen -package changestreampruner -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run go.uber.org/mock/mockgen -package changestreampruner -destination worker_mock_test.go github.com/juju/worker/v4 Worker
+//go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination stream_mock_test.go github.com/juju/juju/internal/worker/changestreampruner DBGetter,Logger
+//go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination worker_mock_test.go github.com/juju/worker/v4 Worker
 
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)

@@ -116,8 +116,6 @@ func (s *ManifoldSuite) TestMissingInputs(c *gc.C) {
 func (s *ManifoldSuite) TestStart(c *gc.C) {
 	w := s.startWorkerClean(c)
 	workertest.CleanKill(c, w)
-	s.controllerServiceFactory.EXPECT().ControllerConfig().Return(s.controllerConfigService).AnyTimes()
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(mockControllerConfig{})
 	s.stub.CheckCallNames(c, "NewWorker")
 	args := s.stub.Calls()[0].Args
 	c.Assert(args, gc.HasLen, 1)
@@ -203,20 +201,6 @@ func (c *mockAgentConfig) StateServingInfo() (controller.StateServingInfo, bool)
 		return *c.info, true
 	}
 	return controller.StateServingInfo{}, false
-}
-
-type mockControllerConfig map[string]any
-
-func (c mockControllerConfig) StatePort() int {
-	return 0
-}
-
-func (c mockControllerConfig) APIPort() int {
-	return 0
-}
-
-func (c mockControllerConfig) ControllerAPIPort() int {
-	return 0
 }
 
 type mockHub struct {

@@ -17,9 +17,9 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package eventsource -destination package_mock_test.go github.com/juju/juju/core/watcher/eventsource Logger
-//go:generate go run go.uber.org/mock/mockgen -package eventsource -destination changestream_mock_test.go github.com/juju/juju/core/changestream Subscription,WatchableDB,EventSource
-//go:generate go run go.uber.org/mock/mockgen -package eventsource -destination watcher_mock_test.go -source=./consume.go
+//go:generate go run go.uber.org/mock/mockgen -typed -package eventsource -destination package_mock_test.go github.com/juju/juju/core/watcher/eventsource Logger
+//go:generate go run go.uber.org/mock/mockgen -typed -package eventsource -destination changestream_mock_test.go github.com/juju/juju/core/changestream Subscription,WatchableDB,EventSource
+//go:generate go run go.uber.org/mock/mockgen -typed -package eventsource -destination watcher_mock_test.go -source=./consume.go
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

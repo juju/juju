@@ -65,9 +65,11 @@ func (s *ResourcesSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path,
 	namedPath, err := p.Join(charm, resource, "revisions")
 	c.Assert(err, jc.ErrorIsNil)
 
-	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, response *transport.ResourcesResponse) {
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
+		response := r.(*transport.ResourcesResponse)
 		response.Revisions = make([]transport.ResourceRevision, 3)
-	}).Return(restResponse{}, nil)
+		return restResponse{}, nil
+	})
 }
 
 func (s *ResourcesSuite) expectGetFailure(client *MockRESTClient) {

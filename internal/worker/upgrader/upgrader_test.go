@@ -39,7 +39,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/upgrader_mocks.go github.com/juju/juju/internal/worker/upgrader UpgraderClient
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/upgrader_mocks.go github.com/juju/juju/internal/worker/upgrader UpgraderClient
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }

@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/file_mock.go github.com/juju/juju/cmd/containeragent/utils FileReaderWriter
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/file_mock.go github.com/juju/juju/cmd/containeragent/utils FileReaderWriter
 
 // FileReaderWriter provides methods for reading a file or writing to a file.
 type FileReaderWriter interface {

@@ -17,7 +17,7 @@ import (
 
 // JujuLogContext is the Context for the JujuLogCommand
 //
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/juju-log_mock.go github.com/juju/juju/internal/worker/uniter/runner/jujuc JujuLogContext
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/juju-log_mock.go github.com/juju/juju/internal/worker/uniter/runner/jujuc JujuLogContext
 type JujuLogContext interface {
 	UnitName() string
 	HookRelation() (ContextRelation, error)

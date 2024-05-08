@@ -120,7 +120,7 @@ func (s *initSystemSuite) expectConf(c *gc.C, conf common.Conf) *gomock.Call {
 		exec.RunParams{
 			Commands: "cat /etc/systemd/system/jujud-machine-0.service",
 		},
-	).Return(&exec.ExecResponse{Stdout: data}, nil)
+	).Return(&exec.ExecResponse{Stdout: data}, nil).Call
 }
 
 func (s *initSystemSuite) newConfStr(name string) string {
@@ -452,9 +452,11 @@ func (s *initSystemSuite) TestStart(c *gc.C) {
 		// Equality check for the channel fails here, so we use Any().
 		// We know this is safe, because we notify on the channel we got from
 		// the patched call and everything proceeds happily.
-		s.dBus.EXPECT().StartUnit(svc.UnitName, "fail", gomock.Any()).Return(1, nil).Do(
-			func(string, string, chan<- string) { s.ch <- "done" },
-		),
+		s.dBus.EXPECT().StartUnit(svc.UnitName, "fail", gomock.Any()).
+			DoAndReturn(func(string, string, chan<- string) (int, error) {
+				s.ch <- "done"
+				return 1, nil
+			}),
 		s.dBus.EXPECT().Close(),
 	)
 
@@ -507,9 +509,11 @@ func (s *initSystemSuite) TestStop(c *gc.C) {
 		// Equality check for the channel fails here, so we use Any().
 		// We know this is safe, because we notify on the channel we got from
 		// the patched call and everything proceeds happily.
-		s.dBus.EXPECT().StopUnit(svc.UnitName, "fail", gomock.Any()).Return(1, nil).Do(
-			func(string, string, chan<- string) { s.ch <- "done" },
-		),
+		s.dBus.EXPECT().StopUnit(svc.UnitName, "fail", gomock.Any()).
+			DoAndReturn(func(string, string, chan<- string) (int, error) {
+				s.ch <- "done"
+				return 1, nil
+			}),
 		s.dBus.EXPECT().Close(),
 	)
 

@@ -14,9 +14,9 @@ import (
 	jujujujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package lease -destination database_mock_test.go github.com/juju/juju/core/database TxnRunner
-//go:generate go run go.uber.org/mock/mockgen -package lease -destination clock_mock_test.go github.com/juju/clock Clock,Timer
-//go:generate go run go.uber.org/mock/mockgen -package lease -destination prometheus_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
+//go:generate go run go.uber.org/mock/mockgen -typed -package lease -destination database_mock_test.go github.com/juju/juju/core/database TxnRunner
+//go:generate go run go.uber.org/mock/mockgen -typed -package lease -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run go.uber.org/mock/mockgen -typed -package lease -destination prometheus_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

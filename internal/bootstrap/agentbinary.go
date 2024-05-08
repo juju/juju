@@ -24,8 +24,12 @@ import (
 
 // Logger represents the logging methods called.
 type Logger interface {
-	Warningf(message string, args ...any)
-	Debugf(message string, args ...any)
+	IsTraceEnabled() bool
+
+	Errorf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Debugf(string, ...interface{})
+	Tracef(string, ...interface{})
 }
 
 const (

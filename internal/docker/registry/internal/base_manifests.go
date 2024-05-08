@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/manifests_mock.go github.com/juju/juju/internal/docker/registry/internal ArchitectureGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/manifests_mock.go github.com/juju/juju/internal/docker/registry/internal ArchitectureGetter
 
 type manifestsResponseV1 struct {
 	SchemaVersion int    `json:"schemaVersion"`

@@ -9,11 +9,11 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package systemd_test -destination package_mock_test.go github.com/juju/juju/internal/service/systemd DBusAPI,FileSystemOps
+//go:generate go run go.uber.org/mock/mockgen -typed -package systemd_test -destination package_mock_test.go github.com/juju/juju/internal/service/systemd DBusAPI,FileSystemOps
 
 // TODO (manadart 2020-01-28): Phase this out
 // and generate all mocks with the command above.
-//go:generate go run go.uber.org/mock/mockgen -package systemd -destination shims_mock_test.go github.com/juju/juju/internal/service/systemd ShimExec
+//go:generate go run go.uber.org/mock/mockgen -typed -package systemd -destination shims_mock_test.go github.com/juju/juju/internal/service/systemd ShimExec
 
 func Test(t *testing.T) {
 	gc.TestingT(t)

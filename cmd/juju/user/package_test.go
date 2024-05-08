@@ -9,8 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package user_test -destination utils_controllercommand_mock_test.go github.com/juju/juju/cmd/juju/user ControllerCommand
-//go:generate go run go.uber.org/mock/mockgen -package user_test -destination utils_clientstore_mock_test.go github.com/juju/juju/jujuclient ClientStore
+//go:generate go run go.uber.org/mock/mockgen -typed -package user_test -destination utils_controllercommand_mock_test.go github.com/juju/juju/cmd/juju/user ControllerCommand
+//go:generate go run go.uber.org/mock/mockgen -typed -package user_test -destination utils_clientstore_mock_test.go github.com/juju/juju/jujuclient ClientStore
 
 // None of the tests in this package require mongo.
 // Full command integration tests are found in cmd/juju/user_test.go

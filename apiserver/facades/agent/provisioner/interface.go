@@ -17,8 +17,8 @@ import (
 // It is an indirection for both containerizer.Machine and
 // containerizer.Container as well as state.Machine locally.
 //
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine,BridgePolicy,Unit,Application,Charm
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/internal/network/containerizer LinkLayerDevice
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine,BridgePolicy,Unit,Application,Charm
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/internal/network/containerizer LinkLayerDevice
 type Machine interface {
 	containerizer.Container
 

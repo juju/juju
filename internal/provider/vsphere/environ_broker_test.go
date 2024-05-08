@@ -540,7 +540,7 @@ func (s *environBrokerSuite) TestStopInstancesOneFailure(c *gc.C) {
 		Return(nil)
 	s.mockClient.EXPECT().
 		FindFolder(gomock.Any(), "").
-		After(failedRemoveVM).Return(nil, nil) // only do find folder check if the RemoveVirtualMachines failed.
+		After(failedRemoveVM.Call).Return(nil, nil) // only do find folder check if the RemoveVirtualMachines failed.
 	s.mockClient.EXPECT().Close(gomock.Any()).Return(nil)
 
 	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
@@ -562,10 +562,10 @@ func (s *environBrokerSuite) TestStopInstancesMultipleFailures(c *gc.C) {
 		Return(err2)
 	s.mockClient.EXPECT().
 		FindFolder(gomock.Any(), "").
-		After(failedRemoveVM1).Return(nil, nil)
+		After(failedRemoveVM1.Call).Return(nil, nil)
 	s.mockClient.EXPECT().
 		FindFolder(gomock.Any(), "").
-		After(failedRemoveVM2).Return(nil, nil)
+		After(failedRemoveVM2.Call).Return(nil, nil)
 	s.mockClient.EXPECT().Close(gomock.Any()).Return(nil)
 
 	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")

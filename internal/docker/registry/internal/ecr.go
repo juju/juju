@@ -36,7 +36,7 @@ func (l ecrLogger) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/ecr_mock.go github.com/juju/juju/internal/docker/registry/internal ECRInterface
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/ecr_mock.go github.com/juju/juju/internal/docker/registry/internal ECRInterface
 type ECRInterface interface {
 	GetAuthorizationToken(context.Context, *ecr.GetAuthorizationTokenInput, ...func(*ecr.Options)) (*ecr.GetAuthorizationTokenOutput, error)
 }

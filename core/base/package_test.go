@@ -12,7 +12,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package base -destination distrosource_mock_test.go github.com/juju/juju/core/base DistroSource
+//go:generate go run go.uber.org/mock/mockgen -typed -package base -destination distrosource_mock_test.go github.com/juju/juju/core/base DistroSource
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

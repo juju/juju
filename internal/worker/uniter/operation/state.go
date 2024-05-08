@@ -242,7 +242,7 @@ func NewStateOps(readwriter UnitStateReadWriter) *StateOps {
 // UnitStateReadWriter encapsulates the methods from a state.Unit
 // required to set and get unit state.
 //
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/uniterstaterw_mock.go github.com/juju/juju/internal/worker/uniter/operation UnitStateReadWriter
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/uniterstaterw_mock.go github.com/juju/juju/internal/worker/uniter/operation UnitStateReadWriter
 type UnitStateReadWriter interface {
 	State() (params.UnitStateResult, error)
 	SetState(unitState params.SetUnitStateArg) error

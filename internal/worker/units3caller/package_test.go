@@ -13,8 +13,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package units3caller -destination package_mock_test.go github.com/juju/juju/core/objectstore Session
-//go:generate go run go.uber.org/mock/mockgen -package units3caller -destination api_mocks_test.go github.com/juju/juju/api Connection
+//go:generate go run go.uber.org/mock/mockgen -typed -package units3caller -destination package_mock_test.go github.com/juju/juju/core/objectstore Session
+//go:generate go run go.uber.org/mock/mockgen -typed -package units3caller -destination api_mocks_test.go github.com/juju/juju/api Connection
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

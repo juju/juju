@@ -44,8 +44,8 @@ type SummaryVec interface {
 // MetricsCollector represents a bundle of metrics that is used by the observer
 // factory.
 //
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/observer/metricobserver MetricsCollector,SummaryVec
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Summary
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/observer/metricobserver MetricsCollector,SummaryVec
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Summary
 type MetricsCollector interface {
 	// APIRequestDuration returns a SummaryVec for updating the duration of
 	// api request duration.

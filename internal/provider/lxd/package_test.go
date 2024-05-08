@@ -12,7 +12,7 @@ import (
 	containerLXD "github.com/juju/juju/internal/container/lxd"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package lxd -destination package_mock_test.go github.com/juju/juju/internal/provider/lxd Server,ServerFactory,InterfaceAddress,CertificateReadWriter,CertificateGenerator,LXCConfigReader
+//go:generate go run go.uber.org/mock/mockgen -typed -package lxd -destination package_mock_test.go github.com/juju/juju/internal/provider/lxd Server,ServerFactory,InterfaceAddress,CertificateReadWriter,CertificateGenerator,LXCConfigReader
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

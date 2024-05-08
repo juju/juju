@@ -17,11 +17,11 @@ import (
 	jujutesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination change_mock_test.go github.com/juju/juju/core/changestream Term
-//go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination stream_mock_test.go github.com/juju/juju/internal/changestream/eventmultiplexer Stream
-//go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination logger_mock_test.go github.com/juju/juju/internal/changestream/eventmultiplexer Logger
-//go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination metrics_mock_test.go github.com/juju/juju/internal/changestream/eventmultiplexer MetricsCollector
-//go:generate go run go.uber.org/mock/mockgen -package eventmultiplexer -destination clock_mock_test.go github.com/juju/clock Clock,Timer
+//go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination change_mock_test.go github.com/juju/juju/core/changestream Term
+//go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination stream_mock_test.go github.com/juju/juju/internal/changestream/eventmultiplexer Stream
+//go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination logger_mock_test.go github.com/juju/juju/internal/changestream/eventmultiplexer Logger
+//go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination metrics_mock_test.go github.com/juju/juju/internal/changestream/eventmultiplexer MetricsCollector
+//go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
 func TestPackage(t *testing.T) {
 	defer goleak.VerifyNone(t)

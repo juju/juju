@@ -230,7 +230,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	)
 	s.repoGetter.EXPECT().GetCharmRepository(gomock.Any(), corecharm.CharmHub).Return(repoAdaptor{s.repo}, nil)
 	s.repo.EXPECT().DownloadCharm(gomock.Any(), curl.Name, requestedOriginWithPlatform, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, requestedOrigin corecharm.Origin, archivePath string) (downloader.CharmArchive, corecharm.Origin, error) {
+		func(ctx context.Context, _ string, requestedOrigin corecharm.Origin, archivePath string) (corecharm.CharmArchive, corecharm.Origin, error) {
 			c.Assert(os.WriteFile(archivePath, []byte("meshuggah\n"), 0644), jc.ErrorIsNil)
 			return s.charmArchive, resolvedOrigin, nil
 		},

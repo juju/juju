@@ -12,7 +12,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package schema -destination tx_mock_test.go github.com/juju/juju/core/database/schema Tx
+//go:generate go run go.uber.org/mock/mockgen -typed -package schema -destination tx_mock_test.go github.com/juju/juju/core/database/schema Tx
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)

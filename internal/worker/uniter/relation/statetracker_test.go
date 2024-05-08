@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"
 	corerelation "github.com/juju/juju/core/relation"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -708,7 +709,9 @@ func (s *baseStateTrackerSuite) expectRelationsStatus(status []uniter.RelationSt
 }
 
 func (s *baseStateTrackerSuite) expectWatch(c *gc.C) {
-	do := func() {
+	s.unitChanges = make(chan struct{})
+	s.watcher = watchertest.NewMockNotifyWatcher(s.unitChanges)
+	s.unit.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[struct{}], error) {
 		go func() {
 			select {
 			case s.unitChanges <- struct{}{}:
@@ -716,10 +719,8 @@ func (s *baseStateTrackerSuite) expectWatch(c *gc.C) {
 				c.Fatal("timed out unit change")
 			}
 		}()
-	}
-	s.unitChanges = make(chan struct{})
-	s.watcher = watchertest.NewMockNotifyWatcher(s.unitChanges)
-	s.unit.EXPECT().Watch().Return(s.watcher, nil).Do(do)
+		return s.watcher, nil
+	})
 }
 
 func (s *baseStateTrackerSuite) newStateTracker(c *gc.C) relation.RelationStateTracker {

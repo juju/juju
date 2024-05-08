@@ -90,11 +90,13 @@ func (s *FindSuite) expectGet(c *gc.C, client *MockRESTClient, p path.Path, name
 	namedPath, err = namedPath.Query("fields", defaultFindFilter())
 	c.Assert(err, jc.ErrorIsNil)
 
-	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).Do(func(_ context.Context, _ path.Path, responses *transport.FindResponses) {
+	client.EXPECT().Get(gomock.Any(), namedPath, gomock.Any()).DoAndReturn(func(_ context.Context, _ path.Path, r any) (restResponse, error) {
+		responses := r.(*transport.FindResponses)
 		responses.Results = []transport.FindResponse{{
 			Name: name,
 		}}
-	}).Return(restResponse{StatusCode: http.StatusOK}, nil)
+		return restResponse{StatusCode: http.StatusOK}, nil
+	})
 }
 
 func (s *FindSuite) expectGetFailure(client *MockRESTClient) {

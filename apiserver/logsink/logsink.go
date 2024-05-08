@@ -81,8 +81,8 @@ type GaugeVec interface {
 // MetricsCollector represents a way to change the metrics for the logsink
 // api handler.
 //
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/logsink MetricsCollector
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Counter,Gauge
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/metrics_collector_mock.go github.com/juju/juju/apiserver/logsink MetricsCollector
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/metrics_mock.go github.com/prometheus/client_golang/prometheus Counter,Gauge
 type MetricsCollector interface {
 
 	// TotalConnections returns a prometheus metric that can be incremented

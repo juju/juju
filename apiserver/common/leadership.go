@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/leadership.go github.com/juju/juju/apiserver/common LeadershipPinningBackend,LeadershipMachine
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/leadership.go github.com/juju/juju/apiserver/common LeadershipPinningBackend,LeadershipMachine
 
 // LeadershipMachine is an indirection for state.machine.
 type LeadershipMachine interface {

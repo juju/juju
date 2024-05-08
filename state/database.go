@@ -28,10 +28,10 @@ type SessionCloser func()
 
 func dontCloseAnything() {}
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/database_mock.go github.com/juju/juju/state Database
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/mongo_mock.go github.com/juju/juju/internal/mongo Collection,Query
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/txn_mock.go github.com/juju/txn/v3 Runner
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/database_mock.go github.com/juju/juju/state Database
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/mongo_mock.go github.com/juju/juju/internal/mongo Collection,Query
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/txn_mock.go github.com/juju/txn/v3 Runner
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/clock_mock.go github.com/juju/clock Clock
 
 // Database exposes the mongodb capabilities that most of state should see.
 type Database interface {

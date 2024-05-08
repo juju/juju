@@ -5,7 +5,7 @@ package utils
 
 import "os"
 
-//go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/environment_mock.go github.com/juju/juju/cmd/containeragent/utils Environment
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/environment_mock.go github.com/juju/juju/cmd/containeragent/utils Environment
 
 // Environment provides methods for reading a file or writing to a file.
 type Environment interface {
