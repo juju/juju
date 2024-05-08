@@ -203,20 +203,6 @@ func (c *mockAgentConfig) StateServingInfo() (controller.StateServingInfo, bool)
 	return controller.StateServingInfo{}, false
 }
 
-type mockControllerConfig map[string]any
-
-func (c mockControllerConfig) StatePort() int {
-	return 0
-}
-
-func (c mockControllerConfig) APIPort() int {
-	return 0
-}
-
-func (c mockControllerConfig) ControllerAPIPort() int {
-	return 0
-}
-
 type mockHub struct {
 	peergrouper.Hub
 }
