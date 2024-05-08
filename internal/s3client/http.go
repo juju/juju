@@ -5,6 +5,7 @@ package s3client
 
 import (
 	jujuhttp "github.com/juju/http/v2"
+
 	"github.com/juju/juju/core/logger"
 )
 

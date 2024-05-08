@@ -10,10 +10,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/logger"
-	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
+
+	"github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 const (

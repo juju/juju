@@ -7,12 +7,13 @@ import (
 	"bytes"
 
 	"github.com/juju/charm/v13"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/naturalsort"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type modelSuite struct{}

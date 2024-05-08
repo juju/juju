@@ -11,8 +11,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/logger"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/core/logger"
 )
 
 const (

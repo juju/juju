@@ -7,8 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/logger"
 	"golang.org/x/crypto/acme/autocert"
+
+	"github.com/juju/juju/core/logger"
 )
 
 // State describes retrieval and persistence methods for storage.

@@ -8,8 +8,9 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/juju/juju/core/logger"
 	"github.com/kr/pretty"
+
+	"github.com/juju/juju/core/logger"
 )
 
 // Store stores the current entities to use as a basis for the multiwatcher

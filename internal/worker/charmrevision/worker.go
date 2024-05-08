@@ -8,10 +8,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/core/logger"
 )
 
 // RevisionUpdater exposes the "single" capability required by the worker.

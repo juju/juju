@@ -11,6 +11,7 @@ import (
 
 	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/core/logger"
 )
 

@@ -6,12 +6,13 @@ package lease
 import (
 	"testing"
 
-	"github.com/juju/juju/core/logger"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/testing"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package lease -destination database_mock_test.go github.com/juju/juju/core/database TxnRunner

@@ -8,9 +8,10 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
+
+	"github.com/juju/juju/core/logger"
 )
 
 // NewWorkerFn is an alias function that allows the creation of

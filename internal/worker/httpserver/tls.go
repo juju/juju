@@ -11,9 +11,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/http/v2"
-	"github.com/juju/juju/core/logger"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
+
+	"github.com/juju/juju/core/logger"
 )
 
 // SNIGetterFunc is a helper function that aids the TLS SNI process by working
