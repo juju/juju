@@ -152,6 +152,13 @@ func (s *controllerWorkerSuite) TestWatchingCompleted(c *gc.C) {
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.StepsCompleted).Return(completedWatcher, nil)
 	srv.WatchForUpgradeState(gomock.Any(), s.upgradeUUID, upgrade.Error).Return(failedWatcher, nil)
 
+	sync := make(chan struct{})
+
+	srv.SetControllerDone(gomock.Any(), s.upgradeUUID, "0").DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID, tag string) error {
+		defer close(sync)
+		return nil
+	})
+
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
 
@@ -159,7 +166,12 @@ func (s *controllerWorkerSuite) TestWatchingCompleted(c *gc.C) {
 	s.dispatchChange(c, chCompleted)
 	s.dispatchChange(c, chFailed)
 
-	s.dispatchChange(c, chCompleted)
+	select {
+	case <-sync:
+		s.dispatchChange(c, chCompleted)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting setting controller done")
+	}
 
 	select {
 	case <-done:
