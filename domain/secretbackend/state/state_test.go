@@ -57,10 +57,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 func (s *stateSuite) setupController(c *gc.C) string {
 	controllerUUID := uuid.MustNewUUID().String()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO controller_config (key, value)
-			VALUES (?, ?)
-		`, "controller-uuid", controllerUUID)
+		_, err := tx.ExecContext(ctx, `INSERT INTO controller (uuid) VALUES (?)`, controllerUUID)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

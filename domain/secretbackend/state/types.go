@@ -14,7 +14,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/secretbackend"
-	domainsecretbackend "github.com/juju/juju/domain/secretbackend"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
 )
@@ -87,7 +86,7 @@ type SecretBackend struct {
 	// Name is the name of the secret backend.
 	Name string `db:"name"`
 	// BackendType is the id of the secret backend type.
-	BackendTypeID domainsecretbackend.BackendType `db:"backend_type_id"`
+	BackendTypeID secretbackend.BackendType `db:"backend_type_id"`
 	// TokenRotateInterval is the interval at which the token for the secret backend should be rotated.
 	TokenRotateInterval database.NullDuration `db:"token_rotate_interval"`
 }
