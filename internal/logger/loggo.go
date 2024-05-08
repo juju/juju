@@ -121,7 +121,7 @@ func WrapLoggoContext(context *loggo.Context) logger.LoggerContext {
 
 // GetLogger returns a logger with the given name and tags.
 func (c loggoLoggerContext) GetLogger(name string, tags ...string) logger.Logger {
-	return WrapLoggo(c.context.GetLogger(name, tags...))
+	return WrapLoggo(c.context.GetLogger(name, tags...).WithCallDepth(3))
 }
 
 // ResetLoggerLevels iterates through the known logging modules and sets the

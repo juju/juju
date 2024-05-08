@@ -12,7 +12,7 @@ import (
 // GetLogger returns the default logger.
 // Currently this is backed with loggo.
 func GetLogger(name string, tags ...string) logger.Logger {
-	return WrapLoggo(loggo.GetLoggerWithTags(name, tags...))
+	return WrapLoggo(loggo.GetLoggerWithTags(name, tags...).WithCallDepth(3))
 }
 
 // LoggerContext returns a logger factory that creates loggers.
