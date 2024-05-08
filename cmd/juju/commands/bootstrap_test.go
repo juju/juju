@@ -316,7 +316,6 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 		"name":            bootstrap.ControllerModelName,
 		"type":            "dummy",
 		"default-base":    "ubuntu@22.04/stable",
-		"default-series":  "jammy",
 		"authorized-keys": "public auth key\n",
 		// Dummy provider defaults
 		"broken":     "",
