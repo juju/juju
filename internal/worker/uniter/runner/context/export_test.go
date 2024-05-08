@@ -196,6 +196,10 @@ func SetEnvironmentHookContextNotice(context *HookContext, workloadName, noticeI
 	context.noticeKey = noticeKey
 }
 
+func SetEnvironmentHookContextTargetBase(context *HookContext, baseStr string) {
+	context.baseUpgradeTarget = baseStr
+}
+
 func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {
 	hctx := ctx.(*HookContext)
 	oldStatus := hctx.status
