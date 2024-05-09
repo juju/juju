@@ -48,7 +48,7 @@ run_secrets_cmr() {
 	juju switch "model-secrets-offer"
 	juju suspend-relation "$relation_id"
 	juju switch "model-secrets-consume"
-	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
+	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
 	echo "Checking: resume relation and access is restored"
 	juju switch "model-secrets-offer"
 	juju resume-relation "$relation_id"
@@ -59,7 +59,7 @@ run_secrets_cmr() {
 	juju switch "model-secrets-offer"
 	juju exec --unit dummy-source/0 -- secret-revoke "$secret_uri" --relation "$relation_id"
 	juju switch "model-secrets-consume"
-	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_uri" 2>&1)" 'is not allowed to read this secret'
+	check_contains "$(juju exec --unit dummy-sink/0 -- secret-get "$secret_uri" 2>&1)" 'permission denied'
 }
 
 test_secrets_cmr() {
