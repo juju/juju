@@ -55,17 +55,14 @@ func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnect
 	}
 
 	// When the client intends to login via client credentials (like a service
-	// account) they leave `SimpleConfig.Username` empty and assign the client
-	// credentials to `SimpleConfig.ClientID` and `SimpleConfig.ClientSecret`.
-	// To ensure that `info.Tag` is never empty, we should assign it with
-	// username or client ID, whichever is not empty.
+	// account) they leave `opts.Username` empty and assign the client
+	// credentials to `opts.ClientID` and `opts.ClientSecret`. In such cases,
+	// we shouldn't assign `info.Tag` with a user tag.
 	if opts.Username != "" {
 		info.Tag = names.NewUserTag(opts.Username)
 		info.Password = opts.Password
 		info.Macaroons = opts.Macaroons
-	} else if opts.ClientID != "" {
-		info.Tag = names.NewUserTag(opts.ClientID)
-	} else {
+	} else if opts.ClientID == "" {
 		return nil, errors.New("either Username or ClientID should be set")
 	}
 
