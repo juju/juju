@@ -49,7 +49,7 @@ func newWorker(ctx context.Context, a agent.Agent, apiCaller base.APICaller) (wo
 }
 
 var NewWorker = func(agentConfig agent.Config) (worker.Worker, error) {
-	inner := func(<-chan struct{}) error {
+	inner := func(ctx context.Context) error {
 		return agent.WriteSystemIdentityFile(agentConfig)
 	}
 	return jworker.NewSimpleWorker(inner), nil

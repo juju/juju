@@ -5,16 +5,15 @@
 package worker
 
 import (
+	"context"
+
 	"github.com/juju/worker/v4"
 )
 
-func NewNoOpWorker() worker.Worker {
-	return NewSimpleWorker(doNothing)
-}
-
-func doNothing(stop <-chan struct{}) error {
-	select {
-	case <-stop:
+// NoopWorker returns a worker that waits for the context to be done.
+func NoopWorker() worker.Worker {
+	return NewSimpleWorker(func(ctx context.Context) error {
+		<-ctx.Done()
 		return nil
-	}
+	})
 }

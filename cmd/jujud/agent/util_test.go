@@ -339,13 +339,6 @@ func runWithTimeout(c *gc.C, r runner) error {
 	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
 }
 
-func newDummyWorker() worker.Worker {
-	return jworker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		<-stop
-		return nil
-	})
-}
-
 type FakeConfig struct {
 	agent.ConfigSetter
 	values map[string]string

@@ -190,7 +190,7 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return jujuworker.NewSimpleWorker(func(<-chan struct{}) error {
+	return jujuworker.NewSimpleWorker(func(ctx stdcontext.Context) error {
 		// NOTE(axw) the abort channel is ignored, because upgrade
 		// steps are not interruptible. If we find they need to be
 		// interruptible, we should consider passing through a

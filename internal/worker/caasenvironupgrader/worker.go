@@ -4,6 +4,8 @@
 package caasenvironupgrader
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
@@ -61,7 +63,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 	// There are no upgrade steps for a CAAS model.
 	// We just set the status to available and unlock the gate.
-	return jujuworker.NewSimpleWorker(func(<-chan struct{}) error {
+	return jujuworker.NewSimpleWorker(func(context.Context) error {
 		setStatus := func(s status.Status, info string) error {
 			return config.Facade.SetModelStatus(config.ModelTag, s, info, nil)
 		}

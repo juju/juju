@@ -28,18 +28,18 @@ func (s *periodicWorkerSuite) TestWait(c *gc.C) {
 	funcHasRun := make(chan struct{})
 	doWork := func(_ <-chan struct{}) error {
 		funcHasRun <- struct{}{}
-		return testError
+		return errTest
 	}
 
 	w := NewPeriodicWorker(doWork, defaultPeriod, NewTimer)
-	defer func() { c.Assert(worker.Stop(w), gc.Equals, testError) }()
+	defer func() { c.Assert(worker.Stop(w), gc.Equals, errTest) }()
 	select {
 	case <-funcHasRun:
 	case <-time.After(testing.ShortWait):
 		c.Fatalf("The doWork function should have been called by now")
 	}
 	w.Kill()
-	c.Assert(w.Wait(), gc.Equals, testError)
+	c.Assert(w.Wait(), gc.Equals, errTest)
 	select {
 	case <-funcHasRun:
 		c.Fatalf("After the kill we don't expect anymore calls to the function")
@@ -146,7 +146,7 @@ func (s *periodicWorkerSuite) TestKill(c *gc.C) {
 		ExpectedValue error
 	}{
 		{nil, nil},
-		{testError, testError},
+		{errTest, errTest},
 		{ErrKilled, nil},
 	}
 

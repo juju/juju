@@ -26,7 +26,7 @@ type LogSenderAPI interface {
 // New starts a logsender worker which reads log message structs from
 // a channel and sends them to the controller via the logsink API.
 func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
-	loop := func(stop <-chan struct{}) error {
+	loop := func(ctx context.Context) error {
 		// It has been observed that sometimes the logsender.API gets wedged
 		// attempting to get the LogWriter while the agent is being torn down,
 		// and the call to logSenderAPI.LogWriter() doesn't return. This stops
@@ -40,13 +40,13 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 			if err != nil {
 				select {
 				case errChan <- err:
-				case <-stop:
+				case <-ctx.Done():
 				}
 				return
 			}
 			select {
 			case sender <- logWriter:
-			case <-stop:
+			case <-ctx.Done():
 				logWriter.Close()
 			}
 		}()
@@ -56,7 +56,7 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 		case logWriter = <-sender:
 		case err = <-errChan:
 			return errors.Annotate(err, "logsender dial failed")
-		case <-stop:
+		case <-ctx.Done():
 			return nil
 		}
 		defer logWriter.Close()
@@ -101,7 +101,7 @@ func New(logs LogRecordCh, logSenderAPI LogSenderAPI) worker.Worker {
 					}
 				}
 
-			case <-stop:
+			case <-ctx.Done():
 				return nil
 			}
 		}
