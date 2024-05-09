@@ -68,7 +68,7 @@ func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnect
 	}
 
 	dialOpts := api.DefaultDialOpts()
-	if opts.Username == "" {
+	if opts.ClientID != "" && opts.ClientSecret != "" {
 		dialOpts.LoginProvider = api.NewClientCredentialsLoginProvider(
 			opts.ClientID,
 			opts.ClientSecret,
