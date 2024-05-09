@@ -2764,24 +2764,14 @@ HAVING suc.current_revision < sr.latest_revision`
 // InitialWatchStatementForRemoteConsumedSecretsChange returns the initial watch statement and the table name for watching remote consumed secrets.
 func (st State) InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName string) (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
-
-		// TODO: sqlair does not support inject parameters into values in quotation marks.
-		// Use sqlair to generate the query once https://github.com/canonical/sqlair/issues/148 is fixed.
-		// q := `
-		// SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
-		// FROM secret_remote_unit_consumer sruc
-		// LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-		// WHERE sruc.unit_id LIKE '$M.app_name/%'`
-
-		q := fmt.Sprintf(`
+		q := `
 SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
 FROM secret_remote_unit_consumer sruc
 LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-WHERE sruc.unit_id LIKE '%s/%%'`, appName)
+WHERE sruc.unit_id LIKE CONCAT($M.app_name, '/%')`
 
 		queryParams := []any{
-			// TODO: enable this once https://github.com/canonical/sqlair/issues/148 is fixed.
-			// sqlair.M{"app_name": appName},
+			sqlair.M{"app_name": appName},
 		}
 		q += `
 GROUP BY sruc.secret_id
@@ -2817,23 +2807,15 @@ func (st State) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx conte
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO: sqlair does not support inject parameters into values in quotation marks.
-	// Use sqlair to generate the query once https://github.com/canonical/sqlair/issues/148 is fixed.
-	// q := `
-	// SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
-	// FROM secret_remote_unit_consumer sruc
-	// LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-	// WHERE sruc.unit_id LIKE '$M.app_name/%'`
 
-	q := fmt.Sprintf(`
+	q := `
 SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
 FROM secret_remote_unit_consumer sruc
 LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-WHERE sruc.unit_id LIKE '%s/%%'`, appName)
+WHERE sruc.unit_id LIKE CONCAT($M.app_name, '/%')`
 
 	queryParams := []any{
-		// TODO: enable this once https://github.com/canonical/sqlair/issues/148 is fixed.
-		// sqlair.M{"app_name": appName},
+		sqlair.M{"app_name": appName},
 	}
 	if len(revUUIDs) > 0 {
 		queryParams = append(queryParams, revisionUUIDs(revUUIDs))
