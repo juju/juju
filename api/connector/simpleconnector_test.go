@@ -51,7 +51,6 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 			expectedAPIInfo: api.Info{
 				Addrs:    []string{"some.host:9999"},
 				ModelTag: names.NewModelTag("some-uuid"),
-				Tag:      names.NewUserTag("some-client-id"),
 			},
 			expectedDefaultDialOpts: func() api.DialOpts {
 				expected := api.DefaultDialOpts()
