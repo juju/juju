@@ -4,7 +4,6 @@
 package connector
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
@@ -62,8 +61,6 @@ func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnect
 		info.Tag = names.NewUserTag(opts.Username)
 		info.Password = opts.Password
 		info.Macaroons = opts.Macaroons
-	} else if opts.ClientID == "" {
-		return nil, errors.New("either Username or ClientID should be set")
 	}
 
 	if err := info.Validate(); err != nil {
