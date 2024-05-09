@@ -81,7 +81,7 @@ func (s *workerSuite) TestPruneControllerNS(c *gc.C) {
 	s.insertControllerNodes(c, 1)
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1002, UpdatedAt: now.Add(-time.Minute)})
 	s.truncateChangeLog(c, s.TxnRunner())
-	s.insertChangeLogItems(c, s.TxnRunner(), 10, now)
+	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.prune()
 	c.Check(err, jc.ErrorIsNil)
@@ -113,7 +113,7 @@ func (s *workerSuite) TestPruneModelList(c *gc.C) {
 	s.expectDBGet(modelUUID.String(), txnRunner)
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1002, UpdatedAt: now.Add(-time.Minute)})
 	s.truncateChangeLog(c, s.TxnRunner())
-	s.insertChangeLogItems(c, s.TxnRunner(), 10, now)
+	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.prune()
 	c.Check(err, jc.ErrorIsNil)
@@ -146,11 +146,11 @@ func (s *workerSuite) TestPruneModelListWithChangeLogItems(c *gc.C) {
 	s.expectDBGet(modelUUID.String(), txnRunner)
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1002, UpdatedAt: now.Add(-time.Minute)})
 	s.truncateChangeLog(c, s.TxnRunner())
-	s.insertChangeLogItems(c, s.TxnRunner(), 10, now)
+	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	s.insertChangeLogWitness(c, txnRunner, Watermark{ControllerID: "0", LowerBound: 1003, UpdatedAt: now.Add(-time.Second)})
 	s.truncateChangeLog(c, txnRunner)
-	s.insertChangeLogItems(c, txnRunner, 6, now)
+	s.insertChangeLogItems(c, txnRunner, 0, 6, now)
 
 	result, err := pruner.prune()
 	c.Check(err, jc.ErrorIsNil)
@@ -214,7 +214,9 @@ func (s *workerSuite) TestPruneModelChangeLogWitness(c *gc.C) {
 func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectDBGet("foo", s.TxnRunner())
+	// We request the db
+
+	s.expectDBGetTimes("foo", s.TxnRunner(), 3)
 	s.expectClock()
 
 	s.logger.EXPECT().Warningf("namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up", gomock.Any(), gomock.Any()).Do(c.Logf).Times(2)
@@ -227,9 +229,29 @@ func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))})
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "3", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Minute))})
 
-	s.insertChangeLogItems(c, s.TxnRunner(), 1, now)
+	s.insertChangeLogItems(c, s.TxnRunner(), 0, 1, now)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.Equals, int64(1))
+
+	// Should not prune anything as there are no new changes. Notice that the
+	// warning is not logged.
+
+	result, err = pruner.pruneModel(context.Background(), "foo")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.Equals, int64(0))
+
+	// Add some new changes and it should log the warning.
+
+	now = time.Now()
+
+	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 2, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))})
+	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "3", LowerBound: 2, UpdatedAt: now.Add(-(defaultWindowDuration + time.Minute))})
+
+	s.insertChangeLogItems(c, s.TxnRunner(), 1, 1, now)
+
+	result, err = pruner.pruneModel(context.Background(), "foo")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, gc.Equals, int64(1))
 }
@@ -250,7 +272,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItems(c *gc.C) {
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1002, UpdatedAt: now.Add(-time.Minute)})
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "3", LowerBound: 1003, UpdatedAt: now.Add(-time.Second)})
 
-	s.insertChangeLogItems(c, s.TxnRunner(), 10, now)
+	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
 	c.Check(err, jc.ErrorIsNil)
@@ -275,7 +297,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarks(
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1005, UpdatedAt: now.Add(-time.Minute)})
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "1", LowerBound: 1002, UpdatedAt: now.Add(-time.Second)})
 
-	s.insertChangeLogItems(c, s.TxnRunner(), 10, now)
+	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
 	c.Check(err, jc.ErrorIsNil)
@@ -301,7 +323,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksW
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "1", LowerBound: 1002, UpdatedAt: now.Add(-time.Second)})
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "2", LowerBound: 1001, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))})
 
-	s.insertChangeLogItems(c, s.TxnRunner(), 10, now)
+	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
 	c.Check(err, jc.ErrorIsNil)
@@ -327,7 +349,7 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksM
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "1", LowerBound: 1002, UpdatedAt: now.Add(-time.Second)})
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "2", LowerBound: 1001, UpdatedAt: now.Add(-time.Second)})
 
-	s.insertChangeLogItems(c, s.TxnRunner(), 10, now)
+	s.insertChangeLogItems(c, s.TxnRunner(), 0, 10, now)
 
 	result, err := pruner.pruneModel(context.Background(), "foo")
 	c.Check(err, jc.ErrorIsNil)
@@ -340,29 +362,72 @@ func (s *workerSuite) TestWindowContains(c *gc.C) {
 	now := time.Now()
 	testCases := []struct {
 		window   window
-		now      time.Time
+		other    window
 		expected bool
 	}{{
-		window:   window{start: now.Add(-time.Minute), end: now},
-		now:      now,
+		window:   window{start: now, end: now},
+		other:    window{start: now, end: now},
 		expected: true,
 	}, {
-		window:   window{start: now.Add(-time.Minute), end: now},
-		now:      now.Add(-time.Minute),
+		window:   window{start: now.Add(-time.Minute), end: now.Add(time.Minute)},
+		other:    window{start: now, end: now},
 		expected: true,
 	}, {
-		window:   window{start: now.Add(-time.Minute), end: now},
-		now:      now.Add(-(time.Minute * 2)),
+		window:   window{start: now.Add(time.Minute), end: now.Add(-time.Minute)},
+		other:    window{start: now, end: now},
 		expected: false,
 	}, {
-		window:   window{start: now.Add(-time.Minute), end: now},
-		now:      now.Add(time.Minute * 2),
+		window:   window{start: now.Add(time.Minute), end: now.Add(time.Minute)},
+		other:    window{start: now, end: now},
+		expected: false,
+	}, {
+		window:   window{start: now.Add(-time.Minute), end: now.Add(-time.Minute)},
+		other:    window{start: now, end: now},
+		expected: false,
+	}, {
+		window:   window{start: now, end: now.Add(time.Minute * 2)},
+		other:    window{start: now.Add(time.Minute), end: now.Add(time.Minute + time.Second)},
+		expected: true,
+	}, {
+		window:   window{start: now, end: now.Add(time.Minute * 2)},
+		other:    window{start: now.Add(time.Nanosecond), end: now.Add((time.Minute * 2) - time.Nanosecond)},
+		expected: true,
+	}, {
+		window:   window{start: now, end: now.Add(time.Minute * 2)},
+		other:    window{start: now, end: now.Add((time.Minute * 2) - time.Nanosecond)},
+		expected: false,
+	}, {
+		window:   window{start: now, end: now.Add(time.Minute * 2)},
+		other:    window{start: now.Add(time.Nanosecond), end: now.Add(time.Minute * 2)},
 		expected: false,
 	}}
 	for i, test := range testCases {
 		c.Logf("test %d", i)
 
-		got := test.window.contains(test.now)
+		got := test.window.Contains(test.other)
+		c.Check(got, gc.Equals, test.expected)
+	}
+}
+
+func (s *workerSuite) TestWindowEquals(c *gc.C) {
+	now := time.Now()
+	testCases := []struct {
+		window   window
+		other    window
+		expected bool
+	}{{
+		window:   window{start: now, end: now},
+		other:    window{start: now, end: now},
+		expected: true,
+	}, {
+		window:   window{start: now.Add(-time.Minute), end: now.Add(time.Minute)},
+		other:    window{start: now, end: now},
+		expected: false,
+	}}
+	for i, test := range testCases {
+		c.Logf("test %d", i)
+
+		got := test.window.Equals(test.other)
 		c.Check(got, gc.Equals, test.expected)
 	}
 }
@@ -375,59 +440,69 @@ func (s *workerSuite) TestLowestWatermark(c *gc.C) {
 	now := time.Now()
 	testCases := []struct {
 		watermarks []Watermark
-		now        time.Time
-		expected   Watermark
-		expectedOK bool
+		expected   []Watermark
 	}{{
 		watermarks: []Watermark{
 			{ControllerID: "0", LowerBound: 1, UpdatedAt: now},
 		},
-		now:        now,
-		expected:   Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now},
-		expectedOK: true,
+		expected: []Watermark{
+			{ControllerID: "0", LowerBound: 1, UpdatedAt: now},
+		},
 	}, {
 		watermarks: []Watermark{
 			{ControllerID: "0", LowerBound: 1, UpdatedAt: now},
 			{ControllerID: "1", LowerBound: 1, UpdatedAt: now},
 		},
-		now:        now,
-		expected:   Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now},
-		expectedOK: true,
+		expected: []Watermark{
+			{ControllerID: "0", LowerBound: 1, UpdatedAt: now},
+			{ControllerID: "1", LowerBound: 1, UpdatedAt: now},
+		},
 	}, {
 		watermarks: []Watermark{
 			{ControllerID: "0", LowerBound: 1, UpdatedAt: now},
 			{ControllerID: "1", LowerBound: 10, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))},
 		},
-		now:        now,
-		expected:   Watermark{ControllerID: "0", LowerBound: 1, UpdatedAt: now},
-		expectedOK: true,
+		expected: []Watermark{
+			{ControllerID: "0", LowerBound: 1, UpdatedAt: now},
+			{ControllerID: "1", LowerBound: 10, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))},
+		},
 	}, {
 		watermarks: []Watermark{
 			{ControllerID: "0", LowerBound: 2, UpdatedAt: now},
 			{ControllerID: "1", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration - time.Second))},
 		},
-		now:        now,
-		expected:   Watermark{ControllerID: "1", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration - time.Second))},
-		expectedOK: true,
+		expected: []Watermark{
+			{ControllerID: "1", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration - time.Second))},
+			{ControllerID: "0", LowerBound: 2, UpdatedAt: now},
+		},
+	}, {
+		watermarks: []Watermark{
+			{ControllerID: "0", LowerBound: 1, UpdatedAt: now},
+			{ControllerID: "1", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration - time.Second))},
+		},
+		expected: []Watermark{
+			{ControllerID: "1", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration - time.Second))},
+			{ControllerID: "0", LowerBound: 1, UpdatedAt: now},
+		},
 	}, {
 		watermarks: []Watermark{
 			{ControllerID: "0", LowerBound: 2, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))},
 			{ControllerID: "1", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))},
 		},
-		now: now,
 		// TODO (stickupkid): This should be false, but we need a strategy for
 		// removing nodes that are not keeping up. We're logging a warning
 		// instead.
-		expected:   Watermark{ControllerID: "1", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))},
-		expectedOK: true,
+		expected: []Watermark{
+			{ControllerID: "1", LowerBound: 1, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))},
+			{ControllerID: "0", LowerBound: 2, UpdatedAt: now.Add(-(defaultWindowDuration + time.Second))},
+		},
 	}}
 
 	for i, test := range testCases {
 		c.Logf("test %d", i)
 
-		got, ok := s.newPruner(c).lowestWatermark("foo", test.watermarks, test.now)
+		got := sortWatermarks("foo", test.watermarks)
 		c.Check(got, jc.DeepEquals, test.expected)
-		c.Check(ok, gc.Equals, test.expectedOK)
 	}
 }
 
@@ -438,6 +513,7 @@ func (s *workerSuite) newPruner(c *gc.C) *Pruner {
 			Clock:    s.clock,
 			Logger:   s.logger,
 		},
+		windows: make(map[string]window),
 	}
 }
 
@@ -466,6 +542,7 @@ func (s *workerSuite) insertChangeLogWitness(c *gc.C, runner coredatabase.TxnRun
 	query, err := sqlair.Prepare(`
 INSERT INTO change_log_witness (controller_id, lower_bound, updated_at)
 VALUES ($M.ctrl_id, $M.lower_bound, $M.updated_at)
+ON CONFLICT (controller_id) DO UPDATE SET lower_bound = $M.lower_bound, updated_at = $M.updated_at;
 			`, sqlair.M{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -483,7 +560,7 @@ VALUES ($M.ctrl_id, $M.lower_bound, $M.updated_at)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *workerSuite) insertChangeLogItems(c *gc.C, runner coredatabase.TxnRunner, amount int, now time.Time) {
+func (s *workerSuite) insertChangeLogItems(c *gc.C, runner coredatabase.TxnRunner, start, amount int, now time.Time) {
 	query, err := sqlair.Prepare(`
 INSERT INTO change_log (id, edit_type_id, namespace_id, changed, created_at)
 VALUES ($M.id, 4, 2, 0, $M.created_at);
@@ -491,7 +568,7 @@ VALUES ($M.id, 4, 2, 0, $M.created_at);
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = runner.Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		for i := 0; i < amount; i++ {
+		for i := start; i < amount; i++ {
 			err := tx.Query(ctx, query, sqlair.M{
 				"id":         i + 1000,
 				"created_at": now,
