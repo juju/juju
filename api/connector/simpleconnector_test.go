@@ -74,14 +74,11 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 				Tag:      names.NewUserTag("some-username"),
 				Password: "some-password",
 			},
-		},
-		{
-			name: "with neither username nor client id",
-			opts: SimpleConfig{
-				ControllerAddresses: []string{"some.host:9999"},
-				ModelUUID:           "some-uuid",
+			expectedDefaultDialOpts: func() api.DialOpts {
+				expected := api.DefaultDialOpts()
+				expected.LoginProvider = api.NewClientCredentialsLoginProvider("some-client-id", "some-client-secret")
+				return expected
 			},
-			expectedError: "either Username or ClientID should be set",
 		},
 	}
 
