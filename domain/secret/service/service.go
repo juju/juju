@@ -285,10 +285,6 @@ func (s *SecretService) CreateCharmSecret(ctx context.Context, uri *secrets.URI,
 // the secret owner already has a secret with the same label.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, params UpdateUserSecretParams) (errOut error) {
-	if len(params.Data) == 0 {
-		return errors.NotValidf("empty secret value")
-	}
-
 	if err := s.canManage(ctx, uri, params.Accessor, nil); err != nil {
 		return errors.Trace(err)
 	}
@@ -305,44 +301,43 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		for k, v := range params.Data {
 			p.Data[k] = v
 		}
-	}
+		err := s.loadBackendInfo(ctx, true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// loadBackendInfo will error is there's no active backend.
+		backend := s.backends[s.activeBackendID]
 
-	err := s.loadBackendInfo(ctx, true)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// loadBackendInfo will error is there's no active backend.
-	backend := s.backends[s.activeBackendID]
-
-	md, err := s.GetSecret(ctx, uri)
-	if err != nil {
-		// Check if the uri exists or not.
-		return errors.Trace(err)
-	}
-	revId, err := backend.SaveContent(ctx, uri, md.LatestRevision+1, secrets.NewSecretValue(params.Data))
-	if err != nil && !errors.Is(err, errors.NotSupported) {
-		return errors.Annotatef(err, "saving secret content to backend")
-	}
-	if err == nil {
-		defer func() {
-			if errOut != nil {
-				// If we failed to update the secret, we should delete the
-				// secret value from the backend for the new revision.
-				if err2 := backend.DeleteContent(ctx, revId); err2 != nil &&
-					!errors.Is(err2, errors.NotSupported) &&
-					!errors.Is(err2, secreterrors.SecretRevisionNotFound) {
-					s.logger.Warningf("failed to delete secret %q: %v", revId, err2)
+		md, err := s.GetSecret(ctx, uri)
+		if err != nil {
+			// Check if the uri exists or not.
+			return errors.Trace(err)
+		}
+		revId, err := backend.SaveContent(ctx, uri, md.LatestRevision+1, secrets.NewSecretValue(params.Data))
+		if err != nil && !errors.Is(err, errors.NotSupported) {
+			return errors.Annotatef(err, "saving secret content to backend")
+		}
+		if err == nil {
+			defer func() {
+				if errOut != nil {
+					// If we failed to update the secret, we should delete the
+					// secret value from the backend for the new revision.
+					if err2 := backend.DeleteContent(ctx, revId); err2 != nil &&
+						!errors.Is(err2, errors.NotSupported) &&
+						!errors.Is(err2, secreterrors.SecretRevisionNotFound) {
+						s.logger.Warningf("failed to delete secret %q: %v", revId, err2)
+					}
 				}
+			}()
+			p.Data = nil
+			p.ValueRef = &secrets.ValueRef{
+				BackendID:  s.activeBackendID,
+				RevisionID: revId,
 			}
-		}()
-		p.Data = nil
-		p.ValueRef = &secrets.ValueRef{
-			BackendID:  s.activeBackendID,
-			RevisionID: revId,
 		}
 	}
 
-	err = s.st.UpdateSecret(ctx, uri, p)
+	err := s.st.UpdateSecret(ctx, uri, p)
 	return errors.Annotatef(err, "updating user secret %q", uri.ID)
 }
 
