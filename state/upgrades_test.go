@@ -255,3 +255,75 @@ func (s *upgradesSuite) TestFillInEmptyCharmhubTracks(c *gc.C) {
 	expectedData := upgradedData(applications, expected)
 	s.assertUpgradedData(c, FillInEmptyCharmhubTracks, expectedData)
 }
+
+func (s *upgradesSuite) TestAssignArchToContainers(c *gc.C) {
+	st := s.state
+	instanceDataColl, closer := st.db().GetRawCollection(instanceDataC)
+	defer closer()
+
+	err := instanceDataColl.Insert(bson.M{
+		"_id":        ensureModelUUID(st.ModelUUID(), "0"),
+		"model-uuid": st.ModelUUID(),
+		"machineid":  "0",
+		"arch":       "arm64",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = instanceDataColl.Insert(bson.M{
+		"_id":        ensureModelUUID(st.ModelUUID(), "0/lxd/7"),
+		"model-uuid": st.ModelUUID(),
+		"machineid":  "0/lxd/7",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = instanceDataColl.Insert(bson.M{
+		"_id":        ensureModelUUID(st.ModelUUID(), "2"),
+		"model-uuid": st.ModelUUID(),
+		"machineid":  "2",
+		"arch":       "amd64",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = instanceDataColl.Insert(bson.M{
+		"_id":        ensureModelUUID(st.ModelUUID(), "3"),
+		"model-uuid": st.ModelUUID(),
+		"machineid":  "3",
+		"arch":       "amd64",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = instanceDataColl.Insert(bson.M{
+		"_id":        ensureModelUUID(st.ModelUUID(), "3/kvm/2"),
+		"model-uuid": st.ModelUUID(),
+		"machineid":  "3/kvm/2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	var expected bsonMById
+	expected = append(expected, bson.M{
+		"_id":        ensureModelUUID(st.ModelUUID(), "0"),
+		"model-uuid": st.ModelUUID(),
+		"machineid":  "0",
+		"arch":       "arm64",
+	}, bson.M{
+		"_id":        ensureModelUUID(st.ModelUUID(), "0/lxd/7"),
+		"model-uuid": st.ModelUUID(),
+		"machineid":  "0/lxd/7",
+		"arch":       "arm64",
+	}, bson.M{
+		"_id":        ensureModelUUID(st.ModelUUID(), "2"),
+		"model-uuid": st.ModelUUID(),
+		"machineid":  "2",
+		"arch":       "amd64",
+	}, bson.M{
+		"_id":        ensureModelUUID(st.ModelUUID(), "3"),
+		"model-uuid": st.ModelUUID(),
+		"machineid":  "3",
+		"arch":       "amd64",
+	}, bson.M{
+		"_id":        ensureModelUUID(st.ModelUUID(), "3/kvm/2"),
+		"model-uuid": st.ModelUUID(),
+		"machineid":  "3/kvm/2",
+		"arch":       "amd64",
+	})
+
+	sort.Sort(expected)
+	expectedData := upgradedData(instanceDataColl, expected)
+	s.assertUpgradedData(c, AssignArchToContainers, expectedData)
+}

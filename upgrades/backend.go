@@ -13,6 +13,7 @@ import (
 type StateBackend interface {
 	ConvertApplicationOfferTokenKeys() error
 	FillInEmptyCharmhubTracks() error
+	AssignArchToContainers() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -37,4 +38,8 @@ func (s stateBackend) ConvertApplicationOfferTokenKeys() error {
 
 func (s stateBackend) FillInEmptyCharmhubTracks() error {
 	return state.FillInEmptyCharmhubTracks(s.pool)
+}
+
+func (s stateBackend) AssignArchToContainers() error {
+	return state.AssignArchToContainers(s.pool)
 }
