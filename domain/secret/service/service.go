@@ -308,6 +308,7 @@ func (s *SecretService) UpdateUserSecret(ctx context.Context, uri *secrets.URI, 
 		// loadBackendInfo will error is there's no active backend.
 		backend := s.backends[s.activeBackendID]
 
+		// TODO: use a bespoke "GetLatestRevision(ctx, uri) method instead of GetSecret().
 		md, err := s.GetSecret(ctx, uri)
 		if err != nil {
 			// Check if the uri exists or not.
