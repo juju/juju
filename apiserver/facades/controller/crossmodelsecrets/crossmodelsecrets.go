@@ -108,6 +108,9 @@ func (s *CrossModelSecretsAPI) getSecretAccessScope(ctx stdcontext.Context, arg 
 
 	secretService := s.secretServiceGetter(uri.SourceUUID)
 	scopeTag, err := s.accessScope(ctx, secretService, uri, consumerUnit)
+	if errors.Is(err, secreterrors.SecretAccessScopeNotFound) {
+		return "", apiservererrors.ErrPerm
+	}
 	if err != nil {
 		return "", errors.Trace(err)
 	}
