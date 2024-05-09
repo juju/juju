@@ -91,6 +91,11 @@ func (s *Service) UpdateControllerConfig(ctx context.Context, updateAttrs contro
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// Drop controller UUID, as we don't need to set it and it will be validated
+	// in the validate config. It's not possible to update it.
+	delete(coerced, controller.ControllerUUIDKey)
+
 	err = s.st.UpdateControllerConfig(ctx, coerced, removeAttrs, func(current map[string]string) error {
 		// Validate the updateAttrs against the current config.
 		// This is done to ensure that the update config values are allowed

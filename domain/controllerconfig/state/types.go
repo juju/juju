@@ -3,11 +3,14 @@
 
 package state
 
-type dbKeyValue struct {
+type KeyValue struct {
 	Key   string `db:"key"`
 	Value string `db:"value"`
 }
 
-type dbController struct {
+type Controller struct {
 	UUID string `db:"uuid"`
+	Name string `db:"name"`
 }
+
+type StringSlice []string

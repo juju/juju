@@ -8,13 +8,11 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
-	internaldatabase "github.com/juju/juju/internal/database"
 )
 
 // State represents a type for interacting with the underlying state.
@@ -36,14 +34,14 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error
 		return nil, errors.Trace(err)
 	}
 
-	stmt, err := st.Prepare("SELECT &dbKeyValue.* FROM v_controller_config", dbKeyValue{})
+	stmt, err := st.Prepare("SELECT &KeyValue.* FROM v_controller_config", KeyValue{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	result := make(map[string]string)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var keyValues []dbKeyValue
+		var keyValues []KeyValue
 		if err := tx.Query(ctx, stmt).GetAll(&keyValues); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return nil
@@ -78,42 +76,32 @@ func (st *State) UpdateControllerConfig(
 		return errors.Trace(err)
 	}
 
-	selectStmt, err := st.Prepare("SELECT &dbKeyValue.* FROM v_controller_config", dbKeyValue{})
+	selectStmt, err := st.Prepare("SELECT &KeyValue.* FROM v_controller_config", KeyValue{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	deleteStmt, err := st.Prepare("DELETE FROM controller_config WHERE key IN ($S[:])", sqlair.S{})
+	deleteStmt, err := st.Prepare("DELETE FROM controller_config WHERE key IN ($StringSlice[:])", StringSlice{})
 	if err != nil {
 		return errors.Trace(err)
-	}
-	removeKeys := sqlair.S(transform.Slice(removeAttrs, func(s string) any { return any(s) }))
-
-	var (
-		controllerStmt *sqlair.Statement
-		uuid           dbController
-	)
-	if v, ok := updateAttrs[controller.ControllerUUIDKey]; ok && v != "" {
-		controllerStmt, err = st.Prepare(`INSERT INTO controller (uuid) VALUES ($dbController.uuid)`, dbController{})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		uuid = dbController{UUID: v}
 	}
 
 	updateStmt, err := st.Prepare(`
 INSERT INTO controller_config (key, value)
-VALUES ($dbKeyValue.*)
-  ON CONFLICT(key) DO UPDATE SET value=excluded.value`, dbKeyValue{})
+VALUES ($KeyValue.*)
+  ON CONFLICT(key) DO UPDATE SET value=excluded.value`, KeyValue{})
 	if err != nil {
 		return errors.Trace(err)
 	}
-	updateKeyValues := make([]dbKeyValue, 0)
+	updateKeyValues := make([]KeyValue, 0)
 	for k, v := range updateAttrs {
+		// Although not strictly necessary here, as it's solved in the service
+		// layer, we don't want to allow changing the controller UUID or name
+		// from the state layer either.
 		if k == controller.ControllerUUIDKey {
 			continue
 		}
-		updateKeyValues = append(updateKeyValues, dbKeyValue{
+		updateKeyValues = append(updateKeyValues, KeyValue{
 			Key:   k,
 			Value: v,
 		})
@@ -121,7 +109,7 @@ VALUES ($dbKeyValue.*)
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Check keys and values are valid between current and new config.
-		var keyValues []dbKeyValue
+		var keyValues []KeyValue
 		if err := tx.Query(ctx, selectStmt).GetAll(&keyValues); err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
 				return errors.Trace(err)
@@ -136,28 +124,14 @@ VALUES ($dbKeyValue.*)
 			return errors.Trace(err)
 		}
 
-		// Insert the controller UUID, we ignore if it already exists, as
-		// the errors will tell use why it might not of worked.
-		if controllerStmt != nil {
-			if err := tx.Query(ctx, controllerStmt, uuid).Run(); err != nil {
-				if !internaldatabase.IsErrConstraintPrimaryKey(err) && !internaldatabase.IsErrConstraintUnique(err) {
-					return errors.Trace(err)
-				}
-
-				if uuid.UUID != current[controller.ControllerUUIDKey] {
-					return errors.Errorf("controller UUID cannot be changed")
-				}
-			}
-		}
-
 		// Update the attributes.
 		if err := tx.Query(ctx, updateStmt, updateKeyValues).Run(); err != nil {
 			return errors.Trace(err)
 		}
 
 		// Remove the attributes
-		if len(removeKeys) > 0 {
-			if err := tx.Query(ctx, deleteStmt, removeKeys).Run(); err != nil {
+		if len(removeAttrs) > 0 {
+			if err := tx.Query(ctx, deleteStmt, StringSlice(removeAttrs)).Run(); err != nil {
 				return errors.Trace(err)
 			}
 		}

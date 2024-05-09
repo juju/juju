@@ -5,8 +5,8 @@ package bootstrap
 
 import (
 	"context"
-	"database/sql"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
 	jujucontroller "github.com/juju/juju/controller"
@@ -37,18 +37,51 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config) internaldatabase.B
 			}
 		}
 
-		query := "INSERT INTO controller_config (key, value) VALUES (?, ?)"
+		insertStmt, err := sqlair.Prepare(`INSERT INTO controller_config (key, value) VALUES ($dbKeyValue.*)`, dbKeyValue{})
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-		return errors.Trace(controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			for k, v := range values {
-				if _, err := tx.ExecContext(ctx, query, k, v); err != nil {
-					if internaldatabase.IsErrConstraintPrimaryKey(errors.Cause(err)) {
-						return errors.AlreadyExistsf("controller configuration key %q", k)
-					}
-					return errors.Annotatef(err, "inserting controller configuration %q, %v", k, v)
-				}
+		controllerStmt, err := sqlair.Prepare(`INSERT INTO controller (uuid) VALUES ($dbController.uuid)`, dbController{})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		data := dbController{
+			UUID: values[jujucontroller.ControllerUUIDKey],
+		}
+
+		updateKeyValues := make([]dbKeyValue, 0)
+		for k, v := range values {
+			if k == jujucontroller.ControllerUUIDKey {
+				continue
 			}
+			updateKeyValues = append(updateKeyValues, dbKeyValue{
+				Key:   k,
+				Value: v,
+			})
+		}
+
+		return errors.Trace(controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			// Insert the controller data.
+			if err := tx.Query(ctx, controllerStmt, data).Run(); err != nil {
+				return errors.Trace(err)
+			}
+
+			// Update the attributes.
+			if err := tx.Query(ctx, insertStmt, updateKeyValues).Run(); err != nil {
+				return errors.Trace(err)
+			}
+
 			return nil
 		}))
 	}
+}
+
+type dbKeyValue struct {
+	Key   string `db:"key"`
+	Value string `db:"value"`
+}
+
+type dbController struct {
+	UUID string `db:"uuid"`
 }

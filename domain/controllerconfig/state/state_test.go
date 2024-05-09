@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
@@ -20,6 +21,17 @@ type stateSuite struct {
 }
 
 var _ = gc.Suite(&stateSuite{})
+
+func (s *stateSuite) SetUpTest(c *gc.C) {
+	s.ControllerSuite.SetUpTest(c)
+
+	cfg := controller.Config{
+		controller.ControllerUUIDKey: jujutesting.ControllerTag.Id(),
+		controller.CACertKey:         jujutesting.CACert,
+	}
+	err := bootstrap.InsertInitialControllerConfig(cfg)(ctx.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 func (s *stateSuite) TestControllerConfigRead(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
@@ -47,7 +59,12 @@ func (s *stateSuite) TestControllerConfigReadWithoutData(c *gc.C) {
 
 	controllerConfig, err := st.ControllerConfig(ctx.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(controllerConfig, gc.HasLen, 0)
+
+	// This is set at bootstrap time.
+	c.Check(controllerConfig, jc.DeepEquals, map[string]string{
+		controller.ControllerUUIDKey: jujutesting.ControllerTag.Id(),
+		controller.CACertKey:         jujutesting.CACert,
+	})
 }
 
 func (s *stateSuite) TestControllerConfigUpdateTwice(c *gc.C) {
@@ -116,10 +133,12 @@ func (s *stateSuite) TestControllerConfigUpdateTwiceWithDifferentControllerUUID(
 	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// This is just ignored, the service layer will not allow this.
+
 	ctrlConfig[controller.ControllerUUIDKey] = "new-controller-uuid"
 
 	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
-	c.Assert(err, gc.ErrorMatches, `controller UUID cannot be changed`)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestUpdateControllerConfigNewData(c *gc.C) {
