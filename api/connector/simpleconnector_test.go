@@ -59,7 +59,7 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 			},
 		},
 		{
-			name: "with username/password and client credentials; username/password takes over",
+			name: "with both username and client ID",
 			opts: SimpleConfig{
 				ControllerAddresses: []string{"some.host:9999"},
 				ModelUUID:           "some-uuid",
@@ -68,17 +68,15 @@ func (s *simpleConnectorSuite) TestNewSimpleRespectsClientCredentials(c *gc.C) {
 				ClientID:            "some-client-id",
 				ClientSecret:        "some-client-secret",
 			},
-			expectedAPIInfo: api.Info{
-				Addrs:    []string{"some.host:9999"},
-				ModelTag: names.NewModelTag("some-uuid"),
-				Tag:      names.NewUserTag("some-username"),
-				Password: "some-password",
+			expectedError: "only one of Username or ClientID should be set",
+		},
+		{
+			name: "with neither username nor client ID",
+			opts: SimpleConfig{
+				ControllerAddresses: []string{"some.host:9999"},
+				ModelUUID:           "some-uuid",
 			},
-			expectedDefaultDialOpts: func() api.DialOpts {
-				expected := api.DefaultDialOpts()
-				expected.LoginProvider = api.NewClientCredentialsLoginProvider("some-client-id", "some-client-secret")
-				return expected
-			},
+			expectedError: "one of Username or ClientID must be set",
 		},
 	}
 
