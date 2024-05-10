@@ -255,7 +255,7 @@ func newClient(
 		jujuhttp.WithSkipHostnameVerification(opts.skipHostnameVerification),
 		jujuhttp.WithCACertificates(opts.caCertificates...),
 		jujuhttp.WithLogger(httpLogger{
-			Logger: logger.ChildWithTags("http", corelogger.HTTP),
+			Logger: logger.Child("http", corelogger.HTTP),
 		}),
 	)
 	return client.NewClient(&cred, authMode, gooseLogger,

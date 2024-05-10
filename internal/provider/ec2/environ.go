@@ -2768,7 +2768,7 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 
 	httpClient := jujuhttp.NewClient(
 		jujuhttp.WithLogger(httpLogger{
-			Logger: logger.ChildWithTags("http", corelogger.HTTP),
+			Logger: logger.Child("http", corelogger.HTTP),
 		}),
 	)
 

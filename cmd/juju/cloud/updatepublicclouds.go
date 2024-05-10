@@ -120,7 +120,7 @@ func (l httpLogger) IsTraceEnabled() bool {
 func PublishedPublicClouds(ctx context.Context, url, key string) (map[string]jujucloud.Cloud, error) {
 	client := jujuhttp.NewClient(
 		jujuhttp.WithLogger(httpLogger{
-			Logger: logger.ChildWithTags("http", corelogger.HTTP),
+			Logger: logger.Child("http", corelogger.HTTP),
 		}),
 	)
 	resp, err := client.Get(ctx, url)

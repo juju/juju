@@ -138,10 +138,7 @@ type Logger interface {
 	IsLevelEnabled(Level) bool
 
 	// Child returns a new logger with the given name.
-	Child(name string) Logger
-
-	// ChildWithTags returns a new logger with the given name and tags.
-	ChildWithTags(string, ...string) Logger
+	Child(name string, tags ...string) Logger
 
 	// GetChildByName returns a child logger with the given name.
 	GetChildByName(name string) Logger

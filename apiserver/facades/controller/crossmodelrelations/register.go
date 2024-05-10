@@ -46,6 +46,6 @@ func newStateCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelatio
 		watchRelationLifeSuspendedStatus,
 		watchOfferStatus,
 		watchConsumedSecrets,
-		ctx.Logger().ChildWithTags("crossmodelrelations", corelogger.CMR),
+		ctx.Logger().Child("crossmodelrelations", corelogger.CMR),
 	)
 }

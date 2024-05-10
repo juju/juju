@@ -166,7 +166,7 @@ func (e *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.Clou
 		HTTPClient: jujuhttp.NewClient(
 			jujuhttp.WithSkipHostnameVerification(spec.SkipTLSVerify),
 			jujuhttp.WithLogger(httpLogger{
-				Logger: logger.ChildWithTags("http", corelogger.HTTP),
+				Logger: logger.Child("http", corelogger.HTTP),
 			}),
 		),
 	}

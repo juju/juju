@@ -98,6 +98,6 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 		modelUUID:            ctx.State().ModelUUID(),
 		remoteClientGetter:   remoteClientGetter,
 		crossModelState:      ctx.State().RemoteEntities(),
-		logger:               ctx.Logger().ChildWithTags("secretsmanager", corelogger.SECRETS),
+		logger:               ctx.Logger().Child("secretsmanager", corelogger.SECRETS),
 	}, nil
 }

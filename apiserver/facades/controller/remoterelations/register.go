@@ -38,6 +38,6 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 		serviceFactory.Secret(secretservice.NotImplementedBackendConfigGetter),
 		common.NewControllerConfigAPI(systemState, controllerConfigService, externalControllerService),
 		ctx.Resources(), ctx.Auth(),
-		ctx.Logger().ChildWithTags("remoterelations", corelogger.CMR),
+		ctx.Logger().Child("remoterelations", corelogger.CMR),
 	)
 }

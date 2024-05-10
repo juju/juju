@@ -80,7 +80,7 @@ func (f *CharmRepoFactory) GetCharmRepository(ctx context.Context, src corecharm
 		}
 
 		repo = charmrepo.NewCharmHubRepository(
-			f.logger.ChildWithTags("charmhubrepo", corelogger.CHARMHUB),
+			f.logger.Child("charmhubrepo", corelogger.CHARMHUB),
 			chClient,
 		)
 	default:

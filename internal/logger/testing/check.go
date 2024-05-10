@@ -76,11 +76,7 @@ func (c checkLogger) Logf(level logger.Level, msg string, args ...any) {
 	c.log.Logf(formatMsg(loggo.Level(level).String(), c.name, msg), args...)
 }
 
-func (c checkLogger) Child(name string) logger.Logger {
-	return checkLogger{log: c.log, name: name}
-}
-
-func (c checkLogger) ChildWithTags(name string, tags ...string) logger.Logger {
+func (c checkLogger) Child(name string, tags ...string) logger.Logger {
 	return checkLogger{log: c.log, name: name}
 }
 

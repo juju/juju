@@ -121,7 +121,7 @@ func NewProvider() environs.CloudEnvironProvider {
 	factory := NewServerFactory(NewHTTPClientFunc(func() *http.Client {
 		return jujuhttp.NewClient(
 			jujuhttp.WithLogger(httpLogger{
-				Logger: logger.ChildWithTags("http", corelogger.HTTP),
+				Logger: logger.Child("http", corelogger.HTTP),
 			}),
 		).Client()
 	}))

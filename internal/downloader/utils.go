@@ -25,7 +25,7 @@ func NewHTTPBlobOpener(hostnameVerification bool) func(Request) (io.ReadCloser, 
 		client := jujuhttp.NewClient(
 			jujuhttp.WithSkipHostnameVerification(!hostnameVerification),
 			jujuhttp.WithLogger(httpLogger{
-				Logger: logger.ChildWithTags("http", corelogger.HTTP),
+				Logger: logger.Child("http", corelogger.HTTP),
 			}),
 		)
 

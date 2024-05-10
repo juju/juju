@@ -62,14 +62,7 @@ func (c loggoLogger) IsLevelEnabled(level logger.Level) bool {
 }
 
 // Child returns a new logger with the given name.
-func (c loggoLogger) Child(name string) logger.Logger {
-	return loggoLogger{
-		logger: c.logger.Child(name),
-	}
-}
-
-// ChildWithTags returns a new logger with the given name and tags.
-func (c loggoLogger) ChildWithTags(name string, tags ...string) logger.Logger {
+func (c loggoLogger) Child(name string, tags ...string) logger.Logger {
 	return loggoLogger{
 		logger: c.logger.ChildWithTags(name, tags...),
 	}

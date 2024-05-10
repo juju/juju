@@ -91,7 +91,7 @@ type Client struct {
 
 // NewClient creates a new Charmhub client from the supplied configuration.
 func NewClient(config Config) (*Client, error) {
-	logger := config.Logger.ChildWithTags("client", corelogger.CHARMHUB)
+	logger := config.Logger.Child("client", corelogger.CHARMHUB)
 
 	url := config.URL
 	if url == "" {

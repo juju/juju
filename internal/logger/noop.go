@@ -52,12 +52,7 @@ func (c noopLogger) IsLevelEnabled(level logger.Level) bool {
 }
 
 // Child returns a new logger with the given name.
-func (c noopLogger) Child(name string) logger.Logger {
-	return c
-}
-
-// ChildWithTags returns a new logger with the given name and tags.
-func (c noopLogger) ChildWithTags(name string, tags ...string) logger.Logger {
+func (c noopLogger) Child(name string, tags ...string) logger.Logger {
 	return c
 }
 
