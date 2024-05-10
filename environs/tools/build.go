@@ -20,6 +20,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/arch"
+	corelogger "github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/juju/names"
 	jujuversion "github.com/juju/juju/version"
@@ -299,7 +300,7 @@ func buildJujus(dir string) error {
 		if err != nil {
 			return fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
 		}
-		if logger.IsTraceEnabled() {
+		if logger.IsLevelEnabled(corelogger.TRACE) {
 			logger.Tracef("Built jujud:\n%s", out)
 		}
 	}

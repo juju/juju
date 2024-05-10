@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 
+	corelogger "github.com/juju/juju/core/logger"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -407,7 +408,7 @@ func checkVPCRouteTableRoutes(vpc *types.Vpc, routeTable *types.RouteTable, gate
 	vpcCIDRBlock := aws.ToString(vpc.CidrBlock)
 	for _, route := range routeTable.Routes {
 		if route.State != types.RouteStateActive {
-			if logger.IsTraceEnabled() {
+			if logger.IsLevelEnabled(corelogger.TRACE) {
 				logger.Tracef("skipping inactive route %s", pretty.Sprint(route))
 			}
 			continue
@@ -427,7 +428,7 @@ func checkVPCRouteTableRoutes(vpc *types.Vpc, routeTable *types.RouteTable, gate
 			logger.Tracef("local route uses expected CIDR %q", vpcCIDRBlock)
 			hasLocalRoute = true
 		default:
-			if logger.IsTraceEnabled() {
+			if logger.IsLevelEnabled(corelogger.TRACE) {
 				logger.Tracef("route %s is neither local nor default (skipping)", pretty.Sprint(route))
 			}
 		}

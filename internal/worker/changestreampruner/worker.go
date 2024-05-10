@@ -136,7 +136,7 @@ func (w *Pruner) loop() error {
 }
 
 func (w *Pruner) prune() (map[string]int64, error) {
-	traceEnabled := w.cfg.Logger.IsTraceEnabled()
+	traceEnabled := w.cfg.Logger.IsLevelEnabled(logger.TRACE)
 	if traceEnabled {
 		w.cfg.Logger.Tracef("Starting pruning change log")
 	}

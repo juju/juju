@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 
+	corelogger "github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -74,7 +75,7 @@ func (a AzureCLI) run(v interface{}, args ...string) error {
 	if err := json.Unmarshal(b, v); err != nil {
 		return errors.Annotate(err, "cannot unmarshal output")
 	}
-	if logger.IsDebugEnabled() {
+	if logger.IsLevelEnabled(corelogger.DEBUG) {
 		logger.Debugf("az returned: %s", pretty.Sprint(v))
 	}
 	return nil

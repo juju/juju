@@ -312,7 +312,7 @@ func (s *Stream) loop() error {
 
 				lower        = int64(math.MaxInt64)
 				upper        = int64(math.MinInt64)
-				traceEnabled = s.logger.IsTraceEnabled()
+				traceEnabled = s.logger.IsLevelEnabled(logger.TRACE)
 			)
 			for _, change := range changes {
 				if traceEnabled {

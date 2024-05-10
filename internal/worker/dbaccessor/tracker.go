@@ -327,7 +327,7 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 	ctx = w.tomb.Context(ctx)
 	defer cancel()
 
-	if w.logger.IsTraceEnabled() {
+	if w.logger.IsLevelEnabled(logger.TRACE) {
 		w.logger.Tracef("ensuring database %q is alive", w.namespace)
 	}
 
@@ -347,7 +347,7 @@ func (w *trackedDBWorker) ensureDBAliveAndOpenIfRequired(db *sql.DB) (*sql.DB, e
 		pingStart := w.clock.Now()
 		var pingAttempts uint32 = 0
 		err := database.Retry(ctx, func() error {
-			if w.logger.IsTraceEnabled() {
+			if w.logger.IsLevelEnabled(logger.TRACE) {
 				w.logger.Tracef("pinging database %q", w.namespace)
 			}
 			pingAttempts++

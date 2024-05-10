@@ -18,6 +18,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/kr/pretty"
 
+	corelogger "github.com/juju/juju/core/logger"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
@@ -483,7 +484,7 @@ func (op *LeaveScopeOperation) internalLeaveScope() ([]txn.Op, error) {
 		}
 		ops = append(ops, relOps...)
 	}
-	if rulogger.IsTraceEnabled() {
+	if rulogger.IsLevelEnabled(corelogger.TRACE) {
 		rulogger.Tracef("leave scope ops for %s: %s", op.Description(), pretty.Sprint(ops))
 	}
 	return ops, nil

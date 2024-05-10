@@ -1460,7 +1460,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 				return watcher.EnsureErr(w.sw)
 			}
 			gotInitialScopeWatcher = true
-			if w.logger.IsTraceEnabled() {
+			if w.logger.IsLevelEnabled(corelogger.TRACE) {
 				w.logger.Tracef("relationUnitsWatcher %q scope Changes(): %# v", w.sw.prefix, pretty.Formatter(c))
 			}
 			if err = w.mergeScope(&changes, c); err != nil {
@@ -1499,7 +1499,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 				out = w.out
 			}
 		case out <- changes:
-			if w.logger.IsTraceEnabled() {
+			if w.logger.IsLevelEnabled(corelogger.TRACE) {
 				w.logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
 			}
 			sentInitial = true

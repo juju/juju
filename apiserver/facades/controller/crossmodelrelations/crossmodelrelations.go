@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/secrets"
@@ -396,7 +397,7 @@ func (api *CrossModelRelationsAPIv3) WatchRelationChanges(ctx context.Context, r
 	for i, arg := range remoteRelationArgs.Args {
 		w, changes, err := watchOne(arg)
 		if err != nil {
-			if api.logger.IsTraceEnabled() {
+			if api.logger.IsLevelEnabled(logger.TRACE) {
 				api.logger.Tracef("error watching relation for token %s: %s", arg.Token, errors.ErrorStack(err))
 			} else {
 				api.logger.Debugf("error watching relation for token %s: %v", err)

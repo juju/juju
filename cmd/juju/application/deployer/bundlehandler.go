@@ -37,6 +37,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
@@ -485,7 +486,7 @@ func (h *bundleHandler) getChanges() error {
 		Logger:           logger,
 		Force:            h.force,
 	}
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef("bundlechanges.ChangesConfig.Bundle %s", pretty.Sprint(cfg.Bundle))
 		logger.Tracef("bundlechanges.ChangesConfig.BundleURL %s", pretty.Sprint(cfg.BundleURL))
 		logger.Tracef("bundlechanges.ChangesConfig.Model %s", pretty.Sprint(cfg.Model))
@@ -494,7 +495,7 @@ func (h *bundleHandler) getChanges() error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef("changes %s", pretty.Sprint(changes))
 	}
 	h.changes = changes
@@ -524,7 +525,7 @@ func (h *bundleHandler) handleChanges(ctx context.Context) error {
 	// Deploy the bundle.
 	for i, change := range h.changes {
 		fmt.Fprint(h.ctx.Stdout, fmtChange(change))
-		if logger.IsTraceEnabled() {
+		if logger.IsLevelEnabled(corelogger.TRACE) {
 			logger.Tracef("%d: change %s", i, pretty.Sprint(change))
 		}
 		switch change := change.(type) {
@@ -1107,7 +1108,7 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 		return errors.Annotatef(r[0].Error, "cannot create machine for holding %s", deployedApps())
 	}
 	machine := r[0].Machine
-	if logger.IsDebugEnabled() {
+	if logger.IsLevelEnabled(corelogger.DEBUG) {
 		// Only do the work in for deployedApps, if debugging is enabled.
 		if p.ContainerType == "" {
 			logger.Debugf("created new machine %s for holding %s", machine, deployedApps())

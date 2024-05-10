@@ -1489,7 +1489,7 @@ func (e *environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 			logger.Tracef("%s", msg)
 			return errors.New(msg)
 		}
-		if logger.IsTraceEnabled() {
+		if logger.IsLevelEnabled(corelogger.TRACE) {
 			logger.Tracef("found instance %q NICs: %s", instId, pretty.Sprint(resp.NetworkInterfaces))
 		}
 		return nil
@@ -2767,7 +2767,9 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 	}
 
 	httpClient := jujuhttp.NewClient(
-		jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
+		jujuhttp.WithLogger(httpLogger{
+			Logger: logger.ChildWithTags("http", corelogger.HTTP),
+		}),
 	)
 
 	var err error
@@ -2810,4 +2812,12 @@ func CreateTagSpecification(resourceType types.ResourceType, tags map[string]str
 	}
 
 	return spec
+}
+
+type httpLogger struct {
+	corelogger.Logger
+}
+
+func (l httpLogger) IsTraceEnabled() bool {
+	return l.IsLevelEnabled(corelogger.TRACE)
 }

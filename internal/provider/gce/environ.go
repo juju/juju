@@ -165,7 +165,9 @@ func (e *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.Clou
 		// of the environ.
 		HTTPClient: jujuhttp.NewClient(
 			jujuhttp.WithSkipHostnameVerification(spec.SkipTLSVerify),
-			jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
+			jujuhttp.WithLogger(httpLogger{
+				Logger: logger.ChildWithTags("http", corelogger.HTTP),
+			}),
 		),
 	}
 
@@ -286,4 +288,12 @@ func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
 func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	// TODO(wallyworld): destroy hosted model resources
 	return env.Destroy(ctx)
+}
+
+type httpLogger struct {
+	corelogger.Logger
+}
+
+func (l httpLogger) IsTraceEnabled() bool {
+	return l.IsLevelEnabled(corelogger.TRACE)
 }

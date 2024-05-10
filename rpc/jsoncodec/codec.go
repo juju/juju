@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 
+	corelogger "github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc"
 )
@@ -96,7 +97,7 @@ func (c *Codec) isClosing() bool {
 func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	var m json.RawMessage
 	if err := c.conn.Receive(&m); err != nil {
-		if logger.IsTraceEnabled() {
+		if logger.IsLevelEnabled(corelogger.TRACE) {
 			logger.Tracef("<- error: %v (closing %v)", err, c.isClosing())
 		}
 
@@ -108,7 +109,7 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 		return errors.Annotate(err, "receiving message")
 	}
 
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef("<- %s", m)
 	}
 	var err error
@@ -159,7 +160,7 @@ func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 	if err != nil {
 		return errors.Annotate(err, "writing message")
 	}
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		data, err := json.Marshal(msg)
 		if err != nil {
 			logger.Tracef("-> marshal error: %v", err)

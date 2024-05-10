@@ -344,7 +344,7 @@ func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) e
 		select {
 		// Send the initial event or subsequent change.
 		case w.out <- changes:
-			if w.logger.IsTraceEnabled() {
+			if w.logger.IsLevelEnabled(corelogger.TRACE) {
 				w.logger.Tracef("sent relation units changes %# v", pretty.Formatter(changes))
 			}
 		case <-w.tomb.Dying():
@@ -416,7 +416,7 @@ func (w *remoteRelationWatcher) loop(initialChange params.RemoteRelationChangeEv
 		select {
 		// Send out the initial event or subsequent change.
 		case w.out <- change:
-			if w.logger.IsTraceEnabled() {
+			if w.logger.IsLevelEnabled(corelogger.TRACE) {
 				w.logger.Tracef("sent remote relation change %# v", pretty.Formatter(change))
 			}
 		case <-w.tomb.Dying():

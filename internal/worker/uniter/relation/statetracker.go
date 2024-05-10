@@ -120,7 +120,7 @@ func (r *relationStateTracker) loadInitialState(ctx stdcontext.Context) error {
 		r.relationCreated[rel.Id()] = true
 	}
 
-	if r.logger.IsTraceEnabled() {
+	if r.logger.IsLevelEnabled(logger.TRACE) {
 		if mgr, ok := r.stateMgr.(*stateManager); ok {
 			r.logger.Tracef("initialising relation state tracker: %# v", pretty.Formatter(mgr.relationState))
 		}
@@ -226,7 +226,7 @@ func (r *relationStateTracker) joinRelation(ctx stdcontext.Context, rel api.Rela
 }
 
 func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote remotestate.Snapshot) error {
-	isTraceEnabled := r.logger.IsTraceEnabled()
+	isTraceEnabled := r.logger.IsLevelEnabled(logger.TRACE)
 	if isTraceEnabled {
 		r.logger.Tracef("%q synchronise scopes for remote relations %# v", r.unit.Name(), pretty.Formatter(remote.Relations))
 	}

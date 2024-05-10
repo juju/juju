@@ -13,6 +13,16 @@ import (
 // store.
 func DefaultHTTPClient(logger logger.Logger) HTTPClient {
 	return jujuhttp.NewClient(
-		jujuhttp.WithLogger(logger),
+		jujuhttp.WithLogger(httpLogger{
+			Logger: logger,
+		}),
 	)
+}
+
+type httpLogger struct {
+	logger.Logger
+}
+
+func (l httpLogger) IsTraceEnabled() bool {
+	return l.IsLevelEnabled(logger.TRACE)
 }

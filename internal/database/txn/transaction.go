@@ -263,7 +263,7 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 // defaultRetryStrategy returns a function that can be used to apply a default
 // retry strategy to its input operation. It will retry in cases of transient
 // known database errors.
-func defaultRetryStrategy(clock clock.Clock, logger logger.Logger) func(context.Context, func() error) error {
+func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Context, func() error) error {
 	return func(ctx context.Context, fn func() error) error {
 		err := retry.Call(retry.CallArgs{
 			Func: fn,
@@ -275,8 +275,8 @@ func defaultRetryStrategy(clock clock.Clock, logger logger.Logger) func(context.
 
 				// If the error is potentially retryable then keep going.
 				if IsErrRetryable(err) {
-					if logger.IsTraceEnabled() {
-						logger.Tracef("retrying transaction: %v", err)
+					if log.IsLevelEnabled(logger.TRACE) {
+						log.Tracef("retrying transaction: %v", err)
 					}
 					return false
 				}

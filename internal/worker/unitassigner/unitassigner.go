@@ -36,7 +36,7 @@ func (u unitAssignerHandler) SetUp() (watcher.StringsWatcher, error) {
 }
 
 func (u unitAssignerHandler) Handle(_ <-chan struct{}, ids []string) error {
-	traceEnabled := u.logger.IsTraceEnabled()
+	traceEnabled := u.logger.IsLevelEnabled(logger.TRACE)
 	if traceEnabled {
 		u.logger.Tracef("Handling unit assignments: %q", ids)
 	}

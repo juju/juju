@@ -24,7 +24,9 @@ func NewHTTPBlobOpener(hostnameVerification bool) func(Request) (io.ReadCloser, 
 		// TODO(rog) make the download operation interruptible.
 		client := jujuhttp.NewClient(
 			jujuhttp.WithSkipHostnameVerification(!hostnameVerification),
-			jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
+			jujuhttp.WithLogger(httpLogger{
+				Logger: logger.ChildWithTags("http", corelogger.HTTP),
+			}),
 		)
 
 		resp, err := client.Get(context.TODO(), req.URL.String())
@@ -60,4 +62,12 @@ func NewSha256Verifier(expected string) func(*os.File) error {
 		}
 		return nil
 	}
+}
+
+type httpLogger struct {
+	corelogger.Logger
+}
+
+func (l httpLogger) IsTraceEnabled() bool {
+	return l.IsLevelEnabled(corelogger.TRACE)
 }

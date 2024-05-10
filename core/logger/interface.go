@@ -134,22 +134,6 @@ type Logger interface {
 	// fmt.Sprintf.
 	Logf(level Level, format string, args ...any)
 
-	// IsEnabled returns true if the given level is enabled for the logger.
-	IsErrorEnabled() bool
-
-	// IsWarningEnabled returns true if the warning level is enabled for the
-	// logger.
-	IsWarningEnabled() bool
-
-	// IsInfoEnabled returns true if the info level is enabled for the logger.
-	IsInfoEnabled() bool
-
-	// IsDebugEnabled returns true if the debug level is enabled for the logger.
-	IsDebugEnabled() bool
-
-	// IsTraceEnabled returns true if the trace level is enabled for the logger.
-	IsTraceEnabled() bool
-
 	// IsLevelEnabled returns true if the given level is enabled for the logger.
 	IsLevelEnabled(Level) bool
 

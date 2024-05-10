@@ -12,6 +12,7 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -89,7 +90,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx envcontext.ProviderCallContext)
 		}
 	}
 
-	if logger.IsDebugEnabled() {
+	if logger.IsLevelEnabled(corelogger.DEBUG) {
 		zoneNames := make([]string, len(zones))
 		for i, zone := range zones {
 			zoneNames[i] = zone.Name()

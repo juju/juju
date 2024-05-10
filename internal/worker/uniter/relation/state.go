@@ -98,10 +98,10 @@ func (s *State) Validate(hi hook.Info) (err error) {
 // It must be called after the respective hook was executed successfully.
 // UpdateStateForHook doesn't validate hi but guarantees that successive
 // changes of the same hi are idempotent.
-func (s *State) UpdateStateForHook(hi hook.Info, logger logger.Logger) {
-	if logger.IsTraceEnabled() {
+func (s *State) UpdateStateForHook(hi hook.Info, log logger.Logger) {
+	if log.IsLevelEnabled(logger.TRACE) {
 		defer func() {
-			logger.Tracef("updated relation state %# v\nfor hook %# v", pretty.Formatter(s), pretty.Formatter(hi))
+			log.Tracef("updated relation state %# v\nfor hook %# v", pretty.Formatter(s), pretty.Formatter(hi))
 		}()
 	}
 	if hi.Kind == hooks.RelationBroken {

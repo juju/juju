@@ -17,6 +17,7 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/feature"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
@@ -383,14 +384,14 @@ func (db *database) TransactionRunner() (runner jujutxn.Runner, closer SessionCl
 			closer = session.Close
 		}
 		observer := func(t jujutxn.Transaction) {
-			if txnLogger.IsTraceEnabled() {
+			if txnLogger.IsLevelEnabled(corelogger.TRACE) {
 				txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
 					t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
 			}
 		}
 		if db.runTransactionObserver != nil {
 			observer = func(t jujutxn.Transaction) {
-				if txnLogger.IsTraceEnabled() {
+				if txnLogger.IsLevelEnabled(corelogger.TRACE) {
 					txnLogger.Tracef("ran transaction in %.3fs (retries: %d) %# v\nerr: %v",
 						t.Duration.Seconds(), t.Attempt, pretty.Formatter(t.Ops), t.Error)
 				}

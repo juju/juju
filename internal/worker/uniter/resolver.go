@@ -74,7 +74,7 @@ func (s *uniterResolver) NextOp(
 	if remoteState.Life == life.Dead || localState.Removed {
 		return nil, resolver.ErrUnitDead
 	}
-	logger := s.config.Logger
+	log := s.config.Logger
 
 	// Operations for series-upgrade need to be resolved early,
 	// in particular because no other operations should be run when the unit
@@ -101,7 +101,7 @@ func (s *uniterResolver) NextOp(
 			return s.nextOpConflicted(ctx, localState, remoteState, opFactory)
 		}
 		// continue upgrading the charm
-		logger.Infof("resuming charm upgrade")
+		log.Infof("resuming charm upgrade")
 		return s.newUpgradeOperation(ctx, localState, remoteState, opFactory)
 	}
 
@@ -167,7 +167,7 @@ func (s *uniterResolver) NextOp(
 	// If we are to shut down, we don't want to start running any more queued/pending hooks.
 	if remoteState.Shutdown {
 		badge = "shutdown"
-		logger.Debugf("unit agent is shutting down, will not run pending/queued hooks")
+		log.Debugf("unit agent is shutting down, will not run pending/queued hooks")
 		return s.nextOp(ctx, localState, remoteState, opFactory)
 	}
 
@@ -180,12 +180,12 @@ func (s *uniterResolver) NextOp(
 		switch step {
 		case operation.Pending:
 			badge = "resolve hook"
-			logger.Infof("awaiting error resolution for %q hook", localState.Hook.Kind)
+			log.Infof("awaiting error resolution for %q hook", localState.Hook.Kind)
 			return s.nextOpHookError(ctx, localState, remoteState, opFactory)
 
 		case operation.Queued:
 			badge = "queued hook"
-			logger.Infof("found queued %q hook", localState.Hook.Kind)
+			log.Infof("found queued %q hook", localState.Hook.Kind)
 			if localState.Hook.Kind == hooks.Install {
 				// Special case: handle install in nextOp,
 				// so we do nothing when the unit is dying.
@@ -198,7 +198,7 @@ func (s *uniterResolver) NextOp(
 			// we'd have to parse the charm url every time just to check to see
 			// if a wrench existed.
 			badge = "commit hook"
-			if localState.CharmURL != "" && logger.IsTraceEnabled() {
+			if localState.CharmURL != "" && log.IsLevelEnabled(logger.TRACE) {
 				// If it's set, the charm url will parse.
 				curl := jujucharm.MustParseURL(localState.CharmURL)
 				if curl != nil && wrench.IsActive("hooks", fmt.Sprintf("%s-%s-error", curl.Name, localState.Hook.Kind)) {
@@ -207,7 +207,7 @@ func (s *uniterResolver) NextOp(
 				}
 			}
 
-			logger.Infof("committing %q hook", localState.Hook.Kind)
+			log.Infof("committing %q hook", localState.Hook.Kind)
 			return opFactory.NewSkipHook(*localState.Hook)
 
 		default:
@@ -216,7 +216,7 @@ func (s *uniterResolver) NextOp(
 
 	case operation.Continue:
 		badge = "idle"
-		logger.Debugf("no operations in progress; waiting for changes")
+		log.Debugf("no operations in progress; waiting for changes")
 		return s.nextOp(ctx, localState, remoteState, opFactory)
 
 	default:
