@@ -13,7 +13,7 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/httpserver"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -37,7 +37,7 @@ func (s *certSuite) SetUpTest(c *gc.C) {
 		"https://0.1.2.3/no-autocert-here",
 		nil,
 		testSNIGetter(coretesting.ServerTLSCert),
-		loggertesting.WrapCheckLog(c),
+		logger.GetLogger("test"),
 	)
 	// Copy the root CAs across.
 	tlsConfig.RootCAs = s.config.TLSConfig.RootCAs
@@ -64,7 +64,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 		"https://0.1.2.3/no-autocert-here",
 		nil,
 		testSNIGetter(coretesting.ServerTLSCert),
-		loggertesting.WrapCheckLog(c),
+		logger.GetLogger("test"),
 	)
 	s.config.TLSConfig = tlsConfig
 

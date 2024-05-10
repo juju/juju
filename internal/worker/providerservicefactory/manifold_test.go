@@ -53,6 +53,8 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	getter := map[string]any{
 		"changestream": s.dbGetter,
 	}
@@ -72,6 +74,8 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestOutputProviderServiceFactoryGetter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := NewWorker(Config{
 		DBGetter:                        s.dbGetter,
 		Logger:                          s.logger,
@@ -89,6 +93,8 @@ func (s *manifoldSuite) TestOutputProviderServiceFactoryGetter(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := NewWorker(Config{
 		DBGetter:                        s.dbGetter,
 		Logger:                          s.logger,

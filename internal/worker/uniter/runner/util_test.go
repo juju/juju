@@ -23,7 +23,7 @@ import (
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/network"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
+	internallogger "github.com/juju/juju/internal/logger"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
@@ -130,7 +130,7 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
-		Logger:           loggertesting.WrapCheckLog(c),
+		Logger:           internallogger.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.contextFactory = contextFactory
@@ -147,7 +147,7 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 		SecretsClient:    s.secrets,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
-		Logger:           loggertesting.WrapCheckLog(c),
+		Logger:           internallogger.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -57,6 +58,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 		State_:          st,
 		Auth_:           s.authorizer,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -520,6 +522,7 @@ func (s *clientSuite) TestEnableHAHostedModelErrors(c *gc.C) {
 		State_:          st2,
 		Auth_:           s.authorizer,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

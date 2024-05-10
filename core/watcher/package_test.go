@@ -20,17 +20,19 @@ type ImportTest struct{}
 
 var _ = gc.Suite(&ImportTest{})
 
-func (*ImportTest) TestImports(c *gc.C) {
+func (s *ImportTest) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/watcher")
 
 	// This package brings in nothing else from outside juju/juju/core
 	c.Assert(found, jc.SameContents, []string{
 		"core/life",
+		"core/logger",
 		"core/migration",
 		"core/network",
 		"core/resources",
 		"core/secrets",
 		"core/status",
+		"internal/logger",
 	})
 
 }

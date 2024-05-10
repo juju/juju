@@ -326,6 +326,9 @@ func (s *baseStateTrackerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.relationer = mocks.NewMockRelationer(ctrl)
 	s.relationUnit = api.NewMockRelationUnit(ctrl)
 	s.stateMgr = mocks.NewMockStateManager(ctrl)
+
+	s.relation.EXPECT().String().AnyTimes()
+
 	return ctrl
 }
 
@@ -477,7 +480,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *gc.C) {
 	// Setup for SynchronizeScopes()
 	s.expectRelationById(1)
 	ep := &uniter.Endpoint{
-		charm.Relation{
+		Relation: charm.Relation{
 			Role:      charm.RoleRequirer,
 			Name:      "mysql",
 			Interface: "db",
@@ -528,7 +531,7 @@ func (s *syncScopesSuite) assertSynchronizeScopesFailImplementedBy(c *gc.C, crea
 	// Setup for SynchronizeScopes()
 	s.expectRelationById(1)
 	ep := &uniter.Endpoint{
-		charm.Relation{
+		Relation: charm.Relation{
 			// changing to RoleProvider will cause ImplementedBy to fail.
 			Role:      charm.RoleProvider,
 			Name:      "mysql",
@@ -686,6 +689,7 @@ func (s *baseStateTrackerSuite) expectRelation(relTag names.RelationTag) {
 
 func (s *syncScopesSuite) expectRelationById(id int) {
 	s.client.EXPECT().RelationById(gomock.Any(), id).Return(s.relation, nil)
+	s.relation.EXPECT().String().AnyTimes()
 }
 
 // Unit

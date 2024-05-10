@@ -26,7 +26,7 @@ import (
 
 	proxyupdaterapi "github.com/juju/juju/api/agent/proxyupdater"
 	"github.com/juju/juju/core/watcher"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/proxyupdater"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -102,7 +102,7 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 			}
 			return nil
 		},
-		Logger: loggertesting.WrapCheckLog(c),
+		Logger: logger.GetLogger("test"),
 	}
 	s.PatchValue(&pacconfig.AptProxyConfigFile, path.Join(directory, "juju-apt-proxy"))
 }

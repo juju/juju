@@ -19,13 +19,23 @@ type CheckLogger interface {
 
 // checkLogger is a loggo.Logger that logs to a *testing.T or *check.C.
 type checkLogger struct {
-	log  CheckLogger
-	name string
+	log   CheckLogger
+	level logger.Level
+	name  string
 }
 
 // WrapCheckLog returns a checkLogger that logs to the given CheckLog.
 func WrapCheckLog(log CheckLogger) logger.Logger {
-	return checkLogger{log: log}
+	return WrapCheckLogWithLevel(log, logger.TRACE)
+}
+
+// WrapCheckLogWithLevel returns a checkLogger that logs to the given CheckLog
+// with the given default level.
+func WrapCheckLogWithLevel(log CheckLogger, level logger.Level) logger.Logger {
+	return checkLogger{
+		log:   log,
+		level: level,
+	}
 }
 
 func formatMsg(level, name, msg string) string {
@@ -60,6 +70,9 @@ func (c checkLogger) Tracef(msg string, args ...any) {
 }
 
 func (c checkLogger) Logf(level logger.Level, msg string, args ...any) {
+	if !c.IsLevelEnabled(level) {
+		return
+	}
 	c.log.Logf(formatMsg(loggo.Level(level).String(), c.name, msg), args...)
 }
 
@@ -76,9 +89,11 @@ func (c checkLogger) GetChildByName(name string) logger.Logger {
 	return checkLogger{log: c.log, name: name}
 }
 
-func (c checkLogger) IsErrorEnabled() bool             { return true }
-func (c checkLogger) IsWarningEnabled() bool           { return true }
-func (c checkLogger) IsInfoEnabled() bool              { return true }
-func (c checkLogger) IsDebugEnabled() bool             { return true }
-func (c checkLogger) IsTraceEnabled() bool             { return true }
-func (c checkLogger) IsLevelEnabled(logger.Level) bool { return true }
+func (c checkLogger) IsErrorEnabled() bool   { return c.IsLevelEnabled(logger.ERROR) }
+func (c checkLogger) IsWarningEnabled() bool { return c.IsLevelEnabled(logger.WARNING) }
+func (c checkLogger) IsInfoEnabled() bool    { return c.IsLevelEnabled(logger.INFO) }
+func (c checkLogger) IsDebugEnabled() bool   { return c.IsLevelEnabled(logger.DEBUG) }
+func (c checkLogger) IsTraceEnabled() bool   { return c.IsLevelEnabled(logger.TRACE) }
+func (c checkLogger) IsLevelEnabled(level logger.Level) bool {
+	return level >= c.level
+}

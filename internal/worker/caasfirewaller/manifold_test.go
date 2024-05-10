@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	caasmocks "github.com/juju/juju/caas/mocks"
+	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
@@ -35,6 +36,8 @@ type manifoldSuite struct {
 	client    *mocks.MockClient
 
 	ctrl *gomock.Controller
+
+	logger logger.Logger
 }
 
 var _ = gc.Suite(&manifoldSuite{})
@@ -42,6 +45,8 @@ var _ = gc.Suite(&manifoldSuite{})
 func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.ResetCalls()
+
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	s.ctrl = gomock.NewController(c)
 	s.apiCaller = mocks.NewMockAPICaller(s.ctrl)
@@ -60,7 +65,7 @@ func (s *manifoldSuite) validConfig(c *gc.C) caasfirewaller.ManifoldConfig {
 		ModelUUID:      coretesting.ModelTag.Id(),
 		NewClient:      s.newClient,
 		NewWorker:      s.newWorker,
-		Logger:         loggertesting.WrapCheckLog(c),
+		Logger:         s.logger,
 	}
 }
 
@@ -162,6 +167,6 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		FirewallerAPI:  s.client,
 		LifeGetter:     s.client,
 		Broker:         s.broker,
-		Logger:         loggertesting.WrapCheckLog(c),
+		Logger:         s.logger,
 	})
 }

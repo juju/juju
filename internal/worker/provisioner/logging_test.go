@@ -5,12 +5,12 @@ package provisioner
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/feature"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/testing"
@@ -19,29 +19,40 @@ import (
 type logSuite struct {
 	testing.LoggingSuite
 	jujutesting.JujuOSEnvSuite
-	logger logger.Logger
 }
 
 func (l *logSuite) SetUpTest(c *gc.C) {
 	l.LoggingSuite.SetUpTest(c)
 	l.JujuOSEnvSuite.SetUpTest(c)
-	l.logger = loggertesting.WrapCheckLog(c)
 }
 
 var _ = gc.Suite(&logSuite{})
 
 func (s *logSuite) TestFlagNotSet(c *gc.C) {
+	var entries []string
+	recorder := loggertesting.RecordLog(func(s string, a ...any) {
+		entries = append(entries, s)
+	})
+	logger := loggertesting.WrapCheckLog(recorder)
+
 	err := errors.New("test error")
-	err2 := loggedErrorStack(s.logger, err)
+	err2 := loggedErrorStack(logger, err)
 	c.Assert(err, gc.Equals, err2)
-	c.Assert(c.GetTestLog(), gc.Equals, "")
+	c.Assert(entries, gc.HasLen, 0)
 }
 
 func (s *logSuite) TestFlagSet(c *gc.C) {
+	var entries []string
+	recorder := loggertesting.RecordLog(func(s string, a ...any) {
+		entries = append(entries, fmt.Sprintf(s, a...))
+	})
+	logger := loggertesting.WrapCheckLog(recorder)
+
 	s.SetFeatureFlags(feature.LogErrorStack)
 	err := errors.New("test error")
-	err2 := loggedErrorStack(s.logger, err)
+	err2 := loggedErrorStack(logger, err)
 	c.Assert(err, gc.Equals, err2)
-	expected := "ERROR juju.provisioner error stack:\ntest error"
-	c.Assert(c.GetTestLog(), jc.Contains, expected)
+	c.Assert(entries, jc.SameContents, []string{
+		"ERROR: error stack:\n[test error]",
+	})
 }

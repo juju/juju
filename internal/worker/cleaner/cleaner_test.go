@@ -110,7 +110,7 @@ func (s *CleanerSuite) TestCleanupError(c *gc.C) {
 	err = worker.Stop(cln)
 	c.Assert(err, jc.ErrorIsNil)
 	log := c.GetTestLog()
-	c.Assert(log, jc.Contains, "ERROR test cannot cleanup state: hello")
+	c.Assert(log[:len(log)-1], gc.Matches, "ERROR.*cannot cleanup state.*hello.*")
 }
 
 func (s *CleanerSuite) newMockNotifyWatcher(err error) *mockNotifyWatcher {

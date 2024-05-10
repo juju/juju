@@ -60,6 +60,7 @@ func NewUpgradeSeriesAPI(
 		auth:             authorizer,
 		leadership:       leadership,
 		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
+		logger:           logger,
 	}, nil
 }
 

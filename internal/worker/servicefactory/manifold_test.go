@@ -67,6 +67,8 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	getter := map[string]any{
 		"dbaccessor":      s.dbDeleter,
 		"changestream":    s.dbGetter,
@@ -91,6 +93,8 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestOutputControllerServiceFactory(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := NewWorker(Config{
 		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,
@@ -111,6 +115,8 @@ func (s *manifoldSuite) TestOutputControllerServiceFactory(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestOutputServiceFactoryGetter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := NewWorker(Config{
 		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,
@@ -131,6 +137,8 @@ func (s *manifoldSuite) TestOutputServiceFactoryGetter(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := NewWorker(Config{
 		DBDeleter:                   s.dbDeleter,
 		DBGetter:                    s.dbGetter,

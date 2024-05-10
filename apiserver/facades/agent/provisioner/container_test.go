@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -40,6 +41,8 @@ func addContainerToMachine(c *gc.C, st *state.State, machine *state.Machine) *st
 }
 
 func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(c *gc.C) {
+	c.Skip("dummy provider needs networking https://pad.lv/1651974")
+
 	// Login as a machine agent for machine 1, which has a container put on it
 	st := s.ControllerModel(c).State()
 	addContainerToMachine(c, st, s.machines[1])
@@ -55,6 +58,7 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -74,7 +78,6 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 	// Only machine 0 can have its containers updated.
 	results, err := aProvisioner.PrepareContainerInterfaceInfo(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported")
-	c.Skip("dummy provider needs networking https://pad.lv/1651974")
 	// Overall request is ok
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -95,6 +98,8 @@ func (s *containerProvisionerSuite) TestPrepareContainerInterfaceInfoPermission(
 // machine that is not yet provisioned.
 
 func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc.C) {
+	c.Skip("dummy provider needs networking https://pad.lv/1651974")
+
 	// Login as a machine agent for machine 1, which has a container put on it
 	st := s.ControllerModel(c).State()
 	addContainerToMachine(c, st, s.machines[1])
@@ -110,6 +115,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -129,7 +135,7 @@ func (s *containerProvisionerSuite) TestHostChangesForContainersPermission(c *gc
 	// Only machine 0 can have it's containers updated.
 	results, err := aProvisioner.HostChangesForContainers(context.Background(), args)
 	c.Assert(err, gc.ErrorMatches, "dummy provider network config not supported")
-	c.Skip("dummy provider needs networking https://pad.lv/1651974")
+
 	// Overall request is ok
 	c.Assert(err, jc.ErrorIsNil)
 

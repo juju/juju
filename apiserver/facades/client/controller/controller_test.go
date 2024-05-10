@@ -128,6 +128,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Hub_:                 s.hub,
 		MultiwatcherFactory_: multiWatcherWorker,
 		ServiceFactory_:      s.ControllerServiceFactory(c),
+		Logger_:              loggertesting.WrapCheckLog(c),
 	}
 	controller, err := controller.LatestAPI(context.Background(), s.context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -150,6 +151,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		Resources_:      s.resources,
 		Auth_:           anAuthoriser,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -334,6 +336,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 			Resources_:      common.NewResources(),
 			Auth_:           authorizer,
 			ServiceFactory_: s.ControllerServiceFactory(c),
+			Logger_:         loggertesting.WrapCheckLog(c),
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -368,6 +371,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 			Resources_:      common.NewResources(),
 			Auth_:           authorizer,
 			ServiceFactory_: s.ControllerServiceFactory(c),
+			Logger_:         loggertesting.WrapCheckLog(c),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ControllerConfig(context.Background())
@@ -418,6 +422,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		Auth_:            s.authorizer,
 		ID_:              watcherId.AllWatcherId,
 		Dispose_:         func() { disposed = true },
+		Logger_:          loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	watcherAPI := watcherAPI_.(*apiserver.SrvAllWatcher)
@@ -868,6 +873,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 			Resources_:      s.resources,
 			Auth_:           anAuthoriser,
 			ServiceFactory_: s.ControllerServiceFactory(c),
+			Logger_:         loggertesting.WrapCheckLog(c),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1050,6 +1056,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 			Resources_:      s.resources,
 			Auth_:           anAuthoriser,
 			ServiceFactory_: s.ControllerServiceFactory(c),
+			Logger_:         loggertesting.WrapCheckLog(c),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 

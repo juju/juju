@@ -1189,7 +1189,7 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 		Charm:   s.charm,
 		Storage: nil,
 	}, applicationservice.AddUnitParams{UnitName: ptr("metadata-name/0")})
-	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
+	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI(c)
 
 	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(context.Background(), arg)
 	c.Assert(errs, gc.HasLen, 0)
@@ -1323,7 +1323,7 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 		Storage: nil,
 	}, applicationservice.AddUnitParams{UnitName: ptr("metadata-name/0")})
 
-	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
+	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI(c)
 
 	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(context.Background(), arg)
 	c.Assert(errs, gc.HasLen, 0)
@@ -1419,7 +1419,7 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application,
 		errors.New("fail"))
 
-	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI()
+	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI(c)
 
 	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(context.Background(), arg)
 	c.Assert(errs, gc.HasLen, 1)
@@ -1427,12 +1427,13 @@ func (s *deployRepositorySuite) TestRemovePendingResourcesWhenDeployErrors(c *gc
 	c.Assert(obtainedInfo, gc.DeepEquals, params.DeployFromRepositoryInfo{})
 }
 
-func (s *deployRepositorySuite) getDeployFromRepositoryAPI() *DeployFromRepositoryAPI {
+func (s *deployRepositorySuite) getDeployFromRepositoryAPI(c *gc.C) *DeployFromRepositoryAPI {
 	return &DeployFromRepositoryAPI{
 		state:              s.state,
 		validator:          s.validator,
 		stateCharm:         func(Charm) *state.Charm { return nil },
 		applicationService: s.applicationService,
+		logger:             loggertesting.WrapCheckLog(c),
 	}
 }
 

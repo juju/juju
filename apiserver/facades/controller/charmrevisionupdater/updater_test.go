@@ -56,7 +56,11 @@ func (s *updaterSuite) newCharmhubClient(client charmrevisionupdater.CharmhubRef
 
 func (s *updaterSuite) TestNewAuthSuccess(c *gc.C) {
 	authoriser := apiservertesting.FakeAuthorizer{Controller: true}
-	facadeCtx := facadeContextShim{state: nil, authorizer: authoriser}
+	facadeCtx := facadeContextShim{
+		state:      nil,
+		authorizer: authoriser,
+		logger:     loggertesting.WrapCheckLog(c),
+	}
 	updater, err := charmrevisionupdater.NewCharmRevisionUpdaterAPI(facadeCtx)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updater, gc.NotNil)

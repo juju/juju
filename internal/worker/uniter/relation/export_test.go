@@ -41,7 +41,7 @@ func NewStateTrackerForTest(c *gc.C, cfg StateTrackerForTestConfig) (RelationSta
 		relationCreated: make(map[int]bool),
 		isPeerRelation:  make(map[int]bool),
 		stateMgr:        cfg.StateManager,
-		logger:          loggertesting.WrapCheckLog(c),
+		logger:          loggertesting.WrapCheckLogWithLevel(c, logger.DEBUG),
 		newRelationer:   cfg.NewRelationerFunc,
 	}
 
@@ -59,7 +59,7 @@ func NewStateTrackerForSyncScopesTest(c *gc.C, cfg StateTrackerForTestConfig) (R
 		relationCreated: make(map[int]bool),
 		isPeerRelation:  make(map[int]bool),
 		stateMgr:        cfg.StateManager,
-		logger:          loggertesting.WrapCheckLog(c),
+		logger:          loggertesting.WrapCheckLogWithLevel(c, logger.DEBUG),
 		newRelationer:   cfg.NewRelationerFunc,
 		charmDir:        cfg.CharmDir,
 	}, nil

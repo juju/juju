@@ -37,12 +37,14 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/changestream",
 		"core/database",
 		"core/life",
+		"core/logger",
 		"core/migration",
 		"core/network",
 		"core/resources",
 		"core/secrets",
 		"core/status",
 		"core/watcher",
+		"internal/logger",
 	})
 
 }

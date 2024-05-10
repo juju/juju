@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -68,6 +69,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 			Resources_:      s.resources,
 			Auth_:           s.authorizer,
 			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+			Logger_:         loggertesting.WrapCheckLog(c),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = testController

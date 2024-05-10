@@ -162,6 +162,7 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 	machine := mocks.NewMockMachine(ctrl)
 	machine.EXPECT().Refresh(gomock.Any()).Return(nil)
 	machine.EXPECT().Life().Return(life.Alive)
+	machine.EXPECT().String().Return("machine-0").AnyTimes()
 	updWorker.appendToShortPollGroup(machineTag, machine)
 
 	// Manually move entry to long poll group.
@@ -229,6 +230,8 @@ func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *
 	// Start with machine "0" in the short poll group.
 	machineTag := names.NewMachineTag("0")
 	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().String().Return("machine-0").AnyTimes()
+
 	updWorker.appendToShortPollGroup(machineTag, machine)
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
 
@@ -274,6 +277,7 @@ func (s *workerSuite) TestMoveMachineWithUnknownStatusBackToShortPollGroup(c *gc
 	// The machine is assigned a network address.
 	machineTag := names.NewMachineTag("0")
 	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().String().Return("machine-0").AnyTimes()
 
 	// Move the machine to the long poll group.
 	updWorker.appendToShortPollGroup(machineTag, machine)
@@ -334,6 +338,7 @@ func (s *workerSuite) TestDeadMachineGetsRemoved(c *gc.C) {
 	// On next refresh, the machine reports as dead
 	machine.EXPECT().Refresh(gomock.Any()).Return(nil)
 	machine.EXPECT().Life().Return(life.Dead)
+	machine.EXPECT().String().Return("machine-0").AnyTimes()
 
 	// Emit a change for the machine so the queueing code detects the
 	// dead machine and removes it.
@@ -354,6 +359,7 @@ func (s *workerSuite) TestReapedMachineIsTreatedAsDeadAndRemoved(c *gc.C) {
 
 	machineTag := names.NewMachineTag("0")
 	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().String().Return("machine-0").AnyTimes()
 
 	// Add machine to short poll group
 	updWorker.appendToShortPollGroup(machineTag, machine)
@@ -421,6 +427,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 	machine0 := mocks.NewMockMachine(ctrl)
 	machine0.EXPECT().InstanceId().Return(instance.Id(""), apiservererrors.ServerError(errors.NotProvisionedf("not there")))
 	machine0.EXPECT().Id().Return("0")
+	machine0.EXPECT().String().Return("machine-0").AnyTimes()
 	updWorker.appendToShortPollGroup(machineTag0, machine0)
 
 	machineTag1 := names.NewMachineTag("1")
@@ -430,6 +437,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 	machine1.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Running)}, nil)
 	machine1.EXPECT().Status().Return(params.StatusResult{Status: string(status.Started)}, nil)
 	machine1.EXPECT().SetProviderNetworkConfig(testNetIfs).Return(testAddrs, false, nil)
+	machine1.EXPECT().String().Return("machine-1").AnyTimes()
 	updWorker.appendToShortPollGroup(machineTag1, machine1)
 
 	machine1Info := mocks.NewMockInstance(ctrl)

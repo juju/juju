@@ -118,6 +118,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.serviceFactory,
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.provisioner = provisionerAPI
@@ -146,6 +147,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -158,6 +160,7 @@ func (s *withoutControllerSuite) TestProvisionerFailsWithNonMachineAgentNonManag
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, gc.NotNil)
 	c.Assert(aProvisioner, gc.IsNil)
@@ -236,6 +239,7 @@ func (s *withoutControllerSuite) TestLifeAsMachineAgent(c *gc.C) {
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -596,6 +600,7 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -799,6 +804,7 @@ func (s *withoutControllerSuite) TestModelConfigNonManager(c *gc.C) {
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertModelConfig(c, aProvisioner)
@@ -1101,6 +1107,7 @@ func (s *withoutControllerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) 
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -1227,6 +1234,7 @@ func (s *withoutControllerSuite) TestDistributionGroupByMachineIdMachineAgentAut
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Check(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -1469,6 +1477,7 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1540,6 +1549,7 @@ func (s *withoutControllerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1723,6 +1733,7 @@ func (s *withoutControllerSuite) TestSetSupportedContainersPermissions(c *gc.C) 
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(aProvisioner, gc.NotNil)

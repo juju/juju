@@ -21,7 +21,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/runner"
@@ -155,6 +157,7 @@ func (r *RestrictedWriter) Write(entry loggo.Entry) {
 func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	writer := &RestrictedWriter{Module: "unit.u/0.something-happened"}
 	c.Assert(loggo.RegisterWriter("test", writer), jc.ErrorIsNil)
+
 	for i, t := range runHookTests {
 		ctrl := gomock.NewController(c)
 		s.setupFactory(c, ctrl)
@@ -242,8 +245,8 @@ type MockContext struct {
 	modelType       model.ModelType
 }
 
-func (ctx *MockContext) GetLogger(module string) loggo.Logger {
-	return loggo.GetLogger(module)
+func (ctx *MockContext) GetLoggerByName(module string) logger.Logger {
+	return internallogger.GetLogger(module)
 }
 
 func (ctx *MockContext) UnitName() string {

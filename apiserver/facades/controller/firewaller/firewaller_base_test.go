@@ -18,6 +18,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -105,6 +106,7 @@ func (s *firewallerBaseSuite) testFirewallerFailsWithNonControllerUser(
 		Resources_:      s.resources,
 		State_:          s.ControllerModel(c).State(),
 		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	}
 	err := factory(ctx)
 	c.Assert(err, gc.NotNil)

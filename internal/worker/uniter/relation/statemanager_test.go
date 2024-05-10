@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/internal/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/operation/mocks"
 	"github.com/juju/juju/internal/worker/uniter/relation"
@@ -192,7 +193,7 @@ func (s *stateManagerSuite) TestRemoveIgnoresMissingUnits(c *gc.C) {
 	s.expectSetStateEmpty(c)
 	s.mockUnitGetter.EXPECT().Unit(gomock.Any(), names.NewUnitTag("foo/1")).Return(nil, &params.Error{Code: "not found"})
 
-	logger := loggertesting.WrapCheckLog(c)
+	logger := logger.GetLogger("test")
 	var tw loggo.TestWriter
 	c.Assert(loggo.RegisterWriter("relations-tester", &tw), gc.IsNil)
 
@@ -201,8 +202,8 @@ func (s *stateManagerSuite) TestRemoveIgnoresMissingUnits(c *gc.C) {
 	err = mgr.RemoveRelation(context.Background(), 99, s.mockUnitGetter, map[string]bool{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		loggo.WARNING,
-		`unit foo/1 in relation 99 no longer exists`},
+		Level:   loggo.WARNING,
+		Message: `unit foo/1 in relation 99 no longer exists`},
 	})
 }
 

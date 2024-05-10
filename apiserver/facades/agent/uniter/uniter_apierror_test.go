@@ -16,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	secretservice "github.com/juju/juju/domain/secret/service"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/testing"
 )
 
@@ -46,6 +47,7 @@ func (s *uniterAPIErrorSuite) TestGetStorageStateError(c *gc.C) {
 		Resources_:         resources,
 		Auth_:              apiservertesting.FakeAuthorizer{Tag: names.NewUnitTag("nomatter/0")},
 		LeadershipChecker_: &fakeLeadershipChecker{isLeader: false},
+		Logger_:            loggertesting.WrapCheckLog(c),
 	}
 
 	serviceFactory := s.ControllerServiceFactory(c)
