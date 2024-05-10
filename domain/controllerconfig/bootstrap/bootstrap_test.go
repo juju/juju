@@ -26,7 +26,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var cert string
-	row := s.DB().QueryRow("SELECT value FROM CONTROLLER_CONFIG where key = ?", controller.CACertKey)
+	row := s.DB().QueryRow("SELECT value FROM controller_config where key = ?", controller.CACertKey)
 	c.Assert(row.Scan(&cert), jc.ErrorIsNil)
 
 	c.Check(cert, gc.Equals, testing.CACert)

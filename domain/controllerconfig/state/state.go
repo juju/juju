@@ -7,8 +7,10 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
 )
@@ -32,18 +34,26 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error
 		return nil, errors.Trace(err)
 	}
 
-	query := "SELECT key, value FROM controller_config"
+	stmt, err := st.Prepare("SELECT &KeyValue.* FROM v_controller_config", KeyValue{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
-	var result map[string]string
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, query)
-		if err != nil {
+	result := make(map[string]string)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var keyValues []KeyValue
+		if err := tx.Query(ctx, stmt).GetAll(&keyValues); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
 			return errors.Trace(err)
 		}
-		defer rows.Close()
 
-		result, err = controllerConfigFromRows(rows)
-		return errors.Trace(err)
+		for _, kv := range keyValues {
+			result[kv.Key] = kv.Value
+		}
+
+		return nil
 	})
 
 	return result, err
@@ -56,44 +66,72 @@ func (st *State) ControllerConfig(ctx context.Context) (map[string]string, error
 // after bootstrapping.
 // ValidateModification is a function that will be called with the current
 // config, and should return an error if the modification is not allowed.
-func (st *State) UpdateControllerConfig(ctx context.Context, updateAttrs map[string]string, removeAttrs []string, validateModification func(map[string]string) error) error {
+func (st *State) UpdateControllerConfig(
+	ctx context.Context,
+	updateAttrs map[string]string, removeAttrs []string,
+	validateModification func(map[string]string) error,
+) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	selectQuery := "SELECT key, value FROM controller_config"
-	deleteQuery := "DELETE FROM controller_config WHERE key = ?"
-	updateQuery := `
-INSERT INTO controller_config (key, value)
-VALUES (?, ?)
-  ON CONFLICT(key) DO UPDATE SET value=?`
+	selectStmt, err := st.Prepare("SELECT &KeyValue.* FROM v_controller_config", KeyValue{})
+	if err != nil {
+		return errors.Trace(err)
+	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		// Check keys and values are valid between current and new config.
-		rows, err := tx.QueryContext(ctx, selectQuery)
-		if err != nil {
-			return errors.Trace(err)
+	deleteStmt, err := st.Prepare("DELETE FROM controller_config WHERE key IN ($StringSlice[:])", StringSlice{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	updateStmt, err := st.Prepare(`
+INSERT INTO controller_config (key, value)
+VALUES ($KeyValue.*)
+  ON CONFLICT(key) DO UPDATE SET value=excluded.value`, KeyValue{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	updateKeyValues := make([]KeyValue, 0)
+	for k, v := range updateAttrs {
+		// Although not strictly necessary here, as it's solved in the service
+		// layer, we don't want to allow changing the controller UUID or name
+		// from the state layer either.
+		if k == controller.ControllerUUIDKey {
+			continue
 		}
-		current, err := controllerConfigFromRows(rows)
-		if err != nil {
-			return errors.Trace(err)
+		updateKeyValues = append(updateKeyValues, KeyValue{
+			Key:   k,
+			Value: v,
+		})
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check keys and values are valid between current and new config.
+		var keyValues []KeyValue
+		if err := tx.Query(ctx, selectStmt).GetAll(&keyValues); err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return errors.Trace(err)
+			}
+		}
+
+		current := make(map[string]string)
+		for _, kv := range keyValues {
+			current[kv.Key] = kv.Value
 		}
 		if err := validateModification(current); err != nil {
 			return errors.Trace(err)
 		}
 
-		// Remove the attributes
-		for _, r := range removeAttrs {
-			if _, err := tx.ExecContext(ctx, deleteQuery, r); err != nil {
-				return errors.Trace(err)
-			}
+		// Update the attributes.
+		if err := tx.Query(ctx, updateStmt, updateKeyValues).Run(); err != nil {
+			return errors.Trace(err)
 		}
 
-		// Update the attributes.
-		for key := range updateAttrs {
-			value := updateAttrs[key]
-			if _, err := tx.ExecContext(ctx, updateQuery, key, value, value); err != nil {
+		// Remove the attributes
+		if len(removeAttrs) > 0 {
+			if err := tx.Query(ctx, deleteStmt, StringSlice(removeAttrs)).Run(); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -107,23 +145,5 @@ VALUES (?, ?)
 // AllKeysQuery returns a SQL statement that will return
 // all known controller configuration keys.
 func (*State) AllKeysQuery() string {
-	return "SELECT key FROM controller_config"
-}
-
-// controllerConfigFromRows returns controller config info from rows returned from the backing DB.
-func controllerConfigFromRows(rows *sql.Rows) (map[string]string, error) {
-	result := make(map[string]string)
-
-	for rows.Next() {
-		var key string
-		var value string
-
-		if err := rows.Scan(&key, &value); err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		result[key] = value
-	}
-
-	return result, errors.Trace(rows.Err())
+	return "SELECT key FROM v_controller_config"
 }

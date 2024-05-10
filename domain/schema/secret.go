@@ -77,7 +77,7 @@ CREATE TABLE model_secret_backend (
 
 CREATE VIEW v_model_secret_backend AS
 SELECT
-    (SELECT value FROM controller_config WHERE key='controller-uuid') AS controller_uuid,
+    (SELECT uuid FROM controller) AS controller_uuid,
     m.uuid,
     m.name,
     mt.type AS model_type,

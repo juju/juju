@@ -136,6 +136,7 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		"life",
 
 		// Controller config
+		"controller",
 		"controller_config",
 
 		// Controller nodes
@@ -191,6 +192,9 @@ func (s *schemaSuite) TestControllerViews(c *gc.C) {
 	// Ensure that each view is present.
 	expected := set.NewStrings(
 		"v_user_auth",
+
+		// Controller and controller config
+		"v_controller_config",
 
 		// Cloud
 		"v_cloud",

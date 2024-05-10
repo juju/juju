@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
@@ -20,6 +21,17 @@ type stateSuite struct {
 }
 
 var _ = gc.Suite(&stateSuite{})
+
+func (s *stateSuite) SetUpTest(c *gc.C) {
+	s.ControllerSuite.SetUpTest(c)
+
+	cfg := controller.Config{
+		controller.ControllerUUIDKey: jujutesting.ControllerTag.Id(),
+		controller.CACertKey:         jujutesting.CACert,
+	}
+	err := bootstrap.InsertInitialControllerConfig(cfg)(ctx.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+}
 
 func (s *stateSuite) TestControllerConfigRead(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
@@ -40,6 +52,93 @@ func (s *stateSuite) TestControllerConfigRead(c *gc.C) {
 	controllerConfig, err := st.ControllerConfig(ctx.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(controllerConfig, jc.DeepEquals, ctrlConfig)
+}
+
+func (s *stateSuite) TestControllerConfigReadWithoutData(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// This is set at bootstrap time.
+	c.Check(controllerConfig, jc.DeepEquals, map[string]string{
+		controller.ControllerUUIDKey: jujutesting.ControllerTag.Id(),
+		controller.CACertKey:         jujutesting.CACert,
+	})
+}
+
+func (s *stateSuite) TestControllerConfigUpdateTwice(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	ctrlConfig := map[string]string{
+		controller.ControllerUUIDKey:   jujutesting.ControllerTag.Id(),
+		controller.CACertKey:           jujutesting.CACert,
+		controller.AuditingEnabled:     "1",
+		controller.AuditLogCaptureArgs: "0",
+		controller.AuditLogMaxBackups:  "10",
+		controller.PublicDNSAddress:    "controller.test.com:1234",
+		controller.APIPortOpenDelay:    "100ms",
+	}
+
+	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(controllerConfig, jc.DeepEquals, ctrlConfig)
+}
+
+func (s *stateSuite) TestControllerConfigUpdate(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	ctrlConfig := map[string]string{
+		controller.ControllerUUIDKey:   jujutesting.ControllerTag.Id(),
+		controller.CACertKey:           jujutesting.CACert,
+		controller.AuditingEnabled:     "1",
+		controller.AuditLogCaptureArgs: "0",
+		controller.AuditLogMaxBackups:  "10",
+		controller.PublicDNSAddress:    "controller.test.com:1234",
+		controller.APIPortOpenDelay:    "100ms",
+	}
+
+	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrlConfig[controller.AuditLogMaxBackups] = "11"
+
+	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(controllerConfig, jc.DeepEquals, ctrlConfig)
+}
+
+func (s *stateSuite) TestControllerConfigUpdateTwiceWithDifferentControllerUUID(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	ctrlConfig := map[string]string{
+		controller.ControllerUUIDKey:   jujutesting.ControllerTag.Id(),
+		controller.CACertKey:           jujutesting.CACert,
+		controller.AuditingEnabled:     "1",
+		controller.AuditLogCaptureArgs: "0",
+		controller.AuditLogMaxBackups:  "10",
+		controller.PublicDNSAddress:    "controller.test.com:1234",
+		controller.APIPortOpenDelay:    "100ms",
+	}
+
+	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// This is just ignored, the service layer will not allow this.
+
+	ctrlConfig[controller.ControllerUUIDKey] = "new-controller-uuid"
+
+	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *stateSuite) TestUpdateControllerConfigNewData(c *gc.C) {
@@ -107,6 +206,84 @@ func (s *stateSuite) TestUpdateControllerUpsertAndReplace(c *gc.C) {
 	err = row.Scan(&apiPortOpenDelay)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(apiPortOpenDelay, gc.Equals, "200ms")
+}
+
+func (s *stateSuite) TestControllerConfigRemove(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	ctrlConfig := map[string]string{
+		controller.ControllerUUIDKey:   jujutesting.ControllerTag.Id(),
+		controller.CACertKey:           jujutesting.CACert,
+		controller.AuditingEnabled:     "1",
+		controller.AuditLogCaptureArgs: "0",
+		controller.AuditLogMaxBackups:  "10",
+		controller.PublicDNSAddress:    "controller.test.com:1234",
+		controller.APIPortOpenDelay:    "100ms",
+	}
+
+	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrlConfig[controller.AuditLogMaxBackups] = "11"
+
+	// Delete the values that are not in the map.
+
+	delete(ctrlConfig, controller.APIPortOpenDelay)
+	delete(ctrlConfig, controller.AuditLogCaptureArgs)
+
+	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, []string{
+		controller.APIPortOpenDelay,
+		controller.AuditLogCaptureArgs,
+	}, alwaysValid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(controllerConfig, jc.DeepEquals, map[string]string{
+		controller.ControllerUUIDKey:  jujutesting.ControllerTag.Id(),
+		controller.CACertKey:          jujutesting.CACert,
+		controller.AuditingEnabled:    "1",
+		controller.AuditLogMaxBackups: "11",
+		controller.PublicDNSAddress:   "controller.test.com:1234",
+	})
+}
+
+func (s *stateSuite) TestControllerConfigRemoveWithAdditionalValues(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	ctrlConfig := map[string]string{
+		controller.ControllerUUIDKey:   jujutesting.ControllerTag.Id(),
+		controller.CACertKey:           jujutesting.CACert,
+		controller.AuditingEnabled:     "1",
+		controller.AuditLogCaptureArgs: "0",
+		controller.AuditLogMaxBackups:  "10",
+		controller.PublicDNSAddress:    "controller.test.com:1234",
+		controller.APIPortOpenDelay:    "100ms",
+	}
+
+	err := st.UpdateControllerConfig(ctx.Background(), ctrlConfig, nil, alwaysValid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrlConfig[controller.AuditLogMaxBackups] = "11"
+
+	// Notice that we've asked for two values to be removed, but they're still
+	// in the map. They should still be removed.
+
+	err = st.UpdateControllerConfig(ctx.Background(), ctrlConfig, []string{
+		controller.APIPortOpenDelay,
+		controller.AuditLogCaptureArgs,
+	}, alwaysValid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerConfig, err := st.ControllerConfig(ctx.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(controllerConfig, jc.DeepEquals, map[string]string{
+		controller.ControllerUUIDKey:  jujutesting.ControllerTag.Id(),
+		controller.CACertKey:          jujutesting.CACert,
+		controller.AuditingEnabled:    "1",
+		controller.AuditLogMaxBackups: "11",
+		controller.PublicDNSAddress:   "controller.test.com:1234",
+	})
 }
 
 func (s *stateSuite) TestUpdateControllerWithValidation(c *gc.C) {
