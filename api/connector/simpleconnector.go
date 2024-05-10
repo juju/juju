@@ -4,6 +4,7 @@
 package connector
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
@@ -47,6 +48,12 @@ var _ Connector = (*SimpleConnector)(nil)
 // connect according to the specified options.  If some options are invalid an
 // error is returned.
 func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnector, error) {
+	if opts.Username == "" && opts.ClientID == "" {
+		return nil, errors.New("one of Username or ClientID must be set")
+	} else if opts.Username != "" && opts.ClientID != "" {
+		return nil, errors.New("only one of Username or ClientID should be set")
+	}
+
 	info := api.Info{
 		Addrs:    opts.ControllerAddresses,
 		CACert:   opts.CACert,
