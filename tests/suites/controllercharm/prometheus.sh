@@ -49,11 +49,17 @@ run_prometheus_multiple_units() {
 	retry 'check_prometheus_targets p1 1' 15
 
 	juju remove-unit p1 --num-units 1
+	# Wait until the application p1 settles before health checks
+	wait_for "p1" "$(active_condition "p1" 0)"
+
 	# Check all applications are still healthy
 	juju status -m controller --format json | jq -r "$(active_condition "controller")" | check "controller"
 	juju status --format json | jq -r "$(active_condition "p1" 0)" | check "p1"
 
 	juju remove-relation p2 controller
+	# Wait until the application p2 settles before health checks
+	wait_for "p2" "$(active_condition "p2" 1)"
+
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target p2 0' 5
 	# Check no errors in controller charm or Prometheus
@@ -61,6 +67,9 @@ run_prometheus_multiple_units() {
 	juju status --format json | jq -r "$(active_condition "p2" 1)" | check "p2"
 
 	juju remove-relation p1 controller
+	# Wait until the application p1 settles before health checks
+	wait_for "p1" "$(active_condition "p1" 0)"
+
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target p1 0' 5
 	# Check no errors in controller charm or Prometheus
