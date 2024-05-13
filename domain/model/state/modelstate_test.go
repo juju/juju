@@ -15,6 +15,7 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type modelSuite struct {
@@ -37,6 +38,7 @@ func (s *modelSuite) TestCreateModel(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	args := model.ReadOnlyModelCreationArgs{
 		UUID:            id,
+		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
 		Type:            coremodel.IAAS,
@@ -53,6 +55,7 @@ func (s *modelSuite) TestCreateModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(model, jc.DeepEquals, coremodel.ReadOnlyModel{
 		UUID:            id,
+		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
 		Type:            coremodel.IAAS,
@@ -70,6 +73,7 @@ func (s *modelSuite) TestDeleteModel(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	args := model.ReadOnlyModelCreationArgs{
 		UUID:            id,
+		AgentVersion:    jujuversion.Current,
 		ControllerUUID:  s.controllerUUID,
 		Name:            "my-awesome-model",
 		Type:            coremodel.IAAS,
@@ -101,6 +105,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	args := model.ReadOnlyModelCreationArgs{
 		UUID:           id,
+		AgentVersion:   jujuversion.Current,
 		ControllerUUID: s.controllerUUID,
 		Name:           "my-awesome-model",
 		Type:           coremodel.IAAS,
@@ -120,20 +125,22 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 	// Ensure that you can only ever insert one model.
 
 	err := state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
-		UUID:        modeltesting.GenModelUUID(c),
-		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
-		Cloud:       "aws",
-		CloudRegion: "myregion",
+		UUID:         modeltesting.GenModelUUID(c),
+		AgentVersion: jujuversion.Current,
+		Name:         "my-awesome-model",
+		Type:         coremodel.IAAS,
+		Cloud:        "aws",
+		CloudRegion:  "myregion",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
-		UUID:        modeltesting.GenModelUUID(c),
-		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
-		Cloud:       "aws",
-		CloudRegion: "myregion",
+		UUID:         modeltesting.GenModelUUID(c),
+		AgentVersion: jujuversion.Current,
+		Name:         "my-awesome-model",
+		Type:         coremodel.IAAS,
+		Cloud:        "aws",
+		CloudRegion:  "myregion",
 	})
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
 }
@@ -147,6 +154,7 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 	id := modeltesting.GenModelUUID(c)
 	err := state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
 		UUID:           id,
+		AgentVersion:   jujuversion.Current,
 		ControllerUUID: s.controllerUUID,
 		Name:           "my-awesome-model",
 		Type:           coremodel.IAAS,
@@ -168,11 +176,12 @@ func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
 
 	id := modeltesting.GenModelUUID(c)
 	err := state.Create(context.Background(), model.ReadOnlyModelCreationArgs{
-		UUID:        id,
-		Name:        "my-awesome-model",
-		Type:        coremodel.IAAS,
-		Cloud:       "aws",
-		CloudRegion: "myregion",
+		UUID:         id,
+		AgentVersion: jujuversion.Current,
+		Name:         "my-awesome-model",
+		Type:         coremodel.IAAS,
+		Cloud:        "aws",
+		CloudRegion:  "myregion",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

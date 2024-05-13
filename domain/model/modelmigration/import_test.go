@@ -155,7 +155,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(nil)
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -176,10 +176,10 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	})
 
 	importOp := &importOperation{
-		userService:             i.userService,
-		modelService:            i.modelService,
-		controllerConfigService: i.controllerConfigService,
-		readOnlyModelService:    i.readOnlyModelService,
+		userService:              i.userService,
+		modelService:             i.modelService,
+		controllerConfigService:  i.controllerConfigService,
+		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
@@ -226,9 +226,9 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(errors.New("boom"))
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
-	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
+	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -249,10 +249,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 	})
 
 	importOp := &importOperation{
-		userService:             i.userService,
-		modelService:            i.modelService,
-		controllerConfigService: i.controllerConfigService,
-		readOnlyModelService:    i.readOnlyModelService,
+		userService:              i.userService,
+		modelService:             i.modelService,
+		controllerConfigService:  i.controllerConfigService,
+		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
@@ -301,9 +301,9 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(errors.New("boom"))
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
-	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
+	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -324,10 +324,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 	})
 
 	importOp := &importOperation{
-		userService:             i.userService,
-		modelService:            i.modelService,
-		controllerConfigService: i.controllerConfigService,
-		readOnlyModelService:    i.readOnlyModelService,
+		userService:              i.userService,
+		modelService:             i.modelService,
+		controllerConfigService:  i.controllerConfigService,
+		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
@@ -376,9 +376,9 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	c.Assert(err, jc.ErrorIsNil)
 
 	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
-	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), modelUUID, controllerUUID).Return(errors.New("boom"))
+	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
-	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
+	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(modelerrors.NotFound)
 
 	model := description.NewModel(description.ModelArgs{
 		Config: map[string]any{
@@ -399,10 +399,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	})
 
 	importOp := &importOperation{
-		userService:             i.userService,
-		modelService:            i.modelService,
-		controllerConfigService: i.controllerConfigService,
-		readOnlyModelService:    i.readOnlyModelService,
+		userService:              i.userService,
+		modelService:             i.modelService,
+		controllerConfigService:  i.controllerConfigService,
+		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
 	}
 
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))

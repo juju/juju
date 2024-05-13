@@ -55,14 +55,21 @@ type ModelService interface {
 	DeleteModel(context.Context, coremodel.UUID) error
 }
 
+// ReadOnlyModelService defines a service for interacting with the read only
+// model information found in a model database.
 type ReadOnlyModelService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
-	CreateModel(context.Context, coremodel.UUID, uuid.UUID) error
+	CreateModel(context.Context, uuid.UUID) error
 
 	// DeleteModel is responsible for removing a read only model from the system.
-	DeleteModel(context.Context, coremodel.UUID) error
+	DeleteModel(context.Context) error
 }
+
+// ReadOnlyModelServiceFunc is responsible for creating and returning a
+// [ReadOnlyModelService] for the specified model id. We use this func so that
+// we can late bind the service during the import operation.
+type ReadOnlyModelServiceFunc = func(coremodel.UUID) ReadOnlyModelService
 
 // UserService defines the user service used for model migration.
 type UserService interface {
@@ -85,10 +92,10 @@ type ControllerConfigService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
-	modelService            ModelService
-	readOnlyModelService    ReadOnlyModelService
-	userService             UserService
-	controllerConfigService ControllerConfigService
+	modelService             ModelService
+	readOnlyModelServiceFunc ReadOnlyModelServiceFunc
+	userService              UserService
+	controllerConfigService  ControllerConfigService
 
 	logger logger.Logger
 }
@@ -100,10 +107,13 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 		modelstate.NewState(scope.ControllerDB()),
 		modelservice.DefaultAgentBinaryFinder(),
 	)
-	i.readOnlyModelService = modelservice.NewModelService(
-		modelstate.NewState(scope.ControllerDB()),
-		modelstate.NewModelState(scope.ModelDB()),
-	)
+	i.readOnlyModelServiceFunc = func(id coremodel.UUID) ReadOnlyModelService {
+		return modelservice.NewModelService(
+			id,
+			modelstate.NewState(scope.ControllerDB()),
+			modelstate.NewModelState(scope.ModelDB()),
+		)
+	}
 	i.userService = accessservice.NewService(accessstate.NewState(scope.ControllerDB(), i.logger))
 	i.controllerConfigService = controllerconfigservice.NewService(
 		controllerconfigstate.NewState(scope.ControllerDB()),
@@ -193,8 +203,8 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		return fmt.Errorf("parsing controller uuid %q: %w", controllerConfig.ControllerUUID(), err)
 	}
 
-	// If the model is read only, we need to create a read only model.
-	err = i.readOnlyModelService.CreateModel(ctx, args.UUID, controllerUUID)
+	// We need to establish the read only model information in the model database.
+	err = i.readOnlyModelServiceFunc(args.UUID).CreateModel(ctx, controllerUUID)
 	if err != nil {
 		return fmt.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",
@@ -223,7 +233,7 @@ func (i importOperation) Rollback(ctx context.Context, model description.Model) 
 	}
 
 	// If the read only model isn't found, we can simply ignore the error.
-	if err := i.readOnlyModelService.DeleteModel(ctx, modelID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+	if err := i.readOnlyModelServiceFunc(modelID).DeleteModel(ctx); err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return fmt.Errorf(
 			"rollback of read only model %q with uuid %q during migration: %w",
 			modelName, modelID, err,

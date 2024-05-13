@@ -26,13 +26,13 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/access/service"
-	"github.com/juju/juju/environs/config"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/docker"
@@ -403,16 +403,23 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	defer ctrl.Finish()
 
 	backend := NewMockBackend(ctrl)
-	model := NewMockModel(ctrl)
 	authorizer := NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := NewMockToolsFinder(ctrl)
 	blockDeviceService := NewMockBlockDeviceService(ctrl)
 	networkService := NewMockNetworkService(ctrl)
+	modelInfoService := NewMockModelInfoService(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.6-ubuntu-amd64")},
 	}
+
+	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(
+		coremodel.ReadOnlyModel{
+			Type: coremodel.IAAS,
+		},
+		nil,
+	)
 
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
@@ -421,14 +428,12 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
-		backend.EXPECT().Model().Return(model, nil),
 		toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{MajorVersion: 2}).
 			Return(simpleStreams, nil),
-		model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
 
 	api, err := client.NewClient(
-		backend, nil,
+		backend, modelInfoService, nil,
 		nil, blockDeviceService, nil, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
@@ -443,29 +448,19 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.FindToolsResult{List: simpleStreams})
 }
 
-func (s *findToolsSuite) getModelConfig(c *gc.C, agentVersion string) *config.Config {
-	// Validate version string.
-	ver, err := version.Parse(agentVersion)
-	c.Assert(err, jc.ErrorIsNil)
-	mCfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
-		config.AgentVersionKey: ver.String(),
-	}))
-	c.Assert(err, jc.ErrorIsNil)
-	return mCfg
-}
-
 func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	backend := NewMockBackend(ctrl)
-	model := NewMockModel(ctrl)
+	//model := NewMockModel(ctrl)
 	authorizer := NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := NewMockToolsFinder(ctrl)
 	controllerConfigService := NewMockControllerConfigService(ctrl)
 	blockDeviceService := NewMockBlockDeviceService(ctrl)
 	networkService := NewMockNetworkService(ctrl)
+	modelInfoService := NewMockModelInfoService(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -474,6 +469,13 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	}
 	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
+	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(
+		coremodel.ReadOnlyModel{
+			Type:         coremodel.CAAS,
+			AgentVersion: version.MustParse("2.9.9"),
+		},
+		nil)
+
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
 		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
@@ -481,11 +483,9 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
-		backend.EXPECT().Model().Return(model, nil),
+		//backend.EXPECT().Model().Return(model, nil),
 		toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{MajorVersion: 2}).
 			Return(simpleStreams, nil),
-		model.EXPECT().Type().Return(state.ModelTypeCAAS),
-		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9"), nil),
 
 		controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
 			controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
@@ -511,7 +511,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 	)
 
 	api, err := client.NewClient(
-		backend, nil,
+		backend, modelInfoService, nil,
 		nil, blockDeviceService, controllerConfigService, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,
@@ -543,13 +543,14 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	defer ctrl.Finish()
 
 	backend := NewMockBackend(ctrl)
-	model := NewMockModel(ctrl)
+	//model := NewMockModel(ctrl)
 	authorizer := NewMockAuthorizer(ctrl)
 	registryProvider := registrymocks.NewMockRegistry(ctrl)
 	toolsFinder := NewMockToolsFinder(ctrl)
 	blockDeviceService := NewMockBlockDeviceService(ctrl)
 	controllerConfigService := NewMockControllerConfigService(ctrl)
 	networkService := NewMockNetworkService(ctrl)
+	modelInfoService := NewMockModelInfoService(ctrl)
 
 	simpleStreams := []*tools.Tools{
 		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
@@ -559,6 +560,14 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	}
 	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
+	modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(
+		coremodel.ReadOnlyModel{
+			AgentVersion: version.MustParse("2.9.9.1"),
+			Type:         coremodel.CAAS,
+		},
+		nil,
+	)
+
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
 		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
@@ -566,12 +575,9 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
 		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
-		backend.EXPECT().Model().Return(model, nil),
 		toolsFinder.EXPECT().FindAgents(gomock.Any(),
 			common.FindAgentsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}).
 			Return(simpleStreams, nil),
-		model.EXPECT().Type().Return(state.ModelTypeCAAS),
-		model.EXPECT().Config().Return(s.getModelConfig(c, "2.9.9.1"), nil),
 
 		controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{
 			controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
@@ -600,7 +606,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	)
 
 	api, err := client.NewClient(
-		backend, nil,
+		backend, modelInfoService, nil,
 		nil, blockDeviceService, controllerConfigService, nil,
 		authorizer, nil, toolsFinder,
 		nil, nil, nil, nil,

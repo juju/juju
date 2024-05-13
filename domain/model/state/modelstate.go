@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
@@ -89,7 +90,9 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 	return nil
 }
 
-// Model returns a read-only model for the given uuid.
+// Model returns a read-only model information that has been set in the database.
+// If no model has been set then an error satisfying [modelerrors.NotFound] is
+// returned.
 func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -98,6 +101,7 @@ func (s *ModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, error)
 
 	stmt := `
 SELECT uuid,
+       target_agent_version,
        controller_uuid,
        name, 
        type, 
@@ -105,17 +109,19 @@ SELECT uuid,
        cloud_region, 
        credential_owner, 
        credential_name
-FROM model;
+FROM model
 `
 
 	var (
 		rawControllerUUID string
 		model             coremodel.ReadOnlyModel
+		agentVersion      string
 	)
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, stmt)
 		if err := row.Scan(
 			&model.UUID,
+			&agentVersion,
 			&rawControllerUUID,
 			&model.Name,
 			&model.Type,
@@ -130,9 +136,14 @@ FROM model;
 	})
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return coremodel.ReadOnlyModel{}, fmt.Errorf("model %w", modelerrors.NotFound)
+			return coremodel.ReadOnlyModel{}, fmt.Errorf("getting model read only information %w", modelerrors.NotFound)
 		}
 		return coremodel.ReadOnlyModel{}, errors.Trace(err)
+	}
+
+	model.AgentVersion, err = version.Parse(agentVersion)
+	if err != nil {
+		return coremodel.ReadOnlyModel{}, fmt.Errorf("parsing model agent version %q: %w", agentVersion, err)
 	}
 
 	model.ControllerUUID, err = uuid.UUIDFromString(rawControllerUUID)
@@ -150,12 +161,22 @@ INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, clou
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT (uuid) DO NOTHING;
 `
+
+	// This is some defensive programming. The zero value of agent version is
+	// still valid but should really be considered null for the purposes of
+	// allowing the DDL to assert constraints.
+	var agentVersion sql.NullString
+	if args.AgentVersion != version.Zero {
+		agentVersion.String = args.AgentVersion.String()
+		agentVersion.Valid = true
+	}
+
 	result, err := tx.ExecContext(ctx, stmt,
 		args.UUID,
 		args.ControllerUUID.String(),
 		args.Name,
 		args.Type,
-		args.AgentVersion.String(),
+		agentVersion,
 		args.Cloud,
 		args.CloudRegion,
 		args.CredentialOwner,

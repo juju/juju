@@ -18,7 +18,10 @@ type ModelState interface {
 	Create(context.Context, model.ReadOnlyModelCreationArgs) error
 
 	// Delete deletes a model.
-	Delete(ctx context.Context, uuid coremodel.UUID) error
+	Delete(context.Context, coremodel.UUID) error
+
+	// Model returns the read only model information set in the database.
+	Model(context.Context) (coremodel.ReadOnlyModel, error)
 }
 
 // ModelGetterState represents the state required for reading all model information.
@@ -29,16 +32,28 @@ type ModelGetterState interface {
 // ModelService defines a service for interacting with the underlying model
 // state, as opposed to the controller state.
 type ModelService struct {
+	modelID       coremodel.UUID
 	modelGetterSt ModelGetterState
 	st            ModelState
 }
 
 // NewModelService returns a new Service for interacting with a models state.
-func NewModelService(modelGetterSt ModelGetterState, st ModelState) *ModelService {
+func NewModelService(
+	modelID coremodel.UUID,
+	modelGetterSt ModelGetterState,
+	st ModelState,
+) *ModelService {
 	return &ModelService{
+		modelID:       modelID,
 		modelGetterSt: modelGetterSt,
 		st:            st,
 	}
+}
+
+// GetModelInfo returns the readonly model information for the model in
+// question.
+func (s *ModelService) GetModelInfo(ctx context.Context) (coremodel.ReadOnlyModel, error) {
+	return s.st.Model(ctx)
 }
 
 // CreateModel is responsible for creating a new model within the model
@@ -48,14 +63,9 @@ func NewModelService(modelGetterSt ModelGetterState, st ModelState) *ModelServic
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use.
 func (s *ModelService) CreateModel(
 	ctx context.Context,
-	id coremodel.UUID,
 	controllerUUID uuid.UUID,
 ) error {
-	if err := id.Validate(); err != nil {
-		return err
-	}
-
-	m, err := s.modelGetterSt.Get(ctx, id)
+	m, err := s.modelGetterSt.Get(ctx, s.modelID)
 	if err != nil {
 		return err
 	}
@@ -81,7 +91,6 @@ func (s *ModelService) CreateModel(
 // - [modelerrors.NotFound]: When the model does not exist.
 func (s *ModelService) DeleteModel(
 	ctx context.Context,
-	uuid coremodel.UUID,
 ) error {
-	return s.st.Delete(ctx, uuid)
+	return s.st.Delete(ctx, s.modelID)
 }

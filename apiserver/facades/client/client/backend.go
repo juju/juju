@@ -4,7 +4,6 @@
 package client
 
 import (
-	"context"
 	"time"
 
 	"github.com/juju/charm/v13"
@@ -15,7 +14,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
-	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
@@ -43,7 +41,6 @@ type Backend interface {
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	Machine(string) (*state.Machine, error)
 	Model() (Model, error)
-	ModelConfig() (*config.Config, error)
 	ModelTag() names.ModelTag
 	ModelUUID() string
 	RemoteApplication(string) (*state.RemoteApplication, error)
@@ -103,10 +100,6 @@ type stateShim struct {
 	session                  MongoSession
 }
 
-func (s stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
-	return s.model.UpdateModelConfig(s.configSchemaSourceGetter, u, r, a...)
-}
-
 func (s *stateShim) Application(name string) (Application, error) {
 	a, err := s.State.Application(name)
 	if err != nil {
@@ -142,19 +135,6 @@ func (p *poolShim) GetModel(uuid string) (*state.Model, func(), error) {
 		return nil, nil, errors.Trace(err)
 	}
 	return model, func() { ph.Release() }, nil
-}
-
-func (s stateShim) ModelConfig() (*config.Config, error) {
-	model, err := s.State.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg, err := model.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return cfg, nil
 }
 
 func (s stateShim) ModelTag() names.ModelTag {
@@ -223,9 +203,4 @@ var getStorageState = func(st *state.State) (StorageInterface, error) {
 		return nil, err
 	}
 	return sb, nil
-}
-
-// BlockDeviceService instances can fetch block devices for a machine.
-type BlockDeviceService interface {
-	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
 }

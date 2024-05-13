@@ -84,7 +84,7 @@ type ModelDefaultsService interface {
 type ModelInfoService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
-	CreateModel(context.Context, coremodel.UUID, uuid.UUID) error
+	CreateModel(context.Context, uuid.UUID) error
 }
 
 // ModelExporter defines a interface for exporting models.
