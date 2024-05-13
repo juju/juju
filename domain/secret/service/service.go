@@ -69,6 +69,7 @@ type State interface {
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUID ...string,
 	) ([]string, error)
 	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
+	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
 
 	// For watching consumed local secret changes.
 	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
@@ -362,11 +363,11 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 	rotatePolicy := domainsecret.MarshallRotatePolicy(params.RotatePolicy)
 	p.RotatePolicy = &rotatePolicy
 	if params.RotatePolicy.WillRotate() {
-		md, err := s.GetSecret(ctx, uri)
+		policy, err := s.st.GetRotatePolicy(ctx, uri)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if !md.RotatePolicy.WillRotate() {
+		if !policy.WillRotate() {
 			p.NextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
 		}
 	}

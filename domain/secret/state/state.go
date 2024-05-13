@@ -1051,6 +1051,34 @@ func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecre
 	return secrets[0], nil
 }
 
+// GetRotatePolicy returns the rotate policy for the specified secret.
+func (st State) GetRotatePolicy(ctx context.Context, uri *coresecrets.URI) (coresecrets.RotatePolicy, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	stmt, err := st.Prepare(`
+SELECT srp.policy
+FROM secret_metadata sm
+INNER JOIN secret_rotate_policy srp ON srp.id = sm.rotate_policy_id
+WHERE sm.secret_id = $secretID.id`, secretID{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	var rotatePolicy string
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, secretID{ID: uri.ID}).Get(&rotatePolicy)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("rotate policy for %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
+		}
+		return errors.Trace(err)
+	}); err != nil {
+		return "", errors.Trace(domain.CoerceError(err))
+	}
+	return coresecrets.RotatePolicy(rotatePolicy), nil
+}
+
 func (st State) listSecretsAnyOwner(
 	ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI,
 ) ([]*coresecrets.SecretMetadata, error) {
