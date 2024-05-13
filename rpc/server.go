@@ -12,15 +12,15 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/trace"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/rpcreflect"
 )
 
 const codeNotImplemented = "not implemented"
 
-var logger = loggo.GetLogger("juju.rpc")
+var logger = internallogger.GetLogger("juju.rpc")
 
 // A Codec implements reading and writing of messages in an RPC
 // session.  The RPC code calls WriteMessage to write a message to the

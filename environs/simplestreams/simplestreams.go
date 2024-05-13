@@ -16,12 +16,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/agent"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.environs.simplestreams")
+var logger = internallogger.GetLogger("juju.environs.simplestreams")
 
 type ResolveInfo struct {
 	Source    string `yaml:"source" json:"source"`

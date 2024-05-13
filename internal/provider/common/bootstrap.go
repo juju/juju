@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/parallel"
 	"github.com/juju/utils/v4/shell"
@@ -42,12 +41,13 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/sshinit"
+	internallogger "github.com/juju/juju/internal/logger"
 	pkissh "github.com/juju/juju/internal/pki/ssh"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
 )
 
-var logger = loggo.GetLogger("juju.provider.common")
+var logger = internallogger.GetLogger("juju.provider.common")
 
 // Bootstrap is a common implementation of the Bootstrap method defined on
 // environs.Environ; we strongly recommend that this implementation be used

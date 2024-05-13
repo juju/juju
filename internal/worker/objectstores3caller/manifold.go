@@ -13,24 +13,14 @@ import (
 	"gopkg.in/tomb.v2"
 
 	coredependency "github.com/juju/juju/core/dependency"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/internal/servicefactory"
 )
 
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...any)
-	Warningf(message string, args ...any)
-	Infof(message string, args ...any)
-	Debugf(message string, args ...any)
-	Tracef(message string, args ...any)
-
-	IsTraceEnabled() bool
-}
-
 // NewClientFunc is a function that returns a new S3 client.
-type NewClientFunc = func(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger s3client.Logger) (objectstore.Session, error)
+type NewClientFunc = func(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger logger.Logger) (objectstore.Session, error)
 
 // GetControllerConfigServiceFunc is a helper function that gets a service from
 // the manifold.
@@ -47,7 +37,7 @@ type ManifoldConfig struct {
 	// NewClient is used to create a new object store client.
 	NewClient NewClientFunc
 	// Logger is used to write logging statements for the worker.
-	Logger Logger
+	Logger logger.Logger
 	// Clock is used for the retry mechanism.
 	Clock clock.Clock
 
@@ -153,7 +143,7 @@ func outputWorker(in worker.Worker) (objectstore.Client, error) {
 }
 
 // NewS3Client returns a new S3 client based on the supplied dependencies.
-func NewS3Client(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger s3client.Logger) (objectstore.Session, error) {
+func NewS3Client(endpoint string, client s3client.HTTPClient, creds s3client.Credentials, logger logger.Logger) (objectstore.Session, error) {
 	return s3client.NewS3Client(endpoint, client, creds, logger)
 }
 

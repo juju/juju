@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
@@ -34,23 +35,6 @@ import (
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
-
-// LoggerFactory is the interface that is used to create new loggers.
-type LoggerFactory interface {
-	Child(string) Logger
-	ChildWithTags(string, ...string) Logger
-	Namespace(string) LoggerFactory
-}
-
-// Logger represents the logging methods called.
-type Logger interface {
-	IsTraceEnabled() bool
-
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
 
 // ControllerConfigService is the interface that is used to get the
 // controller configuration.
@@ -200,7 +184,7 @@ type ManifoldConfig struct {
 	NewEnviron             NewEnvironFunc
 	BootstrapAddresses     BootstrapAddressesFunc
 
-	LoggerFactory LoggerFactory
+	Logger logger.Logger
 }
 
 // Validate validates the manifold configuration.
@@ -223,8 +207,8 @@ func (cfg ManifoldConfig) Validate() error {
 	if cfg.CharmhubHTTPClientName == "" {
 		return errors.NotValidf("empty CharmhubHTTPClientName")
 	}
-	if cfg.LoggerFactory == nil {
-		return errors.NotValidf("nil LoggerFactory")
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if cfg.AgentBinaryUploader == nil {
 		return errors.NotValidf("nil AgentBinaryUploader")
@@ -381,7 +365,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				PopulateControllerCharm: config.PopulateControllerCharm,
 				CharmhubHTTPClient:      charmhubHTTPClient,
 				UnitPassword:            unitPassword,
-				LoggerFactory:           config.LoggerFactory,
+				Logger:                  config.Logger,
 				NewEnviron:              config.NewEnviron,
 				BootstrapAddresses:      config.BootstrapAddresses,
 				BootstrapAddressFinder:  config.BootstrapAddressFinder,

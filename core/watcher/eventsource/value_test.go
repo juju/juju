@@ -49,7 +49,7 @@ func (s *valueSuite) TestNotificationsByPredicate(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueMapperWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All, func(ctx context.Context, _ database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w := NewValueMapperWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All, func(ctx context.Context, _ database.TxnRunner, e []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		if len(e) != 1 {
 			c.Fatalf("expected 1 event, got %d", len(e))
 		}
@@ -123,7 +123,7 @@ func (s *valueSuite) TestNotificationsByPredicateError(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueMapperWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All, func(_ context.Context, _ database.TxnRunner, _ []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+	w := NewValueMapperWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All, func(_ context.Context, _ database.TxnRunner, _ []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
 		return nil, errors.Errorf("boom")
 	})
 	defer workertest.DirtyKill(c, w)
@@ -182,7 +182,7 @@ func (s *valueSuite) TestNotificationsSent(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All)
+	w := NewValueWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All)
 	defer workertest.CleanKill(c, w)
 
 	// Initial notification.
@@ -229,7 +229,7 @@ func (s *valueSuite) TestSubscriptionDoneKillsWorker(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All)
+	w := NewValueWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All)
 	defer workertest.DirtyKill(c, w)
 
 	err := workertest.CheckKilled(c, w)
@@ -249,7 +249,7 @@ func (s *valueSuite) TestEnsureCloseOnCleanKill(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All)
+	w := NewValueWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All)
 
 	workertest.CleanKill(c, w)
 	_, ok := <-w.Changes()
@@ -269,7 +269,7 @@ func (s *valueSuite) TestEnsureCloseOnDirtyKill(c *gc.C) {
 		subscriptionOptionMatcher{changestream.Namespace("random_namespace", changestream.All)},
 	).Return(s.sub, nil)
 
-	w := NewValueWatcher(s.newBaseWatcher(), "random_namespace", "value", changestream.All)
+	w := NewValueWatcher(s.newBaseWatcher(c), "random_namespace", "value", changestream.All)
 
 	workertest.DirtyKill(c, w)
 	_, ok := <-w.Changes()

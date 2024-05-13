@@ -10,6 +10,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -93,14 +94,14 @@ type machineWatcher struct {
 	accessor MachineAccessor
 	tag      names.MachineTag
 	out      chan<- names.MachineTag
-	logger   Logger
+	logger   logger.Logger
 }
 
 func newMachineWatcher(
 	accessor MachineAccessor,
 	tag names.MachineTag,
 	out chan<- names.MachineTag,
-	logger Logger,
+	logger logger.Logger,
 ) (*machineWatcher, error) {
 	w := &machineWatcher{
 		accessor: accessor,

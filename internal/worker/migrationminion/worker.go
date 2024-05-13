@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
@@ -53,7 +54,7 @@ type Config struct {
 	Clock             clock.Clock
 	APIOpen           func(*api.Info, api.DialOpts) (api.Connection, error)
 	ValidateMigration func(context.Context, base.APICaller) error
-	Logger            Logger
+	Logger            logger.Logger
 }
 
 // Validate returns an error if config cannot drive a Worker.

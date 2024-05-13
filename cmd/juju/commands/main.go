@@ -13,7 +13,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo/v2"
 	proxyutils "github.com/juju/proxy"
 
 	cloudfile "github.com/juju/juju/cloud"
@@ -46,6 +45,7 @@ import (
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/juju/waitfor"
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -53,7 +53,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.commands")
+var logger = internallogger.GetLogger("juju.cmd.juju.commands")
 
 func init() {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey, osenv.JujuFeatures)

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/version/v2"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/observability/probe"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/upgrades"
@@ -184,7 +184,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
-			Logger:             loggo.GetLogger("juju.worker.apiconfigwatcher"),
+			Logger:             internallogger.GetLogger("juju.worker.apiconfigwatcher"),
 		}),
 
 		apiCallerName: apicaller.Manifold(apicaller.ManifoldConfig{
@@ -192,7 +192,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			APIOpen:              api.Open,
 			APIConfigWatcherName: apiConfigWatcherName,
 			NewConnection:        apicaller.OnlyConnect,
-			Logger:               loggo.GetLogger("juju.worker.apicaller"),
+			Logger:               internallogger.GetLogger("juju.worker.apicaller"),
 		}),
 
 		// The S3 API caller is a shim API that wraps the /charms REST
@@ -201,7 +201,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		s3CallerName: units3caller.Manifold(units3caller.ManifoldConfig{
 			APICallerName: apiCallerName,
 			NewClient:     units3caller.NewS3Client,
-			Logger:        loggo.GetLogger("juju.worker.units3caller"),
+			Logger:        internallogger.GetLogger("juju.worker.units3caller"),
 		}),
 
 		deadFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
@@ -266,7 +266,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			NewAgentStatusSetter: func(ctx context.Context, a base.APICaller) (upgradesteps.StatusSetter, error) {
 				return noopStatusSetter{}, nil
 			},
-			Logger: loggo.GetLogger("juju.worker.upgradestepsmachine"),
+			Logger: internallogger.GetLogger("juju.worker.upgradestepsmachine"),
 			Clock:  config.Clock,
 		})),
 
@@ -295,7 +295,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
-			Logger:            loggo.GetLoggerWithTags("juju.worker.migrationminion", corelogger.MIGRATION),
+			Logger:            internallogger.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
 		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
@@ -303,7 +303,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		proxyConfigUpdaterName: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:           agentName,
 			APICallerName:       apiCallerName,
-			Logger:              loggo.GetLogger("juju.worker.proxyupdater"),
+			Logger:              internallogger.GetLogger("juju.worker.proxyupdater"),
 			WorkerFunc:          proxyupdater.NewWorker,
 			InProcessUpdate:     proxy.DefaultConfig.Set,
 			SupportLegacyValues: false,
@@ -317,8 +317,8 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		loggingConfigUpdaterName: ifNotMigrating(wlogger.Manifold(wlogger.ManifoldConfig{
 			AgentName:       agentName,
 			APICallerName:   apiCallerName,
-			LoggingContext:  loggo.DefaultContext(),
-			Logger:          loggo.GetLogger("juju.worker.logger"),
+			LoggerContext:   internallogger.DefaultContext(),
+			Logger:          internallogger.GetLogger("juju.worker.logger"),
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
@@ -326,7 +326,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// Kubernetes. It provides a mux that is used by the caas prober to
 		// register handlers.
 		probeHTTPServerName: muxhttpserver.Manifold(muxhttpserver.ManifoldConfig{
-			Logger:  loggo.GetLogger("juju.worker.probehttpserver"),
+			Logger:  internallogger.GetLogger("juju.worker.probehttpserver"),
 			Address: config.ProbeAddress,
 			Port:    config.ProbePort,
 		}),
@@ -370,7 +370,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			NewFacade:     retrystrategy.NewFacade,
 			NewWorker:     retrystrategy.NewRetryStrategyWorker,
-			Logger:        loggo.GetLogger("juju.worker.retrystrategy"),
+			Logger:        internallogger.GetLogger("juju.worker.retrystrategy"),
 		})),
 
 		// The uniter installs charms; manages the unit's presence in its
@@ -390,7 +390,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			CharmDirName:                 charmDirName,
 			HookRetryStrategyName:        hookRetryStrategyName,
 			TranslateResolverErr:         uniter.TranslateFortressErrors,
-			Logger:                       loggo.GetLogger("juju.worker.uniter"),
+			Logger:                       internallogger.GetLogger("juju.worker.uniter"),
 			Sidecar:                      true,
 			EnforcedCharmModifiedVersion: config.CharmModifiedVersion,
 			ContainerNames:               config.ContainerNames,
@@ -399,7 +399,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		traceName: trace.Manifold(trace.ManifoldConfig{
 			AgentName:       agentName,
 			Clock:           config.Clock,
-			Logger:          loggo.GetLogger("juju.worker.trace"),
+			Logger:          internallogger.GetLogger("juju.worker.trace"),
 			NewTracerWorker: trace.NewTracerWorker,
 			Kind:            coretrace.KindUnit,
 		}),
@@ -409,7 +409,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
-			Logger:        loggo.GetLogger("juju.worker.caasunitterminationworker"),
+			Logger:        internallogger.GetLogger("juju.worker.caasunitterminationworker"),
 			UniterName:    uniterName,
 		}))),
 
@@ -418,14 +418,14 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
-			Logger:        loggo.GetLogger("juju.worker.caasunitsmanager"),
+			Logger:        internallogger.GetLogger("juju.worker.caasunitsmanager"),
 			Hub:           config.LocalHub,
 		})),
 
 		// The secretDrainWorker is the worker that drains secrets from the inactive backend to the current active backend.
 		secretDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
 			APICallerName:         apiCallerName,
-			Logger:                loggo.GetLogger("juju.worker.secretsdrainworker"),
+			Logger:                internallogger.GetLogger("juju.worker.secretsdrainworker"),
 			NewSecretsDrainFacade: secretsdrainworker.NewSecretsDrainFacadeForAgent,
 			NewWorker:             secretsdrainworker.NewWorker,
 			NewBackendsClient:     secretsdrainworker.NewSecretBackendsClientForAgent,
@@ -434,7 +434,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		// Signal handler for handling SIGTERM to shut this agent down when in
 		// placed in zombie mode.
 		signalHandlerName: ifDead(simplesignalhandler.Manifold(simplesignalhandler.ManifoldConfig{
-			Logger:              loggo.GetLogger("juju.worker.simplesignalhandler"),
+			Logger:              internallogger.GetLogger("juju.worker.simplesignalhandler"),
 			DefaultHandlerError: jworker.ErrTerminateAgent,
 			SignalCh:            config.SignalCh,
 		})),
@@ -450,7 +450,7 @@ func Manifolds(config manifoldsConfig) dependency.Manifolds {
 		dp[apiAddressUpdaterName] = ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.apiaddressupdater"),
+			Logger:        internallogger.GetLogger("juju.worker.apiaddressupdater"),
 		}))
 	}
 

@@ -6,13 +6,13 @@ package tools
 import (
 	"io"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/tools"
 )
 
-var logger = loggo.GetLogger("juju.agent.tools")
+var logger = internallogger.GetLogger("juju.agent.tools")
 
 // ToolsManager keeps track of a pool of tools
 type ToolsManager interface {

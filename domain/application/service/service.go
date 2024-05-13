@@ -10,17 +10,13 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/storage"
 )
-
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Warningf(string, ...interface{})
-}
 
 // State describes retrieval and persistence methods for applications.
 type State interface {
@@ -44,14 +40,14 @@ type State interface {
 // Service provides the API for working with applications.
 type Service struct {
 	st     State
-	logger Logger
+	logger logger.Logger
 
 	registry  storage.ProviderRegistry
 	modelType coremodel.ModelType
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, logger Logger, registry storage.ProviderRegistry) *Service {
+func NewService(st State, logger logger.Logger, registry storage.ProviderRegistry) *Service {
 	// Some uses of application service don't need to supply a storage registry, eg cleaner facade.
 	// In such cases it'd wasteful to create one as an environ instance would be needed.
 	if registry == nil {

@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/password"
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	"github.com/juju/juju/internal/uuid"
@@ -3570,6 +3571,7 @@ func (s *uniterSuite) TestCommitHookChangesWithPortsSidecarApplication(c *gc.C) 
 		Auth_:              s.authorizer,
 		LeadershipChecker_: s.leadershipChecker,
 		ServiceFactory_:    s.DefaultModelServiceFactory(c),
+		Logger_:            loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

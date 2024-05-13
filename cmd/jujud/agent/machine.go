@@ -57,6 +57,7 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongometrics"
 	"github.com/juju/juju/internal/pki"
@@ -87,7 +88,7 @@ type (
 )
 
 var (
-	logger            = loggo.GetLogger("juju.cmd.jujud")
+	logger            = internallogger.GetLogger("juju.cmd.jujud")
 	jujuExec          = paths.JujuExec(paths.CurrentOS())
 	jujuDumpLogs      = paths.JujuDumpLogs(paths.CurrentOS())
 	jujuIntrospect    = paths.JujuIntrospect(paths.CurrentOS())
@@ -450,7 +451,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		return errors.Errorf("cannot read agent configuration: %v", err)
 	}
 
-	agentconf.SetupAgentLogging(loggo.DefaultContext(), a.CurrentConfig())
+	agentconf.SetupAgentLogging(internallogger.DefaultContext(), a.CurrentConfig())
 
 	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
@@ -478,7 +479,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 	machineLock, err := machinelock.New(machinelock.Config{
 		AgentName:   agentName,
 		Clock:       clock.WallClock,
-		Logger:      loggo.GetLogger("juju.machinelock"),
+		Logger:      internallogger.GetLogger("juju.machinelock"),
 		LogFilename: agent.MachineLockLogFilename(agentConfig),
 	})
 	// There will only be an error if the required configuration
@@ -518,13 +519,13 @@ func (a *MachineAgent) makeEngineCreator(
 		controllerMetricsSink := metrics.ForModel(a.CurrentConfig().Model())
 		eng, err := dependency.NewEngine(agentengine.DependencyEngineConfig(
 			controllerMetricsSink,
-			loggo.GetLogger("juju.worker.dependency"),
+			internallogger.GetLogger("juju.worker.dependency"),
 		))
 		if err != nil {
 			return nil, err
 		}
 		localHub := pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-			Logger: loggo.GetLogger("juju.localhub"),
+			Logger: internallogger.GetLogger("juju.localhub"),
 		})
 		updateAgentConfLogging := func(loggingConfig string) error {
 			return a.AgentConfigWriter.ChangeConfig(func(setter agent.ConfigSetter) error {
@@ -539,10 +540,10 @@ func (a *MachineAgent) makeEngineCreator(
 
 		// Create a single HTTP client so we can reuse HTTP connections, for
 		// example across the various Charmhub API requests required for deploy.
-		charmhubLogger := loggo.GetLoggerWithTags("juju.charmhub", corelogger.CHARMHUB)
-		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhub.LoggoLoggerFactory(charmhubLogger))
+		charmhubLogger := internallogger.GetLogger("juju.charmhub", corelogger.CHARMHUB)
+		charmhubHTTPClient := charmhub.DefaultHTTPClient(charmhubLogger)
 
-		s3Logger := loggo.GetLoggerWithTags("juju.objectstore.s3", corelogger.OBJECTSTORE)
+		s3Logger := internallogger.GetLogger("juju.objectstore.s3", corelogger.OBJECTSTORE)
 		s3HTTPClient := s3client.DefaultHTTPClient(s3Logger)
 
 		manifoldsCfg := machine.ManifoldsConfig{
@@ -572,7 +573,7 @@ func (a *MachineAgent) makeEngineCreator(
 			UnitEngineConfig: func() dependency.EngineConfig {
 				return agentengine.DependencyEngineConfig(
 					controllerMetricsSink,
-					loggo.GetLogger("juju.worker.dependency"),
+					internallogger.GetLogger("juju.worker.dependency"),
 				)
 			},
 			SetupLogging:       agentconf.SetupAgentLogging,
@@ -647,7 +648,7 @@ var (
 	newBroker   = broker.New
 )
 
-func (a *MachineAgent) machineStartup(ctx stdcontext.Context, apiConn api.Connection, logger machine.Logger) error {
+func (a *MachineAgent) machineStartup(ctx stdcontext.Context, apiConn api.Connection, logger corelogger.Logger) error {
 	logger.Tracef("machineStartup called")
 	// CAAS agents do not have machines.
 	if a.isCaasAgent {
@@ -737,7 +738,7 @@ func (a *MachineAgent) validateMigration(ctx stdcontext.Context, apiCaller base.
 
 // setupContainerSupport determines what containers can be run on this machine and
 // passes the result to the juju controller.
-func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Connection, logger machine.Logger) error {
+func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Connection, logger corelogger.Logger) error {
 	logger.Tracef("setupContainerSupport called")
 	pr := apiprovisioner.NewClient(st)
 	mTag, ok := a.CurrentConfig().Tag().(names.MachineTag)

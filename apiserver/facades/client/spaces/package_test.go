@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	environmocks "github.com/juju/juju/environs/mocks"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package spaces -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,Constraints,Address,Unit,Bindings,NetworkService,ControllerConfigService
@@ -96,6 +97,7 @@ func (s *APISuite) SetupMocks(c *gc.C, supportSpaces bool, providerSpaces bool) 
 		Authorizer:                  s.authorizer,
 		ControllerConfigService:     s.ControllerConfigService,
 		NetworkService:              s.NetworkService,
+		logger:                      loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

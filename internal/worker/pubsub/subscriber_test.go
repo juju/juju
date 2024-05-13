@@ -20,6 +20,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	psworker "github.com/juju/juju/internal/worker/pubsub"
@@ -33,7 +34,7 @@ type WorkerConfigSuite struct {
 var _ = gc.Suite(&WorkerConfigSuite{})
 
 func (*WorkerConfigSuite) TestValidate(c *gc.C) {
-	logger := loggo.GetLogger("juju.worker.pubsub")
+	logger := loggertesting.WrapCheckLog(c)
 	for i, test := range []struct {
 		cfg      psworker.WorkerConfig
 		errMatch string
@@ -133,10 +134,11 @@ var _ = gc.Suite(&SubscriberSuite{})
 
 func (s *SubscriberSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	logger := loggo.GetLogger("juju.worker.pubsub")
-	logger.SetLogLevel(loggo.TRACE)
-	// loggo.GetLogger("pubsub").SetLogLevel(loggo.TRACE)
+
+	logger := loggertesting.WrapCheckLog(c)
+
 	tag := names.NewMachineTag("42")
+
 	s.clock = testclock.NewClock(time.Now())
 	s.hub = centralhub.New(tag, centralhub.PubsubNoOpMetrics{})
 	s.origin = tag.String()

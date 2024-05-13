@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -39,12 +39,12 @@ type InstanceMutaterAPI struct {
 	resources   facade.Resources
 	authorizer  facade.Authorizer
 	getAuthFunc common.GetAuthFunc
-	logger      loggo.Logger
+	logger      logger.Logger
 }
 
 // InstanceMutatorWatcher instances return a lxd profile watcher for a machine.
 type InstanceMutatorWatcher interface {
-	WatchLXDProfileVerificationForMachine(Machine, loggo.Logger) (state.NotifyWatcher, error)
+	WatchLXDProfileVerificationForMachine(Machine, logger.Logger) (state.NotifyWatcher, error)
 }
 
 type instanceMutatorWatcher struct {
@@ -57,7 +57,7 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 	watcher InstanceMutatorWatcher,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	logger loggo.Logger,
+	logger logger.Logger,
 ) (*InstanceMutaterAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -296,7 +296,7 @@ func (api *InstanceMutaterAPI) watchOneEntityApplication(canAccess common.AuthFu
 //     gets updated once the download is complete.
 //  4. The machine's instanceId is changed, indicating it
 //     has been provisioned.
-func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(machine Machine, logger loggo.Logger) (state.NotifyWatcher, error) {
+func (w *instanceMutatorWatcher) WatchLXDProfileVerificationForMachine(machine Machine, logger logger.Logger) (state.NotifyWatcher, error) {
 	return newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
 		machine: machine,
 		backend: w.st,

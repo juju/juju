@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/secretexpire"
 	"github.com/juju/juju/internal/worker/secretexpire/mocks"
 	rotatemocks "github.com/juju/juju/internal/worker/secretrotate/mocks"
@@ -55,7 +55,7 @@ func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 	s.config = secretexpire.Config{
 		Clock:               s.clock,
 		SecretManagerFacade: s.facade,
-		Logger:              loggo.GetLogger("test"),
+		Logger:              loggertesting.WrapCheckLog(c),
 		SecretOwners:        []names.Tag{names.NewApplicationTag("mariadb")},
 		ExpireRevisions:     s.expiredSecrets,
 	}

@@ -10,7 +10,6 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/internal/database/dqlite"
 	"github.com/juju/juju/internal/database/pragma"
 	databasetesting "github.com/juju/juju/internal/database/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/dbaccessor"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -87,7 +87,7 @@ func (s *integrationSuite) SetUpTest(c *gc.C) {
 	agentConfig, err := agent.NewAgentConfig(params)
 	c.Assert(err, jc.ErrorIsNil)
 
-	logger := loggo.GetLogger("worker.dbaccessor.test")
+	logger := loggertesting.WrapCheckLog(c)
 	nodeManager := database.NewNodeManager(agentConfig, false, logger, coredatabase.NoopSlowQueryLogger{})
 
 	db, err := s.DBApp().Open(context.Background(), coredatabase.ControllerNS)

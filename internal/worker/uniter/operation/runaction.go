@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/runner"
@@ -27,7 +28,7 @@ type runAction struct {
 
 	name   string
 	runner runner.Runner
-	logger Logger
+	logger logger.Logger
 }
 
 // String is part of the Operation interface.

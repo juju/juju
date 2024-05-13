@@ -13,23 +13,18 @@ import (
 	"github.com/juju/juju/api/agent/caasagent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/caasadmission"
 	"github.com/juju/juju/internal/worker/caasrbacmapper"
 )
 
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-}
-
 // ManifoldConfig describes the resources used by a Tracker.
 type ManifoldConfig struct {
 	APICallerName          string
 	NewContainerBrokerFunc caas.NewContainerBrokerFunc
-	Logger                 Logger
+	Logger                 logger.Logger
 }
 
 // Manifold returns a Manifold that encapsulates a *Tracker and exposes it as

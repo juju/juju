@@ -6,8 +6,10 @@ package jujuctesting
 import (
 	"fmt"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
+
+	"github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // ContextInfo holds the values for the hook context.
@@ -107,6 +109,6 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	return &ctx
 }
 
-func (c *Context) GetLogger(module string) loggo.Logger {
-	return loggo.GetLogger(module)
+func (c *Context) GetLoggerByName(module string) logger.Logger {
+	return internallogger.GetLogger(module)
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 )
 
@@ -31,7 +32,7 @@ type Config struct {
 	GetIAASProvider      GetProviderFunc
 	GetCAASProvider      GetProviderFunc
 	NewTrackerWorker     NewTrackerWorkerFunc
-	Logger               Logger
+	Logger               logger.Logger
 	Clock                clock.Clock
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	charmdownloader "github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/uuid"
@@ -20,7 +21,7 @@ import (
 // new CharmStorage instance.
 type CharmStorageConfig struct {
 	// The logger to use.
-	Logger Logger
+	Logger logger.Logger
 
 	// A factory for accessing model-scoped storage for charm blobs.
 	ObjectStore Storage
@@ -30,7 +31,7 @@ type CharmStorageConfig struct {
 
 // CharmStorage provides an abstraction for storing charm blobs.
 type CharmStorage struct {
-	logger        Logger
+	logger        logger.Logger
 	stateBackend  StateBackend
 	objectStore   Storage
 	uuidGenerator func() (uuid.UUID, error)

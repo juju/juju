@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	api "github.com/juju/juju/api/client/payloads"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -19,7 +19,7 @@ import (
 
 // NewHookContextFacade returns a new payloads hook context facade for
 // the State and Unit given. It is used for facade registration.
-func NewHookContextFacade(st *state.State, unit *state.Unit, logger loggo.Logger) (*UnitFacade, error) {
+func NewHookContextFacade(st *state.State, unit *state.Unit, logger logger.Logger) (*UnitFacade, error) {
 	up, err := st.UnitPayloads(unit)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -48,11 +48,11 @@ type UnitPayloadBackend interface {
 // UnitFacade serves payload-specific API methods.
 type UnitFacade struct {
 	backend UnitPayloadBackend
-	logger  loggo.Logger
+	logger  logger.Logger
 }
 
 // NewUnitFacade builds a new facade for the given backend.
-func NewUnitFacade(backend UnitPayloadBackend, logger loggo.Logger) *UnitFacade {
+func NewUnitFacade(backend UnitPayloadBackend, logger logger.Logger) *UnitFacade {
 	return &UnitFacade{backend: backend, logger: logger}
 }
 

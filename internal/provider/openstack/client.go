@@ -14,10 +14,10 @@ import (
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/loggo/v2"
 
 	corelogger "github.com/juju/juju/core/logger"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // ClientOption to be passed into the transport construction to customize the
@@ -246,7 +246,7 @@ func newClient(
 		option(opts)
 	}
 
-	logger := loggo.GetLogger("goose")
+	logger := internallogger.GetLogger("goose")
 	gooseLogger := gooselogging.DebugLoggerAdapater{
 		Logger: logger,
 	}

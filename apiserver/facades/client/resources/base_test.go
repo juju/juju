@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/juju/charm/v13"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/resources/mocks"
 	coreresources "github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -42,7 +42,7 @@ func (s *BaseSuite) newFacade(c *gc.C) *resources.API {
 	factoryFunc := func(_ *charm.URL) (resources.NewCharmRepository, error) {
 		return s.factory, nil
 	}
-	facade, err := resources.NewResourcesAPI(s.backend, factoryFunc, loggo.GetLogger("juju.apiserver.resources"))
+	facade, err := resources.NewResourcesAPI(s.backend, factoryFunc, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return facade
 }

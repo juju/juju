@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -17,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/multiwatcher"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/state"
@@ -34,7 +34,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.config = multiwatcher.ManifoldConfig{
 		StateName:            "state",
 		Clock:                clock.WallClock,
-		Logger:               loggo.GetLogger("test"),
+		Logger:               loggertesting.WrapCheckLog(c),
 		PrometheusRegisterer: noopRegisterer{},
 		NewWorker: func(multiwatcher.Config) (worker.Worker, error) {
 			return nil, errors.New("boom")

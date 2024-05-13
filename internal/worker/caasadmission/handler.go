@@ -20,6 +20,7 @@ import (
 
 	providerconst "github.com/juju/juju/caas/kubernetes/provider/constants"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/core/logger"
 )
 
 type patchOperation struct {
@@ -51,7 +52,7 @@ var (
 	}
 )
 
-func admissionHandler(logger Logger, rbacMapper RBACMapper, legacyLabels bool) http.Handler {
+func admissionHandler(logger logger.Logger, rbacMapper RBACMapper, legacyLabels bool) http.Handler {
 	codecFactory := serializer.NewCodecFactory(runtime.NewScheme())
 
 	return http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {

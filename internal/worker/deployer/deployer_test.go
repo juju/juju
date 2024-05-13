@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/deployer/mocks"
 	coretesting "github.com/juju/juju/testing"
@@ -64,7 +65,7 @@ func (s *deployerSuite) TestDeployRecallRemovePrincipals(c *gc.C) {
 	watch := watchertest.NewMockStringsWatcher(ch)
 	machine.EXPECT().WatchUnits(gomock.Any()).Return(watch, nil)
 
-	dep, err := deployer.NewDeployer(client, loggo.GetLogger("test.deployer"), ctx)
+	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, dep)
 
@@ -128,7 +129,7 @@ func (s *deployerSuite) TestInitialStatusMessages(c *gc.C) {
 	watch := watchertest.NewMockStringsWatcher(ch)
 	machine.EXPECT().WatchUnits(gomock.Any()).Return(watch, nil)
 
-	dep, err := deployer.NewDeployer(client, loggo.GetLogger("test.deployer"), ctx)
+	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, dep)
 
@@ -175,7 +176,7 @@ func (s *deployerSuite) TestRemoveNonAlivePrincipals(c *gc.C) {
 
 	// When the deployer is started, in each case (1) no unit agent is deployed
 	// and (2) the non-Alive unit is been removed from state.
-	dep, err := deployer.NewDeployer(client, loggo.GetLogger("test.deployer"), ctx)
+	dep, err := deployer.NewDeployer(client, loggertesting.WrapCheckLog(c), ctx)
 	c.Assert(err, jc.ErrorIsNil)
 	defer stop(c, dep)
 

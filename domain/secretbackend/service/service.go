@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
@@ -38,13 +39,13 @@ type SecretProviderRegistry func(backendType string) (provider.SecretBackendProv
 
 type Service struct {
 	st       State
-	logger   Logger
+	logger   logger.Logger
 	clock    clock.Clock
 	registry SecretProviderRegistry
 }
 
 func newService(
-	st State, logger Logger,
+	st State, logger logger.Logger,
 	clk clock.Clock,
 	registry SecretProviderRegistry,
 ) *Service {
@@ -747,7 +748,7 @@ type WatchableService struct {
 
 // NewWatchableService creates a new WatchableService for interacting with the secret backend state and watching for changes.
 func NewWatchableService(
-	st State, logger Logger,
+	st State, logger logger.Logger,
 	wf WatcherFactory,
 ) *WatchableService {
 	return newWatchableService(
@@ -756,7 +757,7 @@ func NewWatchableService(
 }
 
 func newWatchableService(
-	st State, logger Logger,
+	st State, logger logger.Logger,
 	wf WatcherFactory,
 	clk clock.Clock,
 	registry SecretProviderRegistry,

@@ -4,7 +4,6 @@
 package context
 
 import (
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 var _ = gc.Suite(&PortRangeChangeRecorderSuite{})
@@ -207,7 +207,7 @@ func (s *PortRangeChangeRecorderSuite) TestOpenPortRange(c *gc.C) {
 		if test.isCAAS {
 			modelType = model.CAAS
 		}
-		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, modelType, test.machinePortRanges, test.applicationPortRanges)
+		rec := newPortRangeChangeRecorder(loggertesting.WrapCheckLog(c), targetUnit, modelType, test.machinePortRanges, test.applicationPortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 
@@ -407,7 +407,7 @@ func (s *PortRangeChangeRecorderSuite) TestClosePortRange(c *gc.C) {
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.about)
 
-		rec := newPortRangeChangeRecorder(loggo.GetLogger("test"), targetUnit, model.IAAS, test.machinePortRanges, test.applicationPortRanges)
+		rec := newPortRangeChangeRecorder(loggertesting.WrapCheckLog(c), targetUnit, model.IAAS, test.machinePortRanges, test.applicationPortRanges)
 		rec.pendingOpenRanges = test.pendingOpenRanges
 		rec.pendingCloseRanges = test.pendingCloseRanges
 

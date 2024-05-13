@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/servicefactory"
 )
@@ -52,6 +53,8 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestStart(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	getter := map[string]any{
 		"changestream": s.dbGetter,
 	}
@@ -71,6 +74,8 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestOutputProviderServiceFactoryGetter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := NewWorker(Config{
 		DBGetter:                        s.dbGetter,
 		Logger:                          s.logger,
@@ -88,6 +93,8 @@ func (s *manifoldSuite) TestOutputProviderServiceFactoryGetter(c *gc.C) {
 }
 
 func (s *manifoldSuite) TestOutputInvalid(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	w, err := NewWorker(Config{
 		DBGetter:                        s.dbGetter,
 		Logger:                          s.logger,
@@ -111,10 +118,10 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		NewWorker: func(Config) (worker.Worker, error) {
 			return nil, nil
 		},
-		NewProviderServiceFactory: func(model.UUID, changestream.WatchableDBGetter, Logger) servicefactory.ProviderServiceFactory {
+		NewProviderServiceFactory: func(model.UUID, changestream.WatchableDBGetter, logger.Logger) servicefactory.ProviderServiceFactory {
 			return nil
 		},
-		NewProviderServiceFactoryGetter: func(ProviderServiceFactoryFn, changestream.WatchableDBGetter, Logger) servicefactory.ProviderServiceFactoryGetter {
+		NewProviderServiceFactoryGetter: func(ProviderServiceFactoryFn, changestream.WatchableDBGetter, logger.Logger) servicefactory.ProviderServiceFactoryGetter {
 			return nil
 		},
 	}

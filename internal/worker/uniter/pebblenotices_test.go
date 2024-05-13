@@ -9,12 +9,12 @@ import (
 
 	"github.com/canonical/pebble/client"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter"
 	"github.com/juju/juju/internal/worker/uniter/container"
 	"github.com/juju/juju/testing"
@@ -46,7 +46,7 @@ func (s *pebbleNoticerSuite) setUpWorker(c *gc.C, containerNames []string) {
 		matches := pebbleSocketPathRegexp.FindAllStringSubmatch(cfg.Socket, 1)
 		return s.clients[matches[0][1]], nil
 	}
-	s.worker = uniter.NewPebbleNoticer(loggo.GetLogger("test"), s.clock, containerNames, s.workloadEventChan, s.workloadEvents, newClient)
+	s.worker = uniter.NewPebbleNoticer(loggertesting.WrapCheckLog(c), s.clock, containerNames, s.workloadEventChan, s.workloadEvents, newClient)
 }
 
 func (s *pebbleNoticerSuite) waitWorkloadEvent(c *gc.C, expected container.WorkloadEvent) {

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -85,7 +85,7 @@ func (s *RemoteFirewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigAPI,
 		s.controllerConfigService,
 		s.modelConfigService,
-		loggo.GetLogger("juju.apiserver.firewaller"),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -217,7 +217,7 @@ func (s *FirewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigAPI,
 		s.controllerConfigService,
 		s.modelConfigService,
-		loggo.GetLogger("juju.apiserver.firewaller"),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

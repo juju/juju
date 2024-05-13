@@ -9,6 +9,7 @@ import (
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/network/service"
@@ -22,18 +23,10 @@ type Coordinator interface {
 }
 
 // RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(coordinator Coordinator, logger Logger) {
+func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 	coordinator.Add(&importOperation{
 		logger: logger,
 	})
-}
-
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
 }
 
 // ImportService provides a subset of the network domain
@@ -48,7 +41,7 @@ type importOperation struct {
 	modelmigration.BaseOperation
 
 	importService ImportService
-	logger        Logger
+	logger        logger.Logger
 }
 
 // Setup implements Operation.

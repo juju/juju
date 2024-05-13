@@ -161,8 +161,8 @@ func (c *downloadCommand) Run(cmdContext *cmd.Context) error {
 	}
 
 	cfg := charmhub.Config{
-		URL:           c.charmHubURL,
-		LoggerFactory: downloadLoggerFactory{Context: cmdContext},
+		URL:    c.charmHubURL,
+		Logger: logger,
 	}
 
 	if c.pipeToStdout {
@@ -383,44 +383,6 @@ func (c *downloadCommand) calculateHash(path string) (string, error) {
 
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
-
-type downloadLoggerFactory struct {
-	Context *cmd.Context
-}
-
-func (d downloadLoggerFactory) Child(name string) charmhub.Logger {
-	return downloadLogger{
-		factory: d,
-	}
-}
-
-func (d downloadLoggerFactory) ChildWithTags(name string, labels ...string) charmhub.Logger {
-	return downloadLogger{
-		factory: d,
-	}
-}
-
-type downloadLogger struct {
-	factory downloadLoggerFactory
-}
-
-func (d downloadLogger) IsTraceEnabled() bool {
-	return !d.factory.Context.Quiet()
-}
-
-func (d downloadLogger) Errorf(msg string, args ...interface{}) {
-	d.factory.Context.Verbosef(msg, args...)
-}
-
-func (d downloadLogger) Warningf(msg string, args ...interface{}) {
-	d.factory.Context.Verbosef(msg, args...)
-}
-
-func (d downloadLogger) Debugf(msg string, args ...interface{}) {
-	d.factory.Context.Verbosef(msg, args...)
-}
-
-func (d downloadLogger) Tracef(msg string, args ...interface{}) {}
 
 type stdoutFileSystem struct{}
 

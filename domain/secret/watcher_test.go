@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
 	"github.com/juju/juju/internal/changestream/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -47,7 +48,7 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
-	logger := coretesting.NewCheckLogger(c)
+	logger := loggertesting.WrapCheckLog(c)
 	st := applicationstate.NewState(s.TxnRunnerFactory(), logger)
 	svc := applicationservice.NewService(st, logger, nil)
 
@@ -72,7 +73,7 @@ func createNewRevision(c *gc.C, st *state.State, uri *coresecrets.URI) {
 }
 
 func (s *watcherSuite) setupServiceAndState(c *gc.C) (*service.WatchableService, *state.State) {
-	logger := coretesting.NewCheckLogger(c)
+	logger := loggertesting.WrapCheckLog(c)
 	st := state.NewState(s.TxnRunnerFactory(), logger)
 	factory := domain.NewWatcherFactory(
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "secret_revision"),

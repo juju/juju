@@ -6,13 +6,13 @@ package instancemutater
 import (
 	"testing"
 
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/state"
 )
 
@@ -27,6 +27,7 @@ func TestPackage(t *testing.T) {
 // NewTestAPI is exported for use by tests that need
 // to create an instance-mutater API facade.
 func NewTestAPI(
+	c *gc.C,
 	st InstanceMutaterState,
 	mutatorWatcher InstanceMutatorWatcher,
 	resources facade.Resources,
@@ -45,7 +46,7 @@ func NewTestAPI(
 		resources:   resources,
 		authorizer:  authorizer,
 		getAuthFunc: getAuthFunc,
-		logger:      loggo.GetLogger("juju.apiserver.instancemutater"),
+		logger:      loggertesting.WrapCheckLog(c),
 	}, nil
 }
 
@@ -54,7 +55,7 @@ func NewTestLxdProfileWatcher(c *gc.C, machine Machine, backend InstanceMutaterS
 	w, err := newMachineLXDProfileWatcher(MachineLXDProfileWatcherConfig{
 		backend: backend,
 		machine: machine,
-		logger:  loggo.GetLogger("juju.apiserver.instancemutater"),
+		logger:  loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return w

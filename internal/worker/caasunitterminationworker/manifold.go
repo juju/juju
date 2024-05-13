@@ -14,14 +14,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/caasapplication"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter"
 )
-
-// Logger for logging messages.
-type Logger interface {
-	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
@@ -30,7 +25,7 @@ type ManifoldConfig struct {
 	APICallerName string
 	UniterName    string
 	Clock         clock.Clock
-	Logger        Logger
+	Logger        logger.Logger
 }
 
 // Validate ensures all the required values for the config are set.

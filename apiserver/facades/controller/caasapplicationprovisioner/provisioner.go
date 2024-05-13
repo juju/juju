@@ -15,7 +15,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"
 
@@ -29,6 +28,7 @@ import (
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
@@ -81,7 +81,7 @@ type API struct {
 	controllerConfigService ControllerConfigService
 	registry                storage.ProviderRegistry
 	clock                   clock.Clock
-	logger                  loggo.Logger
+	logger                  corelogger.Logger
 }
 
 // NewStateCAASApplicationProvisionerAPI provides the signature required for facade registration.
@@ -191,7 +191,7 @@ func NewCAASApplicationProvisionerAPI(
 	registry storage.ProviderRegistry,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*API, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
@@ -65,7 +65,7 @@ type StorageProvisionerAPIv4 struct {
 	getMachineAuthFunc       common.GetAuthFunc
 	getBlockDevicesAuthFunc  common.GetAuthFunc
 	getAttachmentAuthFunc    func() (func(names.Tag, names.Tag) bool, error)
-	logger                   loggo.Logger
+	logger                   logger.Logger
 
 	controllerUUID string
 }
@@ -82,7 +82,7 @@ func NewStorageProvisionerAPIv4(
 	authorizer facade.Authorizer,
 	registry storage.ProviderRegistry,
 	storagePoolGetter StoragePoolGetter,
-	logger loggo.Logger,
+	logger logger.Logger,
 ) (*StorageProvisionerAPIv4, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm

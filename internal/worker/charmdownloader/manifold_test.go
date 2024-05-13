@@ -5,12 +5,12 @@ package charmdownloader
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type ManifoldConfigSuite struct {
@@ -22,13 +22,13 @@ var _ = gc.Suite(&ManifoldConfigSuite{})
 
 func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.config = validConfig()
+	s.config = validConfig(c)
 }
 
-func validConfig() ManifoldConfig {
+func validConfig(c *gc.C) ManifoldConfig {
 	return ManifoldConfig{
 		APICallerName:         "api-caller",
-		Logger:                loggo.GetLogger("test"),
+		Logger:                loggertesting.WrapCheckLog(c),
 		NewCharmDownloaderAPI: func(base.APICaller) CharmDownloaderAPI { return nil },
 	}
 }

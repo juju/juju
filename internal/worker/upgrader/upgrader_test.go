@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/gate"
@@ -107,7 +107,7 @@ func agentConfig(tag names.Tag, datadir string) agent.Config {
 func (s *UpgraderSuite) makeUpgrader(c *gc.C, client upgrader.UpgraderClient) *upgrader.Upgrader {
 	w, err := upgrader.NewAgentUpgrader(upgrader.Config{
 		Clock:                       s.clock,
-		Logger:                      loggo.GetLogger("test"),
+		Logger:                      loggertesting.WrapCheckLog(c),
 		Client:                      client,
 		AgentConfig:                 agentConfig(names.NewMachineTag("666"), s.dataDir),
 		OrigAgentVersion:            s.confVersion,
@@ -306,7 +306,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 		NewTools:  newTools.Version,
 		DataDir:   s.dataDir,
 	}
-	err := ugErr.ChangeAgentTools(loggo.GetLogger("test"))
+	err := ugErr.ChangeAgentTools(loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	target := agenttools.ToolsDir(s.dataDir, newToolsBinary)
@@ -541,7 +541,7 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 
 	u, err := upgrader.NewAgentUpgrader(upgrader.Config{
 		Clock:                       s.clock,
-		Logger:                      loggo.GetLogger("test"),
+		Logger:                      loggertesting.WrapCheckLog(c),
 		Client:                      client,
 		AgentConfig:                 agentConfig(names.NewMachineTag("666"), s.dataDir),
 		OrigAgentVersion:            s.confVersion,

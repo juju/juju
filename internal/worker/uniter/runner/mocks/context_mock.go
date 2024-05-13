@@ -15,6 +15,7 @@ import (
 
 	charm "github.com/juju/charm/v13"
 	application "github.com/juju/juju/core/application"
+	logger "github.com/juju/juju/core/logger"
 	model "github.com/juju/juju/core/model"
 	network "github.com/juju/juju/core/network"
 	payloads "github.com/juju/juju/core/payloads"
@@ -22,7 +23,6 @@ import (
 	context0 "github.com/juju/juju/internal/worker/uniter/runner/context"
 	jujuc "github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	params "github.com/juju/juju/rpc/params"
-	loggo "github.com/juju/loggo/v2"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -630,40 +630,40 @@ func (c *MockContextGetCharmStateValueCall) DoAndReturn(f func(string) (string, 
 	return c
 }
 
-// GetLogger mocks base method.
-func (m *MockContext) GetLogger(arg0 string) loggo.Logger {
+// GetLoggerByName mocks base method.
+func (m *MockContext) GetLoggerByName(arg0 string) logger.Logger {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLogger", arg0)
-	ret0, _ := ret[0].(loggo.Logger)
+	ret := m.ctrl.Call(m, "GetLoggerByName", arg0)
+	ret0, _ := ret[0].(logger.Logger)
 	return ret0
 }
 
-// GetLogger indicates an expected call of GetLogger.
-func (mr *MockContextMockRecorder) GetLogger(arg0 any) *MockContextGetLoggerCall {
+// GetLoggerByName indicates an expected call of GetLoggerByName.
+func (mr *MockContextMockRecorder) GetLoggerByName(arg0 any) *MockContextGetLoggerByNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogger", reflect.TypeOf((*MockContext)(nil).GetLogger), arg0)
-	return &MockContextGetLoggerCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLoggerByName", reflect.TypeOf((*MockContext)(nil).GetLoggerByName), arg0)
+	return &MockContextGetLoggerByNameCall{Call: call}
 }
 
-// MockContextGetLoggerCall wrap *gomock.Call
-type MockContextGetLoggerCall struct {
+// MockContextGetLoggerByNameCall wrap *gomock.Call
+type MockContextGetLoggerByNameCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockContextGetLoggerCall) Return(arg0 loggo.Logger) *MockContextGetLoggerCall {
+func (c *MockContextGetLoggerByNameCall) Return(arg0 logger.Logger) *MockContextGetLoggerByNameCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextGetLoggerCall) Do(f func(string) loggo.Logger) *MockContextGetLoggerCall {
+func (c *MockContextGetLoggerByNameCall) Do(f func(string) logger.Logger) *MockContextGetLoggerByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextGetLoggerCall) DoAndReturn(f func(string) loggo.Logger) *MockContextGetLoggerCall {
+func (c *MockContextGetLoggerByNameCall) DoAndReturn(f func(string) logger.Logger) *MockContextGetLoggerByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

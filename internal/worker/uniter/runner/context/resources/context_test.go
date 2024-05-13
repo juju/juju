@@ -13,9 +13,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&ContextSuite{})
@@ -43,7 +43,7 @@ func (s *ContextSuite) TestDownloadOutOfDate(c *gc.C) {
 	ctx := resources.ResourcesHookContext{
 		Client:       client,
 		ResourcesDir: resourceDir,
-		Logger:       coretesting.NoopLogger{},
+		Logger:       loggertesting.WrapCheckLog(c),
 	}
 	path, err := ctx.DownloadResource(context.Background(), "spam")
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,7 +72,7 @@ func (s *ContextSuite) TestContextDownloadUpToDate(c *gc.C) {
 	ctx := resources.ResourcesHookContext{
 		Client:       client,
 		ResourcesDir: resourceDir,
-		Logger:       coretesting.NoopLogger{},
+		Logger:       loggertesting.WrapCheckLog(c),
 	}
 	path, err := ctx.DownloadResource(context.Background(), "spam")
 	c.Assert(err, jc.ErrorIsNil)

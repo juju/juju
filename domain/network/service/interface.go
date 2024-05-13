@@ -78,10 +78,3 @@ type SubnetState interface {
 	// subnet UUIDs from the subnet_association table, needed for the subnets watcher.
 	AllAssociatedSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error)
 }
-
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-}

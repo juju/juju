@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
@@ -87,11 +88,11 @@ func newFindOptions() *findOptions {
 type findClient struct {
 	path   path.Path
 	client RESTClient
-	logger Logger
+	logger corelogger.Logger
 }
 
 // newFindClient creates a findClient for querying charm or bundle information.
-func newFindClient(path path.Path, client RESTClient, logger Logger) *findClient {
+func newFindClient(path path.Path, client RESTClient, logger corelogger.Logger) *findClient {
 	return &findClient{
 		path:   path,
 		client: client,

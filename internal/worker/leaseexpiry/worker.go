@@ -14,6 +14,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 )
 
@@ -21,7 +22,7 @@ import (
 // instantiating a new lease expiry worker.
 type Config struct {
 	Clock  clock.Clock
-	Logger Logger
+	Logger logger.Logger
 	Store  lease.ExpiryStore
 	Tracer trace.Tracer
 }
@@ -48,7 +49,7 @@ type expiryWorker struct {
 	tomb tomb.Tomb
 
 	clock  clock.Clock
-	logger Logger
+	logger logger.Logger
 	store  lease.ExpiryStore
 	tracer trace.Tracer
 }

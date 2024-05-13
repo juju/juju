@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/permission"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -24,7 +24,7 @@ type Option = base.Option
 // supplied tracer.
 var WithTracer = base.WithTracer
 
-var logger = loggo.GetLogger("juju.api.cloud")
+var logger = internallogger.GetLogger("juju.api.cloud")
 
 // CloudInfo holds cloud details and who can access the cloud.
 type CloudInfo struct {

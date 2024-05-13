@@ -12,13 +12,13 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
 	agenterrors "github.com/juju/juju/agent/errors"
+	"github.com/juju/juju/core/logger"
 	message "github.com/juju/juju/internal/pubsub/agent"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/common/reboot"
@@ -28,15 +28,6 @@ const (
 	deployedUnitsKey = "deployed-units"
 	stoppedUnitsKey  = "stopped-units"
 )
-
-// Logger represents a logger used by the context.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
 
 // RebootMonitorStatePurger is implemented by types that can clean up the
 // internal reboot-tracking state for a particular entity.
@@ -52,7 +43,7 @@ type RebootMonitorStatePurger interface {
 var _ Context = (*nestedContext)(nil)
 
 type nestedContext struct {
-	logger Logger
+	logger logger.Logger
 	agent  agent.Agent
 	// agentConfig is a snapshot of the current configuration.
 	agentConfig    agent.Config
@@ -76,9 +67,9 @@ type ContextConfig struct {
 	Agent                    agent.Agent
 	Clock                    clock.Clock
 	Hub                      Hub
-	Logger                   Logger
+	Logger                   logger.Logger
 	UnitEngineConfig         func() dependency.EngineConfig
-	SetupLogging             func(*loggo.Context, agent.Config)
+	SetupLogging             func(logger.LoggerContext, agent.Config)
 	UnitManifolds            func(config UnitManifoldsConfig) dependency.Manifolds
 	RebootMonitorStatePurger RebootMonitorStatePurger
 }
@@ -574,7 +565,7 @@ func (c *nestedContext) AgentConfig() agent.Config {
 	return c.agentConfig
 }
 
-func removeOnErr(err *error, logger Logger, path string) {
+func removeOnErr(err *error, logger logger.Logger, path string) {
 	if *err != nil {
 		if err := os.RemoveAll(path); err != nil {
 			logger.Errorf("installer: cannot remove %q: %v", path, err)

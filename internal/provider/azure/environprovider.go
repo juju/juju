@@ -13,13 +13,13 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 )
 
@@ -33,7 +33,7 @@ const (
 )
 
 // Logger for the Azure provider.
-var logger = loggo.GetLogger("juju.provider.azure")
+var logger = internallogger.GetLogger("juju.provider.azure")
 
 // ProviderConfig contains configuration for the Azure providers.
 type ProviderConfig struct {

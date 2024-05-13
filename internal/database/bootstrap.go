@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain/schema"
@@ -68,7 +69,7 @@ func BootstrapDqlite(
 	ctx context.Context,
 	mgr BootstrapNodeManager,
 	uuid model.UUID,
-	logger Logger,
+	logger logger.Logger,
 	opts ...BootstrapOpt,
 ) error {
 	dir, err := mgr.EnsureDataDir()
@@ -126,7 +127,7 @@ func BootstrapDqlite(
 	return nil
 }
 
-func runMigration(ctx context.Context, dqlite *app.App, namespace string, schema Schema, init bootstrapInit, logger Logger) (coredatabase.TxnRunner, error) {
+func runMigration(ctx context.Context, dqlite *app.App, namespace string, schema Schema, init bootstrapInit, logger logger.Logger) (coredatabase.TxnRunner, error) {
 	db, err := dqlite.Open(ctx, namespace)
 	if err != nil {
 		return nil, errors.Annotatef(err, "opening database for namespace %q", namespace)

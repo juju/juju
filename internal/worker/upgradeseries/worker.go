@@ -12,22 +12,13 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/rpc/params"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/package_mock.go github.com/juju/juju/internal/worker/upgradeseries Facade,UnitDiscovery,Upgrader
-
 var hostBase = os.HostBase
-
-// Logger represents the methods required to emit log messages.
-type Logger interface {
-	Debugf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Warningf(message string, args ...interface{})
-	Errorf(message string, args ...interface{})
-}
 
 // UnitDiscovery represents how the worker determines which units need
 // to check in.
@@ -41,7 +32,7 @@ type Config struct {
 	Facade Facade
 
 	// Logger is the logger for this worker.
-	Logger Logger
+	Logger logger.Logger
 
 	// UnitDiscovery determines how the worker knows which units should
 	// be running on the machine.
@@ -81,7 +72,7 @@ type upgradeSeriesWorker struct {
 	Facade
 
 	catacomb        catacomb.Catacomb
-	logger          Logger
+	logger          logger.Logger
 	unitDiscovery   UnitDiscovery
 	upgraderFactory func() (Upgrader, error)
 

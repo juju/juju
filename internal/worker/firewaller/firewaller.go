@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/relation"
@@ -50,7 +51,7 @@ type Config struct {
 	NewCrossModelFacadeFunc newCrossModelFacadeFunc
 
 	Clock  clock.Clock
-	Logger Logger
+	Logger logger.Logger
 
 	CredentialAPI common.CredentialAPI
 
@@ -132,7 +133,7 @@ type Firewaller struct {
 	relationIngress            map[names.RelationTag]*remoteRelationData
 	relationWorkerRunner       *worker.Runner
 	clk                        clock.Clock
-	logger                     Logger
+	logger                     logger.Logger
 
 	cloudCallContextFunc common.CloudCallContextFunc
 

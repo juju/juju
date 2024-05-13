@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/stateconverter"
 	"github.com/juju/juju/internal/worker/stateconverter/mocks"
 	"github.com/juju/juju/rpc/params"
@@ -30,7 +31,7 @@ func (s *converterSuite) TestSetUp(c *gc.C) {
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil)
 	s.machine.EXPECT().Watch().Return(nil, nil)
 
-	conv := s.newConverter()
+	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -40,7 +41,7 @@ func (s *converterSuite) TestSetupMachinerErr(c *gc.C) {
 	expectedError := errors.NotValidf("machine tag")
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(nil, expectedError)
 
-	conv := s.newConverter()
+	conv := s.newConverter(c)
 	w, err := conv.SetUp(context.Background())
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(w, gc.IsNil)
@@ -52,7 +53,7 @@ func (s *converterSuite) TestSetupWatchErr(c *gc.C) {
 	expectedError := errors.NotValidf("machine tag")
 	s.machine.EXPECT().Watch().Return(nil, expectedError)
 
-	conv := s.newConverter()
+	conv := s.newConverter(c)
 	w, err := conv.SetUp(context.Background())
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 	c.Assert(w, gc.IsNil)
@@ -65,10 +66,10 @@ func (s *converterSuite) TestHandle(c *gc.C) {
 	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits, model.JobManageModel}}
 	s.machine.EXPECT().Jobs().Return(&jobs, nil)
 
-	conv := s.newConverter()
+	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
 	c.Assert(err, gc.IsNil)
-	err = conv.Handle(nil)
+	err = conv.Handle(context.Background())
 	// Since machine has model.JobManageModel, we expect an error
 	// which will get machineTag to restart.
 	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
@@ -81,10 +82,10 @@ func (s *converterSuite) TestHandleNotController(c *gc.C) {
 	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits}}
 	s.machine.EXPECT().Jobs().Return(&jobs, nil)
 
-	conv := s.newConverter()
+	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
 	c.Assert(err, gc.IsNil)
-	err = conv.Handle(nil)
+	err = conv.Handle(context.Background())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -97,16 +98,16 @@ func (s *converterSuite) TestHandleJobsError(c *gc.C) {
 	expectedError := errors.New("foo")
 	s.machine.EXPECT().Jobs().Return(nil, expectedError)
 
-	conv := s.newConverter()
+	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
 	c.Assert(err, gc.IsNil)
-	err = conv.Handle(nil)
+	err = conv.Handle(context.Background())
 	// Since machine has model.JobManageModel, we expect an error
 	// which will get machineTag to restart.
 	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
 	_, err = conv.SetUp(context.Background())
 	c.Assert(err, gc.IsNil)
-	err = conv.Handle(nil)
+	err = conv.Handle(context.Background())
 	c.Assert(errors.Cause(err), gc.Equals, expectedError)
 }
 
@@ -117,7 +118,6 @@ func (s *converterSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *converterSuite) newConverter() watcher.NotifyHandler {
-	logger := fakeLogger{}
-	return stateconverter.NewConverterForTest(s.machine, s.machiner, &logger)
+func (s *converterSuite) newConverter(c *gc.C) watcher.NotifyHandler {
+	return stateconverter.NewConverterForTest(s.machine, s.machiner, loggertesting.WrapCheckLog(c))
 }

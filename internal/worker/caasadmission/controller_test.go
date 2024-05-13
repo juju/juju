@@ -9,10 +9,10 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasadmission"
 	rbacmappertest "github.com/juju/juju/internal/worker/caasrbacmapper/test"
 )
@@ -42,7 +42,7 @@ func (d *dummyMux) RemoveHandler(i, j string) {
 
 func (s *ControllerSuite) TestControllerStartup(c *gc.C) {
 	var (
-		logger     = loggo.Logger{}
+		logger     = loggertesting.WrapCheckLog(c)
 		rbacMapper = &rbacmappertest.Mapper{}
 		waitGroup  = sync.WaitGroup{}
 		path       = "/test"
@@ -82,7 +82,7 @@ func (s *ControllerSuite) TestControllerStartup(c *gc.C) {
 
 func (s *ControllerSuite) TestControllerStartupMuxError(c *gc.C) {
 	var (
-		logger     = loggo.Logger{}
+		logger     = loggertesting.WrapCheckLog(c)
 		rbacMapper = &rbacmappertest.Mapper{}
 		waitGroup  = sync.WaitGroup{}
 		path       = "/test"
@@ -110,7 +110,7 @@ func (s *ControllerSuite) TestControllerStartupMuxError(c *gc.C) {
 
 func (s *ControllerSuite) TestControllerStartupAdmissionError(c *gc.C) {
 	var (
-		logger     = loggo.Logger{}
+		logger     = loggertesting.WrapCheckLog(c)
 		rbacMapper = &rbacmappertest.Mapper{}
 		waitGroup  = sync.WaitGroup{}
 		path       = "/test"

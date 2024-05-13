@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/service"
 )
 
@@ -23,7 +24,7 @@ type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 
-	Logger    Logger
+	Logger    logger.Logger
 	NewFacade func(base.APICaller, names.Tag) Facade
 	NewWorker func(Config) (worker.Worker, error)
 }

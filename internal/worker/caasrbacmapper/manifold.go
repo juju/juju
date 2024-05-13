@@ -12,19 +12,16 @@ import (
 	"k8s.io/client-go/informers"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/logger"
 )
 
 type K8sBroker interface {
 	SharedInformerFactory() informers.SharedInformerFactory
 }
 
-type Logger interface {
-	Errorf(string, ...interface{})
-}
-
 type ManifoldConfig struct {
 	BrokerName string
-	Logger     Logger
+	Logger     logger.Logger
 }
 
 func Manifold(config ManifoldConfig) dependency.Manifold {

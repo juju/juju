@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/flags"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -74,7 +75,7 @@ type WorkerConfig struct {
 	NewEnviron              NewEnvironFunc
 	BootstrapAddresses      BootstrapAddressesFunc
 	BootstrapAddressFinder  BootstrapAddressFinderFunc
-	LoggerFactory           LoggerFactory
+	Logger                  logger.Logger
 
 	// Deprecated: This is only here, until we can remove the state layer.
 	SystemState SystemState
@@ -127,8 +128,8 @@ func (c *WorkerConfig) Validate() error {
 	if c.CharmhubHTTPClient == nil {
 		return errors.NotValidf("nil CharmhubHTTPClient")
 	}
-	if c.LoggerFactory == nil {
-		return errors.NotValidf("nil LoggerFactory")
+	if c.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if c.SystemState == nil {
 		return errors.NotValidf("nil SystemState")
@@ -148,7 +149,7 @@ func (c *WorkerConfig) Validate() error {
 type bootstrapWorker struct {
 	internalStates chan string
 	cfg            WorkerConfig
-	logger         Logger
+	logger         logger.Logger
 	tomb           tomb.Tomb
 }
 
@@ -166,7 +167,7 @@ func newWorker(cfg WorkerConfig, internalStates chan string) (*bootstrapWorker, 
 	w := &bootstrapWorker{
 		internalStates: internalStates,
 		cfg:            cfg,
-		logger:         cfg.LoggerFactory.Child("worker"),
+		logger:         cfg.Logger.Child("worker"),
 	}
 	w.tomb.Go(w.loop)
 	return w, nil
@@ -390,7 +391,7 @@ func (w *bootstrapWorker) seedAgentBinary(ctx context.Context, dataDir string) (
 
 	// Agent binary seeder will populate the tools for the agent.
 	agentStorage := agentStorageShim{State: w.cfg.SystemState}
-	cleanup, err := w.cfg.AgentBinaryUploader(ctx, dataDir, agentStorage, objectStore, w.cfg.LoggerFactory.Child("agentbinary"))
+	cleanup, err := w.cfg.AgentBinaryUploader(ctx, dataDir, agentStorage, objectStore, w.cfg.Logger.Child("agentbinary"))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -421,7 +422,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 		ControllerCharmChannel:      bootstrapArgs.ControllerCharmChannel,
 		CharmhubHTTPClient:          w.cfg.CharmhubHTTPClient,
 		UnitPassword:                w.cfg.UnitPassword,
-		LoggerFactory:               w.cfg.LoggerFactory,
+		Logger:                      w.cfg.Logger,
 	})
 	if err != nil {
 		return errors.Trace(err)

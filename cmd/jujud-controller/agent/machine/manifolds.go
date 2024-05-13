@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/proxy"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/utils/v4/voyeur"
@@ -38,6 +37,7 @@ import (
 	containerbroker "github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/lxd"
 	internallease "github.com/juju/juju/internal/lease"
+	internallogger "github.com/juju/juju/internal/logger"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	proxyconfig "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/internal/servicefactory"
@@ -173,7 +173,7 @@ type ManifoldsConfig struct {
 
 	// MachineStartup is passed to the machine manifold. It does
 	// machine setup work which relies on an API connection.
-	MachineStartup func(context.Context, api.Connection, Logger) error
+	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
 
 	// PreUpgradeSteps is a function that is used by the upgradesteps
 	// worker to ensure that conditions are OK for an upgrade to
@@ -271,7 +271,7 @@ type ManifoldsConfig struct {
 
 	// SetupLogging is used by the deployer to initialize the logging
 	// context for the unit.
-	SetupLogging func(*loggo.Context, coreagent.Config)
+	SetupLogging func(corelogger.LoggerContext, coreagent.Config)
 
 	// DependencyEngineMetrics creates a set of metrics for a model, so it's
 	// possible to know the lifecycle of the workers in the dependency engine.
@@ -369,7 +369,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		controllerAgentConfigName: ifController(controlleragentconfig.Manifold(controlleragentconfig.ManifoldConfig{
 			AgentName:         agentName,
 			Clock:             config.Clock,
-			Logger:            loggo.GetLogger("juju.worker.controlleragentconfig"),
+			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
 		})),
@@ -408,7 +408,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:      agentName,
 			CentralHubName: centralHubName,
 			Clock:          config.Clock,
-			Logger:         loggo.GetLogger("juju.worker.pubsub"),
+			Logger:         internallogger.GetLogger("juju.worker.pubsub"),
 			NewWorker:      psworker.NewWorker,
 			Reporter:       config.PubSubReporter,
 		}),
@@ -422,7 +422,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			// which implies this can only run on controllers.
 			CentralHubName: centralHubName,
 			Recorder:       config.PresenceRecorder,
-			Logger:         loggo.GetLogger("juju.worker.presence"),
+			Logger:         internallogger.GetLogger("juju.worker.presence"),
 			NewWorker:      prworker.NewWorker,
 		}),
 
@@ -443,7 +443,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		multiwatcherName: ifBootstrapComplete(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
 			StateName:            stateName,
 			Clock:                config.Clock,
-			Logger:               loggo.GetLogger("juju.worker.multiwatcher"),
+			Logger:               internallogger.GetLogger("juju.worker.multiwatcher"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            multiwatcher.NewWorkerShim,
 			NewAllWatcher:        state.NewAllWatcherBacking,
@@ -455,7 +455,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
-			Logger:             loggo.GetLogger("juju.worker.apiconfigwatcher"),
+			Logger:             internallogger.GetLogger("juju.worker.apiconfigwatcher"),
 		}),
 
 		// The certificate-watcher manifold monitors the API server
@@ -477,7 +477,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APIOpen:              api.Open,
 			NewConnection:        apicaller.ScaryConnect,
 			Filter:               connectFilter,
-			Logger:               loggo.GetLogger("juju.worker.apicaller"),
+			Logger:               internallogger.GetLogger("juju.worker.apicaller"),
 		}),
 
 		// The upgrade database gate is used to coordinate workers that should
@@ -499,7 +499,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DBAccessorName:     dbAccessorName,
 			ServiceFactoryName: serviceFactoryName,
 			NewWorker:          upgradedatabase.NewUpgradeDatabaseWorker,
-			Logger:             loggo.GetLogger("juju.worker.upgradedatabase"),
+			Logger:             internallogger.GetLogger("juju.worker.upgradedatabase"),
 			Clock:              config.Clock,
 		})),
 
@@ -555,7 +555,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
-			Logger:            loggo.GetLoggerWithTags("juju.worker.migrationminion", corelogger.MIGRATION),
+			Logger:            internallogger.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
 		}),
 
 		// Each controller machine runs a singular worker which will
@@ -578,7 +578,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:  apiCallerName,
 			CentralHubName: centralHubName,
 			TraceName:      traceName,
-			Logger:         loggo.GetLogger("juju.worker.agentconfigupdater"),
+			Logger:         internallogger.GetLogger("juju.worker.agentconfigupdater"),
 		})),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -588,8 +588,8 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		loggingConfigUpdaterName: ifNotMigrating(logger.Manifold(logger.ManifoldConfig{
 			AgentName:       agentName,
 			APICallerName:   apiCallerName,
-			LoggingContext:  loggo.DefaultContext(),
-			Logger:          loggo.GetLogger("juju.worker.logger"),
+			LoggerContext:   internallogger.DefaultContext(),
+			Logger:          internallogger.GetLogger("juju.worker.logger"),
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
@@ -621,7 +621,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		traceName: trace.Manifold(trace.ManifoldConfig{
 			AgentName:       agentName,
 			Clock:           config.Clock,
-			Logger:          loggo.GetLogger("juju.worker.trace"),
+			Logger:          internallogger.GetLogger("juju.worker.trace"),
 			NewTracerWorker: trace.NewTracerWorker,
 			Kind:            coretrace.KindController,
 		}),
@@ -645,7 +645,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                config.Clock,
 			MuxShutdownWait:      config.MuxShutdownWait,
 			LogDir:               agentConfig.LogDir(),
-			Logger:               loggo.GetLogger("juju.worker.httpserver"),
+			Logger:               internallogger.GetLogger("juju.worker.httpserver"),
 			GetControllerConfig:  httpserver.GetControllerConfig,
 			NewTLSConfig:         httpserver.NewTLSConfig,
 			NewWorker:            httpserver.NewWorkerShim,
@@ -655,7 +655,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:          clockName,
 			ServiceFactoryName: serviceFactoryName,
 			AgentName:          agentName,
-			DebugLogger:        loggo.GetLogger("juju.worker.logsink"),
+			DebugLogger:        internallogger.GetLogger("juju.worker.logsink"),
 			NewWorker:          logsink.NewWorker,
 		})),
 
@@ -713,7 +713,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                       modelworkermanager.New,
 			NewModelWorker:                  config.NewModelWorker,
 			ModelMetrics:                    config.DependencyEngineMetrics,
-			Logger:                          loggo.GetLogger("juju.workers.modelworkermanager"),
+			Logger:                          internallogger.GetLogger("juju.workers.modelworkermanager"),
 			GetProviderServiceFactoryGetter: modelworkermanager.GetProviderServiceFactoryGetter,
 			GetControllerConfig:             modelworkermanager.GetControllerConfig,
 		})),
@@ -732,7 +732,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         providerTrackerName,
-			Logger:                      workerservicefactory.NewLogger("juju.worker.servicefactory"),
+			Logger:                      internallogger.GetLogger("juju.worker.servicefactory"),
 			NewWorker:                   workerservicefactory.NewWorker,
 			NewServiceFactoryGetter:     workerservicefactory.NewServiceFactoryGetter,
 			NewControllerServiceFactory: workerservicefactory.NewControllerServiceFactory,
@@ -741,7 +741,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		providerServiceFactoryName: providerservicefactory.Manifold(providerservicefactory.ManifoldConfig{
 			ChangeStreamName:                changeStreamName,
-			Logger:                          providerservicefactory.NewLogger("juju.worker.providerservicefactory"),
+			Logger:                          internallogger.GetLogger("juju.worker.providerservicefactory"),
 			NewWorker:                       providerservicefactory.NewWorker,
 			NewProviderServiceFactoryGetter: providerservicefactory.NewProviderServiceFactoryGetter,
 			NewProviderServiceFactory:       providerservicefactory.NewProviderServiceFactory,
@@ -750,12 +750,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
 			LogDir: agentConfig.LogDir(),
 			Clock:  config.Clock,
-			Logger: loggo.GetLogger("juju.worker.querylogger"),
+			Logger: internallogger.GetLogger("juju.worker.querylogger"),
 		})),
 
 		fileNotifyWatcherName: ifController(filenotifywatcher.Manifold(filenotifywatcher.ManifoldConfig{
 			Clock:             config.Clock,
-			Logger:            loggo.GetLogger("juju.worker.filenotifywatcher"),
+			Logger:            internallogger.GetLogger("juju.worker.filenotifywatcher"),
 			NewWatcher:        filenotifywatcher.NewWatcher,
 			NewINotifyWatcher: filenotifywatcher.NewINotifyWatcher,
 		})),
@@ -765,7 +765,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			DBAccessor:           dbAccessorName,
 			FileNotifyWatcher:    fileNotifyWatcherName,
 			Clock:                config.Clock,
-			Logger:               loggo.GetLogger("juju.worker.changestream"),
+			Logger:               internallogger.GetLogger("juju.worker.changestream"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWatchableDB:       changestream.NewWatchableDB,
 			NewMetricsCollector:  changestream.NewMetricsCollector,
@@ -774,7 +774,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		changeStreamPrunerName: ifPrimaryController(changestreampruner.Manifold(changestreampruner.ManifoldConfig{
 			DBAccessor: dbAccessorName,
 			Clock:      config.Clock,
-			Logger:     loggo.GetLogger("juju.worker.changestreampruner"),
+			Logger:     internallogger.GetLogger("juju.worker.changestreampruner"),
 			NewWorker:  changestreampruner.NewWorker,
 		})),
 
@@ -791,7 +791,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:      clockName,
 			DBAccessorName: dbAccessorName,
 			TraceName:      traceName,
-			Logger:         loggo.GetLogger("juju.worker.leaseexpiry"),
+			Logger:         internallogger.GetLogger("juju.worker.leaseexpiry"),
 			NewWorker:      leaseexpiry.NewWorker,
 			NewStore:       leaseexpiry.NewStore,
 		})),
@@ -802,7 +802,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:            clockName,
 			DBAccessorName:       dbAccessorName,
 			TraceName:            traceName,
-			Logger:               loggo.GetLogger("juju.worker.lease"),
+			Logger:               internallogger.GetLogger("juju.worker.lease"),
 			LogDir:               agentConfig.LogDir(),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            leasemanager.NewWorker,
@@ -815,7 +815,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
 			AgentName:           agentName,
 			APICallerName:       apiCallerName,
-			Logger:              loggo.GetLogger("juju.worker.proxyupdater"),
+			Logger:              internallogger.GetLogger("juju.worker.proxyupdater"),
 			WorkerFunc:          proxyupdater.NewWorker,
 			SupportLegacyValues: !config.IsCaasConfig,
 			ExternalUpdate:      externalUpdateProxyFunc,
@@ -832,20 +832,20 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
-			Logger:        loggo.GetLogger("juju.worker.credentialvalidator"),
+			Logger:        internallogger.GetLogger("juju.worker.credentialvalidator"),
 		}),
 
 		secretBackendRotateName: ifNotMigrating(ifPrimaryController(secretbackendrotate.Manifold(
 			secretbackendrotate.ManifoldConfig{
 				APICallerName: apiCallerName,
-				Logger:        loggo.GetLogger("juju.worker.secretbackendsrotate"),
+				Logger:        internallogger.GetLogger("juju.worker.secretbackendsrotate"),
 			},
 		))),
 
 		// The controlsocket worker runs on the controller machine.
 		controlSocketName: ifController(controlsocket.Manifold(controlsocket.ManifoldConfig{
 			ServiceFactoryName: serviceFactoryName,
-			Logger:             loggo.GetLogger("juju.worker.controlsocket"),
+			Logger:             internallogger.GetLogger("juju.worker.controlsocket"),
 			NewWorker:          controlsocket.NewWorker,
 			NewSocketListener:  controlsocket.NewSocketListener,
 			SocketName:         path.Join(agentConfig.DataDir(), "control.socket"),
@@ -860,7 +860,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			LeaseManagerName:           leaseManagerName,
 			S3ClientName:               objectStoreS3CallerName,
 			Clock:                      config.Clock,
-			Logger:                     loggo.GetLogger("juju.worker.objectstore"),
+			Logger:                     internallogger.GetLogger("juju.worker.objectstore"),
 			NewObjectStoreWorker:       internalobjectstore.ObjectStoreFactory,
 			GetControllerConfigService: objectstore.GetControllerConfigService,
 			GetMetadataService:         objectstore.GetMetadataService,
@@ -871,7 +871,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			HTTPClientName:             s3HTTPClientName,
 			ServiceFactoryName:         serviceFactoryName,
 			NewClient:                  objectstores3caller.NewS3Client,
-			Logger:                     loggo.GetLogger("juju.worker.s3caller"),
+			Logger:                     internallogger.GetLogger("juju.worker.s3caller"),
 			Clock:                      config.Clock,
 			GetControllerConfigService: objectstores3caller.GetControllerConfigService,
 			NewWorker:                  objectstores3caller.NewWorker,
@@ -888,7 +888,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetCAASProvider: providertracker.CAASGetProvider(func(ctx context.Context, args environs.OpenParams) (caas.Broker, error) {
 				return config.NewCAASBrokerFunc(ctx, args)
 			}),
-			Logger: loggo.GetLogger("juju.worker.providertracker"),
+			Logger: internallogger.GetLogger("juju.worker.providertracker"),
 			Clock:  config.Clock,
 		})),
 	}
@@ -912,7 +912,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			BootstrapGateName:       isBootstrapGateName,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
-			LoggerFactory:           bootstrap.LoggoLoggerFactory(loggo.GetLogger("juju.worker.bootstrap")),
+			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
 
 			NewEnviron:             config.NewEnvironFunc,
 			BootstrapAddresses:     bootstrap.BootstrapAddresses,
@@ -953,7 +953,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ServiceFactoryName:       serviceFactoryName,
 			NewWorker:                certupdater.NewCertificateUpdater,
 			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,
-			Logger:                   loggo.GetLogger("juju.worker.certupdater"),
+			Logger:                   internallogger.GetLogger("juju.worker.certupdater"),
 		})),
 
 		// The machiner Worker will wait for the identified machine to become
@@ -973,7 +973,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			QueryLoggerName:           queryLoggerName,
 			ControllerAgentConfigName: controllerAgentConfigName,
 			Clock:                     config.Clock,
-			Logger:                    loggo.GetLogger("juju.worker.dbaccessor"),
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
 			LogDir:                    agentConfig.LogDir(),
 			PrometheusRegisterer:      config.PrometheusRegisterer,
 			NewApp:                    dbaccessor.NewApp,
@@ -996,7 +996,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.apiaddressupdater"),
+			Logger:        internallogger.GetLogger("juju.worker.apiaddressupdater"),
 		})),
 
 		machineActionName: ifNotMigrating(machineactions.Manifold(machineactions.ManifoldConfig{
@@ -1020,14 +1020,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			UpgradeStepsGateName: upgradeStepsGateName,
 			UpgradeCheckGateName: upgradeCheckGateName,
 			PreviousAgentVersion: config.PreviousAgentVersion,
-			Logger:               loggo.GetLogger("juju.worker.upgrader"),
+			Logger:               internallogger.GetLogger("juju.worker.upgrader"),
 			Clock:                config.Clock,
 		}),
 
 		upgradeSeriesWorkerName: ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.upgradeseries"),
+			Logger:        internallogger.GetLogger("juju.worker.upgradeseries"),
 			NewFacade:     upgradeseries.NewFacade,
 			NewWorker:     upgradeseries.NewWorker,
 		})),
@@ -1046,7 +1046,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewAgentStatusSetter: config.NewAgentStatusSetter,
 			NewMachineWorker:     upgradestepsmachine.NewMachineWorker,
 			NewControllerWorker:  upgradesteps.NewControllerWorker,
-			Logger:               loggo.GetLogger("juju.worker.upgradesteps"),
+			Logger:               internallogger.GetLogger("juju.worker.upgradesteps"),
 			Clock:                config.Clock,
 		}),
 
@@ -1059,7 +1059,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
 			Hub:           config.LocalHub,
-			Logger:        loggo.GetLogger("juju.worker.deployer"),
+			Logger:        internallogger.GetLogger("juju.worker.deployer"),
 
 			UnitEngineConfig: config.UnitEngineConfig,
 			SetupLogging:     config.SetupLogging,
@@ -1082,7 +1082,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:                    agentName,
 			APICallerName:                apiCallerName,
 			Clock:                        config.Clock,
-			Logger:                       loggo.GetLogger("juju.worker.storageprovisioner"),
+			Logger:                       internallogger.GetLogger("juju.worker.storageprovisioner"),
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
 		brokerTrackerName: ifNotMigrating(lxdbroker.Manifold(lxdbroker.ManifoldConfig{
@@ -1096,7 +1096,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			BrokerName:    brokerTrackerName,
-			Logger:        loggo.GetLogger("juju.worker.instancemutater.container"),
+			Logger:        internallogger.GetLogger("juju.worker.instancemutater.container"),
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewContainerWorker,
 		})),
@@ -1106,12 +1106,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		machineSetupName: ifNotMigrating(MachineStartupManifold(MachineStartupConfig{
 			APICallerName:  apiCallerName,
 			MachineStartup: config.MachineStartup,
-			Logger:         loggo.GetLogger("juju.worker.machinesetup"),
+			Logger:         internallogger.GetLogger("juju.worker.machinesetup"),
 		})),
 		lxdContainerProvisioner: ifNotMigrating(provisioner.ContainerProvisioningManifold(provisioner.ContainerManifoldConfig{
 			AgentName:                    agentName,
 			APICallerName:                apiCallerName,
-			Logger:                       loggo.GetLogger("juju.worker.lxdprovisioner"),
+			Logger:                       internallogger.GetLogger("juju.worker.lxdprovisioner"),
 			MachineLock:                  config.MachineLock,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 			ContainerType:                instance.LXD,
@@ -1121,7 +1121,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		stateConverterName: ifNotController(ifNotMigrating(stateconverter.Manifold(stateconverter.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			Logger:        loggo.GetLogger("juju.worker.stateconverter"),
+			Logger:        internallogger.GetLogger("juju.worker.stateconverter"),
 		}))),
 	}
 
@@ -1144,7 +1144,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			BootstrapGateName:       isBootstrapGateName,
 			RequiresBootstrap:       bootstrap.RequiresBootstrap,
 			PopulateControllerCharm: bootstrap.PopulateControllerCharm,
-			LoggerFactory:           bootstrap.LoggoLoggerFactory(loggo.GetLogger("juju.worker.bootstrap")),
+			Logger:                  internallogger.GetLogger("juju.worker.bootstrap"),
 
 			BootstrapAddressFinder: bootstrap.CAASBootstrapAddressFinder,
 			NewEnviron:             bootstrap.CAASNewEnviron,
@@ -1178,7 +1178,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewAgentStatusSetter: config.NewAgentStatusSetter,
 			NewMachineWorker:     upgradestepsmachine.NewMachineWorker,
 			NewControllerWorker:  upgradesteps.NewControllerWorker,
-			Logger:               loggo.GetLogger("juju.worker.upgradesteps"),
+			Logger:               internallogger.GetLogger("juju.worker.upgradesteps"),
 			Clock:                config.Clock,
 		}),
 
@@ -1187,7 +1187,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Clock:         config.Clock,
-			Logger:        loggo.GetLogger("juju.worker.caasunitsmanager"),
+			Logger:        internallogger.GetLogger("juju.worker.caasunitsmanager"),
 			Hub:           config.LocalHub,
 		}),
 
@@ -1198,7 +1198,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			QueryLoggerName:           queryLoggerName,
 			ControllerAgentConfigName: controllerAgentConfigName,
 			Clock:                     config.Clock,
-			Logger:                    loggo.GetLogger("juju.worker.dbaccessor"),
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
 			LogDir:                    agentConfig.LogDir(),
 			PrometheusRegisterer:      config.PrometheusRegisterer,
 			NewApp:                    dbaccessor.NewApp,

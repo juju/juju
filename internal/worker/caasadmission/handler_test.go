@@ -12,7 +12,6 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	admission "k8s.io/api/admission/v1beta1"
@@ -25,17 +24,19 @@ import (
 
 	providerconst "github.com/juju/juju/caas/kubernetes/provider/constants"
 	providerutils "github.com/juju/juju/caas/kubernetes/provider/utils"
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	rbacmappertest "github.com/juju/juju/internal/worker/caasrbacmapper/test"
 )
 
 type HandlerSuite struct {
-	logger Logger
+	logger logger.Logger
 }
 
 var _ = gc.Suite(&HandlerSuite{})
 
 func (h *HandlerSuite) SetUpTest(c *gc.C) {
-	h.logger = loggo.Logger{}
+	h.logger = loggertesting.WrapCheckLog(c)
 }
 
 func (h *HandlerSuite) TestCompareGroupVersionKind(c *gc.C) {

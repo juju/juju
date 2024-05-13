@@ -11,24 +11,13 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
-
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead pass a Logger in to the required functions.
-type logger interface{}
-
-var _ logger = struct{}{}
-
-// Logger represents the logging methods used in this package.
-type Logger interface {
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-}
 
 // StorageResolverOperations instances know how to make operations
 // required by the resolver.
@@ -38,7 +27,7 @@ type StorageResolverOperations interface {
 }
 
 type storageResolver struct {
-	logger    Logger
+	logger    logger.Logger
 	storage   *Attachments
 	dying     bool
 	life      map[names.StorageTag]life.Value
@@ -46,7 +35,7 @@ type storageResolver struct {
 }
 
 // NewResolver returns a new storage resolver.
-func NewResolver(logger Logger, storage *Attachments, modelType model.ModelType) resolver.Resolver {
+func NewResolver(logger logger.Logger, storage *Attachments, modelType model.ModelType) resolver.Resolver {
 	return &storageResolver{
 		logger:    logger,
 		storage:   storage,

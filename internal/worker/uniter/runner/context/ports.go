@@ -5,9 +5,9 @@ package context
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 )
@@ -20,11 +20,11 @@ type portRangeChangeRecorder struct {
 	modelType          model.ModelType
 	pendingOpenRanges  network.GroupedPortRanges
 	pendingCloseRanges network.GroupedPortRanges
-	logger             loggo.Logger
+	logger             logger.Logger
 }
 
 func newPortRangeChangeRecorder(
-	logger loggo.Logger, unit names.UnitTag,
+	logger logger.Logger, unit names.UnitTag,
 	modelType model.ModelType,
 	machinePortRanges, appPortRanges map[names.UnitTag]network.GroupedPortRanges,
 ) *portRangeChangeRecorder {

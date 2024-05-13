@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/loggo/v2"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.worker.common.runner")
+var logger = internallogger.GetLogger("juju.worker.common.runner")
 
 // MessageReceiver instances are fed messages written to stdout/stderr
 // when running hooks/actions.

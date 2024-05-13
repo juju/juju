@@ -10,10 +10,10 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	"github.com/juju/loggo/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/state/bakerystorage"
 )
 
@@ -59,7 +59,7 @@ func (s *ExpirableStorageBakery) NewMacaroon(ctx context.Context, version bakery
 	return s.Oven.NewMacaroon(ctx, version, caveats, ops...)
 }
 
-var logger = loggo.GetLogger("juju.apiserver.bakery")
+var logger = internallogger.GetLogger("juju.apiserver.bakery")
 
 // Auth implements MacaroonChecker.Auth.
 func (s *ExpirableStorageBakery) Auth(ctx context.Context, mss ...macaroon.Slice) *bakery.AuthChecker {

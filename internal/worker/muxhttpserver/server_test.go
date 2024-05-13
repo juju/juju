@@ -8,10 +8,10 @@ import (
 	"crypto/x509"
 	"net/http"
 
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/worker/muxhttpserver"
@@ -49,7 +49,7 @@ func (s *ServerSuite) SetUpSuite(c *gc.C) {
 
 func (s *ServerSuite) TestNoRouteHTTPServer(c *gc.C) {
 	server, err := muxhttpserver.NewServer(
-		s.authority, loggo.Logger{}, muxhttpserver.Config{
+		s.authority, loggertesting.WrapCheckLog(c), muxhttpserver.Config{
 			Address: "localhost",
 			Port:    "0",
 		})
@@ -66,7 +66,7 @@ func (s *ServerSuite) TestNoRouteHTTPServer(c *gc.C) {
 
 func (s *ServerSuite) TestRouteHandlerCalled(c *gc.C) {
 	server, err := muxhttpserver.NewServer(
-		s.authority, loggo.Logger{}, muxhttpserver.Config{
+		s.authority, loggertesting.WrapCheckLog(c), muxhttpserver.Config{
 			Address: "localhost",
 			Port:    "0",
 		})

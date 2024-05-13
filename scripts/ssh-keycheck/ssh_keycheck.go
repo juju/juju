@@ -18,6 +18,7 @@ import (
 	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/core/network"
+	internallogger "github.com/juju/juju/internal/logger"
 	jujussh "github.com/juju/juju/internal/network/ssh"
 )
 
@@ -57,7 +58,7 @@ func getKnownHostKeys(fname string) []string {
 	return pubKeys
 }
 
-var logger = loggo.GetLogger("juju.ssh_keyscan")
+var logger = internallogger.GetLogger("juju.ssh_keyscan")
 
 func main() {
 	var verbose bool

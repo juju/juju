@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 )
 
@@ -19,7 +20,7 @@ type ManifoldConfig struct {
 	Address string
 
 	AuthorityName string
-	Logger        Logger
+	Logger        logger.Logger
 	Port          string
 }
 

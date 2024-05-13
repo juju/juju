@@ -12,6 +12,8 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type modelSuite struct{}
@@ -323,7 +325,7 @@ func (s *inferMachineMapSuite) parseBundle(c *gc.C, bundle string) *charm.Bundle
 }
 
 func (s *inferMachineMapSuite) TestInferMachineMapEmptyModel(c *gc.C) {
-	model := &Model{logger: loggo.GetLogger("bundlechanges")}
+	model := &Model{logger: loggertesting.WrapCheckLog(c)}
 	model.InferMachineMap(s.data)
 	// MachineMap is empty and not nil.
 	c.Assert(model.MachineMap, gc.HasLen, 0)
@@ -335,7 +337,7 @@ func (s *inferMachineMapSuite) TestInferMachineMapSuppliedMapping(c *gc.C) {
 		"4": "0", "8": "2",
 	}
 	model := &Model{
-		logger:     loggo.GetLogger("bundlechanges"),
+		logger:     loggertesting.WrapCheckLog(c),
 		MachineMap: userSpecifiedMap,
 	}
 	// If the user specified a mapping for those machines, use those.
@@ -358,7 +360,7 @@ func (s *inferMachineMapSuite) TestInferMachineMapPartial(c *gc.C) {
 			},
 		},
 		MachineMap: userSpecifiedMap,
-		logger:     loggo.GetLogger("bundlechanges"),
+		logger:     loggertesting.WrapCheckLog(c),
 	}
 	model.InferMachineMap(s.data)
 	// Since the user specified a mapping for machine 4 we use that, and
@@ -382,7 +384,7 @@ func (s *inferMachineMapSuite) TestInferMachineMapDeployedUnits(c *gc.C) {
 				},
 			},
 		},
-		logger: loggo.GetLogger("bundlechanges"),
+		logger: loggertesting.WrapCheckLog(c),
 	}
 	model.InferMachineMap(s.data)
 	// Since the placement directives use a mix of new and non-new, this
@@ -415,7 +417,7 @@ func (s *inferMachineMapSuite) TestOffest(c *gc.C) {
 				},
 			},
 		},
-		logger: loggo.GetLogger("bundlechanges"),
+		logger: loggertesting.WrapCheckLog(c),
 	}
 	model.InferMachineMap(data)
 	c.Assert(model.MachineMap, jc.DeepEquals, map[string]string{
@@ -496,7 +498,7 @@ func (s *inferMachineMapSuite) TestBundleMachinesDeterminism(c *gc.C) {
 			"11": {ID: "11"},
 			"12": {ID: "12"},
 		},
-		logger: loggo.GetLogger("bundlechanges"),
+		logger: loggertesting.WrapCheckLog(c),
 	}
 
 	// Loop through enough times to trigger a potential map ordering bug.

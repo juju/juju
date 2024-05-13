@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
@@ -28,14 +29,8 @@ type Coordinator interface {
 	Add(modelmigration.Operation)
 }
 
-// Logger is the interface that is used to log messages.
-type Logger interface {
-	Infof(string, ...any)
-	Debugf(string, ...any)
-}
-
 // RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(coordinator Coordinator, logger Logger) {
+func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 	coordinator.Add(&importOperation{
 		logger: logger,
 	})
@@ -51,7 +46,7 @@ type importOperation struct {
 	modelmigration.BaseOperation
 
 	service ImportService
-	logger  Logger
+	logger  logger.Logger
 }
 
 // Setup is called before the operation is executed. It should return an

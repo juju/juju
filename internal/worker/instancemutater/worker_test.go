@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -22,9 +21,11 @@ import (
 	apiinstancemutater "github.com/juju/juju/api/agent/instancemutater"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancemutater/mocks"
 	workermocks "github.com/juju/juju/internal/worker/mocks"
@@ -63,14 +64,14 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no api",
 			config: instancemutater.Config{
-				Logger: loggo.GetLogger("test"),
+				Logger: loggertesting.WrapCheckLog(c),
 			},
 			err: "nil Facade not valid",
 		},
 		{
 			description: "Test no environ",
 			config: instancemutater.Config{
-				Logger: loggo.GetLogger("test"),
+				Logger: loggertesting.WrapCheckLog(c),
 				Facade: mocks.NewMockInstanceMutaterAPI(ctrl),
 			},
 			err: "nil Broker not valid",
@@ -78,7 +79,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no agent",
 			config: instancemutater.Config{
-				Logger: loggo.GetLogger("test"),
+				Logger: loggertesting.WrapCheckLog(c),
 				Facade: mocks.NewMockInstanceMutaterAPI(ctrl),
 				Broker: mocks.NewMockLXDProfiler(ctrl),
 			},
@@ -87,7 +88,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no tag",
 			config: instancemutater.Config{
-				Logger:      loggo.GetLogger("test"),
+				Logger:      loggertesting.WrapCheckLog(c),
 				Facade:      mocks.NewMockInstanceMutaterAPI(ctrl),
 				Broker:      mocks.NewMockLXDProfiler(ctrl),
 				AgentConfig: mocks.NewMockConfig(ctrl),
@@ -97,7 +98,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no GetMachineWatcher",
 			config: instancemutater.Config{
-				Logger:      loggo.GetLogger("test"),
+				Logger:      loggertesting.WrapCheckLog(c),
 				Facade:      mocks.NewMockInstanceMutaterAPI(ctrl),
 				Broker:      mocks.NewMockLXDProfiler(ctrl),
 				AgentConfig: mocks.NewMockConfig(ctrl),
@@ -108,7 +109,7 @@ func (s *workerConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no GetRequiredLXDProfiles",
 			config: instancemutater.Config{
-				Logger:            loggo.GetLogger("test"),
+				Logger:            loggertesting.WrapCheckLog(c),
 				Facade:            mocks.NewMockInstanceMutaterAPI(ctrl),
 				Broker:            mocks.NewMockLXDProfiler(ctrl),
 				AgentConfig:       mocks.NewMockConfig(ctrl),
@@ -135,7 +136,7 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 
 	config := instancemutater.Config{
 		Facade:                 mocks.NewMockInstanceMutaterAPI(ctrl),
-		Logger:                 loggo.GetLogger("test"),
+		Logger:                 loggertesting.WrapCheckLog(c),
 		Broker:                 mocks.NewMockLXDProfiler(ctrl),
 		AgentConfig:            mocks.NewMockConfig(ctrl),
 		Tag:                    names.MachineTag{},
@@ -152,7 +153,7 @@ func (s *workerConfigSuite) TestValidConfigValidate(c *gc.C) {
 type workerSuite struct {
 	testing.IsolationSuite
 
-	logger                 loggo.Logger
+	logger                 logger.Logger
 	facade                 *mocks.MockInstanceMutaterAPI
 	broker                 *mocks.MockLXDProfiler
 	agentConfig            *mocks.MockConfig
@@ -175,8 +176,7 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.logger = loggo.GetLogger("workerSuite")
-	s.logger.SetLogLevel(loggo.TRACE)
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	s.newWorkerFunc = instancemutater.NewEnvironTestWorker
 	s.machineTag = names.NewMachineTag("0")

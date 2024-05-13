@@ -37,7 +37,7 @@ func (s *clientSuite) TestCreateTemplateVM(c *gc.C) {
 			}
 		}
 	}
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseImportOVAParameters(c, client)
 	testClock := args.StatusUpdateParams.Clock.(*testclock.Clock)
 	s.onImageUpload = func(r *http.Request) {
@@ -114,7 +114,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 			}
 		}
 	}
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 
 	args := baseCreateVirtualMachineParams(c, client)
 	testClock := args.StatusUpdateParams.Clock.(*testclock.Clock)
@@ -209,7 +209,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 }
 
 func (s *clientSuite) TestCreateVirtualMachineForceHWVersion(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.ForceVMHardwareVersion = 11
 	args.ComputeResource.EnvironmentBrowser = &types.ManagedObjectReference{
@@ -228,7 +228,7 @@ func (s *clientSuite) TestCreateVirtualMachineForceHWVersion(c *gc.C) {
 }
 
 func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.EnableDiskUUID = false
 	_, err := client.CreateVirtualMachine(context.Background(), args)
@@ -271,7 +271,7 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 }
 
 func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.DiskProvisioningType = DiskTypeThickLazyZero
 	_, err := client.CreateVirtualMachine(context.Background(), args)
@@ -316,7 +316,7 @@ func (s *clientSuite) TestCreateVirtualMachineThickDiskProvisioning(c *gc.C) {
 }
 
 func (s *clientSuite) TestCreateVirtualMachineThickEagerZeroDiskProvisioning(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.DiskProvisioningType = DiskTypeThick
 
@@ -362,7 +362,7 @@ func (s *clientSuite) TestCreateVirtualMachineThickEagerZeroDiskProvisioning(c *
 }
 
 func (s *clientSuite) TestCreateVirtualMachineThinDiskProvisioning(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.DiskProvisioningType = DiskTypeThin
 
@@ -403,7 +403,7 @@ func (s *clientSuite) TestCreateVirtualMachineThinDiskProvisioning(c *gc.C) {
 }
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	datastore := "datastore1"
 	args.Constraints.RootDiskSource = &datastore
@@ -454,7 +454,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 }
 
 func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFound(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	datastore := "datastore3"
 
@@ -463,7 +463,7 @@ func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFound(c *gc.C) {
 }
 
 func (s *clientSuite) TestGetTargetDatastoreDatastoreNoneAccessible(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.ComputeResource.Datastore = []types.ManagedObjectReference{{
 		Type:  "Datastore",
@@ -475,7 +475,7 @@ func (s *clientSuite) TestGetTargetDatastoreDatastoreNoneAccessible(c *gc.C) {
 }
 
 func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithMultipleAvailable(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	datastore := "datastore3"
 
@@ -497,7 +497,7 @@ func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithMultipleAvailab
 }
 
 func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithNoAvailable(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	datastore := "datastore3"
 
@@ -519,7 +519,7 @@ func (s *clientSuite) TestGetTargetDatastoreDatastoreNotFoundWithNoAvailable(c *
 }
 
 func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefault(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.NetworkDevices = []NetworkDevice{
 		{MAC: "00:50:56:11:22:33"},
@@ -603,7 +603,7 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 }
 
 func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.NetworkDevices = []NetworkDevice{
 		{Network: "yoink"},
@@ -676,7 +676,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 }
 
 func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.NetworkDevices = []NetworkDevice{
 		{Network: "fourtytwo"},
@@ -687,7 +687,7 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkNotFound(c *gc.C) {
 }
 
 func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	args.NetworkDevices = []NetworkDevice{
 		{MAC: "00:11:22:33:44:55"},
@@ -698,7 +698,7 @@ func (s *clientSuite) TestCreateVirtualMachineInvalidMAC(c *gc.C) {
 }
 
 func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	rootDisk := uint64(1024 * 20) // 20 GiB
 	args.Constraints.RootDisk = &rootDisk
@@ -727,7 +727,7 @@ func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
 }
 
 func (s *clientSuite) TestCreateVirtualMachineWithCustomizedVMFolder(c *gc.C) {
-	client := s.newFakeClient(&s.roundTripper, "dc0")
+	client := s.newFakeClient(c, &s.roundTripper, "dc0")
 	args := baseCreateVirtualMachineParams(c, client)
 	rootDisk := uint64(1024 * 20) // 20 GiB
 	args.Constraints.RootDisk = &rootDisk

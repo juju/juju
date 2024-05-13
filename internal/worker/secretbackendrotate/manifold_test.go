@@ -5,11 +5,11 @@ package secretbackendrotate_test
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 )
 
@@ -22,13 +22,13 @@ var _ = gc.Suite(&ManifoldConfigSuite{})
 
 func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.config = s.validConfig()
+	s.config = s.validConfig(c)
 }
 
-func (s *ManifoldConfigSuite) validConfig() secretbackendrotate.ManifoldConfig {
+func (s *ManifoldConfigSuite) validConfig(c *gc.C) secretbackendrotate.ManifoldConfig {
 	return secretbackendrotate.ManifoldConfig{
 		APICallerName: "api-caller",
-		Logger:        loggo.GetLogger("test"),
+		Logger:        loggertesting.WrapCheckLog(c),
 	}
 }
 

@@ -16,14 +16,14 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/testing"
 )
 
 type registrySuite struct {
 	jujutesting.IsolationSuite
 
-	clock  *MockClock
-	logger *MockLogger
+	clock *MockClock
 }
 
 var _ = gc.Suite(&registrySuite{})
@@ -169,51 +169,6 @@ func (s *registrySuite) TestRegisterStop(c *gc.C) {
 	workertest.CheckKill(c, reg)
 }
 
-func (s *registrySuite) TestRegisterStopWithLogging(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.expectClock()
-
-	exp := s.logger.EXPECT()
-	exp.IsTraceEnabled().Return(true).AnyTimes()
-
-	// We expect the following log messages to occur in the lifecycle of
-	// the worker.
-	exp.Tracef("starting watcher %T", gomock.Any())
-	exp.Tracef("killing watcher %T", gomock.Any()).MinTimes(1)
-	exp.Tracef("watcher %T finished with error %v", gomock.Any(), gomock.Any()).MinTimes(1)
-
-	reg, err := NewRegistry(s.clock, WithLogger(s.logger))
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.DirtyKill(c, reg)
-
-	done := make(chan struct{})
-	w := NewMockWorker(ctrl)
-	w.EXPECT().Kill().DoAndReturn(func() {
-		close(done)
-	})
-	w.EXPECT().Wait().DoAndReturn(func() error {
-		select {
-		case <-done:
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timed out waiting for worker to finish")
-		}
-
-		return nil
-	}).MinTimes(1)
-
-	err = reg.RegisterNamed("foo", w)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = reg.Stop("foo")
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(reg.Count(), gc.Equals, 0)
-
-	workertest.CheckKill(c, reg)
-}
-
 func (s *registrySuite) TestConcurrency(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -260,7 +215,7 @@ func (s *registrySuite) TestConcurrency(c *gc.C) {
 }
 
 func (s *registrySuite) newRegistry(c *gc.C) *Registry {
-	reg, err := NewRegistry(s.clock, WithLogger(testing.CheckLogger{Log: c}))
+	reg, err := NewRegistry(s.clock, WithLogger(loggertesting.WrapCheckLog(c)))
 	c.Assert(err, jc.ErrorIsNil)
 	return reg
 }
@@ -269,7 +224,6 @@ func (s *registrySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.clock = NewMockClock(ctrl)
-	s.logger = NewMockLogger(ctrl)
 
 	return ctrl
 }

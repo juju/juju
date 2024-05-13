@@ -7,12 +7,12 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	corepayloads "github.com/juju/juju/core/payloads"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.payload.context")
+var logger = internallogger.GetLogger("juju.payload.context")
 
 // PayloadAPIClient represents the API needs of a PayloadContext.
 type PayloadAPIClient interface {

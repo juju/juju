@@ -27,10 +27,11 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
 )
 
-var logger = loggo.GetLogger("juju.cloudconfig")
+var logger = internallogger.GetLogger("juju.cloudconfig")
 
 const (
 	// FileNameBootstrapParams is the name of bootstrap params file.

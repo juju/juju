@@ -12,15 +12,15 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/scriptrunner"
 )
 
-var logger = loggo.GetLogger("juju.worker.fanconfigurer")
+var logger = internallogger.GetLogger("juju.worker.fanconfigurer")
 
 type FanConfigurer struct {
 	catacomb catacomb.Catacomb

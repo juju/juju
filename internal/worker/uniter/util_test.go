@@ -23,7 +23,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mutex/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -38,6 +37,7 @@ import (
 	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/downloader"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter"
@@ -1002,7 +1003,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 			ctx.runner.stdContext = context
 			return ctx.runner
 		},
-		NewDeployer: func(charmPath, dataPath string, bundles charm.BundleReader, logger charm.Logger) (charm.Deployer, error) {
+		NewDeployer: func(charmPath, dataPath string, bundles charm.BundleReader, logger logger.Logger) (charm.Deployer, error) {
 			ctx.deployer.charmPath = charmPath
 			ctx.deployer.dataPath = dataPath
 			ctx.deployer.bundles = bundles
@@ -1012,7 +1013,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 		Observer:             ctx,
 		Clock:                testclock.NewDilatedWallClock(coretesting.ShortWait),
 		RebootQuerier:        s.rebootQuerier,
-		Logger:               loggo.GetLogger("test"),
+		Logger:               loggertesting.WrapCheckLog(c),
 		ContainerNames:       ctx.containerNames,
 		NewPebbleClient: func(cfg *pebbleclient.Config) (uniter.PebbleClient, error) {
 			res := pebbleSocketPathRegexp.FindAllStringSubmatch(cfg.Socket, 1)

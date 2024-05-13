@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
@@ -26,19 +27,6 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/rpc/params"
 )
-
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead use the one in the RemoteStateWatcher.
-type logger interface{}
-
-var _ logger = struct{}{}
-
-// Logger represents the logging methods used in this package.
-type Logger interface {
-	Warningf(string, ...interface{})
-	Debugf(string, ...interface{})
-	Criticalf(string, ...interface{})
-}
 
 // SecretTriggerWatcherFunc is a function returning a secrets trigger watcher.
 type SecretTriggerWatcherFunc func(names.UnitTag, bool, chan []string) (worker.Worker, error)
@@ -53,7 +41,7 @@ type RemoteStateWatcher struct {
 	modelType                    model.ModelType
 	sidecar                      bool
 	enforcedCharmModifiedVersion int
-	logger                       Logger
+	logger                       logger.Logger
 
 	relations                     map[names.RelationTag]*wrappedRelationUnitsWatcher
 	relationUnitsChanges          chan relationUnitsChange
@@ -118,7 +106,7 @@ type WatcherConfig struct {
 	ModelType                     model.ModelType
 	Sidecar                       bool
 	EnforcedCharmModifiedVersion  int
-	Logger                        Logger
+	Logger                        logger.Logger
 	CanApplyCharmProfile          bool
 	WorkloadEventChannel          <-chan string
 	InitialWorkloadEventIDs       []string

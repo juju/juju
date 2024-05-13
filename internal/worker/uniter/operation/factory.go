@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -25,7 +26,7 @@ type FactoryParams struct {
 	ActionGetter   ActionGetter
 	Abort          <-chan struct{}
 	MetricSpoolDir string
-	Logger         Logger
+	Logger         logger.Logger
 }
 
 // NewFactory returns a Factory that creates Operations backed by the supplied

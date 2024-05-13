@@ -6,16 +6,16 @@ package containerinit
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.cloudconfig.containerinit")
+var logger = internallogger.GetLogger("juju.cloudconfig.containerinit")
 
 func CloudInitUserData(
 	cloudConfig cloudinit.CloudConfig,

@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/trace"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
 	jujujujutesting "github.com/juju/juju/testing"
 )
@@ -33,7 +34,7 @@ func (s *workerSuite) TestConfigValidate(c *gc.C) {
 
 	validCfg := leaseexpiry.Config{
 		Clock:  clock.WallClock,
-		Logger: jujujujutesting.CheckLogger{Log: c},
+		Logger: loggertesting.WrapCheckLog(c),
 		Tracer: trace.NoopTracer{},
 		Store:  store,
 	}
@@ -82,7 +83,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 
 	w, err := leaseexpiry.NewWorker(leaseexpiry.Config{
 		Clock:  clk,
-		Logger: jujujujutesting.CheckLogger{Log: c},
+		Logger: loggertesting.WrapCheckLog(c),
 		Tracer: trace.NoopTracer{},
 		Store:  store,
 	})

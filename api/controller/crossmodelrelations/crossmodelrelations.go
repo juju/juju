@@ -9,12 +9,12 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -25,7 +25,7 @@ type Option = base.Option
 // supplied tracer.
 var WithTracer = base.WithTracer
 
-var logger = loggo.GetLogger("juju.api.crossmodelrelations")
+var logger = internallogger.GetLogger("juju.api.crossmodelrelations")
 
 // Client provides access to the crossmodelrelations api facade.
 type Client struct {

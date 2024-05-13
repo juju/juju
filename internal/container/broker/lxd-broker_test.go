@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -243,7 +243,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 	).Return(&inst, &hw, nil)
 
 	broker, err := broker.NewLXDBroker(
-		func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error { return nil },
+		func(containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error { return nil },
 		mockApi, mockManager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -275,7 +275,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *gc.C) {
 	mockManager := testing.NewMockTestLXDManager(ctrl)
 
 	broker, err := broker.NewLXDBroker(
-		func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error { return nil },
+		func(containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error { return nil },
 		mockApi, mockManager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -296,7 +296,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfileReturnsLXDProfileNames(c
 	}, nil)
 
 	broker, err := broker.NewLXDBroker(
-		func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error { return nil },
+		func(containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error { return nil },
 		mockApi, mockManager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 

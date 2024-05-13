@@ -11,10 +11,10 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/http/v2"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -36,7 +36,7 @@ type CharmDownloaderAPI struct {
 
 	mu         sync.Mutex
 	downloader Downloader
-	logger     loggo.Logger
+	logger     corelogger.Logger
 }
 
 // newAPI is invoked both by the facade constructor and from our tests. It
@@ -50,7 +50,7 @@ func newAPI(
 	httpClient http.HTTPClient,
 	objectStore services.Storage,
 	newDownloader func(services.CharmDownloaderConfig) (Downloader, error),
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) *CharmDownloaderAPI {
 	return &CharmDownloaderAPI{
 		authChecker:        authChecker,
@@ -156,7 +156,7 @@ func (a *CharmDownloaderAPI) getDownloader() (Downloader, error) {
 	}
 
 	downloader, err := a.newDownloader(services.CharmDownloaderConfig{
-		LoggerFactory:      services.LoggoLoggerFactory(a.logger),
+		Logger:             a.logger,
 		CharmhubHTTPClient: a.charmhubHTTPClient,
 		ObjectStore:        a.objectStore,
 		StateBackend:       a.stateBackend,

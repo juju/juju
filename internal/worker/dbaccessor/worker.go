@@ -16,6 +16,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain/controllernode/service"
 	"github.com/juju/juju/domain/controllernode/state"
 	"github.com/juju/juju/internal/database/app"
@@ -140,7 +141,7 @@ type WorkerConfig struct {
 	Clock            clock.Clock
 	MetricsCollector *Collector
 
-	Logger      Logger
+	Logger      logger.Logger
 	NewApp      func(string, ...app.Option) (DBApp, error)
 	NewDBWorker NewDBWorkerFunc
 

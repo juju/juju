@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
@@ -28,13 +27,14 @@ import (
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.client")
+var logger = internallogger.GetLogger("juju.apiserver.client")
 
 // ControllerConfigService is an interface for getting controller configuration.
 type ControllerConfigService interface {

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 )
 
 // LogRecord defines a single Juju log message as returned by
@@ -22,7 +21,7 @@ type LogRecord struct {
 	Entity    string
 
 	// logging-specific fields
-	Level    loggo.Level
+	Level    Level
 	Module   string
 	Location string
 	Message  string
@@ -59,7 +58,7 @@ func (r *LogRecord) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &jrec); err != nil {
 		return errors.Trace(err)
 	}
-	level, ok := loggo.ParseLevel(jrec.Level)
+	level, ok := ParseLevelFromString(jrec.Level)
 	if !ok {
 		return fmt.Errorf("log level %q %w", jrec.Level, errors.NotValid)
 	}

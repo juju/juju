@@ -8,14 +8,9 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-)
 
-// Logger defines the logging methods that the worker pool uses.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
+	"github.com/juju/juju/core/logger"
+)
 
 // Task represents a unit of work which should be executed by the pool workers.
 type Task struct {
@@ -37,7 +32,7 @@ type Task struct {
 // which can be used by callers to detect when an error occurred and the
 // pool is shutting down.
 type WorkerPool struct {
-	logger Logger
+	logger logger.Logger
 
 	// A channel used to signal workers that they should finish their
 	// work and exit.
@@ -67,7 +62,7 @@ type WorkerPool struct {
 
 // NewWorkerPool returns a pool with the taskuested number of workers. Callers
 // must ensure to call the pool's Close() method to avoid leaking goroutines.
-func NewWorkerPool(logger Logger, size int) *WorkerPool {
+func NewWorkerPool(logger logger.Logger, size int) *WorkerPool {
 	// Size must be at least one
 	if size <= 0 {
 		size = 1

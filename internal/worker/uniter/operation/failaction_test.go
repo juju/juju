@@ -23,7 +23,7 @@ type FailActionSuite struct {
 var _ = gc.Suite(&FailActionSuite{})
 
 func (s *FailActionSuite) TestPrepare(c *gc.C) {
-	factory := newOpFactory(nil, nil)
+	factory := newOpFactory(c, nil, nil)
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -63,7 +63,7 @@ func (s *FailActionSuite) TestExecuteSuccess(c *gc.C) {
 	for i, test := range stateChangeTests {
 		c.Logf("test %d: %s", i, test.description)
 		callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{}}
-		factory := newOpFactory(nil, callbacks)
+		factory := newOpFactory(c, nil, callbacks)
 		op, err := factory.NewFailAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
 		midState, err := op.Prepare(stdcontext.Background(), test.before)
@@ -85,7 +85,7 @@ func (s *FailActionSuite) TestExecuteFail(c *gc.C) {
 		ActionId: &someActionId,
 	}
 	callbacks := &RunActionCallbacks{MockFailAction: &MockFailAction{err: errors.New("squelch")}}
-	factory := newOpFactory(nil, callbacks)
+	factory := newOpFactory(c, nil, callbacks)
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 	midState, err := op.Prepare(stdcontext.Background(), st)
@@ -141,7 +141,7 @@ func (s *FailActionSuite) TestCommit(c *gc.C) {
 
 	for i, test := range stateChangeTests {
 		c.Logf("test %d: %s", i, test.description)
-		factory := newOpFactory(nil, nil)
+		factory := newOpFactory(c, nil, nil)
 		op, err := factory.NewFailAction(someActionId)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -152,7 +152,7 @@ func (s *FailActionSuite) TestCommit(c *gc.C) {
 }
 
 func (s *FailActionSuite) TestNeedsGlobalMachineLock(c *gc.C) {
-	factory := newOpFactory(nil, nil)
+	factory := newOpFactory(c, nil, nil)
 	op, err := factory.NewFailAction(someActionId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), jc.IsTrue)

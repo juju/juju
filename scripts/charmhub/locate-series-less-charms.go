@@ -8,17 +8,17 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/juju/loggo/v2"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/internal/charmhub"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // The following program attempts to locate series-less charms on charmhub.
 // These charms will not have a series or a map of containers.
 func main() {
 	client, err := charmhub.NewClient(charmhub.Config{
-		LoggerFactory: charmhub.LoggoLoggerFactory(loggo.GetLogger("series")),
+		Logger: internallogger.GetLogger("series"),
 	})
 	if err != nil {
 		log.Fatal(err)

@@ -13,20 +13,14 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
-	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/logger"
 )
-
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 // LogSink is a worker which provides access to a log sink
 // which allows log entries to be stored for specified models.
 type LogSink struct {
 	tomb    tomb.Tomb
-	logSink corelogger.ModelLogger
+	logSink logger.ModelLogger
 }
 
 // logWriter wraps a io.Writer instance and writes out
@@ -36,7 +30,7 @@ type logWriter struct {
 }
 
 // Log implements logger.Log.
-func (lw *logWriter) Log(records []corelogger.LogRecord) error {
+func (lw *logWriter) Log(records []logger.LogRecord) error {
 	for _, r := range records {
 		line, err := json.Marshal(&r)
 		if err != nil {
@@ -52,10 +46,10 @@ func (lw *logWriter) Log(records []corelogger.LogRecord) error {
 
 // Config defines the attributes used to create a log sink worker.
 type Config struct {
-	Logger                Logger
+	Logger                logger.Logger
 	Clock                 clock.Clock
 	LogSinkConfig         LogSinkConfig
-	LogWriterForModelFunc corelogger.LogWriterForModelFunc
+	LogWriterForModelFunc logger.LogWriterForModelFunc
 }
 
 // NewWorker returns a new worker which provides access to a log sink

@@ -11,11 +11,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -55,12 +55,12 @@ type NetworkInfoBase struct {
 	app           *state.Application
 	defaultEgress []string
 	bindings      map[string]string
-	logger        loggo.Logger
+	logger        corelogger.Logger
 }
 
 // NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
-func NewNetworkInfo(ctx context.Context, st *state.State, networkService NetworkService, tag names.UnitTag, logger loggo.Logger) (NetworkInfo, error) {
+func NewNetworkInfo(ctx context.Context, st *state.State, networkService NetworkService, tag names.UnitTag, logger corelogger.Logger) (NetworkInfo, error) {
 	n, err := NewNetworkInfoForStrategy(ctx, st, networkService, tag, defaultRetryFactory, net.LookupHost, logger)
 	return n, errors.Trace(err)
 }
@@ -75,7 +75,7 @@ func NewNetworkInfoForStrategy(
 	tag names.UnitTag,
 	retryFactory func() retry.CallArgs,
 	lookupHost func(string) ([]string, error),
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (NetworkInfo, error) {
 	model, err := st.Model()
 	if err != nil {

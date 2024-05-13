@@ -10,12 +10,6 @@ import (
 	"github.com/juju/utils/v4"
 )
 
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead pass one in as needed.
-type logger interface{}
-
-var _ logger = struct{}{}
-
 // CharmURLPath is the path within a charm directory to which Deployers
 // commonly write the charm URL of the latest deployed charm.
 const CharmURLPath = ".juju-charm"
@@ -68,14 +62,6 @@ type Deployer interface {
 	// can be resolved by user intervention will be signalled by returning
 	// ErrConflict.
 	Deploy() error
-}
-
-// Logger represents the logging functions used by the charm package.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
 }
 
 // ErrConflict indicates that an upgrade failed and cannot be resolved

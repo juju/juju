@@ -5,13 +5,12 @@ package providerservicefactory
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
-	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/servicefactory"
 )
 
@@ -20,7 +19,7 @@ type Config struct {
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter changestream.WatchableDBGetter
 
-	Logger Logger
+	Logger logger.Logger
 
 	NewProviderServiceFactoryGetter ProviderServiceFactoryGetterFn
 	NewProviderServiceFactory       ProviderServiceFactoryFn
@@ -98,7 +97,7 @@ type serviceFactory struct {
 type serviceFactoryGetter struct {
 	newProviderServiceFactory ProviderServiceFactoryFn
 	dbGetter                  changestream.WatchableDBGetter
-	logger                    Logger
+	logger                    logger.Logger
 }
 
 // FactoryForModel returns a provider service factory for the given model uuid.
@@ -110,38 +109,4 @@ func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.
 			coremodel.UUID(modelUUID), s.dbGetter, s.logger,
 		),
 	}
-}
-
-// The following loggers are required because the Logger interfaces in the other
-// locations have a Child method that returns the same Logger type. As this
-// a self referential type, we need to wrap it in a new type to satisfy the
-// interface. The solution to this is to return a concrete type, but that is
-// not idea either, as it means we can't push the testing logger into the
-// tests.
-
-// loggoLogger is a loggo.Logger for the service factory.
-type loggoLogger struct {
-	loggo.Logger
-}
-
-// NewLogger returns a new logger for the service factory.
-func NewLogger(ns string) Logger {
-	return loggoLogger{
-		Logger: loggo.GetLogger(ns),
-	}
-}
-
-// Child returns a child logger that satisfies the Logger interface.
-func (c loggoLogger) Child(name string) Logger {
-	return c
-}
-
-// serviceFactoryLogger is a Logger for the service factory.
-type serviceFactoryLogger struct {
-	Logger
-}
-
-// Child returns a child logger that satisfies the domainservicefactory.Logger.
-func (c serviceFactoryLogger) Child(name string) domainservicefactory.Logger {
-	return c
 }

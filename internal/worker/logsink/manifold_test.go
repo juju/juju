@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -22,7 +21,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/logger"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/logsink"
 	jujutesting "github.com/juju/juju/testing"
@@ -35,6 +36,8 @@ type ManifoldSuite struct {
 	getter                 dependency.Getter
 	serviceFactory         servicefactory.ServiceFactory
 	controllerConfigGetter *controllerconfigservice.WatchableService
+
+	logger logger.Logger
 
 	clock clock.Clock
 	stub  testing.Stub
@@ -56,12 +59,14 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 	s.stub.ResetCalls()
 
+	s.logger = loggertesting.WrapCheckLog(c)
+
 	s.getter = s.newGetter(c, nil)
 	s.manifold = logsink.Manifold(logsink.ManifoldConfig{
 		ClockName:          "clock",
 		AgentName:          "agent",
 		ServiceFactoryName: "service-factory",
-		DebugLogger:        loggo.GetLogger("test"),
+		DebugLogger:        s.logger,
 		NewWorker:          s.newWorker,
 	})
 }
@@ -117,7 +122,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.LogWriterForModelFunc = nil
 
 	expectedConfig := logsink.Config{
-		Logger: loggo.GetLogger("test"),
+		Logger: s.logger,
 		Clock:  s.clock,
 		LogSinkConfig: logsink.LogSinkConfig{
 			LoggerBufferSize:    1000,

@@ -16,21 +16,12 @@ import (
 
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/state/binarystorage"
 	jujuversion "github.com/juju/juju/version"
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	IsTraceEnabled() bool
-
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
 
 const (
 	// AgentCompressedBinaryName is the name of the agent binary.
@@ -45,7 +36,7 @@ type AgentBinaryStorage interface {
 
 // PopulateAgentBinary is the function that is used to populate the agent
 // binary at bootstrap.
-func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinaryStorage, logger Logger) (func(), error) {
+func PopulateAgentBinary(ctx context.Context, dataDir string, storage AgentBinaryStorage, logger logger.Logger) (func(), error) {
 	current := version.Binary{
 		Number:  jujuversion.Current,
 		Arch:    arch.HostArch(),

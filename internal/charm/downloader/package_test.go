@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/logger_mocks.go github.com/juju/juju/internal/charm/downloader Logger
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/charm_mocks.go github.com/juju/juju/internal/charm/downloader CharmArchive
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/charm_archive_mocks.go github.com/juju/juju/internal/charm/downloader CharmRepository
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/storage_mocks.go github.com/juju/juju/internal/charm/downloader Storage

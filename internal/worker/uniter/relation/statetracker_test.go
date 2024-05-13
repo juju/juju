@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	corerelation "github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -161,7 +162,7 @@ func (s *stateTrackerSuite) TestPrepareHook(c *gc.C) {
 		Relationers:   map[int]relation.Relationer{1: s.relationer},
 		RemoteAppName: make(map[int]string),
 	}
-	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
+	rst, err := relation.NewStateTrackerForSyncScopesTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -179,7 +180,7 @@ func (s *stateTrackerSuite) TestPrepareHookNotFound(c *gc.C) {
 		Relationers:   make(map[int]relation.Relationer),
 		RemoteAppName: make(map[int]string),
 	}
-	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
+	rst, err := relation.NewStateTrackerForSyncScopesTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -196,7 +197,7 @@ func (s *stateTrackerSuite) TestPrepareHookOnlyRelationHooks(c *gc.C) {
 		Relationers:   map[int]relation.Relationer{1: s.relationer},
 		RemoteAppName: make(map[int]string),
 	}
-	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
+	rst, err := relation.NewStateTrackerForSyncScopesTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -213,7 +214,7 @@ func (s *stateTrackerSuite) TestCommitHookOnlyRelationHooks(c *gc.C) {
 		Relationers:   map[int]relation.Relationer{1: s.relationer},
 		RemoteAppName: make(map[int]string),
 	}
-	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
+	rst, err := relation.NewStateTrackerForSyncScopesTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -230,7 +231,7 @@ func (s *stateTrackerSuite) TestCommitHookNotFound(c *gc.C) {
 		Relationers:   make(map[int]relation.Relationer),
 		RemoteAppName: make(map[int]string),
 	}
-	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
+	rst, err := relation.NewStateTrackerForSyncScopesTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -248,7 +249,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationCreated(c *gc.C) {
 		Relationers:   map[int]relation.Relationer{1: s.relationer},
 		RemoteAppName: make(map[int]string),
 	}
-	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
+	rst, err := relation.NewStateTrackerForSyncScopesTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -267,7 +268,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationCreatedFail(c *gc.C) {
 		Relationers:   map[int]relation.Relationer{1: s.relationer},
 		RemoteAppName: make(map[int]string),
 	}
-	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
+	rst, err := relation.NewStateTrackerForSyncScopesTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -286,7 +287,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationBroken(c *gc.C) {
 		Relationers:   map[int]relation.Relationer{1: s.relationer},
 		RemoteAppName: make(map[int]string),
 	}
-	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
+	rst, err := relation.NewStateTrackerForSyncScopesTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -305,7 +306,7 @@ func (s *stateTrackerSuite) TestCommitHookRelationBrokenFail(c *gc.C) {
 		Relationers:   map[int]relation.Relationer{1: s.relationer},
 		RemoteAppName: make(map[int]string),
 	}
-	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
+	rst, err := relation.NewStateTrackerForSyncScopesTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -325,6 +326,9 @@ func (s *baseStateTrackerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.relationer = mocks.NewMockRelationer(ctrl)
 	s.relationUnit = api.NewMockRelationUnit(ctrl)
 	s.stateMgr = mocks.NewMockStateManager(ctrl)
+
+	s.relation.EXPECT().String().AnyTimes()
+
 	return ctrl
 }
 
@@ -375,11 +379,11 @@ func (s *syncScopesSuite) TestSynchronizeScopesNoRemoteRelationsDestroySubordina
 		StateManager:      s.stateMgr,
 		Subordinate:       true,
 		PrincipalName:     "ubuntu/0",
-		NewRelationerFunc: func(_ api.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ api.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ logger.Logger) relation.Relationer {
 			return s.relationer
 		},
 	}
-	rst, err := relation.NewStateTrackerForTest(cfg)
+	rst, err := relation.NewStateTrackerForTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	remote := remotestate.Snapshot{}
@@ -476,7 +480,7 @@ func (s *syncScopesSuite) TestSynchronizeScopesJoinRelation(c *gc.C) {
 	// Setup for SynchronizeScopes()
 	s.expectRelationById(1)
 	ep := &uniter.Endpoint{
-		charm.Relation{
+		Relation: charm.Relation{
 			Role:      charm.RoleRequirer,
 			Name:      "mysql",
 			Interface: "db",
@@ -527,7 +531,7 @@ func (s *syncScopesSuite) assertSynchronizeScopesFailImplementedBy(c *gc.C, crea
 	// Setup for SynchronizeScopes()
 	s.expectRelationById(1)
 	ep := &uniter.Endpoint{
-		charm.Relation{
+		Relation: charm.Relation{
 			// changing to RoleProvider will cause ImplementedBy to fail.
 			Role:      charm.RoleProvider,
 			Name:      "mysql",
@@ -685,6 +689,7 @@ func (s *baseStateTrackerSuite) expectRelation(relTag names.RelationTag) {
 
 func (s *syncScopesSuite) expectRelationById(id int) {
 	s.client.EXPECT().RelationById(gomock.Any(), id).Return(s.relation, nil)
+	s.relation.EXPECT().String().AnyTimes()
 }
 
 // Unit
@@ -729,11 +734,11 @@ func (s *baseStateTrackerSuite) newStateTracker(c *gc.C) relation.RelationStateT
 		Unit:              s.unit,
 		LeadershipContext: s.leadershipContext,
 		StateManager:      s.stateMgr,
-		NewRelationerFunc: func(_ api.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ api.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ logger.Logger) relation.Relationer {
 			return s.relationer
 		},
 	}
-	rst, err := relation.NewStateTrackerForTest(cfg)
+	rst, err := relation.NewStateTrackerForTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return rst
 }
@@ -744,14 +749,14 @@ func (s *syncScopesSuite) newSyncScopesStateTracker(c *gc.C, relationers map[int
 		Unit:              s.unit,
 		LeadershipContext: s.leadershipContext,
 		StateManager:      s.stateMgr,
-		NewRelationerFunc: func(_ api.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ relation.Logger) relation.Relationer {
+		NewRelationerFunc: func(_ api.RelationUnit, _ relation.StateManager, _ relation.UnitGetter, _ logger.Logger) relation.Relationer {
 			return s.relationer
 		},
 		Relationers:   relationers,
 		RemoteAppName: appNames,
 		CharmDir:      s.charmDir,
 	}
-	rst, err := relation.NewStateTrackerForSyncScopesTest(cfg)
+	rst, err := relation.NewStateTrackerForSyncScopesTest(c, cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return rst
 }

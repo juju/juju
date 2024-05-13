@@ -10,7 +10,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -20,6 +19,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -50,7 +50,7 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, nil, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, s.authContext, apiservertesting.NoopModelCredentialInvalidatorGetter,
-		c.MkDir(), loggo.GetLogger("juju.apiserver.applicationoffers"),
+		c.MkDir(), loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

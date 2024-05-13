@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	_ "github.com/juju/juju/internal/provider/manual"
 	"github.com/juju/juju/internal/storage"
@@ -738,6 +739,7 @@ func (s *Suite) expectImportModel(c *gc.C) {
 		return migration.NewModelImporter(
 			controller, scope, s.controllerConfigService, s.serviceFactoryGetter, cloudSchemaSource,
 			func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+			loggertesting.WrapCheckLog(c),
 		).ImportModel(ctx, bytes)
 	})
 }

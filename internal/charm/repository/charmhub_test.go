@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/internal/charm/repository/mocks"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 var (
@@ -38,7 +39,6 @@ type charmHubRepositorySuite struct {
 	testing.IsolationSuite
 
 	client *mocks.MockCharmHubClient
-	logger *mocks.MockLogger
 }
 
 var _ = gc.Suite(&charmHubRepositorySuite{})
@@ -83,7 +83,7 @@ func (s *charmHubRepositorySuite) testResolve(c *gc.C, id string) {
 		origin.InstanceKey = "instance-key"
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = rev
@@ -115,7 +115,7 @@ func (s *charmHubRepositorySuite) TestResolveFillsInEmptyTrack(c *gc.C) {
 		},
 		Channel: &channel,
 	}
-	_, obtainedOrigin, _, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	_, obtainedOrigin, _, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedOrigin.Channel.Track, gc.Equals, "latest")
 }
@@ -138,7 +138,7 @@ func (s *charmHubRepositorySuite) TestResolveWithChannel(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -172,7 +172,7 @@ func (s *charmHubRepositorySuite) TestResolveWithoutBase(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -213,7 +213,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeployWithRevisionSuccess(c *gc.
 	}
 	arg := corecharm.CharmID{URL: curl, Origin: origin}
 
-	obtainedData, err := s.newClient().ResolveForDeploy(context.Background(), arg)
+	obtainedData, err := s.newClient(c).ResolveForDeploy(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = revision
@@ -246,7 +246,7 @@ func (s *charmHubRepositorySuite) TestResolveForDeploySuccessChooseBase(c *gc.C)
 	}
 	arg := corecharm.CharmID{URL: curl, Origin: origin}
 
-	obtainedData, err := s.newClient().ResolveForDeploy(context.Background(), arg)
+	obtainedData, err := s.newClient(c).ResolveForDeploy(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -279,7 +279,7 @@ func (s *charmHubRepositorySuite) TestResolveWithBundles(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "core-kubernetes", origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "core-kubernetes", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 17
@@ -312,7 +312,7 @@ func (s *charmHubRepositorySuite) TestResolveInvalidPlatformError(c *gc.C) {
 		},
 	}
 
-	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	obtainedCurl, obtainedOrigin, obtainedBases, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, jc.ErrorIsNil)
 
 	curl.Revision = 16
@@ -345,7 +345,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundErrorWithNoSeries(c
 		},
 	}
 
-	_, _, _, err := s.newClient().ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
+	_, _, _, err := s.newClient(c).ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, gc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found in the charm's default channel, base "amd64"
 available releases are:
@@ -365,7 +365,7 @@ func (s *charmHubRepositorySuite) TestResolveRevisionNotFoundError(c *gc.C) {
 		},
 	}
 
-	repo := NewCharmHubRepository(s.logger, s.client)
+	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), s.client)
 	_, _, _, err := repo.ResolveWithPreferredChannel(context.Background(), "wordpress", origin)
 	c.Assert(err, gc.ErrorMatches,
 		`(?m)selecting releases: charm or bundle not found in the charm's default channel, base "amd64/ubuntu/18.04"
@@ -410,7 +410,7 @@ func (s *charmHubRepositorySuite) TestDownloadCharm(c *gc.C) {
 	s.expectCharmRefreshInstallOneFromChannel(c)
 	s.client.EXPECT().DownloadAndRead(gomock.Any(), resolvedURL, "/tmp/foo").Return(resolvedArchive, nil)
 
-	gotArchive, gotOrigin, err := s.newClient().DownloadCharm(context.Background(), "wordpress", requestedOrigin, "/tmp/foo")
+	gotArchive, gotOrigin, err := s.newClient(c).DownloadCharm(context.Background(), "wordpress", requestedOrigin, "/tmp/foo")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotArchive, gc.Equals, resolvedArchive) // note: we are using gc.Equals to check the pointers here.
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
@@ -451,7 +451,7 @@ func (s *charmHubRepositorySuite) TestGetDownloadURL(c *gc.C) {
 
 	s.expectCharmRefreshInstallOneFromChannel(c)
 
-	gotURL, gotOrigin, err := s.newClient().GetDownloadURL(context.Background(), "wordpress", requestedOrigin)
+	gotURL, gotOrigin, err := s.newClient(c).GetDownloadURL(context.Background(), "wordpress", requestedOrigin)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotURL, gc.DeepEquals, resolvedURL)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin)
@@ -476,7 +476,7 @@ func (s *charmHubRepositorySuite) TestGetEssentialMetadata(c *gc.C) {
 	s.expectCharmRefreshInstallOneFromChannel(c) // resolve the origin
 	s.expectCharmRefreshInstallOneFromChannel(c) // refresh and get metadata
 
-	got, err := s.newClient().GetEssentialMetadata(context.Background(), corecharm.MetadataRequest{
+	got, err := s.newClient(c).GetEssentialMetadata(context.Background(), corecharm.MetadataRequest{
 		CharmName: "wordpress",
 		Origin:    requestedOrigin,
 	})
@@ -495,7 +495,7 @@ func (s *charmHubRepositorySuite) TestResolveResources(c *gc.C) {
 	s.expectRefresh(true)
 	s.expectListResourceRevisions(2)
 
-	result, err := s.newClient().ResolveResources(context.Background(), []charmresource.Resource{{
+	result, err := s.newClient(c).ResolveResources(context.Background(), []charmresource.Resource{{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:      charmresource.OriginUpload,
 		Revision:    1,
@@ -531,7 +531,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStore(c *gc.C) {
 
 	id := charmID()
 	id.Origin.ID = ""
-	result, err := s.newClient().ResolveResources(context.Background(), []charmresource.Resource{{
+	result, err := s.newClient(c).ResolveResources(context.Background(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: 1,
@@ -551,7 +551,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesFromStoreNoRevision(c *gc.
 	defer s.setupMocks(c).Finish()
 	s.expectRefreshWithRevision(1, true)
 
-	result, err := s.newClient().ResolveResources(context.Background(), []charmresource.Resource{{
+	result, err := s.newClient(c).ResolveResources(context.Background(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: -1,
@@ -573,7 +573,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesNoMatchingRevision(c *gc.C
 	s.expectRefreshWithRevision(99, true)
 	s.expectListResourceRevisions(3)
 
-	_, err := s.newClient().ResolveResources(context.Background(), []charmresource.Resource{{
+	_, err := s.newClient(c).ResolveResources(context.Background(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginStore,
 		Revision: 1,
@@ -588,7 +588,7 @@ func (s *charmHubRepositorySuite) TestResolveResourcesUpload(c *gc.C) {
 
 	id := charmID()
 	id.Origin.ID = ""
-	result, err := s.newClient().ResolveResources(context.Background(), []charmresource.Resource{{
+	result, err := s.newClient(c).ResolveResources(context.Background(), []charmresource.Resource{{
 		Meta:     charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
 		Origin:   charmresource.OriginUpload,
 		Revision: 3,
@@ -626,7 +626,7 @@ func (s *charmHubRepositorySuite) TestResourceInfo(c *gc.C) {
 		},
 	}
 
-	result, err := s.newClient().resourceInfo(context.Background(), curl, origin, "wal-e", 25)
+	result, err := s.newClient(c).resourceInfo(context.Background(), curl, origin, "wal-e", 25)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, charmresource.Resource{
 		Meta:        charmresource.Meta{Name: "wal-e", Type: 1, Path: "wal-e.snap", Description: "WAL-E Snap Package"},
@@ -815,8 +815,6 @@ options:
 func (s *charmHubRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.client = mocks.NewMockCharmHubClient(ctrl)
-	s.logger = mocks.NewMockLogger(ctrl)
-	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes()
 	return ctrl
 }
 
@@ -824,8 +822,8 @@ func (s *charmHubRepositorySuite) expectedCURL(curl *charm.URL, revision int, ar
 	return curl.WithRevision(revision).WithArchitecture(arch)
 }
 
-func (s *charmHubRepositorySuite) newClient() *CharmHubRepository {
-	return NewCharmHubRepository(s.logger, s.client)
+func (s *charmHubRepositorySuite) newClient(c *gc.C) *CharmHubRepository {
+	return NewCharmHubRepository(loggertesting.WrapCheckLog(c), s.client)
 }
 
 func (s *charmHubRepositorySuite) expectRefresh(id bool) {
@@ -1110,7 +1108,6 @@ func (refreshConfigSuite) TestRefreshByID(c *gc.C) {
 
 type selectNextBaseSuite struct {
 	testing.IsolationSuite
-	logger *mocks.MockLogger
 }
 
 var _ = gc.Suite(&selectNextBaseSuite{})
@@ -1223,7 +1220,7 @@ func (*selectNextBaseSuite) TestSelectNextBasesFromReleasesAmbiguousMatchError(c
 
 func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	repo := NewCharmHubRepository(s.logger, nil)
+	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 
 	channel := corecharm.MustParseChannel("stable")
 	err := repo.handleRevisionNotFound([]transport.Release{{
@@ -1241,7 +1238,7 @@ func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestionError(c *
 
 func (s *selectNextBaseSuite) TestSelectNextBasesFromReleasesSuggestion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	repo := NewCharmHubRepository(s.logger, nil)
+	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	err := repo.handleRevisionNotFound([]transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
@@ -1262,29 +1259,25 @@ available releases are:
 
 func (s *selectNextBaseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.logger = mocks.NewMockLogger(ctrl)
-	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes()
 	return ctrl
 }
 
 type composeSuggestionsSuite struct {
 	testing.IsolationSuite
-	logger *mocks.MockLogger
 }
 
 var _ = gc.Suite(&composeSuggestionsSuite{})
 
 func (s *composeSuggestionsSuite) TestNoReleases(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	repo := NewCharmHubRepository(s.logger, nil)
+	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{}, corecharm.Origin{})
 	c.Assert(suggestions, gc.DeepEquals, []string(nil))
 }
 
 func (s *composeSuggestionsSuite) TestNoMatchingArch(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	repo := NewCharmHubRepository(s.logger, nil)
+	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
 			Name:         "os",
@@ -1298,7 +1291,7 @@ func (s *composeSuggestionsSuite) TestNoMatchingArch(c *gc.C) {
 
 func (s *composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	repo := NewCharmHubRepository(s.logger, nil)
+	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
@@ -1318,7 +1311,7 @@ func (s *composeSuggestionsSuite) TestSuggestion(c *gc.C) {
 
 func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	repo := NewCharmHubRepository(s.logger, nil)
+	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
@@ -1338,7 +1331,7 @@ func (s *composeSuggestionsSuite) TestSuggestionWithRisk(c *gc.C) {
 
 func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	repo := NewCharmHubRepository(s.logger, nil)
+	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
 			Name:         "ubuntu",
@@ -1380,7 +1373,7 @@ func (s *composeSuggestionsSuite) TestMultipleSuggestion(c *gc.C) {
 
 func (s *composeSuggestionsSuite) TestCentosSuggestion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	repo := NewCharmHubRepository(s.logger, nil)
+	repo := NewCharmHubRepository(loggertesting.WrapCheckLog(c), nil)
 	suggestions := repo.composeSuggestions([]transport.Release{{
 		Base: transport.Base{
 			Name:         "centos",
@@ -1400,8 +1393,5 @@ func (s *composeSuggestionsSuite) TestCentosSuggestion(c *gc.C) {
 
 func (s *composeSuggestionsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.logger = mocks.NewMockLogger(ctrl)
-	s.logger.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes()
 	return ctrl
 }

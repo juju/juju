@@ -5,17 +5,17 @@ package context
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/secrets"
 )
 
 // secretsChangeRecorder records the intent tp update, remove or
 // change secret access permission during a hook execution.
 type secretsChangeRecorder struct {
-	logger loggo.Logger
+	logger logger.Logger
 
 	pendingCreates map[string]uniter.SecretCreateArg
 	pendingUpdates map[string]uniter.SecretUpdateArg
@@ -29,7 +29,7 @@ type secretsChangeRecorder struct {
 	pendingTrackLatest map[string]bool
 }
 
-func newSecretsChangeRecorder(logger loggo.Logger) *secretsChangeRecorder {
+func newSecretsChangeRecorder(logger logger.Logger) *secretsChangeRecorder {
 	return &secretsChangeRecorder{
 		logger:             logger,
 		pendingCreates:     make(map[string]uniter.SecretCreateArg),

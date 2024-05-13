@@ -12,7 +12,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -28,13 +27,14 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
+	internallogger "github.com/juju/juju/internal/logger"
 	mgoutils "github.com/juju/juju/internal/mongo/utils"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/tools"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 
-var unitLogger = loggo.GetLogger("juju.state.unit")
+var unitLogger = internallogger.GetLogger("juju.state.unit")
 
 // AssignmentPolicy controls what machine a unit will be assigned to.
 type AssignmentPolicy string

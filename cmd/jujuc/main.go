@@ -16,15 +16,15 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4/exec"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 )
 
-var logger = loggo.GetLogger("juju.cmd.jujud")
+var logger = internallogger.GetLogger("juju.cmd.jujud")
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())

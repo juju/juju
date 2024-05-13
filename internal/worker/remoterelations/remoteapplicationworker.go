@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -61,7 +62,7 @@ type remoteApplicationWorker struct {
 
 	newRemoteModelRelationsFacadeFunc newRemoteRelationsFacadeFunc
 
-	logger Logger
+	logger logger.Logger
 }
 
 // relation holds attributes relevant to a particular

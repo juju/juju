@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/exec"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
@@ -50,7 +50,7 @@ func (s *runcommandsSuite) SetUpTest(c *gc.C) {
 				return &s.mockRunner, nil
 			},
 		},
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 	})
 
 	s.commands = runcommands.NewCommands()

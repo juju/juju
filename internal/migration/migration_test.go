@@ -26,6 +26,7 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
@@ -73,6 +74,7 @@ func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	importer := migration.NewModelImporter(
 		controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource,
 		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+		loggertesting.WrapCheckLog(c),
 	)
 	model, st, err := importer.ImportModel(context.Background(), bytes)
 	c.Check(st, gc.IsNil)
@@ -149,6 +151,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	importer := migration.NewModelImporter(
 		controller, scope, s.controllerConfigService, s.serviceFactoryGetter, configSchemaSource,
 		func() (storage.ProviderRegistry, error) { return provider.CommonStorageProviders(), nil },
+		loggertesting.WrapCheckLog(c),
 	)
 	gotM, gotSt, err := importer.ImportModel(context.Background(), bytes)
 	c.Assert(err, jc.ErrorIsNil)
@@ -230,7 +233,7 @@ func (s *ImportSuite) TestBinariesMigration(c *gc.C) {
 		ResourceDownloader: downloader,
 		ResourceUploader:   uploader,
 	}
-	err := migration.UploadBinaries(context.Background(), config)
+	err := migration.UploadBinaries(context.Background(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedCurls := []string{
@@ -281,7 +284,7 @@ func (s *ImportSuite) TestWrongCharmURLAssigned(c *gc.C) {
 		ResourceDownloader: downloader,
 		ResourceUploader:   uploader,
 	}
-	err := migration.UploadBinaries(context.Background(), config)
+	err := migration.UploadBinaries(context.Background(), config, loggertesting.WrapCheckLog(c))
 	c.Assert(err, gc.ErrorMatches,
 		"cannot upload charms: charm local:foo/bar-2 unexpectedly assigned local:foo/bar-100")
 }

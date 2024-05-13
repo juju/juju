@@ -10,13 +10,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/httpserver"
 )
 
@@ -54,7 +54,7 @@ func (s *TLSStateSuite) TestNewTLSConfig(c *gc.C) {
 		s.serverURL,
 		s.cache,
 		testSNIGetter(s.cert),
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 	)
 
 	cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{
@@ -95,7 +95,7 @@ func (s *TLSAutocertSuite) TestAutocertExceptions(c *gc.C) {
 		s.serverURL,
 		s.cache,
 		testSNIGetter(s.cert),
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 	)
 	s.testGetCertificate(c, tlsConfig, "127.0.0.1")
 	s.testGetCertificate(c, tlsConfig, "juju-apiserver")
@@ -109,7 +109,7 @@ func (s *TLSAutocertSuite) TestAutocert(c *gc.C) {
 		s.serverURL,
 		s.cache,
 		testSNIGetter(s.cert),
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 	)
 	s.testGetCertificate(c, tlsConfig, "public.invalid")
 	c.Assert(s.autocertQueried, jc.IsTrue)
@@ -122,7 +122,7 @@ func (s *TLSAutocertSuite) TestAutocertHostPolicy(c *gc.C) {
 		s.serverURL,
 		s.cache,
 		testSNIGetter(s.cert),
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 	)
 	s.testGetCertificate(c, tlsConfig, "always.invalid")
 	c.Assert(s.autocertQueried, jc.IsFalse)
@@ -134,7 +134,7 @@ func (s *TLSAutocertSuite) TestAutoCertNotCalledBadDNS(c *gc.C) {
 		s.serverURL,
 		s.cache,
 		testSNIGetter(s.cert),
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 	)
 	s.testGetCertificate(c, tlsConfig, "invalid")
 	c.Assert(s.autocertQueried, jc.IsFalse)

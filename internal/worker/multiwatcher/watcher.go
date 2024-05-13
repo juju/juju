@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 )
 
@@ -20,7 +21,7 @@ type control interface {
 type Watcher struct {
 	request chan *request
 	control control
-	logger  Logger
+	logger  logger.Logger
 	err     chan error
 
 	filter func([]multiwatcher.Delta) []multiwatcher.Delta

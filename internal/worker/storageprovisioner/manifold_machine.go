@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/agent/storageprovisioner"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/worker/common"
 )
@@ -26,7 +27,7 @@ type MachineManifoldConfig struct {
 	AgentName                    string
 	APICallerName                string
 	Clock                        clock.Clock
-	Logger                       Logger
+	Logger                       logger.Logger
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 

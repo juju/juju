@@ -9,6 +9,8 @@ import (
 	"sync"
 
 	"github.com/kr/pretty"
+
+	"github.com/juju/juju/core/logger"
 )
 
 // Store stores the current entities to use as a basis for the multiwatcher
@@ -69,25 +71,17 @@ type store struct {
 	latestRevno int64
 	entities    map[interface{}]*list.Element
 	list        *list.List
-	logger      Logger
-}
-
-// Logger describes the logging methods used in this package by the worker.
-type Logger interface {
-	IsTraceEnabled() bool
-	Tracef(string, ...interface{})
-	Errorf(string, ...interface{})
-	Criticalf(string, ...interface{})
+	logger      logger.Logger
 }
 
 // NewStore returns an Store instance holding information about the
 // current state of all entities in the model.
 // It is only exposed here for testing purposes.
-func NewStore(logger Logger) Store {
+func NewStore(logger logger.Logger) Store {
 	return newStore(logger)
 }
 
-func newStore(logger Logger) *store {
+func newStore(logger logger.Logger) *store {
 	return &store{
 		entities: make(map[interface{}]*list.Element),
 		list:     list.New(),

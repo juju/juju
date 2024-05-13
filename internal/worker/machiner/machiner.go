@@ -8,7 +8,6 @@ import (
 	"net"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 
@@ -16,12 +15,13 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/network"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.worker.machiner")
+var logger = internallogger.GetLogger("juju.worker.machiner")
 
 // Config defines the configuration for a machiner worker.
 type Config struct {

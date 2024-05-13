@@ -10,17 +10,17 @@ import (
 	"sync/atomic"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/agent/machineactions"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.worker.machineactions")
+var logger = internallogger.GetLogger("juju.worker.machineactions")
 
 // Facade defines the capabilities required by the worker from the API.
 type Facade interface {

@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/charm/v13/hooks"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mutex/v2"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
@@ -53,7 +53,7 @@ func (s *LoopSuite) SetUpTest(c *gc.C) {
 	s.abort = make(chan struct{})
 }
 
-func (s *LoopSuite) loop() (resolver.LocalState, error) {
+func (s *LoopSuite) loop(c *gc.C) (resolver.LocalState, error) {
 	localState := resolver.LocalState{
 		CharmURL: s.charmURL,
 	}
@@ -66,14 +66,14 @@ func (s *LoopSuite) loop() (resolver.LocalState, error) {
 		OnIdle:        s.onIdle,
 		CharmDir:      s.charmDir,
 		CharmDirGuard: &mockCharmDirGuard{},
-		Logger:        loggo.GetLogger("test"),
+		Logger:        loggertesting.WrapCheckLog(c),
 	}, &localState)
 	return localState, err
 }
 
 func (s *LoopSuite) TestAbort(c *gc.C) {
 	close(s.abort)
-	_, err := s.loop()
+	_, err := s.loop(c)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 }
 
@@ -86,7 +86,7 @@ func (s *LoopSuite) TestOnIdle(c *gc.C) {
 
 	done := make(chan interface{}, 1)
 	go func() {
-		_, err := s.loop()
+		_, err := s.loop(c)
 		done <- err
 	}()
 
@@ -110,7 +110,7 @@ func (s *LoopSuite) TestOnIdleError(c *gc.C) {
 		return errors.New("onIdle failed")
 	}
 	close(s.abort)
-	_, err := s.loop()
+	_, err := s.loop(c)
 	c.Assert(err, gc.ErrorMatches, "onIdle failed")
 }
 
@@ -129,7 +129,7 @@ func (s *LoopSuite) TestErrWaitingNoOnIdle(c *gc.C) {
 		return nil, resolver.ErrWaiting
 	})
 	close(s.abort)
-	_, err := s.loop()
+	_, err := s.loop(c)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 	c.Assert(onIdleCalled, jc.IsFalse)
 }
@@ -147,7 +147,7 @@ func (s *LoopSuite) TestInitialFinalLocalState(c *gc.C) {
 	})
 
 	close(s.abort)
-	lastLocal, err := s.loop()
+	lastLocal, err := s.loop(c)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 	c.Assert(local, jc.DeepEquals, resolver.LocalState{
 		CharmURL: s.charmURL,
@@ -184,7 +184,7 @@ func (s *LoopSuite) TestLoop(c *gc.C) {
 		return nil, resolver.ErrNoOperation
 	})
 
-	_, err := s.loop()
+	_, err := s.loop(c)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 	c.Assert(resolverCalls, gc.Equals, 3)
 	s.executor.CheckCallNames(c, "State", "State", "State", "Run", "State", "State")
@@ -246,7 +246,7 @@ func (s *LoopSuite) TestLoopWithChange(c *gc.C) {
 		return nil
 	}
 
-	_, err := s.loop()
+	_, err := s.loop(c)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 	c.Assert(resolverCalls, gc.Equals, 4)
 	s.executor.CheckCallNames(c, "State", "State", "State", "Run", "State", "State", "State")
@@ -275,7 +275,7 @@ func (s *LoopSuite) TestRunFails(c *gc.C) {
 	) (operation.Operation, error) {
 		return mockOp{}, nil
 	})
-	_, err := s.loop()
+	_, err := s.loop(c)
 	c.Assert(err, gc.ErrorMatches, "run fails")
 }
 
@@ -288,7 +288,7 @@ func (s *LoopSuite) TestNextOpFails(c *gc.C) {
 	) (operation.Operation, error) {
 		return nil, errors.New("NextOp fails")
 	})
-	_, err := s.loop()
+	_, err := s.loop(c)
 	c.Assert(err, gc.ErrorMatches, "NextOp fails")
 }
 
@@ -374,7 +374,7 @@ func (s *LoopSuite) testCheckCharmUpgradeDoesNothing(c *gc.C) {
 		return nil, resolver.ErrWaiting
 	})
 	close(s.abort)
-	_, err := s.loop()
+	_, err := s.loop(c)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 
 	// Run not called
@@ -474,7 +474,7 @@ func (s *LoopSuite) testCheckCharmUpgradeCallsRun(c *gc.C, op string) {
 		return nil, resolver.ErrWaiting
 	})
 	close(s.abort)
-	_, err := s.loop()
+	_, err := s.loop(c)
 	c.Assert(err, gc.Equals, resolver.ErrLoopAborted)
 
 	// Run not called
@@ -507,7 +507,7 @@ func (s *LoopSuite) TestCancelledLockAcquisitionCausesRestart(c *gc.C) {
 		return &mockOp{}, nil
 	})
 
-	_, err := s.loop()
+	_, err := s.loop(c)
 	c.Assert(err, gc.Equals, resolver.ErrRestart)
 }
 

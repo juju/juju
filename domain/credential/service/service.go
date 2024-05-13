@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
 	corecredential "github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain/credential"
@@ -57,15 +58,10 @@ type State interface {
 // ValidationContextGetter returns the artefacts for a specified model, used to make credential validation calls.
 type ValidationContextGetter func(ctx context.Context, modelUUID coremodel.UUID) (CredentialValidationContext, error)
 
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
-
 // Service provides the API for working with credentials.
 type Service struct {
 	st     State
-	logger Logger
+	logger logger.Logger
 
 	// These are set via options after the service is created.
 
@@ -78,7 +74,7 @@ type Service struct {
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, logger Logger) *Service {
+func NewService(st State, logger logger.Logger) *Service {
 	return &Service{
 		st:        st,
 		logger:    logger,
@@ -341,7 +337,7 @@ type WatchableService struct {
 }
 
 // NewWatchableService returns a new service reference wrapping the input state.
-func NewWatchableService(st State, watcherFactory WatcherFactory, logger Logger) *WatchableService {
+func NewWatchableService(st State, watcherFactory WatcherFactory, logger logger.Logger) *WatchableService {
 	return &WatchableService{
 		Service: Service{
 			st:        st,

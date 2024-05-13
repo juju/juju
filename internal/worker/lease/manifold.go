@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
@@ -38,11 +39,11 @@ type ManifoldConfig struct {
 	DBAccessorName string
 	TraceName      string
 
-	Logger               Logger
+	Logger               logger.Logger
 	LogDir               string
 	PrometheusRegisterer prometheus.Registerer
 	NewWorker            func(ManagerConfig) (worker.Worker, error)
-	NewStore             func(database.DBGetter, Logger) lease.Store
+	NewStore             func(database.DBGetter, logger.Logger) lease.Store
 	NewSecretaryFinder   func(string) lease.SecretaryFinder
 }
 
@@ -169,7 +170,7 @@ func NewWorker(config ManagerConfig) (worker.Worker, error) {
 }
 
 // NewStore returns a new lease store based on the input config.
-func NewStore(dbGetter database.DBGetter, logger Logger) lease.Store {
+func NewStore(dbGetter database.DBGetter, logger logger.Logger) lease.Store {
 	factory := database.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, database.ControllerNS)
 	return service.NewService(state.NewState(factory, logger))
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -57,7 +57,7 @@ func (s *newLxdProfileSuite) TestWatchInstanceData(c *gc.C) {
 		},
 	}
 
-	api := s.newAPI()
+	api := s.newAPI(c)
 	results, err := api.WatchInstanceData(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
@@ -82,7 +82,7 @@ func (s *newLxdProfileSuite) TestLXDProfileName(c *gc.C) {
 		},
 	}
 
-	api := s.newAPI()
+	api := s.newAPI(c)
 	results, err := api.LXDProfileName(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.StringResults{
@@ -105,7 +105,7 @@ func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 		},
 	}
 
-	api := s.newAPI()
+	api := s.newAPI(c)
 	results, err := api.LXDProfileRequired(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.BoolResults{
@@ -128,7 +128,7 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileUnauthorized(c *gc.C) {
 			{Tag: names.NewMachineTag("2").String()},
 		},
 	}
-	api := s.newAPI()
+	api := s.newAPI(c)
 	results, err := api.CanApplyLXDProfile(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.BoolResults{
@@ -200,7 +200,7 @@ func (s *newLxdProfileSuite) testCanApplyLXDProfile(c *gc.C, result bool) {
 			{Tag: s.unitTag1.String()},
 		},
 	}
-	api := s.newAPI()
+	api := s.newAPI(c)
 	results, err := api.CanApplyLXDProfile(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.BoolResults{
@@ -208,7 +208,7 @@ func (s *newLxdProfileSuite) testCanApplyLXDProfile(c *gc.C, result bool) {
 	})
 }
 
-func (s *newLxdProfileSuite) newAPI() *uniter.LXDProfileAPIv2 {
+func (s *newLxdProfileSuite) newAPI(c *gc.C) *uniter.LXDProfileAPIv2 {
 	resources := common.NewResources()
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag: s.unitTag1,
@@ -226,7 +226,7 @@ func (s *newLxdProfileSuite) newAPI() *uniter.LXDProfileAPIv2 {
 		resources,
 		authorizer,
 		unitAuthFunc,
-		loggo.GetLogger("juju.apiserver.facades.agent.uniter"))
+		loggertesting.WrapCheckLog(c))
 	return api
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/domain/objectstore/service"
 	"github.com/juju/juju/domain/objectstore/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -31,7 +32,7 @@ func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 
 	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
 		domain.NewWatcherFactory(factory,
-			testing.NewCheckLogger(c),
+			loggertesting.WrapCheckLog(c),
 		),
 	)
 	watcher, err := svc.Watch()
@@ -67,7 +68,7 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 
 	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
 		domain.NewWatcherFactory(factory,
-			testing.NewCheckLogger(c),
+			loggertesting.WrapCheckLog(c),
 		),
 	)
 	watcher, err := svc.Watch()

@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -23,7 +23,7 @@ import (
 // SecretsDrainAPI is the implementation for the SecretsDrain facade.
 type SecretsDrainAPI struct {
 	authTag           names.Tag
-	logger            loggo.Logger
+	logger            logger.Logger
 	leadershipChecker leadership.Checker
 	watcherRegistry   facade.WatcherRegistry
 
@@ -36,7 +36,7 @@ type SecretsDrainAPI struct {
 func NewSecretsDrainAPI(
 	authTag names.Tag,
 	authorizer facade.Authorizer,
-	logger loggo.Logger,
+	logger logger.Logger,
 	leadershipChecker leadership.Checker,
 	modelUUID model.UUID,
 	secretService SecretService,

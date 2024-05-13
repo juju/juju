@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/http/v2"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 
@@ -20,12 +19,13 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
+	internallogger "github.com/juju/juju/internal/logger"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.environs.sync")
+var logger = internallogger.GetLogger("juju.environs.sync")
 
 // SyncContext describes the context for tool synchronization.
 type SyncContext struct {

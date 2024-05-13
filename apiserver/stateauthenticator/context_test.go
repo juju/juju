@@ -21,8 +21,8 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/controller"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
 )
 
 // TODO(babbageclunk): These have been extracted pretty mechanically
@@ -57,7 +57,7 @@ func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
 
-	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(s.State, testing.NewCheckLogger(c))
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(s.State, loggertesting.WrapCheckLog(c))
 
 	authenticator, err := NewAuthenticator(s.StatePool, s.State, s.controllerConfigService, s.userService, agentAuthFactory, s.clock)
 	c.Assert(err, jc.ErrorIsNil)

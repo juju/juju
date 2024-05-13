@@ -11,6 +11,7 @@ import (
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 )
 
@@ -97,7 +98,7 @@ func (s *State) Validate(hi hook.Info) (err error) {
 // It must be called after the respective hook was executed successfully.
 // UpdateStateForHook doesn't validate hi but guarantees that successive
 // changes of the same hi are idempotent.
-func (s *State) UpdateStateForHook(hi hook.Info, logger Logger) {
+func (s *State) UpdateStateForHook(hi hook.Info, logger logger.Logger) {
 	if logger.IsTraceEnabled() {
 		defer func() {
 			logger.Tracef("updated relation state %# v\nfor hook %# v", pretty.Formatter(s), pretty.Formatter(hi))

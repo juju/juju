@@ -39,6 +39,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -1406,7 +1407,7 @@ func (s *apiclientSuite) TestWatchDebugLogParamsEncoded(c *gc.C) {
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	client := apiclient.NewClient(conn, jtesting.NoopLogger{})
+	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 	_, err = client.WatchDebugLog(params)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1422,7 +1423,7 @@ func (s *apiclientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer conn.Close()
-	cl := apiclient.NewClient(conn, jtesting.NoopLogger{})
+	cl := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 	// Use the no tail option so we don't try to start a tailing cursor
 	// on the oplog when there is no oplog configured in mongo as the tests
 	// don't set up mongo in replicaset mode.

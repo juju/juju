@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/instancepoller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -22,15 +23,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/worker/common"
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-	Warningf(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // facadeShim wraps an instancepoller API instance and allows us to provide
 // methods that return interfaces which we can easily mock in our tests.
@@ -67,7 +59,7 @@ type ManifoldConfig struct {
 	APICallerName string
 	ClockName     string
 	EnvironName   string
-	Logger        Logger
+	Logger        logger.Logger
 
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }

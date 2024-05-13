@@ -11,22 +11,15 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api"
+	corelogger "github.com/juju/juju/core/logger"
 )
-
-// Logger represents the logging methods used by this manifold.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Criticalf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
 
 // MachineStartupConfig provides the dependencies for the
 // machinestartup manifold.
 type MachineStartupConfig struct {
 	APICallerName  string
-	MachineStartup func(context.Context, api.Connection, Logger) error
-	Logger         Logger
+	MachineStartup func(context.Context, api.Connection, corelogger.Logger) error
+	Logger         corelogger.Logger
 }
 
 func (c MachineStartupConfig) Validate() error {

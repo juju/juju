@@ -11,12 +11,12 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/internal/worker/uniter/charm/mocks"
 	"github.com/juju/juju/testing"
@@ -40,7 +40,7 @@ func (s *ManifestDeployerSuite) SetUpTest(c *gc.C) {
 	s.bundles = &bundleReader{}
 	s.targetPath = filepath.Join(c.MkDir(), "target")
 	deployerPath := filepath.Join(c.MkDir(), "deployer")
-	s.deployer = charm.NewManifestDeployer(s.targetPath, deployerPath, s.bundles, loggo.GetLogger("test"))
+	s.deployer = charm.NewManifestDeployer(s.targetPath, deployerPath, s.bundles, loggertesting.WrapCheckLog(c))
 }
 
 func (s *ManifestDeployerSuite) addMockCharm(revision int, bundle charm.Bundle) charm.BundleInfo {
@@ -309,7 +309,7 @@ func (s *RetryingBundleReaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.rbr = charm.RetryingBundleReader{
 		BundleReader: s.bundleReader,
 		Clock:        s.clock,
-		Logger:       loggo.GetLogger("test"),
+		Logger:       loggertesting.WrapCheckLog(c),
 	}
 
 	return ctrl

@@ -11,7 +11,6 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/core/arch"
 	jujubase "github.com/juju/juju/core/base"
@@ -19,10 +18,11 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/azure/internal/errorutils"
 )
 
-var logger = loggo.GetLogger("juju.provider.azure")
+var logger = internallogger.GetLogger("juju.provider.azure")
 
 const (
 	centOSPublisher = "OpenLogic"

@@ -15,10 +15,10 @@ import (
 
 	instancemutater "github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	instance "github.com/juju/juju/core/instance"
+	logger "github.com/juju/juju/core/logger"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
-	loggo "github.com/juju/loggo/v2"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -47,7 +47,7 @@ func (m *MockInstanceMutatorWatcher) EXPECT() *MockInstanceMutatorWatcherMockRec
 }
 
 // WatchLXDProfileVerificationForMachine mocks base method.
-func (m *MockInstanceMutatorWatcher) WatchLXDProfileVerificationForMachine(arg0 instancemutater.Machine, arg1 loggo.Logger) (state.NotifyWatcher, error) {
+func (m *MockInstanceMutatorWatcher) WatchLXDProfileVerificationForMachine(arg0 instancemutater.Machine, arg1 logger.Logger) (state.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationForMachine", arg0, arg1)
 	ret0, _ := ret[0].(state.NotifyWatcher)
@@ -74,13 +74,13 @@ func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) Re
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) Do(f func(instancemutater.Machine, loggo.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
+func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) Do(f func(instancemutater.Machine, logger.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) DoAndReturn(f func(instancemutater.Machine, loggo.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
+func (c *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall) DoAndReturn(f func(instancemutater.Machine, logger.Logger) (state.NotifyWatcher, error)) *MockInstanceMutatorWatcherWatchLXDProfileVerificationForMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

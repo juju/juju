@@ -4,7 +4,7 @@
 package google
 
 import (
-	"github.com/juju/loggo/v2"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // The various status values used by GCE.
@@ -22,5 +22,5 @@ const (
 )
 
 var (
-	logger = loggo.GetLogger("juju.provider.gce.gceapi")
+	logger = internallogger.GetLogger("juju.provider.gce.gceapi")
 )

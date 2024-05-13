@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
@@ -15,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -45,7 +45,7 @@ type UpgraderAPI struct {
 	m          *state.Model
 	resources  facade.Resources
 	authorizer facade.Authorizer
-	logger     loggo.Logger
+	logger     corelogger.Logger
 }
 
 // NewUpgraderAPI creates a new server-side UpgraderAPI facade.
@@ -55,7 +55,7 @@ func NewUpgraderAPI(
 	st *state.State,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	controllerStore objectstore.ObjectStore,

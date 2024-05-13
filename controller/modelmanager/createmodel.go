@@ -7,18 +7,18 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
 )
 
 var (
-	logger = loggo.GetLogger("juju.controller.modelmanager")
+	logger = internallogger.GetLogger("juju.controller.modelmanager")
 )
 
 // ModelConfigCreator provides a method of creating a new model config.

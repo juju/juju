@@ -16,7 +16,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/retry"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
@@ -28,6 +27,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/service/pebble/plan"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/introspection"
@@ -95,7 +95,7 @@ func (c *initCommand) Info() *cmd.Info {
 
 func (c *initCommand) getApplicationAPI(ctx context.Context) (ApplicationAPI, error) {
 	if c.applicationAPI == nil {
-		connection, err := apicaller.OnlyConnect(ctx, c, api.Open, loggo.GetLogger("juju.containeragent"))
+		connection, err := apicaller.OnlyConnect(ctx, c, api.Open, internallogger.GetLogger("juju.containeragent"))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

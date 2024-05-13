@@ -7,13 +7,13 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry/internal"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.docker.registry")
+var logger = internallogger.GetLogger("juju.docker.registry")
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/http_mock.go net/http RoundTripper
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/registry_mock.go github.com/juju/juju/internal/docker/registry/internal Registry

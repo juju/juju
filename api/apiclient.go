@@ -26,7 +26,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jujuhttp "github.com/juju/http/v2"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/parallel"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/facades"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/network"
+	internallogger "github.com/juju/juju/internal/logger"
 	jujuproxy "github.com/juju/juju/internal/proxy"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/rpc"
@@ -55,7 +55,7 @@ const pingTimeout = 30 * time.Second
 // modelRoot is the prefix that all model API paths begin with.
 const modelRoot = "/model/"
 
-var logger = loggo.GetLogger("juju.api")
+var logger = internallogger.GetLogger("juju.api")
 
 type rpcConnection interface {
 	Call(ctx context.Context, req rpc.Request, params, response interface{}) error

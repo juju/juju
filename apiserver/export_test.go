@@ -24,11 +24,11 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	coretrace "github.com/juju/juju/core/trace"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 var (
@@ -114,7 +114,7 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 // TestingAPIHandler gives you an APIHandler that isn't connected to
 // anything real. It's enough to let test some basic functionality though.
 func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servicefactory.ServiceFactory) (*apiHandler, *common.Resources) {
-	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(st, jujutesting.NewCheckLogger(c))
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(st, loggertesting.WrapCheckLog(c))
 	authenticator, err := stateauthenticator.NewAuthenticator(pool, st, sf.ControllerConfig(), sf.Access(), agentAuthFactory, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	offerAuthCtxt, err := newOfferAuthContext(context.Background(), pool, sf.ControllerConfig())

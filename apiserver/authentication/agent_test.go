@@ -14,10 +14,10 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -119,7 +119,7 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		factory := authentication.NewAgentAuthenticatorFactory(
 			st,
-			jujutesting.NewCheckLogger(c),
+			loggertesting.WrapCheckLog(c),
 		)
 		entity, err := factory.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),
@@ -165,7 +165,7 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		factory := authentication.NewAgentAuthenticatorFactory(
 			st,
-			jujutesting.NewCheckLogger(c),
+			loggertesting.WrapCheckLog(c),
 		)
 		entity, err := factory.Authenticator().Authenticate(context.Background(), authentication.AuthParams{
 			AuthTag:     t.entity.Tag(),

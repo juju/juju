@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -74,7 +74,7 @@ type API struct {
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 
 	check  BlockChecker
-	logger loggo.Logger
+	logger corelogger.Logger
 }
 
 type apiConfig struct {
@@ -85,7 +85,7 @@ type apiConfig struct {
 	CredentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	Resources                   facade.Resources
 	Authorizer                  facade.Authorizer
-	logger                      loggo.Logger
+	logger                      corelogger.Logger
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with

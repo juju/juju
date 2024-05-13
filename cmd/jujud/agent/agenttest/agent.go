@@ -10,7 +10,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
-	"github.com/juju/loggo/v2"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -30,6 +29,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/database"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	coretools "github.com/juju/juju/internal/tools"
@@ -39,10 +39,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
-
-// TODO (stickupkid): Remove this once we have a better way of using a logger
-// in tests.
-var logger = loggo.GetLogger("juju.agenttest.agent")
 
 // AgentSuite is a fixture to be used by agent test suites.
 type AgentSuite struct {
@@ -170,9 +166,9 @@ func (s *AgentSuite) PrimeStateAgentVersion(c *gc.C, tag names.Tag, password str
 
 	err = database.BootstrapDqlite(
 		context.Background(),
-		database.NewNodeManager(conf, true, logger, coredatabase.NoopSlowQueryLogger{}),
+		database.NewNodeManager(conf, true, loggertesting.WrapCheckLog(c), coredatabase.NoopSlowQueryLogger{}),
 		modeltesting.GenModelUUID(c),
-		logger,
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

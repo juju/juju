@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
@@ -87,6 +88,7 @@ func DeployApplication(
 	applicationService ApplicationService,
 	store objectstore.ObjectStore,
 	args DeployApplicationParams,
+	logger corelogger.Logger,
 ) (Application, error) {
 	charmConfig, err := args.Charm.Config().ValidateSettings(args.CharmConfig)
 	if err != nil {

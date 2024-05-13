@@ -19,11 +19,11 @@ import (
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
@@ -45,7 +45,7 @@ type NodeManager struct {
 	cfg                 agent.Config
 	port                int
 	isLoopbackPreferred bool
-	logger              Logger
+	logger              logger.Logger
 	slowQueryLogger     coredatabase.SlowQueryLogger
 
 	dataDir string
@@ -61,7 +61,7 @@ type NodeManager struct {
 // If it is false, we attempt to identify a unique local-cloud address.
 // If we find one, we use it as the bind address. Otherwise, we fall back
 // to the loopback binding.
-func NewNodeManager(cfg agent.Config, isLoopbackPreferred bool, logger Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
+func NewNodeManager(cfg agent.Config, isLoopbackPreferred bool, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) *NodeManager {
 	m := &NodeManager{
 		cfg:                 cfg,
 		port:                dqlitePort,
@@ -357,12 +357,18 @@ func (m *NodeManager) slowQueryLogFunc(threshold time.Duration) client.LogFunc {
 }
 
 func (m *NodeManager) appLogFunc(level client.LogLevel, msg string, args ...interface{}) {
-	actualLevel, known := loggo.ParseLevel(level.String())
-	if !known {
-		return
+	translatedLevel := logger.TRACE
+	switch level {
+	case client.LogDebug:
+		translatedLevel = logger.DEBUG
+	case client.LogInfo:
+		translatedLevel = logger.INFO
+	case client.LogWarn:
+		translatedLevel = logger.WARNING
+	case client.LogError:
+		translatedLevel = logger.ERROR
 	}
-
-	m.logger.Logf(actualLevel, msg, args...)
+	m.logger.Logf(translatedLevel, msg, args...)
 }
 
 // QueryType represents the type of query that is being sent. This simplifies

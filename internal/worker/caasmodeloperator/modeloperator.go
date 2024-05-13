@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/controller/caasmodeloperator"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/password"
 )
@@ -39,7 +40,7 @@ type ModelOperatorManager struct {
 	api         ModelOperatorAPI
 	broker      ModelOperatorBroker
 	catacomb    catacomb.Catacomb
-	logger      Logger
+	logger      logger.Logger
 	modelUUID   string
 }
 
@@ -161,7 +162,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 
 // NewModelOperatorManager constructs a new model operator manager worker
 func NewModelOperatorManager(
-	logger Logger,
+	logger logger.Logger,
 	api ModelOperatorAPI,
 	broker ModelOperatorBroker,
 	modelUUID string,

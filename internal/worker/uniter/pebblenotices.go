@@ -12,11 +12,12 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/container"
 )
 
 type pebbleNoticer struct {
-	logger            Logger
+	logger            logger.Logger
 	clock             clock.Clock
 	workloadEventChan chan string
 	workloadEvents    container.WorkloadEvents
@@ -28,7 +29,7 @@ type pebbleNoticer struct {
 // NewPebbleNoticer starts a worker that watches for Pebble notices on the
 // specified containers.
 func NewPebbleNoticer(
-	logger Logger,
+	logger logger.Logger,
 	clock clock.Clock,
 	containerNames []string,
 	workloadEventChan chan string,

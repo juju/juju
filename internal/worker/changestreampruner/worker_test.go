@@ -11,11 +11,12 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type workerSuite struct {
@@ -27,26 +28,26 @@ var _ = gc.Suite(&workerSuite{})
 func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	cfg := s.getConfig()
+	cfg := s.getConfig(c)
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
-	cfg = s.getConfig()
+	cfg = s.getConfig(c)
 	cfg.DBGetter = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 }
 
-func (s *workerSuite) getConfig() WorkerConfig {
+func (s *workerSuite) getConfig(c *gc.C) WorkerConfig {
 	return WorkerConfig{
 		DBGetter: s.dbGetter,
 		Clock:    s.clock,
-		Logger:   s.logger,
+		Logger:   loggertesting.WrapCheckLog(c),
 	}
 }
 
@@ -54,7 +55,6 @@ func (s *workerSuite) TestPrune(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectControllerDBGet()
-	s.expectAnyLogs(c)
 
 	pruner := s.newPruner(c)
 
@@ -72,7 +72,6 @@ func (s *workerSuite) TestPruneControllerNS(c *gc.C) {
 
 	s.expectControllerDBGet()
 	s.expectClock()
-	s.expectAnyLogs(c)
 
 	pruner := s.newPruner(c)
 
@@ -102,7 +101,6 @@ func (s *workerSuite) TestPruneModelList(c *gc.C) {
 
 	s.expectControllerDBGet()
 	s.expectClock()
-	s.expectAnyLogs(c)
 
 	pruner := s.newPruner(c)
 
@@ -135,7 +133,6 @@ func (s *workerSuite) TestPruneModelListWithChangeLogItems(c *gc.C) {
 
 	s.expectControllerDBGet()
 	s.expectClock()
-	s.expectAnyLogs(c)
 
 	pruner := s.newPruner(c)
 
@@ -166,7 +163,6 @@ func (s *workerSuite) TestPruneModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectDBGet("foo", s.TxnRunner())
-	s.expectAnyLogs(c)
 
 	pruner := s.newPruner(c)
 
@@ -191,7 +187,6 @@ func (s *workerSuite) TestPruneModelChangeLogWitness(c *gc.C) {
 
 	s.expectDBGet("foo", s.TxnRunner())
 	s.expectClock()
-	s.expectAnyLogs(c)
 
 	pruner := s.newPruner(c)
 
@@ -219,9 +214,12 @@ func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
 	s.expectDBGetTimes("foo", s.TxnRunner(), 3)
 	s.expectClock()
 
-	s.logger.EXPECT().Warningf("namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up", gomock.Any(), gomock.Any()).Do(c.Logf).Times(2)
+	var entries []string
+	recorder := loggertesting.RecordLog(func(s string, a ...any) {
+		entries = append(entries, s)
+	})
 
-	pruner := s.newPruner(c)
+	pruner := s.newPrunerWithLogger(c, loggertesting.WrapCheckLog(recorder))
 
 	now := time.Now()
 
@@ -254,6 +252,11 @@ func (s *workerSuite) TestPruneModelLogsWarning(c *gc.C) {
 	result, err = pruner.pruneModel(context.Background(), "foo")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, gc.Equals, int64(1))
+
+	c.Check(entries, gc.DeepEquals, []string{
+		"WARNING: namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up",
+		"WARNING: namespace %s watermarks %q are outside of window, check logs to see if the change stream is keeping up",
+	})
 }
 
 func (s *workerSuite) TestPruneModelRemovesChangeLogItems(c *gc.C) {
@@ -261,7 +264,6 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItems(c *gc.C) {
 
 	s.expectDBGet("foo", s.TxnRunner())
 	s.expectClock()
-	s.expectAnyLogs(c)
 
 	pruner := s.newPruner(c)
 
@@ -286,7 +288,6 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarks(
 
 	s.expectDBGet("foo", s.TxnRunner())
 	s.expectClock()
-	s.expectAnyLogs(c)
 
 	pruner := s.newPruner(c)
 
@@ -311,7 +312,6 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksW
 
 	s.expectDBGet("foo", s.TxnRunner())
 	s.expectClock()
-	s.expectAnyLogs(c)
 
 	pruner := s.newPruner(c)
 
@@ -337,7 +337,6 @@ func (s *workerSuite) TestPruneModelRemovesChangeLogItemsWithMultipleWatermarksM
 
 	s.expectDBGet("foo", s.TxnRunner())
 	s.expectClock()
-	s.expectAnyLogs(c)
 
 	pruner := s.newPruner(c)
 
@@ -435,8 +434,6 @@ func (s *workerSuite) TestWindowEquals(c *gc.C) {
 func (s *workerSuite) TestLowestWatermark(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAnyLogs(c)
-
 	now := time.Now()
 	testCases := []struct {
 		watermarks []Watermark
@@ -507,11 +504,15 @@ func (s *workerSuite) TestLowestWatermark(c *gc.C) {
 }
 
 func (s *workerSuite) newPruner(c *gc.C) *Pruner {
+	return s.newPrunerWithLogger(c, loggertesting.WrapCheckLog(c))
+}
+
+func (s *workerSuite) newPrunerWithLogger(c *gc.C, logger logger.Logger) *Pruner {
 	return &Pruner{
 		cfg: WorkerConfig{
 			DBGetter: s.dbGetter,
 			Clock:    s.clock,
-			Logger:   s.logger,
+			Logger:   logger,
 		},
 		windows: make(map[string]window),
 	}

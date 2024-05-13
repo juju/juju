@@ -8,21 +8,9 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
-
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
-
-// Logger represents the methods used by the worker to log information.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-}
 
 // SecretsFacade instances provide a set of API for the worker to deal with secret prune.
 type SecretsFacade interface {
@@ -33,7 +21,7 @@ type SecretsFacade interface {
 // Config defines the operation of the Worker.
 type Config struct {
 	SecretsFacade
-	Logger Logger
+	Logger logger.Logger
 }
 
 // Validate returns an error if config cannot drive the Worker.

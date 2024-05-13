@@ -4,12 +4,12 @@
 package facadetest
 
 import (
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/servicefactory"
@@ -42,7 +42,7 @@ type ModelContext struct {
 	ModelImporter_         facade.ModelImporter
 	ObjectStore_           objectstore.ObjectStore
 	ControllerObjectStore_ objectstore.ObjectStore
-	Logger_                loggo.Logger
+	Logger_                logger.Logger
 
 	MachineTag_ names.Tag
 	DataDir_    string
@@ -199,6 +199,6 @@ func (c ModelContext) LogDir() string {
 	return c.LogDir_
 }
 
-func (c ModelContext) Logger() loggo.Logger {
+func (c ModelContext) Logger() logger.Logger {
 	return c.Logger_
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/worker/caasrbacmapper"
 	"github.com/juju/juju/internal/worker/muxhttpserver"
@@ -41,20 +42,13 @@ type K8sBroker interface {
 	IsLegacyLabels() bool
 }
 
-// Logger represents the methods used by the worker to log details
-type Logger interface {
-	Debugf(string, ...interface{})
-	Errorf(string, ...interface{})
-	Infof(string, ...interface{})
-}
-
 // ManifoldConfig describes the resources used by the admission worker
 type ManifoldConfig struct {
 	AgentName        string
 	AuthorityName    string
 	Authority        pki.Authority
 	BrokerName       string
-	Logger           Logger
+	Logger           logger.Logger
 	MuxName          string
 	RBACMapperName   string
 	ServerInfoName   string

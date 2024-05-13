@@ -5,8 +5,8 @@ package common
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
 )
@@ -22,7 +22,7 @@ type ConfigModel interface {
 }
 
 // CharmhubClient creates a new charmhub Client based on this model's config.
-func CharmhubClient(mg ModelGetter, httpClient charmhub.HTTPClient, logger loggo.Logger) (*charmhub.Client, error) {
+func CharmhubClient(mg ModelGetter, httpClient charmhub.HTTPClient, logger corelogger.Logger) (*charmhub.Client, error) {
 	model, err := mg.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -34,9 +34,9 @@ func CharmhubClient(mg ModelGetter, httpClient charmhub.HTTPClient, logger loggo
 	url, _ := modelConfig.CharmHubURL()
 
 	client, err := charmhub.NewClient(charmhub.Config{
-		URL:           url,
-		HTTPClient:    httpClient,
-		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
+		URL:        url,
+		HTTPClient: httpClient,
+		Logger:     logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

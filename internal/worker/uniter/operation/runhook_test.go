@@ -35,7 +35,7 @@ func (s *RunHookSuite) testPrepareHookError(
 	callbacks := &PrepareHookCallbacks{
 		MockPrepareHook: &MockPrepareHook{err: errors.New("pow")},
 	}
-	factory := newOpFactory(nil, callbacks)
+	factory := newOpFactory(c, nil, callbacks)
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -64,7 +64,7 @@ func (s *RunHookSuite) TestPrepareHookCtxCalled(c *gc.C) {
 			},
 		},
 	}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 
 	op, err := factory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
@@ -89,7 +89,7 @@ func (s *RunHookSuite) TestPrepareHookCtxError(c *gc.C) {
 			},
 		},
 	}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 
 	op, err := factory.NewRunHook(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
@@ -120,7 +120,7 @@ func (s *RunHookSuite) TestPrepareHookError_LeaderElectedNotLeader(c *gc.C) {
 			},
 		},
 	}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 
 	op, err := operation.Factory.NewRunHook(factory, hook.Info{Kind: hooks.LeaderElected})
 	c.Assert(err, jc.ErrorIsNil)
@@ -134,7 +134,7 @@ func (s *RunHookSuite) testPrepareRunnerError(c *gc.C, newHook newHook) {
 	runnerFactory := &MockRunnerFactory{
 		MockNewHookRunner: &MockNewHookRunner{err: errors.New("splat")},
 	}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -155,7 +155,7 @@ func (s *RunHookSuite) testPrepareSuccess(
 ) {
 	runnerFactory := NewRunHookRunnerFactory(errors.New("should not call"))
 	callbacks := NewPrepareHookCallbacks(hooks.ConfigChanged)
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -198,7 +198,7 @@ func (s *RunHookSuite) getExecuteRunnerTest(
 		MockNotifyHookCompleted: &MockNotify{},
 		MockNotifyHookFailed:    &MockNotify{},
 	}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 
 	// Target is supplied for the special-cased pre-series-upgrade hook.
 	// This is the only one of the designated unit hooks with validation.
@@ -504,7 +504,7 @@ func (s *RunHookSuite) testCommitError(c *gc.C, newHook newHook) {
 	callbacks := &CommitHookCallbacks{
 		MockCommitHook: &MockCommitHook{nil, errors.New("pow")},
 	}
-	factory := newOpFactory(nil, callbacks)
+	factory := newOpFactory(c, nil, callbacks)
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -525,7 +525,7 @@ func (s *RunHookSuite) testCommitSuccess(c *gc.C, newHook newHook, hookInfo hook
 	callbacks := &CommitHookCallbacks{
 		MockCommitHook: &MockCommitHook{},
 	}
-	factory := newOpFactory(nil, callbacks)
+	factory := newOpFactory(c, nil, callbacks)
 	op, err := newHook(factory, hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -629,7 +629,7 @@ func (s *RunHookSuite) assertCommitSuccess_RelationBroken_SetStatus(c *gc.C, sus
 		PrepareHookCallbacks:    NewPrepareHookCallbacks(hooks.RelationBroken),
 		MockNotifyHookCompleted: &MockNotify{},
 	}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 	op, err := factory.NewRunHook(hook.Info{Kind: hooks.RelationBroken})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -867,7 +867,7 @@ func (s *RunHookSuite) TestQueueNothing_RelationBroken_Preserve(c *gc.C) {
 }
 
 func (s *RunHookSuite) testNeedsGlobalMachineLock(c *gc.C, newHook newHook, expected bool) {
-	factory := newOpFactory(nil, nil)
+	factory := newOpFactory(c, nil, nil)
 	op, err := newHook(factory, hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.NeedsGlobalMachineLock(), gc.Equals, expected)
@@ -935,7 +935,7 @@ func (s *RunHookSuite) TestCommitSuccess_SecretRotate_SetRotated(c *gc.C) {
 			},
 		},
 	}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 	op, err := factory.NewRunHook(hook.Info{
 		Kind: hooks.SecretRotate, SecretURI: "secret:9m4e2mr0ui3e8a215n4g",
 	})
@@ -972,7 +972,7 @@ func (s *RunHookSuite) assertPrepareSecretHookErrorNotLeader(c *gc.C, kind hooks
 			},
 		},
 	}
-	factory := newOpFactory(runnerFactory, callbacks)
+	factory := newOpFactory(c, runnerFactory, callbacks)
 
 	op, err := factory.NewRunHook(hook.Info{
 		Kind: kind, SecretURI: "secret:9m4e2mr0ui3e8a215n4g", SecretRevision: 666,

@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-func allZones(ctx envcontext.ProviderCallContext, api Backing, logger loggo.Logger) (params.ZoneResults, error) {
+func allZones(ctx envcontext.ProviderCallContext, api Backing, logger corelogger.Logger) (params.ZoneResults, error) {
 	var results params.ZoneResults
 
 	zonesAsString := func(zones network.AvailabilityZones) string {

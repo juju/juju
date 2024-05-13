@@ -4,6 +4,7 @@
 package modelmigration
 
 import (
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	application "github.com/juju/juju/domain/application/modelmigration"
 	blockdevice "github.com/juju/juju/domain/blockdevice/modelmigration"
@@ -25,34 +26,26 @@ type Coordinator interface {
 	Add(modelmigration.Operation)
 }
 
-// Logger is the interface that is used to log messages.
-type Logger interface {
-	Tracef(string, ...any)
-	Debugf(string, ...any)
-	Infof(string, ...any)
-	Errorf(string, ...interface{})
-}
-
 // ImportOperations registers the import operations with the given coordinator.
 // This is a convenience function that can be used by the main migration package
 // to register all the import operations.
 func ImportOperations(
 	coordinator Coordinator,
-	logger Logger,
+	logger logger.Logger,
 	modelDefaultsProvider modelconfigservice.ModelDefaultsProvider,
 	registry internalstorage.ProviderRegistry,
 ) {
 	// Note: All the import operations are registered here.
 	// Order is important!
-	lease.RegisterImport(coordinator, logger)
+	lease.RegisterImport(coordinator, logger.Child("lease"))
 	externalcontroller.RegisterImport(coordinator)
-	credential.RegisterImport(coordinator)
-	model.RegisterImport(coordinator, logger)
+	credential.RegisterImport(coordinator, logger.Child("credential"))
+	model.RegisterImport(coordinator, logger.Child("model"))
 	modelconfig.RegisterImport(coordinator, modelDefaultsProvider)
-	network.RegisterImport(coordinator, logger)
-	machine.RegisterImport(coordinator)
-	application.RegisterImport(coordinator, registry)
-	blockdevice.RegisterImport(coordinator)
+	network.RegisterImport(coordinator, logger.Child("network"))
+	machine.RegisterImport(coordinator, logger.Child("machine"))
+	application.RegisterImport(coordinator, registry, logger.Child("application"))
+	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
 	// TODO(storage) - we need to break out storage pools and import BEFORE applications.
-	storage.RegisterImport(coordinator, registry)
+	storage.RegisterImport(coordinator, registry, logger.Child("storage"))
 }

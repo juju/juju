@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/shell"
@@ -38,13 +37,14 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tags"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
 )
 
-var logger = loggo.GetLogger("juju.cloudconfig.instancecfg")
+var logger = internallogger.GetLogger("juju.cloudconfig.instancecfg")
 
 // InstanceConfig represents initialization information for a new juju instance.
 type InstanceConfig struct {

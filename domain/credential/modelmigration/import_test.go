@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/credential"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type importSuite struct {
@@ -45,7 +46,7 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator)
+	RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c))
 }
 
 func (s *importSuite) TestEmptyCredential(c *gc.C) {

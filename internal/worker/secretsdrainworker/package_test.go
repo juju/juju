@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secretsdrainworker_mock.go github.com/juju/juju/internal/worker/secretsdrainworker Logger,SecretsDrainFacade
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secretsdrainworker_mock.go github.com/juju/juju/internal/worker/secretsdrainworker SecretsDrainFacade
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secrets_mock.go github.com/juju/juju/internal/secrets BackendsClient
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secretsprovider_mock.go github.com/juju/juju/internal/secrets/provider SecretsBackend
 

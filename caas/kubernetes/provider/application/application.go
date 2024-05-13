@@ -16,7 +16,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
 	"github.com/kr/pretty"
 	appsv1 "k8s.io/api/apps/v1"
@@ -48,11 +47,12 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	internallogger "github.com/juju/juju/internal/logger"
 	jujustorage "github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/juju/osenv"
 )
 
-var logger = loggo.GetLogger("juju.kubernetes.provider.application")
+var logger = internallogger.GetLogger("juju.kubernetes.provider.application")
 
 const (
 	containerAgentPebblePort = "38812"

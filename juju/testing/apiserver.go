@@ -20,7 +20,6 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	mgotesting "github.com/juju/mgo/v3/testing"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -59,6 +58,8 @@ import (
 	environsconfig "github.com/juju/juju/environs/config"
 	databasetesting "github.com/juju/juju/internal/database/testing"
 	internallease "github.com/juju/juju/internal/lease"
+	internallogger "github.com/juju/juju/internal/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -176,8 +177,8 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
 }
 
-func leaseManager(controllerUUID string, db database.DBGetter, clock clock.Clock) (*lease.Manager, error) {
-	logger := loggo.GetLogger("juju.worker.lease.test")
+func leaseManager(c *gc.C, controllerUUID string, db database.DBGetter, clock clock.Clock) (*lease.Manager, error) {
+	logger := loggertesting.WrapCheckLog(c)
 	return lease.NewManager(lease.ManagerConfig{
 		SecretaryFinder:      internallease.NewSecretaryFinder(controllerUUID),
 		Store:                lease.NewStore(db, logger),
@@ -195,7 +196,7 @@ func multiWatcher(c *gc.C, statePool *state.StatePool, clock clock.Clock) *wmult
 	c.Assert(err, jc.ErrorIsNil)
 	multiWatcherWorker, err := wmultiwatcher.NewWorker(wmultiwatcher.Config{
 		Clock:                clock,
-		Logger:               loggo.GetLogger("dummy.multiwatcher"),
+		Logger:               loggertesting.WrapCheckLog(c),
 		Backing:              allWatcherBacking,
 		PrometheusRegisterer: noopRegisterer{},
 	})
@@ -354,7 +355,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 		cfg.ExecEmbeddedCommand = s.WithEmbeddedCLICommand
 	}
 	if s.WithLeaseManager {
-		leaseManager, err := leaseManager(coretesting.ControllerTag.Id(), databasetesting.SingularDBGetter(s.TxnRunner()), s.Clock)
+		leaseManager, err := leaseManager(c, coretesting.ControllerTag.Id(), databasetesting.SingularDBGetter(s.TxnRunner()), s.Clock)
 		c.Assert(err, jc.ErrorIsNil)
 		cfg.LeaseManager = leaseManager
 		s.LeaseManager = leaseManager
@@ -723,7 +724,7 @@ func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace st
 		internalobjectstore.WithRootDir(s.rootDir),
 		internalobjectstore.WithMetadataService(&stubMetadataService{serviceFactory: serviceFactory}),
 		internalobjectstore.WithClaimer(s.claimer),
-		internalobjectstore.WithLogger(loggo.GetLogger("juju.objectstore")),
+		internalobjectstore.WithLogger(internallogger.GetLogger("juju.objectstore")),
 	)
 }
 

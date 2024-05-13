@@ -4,8 +4,8 @@
 package jujuc_test
 
 import (
-	"github.com/juju/loggo/v2"
-
+	"github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
 
@@ -17,8 +17,8 @@ type restrictedContext struct {
 // RestrictedContext leaves out.
 func (*restrictedContext) UnitName() string { return "restricted" }
 
-func (r *restrictedContext) GetLogger(m string) loggo.Logger {
-	return loggo.GetLogger(m)
+func (r *restrictedContext) GetLoggerByName(m string) logger.Logger {
+	return internallogger.GetLogger(m)
 }
 
 var _ jujuc.Context = (*restrictedContext)(nil)

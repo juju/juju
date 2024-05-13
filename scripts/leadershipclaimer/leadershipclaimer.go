@@ -5,7 +5,7 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -14,13 +14,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/agent/leadership"
 	coreleadership "github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 var unit = gnuflag.String("unit", "ubuntu-lite/0", "set the unit name that we will connect as")
@@ -36,9 +36,10 @@ var initSleep = gnuflag.String("sleep", "1s", "time to sleep before starting pro
 var agentStart time.Time
 
 func main() {
-	loggo.GetLogger("").SetLogLevel(loggo.INFO)
-	start := time.Now()
-	rand.Seed(int64(start.Nanosecond() + os.Getpid()))
+	if err := internallogger.ConfigureLoggers("<root>=INFO"); err != nil {
+		log.Fatal(err)
+	}
+
 	gnuflag.Parse(true)
 	// make it a little bit easier to have all of the processes start closer to the same time.
 	// don't start doing any real work for the first second.

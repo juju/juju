@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/worker/certupdater"
@@ -54,7 +55,7 @@ func (s *CertUpdaterSuite) TestStartStop(c *gc.C) {
 		APIHostPortsGetter:     &mockAPIHostGetter{},
 		Authority:              authority,
 		ControllerConfigGetter: &mockControllerConfigGetter{},
-		Logger:                 jujutesting.NewCheckLogger(c),
+		Logger:                 loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CleanKill(c, worker)
@@ -75,7 +76,7 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 		APIHostPortsGetter:     &mockAPIHostGetter{},
 		Authority:              authority,
 		ControllerConfigGetter: &mockControllerConfigGetter{},
-		Logger:                 jujutesting.NewCheckLogger(c),
+		Logger:                 loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
@@ -26,7 +27,7 @@ import (
 // and start a suitable provisioner. Work is triggered by the
 // ContainerSetupAndProvisioner.
 type ContainerSetup struct {
-	logger                  Logger
+	logger                  logger.Logger
 	containerType           instance.ContainerType
 	provisioner             ContainerProvisionerAPI
 	controllerAPI           ControllerAPI
@@ -45,7 +46,7 @@ type ContainerSetup struct {
 
 // ContainerSetupParams are used to initialise a container setup worker.
 type ContainerSetupParams struct {
-	Logger        Logger
+	Logger        logger.Logger
 	ContainerType instance.ContainerType
 	MTag          names.MachineTag
 	MachineZone   broker.AvailabilityZoner

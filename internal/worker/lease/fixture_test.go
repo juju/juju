@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/trace"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/lease"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -77,7 +77,7 @@ func (fix *Fixture) RunTest(c *gc.C, test func(*lease.Manager, *testclock.Clock)
 			return Secretary{}, nil
 		}),
 		MaxSleep:             defaultMaxSleep,
-		Logger:               loggo.GetLogger("lease_test"),
+		Logger:               loggertesting.WrapCheckLog(c),
 		PrometheusRegisterer: noopRegisterer{},
 		Tracer:               trace.NoopTracer{},
 	})

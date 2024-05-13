@@ -16,6 +16,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 )
 
@@ -76,7 +77,7 @@ type baseObjectStore struct {
 	path            string
 	metadataService objectstore.ObjectStoreMetadata
 	claimer         Claimer
-	logger          Logger
+	logger          logger.Logger
 	clock           clock.Clock
 }
 

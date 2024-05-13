@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/modelmigration"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type importSuite struct {
@@ -36,14 +36,14 @@ func (s *importSuite) TestRegisterImport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterImport(s.coordinator, jujutesting.CheckLogger{Log: c})
+	RegisterImport(s.coordinator, loggertesting.WrapCheckLog(c))
 }
 
 func (s *importSuite) TestSetup(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	op := &importOperation{
-		logger: jujutesting.CheckLogger{Log: c},
+		logger: loggertesting.WrapCheckLog(c),
 	}
 
 	// We don't currently need the model DB, so for this instance we can just
@@ -181,7 +181,7 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
 	return &importOperation{
 		service: s.service,
-		logger:  jujutesting.CheckLogger{Log: c},
+		logger:  loggertesting.WrapCheckLog(c),
 	}
 }
 

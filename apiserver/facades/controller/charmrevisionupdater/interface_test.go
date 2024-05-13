@@ -6,7 +6,6 @@ package charmrevisionupdater_test
 import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/charm/v13/resource"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater/mocks"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/state"
@@ -175,7 +175,7 @@ type facadeContextShim struct {
 	facade.ModelContext // Make it fulfil the interface, but we only define a couple of methods
 	state               *state.State
 	authorizer          facade.Authorizer
-	logger              loggo.Logger
+	logger              corelogger.Logger
 }
 
 func (s facadeContextShim) Auth() facade.Authorizer {
@@ -186,7 +186,7 @@ func (s facadeContextShim) State() *state.State {
 	return s.state
 }
 
-func (s facadeContextShim) Logger() loggo.Logger {
+func (s facadeContextShim) Logger() corelogger.Logger {
 	return s.logger
 }
 

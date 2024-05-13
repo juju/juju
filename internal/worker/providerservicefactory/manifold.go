@@ -12,26 +12,18 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	domainservicefactory "github.com/juju/juju/domain/servicefactory"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 )
 
-// Logger represents the logging methods called.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(message string, args ...any)
-	Infof(message string, args ...any)
-	Warningf(message string, args ...any)
-	Errorf(message string, args ...any)
-}
-
 // ManifoldConfig holds the information necessary to run a provider service
 // factory worker in a dependency.Engine.
 type ManifoldConfig struct {
 	ChangeStreamName string
-	Logger           Logger
+	Logger           logger.Logger
 	NewWorker        func(Config) (worker.Worker, error)
 
 	// NewProviderServiceFactoryGetter returns a new provider service factory
@@ -48,7 +40,7 @@ type ManifoldConfig struct {
 type ProviderServiceFactoryGetterFn func(
 	ProviderServiceFactoryFn,
 	changestream.WatchableDBGetter,
-	Logger,
+	logger.Logger,
 ) servicefactory.ProviderServiceFactoryGetter
 
 // ProviderServiceFactoryFn is a function that returns a provider service
@@ -56,7 +48,7 @@ type ProviderServiceFactoryGetterFn func(
 type ProviderServiceFactoryFn func(
 	coremodel.UUID,
 	changestream.WatchableDBGetter,
-	Logger,
+	logger.Logger,
 ) servicefactory.ProviderServiceFactory
 
 // Validate validates the manifold configuration.
@@ -130,7 +122,7 @@ func (config ManifoldConfig) output(in worker.Worker, out any) error {
 func NewProviderServiceFactoryGetter(
 	newProviderServiceFactory ProviderServiceFactoryFn,
 	dbGetter changestream.WatchableDBGetter,
-	logger Logger,
+	logger logger.Logger,
 ) servicefactory.ProviderServiceFactoryGetter {
 	return &serviceFactoryGetter{
 		newProviderServiceFactory: newProviderServiceFactory,
@@ -143,13 +135,11 @@ func NewProviderServiceFactoryGetter(
 func NewProviderServiceFactory(
 	modelUUID coremodel.UUID,
 	dbGetter changestream.WatchableDBGetter,
-	logger Logger,
+	logger logger.Logger,
 ) servicefactory.ProviderServiceFactory {
 	return domainservicefactory.NewProviderFactory(
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, coredatabase.ControllerNS),
 		changestream.NewWatchableDBFactoryForNamespace(dbGetter.GetWatchableDB, modelUUID.String()),
-		serviceFactoryLogger{
-			Logger: logger,
-		},
+		logger,
 	)
 }

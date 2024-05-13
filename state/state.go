@@ -17,7 +17,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
@@ -41,6 +40,7 @@ import (
 	"github.com/juju/juju/environs"
 	environsconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -48,7 +48,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.state")
+var logger = internallogger.GetLogger("juju.state")
 
 const (
 	// jujuDB is the name of the main juju database.

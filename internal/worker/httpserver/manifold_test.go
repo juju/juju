@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -23,8 +22,10 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/servicefactory"
@@ -97,7 +98,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		GetControllerConfig:  s.getControllerConfig,
 		NewTLSConfig:         s.newTLSConfig,
 		NewWorker:            s.newWorker,
-		Logger:               loggo.GetLogger("test"),
+		Logger:               loggertesting.WrapCheckLog(c),
 	}
 	s.manifold = httpserver.Manifold(s.config)
 	s.state = stubStateTracker{
@@ -134,7 +135,7 @@ func (s *ManifoldSuite) newTLSConfig(
 	serverURL string,
 	cache autocert.Cache,
 	_ httpserver.SNIGetterFunc,
-	_ httpserver.Logger,
+	_ logger.Logger,
 ) *tls.Config {
 	s.stub.MethodCall(s, "NewTLSConfig", dnsName)
 	return s.tlsConfig

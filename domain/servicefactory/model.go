@@ -5,6 +5,7 @@ package servicefactory
 
 import (
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain"
@@ -38,7 +39,7 @@ import (
 
 // ModelFactory provides access to the services required by the apiserver.
 type ModelFactory struct {
-	logger          Logger
+	logger          logger.Logger
 	controllerDB    changestream.WatchableDBFactory
 	modelUUID       model.UUID
 	modelDB         changestream.WatchableDBFactory
@@ -52,7 +53,7 @@ func NewModelFactory(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
 	providerFactory providertracker.ProviderFactory,
-	logger Logger,
+	logger logger.Logger,
 ) *ModelFactory {
 	return &ModelFactory{
 		logger:          logger,

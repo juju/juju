@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -41,7 +42,7 @@ type ResolverConfig struct {
 	Commands            resolver.Resolver
 	Secrets             resolver.Resolver
 	OptionalResolvers   []resolver.Resolver
-	Logger              Logger
+	Logger              logger.Logger
 }
 
 type uniterResolver struct {

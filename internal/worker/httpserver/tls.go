@@ -13,6 +13,8 @@ import (
 	"github.com/juju/http/v2"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
+
+	"github.com/juju/juju/core/logger"
 )
 
 // SNIGetterFunc is a helper function that aids the TLS SNI process by working
@@ -42,7 +44,7 @@ func autocertHostWhitelist(hosts ...string) autocert.HostPolicy {
 	}
 }
 
-func aggregateSNIGetter(logger Logger, getters ...SNIGetterFunc) SNIGetterFunc {
+func aggregateSNIGetter(logger logger.Logger, getters ...SNIGetterFunc) SNIGetterFunc {
 	return func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
 		for _, getter := range getters {
 			cert, err := getter(hello)
@@ -60,7 +62,7 @@ func aggregateSNIGetter(logger Logger, getters ...SNIGetterFunc) SNIGetterFunc {
 
 // NewTLSConfig returns the TLS configuration for the HTTP server to use
 // based on controller configuration stored in the state database.
-func NewTLSConfig(certDNSName, certURL string, certCache autocert.Cache, defaultSNI SNIGetterFunc, logger Logger) *tls.Config {
+func NewTLSConfig(certDNSName, certURL string, certCache autocert.Cache, defaultSNI SNIGetterFunc, logger logger.Logger) *tls.Config {
 	return newTLSConfig(
 		certDNSName,
 		certURL,
@@ -74,7 +76,7 @@ func newTLSConfig(
 	autocertDNSName, autocertURL string,
 	autocertCache autocert.Cache,
 	defaultSNI SNIGetterFunc,
-	logger Logger,
+	logger logger.Logger,
 ) *tls.Config {
 	tlsConfig := http.SecureTLSConfig()
 	if autocertDNSName == "" {

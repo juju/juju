@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
+	internallogger "github.com/juju/juju/internal/logger"
 	_ "github.com/juju/juju/internal/provider/all" // Import the providers.
 	proxy "github.com/juju/juju/internal/proxy/config"
 	_ "github.com/juju/juju/internal/secrets/provider/all" // Import the secret providers.
@@ -49,7 +50,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.cmd.jujud")
+var logger = internallogger.GetLogger("juju.cmd.jujud")
 
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -318,7 +319,7 @@ func Main(args []string) int {
 		lock, err := machinelock.New(machinelock.Config{
 			AgentName:   "juju-exec",
 			Clock:       clock.WallClock,
-			Logger:      loggo.GetLogger("juju.machinelock"),
+			Logger:      internallogger.GetLogger("juju.machinelock"),
 			LogFilename: filepath.Join(config.LogDir, "juju", machinelock.Filename),
 		})
 		if err != nil {

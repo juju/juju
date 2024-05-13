@@ -4,7 +4,7 @@
 package gce
 
 import (
-	"github.com/juju/loggo/v2"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // The metadata keys used when creating new instances.
@@ -27,5 +27,5 @@ const (
 )
 
 var (
-	logger = loggo.GetLogger("juju.provider.gce")
+	logger = internallogger.GetLogger("juju.provider.gce")
 )

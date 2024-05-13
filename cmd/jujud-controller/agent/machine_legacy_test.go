@@ -51,6 +51,7 @@ import (
 	envstorage "github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/provider/dummy"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/charmrevision"
@@ -169,7 +170,7 @@ func (s *MachineLegacySuite) TestManageModelAuditsAPI(c *gc.C) {
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer st.Close()
-			doRequest(apiclient.NewClient(st, coretesting.NoopLogger{}))
+			doRequest(apiclient.NewClient(st, loggertesting.WrapCheckLog(c)))
 		}
 		makeMachineAPIRequest := func(doRequest func(*machinemanager.Client)) {
 			apiInfo, ok := conf.APIInfo()
@@ -515,7 +516,7 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFile(c *gc.C) {
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
-			err = a.machineStartup(context.Background(), st, coretesting.NewCheckLogger(c))
+			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
 			c.Assert(err, jc.ErrorIsNil)
 		},
 	)
@@ -534,7 +535,7 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileErrored(c *
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
-			err = a.machineStartup(context.Background(), st, coretesting.NewCheckLogger(c))
+			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
 			c.Assert(err, gc.ErrorMatches, `unknown error`)
 		},
 	)
@@ -553,7 +554,7 @@ func (s *MachineLegacySuite) TestIAASControllerPatchUpdateManagerFileNonZeroExit
 			st, err := api.Open(apiInfo, fastDialOpts)
 			c.Assert(err, jc.ErrorIsNil)
 			defer func() { _ = st.Close() }()
-			err = a.machineStartup(context.Background(), st, coretesting.NewCheckLogger(c))
+			err = a.machineStartup(context.Background(), st, loggertesting.WrapCheckLog(c))
 			c.Assert(err, gc.ErrorMatches, `cannot patch /etc/update-manager/release-upgrades: unknown error`)
 		},
 	)

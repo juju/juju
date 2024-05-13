@@ -8,6 +8,8 @@ import (
 
 	"github.com/juju/errors"
 	"golang.org/x/crypto/acme/autocert"
+
+	"github.com/juju/juju/core/logger"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -22,20 +24,15 @@ type State interface {
 	Delete(ctx context.Context, name string) error
 }
 
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Tracef(string, ...interface{})
-}
-
 // Service provides the API for working with autocert cache. This service
 // implements autocert.Cache interface.
 type Service struct {
 	st     State
-	logger Logger
+	logger logger.Logger
 }
 
 // NewService returns a new service reference wrapping the input state.
-func NewService(st State, logger Logger) *Service {
+func NewService(st State, logger logger.Logger) *Service {
 	return &Service{
 		st:     st,
 		logger: logger,

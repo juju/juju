@@ -9,6 +9,7 @@ import (
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -16,14 +17,9 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
 
-// Logger represents the logging methods used in this package.
-type Logger interface {
-	Infof(string, ...interface{})
-}
-
 // NewResolver returns a resolver that runs the start hook to notify install
 // charms that the machine has been rebooted.
-func NewResolver(logger Logger, rebootDetected bool) resolver.Resolver {
+func NewResolver(logger logger.Logger, rebootDetected bool) resolver.Resolver {
 	if !rebootDetected {
 		return nopResolver{}
 	}
@@ -43,7 +39,7 @@ func (nopResolver) NextOp(_ context.Context, _ resolver.LocalState, _ remotestat
 
 type rebootResolver struct {
 	rebootDetected bool
-	logger         Logger
+	logger         logger.Logger
 }
 
 func (r *rebootResolver) NextOp(ctx context.Context, localState resolver.LocalState, remoteState remotestate.Snapshot, opfactory operation.Factory) (operation.Operation, error) {

@@ -12,8 +12,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	watcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -36,7 +38,7 @@ type baseSuite struct {
 	httpClient              *MockHTTPClient
 	clock                   *MockClock
 
-	logger Logger
+	logger logger.Logger
 }
 
 func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -51,7 +53,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.httpClient = NewMockHTTPClient(ctrl)
 	s.clock = NewMockClock(ctrl)
 
-	s.logger = coretesting.NewCheckLogger(c)
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	return ctrl
 }

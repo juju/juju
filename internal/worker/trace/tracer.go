@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 )
 
@@ -27,7 +28,7 @@ type tracer struct {
 	clientProvider     ClientTracerProvider
 	clientTracer       ClientTracer
 	stackTracesEnabled bool
-	logger             Logger
+	logger             logger.Logger
 }
 
 // NewTracerWorker returns a new tracer worker.
@@ -38,7 +39,7 @@ func NewTracerWorker(
 	insecureSkipVerify bool,
 	stackTracesEnabled bool,
 	sampleRatio float64,
-	logger Logger,
+	logger logger.Logger,
 	newClient NewClientFunc,
 ) (TrackedTracer, error) {
 	client, clientProvider, clientTracer, err := newClient(ctx, namespace, endpoint, insecureSkipVerify, sampleRatio)
@@ -271,7 +272,7 @@ func (s managedScope) IsSampled() bool {
 // you don't own.
 type limitedSpan struct {
 	coretrace.Span
-	logger Logger
+	logger logger.Logger
 }
 
 func (s *limitedSpan) End(attrs ...coretrace.Attribute) {

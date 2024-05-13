@@ -14,25 +14,20 @@ import (
 	"github.com/juju/errors"
 
 	coreDB "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/environs/config"
 )
 
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Errorf(string, ...interface{})
-}
-
 // State represents a type for interacting with the underlying state.
 type State struct {
 	*domain.StateBase
-	logger Logger
+	logger logger.Logger
 }
 
 // NewState returns a new State for interacting with the underlying state.
-func NewState(factory coreDB.TxnRunnerFactory, logger Logger) *State {
+func NewState(factory coreDB.TxnRunnerFactory, logger logger.Logger) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 		logger:    logger,

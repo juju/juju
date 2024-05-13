@@ -6,7 +6,6 @@ package caasmodeloperator
 import (
 	"context"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -118,7 +118,7 @@ func (m *ModelOperatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	c.Logf("m.state.1operatorRepo %q", m.state.operatorRepo)
 
-	api, err := NewAPI(m.authorizer, m.resources, m.state, m.state, m.controllerConfigService, loggo.GetLogger("juju.apiserver.caasmodeloperator"))
+	api, err := NewAPI(m.authorizer, m.resources, m.state, m.state, m.controllerConfigService, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	m.api = api

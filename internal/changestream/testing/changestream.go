@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/internal/changestream/eventmultiplexer"
 	"github.com/juju/juju/internal/changestream/stream"
-	"github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 // TestWatchableDB creates a watchable DB for running the ChangeStream
@@ -37,7 +37,7 @@ type TestWatchableDB struct {
 // NewTestWatchableDB creates a test changestream based on the id and
 // runnner.
 func NewTestWatchableDB(c *gc.C, id string, db database.TxnRunner) *TestWatchableDB {
-	logger := testing.NewCheckLogger(c)
+	logger := loggertesting.WrapCheckLog(c)
 	stream := stream.New(id, db, newNoopFileWatcher(), clock.WallClock, noopMetrics{}, logger)
 	mux, err := eventmultiplexer.New(stream, clock.WallClock, noopMetrics{}, logger)
 	c.Assert(err, jc.ErrorIsNil)

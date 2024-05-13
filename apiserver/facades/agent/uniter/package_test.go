@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/feature"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -144,6 +145,7 @@ func (s *uniterSuiteBase) facadeContext(c *gc.C) facadetest.ModelContext {
 		LeadershipChecker_: s.leadershipChecker,
 		ServiceFactory_:    s.DefaultModelServiceFactory(c),
 		ObjectStore_:       testing.NewObjectStore(c, s.ControllerModelUUID()),
+		Logger_:            loggertesting.WrapCheckLog(c),
 	}
 }
 

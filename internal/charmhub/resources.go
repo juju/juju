@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
@@ -19,11 +20,11 @@ import (
 type resourcesClient struct {
 	path   path.Path
 	client RESTClient
-	logger Logger
+	logger corelogger.Logger
 }
 
 // newResourcesClient creates a resourcesClient for requesting
-func newResourcesClient(path path.Path, client RESTClient, logger Logger) *resourcesClient {
+func newResourcesClient(path path.Path, client RESTClient, logger corelogger.Logger) *resourcesClient {
 	return &resourcesClient{
 		path:   path,
 		client: client,

@@ -16,19 +16,19 @@ type ValidateSuite struct {
 var _ = gc.Suite(&ValidateSuite{})
 
 func (*ValidateSuite) TestValid(c *gc.C) {
-	config := validConfig()
+	config := validConfig(c)
 	err := config.Validate()
 	c.Check(err, jc.ErrorIsNil)
 }
 
 func (*ValidateSuite) TestNilFacade(c *gc.C) {
-	config := validConfig()
+	config := validConfig(c)
 	config.Facade = nil
 	checkNotValid(c, config, "nil Facade not valid")
 }
 
 func (*ValidateSuite) TestNilLogger(c *gc.C) {
-	config := validConfig()
+	config := validConfig(c)
 	config.Logger = nil
 	checkNotValid(c, config, "nil Logger not valid")
 }

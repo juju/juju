@@ -7,7 +7,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/voyeur"
@@ -18,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/apiconfigwatcher"
 )
 
@@ -43,7 +43,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.manifold = apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 		AgentName:          "agent",
 		AgentConfigChanged: s.agentConfigChanged,
-		Logger:             loggo.GetLogger("test"),
+		Logger:             loggertesting.WrapCheckLog(c),
 	})
 }
 

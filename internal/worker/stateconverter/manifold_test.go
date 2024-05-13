@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/base"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/stateconverter"
 	"github.com/juju/juju/internal/worker/stateconverter/mocks"
 	"github.com/juju/juju/testing"
@@ -56,7 +57,7 @@ func (s *manifoldConfigSuite) TestValidateSuccess(c *gc.C) {
 	cfg := stateconverter.ManifoldConfig{
 		AgentName:     "machine-2",
 		APICallerName: "machiner",
-		Logger:        &fakeLogger{},
+		Logger:        loggertesting.WrapCheckLog(c),
 	}
 	err := cfg.Validate()
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,7 +70,7 @@ func (s *manifoldConfigSuite) TestManifoldStart(c *gc.C) {
 	cfg := stateconverter.ManifoldConfig{
 		AgentName:     "agent-name",
 		APICallerName: "machiner",
-		Logger:        &fakeLogger{},
+		Logger:        loggertesting.WrapCheckLog(c),
 		NewMachinerAPI: func(_ base.APICaller) stateconverter.Machiner {
 			return s.machiner
 		},
@@ -104,9 +105,3 @@ func (s *manifoldConfigSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.machiner = mocks.NewMockMachiner(ctrl)
 	return ctrl
 }
-
-type fakeLogger struct{}
-
-func (l *fakeLogger) Debugf(format string, args ...interface{})    {}
-func (l *fakeLogger) Criticalf(format string, args ...interface{}) {}
-func (l *fakeLogger) Tracef(format string, args ...interface{})    {}

@@ -6,11 +6,12 @@ package charmhub
 import (
 	"github.com/juju/errors"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charmhub/transport"
 )
 
 // Handle some of the basic error messages.
-func handleBasicAPIErrors(list transport.APIErrors, logger Logger) error {
+func handleBasicAPIErrors(list transport.APIErrors, logger corelogger.Logger) error {
 	if len(list) == 0 {
 		return nil
 	}

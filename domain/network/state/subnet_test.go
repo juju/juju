@@ -12,11 +12,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
-	jujutesting "github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 func (s *stateSuite) TestUpsertSubnets(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	spUUID, err := uuid.NewV7()
 	c.Assert(err, jc.ErrorIsNil)
@@ -109,7 +109,7 @@ func (s *stateSuite) TestUpsertSubnets(c *gc.C) {
 }
 
 func (s *stateSuite) TestAddSubnet(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	spUUID, err := uuid.NewV7()
@@ -192,7 +192,7 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 }
 
 func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	spUUID, err := uuid.NewV7()
 	c.Assert(err, jc.ErrorIsNil)
@@ -234,7 +234,7 @@ func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *gc.C) {
 }
 
 func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	spUUID, err := uuid.NewV7()
 	c.Assert(err, jc.ErrorIsNil)
@@ -276,7 +276,7 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Add a subnet of type base.
 	subnetUUID0, err := uuid.NewV7()
@@ -360,7 +360,7 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Add a subnet of type base.
 	subnetUUID0, err := uuid.NewV7()
@@ -440,7 +440,7 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Add 3 subnets of type base.
 	subnetUUID0, err := uuid.NewV7()
@@ -498,7 +498,7 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 }
 
 func (s *stateSuite) TestRetrieveAllSubnet(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Add 3 subnets of type base.
 	subnetUUID0, err := uuid.NewV7()
@@ -556,7 +556,7 @@ func (s *stateSuite) TestRetrieveAllSubnet(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	db := s.DB()
 
 	spUUID, err := uuid.NewV7()
@@ -600,7 +600,7 @@ func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
 }
 
 func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), jujutesting.NewCheckLogger(c))
+	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// Add a subnet of type base.
 	subnetUUID0, err := uuid.NewV7()

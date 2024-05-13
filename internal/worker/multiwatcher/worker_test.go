@@ -6,10 +6,11 @@ package multiwatcher_test
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -17,7 +18,7 @@ import (
 
 type WorkerSuite struct {
 	testing.BaseSuite
-	logger loggo.Logger
+	logger logger.Logger
 	config multiwatcher.Config
 }
 
@@ -25,8 +26,7 @@ var _ = gc.Suite(&WorkerSuite{})
 
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.logger = loggo.GetLogger("test")
-	s.logger.SetLogLevel(loggo.TRACE)
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	s.config = multiwatcher.Config{
 		Clock:                clock.WallClock,

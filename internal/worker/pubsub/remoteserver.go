@@ -18,6 +18,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pubsub/forwarder"
 	"github.com/juju/juju/rpc/params"
 )
@@ -41,7 +42,7 @@ type remoteServer struct {
 	origin string
 	target string
 	info   *api.Info
-	logger Logger
+	logger logger.Logger
 
 	newWriter  func(context.Context, *api.Info) (MessageWriter, error)
 	connection MessageWriter
@@ -67,7 +68,7 @@ type RemoteServerConfig struct {
 	Origin string
 	Target string
 	Clock  clock.Clock
-	Logger Logger
+	Logger logger.Logger
 
 	// APIInfo is initially populated with the addresses of the target machine.
 	APIInfo   *api.Info

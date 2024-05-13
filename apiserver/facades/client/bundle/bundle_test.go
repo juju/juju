@@ -22,6 +22,7 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -64,6 +65,7 @@ func (s *bundleSuite) makeAPI(c *gc.C) *bundle.APIv8 {
 		s.auth,
 		s.modelTag,
 		s.networkService,
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return &bundle.APIv8{api}

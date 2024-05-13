@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mutex/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -51,7 +51,7 @@ func (s *lockSuite) SetUpTest(c *gc.C) {
 	lock, err := machinelock.NewTestLock(machinelock.Config{
 		AgentName:   "test",
 		Clock:       s.clock,
-		Logger:      loggo.GetLogger("test"),
+		Logger:      loggertesting.WrapCheckLog(c),
 		LogFilename: s.logfile,
 	}, s.acquireLock)
 	c.Assert(err, jc.ErrorIsNil)

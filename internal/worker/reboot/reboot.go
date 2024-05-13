@@ -7,18 +7,18 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/api/agent/reboot"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.worker.reboot")
+var logger = internallogger.GetLogger("juju.worker.reboot")
 
 // The reboot worker listens for changes to the reboot flag and
 // exists with worker.ErrRebootMachine if the machine should reboot or

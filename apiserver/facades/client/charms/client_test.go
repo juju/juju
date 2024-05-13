@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -27,6 +26,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -52,8 +52,9 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.api, err = charms.NewFacade(facadetest.ModelContext{
-		Auth_:  s.auth,
-		State_: s.ControllerModel(c).State(),
+		Auth_:   s.auth,
+		State_:  s.ControllerModel(c).State(),
+		Logger_: loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -490,7 +491,7 @@ func (s *charmsMockSuite) api(c *gc.C) *charms.API {
 		s.state,
 		s.model,
 		s.repoFactory,
-		loggo.GetLogger("juju.apiserver.charms"),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api

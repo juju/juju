@@ -17,6 +17,7 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
@@ -35,7 +36,7 @@ type RelationStateTrackerConfig struct {
 	CharmDir          string
 	LeadershipContext context.LeadershipContext
 	Abort             <-chan struct{}
-	Logger            Logger
+	Logger            logger.Logger
 }
 
 // relationStateTracker implements RelationStateTracker.
@@ -52,8 +53,8 @@ type relationStateTracker struct {
 	relationCreated map[int]bool
 	isPeerRelation  map[int]bool
 	stateMgr        StateManager
-	logger          Logger
-	newRelationer   func(api.RelationUnit, StateManager, UnitGetter, Logger) Relationer
+	logger          logger.Logger
+	newRelationer   func(api.RelationUnit, StateManager, UnitGetter, logger.Logger) Relationer
 }
 
 // NewRelationStateTracker returns a new RelationStateTracker instance.
@@ -120,7 +121,9 @@ func (r *relationStateTracker) loadInitialState(ctx stdcontext.Context) error {
 	}
 
 	if r.logger.IsTraceEnabled() {
-		r.logger.Tracef("initialising relation state tracker: %# v", pretty.Formatter(r.stateMgr.(*stateManager).relationState))
+		if mgr, ok := r.stateMgr.(*stateManager); ok {
+			r.logger.Tracef("initialising relation state tracker: %# v", pretty.Formatter(mgr.relationState))
+		}
 	}
 	knownUnits := make(map[string]bool)
 	for _, id := range r.stateMgr.KnownIDs() {
@@ -223,7 +226,8 @@ func (r *relationStateTracker) joinRelation(ctx stdcontext.Context, rel api.Rela
 }
 
 func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote remotestate.Snapshot) error {
-	if r.logger.IsTraceEnabled() {
+	isTraceEnabled := r.logger.IsTraceEnabled()
+	if isTraceEnabled {
 		r.logger.Tracef("%q synchronise scopes for remote relations %# v", r.unit.Name(), pretty.Formatter(remote.Relations))
 	}
 	var charmSpec *charm.CharmDir
@@ -240,7 +244,9 @@ func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote 
 					return errors.Trace(err)
 				}
 			}
-			r.logger.Tracef("already seen relation id %v", id)
+			if isTraceEnabled {
+				r.logger.Tracef("already seen relation id %v", id)
+			}
 			continue
 		}
 

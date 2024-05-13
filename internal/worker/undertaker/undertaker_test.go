@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/envcontext"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -223,8 +223,6 @@ func (s *OldUndertakerSuite) TestDestroyErrorForced(c *gc.C) {
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
 	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "RemoveModel"})
 	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
-	// Logged the failed destroy call.
-	s.fix.logger.stub.CheckCallNames(c, "Errorf")
 }
 
 func (s *OldUndertakerSuite) TestRemoveModelErrorFatal(c *gc.C) {
@@ -274,7 +272,6 @@ func (s *OldUndertakerSuite) TestDestroyTimeoutForce(c *gc.C) {
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
 	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "WatchModelResources", "ProcessDyingModel", "SetStatus", "RemoveModel"})
 	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
-	s.fix.logger.stub.CheckNoCalls(c)
 }
 
 func (s *OldUndertakerSuite) TestEnvironDestroyTimeout(c *gc.C) {
@@ -288,7 +285,6 @@ func (s *OldUndertakerSuite) TestEnvironDestroyTimeout(c *gc.C) {
 	mainCalls, destroyCloudCalls := s.sortCalls(c, stub)
 	c.Assert(mainCalls, jc.DeepEquals, []string{"WatchModel", "ModelInfo", "SetStatus", "WatchModelResources", "ProcessDyingModel", "SetStatus", "RemoveModel"})
 	c.Assert(destroyCloudCalls, jc.DeepEquals, []string{"ModelConfig", "CloudSpec", "Destroy"})
-	s.fix.logger.stub.CheckCall(c, 0, "Warningf", "timeout ignored for graceful model destroy", []interface{}(nil))
 }
 
 func (s *OldUndertakerSuite) TestEnvironDestroyTimeoutForce(c *gc.C) {
@@ -328,7 +324,6 @@ func (s *OldUndertakerSuite) TestEnvironDestroyForceTimeoutZero(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	})
 	stub.CheckCallNames(c, "WatchModel", "ModelInfo", "RemoveModel")
-	s.fix.logger.stub.CheckNoCalls(c)
 }
 
 type UndertakerSuite struct{}
@@ -379,7 +374,7 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 	w, err := undertaker.NewUndertaker(undertaker.Config{
 		Facade:        facade,
 		CredentialAPI: credentialAPI,
-		Logger:        loggo.GetLogger("test"),
+		Logger:        loggertesting.WrapCheckLog(c),
 		Clock:         testclock.NewDilatedWallClock(testing.ShortWait),
 		NewCloudDestroyerFunc: func(ctx context.Context, op environs.OpenParams) (environs.CloudDestroyer, error) {
 			return &waitDestroyer{}, nil

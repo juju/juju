@@ -7,9 +7,9 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4/catacomb"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/state"
 )
 
@@ -23,7 +23,7 @@ type subRelationsWatcher struct {
 	// included. Needed particularly for when the relation goes away.
 	relations map[string]bool
 	out       chan []string
-	logger    loggo.Logger
+	logger    corelogger.Logger
 }
 
 // newSubordinateRelationsWatcher creates a watcher that will notify
@@ -32,7 +32,7 @@ type subRelationsWatcher struct {
 // principalName app. Global relations will be included, but only
 // container-scoped relations for the principal application will be
 // emitted - other container-scoped relations will be filtered out.
-func newSubordinateRelationsWatcher(backend *state.State, subordinateApp *state.Application, principalName string, logger loggo.Logger) (
+func newSubordinateRelationsWatcher(backend *state.State, subordinateApp *state.Application, principalName string, logger corelogger.Logger) (
 	state.StringsWatcher, error,
 ) {
 	w := &subRelationsWatcher{

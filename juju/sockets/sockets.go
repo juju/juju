@@ -14,10 +14,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.juju.sockets")
+var logger = internallogger.GetLogger("juju.juju.sockets")
 
 // Socket represents the set of parameters to use for socket to dial/listen.
 type Socket struct {

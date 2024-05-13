@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
@@ -57,20 +57,9 @@ type DqliteInitializerFunc func(
 	ctx stdcontext.Context,
 	mgr database.BootstrapNodeManager,
 	modelUUID model.UUID,
-	logger database.Logger,
+	logger logger.Logger,
 	options ...database.BootstrapOpt,
 ) error
-
-// Logger describes methods for emitting log output.
-type Logger interface {
-	Errorf(string, ...any)
-	Warningf(string, ...any)
-	Debugf(string, ...any)
-	Infof(string, ...any)
-
-	// Logf is used to proxy Dqlite logs via this b.logger.
-	Logf(level loggo.Level, msg string, args ...any)
-}
 
 // ProviderFunc is a function that returns an EnvironProvider.
 type ProviderFunc func(string) (environs.EnvironProvider, error)
@@ -109,7 +98,7 @@ type AgentBootstrap struct {
 	// StorageProviderRegistry is used to determine and store the
 	// details of the default storage pools.
 	storageProviderRegistry storage.ProviderRegistry
-	logger                  Logger
+	logger                  logger.Logger
 }
 
 // AgentBootstrapArgs are the arguments to NewAgentBootstrap that are required
@@ -126,7 +115,7 @@ type AgentBootstrapArgs struct {
 	StorageProviderRegistry   storage.ProviderRegistry
 	BootstrapDqlite           DqliteInitializerFunc
 	Provider                  ProviderFunc
-	Logger                    Logger
+	Logger                    logger.Logger
 
 	// Deprecated: use InstancePrechecker
 	StateNewPolicy           state.NewPolicyFunc

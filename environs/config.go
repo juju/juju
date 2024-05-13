@@ -8,13 +8,13 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.environs")
+var logger = internallogger.GetLogger("juju.environs")
 
 // ProviderRegistry is an interface that provides methods for registering
 // and obtaining environment providers by provider name.

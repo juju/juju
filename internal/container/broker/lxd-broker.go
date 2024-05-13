@@ -7,22 +7,23 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var lxdLogger = loggo.GetLogger("juju.container.broker.lxd")
+var lxdLogger = internallogger.GetLogger("juju.container.broker.lxd")
 
-type PrepareHostFunc func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error
+type PrepareHostFunc func(containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error
 
 // NewLXDBroker creates a Broker that can be used to start LXD containers in a
 // similar fashion to normal StartInstance requests.

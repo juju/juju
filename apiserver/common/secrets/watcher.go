@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -19,12 +19,12 @@ type secretBackendModelConfigWatcher struct {
 	out           chan struct{}
 	src           watcher.NotifyWatcher
 	backendGetter SecretBackendGetter
-	logger        loggo.Logger
+	logger        logger.Logger
 
 	currentSecretBackend string
 }
 
-func newSecretBackendModelConfigWatcher(ctx context.Context, backendGetter SecretBackendGetter, src watcher.NotifyWatcher, logger loggo.Logger) (watcher.NotifyWatcher, error) {
+func newSecretBackendModelConfigWatcher(ctx context.Context, backendGetter SecretBackendGetter, src watcher.NotifyWatcher, logger logger.Logger) (watcher.NotifyWatcher, error) {
 	w := &secretBackendModelConfigWatcher{
 		out:           make(chan struct{}),
 		src:           src,

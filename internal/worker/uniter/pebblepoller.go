@@ -15,6 +15,7 @@ import (
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/container"
 )
 
@@ -30,7 +31,7 @@ type PebbleClient interface {
 type NewPebbleClientFunc func(*client.Config) (PebbleClient, error)
 
 type pebblePoller struct {
-	logger          Logger
+	logger          logger.Logger
 	clock           clock.Clock
 	tomb            tomb.Tomb
 	newPebbleClient NewPebbleClientFunc
@@ -48,7 +49,7 @@ const (
 
 // NewPebblePoller starts a worker that polls the pebble interfaces
 // of the supplied container list.
-func NewPebblePoller(logger Logger,
+func NewPebblePoller(logger logger.Logger,
 	clock clock.Clock,
 	containerNames []string,
 	workloadEventChan chan string,

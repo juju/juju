@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain/servicefactory/testing"
@@ -51,7 +52,7 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
-	cfg.LoggerFactory = nil
+	cfg.Logger = nil
 	c.Check(cfg.Validate(), jc.ErrorIs, errors.NotValid)
 
 	cfg = s.getConfig()
@@ -94,8 +95,8 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 		BootstrapGateName:      "bootstrap-gate",
 		ServiceFactoryName:     "service-factory",
 		CharmhubHTTPClientName: "charmhub-http-client",
-		LoggerFactory:          s.loggerFactory,
-		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
+		Logger:                 s.logger,
+		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
 		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {

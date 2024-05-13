@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/blockdevice/service"
 	"github.com/juju/juju/domain/blockdevice/state"
@@ -22,8 +23,10 @@ type Coordinator interface {
 }
 
 // RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(coordinator Coordinator) {
-	coordinator.Add(&importOperation{})
+func RegisterImport(coordinator Coordinator, logger logger.Logger) {
+	coordinator.Add(&importOperation{
+		logger: logger,
+	})
 }
 
 // ImportService provides a subset of the block device domain
@@ -35,6 +38,7 @@ type ImportService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
+	logger  logger.Logger
 	service ImportService
 }
 
@@ -43,7 +47,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a
 	// nil watcher factory.
 	i.service = service.NewService(
-		state.NewState(scope.ModelDB()), logger)
+		state.NewState(scope.ModelDB()), i.logger)
 	return nil
 }
 

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -32,6 +31,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -81,7 +81,7 @@ func (s *MachineManagerSuite) TestNewMachineManagerAPINonClient(c *gc.C) {
 		common.NewResources(),
 		nil,
 		nil,
-		loggo.GetLogger("juju.apiserver.machinemanager"),
+		loggertesting.WrapCheckLog(c),
 		s.networkService,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -144,7 +144,7 @@ func (s *AddMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		common.NewResources(),
 		nil,
 		nil,
-		loggo.GetLogger("juju.apiserver.machinemanager"),
+		loggertesting.WrapCheckLog(c),
 		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -294,7 +294,7 @@ func (s *DestroyMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		nil,
 		s.leadership,
 		nil,
-		loggo.GetLogger("juju.apiserver.machinemanager"),
+		loggertesting.WrapCheckLog(c),
 		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -820,7 +820,7 @@ func (s *ProvisioningMachineManagerSuite) setup(c *gc.C) *gomock.Controller {
 		common.NewResources(),
 		nil,
 		nil,
-		loggo.GetLogger("juju.apiserver.machinemanager"),
+		loggertesting.WrapCheckLog(c),
 		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1087,7 +1087,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		common.NewResources(),
 		nil,
 		nil,
-		loggo.GetLogger("juju.apiserver.machinemanager"),
+		loggertesting.WrapCheckLog(c),
 		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1363,7 +1363,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Control
 		common.NewResources(),
 		nil,
 		nil,
-		loggo.GetLogger("juju.apiserver.machinemanager"),
+		loggertesting.WrapCheckLog(c),
 		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1476,7 +1476,7 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setAPIUser(c *gc.C, user names
 		common.NewResources(),
 		nil,
 		nil,
-		loggo.GetLogger("juju.apiserver.machinemanager"),
+		loggertesting.WrapCheckLog(c),
 		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1596,7 +1596,7 @@ func (s *UpgradeSeriesCompleteMachineManagerSuite) setup(c *gc.C) *gomock.Contro
 		common.NewResources(),
 		nil,
 		nil,
-		loggo.GetLogger("juju.apiserver.machinemanager"),
+		loggertesting.WrapCheckLog(c),
 		s.networkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)

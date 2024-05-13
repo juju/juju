@@ -6,7 +6,6 @@ package caasoperatorupgrader_test
 import (
 	"context"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -37,7 +37,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		Tag: names.NewApplicationTag("app"),
 	}
 
-	api, err := caasoperatorupgrader.NewCAASOperatorUpgraderAPI(s.authorizer, s.broker, loggo.GetLogger("juju.controller.caasoperatorupgrader"))
+	api, err := caasoperatorupgrader.NewCAASOperatorUpgraderAPI(s.authorizer, s.broker, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -46,7 +46,7 @@ func (s *CAASProvisionerSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	_, err := caasoperatorupgrader.NewCAASOperatorUpgraderAPI(s.authorizer, s.broker, loggo.GetLogger("juju.controller.caasoperatorupgrader"))
+	_, err := caasoperatorupgrader.NewCAASOperatorUpgraderAPI(s.authorizer, s.broker, loggertesting.WrapCheckLog(c))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -67,7 +67,7 @@ func (s *CAASProvisionerSuite) assertUpgradeController(c *gc.C, tag names.Tag) {
 		Controller: true,
 	}
 
-	api, err := caasoperatorupgrader.NewCAASOperatorUpgraderAPI(s.authorizer, s.broker, loggo.GetLogger("juju.controller.caasoperatorupgrader"))
+	api, err := caasoperatorupgrader.NewCAASOperatorUpgraderAPI(s.authorizer, s.broker, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	vers := version.MustParse("6.6.6")

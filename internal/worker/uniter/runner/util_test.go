@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +23,7 @@ import (
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/network"
+	internallogger "github.com/juju/juju/internal/logger"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
@@ -130,7 +130,7 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 		Payloads:         s.payloads,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
-		Logger:           loggo.GetLogger("test"),
+		Logger:           internallogger.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.contextFactory = contextFactory
@@ -147,7 +147,7 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 		SecretsClient:    s.secrets,
 		Paths:            s.paths,
 		Clock:            testclock.NewClock(time.Time{}),
-		Logger:           loggo.GetLogger("test"),
+		Logger:           internallogger.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4/dependency"
 
@@ -43,9 +42,9 @@ import (
 // UnitManifoldsConfig allows specialisation of the result of Manifolds.
 type UnitManifoldsConfig struct {
 
-	// LoggingContext holds the unit writers so that the loggers
+	// LoggerContext holds the unit writers so that the loggers
 	// for the unit get tagged with the right source.
-	LoggingContext *loggo.Context
+	LoggerContext corelogger.LoggerContext
 
 	// Agent contains the agent that will be wrapped and made available to
 	// its dependencies via a dependency.Engine.
@@ -112,7 +111,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		apiConfigWatcherName: apiconfigwatcher.Manifold(apiconfigwatcher.ManifoldConfig{
 			AgentName:          agentName,
 			AgentConfigChanged: config.AgentConfigChanged,
-			Logger:             config.LoggingContext.GetLogger("juju.worker.apiconfigwatcher"),
+			Logger:             config.LoggerContext.GetLogger("juju.worker.apiconfigwatcher"),
 		}),
 
 		// The api caller is a thin concurrent wrapper around a connection
@@ -126,7 +125,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			APIOpen:              api.Open,
 			NewConnection:        apicaller.ScaryConnect,
 			Filter:               connectFilter,
-			Logger:               config.LoggingContext.GetLogger("juju.worker.apicaller"),
+			Logger:               config.LoggerContext.GetLogger("juju.worker.apicaller"),
 		}),
 
 		// The S3 API caller is a shim API that wraps the /charms REST
@@ -135,7 +134,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		s3CallerName: units3caller.Manifold(units3caller.ManifoldConfig{
 			APICallerName: apiCallerName,
 			NewClient:     units3caller.NewS3Client,
-			Logger:        loggo.GetLogger("juju.worker.units3caller"),
+			Logger:        config.LoggerContext.GetLogger("juju.worker.units3caller"),
 		}),
 
 		// The log sender is a leaf worker that sends log messages to some
@@ -172,7 +171,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			ValidateMigration: config.ValidateMigration,
 			NewFacade:         migrationminion.NewFacade,
 			NewWorker:         migrationminion.NewWorker,
-			Logger:            config.LoggingContext.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
+			Logger:            config.LoggerContext.GetLogger("juju.worker.migrationminion", corelogger.MIGRATION),
 		}),
 
 		// The logging config updater is a leaf worker that indirectly
@@ -182,8 +181,8 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		loggingConfigUpdaterName: ifNotMigrating(loggerworker.Manifold(loggerworker.ManifoldConfig{
 			AgentName:       agentName,
 			APICallerName:   apiCallerName,
-			LoggingContext:  config.LoggingContext,
-			Logger:          config.LoggingContext.GetLogger("juju.worker.logger"),
+			LoggerContext:   config.LoggerContext,
+			Logger:          config.LoggerContext.GetLogger("juju.worker.logger"),
 			UpdateAgentFunc: config.UpdateLoggerConfig,
 		})),
 
@@ -193,7 +192,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		apiAddressUpdaterName: ifNotMigrating(apiaddressupdater.Manifold(apiaddressupdater.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.apiaddressupdater"),
+			Logger:        config.LoggerContext.GetLogger("juju.worker.apiaddressupdater"),
 		})),
 
 		// The charmdir resource coordinates whether the charm directory is
@@ -219,7 +218,7 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			NewFacade:     retrystrategy.NewFacade,
 			NewWorker:     retrystrategy.NewRetryStrategyWorker,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.retrystrategy"),
+			Logger:        config.LoggerContext.GetLogger("juju.worker.retrystrategy"),
 		})),
 
 		// The uniter installs charms; manages the unit's presence in its
@@ -239,13 +238,13 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 			CharmDirName:          charmDirName,
 			HookRetryStrategyName: hookRetryStrategyName,
 			TranslateResolverErr:  uniter.TranslateFortressErrors,
-			Logger:                config.LoggingContext.GetLogger("juju.worker.uniter"),
+			Logger:                config.LoggerContext.GetLogger("juju.worker.uniter"),
 		})),
 
 		traceName: trace.Manifold(trace.ManifoldConfig{
 			AgentName:       agentName,
 			Clock:           config.Clock,
-			Logger:          loggo.GetLogger("juju.worker.trace"),
+			Logger:          config.LoggerContext.GetLogger("juju.worker.trace"),
 			NewTracerWorker: trace.NewTracerWorker,
 			Kind:            coretrace.KindUnit,
 		}),
@@ -255,14 +254,14 @@ func UnitManifolds(config UnitManifoldsConfig) dependency.Manifolds {
 		upgraderName: upgrader.Manifold(upgrader.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.upgrader"),
+			Logger:        config.LoggerContext.GetLogger("juju.worker.upgrader"),
 			Clock:         config.Clock,
 		}),
 
 		// The secretDrainWorker is the worker that drains secrets from the inactive backend to the current active backend.
 		secretDrainWorker: ifNotMigrating(secretsdrainworker.Manifold(secretsdrainworker.ManifoldConfig{
 			APICallerName:         apiCallerName,
-			Logger:                config.LoggingContext.GetLogger("juju.worker.secretsdrainworker"),
+			Logger:                config.LoggerContext.GetLogger("juju.worker.secretsdrainworker"),
 			NewSecretsDrainFacade: secretsdrainworker.NewSecretsDrainFacadeForAgent,
 			NewWorker:             secretsdrainworker.NewWorker,
 			NewBackendsClient:     secretsdrainworker.NewSecretBackendsClientForAgent,

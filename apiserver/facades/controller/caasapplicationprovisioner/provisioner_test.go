@@ -11,7 +11,6 @@ import (
 	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	envconfig "github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -88,7 +88,7 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 		s.registry,
 		s.store,
 		s.clock,
-		loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
+		loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }
@@ -107,7 +107,7 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		s.registry,
 		s.store,
 		s.clock,
-		loggo.GetLogger("juju.apiserver.caasapplicationprovisioner"))
+		loggertesting.WrapCheckLog(c))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 

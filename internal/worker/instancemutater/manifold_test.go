@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/environs"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/instancemutater"
 	"github.com/juju/juju/internal/worker/instancemutater/mocks"
 )
@@ -49,14 +50,14 @@ func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no new worker constructor",
 			config: instancemutater.ModelManifoldConfig{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggertesting.WrapCheckLog(c),
 			},
 			err: "nil NewWorker not valid",
 		},
 		{
 			description: "Test no new client constructor",
 			config: instancemutater.ModelManifoldConfig{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggertesting.WrapCheckLog(c),
 				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
@@ -66,7 +67,7 @@ func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no agent name",
 			config: instancemutater.ModelManifoldConfig{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggertesting.WrapCheckLog(c),
 				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
@@ -79,7 +80,7 @@ func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no environ name",
 			config: instancemutater.ModelManifoldConfig{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggertesting.WrapCheckLog(c),
 				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
@@ -93,7 +94,7 @@ func (s *modelManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no api caller name",
 			config: instancemutater.ModelManifoldConfig{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggertesting.WrapCheckLog(c),
 				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
@@ -118,7 +119,7 @@ func (s *modelManifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 	defer ctrl.Finish()
 
 	config := instancemutater.ModelManifoldConfig{
-		Logger: mocks.NewMockLogger(ctrl),
+		Logger: loggertesting.WrapCheckLog(c),
 		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return mocks.NewMockWorker(ctrl), nil
 		},
@@ -136,7 +137,6 @@ func (s *modelManifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 type environAPIManifoldSuite struct {
 	testing.IsolationSuite
 
-	logger    *mocks.MockLogger
 	getter    *mocks.MockGetter
 	agent     *mocks.MockAgent
 	environ   *mocks.MockEnviron
@@ -149,7 +149,6 @@ var _ = gc.Suite(&environAPIManifoldSuite{})
 func (s *environAPIManifoldSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.logger = mocks.NewMockLogger(ctrl)
 	s.getter = mocks.NewMockGetter(ctrl)
 	s.agent = mocks.NewMockAgent(ctrl)
 	s.environ = mocks.NewMockEnviron(ctrl)
@@ -228,7 +227,6 @@ func (s *environAPIManifoldSuite) TestMissingAPICallerFromContext(c *gc.C) {
 type modelManifoldSuite struct {
 	testing.IsolationSuite
 
-	logger      *mocks.MockLogger
 	getter      *mocks.MockGetter
 	agent       *mocks.MockAgent
 	agentConfig *mocks.MockConfig
@@ -243,7 +241,6 @@ var _ = gc.Suite(&modelManifoldSuite{})
 func (s *modelManifoldSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.logger = mocks.NewMockLogger(ctrl)
 	s.getter = mocks.NewMockGetter(ctrl)
 	s.agent = mocks.NewMockAgent(ctrl)
 	s.agentConfig = mocks.NewMockConfig(ctrl)
@@ -268,7 +265,7 @@ func (s *modelManifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
 		EnvironName:   "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
-		Logger:        s.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
@@ -292,7 +289,7 @@ func (s *modelManifoldSuite) TestNewWorkerFromK8sController(c *gc.C) {
 		EnvironName:   "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
-		Logger:        s.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
@@ -316,7 +313,7 @@ func (s *modelManifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 		EnvironName:   "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
-		Logger:        s.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return nil, errors.New("errored")
 		},
@@ -338,7 +335,7 @@ func (s *modelManifoldSuite) TestConfigValidatesForMissingWorker(c *gc.C) {
 		EnvironName:   "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
-		Logger:        s.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 	}
 	manifold := instancemutater.ModelManifold(config)
 	_, err := manifold.Start(context.Background(), s.getter)
@@ -354,7 +351,7 @@ func (s *modelManifoldSuite) TestConfigValidatesForMissingClient(c *gc.C) {
 		EnvironName:   "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
-		Logger:        s.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
@@ -420,14 +417,14 @@ func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no new worker constructor",
 			config: instancemutater.MachineManifoldConfig{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggertesting.WrapCheckLog(c),
 			},
 			err: "nil NewWorker not valid",
 		},
 		{
 			description: "Test no new client constructor",
 			config: instancemutater.MachineManifoldConfig{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggertesting.WrapCheckLog(c),
 				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
@@ -437,7 +434,7 @@ func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no agent name",
 			config: instancemutater.MachineManifoldConfig{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggertesting.WrapCheckLog(c),
 				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
@@ -450,7 +447,7 @@ func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no environ name",
 			config: instancemutater.MachineManifoldConfig{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggertesting.WrapCheckLog(c),
 				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
@@ -464,7 +461,7 @@ func (s *machineManifoldConfigSuite) TestInvalidConfigValidate(c *gc.C) {
 		{
 			description: "Test no api caller name",
 			config: instancemutater.MachineManifoldConfig{
-				Logger: mocks.NewMockLogger(ctrl),
+				Logger: loggertesting.WrapCheckLog(c),
 				NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 					return mocks.NewMockWorker(ctrl), nil
 				},
@@ -489,7 +486,7 @@ func (s *machineManifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 	defer ctrl.Finish()
 
 	config := instancemutater.MachineManifoldConfig{
-		Logger: mocks.NewMockLogger(ctrl),
+		Logger: loggertesting.WrapCheckLog(c),
 		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return mocks.NewMockWorker(ctrl), nil
 		},
@@ -507,7 +504,6 @@ func (s *machineManifoldConfigSuite) TestValidConfigValidate(c *gc.C) {
 type brokerAPIManifoldSuite struct {
 	testing.IsolationSuite
 
-	logger    *mocks.MockLogger
 	getter    *mocks.MockGetter
 	agent     *mocks.MockAgent
 	broker    *mocks.MockInstanceBroker
@@ -520,7 +516,6 @@ var _ = gc.Suite(&brokerAPIManifoldSuite{})
 func (s *brokerAPIManifoldSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.logger = mocks.NewMockLogger(ctrl)
 	s.getter = mocks.NewMockGetter(ctrl)
 	s.agent = mocks.NewMockAgent(ctrl)
 	s.broker = mocks.NewMockInstanceBroker(ctrl)
@@ -599,7 +594,6 @@ func (s *brokerAPIManifoldSuite) TestMissingAPICallerFromContext(c *gc.C) {
 type machineManifoldSuite struct {
 	testing.IsolationSuite
 
-	logger      *mocks.MockLogger
 	getter      *mocks.MockGetter
 	agent       *mocks.MockAgent
 	agentConfig *mocks.MockConfig
@@ -614,7 +608,6 @@ var _ = gc.Suite(&machineManifoldSuite{})
 func (s *machineManifoldSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.logger = mocks.NewMockLogger(ctrl)
 	s.getter = mocks.NewMockGetter(ctrl)
 	s.agent = mocks.NewMockAgent(ctrl)
 	s.agentConfig = mocks.NewMockConfig(ctrl)
@@ -639,7 +632,7 @@ func (s *machineManifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
 		BrokerName:    "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
-		Logger:        s.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
@@ -663,7 +656,7 @@ func (s *machineManifoldSuite) TestNewWorkerIsRejectedForK8sController(c *gc.C) 
 		BrokerName:    "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
-		Logger:        s.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
@@ -687,7 +680,7 @@ func (s *machineManifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 		BrokerName:    "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
-		Logger:        s.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return nil, errors.New("errored")
 		},
@@ -709,7 +702,7 @@ func (s *machineManifoldSuite) TestConfigValidatesForMissingWorker(c *gc.C) {
 		BrokerName:    "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
-		Logger:        s.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 	}
 	manifold := instancemutater.MachineManifold(config)
 	_, err := manifold.Start(context.Background(), s.getter)
@@ -725,7 +718,7 @@ func (s *machineManifoldSuite) TestConfigValidatesForMissingClient(c *gc.C) {
 		BrokerName:    "foobar",
 		APICallerName: "baz",
 		AgentName:     "moon",
-		Logger:        s.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 		NewWorker: func(_ context.Context, cfg instancemutater.Config) (worker.Worker, error) {
 			return s.worker, nil
 		},
@@ -756,9 +749,6 @@ func (s *machineManifoldSuite) behaviorK8sController() {
 
 	cExp := s.agentConfig.EXPECT()
 	cExp.Tag().Return(names.ControllerAgentTag{})
-
-	lExp := s.logger.EXPECT()
-	lExp.Warningf(gomock.Any(), "controller")
 }
 
 type brokerShim struct {

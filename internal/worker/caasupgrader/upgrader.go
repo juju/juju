@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"
@@ -17,12 +16,13 @@ import (
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/upgrader"
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.worker.caasupgrader")
+var logger = internallogger.GetLogger("juju.worker.caasupgrader")
 
 // Upgrader represents a worker that watches the state for upgrade
 // requests for a given CAAS agent.

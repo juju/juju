@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter"
 	uniteractions "github.com/juju/juju/internal/worker/uniter/actions"
 	unitercharm "github.com/juju/juju/internal/worker/uniter/charm"
@@ -98,7 +98,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 	c.Assert(err, jc.ErrorIsNil)
 	secretsTracker, err := secrets.NewSecrets(&dummySecretsAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	logger := loggo.GetLogger("test")
+	logger := loggertesting.WrapCheckLog(c)
 
 	s.workloadEvents = container.NewWorkloadEvents()
 	s.firstOptionalResolver = &fakeResolver{}
@@ -135,7 +135,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 		CharmURL: s.charmURL,
 	}
 	s.opFactory = operation.NewFactory(operation.FactoryParams{
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 	})
 
 	if s.clearResolved == nil {
@@ -520,7 +520,7 @@ func (s *resolverSuite) TestNoOperationIfHashesAllMatch(c *gc.C) {
 }
 
 func (s *resolverSuite) TestUpgradeOperation(c *gc.C) {
-	opFactory := setupUpgradeOpFactory()
+	opFactory := setupUpgradeOpFactory(c)
 	localState := resolver.LocalState{
 		CharmURL: s.charmURL,
 		State: operation.State{
@@ -535,7 +535,7 @@ func (s *resolverSuite) TestUpgradeOperation(c *gc.C) {
 }
 
 func (s *iaasResolverSuite) TestUpgradeOperationVerifyCPFail(c *gc.C) {
-	opFactory := setupUpgradeOpFactory()
+	opFactory := setupUpgradeOpFactory(c)
 	localState := resolver.LocalState{
 		CharmURL: s.charmURL,
 		State: operation.State{
@@ -550,7 +550,7 @@ func (s *iaasResolverSuite) TestUpgradeOperationVerifyCPFail(c *gc.C) {
 }
 
 func (s *resolverSuite) TestContinueUpgradeOperation(c *gc.C) {
-	opFactory := setupUpgradeOpFactory()
+	opFactory := setupUpgradeOpFactory(c)
 	localState := resolver.LocalState{
 		CharmURL: s.charmURL,
 		State: operation.State{
@@ -613,7 +613,7 @@ func (s *resolverSuite) TestOperationWithOptionalResolvers(c *gc.C) {
 }
 
 func (s *iaasResolverSuite) TestContinueUpgradeOperationVerifyCPFail(c *gc.C) {
-	opFactory := setupUpgradeOpFactory()
+	opFactory := setupUpgradeOpFactory(c)
 	localState := resolver.LocalState{
 		CharmURL: s.charmURL,
 		State: operation.State{
@@ -629,7 +629,7 @@ func (s *iaasResolverSuite) TestContinueUpgradeOperationVerifyCPFail(c *gc.C) {
 }
 
 func (s *resolverSuite) TestRunHookPendingUpgradeOperation(c *gc.C) {
-	opFactory := setupUpgradeOpFactory()
+	opFactory := setupUpgradeOpFactory(c)
 	localState := resolver.LocalState{
 		CharmURL: s.charmURL,
 		State: operation.State{
@@ -665,7 +665,7 @@ func (s *resolverSuite) TestRunsSecretRotated(c *gc.C) {
 
 func (s *conflictedResolverSuite) TestNextOpConflicted(c *gc.C) {
 	s.baseResolverSuite.SetUpTest(c, model.IAAS, rebootNotDetected)
-	opFactory := setupUpgradeOpFactory()
+	opFactory := setupUpgradeOpFactory(c)
 	localState := resolver.LocalState{
 		CharmURL:   s.charmURL,
 		Conflicted: true,
@@ -681,7 +681,7 @@ func (s *conflictedResolverSuite) TestNextOpConflicted(c *gc.C) {
 
 func (s *conflictedResolverSuite) TestNextOpConflictedVerifyCPFail(c *gc.C) {
 	s.baseResolverSuite.SetUpTest(c, model.IAAS, rebootNotDetected)
-	opFactory := setupUpgradeOpFactory()
+	opFactory := setupUpgradeOpFactory(c)
 	localState := resolver.LocalState{
 		CharmURL:   s.charmURL,
 		Conflicted: true,
@@ -701,7 +701,7 @@ func (s *conflictedResolverSuite) TestNextOpConflictedNewResolvedUpgrade(c *gc.C
 		return nil
 	}
 	s.baseResolverSuite.SetUpTest(c, model.IAAS, rebootNotDetected)
-	opFactory := setupUpgradeOpFactory()
+	opFactory := setupUpgradeOpFactory(c)
 	localState := resolver.LocalState{
 		CharmURL:   s.charmURL,
 		Conflicted: true,
@@ -719,7 +719,7 @@ func (s *conflictedResolverSuite) TestNextOpConflictedNewResolvedUpgrade(c *gc.C
 
 func (s *conflictedResolverSuite) TestNextOpConflictedNewRevertUpgrade(c *gc.C) {
 	s.baseResolverSuite.SetUpTest(c, model.IAAS, rebootNotDetected)
-	opFactory := setupUpgradeOpFactory()
+	opFactory := setupUpgradeOpFactory(c)
 	localState := resolver.LocalState{
 		CharmURL:   s.charmURL,
 		Conflicted: true,
@@ -845,10 +845,10 @@ func (s *rebootResolverSuite) TestStartHookDeferredWhenUpgradeIsInProgress(c *gc
 	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
-func setupUpgradeOpFactory() operation.Factory {
+func setupUpgradeOpFactory(c *gc.C) operation.Factory {
 	return operation.NewFactory(operation.FactoryParams{
 		Deployer: &fakeDeployer{},
-		Logger:   loggo.GetLogger("test"),
+		Logger:   loggertesting.WrapCheckLog(c),
 	})
 }
 

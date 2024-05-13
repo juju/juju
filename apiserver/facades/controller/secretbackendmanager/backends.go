@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -23,7 +22,6 @@ type SecretBackendsManagerAPI struct {
 
 	backendService BackendService
 	clock          clock.Clock
-	logger         loggo.Logger
 }
 
 // WatchSecretBackendsRotateChanges sets up a watcher to notify of changes to secret backend rotations.

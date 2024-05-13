@@ -6,12 +6,12 @@ package caasoperatorupgrader
 import (
 	"context"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -19,14 +19,14 @@ type API struct {
 	auth facade.Authorizer
 
 	broker caas.Upgrader
-	logger loggo.Logger
+	logger corelogger.Logger
 }
 
 // NewCAASOperatorUpgraderAPI returns a new CAAS operator upgrader API facade.
 func NewCAASOperatorUpgraderAPI(
 	authorizer facade.Authorizer,
 	broker caas.Upgrader,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*API, error) {
 	if !authorizer.AuthController() &&
 		!authorizer.AuthApplicationAgent() &&

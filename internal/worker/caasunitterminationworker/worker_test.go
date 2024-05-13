@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,6 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/agent/caasapplication"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasunitterminationworker"
 )
 
@@ -41,7 +41,7 @@ func (s *TerminationWorkerSuite) newWorker(c *gc.C, willRestart bool) worker.Wor
 	s.terminator = &mockTerminator{}
 	config := caasunitterminationworker.Config{
 		Agent:          &mockAgent{},
-		Logger:         loggo.GetLogger("test"),
+		Logger:         loggertesting.WrapCheckLog(c),
 		Clock:          clock.WallClock,
 		State:          s.state,
 		UnitTerminator: s.terminator,

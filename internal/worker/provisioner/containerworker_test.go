@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/factory"
 	"github.com/juju/juju/internal/container/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/provisioner/mocks"
@@ -161,7 +162,7 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := provisioner.ContainerSetupParams{
-		Logger:        noOpLogger{},
+		Logger:        loggertesting.WrapCheckLog(c),
 		ContainerType: instance.LXD,
 		MachineZone:   s.machine,
 		MTag:          s.machine.MachineTag(),
@@ -323,12 +324,3 @@ func (f *fakeMachineLock) Acquire(spec machinelock.Spec) (func(), error) {
 func (f *fakeMachineLock) Report(opts ...machinelock.ReportOption) (string, error) {
 	return "", nil
 }
-
-type noOpLogger struct{}
-
-func (noOpLogger) Errorf(format string, values ...interface{})   {}
-func (noOpLogger) Warningf(format string, values ...interface{}) {}
-func (noOpLogger) Infof(format string, values ...interface{})    {}
-func (noOpLogger) Debugf(format string, values ...interface{})   {}
-func (noOpLogger) Tracef(format string, values ...interface{})   {}
-func (noOpLogger) IsTraceEnabled() bool                          { return false }

@@ -15,13 +15,13 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/quota"
@@ -39,12 +39,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/version"
 )
-
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead use xxx.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 // Context exposes hooks.Context, and additional methods needed by Runner.
 type Context interface {
@@ -64,7 +58,7 @@ type Context interface {
 	Prepare(ctx context.Context) error
 	Flush(ctx context.Context, badge string, failure error) error
 
-	GetLogger(module string) loggo.Logger
+	GetLoggerByName(module string) logger.Logger
 }
 
 // Paths exposes the paths needed by Context.
@@ -280,7 +274,8 @@ type HookContext struct {
 	// clock is used for any time operations.
 	clock Clock
 
-	logger loggo.Logger
+	// logger is used for context logging.
+	logger logger.Logger
 
 	// The cloud specification
 	cloudSpec *params.CloudSpec
@@ -329,9 +324,9 @@ type HookContext struct {
 	mu sync.Mutex
 }
 
-// GetLogger returns a Logger for the specified module.
-func (c *HookContext) GetLogger(module string) loggo.Logger {
-	return c.logger.Root().Child(module)
+// GetLoggerByName returns a Logger for the specified module name.
+func (c *HookContext) GetLoggerByName(module string) logger.Logger {
+	return c.logger.GetChildByName(module)
 }
 
 // GetCharmState returns a copy of the cached charm state.

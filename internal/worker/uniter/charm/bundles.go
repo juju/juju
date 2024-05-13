@@ -11,6 +11,7 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/downloader"
 )
 
@@ -26,11 +27,11 @@ type Downloader interface {
 type BundlesDir struct {
 	path       string
 	downloader Downloader
-	logger     Logger
+	logger     logger.Logger
 }
 
 // NewBundlesDir returns a new BundlesDir which uses path for storage.
-func NewBundlesDir(path string, dlr Downloader, logger Logger) *BundlesDir {
+func NewBundlesDir(path string, dlr Downloader, logger logger.Logger) *BundlesDir {
 	if dlr == nil {
 		dlr = downloader.New(downloader.NewArgs{
 			HostnameVerification: false,

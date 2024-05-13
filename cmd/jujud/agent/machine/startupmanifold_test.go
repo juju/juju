@@ -13,6 +13,8 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
+	corelogger "github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -28,11 +30,11 @@ func (s *MachineStartupSuite) SetUpTest(c *gc.C) {
 	s.startCalled = false
 	s.manifold = machine.MachineStartupManifold(machine.MachineStartupConfig{
 		APICallerName: "api-caller",
-		MachineStartup: func(context.Context, api.Connection, machine.Logger) error {
+		MachineStartup: func(context.Context, api.Connection, corelogger.Logger) error {
 			s.startCalled = true
 			return nil
 		},
-		Logger: noOpLogger{},
+		Logger: loggertesting.WrapCheckLog(c),
 	})
 }
 
@@ -55,10 +57,3 @@ func (s *MachineStartupSuite) TestStartSuccess(c *gc.C) {
 type mockAPIConn struct {
 	api.Connection
 }
-
-type noOpLogger struct{}
-
-func (noOpLogger) Warningf(string, ...interface{})  {}
-func (noOpLogger) Criticalf(string, ...interface{}) {}
-func (noOpLogger) Debugf(string, ...interface{})    {}
-func (noOpLogger) Tracef(string, ...interface{})    {}

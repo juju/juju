@@ -16,16 +16,10 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/version"
 )
-
-// Logger defines the logging methods that the package uses.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-}
 
 // CharmArchive provides information about a downloaded charm archive.
 type CharmArchive interface {
@@ -93,13 +87,13 @@ func (dc DownloadedCharm) verify(downloadOrigin corecharm.Origin, force bool) er
 
 // Downloader implements store-agnostic download and pesistence of charm blobs.
 type Downloader struct {
-	logger     Logger
+	logger     logger.Logger
 	repoGetter RepositoryGetter
 	storage    Storage
 }
 
 // NewDownloader returns a new charm downloader instance.
-func NewDownloader(logger Logger, storage Storage, repoGetter RepositoryGetter) *Downloader {
+func NewDownloader(logger logger.Logger, storage Storage, repoGetter RepositoryGetter) *Downloader {
 	return &Downloader{
 		repoGetter: repoGetter,
 		storage:    storage,

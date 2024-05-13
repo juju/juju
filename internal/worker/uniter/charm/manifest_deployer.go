@@ -15,6 +15,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
+
+	"github.com/juju/juju/core/logger"
 )
 
 const (
@@ -36,7 +38,7 @@ const (
 // that base charm. It thus leaves user files in place, with the exception of
 // those in directories referenced only in the original charm, which will be
 // deleted.
-func NewManifestDeployer(charmPath, dataPath string, bundles BundleReader, logger Logger) Deployer {
+func NewManifestDeployer(charmPath, dataPath string, bundles BundleReader, logger logger.Logger) Deployer {
 	return &manifestDeployer{
 		charmPath: charmPath,
 		dataPath:  dataPath,
@@ -49,7 +51,7 @@ type manifestDeployer struct {
 	charmPath string
 	dataPath  string
 	bundles   BundleReader
-	logger    Logger
+	logger    logger.Logger
 	staged    struct {
 		url      string
 		bundle   Bundle
@@ -235,7 +237,7 @@ type RetryingBundleReader struct {
 	BundleReader
 
 	Clock  clock.Clock
-	Logger Logger
+	Logger logger.Logger
 }
 
 func (rbr RetryingBundleReader) Read(bi BundleInfo, abort <-chan struct{}) (Bundle, error) {

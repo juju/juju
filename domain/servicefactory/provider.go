@@ -5,6 +5,7 @@ package servicefactory
 
 import (
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
@@ -18,7 +19,7 @@ import (
 
 // ProviderFactory provides access to the services required by the apiserver.
 type ProviderFactory struct {
-	logger       Logger
+	logger       logger.Logger
 	controllerDB changestream.WatchableDBFactory
 	modelDB      changestream.WatchableDBFactory
 }
@@ -28,7 +29,7 @@ type ProviderFactory struct {
 func NewProviderFactory(
 	controllerDB changestream.WatchableDBFactory,
 	modelDB changestream.WatchableDBFactory,
-	logger Logger,
+	logger logger.Logger,
 ) *ProviderFactory {
 	return &ProviderFactory{
 		logger:       logger,

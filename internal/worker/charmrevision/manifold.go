@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/charmrevisionupdater"
+	"github.com/juju/juju/core/logger"
 )
 
 // ManifoldConfig describes how to create a worker that checks for updates
@@ -31,7 +32,7 @@ type ManifoldConfig struct {
 	Period    time.Duration
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)
-	Logger    Logger
+	Logger    logger.Logger
 }
 
 // Manifold returns a dependency.Manifold that runs a charm revision worker

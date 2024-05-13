@@ -8,17 +8,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/common"
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // Config holds configuration and dependencies for a storageprovisioner worker.
 type Config struct {
@@ -33,7 +26,7 @@ type Config struct {
 	Machines             MachineAccessor
 	Status               StatusSetter
 	Clock                clock.Clock
-	Logger               Logger
+	Logger               logger.Logger
 	CloudCallContextFunc common.CloudCallContextFunc
 }
 

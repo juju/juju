@@ -26,12 +26,6 @@ var (
 	defaultDependentChangesTimeout = time.Second
 )
 
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
-
 var newManagedFilesystemSource = provider.NewManagedFilesystemSource
 
 // VolumeAccessor defines an interface used to allow a storage provisioner

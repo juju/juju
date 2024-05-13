@@ -15,10 +15,11 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	"github.com/juju/loggo/v2"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.provider.azure.internal.azuretesting")
+var logger = internallogger.GetLogger("juju.provider.azure.internal.azuretesting")
 
 // FakeCredential is a credential that returns a fake token.
 type FakeCredential struct{}

@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/facade"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
@@ -46,7 +46,7 @@ type sharedServerContext struct {
 	centralHub           SharedHub
 	presence             presence.Recorder
 	leaseManager         lease.Manager
-	logger               loggo.Logger
+	logger               corelogger.Logger
 	charmhubHTTPClient   facade.HTTPClient
 	dbGetter             changestream.WatchableDBGetter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
@@ -71,7 +71,7 @@ type sharedServerConfig struct {
 	presence             presence.Recorder
 	leaseManager         lease.Manager
 	controllerConfig     jujucontroller.Config
-	logger               loggo.Logger
+	logger               corelogger.Logger
 	charmhubHTTPClient   facade.HTTPClient
 	dbGetter             changestream.WatchableDBGetter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter

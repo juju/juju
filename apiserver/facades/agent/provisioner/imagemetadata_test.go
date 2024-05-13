@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -70,6 +71,7 @@ func (s *ImageMetadataSuite) TestMetadataNone(c *gc.C) {
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -91,6 +93,7 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 		StatePool_:      s.StatePool(),
 		Resources_:      s.resources,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

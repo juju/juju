@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/filesystem"
@@ -38,11 +39,6 @@ type State interface {
 	WatchBlockDevices(ctx context.Context, getWatcher getWatcherFunc, machineId string) (watcher.NotifyWatcher, error)
 }
 
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
-
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
 	NewValueMapperWatcher(
@@ -55,11 +51,11 @@ type WatcherFactory interface {
 // Service defines a service for interacting with the underlying state.
 type Service struct {
 	st     State
-	logger Logger
+	logger logger.Logger
 }
 
 // NewService returns a new Service for interacting with the underlying state.
-func NewService(st State, logger Logger) *Service {
+func NewService(st State, logger logger.Logger) *Service {
 	return &Service{
 		st:     st,
 		logger: logger,
@@ -103,7 +99,7 @@ type WatchableService struct {
 
 // NewWatchableService returns a new Service for interacting with the underlying
 // state and the ability to create watchers.
-func NewWatchableService(st State, wf WatcherFactory, logger Logger) *WatchableService {
+func NewWatchableService(st State, wf WatcherFactory, logger logger.Logger) *WatchableService {
 	return &WatchableService{
 		Service: Service{
 			st:     st,

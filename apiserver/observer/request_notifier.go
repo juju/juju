@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -27,9 +27,9 @@ type Hub interface {
 type RequestObserver struct {
 	clock      clock.Clock
 	hub        Hub
-	logger     loggo.Logger
-	connLogger loggo.Logger
-	pingLogger loggo.Logger
+	logger     corelogger.Logger
+	connLogger corelogger.Logger
+	pingLogger corelogger.Logger
 
 	// state represents information that's built up as methods on this
 	// type are called. We segregate this to ensure it's clear what
@@ -58,20 +58,19 @@ type RequestObserverContext struct {
 	Hub Hub
 
 	// Logger is the log to use to write log statements.
-	Logger loggo.Logger
+	Logger corelogger.Logger
 }
 
 // NewRequestObserver returns a new RPCObserver.
 func NewRequestObserver(ctx RequestObserverContext) *RequestObserver {
 	// Ideally we should have a logging context so we can log into the correct
 	// model rather than the api server for everything.
-	module := ctx.Logger.Name()
 	return &RequestObserver{
 		clock:      ctx.Clock,
 		hub:        ctx.Hub,
 		logger:     ctx.Logger,
-		connLogger: loggo.GetLogger(module + ".connection"),
-		pingLogger: loggo.GetLogger(module + ".ping"),
+		connLogger: ctx.Logger.Child("connection"),
+		pingLogger: ctx.Logger.Child("ping"),
 	}
 }
 
@@ -153,8 +152,8 @@ func (n *RequestObserver) RPCObserver() rpc.Observer {
 // rpcObserver serves as a sink for RPC requests and responses.
 type rpcObserver struct {
 	clock        clock.Clock
-	logger       loggo.Logger
-	pingLogger   loggo.Logger
+	logger       corelogger.Logger
+	pingLogger   corelogger.Logger
 	id           uint64
 	tag          string
 	requestStart time.Time

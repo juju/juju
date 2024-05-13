@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/undertaker"
 	"github.com/juju/juju/rpc/params"
 )
@@ -126,7 +127,6 @@ type fixture struct {
 	info    params.UndertakerModelInfoResult
 	errors  []error
 	dirty   bool
-	logger  fakeLogger
 	clock   testclock.AdvanceableClock
 	advance time.Duration
 }
@@ -153,7 +153,7 @@ func (fix *fixture) run(c *gc.C, test func(worker.Worker)) *testing.Stub {
 	w, err := undertaker.NewUndertaker(undertaker.Config{
 		Facade:        facade,
 		CredentialAPI: &fakeCredentialAPI{},
-		Logger:        &fix.logger,
+		Logger:        loggertesting.WrapCheckLog(c),
 		Clock:         fix.clock,
 		NewCloudDestroyerFunc: func(ctx context.Context, op environs.OpenParams) (environs.CloudDestroyer, error) {
 			return &mockDestroyer{stub: stub}, nil

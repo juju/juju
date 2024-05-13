@@ -16,7 +16,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"golang.org/x/crypto/ssh/terminal"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -34,10 +33,11 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/environs"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/jujuclient"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.k8s")
+var logger = internallogger.GetLogger("juju.cmd.juju.k8s")
 
 type CloudMetadataStore interface {
 	ReadCloudData(path string) ([]byte, error)

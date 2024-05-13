@@ -13,19 +13,11 @@ import (
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/gate"
 	jujuversion "github.com/juju/juju/version"
 )
-
-// Logger defines the logging methods used by the worker.
-type Logger interface {
-	Errorf(string, ...any)
-	Warningf(string, ...any)
-	Infof(string, ...any)
-	Debugf(string, ...any)
-	Tracef(string, ...any)
-}
 
 // ManifoldConfig defines the configuration on which this manifold depends.
 type ManifoldConfig struct {
@@ -33,7 +25,7 @@ type ManifoldConfig struct {
 	UpgradeDBGateName  string
 	ServiceFactoryName string
 	DBAccessorName     string
-	Logger             Logger
+	Logger             logger.Logger
 	Clock              clock.Clock
 	NewWorker          func(Config) (worker.Worker, error)
 }

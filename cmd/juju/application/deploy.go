@@ -169,8 +169,8 @@ func newDeployCommand() *DeployCommand {
 		}
 
 		return charmhub.NewClient(charmhub.Config{
-			URL:           charmHubURL,
-			LoggerFactory: charmhub.LoggoLoggerFactory(logger),
+			URL:    charmHubURL,
+			Logger: logger,
 		})
 	}
 	deployCmd.NewDeployAPI = func() (deployer.DeployerAPI, error) {

@@ -65,7 +65,7 @@ func (s *UniterSecretsSuite) setup(c *gc.C) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Now())
 
 	var err error
-	s.facade, err = NewTestAPI(s.authorizer, s.leadership, s.secretService, s.clock)
+	s.facade, err = NewTestAPI(c, s.authorizer, s.leadership, s.secretService, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl

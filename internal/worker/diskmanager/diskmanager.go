@@ -9,14 +9,14 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/core/blockdevice"
+	internallogger "github.com/juju/juju/internal/logger"
 	jworker "github.com/juju/juju/internal/worker"
 )
 
-var logger = loggo.GetLogger("juju.worker.diskmanager")
+var logger = internallogger.GetLogger("juju.worker.diskmanager")
 
 const (
 	// listBlockDevicesPeriod is the time period between block device listings.

@@ -8,11 +8,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 )
 
@@ -22,26 +22,23 @@ type TracerGetter interface {
 	GetTracer(context.Context, coretrace.TracerNamespace) (coretrace.Tracer, error)
 }
 
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...any)
-	Warningf(message string, args ...any)
-	Infof(message string, args ...any)
-	Debugf(message string, args ...any)
-	Tracef(message string, args ...any)
-
-	IsTraceEnabled() bool
-	IsLevelEnabled(loggo.Level) bool
-}
-
 // TracerWorkerFunc is the function signature for creating a new tracer worker.
-type TracerWorkerFunc func(ctx context.Context, namespace coretrace.TaggedTracerNamespace, endpoint string, insecureSkipVerify bool, showStackTraces bool, sampleRatio float64, logger Logger, newClient NewClientFunc) (TrackedTracer, error)
+type TracerWorkerFunc func(
+	ctx context.Context,
+	namespace coretrace.TaggedTracerNamespace,
+	endpoint string,
+	insecureSkipVerify bool,
+	showStackTraces bool,
+	sampleRatio float64,
+	logger logger.Logger,
+	newClient NewClientFunc,
+) (TrackedTracer, error)
 
 // ManifoldConfig defines the configuration for the trace manifold.
 type ManifoldConfig struct {
 	AgentName       string
 	Clock           clock.Clock
-	Logger          Logger
+	Logger          logger.Logger
 	NewTracerWorker TracerWorkerFunc
 	Kind            coretrace.Kind
 }

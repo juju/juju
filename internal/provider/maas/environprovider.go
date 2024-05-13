@@ -12,13 +12,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gomaasapi/v2"
 	"github.com/juju/jsonschema"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 var cloudSchema = &jsonschema.Schema{
@@ -41,7 +41,7 @@ var cloudSchema = &jsonschema.Schema{
 }
 
 // Logger for the MAAS provider.
-var logger = loggo.GetLogger("juju.provider.maas")
+var logger = internallogger.GetLogger("juju.provider.maas")
 
 type EnvironProvider struct {
 	environProviderCredentials

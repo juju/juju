@@ -19,6 +19,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
@@ -83,15 +84,6 @@ type PermissionService interface {
 	AddUserPermission(ctx context.Context, username string, access permission.Access) error
 }
 
-// Logger represents the methods used by the worker to log information.
-type Logger interface {
-	Errorf(string, ...any)
-	Warningf(string, ...any)
-	Infof(string, ...any)
-	Debugf(string, ...any)
-	Tracef(string, ...any)
-}
-
 // Config represents configuration for the controlsocket worker.
 type Config struct {
 	// UserService is the user service for the model.
@@ -103,7 +95,7 @@ type Config struct {
 	// NewSocketListener is the function that creates a new socket listener.
 	NewSocketListener func(socketlistener.Config) (SocketListener, error)
 	// Logger is the logger used by the worker.
-	Logger Logger
+	Logger logger.Logger
 }
 
 // Validate returns an error if config cannot drive the Worker.
@@ -132,7 +124,7 @@ type Worker struct {
 
 	userService       UserService
 	permissionService PermissionService
-	logger            Logger
+	logger            logger.Logger
 }
 
 // NewWorker returns a controlsocket worker with the given config.

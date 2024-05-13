@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
@@ -20,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/pubsub/forwarder"
 	psworker "github.com/juju/juju/internal/worker/pubsub"
@@ -40,13 +40,17 @@ var _ = gc.Suite(&RemoteServerSuite{})
 
 func (s *RemoteServerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	logger := loggo.GetLogger("juju.worker.pubsub")
-	logger.SetLogLevel(loggo.TRACE)
+
+	logger := loggertesting.WrapCheckLog(c)
+
 	s.connectionOpener = &fakeConnectionOpener{}
+
 	tag := names.NewMachineTag("42")
+
 	s.clock = testclock.NewClock(time.Now())
 	s.hub = centralhub.New(tag, centralhub.PubsubNoOpMetrics{})
 	s.origin = tag.String()
+
 	s.config = psworker.RemoteServerConfig{
 		Hub:    s.hub,
 		Origin: s.origin,

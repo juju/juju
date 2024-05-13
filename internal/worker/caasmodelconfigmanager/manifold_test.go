@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager/mocks"
 )
@@ -33,10 +33,10 @@ type manifoldSuite struct {
 
 func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.config = s.validConfig()
+	s.config = s.validConfig(c)
 }
 
-func (s *manifoldSuite) validConfig() caasmodelconfigmanager.ManifoldConfig {
+func (s *manifoldSuite) validConfig(c *gc.C) caasmodelconfigmanager.ManifoldConfig {
 	return caasmodelconfigmanager.ManifoldConfig{
 		APICallerName: "api-caller",
 		BrokerName:    "broker",
@@ -46,7 +46,7 @@ func (s *manifoldSuite) validConfig() caasmodelconfigmanager.ManifoldConfig {
 		NewFacade: func(caller base.APICaller) (caasmodelconfigmanager.Facade, error) {
 			return nil, nil
 		},
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 		Clock:  testclock.NewClock(time.Time{}),
 	}
 }

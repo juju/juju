@@ -17,16 +17,16 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/sockets"
 )
 
 // This logger is fine being package level as this jujuc executable
 // is separate from the uniter in that it is run inside hooks.
-var logger = loggo.GetLogger("jujuc")
+var logger = internallogger.GetLogger("jujuc")
 
 // ErrNoStdin is returned by Jujuc.Main if the hook tool requests
 // stdin, and none is supplied.
@@ -206,7 +206,7 @@ func (j *Jujuc) Main(req Request, resp *exec.ExecResponse) error {
 	defer j.mu.Unlock()
 	// Beware, reducing the log level of the following line will lead
 	// to passwords leaking if passed as args.
-	logger.Tracef("running hook tool %q %q", req.CommandName, req.Args)
+	logger.Tracef("running hook tool %q %q", req.CommandName)
 	logger.Debugf("running hook tool %q for %s", req.CommandName, req.ContextId)
 	logger.Tracef("hook context id %q; dir %q", req.ContextId, req.Dir)
 	wrapper := &cmdWrapper{c, nil}

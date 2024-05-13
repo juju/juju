@@ -9,9 +9,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jujuos "github.com/juju/os/v2"
 	"github.com/juju/os/v2/series"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 const (
@@ -90,7 +91,7 @@ func composeSeriesVersions() {
 }
 
 var (
-	logger = loggo.GetLogger("juju.juju.base")
+	logger = internallogger.GetLogger("juju.juju.base")
 
 	seriesVersionsMutex sync.Mutex
 )

@@ -7,12 +7,12 @@ import (
 	"fmt"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/multiwatcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/multiwatcher/testbacking"
 )
 
@@ -26,12 +26,12 @@ func (*workerSuite) TestHandle(c *gc.C) {
 	sm := &Worker{
 		config: Config{
 			Clock:   clock.WallClock,
-			Logger:  loggo.GetLogger("test.worker"),
+			Logger:  loggertesting.WrapCheckLog(c),
 			Backing: testbacking.New(nil),
 		},
 		request: make(chan *request),
 		waiting: make(map[*Watcher]*request),
-		store:   multiwatcher.NewStore(loggo.GetLogger("test.store")),
+		store:   multiwatcher.NewStore(loggertesting.WrapCheckLog(c)),
 	}
 
 	// Add request from first watcher.
@@ -89,12 +89,12 @@ func (*workerSuite) TestRespondMultiple(c *gc.C) {
 	sm := &Worker{
 		config: Config{
 			Clock:   clock.WallClock,
-			Logger:  loggo.GetLogger("test.worker"),
+			Logger:  loggertesting.WrapCheckLog(c),
 			Backing: testbacking.New(nil),
 		},
 		request: make(chan *request),
 		waiting: make(map[*Watcher]*request),
-		store:   multiwatcher.NewStore(loggo.GetLogger("test.store")),
+		store:   multiwatcher.NewStore(loggertesting.WrapCheckLog(c)),
 	}
 
 	sm.store.Update(&multiwatcher.MachineInfo{ID: "0"})
@@ -214,12 +214,12 @@ func (s *workerSuite) TestRespondResults(c *gc.C) {
 			sm := &Worker{
 				config: Config{
 					Clock:   clock.WallClock,
-					Logger:  loggo.GetLogger("test.worker"),
+					Logger:  loggertesting.WrapCheckLog(c),
 					Backing: testbacking.New(nil),
 				},
 				request: make(chan *request),
 				waiting: make(map[*Watcher]*request),
-				store:   multiwatcher.NewStore(loggo.GetLogger("test.store")),
+				store:   multiwatcher.NewStore(loggertesting.WrapCheckLog(c)),
 			}
 
 			c.Logf("test %0*b", len(respondTestChanges), ns)

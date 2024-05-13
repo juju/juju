@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
@@ -82,7 +83,7 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 		internalStates: s.states,
 		cfg: WorkerConfig{
 			ObjectStoreGetter: s.objectStoreGetter,
-			AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
+			AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error) {
 				called = true
 				return func() {}, nil
 			},
@@ -92,8 +93,8 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 			PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 				return nil
 			},
-			SystemState:   s.state,
-			LoggerFactory: s.loggerFactory,
+			SystemState: s.state,
+			Logger:      s.logger,
 		},
 	}
 	cleanup, err := w.seedAgentBinary(context.Background(), c.MkDir())
@@ -230,7 +231,7 @@ func (s *workerSuite) TestSeedStoragePools(c *gc.C) {
 			ProviderRegistry:  provider.CommonStorageProviders(),
 			StorageService:    s.storageService,
 			SystemState:       s.state,
-			LoggerFactory:     s.loggerFactory,
+			Logger:            s.logger,
 		},
 	}
 	err := w.seedStoragePools(context.Background(), map[string]storage.Attrs{
@@ -245,7 +246,7 @@ func (s *workerSuite) TestSeedStoragePools(c *gc.C) {
 
 func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 	w, err := newWorker(WorkerConfig{
-		LoggerFactory:           s.loggerFactory,
+		Logger:                  s.logger,
 		Agent:                   s.agent,
 		ObjectStoreGetter:       s.objectStoreGetter,
 		BootstrapUnlocker:       s.bootstrapUnlocker,
@@ -263,7 +264,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil
 		},
-		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, Logger) (func(), error) {
+		AgentBinaryUploader: func(context.Context, string, BinaryAgentStorageService, objectstore.ObjectStore, logger.Logger) (func(), error) {
 			return func() {}, nil
 		},
 		ControllerCharmDeployer: func(ControllerCharmDeployerConfig) (bootstrap.ControllerCharmDeployer, error) {

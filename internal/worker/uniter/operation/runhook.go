@@ -10,6 +10,7 @@ import (
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
@@ -30,7 +31,7 @@ type runHook struct {
 
 	name   string
 	runner runner.Runner
-	logger Logger
+	logger logger.Logger
 
 	hookFound bool
 

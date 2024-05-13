@@ -14,24 +14,19 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/rpc/params"
 )
 
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead pass one through as config to the worker.
-type logger interface{}
-
-var _ logger = struct{}{}
-
 // Deployer is responsible for deploying and recalling unit agents, according
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
 type Deployer struct {
 	client   Client
-	logger   Logger
+	logger   logger.Logger
 	ctx      Context
 	deployed set.Strings
 }
@@ -85,7 +80,7 @@ type Context interface {
 
 // NewDeployer returns a Worker that deploys and recalls unit agents
 // via ctx, taking a machine id to operate on.
-func NewDeployer(client Client, logger Logger, ctx Context) (worker.Worker, error) {
+func NewDeployer(client Client, logger logger.Logger, ctx Context) (worker.Worker, error) {
 	d := &Deployer{
 		client:   client,
 		logger:   logger,

@@ -11,11 +11,11 @@ import (
 
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
@@ -81,7 +81,7 @@ type contextFactory struct {
 	secretsBackendGetter SecretsBackendGetter
 	tracker              leadership.Tracker
 
-	logger loggo.Logger
+	logger logger.Logger
 
 	// Fields that shouldn't change in a factory's lifetime.
 	paths      Paths
@@ -114,7 +114,7 @@ type FactoryConfig struct {
 	GetRelationInfos     RelationsFunc
 	Paths                Paths
 	Clock                Clock
-	Logger               loggo.Logger
+	Logger               logger.Logger
 }
 
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed

@@ -12,14 +12,14 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/internal/charmhub"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.charmhub")
+var logger = internallogger.GetLogger("juju.cmd.juju.charmhub")
 
 func newCharmHubCommand() *charmHubCommand {
 	return &charmHubCommand{

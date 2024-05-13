@@ -10,14 +10,14 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.cloudinit.sshinit")
+var logger = internallogger.GetLogger("juju.cloudinit.sshinit")
 
 type ConfigureParams struct {
 	// Host is the host to configure, in the format [user@]hostname.

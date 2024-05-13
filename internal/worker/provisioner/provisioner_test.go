@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	environmocks "github.com/juju/juju/environs/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/provisioner/mocks"
@@ -248,7 +248,7 @@ func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Prov
 		mockToolsFinder{},
 		&mockDistributionGroupFinder{},
 		agentConfig,
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 		s.broker, &credentialAPIForTest{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -386,7 +386,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 			ensureDeadErr: s2e(t.ensureDeadErr),
 			statusErr:     s2e(t.statusErr),
 		}
-		classification, err := provisioner.ClassifyMachine(loggo.GetLogger("test"), &machine)
+		classification, err := provisioner.ClassifyMachine(loggertesting.WrapCheckLog(c), &machine)
 		if err != nil {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf(t.expectErrFmt, machine.Id()))
 		} else {

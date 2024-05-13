@@ -7,7 +7,6 @@ import (
 	stdcontext "context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -20,6 +19,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -89,7 +89,7 @@ func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 	s.mockNetworkService = subnets.NewMockNetworkService(ctrl)
 
 	var err error
-	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, apiservertesting.NoopModelCredentialInvalidatorGetter, s.mockResource, s.mockAuthorizer, loggo.GetLogger("juju.apiserver.subnets"), s.mockNetworkService)
+	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, apiservertesting.NoopModelCredentialInvalidatorGetter, s.mockResource, s.mockAuthorizer, loggertesting.WrapCheckLog(c), s.mockNetworkService)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return ctrl
@@ -151,7 +151,7 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources,
 		s.authorizer,
-		loggo.GetLogger("juju.apiserver.subnets"),
+		loggertesting.WrapCheckLog(c),
 		s.mockNetworkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -182,7 +182,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources,
 		s.authorizer,
-		loggo.GetLogger("juju.apiserver.subnets"),
+		loggertesting.WrapCheckLog(c),
 		s.mockNetworkService,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -198,7 +198,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		s.resources,
 		agentAuthorizer,
-		loggo.GetLogger("juju.apiserver.subnets"),
+		loggertesting.WrapCheckLog(c),
 		s.mockNetworkService,
 	)
 	c.Assert(err, jc.DeepEquals, apiservererrors.ErrPerm)

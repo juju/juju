@@ -22,6 +22,7 @@ import (
 	keymanagertesting "github.com/juju/juju/apiserver/facades/client/keymanager/testing"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -54,7 +55,7 @@ func (s *keyManagerSuite) setup(c *gc.C) *gomock.Controller {
 		Tag: s.apiUser,
 	}
 
-	s.api = keymanager.NewKeyManagerAPI(s.model, s.authorizer, s.blockChecker, coretesting.ControllerTag, state.NoopConfigSchemaSource, coretesting.NewCheckLogger(c))
+	s.api = keymanager.NewKeyManagerAPI(s.model, s.authorizer, s.blockChecker, coretesting.ControllerTag, state.NoopConfigSchemaSource, loggertesting.WrapCheckLog(c))
 
 	return ctrl
 }

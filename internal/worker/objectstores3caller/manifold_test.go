@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/internal/s3client"
@@ -62,7 +63,7 @@ func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		HTTPClientName:     "http-client",
 		ServiceFactoryName: "service-factory",
-		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, s3client.Logger) (objectstore.Session, error) {
+		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, logger.Logger) (objectstore.Session, error) {
 			return s.session, nil
 		},
 		Logger: s.logger,

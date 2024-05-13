@@ -47,7 +47,7 @@ func (s *CredentialValidatorSuite) SetUpTest(c *gc.C) {
 	}
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	api, err := credentialvalidator.NewCredentialValidatorAPIForTest(s.backend, s.cloudService, s.credentialService, s.resources, s.authorizer)
+	api, err := credentialvalidator.NewCredentialValidatorAPIForTest(c, s.backend, s.cloudService, s.credentialService, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 }

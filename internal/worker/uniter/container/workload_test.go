@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/container"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -61,7 +61,7 @@ func (s *workloadSuite) TestWorkloadReadyHook(c *gc.C) {
 		c.Assert(err, gc.Equals, expectedErr)
 	}
 	containerResolver := container.NewWorkloadHookResolver(
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 		events,
 		events.RemoveWorkloadEvent)
 	localState := resolver.LocalState{
@@ -98,7 +98,7 @@ func (s *workloadSuite) TestWorkloadCustomNoticeHook(c *gc.C) {
 		c.Assert(err, gc.Equals, expectedErr)
 	}
 	containerResolver := container.NewWorkloadHookResolver(
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 		events,
 		events.RemoveWorkloadEvent)
 	localState := resolver.LocalState{

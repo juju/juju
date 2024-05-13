@@ -10,24 +10,20 @@ import (
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/state"
 )
-
-// Logger is the minimal logging interface required by the authenticator.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
 
 // AgentAuthenticatorFactory is a factory for creating authenticators, which
 // can create authenticators for a given state.
 type AgentAuthenticatorFactory struct {
 	legacyState *state.State
-	logger      Logger
+	logger      corelogger.Logger
 }
 
 // NewAgentAuthenticatorFactory returns a new agent authenticator factory, for
 // a known state.
-func NewAgentAuthenticatorFactory(legacyState *state.State, logger Logger) AgentAuthenticatorFactory {
+func NewAgentAuthenticatorFactory(legacyState *state.State, logger corelogger.Logger) AgentAuthenticatorFactory {
 	return AgentAuthenticatorFactory{
 		legacyState: legacyState,
 		logger:      logger,
@@ -52,7 +48,7 @@ func (f AgentAuthenticatorFactory) AuthenticatorForState(st *state.State) Entity
 
 type agentAuthenticator struct {
 	state  *state.State
-	logger Logger
+	logger corelogger.Logger
 }
 
 type taggedAuthenticator interface {

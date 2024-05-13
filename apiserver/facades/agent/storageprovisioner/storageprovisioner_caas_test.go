@@ -7,7 +7,6 @@ import (
 	"context"
 	"sort"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/life"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -78,7 +78,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 		registry,
 		storageService,
-		loggo.GetLogger("juju.apiserver.storageprovisioner"),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/api/controller/remoterelations"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/firewaller"
 	coretesting "github.com/juju/juju/testing"
@@ -39,7 +39,7 @@ func (s *ManifoldSuite) TestManifoldFirewallModeNone(c *gc.C) {
 		},
 	}
 
-	manifold := firewaller.Manifold(validConfig())
+	manifold := firewaller.Manifold(validConfig(c))
 	_, err := manifold.Start(context.Background(), ctx)
 	c.Assert(err, gc.Equals, dependency.ErrUninstall)
 }
@@ -74,15 +74,15 @@ var _ = gc.Suite(&ManifoldConfigSuite{})
 
 func (s *ManifoldConfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.config = validConfig()
+	s.config = validConfig(c)
 }
 
-func validConfig() firewaller.ManifoldConfig {
+func validConfig(c *gc.C) firewaller.ManifoldConfig {
 	return firewaller.ManifoldConfig{
 		AgentName:                    "agent",
 		APICallerName:                "api-caller",
 		EnvironName:                  "environ",
-		Logger:                       loggo.GetLogger("test"),
+		Logger:                       loggertesting.WrapCheckLog(c),
 		NewControllerConnection:      func(*api.Info) (api.Connection, error) { return nil, nil },
 		NewFirewallerFacade:          func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
 		NewFirewallerWorker:          func(firewaller.Config) (worker.Worker, error) { return nil, nil },

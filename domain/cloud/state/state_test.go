@@ -33,8 +33,8 @@ import (
 	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/internal/changestream/testing"
 	jujudb "github.com/juju/juju/internal/database"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type stateSuite struct {
@@ -715,7 +715,7 @@ func (s *stateSuite) watcherFunc(c *gc.C, expectedChangeValue string) watcherFun
 		db, err := s.GetWatchableDB(namespace)
 		c.Assert(err, jc.ErrorIsNil)
 
-		base := eventsource.NewBaseWatcher(db, jujutesting.NewCheckLogger(c))
+		base := eventsource.NewBaseWatcher(db, loggertesting.WrapCheckLog(c))
 		return eventsource.NewValueWatcher(base, namespace, changeValue, changeMask), nil
 	}
 }

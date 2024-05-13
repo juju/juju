@@ -7,11 +7,12 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/version/v2"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.upgrade")
+var logger = internallogger.GetLogger("juju.upgrade")
 
 // Step defines an idempotent operation that is run to perform
 // a specific upgrade step.

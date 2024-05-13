@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
@@ -39,19 +39,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// Logger represents the methods used for logging messages.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-	IsTraceEnabled() bool
-
-	Child(string) loggo.Logger
-	ChildWithTags(name string, labels ...string) loggo.Logger
-}
-
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
@@ -67,7 +54,7 @@ type ManifoldConfig struct {
 	MachineLock                  machinelock.Lock
 	Clock                        clock.Clock
 	TranslateResolverErr         func(error) error
-	Logger                       Logger
+	Logger                       logger.Logger
 	Sidecar                      bool
 	EnforcedCharmModifiedVersion int
 	ContainerNames               []string

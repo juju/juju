@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/envcontext"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/rpc/params"
@@ -71,7 +71,7 @@ func (s *storageProvisionerSuite) TestStartStop(c *gc.C) {
 		Machines:    newMockMachineAccessor(c),
 		Status:      &mockStatusSetter{},
 		Clock:       &mockClock{},
-		Logger:      loggo.GetLogger("test"),
+		Logger:      loggertesting.WrapCheckLog(c),
 		CloudCallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
@@ -2330,7 +2330,7 @@ func newStorageProvisioner(c *gc.C, args *workerArgs) worker.Worker {
 		Machines:    args.machines,
 		Status:      args.statusSetter,
 		Clock:       args.clock,
-		Logger:      loggo.GetLogger("test"),
+		Logger:      loggertesting.WrapCheckLog(c),
 		CloudCallContextFunc: func(ctx context.Context) envcontext.ProviderCallContext {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},

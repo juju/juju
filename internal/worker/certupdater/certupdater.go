@@ -11,16 +11,11 @@ import (
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/pki"
 )
-
-// Logger is an interface for logging messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-}
 
 // ControllerConfigGetter is an interface that returns the controller config.
 type ControllerConfigGetter interface {
@@ -38,7 +33,7 @@ type CertificateUpdater struct {
 	hostPortsGetter  APIHostPortsGetter
 	addresses        network.SpaceAddresses
 	ctrlConfigGetter ControllerConfigGetter
-	logger           Logger
+	logger           logger.Logger
 }
 
 // AddressWatcher is an interface that is provided to NewCertificateUpdater
@@ -66,7 +61,7 @@ type Config struct {
 	Authority              pki.Authority
 	APIHostPortsGetter     APIHostPortsGetter
 	ControllerConfigGetter ControllerConfigGetter
-	Logger                 Logger
+	Logger                 logger.Logger
 }
 
 // NewCertificateUpdater returns a worker.Worker that watches for changes to

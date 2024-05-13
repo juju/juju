@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/internal/service"
 )
@@ -23,7 +24,7 @@ type Upgrader interface {
 // upgrader implements the Upgrader interface for a specific (from/to) upgrade
 // of the host Ubuntu version, via the systemd service manager.
 type upgrader struct {
-	logger Logger
+	logger logger.Logger
 
 	machineAgent string
 	unitAgents   []string
@@ -34,7 +35,7 @@ type upgrader struct {
 // NewUpgrader uses the input function to determine the series that should be
 // supported, and returns a reference to a new Upgrader that supports it.
 func NewUpgrader(
-	manager service.SystemdServiceManager, logger Logger,
+	manager service.SystemdServiceManager, logger logger.Logger,
 ) (Upgrader, error) {
 	return &upgrader{
 		logger:  logger,

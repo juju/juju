@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -40,15 +41,6 @@ var (
 	// changes when there is less activity.
 	backOffStrategy = retry.ExpBackoff(time.Millisecond*10, time.Millisecond*250, 1.5, false)
 )
-
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
-	Tracef(message string, args ...interface{})
-	IsTraceEnabled() bool
-}
 
 // MetricsCollector represents the metrics methods called.
 type MetricsCollector interface {
@@ -115,7 +107,7 @@ type Stream struct {
 	db           coredatabase.TxnRunner
 	fileNotifier FileNotifier
 	clock        clock.Clock
-	logger       Logger
+	logger       logger.Logger
 	metrics      MetricsCollector
 
 	terms chan changestream.Term
@@ -132,7 +124,7 @@ func New(
 	fileNotifier FileNotifier,
 	clock clock.Clock,
 	metrics MetricsCollector,
-	logger Logger,
+	logger logger.Logger,
 ) *Stream {
 	stream := &Stream{
 		id:           id,

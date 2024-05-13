@@ -14,26 +14,21 @@ import (
 
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/txn"
 	"github.com/juju/juju/internal/uuid"
 )
 
-// Logger is the interface used by the state to log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-}
-
 // State describes retrieval and persistence methods for storage.
 type State struct {
 	*domain.StateBase
-	logger Logger
+	logger logger.Logger
 }
 
 // NewState returns a new state reference.
-func NewState(factory coreDB.TxnRunnerFactory, logger Logger) *State {
+func NewState(factory coreDB.TxnRunnerFactory, logger logger.Logger) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 		logger:    logger,

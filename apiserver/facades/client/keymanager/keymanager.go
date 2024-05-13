@@ -18,16 +18,11 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
-
-// Logger is the minimal logging interface required by the KeyManagerAPI.
-type Logger interface {
-	Debugf(string, ...any)
-	Warningf(string, ...any)
-}
 
 // jujuKeyCommentIdentifiers is the set of identifiers in use by Juju system
 // keys that may be stored within model config.
@@ -41,7 +36,7 @@ type KeyManagerAPI struct {
 	configSchemaSourceGetter config.ConfigSchemaSourceGetter
 
 	controllerTag names.ControllerTag
-	logger        Logger
+	logger        corelogger.Logger
 }
 
 func (api *KeyManagerAPI) checkCanRead(sshUser string) error {

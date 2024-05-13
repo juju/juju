@@ -18,7 +18,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/retry"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/packaging"
 	"github.com/juju/juju/internal/packaging/dependency"
 	"github.com/juju/juju/internal/service/common"
@@ -34,7 +34,7 @@ import (
 	"github.com/juju/juju/internal/service/systemd"
 )
 
-var logger = loggo.GetLogger("juju.mongo")
+var logger = internallogger.GetLogger("juju.mongo")
 
 // StorageEngine represents the storage used by mongo.
 type StorageEngine string

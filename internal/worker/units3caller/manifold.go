@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/s3client"
 )
@@ -26,10 +27,10 @@ type ManifoldConfig struct {
 	APICallerName string
 
 	// NewClient is used to create a new object store client.
-	NewClient func(string, s3client.HTTPClient, s3client.Logger) (objectstore.ReadSession, error)
+	NewClient func(string, s3client.HTTPClient, logger.Logger) (objectstore.ReadSession, error)
 
 	// Logger is used to write logging statements for the worker.
-	Logger s3client.Logger
+	Logger logger.Logger
 }
 
 func (cfg ManifoldConfig) Validate() error {
@@ -84,7 +85,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 // This only provides a read only session to the object store. As this is
 // intended to be used by the unit, there is never an expectation that the unit
 // will write to the object store.
-func NewS3Client(url string, client s3client.HTTPClient, logger s3client.Logger) (objectstore.ReadSession, error) {
+func NewS3Client(url string, client s3client.HTTPClient, logger logger.Logger) (objectstore.ReadSession, error) {
 	return s3client.NewS3Client(url, client, s3client.AnonymousCredentials{}, logger)
 }
 

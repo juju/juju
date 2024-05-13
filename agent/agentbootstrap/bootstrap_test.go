@@ -20,6 +20,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -29,6 +30,7 @@ import (
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/network"
@@ -182,7 +184,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 				c.Assert(t, gc.Equals, "dummy")
 				return &envProvider, nil
 			},
-			Logger: testing.NewCheckLogger(c),
+			Logger: loggertesting.WrapCheckLog(c),
 			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
 				return state.NoopInstancePrechecker{}, nil
 			},
@@ -356,7 +358,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 			SharedSecret:              "abc123",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           bootstrapDqliteWithDummyCloudType,
-			Logger:                    testing.NewCheckLogger(c),
+			Logger:                    loggertesting.WrapCheckLog(c),
 			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
 				return state.NoopInstancePrechecker{}, nil
 			},
@@ -435,7 +437,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			Provider: func(t string) (environs.EnvironProvider, error) {
 				return &fakeProvider{}, nil
 			},
-			Logger: testing.NewCheckLogger(c),
+			Logger: loggertesting.WrapCheckLog(c),
 			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
 				return state.NoopInstancePrechecker{}, nil
 			},
@@ -458,7 +460,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			SharedSecret:              "baz",
 			StorageProviderRegistry:   provider.CommonStorageProviders(),
 			BootstrapDqlite:           database.BootstrapDqlite,
-			Logger:                    testing.NewCheckLogger(c),
+			Logger:                    loggertesting.WrapCheckLog(c),
 			InstancePrecheckerGetter: func(s *state.State) (environs.InstancePrechecker, error) {
 				return state.NoopInstancePrechecker{}, nil
 			},
@@ -563,7 +565,7 @@ func bootstrapDqliteWithDummyCloudType(
 	ctx context.Context,
 	mgr database.BootstrapNodeManager,
 	modelUUID model.UUID,
-	logger database.Logger,
+	logger logger.Logger,
 	opts ...database.BootstrapOpt,
 ) error {
 	// The dummy cloud type needs to be inserted before the other operations.

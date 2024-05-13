@@ -6,7 +6,6 @@ package common_test
 import (
 	"context"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/common/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -62,7 +62,7 @@ func (s *unitStateSuite) assertBackendApi(c *gc.C) *gomock.Controller {
 	}
 
 	s.api = common.NewUnitStateAPI(
-		s.controllerConfigGetter, s.mockBackend, resources, authorizer, unitAuthFunc, loggo.GetLogger("juju.apiserver.common"))
+		s.controllerConfigGetter, s.mockBackend, resources, authorizer, unitAuthFunc, loggertesting.WrapCheckLog(c))
 	return ctrl
 }
 

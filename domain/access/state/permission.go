@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
@@ -27,11 +28,11 @@ import (
 // PermissionState describes retrieval and persistence methods for storage.
 type PermissionState struct {
 	*domain.StateBase
-	logger Logger
+	logger logger.Logger
 }
 
 // NewPermissionState returns a new state reference.
-func NewPermissionState(factory coredatabase.TxnRunnerFactory, logger Logger) *PermissionState {
+func NewPermissionState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *PermissionState {
 	return &PermissionState{
 		StateBase: domain.NewStateBase(factory),
 		logger:    logger,

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -20,12 +21,6 @@ import (
 // error if a specific cleanup fails, and the watcher will not
 // be triggered unless a new cleanup is added.
 const period = 30 * time.Second
-
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead pass one through as config to the worker.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 type StateCleaner interface {
 	Cleanup() error
@@ -38,13 +33,13 @@ type Cleaner struct {
 	st       StateCleaner
 	watcher  watcher.NotifyWatcher
 	clock    clock.Clock
-	logger   Logger
+	logger   logger.Logger
 }
 
 // NewCleaner returns a worker.Worker that runs state.Cleanup()
 // periodically, and whenever the CleanupWatcher signals documents
 // marked for deletion.
-func NewCleaner(st StateCleaner, clock clock.Clock, logger Logger) (worker.Worker, error) {
+func NewCleaner(st StateCleaner, clock clock.Clock, logger logger.Logger) (worker.Worker, error) {
 	watcher, err := st.WatchCleanups()
 	if err != nil {
 		return nil, errors.Trace(err)

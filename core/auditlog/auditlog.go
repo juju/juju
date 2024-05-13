@@ -14,13 +14,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/lumberjack/v2"
 
 	"github.com/juju/juju/core/paths"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("core.auditlog")
+var logger = internallogger.GetLogger("core.auditlog")
 
 // Conversation represents a high-level juju command from the juju
 // client (or other client). There'll be one Conversation per API

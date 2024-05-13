@@ -11,6 +11,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -31,7 +32,7 @@ type remoteRelationsWorker struct {
 	applicationToken    string
 	relationsWatcher    watcher.RelationStatusWatcher
 	changes             chan<- RelationUnitChangeEvent
-	logger              Logger
+	logger              logger.Logger
 }
 
 func newRemoteRelationsWorker(
@@ -40,7 +41,7 @@ func newRemoteRelationsWorker(
 	remoteRelationToken string,
 	relationsWatcher watcher.RelationStatusWatcher,
 	changes chan<- RelationUnitChangeEvent,
-	logger Logger,
+	logger logger.Logger,
 ) (*remoteRelationsWorker, error) {
 	w := &remoteRelationsWorker{
 		relationsWatcher:    relationsWatcher,

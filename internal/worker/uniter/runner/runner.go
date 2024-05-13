@@ -22,11 +22,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	utilexec "github.com/juju/utils/v4/exec"
 	"github.com/kballard/go-shellquote"
 
 	"github.com/juju/juju/core/actions"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
@@ -160,8 +160,8 @@ type runner struct {
 	remoteExecutor ExecFunc
 }
 
-func (runner *runner) logger() loggo.Logger {
-	return runner.context.GetLogger("juju.worker.uniter.runner")
+func (runner *runner) logger() corelogger.Logger {
+	return runner.context.GetLoggerByName("juju.worker.uniter.runner")
 }
 
 func (runner *runner) Context() context.Context {
@@ -491,8 +491,8 @@ func (runner *runner) runCharmHookWithLocation(ctx stdcontext.Context, hookName,
 // loggerAdaptor implements MessageReceiver and
 // sends messages to a logger.
 type loggerAdaptor struct {
-	loggo.Logger
-	level loggo.Level
+	corelogger.Logger
+	level corelogger.Level
 }
 
 // Messagef implements the charmrunner MessageReceiver interface
@@ -550,7 +550,7 @@ func (runner *runner) runCharmProcessOnRemote(hook, hookName, charmDir string, e
 
 	actionOut := &bufferAdaptor{ReadWriter: outWriter}
 	hookOutLogger := charmrunner.NewHookLogger(outReader,
-		&loggerAdaptor{Logger: runner.getLogger(hookName), level: loggo.DEBUG},
+		&loggerAdaptor{Logger: runner.getLogger(hookName), level: corelogger.DEBUG},
 		actionOut,
 	)
 	defer hookOutLogger.Stop()
@@ -573,7 +573,7 @@ func (runner *runner) runCharmProcessOnRemote(hook, hookName, charmDir string, e
 
 		actionErr = &bufferAdaptor{ReadWriter: errWriter}
 		hookErrLogger = charmrunner.NewHookLogger(errReader,
-			&loggerAdaptor{Logger: runner.getLogger(hookName), level: loggo.WARNING},
+			&loggerAdaptor{Logger: runner.getLogger(hookName), level: corelogger.WARNING},
 			actionErr,
 		)
 		defer hookErrLogger.Stop()
@@ -625,7 +625,7 @@ func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, en
 
 	ps.Stdout = outWriter
 	hookOutLogger := charmrunner.NewHookLogger(outReader,
-		&loggerAdaptor{Logger: runner.getLogger(hookName), level: loggo.DEBUG},
+		&loggerAdaptor{Logger: runner.getLogger(hookName), level: corelogger.DEBUG},
 	)
 	go hookOutLogger.Run()
 	defer hookOutLogger.Stop()
@@ -638,7 +638,7 @@ func (runner *runner) runCharmProcessOnLocal(hook, hookName, charmDir string, en
 
 	ps.Stderr = errWriter
 	hookErrLogger := charmrunner.NewHookLogger(errReader,
-		&loggerAdaptor{Logger: runner.getLogger(hookName), level: loggo.WARNING},
+		&loggerAdaptor{Logger: runner.getLogger(hookName), level: corelogger.WARNING},
 	)
 	defer hookErrLogger.Stop()
 	go hookErrLogger.Run()
@@ -745,8 +745,8 @@ func (runner *runner) startJujucServer(token string, rMode runMode) (*jujuc.Serv
 }
 
 // getLogger returns the logger for a particular unit's hook.
-func (runner *runner) getLogger(hookName string) loggo.Logger {
-	return runner.context.GetLogger(fmt.Sprintf("unit.%s.%s", runner.context.UnitName(), hookName))
+func (runner *runner) getLogger(hookName string) corelogger.Logger {
+	return runner.context.GetLoggerByName(fmt.Sprintf("unit.%s.%s", runner.context.UnitName(), hookName))
 }
 
 var exportLineRegexp = regexp.MustCompile("(?m)^export ([^=]+)=(.*)$")

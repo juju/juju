@@ -26,7 +26,7 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (*ManifoldSuite) TestInputs(c *gc.C) {
-	manifold := credentialvalidator.Manifold(validManifoldConfig())
+	manifold := credentialvalidator.Manifold(validManifoldConfig(c))
 	c.Check(manifold.Inputs, jc.DeepEquals, []string{"api-caller"})
 }
 
@@ -64,25 +64,25 @@ func (*ManifoldSuite) TestFilterOther(c *gc.C) {
 }
 
 func (*ManifoldSuite) TestStartMissingAPICallerName(c *gc.C) {
-	config := validManifoldConfig()
+	config := validManifoldConfig(c)
 	config.APICallerName = ""
 	checkManifoldNotValid(c, config, "empty APICallerName not valid")
 }
 
 func (*ManifoldSuite) TestStartMissingNewFacade(c *gc.C) {
-	config := validManifoldConfig()
+	config := validManifoldConfig(c)
 	config.NewFacade = nil
 	checkManifoldNotValid(c, config, "nil NewFacade not valid")
 }
 
 func (*ManifoldSuite) TestStartMissingNewWorker(c *gc.C) {
-	config := validManifoldConfig()
+	config := validManifoldConfig(c)
 	config.NewWorker = nil
 	checkManifoldNotValid(c, config, "nil NewWorker not valid")
 }
 
 func (*ManifoldSuite) TestStartMissingLogger(c *gc.C) {
-	config := validManifoldConfig()
+	config := validManifoldConfig(c)
 	config.Logger = nil
 	checkManifoldNotValid(c, config, "nil Logger not valid")
 }
@@ -91,7 +91,7 @@ func (*ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": dependency.ErrMissing,
 	})
-	manifold := credentialvalidator.Manifold(validManifoldConfig())
+	manifold := credentialvalidator.Manifold(validManifoldConfig(c))
 
 	w, err := manifold.Start(context.Background(), getter)
 	c.Check(w, gc.IsNil)
@@ -103,7 +103,7 @@ func (*ManifoldSuite) TestStartNewFacadeError(c *gc.C) {
 	getter := dt.StubGetter(map[string]interface{}{
 		"api-caller": expectCaller,
 	})
-	config := validManifoldConfig()
+	config := validManifoldConfig(c)
 	config.NewFacade = func(caller base.APICaller) (credentialvalidator.Facade, error) {
 		c.Check(caller, gc.Equals, expectCaller)
 		return nil, errors.New("bort")
@@ -120,7 +120,7 @@ func (*ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 		"api-caller": &stubCaller{},
 	})
 	expectFacade := &struct{ credentialvalidator.Facade }{}
-	config := validManifoldConfig()
+	config := validManifoldConfig(c)
 	config.NewFacade = func(base.APICaller) (credentialvalidator.Facade, error) {
 		return expectFacade, nil
 	}
@@ -140,7 +140,7 @@ func (*ManifoldSuite) TestStartSuccess(c *gc.C) {
 		"api-caller": &stubCaller{},
 	})
 	expectWorker := &struct{ worker.Worker }{}
-	config := validManifoldConfig()
+	config := validManifoldConfig(c)
 	config.NewFacade = func(base.APICaller) (credentialvalidator.Facade, error) {
 		return &struct{ credentialvalidator.Facade }{}, nil
 	}

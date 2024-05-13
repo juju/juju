@@ -52,7 +52,7 @@ const (
 // The zero value is a valid default configuration.
 type Config struct {
 	// Logger to use during the API requests. This field is required.
-	LoggerFactory LoggerFactory
+	Logger corelogger.Logger
 
 	// URL holds the base endpoint URL of the Charmhub API,
 	// with no trailing slash, not including the version.
@@ -91,11 +91,7 @@ type Client struct {
 
 // NewClient creates a new Charmhub client from the supplied configuration.
 func NewClient(config Config) (*Client, error) {
-	loggerFactory := config.LoggerFactory
-	if loggerFactory == nil {
-		return nil, errors.NotValidf("nil logger factory")
-	}
-	logger := loggerFactory.ChildWithTags("client", corelogger.CHARMHUB)
+	logger := config.Logger.ChildWithTags("client", corelogger.CHARMHUB)
 
 	url := config.URL
 	if url == "" {
@@ -104,7 +100,7 @@ func NewClient(config Config) (*Client, error) {
 
 	httpClient := config.HTTPClient
 	if httpClient == nil {
-		httpClient = DefaultHTTPClient(loggerFactory)
+		httpClient = DefaultHTTPClient(logger)
 	}
 
 	fs := config.FileSystem

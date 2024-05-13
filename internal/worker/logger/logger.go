@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state/mgo"
 )
@@ -24,10 +24,10 @@ type LoggerAPI interface {
 // WorkerConfig contains the information required for the Logger worker
 // to operate.
 type WorkerConfig struct {
-	Context  *loggo.Context
+	Context  logger.LoggerContext
 	API      LoggerAPI
 	Tag      names.Tag
-	Logger   Logger
+	Logger   logger.Logger
 	Override string
 
 	Callback func(string) error

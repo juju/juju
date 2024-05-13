@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -53,7 +54,7 @@ func newKeyManagerAPI(
 	check BlockChecker,
 	controllerTag names.ControllerTag,
 	configSchemaSourceGetter config.ConfigSchemaSourceGetter,
-	logger Logger,
+	logger corelogger.Logger,
 ) *KeyManagerAPI {
 	return &KeyManagerAPI{
 		model:                    model,

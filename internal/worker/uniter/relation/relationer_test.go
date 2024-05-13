@@ -10,12 +10,12 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/relation"
@@ -37,7 +37,7 @@ func (s *relationerSuite) TestImplicitRelationerPrepareHook(c *gc.C) {
 	// Setup for test
 	s.expectEndpoint(implicitRelationEndpoint())
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	// Hooks are not allowed.
 	_, err := r.PrepareHook(hook.Info{})
@@ -49,7 +49,7 @@ func (s *relationerSuite) TestImplicitRelationerCommitHook(c *gc.C) {
 	// Setup for test
 	s.expectEndpoint(implicitRelationEndpoint())
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	// Hooks are not allowed.
 	err := r.CommitHook(context.Background(), hook.Info{})
@@ -63,7 +63,7 @@ func (s *relationerSuite) TestImplicitRelationerSetDying(c *gc.C) {
 	s.expectLeaveScope()
 	s.expectRemoveRelation()
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	// Set it to Dying
 	c.Assert(r.IsDying(), jc.IsFalse)
@@ -77,7 +77,7 @@ func (s *relationerSuite) TestSetDying(c *gc.C) {
 	// Setup for test
 	s.expectEndpoint(endpoint())
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	// Set it to Dying
 	c.Assert(r.IsDying(), jc.IsFalse)
@@ -91,7 +91,7 @@ func (s *relationerSuite) TestIfDyingFailJoin(c *gc.C) {
 	// Setup for test
 	s.expectEndpoint(endpoint())
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	// Set it to Dying
 	err := r.SetDying(context.Background())
@@ -109,7 +109,7 @@ func (s *relationerSuite) TestCommitHookRelationBrokenDies(c *gc.C) {
 	s.expectLeaveScope()
 	s.expectRemoveRelation()
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationBroken})
 	c.Assert(err, jc.ErrorIsNil)
@@ -122,7 +122,7 @@ func (s *relationerSuite) TestCommitHookRelationRemoved(c *gc.C) {
 	s.relationUnit.EXPECT().LeaveScope().Return(&params.Error{Code: "not found"})
 	s.expectRemoveRelation()
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationBroken})
 	c.Assert(err, jc.ErrorIsNil)
@@ -135,7 +135,7 @@ func (s *relationerSuite) TestCommitHook(c *gc.C) {
 	s.expectStateManagerRelation(nil)
 	s.expectSetRelation()
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
 	c.Assert(err, jc.ErrorIsNil)
@@ -147,7 +147,7 @@ func (s *relationerSuite) TestCommitHookRelationFail(c *gc.C) {
 	s.expectEndpoint(endpoint())
 	s.expectStateManagerRelation(errors.NotImplementedf("testing"))
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	err := r.CommitHook(context.Background(), hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
 	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
@@ -159,7 +159,7 @@ func (s *relationerSuite) TestPrepareHookRelationFail(c *gc.C) {
 	s.expectEndpoint(endpoint())
 	s.expectStateManagerRelation(errors.NotImplementedf("testing"))
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	_, err := r.PrepareHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
 	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
@@ -171,7 +171,7 @@ func (s *relationerSuite) TestPrepareHookValidateFail(c *gc.C) {
 	s.expectEndpoint(endpoint())
 	s.expectStateManagerRelationFailValidate()
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	// relationID and state id being different will fail validation.
 	name, err := r.PrepareHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
@@ -187,7 +187,7 @@ func (s *relationerSuite) TestPrepareHook(c *gc.C) {
 	s.expectEndpoint(ep)
 	s.expectStateManagerRelation(nil)
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	name, err := r.PrepareHook(hook.Info{Kind: hooks.RelationJoined, RelationId: 1})
 	c.Assert(err, jc.ErrorIsNil)
@@ -200,7 +200,7 @@ func (s *relationerSuite) TestJoinRelation(c *gc.C) {
 	s.expectEnterScope()
 	s.expectRelationFound(true)
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
@@ -213,13 +213,13 @@ func (s *relationerSuite) TestJoinRelationNotFound(c *gc.C) {
 	s.expectRelationFound(false)
 	s.expectSetRelation()
 
-	r := s.newRelationer()
+	r := s.newRelationer(c)
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *relationerSuite) newRelationer() relation.Relationer {
-	logger := loggo.GetLogger("test")
+func (s *relationerSuite) newRelationer(c *gc.C) relation.Relationer {
+	logger := loggertesting.WrapCheckLog(c)
 	return relation.NewRelationer(s.relationUnit, s.stateManager, s.unitGetter, logger)
 }
 

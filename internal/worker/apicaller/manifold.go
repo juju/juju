@@ -13,18 +13,12 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // ConnectFunc is responsible for making and validating an API connection
 // on behalf of an agent.
-type ConnectFunc func(context.Context, agent.Agent, api.OpenFunc, Logger) (api.Connection, error)
+type ConnectFunc func(context.Context, agent.Agent, api.OpenFunc, logger.Logger) (api.Connection, error)
 
 // ManifoldConfig defines a Manifold's dependencies.
 type ManifoldConfig struct {
@@ -61,7 +55,7 @@ type ManifoldConfig struct {
 	Filter dependency.FilterFunc
 
 	// Logger is used to write logging statements for the worker.
-	Logger Logger
+	Logger logger.Logger
 }
 
 // Manifold returns a manifold whose worker wraps an API connection

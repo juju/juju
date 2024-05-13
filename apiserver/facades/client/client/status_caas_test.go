@@ -13,9 +13,9 @@ import (
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -60,7 +60,7 @@ func (s *CAASStatusSuite) SetUpTest(c *gc.C) {
 
 func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
 	conn := s.OpenModelAPI(c, s.model.UUID())
-	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
+	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 
 	status, err := client.Status(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,7 +72,7 @@ func (s *CAASStatusSuite) TestStatusOperatorNotReady(c *gc.C) {
 func (s *CAASStatusSuite) TestStatusCloudContainerSet(c *gc.C) {
 	loggo.GetLogger("juju.state.status").SetLogLevel(loggo.TRACE)
 	conn := s.OpenModelAPI(c, s.model.UUID())
-	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
+	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -131,7 +131,7 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
 	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	conn := s.OpenModelAPI(c, s.model.UUID())
-	client := apiclient.NewClient(conn, coretesting.NoopLogger{})
+	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.app.SetScale(1, 1, true)

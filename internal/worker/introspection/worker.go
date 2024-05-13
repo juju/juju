@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -22,11 +21,12 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/presence"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/pubsub/agent"
 	"github.com/juju/juju/internal/worker/introspection/pprof"
 )
 
-var logger = loggo.GetLogger("juju.worker.introspection")
+var logger = internallogger.GetLogger("juju.worker.introspection")
 
 // DepEngineReporter provides insight into the running dependency engine of the agent.
 type DepEngineReporter interface {

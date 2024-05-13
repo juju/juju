@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -106,7 +106,7 @@ func New(config Config) (environs.InstanceBroker, error) {
 }
 
 func prepareHost(config Config) PrepareHostFunc {
-	return func(containerTag names.MachineTag, log loggo.Logger, abort <-chan struct{}) error {
+	return func(containerTag names.MachineTag, logger corelogger.Logger, abort <-chan struct{}) error {
 		preparer := NewHostPreparer(HostPreparerParams{
 			API:                config.APICaller,
 			ObserveNetworkFunc: observeNetwork(config),
@@ -114,7 +114,7 @@ func prepareHost(config Config) PrepareHostFunc {
 			CreateBridger:      defaultBridger,
 			AbortChan:          abort,
 			MachineTag:         config.MachineTag,
-			Logger:             log,
+			Logger:             logger,
 		})
 		return errors.Trace(preparer.Prepare(containerTag))
 	}

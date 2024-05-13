@@ -16,7 +16,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/viddy"
 
 	"github.com/juju/juju/api/client/client"
@@ -24,11 +23,12 @@ import (
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/output"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.status")
+var logger = internallogger.GetLogger("juju.cmd.juju.status")
 
 type statusAPI interface {
 	Status(*client.StatusArgs) (*params.FullStatus, error)

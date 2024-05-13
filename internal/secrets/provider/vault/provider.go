@@ -12,14 +12,14 @@ import (
 
 	"github.com/hashicorp/vault/api"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	vault "github.com/mittwald/vaultgo"
 
 	"github.com/juju/juju/core/secrets"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
-var logger = loggo.GetLogger("juju.secrets.vault")
+var logger = internallogger.GetLogger("juju.secrets.vault")
 
 const (
 	// BackendType is the type of the Vault secrets backend.

@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
@@ -57,7 +57,7 @@ func testEntityFine(c *gc.C, life apiagent.Life) {
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
-		}, apiOpen, loggo.GetLogger("test"))
+		}, apiOpen, loggertesting.WrapCheckLog(c))
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Alive, connect)
@@ -86,7 +86,7 @@ func (*ScaryConnectSuite) TestEntityDead(c *gc.C) {
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
-		}, apiOpen, loggo.GetLogger("test"))
+		}, apiOpen, loggertesting.WrapCheckLog(c))
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Dead, connect)
@@ -115,7 +115,7 @@ func (*ScaryConnectSuite) TestEntityDenied(c *gc.C) {
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
-		}, apiOpen, loggo.GetLogger("test"))
+		}, apiOpen, loggertesting.WrapCheckLog(c))
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Dead, connect)
@@ -143,7 +143,7 @@ func (*ScaryConnectSuite) TestEntityUnknownLife(c *gc.C) {
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
-		}, apiOpen, loggo.GetLogger("test"))
+		}, apiOpen, loggertesting.WrapCheckLog(c))
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Life("zombie"), connect)
@@ -257,7 +257,7 @@ func checkChangePassword(c *gc.C, stub *testing.Stub) error {
 			stub:   stub,
 			model:  coretesting.ModelTag,
 			entity: entity,
-		}, apiOpen, loggo.GetLogger("test"))
+		}, apiOpen, loggertesting.WrapCheckLog(c))
 	}
 
 	conn, err := lifeTest(c, stub, apiagent.Alive, connect)

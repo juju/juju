@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type importSuite struct {
@@ -30,9 +31,10 @@ func (s *importSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *importSuite) newImportOperation() *importOperation {
+func (s *importSuite) newImportOperation(c *gc.C) *importOperation {
 	return &importOperation{
 		importService: s.importService,
+		logger:        loggertesting.WrapCheckLog(c),
 	}
 }
 
@@ -62,7 +64,7 @@ func (s *importSuite) TestImportSubnetWithoutSpaces(c *gc.C) {
 		},
 	})
 
-	op := s.newImportOperation()
+	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -97,7 +99,7 @@ func (s *importSuite) TestImportSubnetAndSpaceNotLinked(c *gc.C) {
 	}
 	s.importService.EXPECT().AddSpace(gomock.Any(), spaceInfo)
 
-	op := s.newImportOperation()
+	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -145,7 +147,7 @@ func (s *importSuite) TestImportSpaceWithSubnet(c *gc.C) {
 		ProviderSpaceId:   "space-provider-id",
 	})
 
-	op := s.newImportOperation()
+	op := s.newImportOperation(c)
 	err := op.Execute(context.Background(), model)
 	c.Assert(err, jc.ErrorIsNil)
 }

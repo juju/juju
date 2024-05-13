@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/observer"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 )
 
@@ -28,7 +28,7 @@ func (*RequestObserverSuite) makeNotifier(c *gc.C) (*observer.RequestObserver, *
 	return observer.NewRequestObserver(observer.RequestObserverContext{
 		Clock:  testclock.NewClock(time.Now()),
 		Hub:    hub,
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 	}), hub
 }
 

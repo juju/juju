@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v5"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -20,7 +21,7 @@ func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }
 
-func NewConverterForTest(machine Machine, machiner Machiner, logger Logger) watcher.NotifyHandler {
+func NewConverterForTest(machine Machine, machiner Machiner, logger logger.Logger) watcher.NotifyHandler {
 	return &converter{
 		machineTag: names.NewMachineTag("3"),
 		machiner:   machiner,

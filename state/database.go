@@ -11,7 +11,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
@@ -19,10 +18,11 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 )
 
-var txnLogger = loggo.GetLogger("juju.state.txn")
+var txnLogger = internallogger.GetLogger("juju.state.txn")
 
 type SessionCloser func()
 

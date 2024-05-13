@@ -13,6 +13,7 @@ import (
 	"github.com/juju/worker/v4/dependency"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/servicefactory"
 )
 
@@ -25,7 +26,7 @@ type ManifoldConfig struct {
 	PruneInterval      time.Duration
 	NewWorker          func(Config) (worker.Worker, error)
 	NewClient          func(base.APICaller) Facade
-	Logger             Logger
+	Logger             logger.Logger
 }
 
 // Validate is called by start to check for bad configuration.

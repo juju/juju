@@ -88,6 +88,7 @@ func (s *SecretsManagerSuite) setup(c *gc.C) *gomock.Controller {
 
 	var err error
 	s.facade, err = secretsmanager.NewTestAPI(
+		c,
 		s.authorizer, s.watcherRegistry, s.leadership, s.secretService, s.secretsConsumer,
 		s.secretTriggers, s.secretBackendService, remoteClientGetter,
 		s.crossModelState, s.authTag, s.clock,

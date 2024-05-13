@@ -9,38 +9,24 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
-// Logger represents the logging methods called.
-type Logger interface {
-	Errorf(message string, args ...interface{})
-	Warningf(message string, args ...interface{})
-	Infof(message string, args ...interface{})
-	Debugf(message string, args ...interface{})
-	Tracef(message string, args ...interface{})
-
-	// Logf is used to proxy Dqlite logs via this logger.
-	Logf(level loggo.Level, msg string, args ...interface{})
-
-	IsTraceEnabled() bool
-}
-
 // NewDBWorkerFunc creates a tracked db worker.
 type NewDBWorkerFunc func(context.Context, DBApp, string, ...TrackedDBWorkerOption) (TrackedDB, error)
 
 // NewNodeManagerFunc creates a NodeManager
-type NewNodeManagerFunc func(agent.Config, Logger, coredatabase.SlowQueryLogger) NodeManager
+type NewNodeManagerFunc func(agent.Config, logger.Logger, coredatabase.SlowQueryLogger) NodeManager
 
 // ManifoldConfig contains:
 // - The names of other manifolds on which the DB accessor depends.
@@ -50,7 +36,7 @@ type ManifoldConfig struct {
 	QueryLoggerName           string
 	ControllerAgentConfigName string
 	Clock                     clock.Clock
-	Logger                    Logger
+	Logger                    logger.Logger
 	LogDir                    string
 	PrometheusRegisterer      prometheus.Registerer
 	NewApp                    func(string, ...app.Option) (DBApp, error)
@@ -189,12 +175,12 @@ func dbAccessorOutput(in worker.Worker, out interface{}) error {
 
 // IAASNodeManager returns a NodeManager that is configured to use
 // the cloud-local TLS terminated address for Dqlite.
-func IAASNodeManager(cfg agent.Config, logger Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
+func IAASNodeManager(cfg agent.Config, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
 	return database.NewNodeManager(cfg, false, logger, slowQueryLogger)
 }
 
 // CAASNodeManager returns a NodeManager that is configured to use
 // the loopback address for Dqlite.
-func CAASNodeManager(cfg agent.Config, logger Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
+func CAASNodeManager(cfg agent.Config, logger logger.Logger, slowQueryLogger coredatabase.SlowQueryLogger) NodeManager {
 	return database.NewNodeManager(cfg, true, logger, slowQueryLogger)
 }

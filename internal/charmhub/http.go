@@ -62,7 +62,7 @@ type HTTPClient interface {
 }
 
 // DefaultHTTPClient creates a new HTTPClient with the default configuration.
-func DefaultHTTPClient(logger LoggerFactory) HTTPClient {
+func DefaultHTTPClient(logger corelogger.Logger) HTTPClient {
 	recorder := loggingRequestRecorder{
 		logger: logger.ChildWithTags("transport.request-recorder", corelogger.METRICS),
 	}
@@ -80,7 +80,7 @@ func defaultRetryPolicy() jujuhttp.RetryPolicy {
 }
 
 type loggingRequestRecorder struct {
-	logger Logger
+	logger corelogger.Logger
 }
 
 // Record an outgoing request which produced an http.Response.
@@ -99,8 +99,8 @@ func (r loggingRequestRecorder) RecordError(method string, url *url.URL, err err
 
 // requestHTTPClient returns a function that creates a new HTTPClient that
 // records the requests.
-func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryPolicy) func(logger LoggerFactory) HTTPClient {
-	return func(logger LoggerFactory) HTTPClient {
+func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryPolicy) func(corelogger.Logger) HTTPClient {
+	return func(logger corelogger.Logger) HTTPClient {
 		return jujuhttp.NewClient(
 			jujuhttp.WithRequestRecorder(recorder),
 			jujuhttp.WithRequestRetrier(policy),
@@ -113,12 +113,12 @@ func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryP
 // error handling.
 type apiRequester struct {
 	httpClient HTTPClient
-	logger     Logger
+	logger     corelogger.Logger
 	retryDelay time.Duration
 }
 
 // newAPIRequester creates a new http.Client for making requests to a server.
-func newAPIRequester(httpClient HTTPClient, logger Logger) *apiRequester {
+func newAPIRequester(httpClient HTTPClient, logger corelogger.Logger) *apiRequester {
 	return &apiRequester{
 		httpClient: httpClient,
 		logger:     logger,
@@ -216,12 +216,12 @@ func (t *apiRequester) doOnce(req *http.Request) (*http.Response, error) {
 // logging.
 type apiRequestLogger struct {
 	httpClient HTTPClient
-	logger     Logger
+	logger     corelogger.Logger
 }
 
 // newAPIRequesterLogger creates a new HTTPClient that allows logging of requests
 // for every request.
-func newAPIRequesterLogger(httpClient HTTPClient, logger Logger) *apiRequestLogger {
+func newAPIRequesterLogger(httpClient HTTPClient, logger corelogger.Logger) *apiRequestLogger {
 	return &apiRequestLogger{
 		httpClient: httpClient,
 		logger:     logger,

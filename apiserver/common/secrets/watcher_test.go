@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -60,7 +60,7 @@ func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 		backendGetter.EXPECT().GetSecretBackendID(gomock.Any()).Return("a-different-backend-id", nil),
 	)
 
-	w, err := secrets.NewSecretBackendModelConfigWatcher(context.Background(), backendGetter, backendWatcher, loggo.GetLogger("juju.apiserver.secretsdrain"))
+	w, err := secrets.NewSecretBackendModelConfigWatcher(context.Background(), backendGetter, backendWatcher, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
 

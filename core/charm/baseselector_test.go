@@ -11,13 +11,15 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/version"
 )
 
 type baseSelectorSuite struct {
 	testing.IsolationSuite
 
-	logger *MockSelectorLogger
+	logger logger.Logger
 	cfg    *MockSelectorModelConfig
 }
 
@@ -37,9 +39,8 @@ var (
 
 func (s *baseSelectorSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.logger = NewMockSelectorLogger(ctrl)
-	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes()
+
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	s.cfg = NewMockSelectorModelConfig(ctrl)
 

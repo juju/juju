@@ -8,6 +8,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
+
+	"github.com/juju/juju/core/logger"
 )
 
 // FileNotifyWatcher represents a way to watch for changes in a namespace folder
@@ -25,7 +27,7 @@ type FileNotifyWatcher interface {
 // changestream worker.
 type WorkerConfig struct {
 	Clock             clock.Clock
-	Logger            Logger
+	Logger            logger.Logger
 	NewWatcher        WatcherFn
 	NewINotifyWatcher func() (INotifyWatcher, error)
 }

@@ -6,7 +6,6 @@ package storageprovisioner_test
 import (
 	"context"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -50,7 +50,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 		common.NewResources(),
 		authorizer,
 		nil, nil,
-		loggo.GetLogger("juju.apiserver.storageprovisioner"),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

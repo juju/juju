@@ -8,7 +8,6 @@ import (
 	"path"
 
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4"
@@ -18,6 +17,8 @@ import (
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/cmd/jujud-controller/util"
+	corelogger "github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/agent"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 	"github.com/juju/juju/internal/worker/dbaccessor"
@@ -67,7 +68,7 @@ type ManifoldsConfig struct {
 
 	// SetupLogging is used by the deployer to initialize the logging
 	// context for the unit.
-	SetupLogging func(*loggo.Context, coreagent.Config)
+	SetupLogging func(corelogger.LoggerContext, coreagent.Config)
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -102,7 +103,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		controllerAgentConfigName: ifController(controlleragentconfig.Manifold(controlleragentconfig.ManifoldConfig{
 			AgentName:         agentName,
 			Clock:             config.Clock,
-			Logger:            loggo.GetLogger("juju.worker.controlleragentconfig"),
+			Logger:            internallogger.GetLogger("juju.worker.controlleragentconfig"),
 			NewSocketListener: controlleragentconfig.NewSocketListener,
 			SocketName:        path.Join(agentConfig.DataDir(), "configchange.socket"),
 		})),
@@ -122,7 +123,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			QueryLoggerName:           queryLoggerName,
 			ControllerAgentConfigName: controllerAgentConfigName,
 			Clock:                     config.Clock,
-			Logger:                    loggo.GetLogger("juju.worker.dbaccessor"),
+			Logger:                    internallogger.GetLogger("juju.worker.dbaccessor"),
 			LogDir:                    agentConfig.LogDir(),
 			PrometheusRegisterer:      noopPrometheusRegisterer{},
 			NewApp:                    dbaccessor.NewApp,
@@ -133,7 +134,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		queryLoggerName: ifController(querylogger.Manifold(querylogger.ManifoldConfig{
 			LogDir: agentConfig.LogDir(),
 			Clock:  config.Clock,
-			Logger: loggo.GetLogger("juju.worker.querylogger"),
+			Logger: internallogger.GetLogger("juju.worker.querylogger"),
 		})),
 	}
 

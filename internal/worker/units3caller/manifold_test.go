@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	httprequest "gopkg.in/httprequest.v1"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/s3client"
 )
@@ -53,7 +54,7 @@ func (s *manifoldSuite) newGetter() dependency.Getter {
 func (s *manifoldSuite) getConfig() ManifoldConfig {
 	return ManifoldConfig{
 		APICallerName: "api-caller",
-		NewClient: func(string, s3client.HTTPClient, s3client.Logger) (objectstore.ReadSession, error) {
+		NewClient: func(string, s3client.HTTPClient, logger.Logger) (objectstore.ReadSession, error) {
 			return s.session, nil
 		},
 		Logger: s.logger,

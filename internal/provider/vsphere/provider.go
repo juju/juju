@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/loggo/v2"
 	"golang.org/x/net/context"
 
 	"github.com/juju/juju/cloud"
@@ -17,9 +16,10 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	callcontext "github.com/juju/juju/environs/envcontext"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.provider.vmware")
+var logger = internallogger.GetLogger("juju.provider.vmware")
 
 const (
 	// provider version 1 organises VMs into folders.

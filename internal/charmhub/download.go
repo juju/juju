@@ -13,6 +13,7 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
 )
 
@@ -54,11 +55,11 @@ func newDownloadOptions() *downloadOptions {
 type downloadClient struct {
 	httpClient HTTPClient
 	fileSystem FileSystem
-	logger     Logger
+	logger     corelogger.Logger
 }
 
 // newDownloadClient creates a downloadClient for requesting
-func newDownloadClient(httpClient HTTPClient, fileSystem FileSystem, logger Logger) *downloadClient {
+func newDownloadClient(httpClient HTTPClient, fileSystem FileSystem, logger corelogger.Logger) *downloadClient {
 	return &downloadClient{
 		httpClient: httpClient,
 		fileSystem: fileSystem,

@@ -25,9 +25,11 @@ import (
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/logsender"
 	jujuversion "github.com/juju/juju/version"
@@ -38,13 +40,13 @@ type UnitAgent struct {
 	tag    names.UnitTag
 	name   string
 	clock  clock.Clock
-	logger Logger
+	logger logger.Logger
 
 	mu               sync.Mutex
 	agentConf        agent.ConfigSetterWriter
 	configChangedVal *voyeur.Value
 
-	setupLogging       func(*loggo.Context, agent.Config)
+	setupLogging       func(logger.LoggerContext, agent.Config)
 	unitEngineConfig   func() dependency.EngineConfig
 	unitManifolds      func(UnitManifoldsConfig) dependency.Manifolds
 	prometheusRegistry *prometheus.Registry
@@ -59,10 +61,10 @@ type UnitAgentConfig struct {
 	Name             string
 	DataDir          string
 	Clock            clock.Clock
-	Logger           Logger
+	Logger           logger.Logger
 	UnitEngineConfig func() dependency.EngineConfig
 	UnitManifolds    func(UnitManifoldsConfig) dependency.Manifolds
-	SetupLogging     func(*loggo.Context, agent.Config)
+	SetupLogging     func(logger.LoggerContext, agent.Config)
 }
 
 // Validate ensures all the required values are set.
@@ -159,7 +161,7 @@ func NewUnitAgent(config UnitAgentConfig) (*UnitAgent, error) {
 
 func (a *UnitAgent) start() (worker.Worker, error) {
 	a.logger.Tracef("starting workers for %q", a.name)
-	loggingContext, bufferedLogger, closeLogging, err := a.initLogging()
+	loggerContext, bufferedLogger, closeLogging, err := a.initLogging()
 	if err != nil {
 		a.logger.Tracef("init logging failed %s", err)
 		return nil, errors.Trace(err)
@@ -175,7 +177,7 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 	machineLock, err := machinelock.New(machinelock.Config{
 		AgentName:   a.tag.String(),
 		Clock:       a.clock,
-		Logger:      loggingContext.GetLogger("juju.machinelock"),
+		Logger:      loggerContext.GetLogger("juju.machinelock"),
 		LogFilename: agent.MachineLockLogFilename(a.agentConf),
 	})
 	// There will only be an error if the required configuration
@@ -188,7 +190,7 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 	// construct unit agent manifold
 	a.logger.Tracef("creating unit manifolds for %q", a.name)
 	manifolds := a.unitManifolds(UnitManifoldsConfig{
-		LoggingContext:      loggingContext,
+		LoggerContext:       loggerContext,
 		Agent:               a,
 		LogSource:           bufferedLogger.Logs(),
 		LeadershipGuarantee: 30 * time.Second,
@@ -200,7 +202,7 @@ func (a *UnitAgent) start() (worker.Worker, error) {
 	})
 	depEngineConfig := a.unitEngineConfig()
 	// TODO: tweak IsFatal error func, maybe?
-	depEngineConfig.Logger = loggingContext.GetLogger("juju.worker.dependency")
+	depEngineConfig.Logger = loggerContext.GetLogger("juju.worker.dependency")
 	// Tweak as necessary.
 	engine, err := dependency.NewEngine(depEngineConfig)
 	if err != nil {
@@ -250,8 +252,8 @@ func (a *UnitAgent) running() bool {
 	return a.workerRunning
 }
 
-func (a *UnitAgent) initLogging() (*loggo.Context, *logsender.BufferedLogWriter, func(), error) {
-	loggingContext := loggo.NewContext(loggo.INFO)
+func (a *UnitAgent) initLogging() (logger.LoggerContext, *logsender.BufferedLogWriter, func(), error) {
+	loggerContext := loggo.NewContext(loggo.INFO)
 
 	logFilename := agent.LogFilename(a.agentConf)
 	if err := paths.PrimeLogFile(logFilename); err != nil {
@@ -267,18 +269,18 @@ func (a *UnitAgent) initLogging() (*loggo.Context, *logsender.BufferedLogWriter,
 	}
 	a.logger.Debugf("created rotating log file %q with max size %d MB and max backups %d",
 		ljLogger.Filename, ljLogger.MaxSize, ljLogger.MaxBackups)
-	if err := loggingContext.AddWriter(
+	if err := loggerContext.AddWriter(
 		"file", loggo.NewSimpleWriter(ljLogger, loggo.DefaultFormatter)); err != nil {
 		a.logger.Errorf("unable to configure file logging for unit %q: %v", a.name, err)
 	}
 
-	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggingContext, 1048576)
+	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggerContext, 1048576)
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "unable to add buffered log writer")
 	}
 
 	closeLogging := func() {
-		if _, err = loggingContext.RemoveWriter("file"); err != nil {
+		if _, err = loggerContext.RemoveWriter("file"); err != nil {
 			a.logger.Errorf("%q remove writer: %s", a.name, err)
 		}
 		bufferedLogger.Close()
@@ -289,9 +291,12 @@ func (a *UnitAgent) initLogging() (*loggo.Context, *logsender.BufferedLogWriter,
 
 	// Add line for starting agent to logging context.
 	// TODO(logging) - add unit labels
-	loggingContext.GetLogger("juju").Infof("Starting unit workers for %q", a.name)
-	a.setupLogging(loggingContext, a.agentConf)
-	return loggingContext, bufferedLogger, closeLogging, nil
+	ctx := internallogger.WrapLoggoContext(loggerContext)
+	ctx.GetLogger("juju").Infof("Starting unit workers for %q", a.name)
+
+	a.setupLogging(ctx, a.agentConf)
+
+	return ctx, bufferedLogger, closeLogging, nil
 }
 
 // ChangeConfig modifies this configuration using the given mutator.

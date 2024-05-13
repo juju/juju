@@ -13,18 +13,10 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/worker/common"
 )
-
-// Logger defines the logging methods that the worker uses.
-type Logger interface {
-	Tracef(string, ...interface{})
-	Debugf(string, ...interface{})
-	Infof(string, ...interface{})
-	Warningf(string, ...interface{})
-	Errorf(string, ...interface{})
-}
 
 // ManifoldConfig defines an environment provisioner's dependencies. It's not
 // currently clear whether it'll be easier to extend this type to include all
@@ -35,9 +27,9 @@ type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	EnvironName   string
-	Logger        Logger
+	Logger        logger.Logger
 
-	NewProvisionerFunc           func(ControllerAPI, MachinesAPI, ToolsFinder, DistributionGroupFinder, agent.Config, Logger, Environ, common.CredentialAPI) (Provisioner, error)
+	NewProvisionerFunc           func(ControllerAPI, MachinesAPI, ToolsFinder, DistributionGroupFinder, agent.Config, logger.Logger, Environ, common.CredentialAPI) (Provisioner, error)
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 

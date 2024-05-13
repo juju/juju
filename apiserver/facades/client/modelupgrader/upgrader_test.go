@@ -7,7 +7,6 @@ import (
 	stdcontext "context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
 	jujutesting "github.com/juju/testing"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/docker/registry/image"
 	registrymocks "github.com/juju/juju/internal/docker/registry/mocks"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/provider/lxd"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -146,7 +146,7 @@ func (s *modelUpgradeSuite) newFacade(c *gc.C) *modelupgrader.ModelUpgraderAPI {
 		},
 		s.controllerConfigService,
 		s.upgradeService,
-		loggo.GetLogger("juju.apiserver.modelupgrader"),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api

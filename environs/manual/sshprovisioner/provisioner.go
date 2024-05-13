@@ -5,14 +5,13 @@
 package sshprovisioner
 
 import (
-	"github.com/juju/loggo/v2"
-
 	"github.com/juju/juju/environs/manual"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
 var (
-	logger = loggo.GetLogger("juju.environs.manual.sshprovisioner")
+	logger = internallogger.GetLogger("juju.environs.manual.sshprovisioner")
 )
 
 // ProvisionMachine returns a new machineId and nil if the provision process is done successfully

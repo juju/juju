@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
 	coreuser "github.com/juju/juju/core/user"
@@ -36,7 +37,7 @@ type Coordinator interface {
 
 // RegisterImport register's a new model migration importer into the supplied
 // coordinator.
-func RegisterImport(coordinator Coordinator, logger Logger) {
+func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 	coordinator.Add(&importOperation{
 		logger: logger,
 	})
@@ -70,11 +71,6 @@ type UserService interface {
 	GetUserByName(context.Context, string) (coreuser.User, error)
 }
 
-// Logger is the interface used by the state to log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
-
 // ControllerConfigService defines the controller config service used for model
 // migration.
 type ControllerConfigService interface {
@@ -94,7 +90,7 @@ type importOperation struct {
 	userService             UserService
 	controllerConfigService ControllerConfigService
 
-	logger Logger
+	logger logger.Logger
 }
 
 // Setup is responsible for taking the model migration scope and creating the

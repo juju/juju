@@ -17,7 +17,7 @@ import (
 	databasetesting "github.com/juju/juju/internal/database/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination stream_mock_test.go github.com/juju/juju/internal/worker/changestreampruner DBGetter,Logger
+//go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination stream_mock_test.go github.com/juju/juju/internal/worker/changestreampruner DBGetter
 //go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -typed -package changestreampruner -destination worker_mock_test.go github.com/juju/worker/v4 Worker
 
@@ -33,7 +33,6 @@ type baseSuite struct {
 	dbGetter *MockDBGetter
 	clock    *MockClock
 	timer    *MockTimer
-	logger   *MockLogger
 }
 
 // SetUpTest is responsible for setting up a testing database suite initialised
@@ -61,7 +60,6 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.dbGetter = NewMockDBGetter(ctrl)
 	s.clock = NewMockClock(ctrl)
 	s.timer = NewMockTimer(ctrl)
-	s.logger = NewMockLogger(ctrl)
 
 	return ctrl
 }
@@ -76,16 +74,6 @@ func (s *baseSuite) expectDBGet(namespace string, txnRunner coredatabase.TxnRunn
 
 func (s *baseSuite) expectDBGetTimes(namespace string, txnRunner coredatabase.TxnRunner, amount int) {
 	s.dbGetter.EXPECT().GetDB(namespace).Return(txnRunner, nil).Times(amount)
-}
-
-func (s *baseSuite) expectAnyLogs(c *gc.C) {
-	s.logger.EXPECT().Errorf(gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().Warningf(gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().Warningf(gomock.Any(), gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().Debugf(gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).Do(c.Logf).AnyTimes()
-	s.logger.EXPECT().IsTraceEnabled().Return(false).AnyTimes()
 }
 
 func (s *baseSuite) expectClock() {

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -21,12 +22,6 @@ import (
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/rpc/params"
 )
-
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 // ErrModelRemoved indicates that this worker was operating on the model that is no longer found.
 var ErrModelRemoved = errors.New("model has been removed")
@@ -68,7 +63,7 @@ type Config struct {
 	// becomes invalid.
 	CredentialAPI common.CredentialAPI
 
-	Logger Logger
+	Logger logger.Logger
 }
 
 // Validate returns an error if the config cannot be expected
@@ -242,7 +237,7 @@ func runEnvironUpgradeSteps(
 	targetVersion int,
 	setVersion func(int) error,
 	callCtxFunc common.CloudCallContextFunc,
-	logger Logger,
+	logger logger.Logger,
 ) error {
 	if wrench.IsActive("environupgrader", "fail-all") ||
 		wrench.IsActive("environupgrader", "fail-model-"+modelTag.Id()) {

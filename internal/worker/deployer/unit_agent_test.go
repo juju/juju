@@ -6,7 +6,6 @@ package deployer_test
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -15,6 +14,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/deployer"
 	jt "github.com/juju/juju/testing"
 	jv "github.com/juju/juju/version"
@@ -31,27 +32,23 @@ var _ = gc.Suite(&UnitAgentSuite{})
 
 func (s *UnitAgentSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	logger := loggo.GetLogger("test.unitagent")
-	logger.SetLogLevel(loggo.TRACE)
 
 	s.workers = &unitWorkersStub{
 		started: make(chan string, 10), // eval size later
 		stopped: make(chan string, 10), // eval size later
-		logger:  logger,
+		logger:  loggertesting.WrapCheckLog(c).Child("unit-agent"),
 	}
 
 	s.config = deployer.UnitAgentConfig{
-		Name:    "someunit/42",
-		DataDir: c.MkDir(),
-		Clock:   clock.WallClock,
-		Logger:  logger,
-		SetupLogging: func(c *loggo.Context, _ agent.Config) {
-			c.GetLogger("").SetLogLevel(loggo.DEBUG)
-		},
+		Name:         "someunit/42",
+		DataDir:      c.MkDir(),
+		Clock:        clock.WallClock,
+		Logger:       loggertesting.WrapCheckLog(c).Child("unit-agent"),
+		SetupLogging: func(logger.LoggerContext, agent.Config) {},
 		UnitEngineConfig: func() dependency.EngineConfig {
 			return engine.DependencyEngineConfig(
 				dependency.DefaultMetrics(),
-				loggo.GetLogger("juju.worker.dependency"),
+				loggertesting.WrapCheckLog(c).Child("dependency"),
 			)
 		},
 		UnitManifolds: s.workers.Manifolds,

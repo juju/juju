@@ -85,7 +85,7 @@ func (s *deployerSuite) TestValidate(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 
 	cfg = s.newConfig(c)
-	cfg.LoggerFactory = nil
+	cfg.Logger = nil
 	err = cfg.Validate()
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }

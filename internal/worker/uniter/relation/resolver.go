@@ -13,32 +13,17 @@ import (
 	"github.com/kr/pretty"
 
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
 
-// Logger is here to stop the desire of creating a package level Logger.
-// Don't do this, instead use the one passed into the new resolver function.
-type logger interface{}
-
-var _ logger = struct{}{}
-
-// Logger represents the logging methods used in this package.
-type Logger interface {
-	Errorf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-	IsTraceEnabled() bool
-}
-
 // NewRelationResolver returns a resolver that handles all relation-related
 // hooks (except relation-created) and is wired to the provided RelationStateTracker
 // instance.
-func NewRelationResolver(stateTracker RelationStateTracker, subordinateDestroyer SubordinateDestroyer, logger Logger) resolver.Resolver {
+func NewRelationResolver(stateTracker RelationStateTracker, subordinateDestroyer SubordinateDestroyer, logger logger.Logger) resolver.Resolver {
 	return &relationsResolver{
 		stateTracker:         stateTracker,
 		subordinateDestroyer: subordinateDestroyer,
@@ -49,7 +34,7 @@ func NewRelationResolver(stateTracker RelationStateTracker, subordinateDestroyer
 type relationsResolver struct {
 	stateTracker         RelationStateTracker
 	subordinateDestroyer SubordinateDestroyer
-	logger               Logger
+	logger               logger.Logger
 }
 
 // NextOp implements resolver.Resolver.
@@ -324,7 +309,7 @@ func (r *relationsResolver) nextHookForRelation(ctx context.Context, localState 
 
 // NewCreatedRelationResolver returns a resolver that handles relation-created
 // hooks and is wired to the provided RelationStateTracker instance.
-func NewCreatedRelationResolver(stateTracker RelationStateTracker, logger Logger) resolver.Resolver {
+func NewCreatedRelationResolver(stateTracker RelationStateTracker, logger logger.Logger) resolver.Resolver {
 	return &createdRelationsResolver{
 		stateTracker: stateTracker,
 		logger:       logger,
@@ -333,7 +318,7 @@ func NewCreatedRelationResolver(stateTracker RelationStateTracker, logger Logger
 
 type createdRelationsResolver struct {
 	stateTracker RelationStateTracker
-	logger       Logger
+	logger       logger.Logger
 }
 
 // NextOp implements resolver.Resolver.

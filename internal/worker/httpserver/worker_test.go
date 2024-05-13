@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	dqlitetesting "github.com/juju/juju/internal/database/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/internal/worker/httpserver"
 	coretesting "github.com/juju/juju/testing"
@@ -67,7 +67,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		APIPort:              0,
 		APIPortOpenDelay:     0,
 		ControllerAPIPort:    0,
-		Logger:               loggo.GetLogger("test"),
+		Logger:               loggertesting.WrapCheckLog(c),
 	}
 }
 

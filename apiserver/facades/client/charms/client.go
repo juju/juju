@@ -14,7 +14,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiresources "github.com/juju/juju/api/client/resources"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
@@ -55,7 +55,7 @@ type API struct {
 	mu          sync.Mutex
 	repoFactory corecharm.RepositoryFactory
 
-	logger loggo.Logger
+	logger corelogger.Logger
 }
 
 // CharmInfo returns information about the requested charm.
@@ -89,7 +89,7 @@ func NewCharmsAPI(
 	st charmsinterfaces.BackendState,
 	m charmsinterfaces.BackendModel,
 	repoFactory corecharm.RepositoryFactory,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*API, error) {
 	return &API{
 		authorizer:      authorizer,
@@ -204,7 +204,7 @@ func (a *API) getDefaultArch() (string, error) {
 	return constraints.ArchOrDefault(cons, nil), nil
 }
 
-func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger loggo.Logger) (params.CharmOrigin, error) {
+func normalizeCharmOrigin(origin params.CharmOrigin, fallbackArch string, logger corelogger.Logger) (params.CharmOrigin, error) {
 	// If the series is set to all, we need to ensure that we remove that, so
 	// that we can attempt to derive it at a later stage. Juju itself doesn't
 	// know nor understand what "all" means, so we need to ensure it doesn't leak
@@ -433,7 +433,7 @@ func (a *API) getCharmRepository(ctx context.Context, src corecharm.Source) (cor
 	a.mu.Unlock()
 
 	repoFactory := a.newRepoFactory(services.CharmRepoFactoryConfig{
-		LoggerFactory:      services.LoggoLoggerFactory(a.logger),
+		Logger:             a.logger,
 		CharmhubHTTPClient: a.charmhubHTTPClient,
 		StateBackend:       a.backendState,
 		ModelBackend:       a.backendModel,

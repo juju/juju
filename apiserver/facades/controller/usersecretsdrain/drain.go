@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -15,12 +14,13 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.usersecretsdrain")
+var logger = internallogger.GetLogger("juju.apiserver.usersecretsdrain")
 
 // SecretsDrainAPI is the implementation for the SecretsDrain facade.
 type SecretsDrainAPI struct {

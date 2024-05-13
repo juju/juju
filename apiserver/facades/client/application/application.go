@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -58,8 +58,6 @@ import (
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage
-
-var logger = loggo.GetLogger("juju.apiserver.application")
 
 // ExternalControllerService provides a subset of the external controller domain
 // service methods.
@@ -127,6 +125,8 @@ type APIBase struct {
 	registry              storage.ProviderRegistry
 	caasBroker            CaasBrokerInterface
 	deployApplicationFunc DeployApplicationFunc
+
+	logger corelogger.Logger
 }
 
 type CaasBrokerInterface interface {
@@ -188,14 +188,15 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 	charmhubHTTPClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
 	chURL, _ := modelCfg.CharmHubURL()
 	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:           chURL,
-		HTTPClient:    charmhubHTTPClient,
-		LoggerFactory: charmhub.LoggoLoggerFactory(logger),
+		URL:        chURL,
+		HTTPClient: charmhubHTTPClient,
+		Logger:     ctx.Logger(),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
+	repoLogger := ctx.Logger().Child("deployfromrepo")
 	updateBase := NewUpdateBaseAPI(state, makeUpdateSeriesValidator(chClient))
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
@@ -206,9 +207,16 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		registry:           registry,
 		state:              state,
 		storagePoolGetter:  storagePoolGetter,
+		logger:             repoLogger,
 	}
 	applicationService := serviceFactory.Application(registry)
-	repoDeploy := NewDeployFromRepositoryAPI(state, applicationService, ctx.ObjectStore(), makeDeployFromRepositoryValidator(stdCtx, validatorCfg))
+	repoDeploy := NewDeployFromRepositoryAPI(
+		state,
+		applicationService,
+		ctx.ObjectStore(),
+		makeDeployFromRepositoryValidator(stdCtx, validatorCfg),
+		repoLogger,
+	)
 
 	return NewAPIBase(
 		state,
@@ -232,11 +240,22 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		resources,
 		caasBroker,
 		ctx.ObjectStore(),
+		ctx.Logger().Child("application"),
 	)
 }
 
 // DeployApplicationFunc is a function that deploys an application.
-type DeployApplicationFunc = func(context.Context, ApplicationDeployer, Model, common.CloudService, common.CredentialService, ApplicationService, objectstore.ObjectStore, DeployApplicationParams) (Application, error)
+type DeployApplicationFunc = func(
+	context.Context,
+	ApplicationDeployer,
+	Model,
+	common.CloudService,
+	common.CredentialService,
+	ApplicationService,
+	objectstore.ObjectStore,
+	DeployApplicationParams,
+	corelogger.Logger,
+) (Application, error)
 
 // NewAPIBase returns a new application API facade.
 func NewAPIBase(
@@ -261,6 +280,7 @@ func NewAPIBase(
 	resources facade.Resources,
 	caasBroker CaasBrokerInterface,
 	store objectstore.ObjectStore,
+	logger corelogger.Logger,
 ) (*APIBase, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -288,6 +308,7 @@ func NewAPIBase(
 		resources:             resources,
 		caasBroker:            caasBroker,
 		store:                 store,
+		logger:                logger,
 	}, nil
 }
 
@@ -341,7 +362,7 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 			resources := api.backend.Resources(api.store)
 			err = resources.RemovePendingAppResources(arg.ApplicationName, arg.Resources)
 			if err != nil {
-				logger.Errorf("couldn't remove pending resources for %q", arg.ApplicationName)
+				api.logger.Errorf("couldn't remove pending resources for %q", arg.ApplicationName)
 			}
 		}
 	}
@@ -601,7 +622,7 @@ func (api *APIBase) deployApplication(
 		EndpointBindings:  bindings.Map(),
 		Resources:         args.Resources,
 		Force:             args.Force,
-	})
+	}, api.logger)
 	return errors.Trace(err)
 }
 
@@ -1054,7 +1075,7 @@ func (api *APIBase) setCharmWithAgentValidation(
 	oneApplication := params.Application
 	currentCharm, _, err := oneApplication.Charm()
 	if err != nil {
-		logger.Debugf("Unable to locate current charm: %v", err)
+		api.logger.Debugf("Unable to locate current charm: %v", err)
 	}
 	newOrigin, err := convertCharmOrigin(params.CharmOrigin)
 	if err != nil {
@@ -1153,7 +1174,7 @@ func (api *APIBase) applicationSetCharm(
 			return errors.Trace(err)
 		}
 
-		logger.Warningf("proceeding with upgrade of application %q even though the charm feature requirements could not be met as --force was specified", params.AppName)
+		api.logger.Warningf("proceeding with upgrade of application %q even though the charm feature requirements could not be met as --force was specified", params.AppName)
 	}
 
 	//
@@ -1594,7 +1615,7 @@ func (api *APIBase) DestroyUnit(ctx context.Context, args params.DestroyUnitsPar
 			return nil, errors.Trace(err)
 		}
 		if len(op.Errors) != 0 {
-			logger.Warningf("operational errors destroying unit %v: %v", unit.Name(), op.Errors)
+			api.logger.Warningf("operational errors destroying unit %v: %v", unit.Name(), op.Errors)
 		}
 		return &info, nil
 	}
@@ -1700,7 +1721,7 @@ func (api *APIBase) DestroyApplication(ctx context.Context, args params.DestroyA
 			return nil, err
 		}
 		if len(op.Errors) != 0 {
-			logger.Warningf("operational errors destroying application %v: %v", tag.Id(), op.Errors)
+			api.logger.Warningf("operational errors destroying application %v: %v", tag.Id(), op.Errors)
 		}
 		return &info, nil
 	}
@@ -1748,7 +1769,7 @@ func (api *APIBase) DestroyConsumedApplications(ctx context.Context, args params
 		}
 		err = api.backend.ApplyOperation(op)
 		if op.Errors != nil && len(op.Errors) > 0 {
-			logger.Warningf("operational error encountered destroying consumed application %v: %v", appTag.Id(), op.Errors)
+			api.logger.Warningf("operational error encountered destroying consumed application %v: %v", appTag.Id(), op.Errors)
 		}
 		if err != nil {
 			results[i].Error = apiservererrors.ServerError(err)
@@ -1885,7 +1906,7 @@ func (api *APIBase) AddRelation(ctx context.Context, args params.AddRelation) (_
 	defer func() {
 		if err != nil && rel != nil {
 			if err := rel.Destroy(api.store); err != nil {
-				logger.Errorf("cannot destroy aborted relation %q: %v", rel.Tag().Id(), err)
+				api.logger.Errorf("cannot destroy aborted relation %q: %v", rel.Tag().Id(), err)
 			}
 		}
 	}()
@@ -1973,7 +1994,7 @@ func (api *APIBase) DestroyRelation(ctx context.Context, args params.DestroyRela
 	force := args.Force != nil && *args.Force
 	errs, err := rel.DestroyWithForce(force, common.MaxWait(args.MaxWait))
 	if len(errs) != 0 {
-		logger.Warningf("operational errors destroying relation %v: %v", rel.Tag().Id(), errs)
+		api.logger.Warningf("operational errors destroying relation %v: %v", rel.Tag().Id(), errs)
 	}
 	return err
 }
@@ -2124,7 +2145,7 @@ func (api *APIBase) saveRemoteApplication(
 		// If the same application was previously terminated due to the offer being removed,
 		// first ensure we delete it from this consuming model before adding again.
 		// TODO(wallyworld) - this operation should be in a single txn.
-		logger.Debugf("removing terminated remote app %q before adding a replacement", applicationName)
+		api.logger.Debugf("removing terminated remote app %q before adding a replacement", applicationName)
 		op := remoteApp.DestroyOperation(true)
 		if err := api.backend.ApplyOperation(op); err != nil {
 			return nil, errors.Annotatef(err, "removing terminated saas application %q", applicationName)

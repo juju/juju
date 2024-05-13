@@ -18,7 +18,7 @@ import (
 	service "github.com/juju/juju/domain/network/service"
 	state "github.com/juju/juju/domain/network/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
-	"github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type watcherSuite struct {
@@ -31,12 +31,12 @@ func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "subnet")
 
 	svc := service.NewWatchableService(
-		state.NewState(func() (database.TxnRunner, error) { return factory() }, testing.NewCheckLogger(c)),
+		state.NewState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
 		nil,
 		domain.NewWatcherFactory(factory,
-			testing.NewCheckLogger(c),
+			loggertesting.WrapCheckLog(c),
 		),
-		testing.NewCheckLogger(c),
+		loggertesting.WrapCheckLog(c),
 	)
 	watcher, err := svc.WatchSubnets(context.Background(), set.NewStrings())
 	c.Assert(err, jc.ErrorIsNil)
@@ -59,12 +59,12 @@ func (s *watcherSuite) TestWatchWithSubnetAssociation(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "subnet")
 
 	svc := service.NewWatchableService(
-		state.NewState(func() (database.TxnRunner, error) { return factory() }, testing.NewCheckLogger(c)),
+		state.NewState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
 		nil,
 		domain.NewWatcherFactory(factory,
-			testing.NewCheckLogger(c),
+			loggertesting.WrapCheckLog(c),
 		),
-		testing.NewCheckLogger(c),
+		loggertesting.WrapCheckLog(c),
 	)
 	watcher, err := svc.WatchSubnets(context.Background(), set.NewStrings())
 	c.Assert(err, jc.ErrorIsNil)
@@ -98,12 +98,12 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "subnet")
 
 	svc := service.NewWatchableService(
-		state.NewState(func() (database.TxnRunner, error) { return factory() }, testing.NewCheckLogger(c)),
+		state.NewState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
 		nil,
 		domain.NewWatcherFactory(factory,
-			testing.NewCheckLogger(c),
+			loggertesting.WrapCheckLog(c),
 		),
-		testing.NewCheckLogger(c),
+		loggertesting.WrapCheckLog(c),
 	)
 	watcher, err := svc.WatchSubnets(context.Background(), set.NewStrings())
 	c.Assert(err, jc.ErrorIsNil)

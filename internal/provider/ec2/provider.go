@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
@@ -20,10 +19,11 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/simplestreams"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
 )
 
-var logger = loggo.GetLogger("juju.provider.ec2")
+var logger = internallogger.GetLogger("juju.provider.ec2")
 
 type environProvider struct {
 	environProviderCloud

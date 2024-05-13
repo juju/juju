@@ -21,6 +21,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/charm/downloader/mocks"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 var _ = gc.Suite(&downloaderSuite{})
@@ -115,7 +116,6 @@ type downloaderSuite struct {
 	repoGetter   *mocks.MockRepositoryGetter
 	repo         *mocks.MockCharmRepository
 	storage      *mocks.MockStorage
-	logger       *mocks.MockLogger
 }
 
 func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
@@ -132,7 +132,7 @@ func (s *downloaderSuite) TestDownloadAndHash(c *gc.C) {
 	s.charmArchive.EXPECT().Version().Return("the-version")
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
 
-	dl := s.newDownloader()
+	dl := s.newDownloader(c)
 	dc, gotOrigin, err := dl.DownloadAndHash(context.Background(), name, requestedOrigin, repoAdaptor{s.repo}, tmpFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
@@ -154,7 +154,7 @@ func (s downloaderSuite) TestCharmAlreadyStored(c *gc.C) {
 	retURL, _ := url.Parse(curl.String())
 	s.repo.EXPECT().GetDownloadURL(gomock.Any(), curl.Name, requestedOrigin).Return(retURL, knownOrigin, nil)
 
-	dl := s.newDownloader()
+	dl := s.newDownloader(c)
 	gotOrigin, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, knownOrigin, gc.Commentf("expected to get back the known origin for the existing charm"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -170,7 +170,7 @@ func (s downloaderSuite) TestPrepareToStoreCharmError(c *gc.C) {
 		errors.New("something went wrong"),
 	)
 
-	dl := s.newDownloader()
+	dl := s.newDownloader(c)
 	gotOrigin, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, corecharm.Origin{}, gc.Commentf("expected a blank origin when encountering errors"))
 	c.Assert(err, gc.ErrorMatches, "something went wrong")
@@ -183,7 +183,7 @@ func (s downloaderSuite) TestNormalizePlatform(c *gc.C) {
 		OS:      "Ubuntu",
 	}
 
-	gotPlatform, err := s.newDownloader().NormalizePlatform(name, requestedPlatform)
+	gotPlatform, err := s.newDownloader(c).NormalizePlatform(name, requestedPlatform)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotPlatform, gc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",
@@ -241,7 +241,7 @@ func (s downloaderSuite) TestDownloadAndStore(c *gc.C) {
 	s.charmArchive.EXPECT().Version().Return("the-version")
 	s.charmArchive.EXPECT().LXDProfile().Return(nil)
 
-	dl := s.newDownloader()
+	dl := s.newDownloader(c)
 	gotOrigin, err := dl.DownloadAndStore(context.Background(), curl, requestedOrigin, false)
 	c.Assert(gotOrigin, gc.DeepEquals, resolvedOrigin, gc.Commentf("expected to get back the resolved origin"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,15 +253,11 @@ func (s *downloaderSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.repo = mocks.NewMockCharmRepository(ctrl)
 	s.repoGetter = mocks.NewMockRepositoryGetter(ctrl)
 	s.storage = mocks.NewMockStorage(ctrl)
-	s.logger = mocks.NewMockLogger(ctrl)
-	s.logger.EXPECT().Warningf(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Tracef(gomock.Any(), gomock.Any()).AnyTimes()
 	return ctrl
 }
 
-func (s *downloaderSuite) newDownloader() *downloader.Downloader {
-	return downloader.NewDownloader(s.logger, s.storage, s.repoGetter)
+func (s *downloaderSuite) newDownloader(c *gc.C) *downloader.Downloader {
+	return downloader.NewDownloader(loggertesting.WrapCheckLog(c), s.storage, s.repoGetter)
 }
 
 func mustParseChannel(c *gc.C, channel string) *charm.Channel {

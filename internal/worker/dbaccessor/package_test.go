@@ -16,12 +16,13 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/database/app"
-	jujujujutesting "github.com/juju/juju/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbaccessor Logger,DBApp,NodeManager,TrackedDB,Client,ClusterConfig
+//go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination package_mock_test.go github.com/juju/juju/internal/worker/dbaccessor DBApp,NodeManager,TrackedDB,Client,ClusterConfig
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination metrics_mock_test.go github.com/prometheus/client_golang/prometheus Registerer
 //go:generate go run go.uber.org/mock/mockgen -typed -package dbaccessor -destination controllerconfig_mock_test.go github.com/juju/juju/internal/worker/controlleragentconfig ConfigWatcher
@@ -35,7 +36,7 @@ func TestPackage(t *testing.T) {
 type baseSuite struct {
 	jujutesting.IsolationSuite
 
-	logger Logger
+	logger logger.Logger
 
 	clock                   *MockClock
 	timer                   *MockTimer
@@ -59,9 +60,7 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigWatcher = NewMockConfigWatcher(ctrl)
 	s.clusterConfig = NewMockClusterConfig(ctrl)
 
-	s.logger = jujujujutesting.CheckLogger{
-		Log: c,
-	}
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	return ctrl
 }

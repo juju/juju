@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/retry"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -22,9 +21,10 @@ import (
 	rbac "k8s.io/client-go/kubernetes/typed/rbac/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/utils"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.caas.kubernetes.provider.proxy")
+var logger = internallogger.GetLogger("juju.caas.kubernetes.provider.proxy")
 
 // ControllerProxyConfig is used to configure the kubernetes resources made for
 // the controller proxy objects.

@@ -6,7 +6,6 @@ package upgradeseries_test
 import (
 	"context"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -18,6 +17,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -208,7 +208,7 @@ func (s *upgradeSeriesSuite) arrangeTest(c *gc.C) *gomock.Controller {
 	s.backend.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, nil)
 
 	var err error
-	s.api, err = upgradeseries.NewUpgradeSeriesAPI(s.backend, resources, authorizer, nil, loggo.GetLogger("juju.apiserver.upgradeseries"))
+	s.api, err = upgradeseries.NewUpgradeSeriesAPI(s.backend, resources, authorizer, nil, loggertesting.WrapCheckLog(c))
 
 	c.Assert(err, jc.ErrorIsNil)
 

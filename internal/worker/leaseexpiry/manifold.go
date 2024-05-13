@@ -13,17 +13,12 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/logger"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/domain/lease/service"
 	"github.com/juju/juju/domain/lease/state"
 	"github.com/juju/juju/internal/worker/trace"
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Infof(string, ...interface{})
-	Debugf(string, ...interface{})
-}
 
 // ManifoldConfig holds the resources required
 // to start the lease expiry worker.
@@ -32,10 +27,10 @@ type ManifoldConfig struct {
 	DBAccessorName string
 	TraceName      string
 
-	Logger Logger
+	Logger logger.Logger
 
 	NewWorker func(Config) (worker.Worker, error)
-	NewStore  func(database.DBGetter, Logger) lease.ExpiryStore
+	NewStore  func(database.DBGetter, logger.Logger) lease.ExpiryStore
 }
 
 // Validate checks that the config has all the required values.
@@ -81,7 +76,7 @@ func (c ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (wo
 		return nil, errors.Trace(err)
 	}
 
-	tracer, err := tracerGetter.GetTracer(context.TODO(), coretrace.Namespace("leaseexpiry", database.ControllerNS))
+	tracer, err := tracerGetter.GetTracer(ctx, coretrace.Namespace("leaseexpiry", database.ControllerNS))
 	if err != nil {
 		tracer = coretrace.NoopTracer{}
 	}
@@ -114,7 +109,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 }
 
 // NewStore returns a new lease store based on the input config.
-func NewStore(dbGetter database.DBGetter, logger Logger) lease.ExpiryStore {
+func NewStore(dbGetter database.DBGetter, logger logger.Logger) lease.ExpiryStore {
 	factory := database.NewTxnRunnerFactoryForNamespace(dbGetter.GetDB, database.ControllerNS)
 	return service.NewService(state.NewState(factory, logger))
 }

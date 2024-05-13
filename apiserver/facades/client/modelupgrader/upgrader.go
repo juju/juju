@@ -9,7 +9,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
@@ -18,6 +17,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -58,7 +58,7 @@ type ModelUpgraderAPI struct {
 
 	registryAPIFunc         func(repoDetails docker.ImageRepoDetails) (registry.Registry, error)
 	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
-	logger                  loggo.Logger
+	logger                  corelogger.Logger
 }
 
 // NewModelUpgraderAPI creates a new api server endpoint for managing
@@ -75,7 +75,7 @@ func NewModelUpgraderAPI(
 	environscloudspecGetter func(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error),
 	controllerConfigService ControllerConfigService,
 	upgradeService UpgradeService,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) (*ModelUpgraderAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -261,7 +261,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 func preCheckEnvironForUpgradeModel(
 	ctx envcontext.ProviderCallContext, env environs.BootstrapEnviron,
 	controllerModel bool, currentVersion, targetVersion version.Number,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) error {
 	if err := environs.CheckProviderAPI(env, ctx); err != nil {
 		return errors.Trace(err)

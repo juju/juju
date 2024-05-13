@@ -11,12 +11,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/kr/pretty"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // Logger for the Azure provider.
-var logger = loggo.GetLogger("juju.provider.azure.internal.azurecli")
+var logger = internallogger.GetLogger("juju.provider.azure.internal.azurecli")
 
 // AzureCLI
 type AzureCLI struct {

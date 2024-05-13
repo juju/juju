@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -38,7 +38,7 @@ var _ = gc.Suite(&WorkerSuite{})
 func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
-	s.credential = &base.StoredCredential{credentialTag, true}
+	s.credential = &base.StoredCredential{CloudCredential: credentialTag, Valid: true}
 	s.credentialChanges = make(chan struct{})
 	s.exists = true
 	s.modelCredentialChanges = make(chan struct{})
@@ -52,7 +52,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 
 	s.config = credentialvalidator.Config{
 		Facade: s.facade,
-		Logger: loggo.GetLogger("test"),
+		Logger: loggertesting.WrapCheckLog(c),
 	}
 }
 

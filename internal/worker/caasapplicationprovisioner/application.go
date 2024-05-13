@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/password"
@@ -32,7 +33,7 @@ type appWorker struct {
 	facade     CAASProvisionerFacade
 	broker     CAASBroker
 	clock      clock.Clock
-	logger     Logger
+	logger     logger.Logger
 	unitFacade CAASUnitProvisionerFacade
 	ops        ApplicationOps
 
@@ -51,7 +52,7 @@ type AppWorkerConfig struct {
 	Broker     CAASBroker
 	ModelTag   names.ModelTag
 	Clock      clock.Clock
-	Logger     Logger
+	Logger     logger.Logger
 	UnitFacade CAASUnitProvisionerFacade
 	Ops        ApplicationOps
 	StatusOnly bool

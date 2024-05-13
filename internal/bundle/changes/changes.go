@@ -15,12 +15,8 @@ import (
 	"github.com/juju/errors"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger defines the logging methods needed
-type Logger interface {
-	Tracef(string, ...interface{})
-}
 
 // ArchConstraint defines an architecture constraint. This is used to
 // represent a parsed application architecture constraint.
@@ -41,7 +37,7 @@ type CharmResolver func(charm string, base corebase.Base, channel, arch string, 
 type ChangesConfig struct {
 	Bundle           *charm.BundleData
 	Model            *Model
-	Logger           Logger
+	Logger           logger.Logger
 	BundleURL        string
 	ConstraintGetter ConstraintGetter
 	CharmResolver    CharmResolver

@@ -33,6 +33,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -601,7 +602,7 @@ func bootstrapDqliteWithDummyCloudType(
 	ctx context.Context,
 	mgr database.BootstrapNodeManager,
 	modelUUID model.UUID,
-	logger database.Logger,
+	logger corelogger.Logger,
 	opts ...database.BootstrapOpt,
 ) error {
 	// The dummy cloud type needs to be inserted before the other operations.

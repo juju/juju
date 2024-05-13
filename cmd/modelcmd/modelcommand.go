@@ -13,18 +13,18 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/api"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/client/modelmanager"
 	"github.com/juju/juju/api/client/modelupgrader"
 	"github.com/juju/juju/core/model"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 )
 
-var logger = loggo.GetLogger("juju.cmd.modelcmd")
+var logger = internallogger.GetLogger("juju.cmd.modelcmd")
 
 // ErrNoModelSpecified is returned by commands that operate on
 // an environment if there is no current model, no model

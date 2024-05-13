@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	corepresence "github.com/juju/juju/core/presence"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/presence"
 )
 
@@ -37,7 +37,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AgentName:      "agent",
 		CentralHubName: "central-hub",
 		Recorder:       corepresence.New(testclock.NewClock(time.Now())),
-		Logger:         loggo.GetLogger("test"),
+		Logger:         loggertesting.WrapCheckLog(c),
 		NewWorker: func(presence.WorkerConfig) (worker.Worker, error) {
 			return nil, errors.New("boom")
 		},

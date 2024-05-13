@@ -7,10 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.secrets.provider")
+var logger = internallogger.GetLogger("juju.secrets.provider")
 
 type secretBackendRegistry struct {
 	backends map[string]SecretBackendProvider

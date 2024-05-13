@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,7 +15,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 type acCreator func() (cmd.Command, agentconf.AgentConf)
@@ -73,7 +74,7 @@ var _ = gc.Suite(&agentLoggingSuite{})
 
 func (*agentLoggingSuite) TestNoLoggingConfig(c *gc.C) {
 	f := &fakeLoggingConfig{}
-	context := loggo.NewContext(loggo.WARNING)
+	context := internallogger.LoggerContext(corelogger.WARNING)
 	initial := context.Config().String()
 
 	agentconf.SetupAgentLogging(context, f)
@@ -85,7 +86,7 @@ func (*agentLoggingSuite) TestLoggingOverride(c *gc.C) {
 	f := &fakeLoggingConfig{
 		loggingOverride: "test=INFO",
 	}
-	context := loggo.NewContext(loggo.WARNING)
+	context := internallogger.LoggerContext(corelogger.WARNING)
 
 	agentconf.SetupAgentLogging(context, f)
 
@@ -96,7 +97,7 @@ func (*agentLoggingSuite) TestLoggingConfig(c *gc.C) {
 	f := &fakeLoggingConfig{
 		loggingConfig: "test=INFO",
 	}
-	context := loggo.NewContext(loggo.WARNING)
+	context := internallogger.LoggerContext(corelogger.WARNING)
 
 	agentconf.SetupAgentLogging(context, f)
 

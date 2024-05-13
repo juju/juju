@@ -13,6 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agenterrors "github.com/juju/juju/agent/errors"
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
@@ -24,12 +26,12 @@ var (
 
 type toolSuite struct {
 	testing.BaseSuite
-	logger agenterrors.Logger
+	logger logger.Logger
 }
 
 func (s *toolSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.logger = testing.CheckLogger{Log: c}
+	s.logger = loggertesting.WrapCheckLog(c)
 }
 
 func (*toolSuite) TestErrorImportance(c *gc.C) {

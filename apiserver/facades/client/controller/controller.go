@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
@@ -87,7 +87,7 @@ type ControllerAPI struct {
 	accessService           ControllerAccessService
 
 	multiwatcherFactory multiwatcher.Factory
-	logger              loggo.Logger
+	logger              corelogger.Logger
 
 	controllerTag names.ControllerTag
 }
@@ -107,7 +107,7 @@ func NewControllerAPI(
 	presence facade.Presence,
 	hub facade.Hub,
 	factory multiwatcher.Factory,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 	controllerConfigService ControllerConfigService,
 	externalControllerService common.ExternalControllerService,
 	cloudService common.CloudService,

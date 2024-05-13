@@ -16,6 +16,7 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 )
@@ -29,13 +30,13 @@ type CharmHubClient interface {
 
 // CharmHubRepository provides an API for charm-related operations using charmhub.
 type CharmHubRepository struct {
-	logger Logger
+	logger logger.Logger
 	client CharmHubClient
 }
 
 // NewCharmHubRepository returns a new repository instance using the provided
 // charmhub client.
-func NewCharmHubRepository(logger Logger, chClient CharmHubClient) *CharmHubRepository {
+func NewCharmHubRepository(logger logger.Logger, chClient CharmHubClient) *CharmHubRepository {
 	return &CharmHubRepository{
 		logger: logger,
 		client: chClient,

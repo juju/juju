@@ -8,13 +8,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud-controller/agent/model"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/testing"
 )
 
@@ -28,7 +28,7 @@ func (s *ManifoldsSuite) TestIAASNames(c *gc.C) {
 	actual := set.NewStrings()
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
-		LoggingContext: loggo.DefaultContext(),
+		LoggingContext: internallogger.DefaultContext(),
 	})
 	for name := range manifolds {
 		actual.Add(name)
@@ -78,7 +78,7 @@ func (s *ManifoldsSuite) TestCAASNames(c *gc.C) {
 	actual := set.NewStrings()
 	manifolds := model.CAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
-		LoggingContext: loggo.DefaultContext(),
+		LoggingContext: internallogger.DefaultContext(),
 	})
 	for name := range manifolds {
 		actual.Add(name)
@@ -141,7 +141,7 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 	)
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
-		LoggingContext: loggo.DefaultContext(),
+		LoggingContext: internallogger.DefaultContext(),
 	})
 	for name, manifold := range manifolds {
 		c.Logf("checking %s", name)
@@ -159,7 +159,7 @@ func (s *ManifoldsSuite) TestFlagDependencies(c *gc.C) {
 func (s *ManifoldsSuite) TestStateCleanerIgnoresLifeFlags(c *gc.C) {
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
-		LoggingContext: loggo.DefaultContext(),
+		LoggingContext: internallogger.DefaultContext(),
 	})
 	manifold, found := manifolds["state-cleaner"]
 	c.Assert(found, jc.IsTrue)
@@ -174,7 +174,7 @@ func (s *ManifoldsSuite) TestClockWrapper(c *gc.C) {
 	manifolds := model.IAASManifolds(model.ManifoldsConfig{
 		Agent:          &mockAgent{},
 		Clock:          expectClock,
-		LoggingContext: loggo.DefaultContext(),
+		LoggingContext: internallogger.DefaultContext(),
 	})
 	manifold, ok := manifolds["clock"]
 	c.Assert(ok, jc.IsTrue)
@@ -194,7 +194,7 @@ func (s *ManifoldsSuite) TestIAASManifold(c *gc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		model.IAASManifolds(model.ManifoldsConfig{
 			Agent:          &mockAgent{},
-			LoggingContext: loggo.DefaultContext(),
+			LoggingContext: internallogger.DefaultContext(),
 		}),
 		expectedIAASModelManifoldsWithDependencies,
 	)
@@ -204,7 +204,7 @@ func (s *ManifoldsSuite) TestCAASManifold(c *gc.C) {
 	agenttest.AssertManifoldsDependencies(c,
 		model.CAASManifolds(model.ManifoldsConfig{
 			Agent:          &mockAgent{},
-			LoggingContext: loggo.DefaultContext(),
+			LoggingContext: internallogger.DefaultContext(),
 		}),
 		expectedCAASModelManifoldsWithDependencies,
 	)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/docker/registry"
 )
 
@@ -25,7 +26,7 @@ type ManifoldConfig struct {
 	NewFacade func(base.APICaller) (Facade, error)
 	NewWorker func(Config) (worker.Worker, error)
 
-	Logger Logger
+	Logger logger.Logger
 	Clock  clock.Clock
 }
 

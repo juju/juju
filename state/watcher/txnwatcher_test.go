@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	mgotesting "github.com/juju/mgo/v3/testing"
@@ -20,6 +19,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
 )
@@ -77,8 +77,7 @@ func (s *TxnWatcherSuite) newRunner(c *gc.C) {
 
 func (s *TxnWatcherSuite) newWatcherWithError(c *gc.C, expect int, watcherError error, baseConfig watcher.TxnWatcherConfig) (*watcher.TxnWatcher, *fakeHub) {
 	hub := newFakeHub(c, expect)
-	logger := loggo.GetLogger("test")
-	logger.SetLogLevel(loggo.TRACE)
+	logger := loggertesting.WrapCheckLog(c)
 
 	session := s.MgoSuite.Session.New()
 	baseConfig.Session = session

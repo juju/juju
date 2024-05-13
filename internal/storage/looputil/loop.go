@@ -13,10 +13,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
+
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.storage.looputil")
+var logger = internallogger.GetLogger("juju.storage.looputil")
 
 // LoopDeviceManager is an API for dealing with storage loop devices.
 type LoopDeviceManager interface {

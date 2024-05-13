@@ -15,7 +15,11 @@ type ImportSuite struct{}
 
 var _ = gc.Suite(&ImportSuite{})
 
-var allowedCoreImports = set.NewStrings("core/life")
+var allowedCoreImports = set.NewStrings(
+	"core/life",
+	"core/logger",
+	"internal/logger",
+)
 
 func (*ImportSuite) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/network")

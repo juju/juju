@@ -8,6 +8,7 @@ import (
 
 	jujucharm "github.com/juju/charm/v13"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -15,17 +16,12 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/resolver"
 )
 
-type Logger interface {
-	Debugf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
-
 type verifyCharmProfileResolver struct {
-	logger Logger
+	logger logger.Logger
 }
 
 // NewResolver returns a new verify charm profile resolver.
-func NewResolver(logger Logger, modelType model.ModelType) resolver.Resolver {
+func NewResolver(logger logger.Logger, modelType model.ModelType) resolver.Resolver {
 	if modelType == model.CAAS {
 		return &caasVerifyCharmProfileResolver{}
 	}

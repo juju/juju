@@ -7,11 +7,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/testing"
 )
@@ -47,7 +47,7 @@ func (s *unitWorkersStub) Manifold(unitName string) dependency.Manifold {
 type unitWorkersStub struct {
 	started chan string
 	stopped chan string
-	logger  loggo.Logger
+	logger  logger.Logger
 
 	// If startError is non-nil, it is returned from the manifold Start func.
 	startError error
@@ -70,7 +70,7 @@ func (s *unitWorkersStub) waitForStart(c *gc.C, unitName string) {
 }
 
 type unitWorker struct {
-	logger  loggo.Logger
+	logger  logger.Logger
 	stop    chan struct{}
 	name    string
 	started chan<- string

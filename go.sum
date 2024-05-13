@@ -152,10 +152,10 @@ github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8 h1:zGaJEJI9qPVy
 github.com/canonical/go-flags v0.0.0-20230403090104-105d09a091b8/go.mod h1:ZZFeR9K9iGgpwOaLYF9PdT44/+lfSJ9sQz3B+SsGsYU=
 github.com/canonical/lxd v0.0.0-20231214113525-e676fc63c50a h1:Tfo/MzXK5GeG7gzSHqxGeY/669Mhh5ea43dn1mRDnk8=
 github.com/canonical/lxd v0.0.0-20231214113525-e676fc63c50a/go.mod h1:UxfHGKFoRjgu1NUA9EFiR++dKvyAiT0h9HT0ffMlzjc=
-github.com/canonical/sqlair v0.0.0-20240417091145-13970327005b h1:jgRDcoa03uMllXr5RjGD+qAlG9cMbmAGAZ9d9Adb7Pw=
-github.com/canonical/sqlair v0.0.0-20240417091145-13970327005b/go.mod h1:T+40I2sXshY3KRxx0QQpqqn6hCibSKJ2KHzjBvJj8T4=
 github.com/canonical/pebble v1.11.0 h1:Xl4JAK0Sc3197jUZJfRiUapUpTW8+Lh42AwWBS+PaeY=
 github.com/canonical/pebble v1.11.0/go.mod h1:BXpt85cFqrBgACeVRrTQ7JxZIdnGILv32V7mAfDcGFc=
+github.com/canonical/sqlair v0.0.0-20240417091145-13970327005b h1:jgRDcoa03uMllXr5RjGD+qAlG9cMbmAGAZ9d9Adb7Pw=
+github.com/canonical/sqlair v0.0.0-20240417091145-13970327005b/go.mod h1:T+40I2sXshY3KRxx0QQpqqn6hCibSKJ2KHzjBvJj8T4=
 github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b h1:Da2fardddn+JDlVEYtrzBLTtyzoyU3nIS0Cf0GvjmwU=
 github.com/canonical/x-go v0.0.0-20230522092633-7947a7587f5b/go.mod h1:upTK9n6rlqITN9rCN69hdreI37dRDFUk2thlGGD5Cg8=
 github.com/cenkalti/backoff/v3 v3.0.0 h1:ske+9nBpD9qZsTBoF41nW5L+AIuFBKMeze18XQ3eG1c=
@@ -531,8 +531,8 @@ github.com/juju/loggo v0.0.0-20200526014432-9ce3a2e09b5e/go.mod h1:vgyd7OREkbtVE
 github.com/juju/loggo v0.0.0-20210728185423-eebad3a902c4/go.mod h1:NIXFioti1SmKAlKNuUwbMenNdef59IF52+ZzuOmHYkg=
 github.com/juju/loggo v1.0.0 h1:Y6ZMQOGR9Aj3BGkiWx7HBbIx6zNwNkxhVNOHU2i1bl0=
 github.com/juju/loggo v1.0.0/go.mod h1:NIXFioti1SmKAlKNuUwbMenNdef59IF52+ZzuOmHYkg=
-github.com/juju/loggo/v2 v2.0.1 h1:l7EDSQuOpW0SghK5M5cTl6/iAaTLRgjLN5n3y4wzn6A=
-github.com/juju/loggo/v2 v2.0.1/go.mod h1:647d6WvXBLj5lvka2qBvccr7vMIvF2KFkEH+0ZuFOUM=
+github.com/juju/loggo/v2 v2.1.1-0.20240509163806-ebdeb290b961 h1:D7BGXKOIGURoRSyfDh2MrY1/Eg6jE4vb46R/JoaqnMI=
+github.com/juju/loggo/v2 v2.1.1-0.20240509163806-ebdeb290b961/go.mod h1:647d6WvXBLj5lvka2qBvccr7vMIvF2KFkEH+0ZuFOUM=
 github.com/juju/lru v1.0.0 h1:FP8mBNF3jBnKwGO5PtsR+8iIegx8DREfhRhpcGpYcn4=
 github.com/juju/lru v1.0.0/go.mod h1:YauKGp6PAhOQyGuTOkiFdXVP1jR3vLkp/FI71GcpYcQ=
 github.com/juju/lumberjack/v2 v2.0.2 h1:FlxrR62Vb7FfN7jwpSBqqereyq5bBQUF0LqOhZ2VGeI=

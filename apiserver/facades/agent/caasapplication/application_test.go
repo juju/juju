@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/caas"
 	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/domain/servicefactory/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -67,7 +67,7 @@ func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 		s.DefaultModelServiceFactory(c).Application(provider.CommonStorageProviders()),
 		s.broker,
 		s.clock,
-		loggo.GetLogger("juju.apiserver.caasaplication"),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade

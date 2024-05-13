@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/worker/filenotifywatcher"
 )
 
@@ -36,7 +37,7 @@ type WorkerConfig struct {
 	DBGetter          DBGetter
 	FileNotifyWatcher FileNotifyWatcher
 	Clock             clock.Clock
-	Logger            Logger
+	Logger            logger.Logger
 	Metrics           Metrics
 	NewWatchableDB    WatchableDBFn
 }

@@ -42,6 +42,7 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/docker"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	pscontroller "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/multiwatcher"
@@ -96,7 +97,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Clock:                clock.WallClock,
-		Logger:               loggo.GetLogger("test"),
+		Logger:               loggertesting.WrapCheckLog(c),
 		Backing:              allWatcherBacking,
 		PrometheusRegisterer: noopRegisterer{},
 	})
@@ -127,6 +128,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Hub_:                 s.hub,
 		MultiwatcherFactory_: multiWatcherWorker,
 		ServiceFactory_:      s.ControllerServiceFactory(c),
+		Logger_:              loggertesting.WrapCheckLog(c),
 	}
 	controller, err := controller.LatestAPI(context.Background(), s.context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -149,6 +151,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 		Resources_:      s.resources,
 		Auth_:           anAuthoriser,
 		ServiceFactory_: s.ControllerServiceFactory(c),
+		Logger_:         loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -333,6 +336,7 @@ func (s *controllerSuite) TestModelConfigFromNonController(c *gc.C) {
 			Resources_:      common.NewResources(),
 			Auth_:           authorizer,
 			ServiceFactory_: s.ControllerServiceFactory(c),
+			Logger_:         loggertesting.WrapCheckLog(c),
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -367,6 +371,7 @@ func (s *controllerSuite) TestControllerConfigFromNonController(c *gc.C) {
 			Resources_:      common.NewResources(),
 			Auth_:           authorizer,
 			ServiceFactory_: s.ControllerServiceFactory(c),
+			Logger_:         loggertesting.WrapCheckLog(c),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, err := controller.ControllerConfig(context.Background())
@@ -417,6 +422,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		Auth_:            s.authorizer,
 		ID_:              watcherId.AllWatcherId,
 		Dispose_:         func() { disposed = true },
+		Logger_:          loggertesting.WrapCheckLog(c),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	watcherAPI := watcherAPI_.(*apiserver.SrvAllWatcher)
@@ -867,6 +873,7 @@ func (s *controllerSuite) TestConfigSetRequiresSuperUser(c *gc.C) {
 			Resources_:      s.resources,
 			Auth_:           anAuthoriser,
 			ServiceFactory_: s.ControllerServiceFactory(c),
+			Logger_:         loggertesting.WrapCheckLog(c),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1049,6 +1056,7 @@ func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
 			Resources_:      s.resources,
 			Auth_:           anAuthoriser,
 			ServiceFactory_: s.ControllerServiceFactory(c),
+			Logger_:         loggertesting.WrapCheckLog(c),
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1120,7 +1128,7 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		nil,
-		loggo.GetLogger("juju.apiserver.controller"),
+		loggertesting.WrapCheckLog(c),
 		nil,
 		nil,
 		nil,
@@ -1130,7 +1138,6 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	loggo.GetLogger("juju.apiserver.controller").SetLogLevel(loggo.TRACE)
 	return api
 }
 

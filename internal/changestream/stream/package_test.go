@@ -17,7 +17,6 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package stream -destination stream_mock_test.go github.com/juju/juju/internal/changestream/stream FileNotifier
-//go:generate go run go.uber.org/mock/mockgen -typed -package stream -destination logger_mock_test.go github.com/juju/juju/internal/changestream/stream Logger
 //go:generate go run go.uber.org/mock/mockgen -typed -package stream -destination metrics_mock_test.go github.com/juju/juju/internal/changestream/stream MetricsCollector
 //go:generate go run go.uber.org/mock/mockgen -typed -package stream -destination clock_mock_test.go github.com/juju/clock Clock,Timer
 
@@ -32,7 +31,6 @@ type baseSuite struct {
 
 	clock        *MockClock
 	timer        *MockTimer
-	logger       *MockLogger
 	metrics      *MockMetricsCollector
 	FileNotifier *MockFileNotifier
 }
@@ -52,19 +50,10 @@ func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.clock = NewMockClock(ctrl)
 	s.timer = NewMockTimer(ctrl)
-	s.logger = NewMockLogger(ctrl)
 	s.metrics = NewMockMetricsCollector(ctrl)
 	s.FileNotifier = NewMockFileNotifier(ctrl)
 
 	return ctrl
-}
-
-func (s *baseSuite) expectAnyLogs() {
-	s.logger.EXPECT().Errorf(gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Infof(gomock.Any(), gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Debugf(gomock.Any()).AnyTimes()
-	s.logger.EXPECT().Tracef(gomock.Any()).AnyTimes()
-	s.logger.EXPECT().IsTraceEnabled().Return(false).AnyTimes()
 }
 
 func (s *baseSuite) expectTimer() chan<- time.Time {

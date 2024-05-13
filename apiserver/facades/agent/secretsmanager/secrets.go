@@ -9,7 +9,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -54,7 +54,7 @@ type SecretsManagerAPI struct {
 
 	crossModelState CrossModelState
 
-	logger loggo.Logger
+	logger logger.Logger
 }
 
 // GetSecretBackendConfigs gets the config needed to create a client to secret backends.

@@ -16,6 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/multiwatcher"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	mwWorker "github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/internal/worker/multiwatcher/testbacking"
 	"github.com/juju/juju/state"
@@ -28,8 +29,8 @@ type watcherSuite struct {
 var _ = gc.Suite(&watcherSuite{})
 
 func (s *watcherSuite) startWorker(c *gc.C, backing state.AllWatcherBacking) *mwWorker.Worker {
-	logger := loggo.GetLogger("test")
-	logger.SetLogLevel(loggo.TRACE)
+	logger := loggertesting.WrapCheckLog(c)
+
 	config := mwWorker.Config{
 		Clock:                clock.WallClock,
 		Logger:               logger,

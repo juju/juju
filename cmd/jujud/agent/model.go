@@ -12,7 +12,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4/voyeur"
 	"github.com/juju/worker/v4"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/upgrade"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/gate"
@@ -206,7 +206,7 @@ func (m *ModelCommand) Workers() (worker.Worker, error) {
 	// should work out the best way to get it into here.
 	engine, err := dependency.NewEngine(engine.DependencyEngineConfig(
 		dependency.DefaultMetrics(),
-		loggo.GetLogger("juju.worker.dependency"),
+		internallogger.GetLogger("juju.worker.dependency"),
 	))
 	if err != nil {
 		return nil, err

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
@@ -27,10 +26,11 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/output"
 	corestatus "github.com/juju/juju/core/status"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
 
-var logger = loggo.GetLogger("juju.cmd.juju.model")
+var logger = internallogger.GetLogger("juju.cmd.juju.model")
 
 // NewDestroyCommand returns a command used to destroy a model.
 func NewDestroyCommand() cmd.Command {

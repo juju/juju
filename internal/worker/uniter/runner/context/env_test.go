@@ -52,7 +52,7 @@ func (s *EnvSuite) getPaths() (paths context.Paths, expectVars []string) {
 	}
 }
 
-func (s *EnvSuite) getHookContext(newProxyOnly bool, uniter api.UniterClient, unit context.HookUnit) (ctx *context.HookContext, expectVars []string) {
+func (s *EnvSuite) getHookContext(c *gc.C, newProxyOnly bool, uniter api.UniterClient, unit context.HookUnit) (ctx *context.HookContext, expectVars []string) {
 	var (
 		legacyProxy proxy.Settings
 		jujuProxy   proxy.Settings
@@ -110,7 +110,7 @@ func (s *EnvSuite) getHookContext(newProxyOnly bool, uniter api.UniterClient, un
 	// It doesn't make sense that we set both legacy and juju proxy
 	// settings, but by setting both to different values, we can see
 	// what the environment values are.
-	return context.NewModelHookContext(context.ModelHookContextParams{
+	return context.NewModelHookContext(c, context.ModelHookContextParams{
 		ID:                  "some-context-id",
 		HookName:            "some-hook-name",
 		ModelUUID:           "model-uuid-deadbeef",
@@ -238,7 +238,7 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 		},
 	)
 
-	hookContext, contextVars := s.getHookContext(false, state, unit)
+	hookContext, contextVars := s.getHookContext(c, false, state, unit)
 	paths, pathsVars := s.getPaths()
 	actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -301,7 +301,7 @@ func (s *EnvSuite) TestEnvCentos(c *gc.C) {
 			},
 		)
 
-		hookContext, contextVars := s.getHookContext(false, state, unit)
+		hookContext, contextVars := s.getHookContext(c, false, state, unit)
 		paths, pathsVars := s.getPaths()
 		actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
 		c.Assert(err, jc.ErrorIsNil)
@@ -354,7 +354,7 @@ func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
 		},
 	)
 
-	hookContext, contextVars := s.getHookContext(false, state, unit)
+	hookContext, contextVars := s.getHookContext(c, false, state, unit)
 	paths, pathsVars := s.getPaths()
 	actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -408,7 +408,7 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 		},
 	)
 
-	hookContext, contextVars := s.getHookContext(false, state, unit)
+	hookContext, contextVars := s.getHookContext(c, false, state, unit)
 	paths, pathsVars := s.getPaths()
 	actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)

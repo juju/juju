@@ -240,7 +240,7 @@ func (s *RESTSuite) TestGetWithFailureRetry(c *gc.C) {
 		Attempts: 3,
 		Delay:    testing.ShortWait,
 		MaxDelay: testing.LongWait,
-	})(s.loggerFactory)
+	})(s.logger)
 	client := newHTTPRESTClient(httpClient)
 
 	base := MustMakePath(c, server.URL)
@@ -263,7 +263,7 @@ func (s *RESTSuite) TestGetWithFailureWithoutRetry(c *gc.C) {
 		Attempts: 3,
 		Delay:    testing.ShortWait,
 		MaxDelay: testing.LongWait,
-	})(s.loggerFactory)
+	})(s.logger)
 	client := newHTTPRESTClient(httpClient)
 
 	base := MustMakePath(c, server.URL)
@@ -288,7 +288,7 @@ func (s *RESTSuite) TestGetWithNoRetry(c *gc.C) {
 		Attempts: 3,
 		Delay:    testing.ShortWait,
 		MaxDelay: testing.LongWait,
-	})(s.loggerFactory)
+	})(s.logger)
 	client := newHTTPRESTClient(httpClient)
 
 	base := MustMakePath(c, server.URL)

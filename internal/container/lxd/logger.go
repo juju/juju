@@ -8,12 +8,14 @@ import (
 	"fmt"
 
 	lxdLogger "github.com/canonical/lxd/shared/logger"
-	"github.com/juju/loggo/v2"
+
+	corelogger "github.com/juju/juju/core/logger"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
 // lxdLogProxy proxies LXD's log calls through the juju logger.
 type lxdLogProxy struct {
-	logger loggo.Logger
+	logger corelogger.Logger
 }
 
 func (p *lxdLogProxy) render(msg string, ctx []lxdLogger.Ctx) string {
@@ -82,6 +84,6 @@ func (p *lxdLogProxy) AddContext(_ lxdLogger.Ctx) lxdLogger.Logger {
 
 func init() {
 	lxdLogger.Log = &lxdLogProxy{
-		logger: loggo.GetLogger("lxd"),
+		logger: internallogger.GetLogger("lxd"),
 	}
 }

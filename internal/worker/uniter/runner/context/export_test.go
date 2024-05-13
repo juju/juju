@@ -7,13 +7,14 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujusecrets "github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
@@ -51,7 +52,7 @@ func (stub *stubLeadershipContext) IsLeader() (bool, error) {
 	return stub.isLeader, nil
 }
 
-func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
+func NewHookContext(c *gc.C, hcParams HookContextParams) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:                   hcParams.Unit,
 		uniter:                 hcParams.Uniter,
@@ -73,7 +74,7 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 		secretsBackendGetter:   func() (api.SecretsBackend, error) { return hcParams.SecretsStore, nil },
 		secretMetadata:         hcParams.SecretMetadata,
 		clock:                  hcParams.Clock,
-		logger:                 loggo.GetLogger("test"),
+		logger:                 loggertesting.WrapCheckLog(c),
 		LeadershipContext:      &stubLeadershipContext{isLeader: true},
 		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
@@ -107,8 +108,8 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	return ctx, nil
 }
 
-func NewMockUnitHookContext(mockUnit *api.MockUnit, modelType model.ModelType, leadership LeadershipContext) *HookContext {
-	logger := loggo.GetLogger("test")
+func NewMockUnitHookContext(c *gc.C, mockUnit *api.MockUnit, modelType model.ModelType, leadership LeadershipContext) *HookContext {
+	logger := loggertesting.WrapCheckLog(c)
 	return &HookContext{
 		unit:              mockUnit,
 		unitName:          mockUnit.Tag().Id(),
@@ -127,8 +128,8 @@ func NewMockUnitHookContext(mockUnit *api.MockUnit, modelType model.ModelType, l
 	}
 }
 
-func NewMockUnitHookContextWithUniter(mockUnit *api.MockUnit, uniterClient *api.MockUniterClient) *HookContext {
-	logger := loggo.GetLogger("test")
+func NewMockUnitHookContextWithUniter(c *gc.C, mockUnit *api.MockUnit, uniterClient *api.MockUniterClient) *HookContext {
+	logger := loggertesting.WrapCheckLog(c)
 	return &HookContext{
 		unitName:               mockUnit.Tag().Id(), //unitName used by the action finaliser method.
 		unit:                   mockUnit,
@@ -141,8 +142,8 @@ func NewMockUnitHookContextWithUniter(mockUnit *api.MockUnit, uniterClient *api.
 	}
 }
 
-func NewMockUnitHookContextWithStateAndStorage(unitName string, unit HookUnit, uniterClient api.UniterClient, storageTag names.StorageTag) *HookContext {
-	logger := loggo.GetLogger("test")
+func NewMockUnitHookContextWithStateAndStorage(c *gc.C, unitName string, unit HookUnit, uniterClient api.UniterClient, storageTag names.StorageTag) *HookContext {
+	logger := loggertesting.WrapCheckLog(c)
 	return &HookContext{
 		unitName:               unit.Tag().Id(), //unitName used by the action finaliser method.
 		unit:                   unit,
@@ -247,7 +248,7 @@ type ModelHookContextParams struct {
 
 // NewModelHookContext exists purely to set the fields used in rs.
 // The returned value is not otherwise valid.
-func NewModelHookContext(p ModelHookContextParams) *HookContext {
+func NewModelHookContext(c *gc.C, p ModelHookContextParams) *HookContext {
 	return &HookContext{
 		id:                     p.ID,
 		hookName:               p.HookName,
@@ -262,7 +263,7 @@ func NewModelHookContext(p ModelHookContextParams) *HookContext {
 		availabilityZone:       p.AvailZone,
 		principal:              p.UnitName,
 		cloudAPIVersion:        "6.66",
-		logger:                 loggo.GetLogger("test"),
+		logger:                 loggertesting.WrapCheckLog(c),
 		uniter:                 p.Uniter,
 		unit:                   p.Unit,
 		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),

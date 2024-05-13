@@ -22,16 +22,11 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
-
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 // RemoteModelRelationsFacadeCloser implements RemoteModelRelationsFacade
 // and add a Close() method.
@@ -138,7 +133,7 @@ type Config struct {
 	RelationsFacade          RemoteRelationsFacade
 	NewRemoteModelFacadeFunc newRemoteRelationsFacadeFunc
 	Clock                    clock.Clock
-	Logger                   Logger
+	Logger                   logger.Logger
 
 	// Used for testing.
 	Runner *worker.Runner
@@ -328,7 +323,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 		if err := w.runner.StartWorker(name, startFunc); err != nil {
 			if errors.Is(err, errors.AlreadyExists) {
 				w.logger.Debugf("already running remote application worker for %q", name)
-			} else if err != nil {
+			} else {
 				return errors.Annotate(err, "error starting remote application worker")
 			}
 		}

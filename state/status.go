@@ -10,19 +10,17 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/leadership"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/utils"
 )
-
-var status_logger = loggo.GetLogger("juju.status")
 
 type displayStatusFunc func(unitStatus status.StatusInfo, containerStatus status.StatusInfo) status.StatusInfo
 
@@ -410,25 +408,6 @@ type recordedHistoricalStatusDoc struct {
 	StatusData map[string]interface{} `bson:"statusdata"`
 }
 
-// logStatusUpdate sends the status update to the status logger.
-//
-// The "idle" status for the machine-lxd-profile is omitted from the status log,
-// since only the applied or error statuses are useful in that case.
-//
-// TODO (cderici): Once the statusesHistoryC collection goes away we'll lose
-// access to the doc parameter, so we'll replace it with a couple more
-// parameters for the status info and the status value.
-func logStatusUpdate(statusKind string, statusId string, doc statusDoc) {
-	if statusKind != "machine-lxd-profile" || doc.Status != status.Idle {
-		status_logger.InfoWithLabelsf(doc.StatusInfo, map[string]string{
-			"domain": "status",
-			"kind":   statusKind,
-			"id":     statusId,
-			"value":  doc.Status.String(),
-		})
-	}
-}
-
 // probablyUpdateStatusHistory inspects existing status-history
 // and determines if this status is new or the same as the last recorded.
 // If this is a new status, a new status history record will be added.
@@ -445,8 +424,6 @@ func probablyUpdateStatusHistory(db Database,
 		Updated:    doc.Updated,
 		GlobalKey:  globalKey,
 	}
-
-	logStatusUpdate(statusKind, statusId, doc)
 
 	history, closer := db.GetCollection(statusesHistoryC)
 	defer closer()
@@ -536,7 +513,7 @@ func eraseStatusHistory(stop <-chan struct{}, mb modelBackend, globalKey string)
 	deleted, err := deleteInBatches(
 		stop,
 		history.Writeable().Underlying(), nil, "", iter,
-		logFormat, loggo.DEBUG,
+		logFormat, corelogger.DEBUG,
 		noEarlyFinish,
 	)
 	if err != nil {

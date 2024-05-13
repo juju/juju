@@ -7,7 +7,6 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -22,9 +21,11 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner"
 	"github.com/juju/juju/internal/worker/caasapplicationprovisioner/mocks"
@@ -38,14 +39,14 @@ type OpsSuite struct {
 	coretesting.BaseSuite
 
 	modelTag names.ModelTag
-	logger   loggo.Logger
+	logger   logger.Logger
 }
 
 func (s *OpsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	s.modelTag = names.NewModelTag("ffffffff-ffff-ffff-ffff-ffffffffffff")
-	s.logger = loggo.GetLogger("test")
+	s.logger = loggertesting.WrapCheckLog(c)
 }
 
 func (s *OpsSuite) TestCheckCharmFormatV1(c *gc.C) {

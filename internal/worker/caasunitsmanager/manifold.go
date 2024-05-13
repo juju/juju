@@ -10,13 +10,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/dependency"
-)
 
-// Logger for logging messages.
-type Logger interface {
-	Infof(string, ...interface{})
-	Errorf(string, ...interface{})
-}
+	"github.com/juju/juju/core/logger"
+)
 
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
@@ -24,10 +20,10 @@ type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 
-	Logger
-	Clock clock.Clock
+	Logger logger.Logger
+	Clock  clock.Clock
 
-	Hub
+	Hub Hub
 }
 
 // Validate ensures all the required values for the config are set.

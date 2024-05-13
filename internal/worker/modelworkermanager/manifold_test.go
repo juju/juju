@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -19,7 +18,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/servicefactory"
@@ -39,6 +40,8 @@ type ManifoldSuite struct {
 	modelLogger                  dummyModelLogger
 	serviceFactoryGetter         servicefactory.ServiceFactoryGetter
 	providerServiceFactoryGetter servicefactory.ProviderServiceFactoryGetter
+
+	logger logger.Logger
 
 	state *state.State
 	pool  *state.StatePool
@@ -63,6 +66,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.stub.ResetCalls()
 
 	s.modelLogger = dummyModelLogger{}
+	s.logger = loggertesting.WrapCheckLog(c)
 
 	s.getter = s.newGetter(nil)
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
@@ -75,7 +79,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		NewWorker:                    s.newWorker,
 		NewModelWorker:               s.newModelWorker,
 		ModelMetrics:                 dummyModelMetrics{},
-		Logger:                       loggo.GetLogger("test"),
+		Logger:                       s.logger,
 		GetProviderServiceFactoryGetter: func(getter dependency.Getter, name string) (modelworkermanager.ProviderServiceFactoryGetter, error) {
 			var a any
 			if err := getter.Get(name, &a); err != nil {
@@ -171,7 +175,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 			StatePool: s.pool,
 		},
 		ErrorDelay:                   jworker.RestartDelay,
-		Logger:                       loggo.GetLogger("test"),
+		Logger:                       s.logger,
 		MachineID:                    "1",
 		LogSink:                      dummyModelLogger{},
 		ProviderServiceFactoryGetter: providerServiceFactoryGetter{},

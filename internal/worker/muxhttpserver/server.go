@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pki"
 	pkitls "github.com/juju/juju/internal/pki/tls"
 )
@@ -23,19 +24,13 @@ type Config struct {
 	Port    string
 }
 
-type Logger interface {
-	Debugf(string, ...interface{})
-	Errorf(string, ...interface{})
-	Infof(string, ...interface{})
-}
-
 // Server is the http server running inside this worker handling requests to
 // the http mux
 type Server struct {
 	catacomb catacomb.Catacomb
 	info     ServerInfo
 	listener net.Listener
-	logger   Logger
+	logger   logger.Logger
 	Mux      *apiserverhttp.Mux
 	server   *http.Server
 }
@@ -65,7 +60,7 @@ func catacombInvoke(server *Server) (*Server, error) {
 	return server, nil
 }
 
-func NewServerWithOutTLS(logger Logger, conf Config) (*Server, error) {
+func NewServerWithOutTLS(logger logger.Logger, conf Config) (*Server, error) {
 	mux := apiserverhttp.NewMux()
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", conf.Address, conf.Port))
@@ -87,7 +82,7 @@ func NewServerWithOutTLS(logger Logger, conf Config) (*Server, error) {
 	return catacombInvoke(server)
 }
 
-func NewServer(authority pki.Authority, logger Logger, conf Config) (*Server, error) {
+func NewServer(authority pki.Authority, logger logger.Logger, conf Config) (*Server, error) {
 	mux := apiserverhttp.NewMux()
 
 	tlsConfig := &tls.Config{

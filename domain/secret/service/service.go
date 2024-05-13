@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -86,14 +87,8 @@ type WatcherFactory interface {
 	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
 }
 
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-}
-
 // NewSecretService returns a new secret service wrapping the specified state.
-func NewSecretService(st State, logger Logger, adminConfigGetter BackendAdminConfigGetter) *SecretService {
+func NewSecretService(st State, logger logger.Logger, adminConfigGetter BackendAdminConfigGetter) *SecretService {
 	return &SecretService{
 		st:                st,
 		logger:            logger,
@@ -120,7 +115,7 @@ var NotImplementedBackendConfigGetter = func(context.Context) (*provider.ModelBa
 // SecretService provides the API for working with secrets.
 type SecretService struct {
 	st                State
-	logger            Logger
+	logger            logger.Logger
 	clock             clock.Clock
 	providerGetter    func(backendType string) (provider.SecretBackendProvider, error)
 	adminConfigGetter BackendAdminConfigGetter

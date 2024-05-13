@@ -12,15 +12,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the methods used by the worker to log details.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Errorf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
 
 // ManifoldConfig describes the resources used by the firewaller worker.
 type ManifoldConfig struct {
@@ -32,7 +25,7 @@ type ManifoldConfig struct {
 
 	NewClient func(base.APICaller) Client
 	NewWorker func(Config) (worker.Worker, error)
-	Logger    Logger
+	Logger    logger.Logger
 }
 
 // Manifold returns a Manifold that encapsulates the firewaller worker.

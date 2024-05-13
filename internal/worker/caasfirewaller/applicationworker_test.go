@@ -6,7 +6,6 @@ package caasfirewaller_test
 import (
 	"time"
 
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 	"github.com/juju/juju/testing"
@@ -73,7 +73,7 @@ func (s *appWorkerSuite) getWorker(c *gc.C) worker.Worker {
 		s.firewallerAPI,
 		s.broker,
 		s.lifeGetter,
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return w

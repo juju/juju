@@ -7,27 +7,27 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v13"
-	"github.com/juju/loggo/v2"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/logger"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type diffSuite struct {
 	jujutesting.IsolationSuite
-	logger loggo.Logger
+	logger logger.Logger
 }
 
 var _ = gc.Suite(&diffSuite{})
 
 func (s *diffSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.logger = loggo.GetLogger("diff_test")
-	s.logger.SetLogLevel(loggo.TRACE)
+	s.logger = loggertesting.WrapCheckLog(c)
 }
 
 func (s *diffSuite) TestNewDiffEmpty(c *gc.C) {

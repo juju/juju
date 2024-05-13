@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -22,6 +21,7 @@ import (
 	machineservice "github.com/juju/juju/domain/machine/service"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	unitservice "github.com/juju/juju/domain/unit/service"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -52,7 +52,7 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	var err error
 	res := common.NewResources()
 	s.machineService = machineservice.NewService(nil)
-	s.applicationService = applicationservice.NewService(nil, loggo.GetLogger("test"), storage.NotImplementedProviderRegistry{})
+	s.applicationService = applicationservice.NewService(nil, loggertesting.WrapCheckLog(c), storage.NotImplementedProviderRegistry{})
 	s.unitService = unitservice.NewService(nil)
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,

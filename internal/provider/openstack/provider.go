@@ -32,7 +32,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/http/v2"
 	"github.com/juju/jsonschema"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
@@ -56,11 +55,12 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 )
 
-var logger = loggo.GetLogger("juju.provider.openstack")
+var logger = internallogger.GetLogger("juju.provider.openstack")
 
 type EnvironProvider struct {
 	environs.ProviderCredentials

@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/mocks"
 )
@@ -34,11 +35,13 @@ func (s *JujuLogSuite) newJujuLogCommand(c *gc.C) cmd.Command {
 
 func (s *JujuLogSuite) newJujuLogCommandWithMocks(ctrl *gomock.Controller, name string) (cmd.Command, *mocks.MockJujuLogContext, *loggo.TestWriter) {
 	ctx := mocks.NewMockJujuLogContext(ctrl)
+
 	moduleName := fmt.Sprintf("unit.%s.juju-log", name)
 	logCtx := loggo.NewContext(loggo.UNSPECIFIED)
 	testWriter := &loggo.TestWriter{}
 	logCtx.AddWriter("test", testWriter)
-	ctx.EXPECT().GetLogger(moduleName).Return(logCtx.GetLogger(moduleName))
+
+	ctx.EXPECT().GetLoggerByName(moduleName).Return(internallogger.WrapLoggo(logCtx.GetLogger(moduleName)))
 
 	cmd := jujuc.NewJujuLogCommandWithMocks(ctx)
 	return jujuc.NewJujucCommandWrappedForTest(cmd), ctx, testWriter

@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
@@ -19,6 +18,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	caasmocks "github.com/juju/juju/caas/mocks"
+	"github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 	coretesting "github.com/juju/juju/testing"
@@ -35,6 +36,8 @@ type manifoldSuite struct {
 	client    *mocks.MockClient
 
 	ctrl *gomock.Controller
+
+	logger logger.Logger
 }
 
 var _ = gc.Suite(&manifoldSuite{})
@@ -43,16 +46,18 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.ResetCalls()
 
+	s.logger = loggertesting.WrapCheckLog(c)
+
 	s.ctrl = gomock.NewController(c)
 	s.apiCaller = mocks.NewMockAPICaller(s.ctrl)
 	s.broker = caasmocks.NewMockBroker(s.ctrl)
 	s.client = mocks.NewMockClient(s.ctrl)
 
 	s.getter = s.newGetter(nil)
-	s.manifold = caasfirewaller.Manifold(s.validConfig())
+	s.manifold = caasfirewaller.Manifold(s.validConfig(c))
 }
 
-func (s *manifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
+func (s *manifoldSuite) validConfig(c *gc.C) caasfirewaller.ManifoldConfig {
 	return caasfirewaller.ManifoldConfig{
 		APICallerName:  "api-caller",
 		BrokerName:     "broker",
@@ -60,7 +65,7 @@ func (s *manifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
 		ModelUUID:      coretesting.ModelTag.Id(),
 		NewClient:      s.newClient,
 		NewWorker:      s.newWorker,
-		Logger:         loggo.GetLogger("test"),
+		Logger:         s.logger,
 	}
 }
 
@@ -91,37 +96,37 @@ func (s *manifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 }
 
 func (s *manifoldSuite) TestMissingControllerUUID(c *gc.C) {
-	config := s.validConfig()
+	config := s.validConfig(c)
 	config.ControllerUUID = ""
 	s.checkConfigInvalid(c, config, "empty ControllerUUID not valid")
 }
 
 func (s *manifoldSuite) TestMissingModelUUID(c *gc.C) {
-	config := s.validConfig()
+	config := s.validConfig(c)
 	config.ModelUUID = ""
 	s.checkConfigInvalid(c, config, "empty ModelUUID not valid")
 }
 
 func (s *manifoldSuite) TestMissingAPICallerName(c *gc.C) {
-	config := s.validConfig()
+	config := s.validConfig(c)
 	config.APICallerName = ""
 	s.checkConfigInvalid(c, config, "empty APICallerName not valid")
 }
 
 func (s *manifoldSuite) TestMissingBrokerName(c *gc.C) {
-	config := s.validConfig()
+	config := s.validConfig(c)
 	config.BrokerName = ""
 	s.checkConfigInvalid(c, config, "empty BrokerName not valid")
 }
 
 func (s *manifoldSuite) TestMissingNewWorker(c *gc.C) {
-	config := s.validConfig()
+	config := s.validConfig(c)
 	config.NewWorker = nil
 	s.checkConfigInvalid(c, config, "nil NewWorker not valid")
 }
 
 func (s *manifoldSuite) TestMissingLogger(c *gc.C) {
-	config := s.validConfig()
+	config := s.validConfig(c)
 	config.Logger = nil
 	s.checkConfigInvalid(c, config, "nil Logger not valid")
 }
@@ -162,6 +167,6 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 		FirewallerAPI:  s.client,
 		LifeGetter:     s.client,
 		Broker:         s.broker,
-		Logger:         loggo.GetLogger("test"),
+		Logger:         s.logger,
 	})
 }

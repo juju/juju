@@ -14,7 +14,6 @@ import (
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package registry -destination worker_mock_test.go github.com/juju/worker/v4 Worker
 //go:generate go run go.uber.org/mock/mockgen -typed -package registry -destination clock_mock_test.go github.com/juju/clock Clock
-//go:generate go run go.uber.org/mock/mockgen -typed -package registry -destination logger_mock_test.go github.com/juju/juju/core/watcher/registry Logger
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -28,6 +27,8 @@ func (*ImportTest) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/watcher/registry")
 
 	// This package brings in nothing else from outside juju/juju/core
-	c.Assert(found, jc.SameContents, []string{})
-
+	c.Assert(found, jc.SameContents, []string{
+		"core/logger",
+		"internal/logger",
+	})
 }

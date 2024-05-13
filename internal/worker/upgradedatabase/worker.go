@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher"
@@ -95,7 +96,7 @@ type Config struct {
 	FromVersion version.Number
 	ToVersion   version.Number
 
-	Logger Logger
+	Logger logger.Logger
 	Clock  clock.Clock
 }
 
@@ -140,7 +141,7 @@ type upgradeDBWorker struct {
 	modelService   ModelService
 	upgradeService UpgradeService
 
-	logger Logger
+	logger logger.Logger
 	clock  clock.Clock
 }
 

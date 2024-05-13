@@ -7,13 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/instance"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -62,7 +62,7 @@ type LXDProfileAPIv2 struct {
 	backend   LXDProfileBackendV2
 	resources facade.Resources
 
-	logger     loggo.Logger
+	logger     corelogger.Logger
 	accessUnit common.GetAuthFunc
 }
 
@@ -73,7 +73,7 @@ func NewLXDProfileAPIv2(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) *LXDProfileAPIv2 {
 	logger.Tracef("LXDProfileAPIv2 called with %s", authorizer.GetAuthTag())
 	return &LXDProfileAPIv2{
@@ -134,7 +134,7 @@ func NewExternalLXDProfileAPIv2(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) *LXDProfileAPIv2 {
 	return NewLXDProfileAPIv2(
 		LXDProfileStateV2{st},

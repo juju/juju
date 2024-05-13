@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 
+	"github.com/juju/juju/core/logger"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/network"
@@ -33,7 +34,7 @@ type APIAddressSetter interface {
 type Config struct {
 	Addresser APIAddresser
 	Setter    APIAddressSetter
-	Logger    Logger
+	Logger    logger.Logger
 }
 
 // Validate returns an error if config cannot drive a Worker.

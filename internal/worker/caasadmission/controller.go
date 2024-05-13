@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4/catacomb"
+
+	"github.com/juju/juju/core/logger"
 )
 
 type Mux interface {
@@ -21,7 +23,7 @@ type Mux interface {
 // Kubernetes controller responsible
 type Controller struct {
 	catacomb catacomb.Catacomb
-	logger   Logger
+	logger   logger.Logger
 }
 
 func AdmissionPathForModel(modelUUID string) string {
@@ -29,7 +31,7 @@ func AdmissionPathForModel(modelUUID string) string {
 }
 
 func NewController(
-	logger Logger,
+	logger logger.Logger,
 	mux Mux,
 	path string,
 	legacyLabels bool,
@@ -59,7 +61,7 @@ func (c *Controller) Kill() {
 func (c *Controller) makeLoop(
 	admissionCreator AdmissionCreator,
 	handler http.Handler,
-	logger Logger,
+	logger logger.Logger,
 	mux Mux,
 	path string) func() error {
 

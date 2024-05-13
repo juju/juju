@@ -16,12 +16,12 @@ import (
 
 	"github.com/docker/distribution/reference"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/internal/docker"
+	internallogger "github.com/juju/juju/internal/logger"
 )
 
-var logger = loggo.GetLogger("juju.docker.registry.internal")
+var logger = internallogger.GetLogger("juju.docker.registry.internal")
 
 const (
 	defaultTimeout = 15 * time.Second

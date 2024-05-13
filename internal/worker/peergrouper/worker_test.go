@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/voyeur"
@@ -73,7 +72,7 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 	s.clock = testclock.NewClock(time.Now())
 	s.hub = nopHub{}
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	logger.SetLogLevel(loggo.TRACE)
+
 	s.PatchValue(&IdleFunc, s.idleNotify)
 }
 
@@ -269,8 +268,6 @@ func (s *workerSuite) TestWorkerRetriesOnSetAPIHostPortsErrorIPv6(c *gc.C) {
 }
 
 func (s *workerSuite) doTestWorkerRetriesOnSetAPIHostPortsError(c *gc.C, ipVersion TestIPVersion) {
-	logger.SetLogLevel(loggo.TRACE)
-
 	publishCh := make(chan []network.SpaceHostPorts, 10)
 	failedOnce := false
 	publish := func(apiServers []network.SpaceHostPorts) error {

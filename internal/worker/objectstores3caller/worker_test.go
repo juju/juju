@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	controller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/s3client"
 	"github.com/juju/juju/testing"
@@ -292,7 +293,7 @@ func (s *workerSuite) getConfig() workerConfig {
 	return workerConfig{
 		ControllerConfigService: s.controllerConfigService,
 		HTTPClient:              s.httpClient,
-		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, s3client.Logger) (objectstore.Session, error) {
+		NewClient: func(string, s3client.HTTPClient, s3client.Credentials, logger.Logger) (objectstore.Session, error) {
 			atomic.AddInt64(&s.sessionRefCount, 1)
 			return s.session, nil
 		},

@@ -10,13 +10,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
 	"github.com/juju/juju/environs/envcontext"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/provider/common"
 )
 
-var logger = loggo.GetLogger("juju.provider.azure")
+var logger = internallogger.GetLogger("juju.provider.azure")
 
 type requestError struct {
 	ServiceError *serviceError `json:"error"`

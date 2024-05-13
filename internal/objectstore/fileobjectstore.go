@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 )
 
@@ -37,7 +38,7 @@ type FileObjectStoreConfig struct {
 	// Claimer is the claimer for the file object store.
 	Claimer Claimer
 
-	Logger Logger
+	Logger logger.Logger
 	Clock  clock.Clock
 }
 

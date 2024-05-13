@@ -14,13 +14,14 @@ import (
 	"github.com/juju/juju/api/agent/secretsmanager"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/usersecretsdrain"
+	"github.com/juju/juju/core/logger"
 	jujusecrets "github.com/juju/juju/internal/secrets"
 )
 
 // ManifoldConfig describes the resources used by the secretsdrainworker worker.
 type ManifoldConfig struct {
 	APICallerName string
-	Logger        Logger
+	Logger        logger.Logger
 
 	NewSecretsDrainFacade func(base.APICaller) SecretsDrainFacade
 	NewWorker             func(Config) (worker.Worker, error)

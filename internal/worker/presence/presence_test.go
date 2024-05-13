@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/testing"
@@ -19,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corepresence "github.com/juju/juju/core/presence"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/pubsub/forwarder"
@@ -46,9 +46,8 @@ func (s *PresenceSuite) SetUpTest(c *gc.C) {
 		Origin:   ourServer,
 		Hub:      s.hub,
 		Recorder: s.recorder,
-		Logger:   loggo.GetLogger("test"),
+		Logger:   loggertesting.WrapCheckLog(c),
 	}
-	loggo.ConfigureLoggers("<root>=trace")
 }
 
 func (s *PresenceSuite) worker(c *gc.C) worker.Worker {

@@ -8,16 +8,11 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
-
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 type UnitAssigner interface {
 	AssignUnits(tags []names.UnitTag) ([]error, error)
@@ -25,7 +20,7 @@ type UnitAssigner interface {
 	SetAgentStatus(args params.SetStatus) error
 }
 
-func New(ua UnitAssigner, logger Logger) (worker.Worker, error) {
+func New(ua UnitAssigner, logger logger.Logger) (worker.Worker, error) {
 	return watcher.NewStringsWorker(watcher.StringsConfig{
 		Handler: unitAssignerHandler{api: ua, logger: logger},
 	})
@@ -33,7 +28,7 @@ func New(ua UnitAssigner, logger Logger) (worker.Worker, error) {
 
 type unitAssignerHandler struct {
 	api    UnitAssigner
-	logger Logger
+	logger logger.Logger
 }
 
 func (u unitAssignerHandler) SetUp() (watcher.StringsWatcher, error) {
@@ -41,7 +36,10 @@ func (u unitAssignerHandler) SetUp() (watcher.StringsWatcher, error) {
 }
 
 func (u unitAssignerHandler) Handle(_ <-chan struct{}, ids []string) error {
-	u.logger.Tracef("Handling unit assignments: %q", ids)
+	traceEnabled := u.logger.IsTraceEnabled()
+	if traceEnabled {
+		u.logger.Tracef("Handling unit assignments: %q", ids)
+	}
 	if len(ids) == 0 {
 		return nil
 	}
@@ -61,7 +59,9 @@ func (u unitAssignerHandler) Handle(_ <-chan struct{}, ids []string) error {
 
 	failures := map[string]error{}
 
-	u.logger.Tracef("Unit assignment results: %q", results)
+	if traceEnabled {
+		u.logger.Tracef("Unit assignment results: %q", results)
+	}
 	// errors are returned in the same order as the ids given. Any errors from
 	// the assign units call must be reported as error statuses on the
 	// respective units (though the assignments will be retried).  Not found

@@ -9,17 +9,17 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"github.com/juju/worker/v4/dependency"
 
 	coreagent "github.com/juju/juju/agent"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
 )
 
-var logger = loggo.GetLogger("juju.worker.state")
+var logger = internallogger.GetLogger("juju.worker.state")
 
 // ManifoldConfig provides the dependencies for Manifold.
 type ManifoldConfig struct {

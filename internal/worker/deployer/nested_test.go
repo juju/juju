@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/agent"
 	agentconfig "github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/engine"
+	corelogger "github.com/juju/juju/core/logger"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	message "github.com/juju/juju/internal/pubsub/agent"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/deployer"
@@ -42,8 +44,7 @@ var _ = gc.Suite(&NestedContextSuite{})
 
 func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	logger := loggo.GetLogger("test.nestedcontext")
-	logger.SetLogLevel(loggo.TRACE)
+	logger := loggertesting.WrapCheckLog(c).Child("nested-context")
 	s.hub = pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
 		Logger: logger,
 	})
@@ -90,8 +91,8 @@ func (s *NestedContextSuite) SetUpTest(c *gc.C) {
 				loggo.GetLogger("juju.worker.dependency"),
 			)
 		},
-		SetupLogging: func(c *loggo.Context, _ agent.Config) {
-			c.GetLogger("").SetLogLevel(loggo.DEBUG)
+		SetupLogging: func(corelogger.LoggerContext, agent.Config) {
+
 		},
 		UnitManifolds: s.workers.Manifolds,
 	}

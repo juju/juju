@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -88,7 +88,7 @@ type UpgradeSeriesAPI struct {
 	backend   UpgradeSeriesBackend
 	resources facade.Resources
 
-	logger loggo.Logger
+	logger corelogger.Logger
 
 	accessUnitOrMachine GetAuthFunc
 	AccessMachine       GetAuthFunc
@@ -103,7 +103,7 @@ func NewUpgradeSeriesAPI(
 	authorizer facade.Authorizer,
 	accessMachine GetAuthFunc,
 	accessUnit GetAuthFunc,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) *UpgradeSeriesAPI {
 	logger.Tracef("NewUpgradeSeriesAPI called with %s", authorizer.GetAuthTag())
 	return &UpgradeSeriesAPI{
@@ -201,7 +201,7 @@ func NewExternalUpgradeSeriesAPI(
 	authorizer facade.Authorizer,
 	accessMachine GetAuthFunc,
 	accessUnit GetAuthFunc,
-	logger loggo.Logger,
+	logger corelogger.Logger,
 ) *UpgradeSeriesAPI {
 	return NewUpgradeSeriesAPI(UpgradeSeriesState{st}, resources, authorizer, accessMachine, accessUnit, logger)
 }

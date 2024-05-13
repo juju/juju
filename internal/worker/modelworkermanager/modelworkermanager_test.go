@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
 	"github.com/juju/juju/internal/servicefactory"
@@ -196,7 +196,7 @@ func (s *suite) runKillTest(c *gc.C, kill killFunc, test testFunc) {
 	mockController := newMockController()
 	config := modelworkermanager.Config{
 		Authority:                    s.authority,
-		Logger:                       loggo.GetLogger("test"),
+		Logger:                       loggertesting.WrapCheckLog(c),
 		MachineID:                    "1",
 		ModelWatcher:                 watcher,
 		Controller:                   mockController,

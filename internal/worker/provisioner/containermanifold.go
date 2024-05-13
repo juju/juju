@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
@@ -42,7 +43,7 @@ func ContainerProvisioningManifold(config ContainerManifoldConfig) dependency.Ma
 type ContainerManifoldConfig struct {
 	AgentName                    string
 	APICallerName                string
-	Logger                       Logger
+	Logger                       logger.Logger
 	MachineLock                  machinelock.Lock
 	NewCredentialValidatorFacade func(base.APICaller) (workercommon.CredentialAPI, error)
 	ContainerType                instance.ContainerType

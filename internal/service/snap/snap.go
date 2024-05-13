@@ -15,11 +15,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/shell"
 
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/systemd"
 )
@@ -30,7 +30,7 @@ const (
 )
 
 var (
-	logger = loggo.GetLogger("juju.service.snap")
+	logger = internallogger.GetLogger("juju.service.snap")
 
 	// snapNameRe is derived from https://github.com/snapcore/snapcraft/blob/a2ef08109d86259a0748446f41bce5205d00a922/schema/snapcraft.yaml#L81-106
 	// but does not test for "--"

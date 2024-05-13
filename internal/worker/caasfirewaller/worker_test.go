@@ -6,7 +6,6 @@ package caasfirewaller_test
 import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
@@ -15,8 +14,10 @@ import (
 
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
 	"github.com/juju/juju/testing"
@@ -71,7 +72,7 @@ func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
 		FirewallerAPI:  s.firewallerAPI,
 		Broker:         s.broker,
 		LifeGetter:     s.lifeGetter,
-		Logger:         loggo.GetLogger("test"),
+		Logger:         loggertesting.WrapCheckLog(c),
 	}
 	return ctrl
 }
@@ -131,7 +132,7 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 		firewallerAPI caasfirewaller.CAASFirewallerAPI,
 		broker caasfirewaller.CAASBroker,
 		lifeGetter caasfirewaller.LifeGetter,
-		logger caasfirewaller.Logger,
+		logger logger.Logger,
 	) (worker.Worker, error) {
 		if appName == "app1" {
 			return app1Worker, nil

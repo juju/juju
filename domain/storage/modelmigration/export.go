@@ -9,8 +9,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
-	"github.com/juju/loggo/v2"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/domain/storage/service"
@@ -18,11 +18,12 @@ import (
 	internalstorage "github.com/juju/juju/internal/storage"
 )
 
-var logger = loggo.GetLogger("juju.migration.storagepools")
-
 // RegisterExport registers the export operations with the given coordinator.
-func RegisterExport(coordinator Coordinator, registry internalstorage.ProviderRegistry) {
-	coordinator.Add(&exportOperation{registry: registry})
+func RegisterExport(coordinator Coordinator, registry internalstorage.ProviderRegistry, logger logger.Logger) {
+	coordinator.Add(&exportOperation{
+		registry: registry,
+		logger:   logger,
+	})
 }
 
 // ExportService provides a subset of the storage domain
@@ -38,12 +39,13 @@ type exportOperation struct {
 
 	registry internalstorage.ProviderRegistry
 	service  ExportService
+	logger   logger.Logger
 }
 
 // Setup implements Operation.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.service = service.NewService(
-		state.NewState(scope.ModelDB()), logger, e.registry)
+		state.NewState(scope.ModelDB()), e.logger, e.registry)
 	return nil
 }
 

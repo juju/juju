@@ -14,6 +14,7 @@ import (
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
@@ -25,22 +26,15 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// Logger is the interface used by the state to log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Warningf(string, ...interface{})
-	Tracef(string, ...interface{})
-}
-
 // State represents database interactions dealing with storage pools.
 type State struct {
 	*domain.StateBase
-	logger Logger
+	logger logger.Logger
 }
 
 // NewState returns a new secretMetadata state
 // based on the input database factory method.
-func NewState(factory coredatabase.TxnRunnerFactory, logger Logger) *State {
+func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 		logger:    logger,

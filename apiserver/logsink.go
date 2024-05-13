@@ -87,7 +87,7 @@ func (s *agentLoggingStrategy) Close() error {
 
 // WriteLog is part of the logsink.LogWriteCloser interface.
 func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
-	level, _ := loggo.ParseLevel(m.Level)
+	level, _ := corelogger.ParseLevelFromString(m.Level)
 	dbErr := errors.Annotate(s.recordLogWriter.Log([]corelogger.LogRecord{{
 		Time:      m.Time,
 		Entity:    s.entity,
@@ -128,9 +128,9 @@ func (s *agentLoggingStrategy) WriteLog(m params.LogRecord) error {
 
 // logToFile writes a single log message to the logsink log file.
 func logToFile(writer io.Writer, prefix string, m params.LogRecord) error {
-	level, ok := loggo.ParseLevel(m.Level)
+	level, ok := corelogger.ParseLevelFromString(m.Level)
 	if !ok {
-		return fmt.Errorf("lovel level %q %w", m.Level, errors.NotValid)
+		return fmt.Errorf("level level %q %w", m.Level, errors.NotValid)
 	}
 	rec := &corelogger.LogRecord{
 		Time:      m.Time,

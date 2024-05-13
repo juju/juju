@@ -14,7 +14,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,11 +30,11 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
-	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -137,7 +136,7 @@ func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
 		s.st, fw, s.resources, s.authorizer,
 		authContext, s.secretService, s.modelConfigService, egressAddressWatcher, relationStatusWatcher,
 		offerStatusWatcher, consumedSecretsWatcher,
-		loggo.GetLoggerWithTags("juju.apiserver.crossmodelrelations", corelogger.CMR),
+		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api

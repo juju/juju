@@ -13,13 +13,13 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 
 	"github.com/juju/juju/internal/feature"
+	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/state/watcher"
 )
@@ -179,7 +179,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 	// noticed. The clocks in the runner and the txn watcher are used to
 	// control polling, and never return the actual times.
 	pool.watcherRunner = worker.NewRunner(worker.RunnerParams{
-		Logger:       loggo.GetLogger("juju.state.pool.txnwatcher"),
+		Logger:       internallogger.GetLogger("juju.state.pool.txnwatcher"),
 		IsFatal:      func(err error) bool { return errors.Cause(err) == errPoolClosed },
 		RestartDelay: time.Second,
 		Clock:        args.Clock,
@@ -192,7 +192,7 @@ func OpenStatePool(args OpenParams) (_ *StatePool, err error) {
 				JujuDBName:        jujuDB,
 				Hub:               pool.hub,
 				Clock:             args.Clock,
-				Logger:            loggo.GetLogger("juju.state.pool.txnwatcher"),
+				Logger:            internallogger.GetLogger("juju.state.pool.txnwatcher"),
 				IgnoreCollections: append([]string(nil), watcherIgnoreList...),
 				PollInterval:      args.WatcherPollInterval,
 			})

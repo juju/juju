@@ -4,13 +4,9 @@
 package service
 
 import (
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/storage"
 )
-
-// Logger facilitates emitting log messages.
-type Logger interface {
-	Debugf(string, ...interface{})
-}
 
 // State defines an interface for interacting with the underlying state.
 type State interface {
@@ -23,7 +19,7 @@ type Service struct {
 }
 
 // NewService returns a new Service for interacting with the underlying state.
-func NewService(st State, logger Logger, registry storage.ProviderRegistry) *Service {
+func NewService(st State, logger logger.Logger, registry storage.ProviderRegistry) *Service {
 	return &Service{
 		StoragePoolService: &StoragePoolService{
 			st:       st,

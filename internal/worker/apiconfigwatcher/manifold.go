@@ -14,24 +14,13 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/logger"
 )
-
-// Logger represents the methods used by the worker to log information.
-type Logger interface {
-	Debugf(string, ...interface{})
-	Errorf(string, ...interface{})
-}
-
-// logger is here to stop the desire of creating a package level logger.
-// Don't do this, instead use the one passed as manifold config.
-type logger interface{}
-
-var _ logger = struct{}{}
 
 type ManifoldConfig struct {
 	AgentName          string
 	AgentConfigChanged *voyeur.Value
-	Logger             Logger
+	Logger             logger.Logger
 }
 
 // Manifold returns a dependency.Manifold which wraps an agent's
@@ -70,7 +59,7 @@ type apiconfigwatcher struct {
 	agent              agent.Agent
 	agentConfigChanged *voyeur.Value
 	addrs              []string
-	logger             Logger
+	logger             logger.Logger
 }
 
 func (w *apiconfigwatcher) loop() error {
