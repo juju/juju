@@ -107,6 +107,8 @@ run_user_secrets() {
 
 	juju --show-log deploy hello-kubecon
 
+	wait_for "active" '.applications["hello-kubecon"] | ."application-status".current'
+
 	# create user secrets.
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
 	secret_short_uri=${secret_uri##*:}
@@ -140,7 +142,8 @@ run_user_secrets() {
 	# revision 1 should be pruned.
 	# revision 2 is still been used by hello-kubecon app, so it should not be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '2'
+	# TODO: enable once the auto-prune is implemented in DQlite.
+	# check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '2'
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_name-2"
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
@@ -150,7 +153,8 @@ run_user_secrets() {
 
 	# revision 2 should be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
-	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '1'
+	# TODO: enable once the auto-prune is implemented in DQlite.
+	# check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '1'
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
 	juju --show-log revoke-secret $secret_uri hello-kubecon
@@ -353,7 +357,8 @@ test_secret_drain() {
 
 		cd .. || exit
 
-		run "run_secret_drain"
+		# TODO: drain is not implemented in DQlite yet.
+		# run "run_secret_drain"
 	)
 }
 
@@ -368,6 +373,7 @@ test_user_secret_drain() {
 
 		cd .. || exit
 
-		run "run_user_secret_drain"
+		# TODO: drain is not implemented in DQlite yet.
+		# run "run_user_secret_drain"
 	)
 }

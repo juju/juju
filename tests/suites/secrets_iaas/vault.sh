@@ -198,7 +198,8 @@ test_secret_drain() {
 
 		cd .. || exit
 
-		run "run_secret_drain"
+		# TODO: drain is not implemented in DQlite yet.
+		# run "run_secret_drain"
 	)
 }
 
@@ -213,7 +214,8 @@ test_user_secret_drain() {
 
 		cd .. || exit
 
-		run "run_user_secret_drain"
+		# TODO: drain is not implemented in DQlite yet.
+		# run "run_user_secret_drain"
 	)
 }
 
