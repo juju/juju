@@ -237,7 +237,7 @@ WITH controllers AS (
     INNER JOIN user u ON u.uuid = m.owner_uuid
     WHERE m.name = "controller"
     AND u.name = "admin"
-    AND m.finalised = true
+    AND m.activated = true
 )
 SELECT c.uuid,
        c.name,
@@ -474,12 +474,12 @@ INSERT INTO model_type VALUES
 
 CREATE TABLE model (
     uuid                  TEXT PRIMARY KEY,
--- finalised tells us if the model creation process has been completed and
+-- activated tells us if the model creation process has been completed and
 -- we can use this model. The reason for this is model creation still happens
 -- over several transactions with any one of them possibly failing. We write true
 -- to this field when we are happy that the model can safely be used after all
 -- operations have been completed.
-    finalised             BOOLEAN DEFAULT FALSE NOT NULL,
+    activated             BOOLEAN DEFAULT FALSE NOT NULL,
     cloud_uuid            TEXT NOT NULL,
     cloud_region_uuid     TEXT,
     cloud_credential_uuid TEXT,
@@ -510,10 +510,10 @@ CREATE TABLE model (
 -- idx_model_name_owner established an index that stops models being created
 -- with the same name for a given owner.
 CREATE UNIQUE INDEX idx_model_name_owner ON model (name, owner_uuid);
-CREATE INDEX idx_model_finalised ON model (finalised);
+CREATE INDEX idx_model_activated ON model (activated);
 
 --- v_model purpose is to provide an easy access mechanism for models in the
---- system. It will only show models that have been finalised so the caller does
+--- system. It will only show models that have been activated so the caller does
 --- not have to worry about retrieving half complete models.
 CREATE VIEW v_model AS
 SELECT m.uuid AS uuid,
@@ -546,7 +546,7 @@ LEFT JOIN user cco ON cc.owner_uuid = cco.uuid
 INNER JOIN model_type mt ON m.model_type_id = mt.id
 INNER JOIN user o ON m.owner_uuid = o.uuid
 INNER JOIN life l on m.life_id = l.id
-WHERE m.finalised = true;
+WHERE m.activated = true;
 `)
 }
 

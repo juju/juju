@@ -174,7 +174,7 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 
 	// NOTE: Try to get all things that can fail before creating the model in
 	// the database.
-	finaliser, err := i.modelService.CreateModel(ctx, args)
+	activator, err := i.modelService.CreateModel(ctx, args)
 	if err != nil {
 		return fmt.Errorf(
 			"importing model %q with uuid %q during migration: %w",
@@ -186,11 +186,11 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 	// consider adding a rollback operation to undo the changes made by the
 	// import operation.
 
-	// finaliser needs to be called as the last operation to say that we are
+	// activator needs to be called as the last operation to say that we are
 	// happy that the model is ready to rock and roll.
-	if err := finaliser(ctx); err != nil {
+	if err := activator(ctx); err != nil {
 		return fmt.Errorf(
-			"finalising imported model %q with uuid %q: %w", modelName, modelID, err,
+			"activating imported model %q with uuid %q: %w", modelName, modelID, err,
 		)
 	}
 

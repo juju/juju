@@ -151,7 +151,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelSt.Finalise(context.Background(), m.uuid)
+	err = modelSt.Activate(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -228,7 +228,7 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.Finalise(context.Background(), modelUUID)
+	err = st.Activate(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudName, credentialID, err := st.ModelCloudNameAndCredential(
@@ -407,7 +407,7 @@ func (m *stateSuite) TestCreateWithEmptyRegion(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelSt.Finalise(context.Background(), testUUID)
+	err = modelSt.Activate(context.Background(), testUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelInfo, err := modelSt.Get(context.Background(), testUUID)
@@ -454,7 +454,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelSt.Finalise(context.Background(), testUUID)
+	err = modelSt.Activate(context.Background(), testUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelInfo, err := modelSt.Get(context.Background(), testUUID)
@@ -485,7 +485,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelSt.Finalise(context.Background(), controllerUUID)
+	err = modelSt.Activate(context.Background(), controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelInfo, err := modelSt.Get(context.Background(), controllerUUID)
@@ -510,7 +510,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelSt.Finalise(context.Background(), testUUID)
+	err = modelSt.Activate(context.Background(), testUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	modelInfo, err = modelSt.Get(context.Background(), testUUID)
@@ -722,7 +722,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelSt.Finalise(context.Background(), m.uuid)
+	err = modelSt.Activate(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -788,7 +788,7 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = modelSt.Finalise(context.Background(), uuid1)
+	err = modelSt.Activate(context.Background(), uuid1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuid2 := modeltesting.GenModelUUID(c)
@@ -810,7 +810,7 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	err = modelSt.Finalise(context.Background(), uuid2)
+	err = modelSt.Activate(context.Background(), uuid2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	uuids, err := modelSt.ListModelIDs(context.Background())
@@ -899,7 +899,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelSt.Finalise(context.Background(), uuid1), jc.ErrorIsNil)
+	c.Assert(modelSt.Activate(context.Background(), uuid1), jc.ErrorIsNil)
 
 	uuid2 := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
@@ -920,7 +920,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelSt.Finalise(context.Background(), uuid2), jc.ErrorIsNil)
+	c.Assert(modelSt.Activate(context.Background(), uuid2), jc.ErrorIsNil)
 
 	models, err := modelSt.ListModelsForUser(context.Background(), m.userUUID)
 	c.Assert(err, jc.ErrorIsNil)

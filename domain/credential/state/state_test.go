@@ -572,7 +572,7 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 
 	insertOne := func(ctx context.Context, tx *sql.Tx, modelUUID, name string) error {
 		result, err := tx.ExecContext(ctx, fmt.Sprintf(`
-		INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, finalised, cloud_uuid, cloud_credential_uuid)
+		INSERT INTO model (uuid, name, owner_uuid, life_id, model_type_id, activated, cloud_uuid, cloud_credential_uuid)
 		SELECT %q, %q, %q, 0, 0, true,
 			(SELECT uuid FROM cloud WHERE cloud.name="stratus"),
 			(SELECT uuid FROM cloud_credential cc WHERE cc.name="foobar")`,

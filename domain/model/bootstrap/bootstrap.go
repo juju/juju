@@ -59,7 +59,7 @@ func CreateModel(
 		}
 		args.AgentVersion = agentVersion
 
-		finaliser := state.GetFinaliser()
+		activator := state.GetActivator()
 		return controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			modelTypeState := modelTypeStateFunc(
 				func(ctx context.Context, cloudName string) (string, error) {
@@ -74,8 +74,8 @@ func CreateModel(
 				return fmt.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, args.UUID, err)
 			}
 
-			if err := finaliser(ctx, tx, args.UUID); err != nil {
-				return fmt.Errorf("finalising bootstrap model %q with uuid %q: %w", args.Name, args.UUID, err)
+			if err := activator(ctx, tx, args.UUID); err != nil {
+				return fmt.Errorf("activating bootstrap model %q with uuid %q: %w", args.Name, args.UUID, err)
 			}
 			return nil
 		})

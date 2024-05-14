@@ -190,7 +190,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelSt.Finalise(context.Background(), modelUUID)
+	err = modelSt.Activate(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")

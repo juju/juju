@@ -152,7 +152,7 @@ func CreateTestModel(
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelSt.Finalise(context.Background(), modelUUID)
+	err = modelSt.Activate(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return modelUUID

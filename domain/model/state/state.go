@@ -408,13 +408,13 @@ AND removed = false
 	}
 
 	// deleteBadStateModel is here to allow models to be recreated that may have
-	// failed during the full model creation process and never finalised. We
-	// will only ever allow this to happen if the model is not finalised.
+	// failed during the full model creation process and never activated. We
+	// will only ever allow this to happen if the model is not activated.
 	deleteBadStateModel := `
 DELETE FROM model
 WHERE name = ?
 AND owner_uuid = ?
-AND finalised = false
+AND activated = false
 `
 
 	_, err = tx.ExecContext(ctx, deleteBadStateModel, input.Name, input.Owner)
@@ -522,66 +522,66 @@ func (s *State) Delete(
 	})
 }
 
-// Finalise is responsible for setting a model as fully constructed and
+// Activate is responsible for setting a model as fully constructed and
 // indicates the final system state for the model is ready for use. This is used
 // because the model creation process involves several transactions with which
 // anyone could fail at a given time.
 //
 // If no model exists for the provided id then a [modelerrors.NotFound] will be
-// returned. If the model as previously been finalised a
-// [modelerrors.AlreadyFinalised] error will be returned.
-func (s *State) Finalise(ctx context.Context, uuid coremodel.UUID) error {
+// returned. If the model has previously been activated a
+// [modelerrors.AlreadyActivated] error will be returned.
+func (s *State) Activate(ctx context.Context, uuid coremodel.UUID) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	finaliser := GetFinaliser()
+	activator := GetActivator()
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return finaliser(ctx, tx, uuid)
+		return activator(ctx, tx, uuid)
 	})
 }
 
-// FinaliseFunc is responsible for setting a model as fully constructed and
+// ActivatorFunc is responsible for setting a model as fully constructed and
 // indicates the final system state for the model is ready for use. This is used
 // because the model creation process involves several transactions with which
 // anyone could fail at a given time.
 //
 // If no model exists for the provided id then a [modelerrors.NotFound] will be
-// returned. If the model as previously been finalised a
-// [modelerrors.AlreadyFinalised] error will be returned.
-type FinaliserFunc func(context.Context, *sql.Tx, coremodel.UUID) error
+// returned. If the model as previously been activated a
+// [modelerrors.AlreadyActivated] error will be returned.
+type ActivatorFunc func(context.Context, *sql.Tx, coremodel.UUID) error
 
-// GetFianliser constructs a [FinaliserFunc] that can safely be used over several
+// GetActivator constructs a [ActivateFunc] that can safely be used over several
 // transaction retry's.
-func GetFinaliser() FinaliserFunc {
+func GetActivator() ActivatorFunc {
 	existsStmt := `
-SELECT finalised
+SELECT activated
 FROM model
 WHERE uuid = ?
 `
 	stmt := `
 UPDATE model
-SET finalised = TRUE
+SET activated = TRUE
 WHERE uuid = ?
 `
 
 	return func(ctx context.Context, tx *sql.Tx, uuid coremodel.UUID) error {
-		var finalised bool
-		err := tx.QueryRowContext(ctx, existsStmt, uuid).Scan(&finalised)
+		var activated bool
+		err := tx.QueryRowContext(ctx, existsStmt, uuid).Scan(&activated)
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("%w for id %q", modelerrors.NotFound, uuid)
 		} else if err != nil {
-			return fmt.Errorf("determining finalised status for model with id %q: %w", uuid, err)
+			return fmt.Errorf("determining activated status for model with id %q: %w", uuid, err)
 		}
 
-		if finalised {
-			return fmt.Errorf("%w for id %q", modelerrors.AlreadyFinalised, uuid)
+		if activated {
+			return fmt.Errorf("%w for id %q", modelerrors.AlreadyActivated, uuid)
 		}
 
 		if _, err := tx.ExecContext(ctx, stmt, uuid); err != nil {
-			return fmt.Errorf("finalising model with id %q: %w", uuid, err)
+			return fmt.Errorf("activating model with id %q: %w", uuid, err)
 		}
 		return nil
 	}

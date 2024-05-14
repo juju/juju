@@ -44,7 +44,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.state = &dummyState{
 		clouds:             map[string]dummyStateCloud{},
 		models:             map[coremodel.UUID]coremodel.Model{},
-		nonFinalisedModels: map[coremodel.UUID]coremodel.Model{},
+		nonActivatedModels: map[coremodel.UUID]coremodel.Model{},
 		users: map[user.UUID]string{
 			s.userUUID: "admin",
 		},
@@ -71,7 +71,7 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 	}
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
@@ -80,7 +80,7 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	args, exists := s.state.models[s.modelUUID]
 	c.Assert(exists, jc.IsTrue)
@@ -180,7 +180,7 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *gc.C) {
 	}
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
@@ -188,7 +188,7 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *gc.C) {
 		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	_, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
@@ -228,7 +228,7 @@ func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
 	}
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
@@ -236,7 +236,7 @@ func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
 		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), s.modelUUID, cred)
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,7 +263,7 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
 	}
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
@@ -272,7 +272,7 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
 		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), s.modelUUID, cred2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -293,7 +293,7 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
 	}
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
@@ -301,7 +301,7 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
 		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), s.modelUUID, credential.Key{})
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
@@ -333,7 +333,7 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
 	}
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
@@ -342,7 +342,7 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
 		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), s.modelUUID, cred2)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
@@ -368,7 +368,7 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
 	}
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
@@ -377,7 +377,7 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
 		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	err = svc.UpdateCredential(context.Background(), s.modelUUID, cred2)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -397,7 +397,7 @@ func (s *serviceSuite) TestDeleteModel(c *gc.C) {
 	}
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
@@ -406,7 +406,7 @@ func (s *serviceSuite) TestDeleteModel(c *gc.C) {
 		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	_, exists := s.state.models[s.modelUUID]
 	c.Assert(exists, jc.IsTrue)
@@ -521,7 +521,7 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 	s.state.users[usr1] = "tlm"
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        "aws",
 		CloudRegion:  "myregion",
@@ -531,10 +531,10 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 		UUID:         s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	model2UUID := modeltesting.GenModelUUID(c)
-	finaliser, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        "aws",
 		CloudRegion:  "myregion",
@@ -544,7 +544,7 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 		UUID:         model2UUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	models, err := svc.ListAllModels(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -608,7 +608,7 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 	s.state.users[usr1] = "tlm"
 
 	svc := NewService(s.state, DefaultAgentBinaryFinder())
-	finaliser, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        "aws",
 		CloudRegion:  "myregion",
@@ -618,10 +618,10 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 		UUID:         s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	id2 := modeltesting.GenModelUUID(c)
-	finaliser, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	activator, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        "aws",
 		CloudRegion:  "myregion",
@@ -631,7 +631,7 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 		UUID:         id2,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(finaliser(context.Background()), jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
 	models, err := svc.ListModelsForUser(context.Background(), usr1)
 	c.Assert(err, jc.ErrorIsNil)
