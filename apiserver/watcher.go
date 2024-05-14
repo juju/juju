@@ -1419,20 +1419,23 @@ func (w *srvSecretsRevisionWatcher) translateChanges(changes []string) ([]params
 		return nil, nil
 	}
 	secrets := state.NewSecrets(w.st)
-	result := make([]params.SecretRevisionChange, len(changes))
-	for i, uriStr := range changes {
+	result := make([]params.SecretRevisionChange, 0, len(changes))
+	for _, uriStr := range changes {
 		uri, err := coresecrets.ParseURI(uriStr)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		md, err := secrets.GetSecret(uri)
+		if errors.Is(err, errors.NotFound) {
+			continue
+		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		result[i] = params.SecretRevisionChange{
+		result = append(result, params.SecretRevisionChange{
 			URI:      uri.String(),
 			Revision: md.LatestRevision,
-		}
+		})
 	}
 	return result, nil
 }
