@@ -6,6 +6,7 @@ package operation
 import (
 	"context"
 	"fmt"
+	"runtime/pprof"
 
 	"github.com/juju/errors"
 
@@ -94,6 +95,31 @@ func (x *executor) Run(ctx context.Context, op Operation, remoteStateChange <-ch
 		span.End()
 	}()
 
+	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, span.Scope().TraceID()), func(ctx context.Context) {
+		err = x.run(ctx, op, remoteStateChange)
+	})
+	return
+}
+
+// Skip is part of the Executor interface.
+func (x *executor) Skip(ctx context.Context, op Operation) (err error) {
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("executor.state", op.String()),
+		trace.StringAttr("executor.unit", x.unitName),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, span.Scope().TraceID()), func(ctx context.Context) {
+		x.logger.Debugf("skipping operation %v for %s", op, x.unitName)
+		err = x.do(ctx, op, stepCommit)
+	})
+	return
+}
+
+func (x *executor) run(ctx context.Context, op Operation, remoteStateChange <-chan remotestate.Snapshot) error {
 	x.logger.Debugf("running operation %v for %s", op, x.unitName)
 
 	if op.NeedsGlobalMachineLock() {
@@ -133,21 +159,6 @@ func (x *executor) Run(ctx context.Context, op Operation, remoteStateChange <-ch
 	default:
 		return err
 	}
-	return x.do(ctx, op, stepCommit)
-}
-
-// Skip is part of the Executor interface.
-func (x *executor) Skip(ctx context.Context, op Operation) (err error) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
-		trace.StringAttr("executor.state", op.String()),
-		trace.StringAttr("executor.unit", x.unitName),
-	))
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
-
-	x.logger.Debugf("skipping operation %v for %s", op, x.unitName)
 	return x.do(ctx, op, stepCommit)
 }
 

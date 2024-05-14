@@ -14,6 +14,11 @@ import (
 )
 
 const (
+	// OTELTraceID is the trace ID key used in the go label.
+	OTELTraceID = "otel.traceid"
+)
+
+const (
 	// ErrTracerDying is used to indicate to *third parties* that the
 	// tracer worker is dying, instead of catacomb.ErrDying, which is
 	// unsuitable for propagating inter-worker.

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime/pprof"
 
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
@@ -105,6 +106,42 @@ func (c *downloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 		span.End()
 	}()
 
+	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, span.Scope().TraceID()), func(ctx context.Context) {
+		err = c.download(ctx, resourceURL, archivePath, options...)
+	})
+	return
+}
+
+// DownloadAndRead returns a charm archive retrieved from the given URL.
+func (c *downloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, error) {
+	err := c.Download(ctx, resourceURL, archivePath, options...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return charm.ReadCharmArchive(archivePath)
+}
+
+// DownloadAndReadBundle returns a bundle archive retrieved from the given URL.
+func (c *downloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.BundleArchive, error) {
+	err := c.Download(ctx, resourceURL, archivePath, options...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return charm.ReadBundleArchive(archivePath)
+}
+
+// DownloadResource returns an io.ReadCloser to read the Resource from.
+func (c *downloadClient) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
+	resp, err := c.downloadFromURL(ctx, resourceURL)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return resp.Body, nil
+}
+
+func (c *downloadClient) download(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) error {
 	opts := newDownloadOptions()
 	for _, option := range options {
 		option(opts)
@@ -152,35 +189,6 @@ func (c *downloadClient) Download(ctx context.Context, resourceURL *url.URL, arc
 	}
 
 	return nil
-}
-
-// DownloadAndRead returns a charm archive retrieved from the given URL.
-func (c *downloadClient) DownloadAndRead(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.CharmArchive, error) {
-	err := c.Download(ctx, resourceURL, archivePath, options...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return charm.ReadCharmArchive(archivePath)
-}
-
-// DownloadAndReadBundle returns a bundle archive retrieved from the given URL.
-func (c *downloadClient) DownloadAndReadBundle(ctx context.Context, resourceURL *url.URL, archivePath string, options ...DownloadOption) (*charm.BundleArchive, error) {
-	err := c.Download(ctx, resourceURL, archivePath, options...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return charm.ReadBundleArchive(archivePath)
-}
-
-// DownloadResource returns an io.ReadCloser to read the Resource from.
-func (c *downloadClient) DownloadResource(ctx context.Context, resourceURL *url.URL) (r io.ReadCloser, err error) {
-	resp, err := c.downloadFromURL(ctx, resourceURL)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return resp.Body, nil
 }
 
 func (c *downloadClient) downloadFromURL(ctx context.Context, resourceURL *url.URL) (resp *http.Response, err error) {

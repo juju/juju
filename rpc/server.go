@@ -8,6 +8,7 @@ import (
 	"io"
 	"reflect"
 	"runtime/debug"
+	"runtime/pprof"
 	"strings"
 	"sync"
 
@@ -620,18 +621,38 @@ func (conn *Conn) runRequest(
 	// don't care, a new one will be curated for us.
 	ctx = trace.WithTraceScope(ctx, req.hdr.TraceID, req.hdr.SpanID, req.hdr.TraceFlags)
 
+	conn.withTrace(ctx, req.hdr.Request, func() {
+		conn.callRequest(ctx, req, arg, version, recorder)
+	})
+}
+
+func (conn *Conn) withTrace(ctx context.Context, request Request, fn func()) {
 	ctx, span := conn.root.StartTrace(ctx)
 	defer span.End(
-		trace.StringAttr("request.type", req.hdr.Request.Type),
-		trace.IntAttr("request.version", req.hdr.Request.Version),
-		trace.StringAttr("request.action", req.hdr.Request.Action),
+		trace.StringAttr("request.type", request.Type),
+		trace.IntAttr("request.version", request.Version),
+		trace.StringAttr("request.action", request.Action),
 	)
 
+	// Set the otel.traceid for the goroutine, so profiling tools can then link
+	// the trace to the profile.
+	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, trace.TraceIDFromContext(ctx)), func(ctx context.Context) {
+		fn()
+	})
+}
+
+func (conn *Conn) callRequest(
+	ctx context.Context,
+	req boundRequest,
+	arg reflect.Value,
+	version int,
+	recorder Recorder,
+) {
 	rv, err := req.Call(ctx, req.hdr.Request.Id, arg)
 	if err != nil {
 		// Record the first error, this is the one that will be returned to
 		// the client.
-		span.RecordError(err)
+		trace.SpanFromContext(ctx).RecordError(err)
 		err = conn.writeErrorResponse(&req.hdr, req.transformErrors(err), recorder)
 	} else {
 		hdr := &Header{
@@ -665,7 +686,7 @@ func (conn *Conn) runRequest(
 
 			// Record the second error, this is the one that will be recorded if
 			// we can't write the response to the client.
-			span.RecordError(err)
+			trace.SpanFromContext(ctx).RecordError(err)
 			logger.Errorf("error writing response: %T %+v", err, err)
 		}
 	}
