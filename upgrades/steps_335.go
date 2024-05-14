@@ -3,10 +3,6 @@
 
 package upgrades
 
-func stepsFor335() []Step {
-	return []Step{}
-}
-
 func stateStepsFor335() []Step {
 	return []Step{
 		&upgradeStep{

@@ -3,6 +3,10 @@
 
 package upgrades
 
+// stepsFor331 is a stub for how to write non-state upgrade tests. These are
+// rarely necessary. They have been used in the past for upgrade steps where
+// changes to workload machines are necessary. E.g. renaming the directory
+// where agent binaries are placed in /var/lib/juju.
 func stepsFor331() []Step {
 	return []Step{}
 }
