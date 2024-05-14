@@ -647,28 +647,6 @@ func (s *validatorSuite) TestDeducePlatformSimple(c *gc.C) {
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{Architecture: "amd64"})
 }
 
-//func (s *validatorSuite) TestDeducePlatformRiskInChannel(c *gc.C) {
-//	defer s.setupMocks(c).Finish()
-//	//model constraint default
-//	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("amd64")}, nil)
-//
-//	arg := params.DeployFromRepositoryArg{
-//		CharmName: "testme",
-//		Base: &params.Base{
-//			Name:    "ubuntu",
-//			Channel: "22.10/stable",
-//		},
-//	}
-//	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
-//	c.Assert(err, gc.IsNil)
-//	c.Assert(usedModelDefaultBase, jc.IsFalse)
-//	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
-//		Architecture: "amd64",
-//		OS:           "ubuntu",
-//		Channel:      "22.10",
-//	})
-//}
-
 func (s *validatorSuite) TestDeducePlatformArgArchBase(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
