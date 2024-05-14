@@ -14,6 +14,7 @@ import (
 
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/juju/errors"
+
 	corelogger "github.com/juju/juju/core/logger"
 )
 
