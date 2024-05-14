@@ -59,13 +59,14 @@ func (st State) GetModelUUID(ctx context.Context) (string, error) {
 }
 
 func (st State) getModelUUID(ctx context.Context, tx *sqlair.TX) (string, error) {
+	result := sqlair.M{}
+
 	getModelUUIDSQL := "SELECT &M.uuid FROM model"
-	getModelUUIDStmt, err := st.Prepare(getModelUUIDSQL, sqlair.M{})
+	getModelUUIDStmt, err := st.Prepare(getModelUUIDSQL, result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
-	result := sqlair.M{}
 	err = tx.Query(ctx, getModelUUIDStmt).Get(&result)
 	if err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -124,15 +125,17 @@ func (st State) CreateUserSecret(
 // checkSecretUserLabelExists returns an error if a user
 // secret with the given label already exists.
 func (st State) checkUserSecretLabelExists(ctx context.Context, tx *sqlair.TX, label string) error {
+	dbSecretOwner := secretOwner{Label: label}
+
 	checkLabelExistsSQL := `
 SELECT &secretOwner.secret_id
 FROM   secret_model_owner
 WHERE  label = $secretOwner.label`
-	checkExistsStmt, err := st.Prepare(checkLabelExistsSQL, secretOwner{})
+
+	checkExistsStmt, err := st.Prepare(checkLabelExistsSQL, dbSecretOwner)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	dbSecretOwner := secretOwner{Label: label}
 	err = tx.Query(ctx, checkExistsStmt, dbSecretOwner).Get(&dbSecretOwner)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return errors.Trace(domain.CoerceError(err))
@@ -171,14 +174,14 @@ func (st State) CreateCharmApplicationSecret(
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		dbSecretOwner := secretApplicationOwner{SecretID: uri.ID, Label: label}
+		result := sqlair.M{}
 
 		selectApplicationUUID := `SELECT &M.uuid FROM application WHERE name=$M.name`
-		selectApplicationUUIDStmt, err := st.Prepare(selectApplicationUUID, sqlair.M{})
+		selectApplicationUUIDStmt, err := st.Prepare(selectApplicationUUID, result)
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		result := sqlair.M{}
 		err = tx.Query(ctx, selectApplicationUUIDStmt, sqlair.M{"name": appName}).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
@@ -1083,7 +1086,7 @@ func (st State) listSecretsAnyOwner(
 WITH rev AS (
     SELECT   secret_id, MAX(revision) AS latest_revision
     FROM     secret_revision
-    GROUP BY secret_id,
+    GROUP BY secret_id
 ),
 exp AS (
     SELECT   secret_id, expire_time AS latest_expire_time
@@ -1445,15 +1448,16 @@ FROM   secret_metadata sm
 JOIN   secret_model_owner mso ON sm.secret_id = mso.secret_id
 WHERE  mso.label = $M.label
 	`
+	arg := sqlair.M{"label": label}
 
-	queryStmt, err := st.Prepare(query, secretInfo{}, sqlair.M{})
+	queryStmt, err := st.Prepare(query, secretInfo{}, arg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var dbSecrets secrets
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, queryStmt, sqlair.M{"label": label}).GetAll(&dbSecrets)
+		err := tx.Query(ctx, queryStmt, arg).GetAll(&dbSecrets)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(err, "querying secret URI for label %q", label)
 		}
@@ -1491,7 +1495,7 @@ WHERE  suc.label = $secretUnitConsumer.label
 AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 `
 
-	queryStmt, err := st.Prepare(query, secretUnitConsumer{}, sqlair.M{})
+	queryStmt, err := st.Prepare(query, secretUnitConsumer{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1726,12 +1730,13 @@ remote AS (
 SELECT is_local as &M.is_local
 FROM (SELECT * FROM local UNION SELECT * FROM remote)`
 
+	result := sqlair.M{}
+
 	ref := secretRef{ID: uri.ID, SourceUUID: uri.SourceUUID}
-	queryStmt, err := st.Prepare(query, ref, sqlair.M{})
+	queryStmt, err := st.Prepare(query, ref, result)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	result := sqlair.M{}
 	err = tx.Query(ctx, queryStmt, ref).Get(&result)
 	if err == nil {
 		isLocal := result["is_local"]
@@ -2462,7 +2467,9 @@ AND    role_id = $secretAccessor.role_id
 -- exclude remote applications
 AND    subject_type_id != $M.remote_application_type`
 
-	selectStmt, err := st.Prepare(query, secretID{}, secretAccessor{}, secretAccessScope{}, sqlair.M{})
+	arg := sqlair.M{"remote_application_type": domainsecret.SubjectRemoteApplication}
+
+	selectStmt, err := st.Prepare(query, secretID{}, secretAccessor{}, secretAccessScope{}, arg)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2485,9 +2492,7 @@ AND    subject_type_id != $M.remote_application_type`
 			// Should never happen.
 			return secreterrors.SecretIsNotLocal
 		}
-		err = tx.Query(ctx, selectStmt, secretIDParam, secretRole, sqlair.M{
-			"remote_application_type": domainsecret.SubjectRemoteApplication,
-		}).GetAll(&accessors, &accessScopes)
+		err = tx.Query(ctx, selectStmt, secretIDParam, secretRole, arg).GetAll(&accessors, &accessScopes)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
