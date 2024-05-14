@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain/secret"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -70,6 +71,7 @@ type State interface {
 	) ([]string, error)
 	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
 	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
+	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*secret.RotationExpiryInfo, error)
 
 	// For watching consumed local secret changes.
 	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
@@ -364,10 +366,10 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 	p.RotatePolicy = &rotatePolicy
 	if params.RotatePolicy.WillRotate() {
 		policy, err := s.st.GetRotatePolicy(ctx, uri)
-		if err != nil {
+		if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
 			return errors.Trace(err)
 		}
-		if !policy.WillRotate() {
+		if errors.Is(err, secreterrors.SecretNotFound) || !policy.WillRotate() {
 			p.NextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
 		}
 	}
@@ -657,29 +659,29 @@ func (s *SecretService) SecretRotated(ctx context.Context, uri *secrets.URI, par
 		return errors.Trace(err)
 	}
 
-	md, err := s.GetSecret(ctx, uri)
+	info, err := s.st.GetRotationExpiryInfo(ctx, uri)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if !md.RotatePolicy.WillRotate() {
+	if !info.RotatePolicy.WillRotate() {
 		s.logger.Debugf("secret %q was rotated but now is set to not rotate")
 		return nil
 	}
-	lastRotateTime := md.NextRotateTime
+	lastRotateTime := info.NextRotateTime
 	if lastRotateTime == nil {
 		now := s.clock.Now()
 		lastRotateTime = &now
 	}
-	nextRotateTime := *md.RotatePolicy.NextRotateTime(*lastRotateTime)
-	s.logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.ID, params.OriginalRevision, md.LatestRevision)
+	nextRotateTime := *info.RotatePolicy.NextRotateTime(*lastRotateTime)
+	s.logger.Debugf("secret %q was rotated: rev was %d, now %d", uri.ID, params.OriginalRevision, info.LatestRevision)
 	// If the secret will expire before it is due to be next rotated, rotate sooner to allow
 	// the charm a chance to update it before it expires.
-	willExpire := md.LatestExpireTime != nil && md.LatestExpireTime.Before(nextRotateTime)
+	willExpire := info.LatestExpireTime != nil && info.LatestExpireTime.Before(nextRotateTime)
 	forcedRotateTime := lastRotateTime.Add(secrets.RotateRetryDelay)
 	if willExpire {
-		s.logger.Warningf("secret %q rev %d will expire before next scheduled rotation", uri.ID, md.LatestRevision)
+		s.logger.Warningf("secret %q rev %d will expire before next scheduled rotation", uri.ID, info.LatestRevision)
 	}
-	if willExpire && forcedRotateTime.Before(*md.LatestExpireTime) || !params.Skip && md.LatestRevision == params.OriginalRevision {
+	if willExpire && forcedRotateTime.Before(*info.LatestExpireTime) || !params.Skip && info.LatestRevision == params.OriginalRevision {
 		nextRotateTime = forcedRotateTime
 	}
 	s.logger.Debugf("secret %q next rotate time is now: %s", uri.ID, nextRotateTime.UTC().Format(time.RFC3339))

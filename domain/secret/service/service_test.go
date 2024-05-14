@@ -407,9 +407,9 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecret(gomock.Any(), uri).Return(&coresecrets.SecretMetadata{
-		// No rotate policy.
-	}, nil)
+	s.state.EXPECT().GetRotatePolicy(gomock.Any(), uri).Return(
+		coresecrets.RotateNever, // No rotate policy.
+		secreterrors.SecretNotFound)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, gomock.Any()).DoAndReturn(func(_ context.Context, _ *coresecrets.URI, got domainsecret.UpsertSecretParams) error {
 		c.Assert(got.NextRotateTime, gc.NotNil)
 		c.Assert(*got.NextRotateTime, jc.Almost, *p.NextRotateTime)
@@ -1097,7 +1097,7 @@ func (s *serviceSuite) TestSecretsRotated(c *gc.C) {
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
 	s.state.EXPECT().SecretRotated(ctx, uri, nextRotateTime).Return(errors.New("boom"))
-	s.state.EXPECT().GetSecret(ctx, uri).Return(&coresecrets.SecretMetadata{
+	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
 		RotatePolicy:   coresecrets.RotateHourly,
 		LatestRevision: 667,
 	}, nil)
@@ -1126,7 +1126,7 @@ func (s *serviceSuite) TestSecretsRotatedRetry(c *gc.C) {
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
 	s.state.EXPECT().SecretRotated(ctx, uri, nextRotateTime).Return(errors.New("boom"))
-	s.state.EXPECT().GetSecret(ctx, uri).Return(&coresecrets.SecretMetadata{
+	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
 		RotatePolicy:   coresecrets.RotateHourly,
 		LatestRevision: 666,
 	}, nil)
@@ -1155,7 +1155,7 @@ func (s *serviceSuite) TestSecretsRotatedForce(c *gc.C) {
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
 	s.state.EXPECT().SecretRotated(ctx, uri, nextRotateTime).Return(errors.New("boom"))
-	s.state.EXPECT().GetSecret(ctx, uri).Return(&coresecrets.SecretMetadata{
+	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
 		RotatePolicy:     coresecrets.RotateHourly,
 		LatestExpireTime: ptr(time.Now().Add(50 * time.Minute)),
 		LatestRevision:   667,
@@ -1183,7 +1183,7 @@ func (s *serviceSuite) TestSecretsRotatedThenNever(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().GetSecret(ctx, uri).Return(&coresecrets.SecretMetadata{
+	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
 		RotatePolicy:   coresecrets.RotateNever,
 		LatestRevision: 667,
 	}, nil)

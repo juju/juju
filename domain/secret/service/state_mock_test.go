@@ -410,6 +410,36 @@ func (c *MockStateGetRevisionIDsForObsoleteCall) DoAndReturn(f func(context.Cont
 	return c
 }
 
+// GetRotatePolicy mocks base method.
+func (m *MockState) GetRotatePolicy(arg0 context.Context, arg1 *secrets.URI) (secrets.RotatePolicy, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRotatePolicy", arg0, arg1)
+	ret0, _ := ret[0].(secrets.RotatePolicy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRotatePolicy indicates an expected call of GetRotatePolicy.
+func (mr *MockStateMockRecorder) GetRotatePolicy(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRotatePolicy", reflect.TypeOf((*MockState)(nil).GetRotatePolicy), arg0, arg1)
+}
+
+// GetRotationExpiryInfo mocks base method.
+func (m *MockState) GetRotationExpiryInfo(arg0 context.Context, arg1 *secrets.URI) (*secret.RotationExpiryInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRotationExpiryInfo", arg0, arg1)
+	ret0, _ := ret[0].(*secret.RotationExpiryInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRotationExpiryInfo indicates an expected call of GetRotationExpiryInfo.
+func (mr *MockStateMockRecorder) GetRotationExpiryInfo(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRotationExpiryInfo", reflect.TypeOf((*MockState)(nil).GetRotationExpiryInfo), arg0, arg1)
+}
+
 // GetSecret mocks base method.
 func (m *MockState) GetSecret(arg0 context.Context, arg1 *secrets.URI) (*secrets.SecretMetadata, error) {
 	m.ctrl.T.Helper()
