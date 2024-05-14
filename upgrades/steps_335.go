@@ -3,13 +3,13 @@
 
 package upgrades
 
-func stateStepsFor334() []Step {
+func stateStepsFor335() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "fill in empty charmhub charm origin tracks to latest",
+			description: "assign architectures to container's instance data",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
-				return context.State().FillInEmptyCharmhubTracks()
+				return context.State().AssignArchToContainers()
 			},
 		},
 	}

@@ -162,7 +162,7 @@ func (manager *containerManager) CreateContainer(
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 	callback environs.StatusCallbackFunc,
-) (_ instances.Instance, hc *instance.HardwareCharacteristics, err error) {
+) (_ instances.Instance, _ *instance.HardwareCharacteristics, err error) {
 
 	name, err := manager.namespace.Hostname(instanceConfig.MachineId)
 	if err != nil {
@@ -182,8 +182,6 @@ func (manager *containerManager) CreateContainer(
 	// object, and doesn't actually construct the underlying kvm container on
 	// disk.
 	kvmContainer := KVMObjectFactory.New(name)
-
-	hc = &instance.HardwareCharacteristics{AvailabilityZone: &manager.availabilityZone}
 
 	// Create the cloud-init.
 	cloudConfig, err := cloudinit.New(instanceConfig.Base.OS)
@@ -237,10 +235,9 @@ func (manager *containerManager) CreateContainer(
 	}
 	startParams.ImageDownloadURL = imURL
 
-	var hardware instance.HardwareCharacteristics
-	hardware, err = instance.ParseHardware(
-		fmt.Sprintf("arch=%s mem=%vM root-disk=%vG cores=%v",
-			startParams.Arch, startParams.Memory, startParams.RootDisk, startParams.CpuCores))
+	hardware, err := instance.ParseHardware(
+		fmt.Sprintf("arch=%s mem=%vM root-disk=%vG cores=%v availability-zone=%s",
+			startParams.Arch, startParams.Memory, startParams.RootDisk, startParams.CpuCores, manager.availabilityZone))
 	if err != nil {
 		return nil, nil, errors.Annotate(err, "failed to parse hardware")
 	}
