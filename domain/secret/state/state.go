@@ -473,7 +473,7 @@ WITH rev AS (
 )
 SELECT (sm.secret_id,
        version,
-	   description,
+       description,
        auto_prune,
        rp.policy,
        rev.latest_revision) AS (&secretInfo.*),
