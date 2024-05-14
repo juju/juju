@@ -127,7 +127,7 @@ func (m *stateManager) initialize() error {
 		return errors.Trace(err)
 	}
 	m.relationState = make(map[int]State, len(unitState.RelationState))
-	if m.logger.IsTraceEnabled() {
+	if m.logger.IsLevelEnabled(logger.TRACE) {
 		m.logger.Tracef("initialising state manager: %# v", pretty.Formatter(unitState.RelationState))
 	}
 	for k, v := range unitState.RelationState {

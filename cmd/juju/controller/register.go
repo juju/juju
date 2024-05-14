@@ -636,7 +636,9 @@ func (c *registerCommand) secretKeyLogin(
 	httpClient := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(true),
 		jujuhttp.WithCookieJar(cookieJar),
-		jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
+		jujuhttp.WithLogger(httpLogger{
+			Logger: logger.Child("http", corelogger.HTTP),
+		}),
 	)
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
@@ -794,4 +796,12 @@ func genAlreadyRegisteredError(controller, user string) error {
 		return err
 	}
 	return errors.New(buf.String())
+}
+
+type httpLogger struct {
+	corelogger.Logger
+}
+
+func (l httpLogger) IsTraceEnabled() bool {
+	return l.IsLevelEnabled(corelogger.TRACE)
 }

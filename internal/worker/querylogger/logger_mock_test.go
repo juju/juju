@@ -40,17 +40,22 @@ func (m *MockLogger) EXPECT() *MockLoggerMockRecorder {
 }
 
 // Child mocks base method.
-func (m *MockLogger) Child(arg0 string) logger.Logger {
+func (m *MockLogger) Child(arg0 string, arg1 ...string) logger.Logger {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Child", arg0)
+	varargs := []any{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "Child", varargs...)
 	ret0, _ := ret[0].(logger.Logger)
 	return ret0
 }
 
 // Child indicates an expected call of Child.
-func (mr *MockLoggerMockRecorder) Child(arg0 any) *MockLoggerChildCall {
+func (mr *MockLoggerMockRecorder) Child(arg0 any, arg1 ...any) *MockLoggerChildCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Child", reflect.TypeOf((*MockLogger)(nil).Child), arg0)
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Child", reflect.TypeOf((*MockLogger)(nil).Child), varargs...)
 	return &MockLoggerChildCall{Call: call}
 }
 
@@ -66,56 +71,13 @@ func (c *MockLoggerChildCall) Return(arg0 logger.Logger) *MockLoggerChildCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockLoggerChildCall) Do(f func(string) logger.Logger) *MockLoggerChildCall {
+func (c *MockLoggerChildCall) Do(f func(string, ...string) logger.Logger) *MockLoggerChildCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggerChildCall) DoAndReturn(f func(string) logger.Logger) *MockLoggerChildCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ChildWithTags mocks base method.
-func (m *MockLogger) ChildWithTags(arg0 string, arg1 ...string) logger.Logger {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "ChildWithTags", varargs...)
-	ret0, _ := ret[0].(logger.Logger)
-	return ret0
-}
-
-// ChildWithTags indicates an expected call of ChildWithTags.
-func (mr *MockLoggerMockRecorder) ChildWithTags(arg0 any, arg1 ...any) *MockLoggerChildWithTagsCall {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChildWithTags", reflect.TypeOf((*MockLogger)(nil).ChildWithTags), varargs...)
-	return &MockLoggerChildWithTagsCall{Call: call}
-}
-
-// MockLoggerChildWithTagsCall wrap *gomock.Call
-type MockLoggerChildWithTagsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockLoggerChildWithTagsCall) Return(arg0 logger.Logger) *MockLoggerChildWithTagsCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockLoggerChildWithTagsCall) Do(f func(string, ...string) logger.Logger) *MockLoggerChildWithTagsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggerChildWithTagsCall) DoAndReturn(f func(string, ...string) logger.Logger) *MockLoggerChildWithTagsCall {
+func (c *MockLoggerChildCall) DoAndReturn(f func(string, ...string) logger.Logger) *MockLoggerChildCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -322,120 +284,6 @@ func (c *MockLoggerInfofCall) DoAndReturn(f func(string, ...any)) *MockLoggerInf
 	return c
 }
 
-// IsDebugEnabled mocks base method.
-func (m *MockLogger) IsDebugEnabled() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsDebugEnabled")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsDebugEnabled indicates an expected call of IsDebugEnabled.
-func (mr *MockLoggerMockRecorder) IsDebugEnabled() *MockLoggerIsDebugEnabledCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsDebugEnabled", reflect.TypeOf((*MockLogger)(nil).IsDebugEnabled))
-	return &MockLoggerIsDebugEnabledCall{Call: call}
-}
-
-// MockLoggerIsDebugEnabledCall wrap *gomock.Call
-type MockLoggerIsDebugEnabledCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockLoggerIsDebugEnabledCall) Return(arg0 bool) *MockLoggerIsDebugEnabledCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockLoggerIsDebugEnabledCall) Do(f func() bool) *MockLoggerIsDebugEnabledCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggerIsDebugEnabledCall) DoAndReturn(f func() bool) *MockLoggerIsDebugEnabledCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsErrorEnabled mocks base method.
-func (m *MockLogger) IsErrorEnabled() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsErrorEnabled")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsErrorEnabled indicates an expected call of IsErrorEnabled.
-func (mr *MockLoggerMockRecorder) IsErrorEnabled() *MockLoggerIsErrorEnabledCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsErrorEnabled", reflect.TypeOf((*MockLogger)(nil).IsErrorEnabled))
-	return &MockLoggerIsErrorEnabledCall{Call: call}
-}
-
-// MockLoggerIsErrorEnabledCall wrap *gomock.Call
-type MockLoggerIsErrorEnabledCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockLoggerIsErrorEnabledCall) Return(arg0 bool) *MockLoggerIsErrorEnabledCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockLoggerIsErrorEnabledCall) Do(f func() bool) *MockLoggerIsErrorEnabledCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggerIsErrorEnabledCall) DoAndReturn(f func() bool) *MockLoggerIsErrorEnabledCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsInfoEnabled mocks base method.
-func (m *MockLogger) IsInfoEnabled() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsInfoEnabled")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsInfoEnabled indicates an expected call of IsInfoEnabled.
-func (mr *MockLoggerMockRecorder) IsInfoEnabled() *MockLoggerIsInfoEnabledCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsInfoEnabled", reflect.TypeOf((*MockLogger)(nil).IsInfoEnabled))
-	return &MockLoggerIsInfoEnabledCall{Call: call}
-}
-
-// MockLoggerIsInfoEnabledCall wrap *gomock.Call
-type MockLoggerIsInfoEnabledCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockLoggerIsInfoEnabledCall) Return(arg0 bool) *MockLoggerIsInfoEnabledCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockLoggerIsInfoEnabledCall) Do(f func() bool) *MockLoggerIsInfoEnabledCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggerIsInfoEnabledCall) DoAndReturn(f func() bool) *MockLoggerIsInfoEnabledCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // IsLevelEnabled mocks base method.
 func (m *MockLogger) IsLevelEnabled(arg0 logger.Level) bool {
 	m.ctrl.T.Helper()
@@ -470,82 +318,6 @@ func (c *MockLoggerIsLevelEnabledCall) Do(f func(logger.Level) bool) *MockLogger
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockLoggerIsLevelEnabledCall) DoAndReturn(f func(logger.Level) bool) *MockLoggerIsLevelEnabledCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsTraceEnabled mocks base method.
-func (m *MockLogger) IsTraceEnabled() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsTraceEnabled")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsTraceEnabled indicates an expected call of IsTraceEnabled.
-func (mr *MockLoggerMockRecorder) IsTraceEnabled() *MockLoggerIsTraceEnabledCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsTraceEnabled", reflect.TypeOf((*MockLogger)(nil).IsTraceEnabled))
-	return &MockLoggerIsTraceEnabledCall{Call: call}
-}
-
-// MockLoggerIsTraceEnabledCall wrap *gomock.Call
-type MockLoggerIsTraceEnabledCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockLoggerIsTraceEnabledCall) Return(arg0 bool) *MockLoggerIsTraceEnabledCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockLoggerIsTraceEnabledCall) Do(f func() bool) *MockLoggerIsTraceEnabledCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggerIsTraceEnabledCall) DoAndReturn(f func() bool) *MockLoggerIsTraceEnabledCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsWarningEnabled mocks base method.
-func (m *MockLogger) IsWarningEnabled() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsWarningEnabled")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsWarningEnabled indicates an expected call of IsWarningEnabled.
-func (mr *MockLoggerMockRecorder) IsWarningEnabled() *MockLoggerIsWarningEnabledCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsWarningEnabled", reflect.TypeOf((*MockLogger)(nil).IsWarningEnabled))
-	return &MockLoggerIsWarningEnabledCall{Call: call}
-}
-
-// MockLoggerIsWarningEnabledCall wrap *gomock.Call
-type MockLoggerIsWarningEnabledCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockLoggerIsWarningEnabledCall) Return(arg0 bool) *MockLoggerIsWarningEnabledCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockLoggerIsWarningEnabledCall) Do(f func() bool) *MockLoggerIsWarningEnabledCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockLoggerIsWarningEnabledCall) DoAndReturn(f func() bool) *MockLoggerIsWarningEnabledCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/aws/smithy-go/logging"
 	"github.com/juju/errors"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/tools"
 )
@@ -56,7 +57,7 @@ func getECRClient(ctx context.Context, accessKeyID, secretAccessKey, region stri
 
 	// Enable request and response logging, but only if TRACE is enabled (as
 	// they're probably fairly expensive to produce).
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		cfg.ClientLogMode = aws.LogRequest | aws.LogResponse | aws.LogRetries
 		cfg.Logger = logging.NewStandardLogger(&ecrLogger{})
 	}

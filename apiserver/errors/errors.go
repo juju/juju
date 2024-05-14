@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/upgrade"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -146,7 +147,7 @@ func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
 	}
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef("server RPC error %v", errors.Details(err))
 	}
 

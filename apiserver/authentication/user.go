@@ -19,6 +19,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	coreuser "github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
@@ -148,7 +149,7 @@ func (u *LocalUserAuthenticator) Authenticate(
 
 func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, userTag names.UserTag, authParams AuthParams) (state.Entity, error) {
 	// Check for a valid request macaroon.
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		mac, _ := json.Marshal(authParams.Macaroons)
 		logger.Tracef("authentication macaroons for %s: %s", userTag, mac)
 	}

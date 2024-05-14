@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -322,7 +323,7 @@ func (c *Client) FullStatus(ctx context.Context, args params.StatusParams) (para
 		}
 	}
 
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef("Applications: %v", context.allAppsUnitsCharmBindings.applications)
 		logger.Tracef("Remote applications: %v", context.consumerRemoteApplications)
 		logger.Tracef("Offers: %v", context.offers)

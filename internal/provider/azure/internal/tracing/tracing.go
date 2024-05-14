@@ -9,6 +9,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 
+	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 )
 
@@ -17,7 +18,7 @@ type LoggingPolicy struct {
 }
 
 func (p *LoggingPolicy) Do(req *policy.Request) (*http.Response, error) {
-	if p.Logger.IsTraceEnabled() {
+	if p.Logger.IsLevelEnabled(logger.TRACE) {
 		dump, err := httputil.DumpRequest(req.Raw(), true)
 		if err != nil {
 			p.Logger.Tracef("failed to dump request: %v", err)
@@ -27,7 +28,7 @@ func (p *LoggingPolicy) Do(req *policy.Request) (*http.Response, error) {
 		}
 	}
 	resp, err := req.Next()
-	if err == nil && p.Logger.IsTraceEnabled() {
+	if err == nil && p.Logger.IsLevelEnabled(logger.TRACE) {
 		dump, err := httputil.DumpResponse(resp, true)
 		if err != nil {
 			p.Logger.Tracef("failed to dump response: %v", err)

@@ -76,11 +76,7 @@ func (c checkLogger) Logf(level logger.Level, msg string, args ...any) {
 	c.log.Logf(formatMsg(loggo.Level(level).String(), c.name, msg), args...)
 }
 
-func (c checkLogger) Child(name string) logger.Logger {
-	return checkLogger{log: c.log, name: name}
-}
-
-func (c checkLogger) ChildWithTags(name string, tags ...string) logger.Logger {
+func (c checkLogger) Child(name string, tags ...string) logger.Logger {
 	return checkLogger{log: c.log, name: name}
 }
 
@@ -89,11 +85,6 @@ func (c checkLogger) GetChildByName(name string) logger.Logger {
 	return checkLogger{log: c.log, name: name}
 }
 
-func (c checkLogger) IsErrorEnabled() bool   { return c.IsLevelEnabled(logger.ERROR) }
-func (c checkLogger) IsWarningEnabled() bool { return c.IsLevelEnabled(logger.WARNING) }
-func (c checkLogger) IsInfoEnabled() bool    { return c.IsLevelEnabled(logger.INFO) }
-func (c checkLogger) IsDebugEnabled() bool   { return c.IsLevelEnabled(logger.DEBUG) }
-func (c checkLogger) IsTraceEnabled() bool   { return c.IsLevelEnabled(logger.TRACE) }
 func (c checkLogger) IsLevelEnabled(level logger.Level) bool {
 	return level >= c.level
 }

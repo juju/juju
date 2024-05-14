@@ -78,7 +78,7 @@ func NewFacade(ctx facade.ModelContext) (*API, error) {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			return repository.NewCharmHubRepository(logger.ChildWithTags("charmhub", corelogger.CHARMHUB), chClient), nil
+			return repository.NewCharmHubRepository(logger.Child("charmhub", corelogger.CHARMHUB), chClient), nil
 
 		case charm.Local.Matches(schema):
 			return &localClient{}, nil

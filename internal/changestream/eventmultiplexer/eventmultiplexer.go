@@ -368,7 +368,7 @@ func (e *EventMultiplexer) gatherSubscriptions(ch changestream.ChangeEvent) []*s
 		subs[id] = e.subscriptions[id]
 	}
 
-	traceEnabled := e.logger.IsTraceEnabled()
+	traceEnabled := e.logger.IsLevelEnabled(logger.TRACE)
 	for _, subOpt := range e.subscriptionsByNS[ch.Namespace()] {
 		if _, ok := subs[subOpt.subscriptionID]; ok {
 			continue

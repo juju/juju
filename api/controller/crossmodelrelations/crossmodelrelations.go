@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
@@ -78,7 +79,7 @@ func (c *Client) handleError(ctx context.Context, apiErr error) (macaroon.Slice,
 		}
 	}
 	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(ctx, m)
-	if err == nil && logger.IsTraceEnabled() {
+	if err == nil && logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef("discharge macaroon ids:")
 		for _, m := range ms {
 			logger.Tracef("  - %v", m.Id())
@@ -94,7 +95,7 @@ func (c *Client) getCachedMacaroon(opName, token string) (macaroon.Slice, bool) 
 	ms, ok := c.cache.Get(token)
 	if ok {
 		logger.Debugf("%s using cached macaroons for %s", opName, token)
-		if logger.IsTraceEnabled() {
+		if logger.IsLevelEnabled(corelogger.TRACE) {
 			for _, m := range ms {
 				logger.Tracef("  - %v", m.Id())
 			}

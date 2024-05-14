@@ -171,7 +171,7 @@ func (w *Watcher) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case event := <-w.watcher.Events():
-			if w.logger.IsTraceEnabled() {
+			if w.logger.IsLevelEnabled(logger.TRACE) {
 				w.logger.Tracef("inotify event for %v", event)
 			}
 			// Ignore events for other files in the directory.
@@ -184,7 +184,7 @@ func (w *Watcher) loop() error {
 				continue
 			}
 
-			if w.logger.IsTraceEnabled() {
+			if w.logger.IsLevelEnabled(logger.TRACE) {
 				w.logger.Tracef("dispatch event for fileName %q: %v", w.fileName, event)
 			}
 

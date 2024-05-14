@@ -48,7 +48,7 @@ func NewCharmDownloader(cfg CharmDownloaderConfig) (*charmdownloader.Downloader,
 		}),
 	}
 
-	return charmdownloader.NewDownloader(cfg.Logger.ChildWithTags("charmdownloader", corelogger.CHARMHUB), storage, repoFactory), nil
+	return charmdownloader.NewDownloader(cfg.Logger.Child("charmdownloader", corelogger.CHARMHUB), storage, repoFactory), nil
 }
 
 // repoFactoryShim wraps a CharmRepoFactory and is compatible with the

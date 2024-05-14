@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	corelogger "github.com/juju/juju/core/logger"
 	coresecrets "github.com/juju/juju/core/secrets"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/secrets"
@@ -69,7 +70,7 @@ func (c *Client) handleDischargeError(ctx context.Context, apiErr error) (macaro
 
 	m := info.BakeryMacaroon
 	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(ctx, m)
-	if err == nil && logger.IsTraceEnabled() {
+	if err == nil && logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef("discharge macaroon ids:")
 		for _, m := range ms {
 			logger.Tracef("  - %v", m.Id())
@@ -85,7 +86,7 @@ func (c *Client) getCachedMacaroon(opName, token string) (macaroon.Slice, bool) 
 	ms, ok := c.cache.Get(token)
 	if ok {
 		logger.Debugf("%s using cached macaroons for %s", opName, token)
-		if logger.IsTraceEnabled() {
+		if logger.IsLevelEnabled(corelogger.TRACE) {
 			for _, m := range ms {
 				logger.Tracef("  - %v", m.Id())
 			}

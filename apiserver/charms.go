@@ -101,7 +101,7 @@ func (h *charmsHandler) ServeUnsupported(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error {
-	if h.logger.IsTraceEnabled() {
+	if h.logger.IsLevelEnabled(corelogger.TRACE) {
 		h.logger.Tracef("ServePost(%s)", r.URL)
 	}
 
@@ -130,7 +130,7 @@ func (h *charmsHandler) ServePost(w http.ResponseWriter, r *http.Request) error 
 }
 
 func (h *charmsHandler) ServeGet(w http.ResponseWriter, r *http.Request) error {
-	if h.logger.IsTraceEnabled() {
+	if h.logger.IsLevelEnabled(corelogger.TRACE) {
 		h.logger.Tracef("ServeGet(%s)", r.URL)
 	}
 

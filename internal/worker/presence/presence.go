@@ -166,7 +166,7 @@ func (w *wrapper) agentLogin(topic string, data apiserver.APIConnection, err err
 		w.logger.Errorf("agentLogin error %v", err)
 		return
 	}
-	if w.logger.IsTraceEnabled() {
+	if w.logger.IsLevelEnabled(logger.TRACE) {
 		agentName := data.AgentTag
 		if data.ControllerAgent {
 			agentName += " (controller)"
@@ -237,7 +237,7 @@ func (w *wrapper) presenceResponse(topic string, data apiserver.PresenceResponse
 	// update the recorder.
 	values := make([]presence.Value, 0, len(data.Connections))
 	for _, conn := range data.Connections {
-		if w.logger.IsTraceEnabled() {
+		if w.logger.IsLevelEnabled(logger.TRACE) {
 			agentName := conn.AgentTag
 			if conn.ControllerAgent {
 				agentName += " (controller)"

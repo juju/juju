@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/controller"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -630,7 +631,7 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "computing desired peer group")
 	}
-	if logger.IsDebugEnabled() {
+	if logger.IsLevelEnabled(corelogger.DEBUG) {
 		if desired.isChanged {
 			logger.Debugf("desired peer group members: \n%s", prettyReplicaSetMembers(desired.members))
 		} else {
@@ -786,7 +787,7 @@ func (w *pgWorker) peerGroupInfo() (*peerGroupInfo, error) {
 		return nil, errors.Annotate(err, "cannot get replica set members")
 	}
 
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef("read peer group info: %# v\n%# v", pretty.Formatter(sts), pretty.Formatter(members))
 	}
 	return newPeerGroupInfo(w.controllerTrackers, sts.Members, members, w.config.MongoPort)

@@ -68,7 +68,7 @@ func (c *infoClient) Info(ctx context.Context, name string, options ...InfoOptio
 		option(opts)
 	}
 
-	isTraceEnabled := c.logger.IsTraceEnabled()
+	isTraceEnabled := c.logger.IsLevelEnabled(corelogger.TRACE)
 	if isTraceEnabled {
 		c.logger.Tracef("Info(%s)", name)
 	}

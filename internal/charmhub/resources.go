@@ -45,7 +45,7 @@ func (c *resourcesClient) ListResourceRevisions(ctx context.Context, charm, reso
 		span.End()
 	}()
 
-	isTraceEnabled := c.logger.IsTraceEnabled()
+	isTraceEnabled := c.logger.IsLevelEnabled(corelogger.TRACE)
 	if isTraceEnabled {
 		c.logger.Tracef("ListResourceRevisions(%s, %s)", charm, resource)
 	}

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/rpc"
@@ -164,13 +165,13 @@ func (n *rpcObserver) ServerRequest(hdr *rpc.Header, body interface{}) {
 	// We know that if *at least* debug logging is not enabled, there will be
 	// nothing to do here. Since this is a hot path, we can avoid the call to
 	// DumpRequest below that would otherwise still be paid for every request.
-	if !n.logger.IsDebugEnabled() {
+	if !n.logger.IsLevelEnabled(logger.DEBUG) {
 		return
 	}
 
 	n.requestStart = n.clock.Now()
 
-	tracing := n.logger.IsTraceEnabled()
+	tracing := n.logger.IsLevelEnabled(logger.TRACE)
 
 	if hdr.Request.Type == "Pinger" && hdr.Request.Action == "Ping" {
 		if tracing {
@@ -194,11 +195,11 @@ func (n *rpcObserver) ServerReply(req rpc.Request, hdr *rpc.Header, body interfa
 	// We know that if *at least* debug logging is not enabled, there will be
 	// nothing to do here. Since this is a hot path, we can avoid the call to
 	// DumpRequest below that would otherwise still be paid for every reply.
-	if !n.logger.IsDebugEnabled() {
+	if !n.logger.IsLevelEnabled(logger.DEBUG) {
 		return
 	}
 
-	tracing := n.logger.IsTraceEnabled()
+	tracing := n.logger.IsLevelEnabled(logger.TRACE)
 
 	if req.Type == "Pinger" && req.Action == "Ping" {
 		if tracing {

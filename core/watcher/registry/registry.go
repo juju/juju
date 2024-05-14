@@ -174,15 +174,15 @@ func (r *Registry) loop() error {
 
 // watcherLogDecorator returns a function that wraps a worker.Worker with a
 // LoggingWatcher.
-func watcherLogDecorator(logger logger.Logger) func(worker.Worker) (worker.Worker, error) {
+func watcherLogDecorator(l logger.Logger) func(worker.Worker) (worker.Worker, error) {
 	return func(w worker.Worker) (worker.Worker, error) {
-		if logger == nil {
+		if l == nil {
 			return w, nil
 		}
-		if logger.IsTraceEnabled() {
-			logger.Tracef("starting watcher %T", w)
+		if l.IsLevelEnabled(logger.TRACE) {
+			l.Tracef("starting watcher %T", w)
 		}
-		return NewLoggingWatcher(w, logger), nil
+		return NewLoggingWatcher(w, l), nil
 	}
 }
 
@@ -203,7 +203,7 @@ func NewLoggingWatcher(w worker.Worker, logger logger.Logger) *LoggingWatcher {
 
 // Kill asks the worker to stop and returns immediately.
 func (l *LoggingWatcher) Kill() {
-	if l.logger.IsTraceEnabled() {
+	if l.logger.IsLevelEnabled(logger.TRACE) {
 		l.logger.Tracef("killing watcher %T", l.worker)
 	}
 	l.worker.Kill()
@@ -213,7 +213,7 @@ func (l *LoggingWatcher) Kill() {
 // error encountered when it was running or stopping.
 func (l *LoggingWatcher) Wait() error {
 	err := l.worker.Wait()
-	if l.logger.IsTraceEnabled() {
+	if l.logger.IsLevelEnabled(logger.TRACE) {
 		l.logger.Tracef("watcher %T finished with error %v", l.worker, err)
 	}
 	return errors.Trace(err)

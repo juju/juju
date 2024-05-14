@@ -64,7 +64,7 @@ type HTTPClient interface {
 // DefaultHTTPClient creates a new HTTPClient with the default configuration.
 func DefaultHTTPClient(logger corelogger.Logger) HTTPClient {
 	recorder := loggingRequestRecorder{
-		logger: logger.ChildWithTags("transport.request-recorder", corelogger.METRICS),
+		logger: logger.Child("transport.request-recorder", corelogger.METRICS),
 	}
 	return requestHTTPClient(recorder, defaultRetryPolicy())(logger)
 }
@@ -85,14 +85,14 @@ type loggingRequestRecorder struct {
 
 // Record an outgoing request which produced an http.Response.
 func (r loggingRequestRecorder) Record(method string, url *url.URL, res *http.Response, rtt time.Duration) {
-	if r.logger.IsTraceEnabled() {
+	if r.logger.IsLevelEnabled(corelogger.TRACE) {
 		r.logger.Tracef("request (method: %q, host: %q, path: %q, status: %q, duration: %s)", method, url.Host, url.Path, res.Status, rtt)
 	}
 }
 
 // RecordError records an outgoing request which returned an error.
 func (r loggingRequestRecorder) RecordError(method string, url *url.URL, err error) {
-	if r.logger.IsTraceEnabled() {
+	if r.logger.IsLevelEnabled(corelogger.TRACE) {
 		r.logger.Tracef("request error (method: %q, host: %q, path: %q, err: %s)", method, url.Host, url.Path, err)
 	}
 }
@@ -104,7 +104,9 @@ func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryP
 		return jujuhttp.NewClient(
 			jujuhttp.WithRequestRecorder(recorder),
 			jujuhttp.WithRequestRetrier(policy),
-			jujuhttp.WithLogger(logger.ChildWithTags("transport", corelogger.CHARMHUB, corelogger.HTTP)),
+			jujuhttp.WithLogger(httpLogger{
+				Logger: logger.Child("transport", corelogger.CHARMHUB, corelogger.HTTP),
+			}),
 		)
 	}
 }
@@ -230,7 +232,7 @@ func newAPIRequesterLogger(httpClient HTTPClient, logger corelogger.Logger) *api
 
 // Do performs the request and logs the request and response if tracing is enabled.
 func (t *apiRequestLogger) Do(req *http.Request) (*http.Response, error) {
-	if t.logger.IsTraceEnabled() {
+	if t.logger.IsLevelEnabled(corelogger.TRACE) {
 		if data, err := httputil.DumpRequest(req, true); err == nil {
 			t.logger.Tracef("%s request %s", req.Method, data)
 		} else {
@@ -243,7 +245,7 @@ func (t *apiRequestLogger) Do(req *http.Request) (*http.Response, error) {
 		return nil, errors.Trace(err)
 	}
 
-	if t.logger.IsTraceEnabled() {
+	if t.logger.IsLevelEnabled(corelogger.TRACE) {
 		if data, err := httputil.DumpResponse(resp, true); err == nil {
 			t.logger.Tracef("%s response %s", req.Method, data)
 		} else {
@@ -360,4 +362,12 @@ func (c *httpRESTClient) Post(ctx context.Context, path path.Path, headers http.
 	return restResponse{
 		StatusCode: resp.StatusCode,
 	}, nil
+}
+
+type httpLogger struct {
+	corelogger.Logger
+}
+
+func (l httpLogger) IsTraceEnabled() bool {
+	return l.IsLevelEnabled(corelogger.TRACE)
 }

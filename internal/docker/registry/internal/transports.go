@@ -14,6 +14,8 @@ import (
 
 	"github.com/docker/distribution/registry/client/auth/challenge"
 	"github.com/juju/errors"
+
+	corelogger "github.com/juju/juju/core/logger"
 )
 
 type dynamicTransportFunc func() (http.RoundTripper, error)
@@ -341,7 +343,7 @@ func handleErrorResponse(resp *http.Response) (*http.Response, error) {
 		return nil, errors.Annotatef(err, "reading bad response body with status code %d", resp.StatusCode)
 	}
 	errMsg := fmt.Sprintf("non-successful response status=%d", resp.StatusCode)
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef("%s, url %q, body=%q", errMsg, resp.Request.URL.String(), body)
 	}
 	errNew := errors.Errorf

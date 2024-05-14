@@ -13,6 +13,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
+	corelogger "github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/state/bakerystorage"
 )
@@ -63,7 +64,7 @@ var logger = internallogger.GetLogger("juju.apiserver.bakery")
 
 // Auth implements MacaroonChecker.Auth.
 func (s *ExpirableStorageBakery) Auth(ctx context.Context, mss ...macaroon.Slice) *bakery.AuthChecker {
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		for i, ms := range mss {
 			ops, conditions, err := s.Oven.VerifyMacaroon(ctx, ms)
 			if err != nil {

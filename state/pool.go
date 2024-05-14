@@ -18,6 +18,7 @@ import (
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/feature"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
@@ -386,7 +387,7 @@ func (p *StatePool) Close() error {
 		p.mu.Unlock()
 		return nil
 	}
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		logger.Tracef("state pool closed from:\n%s", debug.Stack())
 	}
 

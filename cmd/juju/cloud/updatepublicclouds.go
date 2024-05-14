@@ -108,9 +108,20 @@ func (c *updatePublicCloudsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+type httpLogger struct {
+	corelogger.Logger
+}
+
+func (l httpLogger) IsTraceEnabled() bool {
+	return l.IsLevelEnabled(corelogger.TRACE)
+}
+
+// PublishedPublicClouds retrieves public cloud information from the given URL.
 func PublishedPublicClouds(ctx context.Context, url, key string) (map[string]jujucloud.Cloud, error) {
 	client := jujuhttp.NewClient(
-		jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
+		jujuhttp.WithLogger(httpLogger{
+			Logger: logger.Child("http", corelogger.HTTP),
+		}),
 	)
 	resp, err := client.Get(ctx, url)
 	if err != nil {

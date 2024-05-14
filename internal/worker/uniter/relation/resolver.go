@@ -39,7 +39,7 @@ type relationsResolver struct {
 
 // NextOp implements resolver.Resolver.
 func (r *relationsResolver) NextOp(ctx context.Context, localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory) (_ operation.Operation, err error) {
-	if r.logger.IsTraceEnabled() {
+	if r.logger.IsLevelEnabled(logger.TRACE) {
 		r.logger.Tracef("relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
 		defer func() {
 			if err == resolver.ErrNoOperation {
@@ -328,7 +328,7 @@ func (r *createdRelationsResolver) NextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (_ operation.Operation, err error) {
-	if r.logger.IsTraceEnabled() {
+	if r.logger.IsLevelEnabled(logger.TRACE) {
 		r.logger.Tracef("create relation resolver next op for new remote relations %# v", pretty.Formatter(remoteState.Relations))
 		defer func() {
 			if err == resolver.ErrNoOperation {

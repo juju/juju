@@ -120,7 +120,9 @@ func NewProvider() environs.CloudEnvironProvider {
 	configReader := lxcConfigReader{}
 	factory := NewServerFactory(NewHTTPClientFunc(func() *http.Client {
 		return jujuhttp.NewClient(
-			jujuhttp.WithLogger(logger.ChildWithTags("http", corelogger.HTTP)),
+			jujuhttp.WithLogger(httpLogger{
+				Logger: logger.Child("http", corelogger.HTTP),
+			}),
 		).Client()
 	}))
 
@@ -430,4 +432,12 @@ func (lxcConfigReader) ReadConfig(path string) (LXCConfig, error) {
 func (lxcConfigReader) ReadCert(path string) ([]byte, error) {
 	certFile, err := os.ReadFile(path)
 	return certFile, errors.Trace(err)
+}
+
+type httpLogger struct {
+	corelogger.Logger
+}
+
+func (l httpLogger) IsTraceEnabled() bool {
+	return l.IsLevelEnabled(corelogger.TRACE)
 }

@@ -311,7 +311,7 @@ func (w *TxnWatcher) loop() error {
 		} else {
 			err = w.sync()
 		}
-		if w.logger.IsTraceEnabled() && wrench.IsActive("txnwatcher", "sync-error") {
+		if w.logger.IsLevelEnabled(logger.TRACE) && wrench.IsActive("txnwatcher", "sync-error") {
 			err = errors.New("test sync watcher error")
 		}
 		if err == nil {

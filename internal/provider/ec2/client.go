@@ -18,6 +18,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs/cloudspec"
 )
 
@@ -140,7 +141,7 @@ func configFromCloudSpec(
 
 	// Enable request and response logging, but only if TRACE is enabled (as
 	// they're probably fairly expensive to produce).
-	if logger.IsTraceEnabled() {
+	if logger.IsLevelEnabled(corelogger.TRACE) {
 		cfg.ClientLogMode = aws.LogRequest | aws.LogResponse | aws.LogRetries
 		cfg.Logger = logging.NewStandardLogger(&awsLogger{})
 	}

@@ -22,6 +22,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/kr/pretty"
 
+	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/internal/docker"
@@ -494,7 +495,7 @@ func (p *resourcePersistence) listResources(applicationID string, pending bool) 
 			DownloadProgress: downloadProgress[tag],
 		})
 	}
-	if rLogger.IsTraceEnabled() {
+	if rLogger.IsLevelEnabled(corelogger.TRACE) {
 		rLogger.Tracef("found %d docs: %q", len(docs), pretty.Sprint(results))
 	}
 	return results, nil
@@ -1328,7 +1329,7 @@ func newInsertCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 func newUpdateCharmStoreResourceOps(res charmStoreResource) []txn.Op {
 	doc := newCharmStoreResourceDoc(res)
 
-	if rLogger.IsTraceEnabled() {
+	if rLogger.IsLevelEnabled(corelogger.TRACE) {
 		rLogger.Tracef("updating charm store resource %s to %# v", res.id, pretty.Formatter(doc))
 	}
 	return []txn.Op{{
@@ -1355,7 +1356,7 @@ func newUpdateUnitResourceOps(unitID string, stored storedResource, progress *in
 	doc := newUnitResourceDoc(unitID, stored)
 	doc.DownloadProgress = progress
 
-	if rLogger.IsTraceEnabled() {
+	if rLogger.IsLevelEnabled(corelogger.TRACE) {
 		rLogger.Tracef("updating unit resource %s to %# v", unitID, pretty.Formatter(doc))
 	}
 	return []txn.Op{{

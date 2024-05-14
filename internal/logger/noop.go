@@ -46,44 +46,13 @@ func (c noopLogger) Tracef(msg string, args ...any) {
 func (c noopLogger) Logf(level logger.Level, msg string, args ...any) {
 }
 
-// IsEnabled returns true if the given level is enabled for the logger.
-func (c noopLogger) IsErrorEnabled() bool {
-	return false
-}
-
-// IsWarningEnabled returns true if the warning level is enabled for the
-// logger.
-func (c noopLogger) IsWarningEnabled() bool {
-	return false
-}
-
-// IsInfoEnabled returns true if the info level is enabled for the logger.
-func (c noopLogger) IsInfoEnabled() bool {
-	return false
-}
-
-// IsDebugEnabled returns true if the debug level is enabled for the logger.
-func (c noopLogger) IsDebugEnabled() bool {
-	return false
-}
-
-// IsTraceEnabled returns true if the trace level is enabled for the logger.
-func (c noopLogger) IsTraceEnabled() bool {
-	return false
-}
-
 // IsLevelEnabled returns true if the given level is enabled for the logger.
 func (c noopLogger) IsLevelEnabled(level logger.Level) bool {
 	return false
 }
 
 // Child returns a new logger with the given name.
-func (c noopLogger) Child(name string) logger.Logger {
-	return c
-}
-
-// ChildWithTags returns a new logger with the given name and tags.
-func (c noopLogger) ChildWithTags(name string, tags ...string) logger.Logger {
+func (c noopLogger) Child(name string, tags ...string) logger.Logger {
 	return c
 }
 

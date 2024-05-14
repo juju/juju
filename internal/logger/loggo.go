@@ -56,46 +56,13 @@ func (c loggoLogger) Logf(level logger.Level, msg string, args ...any) {
 	c.logger.Logf(loggo.Level(level), msg, args...)
 }
 
-// IsEnabled returns true if the given level is enabled for the logger.
-func (c loggoLogger) IsErrorEnabled() bool {
-	return c.logger.IsErrorEnabled()
-}
-
-// IsWarningEnabled returns true if the warning level is enabled for the
-// logger.
-func (c loggoLogger) IsWarningEnabled() bool {
-	return c.logger.IsWarningEnabled()
-}
-
-// IsInfoEnabled returns true if the info level is enabled for the logger.
-func (c loggoLogger) IsInfoEnabled() bool {
-	return c.logger.IsInfoEnabled()
-}
-
-// IsDebugEnabled returns true if the debug level is enabled for the logger.
-func (c loggoLogger) IsDebugEnabled() bool {
-	return c.logger.IsDebugEnabled()
-}
-
-// IsTraceEnabled returns true if the trace level is enabled for the logger.
-func (c loggoLogger) IsTraceEnabled() bool {
-	return c.logger.IsTraceEnabled()
-}
-
 // IsLevelEnabled returns true if the given level is enabled for the logger.
 func (c loggoLogger) IsLevelEnabled(level logger.Level) bool {
 	return c.logger.IsLevelEnabled(loggo.Level(level))
 }
 
 // Child returns a new logger with the given name.
-func (c loggoLogger) Child(name string) logger.Logger {
-	return loggoLogger{
-		logger: c.logger.Child(name),
-	}
-}
-
-// ChildWithTags returns a new logger with the given name and tags.
-func (c loggoLogger) ChildWithTags(name string, tags ...string) logger.Logger {
+func (c loggoLogger) Child(name string, tags ...string) logger.Logger {
 	return loggoLogger{
 		logger: c.logger.ChildWithTags(name, tags...),
 	}
