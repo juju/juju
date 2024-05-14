@@ -1102,7 +1102,7 @@ func (s *serviceSuite) TestSecretsRotated(c *gc.C) {
 		LatestRevision: 667,
 	}, nil)
 
-	err := s.service().SecretRotated(ctx, uri, SecretRotatedParams{
+	err := s.service(c).SecretRotated(ctx, uri, SecretRotatedParams{
 		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
@@ -1131,7 +1131,7 @@ func (s *serviceSuite) TestSecretsRotatedRetry(c *gc.C) {
 		LatestRevision: 666,
 	}, nil)
 
-	err := s.service().SecretRotated(ctx, uri, SecretRotatedParams{
+	err := s.service(c).SecretRotated(ctx, uri, SecretRotatedParams{
 		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
@@ -1161,7 +1161,7 @@ func (s *serviceSuite) TestSecretsRotatedForce(c *gc.C) {
 		LatestRevision:   667,
 	}, nil)
 
-	err := s.service().SecretRotated(ctx, uri, SecretRotatedParams{
+	err := s.service(c).SecretRotated(ctx, uri, SecretRotatedParams{
 		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
@@ -1188,7 +1188,7 @@ func (s *serviceSuite) TestSecretsRotatedThenNever(c *gc.C) {
 		LatestRevision: 667,
 	}, nil)
 
-	err := s.service().SecretRotated(ctx, uri, SecretRotatedParams{
+	err := s.service(c).SecretRotated(ctx, uri, SecretRotatedParams{
 		LeaderToken: successfulToken{},
 		Accessor: SecretAccessor{
 			Kind: UnitAccessor,
