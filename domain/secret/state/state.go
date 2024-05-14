@@ -1567,7 +1567,7 @@ JOIN   secret_value_ref svr ON svr.revision_uuid = sr.uuid
 WHERE  secret_id = $secretID.id%s
 `, revFilter)
 
-	queryStmt, err := st.Prepare(query, append([]any{secretValueRef{}}, selectRevisionParams...)...)
+	queryStmt, err := st.Prepare(query, append(selectRevisionParams, secretValueRef{})...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2570,7 +2570,7 @@ AND    (subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($u
 		secretBackendID,
 	}
 
-	queryStmt, err := st.Prepare(query, append([]any{secretInfo{}, secretValueRef{}}, queryParams...)...)
+	queryStmt, err := st.Prepare(query, append(queryParams, secretInfo{}, secretValueRef{})...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2613,7 +2613,7 @@ HAVING   suc.current_revision < MAX(sr.revision)`
 			unit{UnitName: unitName},
 		}
 
-		stmt, err := st.Prepare(q, append([]any{revisionUUID{}}, queryParams...)...)
+		stmt, err := st.Prepare(q, append(queryParams, revisionUUID{})...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2669,7 +2669,7 @@ WHERE  u.unit_id = $unit.unit_id`
 GROUP BY sr.secret_id
 HAVING suc.current_revision < MAX(sr.revision)`
 
-	stmt, err := st.Prepare(q, append([]any{secretUnitConsumer{}}, queryParams...)...)
+	stmt, err := st.Prepare(q, append(queryParams, secretUnitConsumer{})...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2717,7 +2717,7 @@ HAVING   suc.current_revision < sr.latest_revision`
 			unit{UnitName: unitName},
 		}
 
-		stmt, err := st.Prepare(q, append([]any{remoteSecret{}}, queryParams...)...)
+		stmt, err := st.Prepare(q, append(queryParams, remoteSecret{})...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2774,7 +2774,7 @@ WHERE  u.unit_id = $unit.unit_id`
 GROUP BY sr.secret_id
 HAVING suc.current_revision < sr.latest_revision`
 
-	stmt, err := st.Prepare(q, append([]any{secretUnitConsumer{}}, queryParams...)...)
+	stmt, err := st.Prepare(q, append(queryParams, secretUnitConsumer{})...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2832,7 +2832,7 @@ WHERE  sruc.unit_id LIKE '%s/%%'`, appName)
 		q += `
 GROUP BY sruc.secret_id
 HAVING sruc.current_revision < MAX(sr.revision)`
-		stmt, err := st.Prepare(q, append([]any{revisionUUID{}}, queryParams...)...)
+		stmt, err := st.Prepare(q, append(queryParams, revisionUUID{})...)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -2892,7 +2892,7 @@ WHERE  sruc.unit_id LIKE '%s/%%'`, appName)
 	q += `
 GROUP BY sruc.secret_id
 HAVING sruc.current_revision < MAX(sr.revision)`
-	stmt, err := st.Prepare(q, append([]any{secretRemoteUnitConsumer{}}, queryParams...)...)
+	stmt, err := st.Prepare(q, append(queryParams, secretRemoteUnitConsumer{})...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -3041,7 +3041,7 @@ FROM secret_revision_obsolete sro
 		"revisionUUIDs %+v, appOwners: %+v, unitOwners: %+v, query: \n%s",
 		revUUIDs, appOwners, unitOwners, q,
 	)
-	stmt, err := st.Prepare(q, append([]any{outputType}, queryParams...)...)
+	stmt, err := st.Prepare(q, append(queryParams, outputType)...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -3086,7 +3086,7 @@ SELECT uuid AS &revisionUUID.uuid
 FROM   secret_revision
 WHERE  secret_id = $secretID.id%s
 `, revFilter)
-	selectRevisionStmt, err := st.Prepare(selectRevsToDelete, append([]any{revisionUUID{}}, selectRevisionParams...)...)
+	selectRevisionStmt, err := st.Prepare(selectRevsToDelete, append(selectRevisionParams, revisionUUID{})...)
 	if err != nil {
 		return errors.Trace(err)
 	}
