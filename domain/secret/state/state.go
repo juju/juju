@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/secret"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	uniterrors "github.com/juju/juju/domain/unit/errors"
@@ -1051,32 +1052,81 @@ func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecre
 	return secrets[0], nil
 }
 
+// GetRotationExpiryInfo returns the rotation expiry information for the specified secret.
+func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI) (*secret.RotationExpiryInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	stmt, err := st.Prepare(`
+WITH rev AS
+    (SELECT uuid,MAX(revision) AS latest_revision
+    FROM    secret_revision
+    WHERE   secret_id = $secretID.id)
+SELECT sp.policy AS &secretInfo.policy,
+       sro.next_rotation_time AS &secretInfo.next_rotation_time,
+       sre.expire_time AS &secretInfo.latest_expire_time,
+       rev.latest_revision AS &secretInfo.latest_revision
+FROM secret_metadata sm, rev
+INNER JOIN secret_rotate_policy sp ON sp.id = sm.rotate_policy_id
+LEFT JOIN secret_rotation sro ON sro.secret_id = sm.secret_id
+LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = rev.uuid
+WHERE sm.secret_id = $secretID.id`, secretID{}, secretInfo{})
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var result secretInfo
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, secretID{ID: uri.ID}).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
+		}
+		return errors.Trace(err)
+	}); err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+	info := &secret.RotationExpiryInfo{
+		RotatePolicy:   coresecrets.RotatePolicy(result.RotatePolicy),
+		LatestRevision: result.LatestRevision,
+	}
+	if !result.NextRotateTime.IsZero() {
+		info.NextRotateTime = &result.NextRotateTime
+	}
+	if !result.LatestExpireTime.IsZero() {
+		info.LatestExpireTime = &result.LatestExpireTime
+	}
+	return info, nil
+}
+
 // GetRotatePolicy returns the rotate policy for the specified secret.
 func (st State) GetRotatePolicy(ctx context.Context, uri *coresecrets.URI) (coresecrets.RotatePolicy, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", errors.Trace(err)
+		return coresecrets.RotateNever, errors.Trace(err)
 	}
 	stmt, err := st.Prepare(`
-SELECT srp.policy
+SELECT srp.policy AS &secretInfo.policy
 FROM secret_metadata sm
 INNER JOIN secret_rotate_policy srp ON srp.id = sm.rotate_policy_id
-WHERE sm.secret_id = $secretID.id`, secretID{})
+WHERE sm.secret_id = $secretID.id`, secretID{}, secretInfo{})
 	if err != nil {
-		return "", errors.Trace(err)
+		return coresecrets.RotateNever, errors.Trace(err)
 	}
 
-	var rotatePolicy string
+	var info secretInfo
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, secretID{ID: uri.ID}).Get(&rotatePolicy)
+		err := tx.Query(ctx, stmt, secretID{ID: uri.ID}).Get(&info)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("rotate policy for %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
 		}
 		return errors.Trace(err)
 	}); err != nil {
-		return "", errors.Trace(domain.CoerceError(err))
+		return coresecrets.RotateNever, errors.Trace(domain.CoerceError(err))
 	}
-	return coresecrets.RotatePolicy(rotatePolicy), nil
+	return coresecrets.RotatePolicy(info.RotatePolicy), nil
 }
 
 func (st State) listSecretsAnyOwner(
