@@ -16,9 +16,9 @@ const (
 	// AlreadyExists describes an error that occurs when a model already exists.
 	AlreadyExists = errors.ConstError("model already exists")
 
-	// AlreadyFinalised describes an error that occurs when an attempt is made
-	// to finalise a model that has already been finalised.
-	AlreadyFinalised = errors.ConstError("model already finalised")
+	// AlreadyActivated describes an error that occurs when an attempt is made
+	// to activate a model that has already been activated.
+	AlreadyActivated = errors.ConstError("model already activated")
 
 	// ModelNamespaceNotFound describes an error that occurs when no database
 	// namespace for a model exists.

@@ -330,7 +330,7 @@ func (m *ModelManagerAPI) createModelNew(
 	}
 
 	// Create the model in the controller database.
-	finaliser, err := m.modelService.CreateModel(ctx, creationArgs)
+	activator, err := m.modelService.CreateModel(ctx, creationArgs)
 	if err != nil {
 		return errors.Annotatef(err, "failed to create model %q", modelUUID)
 	}
@@ -352,9 +352,9 @@ func (m *ModelManagerAPI) createModelNew(
 	}
 
 	// TODO (stickupkid): Once tlm has fixed the CreateModel method to read
-	// from the model database to create the model, move the finaliser call
+	// from the model database to create the model, move the activator call
 	// to the end of the method.
-	if err := finaliser(ctx); err != nil {
+	if err := activator(ctx); err != nil {
 		return errors.Annotatef(err, "failed to finalise model %q", modelUUID)
 	}
 

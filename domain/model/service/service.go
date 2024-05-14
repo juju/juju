@@ -20,13 +20,13 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-// ModelFinaliser describes a closure type that must be called after creating a
+// ModelActivator describes a closure type that must be called after creating a
 // new model to indicate that all model creation operations have been performed
 // and the model is active within the controller.
 //
-// This type may return an error satisfying [modelerrors.AlreadyFinalised] if
-// the model in question has been finalised already.
-type ModelFinaliser func(context.Context) error
+// This type may return an error satisfying [modelerrors.AlreadyActivated] if
+// the model in question has been activated already.
+type ModelActivator func(context.Context) error
 
 // ModelTypeState represents the state required for determining the type of model
 // based on the cloud being set for it.
@@ -44,12 +44,12 @@ type State interface {
 	// Create creates a new model with all of its associated metadata.
 	Create(context.Context, coremodel.ModelType, model.ModelCreationArgs) error
 
-	// Finalise is responsible for setting a model as fully constructed and
+	// Activate is responsible for setting a model as fully constructed and
 	// indicates the final system state for the model is ready for use.
 	// If no model exists for the provided id then a [modelerrors.NotFound] will be
-	// returned. If the model as previously been finalised a
-	// [modelerrors.AlreadyFinalised] error will be returned.
-	Finalise(ctx context.Context, uuid coremodel.UUID) error
+	// returned. If the model has previously been activated a
+	// [modelerrors.AlreadyActivated] error will be returned.
+	Activate(ctx context.Context, uuid coremodel.UUID) error
 
 	// Get returns the model associated with the provided uuid.
 	Get(context.Context, coremodel.UUID) (coremodel.Model, error)
@@ -166,8 +166,8 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 // If the caller has not prescribed a specific agent version to use for the
 // model the current controllers supported agent version will be used.
 //
-// Models created by this function must be finalised using the returned
-// ModelFinaliser.
+// Models created by this function must be activated using the returned
+// ModelActivator.
 //
 // The following error types can be expected to be returned:
 // - [modelerrors.AlreadyExists]: When the model uuid is already in use or a model
@@ -207,11 +207,11 @@ func (s *Service) CreateModel(
 
 	args.AgentVersion = agentVersion
 
-	finaliser := ModelFinaliser(func(ctx context.Context) error {
-		return s.st.Finalise(ctx, args.UUID)
+	activator := ModelActivator(func(ctx context.Context) error {
+		return s.st.Activate(ctx, args.UUID)
 	})
 
-	return finaliser, s.st.Create(ctx, modelType, args)
+	return activator, s.st.Create(ctx, modelType, args)
 }
 
 // Model returns the model associated with the provided uuid.

@@ -145,16 +145,16 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		UUID:  modelUUID,
 	}
 
-	finalised := false
-	finaliser := func(_ context.Context) error {
-		finalised = true
+	activated := false
+	activator := func(_ context.Context) error {
+		activated = true
 		return nil
 	}
 
 	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(activator, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(nil)
 
 	model := description.NewModel(description.ModelArgs{
@@ -185,7 +185,7 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil), model)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(finalised, jc.IsTrue)
+	c.Check(activated, jc.IsTrue)
 }
 
 func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
@@ -216,16 +216,16 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		UUID:  modelUUID,
 	}
 
-	var finalised bool
-	finaliser := func(_ context.Context) error {
-		finalised = true
+	var activated bool
+	activator := func(_ context.Context) error {
+		activated = true
 		return nil
 	}
 
 	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(activator, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
@@ -261,7 +261,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 
 	// TODO (stickupkid): This is incorrect until the read-only model is
 	// correctly saved.
-	c.Check(finalised, jc.IsTrue)
+	c.Check(activated, jc.IsTrue)
 }
 
 func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc.C) {
@@ -292,15 +292,15 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 		UUID:  modelUUID,
 	}
 
-	finalised := false
-	finaliser := func(_ context.Context) error {
-		finalised = true
+	activated := false
+	activator := func(_ context.Context) error {
+		activated = true
 		return nil
 	}
 	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(activator, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(modelerrors.NotFound)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(nil)
@@ -336,7 +336,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 
 	// TODO (stickupkid): This is incorrect until the read-only model is
 	// correctly saved.
-	c.Check(finalised, jc.IsTrue)
+	c.Check(activated, jc.IsTrue)
 }
 
 func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyModel(c *gc.C) {
@@ -353,9 +353,9 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	)
 	i.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(testing.FakeControllerConfig(), nil)
 
-	finalised := false
-	finaliser := func(_ context.Context) error {
-		finalised = true
+	activated := false
+	activator := func(_ context.Context) error {
+		activated = true
 		return nil
 	}
 
@@ -375,7 +375,7 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 	controllerUUID, err := uuid.UUIDFromString(testing.ControllerTag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(finaliser, nil)
+	i.modelService.EXPECT().CreateModel(gomock.Any(), args).Return(activator, nil)
 	i.readOnlyModelService.EXPECT().CreateModel(gomock.Any(), controllerUUID).Return(errors.New("boom"))
 	i.modelService.EXPECT().DeleteModel(gomock.Any(), modelUUID).Return(nil)
 	i.readOnlyModelService.EXPECT().DeleteModel(gomock.Any()).Return(modelerrors.NotFound)
@@ -411,5 +411,5 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 
 	// TODO (stickupkid): This is incorrect until the read-only model is
 	// correctly saved.
-	c.Check(finalised, jc.IsTrue)
+	c.Check(activated, jc.IsTrue)
 }

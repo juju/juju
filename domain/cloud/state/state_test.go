@@ -612,7 +612,7 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = modelSt.Finalise(context.Background(), modelUUID)
+	err = modelSt.Activate(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	clouds, err = st.ListClouds(context.Background())

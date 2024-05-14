@@ -28,7 +28,7 @@ type dummyStateCloud struct {
 type dummyState struct {
 	clouds             map[string]dummyStateCloud
 	models             map[coremodel.UUID]coremodel.Model
-	nonFinalisedModels map[coremodel.UUID]coremodel.Model
+	nonActivatedModels map[coremodel.UUID]coremodel.Model
 	users              map[user.UUID]string
 }
 
@@ -85,7 +85,7 @@ func (d *dummyState) Create(
 		}
 	}
 
-	d.nonFinalisedModels[args.UUID] = coremodel.Model{
+	d.nonActivatedModels[args.UUID] = coremodel.Model{
 		AgentVersion: args.AgentVersion,
 		Name:         args.Name,
 		UUID:         args.UUID,
@@ -100,18 +100,18 @@ func (d *dummyState) Create(
 	return nil
 }
 
-func (d *dummyState) Finalise(
+func (d *dummyState) Activate(
 	_ context.Context,
 	uuid coremodel.UUID,
 ) error {
-	if model, exists := d.nonFinalisedModels[uuid]; exists {
+	if model, exists := d.nonActivatedModels[uuid]; exists {
 		d.models[uuid] = model
-		delete(d.nonFinalisedModels, uuid)
+		delete(d.nonActivatedModels, uuid)
 		return nil
 	}
 
 	if _, exists := d.models[uuid]; exists {
-		return modelerrors.AlreadyFinalised
+		return modelerrors.AlreadyActivated
 	}
 	return modelerrors.NotFound
 }
