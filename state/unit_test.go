@@ -525,58 +525,6 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{})
 }
 
-func (s *UnitSuite) TestWatchConfigSettingsNeedsCharmURL(c *gc.C) {
-	_, err := s.unit.WatchConfigSettings()
-	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before watching config")
-}
-
-func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
-	err := s.unit.SetCharmURL(s.charm.URL())
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-	w, err := s.unit.WatchConfigSettings()
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	// Initial event.
-	wc := testing.NewNotifyWatcherC(c, w)
-	wc.AssertOneChange()
-
-	// Update config a couple of times, check a single event.
-	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "superhero paparazzi"})
-	c.Assert(err, jc.ErrorIsNil)
-	// TODO(quiescence): these two changes should be one event.
-	wc.AssertOneChange()
-	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "sauceror central"})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Non-change is not reported.
-	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "sauceror central"})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Change application's charm; nothing detected.
-	newCharm := s.AddConfigCharm(c, "wordpress", floatConfig, 123)
-	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}
-	err = s.application.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Change application config for new charm; nothing detected.
-	err = s.application.UpdateCharmConfig(model.GenerationMaster, charm.Settings{
-		"key": 42.0,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// NOTE: if we were to change the unit to use the new charm, we'd see
-	// another event, because the originally-watched document will become
-	// unreferenced and be removed. But I'm not testing that behaviour
-	// because it's not very helpful and subject to change.
-}
-
 func (s *UnitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	newCharm := s.AddConfigCharm(c, "wordpress", sortableConfig, 123)
 	cfg := state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}

@@ -2049,20 +2049,6 @@ func (sb *storageBackend) WatchFilesystemAttachment(host names.Tag, f names.File
 	return newEntityWatcher(sb.mb, filesystemAttachmentsC, sb.mb.docID(id))
 }
 
-// WatchConfigSettings returns a watcher for observing changes to the
-// unit's application configuration settings. The unit must have a charm URL
-// set before this method is called, and the returned watcher will be
-// valid only while the unit's charm URL is not changed.
-// TODO(fwereade): this could be much smarter; if it were, uniter.Filter
-// could be somewhat simpler.
-func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
-	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("unit's charm URL must be set before watching config")
-	}
-	charmConfigKey := applicationCharmConfigKey(u.doc.Application, u.doc.CharmURL)
-	return newEntityWatcher(u.st, settingsC, u.st.docID(charmConfigKey)), nil
-}
-
 // WatchApplicationConfigSettings is the same as WatchConfigSettings but
 // notifies on changes to application configuration not charm configuration.
 func (u *Unit) WatchApplicationConfigSettings() (NotifyWatcher, error) {
