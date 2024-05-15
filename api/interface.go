@@ -129,15 +129,15 @@ func (info *Info) Validate() error {
 
 // LoginResultParams holds the login result parameters.
 type LoginResultParams struct {
-	tag              names.Tag
-	modelTag         string
-	controllerTag    string
-	modelAccess      string
-	controllerAccess string
-	servers          []network.MachineHostPorts
-	facades          []params.FacadeVersions
-	publicDNSName    string
-	serverVersion    version.Number
+	Tag              names.Tag
+	ModelTag         string
+	ControllerTag    string
+	ModelAccess      string
+	ControllerAccess string
+	Servers          []network.MachineHostPorts
+	Facades          []params.FacadeVersions
+	PublicDNSName    string
+	ServerVersion    version.Number
 }
 
 // LoginProvider implements a way to log in when connecting to a controller.

@@ -134,12 +134,12 @@ func (st *state) Login(name names.Tag, password, nonce string, ms []macaroon.Sli
 }
 
 func (st *state) setLoginResult(p *LoginResultParams) error {
-	st.authTag = p.tag
-	st.serverVersion = p.serverVersion
+	st.authTag = p.Tag
+	st.serverVersion = p.ServerVersion
 	var modelTag names.ModelTag
-	if p.modelTag != "" {
+	if p.ModelTag != "" {
 		var err error
-		modelTag, err = names.ParseModelTag(p.modelTag)
+		modelTag, err = names.ParseModelTag(p.ModelTag)
 		if err != nil {
 			return errors.Annotatef(err, "invalid model tag in login result")
 		}
@@ -147,19 +147,19 @@ func (st *state) setLoginResult(p *LoginResultParams) error {
 	if modelTag.Id() != st.modelTag.Id() {
 		return errors.Errorf("mismatched model tag in login result (got %q want %q)", modelTag.Id(), st.modelTag.Id())
 	}
-	ctag, err := names.ParseControllerTag(p.controllerTag)
+	ctag, err := names.ParseControllerTag(p.ControllerTag)
 	if err != nil {
-		return errors.Annotatef(err, "invalid controller tag %q returned from login", p.controllerTag)
+		return errors.Annotatef(err, "invalid controller tag %q returned from login", p.ControllerTag)
 	}
 	st.controllerTag = ctag
-	st.controllerAccess = p.controllerAccess
-	st.modelAccess = p.modelAccess
+	st.controllerAccess = p.ControllerAccess
+	st.modelAccess = p.ModelAccess
 
-	hostPorts := p.servers
+	hostPorts := p.Servers
 	// if the connection is not proxied then we will add the connection address
 	// to host ports
 	if !st.IsProxied() {
-		hostPorts, err = addAddress(p.servers, st.addr)
+		hostPorts, err = addAddress(p.Servers, st.addr)
 		if err != nil {
 			if clerr := st.Close(); clerr != nil {
 				err = errors.Annotatef(err, "error closing state: %v", clerr)
@@ -177,10 +177,10 @@ func (st *state) setLoginResult(p *LoginResultParams) error {
 	}
 	st.hostPorts = hostPorts
 
-	st.publicDNSName = p.publicDNSName
+	st.publicDNSName = p.PublicDNSName
 
-	st.facadeVersions = make(map[string][]int, len(p.facades))
-	for _, facade := range p.facades {
+	st.facadeVersions = make(map[string][]int, len(p.Facades))
+	for _, facade := range p.Facades {
 		st.facadeVersions[facade.Name] = facade.Versions
 	}
 
