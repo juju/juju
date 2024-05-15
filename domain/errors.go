@@ -50,6 +50,7 @@ func (e maskError) As(target any) bool {
 	if database.IsError(target) {
 		return false
 	}
+
 	return errors.As(e.error, target)
 }
 
@@ -59,5 +60,6 @@ func (e maskError) Is(target error) bool {
 	if database.IsError(target) {
 		return false
 	}
+
 	return errors.Is(e.error, target)
 }

@@ -6,6 +6,9 @@ package errors
 import "github.com/juju/errors"
 
 const (
-	// ErrAlreadyExists is returned when a space already exists.
-	ErrAlreadyExists = errors.ConstError("already exists")
+	// ErrSpaceAlreadyExists is returned when a space already exists.
+	ErrSpaceAlreadyExists = errors.ConstError("space already exists")
+
+	// ErrSpaceNotFound is returned when a space is not found.
+	ErrSpaceNotFound = errors.ConstError("space not found")
 )
