@@ -4126,50 +4126,6 @@ func (s *ApplicationSuite) TestRenamePeerRelationOnUpgradeWithMoreThanOneUnit(c 
 	c.Assert(s.mysql.CharmModifiedVersion() == obtainedV+1, jc.IsTrue)
 }
 
-func (s *ApplicationSuite) TestWatchCharmConfig(c *gc.C) {
-	oldCharm := s.AddTestingCharm(c, "wordpress")
-	app := s.AddTestingApplication(c, "wordpress", oldCharm)
-	// Add a unit so when we change the application's charm,
-	// the old charm isn't removed (due to a reference).
-	u, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = u.SetCharmURL(oldCharm.URL())
-	c.Assert(err, jc.ErrorIsNil)
-
-	w, err := app.WatchCharmConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	defer workertest.CleanKill(c, w)
-
-	// Initial event.
-	wc := testing.NewNotifyWatcherC(c, w)
-	wc.AssertOneChange()
-
-	// Update config a couple of times, check a single event.
-	err = app.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "superhero paparazzi"})
-	c.Assert(err, jc.ErrorIsNil)
-	// TODO(quiescence): these two changes should be one event.
-	wc.AssertOneChange()
-	err = app.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "sauceror central"})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// Non-change is not reported.
-	err = app.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "sauceror central"})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Change application's charm; nothing detected.
-	newCharm := s.AddConfigCharm(c, "wordpress", stringConfig, 123)
-	err = app.SetCharm(state.SetCharmConfig{Charm: newCharm, CharmOrigin: defaultCharmOrigin(newCharm.URL())}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Change application config for new charm; nothing detected.
-	err = app.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"key": "value"})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-}
-
 var updateApplicationConfigTests = []struct {
 	about   string
 	initial config.ConfigAttributes
