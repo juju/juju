@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -355,6 +356,9 @@ func (api *ProvisionerAPI) machineSpaceTopology(ctx context.Context, machineID s
 	for _, spaceName := range spaceNames {
 		subnetsAndZones, err := api.subnetsAndZonesForSpace(ctx, machineID, spaceName)
 		if err != nil {
+			if errors.Is(err, networkerrors.ErrSpaceNotFound) {
+				return topology, errors.NotFoundf("space with name %q", spaceName)
+			}
 			return topology, errors.Trace(err)
 		}
 

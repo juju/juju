@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
@@ -163,7 +162,7 @@ func (s *stateSuite) TestRemoveMetadataNotExists(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	err := st.RemoveMetadata(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
 func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *gc.C) {

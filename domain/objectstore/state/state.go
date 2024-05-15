@@ -165,6 +165,9 @@ func (s *State) RemoveMetadata(ctx context.Context, path string) error {
 		var metadataUUID string
 		row := tx.QueryRowContext(ctx, metadataUUIDQuery, path)
 		if err := row.Scan(&metadataUUID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return objectstoreerrors.ErrNotFound
+			}
 			return err
 		}
 
