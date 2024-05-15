@@ -23,10 +23,7 @@ func CoerceError(err error) error {
 
 	// If the error is a sql error, a dqlite error or a database error, we mask
 	// the error to prevent it from being unwrapped.
-	if errors.Is(err, sql.ErrNoRows) ||
-		database.IsError(err) ||
-		errors.Is(err, sql.ErrTxDone) ||
-		errors.Is(err, sql.ErrConnDone) {
+	if isDatabaseError(err) {
 		return errors.Trace(maskError{error: err})
 	}
 
@@ -57,9 +54,17 @@ func (e maskError) As(target any) bool {
 // Is implements standard errors Is interface. Is will check if the target type
 // is a sql error that is trying to be retrieved and return false.
 func (e maskError) Is(target error) bool {
-	if database.IsError(target) {
+	if isDatabaseError(target) {
 		return false
 	}
 
 	return errors.Is(e.error, target)
+}
+
+// isDatabaseError checks if the error is a sql, sqlite or dqlite error.
+func isDatabaseError(err error) bool {
+	return errors.Is(err, sql.ErrNoRows) ||
+		database.IsError(err) ||
+		errors.Is(err, sql.ErrTxDone) ||
+		errors.Is(err, sql.ErrConnDone)
 }
