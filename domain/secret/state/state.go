@@ -1058,29 +1058,31 @@ func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
+	input := secretID{ID: uri.ID}
+	result := secretInfo{}
 	stmt, err := st.Prepare(`
-WITH rev AS
-    (SELECT uuid,MAX(revision) AS latest_revision
+WITH rev AS (
+    SELECT uuid, MAX(revision) AS latest_revision
     FROM    secret_revision
-    WHERE   secret_id = $secretID.id)
-SELECT sp.policy AS &secretInfo.policy,
-       sro.next_rotation_time AS &secretInfo.next_rotation_time,
-       sre.expire_time AS &secretInfo.latest_expire_time,
-       rev.latest_revision AS &secretInfo.latest_revision
+    WHERE   secret_id = $secretID.id
+)
+SELECT 
+    sp.policy AS &secretInfo.policy,
+    sro.next_rotation_time AS &secretInfo.next_rotation_time,
+    sre.expire_time AS &secretInfo.latest_expire_time,
+    rev.latest_revision AS &secretInfo.latest_revision
 FROM secret_metadata sm, rev
-INNER JOIN secret_rotate_policy sp ON sp.id = sm.rotate_policy_id
-LEFT JOIN secret_rotation sro ON sro.secret_id = sm.secret_id
-LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = rev.uuid
-WHERE sm.secret_id = $secretID.id`, secretID{}, secretInfo{})
+    JOIN secret_rotate_policy sp ON sp.id = sm.rotate_policy_id
+    LEFT JOIN secret_rotation sro ON sro.secret_id = sm.secret_id
+    LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = rev.uuid
+WHERE sm.secret_id = $secretID.id`, input, result)
 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var result secretInfo
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, secretID{ID: uri.ID}).Get(&result)
+		err := tx.Query(ctx, stmt, input).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
 		}
@@ -1110,7 +1112,7 @@ func (st State) GetRotatePolicy(ctx context.Context, uri *coresecrets.URI) (core
 	stmt, err := st.Prepare(`
 SELECT srp.policy AS &secretInfo.policy
 FROM secret_metadata sm
-INNER JOIN secret_rotate_policy srp ON srp.id = sm.rotate_policy_id
+    JOIN secret_rotate_policy srp ON srp.id = sm.rotate_policy_id
 WHERE sm.secret_id = $secretID.id`, secretID{}, secretInfo{})
 	if err != nil {
 		return coresecrets.RotateNever, errors.Trace(err)

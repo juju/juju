@@ -409,7 +409,7 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 	}).Return("manage", nil)
 	s.state.EXPECT().GetRotatePolicy(gomock.Any(), uri).Return(
 		coresecrets.RotateNever, // No rotate policy.
-		secreterrors.SecretNotFound)
+		nil)
 	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, gomock.Any()).DoAndReturn(func(_ context.Context, _ *coresecrets.URI, got domainsecret.UpsertSecretParams) error {
 		c.Assert(got.NextRotateTime, gc.NotNil)
 		c.Assert(*got.NextRotateTime, jc.Almost, *p.NextRotateTime)

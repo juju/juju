@@ -366,10 +366,10 @@ func (s *SecretService) UpdateCharmSecret(ctx context.Context, uri *secrets.URI,
 	p.RotatePolicy = &rotatePolicy
 	if params.RotatePolicy.WillRotate() {
 		policy, err := s.st.GetRotatePolicy(ctx, uri)
-		if err != nil && !errors.Is(err, secreterrors.SecretNotFound) {
+		if err != nil {
 			return errors.Trace(err)
 		}
-		if errors.Is(err, secreterrors.SecretNotFound) || !policy.WillRotate() {
+		if !policy.WillRotate() {
 			p.NextRotateTime = params.RotatePolicy.NextRotateTime(s.clock.Now())
 		}
 	}
