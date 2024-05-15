@@ -4,6 +4,7 @@
 package connector
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
@@ -47,15 +48,28 @@ var _ Connector = (*SimpleConnector)(nil)
 // connect according to the specified options.  If some options are invalid an
 // error is returned.
 func NewSimple(opts SimpleConfig, dialOptions ...api.DialOption) (*SimpleConnector, error) {
+	if opts.Username == "" && opts.ClientID == "" {
+		return nil, errors.New("one of Username or ClientID must be set")
+	} else if opts.Username != "" && opts.ClientID != "" {
+		return nil, errors.New("only one of Username or ClientID should be set")
+	}
+
 	info := api.Info{
 		Addrs:    opts.ControllerAddresses,
 		CACert:   opts.CACert,
 		ModelTag: names.NewModelTag(opts.ModelUUID),
-
-		Tag:       names.NewUserTag(opts.Username),
-		Password:  opts.Password,
-		Macaroons: opts.Macaroons,
 	}
+
+	// When the client intends to login via client credentials (like a service
+	// account) they leave `opts.Username` empty and assign the client
+	// credentials to `opts.ClientID` and `opts.ClientSecret`. In such cases,
+	// we shouldn't assign `info.Tag` with a user tag.
+	if opts.Username != "" {
+		info.Tag = names.NewUserTag(opts.Username)
+		info.Password = opts.Password
+		info.Macaroons = opts.Macaroons
+	}
+
 	if err := info.Validate(); err != nil {
 		return nil, err
 	}
