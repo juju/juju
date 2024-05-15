@@ -48,6 +48,9 @@ WHERE path = ?`
 		return row.Scan(&metadata.Path, &metadata.UUID, &metadata.Size, &metadata.Hash)
 	})
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return objectstore.Metadata{}, objectstoreerrors.ErrNotFound
+		}
 		return objectstore.Metadata{}, errors.Annotatef(domain.CoerceError(err), "retrieving metadata %s", path)
 	}
 	return metadata, nil
@@ -162,6 +165,9 @@ func (s *State) RemoveMetadata(ctx context.Context, path string) error {
 		var metadataUUID string
 		row := tx.QueryRowContext(ctx, metadataUUIDQuery, path)
 		if err := row.Scan(&metadataUUID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return objectstoreerrors.ErrNotFound
+			}
 			return err
 		}
 

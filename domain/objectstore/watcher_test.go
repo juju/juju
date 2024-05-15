@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain"
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/domain/objectstore/service"
 	"github.com/juju/juju/domain/objectstore/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -111,5 +112,5 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 	}
 
 	_, err = svc.GetMetadata(context.Background(), metadata.Path)
-	c.Assert(err, jc.ErrorIs, domain.ErrNoRecord)
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
 }

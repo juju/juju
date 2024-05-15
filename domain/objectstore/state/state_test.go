@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
@@ -27,7 +26,7 @@ func (s *stateSuite) TestGetMetadataNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	_, err := st.GetMetadata(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
 func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
@@ -163,7 +162,7 @@ func (s *stateSuite) TestRemoveMetadataNotExists(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	err := st.RemoveMetadata(context.Background(), "foo")
-	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
 }
 
 func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *gc.C) {
@@ -226,9 +225,9 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 
 	// Ensure that both metadata have been removed.
 	_, err = st.GetMetadata(context.Background(), metadata1.Path)
-	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
 	_, err = st.GetMetadata(context.Background(), metadata2.Path)
-	c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
 
 	// Add a new metadata with the same hash and size.
 	metadata3 := objectstore.Metadata{

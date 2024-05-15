@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -549,9 +548,6 @@ func (s *Service) CreateSecretBackend(ctx context.Context, backend coresecrets.S
 			NextRotateTime:      nextRotateTime,
 		},
 	)
-	if errors.Is(err, domain.ErrDuplicate) {
-		return fmt.Errorf("%w: secret backend with name %q", secretbackenderrors.AlreadyExists, backend.Name)
-	}
 	return errors.Trace(err)
 }
 

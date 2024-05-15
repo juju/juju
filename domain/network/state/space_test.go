@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -118,8 +119,7 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 	c.Check(name, gc.Equals, "space0")
 	// Fails when trying to add a new space with the same name.
 	err = st.AddSpace(ctx.Background(), spaceUUID.String(), "space0", "bar", subnets)
-	c.Assert(err, gc.ErrorMatches, "inserting space (.*) into space table: record already exists")
-
+	c.Assert(err, jc.ErrorIs, networkerrors.ErrSpaceAlreadyExists)
 }
 
 func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
@@ -328,7 +328,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUIDNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	_, err := st.GetSpace(ctx.Background(), "unknown0")
-	c.Assert(err, gc.ErrorMatches, "space \"unknown0\" not found")
+	c.Assert(err, jc.ErrorIs, networkerrors.ErrSpaceNotFound)
 }
 
 func (s *stateSuite) TestRetrieveSpaceByName(c *gc.C) {
@@ -357,7 +357,7 @@ func (s *stateSuite) TestRetrieveSpaceByNameNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	_, err := st.GetSpaceByName(ctx.Background(), "unknown0")
-	c.Assert(err, gc.ErrorMatches, "space with name \"unknown0\" not found")
+	c.Assert(err, jc.ErrorIs, networkerrors.ErrSpaceNotFound)
 }
 
 func (s *stateSuite) TestRetrieveSpaceByUUIDWithoutSubnet(c *gc.C) {
@@ -470,7 +470,7 @@ func (s *stateSuite) TestUpdateSpaceFailNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.UpdateSpace(ctx.Background(), "unknownSpace", "newSpaceName0")
-	c.Assert(err, gc.ErrorMatches, "space \"unknownSpace\" not found")
+	c.Assert(err, jc.ErrorIs, networkerrors.ErrSpaceNotFound)
 }
 
 func (s *stateSuite) TestDeleteSpace(c *gc.C) {

@@ -4,6 +4,7 @@
 package domain
 
 import (
+	"database/sql"
 	"fmt"
 
 	dqlite "github.com/canonical/go-dqlite/driver"
@@ -17,13 +18,13 @@ type asError struct {
 	Message string
 }
 
-type errorsSuite struct{}
-
-var _ = gc.Suite(&errorsSuite{})
-
 func (a asError) Error() string {
 	return a.Message
 }
+
+type errorsSuite struct{}
+
+var _ = gc.Suite(&errorsSuite{})
 
 // TestCoerceForNilError checks that if you pass a nil error to CoerceError you
 // get back a nil error.
@@ -39,7 +40,6 @@ func (e *errorsSuite) TestMaskErrorIsHidesSqlErrors(c *gc.C) {
 	tests := []struct {
 		Name  string
 		Error error
-		Rval  bool
 	}{
 		{
 			Name: "Test sqlite3 errors are hidden from Is()",
@@ -47,7 +47,6 @@ func (e *errorsSuite) TestMaskErrorIsHidesSqlErrors(c *gc.C) {
 				Code:         sqlite3.ErrAbort,
 				ExtendedCode: sqlite3.ErrBusyRecovery,
 			},
-			Rval: false,
 		},
 		{
 			Name: "Test dqlite errors are hidden from Is()",
@@ -55,13 +54,48 @@ func (e *errorsSuite) TestMaskErrorIsHidesSqlErrors(c *gc.C) {
 				Code:    dqlite.ErrBusy,
 				Message: "something went wrong",
 			},
-			Rval: false,
+		},
+		{
+			Name:  "Test sql.ErrNoRows errors are hidden from Is()",
+			Error: sql.ErrNoRows,
+		},
+		{
+			Name:  "Test sql.ErrTxDone errors are hidden from Is()",
+			Error: sql.ErrTxDone,
+		},
+		{
+			Name:  "Test sql.ErrConnDone errors are hidden from Is()",
+			Error: sql.ErrConnDone,
 		},
 	}
 
 	for _, test := range tests {
 		err := maskError{fmt.Errorf("%q %w", test.Name, test.Error)}
-		c.Check(test.Rval, gc.Equals, errors.Is(err, test.Error), gc.Commentf(test.Name))
+		c.Check(errors.Is(err, test.Error), jc.IsFalse, gc.Commentf(test.Name))
+	}
+}
+
+func (e *errorsSuite) TestErrorMessagePreserved(c *gc.C) {
+	tests := []struct {
+		Error    error
+		Expected string
+	}{
+		{
+			Error:    fmt.Errorf("wrap orig error: %w", sql.ErrNoRows),
+			Expected: "wrap orig error: sql: no rows in result set",
+		},
+		{
+			Error:    fmt.Errorf("wrap orig error: %w%w", sql.ErrNoRows, dqlite.Error{Code: dqlite.ErrBusy}),
+			Expected: "wrap orig error: sql: no rows in result set",
+		},
+		{
+			Error:    fmt.Errorf("wrap orig error: %w - %w", sql.ErrNoRows, fmt.Errorf("nested error")),
+			Expected: "wrap orig error: sql: no rows in result set - nested error",
+		},
+	}
+	for _, test := range tests {
+		err := CoerceError(test.Error)
+		c.Check(err.Error(), gc.Equals, test.Expected)
 	}
 }
 

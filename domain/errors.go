@@ -4,37 +4,30 @@
 package domain
 
 import (
-	"fmt"
+	"database/sql"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/internal/database"
 )
 
-const (
-	// ErrDuplicate is returned when a record already exists.
-	ErrDuplicate = errors.ConstError("record already exists")
-
-	// ErrNoRecord is returned when a record does not exist.
-	ErrNoRecord = errors.ConstError("record does not exist")
-)
-
-// CoerceError converts an error from a state layer into a domain specific error
-// hiding the existence of any state based errors. If the error to coerce is nil
-// then nil will be returned.
+// CoerceError converts all sql, sqlite and dqlite errors into an error that
+// is impossible to unwrwap, thus hiding the error from errors.As and errors.Is.
+// This is done to prevent checking the error type at the wrong layer. All sql
+// errors should be handled at the domain layer and not above. Thus we don't
+// expose couple the API client/server to the database layer.
 func CoerceError(err error) error {
 	if err == nil {
 		return nil
 	}
 
-	mErr := maskError{err}
-	if database.IsErrConstraintUnique(err) {
-		return fmt.Errorf("%w%w", ErrDuplicate, errors.Hide(mErr))
+	// If the error is a sql error, a dqlite error or a database error, we mask
+	// the error to prevent it from being unwrapped.
+	if isDatabaseError(err) {
+		return errors.Trace(maskError{error: err})
 	}
-	if database.IsErrNotFound(err) {
-		return fmt.Errorf("%w%w", ErrNoRecord, errors.Hide(mErr))
-	}
-	return mErr
+
+	return err
 }
 
 // maskError is used to mask the existence of sql related errors. It will not
@@ -54,14 +47,24 @@ func (e maskError) As(target any) bool {
 	if database.IsError(target) {
 		return false
 	}
+
 	return errors.As(e.error, target)
 }
 
 // Is implements standard errors Is interface. Is will check if the target type
 // is a sql error that is trying to be retrieved and return false.
 func (e maskError) Is(target error) bool {
-	if database.IsError(target) {
+	if isDatabaseError(target) {
 		return false
 	}
+
 	return errors.Is(e.error, target)
+}
+
+// isDatabaseError checks if the error is a sql, sqlite or dqlite error.
+func isDatabaseError(err error) bool {
+	return errors.Is(err, sql.ErrNoRows) ||
+		database.IsError(err) ||
+		errors.Is(err, sql.ErrTxDone) ||
+		errors.Is(err, sql.ErrConnDone)
 }

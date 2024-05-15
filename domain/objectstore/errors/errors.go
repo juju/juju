@@ -6,6 +6,9 @@ package errors
 import "github.com/juju/errors"
 
 const (
+	// ErrNotFound is returned when a path is not found.
+	ErrNotFound = errors.ConstError("path not found")
+
 	// ErrHashAndSizeAlreadyExists is returned when a hash already exists, but
 	// the associated size is different. This should never happen, it means that
 	// there is a collision in the hash function.
