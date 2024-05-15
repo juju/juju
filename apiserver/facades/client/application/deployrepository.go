@@ -581,19 +581,21 @@ func (v *deployFromRepositoryValidator) createOrigin(arg params.DeployFromReposi
 
 // deducePlatform returns a platform for initial resolveCharm call.
 // At minimum, it must contain an architecture.
-// Platform is determined by the args: architecture constraint and
-// provided base.
-// - Check placement to determine known machine platform. If diffs from
-// other provided data return error.
+// Platform is determined by the args: architecture constraint and provided
+// base. Or from the model default architecture and base.
 // - If no base provided, use model default base.
 // - If no model default base, will be determined later.
 // - If no architecture provided, use model default. Fallback
 // to DefaultArchitecture.
+//
+// Then check for the platform of any machine scoped placement directives.
+// Use that for the platform if no base provided by the user.
+// Return an error if the placement platform and user provided base do not
+// match.
 func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepositoryArg) (corecharm.Platform, bool, error) {
 	argArch := arg.Cons.Arch
 	argBase := arg.Base
 	var usedModelDefaultBase bool
-	var usedModelDefaultArch bool
 
 	// Try argBase with provided argArch and argBase first.
 	platform := corecharm.Platform{}
@@ -610,7 +612,6 @@ func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepo
 			platform.Architecture = *mConst.Arch
 		} else {
 			platform.Architecture = arch.DefaultArchitecture
-			usedModelDefaultArch = true
 		}
 	}
 	if argBase != nil {
@@ -619,9 +620,7 @@ func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepo
 			return corecharm.Platform{}, usedModelDefaultBase, err
 		}
 		platform.OS = base.OS
-		// platform channels don't model the concept of a risk
-		// so ensure that only the track is included
-		platform.Channel = base.Channel.Track
+		platform.Channel = base.Channel.String()
 	}
 
 	// Initial validation of platform from known data.
@@ -630,78 +629,123 @@ func (v *deployFromRepositoryValidator) deducePlatform(arg params.DeployFromRepo
 		return corecharm.Platform{}, usedModelDefaultBase, err
 	}
 
-	// Match against platforms from placement
 	placementPlatform, placementsMatch, err := v.platformFromPlacement(arg.Placement)
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	if err != nil {
 		return corecharm.Platform{}, usedModelDefaultBase, err
 	}
-	if err == nil && !placementsMatch {
-		return corecharm.Platform{}, usedModelDefaultBase, errors.BadRequestf("bases of existing placement machines do not match")
+	// No machine scoped placement to match, return after checking
+	// if using default model base.
+	if placementPlatform == nil {
+		return v.modelDefaultBase(platform)
+	}
+	// There can be only 1 platform.
+	if !placementsMatch {
+		return corecharm.Platform{}, usedModelDefaultBase, errors.BadRequestf("bases of existing placement machines do not match each other")
 	}
 
-	// No platform args, and one platform from placement, use that.
-	if placementsMatch && usedModelDefaultArch && argBase == nil {
-		return placementPlatform, usedModelDefaultBase, nil
+	// No base args provided. Use the placement platform to deploy.
+	if argBase == nil {
+		deployRepoLogger.Tracef("using placement platform %q to deploy", placementPlatform.String())
+		return *placementPlatform, usedModelDefaultBase, nil
 	}
-	if platform.Channel == "" {
-		mCfg, err := v.model.Config()
-		if err != nil {
-			return corecharm.Platform{}, usedModelDefaultBase, err
-		}
-		if db, ok := mCfg.DefaultBase(); ok {
-			defaultBase, err := corebase.ParseBaseFromString(db)
-			if err != nil {
-				return corecharm.Platform{}, usedModelDefaultBase, err
-			}
-			platform.OS = defaultBase.OS
-			// platform channels don't model the concept of a risk
-			// so ensure that only the track is included
-			platform.Channel = defaultBase.Channel.Track
-			usedModelDefaultBase = true
-		}
+
+	// Check that the placement platform and the derived platform match
+	// when a base is supplied. There is no guarantee that all placement
+	// directives are machine scoped.
+	if placementPlatform.String() == platform.String() {
+		return *placementPlatform, usedModelDefaultBase, nil
 	}
-	return platform, usedModelDefaultBase, nil
+	var msg string
+	if usedModelDefaultBase {
+		msg = fmt.Sprintf("base from placements, %q, does not match model default base %q", placementPlatform.String(), platform.String())
+	} else {
+		msg = fmt.Sprintf("base from placements, %q, does not match requested base %q", placementPlatform.String(), platform.String())
+	}
+	return corecharm.Platform{}, usedModelDefaultBase, fmt.Errorf(msg)
+
 }
 
-func (v *deployFromRepositoryValidator) platformFromPlacement(placements []*instance.Placement) (corecharm.Platform, bool, error) {
-	if len(placements) == 0 {
-		return corecharm.Platform{}, false, errors.NotFoundf("placements")
+func (v *deployFromRepositoryValidator) modelDefaultBase(p corecharm.Platform) (corecharm.Platform, bool, error) {
+	// No provided platform channel, check model defaults.
+	if p.Channel != "" {
+		return p, false, nil
 	}
+	mCfg, err := v.model.Config()
+	if err != nil {
+		return p, false, nil
+	}
+	db, ok := mCfg.DefaultBase()
+	if !ok {
+		return p, false, nil
+	}
+	defaultBase, err := corebase.ParseBaseFromString(db)
+	if err != nil {
+		return corecharm.Platform{}, false, err
+	}
+	p.OS = defaultBase.OS
+	p.Channel = defaultBase.Channel.String()
+	return p, true, nil
+}
+
+// platformFromPlacement attempts to choose a platform to deploy with based on the
+// machine scoped placement values provided by the user. The platform for all provided
+// machines much match.
+func (v *deployFromRepositoryValidator) platformFromPlacement(placements []*instance.Placement) (*corecharm.Platform, bool, error) {
+	if len(placements) == 0 {
+		return nil, false, nil
+	}
+
 	machines := make([]Machine, 0)
+	var machineScopeCnt int
 	// Find which machines in placement actually exist.
 	for _, placement := range placements {
-		m, err := v.state.Machine(placement.Directive)
-		if errors.Is(err, errors.NotFound) {
+		if placement.Scope != instance.MachineScope {
 			continue
 		}
+		machineScopeCnt += 1
+		m, err := v.state.Machine(placement.Directive)
 		if err != nil {
-			return corecharm.Platform{}, false, err
+			return nil, false, errors.Annotate(err, "verifying machine for placement")
 		}
 		machines = append(machines, m)
 	}
-	if len(machines) == 0 {
-		return corecharm.Platform{}, false, errors.NotFoundf("machines in placements")
+
+	if machineScopeCnt == 0 {
+		// Not all placements refer to actual machines, no need to continue.
+		deployRepoLogger.Tracef("no machine scoped directives found in placements")
+		return nil, false, nil
 	}
 
 	// Gather platforms for existing machines
 	var platform corecharm.Platform
+	// Use a set to determine if all the machines have the same platform.
 	platStrings := set.NewStrings()
 	for _, machine := range machines {
 		b := machine.Base()
-		a, err := machine.HardwareCharacteristics()
+		hc, err := machine.HardwareCharacteristics()
 		if err != nil {
-			return corecharm.Platform{}, false, err
+			if errors.Is(err, errors.NotFound) {
+				return nil, false, fmt.Errorf("machine %q not started, please retry when started", machine.Id())
+			}
+			return nil, false, err
 		}
-		platString := fmt.Sprintf("%s/%s/%s", *a.Arch, b.OS, b.Channel)
+		mArch := hc.Arch
+		if mArch == nil {
+			return nil, false, fmt.Errorf("machine %q has no saved architecture", machine.Id())
+		}
+		platString := fmt.Sprintf("%s/%s/%s", *mArch, b.OS, b.Channel)
 		p, err := corecharm.ParsePlatformNormalize(platString)
 		if err != nil {
-			return corecharm.Platform{}, false, err
+			return nil, false, err
 		}
 		platform = p
 		platStrings.Add(p.String())
 	}
+	if platStrings.Size() == 1 {
+		deployRepoLogger.Errorf("Mismatched platforms for machine scoped placements %s", platStrings.SortedValues())
+	}
 
-	return platform, platStrings.Size() == 1, nil
+	return &platform, platStrings.Size() == 1, nil
 }
 
 func (v *deployFromRepositoryValidator) resolveCharm(curl *charm.URL, requestedOrigin corecharm.Origin, force, usedModelDefaultBase bool, cons constraints.Value) (corecharm.ResolvedDataForDeploy, error) {
