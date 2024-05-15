@@ -395,10 +395,11 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	p := domainsecret.UpsertSecretParams{
-		RotatePolicy: ptr(domainsecret.RotateDaily),
-		Description:  ptr("a secret"),
-		Label:        ptr("my secret"),
-		Data:         coresecrets.SecretData{"foo": "bar"},
+		RotatePolicy:   ptr(domainsecret.RotateDaily),
+		Description:    ptr("a secret"),
+		Label:          ptr("my secret"),
+		Data:           coresecrets.SecretData{"foo": "bar"},
+		NextRotateTime: ptr(time.Now().AddDate(0, 0, 1)),
 	}
 
 	s.state = NewMockState(ctrl)
@@ -406,7 +407,18 @@ func (s *serviceSuite) TestUpdateCharmSecret(c *gc.C) {
 		SubjectTypeID: domainsecret.SubjectUnit,
 		SubjectID:     "mariadb/0",
 	}).Return("manage", nil)
-	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, p).Return(nil)
+	s.state.EXPECT().GetRotatePolicy(gomock.Any(), uri).Return(
+		coresecrets.RotateNever, // No rotate policy.
+		nil)
+	s.state.EXPECT().UpdateSecret(gomock.Any(), uri, gomock.Any()).DoAndReturn(func(_ context.Context, _ *coresecrets.URI, got domainsecret.UpsertSecretParams) error {
+		c.Assert(got.NextRotateTime, gc.NotNil)
+		c.Assert(*got.NextRotateTime, jc.Almost, *p.NextRotateTime)
+		got.NextRotateTime = nil
+		want := p
+		want.NextRotateTime = nil
+		c.Assert(got, jc.DeepEquals, want)
+		return nil
+	})
 
 	err := s.service(c).UpdateCharmSecret(context.Background(), uri, UpdateCharmSecretParams{
 		LeaderToken: successfulToken{},
@@ -1070,6 +1082,121 @@ func (s *serviceSuite) TestGetSecretGrants(c *gc.C) {
 		},
 		Role: coresecrets.RoleView,
 	}})
+}
+
+func (s *serviceSuite) TestSecretsRotated(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	nextRotateTime := time.Now().Add(time.Hour)
+
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
+	s.state.EXPECT().SecretRotated(ctx, uri, nextRotateTime).Return(errors.New("boom"))
+	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
+		RotatePolicy:   coresecrets.RotateHourly,
+		LatestRevision: 667,
+	}, nil)
+
+	err := s.service(c).SecretRotated(ctx, uri, SecretRotatedParams{
+		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		OriginalRevision: 666,
+	})
+	c.Assert(err, gc.ErrorMatches, `boom`)
+}
+
+func (s *serviceSuite) TestSecretsRotatedRetry(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	nextRotateTime := time.Now().Add(coresecrets.RotateRetryDelay)
+
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
+	s.state.EXPECT().SecretRotated(ctx, uri, nextRotateTime).Return(errors.New("boom"))
+	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
+		RotatePolicy:   coresecrets.RotateHourly,
+		LatestRevision: 666,
+	}, nil)
+
+	err := s.service(c).SecretRotated(ctx, uri, SecretRotatedParams{
+		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		OriginalRevision: 666,
+	})
+	c.Assert(err, gc.ErrorMatches, `boom`)
+}
+
+func (s *serviceSuite) TestSecretsRotatedForce(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	nextRotateTime := time.Now().Add(coresecrets.RotateRetryDelay)
+
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
+	s.state.EXPECT().SecretRotated(ctx, uri, nextRotateTime).Return(errors.New("boom"))
+	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
+		RotatePolicy:     coresecrets.RotateHourly,
+		LatestExpireTime: ptr(time.Now().Add(50 * time.Minute)),
+		LatestRevision:   667,
+	}, nil)
+
+	err := s.service(c).SecretRotated(ctx, uri, SecretRotatedParams{
+		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		OriginalRevision: 666,
+	})
+	c.Assert(err, gc.ErrorMatches, `boom`)
+}
+
+func (s *serviceSuite) TestSecretsRotatedThenNever(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+
+	s.state.EXPECT().GetSecretAccess(gomock.Any(), uri, domainsecret.AccessParams{
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mariadb/0",
+	}).Return("manage", nil)
+	s.state.EXPECT().GetRotationExpiryInfo(ctx, uri).Return(&domainsecret.RotationExpiryInfo{
+		RotatePolicy:   coresecrets.RotateNever,
+		LatestRevision: 667,
+	}, nil)
+
+	err := s.service(c).SecretRotated(ctx, uri, SecretRotatedParams{
+		LeaderToken: successfulToken{},
+		Accessor: SecretAccessor{
+			Kind: UnitAccessor,
+			ID:   "mariadb/0",
+		},
+		OriginalRevision: 666,
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 /*

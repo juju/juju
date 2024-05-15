@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	"github.com/juju/juju/domain/secret"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	uniterrors "github.com/juju/juju/domain/unit/errors"
@@ -504,7 +505,7 @@ WHERE  sm.secret_id = $secretID.id`
 	}
 
 	var (
-		dbSecrets      secrets
+		dbSecrets      secretInfos
 		dbsecretOwners []secretOwner
 	)
 	secretIDParam := secretID{ID: uri.ID}
@@ -516,14 +517,15 @@ WHERE  sm.secret_id = $secretID.id`
 		return errors.Trace(err)
 	}
 
-	existing, err := dbSecrets.toSecretMetadata(dbsecretOwners)
+	existingResult, err := dbSecrets.toSecretMetadata(dbsecretOwners)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	existing := existingResult[0]
 
 	// Check to be sure a duplicate label won't be used.
 	var checkExists checkExistsFunc
-	switch kind := existing[0].Owner.Kind; kind {
+	switch kind := existing.Owner.Kind; kind {
 	case coresecrets.ModelOwner:
 		checkExists = st.checkUserSecretLabelExists
 	case coresecrets.ApplicationOwner:
@@ -531,13 +533,13 @@ WHERE  sm.secret_id = $secretID.id`
 			return secreterrors.AutoPruneNotSupported
 		}
 		// Query selects the app uuid as owner id.
-		checkExists = st.checkApplicationSecretLabelExists(existing[0].Owner.ID)
+		checkExists = st.checkApplicationSecretLabelExists(existing.Owner.ID)
 	case coresecrets.UnitOwner:
 		if secret.AutoPrune != nil && *secret.AutoPrune {
 			return secreterrors.AutoPruneNotSupported
 		}
 		// Query selects the unit uuid as owner id.
-		checkExists = st.checkUnitSecretLabelExists(existing[0].Owner.ID)
+		checkExists = st.checkUnitSecretLabelExists(existing.Owner.ID)
 	default:
 		// Should never happen.
 		return errors.Errorf("unexpected secret owner kind %q", kind)
@@ -555,7 +557,7 @@ WHERE  sm.secret_id = $secretID.id`
 		Version:        dbSecrets[0].Version,
 		Description:    dbSecrets[0].Description,
 		AutoPrune:      dbSecrets[0].AutoPrune,
-		RotatePolicyID: int(domainsecret.MarshallRotatePolicy(&existing[0].RotatePolicy)),
+		RotatePolicyID: int(domainsecret.MarshallRotatePolicy(&existing.RotatePolicy)),
 		UpdateTime:     now,
 	}
 	dbSecret.UpdateTime = now
@@ -565,7 +567,7 @@ WHERE  sm.secret_id = $secretID.id`
 	}
 
 	if secret.Label != nil {
-		if err := st.upsertSecretLabel(ctx, tx, existing[0].URI, *secret.Label, existing[0].Owner); err != nil {
+		if err := st.upsertSecretLabel(ctx, tx, existing.URI, *secret.Label, existing.Owner); err != nil {
 			return errors.Annotatef(err, "updating label for secret %q", uri)
 		}
 	}
@@ -582,6 +584,11 @@ WHERE  sm.secret_id = $secretID.id`
 			return errors.Annotatef(err, "deleting next rotate record for secret %q", uri)
 		}
 	}
+	if secret.NextRotateTime != nil {
+		if err := st.upsertSecretNextRotateTime(ctx, tx, uri, *secret.NextRotateTime); err != nil {
+			return errors.Annotatef(err, "updating next rotate time for secret %q", uri)
+		}
+	}
 
 	if len(secret.Data) == 0 && secret.ValueRef == nil {
 		return nil
@@ -592,7 +599,7 @@ WHERE  sm.secret_id = $secretID.id`
 		return errors.Trace(err)
 	}
 
-	nextRevision := existing[0].LatestRevision + 1
+	nextRevision := existing.LatestRevision + 1
 	dbRevision := secretRevision{
 		ID:         revisionUUID.String(),
 		SecretID:   uri.ID,
@@ -1078,6 +1085,85 @@ func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecre
 	return secrets[0], nil
 }
 
+// GetRotationExpiryInfo returns the rotation expiry information for the specified secret.
+func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI) (*secret.RotationExpiryInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	input := secretID{ID: uri.ID}
+	result := secretInfo{}
+	stmt, err := st.Prepare(`
+WITH rev AS (
+    SELECT uuid, MAX(revision) AS latest_revision
+    FROM    secret_revision
+    WHERE   secret_id = $secretID.id
+)
+SELECT 
+    sp.policy AS &secretInfo.policy,
+    sro.next_rotation_time AS &secretInfo.next_rotation_time,
+    sre.expire_time AS &secretInfo.latest_expire_time,
+    rev.latest_revision AS &secretInfo.latest_revision
+FROM secret_metadata sm, rev
+    JOIN secret_rotate_policy sp ON sp.id = sm.rotate_policy_id
+    LEFT JOIN secret_rotation sro ON sro.secret_id = sm.secret_id
+    LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = rev.uuid
+WHERE sm.secret_id = $secretID.id`, input, result)
+
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, input).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("secret %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
+		}
+		return errors.Trace(err)
+	}); err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+	info := &secret.RotationExpiryInfo{
+		RotatePolicy:   coresecrets.RotatePolicy(result.RotatePolicy),
+		LatestRevision: result.LatestRevision,
+	}
+	if !result.NextRotateTime.IsZero() {
+		info.NextRotateTime = &result.NextRotateTime
+	}
+	if !result.LatestExpireTime.IsZero() {
+		info.LatestExpireTime = &result.LatestExpireTime
+	}
+	return info, nil
+}
+
+// GetRotatePolicy returns the rotate policy for the specified secret.
+func (st State) GetRotatePolicy(ctx context.Context, uri *coresecrets.URI) (coresecrets.RotatePolicy, error) {
+	db, err := st.DB()
+	if err != nil {
+		return coresecrets.RotateNever, errors.Trace(err)
+	}
+	stmt, err := st.Prepare(`
+SELECT srp.policy AS &secretInfo.policy
+FROM secret_metadata sm
+    JOIN secret_rotate_policy srp ON srp.id = sm.rotate_policy_id
+WHERE sm.secret_id = $secretID.id`, secretID{}, secretInfo{})
+	if err != nil {
+		return coresecrets.RotateNever, errors.Trace(err)
+	}
+
+	var info secretInfo
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, secretID{ID: uri.ID}).Get(&info)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("rotate policy for %q not found%w", uri, errors.Hide(secreterrors.SecretNotFound))
+		}
+		return errors.Trace(err)
+	}); err != nil {
+		return coresecrets.RotateNever, errors.Trace(domain.CoerceError(err))
+	}
+	return coresecrets.RotatePolicy(info.RotatePolicy), nil
+}
+
 func (st State) listSecretsAnyOwner(
 	ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI,
 ) ([]*coresecrets.SecretMetadata, error) {
@@ -1145,7 +1231,7 @@ FROM   secret_metadata sm
 	}
 
 	var (
-		dbSecrets      secrets
+		dbSecrets      secretInfos
 		dbsecretOwners []secretOwner
 	)
 	err = tx.Query(ctx, queryStmt, queryParams...).GetAll(&dbSecrets, &dbsecretOwners)
@@ -1286,7 +1372,7 @@ FROM   secret_metadata sm
 	}
 
 	var (
-		dbSecrets      secrets
+		dbSecrets      secretInfos
 		dbsecretOwners []secretOwner
 	)
 	err = tx.Query(ctx, queryStmt, queryParams...).GetAll(&dbSecrets, &dbsecretOwners)
@@ -1455,7 +1541,7 @@ WHERE  mso.label = $M.label
 		return nil, errors.Trace(err)
 	}
 
-	var dbSecrets secrets
+	var dbSecrets secretInfos
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, queryStmt, arg).GetAll(&dbSecrets)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
@@ -2579,7 +2665,7 @@ AND    (subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($u
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
 		var (
-			dbSecrets   secrets
+			dbSecrets   secretInfos
 			dbValueRefs secretValueRefs
 		)
 		err = tx.Query(ctx, queryStmt, queryParams...).GetAll(&dbSecrets, &dbValueRefs)
@@ -3223,4 +3309,18 @@ DELETE FROM secret WHERE id = $secretID.id`
 		}
 	}
 	return nil
+}
+
+// SecretRotated updates the next rotation time for the specified secret.
+func (st State) SecretRotated(ctx context.Context, uri *coresecrets.URI, next time.Time) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := st.upsertSecretNextRotateTime(ctx, tx, uri, next)
+		return errors.Trace(err)
+	})
+	return errors.Trace(domain.CoerceError(err))
 }

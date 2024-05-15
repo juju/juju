@@ -73,3 +73,15 @@ type AccessScope struct {
 	ScopeTypeID GrantScopeType
 	ScopeID     string
 }
+
+// RotationExpiryInfo holds information about the rotation and expiry of a secret.
+type RotationExpiryInfo struct {
+	// RotatePolicy is the rotation policy of the secret.
+	RotatePolicy secrets.RotatePolicy
+	// NextRotateTime is when the secret should be rotated.
+	NextRotateTime *time.Time
+	// LatestExpireTime is the expire time of the most recent revision.
+	LatestExpireTime *time.Time
+	// LatestRevision is the most recent secret revision.
+	LatestRevision int
+}

@@ -76,6 +76,91 @@ func (s *stateSuite) TestGetSecretNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
 }
 
+func (s *stateSuite) TestGetRotatePolicy(c *gc.C) {
+	s.setupUnits(c, "mysql")
+
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	expireTime := time.Now().Add(2 * time.Hour)
+	rotateTime := time.Now().Add(time.Hour)
+	sp := domainsecret.UpsertSecretParams{
+		Description:    ptr("my secretMetadata"),
+		Label:          ptr("my label"),
+		Data:           coresecrets.SecretData{"foo": "bar"},
+		RotatePolicy:   ptr(domainsecret.RotateYearly),
+		ExpireTime:     ptr(expireTime),
+		NextRotateTime: ptr(rotateTime),
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := st.GetRotatePolicy(context.Background(), uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, coresecrets.RotateYearly)
+}
+
+func (s *stateSuite) TestGetRotatePolicyNotFound(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	_, err := st.GetRotatePolicy(context.Background(), coresecrets.NewURI())
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+}
+
+func (s *stateSuite) TestGetRotationExpiryInfo(c *gc.C) {
+	s.setupUnits(c, "mysql")
+
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	expireTime := time.Now().Add(2 * time.Hour)
+	rotateTime := time.Now().Add(time.Hour)
+	sp := domainsecret.UpsertSecretParams{
+		Description:    ptr("my secretMetadata"),
+		Label:          ptr("my label"),
+		Data:           coresecrets.SecretData{"foo": "bar"},
+		RotatePolicy:   ptr(domainsecret.RotateYearly),
+		ExpireTime:     ptr(expireTime),
+		NextRotateTime: ptr(rotateTime),
+	}
+	uri := coresecrets.NewURI()
+	ctx := context.Background()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := st.GetRotationExpiryInfo(context.Background(), uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, &domainsecret.RotationExpiryInfo{
+		RotatePolicy:     coresecrets.RotateYearly,
+		LatestExpireTime: ptr(expireTime.UTC()),
+		NextRotateTime:   ptr(rotateTime.UTC()),
+		LatestRevision:   1,
+	})
+
+	newExpireTime := expireTime.Add(2 * time.Hour)
+	err = st.UpdateSecret(ctx, uri, domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar1"},
+		ExpireTime: ptr(newExpireTime),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err = st.GetRotationExpiryInfo(context.Background(), uri)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, &domainsecret.RotationExpiryInfo{
+		RotatePolicy:     coresecrets.RotateYearly,
+		LatestExpireTime: ptr(newExpireTime.UTC()),
+		NextRotateTime:   ptr(rotateTime.UTC()),
+		LatestRevision:   2,
+	})
+}
+
+func (s *stateSuite) TestGetRotationExpiryInfoNotFound(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	_, err := st.GetRotationExpiryInfo(context.Background(), coresecrets.NewURI())
+	c.Assert(err, jc.ErrorIs, secreterrors.SecretNotFound)
+}
+
 func (s *stateSuite) TestGetSecretRevisionNotFound(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
@@ -3104,4 +3189,29 @@ func (s *stateSuite) TestGetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
 	c.Assert(result, jc.SameContents, []string{
 		uri1.String(),
 	})
+}
+
+func (s *stateSuite) TestSecretRotated(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	s.setupUnits(c, "mysql")
+	uri := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri, "mysql", domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	next := time.Now().Add(1 * time.Hour)
+	err = st.SecretRotated(ctx, uri, next)
+	c.Assert(err, jc.ErrorIsNil)
+
+	row := s.DB().QueryRowContext(context.Background(), `
+SELECT next_rotation_time
+FROM secret_rotation
+WHERE secret_id = ?`, uri.ID)
+	var nextRotationTime time.Time
+	err = row.Scan(&nextRotationTime)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nextRotationTime.Equal(next), jc.IsTrue)
 }

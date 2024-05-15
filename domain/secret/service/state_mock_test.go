@@ -12,6 +12,7 @@ package service
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	secrets "github.com/juju/juju/core/secrets"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
@@ -405,6 +406,84 @@ func (c *MockStateGetRevisionIDsForObsoleteCall) Do(f func(context.Context, secr
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetRevisionIDsForObsoleteCall) DoAndReturn(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners, ...string) ([]string, error)) *MockStateGetRevisionIDsForObsoleteCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRotatePolicy mocks base method.
+func (m *MockState) GetRotatePolicy(arg0 context.Context, arg1 *secrets.URI) (secrets.RotatePolicy, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRotatePolicy", arg0, arg1)
+	ret0, _ := ret[0].(secrets.RotatePolicy)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRotatePolicy indicates an expected call of GetRotatePolicy.
+func (mr *MockStateMockRecorder) GetRotatePolicy(arg0, arg1 any) *MockStateGetRotatePolicyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRotatePolicy", reflect.TypeOf((*MockState)(nil).GetRotatePolicy), arg0, arg1)
+	return &MockStateGetRotatePolicyCall{Call: call}
+}
+
+// MockStateGetRotatePolicyCall wrap *gomock.Call
+type MockStateGetRotatePolicyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRotatePolicyCall) Return(arg0 secrets.RotatePolicy, arg1 error) *MockStateGetRotatePolicyCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRotatePolicyCall) Do(f func(context.Context, *secrets.URI) (secrets.RotatePolicy, error)) *MockStateGetRotatePolicyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRotatePolicyCall) DoAndReturn(f func(context.Context, *secrets.URI) (secrets.RotatePolicy, error)) *MockStateGetRotatePolicyCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetRotationExpiryInfo mocks base method.
+func (m *MockState) GetRotationExpiryInfo(arg0 context.Context, arg1 *secrets.URI) (*secret.RotationExpiryInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRotationExpiryInfo", arg0, arg1)
+	ret0, _ := ret[0].(*secret.RotationExpiryInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRotationExpiryInfo indicates an expected call of GetRotationExpiryInfo.
+func (mr *MockStateMockRecorder) GetRotationExpiryInfo(arg0, arg1 any) *MockStateGetRotationExpiryInfoCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRotationExpiryInfo", reflect.TypeOf((*MockState)(nil).GetRotationExpiryInfo), arg0, arg1)
+	return &MockStateGetRotationExpiryInfoCall{Call: call}
+}
+
+// MockStateGetRotationExpiryInfoCall wrap *gomock.Call
+type MockStateGetRotationExpiryInfoCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetRotationExpiryInfoCall) Return(arg0 *secret.RotationExpiryInfo, arg1 error) *MockStateGetRotationExpiryInfoCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetRotationExpiryInfoCall) Do(f func(context.Context, *secrets.URI) (*secret.RotationExpiryInfo, error)) *MockStateGetRotationExpiryInfoCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetRotationExpiryInfoCall) DoAndReturn(f func(context.Context, *secrets.URI) (*secret.RotationExpiryInfo, error)) *MockStateGetRotationExpiryInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1308,6 +1387,44 @@ func (c *MockStateSaveSecretRemoteConsumerCall) Do(f func(context.Context, *secr
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateSaveSecretRemoteConsumerCall) DoAndReturn(f func(context.Context, *secrets.URI, string, *secrets.SecretConsumerMetadata) error) *MockStateSaveSecretRemoteConsumerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SecretRotated mocks base method.
+func (m *MockState) SecretRotated(arg0 context.Context, arg1 *secrets.URI, arg2 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SecretRotated", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SecretRotated indicates an expected call of SecretRotated.
+func (mr *MockStateMockRecorder) SecretRotated(arg0, arg1, arg2 any) *MockStateSecretRotatedCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretRotated", reflect.TypeOf((*MockState)(nil).SecretRotated), arg0, arg1, arg2)
+	return &MockStateSecretRotatedCall{Call: call}
+}
+
+// MockStateSecretRotatedCall wrap *gomock.Call
+type MockStateSecretRotatedCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSecretRotatedCall) Return(arg0 error) *MockStateSecretRotatedCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSecretRotatedCall) Do(f func(context.Context, *secrets.URI, time.Time) error) *MockStateSecretRotatedCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSecretRotatedCall) DoAndReturn(f func(context.Context, *secrets.URI, time.Time) error) *MockStateSecretRotatedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
