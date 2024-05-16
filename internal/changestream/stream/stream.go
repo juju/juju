@@ -34,6 +34,11 @@ const (
 	defaultWatermarkInterval = 5 * time.Second
 )
 
+const (
+	// States which report the state of the worker.
+	stateNoMoreChanges = "no-more-changes"
+)
+
 var (
 	// The backoff strategy is used to back-off when we get no changes
 	// from the database. This is used to prevent the worker from polling
@@ -101,7 +106,8 @@ func (v *termView) String() string {
 
 // Stream defines a worker that will poll the database for change events.
 type Stream struct {
-	tomb tomb.Tomb
+	internalStates chan string
+	tomb           tomb.Tomb
 
 	id           string
 	db           coredatabase.TxnRunner
@@ -126,15 +132,29 @@ func New(
 	metrics MetricsCollector,
 	logger logger.Logger,
 ) *Stream {
+	return NewInternalStates(id, db, fileNotifier, clock, metrics, logger, nil)
+}
+
+// NewInternalStates creates a new Stream with an internal state channel.
+func NewInternalStates(
+	id string,
+	db coredatabase.TxnRunner,
+	fileNotifier FileNotifier,
+	clock clock.Clock,
+	metrics MetricsCollector,
+	logger logger.Logger,
+	internalStates chan string,
+) *Stream {
 	stream := &Stream{
-		id:           id,
-		db:           db,
-		fileNotifier: fileNotifier,
-		clock:        clock,
-		logger:       logger,
-		metrics:      metrics,
-		terms:        make(chan changestream.Term),
-		watermarks:   make([]*termView, changestream.DefaultNumTermWatermarks),
+		id:             id,
+		db:             db,
+		fileNotifier:   fileNotifier,
+		clock:          clock,
+		logger:         logger,
+		metrics:        metrics,
+		terms:          make(chan changestream.Term),
+		watermarks:     make([]*termView, changestream.DefaultNumTermWatermarks),
+		internalStates: internalStates,
 	}
 
 	stream.tomb.Go(stream.loop)
@@ -297,6 +317,7 @@ func (s *Stream) loop() error {
 				case <-s.tomb.Dying():
 					return tomb.ErrDying
 				case <-s.clock.After(backOffStrategy(0, attempt)):
+					s.reportInternalState(stateNoMoreChanges)
 					continue
 				}
 			}
@@ -386,6 +407,7 @@ func (s *Stream) loop() error {
 					case <-s.tomb.Dying():
 						return tomb.ErrDying
 					case <-s.clock.After(backOffStrategy(0, attempt)):
+						s.reportInternalState(stateNoMoreChanges)
 						continue
 					}
 				}
@@ -640,4 +662,12 @@ func (s *Stream) processWatermark(fn func(*termView) error) error {
 	s.watermarks = s.watermarks[1:]
 	s.lastRecordedWatermark = head
 	return nil
+}
+
+func (s *Stream) reportInternalState(state string) {
+	select {
+	case <-s.tomb.Dying():
+	case s.internalStates <- state:
+	default:
+	}
 }

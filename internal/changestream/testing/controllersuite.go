@@ -46,6 +46,23 @@ func (s *ControllerSuite) GetWatchableDB(namespace string) (changestream.Watchab
 	return s.watchableDB, nil
 }
 
+// AssertChangeStreamIdle returns if and when the change stream is idle.
+// This is useful to ensure that the change stream is not processing any
+// events before running a test.
+func (w *ControllerSuite) AssertChangeStreamIdle(c *gc.C) {
+	timeout := time.After(jujutesting.LongWait)
+	for {
+		select {
+		case state := <-w.watchableDB.states:
+			if state == stateNoMoreChanges {
+				return
+			}
+		case <-timeout:
+			c.Fatalf("timed out waiting for idle state")
+		}
+	}
+}
+
 func killAndWait(_ *gc.C, w worker.Worker) {
 	wait := make(chan error, 1)
 	go func() {
