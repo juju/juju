@@ -1094,16 +1094,16 @@ func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI)
 	input := secretID{ID: uri.ID}
 	result := secretInfo{}
 	stmt, err := st.Prepare(`
-SELECT sp.policy AS &secretInfo.policy,
-       sro.next_rotation_time AS &secretInfo.next_rotation_time,
-       sre.expire_time AS &secretInfo.latest_expire_time,
-       MAX(sr.revision) AS &secretInfo.latest_revision
-FROM   secret_metadata sm
-       JOIN secret_revision sr ON sm.secret_id = sr.secret_id
-       JOIN secret_rotate_policy sp ON sp.id = sm.rotate_policy_id
-       LEFT JOIN secret_rotation sro ON sro.secret_id = sm.secret_id
-       LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = sr.uuid
-WHERE  sm.secret_id = $secretID.id
+SELECT   sp.policy AS &secretInfo.policy,
+         sro.next_rotation_time AS &secretInfo.next_rotation_time,
+         sre.expire_time AS &secretInfo.latest_expire_time,
+         MAX(sr.revision) AS &secretInfo.latest_revision
+FROM     secret_metadata sm
+         JOIN secret_revision sr ON sm.secret_id = sr.secret_id
+         JOIN secret_rotate_policy sp ON sp.id = sm.rotate_policy_id
+         LEFT JOIN secret_rotation sro ON sro.secret_id = sm.secret_id
+         LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = sr.uuid
+WHERE    sm.secret_id = $secretID.id
 GROUP BY sr.secret_id`, input, result)
 
 	if err != nil {
@@ -1140,9 +1140,9 @@ func (st State) GetRotatePolicy(ctx context.Context, uri *coresecrets.URI) (core
 	}
 	stmt, err := st.Prepare(`
 SELECT srp.policy AS &secretInfo.policy
-FROM secret_metadata sm
-    JOIN secret_rotate_policy srp ON srp.id = sm.rotate_policy_id
-WHERE sm.secret_id = $secretID.id`, secretID{}, secretInfo{})
+FROM   secret_metadata sm
+       JOIN secret_rotate_policy srp ON srp.id = sm.rotate_policy_id
+WHERE  sm.secret_id = $secretID.id`, secretID{}, secretInfo{})
 	if err != nil {
 		return coresecrets.RotateNever, errors.Trace(err)
 	}
@@ -1470,14 +1470,13 @@ unit_owned AS
 	queryParts := []string{strings.Join(preQueryParts, ",\n")}
 
 	query := `
-SELECT
-     sm.secret_id AS &secretID.id,
-     svr.backend_uuid AS &secretExternalRevision.backend_uuid,
-     svr.revision_id AS &secretExternalRevision.revision_id,
-     rev.revision AS &secretExternalRevision.revision
-FROM secret_metadata sm
-JOIN secret_revision rev ON rev.secret_id = sm.secret_id
-LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid`[1:]
+SELECT sm.secret_id AS &secretID.id,
+       svr.backend_uuid AS &secretExternalRevision.backend_uuid,
+       svr.revision_id AS &secretExternalRevision.revision_id,
+       rev.revision AS &secretExternalRevision.revision
+FROM   secret_metadata sm
+       JOIN secret_revision rev ON rev.secret_id = sm.secret_id
+       LEFT JOIN secret_value_ref svr ON svr.revision_uuid = rev.uuid`[1:]
 
 	queryParts = append(queryParts, query)
 
