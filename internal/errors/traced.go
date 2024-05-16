@@ -6,7 +6,6 @@ package errors
 import (
 	stderrors "errors"
 	"fmt"
-	"reflect"
 	"runtime"
 	"strings"
 
@@ -47,7 +46,6 @@ type traced struct {
 func ErrorStack(err error) string {
 	chain := []string{}
 	for err != nil {
-		fmt.Println(reflect.TypeOf(err))
 		switch x := err.(type) {
 		case link:
 		case Traced:
