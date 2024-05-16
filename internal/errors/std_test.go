@@ -11,7 +11,7 @@ import (
 )
 
 // complexErrorMessage is a testing error interface that also defines a basic
-// message function so that the interface cannot be satisifed by any error.
+// message function so that the interface cannot be satisfied by any error.
 type complexErrorMessage interface {
 	error
 	ComplexMessage() string
