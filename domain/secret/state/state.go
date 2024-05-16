@@ -1094,21 +1094,17 @@ func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI)
 	input := secretID{ID: uri.ID}
 	result := secretInfo{}
 	stmt, err := st.Prepare(`
-WITH rev AS (
-    SELECT uuid, MAX(revision) AS latest_revision
-    FROM    secret_revision
-    WHERE   secret_id = $secretID.id
-)
-SELECT 
-    sp.policy AS &secretInfo.policy,
-    sro.next_rotation_time AS &secretInfo.next_rotation_time,
-    sre.expire_time AS &secretInfo.latest_expire_time,
-    rev.latest_revision AS &secretInfo.latest_revision
-FROM secret_metadata sm, rev
-    JOIN secret_rotate_policy sp ON sp.id = sm.rotate_policy_id
-    LEFT JOIN secret_rotation sro ON sro.secret_id = sm.secret_id
-    LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = rev.uuid
-WHERE sm.secret_id = $secretID.id`, input, result)
+SELECT sp.policy AS &secretInfo.policy,
+       sro.next_rotation_time AS &secretInfo.next_rotation_time,
+       sre.expire_time AS &secretInfo.latest_expire_time,
+       MAX(sr.revision) AS &secretInfo.latest_revision
+FROM   secret_metadata sm
+       JOIN secret_revision sr ON sm.secret_id = sr.secret_id
+       JOIN secret_rotate_policy sp ON sp.id = sm.rotate_policy_id
+       LEFT JOIN secret_rotation sro ON sro.secret_id = sm.secret_id
+       LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = sr.uuid
+WHERE  sm.secret_id = $secretID.id
+GROUP BY sr.secret_id`, input, result)
 
 	if err != nil {
 		return nil, errors.Trace(err)
