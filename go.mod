@@ -63,7 +63,7 @@ require (
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v5 v5.0.0
 	github.com/juju/naturalsort v1.0.0
-	github.com/juju/os/v2 v2.2.4
+	github.com/juju/os/v2 v2.2.5
 	github.com/juju/packaging/v2 v2.0.1
 	github.com/juju/persistent-cookiejar v1.0.0
 	github.com/juju/proxy v1.0.0
