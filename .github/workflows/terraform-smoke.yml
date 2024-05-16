@@ -75,6 +75,7 @@ jobs:
     - name: Set environment to configure provider for test
       run: |
         CONTROLLER=$(juju whoami --format yaml | yq .controller)
+        echo "JUJU_AGENT_VERSION=$(juju show-controller | yq -r .$CONTROLLER.details.agent-version | cut -f 1 -d '-')" >> $GITHUB_ENV
         echo "JUJU_CONTROLLER_ADDRESSES=$(juju show-controller | yq .$CONTROLLER.details.api-endpoints | yq -r '. | join(",")')" >> $GITHUB_ENV
         echo "JUJU_USERNAME=$(juju show-controller | yq .$CONTROLLER.account.user)"  >> $GITHUB_ENV
         echo "JUJU_PASSWORD=$(cat ~/.local/share/juju/accounts.yaml | yq .controllers.$CONTROLLER.password)"  >> $GITHUB_ENV
