@@ -4,7 +4,6 @@
 package errors
 
 import (
-	//"fs"
 	"fmt"
 	"io/fs"
 	"testing"
