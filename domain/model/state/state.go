@@ -140,10 +140,10 @@ func Create(
 	return nil
 }
 
-// Get returns the model associated with the provided uuid.
+// GetModel returns the model associated with the provided uuid.
 // If the model does not exist then an error satisfying [modelerrors.NotFound]
 // will be returned.
-func (s *State) Get(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
+func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
 	db, err := s.DB()
 	if err != nil {
 		return coremodel.Model{}, errors.Trace(err)
@@ -152,7 +152,7 @@ func (s *State) Get(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, 
 	var model coremodel.Model
 	return model, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		var err error
-		model, err = Get(ctx, tx, uuid)
+		model, err = GetModel(ctx, tx, uuid)
 		return err
 	})
 }
@@ -203,10 +203,10 @@ WHERE uuid = ?
 	return modelType, nil
 }
 
-// Get returns the model associated with the provided uuid.
+// GetModel returns the model associated with the provided uuid.
 // If the model does not exist then an error satisfying [modelerrors.NotFound]
 // will be returned.
-func Get(
+func GetModel(
 	ctx context.Context,
 	tx *sql.Tx,
 	uuid coremodel.UUID,

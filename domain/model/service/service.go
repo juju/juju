@@ -51,8 +51,8 @@ type State interface {
 	// [modelerrors.AlreadyActivated] error will be returned.
 	Activate(ctx context.Context, uuid coremodel.UUID) error
 
-	// Get returns the model associated with the provided uuid.
-	Get(context.Context, coremodel.UUID) (coremodel.Model, error)
+	// GetModel returns the model associated with the provided uuid.
+	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
 
 	// GetModelType returns the model type for a model with the provided uuid.
 	GetModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
@@ -243,7 +243,7 @@ func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Mod
 		return coremodel.Model{}, fmt.Errorf("model uuid: %w", err)
 	}
 
-	return s.st.Get(ctx, uuid)
+	return s.st.GetModel(ctx, uuid)
 }
 
 // ModelType returns the current model type based on the cloud name being used

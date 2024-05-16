@@ -125,7 +125,7 @@ func (d *dummyState) Activate(
 	return modelerrors.NotFound
 }
 
-func (d *dummyState) Get(
+func (d *dummyState) GetModel(
 	_ context.Context,
 	uuid coremodel.UUID,
 ) (coremodel.Model, error) {
