@@ -4,6 +4,8 @@
 package errors
 
 import (
+	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -11,22 +13,32 @@ import (
 	jujuerrors "github.com/juju/errors"
 )
 
+func returnError() error {
+	return New("please have my error")
+}
+
 // TestErrorStack is responsible for testing the various types of error chains
 // that could be provided to ErrorStack() and asserting what should be the
 // output for that chain.
 func TestErrorStack(t *testing.T) {
-	// BasicStack is here to make a very simple error chain with several traced
-	// errors. We check that ErrorStack returns the right line number and files
-	// in the stack.
-	t.Run("BasicStack", func(t *testing.T) {
+	t.Run("TracedErrorf", func(t *testing.T) {
+		err := Errorf("my error")
+		stack := ErrorStack(err)
+		expected := strings.Join([]string{
+			"github.com/juju/juju/internal/errors.TestErrorStack.func1:25: my error",
+			"my error",
+		}, "\n")
+		if !reflect.DeepEqual(stack, expected) {
+			t.Errorf("test call to ErrorStack() returned %#v expected %#v", stack, expected)
+		}
+	})
+
+	t.Run("TracedNew", func(t *testing.T) {
 		err := New("my error")
-		err = err.Trace()
-		err = err.Trace()
 
 		stack := ErrorStack(err)
 		expected := strings.Join([]string{
-			"github.com/juju/juju/internal/errors.TestErrorStack.func1:24: my error",
-			"github.com/juju/juju/internal/errors.TestErrorStack.func1:23: my error",
+			"github.com/juju/juju/internal/errors.TestErrorStack.func2:37: my error",
 			"my error",
 		}, "\n")
 		if !reflect.DeepEqual(stack, expected) {
@@ -39,11 +51,12 @@ func TestErrorStack(t *testing.T) {
 	t.Run("AnnotatedStack", func(t *testing.T) {
 		err := New("start error")
 		err = err.Add(ConstError("added error"))
-		err = err.Trace()
+		err = Errorf("step %w", err)
 
 		stack := ErrorStack(err)
 		expected := strings.Join([]string{
-			"github.com/juju/juju/internal/errors.TestErrorStack.func2:42: start error",
+			"github.com/juju/juju/internal/errors.TestErrorStack.func3:54: step start error",
+			"step start error",
 			"start error",
 		}, "\n")
 		if !reflect.DeepEqual(stack, expected) {
@@ -54,13 +67,14 @@ func TestErrorStack(t *testing.T) {
 	t.Run("jujuerrors.Trace", func(t *testing.T) {
 		err := New("start error")
 		errVal := jujuerrors.Trace(err)
-		err = Errorf("new error: %w", errVal).Trace()
+		err = Errorf("new error: %w", errVal)
 
 		stack := ErrorStack(err)
 		expected := strings.Join([]string{
-			"github.com/juju/juju/internal/errors.TestErrorStack.func3:57: new error: start error",
+			"github.com/juju/juju/internal/errors.TestErrorStack.func4:70: new error: start error",
 			"new error: start error",
-			"github.com/juju/juju/internal/errors.TestErrorStack.func3:56: start error",
+			"github.com/juju/juju/internal/errors.TestErrorStack.func4:69: start error",
+			"github.com/juju/juju/internal/errors.TestErrorStack.func4:68: start error",
 			"start error",
 		}, "\n")
 		if !reflect.DeepEqual(stack, expected) {
@@ -68,10 +82,45 @@ func TestErrorStack(t *testing.T) {
 		}
 	})
 
+	t.Run("callSiteTrace", func(t *testing.T) {
+		err := Errorf("func error %w", returnError())
+
+		stack := ErrorStack(err)
+		expected := strings.Join([]string{
+			"github.com/juju/juju/internal/errors.TestErrorStack.func5:86: func error please have my error",
+			"func error please have my error",
+			"github.com/juju/juju/internal/errors.returnError:17: please have my error",
+			"please have my error",
+		}, "\n")
+		if !reflect.DeepEqual(stack, expected) {
+			t.Errorf("test call to ErrorStack() returned %#v expected %#v", stack, expected)
+		}
+	})
+
+	t.Run("GoRoutineError", func(t *testing.T) {
+		ch := make(chan error)
+
+		go func() {
+			ch <- New("goroutine error")
+		}()
+
+		err := <-ch
+		close(ch)
+
+		stack := ErrorStack(err)
+		expected := strings.Join([]string{
+			"github.com/juju/juju/internal/errors.TestErrorStack.func6.1:104: goroutine error",
+			"goroutine error",
+		}, "\n")
+		if !reflect.DeepEqual(stack, expected) {
+			t.Errorf("test call to ErrorStack() returned %#v expected %#v", stack, expected)
+		}
+	})
+
 	t.Run("NonTracedChain", func(t *testing.T) {
-		err := New("foo bar")
-		err = Errorf("traced 1: %w", err)
-		err = Errorf("traced 2: %w", err)
+		err := errors.New("foo bar")
+		err = fmt.Errorf("traced 1: %w", err)
+		err = fmt.Errorf("traced 2: %w", err)
 
 		stack := ErrorStack(err)
 		expected := strings.Join([]string{

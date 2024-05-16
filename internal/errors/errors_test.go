@@ -71,29 +71,29 @@ func TestLinkErrorAdd(t *testing.T) {
 	})
 }
 
-func TestLinkErrorTrace(t *testing.T) {
-	err := New("i am a teapot")
-	lerr := link{err}
-
-	e := lerr.Trace()
-
-	t.Run("AssertErrorMessage", func(t *testing.T) {
-		// We need to check that adding a error does not change error message
-		// returned by Error()
-		if e.Error() != err.Error() {
-			t.Errorf("Trace() -> Error.Error() %q is not equal to %q",
-				e.Error(), err.Error(),
-			)
-		}
-	})
-
-	t.Run("AssertIsSupport", func(t *testing.T) {
-		// Test that we satisfy is for both errors.
-		if !Is(e, err) {
-			t.Errorf("Trace() -> Error does not satisfy Is(err, ex)")
-		}
-	})
-}
+//func TestLinkErrorTrace(t *testing.T) {
+//	err := New("i am a teapot")
+//	lerr := link{err}
+//
+//	e := lerr.Trace()
+//
+//	t.Run("AssertErrorMessage", func(t *testing.T) {
+//		// We need to check that adding a error does not change error message
+//		// returned by Error()
+//		if e.Error() != err.Error() {
+//			t.Errorf("Trace() -> Error.Error() %q is not equal to %q",
+//				e.Error(), err.Error(),
+//			)
+//		}
+//	})
+//
+//	t.Run("AssertIsSupport", func(t *testing.T) {
+//		// Test that we satisfy is for both errors.
+//		if !Is(e, err) {
+//			t.Errorf("Trace() -> Error does not satisfy Is(err, ex)")
+//		}
+//	})
+//}
 
 func TestAnnotatedErrorWrap(t *testing.T) {
 	err := New("ipv6 is great")

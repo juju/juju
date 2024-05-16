@@ -66,7 +66,9 @@ func AsType[T error](err error) (T, bool) {
 // change this function signature makes is that a type of [Error] is returned so
 // that the resultant error can be further annotated.
 func Errorf(format string, a ...any) Error {
-	return link{fmt.Errorf(format, a...)}
+	return link{
+		newFrameTracer(fmt.Errorf(format, a...), 1),
+	}
 }
 
 // HasType is a function wrapper around AsType dropping the return value T
@@ -124,9 +126,11 @@ func Join(errs ...error) Error {
 // New returns an error that formats as the given text. Each call to New returns
 // a distinct error value even if the text is identical.
 //
-// New is a proxy for [pkg/errors.New].
+// New is a proxy for [pkg/errors.New]. All errors returned from New are traced.
 func New(text string) Error {
-	return link{stderrors.New(text)}
+	return link{
+		newFrameTracer(stderrors.New(text), 1),
+	}
 }
 
 // Unwrap returns the result of calling the Unwrap method on err, if err's type

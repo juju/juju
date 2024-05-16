@@ -30,15 +30,6 @@ type Error interface {
 	// Unwrap() does not unwrap errors that have been added.
 	Add(err error) Error
 
-	// Trace records the location of where this function was called on the
-	// Error. Making it so that subsequent calls to Trace() produce a stack of
-	// traced errors.
-	//
-	// ErrorStack() can be used to produce a string based stack of all the
-	// errors in a change and any subsequent tracing information associated with
-	// the error.
-	Trace() Error
-
 	// Unwrap returns the underlying error being enriched by this interface.
 	Unwrap() error
 }
@@ -64,11 +55,6 @@ func (l link) Add(err error) Error {
 		return l
 	}
 	return link{annotated{l.error, err}}
-}
-
-// Trace implements Errors.Trace.
-func (l link) Trace() Error {
-	return link{newTraced(l.error, 1)}
 }
 
 // Unwrap implements std errors Unwrap interface by returning the underlying
