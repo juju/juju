@@ -42,9 +42,9 @@ const (
 type ControllerConfigService interface {
 	// ControllerConfig returns the current controller configuration.
 	ControllerConfig(context.Context) (controller.Config, error)
-	// Watch returns a watcher that returns keys for any changes to controller
-	// config.
-	Watch() (watcher.StringsWatcher, error)
+	// WatchControllerConfig returns a watcher that returns keys for any changes
+	// to controller config.
+	WatchControllerConfig() (watcher.StringsWatcher, error)
 }
 
 type workerConfig struct {
@@ -157,7 +157,7 @@ func (w *s3Worker) Wait() error {
 }
 
 func (w *s3Worker) loop() (err error) {
-	watcher, err := w.config.ControllerConfigService.Watch()
+	watcher, err := w.config.ControllerConfigService.WatchControllerConfig()
 	if err != nil {
 		return errors.Trace(err)
 	}

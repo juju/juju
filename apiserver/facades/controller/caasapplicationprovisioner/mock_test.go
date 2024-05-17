@@ -46,7 +46,6 @@ type mockState struct {
 	applicationWatcher           *mockStringsWatcher
 	app                          *mockApplication
 	resource                     *mockResources
-	operatorRepo                 string
 	apiHostPortsForAgentsWatcher *statetesting.MockNotifyWatcher
 	isController                 bool
 }
@@ -72,12 +71,6 @@ func (st *mockState) Unit(unit string) (caasapplicationprovisioner.Unit, error) 
 func (st *mockState) WatchApplications() state.StringsWatcher {
 	st.MethodCall(st, "WatchApplications")
 	return st.applicationWatcher
-}
-
-func (st *mockState) ControllerConfig() (controller.Config, error) {
-	cfg := coretesting.FakeControllerConfig()
-	cfg[controller.CAASImageRepo] = st.operatorRepo
-	return cfg, nil
 }
 
 func (st *mockState) APIHostPortsForAgents(controllerConfig controller.Config) ([]network.SpaceHostPorts, error) {
@@ -174,8 +167,8 @@ func (m *mockControllerConfigService) ControllerConfig(_ context.Context) (contr
 	return coretesting.FakeControllerConfig(), nil
 }
 
-func (m *mockControllerConfigService) Watch() (watcher.StringsWatcher, error) {
-	m.MethodCall(m, "Watch")
+func (m *mockControllerConfigService) WatchControllerConfig() (watcher.StringsWatcher, error) {
+	m.MethodCall(m, "WatchControllerConfig")
 	return m.controllerConfigWatcher, nil
 }
 

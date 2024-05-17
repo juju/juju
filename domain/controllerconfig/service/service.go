@@ -256,6 +256,6 @@ var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
 
 // Watch returns a watcher that returns keys for any changes to controller
 // config.
-func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchControllerConfig() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher("controller_config", changestream.All, InitialNamespaceChanges(s.st.AllKeysQuery()))
 }

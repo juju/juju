@@ -28,7 +28,7 @@ import (
 
 type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
-	Watch() (corewatcher.StringsWatcher, error)
+	WatchControllerConfig() (corewatcher.StringsWatcher, error)
 }
 
 // API represents the controller model operator facade.
@@ -81,7 +81,7 @@ func (a *API) WatchModelOperatorProvisioningInfo(ctx context.Context) (params.No
 		return result, errors.Trace(err)
 	}
 
-	controllerConfigWatcher, err := a.controllerConfigService.Watch()
+	controllerConfigWatcher, err := a.controllerConfigService.WatchControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}

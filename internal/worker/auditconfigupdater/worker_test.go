@@ -128,7 +128,7 @@ func (s *workerSuite) expectControllerConfigWatcher(c *gc.C) chan []string {
 
 	watcher := watchertest.NewMockStringsWatcher(ch)
 
-	s.controllerConfigService.EXPECT().Watch().Return(watcher, nil)
+	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(watcher, nil)
 
 	return ch
 }

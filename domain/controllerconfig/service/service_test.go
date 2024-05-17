@@ -170,7 +170,7 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	})
 	s.watcherFactory.EXPECT().NewNamespaceWatcher("controller_config", changestream.All, gomock.Any()).Return(s.stringsWatcher, nil)
 
-	w, err := NewWatchableService(s.state, s.watcherFactory).Watch()
+	w, err := NewWatchableService(s.state, s.watcherFactory).WatchControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 }

@@ -75,7 +75,7 @@ func (s *baseSuite) expectControllerConfig(c *gc.C, config controller.Config) {
 }
 
 func (s *baseSuite) expectControllerConfigWatch(c *gc.C) {
-	s.controllerConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.controllerConfigService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
 		ch := make(chan []string)
 		go func() {
 			select {
@@ -89,7 +89,7 @@ func (s *baseSuite) expectControllerConfigWatch(c *gc.C) {
 }
 
 func (s *baseSuite) expectControllerConfigWatchWithChanges(c *gc.C, changes <-chan []string) {
-	s.controllerConfigService.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[[]string], error) {
+	s.controllerConfigService.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.Watcher[[]string], error) {
 		return watchertest.NewMockStringsWatcher(changes), nil
 	})
 }

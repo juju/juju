@@ -53,7 +53,7 @@ import (
 // ControllerConfigService provides the controller configuration.
 type ControllerConfigService interface {
 	ControllerConfig(ctx context.Context) (controller.Config, error)
-	Watch() (corewatcher.StringsWatcher, error)
+	WatchControllerConfig() (corewatcher.StringsWatcher, error)
 }
 
 type APIGroup struct {
@@ -264,7 +264,7 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 	}
 
 	appWatcher := app.Watch()
-	controllerConfigWatcher, err := a.controllerConfigService.Watch()
+	controllerConfigWatcher, err := a.controllerConfigService.WatchControllerConfig()
 	if err != nil {
 		return result, errors.Trace(err)
 	}
