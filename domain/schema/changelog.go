@@ -7,6 +7,8 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
+type tableNamespaceID = int
+
 // changeLogSchema provides a helper function for generating a change_log ddl
 // for a schema.
 func changeLogSchema() schema.Patch {

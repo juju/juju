@@ -9,10 +9,12 @@ import (
 )
 
 
+// ChangeLogTriggersForUpgradeInfo generates the triggers for the 
+// upgrade_info table.
 func ChangeLogTriggersForUpgradeInfo(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- UpgradeInfo for insert trigger
+-- insert trigger for UpgradeInfo
 CREATE TRIGGER trg_log_upgrade_info_insert
 AFTER INSERT ON upgrade_info FOR EACH ROW
 BEGIN
@@ -20,7 +22,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- UpgradeInfo for update trigger
+-- update trigger for UpgradeInfo
 CREATE TRIGGER trg_log_upgrade_info_update
 AFTER UPDATE ON upgrade_info FOR EACH ROW
 WHEN 
@@ -32,7 +34,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- UpgradeInfo for delete trigger
+-- delete trigger for UpgradeInfo
 CREATE TRIGGER trg_log_upgrade_info_delete
 AFTER DELETE ON upgrade_info FOR EACH ROW
 BEGIN
@@ -42,10 +44,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForUpgradeInfoControllerNode generates the triggers for the 
+// upgrade_info_controller_node table.
 func ChangeLogTriggersForUpgradeInfoControllerNode(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- UpgradeInfoControllerNode for insert trigger
+-- insert trigger for UpgradeInfoControllerNode
 CREATE TRIGGER trg_log_upgrade_info_controller_node_insert
 AFTER INSERT ON upgrade_info_controller_node FOR EACH ROW
 BEGIN
@@ -53,7 +57,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- UpgradeInfoControllerNode for update trigger
+-- update trigger for UpgradeInfoControllerNode
 CREATE TRIGGER trg_log_upgrade_info_controller_node_update
 AFTER UPDATE ON upgrade_info_controller_node FOR EACH ROW
 WHEN 
@@ -65,7 +69,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- UpgradeInfoControllerNode for delete trigger
+-- delete trigger for UpgradeInfoControllerNode
 CREATE TRIGGER trg_log_upgrade_info_controller_node_delete
 AFTER DELETE ON upgrade_info_controller_node FOR EACH ROW
 BEGIN

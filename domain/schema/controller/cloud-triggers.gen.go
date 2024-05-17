@@ -9,10 +9,12 @@ import (
 )
 
 
+// ChangeLogTriggersForCloud generates the triggers for the 
+// cloud table.
 func ChangeLogTriggersForCloud(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- Cloud for insert trigger
+-- insert trigger for Cloud
 CREATE TRIGGER trg_log_cloud_insert
 AFTER INSERT ON cloud FOR EACH ROW
 BEGIN
@@ -20,7 +22,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- Cloud for update trigger
+-- update trigger for Cloud
 CREATE TRIGGER trg_log_cloud_update
 AFTER UPDATE ON cloud FOR EACH ROW
 WHEN 
@@ -35,7 +37,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- Cloud for delete trigger
+-- delete trigger for Cloud
 CREATE TRIGGER trg_log_cloud_delete
 AFTER DELETE ON cloud FOR EACH ROW
 BEGIN
@@ -45,10 +47,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForCloudCredential generates the triggers for the 
+// cloud_credential table.
 func ChangeLogTriggersForCloudCredential(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- CloudCredential for insert trigger
+-- insert trigger for CloudCredential
 CREATE TRIGGER trg_log_cloud_credential_insert
 AFTER INSERT ON cloud_credential FOR EACH ROW
 BEGIN
@@ -56,7 +60,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- CloudCredential for update trigger
+-- update trigger for CloudCredential
 CREATE TRIGGER trg_log_cloud_credential_update
 AFTER UPDATE ON cloud_credential FOR EACH ROW
 WHEN 
@@ -72,7 +76,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- CloudCredential for delete trigger
+-- delete trigger for CloudCredential
 CREATE TRIGGER trg_log_cloud_credential_delete
 AFTER DELETE ON cloud_credential FOR EACH ROW
 BEGIN
@@ -82,10 +86,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForExternalController generates the triggers for the 
+// external_controller table.
 func ChangeLogTriggersForExternalController(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- ExternalController for insert trigger
+-- insert trigger for ExternalController
 CREATE TRIGGER trg_log_external_controller_insert
 AFTER INSERT ON external_controller FOR EACH ROW
 BEGIN
@@ -93,7 +99,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- ExternalController for update trigger
+-- update trigger for ExternalController
 CREATE TRIGGER trg_log_external_controller_update
 AFTER UPDATE ON external_controller FOR EACH ROW
 WHEN 
@@ -104,7 +110,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- ExternalController for delete trigger
+-- delete trigger for ExternalController
 CREATE TRIGGER trg_log_external_controller_delete
 AFTER DELETE ON external_controller FOR EACH ROW
 BEGIN

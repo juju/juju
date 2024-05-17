@@ -9,10 +9,12 @@ import (
 )
 
 
+// ChangeLogTriggersForModelMigrationMinionSync generates the triggers for the 
+// model_migration_minion_sync table.
 func ChangeLogTriggersForModelMigrationMinionSync(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- ModelMigrationMinionSync for insert trigger
+-- insert trigger for ModelMigrationMinionSync
 CREATE TRIGGER trg_log_model_migration_minion_sync_insert
 AFTER INSERT ON model_migration_minion_sync FOR EACH ROW
 BEGIN
@@ -20,7 +22,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- ModelMigrationMinionSync for update trigger
+-- update trigger for ModelMigrationMinionSync
 CREATE TRIGGER trg_log_model_migration_minion_sync_update
 AFTER UPDATE ON model_migration_minion_sync FOR EACH ROW
 WHEN 
@@ -34,7 +36,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- ModelMigrationMinionSync for delete trigger
+-- delete trigger for ModelMigrationMinionSync
 CREATE TRIGGER trg_log_model_migration_minion_sync_delete
 AFTER DELETE ON model_migration_minion_sync FOR EACH ROW
 BEGIN
@@ -44,10 +46,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForModelMigrationStatus generates the triggers for the 
+// model_migration_status table.
 func ChangeLogTriggersForModelMigrationStatus(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- ModelMigrationStatus for insert trigger
+-- insert trigger for ModelMigrationStatus
 CREATE TRIGGER trg_log_model_migration_status_insert
 AFTER INSERT ON model_migration_status FOR EACH ROW
 BEGIN
@@ -55,7 +59,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- ModelMigrationStatus for update trigger
+-- update trigger for ModelMigrationStatus
 CREATE TRIGGER trg_log_model_migration_status_update
 AFTER UPDATE ON model_migration_status FOR EACH ROW
 WHEN 
@@ -70,7 +74,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- ModelMigrationStatus for delete trigger
+-- delete trigger for ModelMigrationStatus
 CREATE TRIGGER trg_log_model_migration_status_delete
 AFTER DELETE ON model_migration_status FOR EACH ROW
 BEGIN

@@ -9,10 +9,12 @@ import (
 )
 
 
+// ChangeLogTriggersForSubnet generates the triggers for the 
+// subnet table.
 func ChangeLogTriggersForSubnet(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- Subnet for insert trigger
+-- insert trigger for Subnet
 CREATE TRIGGER trg_log_subnet_insert
 AFTER INSERT ON subnet FOR EACH ROW
 BEGIN
@@ -20,7 +22,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- Subnet for update trigger
+-- update trigger for Subnet
 CREATE TRIGGER trg_log_subnet_update
 AFTER UPDATE ON subnet FOR EACH ROW
 WHEN 
@@ -33,7 +35,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- Subnet for delete trigger
+-- delete trigger for Subnet
 CREATE TRIGGER trg_log_subnet_delete
 AFTER DELETE ON subnet FOR EACH ROW
 BEGIN
@@ -43,10 +45,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForSubnetAssociation generates the triggers for the 
+// subnet_association table.
 func ChangeLogTriggersForSubnetAssociation(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- SubnetAssociation for insert trigger
+-- insert trigger for SubnetAssociation
 CREATE TRIGGER trg_log_subnet_association_insert
 AFTER INSERT ON subnet_association FOR EACH ROW
 BEGIN
@@ -54,7 +58,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- SubnetAssociation for update trigger
+-- update trigger for SubnetAssociation
 CREATE TRIGGER trg_log_subnet_association_update
 AFTER UPDATE ON subnet_association FOR EACH ROW
 WHEN 
@@ -65,7 +69,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- SubnetAssociation for delete trigger
+-- delete trigger for SubnetAssociation
 CREATE TRIGGER trg_log_subnet_association_delete
 AFTER DELETE ON subnet_association FOR EACH ROW
 BEGIN

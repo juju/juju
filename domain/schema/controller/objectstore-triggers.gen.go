@@ -9,10 +9,12 @@ import (
 )
 
 
+// ChangeLogTriggersForObjectStoreMetadataPath generates the triggers for the 
+// object_store_metadata_path table.
 func ChangeLogTriggersForObjectStoreMetadataPath(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- ObjectStoreMetadataPath for insert trigger
+-- insert trigger for ObjectStoreMetadataPath
 CREATE TRIGGER trg_log_object_store_metadata_path_insert
 AFTER INSERT ON object_store_metadata_path FOR EACH ROW
 BEGIN
@@ -20,7 +22,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- ObjectStoreMetadataPath for update trigger
+-- update trigger for ObjectStoreMetadataPath
 CREATE TRIGGER trg_log_object_store_metadata_path_update
 AFTER UPDATE ON object_store_metadata_path FOR EACH ROW
 WHEN 
@@ -30,7 +32,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- ObjectStoreMetadataPath for delete trigger
+-- delete trigger for ObjectStoreMetadataPath
 CREATE TRIGGER trg_log_object_store_metadata_path_delete
 AFTER DELETE ON object_store_metadata_path FOR EACH ROW
 BEGIN

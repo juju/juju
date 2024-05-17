@@ -16,8 +16,6 @@ import (
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/secret-triggers.gen.go -package=controller -tables=secret_backend_rotation
 //go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/model-triggers.gen.go -package=controller -tables=model
 
-type tableNamespaceID = int
-
 const (
 	tableExternalController tableNamespaceID = iota
 	tableControllerNode

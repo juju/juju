@@ -9,10 +9,12 @@ import (
 )
 
 
+// ChangeLogTriggersForModel generates the triggers for the 
+// model table.
 func ChangeLogTriggersForModel(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- Model for insert trigger
+-- insert trigger for Model
 CREATE TRIGGER trg_log_model_insert
 AFTER INSERT ON model FOR EACH ROW
 BEGIN
@@ -20,7 +22,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- Model for update trigger
+-- update trigger for Model
 CREATE TRIGGER trg_log_model_update
 AFTER UPDATE ON model FOR EACH ROW
 WHEN 
@@ -37,7 +39,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- Model for delete trigger
+-- delete trigger for Model
 CREATE TRIGGER trg_log_model_delete
 AFTER DELETE ON model FOR EACH ROW
 BEGIN

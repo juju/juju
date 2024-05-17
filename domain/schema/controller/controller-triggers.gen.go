@@ -9,10 +9,12 @@ import (
 )
 
 
+// ChangeLogTriggersForControllerConfig generates the triggers for the 
+// controller_config table.
 func ChangeLogTriggersForControllerConfig(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- ControllerConfig for insert trigger
+-- insert trigger for ControllerConfig
 CREATE TRIGGER trg_log_controller_config_insert
 AFTER INSERT ON controller_config FOR EACH ROW
 BEGIN
@@ -20,7 +22,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- ControllerConfig for update trigger
+-- update trigger for ControllerConfig
 CREATE TRIGGER trg_log_controller_config_update
 AFTER UPDATE ON controller_config FOR EACH ROW
 WHEN 
@@ -30,7 +32,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- ControllerConfig for delete trigger
+-- delete trigger for ControllerConfig
 CREATE TRIGGER trg_log_controller_config_delete
 AFTER DELETE ON controller_config FOR EACH ROW
 BEGIN
@@ -40,10 +42,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForControllerNode generates the triggers for the 
+// controller_node table.
 func ChangeLogTriggersForControllerNode(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- ControllerNode for insert trigger
+-- insert trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_insert
 AFTER INSERT ON controller_node FOR EACH ROW
 BEGIN
@@ -51,7 +55,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- ControllerNode for update trigger
+-- update trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_update
 AFTER UPDATE ON controller_node FOR EACH ROW
 WHEN 
@@ -62,7 +66,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- ControllerNode for delete trigger
+-- delete trigger for ControllerNode
 CREATE TRIGGER trg_log_controller_node_delete
 AFTER DELETE ON controller_node FOR EACH ROW
 BEGIN

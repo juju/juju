@@ -9,10 +9,12 @@ import (
 )
 
 
+// ChangeLogTriggersForBlockDevice generates the triggers for the 
+// block_device table.
 func ChangeLogTriggersForBlockDevice(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- BlockDevice for insert trigger
+-- insert trigger for BlockDevice
 CREATE TRIGGER trg_log_block_device_insert
 AFTER INSERT ON block_device FOR EACH ROW
 BEGIN
@@ -20,7 +22,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- BlockDevice for update trigger
+-- update trigger for BlockDevice
 CREATE TRIGGER trg_log_block_device_update
 AFTER UPDATE ON block_device FOR EACH ROW
 WHEN 
@@ -41,7 +43,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- BlockDevice for delete trigger
+-- delete trigger for BlockDevice
 CREATE TRIGGER trg_log_block_device_delete
 AFTER DELETE ON block_device FOR EACH ROW
 BEGIN
@@ -51,10 +53,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForStorageAttachment generates the triggers for the 
+// storage_attachment table.
 func ChangeLogTriggersForStorageAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- StorageAttachment for insert trigger
+-- insert trigger for StorageAttachment
 CREATE TRIGGER trg_log_storage_attachment_insert
 AFTER INSERT ON storage_attachment FOR EACH ROW
 BEGIN
@@ -62,7 +66,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- StorageAttachment for update trigger
+-- update trigger for StorageAttachment
 CREATE TRIGGER trg_log_storage_attachment_update
 AFTER UPDATE ON storage_attachment FOR EACH ROW
 WHEN 
@@ -73,7 +77,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- StorageAttachment for delete trigger
+-- delete trigger for StorageAttachment
 CREATE TRIGGER trg_log_storage_attachment_delete
 AFTER DELETE ON storage_attachment FOR EACH ROW
 BEGIN
@@ -83,10 +87,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForStorageFilesystem generates the triggers for the 
+// storage_filesystem table.
 func ChangeLogTriggersForStorageFilesystem(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- StorageFilesystem for insert trigger
+-- insert trigger for StorageFilesystem
 CREATE TRIGGER trg_log_storage_filesystem_insert
 AFTER INSERT ON storage_filesystem FOR EACH ROW
 BEGIN
@@ -94,7 +100,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- StorageFilesystem for update trigger
+-- update trigger for StorageFilesystem
 CREATE TRIGGER trg_log_storage_filesystem_update
 AFTER UPDATE ON storage_filesystem FOR EACH ROW
 WHEN 
@@ -108,7 +114,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- StorageFilesystem for delete trigger
+-- delete trigger for StorageFilesystem
 CREATE TRIGGER trg_log_storage_filesystem_delete
 AFTER DELETE ON storage_filesystem FOR EACH ROW
 BEGIN
@@ -118,10 +124,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForStorageFilesystemAttachment generates the triggers for the 
+// storage_filesystem_attachment table.
 func ChangeLogTriggersForStorageFilesystemAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- StorageFilesystemAttachment for insert trigger
+-- insert trigger for StorageFilesystemAttachment
 CREATE TRIGGER trg_log_storage_filesystem_attachment_insert
 AFTER INSERT ON storage_filesystem_attachment FOR EACH ROW
 BEGIN
@@ -129,7 +137,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- StorageFilesystemAttachment for update trigger
+-- update trigger for StorageFilesystemAttachment
 CREATE TRIGGER trg_log_storage_filesystem_attachment_update
 AFTER UPDATE ON storage_filesystem_attachment FOR EACH ROW
 WHEN 
@@ -144,7 +152,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- StorageFilesystemAttachment for delete trigger
+-- delete trigger for StorageFilesystemAttachment
 CREATE TRIGGER trg_log_storage_filesystem_attachment_delete
 AFTER DELETE ON storage_filesystem_attachment FOR EACH ROW
 BEGIN
@@ -154,10 +162,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForStorageVolume generates the triggers for the 
+// storage_volume table.
 func ChangeLogTriggersForStorageVolume(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- StorageVolume for insert trigger
+-- insert trigger for StorageVolume
 CREATE TRIGGER trg_log_storage_volume_insert
 AFTER INSERT ON storage_volume FOR EACH ROW
 BEGIN
@@ -165,7 +175,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- StorageVolume for update trigger
+-- update trigger for StorageVolume
 CREATE TRIGGER trg_log_storage_volume_update
 AFTER UPDATE ON storage_volume FOR EACH ROW
 WHEN 
@@ -183,7 +193,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- StorageVolume for delete trigger
+-- delete trigger for StorageVolume
 CREATE TRIGGER trg_log_storage_volume_delete
 AFTER DELETE ON storage_volume FOR EACH ROW
 BEGIN
@@ -193,10 +203,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForStorageVolumeAttachment generates the triggers for the 
+// storage_volume_attachment table.
 func ChangeLogTriggersForStorageVolumeAttachment(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- StorageVolumeAttachment for insert trigger
+-- insert trigger for StorageVolumeAttachment
 CREATE TRIGGER trg_log_storage_volume_attachment_insert
 AFTER INSERT ON storage_volume_attachment FOR EACH ROW
 BEGIN
@@ -204,7 +216,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- StorageVolumeAttachment for update trigger
+-- update trigger for StorageVolumeAttachment
 CREATE TRIGGER trg_log_storage_volume_attachment_update
 AFTER UPDATE ON storage_volume_attachment FOR EACH ROW
 WHEN 
@@ -219,7 +231,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- StorageVolumeAttachment for delete trigger
+-- delete trigger for StorageVolumeAttachment
 CREATE TRIGGER trg_log_storage_volume_attachment_delete
 AFTER DELETE ON storage_volume_attachment FOR EACH ROW
 BEGIN
@@ -229,10 +241,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForStorageVolumeAttachmentPlan generates the triggers for the 
+// storage_volume_attachment_plan table.
 func ChangeLogTriggersForStorageVolumeAttachmentPlan(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- StorageVolumeAttachmentPlan for insert trigger
+-- insert trigger for StorageVolumeAttachmentPlan
 CREATE TRIGGER trg_log_storage_volume_attachment_plan_insert
 AFTER INSERT ON storage_volume_attachment_plan FOR EACH ROW
 BEGIN
@@ -240,7 +254,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- StorageVolumeAttachmentPlan for update trigger
+-- update trigger for StorageVolumeAttachmentPlan
 CREATE TRIGGER trg_log_storage_volume_attachment_plan_update
 AFTER UPDATE ON storage_volume_attachment_plan FOR EACH ROW
 WHEN 
@@ -255,7 +269,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- StorageVolumeAttachmentPlan for delete trigger
+-- delete trigger for StorageVolumeAttachmentPlan
 CREATE TRIGGER trg_log_storage_volume_attachment_plan_delete
 AFTER DELETE ON storage_volume_attachment_plan FOR EACH ROW
 BEGIN

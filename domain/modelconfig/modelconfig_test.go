@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
 
@@ -47,8 +48,8 @@ func (s *modelconfigSuite) TestWatch(c *gc.C) {
 	st := state.NewState(s.TxnRunnerFactory())
 	factory := domain.NewWatcherFactory(
 		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "uuid"),
-		jujutesting.NewCheckLogger(c))
-	svc := service.NewWatchableService(defaults, st, factory)
+		loggertesting.WrapCheckLog(c))
+	svc := service.NewWatchableService(defaults, config.ModelValidator(), st, factory)
 
 	watcher, err := svc.Watch()
 	c.Assert(err, jc.ErrorIsNil)

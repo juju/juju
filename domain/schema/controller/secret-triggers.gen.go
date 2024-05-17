@@ -9,10 +9,12 @@ import (
 )
 
 
+// ChangeLogTriggersForSecretBackendRotation generates the triggers for the 
+// secret_backend_rotation table.
 func ChangeLogTriggersForSecretBackendRotation(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- SecretBackendRotation for insert trigger
+-- insert trigger for SecretBackendRotation
 CREATE TRIGGER trg_log_secret_backend_rotation_insert
 AFTER INSERT ON secret_backend_rotation FOR EACH ROW
 BEGIN
@@ -20,7 +22,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- SecretBackendRotation for update trigger
+-- update trigger for SecretBackendRotation
 CREATE TRIGGER trg_log_secret_backend_rotation_update
 AFTER UPDATE ON secret_backend_rotation FOR EACH ROW
 WHEN 
@@ -30,7 +32,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- SecretBackendRotation for delete trigger
+-- delete trigger for SecretBackendRotation
 CREATE TRIGGER trg_log_secret_backend_rotation_delete
 AFTER DELETE ON secret_backend_rotation FOR EACH ROW
 BEGIN

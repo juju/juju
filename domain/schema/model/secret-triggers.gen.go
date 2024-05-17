@@ -9,10 +9,12 @@ import (
 )
 
 
+// ChangeLogTriggersForSecretMetadata generates the triggers for the 
+// secret_metadata table.
 func ChangeLogTriggersForSecretMetadata(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- SecretMetadata for insert trigger
+-- insert trigger for SecretMetadata
 CREATE TRIGGER trg_log_secret_metadata_insert
 AFTER INSERT ON secret_metadata FOR EACH ROW
 BEGIN
@@ -20,7 +22,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- SecretMetadata for update trigger
+-- update trigger for SecretMetadata
 CREATE TRIGGER trg_log_secret_metadata_update
 AFTER UPDATE ON secret_metadata FOR EACH ROW
 WHEN 
@@ -35,7 +37,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- SecretMetadata for delete trigger
+-- delete trigger for SecretMetadata
 CREATE TRIGGER trg_log_secret_metadata_delete
 AFTER DELETE ON secret_metadata FOR EACH ROW
 BEGIN
@@ -45,10 +47,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForSecretReference generates the triggers for the 
+// secret_reference table.
 func ChangeLogTriggersForSecretReference(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- SecretReference for insert trigger
+-- insert trigger for SecretReference
 CREATE TRIGGER trg_log_secret_reference_insert
 AFTER INSERT ON secret_reference FOR EACH ROW
 BEGIN
@@ -56,7 +60,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- SecretReference for update trigger
+-- update trigger for SecretReference
 CREATE TRIGGER trg_log_secret_reference_update
 AFTER UPDATE ON secret_reference FOR EACH ROW
 WHEN 
@@ -66,7 +70,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- SecretReference for delete trigger
+-- delete trigger for SecretReference
 CREATE TRIGGER trg_log_secret_reference_delete
 AFTER DELETE ON secret_reference FOR EACH ROW
 BEGIN
@@ -76,10 +80,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForSecretRevision generates the triggers for the 
+// secret_revision table.
 func ChangeLogTriggersForSecretRevision(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- SecretRevision for insert trigger
+-- insert trigger for SecretRevision
 CREATE TRIGGER trg_log_secret_revision_insert
 AFTER INSERT ON secret_revision FOR EACH ROW
 BEGIN
@@ -87,7 +93,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- SecretRevision for update trigger
+-- update trigger for SecretRevision
 CREATE TRIGGER trg_log_secret_revision_update
 AFTER UPDATE ON secret_revision FOR EACH ROW
 WHEN 
@@ -99,7 +105,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- SecretRevision for delete trigger
+-- delete trigger for SecretRevision
 CREATE TRIGGER trg_log_secret_revision_delete
 AFTER DELETE ON secret_revision FOR EACH ROW
 BEGIN
@@ -109,10 +115,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForSecretRevisionExpire generates the triggers for the 
+// secret_revision_expire table.
 func ChangeLogTriggersForSecretRevisionExpire(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- SecretRevisionExpire for insert trigger
+-- insert trigger for SecretRevisionExpire
 CREATE TRIGGER trg_log_secret_revision_expire_insert
 AFTER INSERT ON secret_revision_expire FOR EACH ROW
 BEGIN
@@ -120,7 +128,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- SecretRevisionExpire for update trigger
+-- update trigger for SecretRevisionExpire
 CREATE TRIGGER trg_log_secret_revision_expire_update
 AFTER UPDATE ON secret_revision_expire FOR EACH ROW
 WHEN 
@@ -130,7 +138,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- SecretRevisionExpire for delete trigger
+-- delete trigger for SecretRevisionExpire
 CREATE TRIGGER trg_log_secret_revision_expire_delete
 AFTER DELETE ON secret_revision_expire FOR EACH ROW
 BEGIN
@@ -140,10 +148,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForSecretRevisionObsolete generates the triggers for the 
+// secret_revision_obsolete table.
 func ChangeLogTriggersForSecretRevisionObsolete(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- SecretRevisionObsolete for insert trigger
+-- insert trigger for SecretRevisionObsolete
 CREATE TRIGGER trg_log_secret_revision_obsolete_insert
 AFTER INSERT ON secret_revision_obsolete FOR EACH ROW
 BEGIN
@@ -151,7 +161,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- SecretRevisionObsolete for update trigger
+-- update trigger for SecretRevisionObsolete
 CREATE TRIGGER trg_log_secret_revision_obsolete_update
 AFTER UPDATE ON secret_revision_obsolete FOR EACH ROW
 WHEN 
@@ -162,7 +172,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- SecretRevisionObsolete for delete trigger
+-- delete trigger for SecretRevisionObsolete
 CREATE TRIGGER trg_log_secret_revision_obsolete_delete
 AFTER DELETE ON secret_revision_obsolete FOR EACH ROW
 BEGIN
@@ -172,10 +182,12 @@ END;`, columnName, namespaceID))
 	}
 }
 
+// ChangeLogTriggersForSecretRotation generates the triggers for the 
+// secret_rotation table.
 func ChangeLogTriggersForSecretRotation(columnName string, namespaceID int) func() schema.Patch {
 	return func() schema.Patch {
 		return schema.MakePatch(fmt.Sprintf(`
--- SecretRotation for insert trigger
+-- insert trigger for SecretRotation
 CREATE TRIGGER trg_log_secret_rotation_insert
 AFTER INSERT ON secret_rotation FOR EACH ROW
 BEGIN
@@ -183,7 +195,7 @@ BEGIN
     VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
 END;
 
--- SecretRotation for update trigger
+-- update trigger for SecretRotation
 CREATE TRIGGER trg_log_secret_rotation_update
 AFTER UPDATE ON secret_rotation FOR EACH ROW
 WHEN 
@@ -193,7 +205,7 @@ BEGIN
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
 END;
 
--- SecretRotation for delete trigger
+-- delete trigger for SecretRotation
 CREATE TRIGGER trg_log_secret_rotation_delete
 AFTER DELETE ON secret_rotation FOR EACH ROW
 BEGIN
