@@ -21,12 +21,31 @@ run_deploy_charm_placement_directive() {
 
 	ensure "test-deploy-charm-placement-directive" "${file}"
 
-	juju add-machine --base ubuntu@20.04
-	juju deploy jameinel-ubuntu-lite --to 0
+	expected_base="ubuntu@20.04"
+	# Setup machines for placement based on provider used for test.
+	# Container in container doesn't work consistently enough,
+	# for test. Use kvm via lxc instead.
+	if [[ ${BOOTSTRAP_PROVIDER} == "lxd" ]] || [[ ${BOOTSTRAP_PROVIDER} == "localhost" ]]; then
+		juju add-machine --base "${expected_base}" --constraints="virt-type=virtual-machine"
+	else
+		juju add-machine --base "${expected_base}"
+	fi
+
+	juju add-machine lxd:0 --base "${expected_base}"
+
+	# If 0/lxd/0 is started, so must machine 0 be.
+	wait_for_container_agent_status "0/lxd/0" "started"
+
+	juju deploy ubuntu-lite -n 2 --to 0,0/lxd/0
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
-	destroy_model "test-deploy-charm-placement-directive"
+	# Verify based used to create the machines was used during
+	# deploy.
+	base_name=$(juju status --format=json | jq -r '.applications."ubuntu-lite".base.name')
+	base_chan=$(juju status --format=json | jq -r '.applications."ubuntu-lite".base.channel')
+	echo "$base_name@$base_chan" | check "$expected_base"
 
+	destroy_model "test-deploy-charm-placement-directive"
 }
 
 run_deploy_charm_unsupported_series() {
@@ -57,10 +76,10 @@ run_deploy_specific_series() {
 	# Have to check against default base, to avoid false positives.
 	# These two bases should be different.
 	default_base="ubuntu@22.04"
-	specific_base="ubuntu@20.04"
+	expected_base="ubuntu@20.04"
 
 	juju deploy "$charm_name" app1
-	juju deploy "$charm_name" app2 --base "$specific_base"
+	juju deploy "$charm_name" app2 --base "$expected_base"
 	base_name1=$(juju status --format=json | jq -r ".applications.app1.base.name")
 	base_chan1=$(juju status --format=json | jq -r ".applications.app1.base.channel")
 	base_name2=$(juju status --format=json | jq -r ".applications.app2.base.name")
@@ -69,7 +88,7 @@ run_deploy_specific_series() {
 	destroy_model "test-deploy-specific-series"
 
 	echo "$base_name1@$base_chan1" | check "$default_base"
-	echo "$base_name2@$base_chan2" | check "$specific_base"
+	echo "$base_name2@$base_chan2" | check "$expected_base"
 }
 
 run_deploy_lxd_profile_charm() {

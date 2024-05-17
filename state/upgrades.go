@@ -9,6 +9,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 
 	"github.com/juju/juju/core/charm"
+	"github.com/juju/juju/core/container"
 )
 
 // Until we add 3.0 upgrade steps, keep static analysis happy.
@@ -125,6 +126,62 @@ func FillInEmptyCharmhubTracks(pool *StatePool) error {
 				Update: bson.M{"$set": bson.M{"charm-origin.channel.track": "latest"}},
 			})
 		}
+		if len(ops) > 0 {
+			return errors.Trace(st.runRawTransaction(ops))
+		}
+		return nil
+	}))
+}
+
+// AssignArchToContainers assigns an architecture to container
+// instance data based on their host.
+func AssignArchToContainers(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		instData, closer := st.db().GetCollection(instanceDataC)
+		defer closer()
+
+		var containers []instanceData
+		if err := instData.Find(bson.M{"machineid": bson.M{"$regex": "[0-9]+/[a-z]+/[0-9]+"}}).All(&containers); err != nil {
+			return errors.Annotatef(err, "failed to read container instance data")
+		}
+		// Nothing to do if no containers in the model.
+		if len(containers) == 0 {
+			return nil
+		}
+
+		var machines []instanceData
+		if err := instData.Find(bson.D{{"machineid", bson.D{{"$regex", "^[0-9]+$"}}}}).All(&machines); err != nil {
+			return errors.Annotatef(err, "failed to read machine instance data")
+		}
+
+		machineArch := make(map[string]string, len(machines))
+
+		for _, machine := range machines {
+			if machine.Arch == nil {
+				logger.Errorf("no architecture for machine %q", machine.MachineId)
+			}
+			machineArch[machine.MachineId] = *machine.Arch
+		}
+
+		var ops []txn.Op
+		for _, cont := range containers {
+			if cont.Arch != nil {
+				continue
+			}
+			mID := container.ParentId(cont.MachineId)
+			a, ok := machineArch[mID]
+			if !ok {
+				logger.Errorf("no instance data for machine %q, but has container %q", mID, cont.MachineId)
+				continue
+			}
+			ops = append(ops, txn.Op{
+				C:      instanceDataC,
+				Id:     cont.DocID,
+				Assert: txn.DocExists,
+				Update: bson.M{"$set": bson.M{"arch": &a}},
+			})
+		}
+
 		if len(ops) > 0 {
 			return errors.Trace(st.runRawTransaction(ops))
 		}

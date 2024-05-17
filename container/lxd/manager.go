@@ -141,7 +141,9 @@ func (m *containerManager) CreateContainer(
 	_ = callback(status.Running, "Container started", nil)
 
 	virtType := string(spec.VirtType)
+	arch := c.Arch()
 	hardware := &instance.HardwareCharacteristics{
+		Arch:             &arch,
 		AvailabilityZone: &m.availabilityZone,
 		VirtType:         &virtType,
 	}

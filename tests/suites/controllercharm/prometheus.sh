@@ -67,14 +67,13 @@ run_prometheus_multiple_units() {
 	juju status --format json | jq -r "$(active_condition "p2" 1)" | check "p2"
 
 	juju remove-relation p1 controller
-	# Wait until the application p1 settles before health checks
-	wait_for "p1" "$(active_condition "p1" 0)"
 
 	# Check Juju controller is removed from Prometheus targets
 	retry 'check_prometheus_no_target p1 0' 5
 	# Check no errors in controller charm or Prometheus
 	juju status -m controller --format json | jq -r "$(active_condition "controller")" | check "controller"
-	juju status --format json | jq -r "$(active_condition "p1" 0)" | check "p1"
+	# Ensure p1 is still healty
+	wait_for "p1" "$(active_condition "p1" 0)"
 
 	juju remove-application p1 --destroy-storage \
 		--force --no-wait # TODO: remove these flags once storage bug is fixed

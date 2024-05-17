@@ -12,6 +12,7 @@ import (
 // StateBackend provides an interface for upgrading the global state database.
 type StateBackend interface {
 	FillInEmptyCharmhubTracks() error
+	AssignArchToContainers() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -32,4 +33,8 @@ type stateBackend struct {
 
 func (s stateBackend) FillInEmptyCharmhubTracks() error {
 	return state.FillInEmptyCharmhubTracks(s.pool)
+}
+
+func (s stateBackend) AssignArchToContainers() error {
+	return state.AssignArchToContainers(s.pool)
 }
