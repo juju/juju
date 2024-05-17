@@ -8,7 +8,13 @@ import (
 	"github.com/juju/juju/domain/schema/controller"
 )
 
-//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/triggers.gen.go -package=controller -tables=cloud,cloud_credential,external_controller,controller_config,controller_node,model_migration_status,model_migration_minion_sync,upgrade_info,upgrade_info_controller_node,object_store_metadata_path,secret_backend_rotation,model
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/cloud-triggers.gen.go -package=controller -tables=cloud,cloud_credential,external_controller
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/controller-triggers.gen.go -package=controller -tables=controller_config,controller_node
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/migration-triggers.gen.go -package=controller -tables=model_migration_status,model_migration_minion_sync
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/upgrade-triggers.gen.go -package=controller -tables=upgrade_info,upgrade_info_controller_node
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/objectstore-triggers.gen.go -package=controller -tables=object_store_metadata_path
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/secret-triggers.gen.go -package=controller -tables=secret_backend_rotation
+//go:generate go run ./../../generate/triggergen -db=controller -destination=./controller/model-triggers.gen.go -package=controller -tables=model
 
 type tableNamespaceID = int
 

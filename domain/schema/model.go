@@ -10,7 +10,11 @@ import (
 	"github.com/juju/juju/domain/schema/model"
 )
 
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers.gen.go -package=model -tables=block_device,model_config,object_store_metadata_path,storage_attachment,storage_filesystem,storage_filesystem_attachment,storage_volume,storage_volume_attachment,storage_volume_attachment_plan,secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_revision,secret_reference,subnet,subnet_association
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/storage-triggers.gen.go -package=model -tables=block_device,storage_attachment,storage_filesystem,storage_filesystem_attachment,storage_volume,storage_volume_attachment,storage_volume_attachment_plan
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/model-triggers.gen.go -package=model -tables=model_config
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/objectstore-triggers.gen.go -package=model -tables=object_store_metadata_path
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/secret-triggers.gen.go -package=model -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_revision,secret_reference
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/network-triggers.gen.go -package=model -tables=subnet,subnet_association
 
 const (
 	tableModelConfig tableNamespaceID = iota
