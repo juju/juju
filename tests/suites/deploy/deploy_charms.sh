@@ -36,7 +36,7 @@ run_deploy_charm_placement_directive() {
 	# If 0/lxd/0 is started, so must machine 0 be.
 	wait_for_container_agent_status "0/lxd/0" "started"
 
-	juju deploy ubuntu-lite -n 2 --to 0,0/lxd/0
+	juju deploy jameinel-ubuntu-lite -n 2 --to 0,0/lxd/0
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
 	# Verify based used to create the machines was used during
