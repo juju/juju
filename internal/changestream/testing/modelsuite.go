@@ -4,10 +4,13 @@
 package testing
 
 import (
+	"time"
+
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/domain/schema/testing"
+	jujutesting "github.com/juju/juju/testing"
 )
 
 // ModelSuite is used to provide a sql.DB reference to tests.
@@ -40,4 +43,21 @@ func (s *ModelSuite) TearDownTest(c *gc.C) {
 // GetWatchableDB allows the ModelSuite to be a WatchableDBGetter
 func (s *ModelSuite) GetWatchableDB(namespace string) (changestream.WatchableDB, error) {
 	return s.watchableDB, nil
+}
+
+// AssertChangeStreamIdle returns if and when the change stream is idle.
+// This is useful to ensure that the change stream is not processing any
+// events before running a test.
+func (s *ModelSuite) AssertChangeStreamIdle(c *gc.C) {
+	timeout := time.After(jujutesting.LongWait)
+	for {
+		select {
+		case state := <-s.watchableDB.states:
+			if state == stateNoMoreChanges {
+				return
+			}
+		case <-timeout:
+			c.Fatalf("timed out waiting for idle state")
+		}
+	}
 }

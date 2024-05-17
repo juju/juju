@@ -22,6 +22,12 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
+const (
+	// This is copied from the internal/changestream/stream/stream.go file.
+	// This is so we don't expose the state name outside of the package.
+	stateNoMoreChanges = "no-more-changes"
+)
+
 // TestWatchableDB creates a watchable DB for running the ChangeStream
 // implementation for use inside of tests. This doesn't use the dependency
 // engine and creates a catacomb for managing the lifecycle of the
@@ -32,13 +38,17 @@ type TestWatchableDB struct {
 	db     database.TxnRunner
 	stream *stream.Stream
 	mux    *eventmultiplexer.EventMultiplexer
+
+	states chan string
 }
 
 // NewTestWatchableDB creates a test changestream based on the id and
 // runnner.
 func NewTestWatchableDB(c *gc.C, id string, db database.TxnRunner) *TestWatchableDB {
+	states := make(chan string, 1)
+
 	logger := loggertesting.WrapCheckLog(c)
-	stream := stream.New(id, db, newNoopFileWatcher(), clock.WallClock, noopMetrics{}, logger)
+	stream := stream.NewInternalStates(id, db, newNoopFileWatcher(), clock.WallClock, noopMetrics{}, logger, states)
 	mux, err := eventmultiplexer.New(stream, clock.WallClock, noopMetrics{}, logger)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -46,6 +56,7 @@ func NewTestWatchableDB(c *gc.C, id string, db database.TxnRunner) *TestWatchabl
 		db:     db,
 		stream: stream,
 		mux:    mux,
+		states: states,
 	}
 
 	err = catacomb.Invoke(catacomb.Plan{
