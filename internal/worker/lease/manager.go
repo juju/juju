@@ -205,17 +205,25 @@ func (manager *Manager) choose(ctx context.Context, blocks blocks) error {
 
 	case claim := <-manager.claims:
 		manager.startingClaim()
-		go manager.retryingClaim(ctx, claim)
+		go manager.withTrace(ctx, "claim", func() {
+			manager.retryingClaim(ctx, claim)
+		})
 
 	case revoke := <-manager.revokes:
 		manager.startingRevoke()
-		go manager.retryingRevoke(ctx, revoke)
+		go manager.withTrace(ctx, "revoke", func() {
+			manager.retryingRevoke(ctx, revoke)
+		})
 
 	case pin := <-manager.pins:
-		manager.handlePin(ctx, pin)
+		manager.withTrace(ctx, "pin", func() {
+			manager.handlePin(ctx, pin)
+		})
 
 	case unpin := <-manager.unpins:
-		manager.handleUnpin(ctx, unpin)
+		manager.withTrace(ctx, "unpin", func() {
+			manager.handleUnpin(ctx, unpin)
+		})
 
 	case block := <-manager.blocks:
 		manager.config.Logger.Tracef("[%s] adding block for: %s", manager.logContext, block.leaseKey.Lease)
@@ -272,15 +280,6 @@ func (manager *Manager) retryingClaim(ctx context.Context, claim claim) {
 		err     error
 		success bool
 	)
-
-	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
-		trace.StringAttr("namespace.worker", "lease"),
-		trace.StringAttr("namespace.action", "handle-claim"),
-	))
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
 
 	for a := manager.startRetry(); a.Next(); {
 		var act action
@@ -392,6 +391,23 @@ func (manager *Manager) handleClaim(ctx context.Context, claim claim) (action, b
 	return act, true, nil
 }
 
+func (manager *Manager) withTrace(ctx context.Context, action string, fn func()) {
+	var err error
+
+	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
+		trace.StringAttr("namespace.worker", "lease"),
+		trace.StringAttr("namespace.action", "handle-"+action),
+	))
+	defer func() {
+		span.RecordError(err)
+		span.End()
+	}()
+
+	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, trace.TraceIDFromContext(ctx)), func(ctx context.Context) {
+		fn()
+	})
+}
+
 // retryingRevoke handles timeouts when revoking, and responds to the
 // revoking party when it eventually succeeds or fails, or if it times
 // out after a number of retries.
@@ -399,16 +415,6 @@ func (manager *Manager) retryingRevoke(ctx context.Context, revoke revoke) {
 	defer manager.finishedRevoke()
 
 	var err error
-
-	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
-		trace.StringAttr("namespace.worker", "lease"),
-		trace.StringAttr("namespace.action", "handle-revoke"),
-	))
-	defer func() {
-		span.RecordError(err)
-		span.End()
-	}()
-
 	for a := manager.startRetry(); a.Next(); {
 		err = manager.handleRevoke(ctx, revoke)
 		if isFatalRetryError(err) {
@@ -641,22 +647,10 @@ func (manager *Manager) startRetry() *retry.Attempt {
 }
 
 func (manager *Manager) handlePin(ctx context.Context, p pin) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
-		trace.StringAttr("namespace.worker", "lease"),
-		trace.StringAttr("namespace.action", "handle-pin"),
-	))
-	defer span.End()
-
 	p.respond(errors.Trace(manager.config.Store.PinLease(ctx, p.leaseKey, p.entity)))
 }
 
 func (manager *Manager) handleUnpin(ctx context.Context, p pin) {
-	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
-		trace.StringAttr("namespace.worker", "lease"),
-		trace.StringAttr("namespace.action", "handle-unpin"),
-	))
-	defer span.End()
-
 	p.respond(errors.Trace(manager.config.Store.UnpinLease(ctx, p.leaseKey, p.entity)))
 }
 

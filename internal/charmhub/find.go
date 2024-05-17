@@ -6,6 +6,7 @@ package charmhub
 import (
 	"context"
 	"net/http"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/juju/errors"
@@ -101,7 +102,7 @@ func newFindClient(path path.Path, client RESTClient, logger corelogger.Logger) 
 }
 
 // Find searches Charm Hub and provides results matching a string.
-func (c *findClient) Find(ctx context.Context, query string, options ...FindOption) (_ []transport.FindResponse, err error) {
+func (c *findClient) Find(ctx context.Context, query string, options ...FindOption) (result []transport.FindResponse, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
 		trace.StringAttr("charmhub.query", query),
 		trace.StringAttr("charmhub.request", "find"),
@@ -111,6 +112,13 @@ func (c *findClient) Find(ctx context.Context, query string, options ...FindOpti
 		span.End()
 	}()
 
+	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, span.Scope().TraceID()), func(ctx context.Context) {
+		result, err = c.find(ctx, query, options...)
+	})
+	return
+}
+
+func (c *findClient) find(ctx context.Context, query string, options ...FindOption) ([]transport.FindResponse, error) {
 	opts := newFindOptions()
 	for _, option := range options {
 		option(opts)

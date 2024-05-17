@@ -98,6 +98,12 @@ func ScopeFromContext(ctx context.Context) (string, string, int) {
 	return traceID, spanID, flags
 }
 
+// TraceIDFromContext returns the traceID from the context.
+func TraceIDFromContext(ctx context.Context) string {
+	traceID, _ := ctx.Value(traceIDContextKey).(string)
+	return traceID
+}
+
 // NoopTracer is a tracer that does nothing.
 type NoopTracer struct{}
 

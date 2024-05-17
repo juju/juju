@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"runtime/pprof"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/names/v5"
@@ -178,15 +179,19 @@ func (fc facadeCaller) FacadeCall(ctx context.Context, request string, params, r
 		span.End()
 	}()
 
-	if scope := span.Scope(); scope.TraceID() != "" && scope.SpanID() != "" {
+	scope := span.Scope()
+	if scope.TraceID() != "" && scope.SpanID() != "" {
 		ctx = rpc.WithTracing(ctx, scope.TraceID(), scope.SpanID(), scope.TraceFlags())
 	}
 
-	return fc.caller.APICall(
-		ctx,
-		fc.facadeName, fc.bestVersion, "",
-		request, params, response,
-	)
+	pprof.Do(ctx, pprof.Labels(coretrace.OTELTraceID, scope.TraceID()), func(ctx context.Context) {
+		err = fc.caller.APICall(
+			ctx,
+			fc.facadeName, fc.bestVersion, "",
+			request, params, response,
+		)
+	})
+	return
 }
 
 // Name returns the facade name.

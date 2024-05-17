@@ -6,6 +6,7 @@ package charmhub
 import (
 	"context"
 	"net/http"
+	"runtime/pprof"
 	"strings"
 
 	"github.com/juju/errors"
@@ -53,7 +54,7 @@ func newInfoClient(path path.Path, client RESTClient, logger corelogger.Logger) 
 
 // Info requests the information of a given charm. If that charm doesn't exist
 // an error stating that fact will be returned.
-func (c *infoClient) Info(ctx context.Context, name string, options ...InfoOption) (_ transport.InfoResponse, err error) {
+func (c *infoClient) Info(ctx context.Context, name string, options ...InfoOption) (resp transport.InfoResponse, err error) {
 	ctx, span := trace.Start(ctx, trace.NameFromFunc(), trace.WithAttributes(
 		trace.StringAttr("charmhub.name", name),
 		trace.StringAttr("charmhub.request", "info"),
@@ -63,6 +64,13 @@ func (c *infoClient) Info(ctx context.Context, name string, options ...InfoOptio
 		span.End()
 	}()
 
+	pprof.Do(ctx, pprof.Labels(trace.OTELTraceID, span.Scope().TraceID()), func(ctx context.Context) {
+		resp, err = c.info(ctx, name, options...)
+	})
+	return
+}
+
+func (c *infoClient) info(ctx context.Context, name string, options ...InfoOption) (transport.InfoResponse, error) {
 	opts := newInfoOptions()
 	for _, option := range options {
 		option(opts)
