@@ -32,7 +32,7 @@ func (d *dummyModelState) Create(ctx context.Context, args model.ReadOnlyModelCr
 	return nil
 }
 
-func (d *dummyModelState) Get(ctx context.Context, id coremodel.UUID) (coremodel.Model, error) {
+func (d *dummyModelState) GetModel(ctx context.Context, id coremodel.UUID) (coremodel.Model, error) {
 	args, exists := d.models[id]
 	if !exists {
 		return coremodel.Model{}, modelerrors.NotFound
