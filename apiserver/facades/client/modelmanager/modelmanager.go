@@ -258,11 +258,9 @@ func (m *ModelManagerAPI) createModelNew(
 	// if there was an error. If a failure to rollback occurs, then the endpoint
 	// should at least be somewhat idempotent.
 
-	modelUUID := coremodel.UUID(uuid)
 	creationArgs := model.ModelCreationArgs{
 		CloudRegion: args.CloudRegion,
 		Name:        args.Name,
-		UUID:        modelUUID,
 	}
 
 	// We need to get the controller's default cloud and credential. To help
@@ -330,9 +328,9 @@ func (m *ModelManagerAPI) createModelNew(
 	}
 
 	// Create the model in the controller database.
-	activator, err := m.modelService.CreateModel(ctx, creationArgs)
+	modelID, activator, err := m.modelService.CreateModel(ctx, creationArgs)
 	if err != nil {
-		return errors.Annotatef(err, "failed to create model %q", modelUUID)
+		return errors.Annotatef(err, "failed to create model %q", modelID)
 	}
 
 	// We need to get the model service factory from the newly created model
@@ -342,27 +340,27 @@ func (m *ModelManagerAPI) createModelNew(
 
 	// We use the returned model UUID as we can guarantee that's the one that
 	// was written to the database.
-	modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelUUID)
+	modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelID)
 	modelInfoService := modelServiceFactory.ModelInfo()
 
 	modelConfigService := modelServiceFactory.Config()
 
 	if err := modelConfigService.SetModelConfig(ctx, args.Config); err != nil {
-		return errors.Annotatef(err, "failed to set model config for model %q", modelUUID)
+		return errors.Annotatef(err, "failed to set model config for model %q", modelID)
 	}
 
 	// TODO (stickupkid): Once tlm has fixed the CreateModel method to read
 	// from the model database to create the model, move the activator call
 	// to the end of the method.
 	if err := activator(ctx); err != nil {
-		return errors.Annotatef(err, "failed to finalise model %q", modelUUID)
+		return errors.Annotatef(err, "failed to finalise model %q", modelID)
 	}
 
 	// Create the model information in the model database. This information
 	// is read-only and is used for providers and brokers without the need
 	// to query the controller database.
 	if err := modelInfoService.CreateModel(ctx, m.controllerUUID); err != nil {
-		return errors.Annotatef(err, "failed to create model info for model %q", modelUUID)
+		return errors.Annotatef(err, "failed to create model info for model %q", modelID)
 	}
 
 	// Reload the substrate spaces for the newly created model.

@@ -237,9 +237,8 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		Cloud:        stateParams.ControllerCloud.Name,
 		CloudRegion:  stateParams.ControllerCloudRegion,
 		Credential:   credential.KeyFromTag(cloudCredTag),
-		UUID:         controllerModelUUID,
 	}
-	controllerModelCreateFunc := modelbootstrap.CreateModel(controllerModelArgs)
+	controllerModelCreateFunc := modelbootstrap.CreateModel(controllerModelUUID, controllerModelArgs)
 
 	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
 		nil,
@@ -262,8 +261,8 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 		secretbackendbootstrap.CreateDefaultBackends(model.ModelType(modelType)),
 		controllerModelCreateFunc,
-		modelbootstrap.CreateReadOnlyModel(controllerModelArgs.UUID, controllerUUID),
-		modelconfigbootstrap.SetModelConfig(controllerModelArgs.UUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),
+		modelbootstrap.CreateReadOnlyModel(controllerModelUUID, controllerUUID),
+		modelconfigbootstrap.SetModelConfig(controllerModelUUID, stateParams.ControllerModelConfig.AllAttrs(), controllerModelDefaults),
 	}
 	if !isCAAS {
 		// TODO(wallyworld) - this is just a placeholder for now

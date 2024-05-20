@@ -46,11 +46,10 @@ func RegisterImport(coordinator Coordinator, logger logger.Logger) {
 // ModelService defines the model service used to import models from another
 // controller to this one.
 type ModelService interface {
-	// CreateModel is responsible for creating a new model that is being
+	// ImportModel is responsible for creating a new model that is being
 	// imported.
-	CreateModel(context.Context, domainmodel.ModelCreationArgs) (func(context.Context) error, error)
-	// ModelType returns the type of the model.
-	ModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
+	ImportModel(context.Context, domainmodel.ModelImportArgs) (func(context.Context) error, error)
+
 	// DeleteModel is responsible for removing a model from the system.
 	DeleteModel(context.Context, coremodel.UUID, ...domainmodel.DeleteModelOption) error
 }
@@ -156,14 +155,16 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		credential.Owner = model.CloudCredential().Owner()
 	}
 
-	args := domainmodel.ModelCreationArgs{
-		AgentVersion: model.LatestToolsVersion(),
-		Cloud:        model.Cloud(),
-		CloudRegion:  model.CloudRegion(),
-		Credential:   credential,
-		Name:         modelName,
-		Owner:        user.UUID,
-		UUID:         modelID,
+	args := domainmodel.ModelImportArgs{
+		ModelCreationArgs: domainmodel.ModelCreationArgs{
+			AgentVersion: model.LatestToolsVersion(),
+			Cloud:        model.Cloud(),
+			CloudRegion:  model.CloudRegion(),
+			Credential:   credential,
+			Name:         modelName,
+			Owner:        user.UUID,
+		},
+		ID: modelID,
 	}
 
 	controllerConfig, err := i.controllerConfigService.ControllerConfig(ctx)
@@ -176,10 +177,10 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 
 	// NOTE: Try to get all things that can fail before creating the model in
 	// the database.
-	activator, err := i.modelService.CreateModel(ctx, args)
+	activator, err := i.modelService.ImportModel(ctx, args)
 	if err != nil {
 		return fmt.Errorf(
-			"importing model %q with uuid %q during migration: %w",
+			"importing model %q with id %q during migration: %w",
 			modelName, modelID, err,
 		)
 	}
@@ -206,7 +207,7 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 	}
 
 	// We need to establish the read only model information in the model database.
-	err = i.readOnlyModelServiceFunc(args.UUID).CreateModel(ctx, controllerUUID)
+	err = i.readOnlyModelServiceFunc(modelID).CreateModel(ctx, controllerUUID)
 	if err != nil {
 		return fmt.Errorf(
 			"importing read only model %q with uuid %q during migration: %w",

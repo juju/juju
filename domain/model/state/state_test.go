@@ -32,7 +32,10 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/domain/secretbackend/bootstrap"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/secrets/provider/juju"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/version"
 	jujuversion "github.com/juju/juju/version"
@@ -134,6 +137,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err = modelSt.Create(
 		context.Background(),
+		m.uuid,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -144,9 +148,9 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Name:  "my-test-model",
-			Owner: m.userUUID,
-			UUID:  m.uuid,
+			Name:          "my-test-model",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -212,6 +216,7 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 	// We need to first inject a model that does not have a cloud credential set
 	err = st.Create(
 		context.Background(),
+		modelUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -221,9 +226,9 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 				Owner: m.userName,
 				Name:  "foobar",
 			},
-			Name:  coremodel.ControllerModelName,
-			Owner: userUUID,
-			UUID:  modelUUID,
+			Name:          coremodel.ControllerModelName,
+			Owner:         userUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -337,13 +342,14 @@ func (m *stateSuite) TestCreateModelWithExisting(c *gc.C) {
 		return createModel(
 			ctx,
 			tx,
+			m.uuid,
 			coremodel.IAAS,
 			model.ModelCreationArgs{
-				Cloud:       "my-cloud",
-				CloudRegion: "my-region",
-				Name:        "fantasticmodel",
-				Owner:       m.userUUID,
-				UUID:        m.uuid,
+				Cloud:         "my-cloud",
+				CloudRegion:   "my-region",
+				Name:          "fantasticmodel",
+				Owner:         m.userUUID,
+				SecretBackend: juju.BackendName,
 			},
 		)
 	})
@@ -358,13 +364,14 @@ func (m *stateSuite) TestCreateModelWithSameNameAndOwner(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
+		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "my-region",
-			Name:        "my-test-model",
-			Owner:       m.userUUID,
-			UUID:        testUUID,
+			Cloud:         "my-cloud",
+			CloudRegion:   "my-region",
+			Name:          "my-test-model",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
@@ -375,13 +382,14 @@ func (m *stateSuite) TestCreateModelWithInvalidCloudRegion(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
+		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "noexist",
-			Name:        "noregion",
-			Owner:       m.userUUID,
-			UUID:        testUUID,
+			Cloud:         "my-cloud",
+			CloudRegion:   "noexist",
+			Name:          "noregion",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -392,6 +400,7 @@ func (m *stateSuite) TestCreateWithEmptyRegion(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
+		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud: "my-cloud",
@@ -402,7 +411,7 @@ func (m *stateSuite) TestCreateWithEmptyRegion(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			UUID: testUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -420,6 +429,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 
 	err := modelSt.Create(
 		context.Background(),
+		modeltesting.GenModelUUID(c),
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
@@ -431,7 +441,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			UUID: modeltesting.GenModelUUID(c),
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -439,6 +449,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
 		context.Background(),
+		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud: "my-cloud",
@@ -449,7 +460,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			UUID: testUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -469,6 +480,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 
 	err := modelSt.Create(
 		context.Background(),
+		controllerUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud:       "my-cloud",
@@ -480,7 +492,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			UUID: controllerUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -495,6 +507,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 	testUUID := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
 		context.Background(),
+		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			Cloud: "other-cloud",
@@ -505,7 +518,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			UUID: testUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -530,13 +543,14 @@ func (m *stateSuite) TestCreateModelWithNonExistentOwner(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
+		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "noexist",
-			Name:        "noregion",
-			Owner:       user.UUID("noexist"), // does not exist
-			UUID:        testUUID,
+			Cloud:         "my-cloud",
+			CloudRegion:   "noexist",
+			Name:          "noregion",
+			Owner:         user.UUID("noexist"), // does not exist
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
@@ -554,13 +568,14 @@ func (m *stateSuite) TestCreateModelWithRemovedOwner(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
 		context.Background(),
+		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
-			Cloud:       "my-cloud",
-			CloudRegion: "noexist",
-			Name:        "noregion",
-			Owner:       m.userUUID,
-			UUID:        testUUID,
+			Cloud:         "my-cloud",
+			CloudRegion:   "noexist",
+			Name:          "noregion",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
@@ -574,6 +589,7 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *gc.C) {
 	ctx := context.Background()
 	err := modelSt.Create(
 		ctx,
+		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -584,9 +600,9 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Name:  "listtest1",
-			Owner: m.userUUID,
-			UUID:  testUUID,
+			Name:          "listtest1",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -594,7 +610,7 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *gc.C) {
 	accessSt := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	access, err := accessSt.ReadUserAccessLevelForTarget(ctx, m.userName, permission.ID{
 		ObjectType: permission.Model,
-		Key:        testUUID.String(),
+		Key:        m.uuid.String(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.AdminAccess)
@@ -605,13 +621,14 @@ func (m *stateSuite) TestCreateModelWithInvalidCloud(c *gc.C) {
 	testUUID := modeltesting.GenModelUUID(c)
 	err := modelSt.Create(
 		context.Background(),
+		testUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
-			Cloud:       "noexist",
-			CloudRegion: "my-region",
-			Name:        "noregion",
-			Owner:       m.userUUID,
-			UUID:        testUUID,
+			Cloud:         "noexist",
+			CloudRegion:   "my-region",
+			Name:          "noregion",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -707,6 +724,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err = modelSt.Create(
 		context.Background(),
+		m.uuid,
 		coremodel.CAAS,
 		model.ModelCreationArgs{
 			Cloud: "minikube",
@@ -715,9 +733,9 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Name:  "controller",
-			Owner: m.userUUID,
-			UUID:  m.uuid,
+			Name:          "controller",
+			Owner:         m.userUUID,
+			SecretBackend: kubernetes.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -772,6 +790,7 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Create(
 		context.Background(),
+		uuid1,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -782,9 +801,9 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Name:  "listtest1",
-			Owner: m.userUUID,
-			UUID:  uuid1,
+			Name:          "listtest1",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -794,6 +813,7 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 	uuid2 := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
 		context.Background(),
+		uuid2,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -804,9 +824,9 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Name:  "listtest2",
-			Owner: m.userUUID,
-			UUID:  uuid2,
+			Name:          "listtest2",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -883,6 +903,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	err := modelSt.Create(
 		context.Background(),
+		uuid1,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -893,9 +914,9 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Name:  "owned1",
-			Owner: m.userUUID,
-			UUID:  uuid1,
+			Name:          "owned1",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -904,6 +925,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 	uuid2 := modeltesting.GenModelUUID(c)
 	err = modelSt.Create(
 		context.Background(),
+		uuid2,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -914,9 +936,9 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Name:  "owned2",
-			Owner: m.userUUID,
-			UUID:  uuid2,
+			Name:          "owned2",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1012,4 +1034,31 @@ func (m *stateSuite) TestAllModels(c *gc.C) {
 			Life: life.Alive,
 		},
 	})
+}
+
+// TestSecretBackendNotFoundForModelCreate is testing that if we specify a
+// secret backend that doesn't exist during model creation we back an error that
+// satisfies [secretbackenderrors.NotFound]
+func (m *stateSuite) TestSecretBackendNotFoundForModelCreate(c *gc.C) {
+	uuid := modeltesting.GenModelUUID(c)
+	modelSt := NewState(m.TxnRunnerFactory())
+	err := modelSt.Create(
+		context.Background(),
+		uuid,
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			CloudRegion:  "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Name:          "secretfailure",
+			Owner:         m.userUUID,
+			SecretBackend: "no-exist",
+		},
+	)
+	c.Check(err, jc.ErrorIs, secretbackenderrors.NotFound)
 }

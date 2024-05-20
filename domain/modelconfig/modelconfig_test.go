@@ -78,7 +78,7 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelFn := modelbootstrap.CreateModel(domainmodel.ModelCreationArgs{
+	modelFn := modelbootstrap.CreateModel(modelUUID, domainmodel.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        cloudName,
 		Credential: credential.Key{
@@ -88,7 +88,6 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 		},
 		Name:  "test",
 		Owner: userID,
-		UUID:  modelUUID,
 	})
 	s.modelID = modelUUID
 

@@ -173,6 +173,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 	modelSt := modelestate.NewState(s.TxnRunnerFactory())
 	err = modelSt.Create(
 		context.Background(),
+		modelUUID,
 		modelType,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
@@ -183,9 +184,9 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 				Owner: "test-user",
 				Name:  "foobar",
 			},
-			Name:  name,
-			Owner: userUUID,
-			UUID:  modelUUID,
+			Name:          name,
+			Owner:         userUUID,
+			SecretBackend: "my-backend",
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

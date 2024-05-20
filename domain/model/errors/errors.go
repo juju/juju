@@ -27,4 +27,8 @@ const (
 	// NotFound describes an error that occurs when the model being operated on
 	// does not exist.
 	NotFound = errors.ConstError("model not found")
+
+	// SecretBackendAlreadySet describes an error that occurs when a model's
+	// secret backend has already been set.
+	SecretBackendAlreadySet = errors.ConstError("secret backend already set")
 )
