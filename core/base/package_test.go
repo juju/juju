@@ -27,6 +27,10 @@ func (*ImportTest) TestImports(c *gc.C) {
 	c.Assert(found, jc.SameContents, []string{
 		"core/logger",
 		"core/os/ostype",
+		"internal/charm",
+		"internal/charm/assumes",
+		"internal/charm/hooks",
+		"internal/charm/resource",
 		"internal/logger",
 	})
 }

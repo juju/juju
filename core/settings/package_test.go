@@ -24,5 +24,12 @@ func (*importSuite) TestImports(c *gc.C) {
 	found := coretesting.FindJujuCoreImports(c, "github.com/juju/juju/core/settings")
 
 	// This package only brings in other core packages.
-	c.Assert(found, jc.SameContents, []string{})
+	c.Assert(found, jc.SameContents, []string{
+		"core/logger",
+		"internal/charm",
+		"internal/charm/assumes",
+		"internal/charm/hooks",
+		"internal/charm/resource",
+		"internal/logger",
+	})
 }
