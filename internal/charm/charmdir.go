@@ -291,10 +291,16 @@ func writeArchive(
 		logger:      logger,
 	}
 	if revision != -1 {
-		zp.AddFile("revision", strconv.Itoa(revision))
+		err := zp.AddFile("revision", strconv.Itoa(revision))
+		if err != nil {
+			return errors.Annotatef(err, "adding 'revision' file")
+		}
 	}
 	if versionString != "" {
-		zp.AddFile("version", versionString)
+		err := zp.AddFile("version", versionString)
+		if err != nil {
+			return errors.Annotatef(err, "adding 'version' file")
+		}
 	}
 	if err := filepath.Walk(rootPath, zp.WalkFunc()); err != nil {
 		return errors.Annotatef(err, "walking charm directory")
