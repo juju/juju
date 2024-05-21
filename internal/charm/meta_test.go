@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,7 +26,7 @@ func repoMeta(c *gc.C, name string) io.Reader {
 	file, err := os.Open(filepath.Join(charmDir, "metadata.yaml"))
 	c.Assert(err, gc.IsNil)
 	defer file.Close()
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	c.Assert(err, gc.IsNil)
 	return bytes.NewReader(data)
 }

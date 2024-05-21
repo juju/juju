@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -51,7 +50,7 @@ func (s *CharmSuite) TestReadCharmSeriesWithoutBases(c *gc.C) {
 
 func (s *CharmSuite) TestReadCharmArchiveError(c *gc.C) {
 	path := filepath.Join(c.MkDir(), "path")
-	err := ioutil.WriteFile(path, []byte("foo"), 0644)
+	err := os.WriteFile(path, []byte("foo"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	ch, err := charm.ReadCharm(path)
 	c.Assert(err, gc.NotNil)
@@ -208,7 +207,7 @@ func checkDummy(c *gc.C, f charm.Charm, path string) {
 type YamlHacker map[interface{}]interface{}
 
 func ReadYaml(r io.Reader) YamlHacker {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		panic(err)
 	}

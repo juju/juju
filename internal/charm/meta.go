@@ -6,7 +6,6 @@ package charm
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"regexp"
 	"sort"
 	"strconv"
@@ -495,7 +494,7 @@ func ParseTerm(s string) (*TermsId, error) {
 // its representation.
 // The data has verified as unambiguous, but not validated.
 func ReadMeta(r io.Reader) (*Meta, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

@@ -6,7 +6,6 @@ package charm
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"strconv"
 
@@ -118,7 +117,7 @@ func NewConfig() *Config {
 
 // ReadConfig reads a Config in YAML format.
 func ReadConfig(r io.Reader) (*Config, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

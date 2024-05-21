@@ -6,7 +6,6 @@ package charm
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"regexp"
 	"strings"
 
@@ -48,7 +47,8 @@ type ActionSpec struct {
 // ValidateParams validates the passed params map against the given ActionSpec
 // and returns any error encountered.
 // Usage:
-//   err := ch.Actions().ActionSpecs["snapshot"].ValidateParams(someMap)
+//
+//	err := ch.Actions().ActionSpecs["snapshot"].ValidateParams(someMap)
 func (spec *ActionSpec) ValidateParams(params map[string]interface{}) error {
 	// Load the schema from the Charm.
 	specLoader := gjs.NewGoLoader(spec.Params)
@@ -98,7 +98,7 @@ func (spec *ActionSpec) InsertDefaults(target map[string]interface{}) (map[strin
 
 // ReadActionsYaml builds an Actions spec from a charm's actions.yaml.
 func ReadActionsYaml(charmName string, r io.Reader) (*Actions, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

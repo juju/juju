@@ -7,7 +7,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -130,7 +129,7 @@ func (s *CharmDirSuite) TestReadCharmArchiveWithJujuActions(c *gc.C) {
 }
 
 func (s *CharmArchiveSuite) TestReadCharmArchiveBytes(c *gc.C) {
-	data, err := ioutil.ReadFile(s.archivePath)
+	data, err := os.ReadFile(s.archivePath)
 	c.Assert(err, jc.ErrorIsNil)
 
 	archive, err := charm.ReadCharmArchiveBytes(data)
@@ -371,7 +370,7 @@ func (s *CharmArchiveSuite) TestCharmArchiveRevisionFile(c *gc.C) {
 	c.Assert(archive.Revision(), gc.Equals, 0)
 
 	// Revision file with bad content
-	err = ioutil.WriteFile(revPath, []byte("garbage"), 0666)
+	err = os.WriteFile(revPath, []byte("garbage"), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 
 	path := extCharmArchiveDirPath(c, charmDir)

@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -137,9 +137,9 @@ func (s *CharmDirSuite) TestArchiveToWithIgnoredFiles(c *gc.C) {
 	_ = f.Close()
 
 	// Ensure that we cannot spoof the version or revision files
-	err = ioutil.WriteFile(filepath.Join(dir.Path, "version"), []byte("spoofed version"), 0644)
+	err = os.WriteFile(filepath.Join(dir.Path, "version"), []byte("spoofed version"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(filepath.Join(dir.Path, "revision"), []byte("42"), 0644)
+	err = os.WriteFile(filepath.Join(dir.Path, "revision"), []byte("42"), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	var b bytes.Buffer
@@ -169,7 +169,7 @@ tox/**
 !tox/keep
 `
 	// Add .jujuignore
-	err := ioutil.WriteFile(filepath.Join(charmDir, ".jujuignore"), []byte(jujuignore), 0644)
+	err := os.WriteFile(filepath.Join(charmDir, ".jujuignore"), []byte(jujuignore), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add directory/files that should be ignored based on jujuignore rules
@@ -249,7 +249,7 @@ func (s *CharmSuite) TestArchiveToWithVersionString(c *gc.C) {
 	c.Assert(verf, gc.NotNil)
 	reader, err := verf.Open()
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	_ = reader.Close()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -404,7 +404,7 @@ func (s *CharmDirSuite) assertArchiveTo(c *gc.C, baseDir, charmDir string) {
 	c.Assert(revf, gc.NotNil)
 	reader, err := revf.Open()
 	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadAll(reader)
+	data, err := io.ReadAll(reader)
 	reader.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(data), gc.Equals, "1")
@@ -426,7 +426,7 @@ func (s *CharmDirSuite) assertArchiveTo(c *gc.C, baseDir, charmDir string) {
 		c.Assert(symf.Mode()&0777, gc.Equals, os.FileMode(0777))
 		reader, err = symf.Open()
 		c.Assert(err, jc.ErrorIsNil)
-		data, err = ioutil.ReadAll(reader)
+		data, err = io.ReadAll(reader)
 		reader.Close()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(string(data), gc.Equals, "../target")
@@ -548,7 +548,7 @@ func (s *CharmDirSuite) TestDirRevisionFile(c *gc.C) {
 	c.Assert(dir.Revision(), gc.Equals, 0)
 
 	// Revision file with bad content
-	err = ioutil.WriteFile(revPath, []byte("garbage"), 0666)
+	err = os.WriteFile(revPath, []byte("garbage"), 0666)
 	c.Assert(err, jc.ErrorIsNil)
 
 	dir, err = charm.ReadCharmDir(charmDir)

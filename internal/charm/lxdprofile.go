@@ -6,7 +6,6 @@ package charm
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -40,7 +39,7 @@ func NewLXDProfile() *LXDProfile {
 // It is not validated at this point so that the caller can choose to override
 // any validation.
 func ReadLXDProfile(r io.Reader) (*LXDProfile, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

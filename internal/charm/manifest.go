@@ -5,7 +5,6 @@ package charm
 
 import (
 	"io"
-	"io/ioutil"
 
 	"github.com/juju/errors"
 	"github.com/juju/schema"
@@ -89,7 +88,7 @@ func parseBases(input interface{}) ([]Base, error) {
 // verification that the base.Name is a supported operating system.  Full
 // validation done by calling Validate().
 func ReadManifest(r io.Reader) (*Manifest, error) {
-	data, err := ioutil.ReadAll(r)
+	data, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
