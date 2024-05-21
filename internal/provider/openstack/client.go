@@ -13,7 +13,7 @@ import (
 	"github.com/go-goose/goose/v5/neutron"
 	"github.com/go-goose/goose/v5/nova"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
+	jujuhttp "github.com/juju/juju/internal/http"
 
 	corelogger "github.com/juju/juju/core/logger"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"

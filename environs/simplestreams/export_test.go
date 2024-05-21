@@ -3,7 +3,7 @@
 
 package simplestreams
 
-import jujuhttp "github.com/juju/http/v2"
+import jujuhttp "github.com/juju/juju/internal/http"
 
 func ExtractCatalogsForProducts(metadata CloudMetadata, productIds []string) []MetadataCatalog {
 	return metadata.extractCatalogsForProducts(productIds)

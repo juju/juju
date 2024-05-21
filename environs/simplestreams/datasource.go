@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
 

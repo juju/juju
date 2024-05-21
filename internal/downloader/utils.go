@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/utils/v4"
 
 	corelogger "github.com/juju/juju/core/logger"

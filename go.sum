@@ -519,8 +519,6 @@ github.com/juju/gojsonschema v1.0.0 h1:v0hVxinRWko/SwRYCZ99fBH20Q1JtDqKtplcovXew
 github.com/juju/gojsonschema v1.0.0/go.mod h1:w3BDUH3gGgrcrAyvEbBy3lNb1vmdqG31UMn3njL8oGc=
 github.com/juju/gomaasapi/v2 v2.2.0 h1:vaYeEKr0mQXsM38/zfWqCrYDG8cYhHRkfTQMgkJGHdU=
 github.com/juju/gomaasapi/v2 v2.2.0/go.mod h1:ZsohFbU4xShV1aSQYQ21hR1lKj7naNGY0SPuyelcUmk=
-github.com/juju/http/v2 v2.0.1 h1:cTt8RHvdVv9uZFmAb/7zQrRitT1bgywEDOf8nLpYd8M=
-github.com/juju/http/v2 v2.0.1/go.mod h1:V9dcD7DkT4xkwWjXpFr1C0ZNq7gG+eN9f+Mi2c7GnCs=
 github.com/juju/httpprof v0.0.0-20141217160036-14bf14c30767/go.mod h1:+MaLYz4PumRkkyHYeXJ2G5g5cIW0sli2bOfpmbaMV/g=
 github.com/juju/idmclient/v2 v2.0.0 h1:PsGa092JGy6iFNHZCcao+bigVsTyz1C+tHNRdYmKvuE=
 github.com/juju/idmclient/v2 v2.0.0/go.mod h1:EOiFbPmnkqKvCUS/DHpDRWhL7eKF0AJaTvMjIYlIUak=

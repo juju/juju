@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 

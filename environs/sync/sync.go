@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/http/v2"
+	"github.com/juju/juju/internal/http"
 	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 

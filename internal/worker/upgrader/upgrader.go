@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"

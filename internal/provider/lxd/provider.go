@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/jsonschema"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"

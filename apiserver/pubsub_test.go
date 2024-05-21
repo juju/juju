@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	jujuhttp "github.com/juju/http/v2"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"

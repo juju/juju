@@ -9,7 +9,7 @@ import (
 	"net/mail"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
+	jujuhttp "github.com/juju/juju/internal/http"
 )
 
 // The names of OS environment variables related to GCE.

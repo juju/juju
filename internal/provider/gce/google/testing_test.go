@@ -4,7 +4,7 @@
 package google
 
 import (
-	jujuhttp "github.com/juju/http/v2"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 

@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
+	jujuhttp "github.com/juju/juju/internal/http"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	"go.uber.org/mock/gomock"

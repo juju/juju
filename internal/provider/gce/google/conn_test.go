@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
+	jujuhttp "github.com/juju/juju/internal/http"
 	jc "github.com/juju/testing/checkers"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"

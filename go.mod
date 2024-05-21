@@ -54,7 +54,6 @@ require (
 	github.com/juju/gnuflag v1.0.0
 	github.com/juju/gojsonschema v1.0.0
 	github.com/juju/gomaasapi/v2 v2.2.0
-	github.com/juju/http/v2 v2.0.1
 	github.com/juju/idmclient/v2 v2.0.0
 	github.com/juju/jsonschema v1.0.0
 	github.com/juju/loggo v1.0.0

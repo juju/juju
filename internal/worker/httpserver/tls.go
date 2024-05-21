@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/http/v2"
+	"github.com/juju/juju/internal/http"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 

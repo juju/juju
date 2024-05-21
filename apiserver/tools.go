@@ -16,7 +16,7 @@ import (
 
 	"github.com/im7mortal/kmutex"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
