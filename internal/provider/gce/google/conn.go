@@ -7,8 +7,9 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
 	"google.golang.org/api/compute/v1"
+
+	jujuhttp "github.com/juju/juju/internal/http"
 )
 
 // service facilitates mocking out the GCE API during tests.

@@ -10,13 +10,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
 	corebase "github.com/juju/juju/core/base"
 	corelogger "github.com/juju/juju/core/logger"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 	"github.com/juju/juju/state"
@@ -292,9 +292,7 @@ func getCheckForLXDVersion(cloudspec environscloudspec.CloudSpec) Validator {
 		}
 		server, err := NewServerFactory(lxd.NewHTTPClientFunc(func() *http.Client {
 			return jujuhttp.NewClient(
-				jujuhttp.WithLogger(httpLogger{
-					Logger: logger.Child("http", corelogger.HTTP),
-				}),
+				jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 			).Client()
 		})).RemoteServer(lxd.CloudSpec{CloudSpec: cloudspec})
 		if err != nil {
@@ -306,12 +304,4 @@ func getCheckForLXDVersion(cloudspec environscloudspec.CloudSpec) Validator {
 		}
 		return nil, errors.Trace(err)
 	}
-}
-
-type httpLogger struct {
-	corelogger.Logger
-}
-
-func (l httpLogger) IsTraceEnabled() bool {
-	return l.IsLevelEnabled(corelogger.TRACE)
 }

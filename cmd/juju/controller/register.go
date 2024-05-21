@@ -25,7 +25,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v5"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
@@ -39,6 +38,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/proxy/factory"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -636,9 +636,7 @@ func (c *registerCommand) secretKeyLogin(
 	httpClient := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(true),
 		jujuhttp.WithCookieJar(cookieJar),
-		jujuhttp.WithLogger(httpLogger{
-			Logger: logger.Child("http", corelogger.HTTP),
-		}),
+		jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 	)
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
@@ -796,12 +794,4 @@ func genAlreadyRegisteredError(controller, user string) error {
 		return err
 	}
 	return errors.New(buf.String())
-}
-
-type httpLogger struct {
-	corelogger.Logger
-}
-
-func (l httpLogger) IsTraceEnabled() bool {
-	return l.IsLevelEnabled(corelogger.TRACE)
 }

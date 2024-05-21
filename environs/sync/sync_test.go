@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4/tar"
@@ -35,6 +34,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	jujuhttp "github.com/juju/juju/internal/http"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"

@@ -7,11 +7,11 @@ import (
 	"io"
 	"net/http"
 
-	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	gc "gopkg.in/check.v1"
 
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
 )

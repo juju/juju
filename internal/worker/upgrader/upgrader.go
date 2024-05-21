@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/catacomb"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/watcher"
+	jujuhttp "github.com/juju/juju/internal/http"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/gate"

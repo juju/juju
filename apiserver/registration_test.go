@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/httptesting"
 	"go.uber.org/mock/gomock"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/auth"
+	jujuhttp "github.com/juju/juju/internal/http"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/stateenvirons"

@@ -12,7 +12,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	jujuerrors "github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -27,6 +26,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	jujuhttp "github.com/juju/juju/internal/http"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"

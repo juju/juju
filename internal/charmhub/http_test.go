@@ -14,11 +14,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	jujuhttp "github.com/juju/juju/internal/http"
 )
 
 type APIRequesterSuite struct {

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v5"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
@@ -25,6 +24,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	corelogger "github.com/juju/juju/core/logger"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
 )
@@ -108,20 +108,10 @@ func (c *updatePublicCloudsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-type httpLogger struct {
-	corelogger.Logger
-}
-
-func (l httpLogger) IsTraceEnabled() bool {
-	return l.IsLevelEnabled(corelogger.TRACE)
-}
-
 // PublishedPublicClouds retrieves public cloud information from the given URL.
 func PublishedPublicClouds(ctx context.Context, url, key string) (map[string]jujucloud.Cloud, error) {
 	client := jujuhttp.NewClient(
-		jujuhttp.WithLogger(httpLogger{
-			Logger: logger.Child("http", corelogger.HTTP),
-		}),
+		jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 	)
 	resp, err := client.Get(ctx, url)
 	if err != nil {

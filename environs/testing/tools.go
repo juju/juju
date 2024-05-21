@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/http/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -27,6 +26,7 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/http"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/names"
 	coretesting "github.com/juju/juju/testing"

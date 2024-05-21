@@ -4,14 +4,12 @@
 package gce
 
 import (
-	"context"
 	stdcontext "context"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
 	"google.golang.org/api/compute/v1"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -25,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/gce/google"
 )
@@ -165,9 +164,7 @@ func (e *environ) SetCloudSpec(_ stdcontext.Context, spec environscloudspec.Clou
 		// of the environ.
 		HTTPClient: jujuhttp.NewClient(
 			jujuhttp.WithSkipHostnameVerification(spec.SkipTLSVerify),
-			jujuhttp.WithLogger(httpLogger{
-				Logger: logger.Child("http", corelogger.HTTP),
-			}),
+			jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 		),
 	}
 
@@ -202,7 +199,7 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 }
 
 // SetConfig updates the env's configuration.
-func (env *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
+func (env *environ) SetConfig(ctx stdcontext.Context, cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 
@@ -288,12 +285,4 @@ func (env *environ) Destroy(ctx envcontext.ProviderCallContext) error {
 func (env *environ) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	// TODO(wallyworld): destroy hosted model resources
 	return env.Destroy(ctx)
-}
-
-type httpLogger struct {
-	corelogger.Logger
-}
-
-func (l httpLogger) IsTraceEnabled() bool {
-	return l.IsLevelEnabled(corelogger.TRACE)
 }

@@ -14,11 +14,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
 
 	corelogger "github.com/juju/juju/core/logger"
+	jujuhttp "github.com/juju/juju/internal/http"
 )
 
 // A DataSource retrieves simplestreams metadata.
@@ -134,9 +134,7 @@ func NewDataSource(cfg Config) DataSource {
 	client := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(!cfg.HostnameVerification),
 		jujuhttp.WithCACertificates(cfg.CACertificates...),
-		jujuhttp.WithLogger(httpLogger{
-			Logger: logger.Child("http", corelogger.HTTP),
-		}),
+		jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 	)
 	return NewDataSourceWithClient(cfg, client)
 }
@@ -245,12 +243,4 @@ func (h *urlDataSource) Priority() int {
 // RequireSigned is defined in simplestreams.DataSource.
 func (h *urlDataSource) RequireSigned() bool {
 	return h.requireSigned
-}
-
-type httpLogger struct {
-	corelogger.Logger
-}
-
-func (l httpLogger) IsTraceEnabled() bool {
-	return l.IsLevelEnabled(corelogger.TRACE)
 }
