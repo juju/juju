@@ -4,7 +4,7 @@
 package charm
 
 import (
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"

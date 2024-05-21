@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/resource"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"

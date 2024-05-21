@@ -13,8 +13,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/base"

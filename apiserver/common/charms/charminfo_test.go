@@ -6,8 +6,8 @@ package charms_test
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"

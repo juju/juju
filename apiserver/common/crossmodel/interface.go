@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 

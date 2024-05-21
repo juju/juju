@@ -7,9 +7,9 @@ import (
 	stdcontext "context"
 	"fmt"
 
-	jujucharm "github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
+	jujucharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/hooks"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"

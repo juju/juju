@@ -12,7 +12,7 @@ package refresher
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v13"
+	charm "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 

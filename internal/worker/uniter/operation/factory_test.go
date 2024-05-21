@@ -6,7 +6,7 @@ package operation_test
 import (
 	"context"
 
-	"github.com/juju/charm/v13/hooks"
+	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"

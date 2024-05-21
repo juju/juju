@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v13/hooks"
+	"github.com/juju/juju/internal/charm/hooks"
 
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/worker/uniter/hook"

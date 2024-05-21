@@ -4,8 +4,8 @@
 package charms_test
 
 import (
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/resource"
+	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"

@@ -20,8 +20,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 	ziputil "github.com/juju/utils/v4/zip"
 
 	"github.com/juju/juju/apiserver/common"

@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

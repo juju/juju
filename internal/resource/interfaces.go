@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/url"
 
-	charmresource "github.com/juju/charm/v13/resource"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/internal/charmhub"

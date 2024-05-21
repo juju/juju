@@ -7,7 +7,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/juju/charm/v13/hooks"
+	"github.com/juju/juju/internal/charm/hooks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm/resource"
 )
 
 // resourceValue associates a resource name to a value.

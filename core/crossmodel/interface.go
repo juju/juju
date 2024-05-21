@@ -4,7 +4,7 @@
 package crossmodel
 
 import (
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/internal/charm"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/rpc/params"

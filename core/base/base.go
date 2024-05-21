@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 )
 
 // Base represents an OS/Channel.

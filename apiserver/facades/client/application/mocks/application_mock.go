@@ -14,8 +14,8 @@ import (
 	reflect "reflect"
 	time "time"
 
-	charm "github.com/juju/charm/v13"
-	resource "github.com/juju/charm/v13/resource"
+	charm "github.com/juju/juju/internal/charm"
+	resource "github.com/juju/juju/internal/charm/resource"
 	storagecommon "github.com/juju/juju/apiserver/common/storagecommon"
 	application "github.com/juju/juju/apiserver/facades/client/application"
 	config "github.com/juju/juju/core/config"

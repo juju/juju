@@ -6,8 +6,8 @@ package storage
 import (
 	"fmt"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	coremodel "github.com/juju/juju/core/model"

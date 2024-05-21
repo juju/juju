@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	jujucharm "github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
+	jujucharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/mutex/v2"
 
 	"github.com/juju/juju/core/logger"

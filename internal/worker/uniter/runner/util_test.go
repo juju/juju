@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

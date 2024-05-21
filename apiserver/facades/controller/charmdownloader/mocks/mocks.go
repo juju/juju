@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v13"
+	charm "github.com/juju/juju/internal/charm"
 	charmdownloader "github.com/juju/juju/apiserver/facades/controller/charmdownloader"
 	charm0 "github.com/juju/juju/core/charm"
 	status "github.com/juju/juju/core/status"

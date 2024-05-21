@@ -11,8 +11,8 @@ import (
 	"os"
 	"runtime/pprof"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"

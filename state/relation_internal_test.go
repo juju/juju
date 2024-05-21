@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/internal/charm"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 )

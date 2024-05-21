@@ -8,10 +8,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/cmd/juju/application/store"

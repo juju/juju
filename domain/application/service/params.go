@@ -4,7 +4,7 @@
 package service
 
 import (
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/internal/charm"
 
 	"github.com/juju/juju/internal/storage"
 )

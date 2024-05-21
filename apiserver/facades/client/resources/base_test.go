@@ -6,7 +6,7 @@ package resources_test
 import (
 	"time"
 
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"

@@ -10,11 +10,11 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"

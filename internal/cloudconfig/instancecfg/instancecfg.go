@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/shell"

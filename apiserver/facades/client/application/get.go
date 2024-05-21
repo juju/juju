@@ -6,7 +6,7 @@ package application
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 

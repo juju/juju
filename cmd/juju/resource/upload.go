@@ -7,9 +7,9 @@ import (
 	"context"
 	"io"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/client/resources"

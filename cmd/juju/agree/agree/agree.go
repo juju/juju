@@ -12,10 +12,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/terms-client/v2/api"
 	"github.com/juju/terms-client/v2/api/wireformat"
 

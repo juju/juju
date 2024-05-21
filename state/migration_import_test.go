@@ -9,9 +9,9 @@ import (
 	"sort"
 	"time" // only uses time.Time values
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"

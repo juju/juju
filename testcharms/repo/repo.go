@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/utils/v4/fs"
 )
 

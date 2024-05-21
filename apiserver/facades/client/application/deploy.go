@@ -7,9 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/assumes"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"

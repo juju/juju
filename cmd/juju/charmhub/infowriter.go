@@ -9,8 +9,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 	"gopkg.in/yaml.v2"
 
 	corebase "github.com/juju/juju/core/base"

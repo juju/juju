@@ -4,8 +4,8 @@
 package storage
 
 import (
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm/hooks"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/worker/uniter/hook"

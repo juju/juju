@@ -6,7 +6,7 @@ package crossmodel
 import (
 	"time"
 
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/internal/charm"
 
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/relation"

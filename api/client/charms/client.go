@@ -6,10 +6,10 @@ package charms
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/resources"

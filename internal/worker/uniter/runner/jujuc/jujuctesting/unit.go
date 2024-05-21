@@ -6,8 +6,8 @@ package jujuctesting
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/rpc/params"

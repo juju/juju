@@ -4,7 +4,7 @@
 package utils
 
 import (
-	charmresource "github.com/juju/charm/v13/resource"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/common/charms"

@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v3"
 
@@ -254,7 +254,6 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 // processing the bundle. They are for informational purposes and do
 // not require failing the bundle deployment.
 func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*charm.BundleData, []error, error) {
-
 	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
 		return err

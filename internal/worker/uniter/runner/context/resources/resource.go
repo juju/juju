@@ -8,8 +8,8 @@ import (
 	"context"
 	"io"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/yaml.v2"
 

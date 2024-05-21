@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"

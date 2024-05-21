@@ -6,7 +6,7 @@ package interfaces
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
+	"github.com/juju/juju/internal/charm"
 
 	corecharm "github.com/juju/juju/core/charm"
 )

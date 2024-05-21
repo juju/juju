@@ -9,9 +9,9 @@ import (
 	"os"
 	"sync"
 
-	jujucharm "github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	jujucharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/exec"

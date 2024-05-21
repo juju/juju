@@ -15,8 +15,8 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v13"
-	resource "github.com/juju/charm/v13/resource"
+	charm "github.com/juju/juju/internal/charm"
+	resource "github.com/juju/juju/internal/charm/resource"
 	cmd "github.com/juju/cmd/v4"
 	api "github.com/juju/juju/api"
 	base "github.com/juju/juju/api/base"

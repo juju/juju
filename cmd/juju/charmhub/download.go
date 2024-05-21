@@ -13,10 +13,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/internal/charm"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/arch"
