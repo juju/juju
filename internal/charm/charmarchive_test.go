@@ -292,11 +292,10 @@ func (s *CharmArchiveSuite) TestExpandToSetsHooksExecutable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	for name := range archive.Meta().Hooks() {
-		hookName := string(name)
-		info, err := os.Stat(filepath.Join(path, "hooks", hookName))
+		info, err := os.Stat(filepath.Join(path, "hooks", name))
 		c.Assert(err, jc.ErrorIsNil)
 		perm := info.Mode() & 0777
-		c.Assert(perm&0100 != 0, gc.Equals, true, gc.Commentf("hook %q is not executable", hookName))
+		c.Assert(perm&0100 != 0, gc.Equals, true, gc.Commentf("hook %q is not executable", name))
 	}
 }
 

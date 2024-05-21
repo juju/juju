@@ -1842,7 +1842,7 @@ storage:
   a:
     type: filesystem
 `))
-	c.Assert(err, gc.ErrorMatches, `parsing containers: container "foo": storage must be specifed on mount`)
+	c.Assert(err, gc.ErrorMatches, `parsing containers: container "foo": storage must be specified on mount`)
 }
 
 func (s *MetaSuite) TestMountMissingLocation(c *gc.C) {
@@ -1862,7 +1862,7 @@ storage:
   a:
     type: filesystem
 `))
-	c.Assert(err, gc.ErrorMatches, `parsing containers: container "foo": location must be specifed on mount`)
+	c.Assert(err, gc.ErrorMatches, `parsing containers: container "foo": location must be specified on mount`)
 }
 
 func (s *MetaSuite) TestMountIncorrectStorage(c *gc.C) {

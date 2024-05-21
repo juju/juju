@@ -280,8 +280,7 @@ func (s *CharmSuite) TestMaybeGenerateVersionStringHasAVersionFile(c *gc.C) {
 	version, vcsType, err := dir.MaybeGenerateVersionString()
 	c.Assert(version, gc.Equals, expectedVersionNumber)
 
-	VersionFileType := "versionFile"
-	c.Assert(vcsType, gc.Equals, VersionFileType)
+	c.Assert(vcsType, gc.Equals, "versionFile")
 
 	c.Assert(err, jc.ErrorIsNil)
 }

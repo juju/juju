@@ -1221,10 +1221,10 @@ func parseMounts(input interface{}, storage map[string]Storage) ([]Mount, error)
 			mount.Location = value
 		}
 		if mount.Storage == "" {
-			return nil, errors.Errorf("storage must be specifed on mount")
+			return nil, errors.Errorf("storage must be specified on mount")
 		}
 		if mount.Location == "" {
-			return nil, errors.Errorf("location must be specifed on mount")
+			return nil, errors.Errorf("location must be specified on mount")
 		}
 		if _, ok := storage[mount.Storage]; !ok {
 			return nil, errors.NotValidf("storage %q", mount.Storage)
