@@ -14,8 +14,6 @@ import (
 	reflect "reflect"
 	time "time"
 
-	charm "github.com/juju/juju/internal/charm"
-	resource "github.com/juju/juju/internal/charm/resource"
 	storagecommon "github.com/juju/juju/apiserver/common/storagecommon"
 	application "github.com/juju/juju/apiserver/facades/client/application"
 	config "github.com/juju/juju/core/config"
@@ -26,6 +24,8 @@ import (
 	objectstore "github.com/juju/juju/core/objectstore"
 	status "github.com/juju/juju/core/status"
 	config0 "github.com/juju/juju/environs/config"
+	charm "github.com/juju/juju/internal/charm"
+	resource "github.com/juju/juju/internal/charm/resource"
 	services "github.com/juju/juju/internal/charm/services"
 	tools "github.com/juju/juju/internal/tools"
 	state "github.com/juju/juju/state"

@@ -13,12 +13,12 @@ import (
 	context "context"
 	reflect "reflect"
 
-	resource "github.com/juju/juju/internal/charm/resource"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	objectstore "github.com/juju/juju/core/objectstore"
 	config "github.com/juju/juju/environs/config"
+	resource "github.com/juju/juju/internal/charm/resource"
 	services "github.com/juju/juju/internal/charm/services"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
