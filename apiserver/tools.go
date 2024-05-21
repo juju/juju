@@ -16,7 +16,6 @@ import (
 
 	"github.com/im7mortal/kmutex"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"

@@ -7,12 +7,13 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/juju/internal/http"
 	"golang.org/x/oauth2/google"
 	"golang.org/x/oauth2/jwt"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/option"
 	transporthttp "google.golang.org/api/transport/http"
+
+	jujuhttp "github.com/juju/juju/internal/http"
 )
 
 var scopes = []string{

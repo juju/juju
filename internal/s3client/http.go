@@ -4,9 +4,8 @@
 package s3client
 
 import (
-	jujuhttp "github.com/juju/juju/internal/http"
-
 	"github.com/juju/juju/core/logger"
+	jujuhttp "github.com/juju/juju/internal/http"
 )
 
 // DefaultHTTPClient returns the default http client used to access the object

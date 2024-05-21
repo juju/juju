@@ -6,9 +6,10 @@ package google
 import (
 	"context"
 
-	jujuhttp "github.com/juju/juju/internal/http"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	jujuhttp "github.com/juju/juju/internal/http"
 )
 
 type authSuite struct {

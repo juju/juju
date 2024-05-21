@@ -4,14 +4,12 @@
 package gce
 
 import (
-	"context"
 	stdcontext "context"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/juju/internal/http"
 	"google.golang.org/api/compute/v1"
 
 	jujucloud "github.com/juju/juju/cloud"
@@ -25,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/gce/google"
 )
@@ -200,7 +199,7 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 }
 
 // SetConfig updates the env's configuration.
-func (env *environ) SetConfig(ctx context.Context, cfg *config.Config) error {
+func (env *environ) SetConfig(ctx stdcontext.Context, cfg *config.Config) error {
 	env.lock.Lock()
 	defer env.lock.Unlock()
 

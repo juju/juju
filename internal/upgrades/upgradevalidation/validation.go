@@ -10,13 +10,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
 
 	corebase "github.com/juju/juju/core/base"
 	corelogger "github.com/juju/juju/core/logger"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 	"github.com/juju/juju/state"

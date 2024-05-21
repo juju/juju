@@ -4,10 +4,10 @@
 package google_test
 
 import (
-	jujuhttp "github.com/juju/juju/internal/http"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/gce/google"
 )
 

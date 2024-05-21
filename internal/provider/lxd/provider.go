@@ -4,7 +4,6 @@
 package lxd
 
 import (
-	"context"
 	stdcontext "context"
 	"net/http"
 	"os"
@@ -14,7 +13,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
-	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
@@ -26,6 +24,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/container/lxd"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
 )
 
@@ -189,7 +188,7 @@ func (p *environProvider) Ping(ctx envcontext.ProviderCallContext, endpoint stri
 }
 
 // PrepareConfig implements environs.EnvironProvider.
-func (p *environProvider) PrepareConfig(ctx context.Context, args environs.PrepareConfigParams) (*config.Config, error) {
+func (p *environProvider) PrepareConfig(ctx stdcontext.Context, args environs.PrepareConfigParams) (*config.Config, error) {
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
@@ -206,7 +205,7 @@ func (p *environProvider) PrepareConfig(ctx context.Context, args environs.Prepa
 }
 
 // Validate implements environs.EnvironProvider.
-func (*environProvider) Validate(ctx context.Context, cfg, old *config.Config) (valid *config.Config, err error) {
+func (*environProvider) Validate(ctx stdcontext.Context, cfg, old *config.Config) (valid *config.Config, err error) {
 	if _, err := newValidConfig(ctx, cfg); err != nil {
 		return nil, errors.Annotate(err, "invalid base config")
 	}

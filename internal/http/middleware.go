@@ -12,10 +12,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/logger"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/retry"
 	"golang.org/x/net/http/httpproxy"
+
+	"github.com/juju/juju/core/logger"
 )
 
 // FileProtocolMiddleware registers support for file:// URLs on the given transport.

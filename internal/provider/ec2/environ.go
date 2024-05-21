@@ -23,7 +23,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
 	"github.com/juju/version/v2"
@@ -49,6 +48,7 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
 )

@@ -13,13 +13,13 @@ import (
 
 	"github.com/bmizerany/pat"
 	"github.com/gorilla/websocket"
-	jujuhttp "github.com/juju/juju/internal/http"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/observer/fakeobserver"
 	apiwebsocket "github.com/juju/juju/apiserver/websocket"
 	"github.com/juju/juju/core/trace"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"

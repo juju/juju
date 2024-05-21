@@ -14,11 +14,11 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/retry"
 	"github.com/juju/utils/v4"
 
 	corelogger "github.com/juju/juju/core/logger"
+	jujuhttp "github.com/juju/juju/internal/http"
 )
 
 // A DataSource retrieves simplestreams metadata.

@@ -12,11 +12,11 @@ import (
 	"net/http"
 	"strings"
 
-	jujuhttp "github.com/juju/juju/internal/http"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/simplestreams"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/testing"
 )
 

@@ -4,11 +4,11 @@
 package google
 
 import (
-	jujuhttp "github.com/juju/juju/internal/http"
 	"google.golang.org/api/compute/v1"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/testing"
 )
 
