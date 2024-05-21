@@ -12,11 +12,11 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4/fs"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/fs"
 )
 
 type CharmSuite struct {

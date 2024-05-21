@@ -281,7 +281,7 @@ func writeArchive(
 	// resolve that before creating the zip.
 	rootPath, err := resolveSymlinkedRoot(path)
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "resolving symlinked root path")
 	}
 	zp := zipPacker{
 		Writer:      zipw,
@@ -296,7 +296,10 @@ func writeArchive(
 	if versionString != "" {
 		zp.AddFile("version", versionString)
 	}
-	return filepath.Walk(rootPath, zp.WalkFunc())
+	if err := filepath.Walk(rootPath, zp.WalkFunc()); err != nil {
+		return errors.Annotatef(err, "walking charm directory")
+	}
+	return nil
 }
 
 type zipPacker struct {
@@ -309,7 +312,11 @@ type zipPacker struct {
 
 func (zp *zipPacker) WalkFunc() filepath.WalkFunc {
 	return func(path string, fi os.FileInfo, err error) error {
-		return zp.visit(path, fi, err)
+		if err != nil {
+			return errors.Annotatef(err, "visiting %q", path)
+		}
+
+		return zp.visit(path, fi)
 	}
 }
 
@@ -323,14 +330,10 @@ func (zp *zipPacker) AddFile(filename string, value string) error {
 	return err
 }
 
-func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
-	if err != nil {
-		return err
-	}
-
+func (zp *zipPacker) visit(path string, fi os.FileInfo) error {
 	relpath, err := filepath.Rel(zp.root, path)
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "finding relative path for %q", path)
 	}
 
 	// Replace any Windows path separators with "/".
@@ -354,7 +357,7 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 
 	mode := fi.Mode()
 	if err := checkFileType(relpath, mode); err != nil {
-		return err
+		return errors.Annotatef(err, "checking file type %q", relpath)
 	}
 	if mode&os.ModeSymlink != 0 {
 		method = zip.Store
@@ -381,31 +384,32 @@ func (zp *zipPacker) visit(path string, fi os.FileInfo, err error) error {
 
 	w, err := zp.CreateHeader(h)
 	if err != nil || fi.IsDir() {
-		return err
+		return errors.Annotatef(err, "creating zip header for %q", relpath)
 	}
 	var data []byte
 	if mode&os.ModeSymlink != 0 {
 		target, err := os.Readlink(path)
 		if err != nil {
-			return err
+			return errors.Annotatef(err, "reading symlink target %q", path)
 		}
 		if err := checkSymlinkTarget(relpath, target); err != nil {
-			return err
+			return errors.Annotatef(err, "checking symlink target %q", target)
 		}
 		data = []byte(target)
 		if _, err := w.Write(data); err != nil {
-			return err
+			return errors.Annotatef(err, "writing symlink target %q", target)
 		}
+		return nil
 	}
 
 	file, err := os.Open(path)
 	if err != nil {
-		return err
+		return errors.Annotatef(err, "opening file %q", path)
 	}
 	defer file.Close()
 
 	_, err = io.Copy(w, file)
-	return err
+	return errors.Annotatef(err, "copying file %q", path)
 }
 
 func checkSymlinkTarget(symlink, target string) error {

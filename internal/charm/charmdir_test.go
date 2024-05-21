@@ -362,6 +362,7 @@ func (s *CharmDirSuite) assertArchiveTo(c *gc.C, baseDir, charmDir string) {
 	if err := os.Symlink("../target", filepath.Join(charmDir, "hooks/symlink")); err != nil {
 		haveSymlinks = false
 	}
+
 	dir, err := charm.ReadCharmDir(charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -499,7 +500,7 @@ func (s *CharmDirSuite) TestArchiveToWithBadType(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = dir.ArchiveTo(&bytes.Buffer{})
-	c.Assert(err, gc.ErrorMatches, `symlink "hooks/badfile" links out of charm: "../../target"`)
+	c.Assert(err, gc.ErrorMatches, `.*symlink "hooks/badfile" links out of charm: "../../target"`)
 
 	// Symlink targeting an absolute path.
 	os.Remove(badFile)
@@ -510,7 +511,7 @@ func (s *CharmDirSuite) TestArchiveToWithBadType(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = dir.ArchiveTo(&bytes.Buffer{})
-	c.Assert(err, gc.ErrorMatches, `symlink "hooks/badfile" is absolute: "/target"`)
+	c.Assert(err, gc.ErrorMatches, `.*symlink "hooks/badfile" is absolute: "/target"`)
 
 	// Can't archive special files either.
 	os.Remove(badFile)
@@ -521,7 +522,7 @@ func (s *CharmDirSuite) TestArchiveToWithBadType(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = dir.ArchiveTo(&bytes.Buffer{})
-	c.Assert(err, gc.ErrorMatches, `file is a named pipe: "hooks/badfile"`)
+	c.Assert(err, gc.ErrorMatches, `.*file is a named pipe: "hooks/badfile"`)
 }
 
 func (s *CharmDirSuite) TestDirRevisionFile(c *gc.C) {
