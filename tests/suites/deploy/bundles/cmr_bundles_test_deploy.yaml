@@ -1,4 +1,4 @@
-series: jammy
+default-base: ubuntu@22.04
 saas:
   dummy-source:
     url: {{BOOTSTRAPPED_JUJU_CTRL_NAME}}:admin/test-cmr-bundles-deploy.dummy-source

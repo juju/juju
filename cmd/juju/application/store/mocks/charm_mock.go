@@ -39,6 +39,44 @@ func (m *MockBundle) EXPECT() *MockBundleMockRecorder {
 	return m.recorder
 }
 
+// BundleBytes mocks base method.
+func (m *MockBundle) BundleBytes() []byte {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BundleBytes")
+	ret0, _ := ret[0].([]byte)
+	return ret0
+}
+
+// BundleBytes indicates an expected call of BundleBytes.
+func (mr *MockBundleMockRecorder) BundleBytes() *MockBundleBundleBytesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BundleBytes", reflect.TypeOf((*MockBundle)(nil).BundleBytes))
+	return &MockBundleBundleBytesCall{Call: call}
+}
+
+// MockBundleBundleBytesCall wrap *gomock.Call
+type MockBundleBundleBytesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockBundleBundleBytesCall) Return(arg0 []byte) *MockBundleBundleBytesCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockBundleBundleBytesCall) Do(f func() []byte) *MockBundleBundleBytesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockBundleBundleBytesCall) DoAndReturn(f func() []byte) *MockBundleBundleBytesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ContainsOverlays mocks base method.
 func (m *MockBundle) ContainsOverlays() bool {
 	m.ctrl.T.Helper()

@@ -23,6 +23,7 @@ type ModelExtractor interface {
 // list of composable parts.
 type BundleDataSource interface {
 	Parts() []*charm.BundleDataPart
+	BundleBytes() []byte
 	BasePath() string
 	ResolveInclude(path string) ([]byte, error)
 }

@@ -11,7 +11,8 @@ import (
 // ResolvedBundle decorates a charm.Bundle instance with a type that implements
 // the charm.BundleDataSource interface.
 type ResolvedBundle struct {
-	parts []*charm.BundleDataPart
+	parts       []*charm.BundleDataPart
+	bundleBytes []byte
 }
 
 func NewResolvedBundle(b charm.Bundle) ResolvedBundle {
@@ -22,12 +23,18 @@ func NewResolvedBundle(b charm.Bundle) ResolvedBundle {
 				PresenceMap: make(charm.FieldPresenceMap),
 			},
 		},
+		bundleBytes: b.BundleBytes(),
 	}
 }
 
 // Parts implements charm.BundleDataSource.
 func (rb ResolvedBundle) Parts() []*charm.BundleDataPart {
 	return rb.parts
+}
+
+// BundleBytes implements charm.BundleDataSource.
+func (rb ResolvedBundle) BundleBytes() []byte {
+	return rb.bundleBytes
 }
 
 // BasePath implements charm.BundleDataSource.

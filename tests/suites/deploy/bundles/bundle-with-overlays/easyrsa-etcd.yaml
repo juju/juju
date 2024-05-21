@@ -1,10 +1,10 @@
-series: focal
+default-base: ubuntu@20.04
 applications:
   easyrsa:
     charm: easyrsa
     scale: 1
 ---
-series: focal
+default-base: ubuntu@20.04
 applications:
   easyrsa:
     offers:
@@ -18,7 +18,7 @@ applications:
         endpoints:
         - client
 --- # overlay 2
-series: jammy
+default-base: ubuntu@22.04
 applications:
   etcd:
     charm: etcd

@@ -479,8 +479,8 @@ github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a/go.mod h1:UJSiEoRfvx
 github.com/juju/ansiterm v0.0.0-20210706145210-9283cdf370b5/go.mod h1:UJSiEoRfvx3hP73CvoARgeLjaIOjybY9vj8PUPPFGeU=
 github.com/juju/ansiterm v1.0.0 h1:gmMvnZRq7JZJx6jkfSq9/+2LMrVEwGwt7UR6G+lmDEg=
 github.com/juju/ansiterm v1.0.0/go.mod h1:PyXUpnI3olx3bsPcHt98FGPX/KCFZ1Fi+hw1XLI6384=
-github.com/juju/charm/v13 v13.0.1 h1:CcBYy7m7tJuACLnHKv2aiC+4QntsHxTocQQLPxYGyoM=
-github.com/juju/charm/v13 v13.0.1/go.mod h1:WzmI80zm8sW84aYfvrmHDt6xJPsoNYj5kbxLm05ezGQ=
+github.com/juju/charm/v13 v13.1.0 h1:HjgiMe5La6NMmL9ilEQYUqzSg3C/WyZRbYDTwlqpSMk=
+github.com/juju/charm/v13 v13.1.0/go.mod h1:WzmI80zm8sW84aYfvrmHDt6xJPsoNYj5kbxLm05ezGQ=
 github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c/go.mod h1:nD0vlnrUjcjJhqN5WuCWZyzfd5AHZAC9/ajvbSx69xA=
 github.com/juju/clock v0.0.0-20220202072423-1b0f830854c4/go.mod h1:zDZCPSgCJQINeZtQwHx2/cFk4seaBC8Yiqe8V82xiP0=
 github.com/juju/clock v0.0.0-20220203021603-d9deb868a28a/go.mod h1:GZ/FY8Cqw3KHG6DwRVPUKbSPTAwyrU28xFi5cqZnLsc=

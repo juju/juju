@@ -3231,7 +3231,7 @@ func (s *changesSuite) TestAppExistsWithDifferentScale(c *gc.C) {
                         revision: 4
                         channel: stable
                         num_units: 2
-                        series: focal
+                        base: ubuntu@20.04
             `
 	existingModel := &bundlechanges.Model{
 		Applications: map[string]*bundlechanges.Application{

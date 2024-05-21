@@ -211,6 +211,7 @@ var _ = gc.Suite(&composeAndVerifyRepSuite{})
 
 func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleEmpty(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.expectBundleBytes([]byte{})
 	s.expectEmptyParts()
 	s.expectBasePath()
 
@@ -223,6 +224,7 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleUnsupportedConstrai
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(unsupportedConstraintBundle))
 	c.Assert(err, jc.ErrorIsNil)
+	s.expectBundleBytes([]byte(unsupportedConstraintBundle))
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 
@@ -235,6 +237,7 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleNoOverlay(c *gc.C) 
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
 	c.Assert(err, jc.ErrorIsNil)
+	s.expectBundleBytes([]byte(wordpressBundle))
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 
@@ -247,6 +250,7 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlay(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(wordpressBundle))
 	c.Assert(err, jc.ErrorIsNil)
+	s.expectBundleBytes([]byte(wordpressBundle))
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 	s.setupOverlayFile(c)
@@ -265,6 +269,7 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnsupportedC
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(unsupportedConstraintBundle))
 	c.Assert(err, jc.ErrorIsNil)
+	s.expectBundleBytes([]byte(unsupportedConstraintBundle))
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 	s.setupOverlayFile(c)
@@ -284,6 +289,7 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallEr
 	bundleData, err := charm.ReadBundleData(strings.NewReader(typoBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	expectedError := errors.New(`document 0:\n  line 1: unrecognized field "sries"\n  line 18: unrecognized field "constrai"`)
+	s.expectBundleBytes([]byte(typoBundle))
 	s.expectParts(&charm.BundleDataPart{
 		Data:            bundleData,
 		UnmarshallError: expectedError,
@@ -303,27 +309,21 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallEr
 	c.Assert(unmarshallErrors[0], gc.Equals, expectedError)
 }
 
-func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleMixingBaseAndSeries(c *gc.C) {
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleFailsWithSeries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	bundleData, err := charm.ReadBundleData(strings.NewReader(mixedSeriesBaseBundle))
+	bundleData, err := charm.ReadBundleData(strings.NewReader(seriesBundle))
 	c.Assert(err, jc.ErrorIsNil)
+	s.expectBundleBytes([]byte(seriesBundle))
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 
 	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtained, gc.DeepEquals, bundleData)
-}
-
-func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleMixingBaseAndSeriesMisMatch(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	bundleData, err := charm.ReadBundleData(strings.NewReader(mixedSeriesBaseBundleMismatch))
-	c.Assert(err, jc.ErrorIsNil)
-	s.expectParts(&charm.BundleDataPart{Data: bundleData})
-	s.expectBasePath()
-
-	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, []string{s.overlayFile})
-	c.Assert(err, gc.ErrorMatches, `(?s)the provided bundle has the following errors:.*application "wordpress" series "jammy" and base "ubuntu@20.04" must match if both supplied.*invalid constraints.*`)
+	c.Log(err)
+	c.Assert(err, gc.ErrorMatches, strings.ReplaceAll(`(?s)the provided bundle has the following errors:.*
+base bundle contains invalid key series:.*
+- document 0; bundle contains top level series.*
+- document 0; bundle application "mysql" contains series.*
+- document 0; bundle machine "0" contains series.*`, "\n", ""))
 	c.Assert(obtained, gc.IsNil)
 }
 
@@ -409,6 +409,10 @@ func (s *composeAndVerifyRepSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.bundleDataSource = mocks.NewMockBundleDataSource(ctrl)
 	return ctrl
+}
+
+func (s *composeAndVerifyRepSuite) expectBundleBytes(b []byte) {
+	s.bundleDataSource.EXPECT().BundleBytes().Return(b).AnyTimes()
 }
 
 func (s *composeAndVerifyRepSuite) expectParts(part *charm.BundleDataPart) {
@@ -529,7 +533,7 @@ relations:
   - mysql:db
 `
 
-const mixedSeriesBaseBundle = `
+const seriesBundle = `
 series: jammy
 default-base: ubuntu@22.04
 applications:
@@ -546,50 +550,13 @@ applications:
     charm: ch:wordpress
     channel: stable
     revision: 47
-    series: jammy
     num_units: 1
     to:
     - "1"
 machines:
   "0":
     series: focal
-    base: ubuntu@20.04
   "1":
-    series: jammy
-relations:
-- - wordpress:db
-  - mysql:db
-`
-
-const mixedSeriesBaseBundleMismatch = `
-series: jammy
-default-base: ubuntu@22.04
-applications:
-  mysql:
-    charm: ch:mysql
-    revision: 42
-    channel: stable
-    series: focal
-    base: ubuntu@20.04
-    num_units: 1
-    constraints: image-id=ubuntu-bf2
-    to:
-    - "0"
-  wordpress:
-    charm: ch:wordpress
-    channel: stable
-    revision: 47
-    series: jammy
-    base: ubuntu@20.04
-    num_units: 1
-    to:
-    - "1"
-machines:
-  "0":
-    series: focal
-    base: ubuntu@20.04
-  "1":
-    series: jammy
 relations:
 - - wordpress:db
   - mysql:db

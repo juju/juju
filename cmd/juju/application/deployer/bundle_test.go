@@ -153,23 +153,6 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 			deployBundle: deployBundle{},
 		},
 		{
-			title: "two apps, one with image-id, series in same app -> no error",
-			bundleData: &charm.BundleData{
-				Applications: map[string]*charm.ApplicationSpec{
-					"prometheus2": {
-						Charm:       "ch:prometheus2",
-						Series:      "focal",
-						Constraints: "image-id=ubuntu-bf2",
-					},
-					"ubuntu": {
-						Charm:       "ch:ubuntu",
-						Constraints: "mem=2G",
-					},
-				},
-			},
-			deployBundle: deployBundle{},
-		},
-		{
 			title: "two apps, one with image-id, base in same app -> no error",
 			bundleData: &charm.BundleData{
 				Applications: map[string]*charm.ApplicationSpec{
@@ -505,7 +488,7 @@ func (s *bundleSuite) TestCheckExplicitBase(c *gc.C) {
 	for i, test := range testCases {
 		c.Logf("test %d [%s]", i, test.title)
 
-		err := test.deployBundle.checkExplicitSeries(test.bundleData)
+		err := test.deployBundle.checkExplicitBase(test.bundleData)
 
 		if test.expectedError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectedError)

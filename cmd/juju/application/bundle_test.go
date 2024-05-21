@@ -210,7 +210,7 @@ func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c 
 
 	path := filepath.Join(dir, "mybundle")
 	data := `
-        series: quantal
+        default-base: ubuntu@12.10
         applications:
             dummy:
                 charm: ./dummy
@@ -246,7 +246,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidJujuSeries(c *gc.C) 
 
 	path := filepath.Join(dir, "mybundle")
 	data := `
-        series: focal
+        default-base: ubuntu@20.04
         applications:
             dummy:
                 charm: ./dummy
@@ -347,7 +347,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadConfig(c *gc.C) {
 	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
 	wordpressPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "wordpress")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
-       series: xenial
+       default-base: ubuntu@16.04
        applications:
            wordpress:
                charm: %s
@@ -374,7 +374,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
 	)
 
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
-       series: focal
+       default-base: ubuntu@20.04
        applications:
            lxd-profile:
                charm: %s
@@ -396,7 +396,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadLXDProfile(c *gc.C
 	)
 
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
-       series: jammy
+       default-base: ubuntu@22.04
        applications:
            lxd-profile-fail:
                charm: %s
@@ -417,7 +417,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadLXDProfileWithForc
 	)
 
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
-       series: focal
+       default-base: ubuntu@20.04
        applications:
            lxd-profile-fail:
                charm: %s
@@ -478,7 +478,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *
 	)
 
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
-       series: jammy
+       default-base: ubuntu@22.04
        applications:
            wordpress:
                charm: %s
@@ -500,7 +500,7 @@ func (s *BundleDeploySuite) TestDeployLocalBundleWithRelativeCharmPaths(c *gc.C)
 
 	bundleFile := filepath.Join(bundleDir, "bundle.yaml")
 	bundleContent := `
-series: focal
+default-base: ubuntu@20.04
 applications:
  dummy:
    charm: ./dummy
@@ -562,11 +562,11 @@ func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *gc.C) {
 	)
 
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
-      series: jammy
+      default-base: ubuntu@22.04
       applications:
           wordpress:
               charm: ch:wordpress
-              series: focal
+              base: ubuntu@20.04
               num_units: 1
           mysql:
               charm: %s

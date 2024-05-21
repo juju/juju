@@ -4,7 +4,9 @@
 package bundle
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"reflect"
 	"sort"
 	"strings"
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"gopkg.in/yaml.v3"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
@@ -282,7 +285,7 @@ func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*ch
 	}
 
 	// verify composed (base + overlay bundles)
-	if err = verifyBundle(bundleData, base.BasePath(), verifyConstraints); err != nil {
+	if err = verifyBundle(bundleData, dsList, base.BasePath(), verifyConstraints); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
@@ -317,10 +320,10 @@ func verifyBaseBundle(base BundleDataSource) error {
 		return nil
 	}
 
-	return verifyBundle(parts[0].Data, base.BasePath(), verifyBaseConstraints)
+	return verifyBundle(parts[0].Data, []charm.BundleDataSource{base}, base.BasePath(), verifyBaseConstraints)
 }
 
-func verifyBundle(data *charm.BundleData, bundleDir string, verifyConstraints func(string) error) error {
+func verifyBundle(data *charm.BundleData, dsList []charm.BundleDataSource, bundleDir string, verifyConstraints func(string) error) error {
 	verifyStorage := func(s string) error {
 		_, err := storage.ParseDirective(s)
 		return err
@@ -330,14 +333,7 @@ func verifyBundle(data *charm.BundleData, bundleDir string, verifyConstraints fu
 		return err
 	}
 
-	var errs []string
-	// This method cannot be included within data.Verify because
-	// to verify corresponding series and base match we need to be
-	// able to compare them. The charm package, however, treats bases
-	// and series generically and is unable to do this.
-	if err := verifyMixedSeriesBasesMatch(data); err != nil {
-		errs = append(errs, err.Error())
-	}
+	errs := verifyNoSeries(dsList)
 
 	var verifyError error
 	if bundleDir == "" {
@@ -350,59 +346,82 @@ func verifyBundle(data *charm.BundleData, bundleDir string, verifyConstraints fu
 		for _, err := range verr.Errors {
 			errs = append(errs, err.Error())
 		}
+	}
+
+	if len(errs) > 0 {
 		return errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
 	}
-	return errors.Trace(verifyError)
+	return nil
 }
 
-func verifyMixedSeriesBasesMatch(data *charm.BundleData) error {
-	if data == nil {
-		return nil
-	}
-	if data.Series != "" && data.DefaultBase != "" {
-		b, err := corebase.ParseBaseFromString(data.DefaultBase)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		s, err := corebase.GetSeriesFromBase(b)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if s != data.Series {
-			return errors.NewNotValid(nil, fmt.Sprintf("bundle series %q and base %q must match if both supplied", data.Series, data.DefaultBase))
-		}
+type bundleSeriesData struct {
+	Series string `yaml:"series,omitempty"`
+
+	Applications map[string]struct {
+		Series string `yaml:"series"`
+	} `yaml:"applications"`
+
+	Machines map[string]struct {
+		Series string `yaml:"series"`
+	} `yaml:"machines"`
+}
+
+func verifyNoSeries(dslist []charm.BundleDataSource) []string {
+	if len(dslist) == 0 {
+		return []string{}
 	}
 
-	for name, m := range data.Machines {
-		if m != nil && m.Series != "" && m.Base != "" {
-			b, err := corebase.ParseBaseFromString(m.Base)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			s, err := corebase.GetSeriesFromBase(b)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if s != m.Series {
-				return errors.NewNotValid(nil, fmt.Sprintf("machine %q series %q and base %q must match if both supplied", name, m.Series, m.Base))
-			}
-		}
+	errs := []string{}
+
+	// The first dslist is always the bundle itself
+	bundleErrs := verifyBundleNoSeries(dslist[0].BundleBytes())
+	if len(bundleErrs) != 0 {
+		errs = append(errs, fmt.Sprintf("base bundle contains invalid key series:\n- %v", strings.Join(bundleErrs, "\n- ")))
 	}
 
-	for name, app := range data.Applications {
-		if app != nil && app.Series != "" && app.Base != "" {
-			b, err := corebase.ParseBaseFromString(app.Base)
-			if err != nil {
-				return errors.Trace(err)
+	// The rest are overlays
+	for i, ds := range dslist[1:] {
+		overlayErrs := verifyBundleNoSeries(ds.BundleBytes())
+		if len(overlayErrs) != 0 {
+			errs = append(errs, fmt.Sprintf("overlay index %d contains invalid key series:\n- %v", i, strings.Join(overlayErrs, "\n- ")))
+		}
+	}
+	return errs
+}
+
+func verifyBundleNoSeries(bundleBytes []byte) []string {
+	dec := yaml.NewDecoder(bytes.NewReader(bundleBytes))
+
+	var errs []string
+	for docIdx := 0; ; docIdx++ {
+		var data *bundleSeriesData
+
+		err := dec.Decode(&data)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			// The bundle should already have been parsed if we're
+			// calling this check, so we should not see this
+			return []string{err.Error()}
+		}
+
+		if data == nil {
+			continue
+		}
+
+		if data.Series != "" {
+			errs = append(errs, fmt.Sprintf("document %d; bundle contains top level series. Please use default-base", docIdx))
+		}
+		for name, app := range data.Applications {
+			if app.Series != "" {
+				errs = append(errs, fmt.Sprintf("document %d; bundle application %q contains series. Please use base", docIdx, name))
 			}
-			s, err := corebase.GetSeriesFromBase(b)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if s != app.Series {
-				return errors.NewNotValid(nil, fmt.Sprintf("application %q series %q and base %q must match if both supplied", name, app.Series, app.Base))
+		}
+		for name, m := range data.Machines {
+			if m.Series != "" {
+				errs = append(errs, fmt.Sprintf("document %d; bundle machine %q contains series. Please use base", docIdx, name))
 			}
 		}
 	}
-	return nil
+	return errs
 }
