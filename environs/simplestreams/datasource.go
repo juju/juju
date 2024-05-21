@@ -134,9 +134,7 @@ func NewDataSource(cfg Config) DataSource {
 	client := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(!cfg.HostnameVerification),
 		jujuhttp.WithCACertificates(cfg.CACertificates...),
-		jujuhttp.WithLogger(httpLogger{
-			Logger: logger.Child("http", corelogger.HTTP),
-		}),
+		jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 	)
 	return NewDataSourceWithClient(cfg, client)
 }
@@ -245,12 +243,4 @@ func (h *urlDataSource) Priority() int {
 // RequireSigned is defined in simplestreams.DataSource.
 func (h *urlDataSource) RequireSigned() bool {
 	return h.requireSigned
-}
-
-type httpLogger struct {
-	corelogger.Logger
-}
-
-func (l httpLogger) IsTraceEnabled() bool {
-	return l.IsLevelEnabled(corelogger.TRACE)
 }

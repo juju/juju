@@ -2767,9 +2767,7 @@ func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.Cl
 	}
 
 	httpClient := jujuhttp.NewClient(
-		jujuhttp.WithLogger(httpLogger{
-			Logger: logger.Child("http", corelogger.HTTP),
-		}),
+		jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 	)
 
 	var err error
@@ -2812,12 +2810,4 @@ func CreateTagSpecification(resourceType types.ResourceType, tags map[string]str
 	}
 
 	return spec
-}
-
-type httpLogger struct {
-	corelogger.Logger
-}
-
-func (l httpLogger) IsTraceEnabled() bool {
-	return l.IsLevelEnabled(corelogger.TRACE)
 }

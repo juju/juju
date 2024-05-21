@@ -254,20 +254,10 @@ func newClient(
 	httpClient := jujuhttp.NewClient(
 		jujuhttp.WithSkipHostnameVerification(opts.skipHostnameVerification),
 		jujuhttp.WithCACertificates(opts.caCertificates...),
-		jujuhttp.WithLogger(httpLogger{
-			Logger: logger.Child("http", corelogger.HTTP),
-		}),
+		jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 	)
 	return client.NewClient(&cred, authMode, gooseLogger,
 		client.WithHTTPClient(httpClient.Client()),
 		client.WithHTTPHeadersFunc(opts.httpHeadersFunc),
 	), nil
-}
-
-type httpLogger struct {
-	corelogger.Logger
-}
-
-func (l httpLogger) IsTraceEnabled() bool {
-	return l.IsLevelEnabled(corelogger.TRACE)
 }

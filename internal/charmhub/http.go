@@ -104,9 +104,7 @@ func requestHTTPClient(recorder jujuhttp.RequestRecorder, policy jujuhttp.RetryP
 		return jujuhttp.NewClient(
 			jujuhttp.WithRequestRecorder(recorder),
 			jujuhttp.WithRequestRetrier(policy),
-			jujuhttp.WithLogger(httpLogger{
-				Logger: logger.Child("transport", corelogger.CHARMHUB, corelogger.HTTP),
-			}),
+			jujuhttp.WithLogger(logger.Child("transport", corelogger.CHARMHUB, corelogger.HTTP)),
 		)
 	}
 }
@@ -362,12 +360,4 @@ func (c *httpRESTClient) Post(ctx context.Context, path path.Path, headers http.
 	return restResponse{
 		StatusCode: resp.StatusCode,
 	}, nil
-}
-
-type httpLogger struct {
-	corelogger.Logger
-}
-
-func (l httpLogger) IsTraceEnabled() bool {
-	return l.IsLevelEnabled(corelogger.TRACE)
 }

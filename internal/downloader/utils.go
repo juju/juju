@@ -10,10 +10,10 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/utils/v4"
 
 	corelogger "github.com/juju/juju/core/logger"
+	jujuhttp "github.com/juju/juju/internal/http"
 )
 
 // NewHTTPBlobOpener returns a blob opener func suitable for use with
@@ -24,9 +24,7 @@ func NewHTTPBlobOpener(hostnameVerification bool) func(Request) (io.ReadCloser, 
 		// TODO(rog) make the download operation interruptible.
 		client := jujuhttp.NewClient(
 			jujuhttp.WithSkipHostnameVerification(!hostnameVerification),
-			jujuhttp.WithLogger(httpLogger{
-				Logger: logger.Child("http", corelogger.HTTP),
-			}),
+			jujuhttp.WithLogger(logger.Child("http", corelogger.HTTP)),
 		)
 
 		resp, err := client.Get(context.TODO(), req.URL.String())
@@ -62,12 +60,4 @@ func NewSha256Verifier(expected string) func(*os.File) error {
 		}
 		return nil
 	}
-}
-
-type httpLogger struct {
-	corelogger.Logger
-}
-
-func (l httpLogger) IsTraceEnabled() bool {
-	return l.IsLevelEnabled(corelogger.TRACE)
 }
