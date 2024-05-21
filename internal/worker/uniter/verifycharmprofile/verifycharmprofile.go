@@ -6,11 +6,10 @@ package verifycharmprofile
 import (
 	"context"
 
-	jujucharm "github.com/juju/juju/internal/charm"
-
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	jujucharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"

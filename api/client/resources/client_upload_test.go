@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
 	"go.uber.org/mock/gomock"
@@ -26,6 +25,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	coreresources "github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 )

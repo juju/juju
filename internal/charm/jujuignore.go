@@ -10,7 +10,6 @@ import (
 	"unicode"
 
 	"github.com/juju/errors"
-
 	"gopkg.in/gobwas/glob.v0"
 )
 

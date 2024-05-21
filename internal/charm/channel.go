@@ -41,18 +41,17 @@ func isRisk(potential string) bool {
 //
 // A channel consists of, and is subdivided by, tracks, risk-levels and
 // branches:
-//  - Tracks enable snap developers to publish multiple supported releases of
-//    their application under the same snap name.
-//  - Risk-levels represent a progressive potential trade-off between stability
-//    and new features.
-//  - Branches are _optional_ and hold temporary releases intended to help with
-//    bug-fixing.
+//   - Tracks enable snap developers to publish multiple supported releases of
+//     their application under the same snap name.
+//   - Risk-levels represent a progressive potential trade-off between stability
+//     and new features.
+//   - Branches are _optional_ and hold temporary releases intended to help with
+//     bug-fixing.
 //
 // The complete channel name can be structured as three distinct parts separated
 // by slashes:
 //
-//    <track>/<risk>/<branch>
-//
+//	<track>/<risk>/<branch>
 type Channel struct {
 	Track  string `json:"track,omitempty"`
 	Risk   Risk   `json:"risk,omitempty"`

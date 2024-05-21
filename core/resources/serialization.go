@@ -5,6 +5,7 @@ package resources
 
 import (
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/internal/charm/resource"
 )
 

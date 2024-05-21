@@ -14,7 +14,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
+	"github.com/juju/juju/internal/charm"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"

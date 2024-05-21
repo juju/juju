@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
 

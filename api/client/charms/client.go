@@ -8,8 +8,6 @@ import (
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 
 	"github.com/juju/juju/api/base"
 	api "github.com/juju/juju/api/client/resources"
@@ -17,6 +15,8 @@ import (
 	commoncharms "github.com/juju/juju/api/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
 

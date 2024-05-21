@@ -4,10 +4,10 @@
 package modelgeneration
 
 import (
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/internal/charm"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/client/modelgeneration State,Model,Generation,Application

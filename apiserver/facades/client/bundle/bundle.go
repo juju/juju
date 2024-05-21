@@ -14,8 +14,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"
 
@@ -34,6 +32,8 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
+	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"

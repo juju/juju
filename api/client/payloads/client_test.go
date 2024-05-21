@@ -4,7 +4,6 @@
 package payloads_test
 
 import (
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -13,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/payloads"
 	corepayloads "github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

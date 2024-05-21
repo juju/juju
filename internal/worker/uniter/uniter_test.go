@@ -12,7 +12,6 @@ import (
 	"syscall"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/loggo/v2"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/uniter"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"

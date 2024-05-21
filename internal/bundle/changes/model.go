@@ -9,13 +9,13 @@ import (
 	"strconv"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	"github.com/juju/naturalsort"
 	"github.com/kr/pretty"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm"
 )
 
 // Model represents the existing deployment if any.

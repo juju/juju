@@ -10,8 +10,9 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/utils/v4"
+
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 // Content holds a reader for the content of a resource along

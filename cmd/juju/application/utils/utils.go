@@ -12,7 +12,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/mattn/go-isatty"
 	goyaml "gopkg.in/yaml.v2"
 
@@ -23,6 +22,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/resources"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 

@@ -4,10 +4,9 @@
 package store
 
 import (
-	"github.com/juju/juju/internal/charm"
-
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
+	"github.com/juju/juju/internal/charm"
 )
 
 // CharmAdder defines a subset of the charm client needed to add a

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/api/http"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/resources"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
 

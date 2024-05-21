@@ -6,10 +6,9 @@ package crossmodel
 import (
 	"time"
 
-	"github.com/juju/juju/internal/charm"
-
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/internal/charm"
 )
 
 // ApplicationOfferDetails represents the details about an

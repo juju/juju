@@ -6,8 +6,9 @@ package migrations
 import (
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
+
+	"github.com/juju/juju/internal/charm"
 )
 
 // MigrationRemoteApplication is an in-place representation of the

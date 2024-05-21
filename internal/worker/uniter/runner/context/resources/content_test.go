@@ -7,11 +7,11 @@ import (
 	"io"
 	"strings"
 
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/worker/uniter/runner/context/resources"
 )
 

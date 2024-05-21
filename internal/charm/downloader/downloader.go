@@ -11,13 +11,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/version"
 )
 

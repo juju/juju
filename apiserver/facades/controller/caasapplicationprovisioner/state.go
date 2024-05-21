@@ -8,7 +8,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/controller"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
 

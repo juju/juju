@@ -5,12 +5,12 @@ package caasfirewaller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm"
 )
 
 // Config holds configuration for the CAAS unit firewaller worker.

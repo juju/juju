@@ -6,7 +6,6 @@ package application
 import (
 	"context"
 
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/schema"
 	"gopkg.in/juju/environschema.v1"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -7,12 +7,12 @@ import (
 	"context"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"

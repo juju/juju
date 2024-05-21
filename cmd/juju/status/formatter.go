@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	"github.com/juju/naturalsort"
 
@@ -17,6 +16,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

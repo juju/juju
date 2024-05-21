@@ -5,8 +5,8 @@ package provisioner
 
 import (
 	"github.com/juju/errors"
-	jujucharm "github.com/juju/juju/internal/charm"
 
+	jujucharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/network/containerizer"
 	"github.com/juju/juju/state"
 )

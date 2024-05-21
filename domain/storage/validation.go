@@ -9,10 +9,10 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 
 	coremodel "github.com/juju/juju/core/model"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 

@@ -7,11 +7,11 @@ import (
 	stdcontext "context"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"

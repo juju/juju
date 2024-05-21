@@ -8,12 +8,12 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	jujucharm "github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/charm/hooks"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	jujucharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"

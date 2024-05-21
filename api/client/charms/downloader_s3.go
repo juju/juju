@@ -9,9 +9,9 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/downloader"
 )
 

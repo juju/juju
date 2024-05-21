@@ -21,7 +21,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/names/v5"
 	"github.com/mattn/go-isatty"
 	"gopkg.in/yaml.v2"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )

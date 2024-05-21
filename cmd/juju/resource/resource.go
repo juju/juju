@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+
 	"github.com/juju/juju/internal/charm/resource"
 )
 

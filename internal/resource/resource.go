@@ -7,7 +7,6 @@ import (
 	"io"
 
 	charmresource "github.com/juju/juju/internal/charm/resource"
-
 	internallogger "github.com/juju/juju/internal/logger"
 )
 

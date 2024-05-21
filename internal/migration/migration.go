@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/naturalsort"
 	"github.com/juju/version/v2"
 
@@ -28,6 +27,7 @@ import (
 	migrations "github.com/juju/juju/domain/modelmigration"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"

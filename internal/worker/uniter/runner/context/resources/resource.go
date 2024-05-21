@@ -9,11 +9,11 @@ import (
 	"io"
 
 	"github.com/juju/errors"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/resources"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/docker"
 )
 

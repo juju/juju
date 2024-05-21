@@ -7,11 +7,11 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 )
 

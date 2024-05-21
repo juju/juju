@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 
 	"github.com/juju/collections/set"
-	jujucharm "github.com/juju/juju/internal/charm"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jujucharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/testcharms"
 )

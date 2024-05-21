@@ -9,10 +9,10 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/charm"
 )
 
 // NewPayloadRegisterCmd returns a new PayloadRegisterCmd that wraps the given context.

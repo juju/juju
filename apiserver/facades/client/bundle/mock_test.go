@@ -5,11 +5,11 @@ package bundle_test
 
 import (
 	"github.com/juju/description/v6"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
 

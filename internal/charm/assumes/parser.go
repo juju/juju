@@ -34,10 +34,10 @@ type ExpressionTree struct {
 //
 // For example:
 // assumes:
-//  - foo
-//  - bar >= 1.42
-//  - any-of: ... (nested expr)
-//  - all-of: ... (nested expr)
+//   - foo
+//   - bar >= 1.42
+//   - any-of: ... (nested expr)
+//   - all-of: ... (nested expr)
 func parseAssumesExpressionTree(rootExprList []interface{}) (Expression, error) {
 	var (
 		rootExpr = CompositeExpression{
@@ -98,12 +98,12 @@ func parseAssumesExpr(exprDecl interface{}) (Expression, error) {
 //
 // The EBNF grammar for a composite expression is:
 //
-//   composite-expr-decl: ("any-of"|"all-of") expr-decl-list
+//	composite-expr-decl: ("any-of"|"all-of") expr-decl-list
 //
-//   expr-decl-list: expr-decl+
+//	expr-decl-list: expr-decl+
 //
-//   expr-decl: feature-expr-decl |
-//              composite-expr-decl
+//	expr-decl: feature-expr-decl |
+//	           composite-expr-decl
 //
 // The function expects a map with either a "any-of" or "all-of" key and
 // a value that is a slice of sub-expressions.
@@ -145,13 +145,12 @@ func parseCompositeExpr(exprDecl map[string]interface{}) (CompositeExpression, e
 //
 // The EBNF grammar for feature expressions is:
 //
-//   feature-expr-decl: feature-ident |
-//                      feature-ident version-constraint version-number
+//	feature-expr-decl: feature-ident |
+//	                   feature-ident version-constraint version-number
 //
-//   version-constraint: ">=" | "<"
-//   feature-ident: [a-z][a-z0-9-]*[a-z0-9]+
-//   version-number: \d+ (‘.’ \d+ (‘.’ \d+)?)?
-//
+//	version-constraint: ">=" | "<"
+//	feature-ident: [a-z][a-z0-9-]*[a-z0-9]+
+//	version-number: \d+ (‘.’ \d+ (‘.’ \d+)?)?
 func parseFeatureExpr(exprDecl string) (FeatureExpression, error) {
 	exprDecl = strings.TrimSpace(exprDecl)
 

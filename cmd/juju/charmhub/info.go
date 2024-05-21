@@ -11,10 +11,10 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/internal/charm"
 
 	jujucmd "github.com/juju/juju/cmd"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
 )
 

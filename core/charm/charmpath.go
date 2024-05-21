@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/charm"
 )
 
 // NewCharmAtPath returns the charm represented by this path,

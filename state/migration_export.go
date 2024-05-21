@@ -12,7 +12,6 @@ import (
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/feature"
 	internallogger "github.com/juju/juju/internal/logger"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"

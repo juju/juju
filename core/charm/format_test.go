@@ -4,10 +4,11 @@
 package charm
 
 import (
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/testing"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/internal/charm"
 )
 
 type formatSuite struct {

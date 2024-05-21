@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm"
 )
 
 // ArchConstraint defines an architecture constraint. This is used to

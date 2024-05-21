@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/internal/charm"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/internal/charm"
 )
 
 var keyRule = charm.GetActionNameRule()

@@ -30,18 +30,18 @@ import (
 // To clarify how this method works let's consider a bundle created via the
 // yaml blob below:
 //
-//   applications:
-//     apache2:
-//       charm: cs:apache2-26
-//       offers:
-//         my-offer:
-//           endpoints:
-//           - apache-website
-//           - website-cache
-//         my-other-offer:
-//           endpoints:
-//           - apache-website
-//   series: bionic
+//	applications:
+//	  apache2:
+//	    charm: cs:apache2-26
+//	    offers:
+//	      my-offer:
+//	        endpoints:
+//	        - apache-website
+//	        - website-cache
+//	      my-other-offer:
+//	        endpoints:
+//	        - apache-website
+//	series: bionic
 //
 // The "offers" and "endpoints" attributes are overlay-specific fields. If we
 // were to run this method and then marshal the results back to yaml we would
@@ -49,23 +49,23 @@ import (
 //
 // The base bundle:
 //
-//   applications:
-//     apache2:
-//       charm: cs:apache2-26
-//   series: bionic
+//	applications:
+//	  apache2:
+//	    charm: cs:apache2-26
+//	series: bionic
 //
 // The overlay-specific bundle:
 //
-//   applications:
-//     apache2:
-//       offers:
-//         my-offer:
-//           endpoints:
-//           - apache-website
-//           - website-cache
-//         my-other-offer:
-//           endpoints:
-//           - apache-website
+//	applications:
+//	  apache2:
+//	    offers:
+//	      my-offer:
+//	        endpoints:
+//	        - apache-website
+//	        - website-cache
+//	      my-other-offer:
+//	        endpoints:
+//	        - apache-website
 //
 // The two bundles returned by this method are copies of the original bundle
 // data and can thus be safely manipulated by the caller.
@@ -373,29 +373,29 @@ func isZero(v reflect.Value) bool {
 //
 // When merging an overlay into a base bundle the following rules apply for the
 // BundleData struct fields:
-// - if an overlay specifies a bundle-level series, it overrides the base bundle
-//   series.
-// - overlay-defined relations are appended to the base bundle relations
-// - overlay-defined machines overwrite the base bundle machines.
-// - if an overlay defines an application that is not present in the base bundle,
-//   it will get appended to the application list.
-// - if an overlay defines an empty application or saas value, it will be removed
-//   from the base bundle together with any associated relations. For example, to
-//   remove an application named "mysql" the following overlay snippet can be
-//   provided:
+//   - if an overlay specifies a bundle-level series, it overrides the base bundle
+//     series.
+//   - overlay-defined relations are appended to the base bundle relations
+//   - overlay-defined machines overwrite the base bundle machines.
+//   - if an overlay defines an application that is not present in the base bundle,
+//     it will get appended to the application list.
+//   - if an overlay defines an empty application or saas value, it will be removed
+//     from the base bundle together with any associated relations. For example, to
+//     remove an application named "mysql" the following overlay snippet can be
+//     provided:
 //     applications:
-//       mysql:
+//     mysql:
 //
-// - if an overlay defines an application that is also present in the base bundle
-//   the two application specs are merged together (see following rules)
+//   - if an overlay defines an application that is also present in the base bundle
+//     the two application specs are merged together (see following rules)
 //
 // ApplicationSpec merge rules:
-// - if the overlay defines a value for a scalar or slice field, it will overwrite
-//   the value from the base spec (e.g. trust, series etc).
-// - if the overlay specifies a nil/empty value for a map field, then the map
-//   field of the base spec will be cleared.
-// - if the overlay specifies a non-empty value for a map field, its key/value
-//   tuples are iterated and:
+//   - if the overlay defines a value for a scalar or slice field, it will overwrite
+//     the value from the base spec (e.g. trust, series etc).
+//   - if the overlay specifies a nil/empty value for a map field, then the map
+//     field of the base spec will be cleared.
+//   - if the overlay specifies a non-empty value for a map field, its key/value
+//     tuples are iterated and:
 //   - if the value is nil/zero and the value is non-scalar, it is deleted from
 //     the base spec.
 //   - otherwise, the key/value is inserted into the base spec overwriting any
@@ -621,12 +621,12 @@ func removeRelations(data [][]string, appName string) [][]string {
 // mergeStructs iterates the fields of srcStruct and merges them into the
 // equivalent fields of dstStruct using the following rules:
 //
-// - if src defines a value for a scalar or slice field, it will overwrite
-//   the value from the dst (e.g. trust, series etc).
-// - if the src specifies a nil/empty value for a map field, then the map
-//   field of dst will be cleared.
-// - if the src specifies a non-empty value for a map field, its key/value
-//   tuples are iterated and:
+//   - if src defines a value for a scalar or slice field, it will overwrite
+//     the value from the dst (e.g. trust, series etc).
+//   - if the src specifies a nil/empty value for a map field, then the map
+//     field of dst will be cleared.
+//   - if the src specifies a non-empty value for a map field, its key/value
+//     tuples are iterated and:
 //   - if the value is nil/zero and non-scalar, it is deleted from the dst map.
 //   - otherwise, the key/value is inserted into the dst map overwriting any
 //     existing entries.

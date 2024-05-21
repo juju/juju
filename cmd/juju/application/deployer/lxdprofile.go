@@ -4,10 +4,9 @@
 package deployer
 
 import (
-	"github.com/juju/juju/internal/charm"
-
 	apicharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/internal/charm"
 )
 
 // lxdCharmProfiler massages a charm.Charm into a LXDProfiler inside of the

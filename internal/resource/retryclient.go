@@ -9,8 +9,9 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/retry"
+
+	"github.com/juju/juju/internal/charm"
 )
 
 // ResourceRetryClient is a wrapper around a Juju repository client that

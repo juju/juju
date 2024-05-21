@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/charm"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/controller"
@@ -20,6 +19,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/bootstrap"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"

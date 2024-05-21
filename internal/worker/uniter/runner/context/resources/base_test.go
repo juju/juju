@@ -7,12 +7,12 @@ import (
 	"io"
 	"time"
 
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 func newCharmResource(c *gc.C, stub *testing.Stub, name, content string, resType charmresource.Type) (resources.Resource, io.ReadCloser) {

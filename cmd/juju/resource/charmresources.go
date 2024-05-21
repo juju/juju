@@ -7,14 +7,14 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/juju/internal/charm"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/charms"
 	apicharm "github.com/juju/juju/api/common/charm"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 // ResourceLister lists resources for the given charm ids.

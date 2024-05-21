@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/client/resources"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	coreresources "github.com/juju/juju/core/resources"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 // UploadClient has the API client methods needed by UploadCommand.
