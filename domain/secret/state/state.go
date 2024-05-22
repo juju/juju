@@ -3346,11 +3346,11 @@ FROM   secret_rotation sro
 	}
 	if len(appOwners) > 0 && len(unitOwners) > 0 {
 		queryParams = append(queryParams, appOwners, unitOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id`,
-			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
-			`LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id`,
-			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		joins = append(joins, `
+LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id
+LEFT JOIN application ON application.uuid = sao.application_uuid
+LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id
+LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
 		conditions = append(conditions, `(
     sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
@@ -3358,16 +3358,16 @@ FROM   secret_rotation sro
 )`)
 	} else if len(appOwners) > 0 {
 		queryParams = append(queryParams, appOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id`,
-			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
+		joins = append(joins, `
+LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id
+LEFT JOIN application ON application.uuid = sao.application_uuid`[1:],
 		)
 		conditions = append(conditions, "sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
 	} else if len(unitOwners) > 0 {
 		queryParams = append(queryParams, unitOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id`,
-			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		joins = append(joins, `
+LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id
+LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
 		conditions = append(conditions, "suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
 	}

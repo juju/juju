@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -58,7 +59,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	processLocalChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
 		return s.st.GetConsumedSecretURIsWithChanges(ctx, unitName, revisionUUIDs...)
 	}
-	sWLocal, err := newSecretWatcher(wLocal, true, s.logger, processLocalChanges)
+	sWLocal, err := newSecretWatcher(wLocal, s.logger, processLocalChanges)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -74,7 +75,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	processRemoteChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
 		return s.st.GetConsumedRemoteSecretURIsWithChanges(ctx, unitName, secretIDs...)
 	}
-	sWRemote, err := newSecretWatcher(wRemote, true, s.logger, processRemoteChanges)
+	sWRemote, err := newSecretWatcher(wRemote, s.logger, processRemoteChanges)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -95,7 +96,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 	processChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
 		return s.st.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appName, secretIDs...)
 	}
-	return newSecretWatcher(w, true, s.logger, processChanges)
+	return newSecretWatcher(w, s.logger, processChanges)
 }
 
 // WatchObsolete returns a watcher for notifying when:
@@ -121,7 +122,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
 		return s.st.GetRevisionIDsForObsolete(ctx, appOwners, unitOwners, revisionUUIDs...)
 	}
-	return newSecretWatcher(w, true, s.logger, processChanges)
+	return newSecretWatcher(w, s.logger, processChanges)
 }
 
 // TODO(secrets) - replace with real watcher
@@ -160,12 +161,14 @@ func (w *mockSecretTriggerWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
+// WatchSecretRevisionsExpiryChanges returns a watcher that notifies when the expiry time of a secret revision changes.
 func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	ch := make(chan []watcher.SecretTriggerChange, 1)
 	ch <- []watcher.SecretTriggerChange{}
 	return newMockTriggerWatcher(ch), nil
 }
 
+// WatchSecretsRotationChanges returns a watcher that notifies when the rotation time of a secret changes.
 func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	if len(owners) == 0 {
 		return nil, errors.New("at least one owner must be provided")
@@ -194,7 +197,7 @@ func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owne
 		}
 		return changes, nil
 	}
-	return newSecretWatcher(w, true, s.logger, processChanges)
+	return newSecretWatcher(w, s.logger, processChanges)
 }
 
 func (s *WatchableService) WatchObsoleteUserSecrets(ctx context.Context) (watcher.NotifyWatcher, error) {
@@ -216,19 +219,17 @@ type secretWatcher[T any] struct {
 	logger   logger.Logger
 
 	sourceWatcher watcher.StringsWatcher
-	fireOnce      bool
 	handle        func(ctx context.Context, events ...string) ([]T, error)
 
 	out chan []T
 }
 
 func newSecretWatcher[T any](
-	sourceWatcher watcher.StringsWatcher, fireOnce bool, logger logger.Logger,
+	sourceWatcher watcher.StringsWatcher, logger logger.Logger,
 	handle func(ctx context.Context, events ...string) ([]T, error),
 ) (*secretWatcher[T], error) {
 	w := &secretWatcher[T]{
 		sourceWatcher: sourceWatcher,
-		fireOnce:      fireOnce,
 		logger:        logger,
 		handle:        handle,
 		out:           make(chan []T),
@@ -251,33 +252,35 @@ func (w *secretWatcher[T]) loop() error {
 	defer close(w.out)
 
 	var (
-		processedIDs set.Strings
-		changes      []T
+		historyIDs set.Strings
+		changes    []T
 	)
 	// To allow the initial event to be sent.
 	out := w.out
 	addChanges := func(events set.Strings) error {
-		if processedIDs == nil {
-			processedIDs = set.NewStrings()
-		}
-		newEvents := events.Difference(processedIDs)
-		if !w.fireOnce {
-			// If we are not firing once, we want to process all received events.
-			newEvents = events
-		}
-		if newEvents.IsEmpty() {
+		if len(events) == 0 {
 			return nil
 		}
-
-		processed, err := w.processChanges(newEvents.Values()...)
+		processed, err := w.processChanges(events.Values()...)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if len(processed) == 0 {
 			return nil
 		}
-		changes = append(changes, processed...)
-		processedIDs = processedIDs.Union(newEvents)
+
+		if historyIDs == nil {
+			historyIDs = set.NewStrings()
+		}
+		for _, v := range processed {
+			id := fmt.Sprint(v)
+			if historyIDs.Contains(id) {
+				continue
+			}
+			changes = append(changes, v)
+			historyIDs.Add(id)
+		}
+
 		out = w.out
 		return nil
 	}

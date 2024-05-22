@@ -3308,7 +3308,29 @@ func (s *stateSuite) TestGetSecretsRotationChanges(c *gc.C) {
 		},
 	})
 
+	// The uri2 is not owned by mysql, so it should not be returned.
+	result, err = st.GetSecretsRotationChanges(ctx, domainsecret.ApplicationOwners{"mysql"}, nil, uri1.ID, uri2.ID)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.RotationInfo{
+		{
+			URI:             uri1,
+			Revision:        1,
+			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+		},
+	})
+
 	result, err = st.GetSecretsRotationChanges(ctx, nil, domainsecret.UnitOwners{"mediawiki/0"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.RotationInfo{
+		{
+			URI:             uri2,
+			Revision:        2,
+			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
+		},
+	})
+
+	// The uri1 is not owned by mediawiki/0, so it should not be returned.
+	result, err = st.GetSecretsRotationChanges(ctx, nil, domainsecret.UnitOwners{"mediawiki/0"}, uri1.ID, uri2.ID)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(result, jc.SameContents, []domainsecret.RotationInfo{
 		{

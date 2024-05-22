@@ -86,7 +86,7 @@ type State interface {
 	InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName string) (string, eventsource.NamespaceQuery)
 	GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx context.Context, appName string, secretIDs ...string) ([]string, error)
 
-	// For watching secret retation changes.
+	// For watching secret rotation changes.
 	InitialWatchStatementForSecretsRotationChanges(
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) (string, eventsource.NamespaceQuery)
@@ -430,13 +430,13 @@ func (s *SecretService) ListCharmSecrets(ctx context.Context, owners ...CharmSec
 }
 
 // GetSecret returns the secret with the specified URI.
-// If returns [secreterrors.SecretNotFound] is there's no such domainsecret.
+// If returns [secreterrors.SecretNotFound] is there's no such secret.
 func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error) {
 	return s.st.GetSecret(ctx, uri)
 }
 
 // GetUserSecretURIByLabel returns the user secret URI with the specified label.
-// If returns [secreterrors.SecretNotFound] is there's no such domainsecret.
+// If returns [secreterrors.SecretNotFound] is there's no such secret.
 func (s *SecretService) GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error) {
 	return s.st.GetUserSecretURIByLabel(ctx, label)
 }
@@ -519,7 +519,7 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 	}
 }
 
-// ProcessCharmSecretConsumerLabel takes a secret consumer and a uri and label which have been used to consumer the domainsecret.
+// ProcessCharmSecretConsumerLabel takes a secret consumer and a uri and label which have been used to consumer the secret.
 // If the uri is empty, the label and consumer are used to lookup the consumed secret uri.
 // This method returns the resulting uri, and optionally the label to update for the consumer.
 func (s *SecretService) ProcessCharmSecretConsumerLabel(
@@ -652,7 +652,7 @@ func (s *WatchableService) GetSecretBackendID(ctx context.Context) (string, erro
 }
 
 // ChangeSecretBackend sets the secret backend where the specified secret revision is stored.
-// It returns [secreterrors.SecretNotFound] is there's no such domainsecret.
+// It returns [secreterrors.SecretNotFound] is there's no such secret.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams) error {
 	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
