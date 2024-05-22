@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/juju/testing"
@@ -66,7 +66,7 @@ type uniterSuiteBase struct {
 
 func (s *uniterSuiteBase) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
-		controller.Features: feature.RawK8sSpec,
+		controller.Features: featureflag.RawK8sSpec,
 	}
 	s.WithLeaseManager = true
 

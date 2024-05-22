@@ -9,13 +9,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -46,7 +45,7 @@ func ReadModelsFile(file string) (map[string]*ControllerModels, error) {
 	if err := addModelType(models); err != nil {
 		return nil, err
 	}
-	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
+	if featureflag.Enabled(featureflag.Branches) || featureflag.Enabled(featureflag.Generations) {
 		if err := addGeneration(models); err != nil {
 			return nil, err
 		}

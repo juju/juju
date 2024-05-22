@@ -18,7 +18,6 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	proxyutils "github.com/juju/proxy"
@@ -36,6 +35,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	_ "github.com/juju/juju/internal/provider/all" // Import the providers.
 	proxy "github.com/juju/juju/internal/proxy/config"

@@ -12,14 +12,13 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v4"
 	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	jujuversion "github.com/juju/juju/version"
@@ -76,7 +75,7 @@ func (p *userpassLoginProvider) Login(ctx context.Context, caller base.APICaller
 	// If we are in developer mode, add the stack location as user data to the
 	// login request. This will allow the apiserver to connect connection ids
 	// to the particular place that initiated the connection.
-	if featureflag.Enabled(feature.DeveloperMode) {
+	if featureflag.Enabled(featureflag.DeveloperMode) {
 		request.UserData = string(debug.Stack())
 	}
 

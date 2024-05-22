@@ -12,14 +12,13 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	"github.com/juju/worker/v4"
 
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/state/watcher"
@@ -234,7 +233,7 @@ func (p *StatePool) Get(modelUUID string) (*PooledState, error) {
 	key := p.sourceKey
 
 	var source string
-	if featureflag.Enabled(feature.DeveloperMode) {
+	if featureflag.Enabled(featureflag.DeveloperMode) {
 		source = string(debug.Stack())
 	}
 

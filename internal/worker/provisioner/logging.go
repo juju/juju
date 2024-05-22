@@ -5,10 +5,9 @@ package provisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 )
 
 // loggedErrorStack is a developer helper function that will cause the error
@@ -16,7 +15,7 @@ import (
 // "log-error-stack" feature flag has been specified.  The passed in error
 // is also the return value of this function.
 func loggedErrorStack(logger logger.Logger, err error) error {
-	if featureflag.Enabled(feature.LogErrorStack) {
+	if featureflag.Enabled(featureflag.LogErrorStack) {
 		logger.Errorf("error stack:\n%s", errors.ErrorStack(err))
 	}
 	return err

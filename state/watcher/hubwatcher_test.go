@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
@@ -17,7 +16,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/watcher"
@@ -39,7 +38,7 @@ var _ = gc.Suite(&HubWatcherSuite{})
 func (s *HubWatcherSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
-	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, feature.DeveloperMode)
+	err := os.Setenv(osenv.JujuFeatureFlagEnvKey, featureflag.DeveloperMode)
 	c.Assert(err, jc.ErrorIsNil)
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
 

@@ -5,7 +5,6 @@ package bootstrap
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/caas"
@@ -15,7 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -237,7 +236,7 @@ func prepare(
 	details.Password = args.AdminSecret
 	details.LastKnownAccess = string(permission.SuperuserAccess)
 	details.ModelUUID = cfg.UUID()
-	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
+	if featureflag.Enabled(featureflag.Branches) || featureflag.Enabled(featureflag.Generations) {
 		details.ActiveBranch = model.GenerationMaster
 	}
 	details.ControllerDetails.Cloud = args.Cloud.Name

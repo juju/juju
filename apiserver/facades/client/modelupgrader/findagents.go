@@ -16,7 +16,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
 )
@@ -138,7 +138,7 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 		if args.Number != version.Zero && args.Number.Compare(number) != 0 {
 			continue
 		}
-		if !args.ControllerCfg.Features().Contains(feature.DeveloperMode) && streamsVersions.Size() > 0 {
+		if !args.ControllerCfg.Features().Contains(featureflag.DeveloperMode) && streamsVersions.Size() > 0 {
 			if !streamsVersions.Contains(number.ToPatch().String()) {
 				continue
 			}

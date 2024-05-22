@@ -1,7 +1,7 @@
 // Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package feature
+package featureflag
 
 // TODO (anastasiamac 2015-03-02)
 // Features that have commands that can be blocked,

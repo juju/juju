@@ -15,7 +15,6 @@ import (
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/names/v5"
 	"github.com/mitchellh/go-linereader"
 
@@ -25,7 +24,7 @@ import (
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -90,7 +89,7 @@ func (h *embeddedCLIHandler) ServeHTTP(w http.ResponseWriter, req *http.Request)
 				h.logger.Debugf("running embedded commands: %#v", jujuCmd)
 				cmdErr := h.runEmbeddedCommands(req.Context(), socket, modelUUID, jujuCmd)
 				// Only developers need this for debugging.
-				if cmdErr != nil && featureflag.Enabled(feature.DeveloperMode) {
+				if cmdErr != nil && featureflag.Enabled(featureflag.DeveloperMode) {
 					h.logger.Debugf("command exec error: %v", cmdErr)
 				}
 				if err := socket.WriteJSON(params.CLICommandStatus{

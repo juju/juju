@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub/transport"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
@@ -1186,7 +1186,7 @@ type ControllerConfigService interface {
 
 func setGenerationsControllerConfig(c *gc.C, controllerConfigService ControllerConfigService) {
 	err := controllerConfigService.UpdateControllerConfig(context.Background(), map[string]interface{}{
-		"features": feature.Branches,
+		"features": featureflag.Branches,
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

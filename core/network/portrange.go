@@ -13,7 +13,7 @@ import (
 )
 
 // GroupedPortRanges represents a list of PortRange instances grouped by a
-// particular feature.
+// particular featureflag.
 type GroupedPortRanges map[string][]PortRange
 
 // MergePendingOpenPortRanges will merge this group's port ranges with the
