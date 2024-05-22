@@ -59,9 +59,12 @@ type ModelService interface {
 	DefaultModelCloudNameAndCredential(context.Context) (string, credential.Key, error)
 
 	// DeleteModel deletes the give model.
-	DeleteModel(context.Context, coremodel.UUID) error
+	DeleteModel(context.Context, coremodel.UUID, ...model.DeleteModelOption) error
 
+	// ListModelsForUser returns a list of models for the given user.
 	ListModelsForUser(context.Context, coreuser.UUID) ([]coremodel.Model, error)
+
+	// ListAllModels returns a list of all models.
 	ListAllModels(context.Context) ([]coremodel.Model, error)
 }
 
@@ -85,6 +88,9 @@ type ModelInfoService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
 	CreateModel(context.Context, uuid.UUID) error
+
+	// DeleteModel is responsible for deleting a model during model migration.
+	DeleteModel(context.Context) error
 }
 
 // ModelExporter defines a interface for exporting models.

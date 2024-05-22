@@ -66,7 +66,7 @@ func (s *ImportSuite) SetUpTest(c *gc.C) {
 
 func (s *ImportSuite) TestBadBytes(c *gc.C) {
 	bytes := []byte("not a model")
-	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
+	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
 	controller := &fakeImporter{}
 	configSchemaSource := func(environs.CloudService) config.ConfigSchemaSourceGetter {
 		return state.NoopConfigSchemaSource
@@ -144,7 +144,7 @@ func (s *ImportSuite) exportImport(c *gc.C, leaders map[string]string) {
 	st := &state.State{}
 	m := &state.Model{}
 	controller := &fakeImporter{st: st, m: m}
-	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil) }
+	scope := func(string) modelmigration.Scope { return modelmigration.NewScope(nil, nil, nil) }
 	configSchemaSource := func(environs.CloudService) config.ConfigSchemaSourceGetter {
 		return state.NoopConfigSchemaSource
 	}

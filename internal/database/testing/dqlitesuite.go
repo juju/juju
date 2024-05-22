@@ -175,11 +175,11 @@ func (s *DqliteSuite) OpenDB(c *gc.C) (coredatabase.TxnRunner, *sql.DB) {
 	// Increment the id and use it as the database name, this prevents
 	// tests from interfering with each other.
 	uniqueID := atomic.AddInt64(&s.uniqueID, 1)
-	return s.OpenDBForNamespace(c, strconv.FormatInt(uniqueID, 10))
+	return s.OpenDBForNamespace(c, strconv.FormatInt(uniqueID, 10), true)
 }
 
 // OpenDBForNamespace returns a new sql.DB reference for the domain.
-func (s *DqliteSuite) OpenDBForNamespace(c *gc.C, domain string) (coredatabase.TxnRunner, *sql.DB) {
+func (s *DqliteSuite) OpenDBForNamespace(c *gc.C, domain string, foreignKey bool) (coredatabase.TxnRunner, *sql.DB) {
 	// There are places in the Juju code where an empty model uuid is valid and
 	// takes on a double meaning to signify something else. It's possible that
 	// in test scenarios as we move to DQlite that these empty model uuid's can
@@ -190,7 +190,7 @@ func (s *DqliteSuite) OpenDBForNamespace(c *gc.C, domain string) (coredatabase.T
 	db, err := s.dqlite.Open(context.Background(), domain)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, true)
+	err = pragma.SetPragma(context.Background(), db, pragma.ForeignKeysPragma, foreignKey)
 	c.Assert(err, jc.ErrorIsNil)
 
 	trackedDB := &txnRunner{

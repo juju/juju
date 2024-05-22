@@ -81,11 +81,20 @@ type State interface {
 	UpdateCredential(context.Context, coremodel.UUID, credential.Key) error
 }
 
+// ModelDeleter is an interface for deleting models.
+type ModelDeleter interface {
+	// DeleteDB is responsible for removing a model from Juju and all of it's
+	// associated metadata.
+	DeleteDB(string) error
+}
+
 // Service defines a service for interacting with the underlying state based
 // information of a model.
 type Service struct {
 	st                State
+	modelDeleter      ModelDeleter
 	agentBinaryFinder AgentBinaryFinder
+	logger            Logger
 }
 
 // AgentBinaryFinder represents a helper for establishing if agent binaries for
@@ -109,11 +118,23 @@ func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, erro
 	return t(v)
 }
 
+// Logger is an interface for logging information.
+type Logger interface {
+	Infof(string, ...any)
+}
+
 // NewService returns a new Service for interacting with a models state.
-func NewService(st State, agentBinaryFinder AgentBinaryFinder) *Service {
+func NewService(
+	st State,
+	modelDeleter ModelDeleter,
+	agentBinaryFinder AgentBinaryFinder,
+	logger Logger,
+) *Service {
 	return &Service{
 		st:                st,
+		modelDeleter:      modelDeleter,
 		agentBinaryFinder: agentBinaryFinder,
+		logger:            logger,
 	}
 }
 
@@ -242,12 +263,38 @@ func (s *Service) ModelType(ctx context.Context, uuid coremodel.UUID) (coremodel
 func (s *Service) DeleteModel(
 	ctx context.Context,
 	uuid coremodel.UUID,
+	opts ...model.DeleteModelOption,
 ) error {
+	options := model.DefaultDeleteModelOptions()
+	for _, fn := range opts {
+		fn(options)
+	}
+
 	if err := uuid.Validate(); err != nil {
 		return fmt.Errorf("delete model, uuid: %w", err)
 	}
 
-	return s.st.Delete(ctx, uuid)
+	// Delete common items from the model. This helps to ensure that the
+	// model is cleaned up correctly.
+	if err := s.st.Delete(ctx, uuid); err != nil {
+		return fmt.Errorf("delete model: %w", err)
+	}
+
+	// If the db should not be deleted then we can return early.
+	if !options.DeleteDB() {
+		s.logger.Infof("skipping model deletion, model database will still be present")
+		return nil
+	}
+
+	// Delete the db completely from the system. Currently, this will remove
+	// the db from the dbaccessor, but it will not drop the db (currently not
+	// supported in dqlite). For now we do a best effort to remove all items
+	// with in the db.
+	if err := s.modelDeleter.DeleteDB(uuid.String()); err != nil {
+		return fmt.Errorf("delete model: %w", err)
+	}
+
+	return nil
 }
 
 // ListModelIDs returns a list of all model UUIDs in the system that have not been

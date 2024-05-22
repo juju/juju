@@ -21,6 +21,7 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
@@ -53,6 +54,7 @@ type Config struct {
 
 	// DBGetter supplies WatchableDB implementations by namespace.
 	DBGetter                changestream.WatchableDBGetter
+	DBDeleter               database.DBDeleter
 	ServiceFactoryGetter    servicefactory.ServiceFactoryGetter
 	TracerGetter            trace.TracerGetter
 	ObjectStoreGetter       objectstore.ObjectStoreGetter
@@ -120,6 +122,9 @@ func (config Config) Validate() error {
 	if config.DBGetter == nil {
 		return errors.NotValidf("nil DBGetter")
 	}
+	if config.DBDeleter == nil {
+		return errors.NotValidf("nil DBDeleter")
+	}
 	if config.TracerGetter == nil {
 		return errors.NotValidf("nil TracerGetter")
 	}
@@ -185,6 +190,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		LogSink:                       config.LogSink,
 		CharmhubHTTPClient:            config.CharmhubHTTPClient,
 		DBGetter:                      config.DBGetter,
+		DBDeleter:                     config.DBDeleter,
 		ServiceFactoryGetter:          config.ServiceFactoryGetter,
 		TracerGetter:                  config.TracerGetter,
 		ObjectStoreGetter:             config.ObjectStoreGetter,

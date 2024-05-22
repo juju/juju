@@ -5,7 +5,6 @@ package apiserver
 
 import (
 	"context"
-	stdcontext "context"
 	"net/http"
 	"strings"
 
@@ -25,6 +24,7 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
@@ -72,6 +72,7 @@ type ManifoldConfig struct {
 	LeaseManagerName       string
 	LogSinkName            string
 	CharmhubHTTPClientName string
+	DBAccessorName         string
 	ChangeStreamName       string
 	ServiceFactoryName     string
 	TraceName              string
@@ -83,7 +84,7 @@ type ManifoldConfig struct {
 	Presence                          presence.Recorder
 	GetControllerConfigService        GetControllerConfigServiceFunc
 
-	NewWorker           func(stdcontext.Context, Config) (worker.Worker, error)
+	NewWorker           func(context.Context, Config) (worker.Worker, error)
 	NewMetricsCollector func() *apiserver.Collector
 }
 
@@ -127,6 +128,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.CharmhubHTTPClientName == "" {
 		return errors.NotValidf("empty CharmhubHTTPClientName")
+	}
+	if config.DBAccessorName == "" {
+		return errors.NotValidf("empty DBAccessorName")
 	}
 	if config.ChangeStreamName == "" {
 		return errors.NotValidf("empty ChangeStreamName")
@@ -174,6 +178,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuditConfigUpdaterName,
 			config.LeaseManagerName,
 			config.CharmhubHTTPClientName,
+			config.DBAccessorName,
 			config.ChangeStreamName,
 			config.ServiceFactoryName,
 			config.TraceName,
@@ -250,6 +255,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	var dbDeleter database.DBDeleter
+	if err := getter.Get(config.DBAccessorName, &dbDeleter); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var serviceFactoryGetter servicefactory.ServiceFactoryGetter
 	if err := getter.Get(config.ServiceFactoryName, &serviceFactoryGetter); err != nil {
 		return nil, errors.Trace(err)
@@ -307,6 +317,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		LogSink:                           logSink,
 		CharmhubHTTPClient:                charmhubHTTPClient,
 		DBGetter:                          dbGetter,
+		DBDeleter:                         dbDeleter,
 		ServiceFactoryGetter:              serviceFactoryGetter,
 		TracerGetter:                      tracerGetter,
 		ObjectStoreGetter:                 objectStoreGetter,

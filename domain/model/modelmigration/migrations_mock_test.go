@@ -84,17 +84,22 @@ func (c *MockModelServiceCreateModelCall) DoAndReturn(f func(context.Context, mo
 }
 
 // DeleteModel mocks base method.
-func (m *MockModelService) DeleteModel(arg0 context.Context, arg1 model.UUID) error {
+func (m *MockModelService) DeleteModel(arg0 context.Context, arg1 model.UUID, arg2 ...model0.DeleteModelOption) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteModel", arg0, arg1)
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DeleteModel", varargs...)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteModel indicates an expected call of DeleteModel.
-func (mr *MockModelServiceMockRecorder) DeleteModel(arg0, arg1 any) *MockModelServiceDeleteModelCall {
+func (mr *MockModelServiceMockRecorder) DeleteModel(arg0, arg1 any, arg2 ...any) *MockModelServiceDeleteModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteModel", reflect.TypeOf((*MockModelService)(nil).DeleteModel), arg0, arg1)
+	varargs := append([]any{arg0, arg1}, arg2...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteModel", reflect.TypeOf((*MockModelService)(nil).DeleteModel), varargs...)
 	return &MockModelServiceDeleteModelCall{Call: call}
 }
 
@@ -110,13 +115,13 @@ func (c *MockModelServiceDeleteModelCall) Return(arg0 error) *MockModelServiceDe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceDeleteModelCall) Do(f func(context.Context, model.UUID) error) *MockModelServiceDeleteModelCall {
+func (c *MockModelServiceDeleteModelCall) Do(f func(context.Context, model.UUID, ...model0.DeleteModelOption) error) *MockModelServiceDeleteModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceDeleteModelCall) DoAndReturn(f func(context.Context, model.UUID) error) *MockModelServiceDeleteModelCall {
+func (c *MockModelServiceDeleteModelCall) DoAndReturn(f func(context.Context, model.UUID, ...model0.DeleteModelOption) error) *MockModelServiceDeleteModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

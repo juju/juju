@@ -62,16 +62,18 @@ type Operation interface {
 type Scope struct {
 	controllerDB database.TxnRunnerFactory
 	modelDB      database.TxnRunnerFactory
+	modelDeleter database.DBDeleter
 }
 
 // ScopeForModel returns a Scope for the given model UUID.
 type ScopeForModel func(modelUUID string) Scope
 
 // NewScope creates a new scope with the given database txn runners.
-func NewScope(controllerDB, modelDB database.TxnRunnerFactory) Scope {
+func NewScope(controllerDB, modelDB database.TxnRunnerFactory, modelDeleter database.DBDeleter) Scope {
 	return Scope{
 		controllerDB: controllerDB,
 		modelDB:      modelDB,
+		modelDeleter: modelDeleter,
 	}
 }
 
@@ -83,6 +85,11 @@ func (s Scope) ControllerDB() database.TxnRunnerFactory {
 // ModelDB returns the database txn runner for the model.
 func (s Scope) ModelDB() database.TxnRunnerFactory {
 	return s.modelDB
+}
+
+// ModelDeleter returns the database deleter for the model.
+func (s Scope) ModelDeleter() database.DBDeleter {
+	return s.modelDeleter
 }
 
 // Hook is a callback that is called after the operation is executed.

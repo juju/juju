@@ -88,6 +88,12 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 			IsFatal: func(err error) bool {
 				return false
 			},
+			// ShouldRestart is used to determine if the worker should be
+			// restarted. We only want to restart the worker if the error is not
+			// ErrDBDead.
+			ShouldRestart: func(err error) bool {
+				return !errors.Is(err, coredatabase.ErrDBDead)
+			},
 			Clock: cfg.Clock,
 		}),
 	}

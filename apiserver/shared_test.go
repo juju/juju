@@ -63,6 +63,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		controllerConfig:     controllerConfig,
 		logger:               loggertesting.WrapCheckLog(c),
 		dbGetter:             StubDBGetter{},
+		dbDeleter:            StubDBDeleter{},
 		serviceFactoryGetter: &StubServiceFactoryGetter{},
 		tracerGetter:         &StubTracerGetter{},
 		objectStoreGetter:    &StubObjectStoreGetter{},

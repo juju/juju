@@ -91,6 +91,9 @@ func newWorker(config Config, internalStates chan string) (*providerWorker, erro
 			IsFatal: func(err error) bool {
 				return false
 			},
+			ShouldRestart: func(err error) bool {
+				return !errors.Is(err, database.ErrDBDead)
+			},
 			RestartDelay: time.Second * 10,
 			Clock:        config.Clock,
 			Logger:       config.Logger,

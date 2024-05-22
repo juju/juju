@@ -63,6 +63,7 @@ type ManifoldSuite struct {
 	logSink                 corelogger.ModelLogger
 	charmhubHTTPClient      *http.Client
 	dbGetter                stubWatchableDBGetter
+	dbDeleter               stubDBDeleter
 	serviceFactoryGetter    *stubServiceFactoryGetter
 	controllerConfigService *MockControllerConfigService
 	tracerGetter            stubTracerGetter
@@ -92,6 +93,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.charmhubHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
 	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
+	s.dbDeleter = stubDBDeleter{}
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 
 	s.getter = s.newGetter(nil)
@@ -111,6 +113,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		TraceName:                         "trace",
 		ObjectStoreName:                   "object-store",
 		ChangeStreamName:                  "change-stream",
+		DBAccessorName:                    "db-accessor",
 		PrometheusRegisterer:              &s.prometheusRegisterer,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
 		Hub:                               &s.hub,
@@ -137,6 +140,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"log-sink":             s.logSink,
 		"charmhub-http-client": s.charmhubHTTPClient,
 		"change-stream":        s.dbGetter,
+		"db-accessor":          s.dbDeleter,
 		"service-factory":      s.serviceFactoryGetter,
 		"trace":                s.tracerGetter,
 		"object-store":         s.objectStoreGetter,
@@ -171,7 +175,7 @@ var expectedInputs = []string{
 	"agent", "authenticator", "clock", "multiwatcher", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"charmhub-http-client", "change-stream", "service-factory",
-	"trace", "object-store", "log-sink",
+	"trace", "object-store", "log-sink", "db-accessor",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -240,6 +244,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		LogSink:                    s.logSink,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
 		DBGetter:                   s.dbGetter,
+		DBDeleter:                  s.dbDeleter,
 		ServiceFactoryGetter:       s.serviceFactoryGetter,
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,
@@ -401,6 +406,12 @@ func (s stubWatchableDBGetter) GetWatchableDB(namespace string) (changestream.Wa
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return nil, nil
+}
+
+type stubDBDeleter struct{}
+
+func (s stubDBDeleter) DeleteDB(namespace string) error {
+	return nil
 }
 
 type stubServiceFactoryGetter struct {

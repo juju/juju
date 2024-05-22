@@ -5,6 +5,7 @@ package dbaccessor
 
 import (
 	"context"
+	"database/sql"
 	"net"
 	"sync"
 	"time"
@@ -19,8 +20,10 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain/controllernode/service"
 	"github.com/juju/juju/domain/controllernode/state"
+	internaldatabase "github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/dqlite"
+	"github.com/juju/juju/internal/database/pragma"
 	"github.com/juju/juju/internal/worker/controlleragentconfig"
 )
 
@@ -222,11 +225,20 @@ func NewWorker(cfg WorkerConfig) (*dbWorker, error) {
 			// that case we do want to cause the dbaccessor to go down. This
 			// will then bring up a new dqlite app.
 			IsFatal: func(err error) bool {
+				// If a database is dead we should not kill the worker of the
+				// runner.
+				if errors.Is(err, database.ErrDBDead) {
+					return false
+				}
+
 				// If there is a rebind during starting up a worker the dbApp
 				// will be nil. In this case, we'll return ErrTryAgain. In this
 				// case we don't want to kill the worker. We'll force the
 				// worker to try again.
 				return !errors.Is(err, errTryAgain)
+			},
+			ShouldRestart: func(err error) bool {
+				return !errors.Is(err, database.ErrDBDead)
 			},
 			RestartDelay: time.Second * 10,
 			Logger:       cfg.Logger,
@@ -310,10 +322,9 @@ func (w *dbWorker) loop() (err error) {
 					continue
 				}
 			} else if req.op == delOp {
-				// Close the database for the namespace.
-				if err := w.closeDatabase(req.namespace); err != nil {
+				if err := w.deleteDatabase(req.namespace); err != nil {
 					select {
-					case req.done <- errors.Annotatef(err, "closing database for namespace %q", req.namespace):
+					case req.done <- errors.Annotatef(err, "deleting database for namespace %q", req.namespace):
 					case <-w.catacomb.Dying():
 						return w.catacomb.ErrDying()
 					}
@@ -676,17 +687,60 @@ func (w *dbWorker) openDatabase(namespace string) error {
 	return errors.Trace(err)
 }
 
-func (w *dbWorker) closeDatabase(namespace string) error {
+type killableWorker interface {
+	worker.Worker
+	KillWithReason(error)
+}
+
+func (w *dbWorker) deleteDatabase(namespace string) error {
+	// There will be no runner for the database, so we can't rely on the worker
+	// to remove and delete the database. We'll have to do that ourselves.
 	if namespace == database.ControllerNS {
-		return errors.Forbiddenf("cannot close controller database")
+		return errors.Forbiddenf("cannot delete controller database")
 	}
 
-	// Stop and remove the worker.
-	// This will wait for the worker to stop, which will potentially block
-	// any requests to access a new db. This should be ok, as there isn't
-	// currently any heavy loop logic in the model workers.
-	if err := w.dbRunner.StopAndRemoveWorker(namespace, w.catacomb.Dying()); err != nil {
-		return errors.Annotatef(err, "stopping worker")
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	worker, err := w.workerFromCache(namespace)
+	if err != nil {
+		return errors.Trace(err)
+	} else if worker == nil {
+		return errors.NotFoundf("worker for namespace %q", namespace)
+	}
+
+	killable, ok := worker.(killableWorker)
+	if !ok {
+		return errors.Errorf("worker for namespace %q is not killable", namespace)
+	}
+
+	// Kill the worker and wait for it to die.
+	killable.KillWithReason(database.ErrDBDead)
+	if err := killable.Wait(); err != nil && !errors.Is(err, database.ErrDBDead) {
+		return errors.Annotatef(err, "waiting for worker to die")
+	}
+
+	// Open the database directly as we can't use the worker to do it for us.
+	db, err := w.dbApp.Open(ctx, namespace)
+	if err != nil {
+		return errors.Annotatef(err, "opening database for deletion")
+	}
+	defer db.Close()
+
+	// We need to ensure that foreign keys are disabled before we can blanket
+	// delete the database.
+	if err := pragma.SetPragma(ctx, db, pragma.ForeignKeysPragma, false); err != nil {
+		return errors.Annotate(err, "setting foreign keys pragma")
+	}
+
+	// Now attempt to delete the database and all of it's contents.
+	// This can be replaced with DROP DB once it's supported by dqlite.
+	if err := internaldatabase.Retry(ctx, func() error {
+		return internaldatabase.StdTxn(ctx, db, func(ctx context.Context, tx *sql.Tx) error {
+			return deleteDBContents(ctx, tx, w.cfg.Logger)
+		})
+	}); err != nil {
+		return errors.Annotatef(err, "deleting database contents")
 	}
 
 	return nil

@@ -32,6 +32,15 @@ type dummyState struct {
 	users              map[user.UUID]string
 }
 
+type dummyDeleter struct {
+	deleted map[string]struct{}
+}
+
+func (d *dummyDeleter) DeleteDB(namespace string) error {
+	d.deleted[namespace] = struct{}{}
+	return nil
+}
+
 func (d *dummyState) CloudType(
 	_ context.Context,
 	name string,

@@ -332,6 +332,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	cfg := DefaultServerConfig(c, s.Clock)
 	cfg.Mux = s.mux
 	cfg.DBGetter = stubDBGetter{db: stubWatchableDB{TxnRunner: s.TxnRunner()}}
+	cfg.DBDeleter = stubDBDeleter{}
 	cfg.ServiceFactoryGetter = s.ServiceFactoryGetter(c)
 	cfg.StatePool = s.controller.StatePool()
 	cfg.PublicDNSName = controllerCfg.AutocertDNSName()
@@ -701,6 +702,12 @@ func (s stubDBGetter) GetWatchableDB(namespace string) (changestream.WatchableDB
 		return nil, errors.Errorf(`expected a request for "controller" DB; got %q`, namespace)
 	}
 	return s.db, nil
+}
+
+type stubDBDeleter struct{}
+
+func (s stubDBDeleter) DeleteDB(namespace string) error {
+	return nil
 }
 
 type stubTracerGetter struct{}

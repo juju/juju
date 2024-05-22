@@ -855,15 +855,15 @@ func (m *ModelManagerAPI) makeModelSummary(mi state.ModelSummary) *params.ModelS
 		UserLastConnection: mi.UserLastConnection,
 	}
 	if mi.MachineCount > 0 {
-		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Machines, mi.MachineCount})
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{Entity: params.Machines, Count: mi.MachineCount})
 	}
 
 	if mi.CoreCount > 0 {
-		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Cores, mi.CoreCount})
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{Entity: params.Cores, Count: mi.CoreCount})
 	}
 
 	if mi.UnitCount > 0 {
-		summary.Counts = append(summary.Counts, params.ModelEntityCount{params.Units, mi.UnitCount})
+		summary.Counts = append(summary.Counts, params.ModelEntityCount{Entity: params.Units, Count: mi.UnitCount})
 	}
 
 	access, err := common.StateToParamsUserAccessPermission(mi.Access)
@@ -1030,11 +1030,30 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 		// TODO (tlm): The modelService nil check will go when the tests are
 		// moved from mongo.
 		if m.modelService != nil {
-			err = m.modelService.DeleteModel(ctx, coremodel.UUID(stModel.UUID()))
+			// We need to get the model service factory from the model
+			// We should be able to directly access the model service factory
+			// because the model manager uses the MultiModelContext to access
+			// other models.
+			modelUUID := coremodel.UUID(stModel.UUID())
+
+			// TODO (stickupkid): We can't the delete the model info when
+			// destroying the model at the moment. Attempting to delete the
+			// model causes everything to lock up. Once we implement tear-down
+			// we'll need to ensure we correctly delete the model info.
+			// We need to progress the life of the model, atm it goes from
+			// alive to dead, skipping dying.
+			//
+			// modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelUUID)
+			// modelInfoService := modelServiceFactory.ModelInfo()
+			// if err := modelInfoService.DeleteModel(ctx, modelUUID); err != nil && !errors.Is(err, modelerrors.NotFound) {
+			// 	return errors.Annotatef(err, "failed to delete model info for model %q", modelUUID)
+			// }
+
+			err = m.modelService.DeleteModel(ctx, modelUUID)
 			if err != nil && errors.Is(err, modelerrors.NotFound) {
 				return nil
 			}
-			return errors.Trace(err)
+			return errors.Annotatef(err, "failed to delete model %q", modelUUID)
 		}
 		return nil
 	}

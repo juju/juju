@@ -257,8 +257,8 @@ func (s *namespaceSuite) TestCloseDatabaseForController(c *gc.C) {
 	dbw := s.startWorker(c, ctx)
 	defer workertest.DirtyKill(c, dbw)
 
-	err := dbw.closeDatabase(database.ControllerNS)
-	c.Assert(err, gc.ErrorMatches, "cannot close controller database")
+	err := dbw.deleteDatabase(database.ControllerNS)
+	c.Assert(err, gc.ErrorMatches, "cannot delete controller database")
 
 	workertest.CleanKill(c, dbw)
 }
@@ -286,16 +286,20 @@ func (s *namespaceSuite) TestCloseDatabaseForModel(c *gc.C) {
 	s.expectNoConfigChanges()
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
+	db, err := s.DBApp().Open(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	s.dbApp.EXPECT().Open(gomock.Any(), "foo").Return(db, nil)
+
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)
 	defer workertest.DirtyKill(c, dbw)
 
-	_, err := dbw.GetDB("foo")
+	_, err = dbw.GetDB("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = dbw.closeDatabase("foo")
+	err = dbw.deleteDatabase("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
@@ -324,16 +328,20 @@ func (s *namespaceSuite) TestCloseDatabaseForModelLoopbackPreferred(c *gc.C) {
 	s.expectNoConfigChanges()
 	s.clusterConfig.EXPECT().DBBindAddresses().Return(nil, errors.New("simulates absent config for initial check"))
 
+	db, err := s.DBApp().Open(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	s.dbApp.EXPECT().Open(gomock.Any(), "foo").Return(db, nil)
+
 	ctx, cancel := context.WithTimeout(context.Background(), testing.LongWait)
 	defer cancel()
 
 	dbw := s.startWorker(c, ctx)
 	defer workertest.DirtyKill(c, dbw)
 
-	_, err := dbw.GetDB("foo")
+	_, err = dbw.GetDB("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = dbw.closeDatabase("foo")
+	err = dbw.deleteDatabase("foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	workertest.CleanKill(c, dbw)
@@ -370,8 +378,8 @@ func (s *namespaceSuite) TestCloseDatabaseForUnknownModel(c *gc.C) {
 	dbw := w.(*dbWorker)
 	ensureStartup(c, dbw)
 
-	err := dbw.closeDatabase("foo")
-	c.Assert(err, gc.ErrorMatches, `stopping worker: worker .* not found`)
+	err := dbw.deleteDatabase("foo")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 
 	workertest.CleanKill(c, w)
 }
@@ -396,6 +404,10 @@ func (w *workerTrackedDB) loop() error {
 
 func (w *workerTrackedDB) Kill() {
 	w.tomb.Kill(nil)
+}
+
+func (w *workerTrackedDB) KillWithReason(reason error) {
+	w.tomb.Kill(reason)
 }
 
 func (w *workerTrackedDB) Wait() error {

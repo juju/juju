@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/multiwatcher"
@@ -41,17 +42,32 @@ type SharedHub interface {
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
-	statePool            *state.StatePool
-	multiwatcherFactory  multiwatcher.Factory
-	centralHub           SharedHub
-	presence             presence.Recorder
-	leaseManager         lease.Manager
-	logger               corelogger.Logger
-	charmhubHTTPClient   facade.HTTPClient
-	dbGetter             changestream.WatchableDBGetter
+	statePool           *state.StatePool
+	multiwatcherFactory multiwatcher.Factory
+	centralHub          SharedHub
+	presence            presence.Recorder
+	leaseManager        lease.Manager
+	logger              corelogger.Logger
+	charmhubHTTPClient  facade.HTTPClient
+
+	// dbGetter is used to access databases from the API server. Along with
+	// creating a new database for new models and during model migrations.
+	dbGetter changestream.WatchableDBGetter
+
+	// dbDeleter is used to delete the database when a model migration fails
+	// and the model is being removed.
+	dbDeleter database.DBDeleter
+
+	// ServiceFactoryGetter is used to get the service factory for controllers
+	// and models.
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
-	tracerGetter         trace.TracerGetter
-	objectStoreGetter    objectstore.ObjectStoreGetter
+
+	// TraceGetter is used to get the tracer for the API server.
+	tracerGetter trace.TracerGetter
+
+	// ObjectStoreGetter is used to get the object store for storing blobs
+	// for the API server.
+	objectStoreGetter objectstore.ObjectStoreGetter
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -74,6 +90,7 @@ type sharedServerConfig struct {
 	logger               corelogger.Logger
 	charmhubHTTPClient   facade.HTTPClient
 	dbGetter             changestream.WatchableDBGetter
+	dbDeleter            database.DBDeleter
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
 	tracerGetter         trace.TracerGetter
 	objectStoreGetter    objectstore.ObjectStoreGetter
@@ -104,6 +121,9 @@ func (c *sharedServerConfig) validate() error {
 	if c.dbGetter == nil {
 		return errors.NotValidf("nil dbGetter")
 	}
+	if c.dbDeleter == nil {
+		return errors.NotValidf("nil dbDeleter")
+	}
 	if c.serviceFactoryGetter == nil {
 		return errors.NotValidf("nil serviceFactoryGetter")
 	}
@@ -133,6 +153,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		controllerConfig:     config.controllerConfig,
 		charmhubHTTPClient:   config.charmhubHTTPClient,
 		dbGetter:             config.dbGetter,
+		dbDeleter:            config.dbDeleter,
 		serviceFactoryGetter: config.serviceFactoryGetter,
 		tracerGetter:         config.tracerGetter,
 		objectStoreGetter:    config.objectStoreGetter,
