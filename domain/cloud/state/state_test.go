@@ -729,28 +729,31 @@ func (s *stateSuite) TestWatchCloudNotFound(c *gc.C) {
 }
 
 func (s *stateSuite) TestWatchCloud(c *gc.C) {
-	cld := testCloud
 	st := NewState(s.TxnRunnerFactory())
+
 	cloudUUID := uuid.MustNewUUID().String()
+
+	cld := testCloud
 	err := st.CreateCloud(context.Background(), "admin", cloudUUID, cld)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := st.WatchCloud(context.Background(), s.watcherFunc(c, cloudUUID), "fluffy")
 	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+	defer workertest.CleanKill(c, w)
 
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	wc.AssertChanges(time.Second) // Initial event.
 
-	cld.Config = map[string]any{"foo": "bar"}
+	cld.Endpoint = "https://endpoint2"
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		err := st.UpdateCloud(ctx, cld)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
 
-	workertest.CleanKill(c, w)
+	s.AssertChangeStreamIdle(c)
+
+	wc.AssertOneChange()
 }
 
 // TestNullCloudType is a regression test to make sure that we don't allow null
