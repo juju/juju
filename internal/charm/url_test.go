@@ -26,71 +26,71 @@ var urlTests = []struct {
 	exact  string
 	url    *charm.URL
 }{{
-	s:   "local:series/name-1",
-	url: &charm.URL{Schema: "local", Name: "name", Revision: 1, Series: "series", Architecture: ""},
-}, {
-	s:   "local:series/name",
-	url: &charm.URL{Schema: "local", Name: "name", Revision: -1, Series: "series", Architecture: ""},
-}, {
-	s:   "local:series/n0-0n-n0",
-	url: &charm.URL{Schema: "local", Name: "n0-0n-n0", Revision: -1, Series: "series", Architecture: ""},
+	s:   "local:name-1",
+	url: &charm.URL{Schema: "local", Name: "name", Revision: 1, Architecture: ""},
 }, {
 	s:   "local:name",
-	url: &charm.URL{Schema: "local", Name: "name", Revision: -1, Series: "", Architecture: ""},
+	url: &charm.URL{Schema: "local", Name: "name", Revision: -1, Architecture: ""},
 }, {
-	s:   "bs:~user/series/name-1",
+	s:   "local:n0-0n-n0",
+	url: &charm.URL{Schema: "local", Name: "n0-0n-n0", Revision: -1, Architecture: ""},
+}, {
+	s:   "local:name",
+	url: &charm.URL{Schema: "local", Name: "name", Revision: -1, Architecture: ""},
+}, {
+	s:   "bs:~user/name-1",
 	err: `cannot parse URL $URL: schema "bs" not valid`,
 }, {
 	s:   ":foo",
 	err: `cannot parse charm or bundle URL: $URL`,
 }, {
-	s:   "local:~user/series/name",
+	s:   "local:~user/name",
 	err: `local charm or bundle URL with user name: $URL`,
 }, {
 	s:   "local:~user/name",
 	err: `local charm or bundle URL with user name: $URL`,
 }, {
 	s:     "amd64/name",
-	url:   &charm.URL{Schema: "ch", Name: "name", Revision: -1, Series: "", Architecture: "amd64"},
+	url:   &charm.URL{Schema: "ch", Name: "name", Revision: -1, Architecture: "amd64"},
 	exact: "ch:amd64/name",
 }, {
 	s:     "foo",
-	url:   &charm.URL{Schema: "ch", Name: "foo", Revision: -1, Series: "", Architecture: ""},
+	url:   &charm.URL{Schema: "ch", Name: "foo", Revision: -1, Architecture: ""},
 	exact: "ch:foo",
 }, {
 	s:     "foo-1",
 	exact: "ch:foo-1",
-	url:   &charm.URL{Schema: "ch", Name: "foo", Revision: 1, Series: "", Architecture: ""},
+	url:   &charm.URL{Schema: "ch", Name: "foo", Revision: 1, Architecture: ""},
 }, {
 	s:     "n0-n0-n0",
 	exact: "ch:n0-n0-n0",
-	url:   &charm.URL{Schema: "ch", Name: "n0-n0-n0", Revision: -1, Series: "", Architecture: ""},
+	url:   &charm.URL{Schema: "ch", Name: "n0-n0-n0", Revision: -1, Architecture: ""},
 }, {
 	s:     "local:foo",
 	exact: "local:foo",
-	url:   &charm.URL{Schema: "local", Name: "foo", Revision: -1, Series: "", Architecture: ""},
+	url:   &charm.URL{Schema: "local", Name: "foo", Revision: -1, Architecture: ""},
 }, {
-	s:     "arm64/series/bar",
-	url:   &charm.URL{Schema: "ch", Name: "bar", Revision: -1, Series: "series", Architecture: "arm64"},
-	exact: "ch:arm64/series/bar",
+	s:     "arm64/bar",
+	url:   &charm.URL{Schema: "ch", Name: "bar", Revision: -1, Architecture: "arm64"},
+	exact: "ch:arm64/bar",
 }, {
 	s:   "ch:name",
-	url: &charm.URL{Schema: "ch", Name: "name", Revision: -1, Series: "", Architecture: ""},
+	url: &charm.URL{Schema: "ch", Name: "name", Revision: -1, Architecture: ""},
 }, {
 	s:   "ch:name-suffix",
-	url: &charm.URL{Schema: "ch", Name: "name-suffix", Revision: -1, Series: "", Architecture: ""},
+	url: &charm.URL{Schema: "ch", Name: "name-suffix", Revision: -1, Architecture: ""},
 }, {
 	s:   "ch:name-1",
-	url: &charm.URL{Schema: "ch", Name: "name", Revision: 1, Series: "", Architecture: ""},
+	url: &charm.URL{Schema: "ch", Name: "name", Revision: 1, Architecture: ""},
 }, {
-	s:   "ch:focal/istio-gateway-74",
-	url: &charm.URL{Schema: "ch", Name: "istio-gateway", Revision: 74, Series: "focal", Architecture: ""},
+	s:   "ch:istio-gateway-74",
+	url: &charm.URL{Schema: "ch", Name: "istio-gateway", Revision: 74, Architecture: ""},
 }, {
 	s:   "ch:amd64/istio-gateway-74",
-	url: &charm.URL{Schema: "ch", Name: "istio-gateway", Revision: 74, Series: "", Architecture: "amd64"},
+	url: &charm.URL{Schema: "ch", Name: "istio-gateway", Revision: 74, Architecture: "amd64"},
 }, {
 	s:     "ch:arm64/name",
-	url:   &charm.URL{Schema: "ch", Name: "name", Revision: -1, Series: "", Architecture: "arm64"},
+	url:   &charm.URL{Schema: "ch", Name: "name", Revision: -1, Architecture: "arm64"},
 	exact: "ch:arm64/name",
 }, {
 	s:   "ch:~user/name",
@@ -141,7 +141,7 @@ var ensureSchemaTests = []struct {
 	{input: "foo", expected: "ch:foo"},
 	{input: "foo-1", expected: "ch:foo-1"},
 	{input: "~user/foo", expected: "ch:~user/foo"},
-	{input: "series/foo", expected: "ch:series/foo"},
+	{input: "foo", expected: "ch:foo"},
 	{input: "local:foo", expected: "local:foo"},
 	{
 		input: "unknown:foo",
@@ -149,7 +149,7 @@ var ensureSchemaTests = []struct {
 	},
 }
 
-func (s *URLSuite) TestInferURLNoDefaultSeries(c *gc.C) {
+func (s *URLSuite) TestInferURL(c *gc.C) {
 	for i, t := range ensureSchemaTests {
 		c.Logf("%d: %s", i, t.input)
 		inferred, err := charm.EnsureSchema(t.input, charm.CharmHub)
@@ -181,19 +181,6 @@ var validTests = []struct {
 	{valid: charm.IsValidName, string: "wordpress-2", expect: false},
 	{valid: charm.IsValidName, string: "word2-press2", expect: true},
 
-	{valid: charm.IsValidSeries, string: "", expect: false},
-	{valid: charm.IsValidSeries, string: "precise", expect: true},
-	{valid: charm.IsValidSeries, string: "Precise", expect: false},
-	{valid: charm.IsValidSeries, string: "pre cise", expect: false},
-	{valid: charm.IsValidSeries, string: "pre-cise", expect: false},
-	{valid: charm.IsValidSeries, string: "pre^cise", expect: false},
-	{valid: charm.IsValidSeries, string: "prec1se", expect: true},
-	{valid: charm.IsValidSeries, string: "-precise", expect: false},
-	{valid: charm.IsValidSeries, string: "precise-", expect: false},
-	{valid: charm.IsValidSeries, string: "precise-1", expect: false},
-	{valid: charm.IsValidSeries, string: "precise1", expect: true},
-	{valid: charm.IsValidSeries, string: "pre-c1se", expect: false},
-
 	{valid: charm.IsValidArchitecture, string: "amd64", expect: true},
 	{valid: charm.IsValidArchitecture, string: "~amd64", expect: false},
 	{valid: charm.IsValidArchitecture, string: "not-an-arch", expect: false},
@@ -207,17 +194,15 @@ func (s *URLSuite) TestValidCheckers(c *gc.C) {
 }
 
 func (s *URLSuite) TestMustParseURL(c *gc.C) {
-	url := charm.MustParseURL("ch:series/name")
-	c.Assert(url, gc.DeepEquals, &charm.URL{Schema: "ch", Name: "name", Revision: -1, Series: "series", Architecture: ""})
-	f := func() { charm.MustParseURL("local:@@/name") }
-	c.Assert(f, gc.PanicMatches, "cannot parse URL \"local:@@/name\": series name \"@@\" not valid")
+	url := charm.MustParseURL("ch:name")
+	c.Assert(url, gc.DeepEquals, &charm.URL{Schema: "ch", Name: "name", Revision: -1, Architecture: ""})
 }
 
 func (s *URLSuite) TestWithRevision(c *gc.C) {
-	url := charm.MustParseURL("ch:series/name")
+	url := charm.MustParseURL("ch:name")
 	other := url.WithRevision(1)
-	c.Assert(url, gc.DeepEquals, &charm.URL{Schema: "ch", Name: "name", Revision: -1, Series: "series", Architecture: ""})
-	c.Assert(other, gc.DeepEquals, &charm.URL{Schema: "ch", Name: "name", Revision: 1, Series: "series", Architecture: ""})
+	c.Assert(url, gc.DeepEquals, &charm.URL{Schema: "ch", Name: "name", Revision: -1, Architecture: ""})
+	c.Assert(other, gc.DeepEquals, &charm.URL{Schema: "ch", Name: "name", Revision: 1, Architecture: ""})
 
 	// Should always copy. The opposite behavior is error prone.
 	c.Assert(other.WithRevision(1), gc.Not(gc.Equals), other)

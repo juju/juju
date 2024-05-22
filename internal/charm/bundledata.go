@@ -46,11 +46,6 @@ type BundleData struct {
 	// deploying a bundle.
 	Saas map[string]*SaasSpec `bson:"saas,omitempty" json:"saas,omitempty" yaml:"saas,omitempty"`
 
-	// Series holds the default series to use when
-	// the bundle deploys applications. A series defined for an application
-	// takes precedence.
-	Series string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
-
 	// Base holds the default base to use when the bundle deploys
 	// applications. A base defined for an application takes precedence.
 	DefaultBase string `bson:"default-base,omitempty" json:"default-base,omitempty" yaml:"default-base,omitempty"`
@@ -83,7 +78,6 @@ type SaasSpec struct {
 type MachineSpec struct {
 	Constraints string            `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
 	Annotations map[string]string `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
-	Series      string            `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
 	Base        string            `bson:",omitempty" json:",omitempty" yaml:",omitempty"`
 }
 
@@ -100,9 +94,6 @@ type ApplicationSpec struct {
 
 	// Revision describes the revision of the charm to use when deploying.
 	Revision *int `bson:"revision,omitempty" yaml:"revision,omitempty" json:"revision,omitempty"`
-
-	// Series is the series to use when deploying the application.
-	Series string `bson:",omitempty" yaml:",omitempty" json:",omitempty"`
 
 	// Base is the base to use when deploying the application.
 	Base string `bson:",omitempty" yaml:",omitempty" json:",omitempty"`
@@ -541,9 +532,6 @@ func (bd *BundleData) verifyBundle(
 	for id := range bd.Machines {
 		verifier.machineRefCounts[id] = 0
 	}
-	if bd.Series != "" && !IsValidSeries(bd.Series) {
-		verifier.addErrorf("bundle declares an invalid series %q", bd.Series)
-	}
 	if bd.DefaultBase != "" {
 		if _, err := ParseBase(bd.DefaultBase); err != nil {
 			verifier.addErrorf("bundle declares an invalid base %q", bd.DefaultBase)
@@ -607,9 +595,6 @@ func (verifier *bundleDataVerifier) verifyMachines() {
 				verifier.addErrorf("invalid constraints %q in machine %q: %v", m.Constraints, id, err)
 			}
 		}
-		if m.Series != "" && !IsValidSeries(m.Series) {
-			verifier.addErrorf("invalid series %q for machine %q", m.Series, id)
-		}
 		if m.Base != "" {
 			if _, err := ParseBase(m.Base); err != nil {
 				verifier.addErrorf("invalid base %q for machine %q", m.Base, id)
@@ -668,13 +653,6 @@ func (verifier *bundleDataVerifier) verifyApplications() {
 			}
 		}
 
-		// Check the Series.
-		if curl != nil && curl.Series != "" && app.Series != "" && curl.Series != app.Series {
-			verifier.addErrorf("the charm URL for application %q has a series which does not match, please remove the series from the URL", name)
-		}
-		if app.Series != "" && !IsValidSeries(app.Series) {
-			verifier.addErrorf("application %q declares an invalid series %q", name, app.Series)
-		}
 		// Check the Base
 		if app.Base != "" {
 			if _, err := ParseBase(app.Base); err != nil {
