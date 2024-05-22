@@ -13,8 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	charm "github.com/juju/juju/internal/charm"
-	charm0 "github.com/juju/juju/core/charm"
+	charm "github.com/juju/juju/core/charm"
+	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,10 +42,10 @@ func (m *MockDownloader) EXPECT() *MockDownloaderMockRecorder {
 }
 
 // DownloadAndStore mocks base method.
-func (m *MockDownloader) DownloadAndStore(arg0 context.Context, arg1 *charm.URL, arg2 charm0.Origin, arg3 bool) (charm0.Origin, error) {
+func (m *MockDownloader) DownloadAndStore(arg0 context.Context, arg1 *charm0.URL, arg2 charm.Origin, arg3 bool) (charm.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DownloadAndStore", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(charm0.Origin)
+	ret0, _ := ret[0].(charm.Origin)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -63,19 +63,19 @@ type MockDownloaderDownloadAndStoreCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockDownloaderDownloadAndStoreCall) Return(arg0 charm0.Origin, arg1 error) *MockDownloaderDownloadAndStoreCall {
+func (c *MockDownloaderDownloadAndStoreCall) Return(arg0 charm.Origin, arg1 error) *MockDownloaderDownloadAndStoreCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDownloaderDownloadAndStoreCall) Do(f func(context.Context, *charm.URL, charm0.Origin, bool) (charm0.Origin, error)) *MockDownloaderDownloadAndStoreCall {
+func (c *MockDownloaderDownloadAndStoreCall) Do(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockDownloaderDownloadAndStoreCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDownloaderDownloadAndStoreCall) DoAndReturn(f func(context.Context, *charm.URL, charm0.Origin, bool) (charm0.Origin, error)) *MockDownloaderDownloadAndStoreCall {
+func (c *MockDownloaderDownloadAndStoreCall) DoAndReturn(f func(context.Context, *charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockDownloaderDownloadAndStoreCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

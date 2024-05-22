@@ -13,12 +13,12 @@ import (
 	context "context"
 	reflect "reflect"
 
-	charm "github.com/juju/juju/internal/charm"
 	application "github.com/juju/juju/core/application"
 	logger "github.com/juju/juju/core/logger"
 	network "github.com/juju/juju/core/network"
 	payloads "github.com/juju/juju/core/payloads"
 	secrets "github.com/juju/juju/core/secrets"
+	charm "github.com/juju/juju/internal/charm"
 	jujuc "github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v5"

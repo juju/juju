@@ -14,7 +14,6 @@ import (
 	http "net/http"
 	reflect "reflect"
 
-	charm "github.com/juju/juju/internal/charm"
 	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
 	credential "github.com/juju/juju/core/credential"
@@ -25,6 +24,7 @@ import (
 	service0 "github.com/juju/juju/domain/application/service"
 	service1 "github.com/juju/juju/domain/storage/service"
 	bootstrap "github.com/juju/juju/internal/bootstrap"
+	charm "github.com/juju/juju/internal/charm"
 	services "github.com/juju/juju/internal/charm/services"
 	storage "github.com/juju/juju/internal/storage"
 	state "github.com/juju/juju/state"
