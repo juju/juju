@@ -371,14 +371,14 @@ func (s *BundleDeployRepositorySuite) expectK8sCharm(curl *charm.URL, rev int) *
 	).DoAndReturn(
 		// Ensure the same curl that is provided, is returned.
 		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
-			curl = curl.WithRevision(rev).WithSeries("focal").WithArchitecture("amd64")
+			curl = curl.WithRevision(rev).WithArchitecture("amd64")
 			origin.Base = corebase.MakeDefaultBase("ubuntu", "20.04")
 			origin.Revision = &rev
 			origin.Type = "charm"
 			return curl, origin, []corebase.Base{corebase.MustParseBaseFromString("ubuntu@20.04")}, nil
 		}).Times(3)
 
-	fullCurl := curl.WithSeries("focal").WithRevision(rev).WithArchitecture("amd64")
+	fullCurl := curl.WithRevision(rev).WithArchitecture("amd64")
 	s.deployerAPI.EXPECT().AddCharm(
 		fullCurl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
@@ -461,7 +461,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 		// Ensure the same curl that is provided, is returned.
 		func(curl *charm.URL, origin commoncharm.Origin, switchCharm bool) (*charm.URL, commoncharm.Origin, []corebase.Base, error) {
 			curl = curl.WithRevision(rev)
-			curl = curl.WithSeries("focal")
 			curl = curl.WithArchitecture("amd64")
 			origin.Base = corebase.MakeDefaultBase("ubuntu", "20.04")
 			origin.Revision = &rev
@@ -469,7 +468,7 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 			return curl, origin, []corebase.Base{corebase.MustParseBaseFromString("ubuntu@20.04")}, nil
 		}).Times(2)
 
-	fullCurl := curl.WithSeries("focal").WithRevision(rev).WithArchitecture("amd64")
+	fullCurl := curl.WithRevision(rev).WithArchitecture("amd64")
 	s.deployerAPI.EXPECT().AddCharm(
 		fullCurl,
 		gomock.AssignableToTypeOf(commoncharm.Origin{}),
