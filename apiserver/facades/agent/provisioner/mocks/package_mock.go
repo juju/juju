@@ -12,12 +12,12 @@ package mocks
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/juju/internal/charm"
 	set "github.com/juju/collections/set"
 	provisioner "github.com/juju/juju/apiserver/facades/agent/provisioner"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
+	charm "github.com/juju/juju/internal/charm"
 	network0 "github.com/juju/juju/internal/network"
 	containerizer "github.com/juju/juju/internal/network/containerizer"
 	state "github.com/juju/juju/state"

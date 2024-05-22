@@ -13,9 +13,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	charm "github.com/juju/juju/internal/charm"
 	application "github.com/juju/juju/domain/application"
 	storage "github.com/juju/juju/domain/storage"
+	charm "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 

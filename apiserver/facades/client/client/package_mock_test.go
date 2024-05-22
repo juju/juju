@@ -13,12 +13,12 @@ import (
 	reflect "reflect"
 	time "time"
 
-	charm "github.com/juju/juju/internal/charm"
 	client "github.com/juju/juju/apiserver/facades/client/client"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	permission "github.com/juju/juju/core/permission"
 	status "github.com/juju/juju/core/status"
 	config "github.com/juju/juju/environs/config"
+	charm "github.com/juju/juju/internal/charm"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	version "github.com/juju/version/v2"

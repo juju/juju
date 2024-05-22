@@ -12,9 +12,9 @@ package mocks
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/juju/internal/charm"
 	modelgeneration "github.com/juju/juju/apiserver/facades/client/modelgeneration"
 	settings "github.com/juju/juju/core/settings"
+	charm "github.com/juju/juju/internal/charm"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )

@@ -15,15 +15,15 @@ import (
 	reflect "reflect"
 	time "time"
 
-	charm "github.com/juju/juju/internal/charm"
 	api "github.com/juju/juju/api"
 	application "github.com/juju/juju/api/client/application"
 	client "github.com/juju/juju/api/client/client"
-	charm0 "github.com/juju/juju/api/common/charm"
+	charm "github.com/juju/juju/api/common/charm"
 	charms "github.com/juju/juju/api/common/charms"
 	cloud "github.com/juju/juju/cloud"
 	controller "github.com/juju/juju/controller"
 	cloudspec "github.com/juju/juju/environs/cloudspec"
+	charm0 "github.com/juju/juju/internal/charm"
 	jujuclient "github.com/juju/juju/jujuclient"
 	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v5"
@@ -1188,11 +1188,11 @@ func (c *MockApplicationAPICloseCall) DoAndReturn(f func() error) *MockApplicati
 }
 
 // GetCharmURLOrigin mocks base method.
-func (m *MockApplicationAPI) GetCharmURLOrigin(arg0, arg1 string) (*charm.URL, charm0.Origin, error) {
+func (m *MockApplicationAPI) GetCharmURLOrigin(arg0, arg1 string) (*charm0.URL, charm.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCharmURLOrigin", arg0, arg1)
-	ret0, _ := ret[0].(*charm.URL)
-	ret1, _ := ret[1].(charm0.Origin)
+	ret0, _ := ret[0].(*charm0.URL)
+	ret1, _ := ret[1].(charm.Origin)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -1210,19 +1210,19 @@ type MockApplicationAPIGetCharmURLOriginCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockApplicationAPIGetCharmURLOriginCall) Return(arg0 *charm.URL, arg1 charm0.Origin, arg2 error) *MockApplicationAPIGetCharmURLOriginCall {
+func (c *MockApplicationAPIGetCharmURLOriginCall) Return(arg0 *charm0.URL, arg1 charm.Origin, arg2 error) *MockApplicationAPIGetCharmURLOriginCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationAPIGetCharmURLOriginCall) Do(f func(string, string) (*charm.URL, charm0.Origin, error)) *MockApplicationAPIGetCharmURLOriginCall {
+func (c *MockApplicationAPIGetCharmURLOriginCall) Do(f func(string, string) (*charm0.URL, charm.Origin, error)) *MockApplicationAPIGetCharmURLOriginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationAPIGetCharmURLOriginCall) DoAndReturn(f func(string, string) (*charm.URL, charm0.Origin, error)) *MockApplicationAPIGetCharmURLOriginCall {
+func (c *MockApplicationAPIGetCharmURLOriginCall) DoAndReturn(f func(string, string) (*charm0.URL, charm.Origin, error)) *MockApplicationAPIGetCharmURLOriginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

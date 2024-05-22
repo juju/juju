@@ -12,8 +12,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/juju/internal/charm"
 	charms "github.com/juju/juju/apiserver/common/charms"
+	charm "github.com/juju/juju/internal/charm"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
