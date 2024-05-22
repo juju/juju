@@ -9,12 +9,12 @@ import (
 	"io"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/output"
+	"github.com/juju/juju/internal/charm"
 )
 
 // Note:

@@ -4,12 +4,12 @@
 package charm_test
 
 import (
-	"github.com/juju/charm/v13"
 	gc "gopkg.in/check.v1"
 
 	commoncharm "github.com/juju/juju/api/common/charm"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/internal/charm"
 )
 
 type originSuite struct{}

@@ -7,13 +7,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/schema"
 	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 )
 
 var (

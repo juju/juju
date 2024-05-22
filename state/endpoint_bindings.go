@@ -4,7 +4,6 @@
 package state
 
 import (
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -13,6 +12,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo/utils"
 )
 

@@ -6,11 +6,11 @@ package jujuctesting
 import (
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/internal/charm"
 )
 
 // ContextSuite is the base suite for testing jujuc.Context-related code.

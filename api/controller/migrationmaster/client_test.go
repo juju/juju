@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/watcher"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"

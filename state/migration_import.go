@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/description/v6"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/storage"

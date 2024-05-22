@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/charm"
 )
 
 // relationKey returns a string describing the relation defined by

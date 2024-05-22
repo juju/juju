@@ -4,7 +4,6 @@
 package ssh
 
 import (
-	"github.com/juju/charm/v13"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/client/application"
@@ -14,6 +13,7 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

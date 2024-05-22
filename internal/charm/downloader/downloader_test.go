@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -19,6 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/charm/downloader/mocks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"

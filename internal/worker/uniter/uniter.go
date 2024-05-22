@@ -9,7 +9,6 @@ import (
 	"os"
 	"sync"
 
-	jujucharm "github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
 	"github.com/juju/juju/core/watcher"
+	jujucharm "github.com/juju/juju/internal/charm"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter/actions"

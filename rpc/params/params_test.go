@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	stdtesting "testing"
 
-	"github.com/juju/charm/v13"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testing"
 )

@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/internal/charm"
 )
 
 // Source represents the source of the charm.

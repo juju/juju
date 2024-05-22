@@ -6,7 +6,6 @@ package machinemanager_test
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -19,6 +18,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/state"
 )

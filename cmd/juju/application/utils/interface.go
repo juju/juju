@@ -4,11 +4,10 @@
 package utils
 
 import (
-	charmresource "github.com/juju/charm/v13/resource"
-
 	apicharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/resources"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/charmresource_mock.go github.com/juju/juju/cmd/juju/application/utils CharmClient

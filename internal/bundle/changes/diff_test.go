@@ -6,7 +6,6 @@ package bundlechanges_test
 import (
 	"strings"
 
-	"github.com/juju/charm/v13"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/kr/pretty"
@@ -15,6 +14,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/logger"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
+	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 

@@ -4,7 +4,6 @@
 package applicationoffers_test
 
 import (
-	"github.com/juju/charm/v13"
 	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"

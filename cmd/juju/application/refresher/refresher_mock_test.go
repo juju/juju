@@ -12,9 +12,9 @@ package refresher
 import (
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v13"
-	charm0 "github.com/juju/juju/api/common/charm"
+	charm "github.com/juju/juju/api/common/charm"
 	base "github.com/juju/juju/core/base"
+	charm0 "github.com/juju/juju/internal/charm"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -243,11 +243,11 @@ func (m *MockCharmResolver) EXPECT() *MockCharmResolverMockRecorder {
 }
 
 // ResolveCharm mocks base method.
-func (m *MockCharmResolver) ResolveCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool) (*charm.URL, charm0.Origin, []base.Base, error) {
+func (m *MockCharmResolver) ResolveCharm(arg0 *charm0.URL, arg1 charm.Origin, arg2 bool) (*charm0.URL, charm.Origin, []base.Base, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveCharm", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*charm.URL)
-	ret1, _ := ret[1].(charm0.Origin)
+	ret0, _ := ret[0].(*charm0.URL)
+	ret1, _ := ret[1].(charm.Origin)
 	ret2, _ := ret[2].([]base.Base)
 	ret3, _ := ret[3].(error)
 	return ret0, ret1, ret2, ret3
@@ -266,19 +266,19 @@ type MockCharmResolverResolveCharmCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmResolverResolveCharmCall) Return(arg0 *charm.URL, arg1 charm0.Origin, arg2 []base.Base, arg3 error) *MockCharmResolverResolveCharmCall {
+func (c *MockCharmResolverResolveCharmCall) Return(arg0 *charm0.URL, arg1 charm.Origin, arg2 []base.Base, arg3 error) *MockCharmResolverResolveCharmCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2, arg3)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmResolverResolveCharmCall) Do(f func(*charm.URL, charm0.Origin, bool) (*charm.URL, charm0.Origin, []base.Base, error)) *MockCharmResolverResolveCharmCall {
+func (c *MockCharmResolverResolveCharmCall) Do(f func(*charm0.URL, charm.Origin, bool) (*charm0.URL, charm.Origin, []base.Base, error)) *MockCharmResolverResolveCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmResolverResolveCharmCall) DoAndReturn(f func(*charm.URL, charm0.Origin, bool) (*charm.URL, charm0.Origin, []base.Base, error)) *MockCharmResolverResolveCharmCall {
+func (c *MockCharmResolverResolveCharmCall) DoAndReturn(f func(*charm0.URL, charm.Origin, bool) (*charm0.URL, charm.Origin, []base.Base, error)) *MockCharmResolverResolveCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -307,11 +307,11 @@ func (m *MockCharmRepository) EXPECT() *MockCharmRepositoryMockRecorder {
 }
 
 // NewCharmAtPath mocks base method.
-func (m *MockCharmRepository) NewCharmAtPath(arg0 string) (charm.Charm, *charm.URL, error) {
+func (m *MockCharmRepository) NewCharmAtPath(arg0 string) (charm0.Charm, *charm0.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewCharmAtPath", arg0)
-	ret0, _ := ret[0].(charm.Charm)
-	ret1, _ := ret[1].(*charm.URL)
+	ret0, _ := ret[0].(charm0.Charm)
+	ret1, _ := ret[1].(*charm0.URL)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -329,19 +329,19 @@ type MockCharmRepositoryNewCharmAtPathCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmRepositoryNewCharmAtPathCall) Return(arg0 charm.Charm, arg1 *charm.URL, arg2 error) *MockCharmRepositoryNewCharmAtPathCall {
+func (c *MockCharmRepositoryNewCharmAtPathCall) Return(arg0 charm0.Charm, arg1 *charm0.URL, arg2 error) *MockCharmRepositoryNewCharmAtPathCall {
 	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmRepositoryNewCharmAtPathCall) Do(f func(string) (charm.Charm, *charm.URL, error)) *MockCharmRepositoryNewCharmAtPathCall {
+func (c *MockCharmRepositoryNewCharmAtPathCall) Do(f func(string) (charm0.Charm, *charm0.URL, error)) *MockCharmRepositoryNewCharmAtPathCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmRepositoryNewCharmAtPathCall) DoAndReturn(f func(string) (charm.Charm, *charm.URL, error)) *MockCharmRepositoryNewCharmAtPathCall {
+func (c *MockCharmRepositoryNewCharmAtPathCall) DoAndReturn(f func(string) (charm0.Charm, *charm0.URL, error)) *MockCharmRepositoryNewCharmAtPathCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

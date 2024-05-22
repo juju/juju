@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/feature"
 	internallogger "github.com/juju/juju/internal/logger"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"

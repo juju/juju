@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )

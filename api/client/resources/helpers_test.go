@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
 

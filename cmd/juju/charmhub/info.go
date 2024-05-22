@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
 )
 

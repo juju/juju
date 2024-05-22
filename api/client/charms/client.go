@@ -6,8 +6,6 @@ package charms
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
@@ -17,6 +15,8 @@ import (
 	commoncharms "github.com/juju/juju/api/common/charms"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 )
 

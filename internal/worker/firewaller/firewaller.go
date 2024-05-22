@@ -11,7 +11,6 @@ import (
 
 	"github.com/EvilSuperstars/go-cidrman"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -31,6 +30,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/rpc/params"
 )

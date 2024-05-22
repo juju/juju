@@ -9,11 +9,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 )

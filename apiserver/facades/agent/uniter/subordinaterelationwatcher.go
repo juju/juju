@@ -4,12 +4,12 @@
 package uniter
 
 import (
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4/catacomb"
 
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
 

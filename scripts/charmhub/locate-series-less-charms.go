@@ -29,14 +29,15 @@ func main() {
 	}
 
 	type metadata struct {
-		Series     []string               `yaml:"series"`
-		Containers map[string]interface{} `yaml:"containers"`
+		Deployment map[any]any `json:"Deployment"`
 	}
 
 	for _, result := range results {
 		if result.Type == "bundle" {
 			continue
 		}
+
+		fmt.Println("Checking", result.Name)
 
 		info, err := client.Info(context.TODO(), result.Name)
 		if err != nil {
@@ -48,8 +49,8 @@ func main() {
 			log.Fatal(err)
 		}
 
-		if len(meta.Series) == 0 && len(meta.Containers) == 0 {
-			fmt.Println(result.Name)
+		if len(meta.Deployment) != 0 {
+			fmt.Println("FOUND!", result.Name, meta.Deployment)
 		}
 	}
 }

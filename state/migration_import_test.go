@@ -9,7 +9,6 @@ import (
 	"sort"
 	"time" // only uses time.Time values
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"

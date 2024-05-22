@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"sort"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/resources"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 type charmResourcesFormatter struct {

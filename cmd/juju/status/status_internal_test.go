@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -33,6 +32,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"

@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
 	jc "github.com/juju/testing/checkers"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
 )

@@ -7,7 +7,6 @@ import (
 	stdcontext "context"
 	"time"
 
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +16,7 @@ import (
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/uniter/hook"

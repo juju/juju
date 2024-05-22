@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -21,6 +20,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo"
 	mongoutils "github.com/juju/juju/internal/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"

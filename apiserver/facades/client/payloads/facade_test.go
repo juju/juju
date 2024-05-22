@@ -6,7 +6,6 @@ package payloads_test
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -16,6 +15,7 @@ import (
 	api "github.com/juju/juju/api/client/payloads"
 	"github.com/juju/juju/apiserver/facades/client/payloads"
 	corepayloads "github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

@@ -19,7 +19,6 @@ import (
 	"time"
 
 	pebbleclient "github.com/canonical/pebble/client"
-	jujucharm "github.com/juju/charm/v13"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -44,6 +43,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	jujucharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/downloader"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jworker "github.com/juju/juju/internal/worker"

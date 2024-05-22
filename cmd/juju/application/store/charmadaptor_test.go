@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/store"
 	"github.com/juju/juju/cmd/juju/application/store/mocks"
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/charm"
 )
 
 type resolveSuite struct {

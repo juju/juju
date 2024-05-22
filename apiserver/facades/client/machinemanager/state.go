@@ -6,7 +6,6 @@ package machinemanager
 import (
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )

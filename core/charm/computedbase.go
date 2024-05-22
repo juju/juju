@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/charm"
 )
 
 // BaseForCharm takes a requested base and a list of bases supported by a

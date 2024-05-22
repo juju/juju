@@ -6,13 +6,13 @@ package operation_test
 import (
 	stdcontext "context"
 
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"

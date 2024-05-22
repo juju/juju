@@ -6,9 +6,8 @@ package interfaces
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
-
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/internal/charm"
 )
 
 // Downloader defines an API for downloading and storing charms.

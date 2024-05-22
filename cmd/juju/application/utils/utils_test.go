@@ -4,8 +4,6 @@
 package utils_test
 
 import (
-	"github.com/juju/charm/v13"
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/gnuflag"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -18,6 +16,8 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils/mocks"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 type utilsSuite struct{}

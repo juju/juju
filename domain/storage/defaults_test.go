@@ -4,13 +4,13 @@
 package storage_test
 
 import (
-	"github.com/juju/charm/v13"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	coremodel "github.com/juju/juju/core/model"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 

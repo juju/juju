@@ -13,7 +13,7 @@ import (
 	reflect "reflect"
 	time "time"
 
-	charm "github.com/juju/charm/v13"
+	charm "github.com/juju/juju/internal/charm"
 	client "github.com/juju/juju/apiserver/facades/client/client"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	permission "github.com/juju/juju/core/permission"

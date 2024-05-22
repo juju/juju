@@ -4,7 +4,6 @@
 package charm
 
 import (
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -12,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/charm"
 )
 
 type computedBaseSuite struct {

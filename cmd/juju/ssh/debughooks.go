@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -21,6 +19,8 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/network/ssh"
 	unitdebug "github.com/juju/juju/internal/worker/uniter/runner/debug"
 )

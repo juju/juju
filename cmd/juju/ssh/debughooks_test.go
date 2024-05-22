@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/charm"
 	jujussh "github.com/juju/juju/internal/network/ssh"
 )
 

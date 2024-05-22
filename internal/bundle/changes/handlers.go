@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/naturalsort"
@@ -16,6 +15,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm"
 )
 
 const Kubernetes = "kubernetes"

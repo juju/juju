@@ -7,11 +7,11 @@ import (
 	"context"
 	"io"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 
 	apiresources "github.com/juju/juju/api/client/resources"
 	"github.com/juju/juju/cmd/modelcmd"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 // DeployClient exposes the functionality of the resources API needed

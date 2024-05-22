@@ -9,7 +9,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/charm"
 )
 
 // RemoteApplication represents the state of an application hosted

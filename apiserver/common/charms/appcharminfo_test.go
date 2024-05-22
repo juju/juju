@@ -6,8 +6,6 @@ package charms_test
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"go.uber.org/mock/gomock"
@@ -19,6 +17,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )

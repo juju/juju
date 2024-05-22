@@ -6,7 +6,6 @@ package application
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -14,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/state"
 )

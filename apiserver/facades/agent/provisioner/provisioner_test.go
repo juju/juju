@@ -9,7 +9,6 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
@@ -33,6 +32,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	environtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/container"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/servicefactory"

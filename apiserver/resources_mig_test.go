@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -22,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/mocks"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/resources"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"

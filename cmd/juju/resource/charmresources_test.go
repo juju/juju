@@ -6,8 +6,6 @@ package resource_test
 import (
 	"strings"
 
-	"github.com/juju/charm/v13"
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -15,6 +13,8 @@ import (
 	jujuresource "github.com/juju/juju/cmd/juju/resource"
 	resourcecmd "github.com/juju/juju/cmd/juju/resource"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 var _ = gc.Suite(&CharmResourcesSuite{})

@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	jujutesting "github.com/juju/testing"
@@ -21,6 +20,7 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
+	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 

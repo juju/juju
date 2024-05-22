@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +20,8 @@ import (
 	"github.com/juju/juju/cloud"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/state"

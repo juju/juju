@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/juju/ansiterm"
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
@@ -30,6 +29,7 @@ import (
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )

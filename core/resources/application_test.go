@@ -4,13 +4,13 @@
 package resources_test
 
 import (
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/resources"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 type ServiceResourcesSuite struct {

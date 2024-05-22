@@ -6,12 +6,12 @@ package uniter
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 )
 

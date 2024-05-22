@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
@@ -23,6 +22,7 @@ import (
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner"

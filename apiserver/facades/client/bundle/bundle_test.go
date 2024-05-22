@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/description/v6"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -22,6 +20,8 @@ import (
 	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/resource"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"

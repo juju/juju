@@ -9,7 +9,6 @@ import (
 	"os"
 	"strconv"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -23,6 +22,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/resources"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 

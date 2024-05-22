@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm"
 )
 
 const (

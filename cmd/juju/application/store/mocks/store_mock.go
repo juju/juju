@@ -14,9 +14,9 @@ import (
 	url "net/url"
 	reflect "reflect"
 
-	charm "github.com/juju/charm/v13"
 	charms "github.com/juju/juju/api/client/charms"
-	charm0 "github.com/juju/juju/api/common/charm"
+	charm "github.com/juju/juju/api/common/charm"
+	charm0 "github.com/juju/juju/internal/charm"
 	charmhub "github.com/juju/juju/internal/charmhub"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -45,10 +45,10 @@ func (m *MockCharmAdder) EXPECT() *MockCharmAdderMockRecorder {
 }
 
 // AddCharm mocks base method.
-func (m *MockCharmAdder) AddCharm(arg0 *charm.URL, arg1 charm0.Origin, arg2 bool) (charm0.Origin, error) {
+func (m *MockCharmAdder) AddCharm(arg0 *charm0.URL, arg1 charm.Origin, arg2 bool) (charm.Origin, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddCharm", arg0, arg1, arg2)
-	ret0, _ := ret[0].(charm0.Origin)
+	ret0, _ := ret[0].(charm.Origin)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -66,28 +66,28 @@ type MockCharmAdderAddCharmCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmAdderAddCharmCall) Return(arg0 charm0.Origin, arg1 error) *MockCharmAdderAddCharmCall {
+func (c *MockCharmAdderAddCharmCall) Return(arg0 charm.Origin, arg1 error) *MockCharmAdderAddCharmCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmAdderAddCharmCall) Do(f func(*charm.URL, charm0.Origin, bool) (charm0.Origin, error)) *MockCharmAdderAddCharmCall {
+func (c *MockCharmAdderAddCharmCall) Do(f func(*charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockCharmAdderAddCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmAdderAddCharmCall) DoAndReturn(f func(*charm.URL, charm0.Origin, bool) (charm0.Origin, error)) *MockCharmAdderAddCharmCall {
+func (c *MockCharmAdderAddCharmCall) DoAndReturn(f func(*charm0.URL, charm.Origin, bool) (charm.Origin, error)) *MockCharmAdderAddCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddLocalCharm mocks base method.
-func (m *MockCharmAdder) AddLocalCharm(arg0 *charm.URL, arg1 charm.Charm, arg2 bool) (*charm.URL, error) {
+func (m *MockCharmAdder) AddLocalCharm(arg0 *charm0.URL, arg1 charm0.Charm, arg2 bool) (*charm0.URL, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddLocalCharm", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*charm.URL)
+	ret0, _ := ret[0].(*charm0.URL)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -105,25 +105,25 @@ type MockCharmAdderAddLocalCharmCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmAdderAddLocalCharmCall) Return(arg0 *charm.URL, arg1 error) *MockCharmAdderAddLocalCharmCall {
+func (c *MockCharmAdderAddLocalCharmCall) Return(arg0 *charm0.URL, arg1 error) *MockCharmAdderAddLocalCharmCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmAdderAddLocalCharmCall) Do(f func(*charm.URL, charm.Charm, bool) (*charm.URL, error)) *MockCharmAdderAddLocalCharmCall {
+func (c *MockCharmAdderAddLocalCharmCall) Do(f func(*charm0.URL, charm0.Charm, bool) (*charm0.URL, error)) *MockCharmAdderAddLocalCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmAdderAddLocalCharmCall) DoAndReturn(f func(*charm.URL, charm.Charm, bool) (*charm.URL, error)) *MockCharmAdderAddLocalCharmCall {
+func (c *MockCharmAdderAddLocalCharmCall) DoAndReturn(f func(*charm0.URL, charm0.Charm, bool) (*charm0.URL, error)) *MockCharmAdderAddLocalCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CheckCharmPlacement mocks base method.
-func (m *MockCharmAdder) CheckCharmPlacement(arg0 string, arg1 *charm.URL) error {
+func (m *MockCharmAdder) CheckCharmPlacement(arg0 string, arg1 *charm0.URL) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckCharmPlacement", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -149,13 +149,13 @@ func (c *MockCharmAdderCheckCharmPlacementCall) Return(arg0 error) *MockCharmAdd
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmAdderCheckCharmPlacementCall) Do(f func(string, *charm.URL) error) *MockCharmAdderCheckCharmPlacementCall {
+func (c *MockCharmAdderCheckCharmPlacementCall) Do(f func(string, *charm0.URL) error) *MockCharmAdderCheckCharmPlacementCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmAdderCheckCharmPlacementCall) DoAndReturn(f func(string, *charm.URL) error) *MockCharmAdderCheckCharmPlacementCall {
+func (c *MockCharmAdderCheckCharmPlacementCall) DoAndReturn(f func(string, *charm0.URL) error) *MockCharmAdderCheckCharmPlacementCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -184,7 +184,7 @@ func (m *MockCharmsAPI) EXPECT() *MockCharmsAPIMockRecorder {
 }
 
 // GetDownloadInfo mocks base method.
-func (m *MockCharmsAPI) GetDownloadInfo(arg0 *charm.URL, arg1 charm0.Origin) (charms.DownloadInfo, error) {
+func (m *MockCharmsAPI) GetDownloadInfo(arg0 *charm0.URL, arg1 charm.Origin) (charms.DownloadInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDownloadInfo", arg0, arg1)
 	ret0, _ := ret[0].(charms.DownloadInfo)
@@ -211,13 +211,13 @@ func (c *MockCharmsAPIGetDownloadInfoCall) Return(arg0 charms.DownloadInfo, arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmsAPIGetDownloadInfoCall) Do(f func(*charm.URL, charm0.Origin) (charms.DownloadInfo, error)) *MockCharmsAPIGetDownloadInfoCall {
+func (c *MockCharmsAPIGetDownloadInfoCall) Do(f func(*charm0.URL, charm.Origin) (charms.DownloadInfo, error)) *MockCharmsAPIGetDownloadInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmsAPIGetDownloadInfoCall) DoAndReturn(f func(*charm.URL, charm0.Origin) (charms.DownloadInfo, error)) *MockCharmsAPIGetDownloadInfoCall {
+func (c *MockCharmsAPIGetDownloadInfoCall) DoAndReturn(f func(*charm0.URL, charm.Origin) (charms.DownloadInfo, error)) *MockCharmsAPIGetDownloadInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -285,14 +285,14 @@ func (m *MockDownloadBundleClient) EXPECT() *MockDownloadBundleClientMockRecorde
 }
 
 // DownloadAndReadBundle mocks base method.
-func (m *MockDownloadBundleClient) DownloadAndReadBundle(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (charm.Bundle, error) {
+func (m *MockDownloadBundleClient) DownloadAndReadBundle(arg0 context.Context, arg1 *url.URL, arg2 string, arg3 ...charmhub.DownloadOption) (charm0.Bundle, error) {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1, arg2}
 	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "DownloadAndReadBundle", varargs...)
-	ret0, _ := ret[0].(charm.Bundle)
+	ret0, _ := ret[0].(charm0.Bundle)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -311,19 +311,19 @@ type MockDownloadBundleClientDownloadAndReadBundleCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockDownloadBundleClientDownloadAndReadBundleCall) Return(arg0 charm.Bundle, arg1 error) *MockDownloadBundleClientDownloadAndReadBundleCall {
+func (c *MockDownloadBundleClientDownloadAndReadBundleCall) Return(arg0 charm0.Bundle, arg1 error) *MockDownloadBundleClientDownloadAndReadBundleCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDownloadBundleClientDownloadAndReadBundleCall) Do(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm.Bundle, error)) *MockDownloadBundleClientDownloadAndReadBundleCall {
+func (c *MockDownloadBundleClientDownloadAndReadBundleCall) Do(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm0.Bundle, error)) *MockDownloadBundleClientDownloadAndReadBundleCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDownloadBundleClientDownloadAndReadBundleCall) DoAndReturn(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm.Bundle, error)) *MockDownloadBundleClientDownloadAndReadBundleCall {
+func (c *MockDownloadBundleClientDownloadAndReadBundleCall) DoAndReturn(f func(context.Context, *url.URL, string, ...charmhub.DownloadOption) (charm0.Bundle, error)) *MockDownloadBundleClientDownloadAndReadBundleCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

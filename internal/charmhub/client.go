@@ -24,11 +24,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm"
 	charmhubpath "github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
 )

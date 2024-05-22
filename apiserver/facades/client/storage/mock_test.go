@@ -7,13 +7,13 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/facades/client/storage"
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )

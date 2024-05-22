@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/resources"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 type newCharmResourceFunc func(c *gc.C, name, content string) charmresource.Resource

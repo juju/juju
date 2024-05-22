@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -26,6 +25,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/feature"
 	loggertesting "github.com/juju/juju/internal/logger/testing"

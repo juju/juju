@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 

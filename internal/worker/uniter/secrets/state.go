@@ -4,11 +4,11 @@
 package secrets
 
 import (
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/rpc/params"
 )

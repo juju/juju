@@ -6,8 +6,6 @@ package resources
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -18,7 +16,9 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/repository"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/rpc/params"
 )

@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
@@ -45,6 +44,7 @@ import (
 	"github.com/juju/juju/core/upgrade"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/mongo/mongotest"
 	"github.com/juju/juju/internal/uuid"

@@ -6,13 +6,13 @@ package bundlechanges
 import (
 	"bytes"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/naturalsort"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 

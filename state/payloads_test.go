@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )

@@ -8,7 +8,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
@@ -20,6 +19,7 @@ import (
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/uuid"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"

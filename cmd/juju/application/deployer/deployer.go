@@ -12,8 +12,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v13"
-	charmresource "github.com/juju/charm/v13/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -31,6 +29,8 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/storage"
 )

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	envtesting "github.com/juju/testing"
@@ -23,6 +22,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/charm/hooks"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/hook"

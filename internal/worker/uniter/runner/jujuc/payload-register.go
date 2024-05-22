@@ -7,12 +7,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/charm"
 )
 
 // NewPayloadRegisterCmd returns a new PayloadRegisterCmd that wraps the given context.

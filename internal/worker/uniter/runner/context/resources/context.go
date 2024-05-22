@@ -9,10 +9,10 @@ import (
 	"os"
 	"path/filepath"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 // ResourcesHookContext is the implementation of runner.ContextResources.

@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/url"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -26,6 +25,7 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/storage"

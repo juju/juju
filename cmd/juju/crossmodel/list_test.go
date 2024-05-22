@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
@@ -17,6 +16,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	model "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/relation"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/jujuclient"
 )
 

@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
@@ -49,6 +48,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/feature"
 	_ "github.com/juju/juju/internal/provider/all" // Import all the providers for bootstrap.

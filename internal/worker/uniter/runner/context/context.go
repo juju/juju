@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
@@ -29,6 +27,8 @@ import (
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
+	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/worker/common/charmrunner"
 	"github.com/juju/juju/internal/worker/uniter/api"

@@ -14,7 +14,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
 	"github.com/juju/loggo/v2"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"

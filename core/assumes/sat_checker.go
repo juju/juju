@@ -4,8 +4,9 @@
 package assumes
 
 import (
-	chassumes "github.com/juju/charm/v13/assumes"
 	"github.com/juju/errors"
+
+	chassumes "github.com/juju/juju/internal/charm/assumes"
 )
 
 // A link to a web page with additional information about features,

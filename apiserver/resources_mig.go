@@ -9,11 +9,11 @@ import (
 	"net/url"
 	"strconv"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )

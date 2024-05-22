@@ -6,12 +6,12 @@ package state
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
 )
 
 type DeviceType string

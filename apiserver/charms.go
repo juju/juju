@@ -20,13 +20,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/v4/zip"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/downloader"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"

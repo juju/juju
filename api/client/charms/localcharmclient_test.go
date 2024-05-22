@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
@@ -19,6 +18,7 @@ import (
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/http/mocks"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"

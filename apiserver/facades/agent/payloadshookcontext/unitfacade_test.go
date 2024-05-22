@@ -6,7 +6,6 @@ package payloadshookcontext_test
 import (
 	"context"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -16,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	unitfacade "github.com/juju/juju/apiserver/facades/agent/payloadshookcontext"
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 )

@@ -7,8 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
@@ -25,6 +23,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"

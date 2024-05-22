@@ -10,12 +10,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm"
 )
 
 // ArchConstraint defines an architecture constraint. This is used to

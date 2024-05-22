@@ -9,7 +9,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/juju/ssh/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/testing"
 )
 

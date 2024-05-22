@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
@@ -15,6 +14,7 @@ import (
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 

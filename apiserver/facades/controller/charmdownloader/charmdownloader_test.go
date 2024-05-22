@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/charmdownloader/mocks"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"

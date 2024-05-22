@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/docker/distribution/reference"
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/docker"
 )
 

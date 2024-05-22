@@ -6,9 +6,8 @@ package payload
 import (
 	"fmt"
 
-	"github.com/juju/charm/v13"
-
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/charm"
 )
 
 func NewPayload(name, application string, machine, unit int, labels ...string) payloads.FullPayloadInfo {

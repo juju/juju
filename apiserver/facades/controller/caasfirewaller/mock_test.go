@@ -4,7 +4,6 @@
 package caasfirewaller_test
 
 import (
-	"github.com/juju/charm/v13"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 )

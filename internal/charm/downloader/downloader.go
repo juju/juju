@@ -10,7 +10,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
 
@@ -18,6 +17,7 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/version"
 )
 

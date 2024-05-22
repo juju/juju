@@ -4,9 +4,10 @@
 package assumes
 
 import (
-	chassumes "github.com/juju/charm/v13/assumes"
 	"github.com/juju/collections/set"
 	"github.com/juju/version/v2"
+
+	chassumes "github.com/juju/juju/internal/charm/assumes"
 )
 
 // Feature identifies a particular piece of functionality provided by a Juju

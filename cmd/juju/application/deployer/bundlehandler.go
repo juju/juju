@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
-	charmresource "github.com/juju/charm/v13/resource"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
@@ -42,6 +40,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	bundlechanges "github.com/juju/juju/internal/bundle/changes"
+	"github.com/juju/juju/internal/charm"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"

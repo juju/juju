@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3"
@@ -19,6 +18,7 @@ import (
 	"github.com/kr/pretty"
 
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/charm"
 	stateerrors "github.com/juju/juju/state/errors"
 )
 

@@ -30,6 +30,7 @@ func (*ImportTest) TestImports(c *gc.C) {
 		"core/logger",
 		"core/network",
 		"core/resources",
+		"internal/charm/resource",
 		"internal/logger",
 	})
 }

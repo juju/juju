@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 	"regexp"
 
-	jujucharm "github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
+	jujucharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/downloader"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/uniter/charm"

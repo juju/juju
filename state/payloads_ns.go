@@ -6,12 +6,12 @@ package state
 import (
 	"fmt"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/mgo/v3/txn"
 
 	"github.com/juju/juju/core/payloads"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo"
 )
 

@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm/v13"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -18,6 +17,7 @@ import (
 	"github.com/juju/juju/cmd/juju/application/utils"
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
+	"github.com/juju/juju/internal/charm"
 )
 
 // ErrExhausted reveals if a refresher was exhausted in it's task. If so, then

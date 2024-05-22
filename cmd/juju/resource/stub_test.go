@@ -7,12 +7,12 @@ import (
 	"context"
 	"io"
 
-	charmresource "github.com/juju/charm/v13/resource"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 
 	jujuresource "github.com/juju/juju/cmd/juju/resource"
 	"github.com/juju/juju/core/resources"
+	charmresource "github.com/juju/juju/internal/charm/resource"
 )
 
 type stubCharmStore struct {

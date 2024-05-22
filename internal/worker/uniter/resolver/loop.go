@@ -7,13 +7,13 @@ import (
 	"context"
 	"time"
 
-	jujucharm "github.com/juju/charm/v13"
-	"github.com/juju/charm/v13/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/mutex/v2"
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
+	jujucharm "github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"

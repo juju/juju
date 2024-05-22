@@ -7,12 +7,12 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 
 	apicharm "github.com/juju/juju/api/client/charms"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/charmhub/transport"
 )

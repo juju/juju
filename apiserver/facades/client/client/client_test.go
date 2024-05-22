@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/domain/access/service"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/auth"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/docker/registry/image"

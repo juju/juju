@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm/v13"
 	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
