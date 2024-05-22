@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
@@ -22,6 +23,9 @@ type metadataSuite struct {
 var _ = gc.Suite(&metadataSuite{})
 
 func (s *metadataSuite) TestFindNil(c *gc.C) {
+	ctrl, _ := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	found, err := s.api.List(context.Background(), params.ImageMetadataFilter{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Result, gc.HasLen, 0)
@@ -29,6 +33,9 @@ func (s *metadataSuite) TestFindNil(c *gc.C) {
 }
 
 func (s *metadataSuite) TestFindEmpty(c *gc.C) {
+	ctrl, _ := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		return map[string][]cloudimagemetadata.Metadata{}, nil
 	}
@@ -40,6 +47,9 @@ func (s *metadataSuite) TestFindEmpty(c *gc.C) {
 }
 
 func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
+	ctrl, _ := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		return map[string][]cloudimagemetadata.Metadata{
 			"public": {},
@@ -54,6 +64,9 @@ func (s *metadataSuite) TestFindEmptyGroups(c *gc.C) {
 }
 
 func (s *metadataSuite) TestFindError(c *gc.C) {
+	ctrl, _ := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	msg := "find error"
 	s.state.findMetadata = func(f cloudimagemetadata.MetadataFilter) (map[string][]cloudimagemetadata.Metadata, error) {
 		return nil, errors.New(msg)
@@ -66,6 +79,9 @@ func (s *metadataSuite) TestFindError(c *gc.C) {
 }
 
 func (s *metadataSuite) TestFindOrder(c *gc.C) {
+	ctrl, _ := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	customImageId := "custom1"
 	customImageId2 := "custom2"
 	customImageId3 := "custom3"
@@ -99,6 +115,9 @@ func (s *metadataSuite) TestFindOrder(c *gc.C) {
 }
 
 func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
+	ctrl, _ := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	errs, err := s.api.Save(context.Background(), params.MetadataSaveParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 0)
@@ -106,8 +125,12 @@ func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
 }
 
 func (s *metadataSuite) TestSave(c *gc.C) {
-	defer s.ctrl.Finish()
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(s.state.modelConfig)
+	ctrl, modelConfigService := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	modelConfigService.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(func(v any) (*config.Config, error) {
+		return s.state.modelConfig()
+	})
 
 	m1 := params.CloudImageMetadata{
 		Source: "custom",
@@ -150,11 +173,12 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	c.Assert(errs.Results[0].Error, gc.IsNil)
 	c.Assert(errs.Results[1].Error, gc.IsNil)
 	c.Assert(errs.Results[2].Error, gc.ErrorMatches, msg)
-	s.assertCalls(c, controllerTag, model, modelConfig, saveMetadata, saveMetadata, saveMetadata)
+	s.assertCalls(c, controllerTag, model, saveMetadata, saveMetadata, saveMetadata)
 }
 
 func (s *metadataSuite) TestSaveModelCfgFailed(c *gc.C) {
-	defer s.ctrl.Finish()
+	ctrl, modelConfigService := s.setupAPI(c)
+	defer ctrl.Finish()
 
 	m := params.CloudImageMetadata{
 		Source: "custom",
@@ -166,7 +190,7 @@ func (s *metadataSuite) TestSaveModelCfgFailed(c *gc.C) {
 	}
 
 	msg := "save error"
-	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, errors.New(msg))
+	modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, errors.New(msg))
 
 	errs, err := s.api.Save(context.Background(), ms)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
@@ -175,6 +199,9 @@ func (s *metadataSuite) TestSaveModelCfgFailed(c *gc.C) {
 }
 
 func (s *metadataSuite) TestDeleteEmpty(c *gc.C) {
+	ctrl, _ := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	errs, err := s.api.Delete(context.Background(), params.MetadataImageIds{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, 0)
@@ -182,6 +209,9 @@ func (s *metadataSuite) TestDeleteEmpty(c *gc.C) {
 }
 
 func (s *metadataSuite) TestDelete(c *gc.C) {
+	ctrl, _ := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	idOk := "ok"
 	idFail := "fail"
 	msg := "delete error"

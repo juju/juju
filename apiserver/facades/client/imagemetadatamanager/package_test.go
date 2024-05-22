@@ -37,20 +37,11 @@ type baseImageMetadataSuite struct {
 
 	api   *imagemetadatamanager.API
 	state *mockState
-
-	modelConfigService *MockModelConfigService
-	ctrl               *gomock.Controller
 }
 
 func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
-}
-
-func (s *baseImageMetadataSuite) setupMocks(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	s.modelConfigService = NewMockModelConfigService(ctrl)
-	s.ctrl = ctrl
 }
 
 func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
@@ -59,16 +50,22 @@ func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), Controller: true, AdminTag: names.NewUserTag("testuser")}
 
 	s.state = s.constructState(testConfig(c))
+}
+
+func (s *baseImageMetadataSuite) setupAPI(c *gc.C) (*gomock.Controller, *MockModelConfigService) {
+	ctrl := gomock.NewController(c)
 
 	// Need to create the mock modelConfigService first so we can pass it to the API
-	s.setupMocks(c)
+	modelConfigService := NewMockModelConfigService(ctrl)
 
 	var err error
-	s.api, err = imagemetadatamanager.CreateAPI(s.state, s.modelConfigService,
+	s.api, err = imagemetadatamanager.CreateAPI(s.state, modelConfigService,
 		func() (environs.Environ, error) {
 			return &mockEnviron{}, nil
 		}, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
+
+	return ctrl, modelConfigService
 }
 
 func (s *baseImageMetadataSuite) assertCalls(c *gc.C, expectedCalls ...string) {
