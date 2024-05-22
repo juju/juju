@@ -55,7 +55,6 @@ require (
 	github.com/juju/gomaasapi/v2 v2.2.0
 	github.com/juju/idmclient/v2 v2.0.0
 	github.com/juju/jsonschema v1.0.0
-	github.com/juju/loggo v1.0.0
 	github.com/juju/loggo/v2 v2.1.1-0.20240509163806-ebdeb290b961
 	github.com/juju/lumberjack/v2 v2.0.2
 	github.com/juju/mgo/v3 v3.0.4
@@ -215,6 +214,7 @@ require (
 	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
 	github.com/juju/gojsonpointer v0.0.0-20150204194629-afe8b77aa08f // indirect
 	github.com/juju/gojsonreference v0.0.0-20150204194633-f0d24ac5ee33 // indirect
+	github.com/juju/loggo v1.0.0 // indirect
 	github.com/juju/lru v1.0.0 // indirect
 	github.com/juju/mgo/v2 v2.0.2 // indirect
 	github.com/juju/usso v1.0.1 // indirect
