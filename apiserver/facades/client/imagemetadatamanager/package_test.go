@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -22,6 +23,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -package imagemetadatamanager_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/imagemetadatamanager ModelConfigService
+
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
 }
@@ -34,11 +37,20 @@ type baseImageMetadataSuite struct {
 
 	api   *imagemetadatamanager.API
 	state *mockState
+
+	modelConfigService *MockModelConfigService
+	ctrl               *gomock.Controller
 }
 
 func (s *baseImageMetadataSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "test:")
+}
+
+func (s *baseImageMetadataSuite) setupMocks(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.ctrl = ctrl
 }
 
 func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
@@ -48,10 +60,14 @@ func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 
 	s.state = s.constructState(testConfig(c))
 
+	// Need to create the mock modelConfigService first so we can pass it to the API
+	s.setupMocks(c)
+
 	var err error
-	s.api, err = imagemetadatamanager.CreateAPI(s.state, func() (environs.Environ, error) {
-		return &mockEnviron{}, nil
-	}, s.resources, s.authorizer)
+	s.api, err = imagemetadatamanager.CreateAPI(s.state, s.modelConfigService,
+		func() (environs.Environ, error) {
+			return &mockEnviron{}, nil
+		}, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

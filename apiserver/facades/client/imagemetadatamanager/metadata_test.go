@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/rpc/params"
@@ -105,6 +106,9 @@ func (s *metadataSuite) TestSaveEmpty(c *gc.C) {
 }
 
 func (s *metadataSuite) TestSave(c *gc.C) {
+	defer s.ctrl.Finish()
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).DoAndReturn(s.state.modelConfig)
+
 	m1 := params.CloudImageMetadata{
 		Source: "custom",
 		Region: "east",

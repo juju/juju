@@ -4,9 +4,12 @@
 package imagecommon_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/imagecommon"
@@ -18,9 +21,17 @@ import (
 
 type imageMetadataSuite struct {
 	st *mockState
+
+	modelConfigService *MockModelConfigService
 }
 
 var _ = gc.Suite(&imageMetadataSuite{})
+
+func (s *imageMetadataSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+	return ctrl
+}
 
 func (s *imageMetadataSuite) SetUpTest(c *gc.C) {
 	mCfg := testConfig(c)
@@ -31,13 +42,19 @@ func (s *imageMetadataSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *imageMetadataSuite) TestSaveEmpty(c *gc.C) {
-	errs, err := imagecommon.Save(s.st, params.MetadataSaveParams{})
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	errs, err := imagecommon.Save(context.Background(), s.modelConfigService, s.st, params.MetadataSaveParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.HasLen, 0)
 	s.st.CheckCallNames(c, []string{}...) // Nothing was called
 }
 
 func (s *imageMetadataSuite) TestSaveModelCfgFailed(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
 	m := params.CloudImageMetadata{
 		Source: "custom",
 	}
@@ -48,17 +65,19 @@ func (s *imageMetadataSuite) TestSaveModelCfgFailed(c *gc.C) {
 	}
 
 	msg := "save error"
-	s.st.SetErrors(
-		errors.New(msg), // ModelConfig
-	)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, errors.New(msg))
 
-	errs, err := imagecommon.Save(s.st, ms)
+	errs, err := imagecommon.Save(context.Background(), s.modelConfigService, s.st, ms)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
 	c.Assert(errs, gc.IsNil)
-	s.st.CheckCallNames(c, "ModelConfig")
+	s.st.CheckCallNames(c, []string{}...) // Nothing was called
 }
 
 func (s *imageMetadataSuite) TestSave(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(s.st.modelCfg, nil)
+
 	m := params.CloudImageMetadata{
 		Source: "custom",
 	}
@@ -72,12 +91,11 @@ func (s *imageMetadataSuite) TestSave(c *gc.C) {
 
 	msg := "save error"
 	s.st.SetErrors(
-		nil,             // ModelConfig
 		nil,             // Save (1st call)
 		errors.New(msg), // Save (2nd call)
 	)
 
-	errs, err := imagecommon.Save(s.st, ms)
+	errs, err := imagecommon.Save(context.Background(), s.modelConfigService, s.st, ms)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs, gc.HasLen, 2)
 	c.Assert(errs[0].Error, gc.IsNil)
@@ -97,7 +115,6 @@ func (s *imageMetadataSuite) TestSave(c *gc.C) {
 	}, nil)
 
 	s.st.CheckCalls(c, []testing.StubCall{
-		{"ModelConfig", nil},
 		{"SaveMetadata", []interface{}{expectedMetadata1}},
 		{"SaveMetadata", []interface{}{expectedMetadata2}},
 	})
