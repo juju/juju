@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -54,12 +55,12 @@ func (s *Server) FindImage(
 
 	// First we check if we have the image locally.
 	localAlias := baseLocalAlias(base.DisplayString(), arch, virtType)
-	var target string
 	entry, _, err := s.GetImageAlias(localAlias)
 	if err != nil && !IsLXDNotFound(err) {
 		return SourcedImage{}, errors.Trace(err)
 	}
 
+	var target string
 	if entry != nil {
 		// We already have an image with the given alias, so just use that.
 		target = entry.Target
@@ -73,7 +74,7 @@ func (s *Server) FindImage(
 		}
 	}
 
-	sourced := SourcedImage{}
+	var sourced SourcedImage
 	lastErr := fmt.Errorf("no matching image found")
 
 	// We don't have an image locally with the juju-specific alias,
@@ -83,6 +84,11 @@ func (s *Server) FindImage(
 	if err != nil {
 		return sourced, errors.Trace(err)
 	}
+
+	var (
+		targetAlias       string
+		targetFingerprint string
+	)
 	for _, remote := range sources {
 		source, err := ConnectImageRemote(ctx, remote)
 		if err != nil {
@@ -93,6 +99,7 @@ func (s *Server) FindImage(
 		for _, alias := range aliases {
 			if res, _, err := source.GetImageAliasType(string(virtType), alias); err == nil && res != nil && res.Target != "" {
 				target = res.Target
+				targetAlias = alias
 				break
 			}
 		}
@@ -100,8 +107,20 @@ func (s *Server) FindImage(
 			image, _, err := source.GetImage(target)
 			if err == nil {
 				logger.Debugf("Found image remotely - %q %q %q", remote.Name, image.Filename, target)
-				sourced.Image = image
+
+				img := *image
+				img.AutoUpdate = true
+
+				// If dealing with an alias, set the img fingerprint to match
+				// the provided targetAlias (needed for auto-update)
+				if img.Public && !strings.HasPrefix(img.Fingerprint, targetAlias) {
+					img.Fingerprint = targetAlias
+					targetFingerprint = image.Fingerprint
+				}
+
+				sourced.Image = &img
 				sourced.LXDServer = source
+
 				break
 			} else {
 				lastErr = errors.Trace(err)
@@ -115,7 +134,7 @@ func (s *Server) FindImage(
 
 	// If requested, copy the image to the local cache, adding the local alias.
 	if copyLocal {
-		if err := s.CopyRemoteImage(ctx, sourced, []string{localAlias}, callback); err != nil {
+		if err := s.CopyRemoteImage(ctx, sourced, targetFingerprint, []string{targetAlias, localAlias}, callback); err != nil {
 			return sourced, errors.Trace(err)
 		}
 
@@ -124,13 +143,19 @@ func (s *Server) FindImage(
 		sourced.LXDServer = s.InstanceServer
 	}
 
+	// If the fingerprint was changed, update the image with the original
+	// fingerprint to ensure the alias is correct.
+	if targetFingerprint != "" {
+		sourced.Image.Fingerprint = targetFingerprint
+	}
+
 	return sourced, nil
 }
 
 // CopyRemoteImage accepts an image sourced from a remote server and copies it
 // to the local cache
 func (s *Server) CopyRemoteImage(
-	ctx context.Context, sourced SourcedImage, aliases []string, callback environs.StatusCallbackFunc,
+	ctx context.Context, sourced SourcedImage, fingerprint string, aliases []string, callback environs.StatusCallbackFunc,
 ) error {
 	logger.Debugf("Copying image from remote server")
 
@@ -138,7 +163,10 @@ func (s *Server) CopyRemoteImage(
 	for i, a := range aliases {
 		newAliases[i] = api.ImageAlias{Name: a}
 	}
-	req := &lxd.ImageCopyArgs{Aliases: newAliases}
+	req := &lxd.ImageCopyArgs{
+		AutoUpdate: true,
+		Aliases:    newAliases,
+	}
 	progress := func(op api.Operation) {
 		if op.Metadata == nil {
 			return
@@ -165,10 +193,18 @@ func (s *Server) CopyRemoteImage(
 				return err
 			}
 		}
-		if err := op.Wait(); err != nil {
-			return err
+
+		// Prevent the operation from blocking indefinitely.
+		done := make(chan error)
+		go func() {
+			done <- op.Wait()
+		}()
+		select {
+		case err := <-done:
+			return errors.Trace(err)
+		case <-ctx.Done():
+			return op.CancelTarget()
 		}
-		return nil
 	}
 	// NOTE(jack-w-shaw) We wish to retry downloading images because we have been seeing
 	// some flakey performance from the ubuntu cloud-images archive. This has lead to rare
@@ -205,7 +241,67 @@ func (s *Server) CopyRemoteImage(
 	if opInfo.StatusCode != api.Success {
 		return fmt.Errorf("image copy failed: %s", opInfo.Err)
 	}
+	if fingerprint == "" {
+		fingerprint = sourced.Image.Fingerprint
+	}
+	if err := ensureImageAliases(s.InstanceServer, newAliases, fingerprint); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
+}
+
+// Create the specified image aliases, updating those that already exist.
+func ensureImageAliases(client lxd.InstanceServer, aliases []api.ImageAlias, fingerprint string) error {
+	if len(aliases) == 0 {
+		return nil
+	}
+
+	names := make([]string, len(aliases))
+	for i, alias := range aliases {
+		names[i] = alias.Name
+	}
+
+	sort.Strings(names)
+
+	resp, err := client.GetImageAliases()
+	if err != nil {
+		return err
+	}
+
+	// Delete existing aliases that match provided ones
+	for _, alias := range getExistingAliases(names, resp) {
+		err := client.DeleteImageAlias(alias.Name)
+		if err != nil {
+			return fmt.Errorf("failed to remove alias %s: %w", alias.Name, err)
+		}
+	}
+
+	// Create new aliases.
+	for _, alias := range aliases {
+		var aliasPost api.ImageAliasesPost
+		aliasPost.Name = alias.Name
+		aliasPost.Target = fingerprint
+		err := client.CreateImageAlias(aliasPost)
+		if err != nil {
+			return fmt.Errorf("failed to create alias %s: %w", alias.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// getExistingAliases returns the intersection between a list of aliases and
+// all the existing ones.
+func getExistingAliases(aliases []string, allAliases []api.ImageAliasesEntry) []api.ImageAliasesEntry {
+	existing := []api.ImageAliasesEntry{}
+	for _, alias := range allAliases {
+		name := alias.Name
+		pos := sort.SearchStrings(aliases, name)
+		if pos < len(aliases) && aliases[pos] == name {
+			existing = append(existing, alias)
+		}
+	}
+	return existing
 }
 
 // baseLocalAlias returns the alias to assign to images for the

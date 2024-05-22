@@ -43,7 +43,7 @@ func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
 
 	image := lxdapi.Image{Filename: "this-is-our-image"}
 	aliases := []lxdapi.ImageAlias{{Name: "local/image/alias"}}
-	req := &lxdclient.ImageCopyArgs{Aliases: aliases}
+	req := &lxdclient.ImageCopyArgs{Aliases: aliases, AutoUpdate: true}
 	iSvr.EXPECT().CopyImage(iSvr, image, req).Return(copyOp, nil)
 
 	jujuSvr, err := lxd.NewServer(iSvr)
@@ -53,7 +53,7 @@ func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
 		Image:     &image,
 		LXDServer: iSvr,
 	}
-	err = jujuSvr.CopyRemoteImage(context.Background(), sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
+	err = jujuSvr.CopyRemoteImage(context.Background(), sourced, image.Fingerprint, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -89,7 +89,7 @@ func (s *imageSuite) TestCopyImageRetries(c *gc.C) {
 		Image:     &image,
 		LXDServer: iSvr,
 	}
-	err = jujuSvr.CopyRemoteImage(context.Background(), sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
+	err = jujuSvr.CopyRemoteImage(context.Background(), sourced, image.Fingerprint, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
