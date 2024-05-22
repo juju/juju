@@ -143,32 +143,6 @@ func IsInvalidPathError(err error) bool {
 	return ok
 }
 
-// UnsupportedSeriesError represents an error indicating that the requested series
-// is not supported by the charm.
-type unsupportedSeriesError struct {
-	requestedSeries string
-	supportedSeries []string
-}
-
-func (e *unsupportedSeriesError) Error() string {
-	return fmt.Sprintf(
-		"series %q not supported by charm, the charm supported series are: %s",
-		e.requestedSeries, strings.Join(e.supportedSeries, ","),
-	)
-}
-
-// NewUnsupportedSeriesError returns an error indicating that the requested series
-// is not supported by a charm.
-func NewUnsupportedSeriesError(requestedSeries string, supportedSeries []string) error {
-	return &unsupportedSeriesError{requestedSeries, supportedSeries}
-}
-
-// IsUnsupportedSeriesError returns true if err is an UnsupportedSeriesError.
-func IsUnsupportedSeriesError(err error) bool {
-	_, ok := err.(*unsupportedSeriesError)
-	return ok
-}
-
 // unsupportedBaseError represents an error indicating that the requested base
 // is not supported by the charm.
 type unsupportedBaseError struct {
