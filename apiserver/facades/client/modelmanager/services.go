@@ -88,6 +88,8 @@ type ModelInfoService interface {
 	// CreateModel is responsible for creating a new read only model
 	// that is being imported.
 	CreateModel(context.Context, uuid.UUID) error
+
+	// DeleteModel is responsible for deleting a model during model migration.
 	DeleteModel(context.Context) error
 }
 

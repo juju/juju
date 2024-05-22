@@ -42,18 +42,32 @@ type SharedHub interface {
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
-	statePool            *state.StatePool
-	multiwatcherFactory  multiwatcher.Factory
-	centralHub           SharedHub
-	presence             presence.Recorder
-	leaseManager         lease.Manager
-	logger               corelogger.Logger
-	charmhubHTTPClient   facade.HTTPClient
-	dbGetter             changestream.WatchableDBGetter
-	dbDeleter            database.DBDeleter
+	statePool           *state.StatePool
+	multiwatcherFactory multiwatcher.Factory
+	centralHub          SharedHub
+	presence            presence.Recorder
+	leaseManager        lease.Manager
+	logger              corelogger.Logger
+	charmhubHTTPClient  facade.HTTPClient
+
+	// dbGetter is used to access databases from the API server. Along with
+	// creating a new database for new models and during model migrations.
+	dbGetter changestream.WatchableDBGetter
+
+	// dbDeleter is used to delete the database when a model migration fails
+	// and the model is being removed.
+	dbDeleter database.DBDeleter
+
+	// ServiceFactoryGetter is used to get the service factory for controllers
+	// and models.
 	serviceFactoryGetter servicefactory.ServiceFactoryGetter
-	tracerGetter         trace.TracerGetter
-	objectStoreGetter    objectstore.ObjectStoreGetter
+
+	// TraceGetter is used to get the tracer for the API server.
+	tracerGetter trace.TracerGetter
+
+	// ObjectStoreGetter is used to get the object store for storing blobs
+	// for the API server.
+	objectStoreGetter objectstore.ObjectStoreGetter
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
