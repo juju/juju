@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain/secret"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -63,19 +62,22 @@ type State interface {
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.SecretMetadataForDrain, error)
 	ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error)
+	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
+	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
+	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*domainsecret.RotationExpiryInfo, error)
+
+	// For watching obsolete secret revision changes.
 	InitialWatchStatementForObsoleteRevision(
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) (tableName string, statement eventsource.NamespaceQuery)
 	GetRevisionIDsForObsolete(
-		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUID ...string,
+		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
 	) ([]string, error)
-	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
-	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
-	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*secret.RotationExpiryInfo, error)
 
 	// For watching consumed local secret changes.
 	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
 	GetConsumedSecretURIsWithChanges(ctx context.Context, unitName string, revisionIDs ...string) ([]string, error)
+
 	// For watching consumed remote secret changes.
 	InitialWatchStatementForConsumedRemoteSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
 	GetConsumedRemoteSecretURIsWithChanges(ctx context.Context, unitName string, secretIDs ...string) (secretURIs []string, err error)
@@ -83,6 +85,14 @@ type State interface {
 	// For watching local secret changes that consumed by remote consumers.
 	InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName string) (string, eventsource.NamespaceQuery)
 	GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx context.Context, appName string, secretIDs ...string) ([]string, error)
+
+	// For watching secret retation changes.
+	InitialWatchStatementForSecretsRotationChanges(
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) (string, eventsource.NamespaceQuery)
+	GetSecretsRotationChanges(
+		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, secretIDs ...string,
+	) ([]domainsecret.RotationInfo, error)
 }
 
 // WatcherFactory describes methods for creating watchers.
@@ -420,13 +430,13 @@ func (s *SecretService) ListCharmSecrets(ctx context.Context, owners ...CharmSec
 }
 
 // GetSecret returns the secret with the specified URI.
-// If returns [secreterrors.SecretNotFound] is there's no such secret.
+// If returns [secreterrors.SecretNotFound] is there's no such domainsecret.
 func (s *SecretService) GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error) {
 	return s.st.GetSecret(ctx, uri)
 }
 
 // GetUserSecretURIByLabel returns the user secret URI with the specified label.
-// If returns [secreterrors.SecretNotFound] is there's no such secret.
+// If returns [secreterrors.SecretNotFound] is there's no such domainsecret.
 func (s *SecretService) GetUserSecretURIByLabel(ctx context.Context, label string) (*secrets.URI, error) {
 	return s.st.GetUserSecretURIByLabel(ctx, label)
 }
@@ -509,7 +519,7 @@ func (s *SecretService) GetSecretContentFromBackend(ctx context.Context, uri *se
 	}
 }
 
-// ProcessCharmSecretConsumerLabel takes a secret consumer and a uri and label which have been used to consumer the secret.
+// ProcessCharmSecretConsumerLabel takes a secret consumer and a uri and label which have been used to consumer the domainsecret.
 // If the uri is empty, the label and consumer are used to lookup the consumed secret uri.
 // This method returns the resulting uri, and optionally the label to update for the consumer.
 func (s *SecretService) ProcessCharmSecretConsumerLabel(
@@ -642,7 +652,7 @@ func (s *WatchableService) GetSecretBackendID(ctx context.Context) (string, erro
 }
 
 // ChangeSecretBackend sets the secret backend where the specified secret revision is stored.
-// It returns [secreterrors.SecretNotFound] is there's no such secret.
+// It returns [secreterrors.SecretNotFound] is there's no such domainsecret.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
 func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params ChangeSecretBackendParams) error {
 	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {

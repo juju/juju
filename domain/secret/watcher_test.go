@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -495,4 +497,84 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	wC2 := watchertest.NewStringsWatcherC(c, watcher2)
 	wC2.AssertChange([]string(nil)...)
 	wC2.AssertNoChange()
+}
+
+func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mediawiki")
+
+	ctx := context.Background()
+	svc, st := s.setupServiceAndState(c)
+
+	sp := secret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	createNewRevision(c, st, uri2)
+
+	watcher, err := svc.WatchSecretsRotationChanges(context.Background(),
+		service.CharmSecretOwner{
+			Kind: service.ApplicationOwner,
+			ID:   "mysql",
+		},
+		service.CharmSecretOwner{
+			Kind: service.UnitOwner,
+			ID:   "mediawiki/0",
+		},
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(watcher, gc.NotNil)
+	defer workertest.CleanKill(c, watcher)
+
+	wC := watchertest.NewSecretsTriggerWatcherC(c, watcher)
+
+	// Wait for the initial changes.
+	wC.AssertChange([]corewatcher.SecretTriggerChange(nil)...)
+	wC.AssertNoChange()
+
+	now := time.Now()
+	err = st.SecretRotated(ctx, uri1, now.Add(1*time.Hour))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.SecretRotated(ctx, uri2, now.Add(2*time.Hour))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
+
+	wC.AssertChange(
+		corewatcher.SecretTriggerChange{
+			URI:             uri1,
+			Revision:        1,
+			NextTriggerTime: now.Add(1 * time.Hour),
+		},
+		corewatcher.SecretTriggerChange{
+			URI:             uri2,
+			Revision:        2,
+			NextTriggerTime: now.Add(2 * time.Hour),
+		},
+	)
+
+	wC.AssertNoChange()
+
+	// pretend that the agent restarted and the watcher is re-created.
+	watcher1, err := svc.WatchSecretsRotationChanges(context.Background(),
+		service.CharmSecretOwner{
+			Kind: service.ApplicationOwner,
+			ID:   "mysql",
+		},
+		service.CharmSecretOwner{
+			Kind: service.UnitOwner,
+			ID:   "mediawiki/0",
+		},
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(watcher1, gc.NotNil)
+	defer workertest.CleanKill(c, watcher1)
+	wC1 := watchertest.NewSecretsTriggerWatcherC(c, watcher1)
+	wC1.AssertChange([]corewatcher.SecretTriggerChange(nil)...)
+	wC1.AssertNoChange()
 }
