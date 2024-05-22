@@ -97,6 +97,12 @@ type secretRotate struct {
 	NextRotateTime time.Time `db:"next_rotation_time"`
 }
 
+type secretRotationChange struct {
+	SecretID       string    `db:"secret_id"`
+	Revision       int       `db:"revision"`
+	NextRotateTime time.Time `db:"next_rotation_time"`
+}
+
 type secretRevision struct {
 	ID         string    `db:"uuid"`
 	SecretID   string    `db:"secret_id"`

@@ -85,3 +85,10 @@ type RotationExpiryInfo struct {
 	// LatestRevision is the most recent secret revision.
 	LatestRevision int
 }
+
+// RotationInfo holds information about the rotation of a secret.
+type RotationInfo struct {
+	URI             *secrets.URI
+	Revision        int
+	NextTriggerTime time.Time
+}

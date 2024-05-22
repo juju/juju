@@ -3319,3 +3319,129 @@ func (st State) SecretRotated(ctx context.Context, uri *coresecrets.URI, next ti
 	})
 	return errors.Trace(domain.CoerceError(err))
 }
+
+func (st State) getSecretsRotationChanges(
+	ctx context.Context, runner coredatabase.TxnRunner,
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	secretIDs ...string,
+) ([]secret.RotationInfo, error) {
+	if len(secretIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
+		return nil, nil
+	}
+
+	q := `
+SELECT 
+       sro.secret_id AS &secretRotationChange.secret_id,
+       sro.next_rotation_time AS &secretRotationChange.next_rotation_time,
+       MAX(sr.revision) AS &secretRotationChange.revision
+FROM   secret_rotation sro
+       JOIN secret_revision sr ON sr.secret_id = sro.secret_id`
+
+	var queryParams []any
+	var joins []string
+	conditions := []string{}
+	if len(secretIDs) > 0 {
+		queryParams = append(queryParams, dbSecretIDs(secretIDs))
+		conditions = append(conditions, "sro.secret_id IN ($dbSecretIDs[:])")
+	}
+	if len(appOwners) > 0 && len(unitOwners) > 0 {
+		queryParams = append(queryParams, appOwners, unitOwners)
+		joins = append(joins,
+			`LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id`,
+			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
+			`LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id`,
+			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		)
+		conditions = append(conditions, `(
+    sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
+    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])
+)`)
+	} else if len(appOwners) > 0 {
+		queryParams = append(queryParams, appOwners)
+		joins = append(joins,
+			`LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id`,
+			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
+		)
+		conditions = append(conditions, "sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
+	} else if len(unitOwners) > 0 {
+		queryParams = append(queryParams, unitOwners)
+		joins = append(joins,
+			`LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id`,
+			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		)
+		conditions = append(conditions, "suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
+	}
+	if len(joins) > 0 {
+		q += fmt.Sprintf("\n%s", strings.Join(joins, "\n"))
+	}
+	if len(conditions) > 0 {
+		q += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, "\nAND "))
+	}
+	q += `
+GROUP BY sro.secret_id`
+	st.logger.Tracef(
+		"secretIDs %+v, appOwners: %+v, unitOwners: %+v, query: \n%s",
+		secretIDs, appOwners, unitOwners, q,
+	)
+
+	stmt, err := st.Prepare(q, append(queryParams, secretRotationChange{})...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var data []secretRotationChange
+	err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, queryParams...).GetAll(&data)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// It's ok because the secret or the rotation was just deleted.
+			return nil
+		}
+		return errors.Trace(err)
+	})
+
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+	result := make([]secret.RotationInfo, len(data))
+	for i, d := range data {
+		result[i] = secret.RotationInfo{
+			Revision:        d.Revision,
+			NextTriggerTime: d.NextRotateTime,
+		}
+		uri, err := coresecrets.ParseURI(d.SecretID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result[i].URI = uri
+	}
+	return result, nil
+}
+
+// InitialWatchStatementForSecretsRotationChanges returns the initial watch statement
+// and the table name for watching rotations.
+func (st State) InitialWatchStatementForSecretsRotationChanges(
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		result, err := st.getSecretsRotationChanges(ctx, runner, appOwners, unitOwners)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		secretIDs := make([]string, len(result))
+		for i, d := range result {
+			secretIDs[i] = d.URI.ID
+		}
+		return secretIDs, nil
+	}
+	return "secret_rotation", queryFunc
+}
+
+// GetSecretsRotationChanges returns the rotation changes for the owners' secrets.
+func (st State) GetSecretsRotationChanges(
+	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, secretIDs ...string,
+) ([]secret.RotationInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st.getSecretsRotationChanges(ctx, db, appOwners, unitOwners, secretIDs...)
+}

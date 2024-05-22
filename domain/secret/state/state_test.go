@@ -3191,6 +3191,138 @@ func (s *stateSuite) TestGetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
 	})
 }
 
+func (s *stateSuite) prepareWatchForWatchStatementForSecretsRotationChanges(c *gc.C, ctx context.Context, st *State) (time.Time, *coresecrets.URI, *coresecrets.URI) {
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mediawiki")
+
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	updateSecretContent(c, st, uri2)
+
+	now := time.Now()
+	err = st.SecretRotated(ctx, uri1, now.Add(1*time.Hour))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.SecretRotated(ctx, uri2, now.Add(2*time.Hour))
+	c.Assert(err, jc.ErrorIsNil)
+
+	return now, uri1, uri2
+}
+
+func (s *stateSuite) TestInitialWatchStatementForSecretsRotationChanges(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+	_, uri1, uri2 := s.prepareWatchForWatchStatementForSecretsRotationChanges(c, ctx, st)
+
+	tableName, f := st.InitialWatchStatementForSecretsRotationChanges(domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mediawiki/0"})
+	c.Check(tableName, gc.Equals, "secret_rotation")
+	result, err := f(ctx, s.TxnRunner())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []string{
+		uri1.ID, uri2.ID,
+	})
+
+	tableName, f = st.InitialWatchStatementForSecretsRotationChanges(domainsecret.ApplicationOwners{"mysql"}, nil)
+	c.Check(tableName, gc.Equals, "secret_rotation")
+	result, err = f(ctx, s.TxnRunner())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []string{
+		uri1.ID,
+	})
+
+	tableName, f = st.InitialWatchStatementForSecretsRotationChanges(nil, domainsecret.UnitOwners{"mediawiki/0"})
+	c.Check(tableName, gc.Equals, "secret_rotation")
+	result, err = f(ctx, s.TxnRunner())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []string{
+		uri2.ID,
+	})
+
+	tableName, f = st.InitialWatchStatementForSecretsRotationChanges(nil, nil)
+	c.Check(tableName, gc.Equals, "secret_rotation")
+	result, err = f(ctx, s.TxnRunner())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetSecretsRotationChanges(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+	now, uri1, uri2 := s.prepareWatchForWatchStatementForSecretsRotationChanges(c, ctx, st)
+
+	result, err := st.GetSecretsRotationChanges(ctx, domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mediawiki/0"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.RotationInfo{
+		{
+			URI:             uri1,
+			Revision:        1,
+			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+		},
+		{
+			URI:             uri2,
+			Revision:        2,
+			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
+		},
+	})
+
+	result, err = st.GetSecretsRotationChanges(ctx,
+		domainsecret.ApplicationOwners{"mysql", "mediawiki"}, domainsecret.UnitOwners{"mysql/0", "mediawiki/0"},
+		uri1.ID,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.RotationInfo{
+		{
+			URI:             uri1,
+			Revision:        1,
+			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+		},
+	})
+
+	result, err = st.GetSecretsRotationChanges(ctx,
+		domainsecret.ApplicationOwners{"mysql", "mediawiki"}, domainsecret.UnitOwners{"mysql/0", "mediawiki/0"},
+		uri2.ID,
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.RotationInfo{
+		{
+			URI:             uri2,
+			Revision:        2,
+			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
+		},
+	})
+
+	result, err = st.GetSecretsRotationChanges(ctx, domainsecret.ApplicationOwners{"mysql"}, nil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.RotationInfo{
+		{
+			URI:             uri1,
+			Revision:        1,
+			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+		},
+	})
+
+	result, err = st.GetSecretsRotationChanges(ctx, nil, domainsecret.UnitOwners{"mediawiki/0"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.RotationInfo{
+		{
+			URI:             uri2,
+			Revision:        2,
+			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
+		},
+	})
+
+	result, err = st.GetSecretsRotationChanges(ctx, nil, nil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.HasLen, 0)
+}
+
 func (s *stateSuite) TestSecretRotated(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 	ctx := context.Background()
