@@ -1,9 +1,11 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package imagecommon
+package imagemetadatamanager
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
@@ -13,29 +15,30 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
-// ImageMetadataInterface is an interface for manipulating images metadata.
-type ImageMetadataInterface interface {
-
+// ImageMetadataSaver is an interface for manipulating images metadata.
+type ImageMetadataSaver interface {
 	// SaveMetadata persists collection of given images metadata.
 	SaveMetadata([]cloudimagemetadata.Metadata) error
-
-	// ModelConfig retrieves configuration for a current model.
-	ModelConfig() (*config.Config, error)
 }
 
 // Save stores given cloud image metadata using given persistence interface.
-func Save(st ImageMetadataInterface, metadata params.MetadataSaveParams) ([]params.ErrorResult, error) {
+func Save(
+	ctx context.Context,
+	service ModelConfigService,
+	saver ImageMetadataSaver,
+	metadata params.MetadataSaveParams,
+) ([]params.ErrorResult, error) {
 	all := make([]params.ErrorResult, len(metadata.Metadata))
 	if len(metadata.Metadata) == 0 {
 		return nil, nil
 	}
-	modelCfg, err := st.ModelConfig()
+	modelCfg, err := service.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting model config")
 	}
 	for i, one := range metadata.Metadata {
 		md := ParseMetadataListFromParams(one, modelCfg)
-		err := st.SaveMetadata(md)
+		err := saver.SaveMetadata(md)
 		all[i] = params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}
 	return all, nil

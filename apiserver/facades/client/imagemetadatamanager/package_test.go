@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -21,6 +22,8 @@ import (
 	"github.com/juju/juju/state/cloudimagemetadata"
 	coretesting "github.com/juju/juju/testing"
 )
+
+//go:generate go run go.uber.org/mock/mockgen -package imagemetadatamanager_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/imagemetadatamanager ModelConfigService
 
 func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -47,12 +50,22 @@ func (s *baseImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.authorizer = testing.FakeAuthorizer{Tag: names.NewUserTag("testuser"), Controller: true, AdminTag: names.NewUserTag("testuser")}
 
 	s.state = s.constructState(testConfig(c))
+}
+
+func (s *baseImageMetadataSuite) setupAPI(c *gc.C) (*gomock.Controller, *MockModelConfigService) {
+	ctrl := gomock.NewController(c)
+
+	// Need to create the mock modelConfigService first so we can pass it to the API
+	modelConfigService := NewMockModelConfigService(ctrl)
 
 	var err error
-	s.api, err = imagemetadatamanager.CreateAPI(s.state, func() (environs.Environ, error) {
-		return &mockEnviron{}, nil
-	}, s.resources, s.authorizer)
+	s.api, err = imagemetadatamanager.CreateAPI(s.state, modelConfigService,
+		func() (environs.Environ, error) {
+			return &mockEnviron{}, nil
+		}, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
+
+	return ctrl, modelConfigService
 }
 
 func (s *baseImageMetadataSuite) assertCalls(c *gc.C, expectedCalls ...string) {
