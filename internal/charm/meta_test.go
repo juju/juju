@@ -565,18 +565,6 @@ func (s *MetaSuite) TestSeries(c *gc.C) {
 	c.Assert(meta.Series, gc.DeepEquals, []string{"precise", "trusty", "plan9"})
 }
 
-func (s *MetaSuite) TestCheckInvalidSeries(c *gc.C) {
-	for _, seriesName := range []string{"pre-c1se", "pre^cise", "cp/m", "OpenVMS"} {
-		err := charm.Meta{
-			Name:        "a",
-			Summary:     "b",
-			Description: "c",
-			Series:      []string{seriesName},
-		}.Check(charm.FormatV1)
-		c.Check(err, gc.ErrorMatches, `charm "a" declares invalid series: .*`)
-	}
-}
-
 func (s *MetaSuite) TestMinJujuVersion(c *gc.C) {
 	// series not specified
 	meta, err := charm.ReadMeta(strings.NewReader(dummyMetadata))

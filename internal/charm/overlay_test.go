@@ -29,11 +29,9 @@ func (*bundleDataOverlaySuite) TestEmptyBaseApplication(c *gc.C) {
 applications:
   apache2:
 ---
-series: trusty
 applications:
   apache2:
     charm: cs:apache2-42
-    series: bionic
 `[1:]
 
 	_, err := charm.ReadAndMergeBundleData(mustCreateStringDataSource(c, data))
@@ -65,7 +63,6 @@ applications:
 saas:
     apache2:
         url: production:admin/info.apache
-series: bionic
 `[1:]
 
 	expBase := `
@@ -75,7 +72,6 @@ applications:
 saas:
   apache2:
     url: production:admin/info.apache
-series: bionic
 `[1:]
 
 	expOverlay := `
@@ -272,7 +268,6 @@ applications:
 saas:
     apache2:
         url: production:admin/info.apache
-series: bionic
 `
 
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
@@ -311,7 +306,6 @@ applications:
     options:
       foo: bar
       ssl_ca: *ssl_ca
-series: bionic
 `
 
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
@@ -323,25 +317,21 @@ series: bionic
 	c.Assert(charm.VerifyNoOverlayFieldsPresent(static), gc.Equals, nil)
 }
 
-func (*bundleDataOverlaySuite) TestOverrideCharmAndSeries(c *gc.C) {
+func (*bundleDataOverlaySuite) TestOverrideCharm(c *gc.C) {
 	testBundleMergeResult(c, `
 applications:
   apache2:
     charm: apache2
     num_units: 1
 ---
-series: trusty
 applications:
   apache2:
     charm: cs:apache2-42
-    series: bionic
 `, `
 applications:
   apache2:
     charm: cs:apache2-42
-    series: bionic
     num_units: 1
-series: trusty
 `,
 	)
 }
@@ -679,7 +669,6 @@ applications:
     memcached:
         charm: mem
         revision: 47
-        series: trusty
         num_units: 1
         options:
             key: value
@@ -699,7 +688,6 @@ applications:
 defaultwiki: &DEFAULTWIKI
     charm: "mediawiki"
     revision: 5
-    series: trusty
     num_units: 1
     options: &WIKIOPTS
         debug: false
@@ -732,14 +720,12 @@ applications:
   memcached:
     charm: mem
     revision: 47
-    series: trusty
     num_units: 1
     options:
       key: value
   wiki:
     charm: mediawiki
     revision: 5
-    series: trusty
     num_units: 1
     options:
       debug: false

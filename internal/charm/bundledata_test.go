@@ -294,7 +294,6 @@ saas:
 applications:
     wordpress:
       charm: "ch:wordpress"
-      series: "trusty"
       revision: 10
       num_units: 1
 relations:
@@ -310,7 +309,6 @@ relations:
 		Applications: map[string]*charm.ApplicationSpec{
 			"wordpress": {
 				Charm:    "ch:wordpress",
-				Series:   "trusty",
 				Revision: &ten,
 				NumUnits: 1,
 			},
@@ -326,7 +324,6 @@ applications:
     wordpress:
       charm: "wordpress"
       revision: 10
-      series: trusty
       channel: edge
       num_units: 1
 `,
@@ -337,7 +334,6 @@ applications:
 				Channel:  "edge",
 				Revision: &ten,
 				NumUnits: 1,
-				Series:   "trusty",
 			},
 		},
 	},
@@ -406,13 +402,12 @@ func (*bundleDataSuite) TestCodecRoundTrip(c *gc.C) {
 	}
 }
 
-func (*bundleDataSuite) TestParseLocalWithSeries(c *gc.C) {
+func (*bundleDataSuite) TestParseLocal(c *gc.C) {
 	path := "internal/test-charm-repo/quanta/riak"
 	data := fmt.Sprintf(`
         applications:
             dummy:
                 charm: %s
-                series: xenial
                 num_units: 1
     `, path)
 	bd, err := charm.ReadBundleData(strings.NewReader(data))
@@ -421,7 +416,6 @@ func (*bundleDataSuite) TestParseLocalWithSeries(c *gc.C) {
 		Applications: map[string]*charm.ApplicationSpec{
 			"dummy": {
 				Charm:    path,
-				Series:   "xenial",
 				NumUnits: 1,
 			},
 		}})
@@ -446,7 +440,6 @@ var verifyErrorsTests = []struct {
 }{{
 	about: "as many errors as possible",
 	data: `
-series: "9wrong"
 default-base: "invalidbase"
 
 saas:
@@ -459,7 +452,6 @@ machines:
         constraints: 'bad constraints'
         annotations:
             foo: bar
-        series: 'bad series'
         base: 'bad base'
     bogus:
     3:
@@ -499,7 +491,6 @@ applications:
           charm: wordpress
     postgres:
         charm: "postgres"
-        series: trusty
     terracotta:
         charm: "terracotta"
         base: "ubuntu@22.04"
@@ -524,7 +515,6 @@ relations:
     - ["wordpress:db", "riak:db"]
 `,
 	errors: []string{
-		`bundle declares an invalid series "9wrong"`,
 		`bundle declares an invalid base "invalidbase"`,
 		`invalid offer URL "!some-bogus/url" for SAAS apache2`,
 		`invalid storage name "no_underscores" in application "ceph"`,
@@ -549,7 +539,6 @@ relations:
 		`relation ["mysql:db" "mediawiki:db"] is defined more than once`,
 		`invalid placement syntax "bad placement"`,
 		`invalid relation syntax "mediawiki/db"`,
-		`invalid series "bad series" for machine "0"`,
 		`invalid base "bad base" for machine "0"`,
 		`ambiguous relation "riak" refers to a application and a SAAS in this bundle`,
 		`SAAS "riak" already exists with application "riak" name`,
@@ -765,7 +754,6 @@ applications:
         charm: "gitlab-k8s"
         num_units: 3
         to: [foo=baz]
-        series: kubernetes
     redis:
         charm: "redis-k8s"
         scale: 3
@@ -785,7 +773,6 @@ applications:
 			},
 			"gitlab": {
 				Charm:    "gitlab-k8s",
-				Series:   "kubernetes",
 				To:       []string{"foo=baz"},
 				NumUnits: 3,
 			},
@@ -854,7 +841,6 @@ applications:
 func (s *bundleDataSuite) TestKubernetesBundleErrors(c *gc.C) {
 	data := `
 bundle: "kubernetes"
-series: "xenial"
 
 machines:
     0:
@@ -862,7 +848,6 @@ machines:
 applications:
     mariadb:
         charm: "mariadb-k8s"
-        series: "xenial"
         scale: 2
     casandra:
         charm: "casnadra-k8s"

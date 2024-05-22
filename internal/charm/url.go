@@ -57,14 +57,13 @@ type URL struct {
 	Schema       string // "ch" or "local".
 	Name         string // "wordpress".
 	Revision     int    // -1 if unset, N otherwise.
-	Series       string // "precise" or "" if unset; "bundle" if it's a bundle.
+	series       string // "precise" or "" if unset; "bundle" if it's a bundle.
 	Architecture string // "amd64" or "" if unset for charmstore (v1) URLs.
 }
 
 var (
-	validArch   = regexp.MustCompile("^[a-z]+([a-z0-9]+)?$")
-	validSeries = regexp.MustCompile("^[a-z]+([a-z0-9]+)?$")
-	validName   = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
+	validArch = regexp.MustCompile("^[a-z]+([a-z0-9]+)?$")
+	validName = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 )
 
 // ValidateSchema returns an error if the schema is invalid.
@@ -79,20 +78,6 @@ func ValidateSchema(schema string) error {
 		return nil
 	}
 	return errors.NotValidf("schema %q", schema)
-}
-
-// IsValidSeries reports whether series is a valid series in charm or bundle
-// URLs.
-func IsValidSeries(series string) bool {
-	return validSeries.MatchString(series)
-}
-
-// ValidateSeries returns an error if the given series is invalid.
-func ValidateSeries(series string) error {
-	if IsValidSeries(series) {
-		return nil
-	}
-	return errors.NotValidf("series name %q", series)
 }
 
 // IsValidArchitecture reports whether the architecture is a valid architecture
@@ -135,14 +120,6 @@ func (u *URL) WithRevision(revision int) *URL {
 func (u *URL) WithArchitecture(arch string) *URL {
 	urlCopy := *u
 	urlCopy.Architecture = arch
-	return &urlCopy
-}
-
-// WithSeries returns a URL equivalent to url but with Series set
-// to series.
-func (u *URL) WithSeries(series string) *URL {
-	urlCopy := *u
-	urlCopy.Series = series
 	return &urlCopy
 }
 
@@ -211,10 +188,7 @@ func parseLocalURL(url *gourl.URL, originalURL string) (*URL, error) {
 
 	// <series>
 	if len(parts) == 2 {
-		r.Series, parts = parts[0], parts[1:]
-		if err := ValidateSeries(r.Series); err != nil {
-			return nil, errors.Annotatef(err, "cannot parse URL %q", originalURL)
-		}
+		r.series, parts = parts[0], parts[1:]
 	}
 	if len(parts) < 1 {
 		return nil, errors.Errorf("URL without charm or bundle name: %q", originalURL)
@@ -233,8 +207,8 @@ func (u *URL) path() string {
 	if u.Architecture != "" {
 		parts = append(parts, u.Architecture)
 	}
-	if u.Series != "" {
-		parts = append(parts, u.Series)
+	if u.series != "" {
+		parts = append(parts, u.series)
 	}
 	if u.Revision >= 0 {
 		parts = append(parts, fmt.Sprintf("%s-%d", u.Name, u.Revision))
@@ -400,7 +374,7 @@ func parseCharmhubURL(url *gourl.URL) (*URL, error) {
 	var nameRev string
 	switch len(parts) {
 	case 3:
-		r.Architecture, r.Series, nameRev = parts[0], parts[1], parts[2]
+		r.Architecture, r.series, nameRev = parts[0], parts[1], parts[2]
 
 		if err := ValidateArchitecture(r.Architecture); err != nil {
 			return nil, errors.Annotatef(err, "in URL %q", url)
@@ -414,7 +388,7 @@ func parseCharmhubURL(url *gourl.URL) (*URL, error) {
 		if err := ValidateArchitecture(parts[0]); err == nil {
 			r.Architecture, nameRev = parts[0], parts[1]
 		} else {
-			r.Series, nameRev = parts[0], parts[1]
+			r.series, nameRev = parts[0], parts[1]
 		}
 
 	default:
@@ -425,13 +399,6 @@ func parseCharmhubURL(url *gourl.URL) (*URL, error) {
 	r.Name, r.Revision = extractRevision(nameRev)
 	if err := ValidateName(r.Name); err != nil {
 		return nil, errors.Annotatef(err, "cannot parse name and/or revision in URL %q", url)
-	}
-
-	// Optional
-	if r.Series != "" {
-		if err := ValidateSeries(r.Series); err != nil {
-			return nil, errors.Annotatef(err, "in URL %q", url)
-		}
 	}
 
 	return &r, nil

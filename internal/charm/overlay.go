@@ -593,9 +593,9 @@ func applyOverlay(base, overlay *BundleDataPart) error {
 		}
 	}
 
-	// If series is set in the config, it overrides the bundle.
-	if series := overlay.Data.Series; series != "" {
-		base.Data.Series = series
+	// If default base is set in the config, it overrides the bundle.
+	if b := overlay.Data.DefaultBase; b != "" {
+		base.Data.DefaultBase = b
 	}
 
 	// Append any additional relations.

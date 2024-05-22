@@ -821,12 +821,6 @@ func (m Meta) Check(format Format, reasons ...FormatSelectionReason) error {
 		}
 	}
 
-	for _, series := range m.Series {
-		if !IsValidSeries(series) {
-			return errors.Errorf("charm %q declares invalid series: %q", m.Name, series)
-		}
-	}
-
 	names = make(map[string]bool)
 	for name, store := range m.Storage {
 		if store.Location != "" && store.Type != StorageFilesystem {
