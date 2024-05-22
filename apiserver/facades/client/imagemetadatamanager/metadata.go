@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common/imagecommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
@@ -103,7 +102,7 @@ func (api *API) Save(ctx context.Context, metadata params.MetadataSaveParams) (p
 		}
 	}
 
-	all, err := imagecommon.Save(ctx, api.modelConfigService, api.metadata, metadata)
+	all, err := Save(ctx, api.modelConfigService, api.metadata, metadata)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

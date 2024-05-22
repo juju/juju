@@ -153,6 +153,27 @@ func (s *metadataSuite) TestSave(c *gc.C) {
 	s.assertCalls(c, controllerTag, model, modelConfig, saveMetadata, saveMetadata, saveMetadata)
 }
 
+func (s *metadataSuite) TestSaveModelCfgFailed(c *gc.C) {
+	defer s.ctrl.Finish()
+
+	m := params.CloudImageMetadata{
+		Source: "custom",
+	}
+	ms := params.MetadataSaveParams{
+		Metadata: []params.CloudImageMetadataList{{
+			Metadata: []params.CloudImageMetadata{m},
+		}},
+	}
+
+	msg := "save error"
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(nil, errors.New(msg))
+
+	errs, err := s.api.Save(context.Background(), ms)
+	c.Assert(errors.Cause(err), gc.ErrorMatches, msg)
+	c.Assert(errs.Results, gc.HasLen, 0)
+	s.assertCalls(c, controllerTag, model) // ModelConfig not called
+}
+
 func (s *metadataSuite) TestDeleteEmpty(c *gc.C) {
 	errs, err := s.api.Delete(context.Background(), params.MetadataImageIds{})
 	c.Assert(err, jc.ErrorIsNil)
