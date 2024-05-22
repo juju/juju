@@ -40,9 +40,9 @@ type ControllerConfigService interface {
 	// ControllerConfig returns the config values for the controller.
 	ControllerConfig(ctx context.Context) (controller.Config, error)
 
-	// Watch returns a watcher that returns keys for any changes to controller
-	// config.
-	Watch() (watcher.StringsWatcher, error)
+	// WatchControllerConfig returns a watcher that returns keys for any changes
+	// to controller config.
+	WatchControllerConfig() (watcher.StringsWatcher, error)
 }
 
 type State interface {
@@ -444,7 +444,7 @@ func (w *pgWorker) watchForControllerChanges() (<-chan struct{}, error) {
 // watchForConfigChanges starts a watcher for changes to controller config.
 // It returns a channel which will receive events if the watcher fires.
 func (w *pgWorker) watchForConfigChanges(ctx context.Context) (<-chan []string, error) {
-	watcher, err := w.config.ControllerConfigService.Watch()
+	watcher, err := w.config.ControllerConfigService.WatchControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

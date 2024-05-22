@@ -26,7 +26,7 @@ type watcherSuite struct {
 
 var _ = gc.Suite(&watcherSuite{})
 
-func (s *watcherSuite) TestWatch(c *gc.C) {
+func (s *watcherSuite) TestWatchControllerConfig(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "controller_config")
 
 	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
@@ -34,7 +34,7 @@ func (s *watcherSuite) TestWatch(c *gc.C) {
 			loggertesting.WrapCheckLog(c),
 		),
 	)
-	watcher, err := svc.Watch()
+	watcher, err := svc.WatchControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := watchertest.NewStringsWatcherC(c, watcher)

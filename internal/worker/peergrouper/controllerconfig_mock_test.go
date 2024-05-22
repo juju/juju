@@ -80,41 +80,41 @@ func (c *MockControllerConfigServiceControllerConfigCall) DoAndReturn(f func(con
 	return c
 }
 
-// Watch mocks base method.
-func (m *MockControllerConfigService) Watch() (watcher.Watcher[[]string], error) {
+// WatchControllerConfig mocks base method.
+func (m *MockControllerConfigService) WatchControllerConfig() (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Watch")
+	ret := m.ctrl.Call(m, "WatchControllerConfig")
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Watch indicates an expected call of Watch.
-func (mr *MockControllerConfigServiceMockRecorder) Watch() *MockControllerConfigServiceWatchCall {
+// WatchControllerConfig indicates an expected call of WatchControllerConfig.
+func (mr *MockControllerConfigServiceMockRecorder) WatchControllerConfig() *MockControllerConfigServiceWatchControllerConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockControllerConfigService)(nil).Watch))
-	return &MockControllerConfigServiceWatchCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchControllerConfig", reflect.TypeOf((*MockControllerConfigService)(nil).WatchControllerConfig))
+	return &MockControllerConfigServiceWatchControllerConfigCall{Call: call}
 }
 
-// MockControllerConfigServiceWatchCall wrap *gomock.Call
-type MockControllerConfigServiceWatchCall struct {
+// MockControllerConfigServiceWatchControllerConfigCall wrap *gomock.Call
+type MockControllerConfigServiceWatchControllerConfigCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerConfigServiceWatchCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockControllerConfigServiceWatchCall {
+func (c *MockControllerConfigServiceWatchControllerConfigCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockControllerConfigServiceWatchControllerConfigCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerConfigServiceWatchCall) Do(f func() (watcher.Watcher[[]string], error)) *MockControllerConfigServiceWatchCall {
+func (c *MockControllerConfigServiceWatchControllerConfigCall) Do(f func() (watcher.Watcher[[]string], error)) *MockControllerConfigServiceWatchControllerConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerConfigServiceWatchCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockControllerConfigServiceWatchCall {
+func (c *MockControllerConfigServiceWatchControllerConfigCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockControllerConfigServiceWatchControllerConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

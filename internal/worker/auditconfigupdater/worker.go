@@ -28,9 +28,9 @@ type ControllerConfigService interface {
 	// ControllerConfig returns the config values for the controller.
 	ControllerConfig(ctx context.Context) (controller.Config, error)
 
-	// Watch returns a watcher that returns keys for any changes to controller
-	// config.
-	Watch() (watcher.StringsWatcher, error)
+	// WatchControllerConfig returns a watcher that returns keys for any changes
+	// to controller config.
+	WatchControllerConfig() (watcher.StringsWatcher, error)
 }
 
 // AuditLogFactory is a function that will return an audit log given
@@ -157,7 +157,7 @@ func (u *updater) CurrentConfig() auditlog.Config {
 // watchForConfigChanges starts a watcher for changes to controller config.
 // It returns a channel which will receive events if the watcher fires.
 func (u *updater) watchForConfigChanges(ctx context.Context) (<-chan []string, error) {
-	watcher, err := u.controllerConfigService.Watch()
+	watcher, err := u.controllerConfigService.WatchControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
