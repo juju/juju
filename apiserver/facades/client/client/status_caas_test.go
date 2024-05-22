@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/version"
 )
 
 type CAASStatusSuite struct {
@@ -108,7 +109,8 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 		Units: map[string]params.UnitStatus{
 			s.app.Name() + "/0": {
 				AgentStatus: params.DetailedStatus{
-					Status: "allocating",
+					Version: version.Current.String(),
+					Status:  "allocating",
 				},
 				WorkloadStatus: params.DetailedStatus{
 					Status: status,

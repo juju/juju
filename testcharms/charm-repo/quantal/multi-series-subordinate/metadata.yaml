@@ -4,10 +4,6 @@ description: |
     This is a longer description which
     potentially contains multiple lines.
 subordinate: true
-series:
-  - jammy
-  - focal
-  - bionic
 provides:
     multi-client:
        interface: logging

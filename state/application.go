@@ -1655,23 +1655,7 @@ func (a *Application) validateSetCharmConfig(cfg SetCharmConfig) error {
 		return errors.BadRequestf("programming error, SetCharm, neither CharmOrigin ID nor Hash can be set before a charm is downloaded. See CharmHubRepository GetDownloadURL.")
 	}
 
-	currentCharm, err := a.st.Charm(*a.doc.CharmURL)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if cfg.Charm.Meta().Deployment != currentCharm.Meta().Deployment {
-		if cfg.Charm.Meta().Deployment == nil || currentCharm.Meta().Deployment == nil {
-			return errors.New("cannot change a charm's deployment info")
-		}
-		if cfg.Charm.Meta().Deployment.DeploymentType != currentCharm.Meta().Deployment.DeploymentType {
-			return errors.New("cannot change a charm's deployment type")
-		}
-		if cfg.Charm.Meta().Deployment.DeploymentMode != currentCharm.Meta().Deployment.DeploymentMode {
-			return errors.New("cannot change a charm's deployment mode")
-		}
-	}
-
-	// If it's a v1 or v2 machine charm (no containers), check series.
+	// If it's a v1 or v2 machine charm (no containers), check base.
 	if charm.MetaFormat(cfg.Charm) == charm.FormatV1 || len(cfg.Charm.Meta().Containers) == 0 {
 		err := checkBaseForSetCharm(a.CharmOrigin().Platform, cfg.Charm, cfg.ForceBase)
 		if err != nil {

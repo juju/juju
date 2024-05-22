@@ -55,14 +55,10 @@ func (s *computedBaseSuite) TestComputedBaseNilManifest(c *gc.C) {
 		Name:        "a",
 		Summary:     "b",
 		Description: "c",
-		Series:      []string{"bionic"},
 	}).AnyTimes()
 	cm.EXPECT().Manifest().Return(nil).AnyTimes()
-	bases, err := ComputedBases(cm)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bases, jc.DeepEquals, []base.Base{
-		base.MustParseBaseFromString("ubuntu@18.04"),
-	})
+	_, err := ComputedBases(cm)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *computedBaseSuite) TestComputedBaseError(c *gc.C) {

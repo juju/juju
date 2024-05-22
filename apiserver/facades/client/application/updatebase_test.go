@@ -99,10 +99,11 @@ func (s StateValidatorSuite) TestValidateApplication(c *gc.C) {
 	defer ctrl.Finish()
 
 	ch := NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{
-		Series: []string{"focal", "bionic"},
-	}).MinTimes(2)
-	ch.EXPECT().Manifest().Return(nil).AnyTimes()
+	ch.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
+	ch.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{
+		{Name: "ubuntu", Channel: charm.Channel{Track: "18.04", Risk: charm.Stable}},
+		{Name: "ubuntu", Channel: charm.Channel{Track: "20.04", Risk: charm.Stable}},
+	}}).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
@@ -119,8 +120,8 @@ func (s StateValidatorSuite) TestValidateApplicationWithNoBases(c *gc.C) {
 	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{
 		Name: "my-charm",
-	}).MinTimes(2)
-	ch.EXPECT().Manifest().Return(nil).AnyTimes()
+	}).AnyTimes()
+	ch.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{}}).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
@@ -130,16 +131,18 @@ func (s StateValidatorSuite) TestValidateApplicationWithNoBases(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `charm "my-charm" does not support any bases. Not valid`)
 }
 
-func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeries(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedBases(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{
-		Series: []string{"xenial", "bionic"},
-		Name:   "my-charm",
-	}).MinTimes(2)
-	ch.EXPECT().Manifest().Return(nil).AnyTimes()
+		Name: "my-charm",
+	}).AnyTimes()
+	ch.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{
+		{Name: "ubuntu", Channel: charm.Channel{Track: "16.04", Risk: charm.Stable}},
+		{Name: "ubuntu", Channel: charm.Channel{Track: "18.04", Risk: charm.Stable}},
+	}}).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
@@ -149,15 +152,16 @@ func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeries(c *gc.
 	c.Assert(err, gc.ErrorMatches, `base "ubuntu@20.04" not supported by charm "my-charm", supported bases are: ubuntu@16.04, ubuntu@18.04`)
 }
 
-func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedSeriesWithForce(c *gc.C) {
+func (s StateValidatorSuite) TestValidateApplicationWithUnsupportedBaseWithForce(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
 	ch := NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{
-		Series: []string{"xenial", "bionic"},
-	}).MinTimes(2)
-	ch.EXPECT().Manifest().Return(nil).AnyTimes()
+	ch.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
+	ch.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{
+		{Name: "ubuntu", Channel: charm.Channel{Track: "16.04", Risk: charm.Stable}},
+		{Name: "ubuntu", Channel: charm.Channel{Track: "18.04", Risk: charm.Stable}},
+	}}).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)

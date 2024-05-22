@@ -48,21 +48,18 @@ var MissingBaseError = errors.ConstError("charm does not define any bases")
 // fall back the metadata series can convert to bases
 func ComputedBases(c charm.CharmMeta) ([]base.Base, error) {
 	manifest := c.Manifest()
-	if manifest != nil {
-		computedBases := make([]base.Base, len(manifest.Bases))
-		for i, b := range manifest.Bases {
-			computedBase, err := base.ParseBase(b.Name, b.Channel.String())
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			computedBases[i] = computedBase
+	if manifest == nil {
+		return nil, errors.NotValidf("charm without manifest")
+	}
+	computedBases := make([]base.Base, len(manifest.Bases))
+	for i, b := range manifest.Bases {
+		computedBase, err := base.ParseBase(b.Name, b.Channel.String())
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		return computedBases, nil
+		computedBases[i] = computedBase
 	}
-	if charm.MetaFormat(c) < charm.FormatV2 {
-		return transform.SliceOrErr(c.Meta().Series, base.GetBaseFromSeries)
-	}
-	return []base.Base{}, nil
+	return computedBases, nil
 }
 
 // BaseIsCompatibleWithCharm returns nil if the provided charm is compatible

@@ -6,7 +6,6 @@ package application_test
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -499,28 +498,6 @@ func (s *ApplicationSuite) TestSetCharmStorageDirectives(c *gc.C) {
 		CharmOrigin: createCharmOriginFromURL(curl),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ApplicationSuite) TestSetCAASCharmInvalid(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectCharm(ctrl, &charm.Meta{Deployment: &charm.Deployment{}}, nil, nil)
-	curl := "ch:postgresql"
-	s.backend.EXPECT().Charm(curl).Return(ch, nil)
-
-	app := s.expectDefaultApplication(ctrl)
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	err := s.api.SetCharm(context.Background(), params.ApplicationSetCharmV2{
-		ApplicationName: "postgresql",
-		CharmURL:        "ch:postgresql",
-		CharmOrigin:     createCharmOriginFromURL(curl),
-	})
-	c.Assert(err, gc.NotNil)
-	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, "Juju on containers does not support updating deployment info.*")
 }
 
 type setCharmConfigMatcher struct {
@@ -1754,45 +1731,6 @@ func (s *ApplicationSuite) expectDefaultK8sModelConfig() {
 	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
 }
 
-func (s *ApplicationSuite) TestDeployMinDeploymentVersionTooHigh(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectCharm(ctrl, &charm.Meta{
-		Deployment: &charm.Deployment{
-			MinVersion: "1.99.0",
-		},
-	}, &charm.Manifest{}, &charm.Config{})
-	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
-
-	s.expectDefaultK8sModelConfig()
-	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(nil)
-	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-operator-storage").Return(storage.NewConfig(
-		"k8s-operator-storage",
-		k8sconstants.StorageProviderType,
-		map[string]interface{}{"foo": "bar"}),
-	)
-	s.model.EXPECT().UUID().Return("")
-
-	args := params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			ApplicationName: "foo",
-			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
-			NumUnits:        1,
-			Config:          map[string]string{"kubernetes-service-annotations": "a=b c="},
-		}},
-	}
-	results, err := s.api.Deploy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(
-		results.Results[0].Error, gc.ErrorMatches,
-		regexp.QuoteMeta(`charm requires a minimum k8s version of 1.99.0 but the cluster only runs version 1.15.0`),
-	)
-}
-
 func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	s.modelType = state.ModelTypeCAAS
 	ctrl := s.setup(c)
@@ -2233,60 +2171,6 @@ func (s *ApplicationSuite) TestScaleApplicationsCAASModel(c *gc.C) {
 			Info: &params.ScaleApplicationInfo{Scale: 5},
 		}},
 	})
-}
-
-func (s *ApplicationSuite) TestScaleApplicationsNotAllowedForOperator(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectCharm(ctrl, &charm.Meta{
-		Deployment: &charm.Deployment{
-			DeploymentMode: charm.ModeOperator,
-		},
-	}, nil, nil)
-	app := s.expectApplicationWithCharm(ctrl, ch, "postgresql")
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	args := params.ScaleApplicationsParams{
-		Applications: []params.ScaleApplicationParams{{
-			ApplicationTag: "application-postgresql",
-			Scale:          5,
-		}},
-	}
-	result, err := s.api.ScaleApplications(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.NotNil)
-	msg := strings.Replace(result.Results[0].Error.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, `scale an "operator" application not supported`)
-}
-
-func (s *ApplicationSuite) TestScaleApplicationsNotAllowedForDaemonSet(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectCharm(ctrl, &charm.Meta{
-		Deployment: &charm.Deployment{
-			DeploymentType: charm.DeploymentDaemon,
-		},
-	}, nil, nil)
-	app := s.expectApplicationWithCharm(ctrl, ch, "postgresql")
-	s.backend.EXPECT().Application("postgresql").Return(app, nil)
-
-	args := params.ScaleApplicationsParams{
-		Applications: []params.ScaleApplicationParams{{
-			ApplicationTag: "application-postgresql",
-			Scale:          5,
-		}},
-	}
-	result, err := s.api.ScaleApplications(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.Results[0].Error, gc.NotNil)
-	msg := strings.Replace(result.Results[0].Error.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, `scale a "daemon" application not supported`)
 }
 
 func (s *ApplicationSuite) TestScaleApplicationsBlocked(c *gc.C) {

@@ -180,7 +180,7 @@ func (s *DeploySuite) TestPathWithNoCharmOrBundle(c *gc.C) {
 func (s *DeploySuite) TestDeployFromPathOldCharmMissingSeries(c *gc.C) {
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "dummy-no-series")
 	err := s.runDeploy(c, path)
-	c.Assert(err, gc.ErrorMatches, "charm does not define any bases, not valid")
+	c.Assert(err, gc.ErrorMatches, ".*charm metadata without bases in manifest not valid")
 }
 
 func (s *DeploySuite) TestDeployFromPathRelativeDir(c *gc.C) {
@@ -715,7 +715,7 @@ func (s *DeploySuite) TestNonLocalCannotHostUnits(c *gc.C) {
 	s.fakeAPI.Call("CharmInfo", "local:dummy").Returns(
 		&apicommoncharms.CharmInfo{
 			URL:  "local:dummy",
-			Meta: &charm.Meta{Name: "dummy", Series: []string{"jammy"}},
+			Meta: &charm.Meta{Name: "dummy"},
 		},
 		error(nil),
 	)
@@ -821,7 +821,7 @@ func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	s.fakeAPI.Call("AddCharm", curl, originWithSeries, false).Returns(originWithSeries, error(nil))
 	withCharmDeployable(
 		s.fakeAPI, curl, defaultBase,
-		&charm.Meta{Name: "dummy", Series: []string{"jammy"}},
+		&charm.Meta{Name: "dummy"},
 		false, 0, nil, nil,
 	)
 

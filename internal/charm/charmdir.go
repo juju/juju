@@ -107,7 +107,7 @@ func ReadCharmDir(path string, options ...ReadOption) (*CharmDir, error) {
 		return nil, errors.Annotatef(err, `parsing "metadata.yaml" file`)
 	}
 
-	// Try to read the optional manifest.yaml, it's required to determine if
+	// Try to read the manifest.yaml, it's required to determine if
 	// this charm is v1 or not.
 	reader, err = os.Open(b.join("manifest.yaml"))
 	if _, ok := err.(*os.PathError); ok {

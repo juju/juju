@@ -5,7 +5,6 @@ package charm_test
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -42,12 +41,6 @@ func (s *CharmSuite) TestReadCharmDirEmptyError(c *gc.C) {
 	c.Assert(ch, gc.Equals, nil)
 }
 
-func (s *CharmSuite) TestReadCharmSeriesWithoutBases(c *gc.C) {
-	ch, err := charm.ReadCharm(charmDirPath(c, "format-series"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, gc.NotNil)
-}
-
 func (s *CharmSuite) TestReadCharmArchiveError(c *gc.C) {
 	path := filepath.Join(c.MkDir(), "path")
 	err := os.WriteFile(path, []byte("foo"), 0644)
@@ -57,62 +50,14 @@ func (s *CharmSuite) TestReadCharmArchiveError(c *gc.C) {
 	c.Assert(ch, gc.Equals, nil)
 }
 
-func (s *CharmSuite) TestSeriesToUse(c *gc.C) {
-	tests := []struct {
-		series          string
-		supportedSeries []string
-		seriesToUse     string
-		err             string
-	}{{
-		series: "",
-		err:    "series not specified and charm does not define any",
-	}, {
-		series:      "trusty",
-		seriesToUse: "trusty",
-	}, {
-		series:          "trusty",
-		supportedSeries: []string{"precise", "trusty"},
-		seriesToUse:     "trusty",
-	}, {
-		series:          "",
-		supportedSeries: []string{"precise", "trusty"},
-		seriesToUse:     "precise",
-	}, {
-		series:          "wily",
-		supportedSeries: []string{"precise", "trusty"},
-		err:             `series "wily" not supported by charm.*`,
-	}}
-	for _, test := range tests {
-		series, err := charm.SeriesForCharm(test.series, test.supportedSeries)
-		if test.err != "" {
-			c.Assert(err, gc.ErrorMatches, test.err)
-			continue
-		}
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(series, jc.DeepEquals, test.seriesToUse)
-	}
-}
-
-func (s *CharmSuite) IsUnsupportedSeriesError(c *gc.C) {
-	err := charm.NewUnsupportedSeriesError("series", []string{"supported"})
-	c.Assert(charm.IsUnsupportedSeriesError(err), jc.IsTrue)
-	c.Assert(charm.IsUnsupportedSeriesError(fmt.Errorf("foo")), jc.IsFalse)
-}
-
-func (s *CharmSuite) IsMissingSeriesError(c *gc.C) {
-	err := charm.MissingSeriesError()
-	c.Assert(charm.IsMissingSeriesError(err), jc.IsTrue)
-	c.Assert(charm.IsMissingSeriesError(fmt.Errorf("foo")), jc.IsFalse)
-}
-
 type FormatSuite struct {
 	testing.CleanupSuite
 }
 
 var _ = gc.Suite(&FormatSuite{})
 
-func (FormatSuite) TestFormatV1NoSeries(c *gc.C) {
-	ch, err := charm.ReadCharm(charmDirPath(c, "format"))
+func (FormatSuite) TestFormatV2Containers(c *gc.C) {
+	ch, err := charm.ReadCharm(charmDirPath(c, "format-containers"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch, gc.NotNil)
 
@@ -120,33 +65,7 @@ func (FormatSuite) TestFormatV1NoSeries(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	f := charm.MetaFormat(ch)
-	c.Assert(f, gc.Equals, charm.FormatV1)
-}
-
-func (FormatSuite) TestFormatV1NoManifest(c *gc.C) {
-	ch, err := charm.ReadCharm(charmDirPath(c, "format-series"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, gc.NotNil)
-
-	err = charm.CheckMeta(ch)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (FormatSuite) TestFormatV1Manifest(c *gc.C) {
-	ch, err := charm.ReadCharm(charmDirPath(c, "format-seriesmanifest"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch, gc.NotNil)
-
-	err = charm.CheckMeta(ch)
-	c.Assert(err, jc.ErrorIsNil)
-
-	f := charm.MetaFormat(ch)
-	c.Assert(f, gc.Equals, charm.FormatV1)
-}
-
-func (FormatSuite) TestFormatV2ContainersNoManifest(c *gc.C) {
-	_, err := charm.ReadCharm(charmDirPath(c, "format-containers"))
-	c.Assert(err, gc.ErrorMatches, `containers without a manifest.yaml not valid`)
+	c.Assert(f, gc.Equals, charm.FormatV2)
 }
 
 func (FormatSuite) TestFormatV2ContainersManifest(c *gc.C) {

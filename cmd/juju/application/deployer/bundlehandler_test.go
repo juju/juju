@@ -832,7 +832,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *gc.C) {
 		Revision: djangoCurl.Revision,
 		URL:      djangoCurl.String(),
 		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
 			Resources: map[string]charmresource.Meta{
 				"one": {Type: charmresource.TypeFile},
 				"two": {Type: charmresource.TypeFile},
@@ -886,7 +885,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *gc.C) 
 		Revision: djangoCurl.Revision,
 		URL:      djangoCurl.String(),
 		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
 			Resources: map[string]charmresource.Meta{
 				"one": {Type: charmresource.TypeFile},
 				"two": {Type: charmresource.TypeFile},
@@ -963,10 +961,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	s.expectAddCharm(false)
 	s.expectSetCharm(c, "mysql")
 	charmInfo := &apicharms.CharmInfo{
-		URL: mysqlCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		URL:  mysqlCurl.String(),
+		Meta: &charm.Meta{},
 	}
 	s.expectCharmInfo(mysqlCurl.String(), charmInfo)
 
@@ -974,10 +970,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	s.expectAddCharm(false)
 	s.expectSetCharm(c, "wordpress")
 	wpCharmInfo := &apicharms.CharmInfo{
-		URL: wordpressCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		URL:  wordpressCurl.String(),
+		Meta: &charm.Meta{},
 	}
 	s.expectCharmInfo(wordpressCurl.String(), wpCharmInfo)
 
@@ -1110,9 +1104,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachinesUnitsPlacement(c *
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		Meta:     &charm.Meta{},
 	}
 	s.expectCharmInfo(wordpressCurl.String(), charmInfo)
 	s.expectAddCharm(false)
@@ -1125,9 +1117,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachinesUnitsPlacement(c *
 	charmInfo2 := &apicharms.CharmInfo{
 		Revision: mysqlCurl.Revision,
 		URL:      mysqlCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		Meta:     &charm.Meta{},
 	}
 	s.expectCharmInfo(mysqlCurl.String(), charmInfo2)
 	s.expectAddCharm(false)
@@ -1166,9 +1156,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachineAttributes(c *gc.C)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: djangoCurl.Revision,
 		URL:      djangoCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		Meta:     &charm.Meta{},
 	}
 	s.expectCharmInfo(djangoCurl.String(), charmInfo)
 	args := []params.AddMachineParams{
@@ -1203,10 +1191,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
 	s.expectAddCharm(false)
 	s.expectAddCharm(false)
 	charmInfo := &apicharms.CharmInfo{
-		URL: djangoCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		URL:  djangoCurl.String(),
+		Meta: &charm.Meta{},
 	}
 	s.expectCharmInfo(djangoCurl.String(), charmInfo)
 	s.expectCharmInfo(djangoCurl.String(), charmInfo)
@@ -1252,9 +1238,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c 
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		Meta:     &charm.Meta{},
 	}
 	s.expectCharmInfo(wordpressCurl.String(), charmInfo)
 	s.expectAddCharm(false)
@@ -1273,9 +1257,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c 
 	charmInfo2 := &apicharms.CharmInfo{
 		Revision: djangoCurl.Revision,
 		URL:      djangoCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		Meta:     &charm.Meta{},
 	}
 	s.expectCharmInfo(djangoCurl.String(), charmInfo2)
 	s.expectAddCharm(false)
@@ -1321,10 +1303,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundlePeerContainer(c *gc.C) {
 	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	s.expectResolveCharm(nil)
 	charmInfo := &apicharms.CharmInfo{
-		URL: wordpressCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		URL:  wordpressCurl.String(),
+		Meta: &charm.Meta{},
 	}
 	s.expectCharmInfo(wordpressCurl.String(), charmInfo)
 	s.expectAddCharm(false)
@@ -1335,10 +1315,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundlePeerContainer(c *gc.C) {
 	djangoCurl := charm.MustParseURL("ch:django")
 	s.expectResolveCharm(nil)
 	charmInfo2 := &apicharms.CharmInfo{
-		URL: djangoCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		URL:  djangoCurl.String(),
+		Meta: &charm.Meta{},
 	}
 	s.expectCharmInfo(djangoCurl.String(), charmInfo2)
 	s.expectAddCharm(false)
@@ -1405,9 +1383,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *
 	charmInfo := &apicharms.CharmInfo{
 		Revision: memCurl.Revision,
 		URL:      memCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		Meta:     &charm.Meta{},
 	}
 	s.expectCharmInfo(memCurl.String(), charmInfo)
 	s.expectAddCharm(false)
@@ -1422,9 +1398,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *
 	charmInfo2 := &apicharms.CharmInfo{
 		Revision: djangoCurl.Revision,
 		URL:      djangoCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		Meta:     &charm.Meta{},
 	}
 	s.expectCharmInfo(djangoCurl.String(), charmInfo2)
 	s.expectAddCharm(false)
@@ -1441,9 +1415,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *
 	charmInfo3 := &apicharms.CharmInfo{
 		Revision: railsCurl.Revision,
 		URL:      railsCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		Meta:     &charm.Meta{},
 	}
 	s.expectCharmInfo(railsCurl.String(), charmInfo3)
 	s.expectAddCharm(false)
@@ -1480,10 +1452,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSwitch(c *gc.C) {
 	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
 	charmInfo := &apicharms.CharmInfo{
-		URL: djangoCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		URL:  djangoCurl.String(),
+		Meta: &charm.Meta{},
 	}
 	s.expectCharmInfo(djangoCurl.String(), charmInfo)
 	s.expectSetCharm(c, "django")
@@ -1495,9 +1465,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSwitch(c *gc.C) {
 	rCharmInfo := &apicharms.CharmInfo{
 		Revision: railsCurl.Revision,
 		URL:      railsCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		Meta:     &charm.Meta{},
 	}
 	s.expectCharmInfo(railsCurl.String(), rCharmInfo)
 	s.expectAddOneUnit(railsCurl.Name, "", "0")
@@ -1633,9 +1601,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerTyp
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		Meta:     &charm.Meta{},
 	}
 	s.expectCharmInfo(wordpressCurl.String(), charmInfo)
 	s.expectDeploy()
@@ -1677,9 +1643,7 @@ func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *gc
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
 		URL:      wordpressCurl.String(),
-		Meta: &charm.Meta{
-			Series: []string{"jammy", "focal"},
-		},
+		Meta:     &charm.Meta{},
 	}
 	s.expectCharmInfo(wordpressCurl.String(), charmInfo)
 	s.expectDeploy()

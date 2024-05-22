@@ -6,5 +6,3 @@ requires:
     interface: miner
     limit: 1
     optional: false
-series:
-  - focal

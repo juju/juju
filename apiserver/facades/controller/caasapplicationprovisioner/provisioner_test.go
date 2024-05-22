@@ -326,11 +326,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
 		charm: &mockCharm{
-			meta: &charm.Meta{
-				Deployment: &charm.Deployment{
-					DeploymentType: charm.DeploymentStateful,
-				},
-			},
+			meta: &charm.Meta{},
 			manifest: &charm.Manifest{
 				// charm.FormatV2.
 				Bases: []charm.Base{
@@ -513,11 +509,7 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStor
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
 		charm: &mockCharm{
-			meta: &charm.Meta{
-				Deployment: &charm.Deployment{
-					DeploymentType: charm.DeploymentStateful,
-				},
-			},
+			meta: &charm.Meta{},
 			manifest: &charm.Manifest{
 				// charm.FormatV2.
 				Bases: []charm.Base{

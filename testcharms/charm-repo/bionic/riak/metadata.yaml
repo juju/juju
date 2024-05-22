@@ -9,7 +9,3 @@ provides:
 peers:
   ring:
     interface: riak
-series:
-  - bionic
-  - focal
-  - jammy

@@ -11,5 +11,3 @@ storage:
         type: filesystem
         multiple:
           range: 0+
-series:
-  - focal

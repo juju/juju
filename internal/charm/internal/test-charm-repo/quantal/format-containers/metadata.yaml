@@ -1,5 +1,5 @@
-name: containers
-summary: "Has containers"
+name: containers and manifest
+summary: "Both manifest bases and containers present"
 containers:
   containers:
     snappass:

@@ -197,7 +197,7 @@ func (d *factory) repoBundleDeployer(userCharmURL *charm.URL, origin commoncharm
 	// channel is worked out via the resolving what is available.
 	// See: LP:1677404 and LP:1832873
 	bundleURL, bundleOrigin, bundleResolveErr := resolver.ResolveBundleURL(userCharmURL, origin)
-	if charm.IsUnsupportedSeriesError(errors.Cause(bundleResolveErr)) {
+	if corecharm.IsUnsupportedBaseError(errors.Cause(bundleResolveErr)) {
 		return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", bundleResolveErr)
 	}
 	if bundleResolveErr != nil {

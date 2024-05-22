@@ -1,6 +1,0 @@
-name: series
-summary: "Has series present"
-series:
-  - kubernetes
-description: |
-  Format V1 should be detected.

@@ -8,6 +8,3 @@ storage:
         type: block
         multiple:
                 range: 0+
-series:
-  - jammy
-  - focal

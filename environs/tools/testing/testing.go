@@ -23,7 +23,6 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -95,9 +94,7 @@ func makeTools(c *gc.C, metadataDir, stream string, versionStrings []string, wit
 	var toolsList coretools.List
 	for _, versionString := range versionStrings {
 		binary, err := version.ParseBinary(versionString)
-		if err != nil {
-			c.Assert(err, jc.Satisfies, corebase.IsUnknownOSForSeriesError)
-		}
+		c.Assert(err, jc.ErrorIsNil)
 		path := filepath.Join(toolsDir, fmt.Sprintf("juju-%s.tgz", binary))
 		data := binary.String()
 		err = os.WriteFile(path, []byte(data), 0644)

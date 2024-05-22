@@ -687,15 +687,13 @@ func (factory *Factory) MakeUnitReturningPassword(c *gc.C, params *UnitParams) (
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	if model.Type() == state.ModelTypeIAAS {
-		agentTools := version.Binary{
-			Number:  jujuversion.Current,
-			Arch:    arch.HostArch(),
-			Release: params.Application.CharmOrigin().Platform.OS,
-		}
-		err = unit.SetAgentVersion(agentTools)
-		c.Assert(err, jc.ErrorIsNil)
+	agentTools := version.Binary{
+		Number:  jujuversion.Current,
+		Arch:    arch.HostArch(),
+		Release: params.Application.CharmOrigin().Platform.OS,
 	}
+	err = unit.SetAgentVersion(agentTools)
+	c.Assert(err, jc.ErrorIsNil)
 
 	if params.SetCharmURL {
 		applicationCharmURL, _ := params.Application.CharmURL()

@@ -76,9 +76,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 			life:    state.Alive,
 			watcher: appExposedWatcher,
 			charm: mockCharm{
-				meta: &charm.Meta{
-					Deployment: &charm.Deployment{},
-				},
+				meta:     &charm.Meta{},
 				manifest: &charm.Manifest{},
 				url:      "ch:gitlab",
 			},
