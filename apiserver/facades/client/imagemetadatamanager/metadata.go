@@ -14,20 +14,29 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
-// API is the concrete implementation of the api end point
-// for loud image metadata manipulations.
+// API is the concrete implementation of the API endpoint for cloud image
+// metadata manipulations.
 type API struct {
 	metadata   metadataAccess
 	newEnviron func() (environs.Environ, error)
+
+	modelConfigService ModelConfigService
+}
+
+// ModelConfigService is an interface that provides access to model config.
+type ModelConfigService interface {
+	ModelConfig(ctx context.Context) (*config.Config, error)
 }
 
 // createAPI returns a new image metadata API facade.
 func createAPI(
 	st metadataAccess,
+	modelConfigService ModelConfigService,
 	newEnviron func() (environs.Environ, error),
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -41,8 +50,9 @@ func createAPI(
 	}
 
 	return &API{
-		metadata:   st,
-		newEnviron: newEnviron,
+		metadata:           st,
+		newEnviron:         newEnviron,
+		modelConfigService: modelConfigService,
 	}, nil
 }
 
@@ -92,7 +102,8 @@ func (api *API) Save(ctx context.Context, metadata params.MetadataSaveParams) (p
 			}
 		}
 	}
-	all, err := imagecommon.Save(api.metadata, metadata)
+
+	all, err := imagecommon.Save(ctx, api.modelConfigService, api.metadata, metadata)
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}

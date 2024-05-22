@@ -31,5 +31,5 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	newEnviron := func() (environs.Environ, error) {
 		return stateenvirons.GetNewEnvironFunc(environs.New)(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
 	}
-	return createAPI(getState(st), newEnviron, ctx.Resources(), ctx.Auth())
+	return createAPI(getState(st), ctx.ServiceFactory().Config(), newEnviron, ctx.Resources(), ctx.Auth())
 }

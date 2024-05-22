@@ -19693,7 +19693,7 @@
     },
     {
         "Name": "ImageMetadataManager",
-        "Description": "API is the concrete implementation of the api end point\nfor loud image metadata manipulations.",
+        "Description": "API is the concrete implementation of the API endpoint for cloud image\nmetadata manipulations.",
         "Version": 1,
         "AvailableTo": [
             "controller-machine-agent",
