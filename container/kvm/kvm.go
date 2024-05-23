@@ -184,7 +184,8 @@ func (manager *containerManager) CreateContainer(
 	kvmContainer := KVMObjectFactory.New(name)
 
 	// Create the cloud-init.
-	cloudConfig, err := cloudinit.New(instanceConfig.Base.OS)
+	// Netplan configures NICs by matching MAC addresses.
+	cloudConfig, err := cloudinit.New(instanceConfig.Base.OS, cloudinit.WithNetplanMACMatch(true))
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}

@@ -273,7 +273,9 @@ func (m *containerManager) getContainerSpec(
 		networkConfig.Interfaces = interfaces
 	}
 
-	cloudConfig, err := cloudinit.New(instanceConfig.Base.OS, cloudinit.WithDisableNetplanMACMatch)
+	// We tell Netplan to match by interface name for containers; by MAC for VMs.
+	cloudConfig, err := cloudinit.New(
+		instanceConfig.Base.OS, cloudinit.WithNetplanMACMatch(virtType == api.InstanceTypeVM))
 	if err != nil {
 		return ContainerSpec{}, errors.Trace(err)
 	}
