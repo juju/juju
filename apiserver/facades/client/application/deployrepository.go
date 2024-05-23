@@ -741,7 +741,7 @@ func (v *deployFromRepositoryValidator) platformFromPlacement(placements []*inst
 		platform = p
 		platStrings.Add(p.String())
 	}
-	if platStrings.Size() == 1 {
+	if platStrings.Size() != 1 {
 		deployRepoLogger.Errorf("Mismatched platforms for machine scoped placements %s", platStrings.SortedValues())
 	}
 
