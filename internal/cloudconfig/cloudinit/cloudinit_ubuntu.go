@@ -240,7 +240,6 @@ func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 		"curl",
 		"cpu-checker",
 		"tmux",
-		"ubuntu-fan",
 	}
 	for _, pack := range packages {
 		cfg.AddPackage(pack)
