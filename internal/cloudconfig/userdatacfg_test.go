@@ -718,7 +718,7 @@ func (s *cloudinitSuite) TestCloudInitConfigCloudInitUserData(c *gc.C) {
 	// Verify the settings against cloudinit-userdata
 	cfgPackages := cloudcfg.Packages()
 	expectedPackages := []string{
-		`ubuntu-fan`, // last juju specified package
+		`tmux`, // last juju specified package
 		`python-keystoneclient`,
 		`python-glanceclient`,
 	}
