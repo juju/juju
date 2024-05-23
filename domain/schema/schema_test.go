@@ -259,6 +259,9 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"cloud_service",
 		"cloud_container",
 		"unit",
+		"unit_state",
+		"unit_state_charm",
+		"unit_state_relation",
 
 		// Charm
 		"charm",
