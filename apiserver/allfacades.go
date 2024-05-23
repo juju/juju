@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/credentialvalidator"
 	"github.com/juju/juju/apiserver/facades/agent/deployer"
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
-	"github.com/juju/juju/apiserver/facades/agent/fanconfigurer"
 	"github.com/juju/juju/apiserver/facades/agent/hostkeyreporter"
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
@@ -130,7 +129,6 @@ func requiredMigrationFacadeVersions() facades.FacadeVersions {
 	credentialvalidator.Register(registry)
 	deployer.Register(registry)
 	diskmanager.Register(registry)
-	fanconfigurer.Register(registry)
 	hostkeyreporter.Register(registry)
 	instancemutater.Register(registry)
 	keyupdater.Register(registry)
@@ -213,7 +211,6 @@ func AllFacades() *facade.Registry {
 	deployer.Register(registry)
 	diskmanager.Register(registry)
 	environupgrader.Register(registry)
-	fanconfigurer.Register(registry)
 	firewaller.Register(registry)
 	highavailability.Register(registry)
 	hostkeyreporter.Register(registry)
