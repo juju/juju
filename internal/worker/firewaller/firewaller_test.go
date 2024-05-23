@@ -2167,7 +2167,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	defer ctrl.Finish()
 
 	fw := s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
+	defer workertest.DirtyKill(c, fw)
 
 	app1 := s.addApplication(ctrl, "wordpress", true)
 	u1, m1, unitsCh1 := s.addUnit(c, ctrl, app1)
@@ -2200,8 +2200,8 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 	u2.EXPECT().Life().Return(life.Alive)
 
 	// Start firewaller and check port.
-	fw = s.newFirewaller(c, ctrl)
-	defer workertest.CleanKill(c, fw)
+	fw2 := s.newFirewaller(c, ctrl)
+	defer workertest.CleanKill(c, fw2)
 
 	s.machinesCh <- []string{m1.Tag().Id(), m2.Tag().Id()}
 	unitsCh1 <- []string{u1.Tag().Id()}
