@@ -17,9 +17,6 @@ import (
 
 // ProviderState defines the state methods required by the ProviderService.
 type ProviderState interface {
-	// AllKeysQuery returns a SQL statement that will return all known model config
-	// keys.
-	AllKeysQuery() string
 	// ModelConfig returns the currently set config for the model.
 	ModelConfig(context.Context) (map[string]string, error)
 }
@@ -74,13 +71,11 @@ func NewWatchableProviderService(
 	}
 }
 
-// It's for testing.
-var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
-
 // Watch returns a watcher that returns keys for any changes to model
 // config.
 func (s *WatchableProviderService) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher(
-		"model_config", changestream.All, InitialNamespaceChanges(s.st.AllKeysQuery()),
+		"model_config", changestream.All,
+		eventsource.EmptyInitialNamespaceChanges(),
 	)
 }

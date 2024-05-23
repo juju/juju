@@ -295,7 +295,6 @@ func (s *Stream) loop() error {
 
 			begin := s.clock.Now()
 			changes, err := s.readChanges()
-
 			if err != nil {
 				// If the context was canceled, we're unsure if it's because
 				// the worker is dying, or if the context was canceled because

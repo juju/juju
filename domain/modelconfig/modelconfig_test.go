@@ -9,24 +9,97 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/credential"
+	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
+	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
+	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
+	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
+	domainmodel "github.com/juju/juju/domain/model"
+	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
+	"github.com/juju/juju/domain/model/state/testing"
+	"github.com/juju/juju/domain/modelconfig/bootstrap"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
-type modelconfigSuite struct {
+type modelConfigSuite struct {
+	changestreamtesting.ControllerSuite
 	changestreamtesting.ModelSuite
+
+	modelID model.UUID
 }
 
-var _ = gc.Suite(&modelconfigSuite{})
+var _ = gc.Suite(&modelConfigSuite{})
 
-func (s *modelconfigSuite) TestWatch(c *gc.C) {
+func (s *modelConfigSuite) SetUpTest(c *gc.C) {
+	s.ControllerSuite.SetUpTest(c)
+	s.ModelSuite.SetUpTest(c)
+
+	userID, fn := userbootstrap.AddUser(coreuser.AdminUserName, permission.ControllerForAccess(permission.SuperuserAccess))
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	cloudName := "test"
+	fn = cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
+		Name:      cloudName,
+		Type:      "ec2",
+		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},
+	})
+
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	credentialName := "test"
+	fn = credentialbootstrap.InsertCredential(credential.Key{
+		Cloud: cloudName,
+		Name:  credentialName,
+		Owner: coreuser.AdminUserName,
+	},
+		cloud.NewCredential(cloud.EmptyAuthType, nil),
+	)
+
+	err = fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	modelFn := modelbootstrap.CreateModel(domainmodel.ModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        cloudName,
+		Credential: credential.Key{
+			Cloud: cloudName,
+			Name:  credentialName,
+			Owner: coreuser.AdminUserName,
+		},
+		Name:  "test",
+		Owner: userID,
+		UUID:  modelUUID,
+	})
+	s.modelID = modelUUID
+
+	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = modelbootstrap.CreateReadOnlyModel(modelUUID, uuid.MustNewUUID())(context.Background(), s.ControllerTxnRunner(), s.ModelTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *modelConfigSuite) TestWatchModelConfig(c *gc.C) {
 	ctx, cancel := jujutesting.LongWaitContext()
 	defer cancel()
 
@@ -40,50 +113,44 @@ func (s *modelconfigSuite) TestWatch(c *gc.C) {
 	}
 
 	attrs := map[string]any{
-		"name": "wallyworld",
-		"uuid": "a677bdfd-3c96-46b2-912f-38e25faceaf7",
-		"type": "sometype",
+		"agent-version":  jujuversion.Current.String(),
+		"uuid":           s.modelID.String(),
+		"type":           "iaas",
+		"logging-config": "<root>=ERROR",
 	}
 
-	st := state.NewState(s.TxnRunnerFactory())
+	st := state.NewState(s.ModelSuite.TxnRunnerFactory())
 	factory := domain.NewWatcherFactory(
-		changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "uuid"),
+		changestream.NewWatchableDBFactoryForNamespace(s.ModelSuite.GetWatchableDB, s.modelID.String()),
 		loggertesting.WrapCheckLog(c))
 	svc := service.NewWatchableService(defaults, config.ModelValidator(), st, factory)
 
+	err := bootstrap.SetModelConfig(s.modelID, attrs, defaults)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+
 	watcher, err := svc.Watch()
 	c.Assert(err, jc.ErrorIsNil)
-	var changes []string
-	select {
-	case changes = <-watcher.Changes():
-	case <-ctx.Done():
-		c.Fatal(ctx.Err())
-	}
-	c.Assert(len(changes), gc.Equals, 0)
+
+	w := watchertest.NewStringsWatcherC(c, watcher)
+
+	// Ensure we get the initial state.
+	w.AssertChange()
+
+	// Changestream becomes idle and then we receive the bootstrap changes
+	// from the model config.
+	s.ModelSuite.AssertChangeStreamIdle(c)
+	w.AssertChange("name", "uuid", "type", "foo", "secret-backend", "logging-config")
+
+	// Now insert the change and watch it come through.
+	attrs["logging-config"] = "<root>=WARNING"
 
 	err = svc.SetModelConfig(ctx, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := svc.ModelConfig(ctx)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Check(cfg.AllAttrs(), jc.DeepEquals, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           "a677bdfd-3c96-46b2-912f-38e25faceaf7",
-		"type":           "sometype",
-		"foo":            "bar",
-		"secret-backend": "auto",
-		"logging-config": "<root>=INFO",
-	})
-
-	select {
-	case changes = <-watcher.Changes():
-	case <-ctx.Done():
-		c.Fatal(ctx.Err())
-	}
-	c.Check(changes, jc.SameContents, []string{
-		"name", "uuid", "type", "foo", "secret-backend", "logging-config",
-	})
+	// hangestream becomes idle and then we receive the new logging-config
+	// change.
+	s.ModelSuite.AssertChangeStreamIdle(c)
+	w.AssertChange("logging-config")
 }
 
 type modelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)

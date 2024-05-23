@@ -185,3 +185,10 @@ func InitialNamespaceChanges(selectAll string) NamespaceQuery {
 		return keys, errors.Trace(err)
 	}
 }
+
+// EmptyInitialNamespaceChanges returns a query that returns no initial changes.
+func EmptyInitialNamespaceChanges() NamespaceQuery {
+	return func(ctx context.Context, runner database.TxnRunner) ([]string, error) {
+		return nil, nil
+	}
+}
