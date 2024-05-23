@@ -37,7 +37,7 @@ const (
 
 const (
 	// States which report the state of the worker.
-	stateNoMoreChanges = "no-more-changes"
+	stateIdle = "idle"
 )
 
 var (
@@ -323,7 +323,9 @@ func (s *Stream) loop() error {
 				case <-s.tomb.Dying():
 					return tomb.ErrDying
 				case <-s.clock.After(backOffStrategy(0, attempt)):
-					s.reportInternalState(stateNoMoreChanges)
+					if err := s.reportIdleState(attempt); err != nil {
+						return errors.Trace(err)
+					}
 					continue
 				}
 			}
@@ -337,8 +339,9 @@ func (s *Stream) loop() error {
 					done: make(chan bool),
 				}
 
-				lower        = int64(math.MaxInt64)
-				upper        = int64(math.MinInt64)
+				lower = int64(math.MaxInt64)
+				upper = int64(math.MinInt64)
+
 				traceEnabled = s.logger.IsLevelEnabled(logger.TRACE)
 			)
 			for _, change := range changes {
@@ -413,7 +416,6 @@ func (s *Stream) loop() error {
 					case <-s.tomb.Dying():
 						return tomb.ErrDying
 					case <-s.clock.After(backOffStrategy(0, attempt)):
-						s.reportInternalState(stateNoMoreChanges)
 						continue
 					}
 				}
@@ -564,12 +566,10 @@ func (s *Stream) updateWatermark() error {
 				return errors.Annotate(err, "recording watermark")
 			}
 
-			// TODO (stickupkid): We should check if the number of affected rows
-			// is equal to 1. Unfortunately, the dqlite driver doesn't return
-			// the correct number of affected rows. So we can't check this.
-			// https://github.com/canonical/go-dqlite/issues/254
-			if _, err := result.RowsAffected(); err != nil {
+			if affected, err := result.RowsAffected(); err != nil {
 				return errors.Annotate(err, "recording watermark")
+			} else if affected != 1 {
+				return errors.Errorf("expected 1 row to be affected, got %d", affected)
 			}
 
 			s.metrics.WatermarkInsertsInc()
@@ -670,12 +670,48 @@ func (s *Stream) processWatermark(fn func(*termView) error) error {
 	return nil
 }
 
-func (s *Stream) reportInternalState(state string) {
-	select {
-	case <-s.tomb.Dying():
-	case s.internalStates <- state:
-	default:
+// reportIdleState reports the idle state to the internal states channel.
+func (s *Stream) reportIdleState(attempt int) error {
+	// If there are no internal states, then we don't need to report the idle
+	// state. This is only used for testing.
+	if s.internalStates == nil {
+		return nil
 	}
+
+	maxChangeLogID, err := s.latestChangeLogID()
+	if err != nil {
+		return errors.Annotate(err, "getting latest change log ID")
+	}
+
+	if bound := s.upperBound(); bound > 0 && maxChangeLogID > 0 && bound == maxChangeLogID {
+		s.logger.Tracef("no changes, backing off after %d attempt", attempt)
+
+		// Report the idle state to the internal states channel.
+		select {
+		case <-s.tomb.Dying():
+		case s.internalStates <- stateIdle:
+		default:
+		}
+	}
+
+	return nil
+}
+
+// latestChangeLogID returns the latest change log ID and is used to determine
+// if the worker is idle.
+func (s *Stream) latestChangeLogID() (int64, error) {
+	ctx, cancel := s.scopedContext()
+	defer cancel()
+
+	var id int64
+	err := s.db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, "SELECT IFNULL(MAX(id), -1) FROM change_log")
+		if err := row.Scan(&id); err != nil {
+			return errors.Annotate(err, "getting latest change log ID")
+		}
+		return nil
+	})
+	return id, errors.Trace(err)
 }
 
 // jitter returns a duration that is the input interval with a random factor

@@ -307,3 +307,9 @@ func (st *State) SpaceExists(ctx context.Context, spaceName string) (bool, error
 		return nil
 	})
 }
+
+// AllKeysQuery returns a SQL statement that will return all known model config
+// keys.
+func (st *State) AllKeysQuery() string {
+	return "SELECT key from model_config"
+}

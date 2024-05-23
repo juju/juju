@@ -54,7 +54,7 @@ func (w *ControllerSuite) AssertChangeStreamIdle(c *gc.C) {
 	for {
 		select {
 		case state := <-w.watchableDB.states:
-			if state == stateNoMoreChanges {
+			if state == stateIdle {
 				return
 			}
 		case <-timeout:

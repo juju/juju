@@ -125,21 +125,20 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *gc.C) {
 		loggertesting.WrapCheckLog(c))
 	svc := service.NewWatchableService(defaults, config.ModelValidator(), st, factory)
 
-	err := bootstrap.SetModelConfig(s.modelID, attrs, defaults)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner())
+	watcher, err := svc.Watch()
 	c.Assert(err, jc.ErrorIsNil)
 
-	watcher, err := svc.Watch()
+	err = bootstrap.SetModelConfig(s.modelID, attrs, defaults)(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	w := watchertest.NewStringsWatcherC(c, watcher)
 
-	// Ensure we get the initial state.
-	w.AssertChange()
-
 	// Changestream becomes idle and then we receive the bootstrap changes
 	// from the model config.
-	s.ModelSuite.AssertChangeStreamIdle(c)
 	w.AssertChange("name", "uuid", "type", "foo", "secret-backend", "logging-config")
+
+	// Ensure that the changestream is idle.
+	s.ModelSuite.AssertChangeStreamIdle(c)
 
 	// Now insert the change and watch it come through.
 	attrs["logging-config"] = "<root>=WARNING"
@@ -147,9 +146,8 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *gc.C) {
 	err = svc.SetModelConfig(ctx, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// hangestream becomes idle and then we receive the new logging-config
-	// change.
 	s.ModelSuite.AssertChangeStreamIdle(c)
+
 	w.AssertChange("logging-config")
 }
 
