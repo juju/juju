@@ -84,7 +84,7 @@ func (d *deployBundle) deploy(
 	d.accountUser = accountDetails.User
 
 	// Compose bundle to be deployed and check its validity.
-	bundleData, unmarshalErrors, err := bundle.ComposeAndVerifyBundle(d.bundleDataSource, d.bundleOverlayFile)
+	bundleData, unmarshalErrors, err := bundle.ComposeAndVerifyBundle(ctx, d.bundleDataSource, d.bundleOverlayFile)
 	if err != nil {
 		return errors.Annotatef(err, "cannot deploy bundle")
 	}
