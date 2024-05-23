@@ -391,14 +391,6 @@ func getVPCMainRouteTable(apiClient vpcAPIClient, ctx envcontext.ProviderCallCon
 	return resp.RouteTables[0], nil
 }
 
-func getVPCCIDR(apiClient vpcAPIClient, ctx envcontext.ProviderCallContext, vpcID string) (string, error) {
-	vpc, err := getVPCByID(apiClient, ctx, vpcID)
-	if err != nil {
-		return "", err
-	}
-	return aws.ToString(vpc.CidrBlock), nil
-}
-
 func checkVPCRouteTableRoutes(vpc *types.Vpc, routeTable *types.RouteTable, gateway *types.InternetGateway) error {
 	hasDefaultRoute := false
 	hasLocalRoute := false

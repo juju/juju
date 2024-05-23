@@ -113,19 +113,6 @@ func (s *environNetSuite) TestGettingAllSubnets(c *gc.C) {
 	}})
 }
 
-func (s *environNetSuite) TestSuperSubnets(c *gc.C) {
-	s.cannedData()
-
-	subnets, err := s.NetEnv.SuperSubnets(s.CallCtx)
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(subnets, gc.DeepEquals, []string{
-		"10.0.10.0/24",
-		"10.0.20.0/24",
-		"10.240.0.0/16",
-	})
-}
-
 func (s *environNetSuite) TestRestrictingToSubnets(c *gc.C) {
 	s.cannedData()
 

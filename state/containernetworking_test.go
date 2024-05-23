@@ -24,7 +24,6 @@ type containerTestNetworkedEnviron struct {
 
 	stub                       *testing.Stub
 	supportsContainerAddresses bool
-	superSubnets               []string
 }
 
 type ContainerNetworkingSuite struct {
@@ -32,11 +31,6 @@ type ContainerNetworkingSuite struct {
 }
 
 var _ = gc.Suite(&ContainerNetworkingSuite{})
-
-func (e *containerTestNetworkedEnviron) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
-	e.stub.AddCall("SuperSubnets", ctx)
-	return e.superSubnets, e.stub.NextErr()
-}
 
 func (e *containerTestNetworkedEnviron) SupportsContainerAddresses(ctx envcontext.ProviderCallContext) (bool, error) {
 	e.stub.AddCall("SupportsContainerAddresses", ctx)
@@ -71,12 +65,10 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDoesntCha
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingAlreadyConfigured(c *gc.C) {
 	environ := containerTestNetworkedEnviron{
-		stub:         &testing.Stub{},
-		superSubnets: []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
+		stub: &testing.Stub{},
 	}
 	err := s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{
 		"container-networking-method": "local",
-		"fan-config":                  "1.2.3.4/24=5.6.7.8/16",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.Model.AutoConfigureContainerNetworking(&environ, state.NoopConfigSchemaSource)
@@ -85,12 +77,25 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingAlreadyCo
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "local")
-	c.Check(attrs["fan-config"], gc.Equals, "1.2.3.4/24=5.6.7.8/16")
 }
 
-func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNoSuperSubnets(c *gc.C) {
+func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingSupportsContainerAddresses(c *gc.C) {
 	environ := containerTestNetworkedEnviron{
-		stub: &testing.Stub{},
+		stub:                       &testing.Stub{},
+		supportsContainerAddresses: true,
+	}
+	err := s.Model.AutoConfigureContainerNetworking(&environ, state.NoopConfigSchemaSource)
+	c.Check(err, jc.ErrorIsNil)
+	config, err := s.Model.ModelConfig(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	attrs := config.AllAttrs()
+	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
+}
+
+func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDefault(c *gc.C) {
+	environ := containerTestNetworkedEnviron{
+		stub:                       &testing.Stub{},
+		supportsContainerAddresses: false,
 	}
 	err := s.Model.AutoConfigureContainerNetworking(&environ, state.NoopConfigSchemaSource)
 	c.Check(err, jc.ErrorIsNil)
@@ -98,44 +103,12 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingNoSuperSu
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "local")
-	c.Check(attrs["fan-config"], gc.Equals, "")
-}
-
-func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingSupportsContainerAddresses(c *gc.C) {
-	environ := containerTestNetworkedEnviron{
-		stub:                       &testing.Stub{},
-		supportsContainerAddresses: true,
-		superSubnets:               []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
-	}
-	err := s.Model.AutoConfigureContainerNetworking(&environ, state.NoopConfigSchemaSource)
-	c.Check(err, jc.ErrorIsNil)
-	config, err := s.Model.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	attrs := config.AllAttrs()
-	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
-	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8 192.168.1.0/24=253.0.0.0/8")
-}
-
-func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingDefault(c *gc.C) {
-	environ := containerTestNetworkedEnviron{
-		stub:                       &testing.Stub{},
-		supportsContainerAddresses: false,
-		superSubnets:               []string{"172.31.0.0/16", "192.168.1.0/24", "10.0.0.0/8"},
-	}
-	err := s.Model.AutoConfigureContainerNetworking(&environ, state.NoopConfigSchemaSource)
-	c.Check(err, jc.ErrorIsNil)
-	config, err := s.Model.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	attrs := config.AllAttrs()
-	c.Check(attrs["container-networking-method"], gc.Equals, "fan")
-	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8 192.168.1.0/24=253.0.0.0/8")
 }
 
 func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingIgnoresIPv6(c *gc.C) {
 	environ := containerTestNetworkedEnviron{
 		stub:                       &testing.Stub{},
 		supportsContainerAddresses: true,
-		superSubnets:               []string{"172.31.0.0/16", "2000::dead:beef:1/64"},
 	}
 	err := s.Model.AutoConfigureContainerNetworking(&environ, state.NoopConfigSchemaSource)
 	c.Check(err, jc.ErrorIsNil)
@@ -143,5 +116,4 @@ func (s *ContainerNetworkingSuite) TestAutoConfigureContainerNetworkingIgnoresIP
 	c.Assert(err, jc.ErrorIsNil)
 	attrs := config.AllAttrs()
 	c.Check(attrs["container-networking-method"], gc.Equals, "provider")
-	c.Check(attrs["fan-config"], gc.Equals, "172.31.0.0/16=252.0.0.0/8")
 }

@@ -402,11 +402,6 @@ func isErrMissingAPIExtension(err error, ext string) bool {
 	return err != nil && strings.Contains(err.Error(), fmt.Sprintf("server is missing the required %q API extension", ext))
 }
 
-// SuperSubnets returns information about aggregated subnet.
-func (*environ) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
-}
-
 // SupportsSpaces returns whether the current environment supports
 // spaces. The returned error satisfies errors.IsNotSupported(),
 // unless a general API failure occurs.
