@@ -10,21 +10,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
-
-type dummySecretBackendProviderFunc func(string) (bool, error)
 
 type dummySpaceProviderFunc func(context.Context, string) (bool, error)
 
 type validatorsSuite struct{}
 
 var _ = gc.Suite(&validatorsSuite{})
-
-func (d dummySecretBackendProviderFunc) HasSecretsBackend(s string) (bool, error) {
-	return d(s)
-}
 
 func (d dummySpaceProviderFunc) HasSpace(ctx context.Context, s string) (bool, error) {
 	return d(ctx, s)
@@ -286,11 +281,6 @@ func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *gc.C) {
 }
 
 func (*validatorsSuite) TestSecretsBackendChecker(c *gc.C) {
-	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
-		c.Assert(s, gc.Equals, "vault")
-		return true, nil
-	})
-
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":           "wallyworld",
 		"uuid":           testing.ModelTag.Id(),
@@ -307,16 +297,11 @@ func (*validatorsSuite) TestSecretsBackendChecker(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
+	_, err = SecretBackendChecker(coremodel.IAAS)(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (*validatorsSuite) TestSecretsBackendCheckerNoExist(c *gc.C) {
-	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
-		c.Assert(s, gc.Equals, "vault")
-		return false, nil
-	})
-
+func (*validatorsSuite) TestSecretsBackendCheckerIAAS(c *gc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":           "wallyworld",
 		"uuid":           testing.ModelTag.Id(),
@@ -329,23 +314,17 @@ func (*validatorsSuite) TestSecretsBackendCheckerNoExist(c *gc.C) {
 		"name":           "wallyworld",
 		"uuid":           testing.ModelTag.Id(),
 		"type":           "sometype",
-		"secret-backend": "vault",
+		"secret-backend": "kubernetes",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
+	_, err = SecretBackendChecker(coremodel.IAAS)(context.Background(), newCfg, oldCfg)
 	var validationError *config.ValidationError
 	c.Assert(errors.As(err, &validationError), jc.IsTrue)
 	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"secret-backend"})
 }
 
-func (*validatorsSuite) TestSecretsBackendCheckerProviderError(c *gc.C) {
-	providerErr := errors.New("some error")
-	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
-		c.Assert(s, gc.Equals, "vault")
-		return false, providerErr
-	})
-
+func (*validatorsSuite) TestSecretsBackendCheckerCAAS(c *gc.C) {
 	oldCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":           "wallyworld",
 		"uuid":           testing.ModelTag.Id(),
@@ -358,12 +337,14 @@ func (*validatorsSuite) TestSecretsBackendCheckerProviderError(c *gc.C) {
 		"name":           "wallyworld",
 		"uuid":           testing.ModelTag.Id(),
 		"type":           "sometype",
-		"secret-backend": "vault",
+		"secret-backend": "internal",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIs, providerErr)
+	_, err = SecretBackendChecker(coremodel.CAAS)(context.Background(), newCfg, oldCfg)
+	var validationError *config.ValidationError
+	c.Assert(errors.As(err, &validationError), jc.IsTrue)
+	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"secret-backend"})
 }
 
 // TestAuthorizedKeysChanged asserts that if we change the value of authorised

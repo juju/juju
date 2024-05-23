@@ -39,8 +39,8 @@ func (s *permissionStateSuite) SetUpTest(c *gc.C) {
 
 	// Setup to add permissions for user bob on the model
 
-	s.modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
-	s.defaultModelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "default-model")
+	s.modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model", coremodel.IAAS)
+	s.defaultModelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "default-model", coremodel.IAAS)
 	s.ensureUser(c, "42", "admin", "42") // model owner
 	s.ensureUser(c, "123", "bob", "42")
 	s.ensureUser(c, "456", "sue", "42")
@@ -650,7 +650,7 @@ func (s *permissionStateSuite) TestModelAccessForCloudCredential(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	ctx := context.Background()
 
-	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-access")
+	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "model-access", coremodel.IAAS)
 	key := credential.Key{
 		Cloud: "model-access",
 		Owner: "model-access",

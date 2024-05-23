@@ -10,7 +10,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/secrets/provider/juju"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
 
 // CharmhubURLChange returns a config validator that will check to make sure
@@ -165,20 +168,11 @@ func LoggingTracePermissionChecker(canTrace bool) config.ValidatorFunc {
 	}
 }
 
-// SecretBackendProvider is responsible for checking if a given secrets backend
-// exists.
-type SecretBackendProvider interface {
-	// HasSecretsBackend checks if the provided secrets backend name exists. If
-	// an error occurs during checking for the backend false and a subsequent
-	// error is returned.
-	HasSecretsBackend(string) (bool, error)
-}
-
 // SecretBackendChecker is responsible for asserting the secret backend in the
 // updated model config is a valid secret backend in the controller. If the
 // secret backend has not changed or is the default backend then no validation
 // is performed. Any validation errors will satisfy config.ValidationError.
-func SecretBackendChecker(provider SecretBackendProvider) config.ValidatorFunc {
+func SecretBackendChecker(modelType coremodel.ModelType) config.ValidatorFunc {
 	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
 		backendName := cfg.SecretBackend()
 		if backendName == old.SecretBackend() {
@@ -193,15 +187,16 @@ func SecretBackendChecker(provider SecretBackendProvider) config.ValidatorFunc {
 		if backendName == config.DefaultSecretBackend {
 			return cfg, nil
 		}
-
-		has, err := provider.HasSecretsBackend(backendName)
-		if err != nil {
-			return cfg, fmt.Errorf("fetching secret backend for %q to validate model config: %w", backendName, err)
-		}
-		if !has {
+		if modelType == coremodel.CAAS && backendName == juju.BackendName {
 			return cfg, &config.ValidationError{
 				InvalidAttrs: []string{config.SecretBackendKey},
-				Reason:       fmt.Sprintf("secret backend %q not found", backendName),
+				Reason:       `caas secret backend cannot be set to "internal"`,
+			}
+		}
+		if modelType == coremodel.IAAS && backendName == kubernetes.BackendName {
+			return cfg, &config.ValidationError{
+				InvalidAttrs: []string{config.SecretBackendKey},
+				Reason:       `iaas secret backend cannot be set to "kubernetes"`,
 			}
 		}
 		return cfg, nil

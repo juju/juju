@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modelstatetesting "github.com/juju/juju/domain/model/state/testing"
@@ -25,7 +26,7 @@ var _ = gc.Suite(&stateSuite{})
 // TestModelMetadataDefaults is asserting the happy path of model metadata
 // defaults.
 func (m *stateSuite) TestModelMetadataDefaults(c *gc.C) {
-	uuid := modelstatetesting.CreateTestModel(c, m.TxnRunnerFactory(), "test")
+	uuid := modelstatetesting.CreateTestModel(c, m.TxnRunnerFactory(), "test", coremodel.IAAS)
 	st := NewState(m.TxnRunnerFactory())
 	defaults, err := st.ModelMetadataDefaults(context.Background(), uuid)
 	c.Check(err, jc.ErrorIsNil)

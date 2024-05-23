@@ -54,6 +54,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		i.defaultsProvider,
 		config.NoControllerAttributesValidator(),
+		state.NewControllerState(scope.ControllerDB()),
 		state.NewState(scope.ModelDB()))
 	return nil
 }

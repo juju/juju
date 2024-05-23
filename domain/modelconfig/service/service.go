@@ -11,8 +11,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	"github.com/juju/juju/domain/modelconfig/handlers"
 	"github.com/juju/juju/domain/modelconfig/validators"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
@@ -26,11 +28,22 @@ type ModelDefaultsProvider interface {
 	ModelDefaults(context.Context) (modeldefaults.Defaults, error)
 }
 
+// ControllerState represents the state entity for accessing secret
+// backend info for models.
+type ControllerState interface {
+	SetModelSecretBackend(ctx context.Context, modelUUID model.UUID, backendName string) error
+	GetModelSecretBackendName(ctx context.Context, modelUUID model.UUID) (string, error)
+}
+
 // State represents the state entity for accessing and setting per
 // model configuration values.
 type State interface {
 	ProviderState
 	SpaceValidatorState
+
+	// GetModelInfo returns the uuid and type of the model,
+	// or an error satisfying [modelerrors.NotFound]
+	GetModelInfo(ctx context.Context) (model.UUID, model.ModelType, error)
 
 	// AgentVersion returns the current models agent version. If no agent
 	// version has been set for the current model then a error satisfying
@@ -69,6 +82,7 @@ type WatcherFactory interface {
 type Service struct {
 	defaultsProvider ModelDefaultsProvider
 	modelValidator   config.Validator
+	ctrlSt           ControllerState
 	st               State
 }
 
@@ -76,13 +90,46 @@ type Service struct {
 func NewService(
 	defaultsProvider ModelDefaultsProvider,
 	modelValidator config.Validator,
+	ctrlSt ControllerState,
 	st State,
 ) *Service {
 	return &Service{
 		defaultsProvider: defaultsProvider,
 		modelValidator:   modelValidator,
+		ctrlSt:           ctrlSt,
 		st:               st,
 	}
+}
+
+func (s *Service) configHandlers(ctx context.Context, modelUUID model.UUID) ([]handlers.ConfigHandler, error) {
+	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot load model defaults")
+	}
+	return []handlers.ConfigHandler{
+		handlers.SecretBackendHandler{
+			Defaults:     defaults,
+			BackendState: s.ctrlSt,
+			ModelUUID:    modelUUID,
+		},
+	}, nil
+}
+
+func (s *Service) runOnLoadHandlers(ctx context.Context, modelUUID model.UUID, stConfig map[string]string) error {
+	cfgHandlers, err := s.configHandlers(ctx, modelUUID)
+	if err != nil {
+		return fmt.Errorf("cannot set up config handlers: %w", err)
+	}
+	for _, h := range cfgHandlers {
+		additionalCfg, err := h.OnLoad(ctx)
+		if err != nil {
+			return fmt.Errorf("cannot apply config handler %s during load: %w", h.Name(), err)
+		}
+		for k, v := range additionalCfg {
+			stConfig[k] = v
+		}
+	}
+	return nil
 }
 
 // ModelConfig returns the current config for the model.
@@ -90,6 +137,14 @@ func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
 	stConfig, err := s.st.ModelConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting model config from state: %w", err)
+	}
+
+	modelUUID, _, err := s.st.GetModelInfo(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot load model info")
+	}
+	if err := s.runOnLoadHandlers(ctx, modelUUID, stConfig); err != nil {
+		return nil, errors.Annotate(err, "cannot process model config")
 	}
 
 	agentVersion, err := s.st.AgentVersion(ctx)
@@ -101,7 +156,7 @@ func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
 
 	// We add the agent version to model config here. Over time we need to
 	// remove uses of agent version from model config. We prefer to augment
-	// config with this value on read rather then persisting on writing.
+	// config with this value on read rather than persisting on writing.
 	altConfig[config.AgentVersionKey] = agentVersion
 	return config.New(config.NoDefaults, altConfig)
 }
@@ -244,6 +299,19 @@ func (s *Service) SetModelConfig(
 	return s.st.SetModelConfig(ctx, rawCfg)
 }
 
+func (s *Service) runOnSaveHandlers(ctx context.Context, modelUUID model.UUID, stConfig map[string]any, removeAttrs []string) error {
+	cfgHandlers, err := s.configHandlers(ctx, modelUUID)
+	if err != nil {
+		return fmt.Errorf("cannot set up config handlers: %w", err)
+	}
+	for _, h := range cfgHandlers {
+		if err := h.OnSave(ctx, stConfig, removeAttrs); err != nil {
+			return fmt.Errorf("cannot apply config handler %s during save: %w", h.Name(), err)
+		}
+	}
+	return nil
+}
+
 // UpdateModelConfig takes a set of updated and removed attributes to apply.
 // Removed attributes are replaced with their model default values should they
 // exist. All model config updates are validated against the currently set
@@ -286,9 +354,18 @@ func (s *Service) UpdateModelConfig(
 		return fmt.Errorf("making updated model configuration: %w", err)
 	}
 
-	_, err = s.updateModelConfigValidator().Validate(ctx, newCfg, currCfg)
+	modelUUID, modelType, err := s.st.GetModelInfo(ctx)
+	if err != nil {
+		return errors.Annotate(err, "cannot load model info")
+	}
+
+	_, err = s.updateModelConfigValidator(modelType, additionalValidators...).Validate(ctx, newCfg, currCfg)
 	if err != nil {
 		return fmt.Errorf("validating updated model configuration: %w", err)
+	}
+
+	if err := s.runOnSaveHandlers(ctx, modelUUID, updates, removeAttrs); err != nil {
+		return errors.Annotate(err, "cannot process model config")
 	}
 
 	rawCfg, err := CoerceConfigForStorage(updateAttrs)
@@ -301,17 +378,6 @@ func (s *Service) UpdateModelConfig(
 		return fmt.Errorf("updating model config: %w", err)
 	}
 	return nil
-}
-
-// dummySecretsBackendProvider implements validators.SecretBackendProvider and
-// always returns true.
-// TODO (tlm): These needs to be swapped out with an actual checker when we have
-// secrets in dqlite
-type dummySecretsBackendProvider struct{}
-
-// HasSecretsBackend implements validators.SecretBackendProvider
-func (*dummySecretsBackendProvider) HasSecretsBackend(_ string) (bool, error) {
-	return true, nil
 }
 
 // spaceValidator implements validators.SpaceProvider.
@@ -330,9 +396,10 @@ func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (bool, 
 // - Agent version is not being changed.
 // - CharmhubURL is not being changed.
 // - Network space exists.
-// - Secret backend exists.
+// - Secret backend is valid for the type of model.
 // - There is no changes to authorized keys.
 func (s *Service) updateModelConfigValidator(
+	modelType model.ModelType,
 	additional ...config.Validator,
 ) config.Validator {
 	agg := &config.AggregateValidator{
@@ -342,7 +409,7 @@ func (s *Service) updateModelConfigValidator(
 			validators.SpaceChecker(&spaceValidator{
 				st: s.st,
 			}),
-			validators.SecretBackendChecker(&dummySecretsBackendProvider{}),
+			validators.SecretBackendChecker(modelType),
 			validators.AuthorizedKeysChange(),
 			s.modelValidator,
 		},
@@ -363,6 +430,7 @@ type WatchableService struct {
 func NewWatchableService(
 	defaultsProvider ModelDefaultsProvider,
 	modelValidator config.Validator,
+	ctrlSt ControllerState,
 	st State,
 	watcherFactory WatcherFactory,
 ) *WatchableService {
@@ -370,6 +438,7 @@ func NewWatchableService(
 		Service: Service{
 			defaultsProvider: defaultsProvider,
 			modelValidator:   modelValidator,
+			ctrlSt:           ctrlSt,
 			st:               st,
 		},
 		watcherFactory: watcherFactory,

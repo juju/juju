@@ -53,7 +53,7 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	st := testing.NewState()
 	defer st.Close()
 
-	svc := NewWatchableService(defaults, config.ModelValidator(), st, st)
+	svc := NewWatchableService(defaults, config.ModelValidator(), st, st, st)
 
 	watcher, err := svc.Watch()
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,6 +78,67 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 		"type":           "sometype",
 		"foo":            "bar",
 		"secret-backend": "auto",
+		"logging-config": "<root>=INFO",
+	})
+
+	select {
+	case changes = <-watcher.Changes():
+	case <-ctx.Done():
+		c.Fatal(ctx.Err())
+	}
+	c.Check(changes, jc.SameContents, []string{
+		"name", "uuid", "type", "foo", "secret-backend", "logging-config",
+	})
+}
+
+func (s *serviceSuite) TestSetModelConfigSecretBackend(c *gc.C) {
+	ctx, cancel := jujutesting.LongWaitContext()
+	defer cancel()
+
+	var defaults ModelDefaultsProviderFunc = func(_ context.Context) (modeldefaults.Defaults, error) {
+		return modeldefaults.Defaults{
+			"foo": modeldefaults.DefaultAttributeValue{
+				Source: config.JujuControllerSource,
+				Value:  "bar",
+			},
+		}, nil
+	}
+
+	attrs := map[string]any{
+		"name":           "wallyworld",
+		"uuid":           "a677bdfd-3c96-46b2-912f-38e25faceaf7",
+		"type":           "sometype",
+		"secret-backend": "some-backend",
+	}
+
+	st := testing.NewState()
+	defer st.Close()
+
+	svc := NewWatchableService(defaults, config.ModelValidator(), st, st, st)
+
+	watcher, err := svc.Watch()
+	c.Assert(err, jc.ErrorIsNil)
+	var changes []string
+	select {
+	case changes = <-watcher.Changes():
+	case <-ctx.Done():
+		c.Fatal(ctx.Err())
+	}
+	c.Assert(len(changes), gc.Equals, 0)
+
+	err = svc.SetModelConfig(ctx, attrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err := svc.ModelConfig(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(cfg.AllAttrs(), jc.DeepEquals, map[string]any{
+		"agent-version":  jujuversion.Current.String(),
+		"name":           "wallyworld",
+		"uuid":           "a677bdfd-3c96-46b2-912f-38e25faceaf7",
+		"type":           "sometype",
+		"foo":            "bar",
+		"secret-backend": "some-backend",
 		"logging-config": "<root>=INFO",
 	})
 

@@ -12,7 +12,9 @@ import (
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 )
 
 // State is a reference to the underlying data accessor for ModelConfig data.
@@ -25,6 +27,34 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 	}
+}
+
+// GetModelInfo returns the uuid and type of the model,
+// or an error satisfying [modelerrors.NotFound]
+func (st State) GetModelInfo(ctx context.Context) (coremodel.UUID, coremodel.ModelType, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+
+	getModelStmt, err := st.Prepare("SELECT &ModelInfo.* FROM model", ModelInfo{})
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+
+	var info ModelInfo
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, getModelStmt).Get(&info)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return modelerrors.NotFound
+			} else {
+				return errors.Annotatef(err, "looking up model UUID and type")
+			}
+		}
+		return err
+	})
+	return info.UUID, info.Type, errors.Trace(domain.CoerceError(err))
 }
 
 // AgentVersion returns the current models agent version. If no agent version

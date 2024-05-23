@@ -512,57 +512,6 @@ WHERE uuid = $M.uuid`, sqlair.M{}, SecretBackendRotationRow{})
 	return domain.CoerceError(err)
 }
 
-// SetModelSecretBackend sets the secret backend for the given model.
-func (s *State) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
-	db, err := s.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	modelBackendUpsert := `
-INSERT INTO model_secret_backend
-	(model_uuid, secret_backend_uuid)
-VALUES ($M.model_uuid, $SecretBackendRow.uuid)
-ON CONFLICT (model_uuid) DO UPDATE SET
-	secret_backend_uuid = EXCLUDED.secret_backend_uuid`
-	modelBackendUpsertStmt, err := s.Prepare(modelBackendUpsert, sqlair.M{}, SecretBackendRow{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	q := `
-SELECT b.uuid AS &SecretBackendRow.uuid
-FROM secret_backend b
-WHERE b.name = $SecretBackendRow.name`
-	stmt, err := s.Prepare(q, SecretBackendRow{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		backend := SecretBackendRow{Name: backendName}
-
-		var result SecretBackendRow
-		err = tx.Query(ctx, stmt, backend).Get(&result)
-		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: %q", secretbackenderrors.NotFound, backendName)
-		}
-		if err != nil {
-			return fmt.Errorf("querying secret backends: %w", err)
-		}
-		backend.ID = result.ID
-		err = tx.Query(ctx, modelBackendUpsertStmt, backend, sqlair.M{"model_uuid": modelUUID}).Run()
-		if database.IsErrConstraintForeignKey(err) {
-			return fmt.Errorf("%w: model %q", modelerrors.NotFound, modelUUID)
-		}
-		if err != nil {
-			return fmt.Errorf("setting secret backend %q for model %q: %w", backendName, modelUUID, err)
-		}
-		return nil
-	})
-	return domain.CoerceError(err)
-}
-
 // GetControllerModelCloudAndCredential returns the cloud and cloud credential for the
 // controller model.
 func (s *State) GetControllerModelCloudAndCredential(

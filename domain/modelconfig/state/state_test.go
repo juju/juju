@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/modelconfig/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -20,6 +21,24 @@ type stateSuite struct {
 }
 
 var _ = gc.Suite(&stateSuite{})
+
+func (s *stateSuite) TestGetModelInfo(c *gc.C) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `
+            INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, cloud)
+            VALUES ("123", "123", "test", "caas", "1.2.3", "kubernetes")
+        `)
+		return err
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := state.NewState(s.TxnRunnerFactory())
+
+	uuid, modelType, err := st.GetModelInfo(context.Background())
+	c.Assert(err, gc.IsNil)
+	c.Assert(uuid, gc.Equals, coremodel.UUID("123"))
+	c.Assert(modelType, gc.Equals, coremodel.CAAS)
+}
 
 func (s *stateSuite) TestModelConfigUpdate(c *gc.C) {
 	// tests are purposefully additive in this approach.

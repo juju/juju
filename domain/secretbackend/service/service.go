@@ -700,11 +700,6 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	return errors.Trace(err)
 }
 
-// SetModelSecretBackend sets the secret backend for the given model UUID.
-func (s *Service) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
-	return s.st.SetModelSecretBackend(ctx, modelUUID, backendName)
-}
-
 // GetRevisionsToDrain looks at the supplied revisions and returns any which should be
 // drained to a different backend for the specified model.
 func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.UUID, revs []coresecrets.SecretExternalRevision) ([]RevisionInfo, error) {

@@ -72,6 +72,7 @@ func CreateTestModel(
 	c *gc.C,
 	txnRunner database.TxnRunnerFactory,
 	name string,
+	modelType coremodel.ModelType,
 ) coremodel.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -86,7 +87,11 @@ func CreateTestModel(
 	runner, err := txnRunner()
 	c.Assert(err, jc.ErrorIsNil)
 
-	CreateInternalSecretBackend(c, runner)
+	if modelType == coremodel.IAAS {
+		CreateInternalSecretBackend(c, runner)
+	} else {
+		CreateKubernetesSecretBackend(c, runner)
+	}
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
@@ -137,8 +142,7 @@ func CreateTestModel(
 	modelSt := modelstate.NewState(txnRunner)
 	err = modelSt.Create(
 		context.Background(),
-		modelUUID,
-		coremodel.IAAS,
+		modelType,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
 			Cloud:        name,

@@ -8,7 +8,9 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/testing"
+	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -17,6 +19,19 @@ import (
 type MemoryState struct {
 	Config map[string]string
 	*testing.NamespaceWatcherFactory
+}
+
+func (s *MemoryState) SetModelSecretBackend(ctx context.Context, modelUUID model.UUID, backendName string) error {
+	s.Config["secret-backend"] = backendName
+	return nil
+}
+
+func (s *MemoryState) GetModelSecretBackendName(ctx context.Context, modelUUID model.UUID) (string, error) {
+	return s.Config["secret-backend"], nil
+}
+
+func (s *MemoryState) GetModelInfo(_ context.Context) (model.UUID, model.ModelType, error) {
+	return model.UUID(coretesting.ModelTag.Id()), model.IAAS, nil
 }
 
 const (
