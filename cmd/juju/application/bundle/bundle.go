@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/juju/charm/v11"
+	"github.com/juju/cmd/v3"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -250,7 +251,7 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 // combined bundle data. Returns a slice of errors encountered while
 // processing the bundle. They are for informational purposes and do
 // not require failing the bundle deployment.
-func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*charm.BundleData, []error, error) {
+func ComposeAndVerifyBundle(ctx *cmd.Context, base BundleDataSource, pathToOverlays []string) (*charm.BundleData, []error, error) {
 
 	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
@@ -285,6 +286,8 @@ func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*ch
 	if err = verifyBundle(bundleData, base.BasePath(), verifyConstraints); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+
+	deprecationWarningForSeries(ctx, bundleData)
 
 	return bundleData, unMarshallErrors, nil
 }
@@ -353,6 +356,29 @@ func verifyBundle(data *charm.BundleData, bundleDir string, verifyConstraints fu
 		return errors.New("the provided bundle has the following errors:\n" + strings.Join(errs, "\n"))
 	}
 	return errors.Trace(verifyError)
+}
+
+func deprecationWarningForSeries(ctx *cmd.Context, data *charm.BundleData) {
+	includeSeries := false
+	if data.Series != "" {
+		includeSeries = true
+	}
+	for _, m := range data.Machines {
+		if m != nil && m.Series != "" {
+			includeSeries = true
+			break
+		}
+	}
+	for _, app := range data.Applications {
+		if app != nil && app.Series != "" {
+			includeSeries = true
+			break
+		}
+	}
+
+	if includeSeries {
+		ctx.Warningf("series in being deprecated in favour of bases. For more information about the transition to bases see https://discourse.charmhub.io/t/transition-from-series-to-base-in-juju-4-0/14127")
+	}
 }
 
 func verifyMixedSeriesBasesMatch(data *charm.BundleData) error {
