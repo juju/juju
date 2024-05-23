@@ -1010,10 +1010,6 @@ func makeSubnetInfo(subnet ociCore.Subnet) (network.SubnetInfo, error) {
 	return info, nil
 }
 
-func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
-}
-
 func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([]network.InterfaceInfos, error) {
 	var (
 		infos = make([]network.InterfaceInfos, len(ids))

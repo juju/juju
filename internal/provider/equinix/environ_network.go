@@ -179,32 +179,6 @@ func (e *environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 	return infos, nil
 }
 
-// SuperSubnets returns information about the reserved private subnets that can
-// be used as underlays when setting up FAN networking.
-func (e *environ) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
-	attrs := e.cloud.Credential.Attributes()
-	if attrs == nil {
-		return nil, errors.Trace(fmt.Errorf("empty attribute credentials"))
-	}
-	// We checked the presence of project-id when we were verifying the credentials.
-	projectID := attrs["project-id"]
-
-	ips, err := e.listIPsByProjectIDAndRegion(projectID, e.cloud.Region)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var privateCIDRs []string
-	for _, ipblock := range ips {
-		if ipblock.Public {
-			continue // we are only interested in private block reservations from the right region
-		}
-		privateCIDRs = append(privateCIDRs, fmt.Sprintf("%s/%d", ipblock.Network, ipblock.CIDR))
-	}
-
-	return privateCIDRs, nil
-}
-
 // SupportsContainerAddresses returns true if the current environment is
 // able to allocate addaddresses for containers.
 func (*environ) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool, error) {

@@ -2397,20 +2397,6 @@ func (e *Environ) SupportsContainerAddresses(envcontext.ProviderCallContext) (bo
 	return false, errors.NotSupportedf("container address")
 }
 
-// SuperSubnets is specified on environs.Networking
-func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
-	subnets, err := e.networking.Subnets("", nil)
-	if err != nil {
-		handleCredentialError(err, ctx)
-		return nil, err
-	}
-	cidrs := make([]string, len(subnets))
-	for i, subnet := range subnets {
-		cidrs[i] = subnet.CIDR
-	}
-	return cidrs, nil
-}
-
 // AllocateContainerAddresses is specified on environs.Networking.
 func (e *Environ) AllocateContainerAddresses(ctx envcontext.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo network.InterfaceInfos) (network.InterfaceInfos, error) {
 	return nil, errors.NotSupportedf("allocate container address")

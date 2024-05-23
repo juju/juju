@@ -25,11 +25,6 @@ func (e *manualEnviron) Subnets(envcontext.ProviderCallContext, instance.Id, []n
 	return nil, errors.NotSupportedf("subnets")
 }
 
-// SuperSubnets implements environs.NetworkingEnviron.
-func (e *manualEnviron) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
-}
-
 // SupportsContainerAddresses implements environs.NetworkingEnviron.
 func (e *manualEnviron) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool, error) {
 	return false, nil

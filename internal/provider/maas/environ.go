@@ -1416,11 +1416,6 @@ func (*maasEnviron) ProviderSpaceInfo(
 	return nil, errors.NotSupportedf("provider space info")
 }
 
-// SuperSubnets implements environs.SuperSubnets
-func (*maasEnviron) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
-}
-
 // Domains gets the domains managed by MAAS. We only need the name of the
 // domain at present. If more information is needed this function can be
 // updated to parse and return a structure. Client code would need to be

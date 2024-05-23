@@ -1527,26 +1527,6 @@ func (s *localServerSuite) TestSubnetsWithMissingSubnet(c *gc.C) {
 	c.Assert(subnets, gc.HasLen, 0)
 }
 
-func (s *localServerSuite) TestSuperSubnets(c *gc.C) {
-	env := s.prepareNetworkingEnviron(c, s.env.Config())
-	obtainedSubnets, err := env.SuperSubnets(s.callCtx)
-	c.Assert(err, jc.ErrorIsNil)
-	neutronClient := openstack.GetNeutronClient(s.env)
-	openstackSubnets, err := neutronClient.ListSubnetsV2()
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedSubnets := make([]string, 0, len(openstackSubnets))
-	for _, subnets := range openstackSubnets {
-		if subnets.NetworkId != "999" {
-			continue
-		}
-		expectedSubnets = append(expectedSubnets, subnets.Cidr)
-	}
-	sort.Strings(obtainedSubnets)
-	sort.Strings(expectedSubnets)
-	c.Check(obtainedSubnets, jc.DeepEquals, expectedSubnets)
-}
-
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	imagetesting.PatchOfficialDataSources(&s.CleanupSuite, "")
 	env := s.Open(c, context.Background(), s.env.Config())

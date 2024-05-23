@@ -30,10 +30,6 @@ type Networking interface {
 		ctx envcontext.ProviderCallContext, inst instance.Id, subnetIds []network.Id,
 	) ([]network.SubnetInfo, error)
 
-	// SuperSubnets returns information about aggregated subnets - eg. global CIDR
-	// for EC2 VPC.
-	SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error)
-
 	// NetworkInterfaces returns a slice with the network interfaces that
 	// correspond to the given instance IDs. If no instances where found,
 	// but there was no other error, it will return ErrNoInstances. If some

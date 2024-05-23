@@ -1857,45 +1857,6 @@ func (c *MockNetworkingEnvironSubnetsCall) DoAndReturn(f func(envcontext.Provide
 	return c
 }
 
-// SuperSubnets mocks base method.
-func (m *MockNetworkingEnviron) SuperSubnets(arg0 envcontext.ProviderCallContext) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SuperSubnets", arg0)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SuperSubnets indicates an expected call of SuperSubnets.
-func (mr *MockNetworkingEnvironMockRecorder) SuperSubnets(arg0 any) *MockNetworkingEnvironSuperSubnetsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuperSubnets", reflect.TypeOf((*MockNetworkingEnviron)(nil).SuperSubnets), arg0)
-	return &MockNetworkingEnvironSuperSubnetsCall{Call: call}
-}
-
-// MockNetworkingEnvironSuperSubnetsCall wrap *gomock.Call
-type MockNetworkingEnvironSuperSubnetsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockNetworkingEnvironSuperSubnetsCall) Return(arg0 []string, arg1 error) *MockNetworkingEnvironSuperSubnetsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockNetworkingEnvironSuperSubnetsCall) Do(f func(envcontext.ProviderCallContext) ([]string, error)) *MockNetworkingEnvironSuperSubnetsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockNetworkingEnvironSuperSubnetsCall) DoAndReturn(f func(envcontext.ProviderCallContext) ([]string, error)) *MockNetworkingEnvironSuperSubnetsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // SupportsContainerAddresses mocks base method.
 func (m *MockNetworkingEnviron) SupportsContainerAddresses(arg0 envcontext.ProviderCallContext) (bool, error) {
 	m.ctrl.T.Helper()

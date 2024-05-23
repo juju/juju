@@ -141,11 +141,6 @@ func (env *azureEnviron) allPublicIPs(ctx envcontext.ProviderCallContext) (map[s
 	return idToIPMap, nil
 }
 
-// SuperSubnets implements environs.NetworkingEnviron.
-func (env *azureEnviron) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
-}
-
 // SupportsContainerAddresses implements environs.NetworkingEnviron.
 func (env *azureEnviron) SupportsContainerAddresses(envcontext.ProviderCallContext) (bool, error) {
 	return false, nil

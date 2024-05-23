@@ -1132,8 +1132,3 @@ func (*environ) LXDProfileNames(string) ([]string, error) {
 func (*environ) AssignLXDProfiles(_ string, profilesNames []string, _ []lxdprofile.ProfilePost) (current []string, err error) {
 	return profilesNames, nil
 }
-
-// SuperSubnets implements environs.SuperSubnets
-func (*environ) SuperSubnets(envcontext.ProviderCallContext) ([]string, error) {
-	return nil, errors.NotSupportedf("super subnets")
-}

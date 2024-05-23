@@ -2708,24 +2708,6 @@ func (e *environ) hasDefaultVPC(ctx envcontext.ProviderCallContext) (bool, error
 	return e.defaultVPC != nil, nil
 }
 
-// SuperSubnets implements NetworkingEnviron.SuperSubnets
-func (e *environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, error) {
-	vpcId := e.ecfg().vpcID()
-	if !isVPCIDSet(vpcId) {
-		if hasDefaultVPC, err := e.hasDefaultVPC(ctx); err == nil && hasDefaultVPC {
-			vpcId = aws.ToString(e.defaultVPC.VpcId)
-		}
-	}
-	if !isVPCIDSet(vpcId) {
-		return nil, errors.NotSupportedf("Not a VPC environment")
-	}
-	cidr, err := getVPCCIDR(e.ec2Client, ctx, vpcId)
-	if err != nil {
-		return nil, err
-	}
-	return []string{cidr}, nil
-}
-
 // SetCloudSpec is specified in the environs.Environ interface.
 func (e *environ) SetCloudSpec(ctx stdcontext.Context, spec environscloudspec.CloudSpec) error {
 	if err := validateCloudSpec(spec); err != nil {
