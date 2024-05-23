@@ -482,7 +482,7 @@ ON unit (unit_id);
 CREATE INDEX idx_unit_application
 ON unit (application_uuid);
 
-CREATE UNIQUE INDEX idx_unit_net_node
+CREATE INDEX idx_unit_net_node
 ON unit (net_node_uuid);
 `)
 }
