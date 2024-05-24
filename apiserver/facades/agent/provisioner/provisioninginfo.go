@@ -143,7 +143,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		return result, errors.Trace(err)
 	}
 
-	if result.CharmLXDProfiles, err = api.machineLXDProfileNames(m, env); err != nil {
+	if result.CharmLXDProfiles, err = api.machineLXDProfileNames(ctx, m, env); err != nil {
 		return result, errors.Annotate(err, "cannot write lxd profiles")
 	}
 
@@ -189,7 +189,11 @@ func (api *ProvisionerAPI) machineVolumeParams(
 	if len(volumeAttachments) == 0 {
 		return nil, nil, nil
 	}
-	modelConfig, err := api.m.ModelConfig(ctx)
+	modelConfig, err := api.modelConfigService.ModelConfig(ctx)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -209,7 +213,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 			return nil, nil, errors.Annotatef(err, "getting volume %q storage instance", volumeTag.Id())
 		}
 		volumeParams, err := storagecommon.VolumeParams(ctx,
-			volume, storageInstance, modelConfig.UUID(), api.controllerUUID,
+			volume, storageInstance, string(modelInfo.UUID), api.controllerUUID,
 			modelConfig, api.storagePoolGetter, api.storageProviderRegistry,
 		)
 		if err != nil {
@@ -280,12 +284,16 @@ func (api *ProvisionerAPI) machineTags(ctx context.Context, m *state.Machine, is
 	}
 	sort.Strings(unitNames)
 
-	cfg, err := api.m.ModelConfig(ctx)
+	cfg, err := api.modelConfigService.ModelConfig(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	machineTags := instancecfg.InstanceTags(cfg.UUID(), api.controllerUUID, cfg, isController)
+	machineTags := instancecfg.InstanceTags(string(modelInfo.UUID), api.controllerUUID, cfg, isController)
 	if len(unitNames) > 0 {
 		machineTags[tags.JujuUnitsDeployed] = strings.Join(unitNames, " ")
 	}
@@ -451,7 +459,7 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(ctx context.Context, machineI
 // the given machine and returns the names of profiles. Unlike
 // containerLXDProfilesInfo which returns the info necessary to write lxd profiles
 // via the lxd broker.
-func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs.Environ) ([]string, error) {
+func (api *ProvisionerAPI) machineLXDProfileNames(ctx context.Context, m *state.Machine, env environs.Environ) ([]string, error) {
 	profileEnv, ok := env.(environs.LXDProfiler)
 	if !ok {
 		api.logger.Tracef("LXDProfiler not implemented by environ")
@@ -459,6 +467,11 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 	}
 
 	units, err := m.Units()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -480,7 +493,7 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 			continue
 		}
 
-		pName := lxdprofile.Name(api.m.Name(), app.Name(), ch.Revision())
+		pName := lxdprofile.Name(modelInfo.Name, app.Name(), ch.Revision())
 		// Lock here, we get a new env for every call to ProvisioningInfo().
 		api.mu.Lock()
 		if err := profileEnv.MaybeWriteLXDProfile(pName, lxdprofile.Profile{
