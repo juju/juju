@@ -154,11 +154,11 @@ type ContainerConfig struct {
 	// Mounts to storage that are to be provided within this container.
 	Mounts []MountConfig
 
-	// Uid to run as. Default to 0 or root.
-	Uid int
+	// Uid to run pebble as.
+	Uid *int
 
-	// Gid to run as. Default to 0 or root.
-	Gid int
+	// Gid to run pebble as.
+	Gid *int
 }
 
 // MountConfig describes a storage that should be mounted to a container.
@@ -174,6 +174,7 @@ type MountConfig struct {
 type RunAs string
 
 const (
+	RunAsDefault RunAs = ""
 	RunAsRoot    RunAs = "root"
 	RunAsSudoer  RunAs = "sudoer"
 	RunAsNonRoot RunAs = "non-root"

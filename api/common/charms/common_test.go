@@ -69,8 +69,8 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 							Location: "/cockroach/cockroach-data",
 						},
 					},
-					Uid: 5000,
-					Gid: 5001,
+					Uid: intPtr(5000),
+					Gid: intPtr(5001),
 				},
 			},
 			Storage: map[string]params.CharmStorage{
@@ -136,8 +136,8 @@ func (s *suite) TestCharmInfo(c *gc.C) {
 							Location: "/cockroach/cockroach-data",
 						},
 					},
-					Uid: 5000,
-					Gid: 5001,
+					Uid: intPtr(5000),
+					Gid: intPtr(5001),
 				},
 			},
 			Storage: map[string]charm.Storage{
@@ -197,4 +197,8 @@ func (s *suite) TestApplicationCharmInfo(c *gc.C) {
 		},
 	}
 	c.Assert(got, gc.DeepEquals, want)
+}
+
+func intPtr(i int) *int {
+	return &i
 }

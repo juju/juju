@@ -199,8 +199,8 @@ type CharmBase struct {
 type CharmContainer struct {
 	Resource string       `json:"resource,omitempty"`
 	Mounts   []CharmMount `json:"mounts,omitempty"`
-	Uid      int          `json:"uid,omitempty"`
-	Gid      int          `json:"gid,omitempty"`
+	Uid      *int         `json:"uid,omitempty"`
+	Gid      *int         `json:"gid,omitempty"`
 }
 
 // CharmMount mirrors charm.Mount
