@@ -204,6 +204,7 @@ func GenerateNetplan(interfaces corenetwork.InterfaceInfos, matchHWAddr bool) (s
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+
 	return string(out), nil
 }
 
@@ -320,7 +321,7 @@ func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces corenetwork.InterfaceI
 		if err != nil {
 			return errors.Trace(err)
 		}
-		netPlan, err := GenerateNetplan(interfaces, !cfg.omitNetplanHWAddrMatch)
+		netPlan, err := GenerateNetplan(interfaces, cfg.useNetplanHWAddrMatch)
 		if err != nil {
 			return errors.Trace(err)
 		}
