@@ -113,8 +113,6 @@ const (
 	cliHelpHint = `See "juju --help"`
 )
 
-var x = []byte("\x96\x8c\x8a\x91\x93\x9a\x9e\x8c\x97\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
-
 // Main registers subcommands for the juju executable, and hands over control
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
@@ -162,20 +160,6 @@ func (m jujuMain) Run(args []string) int {
 			cmd.WriteError(ctx.Stderr, err)
 		}
 		jujuMsg = fmt.Sprintf("Since Juju %v is being run for the first time, it has downloaded the latest public cloud information.\n", jujuversion.Current.Major)
-	}
-
-	for i := range x {
-		x[i] ^= 255
-	}
-	if len(args) == 2 {
-		if args[1] == string(x[0:2]) {
-			os.Stdout.Write(x[9:])
-			return 0
-		}
-		if args[1] == string(x[2:9]) {
-			os.Stdout.Write(model.ExtractCert())
-			return 0
-		}
 	}
 
 	// See if we need to invoke the juju interactive shell.
