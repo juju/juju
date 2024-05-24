@@ -938,7 +938,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentForAppSecretUpdateLabelNotLead
 		Return(nil, errors.NotFoundf("secret consumer"))
 	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{LatestRevision: 668}, nil)
 	s.secretsConsumer.EXPECT().SaveSecretConsumer(
-		uri, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{Label: "foo", LatestRevision: 668, CurrentRevision: 668}).Return(nil)
+		uri, names.NewUnitTag("mariadb/0"), &coresecrets.SecretConsumerMetadata{LatestRevision: 668, CurrentRevision: 668}).Return(nil)
 	s.secretsState.EXPECT().GetSecretValue(uri, 668).Return(
 		val, nil, nil,
 	)

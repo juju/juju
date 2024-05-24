@@ -449,7 +449,7 @@ func (i *importer) modelUsers() error {
 func (i *importer) machines() error {
 	i.logger.Debugf("importing machines")
 	for _, m := range i.model.Machines() {
-		if err := i.machine(m); err != nil {
+		if err := i.machine(m, ""); err != nil {
 			i.logger.Errorf("error importing machine: %s", err)
 			return errors.Annotate(err, m.Id())
 		}
@@ -459,7 +459,7 @@ func (i *importer) machines() error {
 	return nil
 }
 
-func (i *importer) machine(m description.Machine) error {
+func (i *importer) machine(m description.Machine, arch string) error {
 	// Import this machine, then import its containers.
 	i.logger.Debugf("importing machine %s", m.Id())
 
@@ -516,7 +516,7 @@ func (i *importer) machine(m description.Machine) error {
 	)
 
 	// 3. create op for adding in instance data
-	prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance))
+	prereqOps = append(prereqOps, i.machineInstanceOp(mdoc, instance, arch))
 
 	if parentId := container.ParentId(mdoc.Id); parentId != "" {
 		prereqOps = append(prereqOps,
@@ -557,7 +557,9 @@ func (i *importer) machine(m description.Machine) error {
 	// Now that this machine exists in the database, process each of the
 	// containers in this machine.
 	for _, container := range m.Containers() {
-		if err := i.machine(container); err != nil {
+		// Pass the parent machine's architecture when creating an op to fix
+		// a container's data.
+		if err := i.machine(container, m.Instance().Architecture()); err != nil {
 			return errors.Annotate(err, container.Id())
 		}
 	}
@@ -653,7 +655,11 @@ func (i *importer) applicationPortsOp(a description.Application) txn.Op {
 	}
 }
 
-func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance) txn.Op {
+// machineInstanceOp creates for txn operation for inserting a doc into
+// instance data collection. The parentArch is included to fix data from
+// older versions of juju where the architecture of a container was left
+// empty.
+func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudInstance, parentArch string) txn.Op {
 	doc := &instanceData{
 		DocID:       mdoc.DocID,
 		MachineId:   mdoc.Id,
@@ -664,6 +670,8 @@ func (i *importer) machineInstanceOp(mdoc *machineDoc, inst description.CloudIns
 
 	if arch := inst.Architecture(); arch != "" {
 		doc.Arch = &arch
+	} else if parentArch != "" {
+		doc.Arch = &parentArch
 	}
 	if mem := inst.Memory(); mem != 0 {
 		doc.Mem = &mem
@@ -958,7 +966,7 @@ func (i *importer) application(a description.Application, ctrlCfg controller.Con
 		applicationDoc:     appDoc,
 		statusDoc:          appStatusDoc,
 		constraints:        i.constraints(a.Constraints()),
-		storage:            i.storageConstraints(a.StorageConstraints()),
+		storage:            i.storageConstraints(a.StorageDirectives()),
 		charmConfig:        a.CharmConfig(),
 		applicationConfig:  a.ApplicationConfig(),
 		leadershipSettings: a.LeadershipSettings(),
@@ -1162,7 +1170,7 @@ func (i *importer) appResourceOps(app description.Application) []txn.Op {
 	return result
 }
 
-func (i *importer) storageConstraints(cons map[string]description.StorageConstraint) map[string]StorageConstraints {
+func (i *importer) storageConstraints(cons map[string]description.StorageDirective) map[string]StorageConstraints {
 	if len(cons) == 0 {
 		return nil
 	}
@@ -2462,7 +2470,7 @@ func (i *importer) storageInstanceConstraints(storage description.Storage) stora
 					continue
 				}
 				storageName, _ := names.StorageName(storage.Tag().Id())
-				appStorageCons, ok := app.StorageConstraints()[storageName]
+				appStorageCons, ok := app.StorageDirectives()[storageName]
 				if ok {
 					cons.Pool = appStorageCons.Pool()
 					cons.Size = appStorageCons.Size()

@@ -14,6 +14,7 @@ import (
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/types"
 
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
@@ -181,7 +182,11 @@ func (v *vmTemplateManager) downloadAndImportTemplate(
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	img, err := findImageMetadata(v.env, arch, series)
+	b, err := base.GetBaseFromSeries(series)
+	if err != nil {
+		return nil, "", environs.ZoneIndependentError(err)
+	}
+	img, err := findImageMetadata(v.env, arch, b)
 	if err != nil {
 		return nil, "", environs.ZoneIndependentError(err)
 	}

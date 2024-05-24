@@ -172,6 +172,39 @@ wait_for_machine_agent_status() {
 	fi
 }
 
+# wait_for_container_agent_status blocks until the machine agent for the specified
+# machine instance ID reports the requested status.
+#
+# ```
+# wait_for_container_agent_status <parent-instance-id> <status>
+#
+# example:
+# wait_for_container_agent_status "0/lxd/0 "started"
+# ```
+wait_for_container_agent_status() {
+	local inst_id status
+
+	inst_id=${1}
+	status=${2}
+
+	parent_id=$(echo "${inst_id}" | awk 'BEGIN {FS="/";} {print $1}')
+
+	attempt=0
+	# shellcheck disable=SC2046,SC2143
+	until [ $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${parent_id}\"] | .[\"containers\"] | .[\"${inst_id}\"] | .[\"juju-status\"] | .[\"current\"]" | grep "${status}") ]; do
+		echo "[+] (attempt ${attempt}) polling machines"
+		juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+	done
+
+	if [[ ${attempt} -gt 0 ]]; then
+		echo "[+] $(green 'Completed polling machines')"
+		juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
+		sleep "${SHORT_TIMEOUT}"
+	fi
+}
+
 # wait_for_machine_netif_count blocks until the number of detected network
 # interfaces for the requested machine instance ID becomes equal to the desired
 # value.
@@ -330,4 +363,51 @@ wait_for_storage() {
 		# breathe period to ensure things have actually settled.
 		sleep "${SHORT_TIMEOUT}"
 	fi
+}
+
+# wait_for_aws_ingress_cidrs_for_port_range blocks until the expected CIDRs
+# are present in the AWS security group rules for the specified port range.
+wait_for_aws_ingress_cidrs_for_port_range() {
+	local from_port to_port exp_cidrs cidr_type
+
+	from_port=${1}
+	to_port=${2}
+	exp_cidrs=${3}
+	cidr_type=${4}
+
+	ipV6Suffix=""
+	if [ "$cidr_type" = "ipv6" ]; then
+		ipV6Suffix="v6"
+	fi
+
+	# shellcheck disable=SC2086
+	secgrp_list=$(aws ec2 describe-security-groups --filters Name=ip-permission.from-port,Values=${from_port} Name=ip-permission.to-port,Values=${to_port})
+	# print the security group rules
+	# shellcheck disable=SC2086
+	got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions // [] | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges // [] | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
+
+	attempt=0
+	# shellcheck disable=SC2046,SC2143
+	while [ "$attempt" -lt "3" ]; do
+		echo "[+] (attempt ${attempt}) polling security group rules"
+		# shellcheck disable=SC2086
+		secgrp_list=$(aws ec2 describe-security-groups --filters Name=ip-permission.from-port,Values=${from_port} Name=ip-permission.to-port,Values=${to_port})
+		# shellcheck disable=SC2086
+		got_cidrs=$(echo ${secgrp_list} | jq -r ".SecurityGroups[0].IpPermissions // [] | .[] | select(.FromPort == ${from_port} and .ToPort == ${to_port}) | .Ip${ipV6Suffix}Ranges // [] | .[] | .CidrIp${ipV6Suffix}" | sort | paste -sd, -)
+		sleep "${SHORT_TIMEOUT}"
+
+		if [ "$got_cidrs" == "$exp_cidrs" ]; then
+			break
+		fi
+
+		attempt=$((attempt + 1))
+	done
+
+	if [ "$got_cidrs" != "$exp_cidrs" ]; then
+		# shellcheck disable=SC2046
+		echo $(red "expected generated EC2 ${cidr_type} ingress CIDRs for range [${from_port}, ${to_port}] to be:\n${exp_cidrs}\nGOT:\n${got_cidrs}")
+		exit 1
+	fi
+
+	echo "[+] security group rules for port range [${from_port}, ${to_port}] and CIDRs ${exp_cidrs} updated"
 }

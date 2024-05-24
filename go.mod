@@ -47,7 +47,7 @@ require (
 	github.com/juju/clock v1.0.3
 	github.com/juju/cmd/v3 v3.0.14
 	github.com/juju/collections v1.0.4
-	github.com/juju/description/v5 v5.0.2
+	github.com/juju/description/v5 v5.0.4
 	github.com/juju/errors v1.0.0
 	github.com/juju/featureflag v1.0.0
 	github.com/juju/gnuflag v1.0.0
@@ -63,7 +63,7 @@ require (
 	github.com/juju/mutex/v2 v2.0.0
 	github.com/juju/names/v5 v5.0.0
 	github.com/juju/naturalsort v1.0.0
-	github.com/juju/os/v2 v2.2.3
+	github.com/juju/os/v2 v2.2.5
 	github.com/juju/packaging/v2 v2.0.1
 	github.com/juju/persistent-cookiejar v1.0.0
 	github.com/juju/proxy v1.0.0
@@ -78,7 +78,7 @@ require (
 	github.com/juju/terms-client/v2 v2.0.0
 	github.com/juju/testing v1.1.0
 	github.com/juju/txn/v3 v3.0.2
-	github.com/juju/utils/v3 v3.1.0
+	github.com/juju/utils/v3 v3.1.1
 	github.com/juju/version/v2 v2.0.1
 	github.com/juju/viddy v0.0.0-beta5
 	github.com/juju/webbrowser v1.0.0
@@ -106,7 +106,7 @@ require (
 	github.com/vmware/govmomi v0.34.1
 	go.uber.org/mock v0.4.0
 	golang.org/x/crypto v0.21.0
-	golang.org/x/net v0.21.0
+	golang.org/x/net v0.23.0
 	golang.org/x/oauth2 v0.15.0
 	golang.org/x/sync v0.5.0
 	golang.org/x/sys v0.18.0

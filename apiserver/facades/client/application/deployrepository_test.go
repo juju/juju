@@ -4,6 +4,7 @@
 package application
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/juju/charm/v12"
@@ -238,6 +239,55 @@ func (s *validatorSuite) TestValidateEndpointBindingSuccess(c *gc.C) {
 		numUnits:        1,
 		origin:          resolvedOrigin,
 	})
+}
+
+func (s *validatorSuite) TestValidateEndpointBindingFail(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSimpleValidate()
+	// resolveCharm
+	curl := charm.MustParseURL("testcharm")
+	resultURL := charm.MustParseURL("ch:amd64/jammy/testcharm-4")
+	origin := corecharm.Origin{
+		Source:   "charm-hub",
+		Channel:  &charm.Channel{Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64"},
+	}
+	resolvedOrigin := corecharm.Origin{
+		Source:   "charm-hub",
+		Type:     "charm",
+		Channel:  &charm.Channel{Track: "default", Risk: "stable"},
+		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
+		Revision: intptr(4),
+	}
+	// getCharm
+	charmID := corecharm.CharmID{URL: curl, Origin: origin}
+	resolvedData := getResolvedData(resultURL, resolvedOrigin)
+	s.repo.EXPECT().ResolveForDeploy(charmID).Return(resolvedData, nil)
+	s.repo.EXPECT().ResolveResources(nil, corecharm.CharmID{URL: resultURL, Origin: resolvedOrigin}).Return(nil, nil)
+	s.model.EXPECT().UUID().Return("")
+
+	// state bindings
+	endpointMap := map[string]string{"to": "from"}
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("arm64")}, nil)
+	s.state.EXPECT().Charm(gomock.Any()).Return(nil, errors.NotFoundf("charm"))
+
+	s.repoFactory.EXPECT().GetCharmRepository(gomock.Any()).Return(s.repo, nil).AnyTimes()
+	v := &deployFromRepositoryValidator{
+		model:       s.model,
+		state:       s.state,
+		repoFactory: s.repoFactory,
+		newStateBindings: func(st state.EndpointBinding, givenMap map[string]string) (Bindings, error) {
+			return nil, errors.NotFoundf("space")
+		},
+	}
+
+	arg := params.DeployFromRepositoryArg{
+		CharmName:        "testcharm",
+		EndpointBindings: endpointMap,
+	}
+	_, errs := v.validate(arg)
+	c.Assert(errs, gc.HasLen, 1)
+	c.Assert(errs[0], jc.ErrorIs, errors.NotFound)
 }
 
 func (s *validatorSuite) expectSimpleValidate() {
@@ -597,28 +647,6 @@ func (s *validatorSuite) TestDeducePlatformSimple(c *gc.C) {
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{Architecture: "amd64"})
 }
 
-func (s *validatorSuite) TestDeducePlatformRiskInChannel(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	//model constraint default
-	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("amd64")}, nil)
-
-	arg := params.DeployFromRepositoryArg{
-		CharmName: "testme",
-		Base: &params.Base{
-			Name:    "ubuntu",
-			Channel: "22.10/stable",
-		},
-	}
-	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(usedModelDefaultBase, jc.IsFalse)
-	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
-		Architecture: "amd64",
-		OS:           "ubuntu",
-		Channel:      "22.10",
-	})
-}
-
 func (s *validatorSuite) TestDeducePlatformArgArchBase(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -636,7 +664,7 @@ func (s *validatorSuite) TestDeducePlatformArgArchBase(c *gc.C) {
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
 		Architecture: "arm64",
 		OS:           "ubuntu",
-		Channel:      "22.10",
+		Channel:      "22.10/stable",
 	})
 }
 
@@ -661,7 +689,7 @@ func (s *validatorSuite) TestDeducePlatformModelDefaultBase(c *gc.C) {
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
 		Architecture: "amd64",
 		OS:           "ubuntu",
-		Channel:      "22.04",
+		Channel:      "22.04/stable",
 	})
 }
 
@@ -671,16 +699,17 @@ func (s *validatorSuite) TestDeducePlatformPlacementSimpleFound(c *gc.C) {
 	s.state.EXPECT().Machine("0").Return(s.machine, nil)
 	s.machine.EXPECT().Base().Return(state.Base{
 		OS:      "ubuntu",
-		Channel: "18.04",
+		Channel: "22.04",
 	})
 	hwc := &instance.HardwareCharacteristics{Arch: strptr("arm64")}
 	s.machine.EXPECT().HardwareCharacteristics().Return(hwc, nil)
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
-		Placement: []*instance.Placement{{
-			Directive: "0",
-		}},
+		Placement: []*instance.Placement{
+			{Scope: instance.MachineScope, Directive: "0"},
+			{Scope: "lxd"},
+		},
 	}
 	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
 	c.Assert(err, gc.IsNil)
@@ -688,27 +717,47 @@ func (s *validatorSuite) TestDeducePlatformPlacementSimpleFound(c *gc.C) {
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
 		Architecture: "arm64",
 		OS:           "ubuntu",
-		Channel:      "18.04",
+		Channel:      "22.04",
 	})
+}
+
+func (s *validatorSuite) TestDeducePlatformPlacementNoPanic(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().ModelConstraints().Return(constraints.Value{}, nil)
+	s.machine.EXPECT().Id().Return("5/lxd/6")
+	s.state.EXPECT().Machine("5/lxd/6").Return(s.machine, nil)
+	s.machine.EXPECT().Base().Return(state.Base{
+		OS:      "ubuntu",
+		Channel: "22.04",
+	})
+	hwc := &instance.HardwareCharacteristics{}
+	s.machine.EXPECT().HardwareCharacteristics().Return(hwc, nil)
+
+	arg := params.DeployFromRepositoryArg{
+		CharmName: "testme",
+		Placement: []*instance.Placement{
+			{Scope: instance.MachineScope, Directive: "5/lxd/6"},
+			{Scope: "lxd"},
+		},
+	}
+	_, _, err := s.getValidator().deducePlatform(arg)
+	c.Assert(err, gc.NotNil)
 }
 
 func (s *validatorSuite) TestDeducePlatformPlacementSimpleNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	//model constraint default
 	s.state.EXPECT().ModelConstraints().Return(constraints.Value{Arch: strptr("amd64")}, nil)
-	s.model.EXPECT().Config().Return(config.New(config.UseDefaults, coretesting.FakeConfig()))
-	s.state.EXPECT().Machine("0/lxd/0").Return(nil, errors.NotFoundf("machine 0/lxd/0 not found"))
+	s.state.EXPECT().Machine("0/lxd/0").Return(nil, errors.NotFoundf("machine 0/lxd/0"))
 
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
 		Placement: []*instance.Placement{{
-			Directive: "0/lxd/0",
+			Scope: instance.MachineScope, Directive: "0/lxd/0",
 		}},
 	}
-	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
-	c.Assert(err, gc.IsNil)
-	c.Assert(usedModelDefaultBase, jc.IsFalse)
-	c.Assert(plat, gc.DeepEquals, corecharm.Platform{Architecture: "amd64"})
+	_, _, err := s.getValidator().deducePlatform(arg)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *validatorSuite) TestResolvedCharmValidationSubordinate(c *gc.C) {
@@ -735,7 +784,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatch(c *gc.C) {
 	s.state.EXPECT().Machine(gomock.Any()).Return(s.machine, nil).Times(3)
 	s.machine.EXPECT().Base().Return(state.Base{
 		OS:      "ubuntu",
-		Channel: "18.04",
+		Channel: "22.04",
 	}).Times(3)
 	hwc := &instance.HardwareCharacteristics{Arch: strptr("arm64")}
 	s.machine.EXPECT().HardwareCharacteristics().Return(hwc, nil).Times(3)
@@ -743,9 +792,9 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatch(c *gc.C) {
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
 		Placement: []*instance.Placement{
-			{Directive: "0"},
-			{Directive: "1"},
-			{Directive: "3"},
+			{Scope: instance.MachineScope, Directive: "0"},
+			{Scope: instance.MachineScope, Directive: "1"},
+			{Scope: instance.MachineScope, Directive: "3"},
 		},
 	}
 	plat, usedModelDefaultBase, err := s.getValidator().deducePlatform(arg)
@@ -754,7 +803,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatch(c *gc.C) {
 	c.Assert(plat, gc.DeepEquals, corecharm.Platform{
 		Architecture: "arm64",
 		OS:           "ubuntu",
-		Channel:      "18.04",
+		Channel:      "22.04",
 	})
 }
 
@@ -765,7 +814,7 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatchFail(c *gc.C) {
 	s.machine.EXPECT().Base().Return(
 		state.Base{
 			OS:      "ubuntu",
-			Channel: "18.04",
+			Channel: "22.04",
 		}).AnyTimes()
 	gomock.InOrder(
 		s.machine.EXPECT().HardwareCharacteristics().Return(
@@ -779,8 +828,8 @@ func (s *validatorSuite) TestDeducePlatformPlacementMutipleMatchFail(c *gc.C) {
 	arg := params.DeployFromRepositoryArg{
 		CharmName: "testme",
 		Placement: []*instance.Placement{
-			{Directive: "0"},
-			{Directive: "1"},
+			{Scope: instance.MachineScope, Directive: "0"},
+			{Scope: instance.MachineScope, Directive: "1"},
 		},
 	}
 	_, _, err := s.getValidator().deducePlatform(arg)
@@ -967,6 +1016,34 @@ func (s *validatorSuite) TestCaasDeployFromRepositoryValidator(c *gc.C) {
 		numUnits:        1,
 		origin:          resolvedOrigin,
 	})
+}
+
+func (s *validatorSuite) TestIaaSDeployFromRepositoryFailResolveCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSimpleValidate()
+	s.repo.EXPECT().ResolveForDeploy(gomock.Any()).Return(corecharm.ResolvedDataForDeploy{}, fmt.Errorf("fail resolve"))
+	s.model.EXPECT().UUID().Return("")
+
+	arg := params.DeployFromRepositoryArg{
+		CharmName: "testcharm",
+	}
+
+	_, errs := s.iaasDeployFromRepositoryValidator().ValidateArg(arg)
+	c.Assert(errs, gc.HasLen, 1)
+}
+
+func (s *validatorSuite) TestCaaSDeployFromRepositoryFailResolveCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectSimpleValidate()
+	s.repo.EXPECT().ResolveForDeploy(gomock.Any()).Return(corecharm.ResolvedDataForDeploy{}, fmt.Errorf("fail resolve"))
+	s.model.EXPECT().UUID().Return("")
+
+	arg := params.DeployFromRepositoryArg{
+		CharmName: "testcharm",
+	}
+
+	_, errs := s.caasDeployFromRepositoryValidator(c).ValidateArg(arg)
+	c.Assert(errs, gc.HasLen, 1)
 }
 
 func getResolvedData(resultURL *charm.URL, resolvedOrigin corecharm.Origin) corecharm.ResolvedDataForDeploy {

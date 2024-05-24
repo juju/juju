@@ -21,6 +21,7 @@ var _ logger = struct{}{}
 // Logger represents the logging methods used by the actions resolver.
 type Logger interface {
 	Infof(string, ...interface{})
+	Debugf(string, ...interface{})
 }
 
 type actionsResolver struct {
@@ -57,11 +58,16 @@ func (r *actionsResolver) NextOp(
 	// deferred until the unit is running. If the remote charm needs
 	// updating, hold off on action running.
 	if remoteState.ActionsBlocked || localState.OutdatedRemoteCharm {
+		r.logger.Debugf("actions are blocked=%v; outdated remote charm=%v - have pending actions: %v", remoteState.ActionsBlocked, localState.OutdatedRemoteCharm, remoteState.ActionsPending)
+		if localState.ActionId == nil {
+			r.logger.Debugf("actions are blocked, no in flight actions")
+			return nil, resolver.ErrNoOperation
+		}
 		// If we were somehow running an action during remote container changes/restart
 		// we need to fail it and move on.
+		r.logger.Infof("incomplete action %v is blocked", *localState.ActionId)
 		if localState.Kind == operation.RunAction {
 			if localState.Hook != nil {
-				r.logger.Infof("found incomplete action %v; ignoring", localState.ActionId)
 				r.logger.Infof("recommitting prior %q hook", localState.Hook.Kind)
 				return opFactory.NewSkipHook(*localState.Hook)
 			}
@@ -76,6 +82,9 @@ func (r *actionsResolver) NextOp(
 	nextActionId, err := nextAction(remoteState.ActionsPending, localState.CompletedActions)
 	if err != nil && err != resolver.ErrNoOperation {
 		return nil, err
+	}
+	if nextActionId == "" {
+		r.logger.Debugf("no next action from pending=%v; completed=%v", remoteState.ActionsPending, localState.CompletedActions)
 	}
 
 	defer func() {
@@ -105,7 +114,7 @@ func (r *actionsResolver) NextOp(
 			return opFactory.NewSkipHook(*localState.Hook)
 		}
 
-		r.logger.Infof("%q hook is nil", operation.RunAction)
+		r.logger.Infof("%q hook is nil, so running action %v", operation.RunAction, nextActionId)
 		// If the next action is the same as what the uniter is
 		// currently running then this means that the uniter was
 		// some how interrupted (killed) when running the action
@@ -114,6 +123,7 @@ func (r *actionsResolver) NextOp(
 		// is fail the action, since rerunning an arbitrary
 		// command can potentially be hazardous.
 		if nextActionId == *localState.ActionId {
+			r.logger.Debugf("unit agent was interrupted while running action %v", *localState.ActionId)
 			return opFactory.NewFailAction(*localState.ActionId)
 		}
 

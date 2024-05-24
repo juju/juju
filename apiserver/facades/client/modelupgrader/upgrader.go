@@ -170,15 +170,10 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 		return result, errors.Trace(err)
 	}
 
-	logger.Debugf("deciding target version for model upgrade, from %q to %q for stream %q", currentVersion, targetVersion, arg.AgentStream)
-	args := common.FindAgentsParams{
-		AgentStream:   arg.AgentStream,
-		ControllerCfg: controllerCfg,
-		ModelType:     model.Type(),
-	}
 	// For non controller models, we use the exact controller
 	// model version to upgrade to, unless an explicit target
 	// has been specified.
+	useControllerVersion := false
 	if !model.IsControllerModel() {
 		ctrlModel, err := m.statePool.ControllerModel()
 		if err != nil {
@@ -188,26 +183,34 @@ func (m *ModelUpgraderAPI) UpgradeModel(arg params.UpgradeModelParams) (result p
 		if err != nil {
 			return result, errors.Trace(err)
 		}
-		if targetVersion == version.Zero {
+		if targetVersion == version.Zero || targetVersion.Compare(vers) == 0 {
 			targetVersion = vers
-		} else if vers.Compare(targetVersion.ToPatch()) > 0 {
-			return result, errors.Errorf("cannot upgrade to a version %q greater than that of the controller %q", args.Number, vers)
+			useControllerVersion = true
+		} else if vers.Compare(targetVersion.ToPatch()) < 0 {
+			return result, errors.Errorf("cannot upgrade to a version %q greater than that of the controller %q", targetVersion, vers)
 		}
 	}
-	if targetVersion == version.Zero {
-		args.MajorVersion = currentVersion.Major
-		args.MinorVersion = currentVersion.Minor
-	} else {
-		args.Number = targetVersion
-	}
-	targetVersion, err = m.decideVersion(currentVersion, args)
-	if errors.Is(errors.Cause(err), errors.NotFound) || errors.Is(errors.Cause(err), errors.AlreadyExists) {
-		result.Error = apiservererrors.ServerError(err)
-		return result, nil
-	}
-
-	if err != nil {
-		return result, errors.Trace(err)
+	if !useControllerVersion {
+		logger.Debugf("deciding target version for model upgrade, from %q to %q for stream %q", currentVersion, targetVersion, arg.AgentStream)
+		args := common.FindAgentsParams{
+			AgentStream:   arg.AgentStream,
+			ControllerCfg: controllerCfg,
+			ModelType:     model.Type(),
+		}
+		if targetVersion == version.Zero {
+			args.MajorVersion = currentVersion.Major
+			args.MinorVersion = currentVersion.Minor
+		} else {
+			args.Number = targetVersion
+		}
+		targetVersion, err = m.decideVersion(currentVersion, args)
+		if errors.Is(errors.Cause(err), errors.NotFound) || errors.Is(errors.Cause(err), errors.AlreadyExists) {
+			result.Error = apiservererrors.ServerError(err)
+			return result, nil
+		}
+		if err != nil {
+			return result, errors.Trace(err)
+		}
 	}
 
 	// Before changing the agent version to trigger an upgrade or downgrade,

@@ -17,7 +17,7 @@ type InterfaceSuite struct{}
 var _ = gc.Suite(InterfaceSuite{})
 
 func (HelperSuite) TestNewCloudConfigWithoutMACMatch(c *gc.C) {
-	cfg, err := New("ubuntu", WithDisableNetplanMACMatch)
+	cfg, err := New("ubuntu", WithNetplanMACMatch(true))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(cfg.(*ubuntuCloudConfig).omitNetplanHWAddrMatch, jc.IsTrue)
+	c.Check(cfg.(*ubuntuCloudConfig).useNetplanHWAddrMatch, jc.IsTrue)
 }

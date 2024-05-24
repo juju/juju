@@ -96,7 +96,7 @@ parts:
       ln -s /usr/include/linux /usr/local/musl/include/linux
 
   musl-compat:
-    source: https://dev.midipix.org/compat/musl-compat.git
+    source: https://github.com/juju/musl-compat.git
     source-type: git
     source-depth: 1
     plugin: nil

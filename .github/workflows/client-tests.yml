@@ -42,11 +42,20 @@ jobs:
       run: |
         make install-mongo-dependencies
 
-    - name: "Install musl & dqlite  (Ubuntu)"
+    - name: "Install musl & dqlite (Ubuntu)"
       if: (matrix.os == 'ubuntu-latest')
       shell: bash
       run: |
         sudo make MUSL_CROSS_COMPILE=0 musl-install dqlite-install
+
+    - name: "Install Mongo Dependencies (macOS)"
+      if: (matrix.os == 'macOS-latest')
+      run: |
+        brew tap mongodb/brew
+        brew update
+        brew install mongodb-community@4.4
+        brew link mongodb-community@4.4
+        brew services start mongodb/brew/mongodb-community@4.4
 
     - name: "Test client (Ubuntu)"
       if: (matrix.os == 'ubuntu-latest')
