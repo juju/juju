@@ -172,6 +172,39 @@ wait_for_machine_agent_status() {
 	fi
 }
 
+# wait_for_container_agent_status blocks until the machine agent for the specified
+# machine instance ID reports the requested status.
+#
+# ```
+# wait_for_container_agent_status <parent-instance-id> <status>
+#
+# example:
+# wait_for_container_agent_status "0/lxd/0 "started"
+# ```
+wait_for_container_agent_status() {
+	local inst_id status
+
+	inst_id=${1}
+	status=${2}
+
+	parent_id=$(echo "${inst_id}" | awk 'BEGIN {FS="/";} {print $1}')
+
+	attempt=0
+	# shellcheck disable=SC2046,SC2143
+	until [ $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${parent_id}\"] | .[\"containers\"] | .[\"${inst_id}\"] | .[\"juju-status\"] | .[\"current\"]" | grep "${status}") ]; do
+		echo "[+] (attempt ${attempt}) polling machines"
+		juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
+		sleep "${SHORT_TIMEOUT}"
+		attempt=$((attempt + 1))
+	done
+
+	if [[ ${attempt} -gt 0 ]]; then
+		echo "[+] $(green 'Completed polling machines')"
+		juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
+		sleep "${SHORT_TIMEOUT}"
+	fi
+}
+
 # wait_for_machine_netif_count blocks until the number of detected network
 # interfaces for the requested machine instance ID becomes equal to the desired
 # value.
