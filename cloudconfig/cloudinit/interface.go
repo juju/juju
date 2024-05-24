@@ -408,8 +408,13 @@ type NetworkingConfig interface {
 	AddNetworkConfig(interfaces corenetwork.InterfaceInfos) error
 }
 
-func WithDisableNetplanMACMatch(cfg *cloudConfig) {
-	cfg.omitNetplanHWAddrMatch = true
+// WithNetplanMACMatch returns a cloud config option for telling Netplan
+// whether to match by MAC address (true) or the interface name (false) when
+// configuring NICs.
+func WithNetplanMACMatch(enabled bool) func(*cloudConfig) {
+	return func(cfg *cloudConfig) {
+		cfg.useNetplanHWAddrMatch = enabled
+	}
 }
 
 // New returns a new Config with no options set.
