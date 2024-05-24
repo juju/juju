@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        microk8s: [1.28/stable]
+        microk8s: [1.30/stable]
 
     steps:
     - name: Checking out repo
