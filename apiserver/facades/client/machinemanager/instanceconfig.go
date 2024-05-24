@@ -91,7 +91,7 @@ func InstanceConfig(
 	newEnviron := func(ctx context.Context) (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(ctx, configGetter, environs.New)
 	}
-	toolsFinder := common.NewToolsFinder(services.ControllerConfigService, configGetter, st, urlGetter, newEnviron, services.ObjectStore)
+	toolsFinder := common.NewToolsFinder(services.ControllerConfigService, st, urlGetter, newEnviron, services.ObjectStore)
 	toolsList, err := toolsFinder.FindAgents(ctx, common.FindAgentsParams{
 		Number: agentVersion,
 		OSType: machine.Base().OS,

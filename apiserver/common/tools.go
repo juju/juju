@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/internal/tools"
@@ -24,6 +23,12 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 )
+
+// ModelAgentService provides access to the Juju agent version for the model.
+type ModelAgentService interface {
+	// GetModelAgentVersion returns the agent version for the current model.
+	GetModelAgentVersion(ctx context.Context) (version.Number, error)
+}
 
 var envtoolsFindTools = envtools.FindTools
 
@@ -68,7 +73,7 @@ type AgentTooler interface {
 // facades.
 type ToolsGetter struct {
 	entityFinder       ToolsFindEntity
-	configGetter       environs.EnvironConfigGetter
+	modelAgentService  ModelAgentService
 	toolsStorageGetter ToolsStorageGetter
 	toolsFinder        ToolsFinder
 	urlGetter          ToolsURLGetter
@@ -79,7 +84,7 @@ type ToolsGetter struct {
 // used on each invocation of Tools to determine current permissions.
 func NewToolsGetter(
 	entityFinder ToolsFindEntity,
-	configGetter environs.EnvironConfigGetter,
+	modelAgentService ModelAgentService,
 	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
 	toolsFinder ToolsFinder,
@@ -87,7 +92,7 @@ func NewToolsGetter(
 ) *ToolsGetter {
 	return &ToolsGetter{
 		entityFinder:       entityFinder,
-		configGetter:       configGetter,
+		modelAgentService:  modelAgentService,
 		toolsStorageGetter: toolsStorageGetter,
 		urlGetter:          urlGetter,
 		toolsFinder:        toolsFinder,
@@ -104,9 +109,9 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 	if err != nil {
 		return result, err
 	}
-	agentVersion, err := t.getGlobalAgentVersion(ctx)
+	agentVersion, err := t.modelAgentService.GetModelAgentVersion(ctx)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("getting agent version: %w", err)
 	}
 
 	for i, entity := range args.Entities {
@@ -122,20 +127,6 @@ func (t *ToolsGetter) Tools(ctx context.Context, args params.Entities) (params.T
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
-}
-
-func (t *ToolsGetter) getGlobalAgentVersion(ctx context.Context) (version.Number, error) {
-	// Get the Agent Version requested in the Model Config
-	nothing := version.Number{}
-	cfg, err := t.configGetter.ModelConfig(ctx)
-	if err != nil {
-		return nothing, err
-	}
-	agentVersion, ok := cfg.AgentVersion()
-	if !ok {
-		return nothing, errors.New("agent version not set in model config")
-	}
-	return agentVersion, nil
 }
 
 func (t *ToolsGetter) oneAgentTools(ctx context.Context, canRead AuthFunc, tag names.Tag, agentVersion version.Number) (coretools.List, error) {
@@ -250,7 +241,6 @@ type ToolsFinder interface {
 
 type toolsFinder struct {
 	controllerConfigService ControllerConfigService
-	configGetter            environs.EnvironConfigGetter
 	toolsStorageGetter      ToolsStorageGetter
 	urlGetter               ToolsURLGetter
 	newEnviron              NewEnvironFunc
@@ -261,7 +251,6 @@ type toolsFinder struct {
 // with their URLs pointing at the API server.
 func NewToolsFinder(
 	controllerConfigService ControllerConfigService,
-	configGetter environs.EnvironConfigGetter,
 	toolsStorageGetter ToolsStorageGetter,
 	urlGetter ToolsURLGetter,
 	newEnviron NewEnvironFunc,
@@ -269,7 +258,6 @@ func NewToolsFinder(
 ) *toolsFinder {
 	return &toolsFinder{
 		controllerConfigService: controllerConfigService,
-		configGetter:            configGetter,
 		toolsStorageGetter:      toolsStorageGetter,
 		urlGetter:               urlGetter,
 		newEnviron:              newEnviron,

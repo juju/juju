@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -58,10 +59,11 @@ type ProvisionerAPI struct {
 
 	networkService              NetworkService
 	st                          *state.State
-	m                           *state.Model
 	controllerConfigService     ControllerConfigService
 	agentProvisionerService     AgentProvisionerService
 	keyUpdaterService           KeyUpdaterService
+	modelConfigService          ModelConfigService
+	modelInfoService            ModelInfoService
 	resources                   facade.Resources
 	authorizer                  facade.Authorizer
 	storageProviderRegistry     storage.ProviderRegistry
@@ -133,7 +135,13 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		CloudService:      serviceFactory.Cloud(),
 		CredentialService: serviceFactory.Credential(),
 	}
-	isCaasModel := model.Type() == state.ModelTypeCAAS
+
+	modelInfoService := serviceFactory.ModelInfo()
+	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	isCaasModel := modelInfo.Type == coremodel.CAAS
 
 	var env storage.ProviderRegistry
 	if isCaasModel {
@@ -155,7 +163,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
+	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), systemState)
 
 	unitRemover := ctx.ServiceFactory().Unit()
 
@@ -178,10 +186,11 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		NetworkConfigAPI:            netConfigAPI,
 		networkService:              ctx.ServiceFactory().Network(),
 		st:                          st,
-		m:                           model,
 		controllerConfigService:     serviceFactory.ControllerConfig(),
 		agentProvisionerService:     serviceFactory.AgentProvisioner(),
 		keyUpdaterService:           serviceFactory.KeyUpdater(),
+		modelConfigService:          serviceFactory.Config(),
+		modelInfoService:            modelInfoService,
 		resources:                   resources,
 		authorizer:                  authorizer,
 		configGetter:                configGetter,
@@ -202,8 +211,8 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 	}
 
 	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
-	api.toolsFinder = common.NewToolsFinder(serviceFactory.ControllerConfig(), configGetter, st, urlGetter, newEnviron, ctx.ControllerObjectStore())
-	api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, api.toolsFinder, getAuthOwner)
+	api.toolsFinder = common.NewToolsFinder(serviceFactory.ControllerConfig(), st, urlGetter, newEnviron, ctx.ControllerObjectStore())
+	api.ToolsGetter = common.NewToolsGetter(st, serviceFactory.Agent(), st, urlGetter, api.toolsFinder, getAuthOwner)
 	return api, nil
 }
 
@@ -1178,8 +1187,14 @@ func (api *ProvisionerAPI) GetContainerProfileInfo(ctx context.Context, args par
 		result: params.ContainerProfileResults{
 			Results: make([]params.ContainerProfileResult, len(args.Entities)),
 		},
-		modelName: api.m.Name(),
 	}
+
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return c.result, errors.Trace(err)
+	}
+	c.modelName = modelInfo.Name
+
 	if err := api.processEachContainer(ctx, args, c); err != nil {
 		return c.result, errors.Trace(err)
 	}
@@ -1398,7 +1413,11 @@ func (api *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profile
 
 // ModelUUID returns the model UUID that the current connection is for.
 func (api *ProvisionerAPI) ModelUUID(ctx context.Context) params.StringResult {
-	return params.StringResult{Result: api.st.ModelUUID()}
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return params.StringResult{Error: apiservererrors.ServerError(err)}
+	}
+	return params.StringResult{Result: string(modelInfo.UUID)}
 }
 
 // APIHostPorts returns the API server addresses.

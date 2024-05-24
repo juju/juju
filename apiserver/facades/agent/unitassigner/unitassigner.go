@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -112,9 +113,13 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 }
 
 func (a *API) saveMachineInfo(ctx context.Context, machineName string) error {
-	// This is temporary - just insert the machine id all al the parent ones.
+	// This is temporary - just insert the machine id and all the parent ones.
 	for machineName != "" {
-		if _, err := a.machineService.CreateMachine(ctx, machine.Name(machineName)); err != nil {
+		_, err := a.machineService.CreateMachine(ctx, machine.Name(machineName))
+		// The machine might already exist e.g. if we are adding a subordinate
+		// unit to an already existing machine. In this case, just continue
+		// without error.
+		if err != nil && !errors.Is(err, machineerrors.MachineAlreadyExists) {
 			return errors.Annotatef(err, "saving info for machine %q", machineName)
 		}
 		parent := names.NewMachineTag(machineName).Parent()

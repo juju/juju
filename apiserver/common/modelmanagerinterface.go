@@ -106,13 +106,18 @@ type Model interface {
 
 // CredentialService provides access to credentials.
 type CredentialService interface {
+	// CloudCredential returns the cloud credential for the given tag.
 	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
+	// WatchCredential returns a watcher that observes changes to the specified
+	// credential.
 	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
 }
 
 // CloudService provides access to clouds.
 type CloudService interface {
+	// Cloud returns the named cloud.
 	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
+	// WatchCloud returns a watcher that observes changes to the specified cloud.
 	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
 }
 

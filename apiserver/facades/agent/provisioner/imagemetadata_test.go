@@ -97,7 +97,7 @@ func (s *ImageMetadataSuite) TestMetadataFromState(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected := s.expectedDataSoureImageMetadata()
+	expected := s.expectedDataSourceImageMetadata()
 
 	// Write metadata to state.
 	metadata := s.convertCloudImageMetadata(expected[0])
@@ -145,7 +145,7 @@ func (s *ImageMetadataSuite) convertCloudImageMetadata(all []params.CloudImageMe
 	return expected
 }
 
-func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudImageMetadata {
+func (s *ImageMetadataSuite) expectedDataSourceImageMetadata() [][]params.CloudImageMetadata {
 	expected := make([][]params.CloudImageMetadata, len(s.machines))
 	for i := range s.machines {
 		expected[i] = []params.CloudImageMetadata{
