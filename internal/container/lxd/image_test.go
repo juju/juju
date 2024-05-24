@@ -41,19 +41,23 @@ func (s *imageSuite) TestCopyImageUsesPassedCallback(c *gc.C) {
 	copyOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
 	copyOp.EXPECT().AddHandler(gomock.Any()).Return(nil, nil)
 
-	image := lxdapi.Image{Filename: "this-is-our-image"}
+	image := lxdapi.Image{Filename: "this-is-our-image", Fingerprint: "fingerprint"}
 	aliases := []lxdapi.ImageAlias{{Name: "local/image/alias"}}
 	req := &lxdclient.ImageCopyArgs{Aliases: aliases, AutoUpdate: true}
 	iSvr.EXPECT().CopyImage(iSvr, image, req).Return(copyOp, nil)
+	iSvr.EXPECT().GetImageAliases().Return(nil, nil)
+
+	s.expectAlias(iSvr, "local/image/alias", "fingerprint")
 
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sourced := lxd.SourcedImage{
-		Image:     &image,
-		LXDServer: iSvr,
+		Image:       &image,
+		LXDServer:   iSvr,
+		Fingerprint: image.Fingerprint,
 	}
-	err = jujuSvr.CopyRemoteImage(context.Background(), sourced, image.Fingerprint, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
+	err = jujuSvr.CopyRemoteImage(context.Background(), sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -69,9 +73,9 @@ func (s *imageSuite) TestCopyImageRetries(c *gc.C) {
 	clock.EXPECT().Now().Return(time.Now()).AnyTimes()
 
 	iSvr := s.NewMockServer(ctrl)
-	image := lxdapi.Image{Filename: "this-is-our-image"}
+	image := lxdapi.Image{Filename: "this-is-our-image", Fingerprint: "fingerprint"}
 	aliases := []lxdapi.ImageAlias{{Name: "local/image/alias"}}
-	req := &lxdclient.ImageCopyArgs{Aliases: aliases}
+	req := &lxdclient.ImageCopyArgs{Aliases: aliases, AutoUpdate: true}
 
 	copyOp := lxdtesting.NewMockRemoteOperation(ctrl)
 	copyOp.EXPECT().AddHandler(gomock.Any()).Return(nil, nil).AnyTimes()
@@ -81,15 +85,19 @@ func (s *imageSuite) TestCopyImageRetries(c *gc.C) {
 	copyOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
 
 	iSvr.EXPECT().CopyImage(iSvr, image, req).Return(copyOp, nil).Times(3)
+	iSvr.EXPECT().GetImageAliases().Return(nil, nil)
+
+	s.expectAlias(iSvr, "local/image/alias", "fingerprint")
 
 	jujuSvr, err := lxd.NewTestingServer(iSvr, clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	sourced := lxd.SourcedImage{
-		Image:     &image,
-		LXDServer: iSvr,
+		Image:       &image,
+		LXDServer:   iSvr,
+		Fingerprint: image.Fingerprint,
 	}
-	err = jujuSvr.CopyRemoteImage(context.Background(), sourced, image.Fingerprint, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
+	err = jujuSvr.CopyRemoteImage(context.Background(), sourced, []string{"local/image/alias"}, lxdtesting.NoOpCallback)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -139,8 +147,15 @@ func (s *imageSuite) TestFindImageRemoteServers(c *gc.C) {
 		"server-that-has-image": rSvr2,
 	})
 
+	image := lxdapi.Image{
+		ImagePut: lxdapi.ImagePut{
+			AutoUpdate: true,
+		},
+		Filename:    "this-is-our-image",
+		Fingerprint: "fingerprint",
+	}
+
 	const imageType = "container"
-	image := lxdapi.Image{Filename: "this-is-our-image"}
 	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
 	gomock.InOrder(
 		iSvr.EXPECT().GetImageAlias("juju/ubuntu@16.04/"+s.Arch()).Return(nil, lxdtesting.ETag, errors.New("not found")),
@@ -177,16 +192,35 @@ func (s *imageSuite) TestFindImageRemoteServersCopyLocalNoCallback(c *gc.C) {
 	copyOp.EXPECT().Wait().Return(nil).AnyTimes()
 	copyOp.EXPECT().GetTarget().Return(&lxdapi.Operation{StatusCode: lxdapi.Success}, nil)
 
+	image := lxdapi.Image{
+		ImagePut: lxdapi.ImagePut{
+			AutoUpdate: true,
+		},
+		Filename:    "this-is-our-image",
+		Fingerprint: "fingerprint",
+	}
+
 	localAlias := "juju/ubuntu@16.04/" + s.Arch()
-	image := lxdapi.Image{Filename: "this-is-our-image"}
+	copyReq := &lxdclient.ImageCopyArgs{
+		AutoUpdate: true,
+		Aliases: []lxdapi.ImageAlias{
+			{Name: "16.04/" + s.Arch()},
+			{Name: localAlias},
+		},
+	}
+
 	alias := lxdapi.ImageAliasesEntry{ImageAliasesEntryPut: lxdapi.ImageAliasesEntryPut{Target: "foo-remote-target"}}
-	copyReq := &lxdclient.ImageCopyArgs{Aliases: []lxdapi.ImageAlias{{Name: localAlias}}}
+
 	gomock.InOrder(
 		iSvr.EXPECT().GetImageAlias(localAlias).Return(nil, lxdtesting.ETag, nil),
 		rSvr.EXPECT().GetImageAliasType("container", "16.04/"+s.Arch()).Return(&alias, lxdtesting.ETag, nil),
 		rSvr.EXPECT().GetImage("foo-remote-target").Return(&image, lxdtesting.ETag, nil),
 		iSvr.EXPECT().CopyImage(rSvr, image, copyReq).Return(copyOp, nil),
+		iSvr.EXPECT().GetImageAliases().Return(nil, nil),
 	)
+
+	s.expectAlias(iSvr, "16.04/"+s.Arch(), "fingerprint")
+	s.expectAlias(iSvr, "juju/ubuntu@16.04/"+s.Arch(), "fingerprint")
 
 	jujuSvr, err := lxd.NewServer(iSvr)
 	c.Assert(err, jc.ErrorIsNil)
@@ -226,13 +260,20 @@ func (s *imageSuite) TestFindImageRemoteServersNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*failed to retrieve image.*")
 }
 
-func (s *imageSuite) TestBaseRemoteAliasesNotSupported(c *gc.C) {
-	_, err := lxd.BaseRemoteAliases(corebase.MakeDefaultBase("centos", "7"), "arm64")
+func (s *imageSuite) TestConstructBaseRemoteAliasNotSupported(c *gc.C) {
+	_, err := lxd.ConstructBaseRemoteAlias(corebase.MakeDefaultBase("centos", "7"), "arm64")
 	c.Assert(err, gc.ErrorMatches, `base "centos@7" not supported`)
 
-	_, err = lxd.BaseRemoteAliases(corebase.MakeDefaultBase("centos", "8"), "arm64")
+	_, err = lxd.ConstructBaseRemoteAlias(corebase.MakeDefaultBase("centos", "8"), "arm64")
 	c.Assert(err, gc.ErrorMatches, `base "centos@8" not supported`)
 
-	_, err = lxd.BaseRemoteAliases(corebase.MakeDefaultBase("opensuse", "opensuse42"), "s390x")
+	_, err = lxd.ConstructBaseRemoteAlias(corebase.MakeDefaultBase("opensuse", "opensuse42"), "s390x")
 	c.Assert(err, gc.ErrorMatches, `base "opensuse@opensuse42" not supported`)
+}
+
+func (s *imageSuite) expectAlias(iSvr *lxdtesting.MockInstanceServer, name, target string) {
+	var aliasPost lxdapi.ImageAliasesPost
+	aliasPost.Name = name
+	aliasPost.Target = target
+	iSvr.EXPECT().CreateImageAlias(aliasPost).Return(nil)
 }
