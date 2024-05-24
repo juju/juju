@@ -5,6 +5,7 @@ package base
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/juju/charm/v11"
@@ -122,6 +123,26 @@ func (b Base) String() string {
 // OS version, ignoring risk.
 func (b Base) IsCompatible(other Base) bool {
 	return b.OS == other.OS && b.Channel.Track == other.Channel.Track
+}
+
+// IsUbuntuLTS returns true is this base is a recognoised Ubuntu
+// LTS.
+func (b Base) IsUbuntuLTS() bool {
+	if b.OS != UbuntuOS {
+		return false
+	}
+	trackParts := strings.Split(b.Channel.Track, ".")
+	if len(trackParts) != 2 {
+		return false
+	}
+	releaseYear, err := strconv.Atoi(trackParts[0])
+	if err != nil {
+		return false
+	}
+	if trackParts[1] == "04" && releaseYear%2 == 0 {
+		return true
+	}
+	return false
 }
 
 // DisplayString returns the base string ignoring risk.
