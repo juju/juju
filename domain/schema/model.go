@@ -390,11 +390,11 @@ CREATE TABLE instance_data (
     availability_zone_uuid TEXT,
     virt_type 		   TEXT,
     CONSTRAINT             fk_machine_machine_uuid
-        FOREIGN KEY            (machine_uuid)
-        REFERENCES             machine(uuid),
+        FOREIGN KEY        (machine_uuid)
+        REFERENCES         machine(uuid),
     CONSTRAINT             fk_availability_zone_availability_zone_uuid
-        FOREIGN KEY            (availability_zone_uuid)
-        REFERENCES             availability_zone(uuid)
+        FOREIGN KEY        (availability_zone_uuid)
+        REFERENCES         availability_zone(uuid)
 );
 
 CREATE TABLE instance_tag (
@@ -407,11 +407,11 @@ CREATE TABLE instance_tag_reference (
     tag_uuid 	    TEXT NOT NULL,
     instance_uuid   TEXT NOT NULL,
     CONSTRAINT      fk_instance_tag_tag_uuid
-        FOREIGN KEY     (tag_uuid)
-        REFERENCES      instance_tag(uuid),
+        FOREIGN KEY (tag_uuid)
+        REFERENCES  instance_tag(uuid),
     CONSTRAINT      fk_instance_data_instance_uuid
-        FOREIGN KEY     (instance_uuid)
-        REFERENCES      instance_data(uuid)
+        FOREIGN KEY (instance_uuid)
+        REFERENCES  instance_data(uuid)
 );
 
 CREATE TABLE lxd_profile (
@@ -427,11 +427,11 @@ CREATE TABLE charm_profile (
     lxd_profile_uuid    TEXT NOT NULL,
     machine_uuid 	TEXT NOT NULL,
     CONSTRAINT          fk_machine_machine_uuid
-        FOREIGN KEY         (machine_uuid)
-        REFERENCES          machine(uuid),
+        FOREIGN KEY     (machine_uuid)
+        REFERENCES      machine(uuid),
     CONSTRAINT          fk_lxd_profile_lxd_profile_uuid
-        FOREIGN KEY         (lxd_profile_uuid)
-        REFERENCES          lxd_profile(uuid)
+        FOREIGN KEY     (lxd_profile_uuid)
+        REFERENCES      lxd_profile(uuid)
 );
 `)
 }
