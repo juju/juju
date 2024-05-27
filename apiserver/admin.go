@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
 	"github.com/juju/juju/core/trace"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -298,6 +299,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 		authenticated := false
 		for _, authenticator := range a.srv.loginAuthenticators {
 			var err error
+
 			authInfo, err = authenticator.AuthenticateLoginRequest(ctx, a.root.serverHost, modelUUID, authParams)
 			if errors.Is(err, errors.NotSupported) {
 				continue
@@ -462,7 +464,7 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 	}
 
 	controllerAccess, err := authInfo.SubjectPermissions(a.root.state.ControllerTag())
-	if errors.Is(err, errors.NotFound) {
+	if errors.Is(err, accesserrors.PermissionNotFound) || errors.Is(err, accesserrors.UserNotFound) {
 		controllerAccess = everyoneGroupAccess
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", userTag.Id())
@@ -475,7 +477,6 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 		// admin.
 
 		var err error
-		// TODO (manadart 2024-04-26): Use domain in delegator.
 		modelAccess, err = authInfo.SubjectPermissions(a.root.model.ModelTag())
 		if err != nil && controllerAccess != permission.SuperuserAccess {
 			return nil, errors.Wrap(err, apiservererrors.ErrPerm)

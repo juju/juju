@@ -271,11 +271,11 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 	var accessForUser = func(userTag names.UserTag, result *params.UserInfoResult) {
 		// Lookup the access the specified user has to the controller.
 		access, err := common.GetPermission(api.state.UserPermission, userTag, api.state.ControllerTag())
-		if err == nil {
-			result.Result.Access = string(access)
-		} else if err != nil && !errors.Is(err, errors.NotFound) {
+		if err != nil {
 			result.Result = nil
 			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result.Access = string(access)
 		}
 	}
 

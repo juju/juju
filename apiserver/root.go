@@ -376,7 +376,7 @@ func (r *apiHandler) EntityHasPermission(entity names.Tag, operation permission.
 		return r.authInfo.Delegator.SubjectPermissions(authentication.TagToEntity(entity), subject)
 	}
 	has, err := common.HasPermission(userAccessFunc, entity, operation, target)
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	if err != nil {
 		return fmt.Errorf("checking entity %q has permission: %w", entity, err)
 	}
 	if !has && r.authInfo.Delegator != nil {

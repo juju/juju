@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/permission"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/testing"
 )
 
@@ -167,7 +168,7 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	userGetter := &fakeUserAccess{
 		access: permission.NoAccess,
-		err:    errors.NotFoundf("a user"),
+		err:    accesserrors.PermissionNotFound,
 	}
 	hasPermission, err := common.HasPermission(userGetter.call, user, permission.ReadAccess, target)
 	c.Assert(err, jc.ErrorIsNil)
