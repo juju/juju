@@ -332,6 +332,7 @@ CREATE TABLE machine (
     machine_id      TEXT NOT NULL,
     net_node_uuid   TEXT NOT NULL,
     life_id         INT NOT NULL,
+    keep_instance   BOOLEAN,
     CONSTRAINT      fk_machine_net_node
         FOREIGN KEY (net_node_uuid)
         REFERENCES  net_node(uuid),
@@ -374,6 +375,64 @@ CREATE TABLE cloud_container (
 
 CREATE UNIQUE INDEX idx_cloud_container_net_node
 ON cloud_container (net_node_uuid);
+
+CREATE TABLE instance_data (
+    uuid            	   TEXT PRIMARY KEY,
+    machine_uuid    	   TEXT NOT NULL,
+    instance_id 	   TEXT NOT NULL,
+    display_name 	   TEXT NOT NULL,
+    arch            	   TEXT,
+    mod 	    	   INT,
+    root_disk 	    	   INT,
+    root_disk_source       TEXT,
+    cpu_cores 		   INT,
+    cpu_power 		   INT,
+    availability_zone_uuid TEXT,
+    virt_type 		   TEXT,
+    CONSTRAINT             fk_machine_machine_uuid
+        FOREIGN KEY            (machine_uuid)
+        REFERENCES             machine(uuid),
+    CONSTRAINT             fk_availability_zone_availability_zone_uuid
+        FOREIGN KEY            (availability_zone_uuid)
+        REFERENCES             availability_zone(uuid)
+);
+
+CREATE TABLE instance_tag (
+    uuid            TEXT PRIMARY KEY,
+    tag 	    TEXT NOT NULL
+);
+
+CREATE TABLE instance_tag_reference (
+    uuid            TEXT PRIMARY KEY,
+    tag_uuid 	    TEXT NOT NULL,
+    instance_uuid   TEXT NOT NULL,
+    CONSTRAINT      fk_instance_tag_tag_uuid
+        FOREIGN KEY     (tag_uuid)
+        REFERENCES      instance_tag(uuid),
+    CONSTRAINT      fk_instance_data_instance_uuid
+        FOREIGN KEY     (instance_uuid)
+        REFERENCES      instance_data(uuid)
+);
+
+CREATE TABLE lxd_profile (
+    uuid            TEXT PRIMARY KEY,
+    profile_id 	    TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_lxd_profile_profile_id
+ON lxd_profile (profile_id);
+
+CREATE TABLE charm_profile (
+    uuid 		TEXT PRIMARY KEY,
+    lxd_profile_uuid    TEXT NOT NULL,
+    machine_uuid 	TEXT NOT NULL,
+    CONSTRAINT          fk_machine_machine_uuid
+        FOREIGN KEY         (machine_uuid)
+        REFERENCES          machine(uuid),
+    CONSTRAINT          fk_lxd_profile_lxd_profile_uuid
+        FOREIGN KEY         (lxd_profile_uuid)
+        REFERENCES          lxd_profile(uuid)
+);
 `)
 }
 
