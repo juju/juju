@@ -42,10 +42,10 @@ type AuthParams struct {
 	AuthTag     names.Tag
 	Credentials string
 
-	// Token is used for rebac based auth.
+	// Token represents a JSON Web Token (JWT).
 	Token string
 
-	// None is used for agent auth.
+	// Nonce is used for agent auth.
 	Nonce string
 
 	// These are used for macaroon auth.
