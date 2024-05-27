@@ -160,7 +160,7 @@ func TestingAPIHandlerWithEntity(
 ) (*apiHandler, *common.Resources) {
 	h, hr := TestingAPIHandler(c, pool, st, sf)
 	h.authInfo.Entity = entity
-	h.authInfo.Delegator = &stateauthenticator.PermissionDelegator{State: st}
+	h.authInfo.Delegator = &stateauthenticator.PermissionDelegator{AccessService: sf.Access()}
 	return h, hr
 }
 

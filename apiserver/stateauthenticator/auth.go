@@ -51,11 +51,6 @@ type Authenticator struct {
 	authContext             *authContext
 }
 
-// PermissionDelegator implements authentication.PermissionDelegator
-type PermissionDelegator struct {
-	State *state.State
-}
-
 // ControllerConfigService is an interface that can be implemented by
 // types that can return a controller config.
 type ControllerConfigService interface {
@@ -169,7 +164,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	defer st.Release()
 
 	authenticator := a.authContext.authenticatorForState(serverHost, st.State)
-	authInfo, err := a.checkCreds(ctx, st.State, authParams, authenticator)
+	authInfo, err := a.checkCreds(ctx, authParams, authenticator)
 	if err == nil {
 		return authInfo, nil
 	}
@@ -180,22 +175,13 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 
-	systemState, errS := a.statePool.SystemState()
-	if errS != nil {
-		return authentication.AuthInfo{}, errors.Trace(err)
-	}
-
 	_, isMachineTag := authParams.AuthTag.(names.MachineTag)
 	_, isControllerAgentTag := authParams.AuthTag.(names.ControllerAgentTag)
 	if (isMachineTag || isControllerAgentTag) && !st.IsController() {
 		// Controller agents are allowed to log into any model.
 		authenticator := a.authContext.authenticator(serverHost)
 		var err2 error
-		authInfo, err2 = a.checkCreds(
-			ctx,
-			systemState,
-			authParams, authenticator,
-		)
+		authInfo, err2 = a.checkCreds(ctx, authParams, authenticator)
 		if err2 == nil && authInfo.Controller {
 			err = nil
 		}
@@ -204,33 +190,12 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		return authentication.AuthInfo{}, errors.NewUnauthorized(err, "")
 	}
 
-	authInfo.Delegator = &PermissionDelegator{State: systemState}
+	authInfo.Delegator = &PermissionDelegator{a.authContext.userService}
 	return authInfo, nil
-}
-
-// SubjectPermissions implements PermissionDelegator
-func (p *PermissionDelegator) SubjectPermissions(
-	e authentication.Entity,
-	s names.Tag,
-) (permission.Access, error) {
-	userTag, ok := e.Tag().(names.UserTag)
-	if !ok {
-		return permission.NoAccess, errors.Errorf("%s is not a user", names.ReadableString(e.Tag()))
-	}
-
-	return p.State.UserPermission(userTag, s)
-}
-
-func (p *PermissionDelegator) PermissionError(
-	_ names.Tag,
-	_ permission.Access,
-) error {
-	return apiservererrors.ErrPerm
 }
 
 func (a *Authenticator) checkCreds(
 	ctx context.Context,
-	st *state.State,
 	authParams authentication.AuthParams,
 	authenticator authentication.EntityAuthenticator,
 ) (authentication.AuthInfo, error) {
@@ -240,7 +205,7 @@ func (a *Authenticator) checkCreds(
 	}
 
 	authInfo := authentication.AuthInfo{
-		Delegator: &PermissionDelegator{State: st},
+		Delegator: &PermissionDelegator{a.authContext.userService},
 		Entity:    entity,
 	}
 
@@ -268,6 +233,7 @@ func (a *Authenticator) checkCreds(
 		// This is permission checking at the wrong level, but we can keep it
 		// here for now.
 		if err := a.checkPerms(ctx, modelAccess, userTag); err != nil {
+			logger.Criticalf(err.Error())
 			return authentication.AuthInfo{}, errors.Trace(err)
 		}
 
