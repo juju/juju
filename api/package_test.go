@@ -59,7 +59,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"internal/charm/assumes",
 		"internal/charm/hooks",
 		"internal/charm/resource",
-		"internal/feature",
+		"internal/featureflag",
 		"internal/http",
 		"internal/logger",
 		"internal/proxy",
