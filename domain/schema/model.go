@@ -377,18 +377,17 @@ CREATE UNIQUE INDEX idx_cloud_container_net_node
 ON cloud_container (net_node_uuid);
 
 CREATE TABLE instance_data (
-    uuid            	   TEXT PRIMARY KEY,
-    machine_uuid    	   TEXT NOT NULL,
-    instance_id 	   TEXT NOT NULL,
-    display_name 	   TEXT NOT NULL,
-    arch            	   TEXT,
-    mod 	    	   INT,
-    root_disk 	    	   INT,
+    machine_uuid           TEXT PRIMARY KEY,
+    instance_id            TEXT NOT NULL,
+    display_name           TEXT NOT NULL,
+    arch                   TEXT,
+    mem                    INT,
+    root_disk              INT,
     root_disk_source       TEXT,
-    cpu_cores 		   INT,
-    cpu_power 		   INT,
+    cpu_cores              INT,
+    cpu_power              INT,
     availability_zone_uuid TEXT,
-    virt_type 		   TEXT,
+    virt_type              TEXT,
     CONSTRAINT             fk_machine_machine_uuid
         FOREIGN KEY        (machine_uuid)
         REFERENCES         machine(uuid),
@@ -398,34 +397,26 @@ CREATE TABLE instance_data (
 );
 
 CREATE TABLE instance_tag (
-    uuid            TEXT PRIMARY KEY,
-    tag 	    TEXT NOT NULL
-);
-
-CREATE TABLE instance_tag_reference (
-    uuid            TEXT PRIMARY KEY,
-    tag_uuid 	    TEXT NOT NULL,
-    instance_uuid   TEXT NOT NULL,
-    CONSTRAINT      fk_instance_tag_tag_uuid
-        FOREIGN KEY (tag_uuid)
-        REFERENCES  instance_tag(uuid),
-    CONSTRAINT      fk_instance_data_instance_uuid
-        FOREIGN KEY (instance_uuid)
-        REFERENCES  instance_data(uuid)
+    machine_uuid    TEXT NOT NULL,
+    tag             TEXT NOT NULL,
+    PRIMARY KEY (machine_uuid, tag),
+    CONSTRAINT      fk_machine_machine_uuid
+        FOREIGN KEY (machine_uuid)
+        REFERENCES  machine(uuid)
 );
 
 CREATE TABLE lxd_profile (
     uuid            TEXT PRIMARY KEY,
-    profile_id 	    TEXT NOT NULL
+    name            TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX idx_lxd_profile_profile_id
-ON lxd_profile (profile_id);
+CREATE UNIQUE INDEX idx_lxd_profile_name
+ON lxd_profile (name);
 
-CREATE TABLE charm_profile (
-    uuid 		TEXT PRIMARY KEY,
+CREATE TABLE instance_data_charm_profile (
+    uuid                TEXT PRIMARY KEY,
     lxd_profile_uuid    TEXT NOT NULL,
-    machine_uuid 	TEXT NOT NULL,
+    machine_uuid        TEXT NOT NULL,
     CONSTRAINT          fk_machine_machine_uuid
         FOREIGN KEY     (machine_uuid)
         REFERENCES      machine(uuid),

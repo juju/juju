@@ -263,9 +263,8 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"cloud_container",
 		"instance_data",
 		"lxd_profile",
-		"charm_profile",
+		"instance_data_charm_profile",
 		"instance_tag",
-		"instance_tag_reference",
 
 		// Unit
 		"unit",
