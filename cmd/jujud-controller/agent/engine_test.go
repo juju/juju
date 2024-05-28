@@ -119,7 +119,6 @@ var (
 		"api-address-updater",
 		"deployer",
 		"disk-manager",
-		"fan-configurer",
 		"is-bootstrap-flag",
 		"is-bootstrap-gate",
 		"is-controller-flag",

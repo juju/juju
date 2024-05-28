@@ -69,7 +69,6 @@ import (
 	"github.com/juju/juju/internal/worker/deployer"
 	"github.com/juju/juju/internal/worker/diskmanager"
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
-	"github.com/juju/juju/internal/worker/fanconfigurer"
 	"github.com/juju/juju/internal/worker/filenotifywatcher"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/gate"
@@ -942,11 +941,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:     hostkeyreporter.NewWorker,
 		})),
 
-		fanConfigurerName: ifNotMigrating(fanconfigurer.Manifold(fanconfigurer.ManifoldConfig{
-			APICallerName: apiCallerName,
-			Clock:         config.Clock,
-		})),
-
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AgentName:                agentName,
 			AuthorityName:            certificateWatcherName,
@@ -959,12 +953,10 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		// The machiner Worker will wait for the identified machine to become
 		// Dying and make it Dead; or until the machine becomes Dead by other
-		// means. This worker needs to be launched after fanconfigurer
-		// so that it reports interfaces created by it.
+		// means.
 		machinerName: ifNotMigrating(machiner.Manifold(machiner.ManifoldConfig{
-			AgentName:         agentName,
-			APICallerName:     apiCallerName,
-			FanConfigurerName: fanConfigurerName,
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
 		})),
 
 		// DBAccessor is a manifold that provides a DBAccessor worker
@@ -1333,7 +1325,6 @@ const (
 	toolsVersionCheckerName       = "tools-version-checker"
 	machineActionName             = "machine-action-runner"
 	hostKeyReporterName           = "host-key-reporter"
-	fanConfigurerName             = "fan-configurer"
 	externalControllerUpdaterName = "external-controller-updater"
 	isPrimaryControllerFlagName   = "is-primary-controller-flag"
 	isControllerFlagName          = "is-controller-flag"

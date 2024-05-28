@@ -87,7 +87,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"deployer",
 			"disk-manager",
 			"external-controller-updater",
-			"fan-configurer",
 			"file-notify-watcher",
 			"host-key-reporter",
 			"http-server-args",
@@ -731,18 +730,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
-	"fan-configurer": {
-		"agent",
-		"api-caller",
-		"api-config-watcher",
-		"migration-fortress",
-		"migration-inactive-flag",
-		"upgrade-check-flag",
-		"upgrade-check-gate",
-		"upgrade-steps-flag",
-		"upgrade-steps-gate",
-	},
-
 	"file-notify-watcher": {
 		"agent",
 		"is-controller-flag",
@@ -964,7 +951,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"agent",
 		"api-caller",
 		"api-config-watcher",
-		"fan-configurer",
 		"migration-fortress",
 		"migration-inactive-flag",
 		"upgrade-check-flag",

@@ -20,9 +20,8 @@ import (
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
-	AgentName         string
-	APICallerName     string
-	FanConfigurerName string
+	AgentName     string
+	APICallerName string
 }
 
 // Manifold returns a dependency manifold that runs a machiner worker, using
@@ -32,7 +31,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		Inputs: []string{
 			config.AgentName,
 			config.APICallerName,
-			config.FanConfigurerName,
 		},
 		Start: func(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 			var agent agent.Agent
@@ -42,13 +40,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			var apiCaller base.APICaller
 			if err := getter.Get(config.APICallerName, &apiCaller); err != nil {
 				return nil, err
-			}
-			var fanConfigurerReady bool
-			if err := getter.Get(config.FanConfigurerName, &fanConfigurerReady); err != nil {
-				return nil, err
-			}
-			if !fanConfigurerReady {
-				return nil, dependency.ErrMissing
 			}
 			return newWorker(agent, apiCaller)
 		},

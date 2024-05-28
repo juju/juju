@@ -10,6 +10,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 )
 
+// TODO(nvinuesa): This entire facade should be removed since it's not used
+// anymore (the fanconfigurer worker has been removed).
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("FanConfigurer", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {

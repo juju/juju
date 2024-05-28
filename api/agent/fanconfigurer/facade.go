@@ -25,6 +25,8 @@ type Facade struct {
 	caller base.FacadeCaller
 }
 
+// TODO(nvinuesa): This entire facade should be removed since it's not used
+// anymore (the fanconfigurer worker has been removed).
 // NewFacade creates a new client-side FanConfigu	er facade.
 func NewFacade(caller base.APICaller, options ...Option) *Facade {
 	return &Facade{
