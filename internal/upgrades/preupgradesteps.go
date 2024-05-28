@@ -6,7 +6,7 @@ package upgrades
 import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
-	"github.com/juju/packaging/v3/manager"
+	"github.com/juju/juju/internal/packaging/manager"
 	"github.com/juju/utils/v4/du"
 
 	"github.com/juju/juju/agent"

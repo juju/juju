@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/packaging/v3"
-	"github.com/juju/packaging/v3/config"
 	"gopkg.in/yaml.v2"
 
 	corenetwork "github.com/juju/juju/core/network"
-	jujupackaging "github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging/config"
+	"github.com/juju/juju/internal/packaging/source"
 )
 
 // PackageHelper is the interface for configuring specific parameter of the package manager
@@ -94,33 +94,32 @@ func (cfg *centOSCloudConfig) PackageMirror() string {
 }
 
 // AddPackageSource is defined on the PackageSourcesConfig interface.
-func (cfg *centOSCloudConfig) AddPackageSource(src packaging.PackageSource) {
+func (cfg *centOSCloudConfig) AddPackageSource(src source.PackageSource) {
 	cfg.attrs["package_sources"] = append(cfg.PackageSources(), src)
 }
 
 // PackageSources is defined on the PackageSourcesConfig interface.
-func (cfg *centOSCloudConfig) PackageSources() []packaging.PackageSource {
-	sources, _ := cfg.attrs["package_sources"].([]packaging.PackageSource)
+func (cfg *centOSCloudConfig) PackageSources() []source.PackageSource {
+	sources, _ := cfg.attrs["package_sources"].([]source.PackageSource)
 	return sources
 }
 
 // AddPackagePreferences is defined on the PackageSourcesConfig interface.
-func (cfg *centOSCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
+func (cfg *centOSCloudConfig) AddPackagePreferences(prefs source.PackagePreferences) {
 	// TODO (aznashwan): research a way of using yum-priorities in the
 	// context of a single package and implement the appropriate runcmds.
 }
 
 // PackagePreferences is defined on the PackageSourcesConfig interface.
-func (cfg *centOSCloudConfig) PackagePreferences() []packaging.PackagePreferences {
+func (cfg *centOSCloudConfig) PackagePreferences() []source.PackagePreferences {
 	// TODO (aznashwan): add this when priorities in yum make sense.
-	return []packaging.PackagePreferences{}
+	return []source.PackagePreferences{}
 }
 
 // Render is defined on the the Renderer interface.
 func (cfg *centOSCloudConfig) RenderYAML() ([]byte, error) {
 	// Save the fields that we will modify
-	var oldruncmds []string
-	oldruncmds = copyStringSlice(cfg.RunCmds())
+	oldruncmds := copyStringSlice(cfg.RunCmds())
 
 	// check for package proxy setting and add commands:
 	var proxy string
@@ -175,7 +174,7 @@ func (cfg *centOSCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		cmds = append(cmds, addPackageMirrorCmd(cfg, newMirror))
 	}
 
-	pkgCmder := cfg.paccmder[jujupackaging.YumPackageManager]
+	pkgCmder := cfg.paccmder[packaging.YumPackageManager]
 	for _, src := range cfg.PackageSources() {
 		// TODO(bogdanteleaga. aznashwan): Keys are usually offered by repositories, and you need to
 		// accept them. Check how this can be done non interactively.

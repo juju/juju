@@ -7,7 +7,7 @@ import (
 	"os/exec"
 
 	"github.com/dustin/go-humanize"
-	pkgmgr "github.com/juju/packaging/v3/manager"
+	pkgmgr "github.com/juju/juju/internal/packaging/manager"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 

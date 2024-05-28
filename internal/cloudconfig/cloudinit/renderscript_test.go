@@ -6,12 +6,12 @@ package cloudinit_test
 import (
 	"regexp"
 
-	"github.com/juju/packaging/v3"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
+	"github.com/juju/juju/internal/packaging/source"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -56,7 +56,7 @@ func (s *configureSuite) TestAptUpdate(c *gc.C) {
 
 	// If we add sources, but disable updates, display an error.
 	cfg.SetSystemUpdate(false)
-	source := packaging.PackageSource{
+	source := source.PackageSource{
 		Name: "source",
 		URL:  "source",
 		Key:  "key",
@@ -72,7 +72,7 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	cfg, err := cloudinit.New("ubuntu")
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.SetSystemUpdate(true)
-	source := packaging.PackageSource{
+	source := source.PackageSource{
 		Name: "source",
 		URL:  "source",
 		Key:  "key",

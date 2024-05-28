@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/packaging/v3/commands"
-	"github.com/juju/packaging/v3/config"
+	"github.com/juju/juju/internal/packaging/commands"
+	"github.com/juju/juju/internal/packaging/config"
 	"github.com/juju/proxy"
 	"github.com/juju/worker/v4"
 
