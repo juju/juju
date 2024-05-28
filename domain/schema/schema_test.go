@@ -288,7 +288,24 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 		// Charm
 		"charm",
+		"charm_category",
+		"charm_container_mount",
+		"charm_container",
+		"charm_device",
+		"charm_extra_binding",
+		"charm_payload",
+		"charm_relation_kind",
+		"charm_relation_role",
+		"charm_relation_scope",
+		"charm_relation",
+		"charm_resource_kind",
+		"charm_resource",
+		"charm_run_as_kind",
+		"charm_storage_property",
 		"charm_storage",
+		"charm_storage",
+		"charm_tag",
+		"charm_term",
 
 		// Space
 		"space",
