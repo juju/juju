@@ -20,7 +20,7 @@ import (
 var _ = gc.Suite(&ManagerSuite{})
 
 type ManagerSuite struct {
-	apt, snap, yum, zypper manager.PackageManager
+	apt, snap, yum manager.PackageManager
 	testing.IsolationSuite
 	calledCommand string
 }
@@ -30,7 +30,6 @@ func (s *ManagerSuite) SetUpSuite(c *gc.C) {
 	s.apt = manager.NewAptPackageManager()
 	s.snap = manager.NewSnapPackageManager()
 	s.yum = manager.NewYumPackageManager()
-	s.zypper = manager.NewZypperPackageManager()
 }
 
 func (s *ManagerSuite) SetUpTest(c *gc.C) {
@@ -57,10 +56,6 @@ var (
 	// yumCmder is the commands.PackageCommander for yum-based
 	// systems whose commands will be checked against.
 	yumCmder = commands.NewYumPackageCommander()
-
-	// zypperCmder is the commands.PackageCommander for zypper-based
-	// systems whose commands will be checked against.
-	zypperCmder = commands.NewZypperPackageCommander()
 
 	// testedPackageName is the package name used in all
 	// single-package testing scenarios.
@@ -123,12 +118,6 @@ type simpleTestCase struct {
 	// the expected result of the given yum operation:
 	expectedYumResult interface{}
 
-	// the expected yum command which will get executed:
-	expectedZypperCmd string
-
-	// the expected result of the given yum operation:
-	expectedZypperResult interface{}
-
 	// the function to be applied on the package manager.
 	// returns the result of the operation and the error.
 	operation func(manager.PackageManager) (interface{}, error)
@@ -143,8 +132,6 @@ var simpleTestCases = []*simpleTestCase{
 		nil,
 		yumCmder.InstallPrerequisiteCmd(),
 		nil,
-		zypperCmder.InstallPrerequisiteCmd(),
-		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.InstallPrerequisite()
 		},
@@ -156,8 +143,6 @@ var simpleTestCases = []*simpleTestCase{
 		snapCmder.UpdateCmd(),
 		nil,
 		yumCmder.UpdateCmd(),
-		nil,
-		zypperCmder.UpdateCmd(),
 		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Update()
@@ -171,8 +156,6 @@ var simpleTestCases = []*simpleTestCase{
 		nil,
 		yumCmder.UpgradeCmd(),
 		nil,
-		zypperCmder.UpgradeCmd(),
-		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Upgrade()
 		},
@@ -184,8 +167,6 @@ var simpleTestCases = []*simpleTestCase{
 		snapCmder.InstallCmd(testedPackageNames...),
 		nil,
 		yumCmder.InstallCmd(testedPackageNames...),
-		nil,
-		zypperCmder.InstallCmd(testedPackageNames...),
 		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Install(testedPackageNames...)
@@ -199,8 +180,6 @@ var simpleTestCases = []*simpleTestCase{
 		nil,
 		yumCmder.RemoveCmd(testedPackageNames...),
 		nil,
-		zypperCmder.RemoveCmd(testedPackageNames...),
-		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Remove(testedPackageNames...)
 		},
@@ -212,8 +191,6 @@ var simpleTestCases = []*simpleTestCase{
 		snapCmder.PurgeCmd(testedPackageNames...),
 		nil,
 		yumCmder.PurgeCmd(testedPackageNames...),
-		nil,
-		zypperCmder.PurgeCmd(testedPackageNames...),
 		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Purge(testedPackageNames...)
@@ -227,8 +204,6 @@ var simpleTestCases = []*simpleTestCase{
 		nil,
 		yumCmder.AddRepositoryCmd(testedRepoName),
 		nil,
-		zypperCmder.AddRepositoryCmd(testedRepoName),
-		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.AddRepository(testedRepoName)
 		},
@@ -241,8 +216,6 @@ var simpleTestCases = []*simpleTestCase{
 		nil,
 		yumCmder.RemoveRepositoryCmd(testedRepoName),
 		nil,
-		zypperCmder.RemoveRepositoryCmd(testedRepoName),
-		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.RemoveRepository(testedRepoName)
 		},
@@ -254,8 +227,6 @@ var simpleTestCases = []*simpleTestCase{
 		snapCmder.CleanupCmd(),
 		nil,
 		yumCmder.CleanupCmd(),
-		nil,
-		zypperCmder.CleanupCmd(),
 		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Cleanup()
@@ -275,8 +246,6 @@ var searchingTestCases = []*simpleTestCase{
 		false,
 		yumCmder.SearchCmd(testedPackageName),
 		true,
-		zypperCmder.SearchCmd(testedPackageName),
-		false,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return pacman.Search(testedPackageName)
 		},
@@ -288,8 +257,6 @@ var searchingTestCases = []*simpleTestCase{
 		snapCmder.IsInstalledCmd(testedPackageName),
 		true,
 		yumCmder.IsInstalledCmd(testedPackageName),
-		true,
-		zypperCmder.IsInstalledCmd(testedPackageName),
 		true,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return pacman.IsInstalled(testedPackageName), nil

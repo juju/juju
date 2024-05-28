@@ -82,30 +82,6 @@ func (s *RunSuite) TestRunCommandWithRetryDoesOnPackageLocationFailure(c *gc.C) 
 	c.Check(calls, gc.Equals, minRetries)
 }
 
-func (s *RunSuite) TestRunCommandWithRetryDoesNotRetryZappierOnPackageLocationFailure(c *gc.C) {
-	const minRetries = 3
-	var calls int
-	state := os.ProcessState{}
-	cmdError := &exec.ExitError{ProcessState: &state}
-	s.PatchValue(&manager.Attempts, minRetries)
-	s.PatchValue(&manager.Delay, testing.ShortWait)
-	s.PatchValue(&manager.ProcessStateSys, func(*os.ProcessState) interface{} {
-		return mockExitStatuser(100) // retry each time.
-	})
-	s.PatchValue(&manager.CommandOutput, func(cmd *exec.Cmd) ([]byte, error) {
-		calls++
-		cmdOutput := fmt.Sprintf("Reading state information...\nE: Unable to locate package %s",
-
-			testedPackageName)
-		return []byte(cmdOutput), cmdError
-	})
-
-	zypper := manager.NewZypperPackageManager()
-	err := zypper.Install(testedPackageName)
-	c.Check(err, gc.ErrorMatches, "packaging command failed: exit status.*")
-	c.Check(calls, gc.Equals, 1)
-}
-
 func (s *RunSuite) TestRunCommandWithRetryStopsWithFatalError(c *gc.C) {
 	const minRetries = 3
 	var calls int

@@ -80,8 +80,6 @@ func NewPackageManager(series string) (PackageManager, error) {
 	switch series {
 	case "centos7":
 		return NewYumPackageManager(), nil
-	case "opensuseleap":
-		return NewZypperPackageManager(), nil
 	default:
 		return NewAptPackageManager(), nil
 	}

@@ -37,8 +37,6 @@ func NewPackagingConfigurer(os string) (PackagingConfigurer, error) {
 	switch os {
 	case "centos":
 		return NewYumPackagingConfigurer(), nil
-	case "opensuse":
-		return NewZypperPackagingConfigurer(), nil
 	default:
 		return NewAptPackagingConfigurer(), nil
 	}
@@ -57,12 +55,5 @@ func NewYumPackagingConfigurer() PackagingConfigurer {
 	return &yumConfigurer{&baseConfigurer{
 		defaultPackages:      CentOSDefaultPackages,
 		cloudArchivePackages: cloudArchivePackagesCentOS,
-	}}
-}
-
-func NewZypperPackagingConfigurer() PackagingConfigurer {
-	return &zypperConfigurer{&baseConfigurer{
-		defaultPackages:      OpenSUSEDefaultPackages,
-		cloudArchivePackages: cloudArchivePackagesOpenSUSE,
 	}}
 }
