@@ -25,8 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/permission"
-	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -171,7 +169,6 @@ func (a *Authenticator) AuthenticateLoginRequest(
 
 	var dischargeRequired *apiservererrors.DischargeRequiredError
 	if errors.As(err, &dischargeRequired) || errors.Is(err, errors.NotProvisioned) {
-		// TODO(axw) move out of common?
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 
@@ -222,23 +219,9 @@ func (a *Authenticator) checkCreds(
 			return authentication.AuthInfo{}, errors.Trace(err)
 		}
 
-		modelAccess, err := a.authContext.userService.ReadUserAccessForTarget(ctx, userTag.Id(), permission.ID{
-			ObjectType: permission.Model,
-			Key:        model.UUID(),
-		})
-		if err != nil && !errors.Is(err, accesserrors.PermissionNotFound) {
-			return authentication.AuthInfo{}, errors.Trace(err)
-		}
-
-		// This is permission checking at the wrong level, but we can keep it
-		// here for now.
-		if err := a.checkPerms(ctx, modelAccess, userTag); err != nil {
-			logger.Criticalf(err.Error())
-			return authentication.AuthInfo{}, errors.Trace(err)
-		}
-
-		if err := a.updateUserLastLogin(ctx, modelAccess, userTag, model); err != nil {
-			return authentication.AuthInfo{}, errors.Trace(err)
+		err = a.authContext.userService.UpdateLastModelLogin(ctx, userTag.Name(), coremodel.UUID(model.UUID()))
+		if err != nil {
+			logger.Warningf("updating last login time for %v, %v", userTag, err)
 		}
 
 	case names.MachineTagKind, names.ControllerAgentTagKind:
@@ -248,61 +231,6 @@ func (a *Authenticator) checkCreds(
 	}
 
 	return authInfo, nil
-}
-
-func (a *Authenticator) checkPerms(ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag) error {
-	if !permission.IsEmptyUserAccess(modelAccess) {
-		return nil
-	}
-
-	// No model user found, so see if the user has been granted
-	// access to the controller.
-	st := a.authContext.st
-	controllerAccess, err := a.authContext.userService.ReadUserAccessForTarget(ctx, userTag.Id(), permission.ID{
-		ObjectType: permission.Controller,
-		Key:        "controller",
-	})
-	if err != nil && !errors.Is(err, accesserrors.PermissionNotFound) {
-		return errors.Trace(err)
-	}
-	if !permission.IsEmptyUserAccess(controllerAccess) {
-		return nil
-	}
-
-	// TODO(perrito666) remove the following section about everyone group
-	// when groups are implemented, this accounts only for the lack of a local
-	// ControllerUser when logging in from an external user that has not been granted
-	// permissions on the controller but there are permissions for the special
-	// everyone group.
-	if !userTag.IsLocal() {
-		everyoneTag := names.NewUserTag(common.EveryoneTagName)
-
-		controllerAccess, err = st.UserAccess(everyoneTag, st.ControllerTag())
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return errors.Annotatef(err, "obtaining ControllerUser for everyone group")
-		}
-
-		if !permission.IsEmptyUserAccess(controllerAccess) {
-			return nil
-		}
-	}
-	return errors.NotFoundf("model or controller user")
-}
-
-func (a *Authenticator) updateUserLastLogin(
-	ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag, model *state.Model,
-) error {
-	if !permission.IsEmptyUserAccess(modelAccess) && modelAccess.Object.Kind() != names.ModelTagKind {
-		return errors.NotValidf("%s as model user", modelAccess.Object.Kind())
-	}
-
-	// Update the last login time for the user.
-	err := a.authContext.userService.UpdateLastModelLogin(ctx, userTag.Name(), coremodel.UUID(model.UUID()))
-	if err != nil {
-		logger.Warningf("updating last login time for %v, %v", userTag, err)
-	}
-
-	return nil
 }
 
 func (a *Authenticator) isManager(entity state.Entity) bool {

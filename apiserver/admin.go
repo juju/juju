@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
@@ -403,7 +404,7 @@ func (a *admin) handleAuthError(err error) error {
 	if err, ok := errors.Cause(err).(*apiservererrors.DischargeRequiredError); ok {
 		return err
 	}
-	if a.maintenanceInProgress() {
+	if !a.srv.upgradeComplete() {
 		// An upgrade, migration or similar operation is in
 		// progress. It is possible for logins to fail until this
 		// is complete due to incomplete or updating data. Mask
@@ -455,9 +456,25 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 	// everyone group.
 	everyoneGroupAccess := permission.NoAccess
 	if !userTag.IsLocal() {
-		everyoneTag := names.NewUserTag(common.EveryoneTagName)
-		everyoneGroupUser, err := state.ControllerAccess(a.root.state, everyoneTag)
-		if err != nil && !errors.Is(err, errors.NotFound) {
+
+		// TODO (manadart 2024-05-27): This is a huge wart.
+		// We already do a lot of the checking in this method in
+		// AuthenticateLoginRequest.
+		// Having to acquire the service this way is an abysmal failure of
+		// encapsulation.
+		// The best option might be to round up all of these special case
+		// "everyone@external" checks and push them into either the permission
+		// delegator or the service itself.
+		accessService := a.srv.shared.serviceFactoryGetter.FactoryForModel(database.ControllerNS).Access()
+		everyoneGroupUser, err := accessService.ReadUserAccessForTarget(
+			context.TODO(),
+			common.EveryoneTagName,
+			permission.ID{
+				ObjectType: permission.Controller,
+				Key:        "controller",
+			},
+		)
+		if err != nil && !errors.Is(err, accesserrors.UserNotFound) && !errors.Is(err, accesserrors.PermissionNotFound) {
 			return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
 		}
 		everyoneGroupAccess = everyoneGroupUser.Access
@@ -478,10 +495,10 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 
 		var err error
 		modelAccess, err = authInfo.SubjectPermissions(a.root.model.ModelTag())
-		if err != nil && controllerAccess != permission.SuperuserAccess {
-			return nil, errors.Wrap(err, apiservererrors.ErrPerm)
-		}
-		if err != nil && controllerAccess == permission.SuperuserAccess {
+		if err != nil {
+			if controllerAccess != permission.SuperuserAccess {
+				return nil, errors.Wrap(err, apiservererrors.ErrPerm)
+			}
 			modelAccess = permission.AdminAccess
 		}
 	}
@@ -529,10 +546,6 @@ func filterFacades(registry *facade.Registry, allowFacadeAllMustMatch ...facadeF
 		}
 	}
 	return out
-}
-
-func (a *admin) maintenanceInProgress() bool {
-	return !a.srv.upgradeComplete()
 }
 
 // PingRootHandler is the interface that the root handler must implement
