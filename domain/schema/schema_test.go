@@ -307,6 +307,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"charm_resource",
 		"charm_run_as_kind",
 		"charm_source",
+		"charm_state",
 		"charm_storage_property",
 		"charm_storage",
 		"charm_storage",

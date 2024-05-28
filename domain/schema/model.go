@@ -324,9 +324,6 @@ CREATE TABLE charm (
     -- As the expression tree is generic, you can't use RI or index into the
     -- blob without constraining the expression to a specific set of rules.
     assumes_blob        TEXT,
-    -- Available is a flag that indicates whether the charm is available for
-    -- deployment.
-    available           BOOLEAN,
     CONSTRAINT          fk_charm_run_as_kind_charm
         FOREIGN KEY     (run_as_id)
         REFERENCES      charm_run_as_kind(id)
@@ -334,6 +331,23 @@ CREATE TABLE charm (
 
 CREATE UNIQUE INDEX idx_charm_name
     ON charm (name);
+
+-- The charm_state table exists to store the availability of a charm. The
+-- fact that the charm is in the database indicates that it's a placeholder.
+-- Updating the available flag to true indicates that the charm is now
+-- available for deployment.
+-- This is exists as a separate table as the charm table models the charm
+-- metadata and the goal state of the charm. The charm_state table models the
+-- internal state of the charm.
+CREATE TABLE charm_state (
+    charm_uuid          TEXT NOT NULL,
+    -- Available is a flag that indicates whether the charm is available for
+    -- deployment.
+    available           BOOLEAN,
+    CONSTRAINT          fk_charm_state_charm
+        FOREIGN KEY     (charm_uuid)
+        REFERENCES      charm(uuid)
+);
 
 CREATE TABLE charm_source (
     id       INT PRIMARY KEY,
