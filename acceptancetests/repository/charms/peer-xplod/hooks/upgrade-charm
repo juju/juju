@@ -1,6 +1,0 @@
-#!/bin/bash
-# This hook is executed each time a charm is upgraded after the new charm
-# contents have been unpacked
-# Best practice suggests you execute the hooks/install and
-# hooks/config-changed to ensure all updates are processed
-

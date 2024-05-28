@@ -1,5 +1,0 @@
-applications:
-    trust-checker:
-        charm: cs:~juju-qa/bionic/trust-checker-0
-        num_units: 1
-        trust: true

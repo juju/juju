@@ -1,7 +1,0 @@
-name: statusstresser
-summary: A pristine Ubuntu Server that has a lot of status calls
-maintainer: Charmers <juju@lists.ubuntu.com>
-description: |
-        This simply deploys Ubuntu Server calling a lot of set-status in the hooks.
-categories:
-     - misc

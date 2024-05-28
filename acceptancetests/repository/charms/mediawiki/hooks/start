@@ -1,5 +1,0 @@
-#!/bin/bash
-
-set -eux
-
-application-version-set $(dpkg -s mediawiki | grep '^Version:' | awk -F':' '{print $3}' | cut -d+ -f1)

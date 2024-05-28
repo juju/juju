@@ -1,3 +1,0 @@
-#!/bin/bash
-# Does nothing. - charm proof requires an install hook.
-status-set "active" "called in install hook"

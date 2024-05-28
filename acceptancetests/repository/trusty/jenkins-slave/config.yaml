@@ -1,9 +1,0 @@
-options:
-  tools:
-    type: string
-    default: git gcc make bzr
-    description: Tooling to deploy on jenkins slave node
-  labels:
-    type: string
-    description: Jenkins labels to associate with jenkins slave node
-    default: ""

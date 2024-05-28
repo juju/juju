@@ -1,5 +1,0 @@
-#!/bin/bash
-
-# Try to call status-set but don't fail if it isn't available
-status-set maintenance "installing" || true
-apt-get install -y python
