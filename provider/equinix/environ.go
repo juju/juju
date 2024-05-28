@@ -45,9 +45,7 @@ import (
 
 var logger = loggo.GetLogger("juju.provider.equinix")
 
-const (
-	sshPort = 22
-)
+const sshPort = 22
 
 type environConfig struct {
 	config *config.Config

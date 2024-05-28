@@ -388,7 +388,7 @@ func bootstrapIAAS(
 		config.PreferredBase(cfg),
 	)
 	if !args.Force && err != nil {
-		// If the series isn't valid at all, then don't prompt users to use
+		// If the base isn't valid at all, then don't prompt users to use
 		// the --force flag.
 		if requestedBootstrapBase.OS != corebase.UbuntuOS {
 			return errors.NotValidf("non-ubuntu bootstrap base %q", requestedBootstrapBase.String())
