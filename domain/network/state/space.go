@@ -9,8 +9,6 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	coreDB "github.com/juju/juju/core/database"
@@ -63,45 +61,12 @@ VALUES ($ProviderSpace.provider_id, $ProviderSpace.space_uuid)`, ProviderSpace{}
 		return errors.Trace(err)
 	}
 
-	findFanSubnetsStmt, err := sqlair.Prepare(`
-SELECT subject_subnet_uuid AS &Subnet.uuid
-FROM   subnet_association
-WHERE  association_type_id = 0 AND associated_subnet_uuid IN ($S[:])`, sqlair.S{}, Subnet{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	checkInputSubnetsStmt, err := sqlair.Prepare(`
-SELECT &Subnet.uuid
-FROM   subnet
-JOIN   subnet_type
-ON     subnet.subnet_type_id = subnet_type.id
-WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair.S{}, Subnet{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	subnetIDsInS := sqlair.S{}
 	for _, sid := range subnetIDs {
 		subnetIDsInS = append(subnetIDsInS, sid)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// We must first check on the provided subnet ids to validate
-		// that are of a type on which the space can be set.
-		var nonSettableSubnets []Subnet
-		if err := tx.Query(ctx, checkInputSubnetsStmt, subnetIDsInS).GetAll(&nonSettableSubnets); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "checking if there are fan subnets for space %q", uuid)
-		}
-
-		// If any row is returned we must fail with the returned fan
-		// subnet uuids.
-		if len(nonSettableSubnets) > 0 {
-			deduplicatedSubnetUUIDs := set.NewStrings(transform.Slice(nonSettableSubnets, func(s Subnet) string { return s.UUID })...).Values()
-			return errors.Errorf(
-				"cannot set space for FAN subnet UUIDs %q - it is always inherited from underlay", deduplicatedSubnetUUIDs)
-		}
-
 		if err := tx.Query(ctx, insertSpaceStmt, Space{UUID: uuid, Name: name}).Run(); err != nil {
 			if database.IsErrConstraintUnique(err) {
 				return fmt.Errorf("inserting space uuid %q into space table: %w with err: %w", uuid, networkerrors.ErrSpaceAlreadyExists, err)
@@ -113,17 +78,6 @@ WHERE  subnet_type.is_space_settable = FALSE AND subnet.uuid IN ($S[:])`, sqlair
 				return errors.Annotatef(err, "inserting provider id %q into provider_space table", providerID)
 			}
 		}
-
-		// Retrieve the fan overlays (if any) of the passed subnet ids.
-		var fanSubnets []Subnet
-		err = tx.Query(ctx, findFanSubnetsStmt, subnetIDsInS).GetAll(&fanSubnets)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "retrieving the fan subnets for space %q", uuid)
-		}
-		// Append the fan subnet (unique) ids (if any) to the provided
-		// subnet ids.
-		deduplicatedSubnetUUIDs := set.NewStrings(transform.Slice(fanSubnets, func(s Subnet) string { return s.UUID })...).Values()
-		subnetIDs = append(subnetIDs, deduplicatedSubnetUUIDs...)
 
 		// Update all subnets (including their fan overlays) to include
 		// the space uuid.

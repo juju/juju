@@ -67,7 +67,6 @@ func ModelDDL() *schema.Schema {
 		changeLogTriggersForTable("secret_revision", "uuid", tableSecretRevision),
 		changeLogTriggersForTable("secret_reference", "secret_id", tableSecretReference),
 		changeLogTriggersForTable("subnet", "uuid", tableSubnet),
-		changeLogTriggersForTable("subnet_association", "associated_subnet_uuid", tableSubnetAssociation),
 
 		triggersForImmutableTable("model", "", "model table is immutable"),
 
@@ -139,8 +138,7 @@ INSERT INTO change_log_namespace VALUES
     (12, 'secret_revision_expire', 'Secret revision next expire time changes based on UUID'),
     (13, 'secret_revision', 'Secret revision changes based on UUID'),
     (14, 'secret_reference', 'Secret reference changes based on UUID'),
-    (15, 'subnet', 'Subnet changes based on UUID'),
-    (16, 'subnet_association', 'Subnet association (fan underlay) changes based on UUID');
+    (15, 'subnet', 'Subnet changes based on UUID');
 `)
 }
 
@@ -204,103 +202,15 @@ INSERT INTO space VALUES
 
 func subnetSchema() schema.Patch {
 	return schema.MakePatch(`
---  subnet                                    subnet_type
--- +-----------------------+                 +-------------------------+
--- |*uuid              text|                 |*id                  text|
--- |cidr               text|1               1|name                 text|
--- |vlan_tag            int+-----------------+is_usable         boolean|
--- |space_uuid         text|                 |is_space_settable boolean|
--- |subnet_type_uuid   text|                 +------------+------------+
--- +---------+-------------+                              |1
---           |1                                           |
---           |                                            |
---           |                                            |
---           |                                            |
---           |n                                           |n
---  subnet_association                        subnet_type_association_type
--- +---------------------------+             +------------------------------+
--- |*subject_subnet_uuid   text|             |*subject_subnet_type_id   text|
--- |associated_subnet_uuid text|             |associated_subnet_type_id text|
--- |association_type_id    text|             |association_type_id       text|
--- +---------+-----------------+             +------------+-----------------+
---           |1                                           |1
---           |                                            |
---           |                                            |
---           |                                            |
---           |1                                           |
---  subnet_association_type                               |
--- +-----------------------+                              |
--- |*id                text+------------------------------+
--- |name               text|1
--- +-----------------------+
 CREATE TABLE subnet (
     uuid                         TEXT PRIMARY KEY,
     cidr                         TEXT NOT NULL,
     vlan_tag                     INT,
     space_uuid                   TEXT,
-    subnet_type_id               INT,
     CONSTRAINT                   fk_subnets_spaces
         FOREIGN KEY                  (space_uuid)
-        REFERENCES                   space(uuid),
-    CONSTRAINT                   fk_subnet_types
-        FOREIGN KEY                  (subnet_type_id)
-        REFERENCES                   subnet_type(id)
+        REFERENCES                   space(uuid)
 );
-
-CREATE TABLE subnet_type (
-    id                           INT PRIMARY KEY,
-    name                         TEXT NOT NULL,
-    is_usable                    BOOLEAN,
-    is_space_settable            BOOLEAN
-);
-
-INSERT INTO subnet_type VALUES
-    (0, 'base', true, true),    -- The base (or standard) subnet type. If another subnet is an overlay of a base subnet in fan bridging, then the base subnet is the underlay in fan terminology.
-    (1, 'fan_overlay_segment', true, false);
-
-CREATE TABLE subnet_association_type (
-    id                           INT PRIMARY KEY,
-    name                         TEXT NOT NULL
-);
-
-INSERT INTO subnet_association_type VALUES
-    (0, 'overlay_of');    -- The subnet is an overlay of other (an underlay) subnet.
-
-CREATE TABLE subnet_type_association_type (
-    subject_subnet_type_id         INT PRIMARY KEY,
-    associated_subnet_type_id      INT NOT NULL,
-    association_type_id            INT NOT NULL,
-    CONSTRAINT                     fk_subject_subnet_type_id
-        FOREIGN KEY                    (subject_subnet_type_id)
-        REFERENCES                     subnet_type(id),
-    CONSTRAINT                     fk_associated_subnet_type_id
-        FOREIGN KEY                    (associated_subnet_type_id)
-        REFERENCES                     subnet_association_type(id),
-    CONSTRAINT                     fk_association_type_id
-        FOREIGN KEY                    (association_type_id)
-        REFERENCES                     subnet_association_type(id)
-);
-
-INSERT INTO subnet_type_association_type VALUES
-    (1, 0, 0);    -- This reference "allowable" association means that a 'fan_overlay' subnet can only be an overlay of a 'base' subnet.
-
-CREATE TABLE subnet_association (
-    subject_subnet_uuid            TEXT PRIMARY KEY,
-    associated_subnet_uuid         TEXT NOT NULL,
-    association_type_id            INT NOT NULL,
-    CONSTRAINT                     fk_subject_subnet_uuid
-        FOREIGN KEY                    (subject_subnet_uuid)
-        REFERENCES                     subnet(uuid),
-    CONSTRAINT                     fk_associated_subnet_uuid
-        FOREIGN KEY                    (associated_subnet_uuid)
-        REFERENCES                     subnet(uuid),
-    CONSTRAINT                     fk_association_type_id
-        FOREIGN KEY                    (association_type_id)
-        REFERENCES                     subnet_association_type(id)
-);
-
-CREATE UNIQUE INDEX idx_subnet_association
-ON subnet_association (subject_subnet_uuid, associated_subnet_uuid);
 
 CREATE TABLE provider_subnet (
     provider_id     TEXT PRIMARY KEY,

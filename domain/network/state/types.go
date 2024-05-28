@@ -19,8 +19,6 @@ type Subnet struct {
 	VLANtag int `db:"vlan_tag"`
 	// SpaceUUID is the space UUID.
 	SpaceUUID string `db:"space_uuid"`
-	// SubnetType indicates if the subnet is a fan overlay or a base subnet.
-	SubnetType int `db:"subnet_type_id"`
 }
 
 // ProviderSubnet represents a single row from the provider_subnet table.
@@ -109,12 +107,6 @@ type SpaceSubnetRow struct {
 
 	// SubnetAZ is the availability zones on the subnet.
 	SubnetAZ string `db:"subnet_az"`
-
-	// SubnetOverlayCIDR is the subnet's overlay cidr in a fan setup.
-	SubnetOverlayCIDR sql.NullString `db:"subnet_overlay_cidr"`
-
-	// SubnetUnderlayCIDR is the subnet's underlay cidr in a fan setup.
-	SubnetUnderlayCIDR sql.NullString `db:"subnet_underlay_cidr"`
 }
 
 // Alias type to a slice of Space/Subnet rows.
@@ -193,13 +185,6 @@ func (s SpaceSubnetRow) ToSubnetInfo() *network.SubnetInfo {
 	}
 	if s.SubnetProviderSpaceUUID.Valid {
 		sInfo.ProviderSpaceId = network.Id(s.SubnetProviderSpaceUUID.String)
-	}
-	if s.SubnetUnderlayCIDR.Valid {
-		underlay := ""
-		if s.SubnetUnderlayCIDR.Valid {
-			underlay = s.SubnetUnderlayCIDR.String
-		}
-		sInfo.SetFan(underlay, "")
 	}
 	if s.SubnetSpaceUUID.Valid {
 		sInfo.SpaceID = s.SubnetSpaceUUID.String

@@ -5,7 +5,6 @@ package state
 
 import (
 	ctx "context"
-	"fmt"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -163,58 +162,6 @@ func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "sql: no rows in result set")
 }
 
-func (s *stateSuite) TestAddSpaceFailFanOverlay(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-
-	spaceUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add a subnet of type base.
-	subnetUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSubnet(
-		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID.String()),
-			CIDR:              "192.168.0.0/12",
-			ProviderId:        "provider-id-0",
-			ProviderNetworkId: "provider-network-id-0",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           "",
-			FanInfo:           nil,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	// Add a subnet of type fan.
-	subnetFanUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSubnet(
-		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetFanUUID.String()),
-			CIDR:              "10.0.0.0/24",
-			ProviderId:        "provider-id-1",
-			ProviderNetworkId: "provider-network-id-1",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az0", "az1"},
-			SpaceID:           "",
-			FanInfo: &network.FanCIDRs{
-				FanLocalUnderlay: "192.168.0.0/12",
-				FanOverlay:       "252.0.0.0/8",
-			},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subnets := []string{subnetUUID.String(), subnetFanUUID.String()}
-	err = st.AddSpace(ctx.Background(), spaceUUID.String(), "space0", "foo", subnets)
-
-	// Should fail with error indicating we cannot set the space for a
-	// FAN subnet.
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot set space for FAN subnet UUIDs \\[%q\\] - it is always inherited from underlay", subnetFanUUID.String()))
-}
-
 func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -249,26 +196,6 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 			AvailabilityZones: []string{"az1"},
 			SpaceID:           "",
 			FanInfo:           nil,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	// Add a subnet of type fan.
-	subnetFanUUID, err := uuid.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSubnet(
-		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetFanUUID.String()),
-			CIDR:              "10.0.0.0/20",
-			ProviderId:        "provider-id-1",
-			ProviderNetworkId: "provider-network-id-1",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az2"},
-			SpaceID:           "",
-			FanInfo: &network.FanCIDRs{
-				FanLocalUnderlay: "192.168.0.0/12",
-				FanOverlay:       "10.0.0.0/8",
-			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -307,20 +234,9 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 			SpaceID:           spaceUUID.String(),
 			SpaceName:         "space0",
 		},
-		{
-			ID:                network.Id(subnetFanUUID.String()),
-			CIDR:              "10.0.0.0/20",
-			ProviderId:        "provider-id-1",
-			ProviderSpaceId:   "foo",
-			ProviderNetworkId: "provider-network-id-1",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az2"},
-			SpaceID:           spaceUUID.String(),
-			SpaceName:         "space0",
-		},
 	}
 	// The 3 subnets must be retrieved (including the overlay segment)
-	c.Check(sp.Subnets, gc.HasLen, 3)
+	c.Check(sp.Subnets, gc.HasLen, 2)
 	c.Check(sp.Subnets, jc.SameContents, expected)
 }
 

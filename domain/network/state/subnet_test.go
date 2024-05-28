@@ -42,10 +42,6 @@ func (s *stateSuite) TestUpsertSubnets(c *gc.C) {
 			ProviderNetworkId: "provider-network-id-1",
 			AvailabilityZones: []string{"az1"},
 			SpaceID:           spUUID.String(),
-			FanInfo: &network.FanCIDRs{
-				FanLocalUnderlay: "192.168.0.0/20",
-				FanOverlay:       "10.0.0.0/8",
-			},
 		},
 	}
 	err = st.UpsertSubnets(ctx.Background(), subnetsToUpsert)
@@ -63,9 +59,6 @@ func (s *stateSuite) TestUpsertSubnets(c *gc.C) {
 		AvailabilityZones: []string{"az1"},
 		SpaceID:           spUUID.String(),
 		SpaceName:         "space0",
-		FanInfo: &network.FanCIDRs{
-			FanLocalUnderlay: "192.168.0.0/20",
-		},
 	}
 	c.Check(sn1, gc.DeepEquals, expected)
 	expected = &network.SubnetInfo{
@@ -129,25 +122,22 @@ func (s *stateSuite) TestAddSubnet(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           spUUID.String(),
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check the subnet entity.
-	row := db.QueryRow("SELECT cidr,vlan_tag,space_uuid,subnet_type_id FROM subnet WHERE uuid = ?", uuid.String())
+	row := db.QueryRow("SELECT cidr,vlan_tag,space_uuid FROM subnet WHERE uuid = ?", uuid.String())
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	var (
 		cidr, spaceUUID string
-		subnetType      int
 		VLANTag         int
 	)
-	err = row.Scan(&cidr, &VLANTag, &spaceUUID, &subnetType)
+	err = row.Scan(&cidr, &VLANTag, &spaceUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cidr, gc.Equals, "10.0.0.0/24")
 	c.Check(VLANTag, gc.Equals, 0)
 	c.Check(spaceUUID, gc.Equals, spUUID.String())
-	c.Check(subnetType, gc.Equals, subnetTypeBase)
 
 	// Check the provider network entity.
 	row = db.QueryRow("SELECT uuid,provider_network_id FROM provider_network WHERE provider_network_id = ?", "provider-network-id")
@@ -211,7 +201,6 @@ func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           spUUID.String(),
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -227,7 +216,6 @@ func (s *stateSuite) TestAddTwoSubnetsSameNetworkID(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           spUUID.String(),
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -253,7 +241,6 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           spUUID.String(),
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -269,7 +256,6 @@ func (s *stateSuite) TestFailAddTwoSubnetsSameProviderID(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           spUUID.String(),
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("provider id %q for subnet %q already exists", "provider-id", subnetUUID1.String()))
@@ -291,7 +277,6 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -308,10 +293,6 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az1"},
 			SpaceID:           "",
-			FanInfo: &network.FanCIDRs{
-				FanLocalUnderlay: "192.168.0.0/20",
-				FanOverlay:       "10.0.0.0/8",
-			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -325,9 +306,6 @@ func (s *stateSuite) TestRetrieveFanSubnet(c *gc.C) {
 		AvailabilityZones: []string{"az1"},
 		SpaceID:           network.AlphaSpaceId, // alpha space by default.
 		SpaceName:         network.AlphaSpaceName,
-		FanInfo: &network.FanCIDRs{
-			FanLocalUnderlay: "192.168.0.0/20",
-		},
 	}
 
 	// Get the fan subnet by uuid.
@@ -375,27 +353,6 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0"},
 			SpaceID:           "",
-			FanInfo:           nil,
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	// Add a subnet of type fan.
-	subnetUUID1, err := uuid.NewV7()
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.AddSubnet(
-		ctx.Background(),
-		network.SubnetInfo{
-			ID:                network.Id(subnetUUID1.String()),
-			CIDR:              "10.0.0.0/12",
-			ProviderId:        "provider-id-1",
-			ProviderNetworkId: "provider-network-id-1",
-			VLANTag:           0,
-			AvailabilityZones: []string{"az1"},
-			SpaceID:           "",
-			FanInfo: &network.FanCIDRs{
-				FanLocalUnderlay: "192.168.0.0/20",
-				FanOverlay:       "10.0.0.0/8",
-			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -419,24 +376,6 @@ func (s *stateSuite) TestRetrieveSubnetByUUID(c *gc.C) {
 	sn0, err := st.GetSubnet(ctx.Background(), subnetUUID0.String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sn0, gc.DeepEquals, expected)
-
-	sn1, err := st.GetSubnet(ctx.Background(), subnetUUID1.String())
-	c.Assert(err, jc.ErrorIsNil)
-	expected = &network.SubnetInfo{
-		ID:                network.Id(subnetUUID1.String()),
-		CIDR:              "10.0.0.0/12",
-		ProviderId:        "provider-id-1",
-		ProviderSpaceId:   "provider-space-id",
-		ProviderNetworkId: "provider-network-id-1",
-		VLANTag:           0,
-		AvailabilityZones: []string{"az1"},
-		SpaceID:           spUUID.String(),
-		SpaceName:         "space0",
-		FanInfo: &network.FanCIDRs{
-			FanLocalUnderlay: "192.168.0.0/20",
-		},
-	}
-	c.Check(sn1, gc.DeepEquals, expected)
 }
 
 func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
@@ -455,7 +394,6 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -471,7 +409,6 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -487,7 +424,6 @@ func (s *stateSuite) TestRetrieveAllSubnets(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az2", "az3"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -513,7 +449,6 @@ func (s *stateSuite) TestRetrieveAllSubnet(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -529,7 +464,6 @@ func (s *stateSuite) TestRetrieveAllSubnet(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -545,7 +479,6 @@ func (s *stateSuite) TestRetrieveAllSubnet(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az2", "az3"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -576,7 +509,6 @@ func (s *stateSuite) TestUpdateSubnet(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           spUUID.String(),
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -615,7 +547,6 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -632,10 +563,6 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{},
 			SpaceID:           "",
-			FanInfo: &network.FanCIDRs{
-				FanLocalUnderlay: "192.168.0.0/20",
-				FanOverlay:       "10.0.0.0/8",
-			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -652,10 +579,6 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az4", "az5"},
 			SpaceID:           "",
-			FanInfo: &network.FanCIDRs{
-				FanLocalUnderlay: "192.168.0.0/20",
-				FanOverlay:       "10.0.0.0/8",
-			},
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

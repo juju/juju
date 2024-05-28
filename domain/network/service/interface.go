@@ -74,7 +74,4 @@ type SubnetState interface {
 	// AllSubnetsQuery returns the SQL query that finds all subnet UUIDs from the
 	// subnet table, needed for the subnets watcher.
 	AllSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error)
-	// AllAssociatedSubnetsQuery returns the SQL query that finds all associated
-	// subnet UUIDs from the subnet_association table, needed for the subnets watcher.
-	AllAssociatedSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error)
 }

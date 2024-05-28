@@ -7,7 +7,6 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
@@ -44,26 +43,12 @@ func NewWatchableService(st State, provider providertracker.ProviderGetter[Provi
 func (s *WatchableService) WatchSubnets(ctx context.Context, subnetUUIDsToWatch set.Strings) (watcher.StringsWatcher, error) {
 	filter := subnetUUIDsFilter(subnetUUIDsToWatch)
 
-	subnetWatcher, err := s.watcherFactory.NewNamespaceMapperWatcher(
+	return s.watcherFactory.NewNamespaceMapperWatcher(
 		"subnet",
 		changestream.All,
 		s.st.AllSubnetsQuery,
 		eventsource.FilterEvents(filter),
 	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	subnetAssociationWatcher, err := s.watcherFactory.NewNamespaceMapperWatcher(
-		"subnet_association",
-		changestream.All,
-		s.st.AllAssociatedSubnetsQuery,
-		eventsource.FilterEvents(filter),
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return eventsource.NewMultiStringsWatcher(ctx, subnetWatcher, subnetAssociationWatcher)
 }
 
 // subnetUUIDsFilter filters the returned subnet UUIDs from the changelog
