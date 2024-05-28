@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/domain"
 	networkerrors "github.com/juju/juju/domain/network/errors"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -281,24 +280,4 @@ func (st *State) DeleteSpace(
 		return nil
 	})
 	return domain.CoerceError(err)
-}
-
-// FanConfig returns the current model's fan config value.
-func (st *State) FanConfig(ctx context.Context) (string, error) {
-	db, err := st.DB()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	var fanConfig string
-	return fanConfig, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := `SELECT value FROM model_config WHERE key=?`
-		row := tx.QueryRowContext(ctx, stmt, config.FanConfig)
-		if err := row.Scan(&fanConfig); errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("model config fan config %w %w", networkerrors.ErrSpaceNotFound, err)
-		} else if err != nil {
-			return domain.CoerceError(err)
-		}
-		return nil
-	})
 }

@@ -48,8 +48,6 @@ type SpaceState interface {
 	UpdateSpace(ctx context.Context, uuid string, name string) error
 	// DeleteSpace deletes the space identified by the passed uuid.
 	DeleteSpace(ctx context.Context, uuid string) error
-	// FanConfig returns the current model's fan config value.
-	FanConfig(ctx context.Context) (string, error)
 }
 
 // SubnetState describes persistence layer methods for the subnet (sub-) domain.

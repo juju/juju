@@ -402,10 +402,6 @@ func (s *FirewallerSuite) TestAllSpaceInfos(c *gc.C) {
 					AvailabilityZones: []string{"az1", "az2"},
 					SpaceID:           "42",
 					SpaceName:         "questions-about-the-universe",
-					FanInfo: &network.FanCIDRs{
-						FanLocalUnderlay: "192.168.0.0/16",
-						FanOverlay:       "1.0.0.0/8",
-					},
 				},
 			}},
 		{ID: "99", Name: "special", Subnets: []network.SubnetInfo{

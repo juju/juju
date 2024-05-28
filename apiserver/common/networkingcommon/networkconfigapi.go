@@ -8,7 +8,6 @@ package networkingcommon
 
 import (
 	"context"
-	"net"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -90,60 +89,12 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(ctx context.Context, args 
 		return nil
 	}
 
-	mergedConfig, err := api.fixUpFanSubnets(ctx, observedConfig)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	devs := params.InterfaceInfoFromNetworkConfig(mergedConfig)
+	devs := params.InterfaceInfoFromNetworkConfig(observedConfig)
 	if err = devs.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 
 	return errors.Trace(api.st.ApplyOperation(api.getModelOp(m, devs)))
-}
-
-// fixUpFanSubnets takes network config and updates any addresses in Fan
-// networks with the CIDR of the zone-specific segments. We need to do this
-// because they are detected on-machine as being in the /8 overlay subnet,
-// which is a superset of the zone segments.
-// See core/network/fan.go for more detail on how Fan overlays are divided
-// into segments.
-func (api *NetworkConfigAPI) fixUpFanSubnets(ctx context.Context, networkConfig []params.NetworkConfig) ([]params.NetworkConfig, error) {
-	subnets, err := api.networkService.GetAllSubnets(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	fanSubnets := make(map[string]*net.IPNet)
-	for _, subnet := range subnets {
-		if subnet.FanOverlay() != "" {
-			fanSub, err := subnet.ParsedCIDRNetwork()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			fanSubnets[subnet.CIDR] = fanSub
-		}
-	}
-
-	if len(fanSubnets) == 0 {
-		return networkConfig, nil
-	}
-
-	for i := range networkConfig {
-		for j := range networkConfig[i].Addresses {
-			ip := net.ParseIP(networkConfig[i].Addresses[j].Value)
-			for cidr, fanNet := range fanSubnets {
-				if fanNet != nil && fanNet.Contains(ip) {
-					networkConfig[i].Addresses[j].CIDR = cidr
-					break
-				}
-			}
-		}
-	}
-
-	logger.Tracef("final network config after fixing up Fan subnets %+v", networkConfig)
-	return networkConfig, nil
 }
 
 func (api *NetworkConfigAPI) getMachineForSettingNetworkConfig(machineTag string) (LinkLayerMachine, error) {

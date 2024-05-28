@@ -1291,12 +1291,6 @@ func FromNetworkSpaceInfos(allInfos network.SpaceInfos) SpaceInfos {
 		mappedSubnets := make([]SubnetV3, len(si.Subnets))
 		for j, subnetInfo := range si.Subnets {
 			var mappedFanInfo *FanConfigEntry
-			if subnetInfo.FanInfo != nil {
-				mappedFanInfo = &FanConfigEntry{
-					Underlay: subnetInfo.FanInfo.FanLocalUnderlay,
-					Overlay:  subnetInfo.FanInfo.FanOverlay,
-				}
-			}
 
 			mappedSubnets[j] = SubnetV3{
 				SpaceID: subnetInfo.SpaceID,
@@ -1348,10 +1342,6 @@ func ToNetworkSpaceInfos(allInfos SpaceInfos) network.SpaceInfos {
 				AvailabilityZones: subnetInfo.Zones,
 				SpaceID:           subnetInfo.SpaceID,
 				SpaceName:         si.Name,
-			}
-
-			if subnetInfo.FanInfo != nil {
-				mappedSubnets[j].SetFan(subnetInfo.FanInfo.Underlay, subnetInfo.FanInfo.Overlay)
 			}
 		}
 

@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/api/client/spaces"
 	"github.com/juju/juju/api/client/subnets"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/network"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
@@ -274,11 +273,6 @@ type SubnetInfo struct {
 	// An empty string indicates it is part of the AlphaSpaceName OR
 	// if the SpaceID is set. Should primarily be used in an networkingEnviron.
 	SpaceName string `json:"space-name,omitempty" yaml:"space-name,omitempty"`
-
-	// FanInfo describes the fan networking setup for the subnet.
-	// It may be empty if this is not a fan subnet,
-	// or if this subnet information comes from a provider.
-	FanInfo *network.FanCIDRs `json:"fan-info,omitempty" yaml:"fan-info,omitempty"`
 }
 
 // SpaceInfo defines a network space.

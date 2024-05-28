@@ -58,10 +58,6 @@ func (s *importSuite) TestImportSubnetWithoutSpaces(c *gc.C) {
 		ProviderNetworkId: "subnet-provider-network-id",
 		VLANTag:           42,
 		AvailabilityZones: []string{"az1", "az2"},
-		FanInfo: &network.FanCIDRs{
-			FanLocalUnderlay: "192.168.0.0/12",
-			FanOverlay:       "10.0.0.0/8",
-		},
 	})
 
 	op := s.newImportOperation(c)
