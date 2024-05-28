@@ -32,15 +32,17 @@ const (
 	ubuntuPublisher = "Canonical"
 
 	dailyStream = "daily"
+
+	plan = "server-gen1"
 )
 
-// SeriesImage gets an instances.Image for the specified series, image stream
+// BaseImage gets an instances.Image for the specified base, image stream
 // and location. The resulting Image's ID is in the URN format expected by
 // Azure Resource Manager.
 //
 // For Ubuntu, we query the SKUs to determine the most recent point release
 // for a series.
-func SeriesImage(
+func BaseImage(
 	ctx context.ProviderCallContext,
 	base jujubase.Base, stream, location string,
 	client *armcompute.VirtualMachineImagesClient,
@@ -50,12 +52,9 @@ func SeriesImage(
 	var publisher, offering, sku string
 	switch seriesOS {
 	case os.Ubuntu:
-		series, err := jujubase.GetSeriesFromBase(base)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
 		publisher = ubuntuPublisher
-		sku, offering, err = ubuntuSKU(ctx, series, stream, location, client)
+		var err error
+		sku, offering, err = ubuntuSKU(ctx, base, stream, location, client)
 		if err != nil {
 			return nil, errors.Annotatef(err, "selecting SKU for %s", base.DisplayString())
 		}
@@ -81,22 +80,91 @@ func SeriesImage(
 	}, nil
 }
 
-func offerForUbuntuSeries(series string) (string, string, error) {
-	seriesVersion, err := jujubase.SeriesVersion(series)
-	if err != nil {
-		return "", "", errors.Trace(err)
+// supportedOldStyleUbuntuBases is a slice of all bases juju
+// supports, which use the old-style offer id like
+// "0001-com-ubuntu-server-${series}".
+//
+// Recently Canonical changed the format for Azure images offer ids
+// and SKUs in Azure. The threshold for this change was noble, so if
+// we want to deploy bases before noble, we must branch and and use the
+// old format.
+//
+// The old format offer ids have format `0001-com-ubuntu-server-${series}`
+// or `001-com-ubuntu-server-${series}-daily` and have SKUs formatted
+// `${version_number}-lts`, `${version_number}-gen2`, etc.
+//
+// The new format offer ids have format `ubuntu-${version_number}`,
+// `ubuntu-${version_number}-lts`, `ubuntu-${version_number}-lts-daily`,
+// etc. and have SKUs `server`, `server-gen1`m, `server-arm64`, etc.
+//
+// Since there are only a finte number of Ubuntu versions we support
+// before Noble, we hardcode this list. So when new versions of Ubuntu
+// are
+//
+// All Ubuntu images we support outside of this list have offer
+// id like "ubuntu-${version}-lts" or "ubuntu-${version}"
+var oldStyleUbuntuBases = []jujubase.Base{
+	jujubase.MustParseBaseFromString("ubuntu@20.04"),
+	jujubase.MustParseBaseFromString("ubuntu@20.10"),
+	jujubase.MustParseBaseFromString("ubuntu@21.04"),
+	jujubase.MustParseBaseFromString("ubuntu@21.10"),
+	jujubase.MustParseBaseFromString("ubuntu@22.04"),
+	jujubase.MustParseBaseFromString("ubuntu@22.10"),
+	jujubase.MustParseBaseFromString("ubuntu@23.04"),
+	jujubase.MustParseBaseFromString("ubuntu@23.10"),
+}
+
+func ubuntuBaseIsOldStyle(base jujubase.Base) bool {
+	for _, oldBase := range oldStyleUbuntuBases {
+		if base.IsCompatible(oldBase) {
+			return true
+		}
 	}
-	seriesVersion = strings.ReplaceAll(seriesVersion, ".", "_")
-	return fmt.Sprintf("0001-com-ubuntu-server-%s", series), seriesVersion, nil
+	return false
 }
 
 // ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,
 // matching the given series.
-func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string, client *armcompute.VirtualMachineImagesClient) (string, string, error) {
-	offer, seriesVersion, err := offerForUbuntuSeries(series)
+//
+// TODO(jack-w-shaw): Selecting the 'daily' stream is currently broken for old style
+// Ubuntu SKU selection. Fix this
+func ubuntuSKU(ctx context.ProviderCallContext, base jujubase.Base, stream, location string, client *armcompute.VirtualMachineImagesClient) (string, string, error) {
+	if ubuntuBaseIsOldStyle(base) {
+		return oldStyleUbuntuSKU(ctx, base, stream, location, client)
+	}
+
+	offer := fmt.Sprintf("ubuntu-%s", strings.ReplaceAll(base.Channel.Track, ".", "_"))
+	if base.IsUbuntuLTS() {
+		offer = fmt.Sprintf("%s-lts", offer)
+	}
+	if stream == dailyStream {
+		offer = fmt.Sprintf("%s-daily", offer)
+	}
+
+	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
+	result, err := client.ListSKUs(ctx, location, ubuntuPublisher, offer, nil)
+	if err != nil {
+		return "", "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
+	}
+	for _, img := range result.VirtualMachineImageResourceArray {
+		skuName := *img.Name
+		if skuName == plan {
+			logger.Debugf("Found Azure SKU Name: %v", skuName)
+			return skuName, offer, nil
+		}
+		logger.Debugf("Ignoring Azure SKU Name: %v", skuName)
+	}
+	return "", "", errors.NotFoundf("Ubuntu SKUs for %v stream", stream)
+}
+
+func oldStyleUbuntuSKU(ctx context.ProviderCallContext, base jujubase.Base, stream, location string, client *armcompute.VirtualMachineImagesClient) (string, string, error) {
+	series, err := jujubase.GetSeriesFromBase(base)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
+	offer := fmt.Sprintf("0001-com-ubuntu-server-%s", series)
+	desiredSKUPrefix := strings.ReplaceAll(base.Channel.Track, ".", "_")
+
 	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
 	result, err := client.ListSKUs(ctx, location, ubuntuPublisher, offer, nil)
 	if err != nil {
@@ -107,11 +175,11 @@ func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string,
 	for _, img := range result.VirtualMachineImageResourceArray {
 		skuName := *img.Name
 		logger.Debugf("Found Azure SKU Name: %v", skuName)
-		if !strings.HasPrefix(skuName, seriesVersion) {
-			logger.Debugf("ignoring SKU %q (does not match series %q with version %q)", skuName, series, seriesVersion)
+		if !strings.HasPrefix(skuName, desiredSKUPrefix) {
+			logger.Debugf("ignoring SKU %q (does not match base %q)", skuName, base)
 			continue
 		}
-		version, tag, err := parseUbuntuSKU(skuName)
+		version, tag, err := parseOldStyleUbuntuSKU(skuName)
 		if err != nil {
 			logger.Errorf("ignoring SKU %q (failed to parse: %s)", skuName, err)
 			continue
@@ -132,7 +200,7 @@ func ubuntuSKU(ctx context.ProviderCallContext, series, stream, location string,
 		versions = append(versions, version)
 	}
 	if len(versions) == 0 {
-		return "", "", errors.NotFoundf("Ubuntu SKUs for %s stream", stream)
+		return "", "", errors.NotFoundf("Old style Ubuntu SKUs for %s stream", stream)
 	}
 	sort.Sort(versions)
 	bestVersion := versions[len(versions)-1]
@@ -145,9 +213,9 @@ type ubuntuVersion struct {
 	Point int
 }
 
-// parseUbuntuSKU splits an UbuntuServer SKU into its
+// parseOldStyleUbuntuSKU splits an UbuntuServer SKU into its
 // version ("22_04.3") and tag ("LTS") parts.
-func parseUbuntuSKU(sku string) (ubuntuVersion, string, error) {
+func parseOldStyleUbuntuSKU(sku string) (ubuntuVersion, string, error) {
 	var version ubuntuVersion
 	var tag string
 	var err error
