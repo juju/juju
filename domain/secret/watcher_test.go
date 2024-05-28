@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coresecrets "github.com/juju/juju/core/secrets"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -138,6 +140,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 
 	// Wait for the initial changes.
 	wCAll.AssertChange([]string(nil)...)
+	s.AssertChangeStreamIdle(c)
 
 	// create revision 2, and obsolete revision 1.
 	createNewRevision(c, st, uri1)
@@ -145,6 +148,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 	createNewRevision(c, st, uri3)
 	createNewRevision(c, st, uri4)
 
+	s.AssertChangeStreamIdle(c)
 	wCAll.AssertChange(
 		revID(uri1, 1),
 		revID(uri2, 1),
@@ -157,6 +161,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsAndUnitsOwned(c *gc.C) {
 	createNewRevision(c, st, uri2)
 	createNewRevision(c, st, uri3)
 
+	s.AssertChangeStreamIdle(c)
 	wCAll.AssertChange(
 		revID(uri1, 2),
 		revID(uri2, 2),
@@ -197,11 +202,13 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 
 	// Wait for the initial changes.
 	wCSingleApplication.AssertChange([]string(nil)...)
+	s.AssertChangeStreamIdle(c)
 
 	// create revision 2, and obsolete revision 1.
 	createNewRevision(c, st, uri1)
 	createNewRevision(c, st, uri2)
 
+	s.AssertChangeStreamIdle(c)
 	wCSingleApplication.AssertChange(
 		revID(uri1, 1),
 	)
@@ -210,6 +217,7 @@ func (s *watcherSuite) TestWatchObsoleteForAppsOwned(c *gc.C) {
 	createNewRevision(c, st, uri1)
 	createNewRevision(c, st, uri2)
 
+	s.AssertChangeStreamIdle(c)
 	wCSingleApplication.AssertChange(
 		revID(uri1, 2),
 	)
@@ -248,11 +256,13 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 
 	// Wait for the initial changes.
 	wCSingleUnit.AssertChange([]string(nil)...)
+	s.AssertChangeStreamIdle(c)
 
 	// create revision 2, and obsolete revision 1.
 	createNewRevision(c, st, uri1)
 	createNewRevision(c, st, uri2)
 
+	s.AssertChangeStreamIdle(c)
 	wCSingleUnit.AssertChange(
 		revID(uri2, 1),
 	)
@@ -261,6 +271,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 	createNewRevision(c, st, uri1)
 	createNewRevision(c, st, uri2)
 
+	s.AssertChangeStreamIdle(c)
 	wCSingleUnit.AssertChange(
 		revID(uri2, 2),
 	)
@@ -308,23 +319,26 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 
 	// Wait for the initial changes.
 	wC.AssertChange([]string(nil)...)
+	s.AssertChangeStreamIdle(c)
 	wC.AssertNoChange()
 
 	// create revision 2.
 	createNewRevision(c, st, uri1)
 
+	s.AssertChangeStreamIdle(c)
 	wC.AssertChange(
 		uri1.String(),
 	)
 	wC.AssertNoChange()
 
-	// pretend that the agent restarted and the watcher is re-created.
+	// Pretend that the agent restarted and the watcher is re-created.
 	watcher1, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(watcher1, gc.NotNil)
 	defer workertest.CleanKill(c, watcher1)
 	wC1 := watchertest.NewStringsWatcherC(c, watcher1)
 	wC1.AssertChange([]string(nil)...)
+	s.AssertChangeStreamIdle(c)
 	wC1.AssertChange(
 		uri1.String(),
 	)
@@ -334,7 +348,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	wC.AssertNoChange()
 	wC1.AssertNoChange()
 
-	// pretend that the agent restarted and the watcher is re-created again.
+	// Pretend that the agent restarted and the watcher is re-created again.
 	// Since we comsume the latest revision already, so there should be no change.
 	watcher2, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, gc.IsNil)
@@ -342,6 +356,7 @@ func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	defer workertest.CleanKill(c, watcher1)
 	wC2 := watchertest.NewStringsWatcherC(c, watcher2)
 	wC2.AssertChange([]string(nil)...)
+	s.AssertChangeStreamIdle(c)
 	wC2.AssertNoChange()
 }
 
@@ -380,33 +395,37 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 
 	// Wait for the initial changes.
 	wC.AssertChange([]string(nil)...)
+	s.AssertChangeStreamIdle(c)
 	wC.AssertNoChange()
 
 	err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.AssertChangeStreamIdle(c)
 	wC.AssertChange(
 		uri1.String(),
 	)
 	wC.AssertNoChange()
 
-	// pretend that the agent restarted and the watcher is re-created.
+	// Pretend that the agent restarted and the watcher is re-created.
 	watcher1, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(watcher1, gc.NotNil)
 	defer workertest.CleanKill(c, watcher1)
 	wC1 := watchertest.NewStringsWatcherC(c, watcher1)
 	wC1.AssertChange([]string(nil)...)
+	s.AssertChangeStreamIdle(c)
 	wC1.AssertChange(
 		uri1.String(),
 	)
 
 	// The consumed revision 2 is the updated current_revision.
 	saveConsumer(uri1, 2, "mediawiki/0")
+	s.AssertChangeStreamIdle(c)
 	wC.AssertNoChange()
 	wC1.AssertNoChange()
 
-	// pretend that the agent restarted and the watcher is re-created again.
+	// Pretend that the agent restarted and the watcher is re-created again.
 	// Since we comsume the latest revision already, so there should be no change.
 	watcher2, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
 	c.Assert(err, gc.IsNil)
@@ -414,6 +433,7 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 	defer workertest.CleanKill(c, watcher1)
 	wC2 := watchertest.NewStringsWatcherC(c, watcher2)
 	wC2.AssertChange([]string(nil)...)
+	s.AssertChangeStreamIdle(c)
 	wC2.AssertNoChange()
 }
 
@@ -458,6 +478,7 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 
 	// Wait for the initial changes.
 	wC.AssertChange([]string(nil)...)
+	s.AssertChangeStreamIdle(c)
 	wC.AssertNoChange()
 
 	// create revision 2.
@@ -468,9 +489,10 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	wC.AssertChange(
 		uri1.String(),
 	)
+	s.AssertChangeStreamIdle(c)
 	wC.AssertNoChange()
 
-	// pretend that the agent restarted and the watcher is re-created.
+	// Pretend that the agent restarted and the watcher is re-created.
 	watcher1, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
 	c.Assert(err, gc.IsNil)
 	c.Assert(watcher1, gc.NotNil)
@@ -483,10 +505,11 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 
 	// The consumed revision 2 is the updated current_revision.
 	saveRemoteConsumer(uri1, 2, "mediawiki/0")
+	s.AssertChangeStreamIdle(c)
 	wC.AssertNoChange()
 	wC1.AssertNoChange()
 
-	// pretend that the agent restarted and the watcher is re-created again.
+	// Pretend that the agent restarted and the watcher is re-created again.
 	// Since we comsume the latest revision already, so there should be no change.
 	watcher2, err := svc.WatchRemoteConsumedSecretsChanges(ctx, "mediawiki")
 	c.Assert(err, gc.IsNil)
@@ -494,5 +517,101 @@ func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	defer workertest.CleanKill(c, watcher1)
 	wC2 := watchertest.NewStringsWatcherC(c, watcher2)
 	wC2.AssertChange([]string(nil)...)
+	s.AssertChangeStreamIdle(c)
 	wC2.AssertNoChange()
+}
+
+func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mediawiki")
+
+	ctx := context.Background()
+	svc, st := s.setupServiceAndState(c)
+
+	sp := secret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	}
+	uri1 := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", sp)
+	c.Assert(err, jc.ErrorIsNil)
+	createNewRevision(c, st, uri2)
+
+	watcher, err := svc.WatchSecretsRotationChanges(context.Background(),
+		service.CharmSecretOwner{
+			Kind: service.ApplicationOwner,
+			ID:   "mysql",
+		},
+		service.CharmSecretOwner{
+			Kind: service.UnitOwner,
+			ID:   "mediawiki/0",
+		},
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(watcher, gc.NotNil)
+	defer workertest.CleanKill(c, watcher)
+
+	wC := watchertest.NewSecretsTriggerWatcherC(c, watcher)
+
+	// Wait for the initial changes.
+	wC.AssertChange([]corewatcher.SecretTriggerChange(nil)...)
+	s.AssertChangeStreamIdle(c)
+	wC.AssertNoChange()
+
+	now := time.Now()
+	err = st.SecretRotated(ctx, uri1, now.Add(1*time.Hour))
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.SecretRotated(ctx, uri2, now.Add(2*time.Hour))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
+
+	wC.AssertChange(
+		corewatcher.SecretTriggerChange{
+			URI:             uri1,
+			Revision:        1,
+			NextTriggerTime: now.Add(1 * time.Hour),
+		},
+		corewatcher.SecretTriggerChange{
+			URI:             uri2,
+			Revision:        2,
+			NextTriggerTime: now.Add(2 * time.Hour),
+		},
+	)
+
+	s.AssertChangeStreamIdle(c)
+	wC.AssertNoChange()
+
+	// Pretend that the agent restarted and the watcher is re-created.
+	watcher1, err := svc.WatchSecretsRotationChanges(context.Background(),
+		service.CharmSecretOwner{
+			Kind: service.ApplicationOwner,
+			ID:   "mysql",
+		},
+		service.CharmSecretOwner{
+			Kind: service.UnitOwner,
+			ID:   "mediawiki/0",
+		},
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(watcher1, gc.NotNil)
+	defer workertest.CleanKill(c, watcher1)
+	wC1 := watchertest.NewSecretsTriggerWatcherC(c, watcher1)
+	wC1.AssertChange([]corewatcher.SecretTriggerChange(nil)...)
+	wC1.AssertChange(
+		corewatcher.SecretTriggerChange{
+			URI:             uri1,
+			Revision:        1,
+			NextTriggerTime: now.Add(1 * time.Hour),
+		},
+		corewatcher.SecretTriggerChange{
+			URI:             uri2,
+			Revision:        2,
+			NextTriggerTime: now.Add(2 * time.Hour),
+		},
+	)
+	s.AssertChangeStreamIdle(c)
+	wC1.AssertNoChange()
 }

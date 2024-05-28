@@ -764,6 +764,50 @@ func (c *MockStateGetSecretValueCall) DoAndReturn(f func(context.Context, *secre
 	return c
 }
 
+// GetSecretsRotationChanges mocks base method.
+func (m *MockState) GetSecretsRotationChanges(arg0 context.Context, arg1 secret.ApplicationOwners, arg2 secret.UnitOwners, arg3 ...string) ([]secret.RotationInfo, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetSecretsRotationChanges", varargs...)
+	ret0, _ := ret[0].([]secret.RotationInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretsRotationChanges indicates an expected call of GetSecretsRotationChanges.
+func (mr *MockStateMockRecorder) GetSecretsRotationChanges(arg0, arg1, arg2 any, arg3 ...any) *MockStateGetSecretsRotationChangesCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretsRotationChanges", reflect.TypeOf((*MockState)(nil).GetSecretsRotationChanges), varargs...)
+	return &MockStateGetSecretsRotationChangesCall{Call: call}
+}
+
+// MockStateGetSecretsRotationChangesCall wrap *gomock.Call
+type MockStateGetSecretsRotationChangesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetSecretsRotationChangesCall) Return(arg0 []secret.RotationInfo, arg1 error) *MockStateGetSecretsRotationChangesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetSecretsRotationChangesCall) Do(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners, ...string) ([]secret.RotationInfo, error)) *MockStateGetSecretsRotationChangesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetSecretsRotationChangesCall) DoAndReturn(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners, ...string) ([]secret.RotationInfo, error)) *MockStateGetSecretsRotationChangesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetURIByConsumerLabel mocks base method.
 func (m *MockState) GetURIByConsumerLabel(arg0 context.Context, arg1, arg2 string) (*secrets.URI, error) {
 	m.ctrl.T.Helper()
@@ -1032,6 +1076,45 @@ func (c *MockStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferi
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall) DoAndReturn(f func(string) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchStatementForSecretsRotationChanges mocks base method.
+func (m *MockState) InitialWatchStatementForSecretsRotationChanges(arg0 secret.ApplicationOwners, arg1 secret.UnitOwners) (string, eventsource.NamespaceQuery) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementForSecretsRotationChanges", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(eventsource.NamespaceQuery)
+	return ret0, ret1
+}
+
+// InitialWatchStatementForSecretsRotationChanges indicates an expected call of InitialWatchStatementForSecretsRotationChanges.
+func (mr *MockStateMockRecorder) InitialWatchStatementForSecretsRotationChanges(arg0, arg1 any) *MockStateInitialWatchStatementForSecretsRotationChangesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForSecretsRotationChanges", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForSecretsRotationChanges), arg0, arg1)
+	return &MockStateInitialWatchStatementForSecretsRotationChangesCall{Call: call}
+}
+
+// MockStateInitialWatchStatementForSecretsRotationChangesCall wrap *gomock.Call
+type MockStateInitialWatchStatementForSecretsRotationChangesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchStatementForSecretsRotationChangesCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementForSecretsRotationChangesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchStatementForSecretsRotationChangesCall) Do(f func(secret.ApplicationOwners, secret.UnitOwners) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForSecretsRotationChangesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchStatementForSecretsRotationChangesCall) DoAndReturn(f func(secret.ApplicationOwners, secret.UnitOwners) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForSecretsRotationChangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

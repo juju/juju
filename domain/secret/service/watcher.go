@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/clock"
 	"github.com/juju/collections/set"
@@ -58,7 +59,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	processLocalChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
 		return s.st.GetConsumedSecretURIsWithChanges(ctx, unitName, revisionUUIDs...)
 	}
-	sWLocal, err := newStringsWatcher(wLocal, s.logger, processLocalChanges)
+	sWLocal, err := newSecretWatcher(wLocal, s.logger, processLocalChanges)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -74,7 +75,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	processRemoteChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
 		return s.st.GetConsumedRemoteSecretURIsWithChanges(ctx, unitName, secretIDs...)
 	}
-	sWRemote, err := newStringsWatcher(wRemote, s.logger, processRemoteChanges)
+	sWRemote, err := newSecretWatcher(wRemote, s.logger, processRemoteChanges)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -95,7 +96,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 	processChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
 		return s.st.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appName, secretIDs...)
 	}
-	return newStringsWatcher(w, s.logger, processChanges)
+	return newSecretWatcher(w, s.logger, processChanges)
 }
 
 // WatchObsolete returns a watcher for notifying when:
@@ -121,107 +122,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
 		return s.st.GetRevisionIDsForObsolete(ctx, appOwners, unitOwners, revisionUUIDs...)
 	}
-	return newStringsWatcher(w, s.logger, processChanges)
-}
-
-// stringsWatcher is a watcher that watches for changes to a set of strings.
-type stringsWatcher struct {
-	catacomb catacomb.Catacomb
-	logger   logger.Logger
-
-	sourceWatcher watcher.StringsWatcher
-	handle        func(ctx context.Context, events ...string) ([]string, error)
-
-	out chan []string
-}
-
-func newStringsWatcher(
-	sourceWatcher watcher.StringsWatcher, logger logger.Logger,
-	handle func(ctx context.Context, events ...string) ([]string, error),
-) (*stringsWatcher, error) {
-	w := &stringsWatcher{
-		sourceWatcher: sourceWatcher,
-		logger:        logger,
-		handle:        handle,
-		out:           make(chan []string),
-	}
-	err := catacomb.Invoke(catacomb.Plan{
-		Site: &w.catacomb,
-		Work: w.loop,
-		Init: []worker.Worker{sourceWatcher},
-	})
-	return w, errors.Trace(err)
-}
-
-func (w *stringsWatcher) processChanges(events ...string) ([]string, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	return w.handle(w.catacomb.Context(ctx), events...)
-}
-
-func (w *stringsWatcher) loop() error {
-	defer close(w.out)
-
-	var changes set.Strings
-	// To allow the initial event to be sent.
-	out := w.out
-
-	addChanges := func(processed ...string) {
-		if len(processed) == 0 {
-			return
-		}
-		if changes == nil {
-			changes = set.NewStrings()
-		}
-		for _, change := range processed {
-			changes.Add(change)
-		}
-		out = w.out
-	}
-
-	for {
-		select {
-		case <-w.catacomb.Dying():
-			return w.catacomb.ErrDying()
-		case events, ok := <-w.sourceWatcher.Changes():
-			if !ok {
-				return errors.Errorf("event watcher closed")
-			}
-			if len(events) == 0 {
-				continue
-			}
-			processed, err := w.processChanges(events...)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			addChanges(processed...)
-		case out <- changes.Values():
-			changes = nil
-			out = nil
-		}
-	}
-}
-
-// Changes returns the channel of obsolete secret changes.
-func (w *stringsWatcher) Changes() <-chan []string {
-	return w.out
-}
-
-// Stop stops the watcher.
-func (w *stringsWatcher) Stop() error {
-	w.Kill()
-	return w.Wait()
-}
-
-// Kill kills the watcher via its tomb.
-func (w *stringsWatcher) Kill() {
-	w.catacomb.Kill(nil)
-}
-
-// Wait waits for the watcher's tomb to die,
-// and returns the error with which it was killed.
-func (w *stringsWatcher) Wait() error {
-	return w.catacomb.Wait()
+	return newSecretWatcher(w, s.logger, processChanges)
 }
 
 // TODO(secrets) - replace with real watcher
@@ -260,16 +161,43 @@ func (w *mockSecretTriggerWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
+// WatchSecretRevisionsExpiryChanges returns a watcher that notifies when the expiry time of a secret revision changes.
 func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
 	ch := make(chan []watcher.SecretTriggerChange, 1)
 	ch <- []watcher.SecretTriggerChange{}
 	return newMockTriggerWatcher(ch), nil
 }
 
+// WatchSecretsRotationChanges returns a watcher that notifies when the rotation time of a secret changes.
 func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
-	ch := make(chan []watcher.SecretTriggerChange, 1)
-	ch <- []watcher.SecretTriggerChange{}
-	return newMockTriggerWatcher(ch), nil
+	if len(owners) == 0 {
+		return nil, errors.New("at least one owner must be provided")
+	}
+
+	appOwners, unitOwners := splitCharmSecretOwners(owners...)
+	table, query := s.st.InitialWatchStatementForSecretsRotationChanges(appOwners, unitOwners)
+	w, err := s.watcherFactory.NewNamespaceWatcher(
+		table, changestream.All, query,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	processChanges := func(ctx context.Context, secretIDs ...string) ([]watcher.SecretTriggerChange, error) {
+		result, err := s.st.GetSecretsRotationChanges(ctx, appOwners, unitOwners, secretIDs...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		changes := make([]watcher.SecretTriggerChange, len(result))
+		for i, r := range result {
+			changes[i] = watcher.SecretTriggerChange{
+				URI:             r.URI,
+				Revision:        r.Revision,
+				NextTriggerTime: r.NextTriggerTime,
+			}
+		}
+		return changes, nil
+	}
+	return newSecretWatcher(w, s.logger, processChanges)
 }
 
 func (s *WatchableService) WatchObsoleteUserSecrets(ctx context.Context) (watcher.NotifyWatcher, error) {
@@ -283,4 +211,116 @@ func (s *WatchableService) WatchSecretBackendChanged(ctx context.Context) (watch
 	ch := make(chan struct{}, 1)
 	ch <- struct{}{}
 	return watchertest.NewMockNotifyWatcher(ch), nil
+}
+
+// secretWatcher is a watcher that watches for secret changes to a set of strings.
+type secretWatcher[T any] struct {
+	catacomb catacomb.Catacomb
+	logger   logger.Logger
+
+	sourceWatcher watcher.StringsWatcher
+	handle        func(ctx context.Context, events ...string) ([]T, error)
+
+	out chan []T
+}
+
+func newSecretWatcher[T any](
+	sourceWatcher watcher.StringsWatcher, logger logger.Logger,
+	handle func(ctx context.Context, events ...string) ([]T, error),
+) (*secretWatcher[T], error) {
+	w := &secretWatcher[T]{
+		sourceWatcher: sourceWatcher,
+		logger:        logger,
+		handle:        handle,
+		out:           make(chan []T),
+	}
+	err := catacomb.Invoke(catacomb.Plan{
+		Site: &w.catacomb,
+		Work: w.loop,
+		Init: []worker.Worker{sourceWatcher},
+	})
+	return w, errors.Trace(err)
+}
+
+func (w *secretWatcher[T]) processChanges(events ...string) ([]T, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return w.handle(w.catacomb.Context(ctx), events...)
+}
+
+func (w *secretWatcher[T]) loop() error {
+	defer close(w.out)
+
+	var (
+		historyIDs set.Strings
+		changes    []T
+	)
+	// To allow the initial event to be sent.
+	out := w.out
+	addChanges := func(events set.Strings) error {
+		if len(events) == 0 {
+			return nil
+		}
+		processed, err := w.processChanges(events.Values()...)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if len(processed) == 0 {
+			return nil
+		}
+
+		if historyIDs == nil {
+			historyIDs = set.NewStrings()
+		}
+		for _, v := range processed {
+			id := fmt.Sprint(v)
+			if historyIDs.Contains(id) {
+				continue
+			}
+			changes = append(changes, v)
+			historyIDs.Add(id)
+		}
+
+		out = w.out
+		return nil
+	}
+
+	for {
+		select {
+		case <-w.catacomb.Dying():
+			return w.catacomb.ErrDying()
+		case events, ok := <-w.sourceWatcher.Changes():
+			if !ok {
+				return errors.Errorf("event watcher closed")
+			}
+			if err := addChanges(set.NewStrings(events...)); err != nil {
+				return errors.Trace(err)
+			}
+		case out <- changes:
+			changes = nil
+			out = nil
+		}
+	}
+}
+
+// Changes returns the channel of secret changes.
+func (w *secretWatcher[T]) Changes() <-chan []T {
+	return w.out
+}
+
+// Stop stops the watcher.
+func (w *secretWatcher[T]) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+// Kill kills the watcher via its tomb.
+func (w *secretWatcher[T]) Kill() {
+	w.catacomb.Kill(nil)
+}
+
+// Wait waits for the watcher's tomb to die,
+// and returns the error with which it was killed.
+func (w *secretWatcher[T]) Wait() error {
+	return w.catacomb.Wait()
 }

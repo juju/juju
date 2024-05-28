@@ -18,6 +18,16 @@ type SecretTriggerChange struct {
 	NextTriggerTime time.Time
 }
 
+// String returns a string representation of the change.
+func (s SecretTriggerChange) String() string {
+	str := s.URI.String()
+	if s.Revision > 0 {
+		str = fmt.Sprintf("%s/%d", s.URI.String(), s.Revision)
+	}
+	return str
+}
+
+// GoString returns a Go-syntax representation of the change.
 func (s SecretTriggerChange) GoString() string {
 	revMsg := ""
 	if s.Revision > 0 {

@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain/secret"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -63,19 +62,22 @@ type State interface {
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) ([]*secrets.SecretMetadataForDrain, error)
 	ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error)
+	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
+	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
+	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*domainsecret.RotationExpiryInfo, error)
+
+	// For watching obsolete secret revision changes.
 	InitialWatchStatementForObsoleteRevision(
 		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	) (tableName string, statement eventsource.NamespaceQuery)
 	GetRevisionIDsForObsolete(
-		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUID ...string,
+		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
 	) ([]string, error)
-	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
-	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
-	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*secret.RotationExpiryInfo, error)
 
 	// For watching consumed local secret changes.
 	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
 	GetConsumedSecretURIsWithChanges(ctx context.Context, unitName string, revisionIDs ...string) ([]string, error)
+
 	// For watching consumed remote secret changes.
 	InitialWatchStatementForConsumedRemoteSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
 	GetConsumedRemoteSecretURIsWithChanges(ctx context.Context, unitName string, secretIDs ...string) (secretURIs []string, err error)
@@ -83,6 +85,14 @@ type State interface {
 	// For watching local secret changes that consumed by remote consumers.
 	InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(appName string) (string, eventsource.NamespaceQuery)
 	GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx context.Context, appName string, secretIDs ...string) ([]string, error)
+
+	// For watching secret rotation changes.
+	InitialWatchStatementForSecretsRotationChanges(
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) (string, eventsource.NamespaceQuery)
+	GetSecretsRotationChanges(
+		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, secretIDs ...string,
+	) ([]domainsecret.RotationInfo, error)
 }
 
 // WatcherFactory describes methods for creating watchers.

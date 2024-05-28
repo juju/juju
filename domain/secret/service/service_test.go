@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
 	coresecrets "github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainsecret "github.com/juju/juju/domain/secret"
@@ -1459,13 +1460,12 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 	).Return("table", namespaceQuery)
 	mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.Create, gomock.Any()).Return(mockStringWatcher, nil)
 
-	gomock.InOrder(
-		s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(),
-			domainsecret.ApplicationOwners([]string{"mysql"}),
-			domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}),
-			"revision-uuid-1", "revision-uuid-2",
-		).Return([]string{"yyy/1", "yyy/2"}, nil),
-	)
+	s.state.EXPECT().GetRevisionIDsForObsolete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) ([]string, error) {
+		c.Assert(appOwners, jc.SameContents, domainsecret.ApplicationOwners([]string{"mysql"}))
+		c.Assert(unitOwners, jc.SameContents, domainsecret.UnitOwners([]string{"mysql/0", "mysql/1"}))
+		c.Assert(revisionUUIDs, jc.SameContents, []string{"revision-uuid-1", "revision-uuid-2"})
+		return []string{"yyy/1", "yyy/2"}, nil
+	})
 
 	svc := NewWatchableService(s.state, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
 	w, err := svc.WatchObsolete(context.Background(),
@@ -1584,11 +1584,11 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	s.state.EXPECT().InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide("mysql").Return("secret_revision", namespaceQuery)
 	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision", changestream.All, gomock.Any()).Return(mockStringWatcher, nil)
 
-	gomock.InOrder(
-		s.state.EXPECT().GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(gomock.Any(),
-			"mysql", "revision-uuid-1", "revision-uuid-2",
-		).Return([]string{uri1.String(), uri2.String()}, nil),
-	)
+	s.state.EXPECT().GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appName string, secretIDs ...string) ([]string, error) {
+		c.Assert(appName, gc.Equals, "mysql")
+		c.Assert(secretIDs, jc.SameContents, []string{"revision-uuid-1", "revision-uuid-2"})
+		return []string{uri1.String(), uri2.String()}, nil
+	})
 
 	svc := NewWatchableService(s.state, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
 	w, err := svc.WatchRemoteConsumedSecretsChanges(context.Background(), "mysql")
@@ -1606,6 +1606,89 @@ func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
 	wC.AssertChange(
 		uri1.String(),
 		uri2.String(),
+	)
+	wC.AssertNoChange()
+}
+
+func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.state = NewMockState(ctrl)
+	mockWatcherFactory := NewMockWatcherFactory(ctrl)
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+
+	ch := make(chan []string)
+	mockStringWatcher := NewMockStringsWatcher(ctrl)
+	mockStringWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	mockStringWatcher.EXPECT().Kill().AnyTimes()
+
+	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
+		return nil, nil
+	}
+	s.state.EXPECT().InitialWatchStatementForSecretsRotationChanges(
+		domainsecret.ApplicationOwners{"mediawiki"}, domainsecret.UnitOwners{"mysql/0", "mysql/1"},
+	).Return("secret_rotation", namespaceQuery)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_rotation", changestream.All, gomock.Any()).Return(mockStringWatcher, nil)
+
+	now := time.Now()
+	s.state.EXPECT().GetSecretsRotationChanges(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, secretIDs ...string) ([]domainsecret.RotationInfo, error) {
+		c.Assert(appOwners, jc.SameContents, domainsecret.ApplicationOwners{"mediawiki"})
+		c.Assert(unitOwners, jc.SameContents, domainsecret.UnitOwners{"mysql/0", "mysql/1"})
+		c.Assert(secretIDs, jc.SameContents, []string{uri1.ID, uri2.ID})
+		return []domainsecret.RotationInfo{
+			{
+				URI:             uri1,
+				Revision:        1,
+				NextTriggerTime: now,
+			},
+			{
+				URI:             uri2,
+				Revision:        2,
+				NextTriggerTime: now.Add(2 * time.Hour),
+			},
+		}, nil
+	})
+	svc := NewWatchableService(s.state, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
+	w, err := svc.WatchSecretsRotationChanges(context.Background(),
+		CharmSecretOwner{
+			Kind: ApplicationOwner,
+			ID:   "mediawiki",
+		},
+		CharmSecretOwner{
+			Kind: UnitOwner,
+			ID:   "mysql/0",
+		},
+		CharmSecretOwner{
+			Kind: UnitOwner,
+			ID:   "mysql/1",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+	wC := watchertest.NewSecretsTriggerWatcherC(c, w)
+
+	select {
+	case ch <- []string{uri1.ID, uri2.ID}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for the initial changes")
+	}
+
+	wC.AssertChange(
+		watcher.SecretTriggerChange{
+			URI:             uri1,
+			Revision:        1,
+			NextTriggerTime: now,
+		},
+		watcher.SecretTriggerChange{
+			URI:             uri2,
+			Revision:        2,
+			NextTriggerTime: now.Add(2 * time.Hour),
+		},
 	)
 	wC.AssertNoChange()
 }
