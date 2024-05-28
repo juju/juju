@@ -26,6 +26,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	jujuhttp "github.com/juju/http/v2"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
@@ -278,6 +279,7 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	// oauth device flow, failing that it will try to log in using
 	// user-pass or macaroons.
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
+		loggo.GetLogger("juju.cmd.loginprovider"),
 		loginprovider.NewSessionTokenLoginProvider(
 			"",
 			func(format string, params ...any) error {
