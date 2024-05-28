@@ -1,4 +1,0 @@
-include:
-    - core
-    - fetch
-    - contrib.charmsupport

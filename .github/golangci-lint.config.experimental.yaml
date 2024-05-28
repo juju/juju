@@ -9,5 +9,4 @@ run:
   timeout: 30m
   tests: false
 skip-dirs:
-  - acceptancetests
   - _deps

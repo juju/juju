@@ -44,7 +44,6 @@ run:
   timeout: 30m
   modules-download-mode: readonly
 skip-dirs:
-  - acceptancetests
   - _deps
 issues:
   max-issues-per-linter: 0

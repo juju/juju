@@ -1,3 +1,0 @@
-#!/bin/bash
-. /usr/share/charm-helpers/sh/net.sh
-$MYSQL -e "REVOKE USAGE ON *.* FROM '${monitor_user}'@'${remote_addr}'"
