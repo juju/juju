@@ -243,7 +243,7 @@ var searchingTestCases = []*simpleTestCase{
 		aptCmder.SearchCmd(testedPackageName),
 		false,
 		snapCmder.SearchCmd(testedPackageName),
-		false,
+		true,
 		yumCmder.SearchCmd(testedPackageName),
 		true,
 		func(pacman manager.PackageManager) (interface{}, error) {
@@ -278,6 +278,12 @@ func (s *ManagerSuite) TestSimpleCases(c *gc.C) {
 		c.Assert(s.calledCommand, gc.Equals, testCase.expectedAptCmd)
 		c.Assert(res, jc.DeepEquals, testCase.expectedAptResult)
 
+		// run for the snap PackageManager implementation.
+		res, err = testCase.operation(s.snap)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(s.calledCommand, gc.Equals, testCase.expectedSnapCmd)
+		c.Assert(res, jc.DeepEquals, testCase.expectedSnapResult)
+
 		// run for the yum PackageManager implementation.
 		res, err = testCase.operation(s.yum)
 		c.Assert(err, jc.ErrorIsNil)
@@ -308,6 +314,13 @@ func (s *ManagerSuite) TestSimpleErrorCases(c *gc.C) {
 
 		cmd := <-cmdChan
 		c.Assert(strings.Join(cmd.Args, " "), gc.DeepEquals, testCase.expectedAptCmd)
+
+		// run for the snap PackageManager implementation:
+		_, err = testCase.operation(s.snap)
+		c.Assert(err, gc.ErrorMatches, expectedErr)
+
+		cmd = <-cmdChan
+		c.Assert(strings.Join(cmd.Args, " "), gc.DeepEquals, testCase.expectedSnapCmd)
 
 		// run for the yum PackageManager implementation:
 		_, err = testCase.operation(s.yum)

@@ -16,7 +16,7 @@ var snapCmder = packageCommander{
 	prereq:           makeNopCmd(),
 	update:           makeNopCmd(),
 	upgrade:          buildCommand(snapBinary, "refresh"),
-	install:          buildCommand(snapBinary, "install "),
+	install:          buildCommand(snapBinary, "install"),
 	remove:           buildCommand(snapBinary, "remove"),
 	purge:            buildCommand(snapBinary, "remove"),
 	search:           buildCommand(snapBinary, "info %s"),
