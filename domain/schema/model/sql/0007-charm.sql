@@ -18,7 +18,15 @@ CREATE TABLE charm (
     description         TEXT,
     summary             TEXT,
     min_juju_version    TEXT,
-    run_as_id           TEXT,
+    run_as_id           INT,
+    -- Assumes is a blob of YAML that will be parsed by the charm to compute
+    -- the result of the SAT expression.
+    -- As the expression tree is generic, you can't use RI or index into the
+    -- blob without constraining the expression to a specific set of rules.
+    assumes_blob        TEXT,
+    -- Available is a flag that indicates whether the charm is available for
+    -- deployment.
+    available           BOOLEAN,
     CONSTRAINT          fk_charm_run_as_kind_charm
         FOREIGN KEY     (run_as_id)
         REFERENCES      charm_run_as_kind(id)
@@ -26,6 +34,93 @@ CREATE TABLE charm (
 
 CREATE UNIQUE INDEX idx_charm_name
     ON charm (name);
+
+CREATE TABLE charm_source (
+    id       INT PRIMARY KEY,
+    name     TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_charm_source_name
+    ON charm_source (name);
+
+INSERT INTO charm_source VALUES
+    (0, 'local'),
+    (1, 'ch');
+
+CREATE TABLE charm_origin (
+    charm_uuid          TEXT NOT NULL,
+    source_id           INT,
+    id                  string,
+    hash                string,
+    revision            INT,
+    CONSTRAINT          fk_charm_source_source
+        FOREIGN KEY     (source_id)
+        REFERENCES      source(id),
+    CONSTRAINT          fk_charm_origin_charm
+        FOREIGN KEY     (charm_uuid)
+        REFERENCES      charm(uuid)
+);
+
+CREATE TABLE charm_channel (
+    charm_uuid          TEXT NOT NULL,
+    track               TEXT,
+    risk                TEXT,
+    branch              TEXT,
+    CONSTRAINT          fk_charm_channel_charm
+        FOREIGN KEY     (charm_uuid)
+        REFERENCES      charm(uuid)
+);
+
+CREATE TABLE architecture (
+    id       INT PRIMARY KEY,
+    name     TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_architecture_name
+    ON architecture (name);
+
+INSERT INTO architecture VALUES
+    (0, 'amd64'),
+    (1, 'arm64'),
+    (2, 'ppc64el'),
+    (3, 's390x'),
+    (4, 'riscv64');
+
+CREATE TABLE charm_platform (
+    charm_uuid          TEXT NOT NULL,
+    os                  TEXT,
+    channel             TEXT,
+    architecture_id     TEXT,
+    CONSTRAINT          fk_charm_channel_charm
+        FOREIGN KEY     (charm_uuid)
+        REFERENCES      charm(uuid),
+    CONSTRAINT          fk_charm_origin_architecture
+        FOREIGN KEY     (architecture_id)
+        REFERENCES      architecture(id)
+);
+
+CREATE TABLE hash_kind (
+    id       INT PRIMARY KEY,
+    name     TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_hash_kind_name
+    ON hash_kind (name);
+
+INSERT INTO hash_kind VALUES
+    (0, 'sha256');
+
+CREATE TABLE charm_hash (
+    charm_uuid          TEXT NOT NULL,
+    hash_kind_id        TEXT NOT NULL,
+    hash                TEXT NOT NULL,
+    CONSTRAINT          fk_charm_hash_charm
+        FOREIGN KEY     (charm_uuid)
+        REFERENCES      charm(uuid),
+    CONSTRAINT          fk_charm_hash_kind
+        FOREIGN KEY     (hash_kind_id)
+        REFERENCES      hash_kind(id)
+);
 
 CREATE TABLE charm_relation_kind (
     id       INT PRIMARY KEY,
@@ -95,7 +190,7 @@ ON charm_relation (charm_uuid);
 CREATE TABLE charm_extra_binding (
     charm_uuid          TEXT NOT NULL,
     name                TEXT NOT NULL,
-    CONSTRAINT          fk_charm_relation_charm
+    CONSTRAINT          fk_charm_extra_binding_charm
         FOREIGN KEY     (charm_uuid)
         REFERENCES      charm(uuid),
     PRIMARY KEY (charm_uuid, name)
@@ -107,7 +202,7 @@ ON charm_extra_binding (charm_uuid);
 CREATE TABLE charm_category (
     charm_uuid          TEXT NOT NULL,
     value               TEXT NOT NULL,
-    CONSTRAINT          fk_charm_relation_charm
+    CONSTRAINT          fk_charm_category_charm
         FOREIGN KEY     (charm_uuid)
         REFERENCES      charm(uuid),
     PRIMARY KEY (charm_uuid, value)
@@ -119,7 +214,7 @@ ON charm_category (charm_uuid);
 CREATE TABLE charm_tag (
     charm_uuid          TEXT NOT NULL,
     value               TEXT NOT NULL,
-    CONSTRAINT          fk_charm_relation_charm
+    CONSTRAINT          fk_charm_tag_charm
         FOREIGN KEY     (charm_uuid)
         REFERENCES      charm(uuid),
     PRIMARY KEY (charm_uuid, value)
@@ -230,7 +325,7 @@ ON charm_resource (charm_uuid);
 CREATE TABLE charm_term (
     charm_uuid          TEXT NOT NULL,
     value               TEXT NOT NULL,
-    CONSTRAINT          fk_charm_relation_charm
+    CONSTRAINT          fk_charm_term_charm
         FOREIGN KEY     (charm_uuid)
         REFERENCES      charm(uuid),
     PRIMARY KEY (charm_uuid, value)
@@ -260,7 +355,7 @@ CREATE TABLE charm_container_mount (
     resource              TEXT,
     storage               TEXT,
     location              TEXT,
-    CONSTRAINT            fk_charm_container_charm
+    CONSTRAINT            fk_charm_container_mount_charm
         FOREIGN KEY       (charm_uuid)
         REFERENCES        charm(uuid),
     CONSTRAINT            fk_charm_container_mount_charm_container
