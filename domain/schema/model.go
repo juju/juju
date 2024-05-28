@@ -369,7 +369,7 @@ CREATE TABLE charm_origin (
     revision            INT,
     CONSTRAINT          fk_charm_source_source
         FOREIGN KEY     (source_id)
-        REFERENCES      source(id),
+        REFERENCES      charm_source(id),
     CONSTRAINT          fk_charm_origin_charm
         FOREIGN KEY     (charm_uuid)
         REFERENCES      charm(uuid)
@@ -680,6 +680,13 @@ CREATE TABLE charm_container_mount (
 
 CREATE INDEX idx_charm_container_mount_charm
 ON charm_container_mount (charm_uuid);
+
+-- Create a charm url view for backwards compatibility.
+CREATE VIEW v_charm_url AS
+SELECT CONCAT(cs.name, ':', c.name, '-', IFNULL(co.revision, 0)) AS url, c.uuid AS uuid
+FROM charm c
+INNER JOIN charm_origin co ON c.uuid = co.charm_uuid
+LEFT JOIN charm_source cs ON cs.id = co.source_id;
 `)
 }
 

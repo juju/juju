@@ -104,15 +104,13 @@ func (st *State) getAnnotationsForID(ctx context.Context, id annotations.ID, get
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Looking up the UUID for id
 		result := sqlair.M{}
-		err = tx.Query(ctx, kindQueryStmt, kindQueryParam).Get(result)
-		if err != nil {
+		if err := tx.Query(ctx, kindQueryStmt, kindQueryParam).Get(result); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("unable to find UUID for ID: %q %w", id.Name, errors.NotFound)
 			} else {
 				return errors.Annotatef(err, "looking up UUID for ID: %s", id.Name)
 			}
 		}
-
 		uuid, ok := result["uuid"].(string)
 		if !ok {
 			return fmt.Errorf("unable to find UUID for ID: %q %w", id.Name, errors.NotFound)

@@ -60,7 +60,7 @@ func (s *annotationSuite) TestMachineAnnotations(c *gc.C) {
 
 func (s *annotationSuite) TestCharmAnnotations(c *gc.C) {
 	// TODO (cderici): replace ensureCharm when Charm are added.
-	s.ensureCharm(c, "local:wordpress-1", "234")
+	s.ensureCharm(c, "wordpress", "234")
 	s.testSetGetEntitiesAnnotations(c, names.NewCharmTag("local:wordpress-1"))
 }
 
@@ -327,10 +327,13 @@ func (s *annotationSuite) ensureMachine(c *gc.C, id, uuid string) {
 // ensureCharm manually inserts a row into the charm table.
 func (s *annotationSuite) ensureCharm(c *gc.C, url, uuid string) {
 	err := s.ModelTxnRunner(c, s.ControllerModelUUID()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-		INSERT INTO charm (uuid, url)
-		VALUES (?, ?)`, uuid, url)
-		return err
+		if _, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, ?)`, uuid, url); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO charm_origin (charm_uuid, source_id, revision) VALUES (?, 0, 1)`, uuid); err != nil {
+			return err
+		}
+		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

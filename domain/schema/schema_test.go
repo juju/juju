@@ -378,6 +378,19 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 	c.Assert(got, jc.SameContents, wanted.SortedValues(), gc.Commentf("difference %v", set.NewStrings(got...).Difference(wanted).SortedValues()))
 }
 
+func (s *schemaSuite) TestModelViews(c *gc.C) {
+	c.Logf("Committing schema DDL")
+
+	s.applyDDL(c, ModelDDL())
+
+	// Ensure that each view is present.
+	expected := set.NewStrings(
+		"v_charm_url",
+		"v_secret_permission",
+	)
+	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
+}
+
 func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
 	s.applyDDL(c, ControllerDDL())
 

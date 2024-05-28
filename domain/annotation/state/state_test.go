@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/annotations"
 	annotationerrors "github.com/juju/juju/domain/annotation/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	"github.com/juju/juju/internal/charm"
 )
 
 type stateSuite struct {
@@ -137,12 +138,12 @@ func (s *stateSuite) TestSetAnnotationsUpdateStorage(c *gc.C) {
 func (s *stateSuite) TestSetAnnotationsUpdateCharm(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	s.ensureCharm(c, "mycharmurl", "123")
+	s.ensureCharm(c, "local:mycharmurl-5", "123")
 	s.ensureAnnotation(c, "charm", "123", "foo", "5")
 
 	testAnnotationUpdate(c, st, annotations.ID{
 		Kind: annotations.KindCharm,
-		Name: "mycharmurl",
+		Name: "local:mycharmurl-5",
 	})
 }
 
@@ -241,7 +242,7 @@ func (s *stateSuite) TestUUIDQueryForID(c *gc.C) {
 
 	// charm
 	kindQuery, kindQueryParam, _ = uuidQueryForID(annotations.ID{Kind: annotations.KindCharm, Name: "charmurl"})
-	c.Check(kindQuery, gc.Equals, `SELECT &M.uuid FROM charm WHERE url = $M.entity_id`)
+	c.Check(kindQuery, gc.Equals, `SELECT &M.uuid FROM v_charm_url WHERE url = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "charmurl"})
 }
 
@@ -344,11 +345,22 @@ func (s *stateSuite) ensureUnit(c *gc.C, unit_id, uuid string) {
 
 // ensureCharm manually inserts a row into the charm table.
 func (s *stateSuite) ensureCharm(c *gc.C, url, uuid string) {
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-		INSERT INTO charm (uuid, url)
-		VALUES (?, ?)`, uuid, url)
-		return err
+	parts, err := charm.ParseURL(url)
+	c.Assert(err, jc.ErrorIsNil)
+
+	source := 0
+	if charm.CharmHub.Matches(parts.Schema) {
+		source = 1
+	}
+
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO charm (uuid, name) VALUES (?, ?)`, uuid, parts.Name); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO charm_origin (charm_uuid, source_id, revision) VALUES (?, ?, ?)`, uuid, source, parts.Revision); err != nil {
+			return err
+		}
+		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
