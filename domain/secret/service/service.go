@@ -545,10 +545,9 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 		if md != nil {
 			// If the label has is to be changed by the secret owner, update the secret metadata.
 			// TODO(wallyworld) - the label staying the same should be asserted in a txn.
-			isOwner := true
 			if labelToUpdate != nil && *labelToUpdate != md.Label {
-				var err error
-				if isOwner, err = checkUnitOwner(unitName, md.Owner, token); err != nil {
+				isOwner, err := checkUnitOwner(unitName, md.Owner, token)
+				if err != nil {
 					return nil, nil, errors.Trace(err)
 				}
 				if isOwner {
@@ -575,9 +574,10 @@ func (s *SecretService) ProcessCharmSecretConsumerLabel(
 			uri = md.URI
 			// We don't update the consumer label in this case since the label comes
 			// from the owner metadata and we don't want to violate uniqueness checks.
-			if isOwner {
-				labelToUpdate = nil
-			}
+			// 1. owners use owner label;
+			// 2. the leader and peer units use the owner label for application-owned secrets.
+			// So, no need to update the consumer label.
+			labelToUpdate = nil
 		}
 	}
 

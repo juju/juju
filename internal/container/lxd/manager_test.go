@@ -141,6 +141,7 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 
 	exp.GetInstanceState(hostName).Return(
 		&lxdapi.InstanceState{
+
 			StatusCode: lxdapi.Running,
 			Network: map[string]lxdapi.InstanceStateNetwork{
 				"fan0": {
@@ -152,8 +153,12 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 				},
 			},
 		}, lxdtesting.ETag, nil).Times(2)
-
-	exp.GetInstance(hostName).Return(&lxdapi.Instance{Name: hostName, Type: "container"}, lxdtesting.ETag, nil)
+	inst := &lxdapi.Instance{
+		Name:        hostName,
+		Type:        "container",
+		InstancePut: lxdapi.InstancePut{Architecture: "amd64"},
+	}
+	exp.GetInstance(hostName).Return(inst, lxdtesting.ETag, nil)
 
 	// Arrangements for the container destruction.
 	stopReq := lxdapi.InstanceStatePut{
@@ -174,6 +179,8 @@ func (s *managerSuite) TestContainerCreateDestroy(c *gc.C) {
 
 	instanceId := instance.Id()
 	c.Check(string(instanceId), gc.Equals, hostName)
+	c.Check(hc.Arch, gc.NotNil)
+	c.Check(*hc.Arch, gc.Equals, "amd64")
 
 	instanceStatus := instance.Status(envcontext.WithoutCredentialInvalidator(context.Background()))
 	c.Check(instanceStatus.Status, gc.Equals, status.Running)
@@ -211,7 +218,12 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 	s.expectStartOp(ctrl)
 
 	exp.UpdateInstanceState(hostName, lxdapi.InstanceStatePut{Action: "start", Timeout: -1}, "").Return(s.startOp, nil)
-	exp.GetInstance(hostName).Return(&lxdapi.Instance{Name: hostName, Type: "container"}, lxdtesting.ETag, nil)
+	inst := &lxdapi.Instance{
+		Name:        hostName,
+		Type:        "container",
+		InstancePut: lxdapi.InstancePut{Architecture: "amd64"},
+	}
+	exp.GetInstance(hostName).Return(inst, lxdtesting.ETag, nil)
 
 	// Supplying config for a single device with default bridge and without a
 	// CIDR will cause the default bridge to be updated with IPv4 config.

@@ -1,6 +1,0 @@
-#!/bin/bash
-# Here put anything that is needed to start the service.
-# Note that currently this is run directly after install
-# i.e. 'service apache2 start'
-
-status-set active "Started" || true

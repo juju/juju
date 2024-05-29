@@ -296,8 +296,8 @@ type Meta struct {
 type Container struct {
 	Resource string  `bson:"resource,omitempty" json:"resource,omitempty" yaml:"resource,omitempty"`
 	Mounts   []Mount `bson:"mounts,omitempty" json:"mounts,omitempty" yaml:"mounts,omitempty"`
-	Uid      int     `bson:"uid,omitempty" json:"uid,omitempty" yaml:"uid,omitempty"`
-	Gid      int     `bson:"gid,omitempty" json:"gid,omitempty" yaml:"gid,omitempty"`
+	Uid      *int    `bson:"uid,omitempty" json:"uid,omitempty" yaml:"uid,omitempty"`
+	Gid      *int    `bson:"gid,omitempty" json:"gid,omitempty" yaml:"gid,omitempty"`
 }
 
 // Mount allows a container to mount a storage filesystem from the storage top-level directive.
@@ -1178,17 +1178,19 @@ func parseContainers(input interface{}, resources map[string]resource.Meta, stor
 		}
 
 		if value, ok := containerMap["uid"]; ok {
-			container.Uid = int(value.(int64))
-			if container.Uid >= 1000 && container.Uid < 10000 {
+			uid := int(value.(int64))
+			container.Uid = &uid
+			if uid >= 1000 && uid < 10000 {
 				return nil, errors.Errorf("container %q has invalid uid %d: uid cannot be in reserved range 1000-9999",
-					name, container.Uid)
+					name, uid)
 			}
 		}
 		if value, ok := containerMap["gid"]; ok {
-			container.Gid = int(value.(int64))
-			if container.Gid >= 1000 && container.Gid < 10000 {
+			gid := int(value.(int64))
+			container.Gid = &gid
+			if gid >= 1000 && gid < 10000 {
 				return nil, errors.Errorf("container %q has invalid gid %d: gid cannot be in reserved range 1000-9999",
-					name, container.Gid)
+					name, gid)
 			}
 		}
 

@@ -1,10 +1,9 @@
 run_compileall() {
-	rsync -r --exclude-from=acceptancetests/.gitignore acceptancetests "${TEST_DIR}/"
 	cp -R scripts "${TEST_DIR}/"
 
 	CURRENT_DIRECTORY=$(pwd)
 	cd "${TEST_DIR}" || exit
-	OUT=$(python3 -m compileall acceptancetests scripts -q 2>&1 || true)
+	OUT=$(python3 -m compileall scripts -q 2>&1 || true)
 	cd "${CURRENT_DIRECTORY}" || exit
 
 	if [ -n "${OUT}" ]; then

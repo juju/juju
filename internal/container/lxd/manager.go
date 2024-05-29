@@ -141,7 +141,9 @@ func (m *containerManager) CreateContainer(
 	_ = callback(status.Running, "Container started", nil)
 
 	virtType := string(spec.VirtType)
+	arch := c.Arch()
 	hardware := &instance.HardwareCharacteristics{
+		Arch:             &arch,
 		AvailabilityZone: &m.availabilityZone,
 		VirtType:         &virtType,
 	}
@@ -271,7 +273,9 @@ func (m *containerManager) getContainerSpec(
 		networkConfig.Interfaces = interfaces
 	}
 
-	cloudConfig, err := cloudinit.New(instanceConfig.Base.OS, cloudinit.WithDisableNetplanMACMatch)
+	// We tell Netplan to match by interface name for containers; by MAC for VMs.
+	cloudConfig, err := cloudinit.New(
+		instanceConfig.Base.OS, cloudinit.WithNetplanMACMatch(virtType == instance.InstanceTypeVM))
 	if err != nil {
 		return ContainerSpec{}, errors.Trace(err)
 	}

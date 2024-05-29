@@ -206,7 +206,9 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		InitialScale:         provisionInfo.Scale,
 	}
 	switch ch.Meta().CharmUser {
-	case charm.RunAsDefault, charm.RunAsRoot:
+	case charm.RunAsDefault:
+		config.CharmUser = caas.RunAsDefault
+	case charm.RunAsRoot:
 		config.CharmUser = caas.RunAsRoot
 	case charm.RunAsSudoer:
 		// TODO(pebble): once pebble supports auth, allow running as non-root.

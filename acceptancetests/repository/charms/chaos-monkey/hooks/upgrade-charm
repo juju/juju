@@ -1,2 +1,0 @@
-#!/bin/bash -eux
-${CHARM_DIR}/hooks/extract_chaos_monkey.bash

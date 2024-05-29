@@ -1296,6 +1296,11 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		return containers[i].Name < containers[j].Name
 	})
 
+	requireSecurityContext := config.CharmUser != caas.RunAsDefault
+	for _, v := range containers {
+		requireSecurityContext = requireSecurityContext || v.Uid != nil || v.Gid != nil
+	}
+
 	env := []corev1.EnvVar{
 		{
 			Name:  constants.EnvJujuContainerNames,
@@ -1458,13 +1463,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		Command:         charmContainerCommand,
 		Args:            charmContainerArgs,
 		Env:             env,
-		SecurityContext: &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(0),
-			RunAsGroup: pointer.Int64(0),
-		},
-		LivenessProbe:  charmContainerLivenessProbe,
-		ReadinessProbe: charmContainerReadinessProbe,
-		StartupProbe:   charmContainerStartupProbe,
+		LivenessProbe:   charmContainerLivenessProbe,
+		ReadinessProbe:  charmContainerReadinessProbe,
+		StartupProbe:    charmContainerStartupProbe,
 		VolumeMounts: append([]corev1.VolumeMount{
 			{
 				Name:      constants.CharmVolumeName,
@@ -1484,21 +1485,23 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		}, charmContainerExtraVolumeMounts...),
 	}
-	switch config.CharmUser {
-	case caas.RunAsRoot:
-		charmContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(0),
-			RunAsGroup: pointer.Int64(0),
-		}
-	case caas.RunAsSudoer:
-		charmContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(constants.JujuSudoUserID),
-			RunAsGroup: pointer.Int64(constants.JujuSudoGroupID),
-		}
-	case caas.RunAsNonRoot:
-		charmContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(constants.JujuUserID),
-			RunAsGroup: pointer.Int64(constants.JujuGroupID),
+	if requireSecurityContext {
+		switch config.CharmUser {
+		case caas.RunAsRoot:
+			charmContainer.SecurityContext = &corev1.SecurityContext{
+				RunAsUser:  pointer.Int64(0),
+				RunAsGroup: pointer.Int64(0),
+			}
+		case caas.RunAsSudoer:
+			charmContainer.SecurityContext = &corev1.SecurityContext{
+				RunAsUser:  pointer.Int64(constants.JujuSudoUserID),
+				RunAsGroup: pointer.Int64(constants.JujuSudoGroupID),
+			}
+		case caas.RunAsNonRoot:
+			charmContainer.SecurityContext = &corev1.SecurityContext{
+				RunAsUser:  pointer.Int64(constants.JujuUserID),
+				RunAsGroup: pointer.Int64(constants.JujuGroupID),
+			}
 		}
 	}
 
@@ -1550,10 +1553,6 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				SuccessThreshold:    containerProbeSuccess,
 				FailureThreshold:    containerReadinessProbeFailure,
 			},
-			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  pointer.Int64(int64(v.Uid)),
-				RunAsGroup: pointer.Int64(int64(v.Gid)),
-			},
 			VolumeMounts: []corev1.VolumeMount{
 				{
 					Name:      constants.CharmVolumeName,
@@ -1567,6 +1566,15 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 					SubPath:   fmt.Sprintf("charm/containers/%s", v.Name),
 				},
 			},
+		}
+		if requireSecurityContext {
+			container.SecurityContext = &corev1.SecurityContext{}
+			if v.Uid != nil {
+				container.SecurityContext.RunAsUser = pointer.Int64(int64(*v.Uid))
+			}
+			if v.Gid != nil {
+				container.SecurityContext.RunAsGroup = pointer.Int64(int64(*v.Gid))
+			}
 		}
 		if v.Image.Password != "" {
 			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: a.imagePullSecretName(v.Name)})
@@ -1666,21 +1674,23 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		}, charmInitAdditionalMounts...),
 	}
-	switch config.CharmUser {
-	case caas.RunAsRoot:
-		charmInitContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(0),
-			RunAsGroup: pointer.Int64(0),
-		}
-	case caas.RunAsSudoer:
-		charmInitContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(constants.JujuSudoUserID),
-			RunAsGroup: pointer.Int64(constants.JujuSudoGroupID),
-		}
-	case caas.RunAsNonRoot:
-		charmInitContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser:  pointer.Int64(constants.JujuUserID),
-			RunAsGroup: pointer.Int64(constants.JujuGroupID),
+	if requireSecurityContext {
+		switch config.CharmUser {
+		case caas.RunAsRoot:
+			charmInitContainer.SecurityContext = &corev1.SecurityContext{
+				RunAsUser:  pointer.Int64(0),
+				RunAsGroup: pointer.Int64(0),
+			}
+		case caas.RunAsSudoer:
+			charmInitContainer.SecurityContext = &corev1.SecurityContext{
+				RunAsUser:  pointer.Int64(constants.JujuSudoUserID),
+				RunAsGroup: pointer.Int64(constants.JujuSudoGroupID),
+			}
+		case caas.RunAsNonRoot:
+			charmInitContainer.SecurityContext = &corev1.SecurityContext{
+				RunAsUser:  pointer.Int64(constants.JujuUserID),
+				RunAsGroup: pointer.Int64(constants.JujuGroupID),
+			}
 		}
 	}
 
@@ -1705,9 +1715,14 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	if err != nil {
 		return nil, errors.Annotate(err, "processing constraints")
 	}
-	spec.SecurityContext = &corev1.PodSecurityContext{
-		FSGroup:            pointer.Int64(constants.JujuFSGroupID),
-		SupplementalGroups: []int64{constants.JujuFSGroupID},
+
+	if requireSecurityContext {
+		// Rootless charms are any charm after juju 3.5 that declare
+		// either the charm as rootless or any workload.
+		spec.SecurityContext = &corev1.PodSecurityContext{
+			FSGroup:            pointer.Int64(constants.JujuFSGroupID),
+			SupplementalGroups: []int64{constants.JujuFSGroupID},
+		}
 	}
 	return spec, nil
 }

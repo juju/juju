@@ -54,7 +54,7 @@ jobs:
       if: matrix.cloud == 'microk8s'
       uses: balchua/microk8s-actions@e99a1ffcd3bb2682d941104cf6c1a215c657903f
       with:
-        channel: "1.28-strict/stable"
+        channel: "1.30-strict/stable"
         addons: '["dns", "hostpath-storage", "rbac"]'
         launch-configuration: "$GITHUB_WORKSPACE/.github/microk8s-launch-config-aws.yaml"
 

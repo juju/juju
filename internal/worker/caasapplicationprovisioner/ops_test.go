@@ -485,8 +485,8 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 				},
 				"rootless": {
 					Resource: "rootless-image",
-					Uid:      5000,
-					Gid:      5001,
+					Uid:      intPtr(5000),
+					Gid:      intPtr(5001),
 				},
 			},
 		},
@@ -524,8 +524,8 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 				Image: resources.DockerImageDetails{
 					RegistryPath: "rootless:foo-bar",
 				},
-				Uid: 5000,
-				Gid: 5001,
+				Uid: intPtr(5000),
+				Gid: intPtr(5001),
 			},
 		},
 		IntroductionSecret:   "123456789",
@@ -542,7 +542,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		Devices:      []devices.KubernetesDeviceParams{},
 		Trust:        true,
 		InitialScale: 10,
-		CharmUser:    caas.RunAsRoot,
+		CharmUser:    caas.RunAsDefault,
 	}
 	gomock.InOrder(
 		facade.EXPECT().ProvisioningInfo("test").Return(pi, nil),
@@ -550,7 +550,10 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		app.EXPECT().Exists().Return(ds, nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
 		facade.EXPECT().ApplicationOCIResources("test").Return(oci, nil),
-		app.EXPECT().Ensure(ensureParams).Return(nil),
+		app.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
+			c.Check(config, gc.DeepEquals, ensureParams)
+			return nil
+		}),
 	)
 
 	err := caasapplicationprovisioner.AppOps.AppAlive("test", app, password, &lastApplied, facade, clk, s.logger)
@@ -610,4 +613,8 @@ func (s *OpsSuite) TestAppDead(c *gc.C) {
 
 	err := caasapplicationprovisioner.AppOps.AppDead("test", app, broker, facade, unitFacade, clk, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func intPtr(i int) *int {
+	return &i
 }
