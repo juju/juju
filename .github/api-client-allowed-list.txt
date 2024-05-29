@@ -1,14 +1,13 @@
 archive
 bufio
 bytes
-compress
+cmp
 compress
 container
 context
 crypto
 database/sql/driver
 embed
-encoding
 encoding
 errors
 fmt
@@ -54,6 +53,7 @@ path
 reflect
 regexp
 runtime
+slices
 sort
 strconv
 strings

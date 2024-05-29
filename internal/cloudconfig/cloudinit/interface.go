@@ -6,9 +6,6 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/packaging/v3"
-	"github.com/juju/packaging/v3/commands"
-	"github.com/juju/packaging/v3/config"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4/shell"
 	"golang.org/x/crypto/ssh"
@@ -16,6 +13,9 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/os/ostype"
 	jujupackaging "github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging/commands"
+	"github.com/juju/juju/internal/packaging/config"
+	"github.com/juju/juju/internal/packaging/source"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.
@@ -126,17 +126,17 @@ type PackageMirrorConfig interface {
 type PackageSourcesConfig interface {
 	// AddPackageSource adds a new repository and optional key to be
 	// used as a package source by the system's specific package manager.
-	AddPackageSource(packaging.PackageSource)
+	AddPackageSource(source.PackageSource)
 
 	// PackageSources returns all sources set with AddPackageSource.
-	PackageSources() []packaging.PackageSource
+	PackageSources() []source.PackageSource
 
 	// AddPackagePreferences adds the necessary options and/or bootcmds to
 	// enable the given packaging.PackagePreferences.
-	AddPackagePreferences(packaging.PackagePreferences)
+	AddPackagePreferences(source.PackagePreferences)
 
 	// PackagePreferences returns the previously-added PackagePreferences.
-	PackagePreferences() []packaging.PackagePreferences
+	PackagePreferences() []source.PackagePreferences
 }
 
 // PackagingConfig is the interface for all packaging-related operations.

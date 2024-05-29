@@ -6,11 +6,11 @@ package upgrades
 import (
 	"github.com/dustin/go-humanize"
 	"github.com/juju/errors"
-	"github.com/juju/packaging/v3/manager"
 	"github.com/juju/utils/v4/du"
 
 	"github.com/juju/juju/agent"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/internal/packaging/manager"
 )
 
 // PreUpgradeStepsFunc is the function type of PreUpgradeSteps. This may be
