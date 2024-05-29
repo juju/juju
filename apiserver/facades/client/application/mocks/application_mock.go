@@ -5409,9 +5409,33 @@ func (m *MockMachine) Id() string {
 }
 
 // Id indicates an expected call of Id.
-func (mr *MockMachineMockRecorder) Id() *gomock.Call {
+func (mr *MockMachineMockRecorder) Id() *MockMachineIdCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockMachine)(nil).Id))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockMachine)(nil).Id))
+	return &MockMachineIdCall{Call: call}
+}
+
+// MockMachineIdCall wrap *gomock.Call
+type MockMachineIdCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMachineIdCall) Return(arg0 string) *MockMachineIdCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMachineIdCall) Do(f func() string) *MockMachineIdCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMachineIdCall) DoAndReturn(f func() string) *MockMachineIdCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // IsLockedForSeriesUpgrade mocks base method.
