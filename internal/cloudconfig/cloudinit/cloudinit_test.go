@@ -7,7 +7,6 @@ package cloudinit_test
 import (
 	"fmt"
 
-	"github.com/juju/packaging/v3"
 	jc "github.com/juju/testing/checkers"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	"go.uber.org/mock/gomock"
@@ -16,6 +15,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
+	"github.com/juju/juju/internal/packaging/source"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -258,7 +258,7 @@ var ctests = []struct {
 		},
 	},
 	func(cfg cloudinit.CloudConfig) error {
-		cfg.AddPackageSource(packaging.PackageSource{URL: "keyName", Key: "someKey"})
+		cfg.AddPackageSource(source.PackageSource{URL: "keyName", Key: "someKey"})
 		return nil
 	},
 }, {
@@ -280,14 +280,14 @@ var ctests = []struct {
 		},
 	},
 	func(cfg cloudinit.CloudConfig) error {
-		prefs := packaging.PackagePreferences{
+		prefs := source.PackagePreferences{
 			Path:        "/some/path",
 			Explanation: "test",
 			Package:     "*",
 			Pin:         "release n=series",
 			Priority:    123,
 		}
-		cfg.AddPackageSource(packaging.PackageSource{URL: "keyName", Key: "someKey"})
+		cfg.AddPackageSource(source.PackageSource{URL: "keyName", Key: "someKey"})
 		cfg.AddPackagePreferences(prefs)
 		return nil
 	},

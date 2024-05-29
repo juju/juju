@@ -9,16 +9,16 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/juju/packaging/v3"
-	"github.com/juju/packaging/v3/config"
 	"github.com/juju/utils/v4"
 
-	jujupackaging "github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging/config"
+	"github.com/juju/juju/internal/packaging/source"
 )
 
 // addPackageSourceCmds is a helper function that returns the corresponding
 // runcmds to apply the package source settings on a CentOS machine.
-func addPackageSourceCmds(cfg CloudConfig, src packaging.PackageSource) []string {
+func addPackageSourceCmds(cfg CloudConfig, src source.PackageSource) []string {
 	cmds := []string{}
 
 	// if keyfile is required, add it first
@@ -28,7 +28,7 @@ func addPackageSourceCmds(cfg CloudConfig, src packaging.PackageSource) []string
 	}
 
 	repoPath := filepath.Join(config.YumSourcesDir, src.Name+".repo")
-	sourceFile, _ := cfg.getPackagingConfigurer(jujupackaging.YumPackageManager).RenderSource(src)
+	sourceFile, _ := cfg.getPackagingConfigurer(packaging.YumPackageManager).RenderSource(src)
 	data := []byte(sourceFile)
 	cmds = append(cmds, addFileCmds(repoPath, data, 0644, false)...)
 

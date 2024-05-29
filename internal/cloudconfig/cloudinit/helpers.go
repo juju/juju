@@ -86,8 +86,6 @@ func copyStringSlice(s []string) []string {
 		return nil
 	}
 	res := make([]string, len(s))
-	for i, item := range s {
-		res[i] = item
-	}
+	copy(res, s)
 	return res
 }

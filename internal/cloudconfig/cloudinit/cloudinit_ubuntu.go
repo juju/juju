@@ -9,14 +9,14 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/packaging/v3"
-	"github.com/juju/packaging/v3/config"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/v4"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/snap"
-	jujupackaging "github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging/config"
+	"github.com/juju/juju/internal/packaging/source"
 )
 
 // ubuntuCloudConfig is the cloudconfig type specific to Ubuntu machines
@@ -60,36 +60,35 @@ func (cfg *ubuntuCloudConfig) PackageMirror() string {
 }
 
 // AddPackageSource is defined on the PackageSourcesConfig interface.
-func (cfg *ubuntuCloudConfig) AddPackageSource(src packaging.PackageSource) {
+func (cfg *ubuntuCloudConfig) AddPackageSource(src source.PackageSource) {
 	cfg.attrs["apt_sources"] = append(cfg.PackageSources(), src)
 }
 
 // PackageSources is defined on the PackageSourcesConfig interface.
-func (cfg *ubuntuCloudConfig) PackageSources() []packaging.PackageSource {
-	srcs, _ := cfg.attrs["apt_sources"].([]packaging.PackageSource)
+func (cfg *ubuntuCloudConfig) PackageSources() []source.PackageSource {
+	srcs, _ := cfg.attrs["apt_sources"].([]source.PackageSource)
 	return srcs
 }
 
 // AddPackagePreferences is defined on the PackageSourcesConfig interface.
-func (cfg *ubuntuCloudConfig) AddPackagePreferences(prefs packaging.PackagePreferences) {
+func (cfg *ubuntuCloudConfig) AddPackagePreferences(prefs source.PackagePreferences) {
 	cfg.attrs["apt_preferences"] = append(cfg.PackagePreferences(), prefs)
 }
 
 // PackagePreferences is defined on the PackageSourcesConfig interface.
-func (cfg *ubuntuCloudConfig) PackagePreferences() []packaging.PackagePreferences {
-	prefs, _ := cfg.attrs["apt_preferences"].([]packaging.PackagePreferences)
+func (cfg *ubuntuCloudConfig) PackagePreferences() []source.PackagePreferences {
+	prefs, _ := cfg.attrs["apt_preferences"].([]source.PackagePreferences)
 	return prefs
 }
 
 func (cfg *ubuntuCloudConfig) RenderYAML() ([]byte, error) {
 	// Save the fields that we will modify
-	var oldbootcmds []string
-	oldbootcmds = copyStringSlice(cfg.BootCmds())
+	oldbootcmds := copyStringSlice(cfg.BootCmds())
 
 	// apt_preferences is not a valid field so we use a fake field in attrs
 	// and then render it differently
 	prefs := cfg.PackagePreferences()
-	pkgConfer := cfg.getPackagingConfigurer(jujupackaging.AptPackageManager)
+	pkgConfer := cfg.getPackagingConfigurer(packaging.AptPackageManager)
 	for _, pref := range prefs {
 		prefFile, err := pkgConfer.RenderPreferences(pref)
 		if err != nil {
@@ -141,7 +140,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 	}
 
 	var cmds []string
-	pkgCmder := cfg.paccmder[jujupackaging.AptPackageManager]
+	pkgCmder := cfg.paccmder[packaging.AptPackageManager]
 
 	// If a mirror is specified, rewrite sources.list and rename cached index files.
 	if newMirror := cfg.PackageMirror(); newMirror != "" {
@@ -167,7 +166,7 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 		cmds = append(cmds, pkgCmder.AddRepositoryCmd(src.URL))
 	}
 
-	pkgConfer := cfg.getPackagingConfigurer(jujupackaging.AptPackageManager)
+	pkgConfer := cfg.getPackagingConfigurer(packaging.AptPackageManager)
 	for _, prefs := range cfg.PackagePreferences() {
 		prefFile, err := pkgConfer.RenderPreferences(prefs)
 		if err != nil {
@@ -267,7 +266,7 @@ done
 func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyConfig) error {
 	// Write out the apt proxy settings
 	if aptProxy := proxyCfg.AptProxy(); (aptProxy != proxy.Settings{}) {
-		pkgCmder := cfg.paccmder[jujupackaging.AptPackageManager]
+		pkgCmder := cfg.paccmder[packaging.AptPackageManager]
 		filename := config.AptProxyConfigFile
 		cfg.AddBootCmd(fmt.Sprintf(
 			`echo %s > %s`,
@@ -286,7 +285,7 @@ func (cfg *ubuntuCloudConfig) updateProxySettings(proxyCfg PackageManagerProxyCo
 	// Write out the snap http/https proxy settings
 	if snapProxy := proxyCfg.SnapProxy(); (snapProxy != proxy.Settings{}) {
 		addWaitSnapSeeded()
-		pkgCmder := cfg.paccmder[jujupackaging.SnapPackageManager]
+		pkgCmder := cfg.paccmder[packaging.SnapPackageManager]
 		for _, cmd := range pkgCmder.SetProxyCmds(snapProxy) {
 			cfg.AddRunCmd(cmd)
 		}
