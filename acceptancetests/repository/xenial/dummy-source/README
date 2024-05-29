@@ -1,3 +1,0 @@
-This is a simple workaround to allow jenkins-slave to use a Jenkins in another
-environment.  Typically, you deploy this charm to the same machine as
-jenkins-slave, set master_url to the URL of the actual master and integrate.

@@ -375,8 +375,8 @@ func convertCharmContainers(input map[string]charm.Container) map[string]params.
 		containers[k] = params.CharmContainer{
 			Resource: v.Resource,
 			Mounts:   convertCharmMounts(v.Mounts),
-			Uid:      v.Uid,
-			Gid:      v.Gid,
+			Uid:      &v.Uid,
+			Gid:      &v.Gid,
 		}
 	}
 	if len(containers) == 0 {

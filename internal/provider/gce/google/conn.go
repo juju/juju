@@ -132,7 +132,6 @@ type service interface {
 // Otherwise a panic will result.
 type Connection struct {
 	service   service
-	region    string
 	projectID string
 }
 
@@ -149,7 +148,6 @@ func Connect(ctx context.Context, connCfg ConnectionConfig, creds *Credentials) 
 
 	conn := &Connection{
 		service:   &rawConn{raw},
-		region:    connCfg.Region,
 		projectID: connCfg.ProjectID,
 	}
 	return conn, nil

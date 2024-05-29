@@ -1299,6 +1299,20 @@ func (c *MockMachineHardwareCharacteristicsCall) DoAndReturn(f func() (*instance
 	return c
 }
 
+// Id mocks base method.
+func (m *MockMachine) Id() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Id")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Id indicates an expected call of Id.
+func (mr *MockMachineMockRecorder) Id() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockMachine)(nil).Id))
+}
+
 // IsLockedForSeriesUpgrade mocks base method.
 func (m *MockMachine) IsLockedForSeriesUpgrade() (bool, error) {
 	m.ctrl.T.Helper()

@@ -24,6 +24,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -1402,6 +1403,9 @@ func (w *srvSecretsRevisionWatcher) translateChanges(ctx context.Context, change
 			return nil, errors.Trace(err)
 		}
 		md, err := w.secretService.GetSecret(ctx, uri)
+		if errors.Is(err, secreterrors.SecretNotFound) {
+			continue
+		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

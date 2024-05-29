@@ -148,6 +148,7 @@ type CharmMeta interface {
 type Machine interface {
 	Base() state.Base
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
+	Id() string
 	PublicAddress() (network.SpaceAddress, error)
 	IsLockedForSeriesUpgrade() (bool, error)
 	IsParentLockedForSeriesUpgrade() (bool, error)

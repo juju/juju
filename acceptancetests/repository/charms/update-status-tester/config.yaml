@@ -1,9 +1,0 @@
-options:
-  message:
-    type: string
-    default: ''
-    description: Token used to prove that the relation is working
-  broken:
-    type: boolean
-    default: False
-    description: If true, update-status errors out

@@ -60,7 +60,7 @@ type BootstrapParams struct {
 	Placement string
 
 	// AvailableTools is a collection of tools which the Bootstrap method
-	// may use to decide which architecture/series to instantiate.
+	// may use to decide which architecture/base to instantiate.
 	AvailableTools tools.List
 
 	// ImageMetadata contains simplestreams image metadata for providers
@@ -71,7 +71,7 @@ type BootstrapParams struct {
 	// ExtraAgentValuesForTesting are testing only values written to the agent config file.
 	ExtraAgentValuesForTesting map[string]string
 
-	// Force is used to allow a bootstrap to be run on unsupported series.
+	// Force is used to allow a bootstrap to be run on unsupported base.
 	Force bool
 }
 

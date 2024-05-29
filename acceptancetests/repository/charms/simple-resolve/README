@@ -1,3 +1,0 @@
-Simple charm that errors once on the install hook, but works the next time run.
-
-Used to test juju resolve command.

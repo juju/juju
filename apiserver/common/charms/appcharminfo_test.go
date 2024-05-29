@@ -114,8 +114,8 @@ func (s *appCharmInfoSuite) TestSidecarCharm(c *gc.C) {
 					Storage:  "my-storage",
 					Location: "/my/storage/location",
 				}},
-				Uid: 5000,
-				Gid: 5001,
+				Uid: intPtr(5000),
+				Gid: intPtr(5001),
 			},
 		},
 		Storage: map[string]charm.Storage{
@@ -163,8 +163,8 @@ func (s *appCharmInfoSuite) TestSidecarCharm(c *gc.C) {
 						Storage:  "my-storage",
 						Location: "/my/storage/location",
 					}},
-					Uid: 5000,
-					Gid: 5001,
+					Uid: intPtr(5000),
+					Gid: intPtr(5001),
 				},
 			},
 			Resources: map[string]params.CharmResourceMeta{
@@ -181,4 +181,8 @@ func (s *appCharmInfoSuite) TestSidecarCharm(c *gc.C) {
 		Actions:  &params.CharmActions{},
 		Manifest: &params.CharmManifest{},
 	})
+}
+
+func intPtr(i int) *int {
+	return &i
 }

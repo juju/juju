@@ -1,4 +1,0 @@
-#!/bin/sh
-
-rm -fv /etc/mediawiki/slaves.data
-exec `dirname $0`/combine-dbservers

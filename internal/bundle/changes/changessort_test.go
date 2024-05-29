@@ -225,13 +225,13 @@ func csThree() *changeset {
 	// This one includes relations.
 	// applications:
 	//   snk1:
-	//     charm: ./acceptancetests/repository/charms/dummy-sink
+	//     charm: ./testcharms/charms/dummy-sink
 	//   snk2:
-	//     charm: ./acceptancetests/repository/charms/dummy-sink
+	//     charm: ./testcharms/charms/dummy-sink
 	//   snk3:
-	//     charm: ./acceptancetests/repository/charms/dummy-sink
+	//     charm: ./testcharms/charms/dummy-sink
 	//   src:
-	//     charm: ./acceptancetests/repository/charms/dummy-source
+	//     charm: ./testcharms/charms/dummy-source
 	// relations:
 	// - - src:sink
 	//   - snk1:source

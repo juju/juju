@@ -271,41 +271,47 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachine *state.Machine) {
-	c.Assert(newMachine.Id(), gc.Equals, oldMachine.Id())
-	c.Assert(newMachine.Principals(), jc.DeepEquals, oldMachine.Principals())
-	c.Assert(newMachine.Base().String(), gc.Equals, oldMachine.Base().String())
-	c.Assert(newMachine.ContainerType(), gc.Equals, oldMachine.ContainerType())
+	c.Check(newMachine.Id(), gc.Equals, oldMachine.Id())
+	c.Check(newMachine.Principals(), jc.DeepEquals, oldMachine.Principals())
+	c.Check(newMachine.Base().String(), gc.Equals, oldMachine.Base().String())
+	c.Check(newMachine.ContainerType(), gc.Equals, oldMachine.ContainerType())
 	newHardware, err := newMachine.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	oldHardware, err := oldMachine.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newHardware, jc.DeepEquals, oldHardware)
-	c.Assert(newMachine.Jobs(), jc.DeepEquals, oldMachine.Jobs())
-	c.Assert(newMachine.Life(), gc.Equals, oldMachine.Life())
+	if oldMachine.ContainerType() != instance.NONE && oldHardware.Arch == nil {
+		// test that containers have an architecture added during import
+		// if not already there.
+		oldHardware.Arch = strPtr("amd64")
+	}
+	c.Check(newHardware, jc.DeepEquals, oldHardware, gc.Commentf("machine %q", newMachine.Id()))
+
+	c.Check(newMachine.Jobs(), jc.DeepEquals, oldMachine.Jobs())
+	c.Check(newMachine.Life(), gc.Equals, oldMachine.Life())
 	newTools, err := newMachine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
 	oldTools, err := oldMachine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newTools, jc.DeepEquals, oldTools)
+	c.Check(newTools, jc.DeepEquals, oldTools)
 
 	oldStatus, err := oldMachine.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	newStatus, err := newMachine.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newStatus, jc.DeepEquals, oldStatus)
+	c.Check(newStatus, jc.DeepEquals, oldStatus)
 
 	oldInstID, oldInstDisplayName, err := oldMachine.InstanceNames()
 	c.Assert(err, jc.ErrorIsNil)
 	newInstID, newInstDisplayName, err := newMachine.InstanceNames()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newInstID, gc.Equals, oldInstID)
-	c.Assert(newInstDisplayName, gc.Equals, oldInstDisplayName)
+	c.Check(newInstID, gc.Equals, oldInstID)
+	c.Check(newInstDisplayName, gc.Equals, oldInstDisplayName)
 
 	oldStatus, err = oldMachine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	newStatus, err = newMachine.InstanceStatus()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newStatus, jc.DeepEquals, oldStatus)
+	c.Check(newStatus, jc.DeepEquals, oldStatus)
 }
 
 func (s *MigrationImportSuite) TestMachines(c *gc.C) {
@@ -320,6 +326,8 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: cons,
 		Characteristics: &instance.HardwareCharacteristics{
+			Arch:           cons.Arch,
+			Mem:            cons.Mem,
 			RootDiskSource: &source,
 		},
 		DisplayName: displayName,
@@ -333,16 +341,22 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 	c.Assert(hardware, gc.NotNil)
 
 	_ = s.Factory.MakeMachineNested(c, machine1.Id(), nil)
+	_ = s.Factory.MakeMachineNested(c, machine1.Id(), &factory.MachineParams{
+		Constraints: constraints.MustParse("arch=arm64"),
+		Characteristics: &instance.HardwareCharacteristics{
+			Arch: cons.Arch,
+		},
+	})
 
 	allMachines, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allMachines, gc.HasLen, 2)
+	c.Assert(allMachines, gc.HasLen, 3)
 
 	_, newSt := s.importModel(c, s.State)
 
 	importedMachines, err := newSt.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedMachines, gc.HasLen, 2)
+	c.Assert(importedMachines, gc.HasLen, 3)
 
 	// AllMachines returns the machines in the same order, yay us.
 	for i, newMachine := range importedMachines {
@@ -351,29 +365,33 @@ func (s *MigrationImportSuite) TestMachines(c *gc.C) {
 
 	// And a few extra checks.
 	parent := importedMachines[0]
-	container := importedMachines[1]
 	containers, err := parent.Containers()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(containers, jc.DeepEquals, []string{container.Id()})
-	parentId, isContainer := container.ParentId()
-	c.Assert(parentId, gc.Equals, parent.Id())
-	c.Assert(isContainer, jc.IsTrue)
+	c.Assert(containers, jc.SameContents, []string{importedMachines[1].Id(), importedMachines[2].Id()})
+	for _, cont := range []*state.Machine{importedMachines[1], importedMachines[2]} {
+		parentId, isContainer := cont.ParentId()
+		c.Assert(parentId, gc.Equals, parent.Id())
+		c.Assert(isContainer, jc.IsTrue)
+	}
 
 	s.checkStatusHistory(c, machine1, parent, 5)
 
 	newCons, err := parent.Constraints()
-	c.Assert(err, jc.ErrorIsNil)
-	// Can't test the constraints directly, so go through the string repr.
-	c.Assert(newCons.String(), gc.Equals, cons.String())
+	if c.Check(err, jc.ErrorIsNil) {
+		// Can't test the constraints directly, so go through the string repr.
+		c.Check(newCons.String(), gc.Equals, cons.String())
+	}
 
 	// Test the modification status is set to the initial state.
 	modStatus, err := parent.ModificationStatus()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modStatus.Status, gc.Equals, status.Idle)
+	if c.Check(err, jc.ErrorIsNil) {
+		c.Check(modStatus.Status, gc.Equals, status.Idle)
+	}
 
 	characteristics, err := parent.HardwareCharacteristics()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*characteristics.RootDiskSource, gc.Equals, "bunyan")
+	if c.Check(err, jc.ErrorIsNil) {
+		c.Check(*characteristics.RootDiskSource, gc.Equals, "bunyan")
+	}
 }
 
 func (s *MigrationImportSuite) TestMachinePortOps(c *gc.C) {
