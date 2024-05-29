@@ -948,7 +948,7 @@ func PopulateInstanceConfig(icfg *InstanceConfig,
 // TODO(fwereade) This function is not meant to be "good" in any serious way:
 // it is better that this functionality be collected in one place here than
 // that it be spread out across 3 or 4 providers, but this is its only
-// redeeming feature.
+// redeeming featureflag.
 func FinishInstanceConfig(
 	icfg *InstanceConfig,
 	cfg *config.Config,

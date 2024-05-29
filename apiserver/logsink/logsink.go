@@ -12,13 +12,12 @@ import (
 	gorillaws "github.com/gorilla/websocket"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/ratelimit"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/apiserver/websocket"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/rpc/params"
 )
@@ -374,7 +373,7 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 func (h *logSinkHandler) sendError(ws *websocket.Conn, req *http.Request, err error) {
 	// There is no need to log the error for normal operators as there is nothing
 	// they can action. This is for developers.
-	if err != nil && featureflag.Enabled(feature.DeveloperMode) {
+	if err != nil && featureflag.Enabled(featureflag.DeveloperMode) {
 		logger.Errorf("returning error from %s %s: %s", req.Method, req.URL.Path, errors.Details(err))
 	}
 	h.mu.Lock()

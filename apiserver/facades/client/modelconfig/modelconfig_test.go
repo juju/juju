@@ -20,7 +20,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -38,7 +38,7 @@ type modelconfigSuite struct {
 var _ = gc.Suite(&modelconfigSuite{})
 
 func (s *modelconfigSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.DeveloperMode)
+	s.SetInitialFeatureFlags(featureflag.DeveloperMode)
 	s.IsolationSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{

@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/client/application"
@@ -24,7 +23,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/output"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -156,7 +155,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json": c.FormatJson,
 	})
 
-	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
+	if featureflag.Enabled(featureflag.Branches) || featureflag.Enabled(featureflag.Generations) {
 		f.StringVar(&c.branchName, "branch", "", "Specifically target config for the supplied branch")
 	}
 }
@@ -203,7 +202,7 @@ func (c *configCommand) validateGeneration() error {
 	// during development. When we remove the flag, there will be tests
 	// (particularly feature tests) that will need to accommodate a value
 	// for branch in the local store.
-	if !featureflag.Enabled(feature.Branches) && !featureflag.Enabled(feature.Generations) && c.branchName == "" {
+	if !featureflag.Enabled(featureflag.Branches) && !featureflag.Enabled(featureflag.Generations) && c.branchName == "" {
 		c.branchName = model.GenerationMaster
 	}
 
@@ -326,7 +325,7 @@ func (c *configCommand) getAllConfig(client ApplicationAPI, ctx *cmd.Context) er
 
 	err = c.out.Write(ctx, resultsMap)
 
-	if (featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations)) && err == nil {
+	if (featureflag.Enabled(featureflag.Branches) || featureflag.Enabled(featureflag.Generations)) && err == nil {
 		var gen string
 		gen, err = c.ActiveBranch()
 		if err == nil {

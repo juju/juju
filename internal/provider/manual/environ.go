@@ -14,7 +14,6 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
 	"github.com/juju/version/v2"
@@ -31,7 +30,7 @@ import (
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/provider/common"
@@ -285,7 +284,7 @@ service %[2]s stop && logger --id stopped %[2]s
 exit 0
 `
 	var diagnostics string
-	if featureflag.Enabled(feature.DeveloperMode) {
+	if featureflag.Enabled(featureflag.DeveloperMode) {
 		diagnostics = `
     echo "Dump engine report and goroutines for stuck jujud"
     source /etc/profile.d/juju-introspection.sh

@@ -22,7 +22,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -39,7 +39,7 @@ type ConfigSuite struct {
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.DeveloperMode)
+	s.SetInitialFeatureFlags(featureflag.DeveloperMode)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which
 	// is <root>=WARNING

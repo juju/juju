@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
@@ -28,7 +27,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/juju/osenv"
 	jujuversion "github.com/juju/juju/version"
@@ -1987,7 +1986,7 @@ func AptProxyConfigMap(proxySettings proxy.Settings) map[string]any {
 }
 
 func developerConfigValue(name string) bool {
-	if !featureflag.Enabled(feature.DeveloperMode) {
+	if !featureflag.Enabled(featureflag.DeveloperMode) {
 		switch name {
 		// Add developer-mode keys here.
 		}

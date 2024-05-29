@@ -11,7 +11,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/mgo/v3/bson"
 	"github.com/juju/names/v5"
 
@@ -25,7 +24,7 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/state/migrations"
@@ -227,7 +226,7 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 		}
 	}
 
-	if featureflag.Enabled(feature.StrictMigration) {
+	if featureflag.Enabled(featureflag.StrictMigration) {
 		if err := export.checkUnexportedValues(); err != nil {
 			return nil, errors.Trace(err)
 		}

@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	_ "github.com/juju/juju/internal/provider/ec2"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
@@ -197,7 +197,7 @@ func (s *AddModelSuite) TestInit(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
-	s.SetFeatureFlags(feature.Branches)
+	s.SetFeatureFlags(featureflag.Branches)
 	// If there's any model details existing, we just overwrite them. The
 	// controller will error out if the model already exists. Overwriting
 	// means we'll replace any stale details from an previously existing
@@ -222,7 +222,7 @@ func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
 
 // We support 2 flags for Generations/Branches. This test ensures that either works.
 func (s *AddModelSuite) TestAddExistingNameAlternativeFlagName(c *gc.C) {
-	s.SetFeatureFlags(feature.Generations)
+	s.SetFeatureFlags(featureflag.Generations)
 	// If there's any model details existing, we just overwrite them. The
 	// controller will error out if the model already exists. Overwriting
 	// means we'll replace any stale details from an previously existing
@@ -641,7 +641,7 @@ func (s *AddModelSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
-	s.SetFeatureFlags(feature.Branches)
+	s.SetFeatureFlags(featureflag.Branches)
 	const controllerName = "test-master"
 
 	_, err := s.run(c, "test")
@@ -662,7 +662,7 @@ func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
-	s.SetFeatureFlags(feature.Branches)
+	s.SetFeatureFlags(featureflag.Branches)
 	const controllerName = "test-master"
 	checkNoModelSelected := func() {
 		_, err := s.store.CurrentModel(controllerName)

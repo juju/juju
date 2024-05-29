@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/retry"
@@ -48,6 +47,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/service/pebble/plan"
 	"github.com/juju/juju/juju/osenv"

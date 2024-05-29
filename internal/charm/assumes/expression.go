@@ -35,7 +35,7 @@ const (
 // to be successfully deployed. Feature expressions may additionally specify a
 // version constraint.
 type FeatureExpression struct {
-	// The name of the feature.
+	// The name of the featureflag.
 	Name string
 
 	// A feature within an assumes block may optionally specify a version

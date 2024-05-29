@@ -9,12 +9,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/worker/v4"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
@@ -279,7 +278,7 @@ func (w *HubWatcher) Watch(collection string, id interface{}, ch chan<- Change) 
 	// -1 would indicate that we think the document is deleted (and won't trigger
 	// a change event if the document really is deleted).
 	var source []byte
-	if featureflag.Enabled(feature.DeveloperMode) {
+	if featureflag.Enabled(featureflag.DeveloperMode) {
 		source = debug.Stack()
 	}
 	_ = w.sendAndWaitReq(reqWatch{
@@ -307,7 +306,7 @@ func (w *HubWatcher) WatchCollection(collection string, ch chan<- Change) {
 // specified filter function returns true when called with the document id value.
 func (w *HubWatcher) WatchCollectionWithFilter(collection string, ch chan<- Change, filter func(interface{}) bool) {
 	var source []byte
-	if featureflag.Enabled(feature.DeveloperMode) {
+	if featureflag.Enabled(featureflag.DeveloperMode) {
 		source = debug.Stack()
 	}
 	_ = w.sendAndWaitReq(reqWatch{

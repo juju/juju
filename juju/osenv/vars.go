@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/juju/featureflag"
+	"github.com/juju/juju/internal/featureflag"
 )
 
 const (

@@ -33,7 +33,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
@@ -132,7 +132,7 @@ var _ = gc.Suite(&MigrationExportSuite{})
 
 func (s *MigrationExportSuite) SetUpTest(c *gc.C) {
 	s.MigrationBaseSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.StrictMigration)
+	s.SetFeatureFlags(featureflag.StrictMigration)
 }
 
 func (s *MigrationExportSuite) checkStatusHistory(c *gc.C, history []description.Status, statusVal status.Status) {

@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
@@ -355,7 +355,7 @@ func (c *Client) toolVersionsForCAAS(ctx context.Context, args params.FindToolsP
 		if args.MajorVersion != -1 && number.Major != args.MajorVersion {
 			continue
 		}
-		if !controllerCfg.Features().Contains(feature.DeveloperMode) && streamsVersions.Size() > 0 {
+		if !controllerCfg.Features().Contains(featureflag.DeveloperMode) && streamsVersions.Size() > 0 {
 			numberCopy := number
 			numberCopy.Build = 0
 			if !streamsVersions.Contains(numberCopy.String()) {

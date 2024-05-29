@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/featureflag"
 	"github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +23,7 @@ import (
 	"github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/wrench"
 	"github.com/juju/juju/juju/osenv"
