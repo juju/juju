@@ -67,9 +67,8 @@ type SubnetV2 struct {
 type SubnetV3 struct {
 	SubnetV2
 
-	SpaceID  string          `json:"space-id"`
-	FanInfo  *FanConfigEntry `json:"fan-info,omitempty"`
-	IsPublic bool            `json:"is-public,omitempty"`
+	SpaceID  string `json:"space-id"`
+	IsPublic bool   `json:"is-public,omitempty"`
 }
 
 // NetworkRoute describes a special route that should be added for a given
@@ -1290,11 +1289,9 @@ func FromNetworkSpaceInfos(allInfos network.SpaceInfos) SpaceInfos {
 	for i, si := range allInfos {
 		mappedSubnets := make([]SubnetV3, len(si.Subnets))
 		for j, subnetInfo := range si.Subnets {
-			var mappedFanInfo *FanConfigEntry
 
 			mappedSubnets[j] = SubnetV3{
 				SpaceID: subnetInfo.SpaceID,
-				FanInfo: mappedFanInfo,
 
 				SubnetV2: SubnetV2{
 					ID: string(subnetInfo.ID),

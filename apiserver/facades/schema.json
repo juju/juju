@@ -18766,22 +18766,6 @@
                     },
                     "additionalProperties": false
                 },
-                "FanConfigEntry": {
-                    "type": "object",
-                    "properties": {
-                        "overlay": {
-                            "type": "string"
-                        },
-                        "underlay": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "underlay",
-                        "overlay"
-                    ]
-                },
                 "IngressRule": {
                     "type": "object",
                     "properties": {
@@ -19250,9 +19234,6 @@
                         },
                         "cidr": {
                             "type": "string"
-                        },
-                        "fan-info": {
-                            "$ref": "#/definitions/FanConfigEntry"
                         },
                         "id": {
                             "type": "string"
