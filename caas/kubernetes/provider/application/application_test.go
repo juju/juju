@@ -308,67 +308,6 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 				},
 				ResourceTags: map[string]string{"foo": "bar"},
 			},
-<<<<<<< HEAD
-			Containers: map[string]caas.ContainerConfig{
-				"gitlab": {
-					Name: "gitlab",
-					Image: coreresources.DockerImageDetails{
-						RegistryPath: "docker.io/library/gitlab:latest",
-					},
-					Mounts: []caas.MountConfig{
-						{
-							StorageName: "database",
-							Path:        "path/to/here",
-						},
-					},
-				},
-				"nginx": {
-					Name: "nginx",
-					Image: coreresources.DockerImageDetails{
-						RegistryPath: "docker.io/library/nginx:latest",
-						ImageRepoDetails: coreresources.ImageRepoDetails{
-							BasicAuthConfig: coreresources.BasicAuthConfig{
-								Username: "username",
-								Password: "password",
-							},
-						},
-					},
-				},
-			},
-			Constraints:  cons,
-			InitialScale: 3,
-			Trust:        trust,
-||||||| c325cbb5de
-			Containers: map[string]caas.ContainerConfig{
-				"gitlab": {
-					Name: "gitlab",
-					Image: coreresources.DockerImageDetails{
-						RegistryPath: "docker.io/library/gitlab:latest",
-					},
-					Mounts: []caas.MountConfig{
-						{
-							StorageName: "database",
-							Path:        "path/to/here",
-						},
-					},
-				},
-				"nginx": {
-					Name: "nginx",
-					Image: coreresources.DockerImageDetails{
-						RegistryPath: "docker.io/library/nginx:latest",
-						ImageRepoDetails: docker.ImageRepoDetails{
-							BasicAuthConfig: docker.BasicAuthConfig{
-								Username: "username",
-								Password: "password",
-							},
-						},
-					},
-				},
-			},
-			Constraints:  cons,
-			InitialScale: 3,
-			Trust:        trust,
-=======
 			// TODO(sidecar): fix here - all filesystems will not be mounted if it's not in `Containers[*].Mounts`
 			// {
 			// 	StorageName: "logs",
@@ -379,7 +318,6 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 			// 		Path: "path/to/there",
 			// 	},
 			// },
->>>>>>> 3.6
 		},
 		Containers: map[string]caas.ContainerConfig{
 			"gitlab": {
@@ -398,8 +336,8 @@ func (s *applicationSuite) assertEnsure(c *gc.C, app caas.Application, isPrivate
 				Name: "nginx",
 				Image: coreresources.DockerImageDetails{
 					RegistryPath: "docker.io/library/nginx:latest",
-					ImageRepoDetails: docker.ImageRepoDetails{
-						BasicAuthConfig: docker.BasicAuthConfig{
+					ImageRepoDetails: coreresources.ImageRepoDetails{
+						BasicAuthConfig: coreresources.BasicAuthConfig{
 							Username: "username",
 							Password: "password",
 						},
@@ -849,16 +787,8 @@ func getPodSpec() corev1.PodSpec {
 func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-<<<<<<< HEAD
-		c, app, false, constraints.Value{}, true, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
-||||||| c325cbb5de
-		c, app, false, constraints.Value{}, true, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
-=======
 		c, app, false, constraints.Value{}, true, false, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
->>>>>>> 3.6
+			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -946,7 +876,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
 		c, app, false, constraints.Value{}, true, true, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
+			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -988,7 +918,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 				RunAsGroup: int64Ptr(4321),
 			}
 
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(ss, gc.DeepEquals, &appsv1.StatefulSet{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1076,16 +1006,8 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 		podSpec.ImagePullSecrets...,
 	)
 	s.assertEnsure(
-<<<<<<< HEAD
-		c, app, true, constraints.Value{}, true, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
-||||||| c325cbb5de
-		c, app, true, constraints.Value{}, true, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
-=======
 		c, app, true, constraints.Value{}, true, false, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
->>>>>>> 3.6
+			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1172,16 +1094,8 @@ func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateless, false)
 	s.assertEnsure(
-<<<<<<< HEAD
-		c, app, false, constraints.Value{}, true, "", func() {
-			ss, err := s.client.AppsV1().Deployments("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
-||||||| c325cbb5de
-		c, app, false, constraints.Value{}, true, "", func() {
-			ss, err := s.client.AppsV1().Deployments("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
-=======
 		c, app, false, constraints.Value{}, true, false, "", func() {
-			ss, err := s.client.AppsV1().Deployments("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
->>>>>>> 3.6
+			ss, err := s.client.AppsV1().Deployments("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 
 			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.Background(), "gitlab-database-appuuid", metav1.GetOptions{})
@@ -1253,16 +1167,8 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentDaemon, false)
 	s.assertEnsure(
-<<<<<<< HEAD
-		c, app, false, constraints.Value{}, true, "", func() {
-			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
-||||||| c325cbb5de
-		c, app, false, constraints.Value{}, true, "", func() {
-			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
-=======
 		c, app, false, constraints.Value{}, true, false, "", func() {
-			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
->>>>>>> 3.6
+			ss, err := s.client.AppsV1().DaemonSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 
 			pvc, err := s.client.CoreV1().PersistentVolumeClaims("test").Get(context.Background(), "gitlab-database-appuuid", metav1.GetOptions{})
@@ -1457,16 +1363,8 @@ func (s *applicationSuite) TestExistsDaemonSet(c *gc.C) {
 // Test upgrades are performed by ensure. Regression bug for lp1997253
 func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
-<<<<<<< HEAD
-	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.34", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
-||||||| c325cbb5de
-	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.34", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
-=======
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.34", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
->>>>>>> 3.6
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
@@ -1477,16 +1375,8 @@ func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 		})
 	})
 
-<<<<<<< HEAD
-	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.37", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
-||||||| c325cbb5de
-	s.assertEnsure(c, app, false, constraints.Value{}, true, "2.9.37", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
-=======
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "2.9.37", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
->>>>>>> 3.6
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
@@ -1500,7 +1390,7 @@ func (s *applicationSuite) TestUpgradeStateful(c *gc.C) {
 	})
 
 	s.assertEnsure(c, app, false, constraints.Value{}, true, false, "3.5-beta1.1", func() {
-		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+		ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
 		c.Assert(err, jc.ErrorIsNil)
 
 		c.Assert(len(ss.Spec.Template.Spec.InitContainers), gc.Equals, 1)
@@ -3050,16 +2940,8 @@ func (s *applicationSuite) TestServiceError(c *gc.C) {
 func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-<<<<<<< HEAD
-		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
-||||||| c325cbb5de
-		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
-=======
 		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
-			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
->>>>>>> 3.6
+			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3305,16 +3187,8 @@ func (s *applicationSuite) TestLimits(c *gc.C) {
 
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-<<<<<<< HEAD
-		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, "", func() {
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
-||||||| c325cbb5de
-		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, "", func() {
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
-=======
 		c, app, false, constraints.MustParse("mem=1G cpu-power=1000 arch=arm64"), true, false, "", func() {
-			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
->>>>>>> 3.6
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.Background(), "gitlab", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			for _, ctr := range ss.Spec.Template.Spec.Containers {
 				c.Check(ctr.Resources.Limits, gc.DeepEquals, limits)
