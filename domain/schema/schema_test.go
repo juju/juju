@@ -273,10 +273,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 		// Subnets
 		"subnet",
-		"subnet_association_type",
-		"subnet_type",
-		"subnet_type_association_type",
-		"subnet_association",
 		"provider_subnet",
 		"provider_network",
 		"provider_network_subnet",
@@ -461,10 +457,6 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_storage_volume_delete",
 
 		"trg_secret_permission_immutable_update",
-
-		"trg_log_subnet_association_delete",
-		"trg_log_subnet_association_insert",
-		"trg_log_subnet_association_update",
 
 		"trg_log_subnet_delete",
 		"trg_log_subnet_insert",

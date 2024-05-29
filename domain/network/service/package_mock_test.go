@@ -121,45 +121,6 @@ func (c *MockStateAddSubnetCall) DoAndReturn(f func(context.Context, network.Sub
 	return c
 }
 
-// AllAssociatedSubnetsQuery mocks base method.
-func (m *MockState) AllAssociatedSubnetsQuery(arg0 context.Context, arg1 database.TxnRunner) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllAssociatedSubnetsQuery", arg0, arg1)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllAssociatedSubnetsQuery indicates an expected call of AllAssociatedSubnetsQuery.
-func (mr *MockStateMockRecorder) AllAssociatedSubnetsQuery(arg0, arg1 any) *MockStateAllAssociatedSubnetsQueryCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllAssociatedSubnetsQuery", reflect.TypeOf((*MockState)(nil).AllAssociatedSubnetsQuery), arg0, arg1)
-	return &MockStateAllAssociatedSubnetsQueryCall{Call: call}
-}
-
-// MockStateAllAssociatedSubnetsQueryCall wrap *gomock.Call
-type MockStateAllAssociatedSubnetsQueryCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateAllAssociatedSubnetsQueryCall) Return(arg0 []string, arg1 error) *MockStateAllAssociatedSubnetsQueryCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateAllAssociatedSubnetsQueryCall) Do(f func(context.Context, database.TxnRunner) ([]string, error)) *MockStateAllAssociatedSubnetsQueryCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAllAssociatedSubnetsQueryCall) DoAndReturn(f func(context.Context, database.TxnRunner) ([]string, error)) *MockStateAllAssociatedSubnetsQueryCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // AllSubnetsQuery mocks base method.
 func (m *MockState) AllSubnetsQuery(arg0 context.Context, arg1 database.TxnRunner) ([]string, error) {
 	m.ctrl.T.Helper()

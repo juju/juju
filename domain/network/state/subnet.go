@@ -18,11 +18,6 @@ import (
 	internaldatabase "github.com/juju/juju/internal/database"
 )
 
-const (
-	subnetTypeBase              = 0
-	subnetTypeFanOverlaySegment = 1
-)
-
 // AllSubnetsQuery returns the SQL query that finds all subnet UUIDs from the
 // subnet table, needed for the subnets watcher.
 func (st *State) AllSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error) {
@@ -109,31 +104,14 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 }
 
 func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnetInfo network.SubnetInfo) error {
-	var subnetType int
-	if subnetInfo.FanInfo != nil {
-		subnetType = subnetTypeFanOverlaySegment
-	}
 	spaceUUIDValue := subnetInfo.SpaceID
 	if subnetInfo.SpaceID == "" {
 		spaceUUIDValue = network.AlphaSpaceId
 	}
 
 	insertSubnetStmt, err := st.Prepare(`
-INSERT INTO subnet (uuid, cidr, vlan_tag, space_uuid, subnet_type_id)
-VALUES ($Subnet.uuid, $Subnet.cidr, $Subnet.vlan_tag, $Subnet.space_uuid, $Subnet.subnet_type_id)`, Subnet{})
-	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
-	}
-	insertSubnetAssociationStmt, err := st.Prepare(`
-INSERT INTO subnet_association (subject_subnet_uuid, associated_subnet_uuid, association_type_id)
-VALUES ($M.subject_subnet_uuid, $M.associated_subnet_uuid, 0)`, sqlair.M{}) // For the moment the only allowed association is 'overlay_of' and therefore its ID is hard-coded here.
-	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
-	}
-	retrieveUnderlaySubnetUUIDStmt, err := st.Prepare(`
-SELECT &Subnet.uuid
-FROM   subnet
-WHERE  cidr = $Subnet.cidr`, Subnet{})
+INSERT INTO subnet (uuid, cidr, vlan_tag, space_uuid)
+VALUES ($Subnet.uuid, $Subnet.cidr, $Subnet.vlan_tag, $Subnet.space_uuid)`, Subnet{})
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
@@ -167,36 +145,16 @@ VALUES ($ProviderNetworkSubnet.provider_network_uuid, $ProviderNetworkSubnet.sub
 		ctx,
 		insertSubnetStmt,
 		Subnet{
-			UUID:       subnetUUID,
-			CIDR:       subnetInfo.CIDR,
-			VLANtag:    subnetInfo.VLANTag,
-			SpaceUUID:  spaceUUIDValue,
-			SubnetType: subnetType,
+			UUID:      subnetUUID,
+			CIDR:      subnetInfo.CIDR,
+			VLANtag:   subnetInfo.VLANTag,
+			SpaceUUID: spaceUUIDValue,
 		},
 	).Run(); err != nil {
 		st.logger.Errorf("inserting subnet %q, %v", subnetInfo.CIDR, err)
 		return errors.Trace(domain.CoerceError(err))
 	}
 
-	if subnetType == subnetTypeFanOverlaySegment {
-		// Retrieve the underlay subnet uuid.
-		var underlaySubnet Subnet
-
-		if err := tx.Query(ctx, retrieveUnderlaySubnetUUIDStmt, Subnet{CIDR: subnetInfo.FanInfo.FanLocalUnderlay}).Get(&underlaySubnet); err != nil {
-			st.logger.Errorf("retrieving underlay subnet %q for subnet %q, %v", subnetInfo.FanInfo.FanLocalUnderlay, subnetUUID, err)
-			return errors.Annotatef(domain.CoerceError(err), "retrieving underlay subnet %q for subnet %q", subnetInfo.FanInfo.FanLocalUnderlay, subnetUUID)
-		}
-		// Add the association of the underlay and the newly
-		// created subnet to the associations table.
-		if err := tx.Query(
-			ctx,
-			insertSubnetAssociationStmt,
-			sqlair.M{"subject_subnet_uuid": subnetUUID, "associated_subnet_uuid": underlaySubnet.UUID},
-		).Run(); err != nil {
-			st.logger.Errorf("inserting subnet association between underlay %q and subnet %q, %v", subnetInfo.FanInfo.FanLocalUnderlay, err)
-			return errors.Annotatef(domain.CoerceError(err), "inserting subnet association between underlay %q and subnet %q", subnetInfo.FanInfo.FanLocalUnderlay, subnetUUID)
-		}
-	}
 	// Add the subnet uuid to the provider ids table.
 	if err := tx.Query(
 		ctx,
@@ -335,14 +293,6 @@ func (st *State) AddSubnet(
 }
 
 const retrieveSubnetsStmt = `
-WITH fan_subnet AS (
-    SELECT * 
-    FROM subnet  
-        JOIN subnet_association  
-           ON subnet.uuid = subnet_association.associated_subnet_uuid
-           AND subnet_association.association_type_id = 0
-        WHERE subnet.subnet_type_id = 0
-    )
 SELECT     
     subnet.uuid                          AS &SpaceSubnetRow.subnet_uuid,
     subnet.cidr                          AS &SpaceSubnetRow.subnet_cidr,
@@ -351,12 +301,9 @@ SELECT
     space.name                           AS &SpaceSubnetRow.subnet_space_name,
     provider_subnet.provider_id          AS &SpaceSubnetRow.subnet_provider_id,
     provider_network.provider_network_id AS &SpaceSubnetRow.subnet_provider_network_id,
-    fan_subnet.cidr                      AS &SpaceSubnetRow.subnet_underlay_cidr,
     availability_zone.name               AS &SpaceSubnetRow.subnet_az,
     provider_space.provider_id           AS &SpaceSubnetRow.subnet_provider_space_uuid
 FROM subnet 
-    LEFT JOIN fan_subnet 
-    ON subnet.uuid = fan_subnet.subject_subnet_uuid
     LEFT JOIN space
     ON subnet.space_uuid = space.uuid
     JOIN provider_subnet
@@ -529,8 +476,6 @@ func (st *State) DeleteSubnet(
 	}
 
 	deleteSubnetStmt := "DELETE FROM subnet WHERE uuid = ?;"
-	deleteSubjectSubnetAssociationStmt := "DELETE FROM subnet_association WHERE subject_subnet_uuid = ?;"
-	deleteAssociatedSubnetAssociationStmt := "DELETE FROM subnet_association WHERE associated_subnet_uuid = ?;"
 	selectProviderNetworkStmt := "SELECT provider_network_uuid FROM provider_network_subnet WHERE subnet_uuid = ?;"
 	deleteProviderNetworkStmt := "DELETE FROM provider_network WHERE uuid = ?;"
 	deleteProviderNetworkSubnetStmt := "DELETE FROM provider_network_subnet WHERE subnet_uuid = ?;"
@@ -538,15 +483,6 @@ func (st *State) DeleteSubnet(
 	deleteAvailabilityZoneSubnetStmt := "DELETE FROM availability_zone_subnet WHERE subnet_uuid = ?;"
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, deleteSubjectSubnetAssociationStmt, uuid); err != nil {
-			st.logger.Errorf("removing subnet association (subject) %q, %v", uuid, err)
-			return errors.Trace(domain.CoerceError(err))
-		}
-		if _, err := tx.ExecContext(ctx, deleteAssociatedSubnetAssociationStmt, uuid); err != nil {
-			st.logger.Errorf("removing subnet association %q, %v", uuid, err)
-			return errors.Trace(domain.CoerceError(err))
-		}
-
 		row := tx.QueryRowContext(ctx, selectProviderNetworkStmt, uuid)
 		var providerNetworkUUID string
 		err = row.Scan(&providerNetworkUUID)
