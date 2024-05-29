@@ -11,7 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujutesting "github.com/juju/juju/testing"
 )
@@ -48,7 +48,7 @@ func (s *logSuite) TestFlagSet(c *gc.C) {
 	})
 	logger := loggertesting.WrapCheckLog(recorder)
 
-	s.SetFeatureFlags(feature.LogErrorStack)
+	s.SetFeatureFlags(featureflag.LogErrorStack)
 	err := errors.New("test error")
 	err2 := loggedErrorStack(logger, err)
 	c.Assert(err, gc.Equals, err2)

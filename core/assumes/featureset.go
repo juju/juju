@@ -13,13 +13,13 @@ import (
 // Feature identifies a particular piece of functionality provided by a Juju
 // controller depending on the substrate associated with a particular model.
 type Feature struct {
-	// The name of the feature.
+	// The name of the featureflag.
 	Name string
 
 	// A user-friendly description of what the feature provides.
 	Description string
 
-	// An optional semantic version for this feature. It can be left empty
+	// An optional semantic version for this featureflag. It can be left empty
 	// to signify that a particular feature is available without explicitly
 	// specifying a version
 	Version *version.Number

@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -40,7 +40,7 @@ var _ = gc.Suite(&uniterNetworkInfoSuite{})
 
 func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
-		controller.Features: feature.RawK8sSpec,
+		controller.Features: featureflag.RawK8sSpec,
 	}
 
 	s.ApiServerSuite.SetUpTest(c)

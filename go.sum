@@ -502,8 +502,6 @@ github.com/juju/errors v0.0.0-20210818161939-5560c4c073ff/go.mod h1:i1eL7XREII6a
 github.com/juju/errors v0.0.0-20220203013757-bd733f3c86b9/go.mod h1:TRm7EVGA3mQOqSVcBySRY7a9Y1/gyVhh/WTCnc5sD4U=
 github.com/juju/errors v1.0.0 h1:yiq7kjCLll1BiaRuNY53MGI0+EQ3rF6GB+wvboZDefM=
 github.com/juju/errors v1.0.0/go.mod h1:B5x9thDqx0wIMH3+aLIMP9HjItInYWObRovoCFM5Qe8=
-github.com/juju/featureflag v1.0.0 h1:J2g8R5BevAMJWVNEJ+AvyaFE6469JU0U7QWCkt3Npvk=
-github.com/juju/featureflag v1.0.0/go.mod h1:g6bvykW7D6L/R2iZgiWatlCz9RadldeybAte71GgFg8=
 github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d/go.mod h1:2PavIy+JPciBPrBUjwbNvtwB6RQlve+hkpll6QSNmOE=
 github.com/juju/gnuflag v1.0.0 h1:E6OmPEi2nqJYanlIw7a+bUF+FDiK3uSBHftRmQi3muQ=
 github.com/juju/gnuflag v1.0.0/go.mod h1:2PavIy+JPciBPrBUjwbNvtwB6RQlve+hkpll6QSNmOE=

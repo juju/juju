@@ -40,7 +40,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/juju/osenv"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -61,7 +61,7 @@ var _ = gc.Suite(&bootstrapSuite{})
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.fakeClientSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.DeveloperMode)
+	s.SetFeatureFlags(featureflag.DeveloperMode)
 	s.broker = nil
 
 	controllerName := "controller-1"

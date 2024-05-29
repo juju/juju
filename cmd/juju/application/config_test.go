@@ -22,7 +22,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	coretesting "github.com/juju/juju/testing"
@@ -108,7 +108,7 @@ var getTests = []struct {
 
 func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.Branches)
+	s.SetFeatureFlags(featureflag.Branches)
 
 	s.defaultCharmValues = map[string]interface{}{
 		"title":           "Nearly There",
@@ -165,7 +165,7 @@ func (s *configCommandSuite) TestGetCommandInitWithGeneration(c *gc.C) {
 }
 
 func (s *configCommandSuite) TestGetConfig(c *gc.C) {
-	s.SetFeatureFlags(feature.Branches)
+	s.SetFeatureFlags(featureflag.Branches)
 	for _, t := range getTests {
 		if !t.useAppConfig {
 			s.fake.appValues = nil

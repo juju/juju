@@ -12,7 +12,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	proxyutils "github.com/juju/proxy"
 
 	cloudfile "github.com/juju/juju/cloud"
@@ -44,7 +43,7 @@ import (
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/juju/waitfor"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/juju"
@@ -429,7 +428,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(model.NewRevokeCommand())
 	r.Register(model.NewShowCommand())
 	r.Register(model.NewModelCredentialCommand())
-	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
+	if featureflag.Enabled(featureflag.Branches) || featureflag.Enabled(featureflag.Generations) {
 		r.Register(model.NewAddBranchCommand())
 		r.Register(model.NewCommitCommand())
 		r.Register(model.NewTrackBranchCommand())
@@ -443,7 +442,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(newMigrateCommand())
 	r.Register(model.NewExportBundleCommand())
 
-	if featureflag.Enabled(feature.DeveloperMode) {
+	if featureflag.Enabled(featureflag.DeveloperMode) {
 		r.Register(model.NewDumpCommand())
 		r.Register(model.NewDumpDBCommand())
 	}

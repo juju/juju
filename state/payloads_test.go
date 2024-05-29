@@ -35,7 +35,7 @@ func (s *PayloadsSuite) TestLookUp(c *gc.C) {
 func (s *PayloadsSuite) TestListPartial(c *gc.C) {
 	// Note: List and ListAll are extensively tested via the Check
 	// methods on payloadFixture, used throughout the suite. But
-	// they don't cover this feature...
+	// they don't cover this featureflag...
 	fix, initial := s.newPayloadFixture(c)
 	results, err := fix.UnitPayloads.List("whatever", initial.Name)
 	c.Assert(err, jc.ErrorIsNil)

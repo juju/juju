@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/gnuflag"
 	"github.com/juju/names/v5"
 
@@ -28,7 +27,7 @@ import (
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
 )
@@ -273,7 +272,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		ModelUUID: model.UUID,
 		ModelType: model.Type,
 	}
-	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
+	if featureflag.Enabled(featureflag.Branches) || featureflag.Enabled(featureflag.Generations) {
 		// Default target is the master branch.
 		details.ActiveBranch = coremodel.GenerationMaster
 	}

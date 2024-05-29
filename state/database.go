@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/featureflag"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
@@ -18,7 +17,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 )
@@ -323,7 +322,7 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 	info, found := db.schema[name]
 	if !found {
 		logger.Errorf("using unknown collection %q", name)
-		if featureflag.Enabled(feature.DeveloperMode) {
+		if featureflag.Enabled(featureflag.DeveloperMode) {
 			logger.Errorf("from %s", string(debug.Stack()))
 		}
 	}

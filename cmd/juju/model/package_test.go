@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/internal/feature"
+	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/jujuclient"
 	jujutesting "github.com/juju/juju/testing"
 )
@@ -31,7 +31,7 @@ type generationBaseSuite struct {
 
 func (s *generationBaseSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.Branches)
+	s.SetFeatureFlags(featureflag.Branches)
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}
