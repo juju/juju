@@ -24,9 +24,6 @@ CREATE TABLE charm (
     -- As the expression tree is generic, you can't use RI or index into the
     -- blob without constraining the expression to a specific set of rules.
     assumes_blob        TEXT,
-    -- Available is a flag that indicates whether the charm is available for
-    -- deployment.
-    available           BOOLEAN,
     CONSTRAINT          fk_charm_run_as_kind_charm
         FOREIGN KEY     (run_as_id)
         REFERENCES      charm_run_as_kind(id)
@@ -34,6 +31,23 @@ CREATE TABLE charm (
 
 CREATE UNIQUE INDEX idx_charm_name
     ON charm (name);
+
+-- The charm_state table exists to store the availability of a charm. The
+-- fact that the charm is in the database indicates that it's a placeholder.
+-- Updating the available flag to true indicates that the charm is now
+-- available for deployment.
+-- This is exists as a separate table as the charm table models the charm
+-- metadata and the goal state of the charm. The charm_state table models the
+-- internal state of the charm.
+CREATE TABLE charm_state (
+    charm_uuid          TEXT NOT NULL,
+    -- Available is a flag that indicates whether the charm is available for
+    -- deployment.
+    available           BOOLEAN,
+    CONSTRAINT          fk_charm_state_charm
+        FOREIGN KEY     (charm_uuid)
+        REFERENCES      charm(uuid)
+);
 
 CREATE TABLE charm_source (
     id       INT PRIMARY KEY,
@@ -55,7 +69,7 @@ CREATE TABLE charm_origin (
     revision            INT,
     CONSTRAINT          fk_charm_source_source
         FOREIGN KEY     (source_id)
-        REFERENCES      source(id),
+        REFERENCES      charm_source(id),
     CONSTRAINT          fk_charm_origin_charm
         FOREIGN KEY     (charm_uuid)
         REFERENCES      charm(uuid)
@@ -91,10 +105,10 @@ CREATE TABLE charm_platform (
     os                  TEXT,
     channel             TEXT,
     architecture_id     TEXT,
-    CONSTRAINT          fk_charm_channel_charm
+    CONSTRAINT          fk_charm_platform_charm
         FOREIGN KEY     (charm_uuid)
         REFERENCES      charm(uuid),
-    CONSTRAINT          fk_charm_origin_architecture
+    CONSTRAINT          fk_charm_platform_architecture
         FOREIGN KEY     (architecture_id)
         REFERENCES      architecture(id)
 );
@@ -223,6 +237,15 @@ CREATE TABLE charm_tag (
 CREATE INDEX idx_charm_tag_charm
 ON charm_tag (charm_uuid);
 
+CREATE TABLE charm_storage_kind (
+    id       INT PRIMARY KEY,
+    name     TEXT NOT NULL
+);
+
+INSERT INTO charm_storage_kind VALUES
+    (0, 'block'),
+    (1, 'filesystem');
+
 CREATE TABLE charm_storage (
     charm_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -313,7 +336,7 @@ CREATE TABLE charm_resource (
     CONSTRAINT          fk_charm_resource_charm
         FOREIGN KEY     (charm_uuid)
         REFERENCES      charm(uuid),
-    CONSTRAINT          fk_charm_resource_kind
+    CONSTRAINT          fk_charm_resource_charm_resource_kind
         FOREIGN KEY     (kind_id)
         REFERENCES      charm_resource_kind(id),
     PRIMARY KEY (charm_uuid, name)
@@ -366,3 +389,10 @@ CREATE TABLE charm_container_mount (
 
 CREATE INDEX idx_charm_container_mount_charm
 ON charm_container_mount (charm_uuid);
+
+-- Create a charm url view for backwards compatibility.
+CREATE VIEW v_charm_url AS
+SELECT cs.name || ':' || c.name || '-' || IFNULL(co.revision, 0) AS url, c.uuid AS uuid
+FROM charm c
+INNER JOIN charm_origin co ON c.uuid = co.charm_uuid
+LEFT JOIN charm_source cs ON cs.id = co.source_id;

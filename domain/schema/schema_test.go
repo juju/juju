@@ -310,7 +310,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"charm_state",
 		"charm_storage_property",
 		"charm_storage",
-		"charm_storage",
+		"charm_storage_kind",
 		"charm_tag",
 		"charm_term",
 		"hash_kind",
