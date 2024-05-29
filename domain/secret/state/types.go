@@ -121,6 +121,13 @@ type secretRevisionExpire struct {
 	ExpireTime   time.Time `db:"expire_time"`
 }
 
+type secretRevisionExpireChange struct {
+	SecretID     string    `db:"secret_id"`
+	RevisionUUID string    `db:"revision_uuid"`
+	Revision     int       `db:"revision"`
+	ExpireTime   time.Time `db:"expire_time"`
+}
+
 type secretContent struct {
 	RevisionUUID string `db:"revision_uuid"`
 	Name         string `db:"name"`

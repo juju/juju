@@ -3087,11 +3087,11 @@ FROM secret_revision_obsolete sro
 	}
 	if len(appOwners) > 0 && len(unitOwners) > 0 {
 		queryParams = append(queryParams, appOwners, unitOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id`,
-			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
-			`LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`,
-			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		joins = append(joins, `
+     LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+     LEFT JOIN application ON application.uuid = sao.application_uuid
+     LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+     LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
 		conditions = append(conditions, `AND (
     sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
@@ -3099,16 +3099,16 @@ FROM secret_revision_obsolete sro
 )`)
 	} else if len(appOwners) > 0 {
 		queryParams = append(queryParams, appOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id`,
-			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
+		joins = append(joins, `
+     LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+     LEFT JOIN application ON application.uuid = sao.application_uuid`[1:],
 		)
 		conditions = append(conditions, "AND sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
 	} else if len(unitOwners) > 0 {
 		queryParams = append(queryParams, unitOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`,
-			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		joins = append(joins, `
+     LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+     LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
 		conditions = append(conditions, "AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
 	}
@@ -3347,10 +3347,10 @@ FROM   secret_rotation sro
 	if len(appOwners) > 0 && len(unitOwners) > 0 {
 		queryParams = append(queryParams, appOwners, unitOwners)
 		joins = append(joins, `
-LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id
-LEFT JOIN application ON application.uuid = sao.application_uuid
-LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id
-LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
+        LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id
+        LEFT JOIN application ON application.uuid = sao.application_uuid
+        LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id
+        LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
 		conditions = append(conditions, `(
     sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
@@ -3359,15 +3359,15 @@ LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 	} else if len(appOwners) > 0 {
 		queryParams = append(queryParams, appOwners)
 		joins = append(joins, `
-LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id
-LEFT JOIN application ON application.uuid = sao.application_uuid`[1:],
+        LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id
+        LEFT JOIN application ON application.uuid = sao.application_uuid`[1:],
 		)
 		conditions = append(conditions, "sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
 	} else if len(unitOwners) > 0 {
 		queryParams = append(queryParams, unitOwners)
 		joins = append(joins, `
-LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id
-LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
+        LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id
+        LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
 		conditions = append(conditions, "suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
 	}
@@ -3444,4 +3444,132 @@ func (st State) GetSecretsRotationChanges(
 		return nil, errors.Trace(err)
 	}
 	return st.getSecretsRotationChanges(ctx, db, appOwners, unitOwners, secretIDs...)
+}
+
+func (st State) getSecretsRevisionExpiryChanges(
+	ctx context.Context, runner coredatabase.TxnRunner,
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	revisionIDs ...string,
+) ([]secret.ExpiryInfo, error) {
+	if len(revisionIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
+		return nil, nil
+	}
+
+	q := `
+SELECT 
+       sr.secret_id AS &secretRevisionExpireChange.secret_id,
+       sre.revision_uuid AS &secretRevisionExpireChange.revision_uuid,
+       sre.expire_time AS &secretRevisionExpireChange.expire_time,
+       MAX(sr.revision) AS &secretRevisionExpireChange.revision
+FROM   secret_revision_expire sre
+       JOIN secret_revision sr ON sr.uuid = sre.revision_uuid`
+
+	var queryParams []any
+	var joins []string
+	conditions := []string{}
+	if len(revisionIDs) > 0 {
+		queryParams = append(queryParams, revisionUUIDs(revisionIDs))
+		conditions = append(conditions, "sre.revision_uuid IN ($revisionUUIDs[:])")
+	}
+	if len(appOwners) > 0 && len(unitOwners) > 0 {
+		queryParams = append(queryParams, appOwners, unitOwners)
+		joins = append(joins, `
+        LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+        LEFT JOIN application ON application.uuid = sao.application_uuid
+        LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+        LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
+		)
+		conditions = append(conditions, `(
+    sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
+    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])
+)`)
+	} else if len(appOwners) > 0 {
+		queryParams = append(queryParams, appOwners)
+		joins = append(joins, `
+        LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+        LEFT JOIN application ON application.uuid = sao.application_uuid`[1:],
+		)
+		conditions = append(conditions, "sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
+	} else if len(unitOwners) > 0 {
+		queryParams = append(queryParams, unitOwners)
+		joins = append(joins, `
+        LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+        LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
+		)
+		conditions = append(conditions, "suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
+	}
+	if len(joins) > 0 {
+		q += fmt.Sprintf("\n%s", strings.Join(joins, "\n"))
+	}
+	if len(conditions) > 0 {
+		q += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, "\nAND "))
+	}
+	q += `
+GROUP BY sr.secret_id`
+	st.logger.Tracef(
+		"revisionIDs %+v, appOwners: %+v, unitOwners: %+v, query: \n%s",
+		revisionIDs, appOwners, unitOwners, q,
+	)
+
+	stmt, err := st.Prepare(q, append(queryParams, secretRevisionExpireChange{})...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var data []secretRevisionExpireChange
+	err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, queryParams...).GetAll(&data)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// It's ok because the secret or the expiry was just deleted.
+			return nil
+		}
+		return errors.Trace(err)
+	})
+
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+	result := make([]secret.ExpiryInfo, len(data))
+	for i, d := range data {
+		result[i] = secret.ExpiryInfo{
+			RevisionID:      d.RevisionUUID,
+			Revision:        d.Revision,
+			NextTriggerTime: d.ExpireTime,
+		}
+		uri, err := coresecrets.ParseURI(d.SecretID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result[i].URI = uri
+	}
+	return result, nil
+}
+
+// InitialWatchStatementForSecretsRevisionExpiryChanges returns the initial watch statement
+// and the table name for watching secret revision expiry changes.
+func (st State) InitialWatchStatementForSecretsRevisionExpiryChanges(
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		result, err := st.getSecretsRevisionExpiryChanges(ctx, runner, appOwners, unitOwners)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		revisionUUIDs := make([]string, len(result))
+		for i, d := range result {
+			revisionUUIDs[i] = d.RevisionID
+		}
+		return revisionUUIDs, nil
+	}
+	return "secret_revision_expire", queryFunc
+}
+
+// GetSecretsRevisionExpiryChanges returns the expiry changes for the owners' secret revisions.
+func (st State) GetSecretsRevisionExpiryChanges(
+	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
+) ([]secret.ExpiryInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st.getSecretsRevisionExpiryChanges(ctx, db, appOwners, unitOwners, revisionUUIDs...)
 }
