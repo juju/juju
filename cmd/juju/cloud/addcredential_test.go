@@ -917,7 +917,6 @@ Enter credential name:
 Using auth-type "jsonfile".
 
 Enter path to the .json file containing a service account key for your project
-(detailed instructions available at https://discourse.charmhub.io/t/1508).
 Path: 
 `[1:]
 	stderr := `
@@ -973,7 +972,6 @@ Enter your choice, or type Q|q to quit: Enter credential name:
 Using auth-type "jsonfile".
 
 Enter path to the .json file containing a service account key for your project
-(detailed instructions available at https://discourse.charmhub.io/t/1508).
 Path: 
 Credential "blah" added locally for cloud "remote".
 
@@ -1002,7 +1000,6 @@ Enter credential name:
 Using auth-type "jsonfile".
 
 Enter path to the .json file containing a service account key for your project
-(detailed instructions available at https://discourse.charmhub.io/t/1508).
 Path: 
 `[1:]
 	stderr := `
