@@ -44,7 +44,7 @@ func SetModelConfig(
 		var m coremodel.Model
 		err = controller.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			var err error
-			m, err = modelstate.Get(ctx, tx, modelID)
+			m, err = modelstate.GetModel(ctx, tx, modelID)
 			return err
 		})
 

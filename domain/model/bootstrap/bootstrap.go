@@ -97,7 +97,7 @@ func CreateReadOnlyModel(
 		var m coremodel.Model
 		err := controllerDB.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			var err error
-			m, err = state.Get(ctx, tx, id)
+			m, err = state.GetModel(ctx, tx, id)
 			return err
 		})
 		if err != nil {

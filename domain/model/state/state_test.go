@@ -261,7 +261,7 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 	runner := m.TxnRunnerFactory()
 
 	modelSt := NewState(runner)
-	modelInfo, err := modelSt.Get(context.Background(), m.uuid)
+	modelInfo, err := modelSt.GetModel(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelInfo, gc.Equals, coremodel.Model{
 		AgentVersion: jujuversion.Current,
@@ -293,7 +293,7 @@ func (m *stateSuite) TestGetModelType(c *gc.C) {
 func (m *stateSuite) TestGetModelNotFound(c *gc.C) {
 	runner := m.TxnRunnerFactory()
 	modelSt := NewState(runner)
-	_, err := modelSt.Get(context.Background(), modeltesting.GenModelUUID(c))
+	_, err := modelSt.GetModel(context.Background(), modeltesting.GenModelUUID(c))
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -410,7 +410,7 @@ func (m *stateSuite) TestCreateWithEmptyRegion(c *gc.C) {
 	err = modelSt.Activate(context.Background(), testUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelInfo, err := modelSt.Get(context.Background(), testUUID)
+	modelInfo, err := modelSt.GetModel(context.Background(), testUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelInfo.CloudRegion, gc.Equals, "")
 }
@@ -457,7 +457,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 	err = modelSt.Activate(context.Background(), testUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelInfo, err := modelSt.Get(context.Background(), testUUID)
+	modelInfo, err := modelSt.GetModel(context.Background(), testUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelInfo.CloudRegion, gc.Equals, "my-region")
 }
@@ -488,7 +488,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 	err = modelSt.Activate(context.Background(), controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelInfo, err := modelSt.Get(context.Background(), controllerUUID)
+	modelInfo, err := modelSt.GetModel(context.Background(), controllerUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelInfo.CloudRegion, gc.Equals, "my-region")
 
@@ -513,7 +513,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 	err = modelSt.Activate(context.Background(), testUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	modelInfo, err = modelSt.Get(context.Background(), testUUID)
+	modelInfo, err = modelSt.GetModel(context.Background(), testUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We should never set the region to the controller region if the cloud

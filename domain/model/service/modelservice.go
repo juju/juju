@@ -26,7 +26,7 @@ type ModelState interface {
 
 // ModelGetterState represents the state required for reading all model information.
 type ModelGetterState interface {
-	Get(context.Context, coremodel.UUID) (coremodel.Model, error)
+	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
 }
 
 // ModelService defines a service for interacting with the underlying model
@@ -65,7 +65,7 @@ func (s *ModelService) CreateModel(
 	ctx context.Context,
 	controllerUUID uuid.UUID,
 ) error {
-	m, err := s.modelGetterSt.Get(ctx, s.modelID)
+	m, err := s.modelGetterSt.GetModel(ctx, s.modelID)
 	if err != nil {
 		return err
 	}
