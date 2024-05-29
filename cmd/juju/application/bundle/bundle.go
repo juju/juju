@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v3"
@@ -253,7 +254,7 @@ func applicationConfigValue(key string, valueMap interface{}) (interface{}, erro
 // combined bundle data. Returns a slice of errors encountered while
 // processing the bundle. They are for informational purposes and do
 // not require failing the bundle deployment.
-func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*charm.BundleData, []error, error) {
+func ComposeAndVerifyBundle(ctx *cmd.Context, base BundleDataSource, pathToOverlays []string) (*charm.BundleData, []error, error) {
 	verifyConstraints := func(s string) error {
 		_, err := constraints.Parse(s)
 		return err
@@ -287,6 +288,8 @@ func ComposeAndVerifyBundle(base BundleDataSource, pathToOverlays []string) (*ch
 	if err = verifyBundle(bundleData, dsList, base.BasePath(), verifyConstraints); err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+
+	warnSeries(ctx, dsList)
 
 	return bundleData, unMarshallErrors, nil
 }
@@ -332,8 +335,7 @@ func verifyBundle(data *charm.BundleData, dsList []charm.BundleDataSource, bundl
 		return err
 	}
 
-	errs := verifyNoSeries(dsList)
-
+	var errs []string
 	var verifyError error
 	if bundleDir == "" {
 		verifyError = data.Verify(verifyConstraints, verifyStorage, verifyDevices)
@@ -354,41 +356,47 @@ func verifyBundle(data *charm.BundleData, dsList []charm.BundleDataSource, bundl
 }
 
 type bundleSeriesData struct {
-	Series string `yaml:"series,omitempty"`
+	Series      string `yaml:"series"`
+	DefaultBase string `yaml:"default-base"`
 
 	Applications map[string]struct {
 		Series string `yaml:"series"`
+		Base   string `yaml:"base"`
 	} `yaml:"applications"`
 
 	Machines map[string]struct {
 		Series string `yaml:"series"`
+		Base   string `yaml:"base"`
 	} `yaml:"machines"`
 }
 
-func verifyNoSeries(dslist []charm.BundleDataSource) []string {
+// warnSeries shows a warning if the bundle being deployed contains the 'series' key.
+// However, there is no need to warn if both series and base are provided. In Juju 3.x
+// we allowed both series and base to be provided in bundles, but checked they match.
+//
+// This means that realistically the only potential error case we need to worry about is
+// for bundles which include a series, but no base.
+func warnSeries(ctx *cmd.Context, dslist []charm.BundleDataSource) {
 	if len(dslist) == 0 {
-		return []string{}
+		return
 	}
 
-	errs := []string{}
-
 	// The first dslist is always the bundle itself
-	bundleErrs := verifyBundleNoSeries(dslist[0].BundleBytes())
+	bundleErrs := verifyBundleNoSeriesWithoutBase(dslist[0].BundleBytes())
 	if len(bundleErrs) != 0 {
-		errs = append(errs, fmt.Sprintf("base bundle contains invalid key series:\n- %v", strings.Join(bundleErrs, "\n- ")))
+		ctx.Warningf("unsupported key 'series' detected without a base in the base bundle. Ignoring:\n- %v", strings.Join(bundleErrs, "\n- "))
 	}
 
 	// The rest are overlays
 	for i, ds := range dslist[1:] {
-		overlayErrs := verifyBundleNoSeries(ds.BundleBytes())
+		overlayErrs := verifyBundleNoSeriesWithoutBase(ds.BundleBytes())
 		if len(overlayErrs) != 0 {
-			errs = append(errs, fmt.Sprintf("overlay index %d contains invalid key series:\n- %v", i, strings.Join(overlayErrs, "\n- ")))
+			ctx.Warningf("unsupported key 'series' detected without a base in overlay index %d. Ignoring:\n- %v", i, strings.Join(overlayErrs, "\n- "))
 		}
 	}
-	return errs
 }
 
-func verifyBundleNoSeries(bundleBytes []byte) []string {
+func verifyBundleNoSeriesWithoutBase(bundleBytes []byte) []string {
 	dec := yaml.NewDecoder(bytes.NewReader(bundleBytes))
 
 	var errs []string
@@ -408,16 +416,16 @@ func verifyBundleNoSeries(bundleBytes []byte) []string {
 			continue
 		}
 
-		if data.Series != "" {
+		if data.Series != "" && data.DefaultBase == "" {
 			errs = append(errs, fmt.Sprintf("document %d; bundle contains top level series. Please use default-base", docIdx))
 		}
 		for name, app := range data.Applications {
-			if app.Series != "" {
+			if app.Series != "" && app.Base == "" {
 				errs = append(errs, fmt.Sprintf("document %d; bundle application %q contains series. Please use base", docIdx, name))
 			}
 		}
 		for name, m := range data.Machines {
-			if m.Series != "" {
+			if m.Series != "" && m.Base == "" {
 				errs = append(errs, fmt.Sprintf("document %d; bundle machine %q contains series. Please use base", docIdx, name))
 			}
 		}
