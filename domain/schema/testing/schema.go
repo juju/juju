@@ -35,12 +35,12 @@ func (s *SchemaApplier) Apply(c *gc.C, ctx context.Context, runner database.TxnR
 }
 
 // DumpChangeLogState dumps the change log to the test log.
-func DumpChangeLogState(ctx context.Context, c *gc.C, runner database.TxnRunner) {
+func DumpChangeLogState(c *gc.C, runner database.TxnRunner) {
 	var (
 		logs    []changeLogRow
 		witness changeLogWitnessRow
 	)
-	err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	err := runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		rows, err := tx.QueryContext(ctx, "SELECT id, edit_type_id, namespace_id, changed, created_at FROM change_log")
 		c.Assert(err, jc.ErrorIsNil)
 

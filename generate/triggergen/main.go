@@ -35,18 +35,7 @@ func main() {
 		destination        = flag.String("destination", "", "Destination directory to write the triggers to")
 	)
 	flag.Var(&tables, "tables", "Tables to generate triggers for")
-
 	flag.Parse()
-
-	var schema *databaseschema.Schema
-	switch *dbTypeFlag {
-	case "controller":
-		schema = controllerSchema()
-	case "model":
-		schema = modelSchema()
-	default:
-		panic("unknown database type")
-	}
 
 	path, err := os.MkdirTemp(os.TempDir(), *dbTypeFlag)
 	if err != nil {
@@ -70,7 +59,10 @@ func main() {
 	go func() {
 		defer cancel()
 
-		<-ch
+		select {
+		case <-ch:
+		case <-ctx.Done():
+		}
 		dbApp.Close()
 	}()
 
@@ -82,17 +74,67 @@ func main() {
 	if err != nil {
 		log.Fatalln("cannot open db", err)
 	}
-
 	defer db.Close()
+
+	runner, err := initDBRunner(ctx, db, *dbTypeFlag)
+	if err != nil {
+		log.Fatalln("cannot open db runner", err)
+	}
+
+	tableColumns, err := readTableColumns(ctx, runner, tables)
+	if err != nil {
+		log.Fatalln("cannot read table columns", err)
+	}
+
+	result, err := renderTemplates(tableColumns, *destinationPackage)
+	if err != nil {
+		log.Fatalln("cannot render templates", err)
+	}
+
+	file := os.Stdout
+	if *destination != "" {
+		var err error
+		file, err = os.OpenFile(*destination, os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalln("cannot open destination file", err)
+		}
+		defer func() {
+			_ = file.Sync()
+			_ = file.Close()
+		}()
+		if err := file.Truncate(0); err != nil {
+			log.Fatalln("cannot truncate file", err)
+		}
+		_, _ = file.Seek(0, io.SeekStart)
+	}
+
+	fmt.Fprintln(file, result)
+
+	os.Exit(0)
+}
+
+func initDBRunner(ctx context.Context, db *sql.DB, dbType string) (*txnRunner, error) {
+	var schema *databaseschema.Schema
+	switch dbType {
+	case "controller":
+		schema = controllerSchema()
+	case "model":
+		schema = modelSchema()
+	default:
+		panic("unknown database type")
+	}
 
 	runner := &txnRunner{
 		db: db,
 	}
 
 	if _, err := schema.Ensure(ctx, runner); err != nil {
-		log.Fatalln("cannot ensure schema", err)
+		return nil, errors.Annotatef(err, "cannot ensure schema")
 	}
+	return runner, nil
+}
 
+func readTableColumns(ctx context.Context, runner *txnRunner, tables []string) (map[string][]columnInfo, error) {
 	tableColumns := make(map[string][]columnInfo)
 	if err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		for _, table := range tables {
@@ -114,36 +156,7 @@ func main() {
 				return err
 			}
 
-			info, err := func(table string) (map[string]tableInfo, error) {
-				rows, err := tx.QueryContext(ctx, fmt.Sprintf("PRAGMA table_xinfo(%s);", table))
-				if err != nil {
-					return nil, errors.Annotatef(err, "cannot get column info for table %q", table)
-				}
-				defer rows.Close()
-
-				info := make(map[string]tableInfo)
-				for rows.Next() {
-					var tableInfo tableInfo
-					if err := rows.Scan(
-						&tableInfo.CID,
-						&tableInfo.Name,
-						&tableInfo.Type,
-						&tableInfo.NotNull,
-						&tableInfo.Default,
-						&tableInfo.PK,
-						&tableInfo.Hidden,
-					); err != nil {
-						return nil, errors.Annotatef(err, "cannot scan column info for table %q", table)
-					}
-
-					info[tableInfo.Name] = tableInfo
-				}
-				if err := rows.Err(); err != nil {
-					return nil, errors.Annotatef(err, "cannot iterate column info for table %q", table)
-				}
-
-				return info, nil
-			}(table)
+			info, err := readTableInfo(ctx, tx, table)
 			if err != nil {
 				return err
 			}
@@ -171,9 +184,43 @@ func main() {
 		}
 		return nil
 	}); err != nil {
-		log.Fatalln("cannot get columns for tables", err)
+		return nil, errors.Annotatef(err, "cannot read table columns")
+	}
+	return tableColumns, nil
+}
+
+func readTableInfo(ctx context.Context, tx *sql.Tx, table string) (map[string]tableInfo, error) {
+	rows, err := tx.QueryContext(ctx, fmt.Sprintf("PRAGMA table_xinfo(%s);", table))
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get column info for table %q", table)
+	}
+	defer rows.Close()
+
+	info := make(map[string]tableInfo)
+	for rows.Next() {
+		var tableInfo tableInfo
+		if err := rows.Scan(
+			&tableInfo.CID,
+			&tableInfo.Name,
+			&tableInfo.Type,
+			&tableInfo.NotNull,
+			&tableInfo.Default,
+			&tableInfo.PK,
+			&tableInfo.Hidden,
+		); err != nil {
+			return nil, errors.Annotatef(err, "cannot scan column info for table %q", table)
+		}
+
+		info[tableInfo.Name] = tableInfo
+	}
+	if err := rows.Err(); err != nil {
+		return nil, errors.Annotatef(err, "cannot iterate column info for table %q", table)
 	}
 
+	return info, nil
+}
+
+func renderTemplates(tableColumns map[string][]columnInfo, destPackage string) (string, error) {
 	view := make([]tableData, 0)
 	for table, columnInfos := range tableColumns {
 		view = append(view, tableData{
@@ -221,31 +268,11 @@ func main() {
 		Package string
 	}{
 		Views:   view,
-		Package: *destinationPackage,
+		Package: destPackage,
 	}); err != nil {
-		log.Fatalln("cannot render template", err)
+		return "", errors.Annotatef(err, "cannot render template")
 	}
-
-	file := os.Stdout
-	if *destination != "" {
-		var err error
-		file, err = os.OpenFile(*destination, os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Fatalln("cannot open destination file", err)
-		}
-		defer func() {
-			_ = file.Sync()
-			_ = file.Close()
-		}()
-		if err := file.Truncate(0); err != nil {
-			log.Fatalln("cannot truncate file", err)
-		}
-		_, _ = file.Seek(0, io.SeekStart)
-	}
-
-	fmt.Fprintln(file, builder.String())
-
-	os.Exit(0)
+	return builder.String(), nil
 }
 
 type tableInfo struct {
