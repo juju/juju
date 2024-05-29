@@ -12,7 +12,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
-	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/logger"
@@ -125,47 +124,36 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	return newSecretWatcher(w, s.logger, processChanges)
 }
 
-// TODO(secrets) - replace with real watcher
-func newMockTriggerWatcher(ch watcher.SecretTriggerChannel) *mockSecretTriggerWatcher {
-	w := &mockSecretTriggerWatcher{ch: ch}
-	w.tomb.Go(func() error {
-		<-w.tomb.Dying()
-		return tomb.ErrDying
-	})
-	return w
-}
-
-type mockSecretTriggerWatcher struct {
-	tomb tomb.Tomb
-	ch   watcher.SecretTriggerChannel
-}
-
-func (w *mockSecretTriggerWatcher) Changes() watcher.SecretTriggerChannel {
-	return w.ch
-}
-
-func (w *mockSecretTriggerWatcher) Stop() error {
-	w.Kill()
-	return w.Wait()
-}
-
-func (w *mockSecretTriggerWatcher) Kill() {
-	w.tomb.Kill(nil)
-}
-
-func (w *mockSecretTriggerWatcher) Err() error {
-	return w.tomb.Err()
-}
-
-func (w *mockSecretTriggerWatcher) Wait() error {
-	return w.tomb.Wait()
-}
-
 // WatchSecretRevisionsExpiryChanges returns a watcher that notifies when the expiry time of a secret revision changes.
 func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context, owners ...CharmSecretOwner) (watcher.SecretTriggerWatcher, error) {
-	ch := make(chan []watcher.SecretTriggerChange, 1)
-	ch <- []watcher.SecretTriggerChange{}
-	return newMockTriggerWatcher(ch), nil
+	if len(owners) == 0 {
+		return nil, errors.New("at least one owner must be provided")
+	}
+
+	appOwners, unitOwners := splitCharmSecretOwners(owners...)
+	table, query := s.st.InitialWatchStatementForSecretsRevisionExpiryChanges(appOwners, unitOwners)
+	w, err := s.watcherFactory.NewNamespaceWatcher(
+		table, changestream.All, query,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]watcher.SecretTriggerChange, error) {
+		result, err := s.st.GetSecretsRevisionExpiryChanges(ctx, appOwners, unitOwners, revisionUUIDs...)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		changes := make([]watcher.SecretTriggerChange, len(result))
+		for i, r := range result {
+			changes[i] = watcher.SecretTriggerChange{
+				URI:             r.URI,
+				Revision:        r.Revision,
+				NextTriggerTime: r.NextTriggerTime,
+			}
+		}
+		return changes, nil
+	}
+	return newSecretWatcher(w, s.logger, processChanges)
 }
 
 // WatchSecretsRotationChanges returns a watcher that notifies when the rotation time of a secret changes.

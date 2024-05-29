@@ -556,7 +556,6 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.SecretRotated(ctx, uri2, now.Add(2*time.Hour))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
 
 	wC.AssertChange(
 		corewatcher.SecretTriggerChange{
@@ -600,6 +599,110 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 			URI:             uri2,
 			Revision:        2,
 			NextTriggerTime: now.Add(2 * time.Hour),
+		},
+	)
+	s.AssertChangeStreamIdle(c)
+	wC1.AssertNoChange()
+}
+
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mediawiki")
+
+	ctx := context.Background()
+	svc, st := s.setupServiceAndState(c)
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
+
+	err := st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", secret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	watcher, err := svc.WatchSecretRevisionsExpiryChanges(context.Background(),
+		service.CharmSecretOwner{
+			Kind: service.ApplicationOwner,
+			ID:   "mysql",
+		},
+		service.CharmSecretOwner{
+			Kind: service.UnitOwner,
+			ID:   "mediawiki/0",
+		},
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(watcher, gc.NotNil)
+	defer workertest.CleanKill(c, watcher)
+
+	wC := watchertest.NewSecretsTriggerWatcherC(c, watcher)
+
+	// Wait for the initial changes.
+	wC.AssertChange([]corewatcher.SecretTriggerChange(nil)...)
+	s.AssertChangeStreamIdle(c)
+	wC.AssertNoChange()
+
+	now := time.Now()
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", secret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
+		ExpireTime: ptr(now.Add(1 * time.Hour)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.UpdateSecret(context.Background(), uri2, secret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
+		ExpireTime: ptr(now.Add(2 * time.Hour)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.AssertChangeStreamIdle(c)
+	wC.AssertChange(
+		corewatcher.SecretTriggerChange{
+			URI:             uri1,
+			Revision:        1,
+			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+		},
+		corewatcher.SecretTriggerChange{
+			URI:             uri2,
+			Revision:        2,
+			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
+		},
+	)
+
+	s.AssertChangeStreamIdle(c)
+	wC.AssertNoChange()
+
+	// Pretend that the agent restarted and the watcher is re-created.
+	watcher1, err := svc.WatchSecretRevisionsExpiryChanges(context.Background(),
+		service.CharmSecretOwner{
+			Kind: service.ApplicationOwner,
+			ID:   "mysql",
+		},
+		service.CharmSecretOwner{
+			Kind: service.UnitOwner,
+			ID:   "mediawiki/0",
+		},
+	)
+	c.Assert(err, gc.IsNil)
+	c.Assert(watcher1, gc.NotNil)
+	defer workertest.CleanKill(c, watcher1)
+	wC1 := watchertest.NewSecretsTriggerWatcherC(c, watcher1)
+	wC1.AssertChange([]corewatcher.SecretTriggerChange(nil)...)
+	s.AssertChangeStreamIdle(c)
+	wC1.AssertChange(
+		corewatcher.SecretTriggerChange{
+			URI:             uri1,
+			Revision:        1,
+			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+		},
+		corewatcher.SecretTriggerChange{
+			URI:             uri2,
+			Revision:        2,
+			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
 		},
 	)
 	s.AssertChangeStreamIdle(c)

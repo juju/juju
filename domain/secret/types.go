@@ -92,3 +92,11 @@ type RotationInfo struct {
 	Revision        int
 	NextTriggerTime time.Time
 }
+
+// ExpiryInfo holds information about the expiry of a secret revision.
+type ExpiryInfo struct {
+	URI             *secrets.URI
+	Revision        int
+	RevisionID      string
+	NextTriggerTime time.Time
+}
