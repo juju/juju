@@ -177,24 +177,7 @@ func (st *State) updateBlockDevices(ctx context.Context, tx *sqlair.TX, machineU
 		fsTypeByName[fsType.Name] = fsType.ID
 	}
 
-	insertQuery := `
-INSERT INTO block_device (uuid, machine_uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, size_mib, filesystem_type_id, in_use)
-VALUES (
-    $BlockDevice.uuid,
-    $BlockDevice.machine_uuid,
-    $BlockDevice.name,
-    $BlockDevice.label,
-    $BlockDevice.device_uuid,
-    $BlockDevice.hardware_id,
-    $BlockDevice.wwn,
-    $BlockDevice.bus_address,
-    $BlockDevice.serial_id,
-    $BlockDevice.mount_point,
-    $BlockDevice.size_mib,
-    $BlockDevice.filesystem_type_id,
-    $BlockDevice.in_use
-)
-`
+	insertQuery := `INSERT INTO block_device (*) VALUES ($BlockDevice.*)`
 	insertStmt, err := st.Prepare(insertQuery, BlockDevice{})
 	if err != nil {
 		return errors.Trace(err)
@@ -212,7 +195,6 @@ VALUES (
 		return errors.Trace(err)
 	}
 
-	blockDevicesByUUID := make(map[uuid.UUID]blockdevice.BlockDevice, len(devices))
 	for _, bd := range devices {
 		fsTypeID, ok := fsTypeByName[bd.FilesystemType]
 		if !ok {
@@ -222,7 +204,6 @@ VALUES (
 		if err != nil {
 			return errors.Trace(err)
 		}
-		blockDevicesByUUID[id] = bd
 		dbBlockDevice := BlockDevice{
 			ID:             id.String(),
 			MachineUUID:    machineUUID,

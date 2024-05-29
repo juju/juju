@@ -8,11 +8,12 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
+
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	modelstate "github.com/juju/juju/domain/model/state"
 	"github.com/juju/juju/domain/modelconfig/service"
-	"github.com/juju/juju/domain/modelconfig/state"
 	"github.com/juju/juju/environs/config"
 	internaldatabase "github.com/juju/juju/internal/database"
 )
@@ -78,13 +79,31 @@ func SetModelConfig(
 			return fmt.Errorf("validating model config to set for model: %w", err)
 		}
 
-		rawCfg, err := service.CoerceConfigForStorage(cfg.AllAttrs())
+		insert, err := service.CoerceConfigForStorage(cfg.AllAttrs())
 		if err != nil {
 			return fmt.Errorf("coercing model config for storage: %w", err)
 		}
 
-		return model.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-			return state.SetModelConfig(ctx, rawCfg, tx)
+		insertQuery := `INSERT INTO model_config (*) VALUES ($dbKeyValue.*)`
+		insertStmt, err := sqlair.Prepare(insertQuery, dbKeyValue{})
+		if err != nil {
+			return fmt.Errorf("preparing insert query: %w", err)
+		}
+
+		return model.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+			insertKV := make([]dbKeyValue, 0, len(insert))
+			for k, v := range insert {
+				insertKV = append(insertKV, dbKeyValue{Key: k, Value: v})
+			}
+			if err := tx.Query(ctx, insertStmt, insertKV).Run(); err != nil {
+				return fmt.Errorf("inserting model config values: %w", err)
+			}
+			return nil
 		})
 	}
+}
+
+type dbKeyValue struct {
+	Key   string `db:"key"`
+	Value string `db:"value"`
 }

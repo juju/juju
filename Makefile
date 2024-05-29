@@ -551,6 +551,12 @@ else
 		./apiserver/facades/schema.json
 endif
 
+.PHONY: rebuild-triggers
+rebuild-triggers:
+## rebuild-triggers: Rebuild the SQL trigger schema
+	@echo "Generating trigger schema..."
+	@env GOOS= GOARCH= CGO_ENABLED=1 go generate -tags="libsqlite3" $(COMPILE_FLAGS) -x ./domain/schema
+
 .PHONY: install-snap-dependencies
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries.

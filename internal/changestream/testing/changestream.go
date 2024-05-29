@@ -25,7 +25,7 @@ import (
 const (
 	// This is copied from the internal/changestream/stream/stream.go file.
 	// This is so we don't expose the state name outside of the package.
-	stateNoMoreChanges = "no-more-changes"
+	stateIdle = "idle"
 )
 
 // TestWatchableDB creates a watchable DB for running the ChangeStream

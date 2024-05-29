@@ -331,7 +331,8 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
 	s.applyDDL(c, ControllerDDL())
 
-	// Ensure that each trigger is present.
+	// Expected changelog triggers. Additional triggers are not included and
+	// can be added to the addition list.
 	expected := set.NewStrings(
 		"trg_log_cloud_credential_insert",
 		"trg_log_cloud_credential_update",
@@ -394,69 +395,68 @@ func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
 func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 	s.applyDDL(c, ModelDDL())
 
-	// Ensure that each trigger is present.
+	// Expected changelog triggers. Additional triggers are not included and
+	// can be added to the addition list.
 	expected := set.NewStrings(
-		"trg_log_model_config_insert",
-		"trg_log_model_config_update",
-		"trg_log_model_config_delete",
-
-		"trg_log_object_store_metadata_path_insert",
-		"trg_log_object_store_metadata_path_update",
-		"trg_log_object_store_metadata_path_delete",
-
-		"trg_log_secret_metadata_auto_prune_insert",
-		"trg_log_secret_metadata_auto_prune_update",
-		"trg_log_secret_metadata_auto_prune_delete",
-
-		"trg_log_secret_rotation_insert",
-		"trg_log_secret_rotation_update",
-		"trg_log_secret_rotation_delete",
-
-		"trg_log_secret_revision_obsolete_insert",
-		"trg_log_secret_revision_obsolete_update",
-		"trg_log_secret_revision_obsolete_delete",
-
-		"trg_log_secret_revision_expire_insert",
-		"trg_log_secret_revision_expire_update",
-		"trg_log_secret_revision_expire_delete",
-
-		"trg_log_secret_revision_insert",
-		"trg_log_secret_revision_update",
-		"trg_log_secret_revision_delete",
-
-		"trg_log_secret_reference_insert",
-		"trg_log_secret_reference_update",
-		"trg_log_secret_reference_delete",
-
+		"trg_log_block_device_delete",
 		"trg_log_block_device_insert",
 		"trg_log_block_device_update",
-		"trg_log_block_device_delete",
 
+		"trg_log_model_config_delete",
+		"trg_log_model_config_insert",
+		"trg_log_model_config_update",
+
+		"trg_log_object_store_metadata_path_delete",
+		"trg_log_object_store_metadata_path_insert",
+		"trg_log_object_store_metadata_path_update",
+
+		"trg_log_secret_metadata_delete",
+		"trg_log_secret_metadata_insert",
+		"trg_log_secret_metadata_update",
+
+		"trg_log_secret_reference_delete",
+		"trg_log_secret_reference_insert",
+		"trg_log_secret_reference_update",
+
+		"trg_log_secret_revision_delete",
+		"trg_log_secret_revision_insert",
+		"trg_log_secret_revision_update",
+
+		"trg_log_secret_revision_expire_delete",
+		"trg_log_secret_revision_expire_insert",
+		"trg_log_secret_revision_expire_update",
+
+		"trg_log_secret_revision_obsolete_delete",
+		"trg_log_secret_revision_obsolete_insert",
+		"trg_log_secret_revision_obsolete_update",
+
+		"trg_log_secret_rotation_delete",
+		"trg_log_secret_rotation_insert",
+		"trg_log_secret_rotation_update",
+
+		"trg_log_storage_attachment_delete",
 		"trg_log_storage_attachment_insert",
 		"trg_log_storage_attachment_update",
-		"trg_log_storage_attachment_delete",
 
+		"trg_log_storage_filesystem_attachment_delete",
 		"trg_log_storage_filesystem_attachment_insert",
 		"trg_log_storage_filesystem_attachment_update",
-		"trg_log_storage_filesystem_attachment_delete",
 
+		"trg_log_storage_filesystem_delete",
 		"trg_log_storage_filesystem_insert",
 		"trg_log_storage_filesystem_update",
-		"trg_log_storage_filesystem_delete",
 
+		"trg_log_storage_volume_attachment_delete",
 		"trg_log_storage_volume_attachment_insert",
 		"trg_log_storage_volume_attachment_update",
-		"trg_log_storage_volume_attachment_delete",
 
+		"trg_log_storage_volume_attachment_plan_delete",
 		"trg_log_storage_volume_attachment_plan_insert",
 		"trg_log_storage_volume_attachment_plan_update",
-		"trg_log_storage_volume_attachment_plan_delete",
 
+		"trg_log_storage_volume_delete",
 		"trg_log_storage_volume_insert",
 		"trg_log_storage_volume_update",
-		"trg_log_storage_volume_delete",
-
-		"trg_secret_permission_immutable_update",
 
 		"trg_log_subnet_delete",
 		"trg_log_subnet_insert",
@@ -468,9 +468,10 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 	additional := set.NewStrings(
 		"trg_model_immutable_delete",
 		"trg_model_immutable_update",
+		"trg_secret_permission_immutable_update",
 	)
 
-	c.Assert(readEntityNames(c, s.DB(), "trigger"), jc.DeepEquals, expected.Union(additional).SortedValues())
+	c.Assert(readEntityNames(c, s.DB(), "trigger"), jc.SameContents, expected.Union(additional).SortedValues())
 }
 
 func (s *schemaSuite) assertChangeLogCount(c *gc.C, editType int, namespaceID tableNamespaceID, expectedCount int) {

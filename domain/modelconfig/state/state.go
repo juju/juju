@@ -9,12 +9,10 @@ import (
 	"fmt"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/internal/database"
 )
 
 // State is a reference to the underlying data accessor for ModelConfig data.
@@ -29,18 +27,6 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 	}
 }
 
-// key represents the key column from a model_config row.
-// Once SQLair supports scalar types the key can be selected directly into a
-// string and this struct will no longer be needed.
-type key struct {
-	Key string `db:"key"`
-}
-
-// agentVersion represents the target agent version from the model table.
-type agentVersion struct {
-	TargetAgentVersion string `db:"target_agent_version"`
-}
-
 // AgentVersion returns the current models agent version. If no agent version
 // can be found an error satisfying [errors.NotFound] will be returned.
 func (st *State) AgentVersion(ctx context.Context) (string, error) {
@@ -49,9 +35,9 @@ func (st *State) AgentVersion(ctx context.Context) (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	q := `SELECT &agentVersion.target_agent_version FROM model`
+	q := `SELECT &dbAgentVersion.target_agent_version FROM model`
 
-	rval := agentVersion{}
+	rval := dbAgentVersion{}
 
 	stmt, err := st.Prepare(q, rval)
 	if err != nil {
@@ -71,12 +57,6 @@ func (st *State) AgentVersion(ctx context.Context) (string, error) {
 	return rval.TargetAgentVersion, nil
 }
 
-// AllKeysQuery returns a SQL statement that will return all known model config
-// keys.
-func (st *State) AllKeysQuery() string {
-	return "SELECT key from model_config"
-}
-
 // ModelConfigHasAttributes will take a set of model config attributes and
 // return the subset of keys that are set and exist in the Model Config.
 func (st *State) ModelConfigHasAttributes(
@@ -93,22 +73,21 @@ func (st *State) ModelConfigHasAttributes(
 		return rval, errors.Trace(err)
 	}
 
-	attrsSlice := sqlair.S(transform.Slice(attrs, func(s string) any { return any(s) }))
 	stmt, err := st.Prepare(`
-SELECT &key.key FROM model_config WHERE key IN ($S[:])
-`, sqlair.S{}, key{})
+SELECT &dbKey.key FROM model_config WHERE key IN ($dbKeys[:])
+`, dbKeys{}, dbKey{})
 	if err != nil {
 		return rval, errors.Trace(err)
 	}
 
 	return rval, db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var keys []key
-		err := tx.Query(ctx, stmt, attrsSlice).GetAll(&keys)
+		var keys []dbKey
+		err := tx.Query(ctx, stmt, dbKeys(attrs)).GetAll(&keys)
 		if err != nil {
 			return fmt.Errorf("getting model config attrs set: %w", err)
 		}
 
-		rval = make([]string, len(keys), len(keys))
+		rval = make([]string, len(keys))
 		for i, key := range keys {
 			rval[i] = key.Key
 		}
@@ -126,11 +105,7 @@ func (st *State) ModelConfig(ctx context.Context) (map[string]string, error) {
 	}
 
 	return config, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := `
-SELECT key,
-       value
-FROM model_config
-`
+		stmt := `SELECT key, value FROM model_config`
 		rows, err := tx.QueryContext(ctx, stmt)
 		if err != nil {
 			return fmt.Errorf("getting model config values: %w", err)
@@ -156,45 +131,115 @@ FROM model_config
 // when an empty map is supplied.
 func (st *State) SetModelConfig(
 	ctx context.Context,
-	conf map[string]string,
+	config map[string]string,
 ) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return SetModelConfig(ctx, conf, tx)
-	})
-}
-
-// SetModelConfig is responsible for overwriting the currently set model config
-// with new values. SetModelConfig will remove all existing model config even
-// when an empty map is supplied.
-func SetModelConfig(
-	ctx context.Context,
-	conf map[string]string,
-	tx *sql.Tx,
-) error {
-	insertBinds, insertVals := database.MapToMultiPlaceholder(conf)
-	insertStmt := fmt.Sprintf(`
-INSERT INTO model_config (key, value) VALUES %s
-`, insertBinds)
-	deleteStmt := "DELETE FROM model_config"
-
-	_, err := tx.ExecContext(ctx, deleteStmt)
+	selectQuery := `SELECT &dbKeyValue.* FROM model_config`
+	selectStmt, err := st.Prepare(selectQuery, dbKeyValue{})
 	if err != nil {
-		return fmt.Errorf("deleting model config attributes: %w", err)
+		return fmt.Errorf("preparing select query: %w", err)
 	}
 
-	if len(insertVals) == 0 {
+	insertQuery := `INSERT INTO model_config (*) VALUES ($dbKeyValue.*)`
+	insertStmt, err := st.Prepare(insertQuery, dbKeyValue{})
+	if err != nil {
+		return fmt.Errorf("preparing insert query: %w", err)
+	}
+
+	updateQuery := `UPDATE model_config SET value = $dbKeyValue.value WHERE key = $dbKeyValue.key`
+	updateStmt, err := st.Prepare(updateQuery, dbKeyValue{})
+	if err != nil {
+		return fmt.Errorf("preparing update query: %w", err)
+	}
+
+	deleteQuery := `DELETE FROM model_config WHERE key IN ($dbKeys[:])`
+	deleteStmt, err := st.Prepare(deleteQuery, dbKeys{})
+	if err != nil {
+		return fmt.Errorf("preparing delete query: %w", err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var keyValues []dbKeyValue
+		if err := tx.Query(ctx, selectStmt).GetAll(&keyValues); err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("getting model config values: %w", err)
+			}
+		}
+
+		current := make(map[string]string)
+		for _, kv := range keyValues {
+			current[kv.Key] = kv.Value
+		}
+
+		// Work out what to insert, update and delete from the current config
+		// and the new config.
+		var (
+			insert = make(map[string]string)
+			update = make(map[string]string)
+			delete = make(map[string]struct{})
+		)
+		for k, v := range config {
+			cv, ok := current[k]
+
+			// If the key is known and isn't the same value, update it.
+			if ok {
+				if cv != v {
+					update[k] = v
+				}
+				// We already have the correct value, do nothing.
+				continue
+			}
+
+			// If the key is unknown, insert it.
+			insert[k] = v
+		}
+		for k := range current {
+			if _, ok := config[k]; !ok {
+				delete[k] = struct{}{}
+			}
+		}
+
+		// The order of operations is important here. We must insert new keys
+		// before updating existing keys, as the update statement will fail if
+		// the key does not exist. Deleting keys must be done last, as the
+		// update statement will fail if the key is deleted. It shouldn't
+		// happen, but it's better to be safe in that case.
+
+		// Insert any new keys.
+		if len(insert) > 0 {
+			insertKV := make([]dbKeyValue, 0, len(insert))
+			for k, v := range insert {
+				insertKV = append(insertKV, dbKeyValue{Key: k, Value: v})
+			}
+			if err := tx.Query(ctx, insertStmt, insertKV).Run(); err != nil {
+				return fmt.Errorf("inserting model config values: %w", err)
+			}
+		}
+
+		// Update any keys that have changed.
+		for k, v := range update {
+			if err := tx.Query(ctx, updateStmt, dbKeyValue{Key: k, Value: v}).Run(); err != nil {
+				return fmt.Errorf("updating model config key %q: %w", k, err)
+			}
+		}
+
+		// Delete any keys that are no longer in the config.
+		if len(delete) > 0 {
+			deleteKeys := make(dbKeys, 0, len(delete))
+			for k := range delete {
+				deleteKeys = append(deleteKeys, k)
+			}
+			if err := tx.Query(ctx, deleteStmt, deleteKeys).Run(); err != nil {
+				return fmt.Errorf("deleting model config keys: %w", err)
+			}
+		}
+
 		return nil
-	}
-
-	if _, err := tx.ExecContext(ctx, insertStmt, insertVals...); err != nil {
-		return fmt.Errorf("setting model config attributes: %w", err)
-	}
-	return nil
+	})
 }
 
 // UpdateModelConfig is responsible for updating the model's config key and
@@ -210,34 +255,30 @@ func (st *State) UpdateModelConfig(
 		return errors.Trace(err)
 	}
 
-	removeAttrsSlice := sqlair.S(transform.Slice(removeAttrs, func(s string) any { return any(s) }))
-	deleteStmt, err := st.Prepare(`
-DELETE FROM model_config
-WHERE key IN ($S[:])
-`[1:], sqlair.S{})
+	deleteStmt, err := st.Prepare(`DELETE FROM model_config WHERE key IN ($dbKeys[:])`, dbKeys{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	upsertStmt, err := st.Prepare(`
-INSERT INTO model_config (key, value) VALUES ($M.key, $M.value)
+INSERT INTO model_config (*) VALUES ($dbKeyValue.*)
 ON CONFLICT(key) DO UPDATE
 SET value = excluded.value
 WHERE key = excluded.key
-`[1:], sqlair.M{})
+`[1:], dbKeyValue{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if len(removeAttrsSlice) != 0 {
-			if err := tx.Query(ctx, deleteStmt, removeAttrsSlice).Run(); err != nil {
+		if len(removeAttrs) != 0 {
+			if err := tx.Query(ctx, deleteStmt, dbKeys(removeAttrs)).Run(); err != nil {
 				return fmt.Errorf("removing model config keys: %w", err)
 			}
 		}
 
 		for k, v := range updateAttrs {
-			if err := tx.Query(ctx, upsertStmt, sqlair.M{"key": k, "value": v}).Run(); err != nil {
+			if err := tx.Query(ctx, upsertStmt, dbKeyValue{Key: k, Value: v}).Run(); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -265,4 +306,10 @@ func (st *State) SpaceExists(ctx context.Context, spaceName string) (bool, error
 		exists = true
 		return nil
 	})
+}
+
+// AllKeysQuery returns a SQL statement that will return all known model config
+// keys.
+func (st *State) AllKeysQuery() string {
+	return "SELECT key from model_config"
 }

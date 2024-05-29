@@ -53,7 +53,7 @@ func (s *ModelSuite) AssertChangeStreamIdle(c *gc.C) {
 	for {
 		select {
 		case state := <-s.watchableDB.states:
-			if state == stateNoMoreChanges {
+			if state == stateIdle {
 				return
 			}
 		case <-timeout:

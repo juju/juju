@@ -20,11 +20,6 @@ type ModelSuite struct {
 	modelUUID string
 }
 
-// ModelTxnRunner returns a txn runner attached to the model database.
-func (s *ModelSuite) ModelTxnRunner() coredatabase.TxnRunner {
-	return s.TxnRunner()
-}
-
 // SetUpTest is responsible for setting up a testing database suite initialised
 // with the model schema.
 func (s *ModelSuite) SetUpTest(c *gc.C) {
@@ -39,4 +34,9 @@ func (s *ModelSuite) SetUpTest(c *gc.C) {
 
 func (s *ModelSuite) ModelUUID() string {
 	return s.modelUUID
+}
+
+// ModelTxnRunner returns a txn runner attached to the model database.
+func (s *ModelSuite) ModelTxnRunner() coredatabase.TxnRunner {
+	return s.TxnRunner()
 }
