@@ -405,24 +405,16 @@ CREATE TABLE instance_tag (
         REFERENCES  machine(uuid)
 );
 
-CREATE TABLE lxd_profile (
-    uuid            TEXT PRIMARY KEY,
-    name            TEXT NOT NULL
-);
-
-CREATE UNIQUE INDEX idx_lxd_profile_name
-ON lxd_profile (name);
-
-CREATE TABLE instance_data_charm_profile (
-    uuid                TEXT PRIMARY KEY,
-    lxd_profile_uuid    TEXT NOT NULL,
+CREATE TABLE machine_lxd_profile (
     machine_uuid        TEXT NOT NULL,
+    lxd_profile_uuid    TEXT NOT NULL,
+    -- TODO(nvinuesa): lxd_profile_uuid should be a foreign key to the 
+    -- charm_lxd_profile uuid and therefore the CONSTRAINT should be added when 
+    -- that table is implemented.
+    PRIMARY KEY (machine_uuid, lxd_profile_uuid),
     CONSTRAINT          fk_machine_machine_uuid
         FOREIGN KEY     (machine_uuid)
-        REFERENCES      machine(uuid),
-    CONSTRAINT          fk_lxd_profile_lxd_profile_uuid
-        FOREIGN KEY     (lxd_profile_uuid)
-        REFERENCES      lxd_profile(uuid)
+        REFERENCES      machine(uuid)
 );
 `)
 }
