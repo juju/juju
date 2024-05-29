@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/packaging/manager"
 
 	"github.com/juju/juju/core/base"
 	internallogger "github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/packaging/manager"
 )
 
 var logger = internallogger.GetLogger("juju.packaging")

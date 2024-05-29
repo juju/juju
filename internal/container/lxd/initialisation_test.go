@@ -10,8 +10,6 @@ import (
 
 	lxd "github.com/canonical/lxd/client"
 	"github.com/canonical/lxd/shared/api"
-	"github.com/juju/juju/internal/packaging/commands"
-	"github.com/juju/juju/internal/packaging/manager"
 	"github.com/juju/proxy"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,6 +19,8 @@ import (
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/internal/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
+	"github.com/juju/juju/internal/packaging/commands"
+	"github.com/juju/juju/internal/packaging/manager"
 	coretesting "github.com/juju/juju/testing"
 )
 

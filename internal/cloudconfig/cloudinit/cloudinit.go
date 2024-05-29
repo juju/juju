@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/packaging/commands"
-	"github.com/juju/juju/internal/packaging/config"
 	"github.com/juju/utils/v4/shell"
 	"github.com/juju/utils/v4/ssh"
 
 	jujupackaging "github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging/commands"
+	"github.com/juju/juju/internal/packaging/config"
 )
 
 // cloudConfig represents a set of cloud-init configuration options.

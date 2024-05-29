@@ -9,8 +9,9 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/juju/juju/internal/packaging/commands"
 	"github.com/juju/proxy"
+
+	"github.com/juju/juju/internal/packaging/commands"
 )
 
 const (

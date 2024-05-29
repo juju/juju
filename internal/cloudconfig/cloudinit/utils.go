@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/juju/juju/internal/packaging/config"
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/internal/packaging"
+	"github.com/juju/juju/internal/packaging/config"
 	"github.com/juju/juju/internal/packaging/source"
 )
 

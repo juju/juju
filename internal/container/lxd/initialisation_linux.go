@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/internal/packaging/manager"
 	"github.com/juju/proxy"
 
 	corebase "github.com/juju/juju/core/base"
@@ -19,6 +18,7 @@ import (
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/packaging"
 	"github.com/juju/juju/internal/packaging/dependency"
+	"github.com/juju/juju/internal/packaging/manager"
 	"github.com/juju/juju/internal/service"
 )
 
