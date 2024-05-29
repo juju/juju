@@ -215,7 +215,7 @@ func (c *diffBundleCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	bundle, _, err := appbundle.ComposeAndVerifyBundle(baseSrc, c.bundleOverlays)
+	bundle, _, err := appbundle.ComposeAndVerifyBundle(ctx, baseSrc, c.bundleOverlays)
 	if err != nil {
 		return errors.Trace(err)
 	}

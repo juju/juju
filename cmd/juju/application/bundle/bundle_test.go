@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -214,8 +215,10 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleEmpty(c *gc.C) {
 	s.expectBundleBytes([]byte{})
 	s.expectEmptyParts()
 	s.expectBasePath()
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
 
-	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, nil)
 	c.Assert(err, gc.ErrorMatches, ".*bundle is empty not valid")
 	c.Assert(obtained, gc.IsNil)
 }
@@ -227,8 +230,10 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleUnsupportedConstrai
 	s.expectBundleBytes([]byte(unsupportedConstraintBundle))
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
 
-	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, nil)
 	c.Assert(err, gc.ErrorMatches, "*'image-id' constraint in a base bundle not supported")
 	c.Assert(obtained, gc.IsNil)
 }
@@ -240,8 +245,10 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleNoOverlay(c *gc.C) 
 	s.expectBundleBytes([]byte(wordpressBundle))
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
 
-	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
+	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, bundleData)
 }
@@ -254,13 +261,15 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlay(c *gc.C) {
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 	s.setupOverlayFile(c)
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
 
 	expected := *bundleData
 	expected.Applications["wordpress"].Options = map[string]interface{}{
 		"blog-title": "magic bundle config",
 	}
 
-	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, []string{s.overlayFile})
+	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, []string{s.overlayFile})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, &expected)
 }
@@ -273,13 +282,15 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnsupportedC
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
 	s.setupOverlayFile(c)
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
 
 	expected := *bundleData
 	expected.Applications["wordpress"].Options = map[string]interface{}{
 		"blog-title": "magic bundle config",
 	}
 
-	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, []string{s.overlayFile})
+	obtained, _, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, []string{s.overlayFile})
 	c.Assert(err, gc.ErrorMatches, "*'image-id' constraint in a base bundle not supported")
 	c.Assert(obtained, gc.IsNil)
 }
@@ -296,35 +307,33 @@ func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleOverlayUnmarshallEr
 	})
 	s.expectBasePath()
 	s.setupOverlayFile(c)
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
 
 	expected := *bundleData
 	expected.Applications["wordpress"].Options = map[string]interface{}{
 		"blog-title": "magic bundle config",
 	}
 
-	obtained, unmarshallErrors, err := ComposeAndVerifyBundle(s.bundleDataSource, []string{s.overlayFile})
+	obtained, unmarshallErrors, err := ComposeAndVerifyBundle(ctx, s.bundleDataSource, []string{s.overlayFile})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtained, gc.DeepEquals, &expected)
 	c.Assert(unmarshallErrors, gc.HasLen, 1)
 	c.Assert(unmarshallErrors[0], gc.Equals, expectedError)
 }
 
-func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleFailsWithSeries(c *gc.C) {
+func (s *composeAndVerifyRepSuite) TestComposeAndVerifyBundleWithSeriesStillPasses(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	bundleData, err := charm.ReadBundleData(strings.NewReader(seriesBundle))
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectBundleBytes([]byte(seriesBundle))
 	s.expectParts(&charm.BundleDataPart{Data: bundleData})
 	s.expectBasePath()
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, jc.ErrorIsNil)
 
-	obtained, _, err := ComposeAndVerifyBundle(s.bundleDataSource, nil)
-	c.Log(err)
-	c.Assert(err, gc.ErrorMatches, strings.ReplaceAll(`(?s)the provided bundle has the following errors:.*
-base bundle contains invalid key series:.*
-- document 0; bundle contains top level series.*
-- document 0; bundle application "mysql" contains series.*
-- document 0; bundle machine "0" contains series.*`, "\n", ""))
-	c.Assert(obtained, gc.IsNil)
+	_, _, err = ComposeAndVerifyBundle(ctx, s.bundleDataSource, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *composeAndVerifyRepSuite) setupOverlayFile(c *gc.C) {
@@ -535,14 +544,12 @@ relations:
 
 const seriesBundle = `
 series: jammy
-default-base: ubuntu@22.04
 applications:
   mysql:
     charm: ch:mysql
     revision: 42
     channel: stable
     series: focal
-    base: ubuntu@20.04
     num_units: 1
     to:
     - "0"
