@@ -28,8 +28,7 @@ AFTER UPDATE ON subnet FOR EACH ROW
 WHEN 
 	NEW.cidr != OLD.cidr OR
 	(NEW.vlan_tag != OLD.vlan_tag OR (NEW.vlan_tag IS NOT NULL AND OLD.vlan_tag IS NULL) OR (NEW.vlan_tag IS NULL AND OLD.vlan_tag IS NOT NULL)) OR
-	(NEW.space_uuid != OLD.space_uuid OR (NEW.space_uuid IS NOT NULL AND OLD.space_uuid IS NULL) OR (NEW.space_uuid IS NULL AND OLD.space_uuid IS NOT NULL)) OR
-	(NEW.subnet_type_id != OLD.subnet_type_id OR (NEW.subnet_type_id IS NOT NULL AND OLD.subnet_type_id IS NULL) OR (NEW.subnet_type_id IS NULL AND OLD.subnet_type_id IS NOT NULL)) 
+	(NEW.space_uuid != OLD.space_uuid OR (NEW.space_uuid IS NOT NULL AND OLD.space_uuid IS NULL) OR (NEW.space_uuid IS NULL AND OLD.space_uuid IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
@@ -38,40 +37,6 @@ END;
 -- delete trigger for Subnet
 CREATE TRIGGER trg_log_subnet_delete
 AFTER DELETE ON subnet FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;`, columnName, namespaceID))
-	}
-}
-
-// ChangeLogTriggersForSubnetAssociation generates the triggers for the 
-// subnet_association table.
-func ChangeLogTriggersForSubnetAssociation(columnName string, namespaceID int) func() schema.Patch {
-	return func() schema.Patch {
-		return schema.MakePatch(fmt.Sprintf(`
--- insert trigger for SubnetAssociation
-CREATE TRIGGER trg_log_subnet_association_insert
-AFTER INSERT ON subnet_association FOR EACH ROW
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
-END;
-
--- update trigger for SubnetAssociation
-CREATE TRIGGER trg_log_subnet_association_update
-AFTER UPDATE ON subnet_association FOR EACH ROW
-WHEN 
-	NEW.associated_subnet_uuid != OLD.associated_subnet_uuid OR
-	NEW.association_type_id != OLD.association_type_id 
-BEGIN
-    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
-    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
-END;
-
--- delete trigger for SubnetAssociation
-CREATE TRIGGER trg_log_subnet_association_delete
-AFTER DELETE ON subnet_association FOR EACH ROW
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));

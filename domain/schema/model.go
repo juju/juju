@@ -14,7 +14,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/model-triggers.gen.go -package=model -tables=model_config
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/objectstore-triggers.gen.go -package=model -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/secret-triggers.gen.go -package=model -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_revision,secret_reference
-//go:generate go run ./../../generate/triggergen -db=model -destination=./model/network-triggers.gen.go -package=model -tables=subnet,subnet_association
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/network-triggers.gen.go -package=model -tables=subnet
 
 const (
 	tableModelConfig tableNamespaceID = iota
@@ -33,7 +33,6 @@ const (
 	tableSecretRevision
 	tableSecretReference
 	tableSubnet
-	tableSubnetAssociation
 )
 
 // ModelDDL is used to create model databases.
