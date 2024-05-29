@@ -6,9 +6,10 @@ package upgradevalidation
 import (
 	"fmt"
 	"net/http"
-	"sort"
 	"strings"
+	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/replicaset/v3"
 	"github.com/juju/version/v2"
@@ -152,41 +153,39 @@ func getCheckUpgradeSeriesLockForModel(force bool) Validator {
 	}
 }
 
-func stringifyMachineCounts(result map[string]int) string {
-	var keys []string
-	for k := range result {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	var output []string
-	for _, k := range keys {
-		output = append(output, fmt.Sprintf("%s(%d)", k, result[k]))
-	}
-	return strings.Join(output, " ")
-}
+// For testing.
+// TODO: unexport it if we don't need to patch it anymore.
+var SupportedJujuBases = corebase.WorkloadBases
 
 func checkForDeprecatedUbuntuSeriesForModel(
 	_ string, _ StatePool, st State, _ Model,
 ) (*Blocker, error) {
-	supported := false
-	var deprecatedBases []state.Base
-	for _, vers := range corebase.UbuntuVersions(&supported, nil) {
-		deprecatedBases = append(deprecatedBases, state.Base{OS: corebase.UbuntuOS, Channel: vers})
+	supportedBases, err := SupportedJujuBases(time.Now(), corebase.Base{}, "")
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot ready supported bases")
 	}
 
-	// sort for tests.
-	sort.Slice(deprecatedBases, func(i, j int) bool {
-		return deprecatedBases[i].Channel < deprecatedBases[j].Channel
+	stateBases := transform.Slice(supportedBases, func(b corebase.Base) state.Base {
+		return state.Base{OS: b.OS, Channel: b.Channel.String()}
 	})
-	result, err := st.MachineCountForBase(
-		deprecatedBases...,
-	)
+	baseCountMap, err := st.MachineCountForBase(stateBases...)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot count deprecated ubuntu machines")
 	}
-	if len(result) > 0 {
-		return NewBlocker("the model hosts deprecated ubuntu machine(s): %s",
-			stringifyMachineCounts(result),
+	allSupportedCount := 0
+	for _, v := range baseCountMap {
+		allSupportedCount += v
+	}
+
+	allMachinesCount, err := st.AllMachinesCount()
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all machines count")
+	}
+
+	if totalUnsupported := allMachinesCount - allSupportedCount; totalUnsupported > 0 {
+		return NewBlocker("the model hosts %d ubuntu machine(s) with an unsupported base. The supported bases are: %v",
+			totalUnsupported,
+			strings.Join(transform.Slice(supportedBases, func(b corebase.Base) string { return b.DisplayString() }), ", "),
 		), nil
 	}
 	return nil, nil

@@ -104,6 +104,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// AllMachinesCount mocks base method.
+func (m *MockState) AllMachinesCount() (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllMachinesCount")
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllMachinesCount indicates an expected call of AllMachinesCount.
+func (mr *MockStateMockRecorder) AllMachinesCount() *MockStateAllMachinesCountCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachinesCount", reflect.TypeOf((*MockState)(nil).AllMachinesCount))
+	return &MockStateAllMachinesCountCall{Call: call}
+}
+
+// MockStateAllMachinesCountCall wrap *gomock.Call
+type MockStateAllMachinesCountCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAllMachinesCountCall) Return(arg0 int, arg1 error) *MockStateAllMachinesCountCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAllMachinesCountCall) Do(f func() (int, error)) *MockStateAllMachinesCountCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAllMachinesCountCall) DoAndReturn(f func() (int, error)) *MockStateAllMachinesCountCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // HasUpgradeSeriesLocks mocks base method.
 func (m *MockState) HasUpgradeSeriesLocks() (bool, error) {
 	m.ctrl.T.Helper()

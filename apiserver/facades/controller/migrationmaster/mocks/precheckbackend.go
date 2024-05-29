@@ -159,6 +159,45 @@ func (c *MockPrecheckBackendAllMachinesCall) DoAndReturn(f func() ([]migration.P
 	return c
 }
 
+// AllMachinesCount mocks base method.
+func (m *MockPrecheckBackend) AllMachinesCount() (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllMachinesCount")
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllMachinesCount indicates an expected call of AllMachinesCount.
+func (mr *MockPrecheckBackendMockRecorder) AllMachinesCount() *MockPrecheckBackendAllMachinesCountCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachinesCount", reflect.TypeOf((*MockPrecheckBackend)(nil).AllMachinesCount))
+	return &MockPrecheckBackendAllMachinesCountCall{Call: call}
+}
+
+// MockPrecheckBackendAllMachinesCountCall wrap *gomock.Call
+type MockPrecheckBackendAllMachinesCountCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockPrecheckBackendAllMachinesCountCall) Return(arg0 int, arg1 error) *MockPrecheckBackendAllMachinesCountCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockPrecheckBackendAllMachinesCountCall) Do(f func() (int, error)) *MockPrecheckBackendAllMachinesCountCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockPrecheckBackendAllMachinesCountCall) DoAndReturn(f func() (int, error)) *MockPrecheckBackendAllMachinesCountCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // AllModelUUIDs mocks base method.
 func (m *MockPrecheckBackend) AllModelUUIDs() ([]string, error) {
 	m.ctrl.T.Helper()

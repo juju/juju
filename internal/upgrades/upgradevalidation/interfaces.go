@@ -21,6 +21,7 @@ type StatePool interface {
 type State interface {
 	HasUpgradeSeriesLocks() (bool, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
+	AllMachinesCount() (int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
 }
 

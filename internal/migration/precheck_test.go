@@ -112,7 +112,11 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	backend := newFakeBackend()
 	hasUpgradeSeriesLocks := true
 	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
-	backend.machineCountForSeriesUbuntu = map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}
+	backend.machineCountForSeriesUbuntu = map[string]int{"ubuntu@22.04": 1}
+	backend.machines = []migration.PrecheckMachine{
+		&fakeMachine{id: "0"},
+		&fakeMachine{id: "1"},
+	}
 	agentVersion := version.MustParse("2.9.35")
 	backend.model.agentVersion = &agentVersion
 	backend.model.name = "model-1"
@@ -135,7 +139,7 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 cannot migrate to controller due to issues:
 "foo/model-1":
 - unexpected upgrade series lock found
-- the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)
+- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@20.04, ubuntu@22.04, ubuntu@24.04
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 
@@ -145,7 +149,11 @@ func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	backend := newFakeBackend()
 	hasUpgradeSeriesLocks := true
 	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
-	backend.machineCountForSeriesUbuntu = map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}
+	backend.machineCountForSeriesUbuntu = map[string]int{"ubuntu@22.04": 1}
+	backend.machines = []migration.PrecheckMachine{
+		&fakeMachine{id: "0"},
+		&fakeMachine{id: "1"},
+	}
 	agentVersion := version.MustParse("2.9.31")
 	backend.model.agentVersion = &agentVersion
 	backend.model.name = "model-1"
@@ -163,7 +171,7 @@ func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 cannot migrate to controller due to issues:
 "foo/model-1":
 - unexpected upgrade series lock found
-- the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)`[1:])
+- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@20.04, ubuntu@22.04, ubuntu@24.04`[1:])
 }
 
 func (s *SourcePrecheckSuite) TestImportingModel(c *gc.C) {
@@ -901,6 +909,7 @@ func newHappyBackend() *fakeBackend {
 				},
 			},
 		},
+		machineCountForSeriesUbuntu: map[string]int{"ubuntu@22.04": 2},
 	}
 }
 
@@ -910,6 +919,7 @@ func newBackendWithMismatchingTools() *fakeBackend {
 			&fakeMachine{id: "0"},
 			&fakeMachine{id: "1", version: version.MustParseBinary("1.3.1-ubuntu-amd64")},
 		},
+		machineCountForSeriesUbuntu: map[string]int{"ubuntu@22.04": 2},
 	}
 }
 
@@ -918,6 +928,7 @@ func newBackendWithRebootingMachine() *fakeBackend {
 		machines: []migration.PrecheckMachine{
 			&fakeMachine{id: "0", rebootAction: state.ShouldReboot},
 		},
+		machineCountForSeriesUbuntu: map[string]int{"ubuntu@22.04": 1},
 	}
 }
 
@@ -927,6 +938,7 @@ func newBackendWithDyingMachine() *fakeBackend {
 			&fakeMachine{id: "0", life: state.Dying},
 			&fakeMachine{id: "1"},
 		},
+		machineCountForSeriesUbuntu: map[string]int{"ubuntu@22.04": 2},
 	}
 }
 
@@ -936,6 +948,7 @@ func newBackendWithDownMachine() *fakeBackend {
 			&fakeMachine{id: "0", status: status.Down},
 			&fakeMachine{id: "1"},
 		},
+		machineCountForSeriesUbuntu: map[string]int{"ubuntu@22.04": 2},
 	}
 }
 
@@ -945,6 +958,7 @@ func newBackendWithProvisioningMachine() *fakeBackend {
 			&fakeMachine{id: "0", instanceStatus: status.Provisioning},
 			&fakeMachine{id: "1"},
 		},
+		machineCountForSeriesUbuntu: map[string]int{"ubuntu@22.04": 2},
 	}
 }
 
@@ -1018,6 +1032,10 @@ func (b *fakeBackend) IsMigrationActive(string) (bool, error) {
 
 func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
 	return b.machines, b.allMachinesErr
+}
+
+func (b *fakeBackend) AllMachinesCount() (int, error) {
+	return len(b.machines), b.allMachinesErr
 }
 
 func (b *fakeBackend) AllApplications() ([]migration.PrecheckApplication, error) {
