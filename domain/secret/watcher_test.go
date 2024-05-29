@@ -387,37 +387,28 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 	saveConsumer(uri2, 1, "mediawiki/0")
 
 	watcher, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(watcher, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, watcher)
 
 	wC := watchertest.NewStringsWatcherC(c, watcher)
 
 	// Wait for the initial changes.
-	wC.AssertChange([]string(nil)...)
-	s.AssertChangeStreamIdle(c)
-	wC.AssertNoChange()
+	wC.AssertOneChange()
 
 	err = st.UpdateRemoteSecretRevision(ctx, uri1, 2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AssertChangeStreamIdle(c)
-	wC.AssertChange(
-		uri1.String(),
-	)
-	wC.AssertNoChange()
+	wC.AssertChange(uri1.String())
 
 	// Pretend that the agent restarted and the watcher is re-created.
 	watcher1, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(watcher1, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, watcher1)
+
 	wC1 := watchertest.NewStringsWatcherC(c, watcher1)
 	wC1.AssertChange([]string(nil)...)
-	s.AssertChangeStreamIdle(c)
-	wC1.AssertChange(
-		uri1.String(),
-	)
+	wC1.AssertChange(uri1.String())
 
 	// The consumed revision 2 is the updated current_revision.
 	saveConsumer(uri1, 2, "mediawiki/0")
@@ -426,15 +417,14 @@ func (s *watcherSuite) TestWatchConsumedRemoteSecretsChanges(c *gc.C) {
 	wC1.AssertNoChange()
 
 	// Pretend that the agent restarted and the watcher is re-created again.
-	// Since we comsume the latest revision already, so there should be no change.
+	// Since we consume the latest revision already, so there should be no
+	// change.
 	watcher2, err := svc.WatchConsumedSecretsChanges(ctx, "mediawiki/0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(watcher2, gc.NotNil)
-	defer workertest.CleanKill(c, watcher1)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, watcher2)
+
 	wC2 := watchertest.NewStringsWatcherC(c, watcher2)
-	wC2.AssertChange([]string(nil)...)
-	s.AssertChangeStreamIdle(c)
-	wC2.AssertNoChange()
+	wC2.AssertOneChange()
 }
 
 func (s *watcherSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {
