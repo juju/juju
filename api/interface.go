@@ -140,6 +140,38 @@ type LoginResultParams struct {
 	serverVersion    version.Number
 }
 
+// NewLoginResultParams constructs a LoginResultParams from a Juju login response.
+func NewLoginResultParams(result params.LoginResult) (*LoginResultParams, error) {
+	var controllerAccess string
+	var modelAccess string
+	var tag names.Tag
+	var err error
+	if result.UserInfo != nil {
+		tag, err = names.ParseTag(result.UserInfo.Identity)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		controllerAccess = result.UserInfo.ControllerAccess
+		modelAccess = result.UserInfo.ModelAccess
+	}
+	servers := params.ToMachineHostsPorts(result.Servers)
+	serverVersion, err := version.Parse(result.ServerVersion)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &LoginResultParams{
+		tag:              tag,
+		modelTag:         result.ModelTag,
+		controllerTag:    result.ControllerTag,
+		servers:          servers,
+		publicDNSName:    result.PublicDNSName,
+		facades:          result.Facades,
+		modelAccess:      modelAccess,
+		controllerAccess: controllerAccess,
+		serverVersion:    serverVersion,
+	}, nil
+}
+
 // LoginProvider implements a way to log in when connecting to a controller.
 type LoginProvider interface {
 	// Login performs log in when connecting to the controller.

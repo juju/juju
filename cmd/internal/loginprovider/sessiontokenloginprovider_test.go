@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api_test
+package loginprovider_test
 
 import (
 	"encoding/json"
@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/internal/loginprovider"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -34,7 +35,7 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 	var loginDetails string
 	var obtainedSessionToken string
 
-	s.PatchValue(api.LoginDeviceAPICall, func(_ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(loginprovider.LoginDeviceAPICall, func(_ base.APICaller, request interface{}, response interface{}) error {
 		lr := struct {
 			UserCode        string `json:"user-code"`
 			VerificationURI string `json:"verification-uri"`
@@ -51,7 +52,7 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 		return json.Unmarshal(data, response)
 	})
 
-	s.PatchValue(api.GetDeviceSessionTokenAPICall, func(_ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(loginprovider.GetDeviceSessionTokenAPICall, func(_ base.APICaller, request interface{}, response interface{}) error {
 		lr := struct {
 			SessionToken string `json:"session-token"`
 		}{
@@ -66,7 +67,7 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 		return json.Unmarshal(data, response)
 	})
 
-	s.PatchValue(api.LoginWithSessionTokenAPICall, func(_ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(loginprovider.LoginWithSessionTokenAPICall, func(_ base.APICaller, request interface{}, response interface{}) error {
 		data, err := json.Marshal(request)
 		if err != nil {
 			return errors.Trace(err)
@@ -107,7 +108,7 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,
 	}, api.DialOpts{
-		LoginProvider: api.NewSessionTokenLoginProvider(
+		LoginProvider: loginprovider.NewSessionTokenLoginProvider(
 			"expired-token",
 			func(s string, a ...any) error {
 				loginDetails = fmt.Sprintf(s, a...)

@@ -35,6 +35,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelmanager"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	corelogger "github.com/juju/juju/core/logger"
@@ -276,8 +277,8 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	// we set up a login provider that will first try to log in using
 	// oauth device flow, failing that it will try to log in using
 	// user-pass or macaroons.
-	dialOpts.LoginProvider = api.NewTryInOrderLoginProvider(
-		api.NewSessionTokenLoginProvider(
+	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
+		loginprovider.NewSessionTokenLoginProvider(
 			"",
 			func(format string, params ...any) error {
 				_, err := fmt.Fprintf(ctx.Stderr, format, params...)

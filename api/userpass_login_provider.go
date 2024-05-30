@@ -15,7 +15,6 @@ import (
 	"github.com/juju/featureflag"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
-	"github.com/juju/version/v2"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
@@ -173,31 +172,5 @@ func (p *userpassLoginProvider) Login(ctx context.Context, caller base.APICaller
 		}
 	}
 
-	var controllerAccess string
-	var modelAccess string
-	tag := p.tag
-	if result.UserInfo != nil {
-		tag, err = names.ParseTag(result.UserInfo.Identity)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		controllerAccess = result.UserInfo.ControllerAccess
-		modelAccess = result.UserInfo.ModelAccess
-	}
-	servers := params.ToMachineHostsPorts(result.Servers)
-	serverVersion, err := version.Parse(result.ServerVersion)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &LoginResultParams{
-		tag:              tag,
-		modelTag:         result.ModelTag,
-		controllerTag:    result.ControllerTag,
-		servers:          servers,
-		publicDNSName:    result.PublicDNSName,
-		facades:          result.Facades,
-		modelAccess:      modelAccess,
-		controllerAccess: controllerAccess,
-		serverVersion:    serverVersion,
-	}, nil
+	return NewLoginResultParams(result)
 }
