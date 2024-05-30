@@ -9,6 +9,8 @@ import (
 	"github.com/juju/juju/core/database/schema"
 )
 
+type tableNamespaceID = int
+
 // triggersForImmutableTable returns a function that creates triggers to prevent updates and
 // deletes on the given table.
 // The tableName is the name of the table to create the triggers for.

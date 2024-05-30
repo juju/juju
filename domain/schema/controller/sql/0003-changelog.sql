@@ -1,18 +1,3 @@
-// Copyright 2023 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
-package schema
-
-import (
-	"github.com/juju/juju/core/database/schema"
-)
-
-type tableNamespaceID = int
-
-// changeLogSchema provides a helper function for generating a change_log ddl
-// for a schema.
-func changeLogSchema() schema.Patch {
-	return schema.MakePatch(`
 CREATE TABLE change_log_edit_type (
     id        INT PRIMARY KEY,
     edit_type TEXT
@@ -61,5 +46,4 @@ CREATE TABLE change_log_witness (
     lower_bound         INT NOT NULL DEFAULT(-1),
     upper_bound         INT NOT NULL DEFAULT(-1),
     updated_at          DATETIME NOT NULL DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc'))
-);`)
-}
+);

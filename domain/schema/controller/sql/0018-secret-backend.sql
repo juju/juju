@@ -1,15 +1,3 @@
-// Copyright 2024 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
-package schema
-
-import (
-	"github.com/juju/juju/core/database/schema"
-)
-
-// secretBackendSchema provides a helper function for generating a secret backend related DDL for the controller database.
-func secretBackendSchema() schema.Patch {
-	return schema.MakePatch(`
 -- Controller database tables for secret backends.
 
 CREATE TABLE secret_backend_type (
@@ -84,6 +72,4 @@ SELECT
     msb.secret_backend_uuid
 FROM model_secret_backend msb
 JOIN model m ON msb.model_uuid = m.uuid
-JOIN model_type mt ON m.model_type_id = mt.id
-`)
-}
+JOIN model_type mt ON m.model_type_id = mt.id;
