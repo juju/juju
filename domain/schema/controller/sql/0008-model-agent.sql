@@ -10,7 +10,7 @@ CREATE TABLE model_agent (
     -- is being run for every agent as each agent needs to upgrade to this
     -- version.
     target_version TEXT NOT NULL,
-    CONSTRAINT            fk_model_agent_model
-        FOREIGN KEY           (model_uuid)
-        REFERENCES            model(uuid)
+    CONSTRAINT fk_model_agent_model
+    FOREIGN KEY (model_uuid)
+    REFERENCES model (uuid)
 );

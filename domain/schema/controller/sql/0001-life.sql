@@ -1,9 +1,9 @@
 CREATE TABLE life (
-    id    INT PRIMARY KEY,
+    id INT PRIMARY KEY,
     value TEXT NOT NULL
 );
 
 INSERT INTO life VALUES
-    (0, 'alive'), 
-    (1, 'dying'),
-    (2, 'dead');
+(0, 'alive'),
+(1, 'dying'),
+(2, 'dead');
