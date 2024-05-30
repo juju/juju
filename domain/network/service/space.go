@@ -136,16 +136,6 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Retrieve the fan config from the model config.
-	fanConfigStr, err := s.st.FanConfig(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	fanConfig, err := network.ParseFanConfig(fanConfigStr)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	canDiscoverSpaces, err := networkProvider.SupportsSpaceDiscovery(callContext)
 	if err != nil {
 		return errors.Trace(err)
@@ -160,7 +150,7 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 		s.Service.logger.Infof("discovered spaces: %s", spaces.String())
 
 		providerSpaces := NewProviderSpaces(s, s.logger)
-		if err := providerSpaces.saveSpaces(ctx, spaces, fanConfig); err != nil {
+		if err := providerSpaces.saveSpaces(ctx, spaces); err != nil {
 			return errors.Trace(err)
 		}
 		warnings, err := providerSpaces.deleteSpaces(ctx)
@@ -180,7 +170,7 @@ func (s *ProviderService) ReloadSpaces(ctx context.Context) error {
 	}
 	// TODO(nvinuesa): Here, the alpha space is scaffolding, it should be
 	// replaced with the model's default space.
-	return errors.Trace(s.saveProviderSubnets(ctx, subnets, network.AlphaSpaceId, fanConfig))
+	return errors.Trace(s.saveProviderSubnets(ctx, subnets, network.AlphaSpaceId))
 }
 
 // SaveProviderSubnets loads subnets into state.
@@ -189,7 +179,6 @@ func (s *ProviderService) saveProviderSubnets(
 	ctx context.Context,
 	subnets []network.SubnetInfo,
 	spaceUUID string,
-	fans network.FanConfig,
 ) error {
 
 	var subnetsToUpsert []network.SubnetInfo
@@ -207,44 +196,6 @@ func (s *ProviderService) saveProviderSubnets(
 		subnetToUpsert := subnet
 		subnetToUpsert.SpaceID = spaceUUID
 		subnetsToUpsert = append(subnetsToUpsert, subnetToUpsert)
-
-		// Iterate over fan configs.
-		for _, fan := range fans {
-			_, subnetNet, err := net.ParseCIDR(subnet.CIDR)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			if subnetNet.IP.To4() == nil {
-				s.logger.Debugf("%s address is not an IPv4 address", subnetNet.IP)
-				continue
-			}
-			// Compute the overlay segment.
-			overlaySegment, err := network.CalculateOverlaySegment(subnet.CIDR, fan)
-			if err != nil {
-				return errors.Trace(err)
-			} else if overlaySegment == nil {
-				// network.CalculateOverlaySegment can return
-				// (nil, nil) so we need to make sure not to do
-				// anything when overlaySegment is nil.
-				continue
-			}
-			fanSubnetID := generateFanSubnetID(subnetNet.String(), subnet.ProviderId.String())
-
-			// Add the fan subnet to the upsert list.
-			fanSubnetToUpsert := subnet
-			fanSubnetToUpsert.ProviderId = network.Id(fanSubnetID)
-			fanSubnetToUpsert.SetFan(fanSubnetToUpsert.CIDR, fan.Overlay.String())
-			fanSubnetToUpsert.SpaceID = spaceUUID
-
-			fanInfo := &network.FanCIDRs{
-				FanLocalUnderlay: fanSubnetToUpsert.CIDR,
-				FanOverlay:       fan.Overlay.String(),
-			}
-			fanSubnetToUpsert.FanInfo = fanInfo
-			fanSubnetToUpsert.CIDR = overlaySegment.String()
-
-			subnetsToUpsert = append(subnetsToUpsert, fanSubnetToUpsert)
-		}
 	}
 
 	if len(subnetsToUpsert) > 0 {
@@ -304,7 +255,7 @@ func NewProviderSpaces(spaceService *ProviderService, logger logger.Logger) *Pro
 
 // SaveSpaces consumes provider spaces and saves the spaces as subnets on a
 // provider.
-func (s *ProviderSpaces) saveSpaces(ctx context.Context, providerSpaces []network.SpaceInfo, fanConfig network.FanConfig) error {
+func (s *ProviderSpaces) saveSpaces(ctx context.Context, providerSpaces []network.SpaceInfo) error {
 	stateSpaces, err := s.spaceService.GetAllSpaces(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -351,7 +302,7 @@ func (s *ProviderSpaces) saveSpaces(ctx context.Context, providerSpaces []networ
 			spaceID = spaceUUID.String()
 		}
 
-		err = s.spaceService.saveProviderSubnets(ctx, spaceInfo.Subnets, spaceID, fanConfig)
+		err = s.spaceService.saveProviderSubnets(ctx, spaceInfo.Subnets, spaceID)
 		if err != nil {
 			return errors.Trace(err)
 		}

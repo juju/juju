@@ -101,13 +101,6 @@ func (api *API) updateSubnets(ctx context.Context, spaceName string, subnets net
 // a relocation of subnets.
 // An error is returned if validity is violated and force is passed as false.
 func (api *API) ensureSubnetsCanBeMoved(ctx context.Context, subnets network.SubnetInfos, spaceName string, force bool) error {
-	for _, subnet := range subnets {
-		if subnet.FanLocalUnderlay() != "" {
-			return errors.Errorf("subnet %q is a fan overlay of %q and cannot be moved; move the underlay instead",
-				subnet.CIDR, subnet.FanLocalUnderlay())
-		}
-	}
-
 	allSpaces, err := api.networkService.GetAllSpaces(ctx)
 	if err != nil {
 		return errors.Trace(err)

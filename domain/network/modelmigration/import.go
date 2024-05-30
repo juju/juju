@@ -91,12 +91,6 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			AvailabilityZones: subnet.AvailabilityZones(),
 			ProviderNetworkId: network.Id(subnet.ProviderNetworkId()),
 		}
-		if subnet.FanLocalUnderlay() != "" || subnet.FanOverlay() != "" {
-			subnetInfo.FanInfo = &network.FanCIDRs{
-				FanLocalUnderlay: subnet.FanLocalUnderlay(),
-				FanOverlay:       subnet.FanOverlay(),
-			}
-		}
 
 		importedSpaceID, ok := spaceIDsMap[subnet.SpaceID()]
 		if ok {

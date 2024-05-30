@@ -42,7 +42,6 @@ func (s *stateSuite) TestAddSpace(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -100,7 +99,6 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -141,7 +139,6 @@ func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -178,7 +175,6 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -195,7 +191,6 @@ func (s *stateSuite) TestRetrieveSpaceByUUID(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -307,7 +302,6 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -323,7 +317,6 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -339,7 +332,6 @@ func (s *stateSuite) TestRetrieveAllSpaces(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az2", "az3"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -406,7 +398,6 @@ func (s *stateSuite) TestDeleteSpace(c *gc.C) {
 			VLANTag:           0,
 			AvailabilityZones: []string{"az0", "az1"},
 			SpaceID:           "",
-			FanInfo:           nil,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

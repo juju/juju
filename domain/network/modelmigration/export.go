@@ -85,8 +85,6 @@ func (e *exportOperation) Execute(ctx context.Context, model description.Model) 
 			SpaceID:           subnet.SpaceID,
 			SpaceName:         subnet.SpaceName,
 			AvailabilityZones: subnet.AvailabilityZones,
-			FanLocalUnderlay:  subnet.FanLocalUnderlay(),
-			FanOverlay:        subnet.FanOverlay(),
 		}
 		model.AddSubnet(args)
 	}

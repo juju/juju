@@ -223,83 +223,6 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedNoForceE
 		`moving subnet(s) to space "destination" violates space constraints for application "mysql": ^destination`)
 }
 
-func (s *moveSubnetsAPISuite) TestMoveSubnetsNegativeConstraintsViolatedForOverlayNoForceError(c *gc.C) {
-	ctrl, unReg := s.SetupMocks(c, true, false)
-	defer ctrl.Finish()
-	defer unReg()
-
-	spaceName := "destination"
-	subnetID := "3"
-	cidr := "10.10.10.0/24"
-	fanSubnetID := "666"
-
-	subnet := &network.SubnetInfo{
-		ID:        network.Id(subnetID),
-		CIDR:      cidr,
-		SpaceName: "from",
-	}
-	s.NetworkService.EXPECT().Subnet(gomock.Any(), subnetID).Return(subnet, nil)
-
-	// The network topology indicates that the moving subnet has a fan overlay,
-	// which will also move the the new space implicitly.
-	allSpaces := network.SpaceInfos{
-		{
-			ID:   "1",
-			Name: "old-space",
-			Subnets: network.SubnetInfos{
-				{
-					ID:   network.Id(subnetID),
-					CIDR: cidr,
-				},
-				// This simulates what we see in AWS, where the overlay is
-				// segmented based on zones.
-				// See below where we create an address in this Fan network.
-				{
-					ID:   network.Id(fanSubnetID),
-					CIDR: "10.10.0.0/12",
-					FanInfo: &network.FanCIDRs{
-						FanLocalUnderlay: cidr,
-						FanOverlay:       "10.0.0.0/8",
-					},
-				},
-			},
-		},
-		{
-			ID:   "2",
-			Name: network.SpaceName(spaceName),
-		},
-	}
-	s.NetworkService.EXPECT().GetAllSpaces(gomock.Any()).Return(allSpaces, nil)
-
-	// MySQL is constrained not to be in the target space.
-	cons := spaces.NewMockConstraints(ctrl)
-	cons.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
-	cons.EXPECT().Value().Return(constraints.MustParse("spaces=^destination"))
-
-	// This address is reported as being in the main Fan overlay;
-	// not the segment in our network topology.
-	// So we expect the subnet to be looked up by the address value.
-	address := spaces.NewMockAddress(ctrl)
-	address.EXPECT().SubnetCIDR().Return("10.0.0.0/8")
-	address.EXPECT().ConfigMethod().Return(network.ConfigDHCP)
-	address.EXPECT().Value().Return("10.10.0.5")
-
-	m := spaces.NewMockMachine(ctrl)
-	m.EXPECT().AllAddresses().Return([]spaces.Address{address}, nil)
-
-	expectMachineUnits(ctrl, m, "mysql", "mysql/0")
-	s.Backing.EXPECT().AllMachines().Return([]spaces.Machine{m}, nil)
-
-	bExp := s.Backing.EXPECT()
-	bExp.AllConstraints().Return([]spaces.Constraints{cons}, nil)
-
-	res, err := s.API.MoveSubnets(context.Background(), moveSubnetsArg(subnetID, spaceName, false))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error.Message, gc.Equals,
-		`moving subnet(s) to space "destination" violates space constraints for application "mysql": ^destination`)
-}
-
 func (s *moveSubnetsAPISuite) TestSubnetsNegativeConstraintsViolatedForceSuccess(c *gc.C) {
 	ctrl, unReg := s.SetupMocks(c, true, false)
 	defer ctrl.Finish()
@@ -501,32 +424,6 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsEndpointBindingsViolatedNoForceErro
 	c.Assert(res.Results[0].Error.Message, gc.Equals,
 		`moving subnet(s) to space "destination" violates endpoint binding db:from for application "mysql"
 	units not connected to the space: mysql/1, mysql/2`)
-}
-
-func (s *moveSubnetsAPISuite) TestMoveSubnetsHasUnderlayError(c *gc.C) {
-	ctrl, unReg := s.SetupMocks(c, true, false)
-	defer ctrl.Finish()
-	defer unReg()
-
-	spaceName := "destination"
-	subnetID := "3"
-
-	subnet := &network.SubnetInfo{
-		ID:        network.Id(subnetID),
-		CIDR:      "10.0.0.0/8",
-		SpaceName: "from",
-		FanInfo: &network.FanCIDRs{
-			FanLocalUnderlay: "20.0.0.0/24",
-		},
-	}
-	s.NetworkService.EXPECT().Subnet(gomock.Any(), subnetID).Return(subnet, nil)
-
-	res, err := s.API.MoveSubnets(context.Background(), moveSubnetsArg(subnetID, spaceName, false))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results, gc.HasLen, 1)
-	c.Assert(res.Results[0].Error, gc.NotNil)
-	c.Assert(res.Results[0].Error.Message, gc.Equals,
-		`subnet "10.0.0.0/8" is a fan overlay of "20.0.0.0/24" and cannot be moved; move the underlay instead`)
 }
 
 func expectMachine(ctrl *gomock.Controller, cidrs ...string) *spaces.MockMachine {

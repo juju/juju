@@ -139,37 +139,6 @@ func (s *spaceSuite) TestAllSubnetInfos(c *gc.C) {
 	})
 }
 
-func (s *spaceSuite) TestFanOverlaysFor(c *gc.C) {
-	overlay := network.SubnetInfo{
-		ID:   "15",
-		CIDR: "10.1.1.0/16",
-		FanInfo: &network.FanCIDRs{
-			FanLocalUnderlay: "10.0.3.0/24",
-			FanOverlay:       "10.1.0.0/8",
-		},
-	}
-
-	s.spaces = append(s.spaces, network.SpaceInfo{
-		ID:   "4",
-		Name: "space4",
-		Subnets: network.SubnetInfos{
-			{
-				ID:   "14",
-				CIDR: "10.0.3.0/24",
-			},
-			overlay,
-		},
-	})
-
-	overlays, err := s.spaces.FanOverlaysFor(network.MakeIDSet("11"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(overlays, gc.HasLen, 0)
-
-	overlays, err = s.spaces.FanOverlaysFor(network.MakeIDSet("14"))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(overlays, gc.DeepEquals, network.SubnetInfos{overlay})
-}
-
 func (s *spaceSuite) TestMoveSubnets(c *gc.C) {
 	_, err := s.spaces.MoveSubnets(network.MakeIDSet("11", "12"), "space4")
 	c.Check(err, jc.ErrorIs, errors.NotFound)

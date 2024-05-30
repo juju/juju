@@ -236,45 +236,6 @@ func (c *MockStateDeleteSubnetCall) DoAndReturn(f func(context.Context, string) 
 	return c
 }
 
-// FanConfig mocks base method.
-func (m *MockState) FanConfig(arg0 context.Context) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FanConfig", arg0)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FanConfig indicates an expected call of FanConfig.
-func (mr *MockStateMockRecorder) FanConfig(arg0 any) *MockStateFanConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FanConfig", reflect.TypeOf((*MockState)(nil).FanConfig), arg0)
-	return &MockStateFanConfigCall{Call: call}
-}
-
-// MockStateFanConfigCall wrap *gomock.Call
-type MockStateFanConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateFanConfigCall) Return(arg0 string, arg1 error) *MockStateFanConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateFanConfigCall) Do(f func(context.Context) (string, error)) *MockStateFanConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateFanConfigCall) DoAndReturn(f func(context.Context) (string, error)) *MockStateFanConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetAllSpaces mocks base method.
 func (m *MockState) GetAllSpaces(arg0 context.Context) (network.SpaceInfos, error) {
 	m.ctrl.T.Helper()

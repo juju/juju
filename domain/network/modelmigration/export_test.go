@@ -63,10 +63,6 @@ func (s *exportSuite) TestExport(c *gc.C) {
 			ProviderId:        "provider-subnet-1",
 			ProviderSpaceId:   "provider-space-1",
 			ProviderNetworkId: "provider-network-1",
-			FanInfo: &network.FanCIDRs{
-				FanLocalUnderlay: "192.168.0.0/12",
-				FanOverlay:       "10.0.0.0/8",
-			},
 		},
 	}
 	s.exportService.EXPECT().GetAllSubnets(gomock.Any()).
@@ -91,8 +87,6 @@ func (s *exportSuite) TestExport(c *gc.C) {
 	c.Assert(actualSubnets[0].ProviderId(), gc.Equals, string(subnets[0].ProviderId))
 	c.Assert(actualSubnets[0].ProviderSpaceId(), gc.Equals, string(subnets[0].ProviderSpaceId))
 	c.Assert(actualSubnets[0].ProviderNetworkId(), gc.Equals, string(subnets[0].ProviderNetworkId))
-	c.Assert(actualSubnets[0].FanLocalUnderlay(), gc.Equals, subnets[0].FanLocalUnderlay())
-	c.Assert(actualSubnets[0].FanOverlay(), gc.Equals, subnets[0].FanOverlay())
 }
 
 func (s *exportSuite) TestExportSpacesNotFound(c *gc.C) {

@@ -77,18 +77,7 @@ type affectedNetworks struct {
 func newAffectedNetworks(
 	movingSubnets network.IDSet, spaceName string, currentTopology network.SpaceInfos, force bool, logger corelogger.Logger,
 ) (*affectedNetworks, error) {
-
-	// We need to indicate that any moving fan underlays include
-	// their overlays as being affected by a move.
-	movingOverlays, err := currentTopology.FanOverlaysFor(movingSubnets)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, overlay := range movingOverlays {
-		movingSubnets.Add(overlay.ID)
-	}
-
-	// Now get the topology as would result from moving all of these subnets.
+	// Get the topology as would result from moving all of these subnets.
 	newTopology, err := currentTopology.MoveSubnets(movingSubnets, spaceName)
 	if err != nil {
 		return nil, errors.Trace(err)

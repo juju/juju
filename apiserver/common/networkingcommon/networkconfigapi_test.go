@@ -78,8 +78,6 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *
 
 	s.expectMachine()
 
-	// This basically simulates having no Fan subnets.
-	s.networkService.EXPECT().GetAllSubnets(gomock.Any()).Return(nil, nil)
 	s.state.EXPECT().ApplyOperation(gomock.Any()).Return(nil)
 
 	s.callAPI(c, []params.NetworkConfig{
@@ -132,55 +130,6 @@ func (s *networkConfigSuite) TestSetObservedNetworkConfigCallsApplyOperation(c *
 			MACAddress:    "aa:bb:cc:dd:ee:f1",
 			Addresses: network.ProviderAddresses{
 				network.NewMachineAddress("0.20.0.2", network.WithCIDR("0.20.0.0/24")).AsProviderAddress(),
-			},
-			GatewayAddress: network.NewMachineAddress("").AsProviderAddress(),
-		},
-	})
-}
-
-func (s *networkConfigSuite) TestSetObservedNetworkConfigFixesFanSubs(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.expectMachine()
-
-	s.networkService.EXPECT().GetAllSubnets(gomock.Any()).Return(network.SubnetInfos{
-		{
-			CIDR: "10.10.0.0/16",
-			FanInfo: &network.FanCIDRs{
-				FanLocalUnderlay: "",
-				FanOverlay:       "anything-not-empty",
-			},
-		},
-	}, nil)
-
-	s.state.EXPECT().ApplyOperation(gomock.Any()).Return(nil)
-
-	s.callAPI(c, []params.NetworkConfig{
-		{
-			InterfaceName: "eth0",
-			InterfaceType: "ethernet",
-			MACAddress:    "aa:bb:cc:dd:ee:f0",
-			Address:       "10.10.10.2",
-			Addresses: []params.Address{
-				{
-					Value: "10.10.10.2",
-					CIDR:  "10.0.0.0/8",
-					Type:  string(network.IPv4Address),
-					Scope: string(network.ScopeCloudLocal),
-				},
-			},
-		},
-	})
-
-	c.Check(s.modelOp.devs, jc.DeepEquals, network.InterfaceInfos{
-		{
-			InterfaceName: "eth0",
-			InterfaceType: "ethernet",
-			MACAddress:    "aa:bb:cc:dd:ee:f0",
-			// Gets the CIDR from the Fan segment.
-			Addresses: network.ProviderAddresses{
-				network.NewMachineAddress("10.10.10.2", network.WithCIDR("10.10.0.0/16")).AsProviderAddress(),
 			},
 			GatewayAddress: network.NewMachineAddress("").AsProviderAddress(),
 		},

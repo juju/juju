@@ -187,38 +187,6 @@ func (*subnetSuite) TestSubnetInfosSpaceIDs(c *gc.C) {
 	c.Check(s.SpaceIDs().SortedValues(), jc.DeepEquals, []string{network.AlphaSpaceId, "666"})
 }
 
-func (*subnetSuite) TestSubnetInfosGetByUnderLayCIDR(c *gc.C) {
-	s := network.SubnetInfos{
-		{
-			ID:      "1",
-			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "10.10.10.0/24"},
-		},
-		{
-			ID:      "2",
-			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "20.20.20.0/24"},
-		},
-		{
-			ID:      "3",
-			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "20.20.20.0/24"},
-		},
-	}
-
-	_, err := s.GetByUnderlayCIDR("invalid")
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-
-	overlays, err := s.GetByUnderlayCIDR(s[0].FanLocalUnderlay())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(overlays, gc.DeepEquals, network.SubnetInfos{s[0]})
-
-	overlays, err = s.GetByUnderlayCIDR(s[1].FanLocalUnderlay())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(overlays, gc.DeepEquals, network.SubnetInfos{s[1], s[2]})
-
-	overlays, err = s.GetByUnderlayCIDR("30.30.30.0/24")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(overlays, gc.HasLen, 0)
-}
-
 func (*subnetSuite) TestSubnetInfosGetByCIDR(c *gc.C) {
 	s := network.SubnetInfos{
 		{ID: "1", CIDR: "10.10.10.0/25", ProviderId: "1"},
@@ -290,54 +258,6 @@ func (*subnetSuite) TestSubnetInfosGetByAddress(c *gc.C) {
 	subs, err = s.GetByAddress("30.30.30.5")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subs, gc.HasLen, 0)
-}
-
-func (*subnetSuite) TestSubnetInfosGetBySpaceID(c *gc.C) {
-	s := network.SubnetInfos{
-		{
-			ID:      "1",
-			CIDR:    "10.10.10.0/24",
-			SpaceID: "666",
-		},
-		{
-			ID:      "2",
-			CIDR:    "222.0.0.0/8",
-			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "10.10.10.0/24"},
-		},
-		{
-			ID:      "3",
-			CIDR:    "20.20.20.0/24",
-			SpaceID: "999",
-		},
-		{
-			ID:      "4",
-			CIDR:    "223.0.0.0/8",
-			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "20.20.20.0/24"},
-			// This is to check that we don't get duplicates when retrieving
-			// by the underlay CIDR.
-			SpaceID: "999",
-		},
-	}
-
-	subs, err := s.GetBySpaceID("666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subs, gc.DeepEquals, network.SubnetInfos{
-		{
-			ID:      "1",
-			CIDR:    "10.10.10.0/24",
-			SpaceID: "666",
-		},
-		{
-			ID:      "2",
-			CIDR:    "222.0.0.0/8",
-			FanInfo: &network.FanCIDRs{FanLocalUnderlay: "10.10.10.0/24"},
-			SpaceID: "666",
-		},
-	})
-
-	subs, err = s.GetBySpaceID("999")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subs, gc.DeepEquals, s[2:])
 }
 
 func (*subnetSuite) TestSubnetInfosAllSubnetInfos(c *gc.C) {
