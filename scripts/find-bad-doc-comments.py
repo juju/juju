@@ -31,8 +31,8 @@ def find_go_files(root):
             yield path.join(directory, filename)
 
 DOC_COMMENT_PATT = '\n\n//.+\n(//.+\n)*func.+\n'
-FIRST_WORD_PATT = '// *(\w+)'
-FUNC_NAME_PATT = 'func(?: \([^)]+\))? (\S+)\('
+FIRST_WORD_PATT = '// *(\\w+)'
+FUNC_NAME_PATT = 'func(?: \\([^)]+\\))? (\\S+)\\('
 
 def extract_doc_comments(text):
     for match in re.finditer(DOC_COMMENT_PATT, text, re.MULTILINE):

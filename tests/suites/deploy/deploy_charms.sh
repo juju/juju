@@ -24,8 +24,8 @@ run_deploy_charm_placement_directive() {
 	expected_base="ubuntu@20.04"
 	# Setup machines for placement based on provider used for test.
 	# Container in container doesn't work consistently enough,
-	# for test. Use kvm via lxc instead.
-	if [[ ${BOOTSTRAP_PROVIDER} == "lxd" ]] || [[ ${BOOTSTRAP_PROVIDER} == "localhost" ]]; then
+	# for test. Use kvm via lxc instead if it is available.
+	if [[ ${BOOTSTRAP_PROVIDER} == "lxd" ]] && stat /dev/kvm; then
 		juju add-machine --base "${expected_base}" --constraints="virt-type=virtual-machine"
 	else
 		juju add-machine --base "${expected_base}"
@@ -358,7 +358,7 @@ test_deploy_charms() {
 		run "run_deploy_charm_unsupported_series"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
-		"lxd" | "localhost")
+		"lxd")
 			run "run_deploy_lxd_to_machine"
 			run "run_deploy_lxd_profile_charm"
 			run "run_deploy_local_predeployed_charm"
