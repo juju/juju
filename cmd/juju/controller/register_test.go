@@ -564,7 +564,8 @@ Enter a name for this controller: »foo
 	s.apiOpenError = errors.New("open failed")
 	err := s.run(c, prompter, registrationData)
 	c.Assert(c.GetTestLog(), gc.Matches, "(.|\n)*open failed(.|\n)*")
-	c.Assert(err, gc.ErrorMatches, `cannot reach controller "foo" at: `+s.apiConnection.Addr())
+	c.Assert(err, gc.ErrorMatches, `Cannot reach controller "foo" at: `+s.apiConnection.Addr()+".\n"+
+		"Check that the controller ip is reachable from your network.")
 }
 
 func (s *RegisterSuite) TestRegisterServerError(c *gc.C) {

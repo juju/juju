@@ -539,14 +539,12 @@ func (c *registerCommand) secretKeyLogin(
 ) (_ *params.SecretKeyLoginResponse, err error) {
 	cookieJar, err := c.CookieJar(c.store, controllerName)
 	if err != nil {
-		logger.Errorf("getting API context: %s", err)
-		return nil, fmt.Errorf("failed to prepare request, invalid token or internal error")
+		return nil, errors.Annotatef(err, "internal error: cannot get API context")
 	}
 
 	buf, err := json.Marshal(&request)
 	if err != nil {
-		logger.Errorf("marshalling request: %s", err)
-		return nil, fmt.Errorf("failed to prepare request, invalid token or internal error")
+		return nil, errors.Annotatef(err, "internal error: cannot marshell controller api request")
 	}
 	r := bytes.NewReader(buf)
 
@@ -566,7 +564,7 @@ func (c *registerCommand) secretKeyLogin(
 	}
 	conn, err := c.apiOpen(apiInfo, opts)
 	if err != nil {
-		logger.Errorf("opening api connection: %s", err)
+		logger.Infof("opening api connection: %s", err)
 		return nil, controllerUnreachableError(controllerName, controllerDetails.APIEndpoints)
 	}
 	apiAddr := conn.Addr()
@@ -586,8 +584,7 @@ func (c *registerCommand) secretKeyLogin(
 	urlString := fmt.Sprintf("https://%s/register", apiAddr)
 	httpReq, err := http.NewRequest("POST", urlString, r)
 	if err != nil {
-		logger.Errorf("creating new http request: %s", err)
-		return nil, fmt.Errorf("internal error preparing request for controller")
+		return nil, errors.Annotatef(err, "internal error: creating new http request")
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
@@ -598,7 +595,7 @@ func (c *registerCommand) secretKeyLogin(
 	)
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
-		logger.Errorf("connecting to controller: %s", err)
+		logger.Infof("connecting to controller: %s", err)
 		return nil, controllerUnreachableError(controllerName, controllerDetails.APIEndpoints)
 	}
 	defer func() { _ = httpResp.Body.Close() }()
@@ -606,20 +603,16 @@ func (c *registerCommand) secretKeyLogin(
 	if httpResp.StatusCode != http.StatusOK {
 		var resp params.ErrorResult
 		if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
-			logger.Errorf("cannot decode http response: %s", err)
-			return nil, fmt.Errorf("internal error")
-		} else if resp.Error != nil {
-
+			return nil, errors.Annotatef(err, "internal error: cannot decode http response")
 		}
-		logger.Errorf("error response, %s", resp.Error)
+		logger.Infof("error response, %s", resp.Error)
 		return nil, errors.Errorf("Provided registration token may have expired."+
 			"\nA controller administrator must reset your user to issue a new token.\nSee %q for more information.", "juju help change-user-password")
 	}
 
 	var resp params.SecretKeyLoginResponse
 	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
-		logger.Errorf("cannot decode login response: %s", err)
-		return nil, fmt.Errorf("internal error")
+		return nil, errors.Annotatef(err, "internal error: cannot decode controller response")
 	}
 	return &resp, nil
 }
@@ -762,6 +755,7 @@ func genAlreadyRegisteredError(controller, user string) error {
 }
 
 func controllerUnreachableError(name string, endpoints []string) error {
-	return fmt.Errorf("cannot reach controller %q at: %s",
+	return fmt.Errorf("Cannot reach controller %q at: %s."+
+		"\nCheck that the controller ip is reachable from your network.",
 		name, strings.Join(endpoints, ", "))
 }
