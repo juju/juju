@@ -10,7 +10,7 @@ test_constraints_common() {
 		cd .. || exit
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
-		"lxd" | "lxd-remote" | "localhost")
+		"lxd")
 			run "run_constraints_lxd"
 			;;
 		"openstack")
