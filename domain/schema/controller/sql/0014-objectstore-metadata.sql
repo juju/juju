@@ -1,14 +1,3 @@
-// Copyright 2023 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
-package schema
-
-import "github.com/juju/juju/core/database/schema"
-
-// objectStoreMetadataSchema provides a helper function for generating a change_log ddl
-// for a schema.
-func objectStoreMetadataSchema() schema.Patch {
-	return schema.MakePatch(`
 CREATE TABLE object_store_metadata_hash_type (
     id          INT PRIMARY KEY,
     hash_type   TEXT NOT NULL
@@ -40,5 +29,3 @@ CREATE TABLE object_store_metadata_path (
         FOREIGN KEY (metadata_uuid)
         REFERENCES  object_store_metadata(uuid)
 );
-`)
-}
