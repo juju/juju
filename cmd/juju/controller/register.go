@@ -69,7 +69,7 @@ type registerCommand struct {
 	arg     string
 	replace bool
 
-	// onRunError is executed if non-nil if there is an error at the end
+	// onRunError is executed if non-nil and there is an error at the end
 	// of the Run method.
 	onRunError func()
 }
@@ -169,7 +169,7 @@ func (c *registerCommand) run(ctx *cmd.Context) error {
 	}
 
 	// Check if user is trying to register an already known controller by
-	// by providing the IP of one of its endpoints.
+	// providing the IP of one of its endpoints.
 	if registrationParams.publicHost != "" {
 		if err := ensureNotKnownEndpoint(c.store, registrationParams.publicHost); err != nil {
 			return errors.Trace(err)
@@ -334,12 +334,6 @@ func (c *registerCommand) nonPublicControllerDetails(ctx *cmd.Context, registrat
 	}
 	resp, err := c.secretKeyLogin(controllerDetails, req, controllerName)
 	if err != nil {
-		// If we got here and got an error, the registration token supplied
-		// will be expired.
-		// Log the error as it will be useful for debugging, but give user a
-		// suggestion for the way forward instead of error details.
-		logger.Infof("while validating secret key: %v", err)
-		err = errors.Errorf("Provided registration token may have been expired.\nA controller administrator must reset your user to issue a new token.\nSee %q for more information.", "juju help change-user-password")
 		return errRet(errors.Trace(err))
 	}
 
@@ -545,12 +539,14 @@ func (c *registerCommand) secretKeyLogin(
 ) (_ *params.SecretKeyLoginResponse, err error) {
 	cookieJar, err := c.CookieJar(c.store, controllerName)
 	if err != nil {
-		return nil, errors.Annotate(err, "getting API context")
+		logger.Errorf("getting API context: %s", err)
+		return nil, fmt.Errorf("failed to prepare request, invalid token or internal error")
 	}
 
 	buf, err := json.Marshal(&request)
 	if err != nil {
-		return nil, errors.Annotate(err, "marshalling request")
+		logger.Errorf("marshalling request: %s", err)
+		return nil, fmt.Errorf("failed to prepare request, invalid token or internal error")
 	}
 	r := bytes.NewReader(buf)
 
@@ -570,7 +566,8 @@ func (c *registerCommand) secretKeyLogin(
 	}
 	conn, err := c.apiOpen(apiInfo, opts)
 	if err != nil {
-		return nil, errors.Trace(err)
+		logger.Errorf("opening api connection: %s", err)
+		return nil, controllerUnreachableError(controllerName, controllerDetails.APIEndpoints)
 	}
 	apiAddr := conn.Addr()
 	defer func() {
@@ -589,7 +586,8 @@ func (c *registerCommand) secretKeyLogin(
 	urlString := fmt.Sprintf("https://%s/register", apiAddr)
 	httpReq, err := http.NewRequest("POST", urlString, r)
 	if err != nil {
-		return nil, errors.Trace(err)
+		logger.Errorf("creating new http request: %s", err)
+		return nil, fmt.Errorf("internal error preparing request for controller")
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
@@ -600,21 +598,28 @@ func (c *registerCommand) secretKeyLogin(
 	)
 	httpResp, err := httpClient.Do(httpReq)
 	if err != nil {
-		return nil, errors.Trace(err)
+		logger.Errorf("connecting to controller: %s", err)
+		return nil, controllerUnreachableError(controllerName, controllerDetails.APIEndpoints)
 	}
 	defer func() { _ = httpResp.Body.Close() }()
 
 	if httpResp.StatusCode != http.StatusOK {
 		var resp params.ErrorResult
 		if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
-			return nil, errors.Trace(err)
+			logger.Errorf("cannot decode http response: %s", err)
+			return nil, fmt.Errorf("internal error")
+		} else if resp.Error != nil {
+
 		}
-		return nil, resp.Error
+		logger.Errorf("error response, %s", resp.Error)
+		return nil, errors.Errorf("Provided registration token may have expired."+
+			"\nA controller administrator must reset your user to issue a new token.\nSee %q for more information.", "juju help change-user-password")
 	}
 
 	var resp params.SecretKeyLoginResponse
 	if err := json.NewDecoder(httpResp.Body).Decode(&resp); err != nil {
-		return nil, errors.Annotatef(err, "cannot decode login response")
+		logger.Errorf("cannot decode login response: %s", err)
+		return nil, fmt.Errorf("internal error")
 	}
 	return &resp, nil
 }
@@ -754,4 +759,9 @@ func genAlreadyRegisteredError(controller, user string) error {
 		return err
 	}
 	return errors.New(buf.String())
+}
+
+func controllerUnreachableError(name string, endpoints []string) error {
+	return fmt.Errorf("cannot reach controller %q at: %s",
+		name, strings.Join(endpoints, ", "))
 }
