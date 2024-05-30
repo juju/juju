@@ -118,7 +118,7 @@ class TestCharm(TestCase):
         self.assertIsNone(Charm.NAME_REGEX.match(charm.metadata['name']))
         self.assertRaisesRegexp(
             JujuAssertionError,
-            'Invalid Juju Charm Name, "BAD_NAME" does not match ".*"\.',
+            'Invalid Juju Charm Name, "BAD_NAME" does not match ".*"\\.',
             Charm, 'BAD_NAME', 'A charm with a checked bad name')
 
     def test_ensure_valid_name_anchoring(self):
