@@ -721,15 +721,11 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State, unit
 		c.Assert(addr.Scope(), gc.Equals, "local-machine")
 		c.Assert(addr.Type(), gc.Equals, "ipv4")
 		c.Assert(addr.Origin(), gc.Equals, "provider")
-		_, err := unit.AgentTools()
-		c.Assert(err, jc.ErrorIs, errors.NotFound)
 	}
 
-	if dbModel.Type() == state.ModelTypeIAAS {
-		tools, err := unit.AgentTools()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(exported.Tools().Version(), gc.Equals, tools.Version)
-	}
+	tools, err := unit.AgentTools()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exported.Tools().Version(), gc.Equals, tools.Version)
 }
 
 func (s *MigrationExportSuite) TestApplicationLeadership(c *gc.C) {

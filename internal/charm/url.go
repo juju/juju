@@ -339,7 +339,7 @@ func Quote(unsafe string) string {
 // mandatory.
 //
 //   - architecture (optional)
-//   - series (optional)
+//   - series (backward compatibility)
 //   - name
 //   - revision (optional)
 //

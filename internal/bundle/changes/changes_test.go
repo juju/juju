@@ -2853,12 +2853,19 @@ func (s *changesSuite) TestLocalCharmWithSeriesFromCharm(c *gc.C) {
 name: multi-series
 summary: That's a dummy charm with multi-series.
 description: A dummy charm.
-series:
-    - jammy
-    - focal
-    - bionic
+`[1:]
+	charmManifest := `
+bases:
+- name: ubuntu
+  channel: "22.04"  
+- name: ubuntu
+  channel: "20.04"  
+- name: ubuntu
+  channel: "18.04"  
 `[1:]
 	err = os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(charmDir, "manifest.yaml"), []byte(charmManifest), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalBundleChanges(c, charmDir, bundleContent, "ubuntu@22.04/stable")
 	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "ubuntu@22.04/stable")
@@ -2876,12 +2883,19 @@ func (s *changesSuite) TestLocalCharmWithBaseFromBundle(c *gc.C) {
 name: multi-series
 summary: That's a dummy charm with multi-series.
 description: A dummy charm.
-series:
-    - jammy
-    - focal
-    - bionic
+`[1:]
+	charmManifest := `
+bases:
+- name: ubuntu
+  channel: "22.04"  
+- name: ubuntu
+  channel: "20.04"  
+- name: ubuntu
+  channel: "18.04"  
 `[1:]
 	err := os.WriteFile(filepath.Join(charmDir, "metadata.yaml"), []byte(charmMeta), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	err = os.WriteFile(filepath.Join(charmDir, "manifest.yaml"), []byte(charmManifest), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertLocalBundleChanges(c, charmDir, bundleContent, "ubuntu@20.04/stable")
 	s.assertLocalBundleChangesWithDevices(c, charmDir, bundleContent, "ubuntu@20.04/stable")

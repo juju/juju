@@ -1,6 +1,0 @@
-name: series-and-manifest
-summary: "Both manifest bases and series present"
-series:
-  - kubernetes
-description: |
-  Format V1 should be detected.

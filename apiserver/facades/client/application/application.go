@@ -9,7 +9,6 @@ import (
 	"math"
 	"net"
 	"reflect"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -521,13 +520,6 @@ func (c caasDeployParams) precheck(
 		}
 	}
 
-	caasVersion, err := caasBroker.Version()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := checkCAASMinVersion(c.charm, caasVersion); err != nil {
-		return errors.Trace(err)
-	}
 	return nil
 }
 
@@ -1039,12 +1031,6 @@ func (api *APIBase) SetCharm(ctx context.Context, args params.ApplicationSetChar
 }
 
 var (
-	deploymentInfoUpgradeMessage = `
-Juju on containers does not support updating deployment info for services.
-The new charm's metadata contains updated deployment info.
-You'll need to deploy a new charm rather than upgrading if you need this change.
-`[1:]
-
 	storageUpgradeMessage = `
 Juju on containers does not support updating storage on a statefulset.
 The new charm's metadata contains updated storage declarations.
@@ -1083,12 +1069,10 @@ func (api *APIBase) setCharmWithAgentValidation(
 	}
 	if api.model.Type() == state.ModelTypeCAAS {
 		// We need to disallow updates that k8s does not yet support,
-		// eg changing the filesystem or device directives, or deployment info.
+		// eg changing the filesystem or device directives.
 		// TODO(wallyworld) - support resizing of existing storage.
 		var unsupportedReason string
-		if !reflect.DeepEqual(currentCharm.Meta().Deployment, newCharm.Meta().Deployment) {
-			unsupportedReason = deploymentInfoUpgradeMessage
-		} else if !reflect.DeepEqual(currentCharm.Meta().Storage, newCharm.Meta().Storage) {
+		if !reflect.DeepEqual(currentCharm.Meta().Storage, newCharm.Meta().Storage) {
 			unsupportedReason = storageUpgradeMessage
 		} else if !reflect.DeepEqual(currentCharm.Meta().Devices, newCharm.Meta().Devices) {
 			unsupportedReason = devicesUpgradeMessage
@@ -1809,18 +1793,6 @@ func (api *APIBase) ScaleApplications(ctx context.Context, args params.ScaleAppl
 			return nil, errors.Errorf("application %q does not exist", name)
 		} else if err != nil {
 			return nil, errors.Trace(err)
-		}
-		ch, _, err := app.Charm()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if ch.Meta().Deployment != nil {
-			if ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
-				return nil, errors.NotSupportedf("scale an %q application", charm.ModeOperator)
-			}
-			if ch.Meta().Deployment.DeploymentType == charm.DeploymentDaemon {
-				return nil, errors.NotSupportedf("scale a %q application", charm.DeploymentDaemon)
-			}
 		}
 
 		var info params.ScaleApplicationInfo
@@ -2932,29 +2904,6 @@ func (api *APIBase) crossModelRelationData(rel Relation, appName string, erd *pa
 			}
 		}
 		erd.UnitRelationData[ru.UnitName()] = urd
-	}
-	return nil
-}
-
-func checkCAASMinVersion(ch CharmMeta, caasVersion *version.Number) (err error) {
-	// check caas min version.
-	charmDeployment := ch.Meta().Deployment
-	if caasVersion == nil || charmDeployment == nil || charmDeployment.MinVersion == "" {
-		return nil
-	}
-	if len(strings.Split(charmDeployment.MinVersion, ".")) == 2 {
-		// append build number if it's not specified.
-		charmDeployment.MinVersion += ".0"
-	}
-	minver, err := version.Parse(charmDeployment.MinVersion)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if minver != version.Zero && minver.Compare(*caasVersion) > 0 {
-		return errors.NewNotValid(nil, fmt.Sprintf(
-			"charm requires a minimum k8s version of %v but the cluster only runs version %v",
-			minver, caasVersion,
-		))
 	}
 	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -41,6 +42,11 @@ import (
 )
 
 var _ = gc.Suite(&MachineManagerSuite{})
+
+var defaultSupportedBases = []corebase.Base{
+	corebase.MustParseBaseFromString("ubuntu@20.04"),
+	corebase.MustParseBaseFromString("ubuntu@22.04"),
+}
 
 type MachineManagerSuite struct {
 	authorizer *apiservertesting.FakeAuthorizer
@@ -1027,11 +1033,20 @@ func (s *UpgradeSeriesMachineManagerSuite) expectValidateMachine(ctrl *gomock.Co
 	return machine
 }
 
-func (s *UpgradeSeriesMachineManagerSuite) expectValidateApplicationOnMachine(ctrl *gomock.Controller) *MockApplication {
+func (s *UpgradeSeriesMachineManagerSuite) expectValidateApplicationOnMachine(ctrl *gomock.Controller, supportedBases []corebase.Base) *MockApplication {
 	app := NewMockApplication(ctrl)
 	ch := NewMockCharm(ctrl)
-	ch.EXPECT().Manifest().Return(nil).AnyTimes()
-	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"jammy"}}).AnyTimes()
+	ch.EXPECT().Manifest().Return(&charm.Manifest{
+		Bases: transform.Slice(supportedBases, func(b corebase.Base) charm.Base {
+			return charm.Base{
+				Name:    b.OS,
+				Channel: charm.Channel{Track: b.Channel.Track, Risk: charm.Risk(b.Channel.Risk)},
+			}
+		}),
+	}).AnyTimes()
+	ch.EXPECT().Meta().Return(&charm.Meta{
+		Name: "TestCharm",
+	}).AnyTimes()
 	app.EXPECT().Charm().Return(ch, true, nil)
 	app.EXPECT().CharmOrigin().Return(&state.CharmOrigin{})
 
@@ -1117,7 +1132,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateOK(c
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	machine0.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
-	app := s.expectValidateApplicationOnMachine(ctrl)
+	app := s.expectValidateApplicationOnMachine(ctrl, defaultSupportedBases)
 	s.st.EXPECT().Application("foo").Return(app, nil)
 
 	machine0.EXPECT().Units().Return([]machinemanager.Unit{
@@ -1263,7 +1278,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	machine0.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
-	app := s.expectValidateApplicationOnMachine(ctrl)
+	app := s.expectValidateApplicationOnMachine(ctrl, defaultSupportedBases)
 	s.st.EXPECT().Application("foo").Return(app, nil)
 
 	machine0.EXPECT().Units().Return([]machinemanager.Unit{
@@ -1291,7 +1306,7 @@ func (s *UpgradeSeriesValidateMachineManagerSuite) TestUpgradeSeriesValidateUnit
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	machine0.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
-	app := s.expectValidateApplicationOnMachine(ctrl)
+	app := s.expectValidateApplicationOnMachine(ctrl, defaultSupportedBases)
 	s.st.EXPECT().Application("foo").Return(app, nil)
 
 	machine0.EXPECT().Units().Return([]machinemanager.Unit{
@@ -1371,8 +1386,11 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) setup(c *gc.C) *gomock.Control
 	return ctrl
 }
 
-func (s *UpgradeSeriesPrepareMachineManagerSuite) expectPrepareMachine(ctrl *gomock.Controller, upgradeSeriesErr error) *MockMachine {
+func (s *UpgradeSeriesPrepareMachineManagerSuite) expectPrepareMachine(ctrl *gomock.Controller, app *MockApplication, upgradeSeriesErr error) *MockMachine {
 	machine := s.expectValidateMachine(ctrl, "ubuntu", "20.04", false, false)
+
+	machine.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
+	s.st.EXPECT().Application("foo").Return(app, nil)
 
 	machine.EXPECT().Units().Return([]machinemanager.Unit{
 		s.expectPrepareUnit(ctrl, "foo/0"),
@@ -1380,19 +1398,13 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) expectPrepareMachine(ctrl *gom
 		s.expectPrepareUnit(ctrl, "foo/2"),
 	}, nil)
 
-	machine.EXPECT().CreateUpgradeSeriesLock([]string{"foo/0", "foo/1", "foo/2"}, state.Base{OS: "ubuntu", Channel: "22.04"})
+	if upgradeSeriesErr == nil {
+		machine.EXPECT().CreateUpgradeSeriesLock([]string{"foo/0", "foo/1", "foo/2"}, state.Base{OS: "ubuntu", Channel: "22.04"})
 
-	machine.EXPECT().ApplicationNames().Return([]string{"foo"}, nil)
-	app := s.expectValidateApplicationOnMachine(ctrl)
-	s.st.EXPECT().Application("foo").Return(app, nil)
-
-	machine.EXPECT().SetUpgradeSeriesStatus(
-		model.UpgradeSeriesPrepareStarted,
-		"started upgrade from \"ubuntu@20.04\" to \"ubuntu@22.04\"",
-	).Return(upgradeSeriesErr)
-
-	if upgradeSeriesErr != nil {
-		machine.EXPECT().RemoveUpgradeSeriesLock().Return(nil)
+		machine.EXPECT().SetUpgradeSeriesStatus(
+			model.UpgradeSeriesPrepareStarted,
+			"started upgrade from \"ubuntu@20.04\" to \"ubuntu@22.04\"",
+		).Return(upgradeSeriesErr)
 	}
 
 	return machine
@@ -1409,7 +1421,8 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepare(c *gc
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectPrepareMachine(ctrl, nil)
+	app := s.expectValidateApplicationOnMachine(ctrl, defaultSupportedBases)
+	machine0 := s.expectPrepareMachine(ctrl, app, nil)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	machineTag := names.NewMachineTag("0")
@@ -1518,10 +1531,16 @@ func (s *UpgradeSeriesPrepareMachineManagerSuite) TestUpgradeSeriesPrepareIncomp
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	machine0 := s.expectPrepareMachine(ctrl, apiservererrors.NewErrIncompatibleBase([]corebase.Base{
+	supportedBases := []corebase.Base{
 		corebase.MustParseBaseFromString("ubuntu@16.10"),
 		corebase.MustParseBaseFromString("ubuntu@17.04"),
-	}, corebase.MustParseBaseFromString("ubuntu@22.04"), "TestCharm"))
+	}
+
+	app := s.expectValidateApplicationOnMachine(ctrl, supportedBases)
+	machine0 := s.expectPrepareMachine(ctrl, app, apiservererrors.NewErrIncompatibleBase(
+		supportedBases,
+		corebase.MustParseBaseFromString("ubuntu@22.04"), "TestCharm"),
+	)
 	s.st.EXPECT().Machine("0").Return(machine0, nil)
 
 	result, err := s.api.UpgradeSeriesPrepare(

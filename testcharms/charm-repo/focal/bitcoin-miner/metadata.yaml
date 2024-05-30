@@ -8,5 +8,3 @@ devices:
   bitcoinminer:
     type: nvidia.com/gpu
     count: 1
-series:
-  - jammy

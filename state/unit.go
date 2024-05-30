@@ -2482,21 +2482,6 @@ func (u *Unit) PrepareActionPayload(name string, payload map[string]interface{},
 		return nil, false, "", errors.Trace(err)
 	}
 
-	// For k8s operators, we run the action on the operator pod by default.
-	if _, ok := payloadWithDefaults["workload-context"]; !ok {
-		app, err := u.Application()
-		if err != nil {
-			return nil, false, "", errors.Trace(err)
-		}
-		ch, _, err := app.Charm()
-		if err != nil {
-			return nil, false, "", errors.Trace(err)
-		}
-		if ch.Meta().Deployment != nil && ch.Meta().Deployment.DeploymentMode == charm.ModeOperator {
-			payloadWithDefaults["workload-context"] = false
-		}
-	}
-
 	runParallel := spec.Parallel
 	if parallel != nil {
 		runParallel = *parallel

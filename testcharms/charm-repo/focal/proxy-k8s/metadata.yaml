@@ -7,5 +7,3 @@ description: |
 requires:
   website:
     interface: http
-series:
-  - focal

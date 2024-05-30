@@ -229,7 +229,7 @@ func (s *RelationSuite) TestAddContainerRelation(c *gc.C) {
 	assertOneRelation(c, wordpress, 0, wordpressEP, loggingEP)
 }
 
-func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
+func (s *RelationSuite) TestAddContainerRelationBaseMustMatch(c *gc.C) {
 	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("juju-info")
 	c.Assert(err, jc.ErrorIsNil)
@@ -240,7 +240,7 @@ func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": principal and subordinate applications' bases must match`)
 }
 
-func (s *RelationSuite) TestAddContainerRelationMultiSeriesMatch(c *gc.C) {
+func (s *RelationSuite) TestAddContainerRelationMultiBaseMatch(c *gc.C) {
 	principal := s.AddTestingApplication(c, "multi-series", s.AddSeriesCharm(c, "multi-series", "quantal"))
 	principalEP, err := principal.Endpoint("multi-directory")
 	c.Assert(err, jc.ErrorIsNil)
@@ -255,29 +255,18 @@ func (s *RelationSuite) TestAddContainerRelationMultiSeriesMatch(c *gc.C) {
 	assertOneRelation(c, principal, 0, principalEP, subordEP)
 }
 
-func (s *RelationSuite) TestAddContainerRelationMultiSeriesNoMatch(c *gc.C) {
+func (s *RelationSuite) TestAddContainerRelationMultiBaseNoMatch(c *gc.C) {
 	principal := s.AddTestingApplication(c, "multi-series", s.AddTestingCharm(c, "multi-series"))
 	principalEP, err := principal.Endpoint("multi-directory")
 	c.Assert(err, jc.ErrorIsNil)
-	meta := `
-name: multi-series-subordinate
-summary: a test charm
-description: a test
-subordinate: true
-series:
-    - xenial
-requires:
-    multi-directory:
-       interface: logging
-       scope: container
-`[1:]
-	subord := s.AddTestingApplication(c, "multi-series-subordinate", s.AddMetaCharm(c, "multi-series-subordinate", meta, 1))
+
+	subord := s.AddTestingApplication(c, "xenial-only-subordinate", s.AddTestingCharm(c, "xenial-only-subordinate"))
 	subordEP, err := subord.Endpoint("multi-directory")
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.State.AddRelation(principalEP, subordEP)
 	principalEP.Scope = charm.ScopeContainer
-	c.Assert(err, gc.ErrorMatches, `cannot add relation "multi-series-subordinate:multi-directory multi-series:multi-directory": principal and subordinate applications' bases must match`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "xenial-only-subordinate:multi-directory multi-series:multi-directory": principal and subordinate applications' bases must match`)
 }
 
 func (s *RelationSuite) TestAddContainerRelationWithNoSubordinate(c *gc.C) {

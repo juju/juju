@@ -4,5 +4,3 @@ maintainers:
   - Juju Developers <juju@lists.ubuntu.com>
 description: |
   A test CAAS charm for elastic search operator.
-series:
-  - focal

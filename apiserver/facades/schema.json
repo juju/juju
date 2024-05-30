@@ -7004,30 +7004,6 @@
                     },
                     "additionalProperties": false
                 },
-                "CharmDeployment": {
-                    "type": "object",
-                    "properties": {
-                        "min-version": {
-                            "type": "string"
-                        },
-                        "mode": {
-                            "type": "string"
-                        },
-                        "service": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "type",
-                        "mode",
-                        "service",
-                        "min-version"
-                    ]
-                },
                 "CharmDevice": {
                     "type": "object",
                     "properties": {
@@ -7126,9 +7102,6 @@
                                 }
                             }
                         },
-                        "deployment": {
-                            "$ref": "#/definitions/CharmDeployment"
-                        },
                         "description": {
                             "type": "string"
                         },
@@ -7192,12 +7165,6 @@
                                 ".*": {
                                     "$ref": "#/definitions/CharmResourceMeta"
                                 }
-                            }
-                        },
-                        "series": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
                             }
                         },
                         "storage": {
@@ -8641,30 +8608,6 @@
                     },
                     "additionalProperties": false
                 },
-                "CharmDeployment": {
-                    "type": "object",
-                    "properties": {
-                        "min-version": {
-                            "type": "string"
-                        },
-                        "mode": {
-                            "type": "string"
-                        },
-                        "service": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "type",
-                        "mode",
-                        "service",
-                        "min-version"
-                    ]
-                },
                 "CharmDevice": {
                     "type": "object",
                     "properties": {
@@ -8763,9 +8706,6 @@
                                 }
                             }
                         },
-                        "deployment": {
-                            "$ref": "#/definitions/CharmDeployment"
-                        },
                         "description": {
                             "type": "string"
                         },
@@ -8829,12 +8769,6 @@
                                 ".*": {
                                     "$ref": "#/definitions/CharmResourceMeta"
                                 }
-                            }
-                        },
-                        "series": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
                             }
                         },
                         "storage": {
@@ -10663,30 +10597,6 @@
                     },
                     "additionalProperties": false
                 },
-                "CharmDeployment": {
-                    "type": "object",
-                    "properties": {
-                        "min-version": {
-                            "type": "string"
-                        },
-                        "mode": {
-                            "type": "string"
-                        },
-                        "service": {
-                            "type": "string"
-                        },
-                        "type": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "type",
-                        "mode",
-                        "service",
-                        "min-version"
-                    ]
-                },
                 "CharmDevice": {
                     "type": "object",
                     "properties": {
@@ -10785,9 +10695,6 @@
                                 }
                             }
                         },
-                        "deployment": {
-                            "$ref": "#/definitions/CharmDeployment"
-                        },
                         "description": {
                             "type": "string"
                         },
@@ -10851,12 +10758,6 @@
                                 ".*": {
                                     "$ref": "#/definitions/CharmResourceMeta"
                                 }
-                            }
-                        },
-                        "series": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
                             }
                         },
                         "storage": {

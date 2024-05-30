@@ -292,43 +292,6 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	c.Assert(force, jc.IsTrue)
 }
 
-func (s *ApplicationSuite) TestCAASSetCharmNewDeploymentFails(c *gc.C) {
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "caas-model",
-		Type: state.ModelTypeCAAS,
-	})
-	defer st.Close()
-	f := factory.NewFactory(st, s.StatePool, coretesting.FakeControllerConfig())
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab-k8s", Series: "focal"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
-
-	// Create a charm with new deployment info in metadata.
-	metaYaml := `
-name: gitlab-k8s
-summary: test
-description: test
-provides:
-  website:
-    interface: http
-requires:
-  db:
-    interface: mysql
-series:
-  - kubernetes
-deployment:
-  type: stateful
-  service: loadbalancer
-`[1:]
-	newCh := state.AddCustomCharm(c, st, "gitlab-k8s", "metadata.yaml", metaYaml, "focal", 2)
-	cfg := state.SetCharmConfig{
-		Charm:       newCh,
-		CharmOrigin: defaultCharmOrigin(newCh.URL()),
-		ForceUnits:  true,
-	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "gitlab" to charm "local:focal/focal-gitlab-k8s-2": cannot change a charm's deployment info`)
-}
-
 func (s *ApplicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Settings) charm.Settings {
 	result := ch.Config().DefaultSettings()
 	for name, value := range inSettings {
@@ -409,7 +372,7 @@ func (s *ApplicationSuite) TestSetCharmCharmSettingsInvalid(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "mysql" to charm "local:quantal/quantal-mysql-2": validating config settings: option "key" expected string, got 123.45`)
 }
 
-func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.C) {
+func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedBase(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
 
@@ -422,7 +385,7 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeries(c *gc.
 	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series2-8": base "ubuntu@12.04" not supported by charm, the charm supported bases are: ubuntu@14.04, ubuntu@15.10`)
 }
 
-func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedSeriesForce(c *gc.C) {
+func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedBaseForce(c *gc.C) {
 	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
 	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
 
@@ -1419,14 +1382,14 @@ func (s *ApplicationSuite) TestUpdateApplicationBase(c *gc.C) {
 	assertApplicationBaseUpdate(c, app, state.UbuntuBase("22.04"))
 }
 
-func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesToStart(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateApplicationBaseSamesBaseToStart(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	err := app.UpdateApplicationBase(state.UbuntuBase("20.04"), false)
 	c.Assert(err, jc.ErrorIsNil)
 	assertApplicationBaseUpdate(c, app, state.UbuntuBase("20.04"))
 }
 
-func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesAfterStart(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateApplicationBaseSamesBaseAfterStart(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 
 	defer state.SetTestHooks(c, s.State,
@@ -1456,7 +1419,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSamesSeriesAfterStart(c *g
 	assertApplicationBaseUpdate(c, app, state.UbuntuBase("22.04"))
 }
 
-func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateApplicationBaseCharmURLChangedBaseFail(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 
 	defer state.SetTestHooks(c, s.State,
@@ -1480,7 +1443,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesFail(
 			"the charm supported bases are: ubuntu@20.04, ubuntu@18.04")
 }
 
-func (s *ApplicationSuite) TestUpdateApplicationSeriesCharmURLChangedSeriesPass(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateApplicationBaseCharmURLChangedBasePass(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 
 	defer state.SetTestHooks(c, s.State,
@@ -1545,7 +1508,7 @@ func assertApplicationBaseUpdate(c *gc.C, a *state.Application, base state.Base)
 	c.Assert(a.Base().String(), gc.Equals, stBase.String())
 }
 
-func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinate(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateApplicationBaseWithSubordinate(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	err := app.UpdateApplicationBase(state.UbuntuBase("22.04"), false)
@@ -1554,7 +1517,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinate(c *gc.C) {
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("22.04"))
 }
 
-func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateApplicationBaseWithSubordinateFail(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	err := app.UpdateApplicationBase(state.UbuntuBase("16.04"), false)
@@ -1563,7 +1526,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateFail(c *gc.
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("20.04"))
 }
 
-func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateForce(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateApplicationBaseWithSubordinateForce(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	err := app.UpdateApplicationBase(state.UbuntuBase("16.04"), true)
@@ -1572,7 +1535,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesWithSubordinateForce(c *gc
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("16.04"))
 }
 
-func (s *ApplicationSuite) TestUpdateApplicationSeriesUnitCountChange(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateApplicationBaseUnitCountChange(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1599,7 +1562,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesUnitCountChange(c *gc.C) {
 	assertApplicationBaseUpdate(c, subApp, state.UbuntuBase("22.04"))
 }
 
-func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinate(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateApplicationBaseSecondSubordinate(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	unit, err := s.State.Unit("multi-series/0")
@@ -1625,7 +1588,7 @@ func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinate(c *gc.C)
 	assertApplicationBaseUpdate(c, subApp2, state.UbuntuBase("22.04"))
 }
 
-func (s *ApplicationSuite) TestUpdateApplicationSeriesSecondSubordinateIncompatible(c *gc.C) {
+func (s *ApplicationSuite) TestUpdateApplicationBaseSecondSubordinateIncompatible(c *gc.C) {
 	app := s.setupCharmForTestUpdateApplicationBase(c, "multi-series")
 	subApp := s.setupMultiSeriesUnitSubordinate(c, app, "multi-series-subordinate")
 	unit, err := s.State.Unit("multi-series/0")
@@ -5207,9 +5170,8 @@ func (s *ApplicationSuite) dummyCharm(c *gc.C, curlOverride string) state.CharmI
 	if curlOverride != "" {
 		info.ID = curlOverride
 	} else {
-		info.ID = fmt.Sprintf("local:quantal/%s-%d", info.Charm.Meta().Name, info.Charm.Revision())
+		info.ID = fmt.Sprintf("local:%s-%d", info.Charm.Meta().Name, info.Charm.Revision())
 	}
-	info.Charm.Meta().Series = []string{"quantal", "jammy"}
 	return info
 }
 

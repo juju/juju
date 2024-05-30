@@ -4,7 +4,3 @@ description: |
     This is a longer description which
     potentially contains multiple lines.
 terms: ["term1/1", "term3/1"]
-series:
-  - jammy
-  - focal
-  - bionic

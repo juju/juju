@@ -15,6 +15,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
+	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	coreconfig "github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/constraints"
@@ -377,8 +379,8 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesErrorForce(c *gc.C) {
 		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 		Revision: intptr(4),
 	}
-	supportedSeries := []string{"focal"}
-	newErr := charm.NewUnsupportedSeriesError("jammy", supportedSeries)
+	supportedBases := []corebase.Base{base.MustParseBaseFromString("ubuntu@20.04")}
+	newErr := corecharm.NewUnsupportedBaseError(corebase.MustParseBaseFromString("ubuntu@22.04"), supportedBases)
 	charmID := corecharm.CharmID{URL: curl, Origin: origin}
 	resolvedData := getResolvedData(resultURL, resolvedOrigin)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(resolvedData, newErr)
@@ -400,12 +402,12 @@ func (s *validatorSuite) TestResolveCharmUnsupportedSeriesError(c *gc.C) {
 		Platform: corecharm.Platform{Architecture: "amd64", OS: "ubuntu", Channel: "22.04"},
 	}
 	charmID := corecharm.CharmID{URL: curl, Origin: origin}
-	supportedSeries := []string{"focal"}
-	newErr := charm.NewUnsupportedSeriesError("jammy", supportedSeries)
+	supportedBases := []corebase.Base{base.MustParseBaseFromString("ubuntu@20.04")}
+	newErr := corecharm.NewUnsupportedBaseError(corebase.MustParseBaseFromString("ubuntu@22.04"), supportedBases)
 	s.repo.EXPECT().ResolveForDeploy(gomock.Any(), charmID).Return(corecharm.ResolvedDataForDeploy{}, newErr)
 
 	_, err := s.getValidator(c).resolveCharm(context.Background(), curl, origin, false, false, constraints.Value{})
-	c.Assert(err, gc.ErrorMatches, `series "jammy" not supported by charm, supported series are: focal. Use --force to deploy the charm anyway.`)
+	c.Assert(err, gc.ErrorMatches, `base "ubuntu@22.04" not supported by charm, the charm supported bases are: ubuntu@20.04. Use --force to deploy the charm anyway.`)
 }
 
 func (s *validatorSuite) TestResolveCharmExplicitBaseErrorWhenUserImageID(c *gc.C) {

@@ -116,10 +116,8 @@ type CharmMeta struct {
 	ExtraBindings  map[string]string            `json:"extra-bindings,omitempty"`
 	Categories     []string                     `json:"categories,omitempty"`
 	Tags           []string                     `json:"tags,omitempty"`
-	Series         []string                     `json:"series,omitempty"`
 	Storage        map[string]CharmStorage      `json:"storage,omitempty"`
 	Devices        map[string]CharmDevice       `json:"devices,omitempty"`
-	Deployment     *CharmDeployment             `json:"deployment,omitempty"`
 	PayloadClasses map[string]CharmPayloadClass `json:"payload-classes,omitempty"`
 	Resources      map[string]CharmResourceMeta `json:"resources,omitempty"`
 	Terms          []string                     `json:"terms,omitempty"`

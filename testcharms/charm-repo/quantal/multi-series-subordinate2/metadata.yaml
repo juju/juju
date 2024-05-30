@@ -4,9 +4,6 @@ description: |
     This is a longer description which
     potentially contains multiple lines.
 subordinate: true
-series:
-    - jammy
-    - focal
 provides:
     multi-client:
        interface: logging

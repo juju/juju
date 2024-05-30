@@ -13,5 +13,3 @@ resources:
   another_image:
     type: "oci-image"
     description: "Image used for unit test results."
-series:
-  - focal

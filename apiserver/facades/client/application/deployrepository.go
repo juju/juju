@@ -796,7 +796,7 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 	// Use resource data found in resolvedData as part of ResolveResource.
 	// Will require a new method on the repo.
 	resolvedData, resolveErr := repo.ResolveForDeploy(ctx, corecharm.CharmID{URL: curl, Origin: requestedOrigin})
-	if charm.IsUnsupportedSeriesError(resolveErr) {
+	if corecharm.IsUnsupportedBaseError(resolveErr) {
 		if !force {
 			msg := fmt.Sprintf("%v. Use --force to deploy the charm anyway.", resolveErr)
 			if usedModelDefaultBase {

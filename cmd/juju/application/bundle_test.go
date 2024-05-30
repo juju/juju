@@ -182,15 +182,15 @@ func (s *BundleDeploySuite) TestDeployBundleInvalidFlags(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "options provided but not supported when deploying a bundle: --base")
 }
 
-func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C) {
-	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, true)
+func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidBaseWithForce(c *gc.C) {
+	s.assertDeployBundleLocalPathInvalidBaseWithForce(c, true)
 }
 
-func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidSeriesWithoutForce(c *gc.C) {
-	s.assertDeployBundleLocalPathInvalidSeriesWithForce(c, false)
+func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidBaseWithoutForce(c *gc.C) {
+	s.assertDeployBundleLocalPathInvalidBaseWithForce(c, false)
 }
 
-func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C, force bool) {
+func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidBaseWithForce(c *gc.C, force bool) {
 	dir := c.MkDir()
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
 
@@ -199,13 +199,6 @@ func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c 
 	withLocalBundleCharmDeployable(
 		s.fakeAPI, dummyURL, base.MustParseBaseFromString("ubuntu@12.10"),
 		charmDir.Meta(), charmDir.Manifest(), force,
-	)
-	s.fakeAPI.Call("CharmInfo", "local:dummy-1").Returns(
-		&apicommoncharms.CharmInfo{
-			URL:  "local:dummy",
-			Meta: &charm.Meta{Name: "dummy", Series: []string{"jammy"}},
-		},
-		error(nil),
 	)
 
 	path := filepath.Join(dir, "mybundle")
@@ -226,30 +219,23 @@ func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c 
 	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: base: ubuntu@12.10/stable not supported")
 }
 
-func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidJujuSeries(c *gc.C) {
+func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidJujuBase(c *gc.C) {
 	dir := c.MkDir()
-	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
+	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "jammyonly")
 
-	dummyURL := charm.MustParseURL("local:dummy-1")
-	withLocalCharmDeployable(s.fakeAPI, dummyURL, charmDir, false)
+	curl := charm.MustParseURL("local:jammyonly-1")
+	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withLocalBundleCharmDeployable(
-		s.fakeAPI, dummyURL, base.MustParseBaseFromString("ubuntu@12.10"),
+		s.fakeAPI, curl, base.MustParseBaseFromString("ubuntu@20.04"),
 		charmDir.Meta(), charmDir.Manifest(), false,
-	)
-	s.fakeAPI.Call("CharmInfo", "local:dummy-1").Returns(
-		&apicommoncharms.CharmInfo{
-			URL:  "local:dummy",
-			Meta: &charm.Meta{Name: "dummy", Series: []string{"quantal", "jammy"}},
-		},
-		error(nil),
 	)
 
 	path := filepath.Join(dir, "mybundle")
 	data := `
         default-base: ubuntu@20.04
         applications:
-            dummy:
-                charm: ./dummy
+            jammyonly:
+                charm: ./jammyonly
                 num_units: 1
     `
 	err := os.WriteFile(path, []byte(data), 0644)
@@ -656,7 +642,7 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	// explicitly Deploy here.
 	withCharmDeployable(
 		s.fakeAPI, inURL, defaultBase,
-		&charm.Meta{Name: "aws-integrator", Series: []string{"jammy"}},
+		&charm.Meta{Name: "aws-integrator"},
 		false, 0, nil, nil,
 	)
 
@@ -693,7 +679,7 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 	withCharmRepoResolvable(s.fakeAPI, ubURL, base.Base{})
 	withCharmDeployable(
 		s.fakeAPI, ubURL, defaultBase,
-		&charm.Meta{Name: "ubuntu", Series: []string{"jammy"}},
+		&charm.Meta{Name: "ubuntu"},
 		false, 0, nil, nil,
 	)
 
@@ -716,7 +702,7 @@ func (s *BundleDeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 
 	withCharmDeployable(
 		s.fakeAPI, inURL, defaultBase,
-		&charm.Meta{Name: "apache2", Series: []string{"jammy"}},
+		&charm.Meta{Name: "apache2"},
 		false, 0, nil, nil,
 	)
 
@@ -783,7 +769,7 @@ func (s *BundleDeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 
 	withCharmDeployable(
 		s.fakeAPI, inURL, defaultBase,
-		&charm.Meta{Name: "wordpress", Series: []string{"jammy"}},
+		&charm.Meta{Name: "wordpress"},
 		false, 0, nil, nil,
 	)
 

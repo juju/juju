@@ -16,7 +16,3 @@ var (
 
 	UsesGit = usesGit
 )
-
-func MissingSeriesError() error {
-	return errMissingSeries
-}

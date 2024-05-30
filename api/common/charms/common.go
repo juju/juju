@@ -121,9 +121,7 @@ func convertCharmMeta(meta *params.CharmMeta) (*charm.Meta, error) {
 		ExtraBindings:  convertCharmExtraBindingMap(meta.ExtraBindings),
 		Categories:     meta.Categories,
 		Tags:           meta.Tags,
-		Series:         meta.Series,
 		Storage:        convertCharmStorageMap(meta.Storage),
-		Deployment:     convertCharmDeployment(meta.Deployment),
 		Devices:        convertCharmDevices(meta.Devices),
 		PayloadClasses: convertCharmPayloadClassMap(meta.PayloadClasses),
 		Resources:      resources,
@@ -297,18 +295,6 @@ func convertCharmLXDProfileDevicesMap(devices map[string]map[string]string) map[
 		result[k] = nested
 	}
 	return result
-}
-
-func convertCharmDeployment(deployment *params.CharmDeployment) *charm.Deployment {
-	if deployment == nil {
-		return nil
-	}
-	return &charm.Deployment{
-		DeploymentType: charm.DeploymentType(deployment.DeploymentType),
-		DeploymentMode: charm.DeploymentMode(deployment.DeploymentMode),
-		ServiceType:    charm.ServiceType(deployment.ServiceType),
-		MinVersion:     deployment.MinVersion,
-	}
 }
 
 func convertCharmDevices(devices map[string]params.CharmDevice) map[string]charm.Device {

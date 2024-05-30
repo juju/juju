@@ -3,9 +3,6 @@ summary: "That's a dummy charm with multi-series."
 description: |
     This is a longer description which
     potentially contains multiple lines.
-series:
-    - focal
-    - bionic
 provides:
     multi-directory:
            interface: logging

@@ -424,8 +424,11 @@ func (s StateValidatorSuite) TestValidateApplications(c *gc.C) {
 	defer ctrl.Finish()
 
 	ch := NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"focal", "bionic"}}).MinTimes(2)
-	ch.EXPECT().Manifest().Return(nil).AnyTimes()
+	ch.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
+	ch.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{
+		{Name: "ubuntu", Channel: charm.Channel{Track: "18.04", Risk: charm.Stable}},
+		{Name: "ubuntu", Channel: charm.Channel{Track: "20.04", Risk: charm.Stable}},
+	}}).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
@@ -444,8 +447,8 @@ func (s StateValidatorSuite) TestValidateApplicationsWithNoBases(c *gc.C) {
 	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{
 		Name: "my-charm",
-	}).MinTimes(2)
-	ch.EXPECT().Manifest().Return(nil).AnyTimes()
+	}).AnyTimes()
+	ch.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{}}).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
@@ -463,10 +466,12 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeries(c *gc
 
 	ch := NewMockCharm(ctrl)
 	ch.EXPECT().Meta().Return(&charm.Meta{
-		Name:   "my-charm",
-		Series: []string{"xenial", "bionic"},
-	}).MinTimes(2)
-	ch.EXPECT().Manifest().Return(nil).AnyTimes()
+		Name: "my-charm",
+	}).AnyTimes()
+	ch.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{
+		{Name: "ubuntu", Channel: charm.Channel{Track: "16.04", Risk: charm.Stable}},
+		{Name: "ubuntu", Channel: charm.Channel{Track: "18.04", Risk: charm.Stable}},
+	}}).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
@@ -483,8 +488,11 @@ func (s StateValidatorSuite) TestValidateApplicationsWithUnsupportedSeriesWithFo
 	defer ctrl.Finish()
 
 	ch := NewMockCharm(ctrl)
-	ch.EXPECT().Meta().Return(&charm.Meta{Series: []string{"xenial", "bionic"}}).MinTimes(2)
-	ch.EXPECT().Manifest().Return(nil).AnyTimes()
+	ch.EXPECT().Meta().Return(&charm.Meta{}).AnyTimes()
+	ch.EXPECT().Manifest().Return(&charm.Manifest{Bases: []charm.Base{
+		{Name: "ubuntu", Channel: charm.Channel{Track: "16.04", Risk: charm.Stable}},
+		{Name: "ubuntu", Channel: charm.Channel{Track: "18.04", Risk: charm.Stable}},
+	}}).AnyTimes()
 
 	application := NewMockApplication(ctrl)
 	application.EXPECT().Charm().Return(ch, false, nil)
