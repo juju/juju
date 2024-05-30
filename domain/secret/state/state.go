@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/secret"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	uniterrors "github.com/juju/juju/domain/unit/errors"
@@ -426,15 +425,21 @@ VALUES ($secretID.id)`
 		return errors.Annotatef(err, "creating user secret %q", uri)
 	}
 
-	dbRevision := secretRevision{
+	dbRevision := &secretRevision{
 		ID:         revisionUUID.String(),
 		SecretID:   uri.ID,
 		Revision:   1,
 		CreateTime: now,
 	}
 
-	if err := st.upsertSecretRevision(ctx, tx, dbRevision, secret.ExpireTime); err != nil {
+	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
 		return errors.Annotatef(err, "inserting revision for secret %q", uri)
+	}
+
+	if secret.ExpireTime != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, secret.ExpireTime); err != nil {
+			return errors.Annotatef(err, "inserting revision expiry for secret %q", uri)
+		}
 	}
 
 	if secret.NextRotateTime != nil {
@@ -468,7 +473,7 @@ func (st State) updateSecret(
 	// the update statement needed.
 	existingSecretQuery := `
 WITH rev AS (
-    SELECT MAX(revision) AS latest_revision
+    SELECT MAX(revision) AS latest_revision, uuid AS latest_revision_uuid
     FROM   secret_revision
     WHERE  secret_id = $secretID.id
 )
@@ -477,7 +482,8 @@ SELECT (sm.secret_id,
        description,
        auto_prune,
        rp.policy,
-       rev.latest_revision) AS (&secretInfo.*),
+       rev.latest_revision,
+       rev.latest_revision_uuid) AS (&secretInfo.*),
        (so.owner_kind,
        so.owner_id,
        so.label) AS (&secretOwner.*)
@@ -522,6 +528,7 @@ WHERE  sm.secret_id = $secretID.id`
 		return errors.Trace(err)
 	}
 	existing := existingResult[0]
+	latestRevisionUUID := dbSecrets[0].LatestRevisionUUID
 
 	// Check to be sure a duplicate label won't be used.
 	var checkExists checkExistsFunc
@@ -590,25 +597,32 @@ WHERE  sm.secret_id = $secretID.id`
 		}
 	}
 
-	if len(secret.Data) == 0 && secret.ValueRef == nil {
-		return nil
-	}
+	var dbRevision *secretRevision
+	if len(secret.Data) != 0 || secret.ValueRef != nil {
+		revisionUUID, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		latestRevisionUUID = revisionUUID.String()
 
-	revisionUUID, err := uuid.NewUUID()
-	if err != nil {
-		return errors.Trace(err)
+		nextRevision := existing.LatestRevision + 1
+		dbRevision = &secretRevision{
+			ID:         revisionUUID.String(),
+			SecretID:   uri.ID,
+			Revision:   nextRevision,
+			CreateTime: now,
+		}
 	}
-
-	nextRevision := existing.LatestRevision + 1
-	dbRevision := secretRevision{
-		ID:         revisionUUID.String(),
-		SecretID:   uri.ID,
-		Revision:   nextRevision,
-		CreateTime: now,
+	if dbRevision != nil {
+		if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
+			return errors.Annotatef(err, "inserting revision for secret %q", uri)
+		}
 	}
+	if secret.ExpireTime != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, latestRevisionUUID, secret.ExpireTime); err != nil {
+			return errors.Annotatef(err, "inserting revision expiry for secret %q", uri)
+		}
 
-	if err := st.upsertSecretRevision(ctx, tx, dbRevision, secret.ExpireTime); err != nil {
-		return errors.Annotatef(err, "inserting revision for secret %q", uri)
 	}
 
 	if len(secret.Data) > 0 {
@@ -899,7 +913,7 @@ ON CONFLICT(secret_id) DO UPDATE SET
 }
 
 func (st State) upsertSecretRevision(
-	ctx context.Context, tx *sqlair.TX, dbRevision secretRevision, expireTime *time.Time,
+	ctx context.Context, tx *sqlair.TX, dbRevision *secretRevision,
 ) error {
 	insertQuery := `
 INSERT INTO secret_revision (*)
@@ -911,8 +925,18 @@ VALUES ($secretRevision.*)`
 	}
 
 	err = tx.Query(ctx, insertStmt, dbRevision).Run()
-	if err != nil || expireTime == nil {
+	if err != nil {
 		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (st State) upsertSecretRevisionExpiry(
+	ctx context.Context, tx *sqlair.TX, revisionUUID string, expireTime *time.Time,
+) error {
+	if expireTime == nil {
+		return nil
 	}
 
 	insertExpireTimeQuery := `
@@ -921,7 +945,7 @@ VALUES ($secretRevisionExpire.*)
 ON CONFLICT(revision_uuid) DO UPDATE SET
     expire_time=excluded.expire_time`
 
-	expire := secretRevisionExpire{RevisionUUID: dbRevision.ID, ExpireTime: expireTime.UTC()}
+	expire := secretRevisionExpire{RevisionUUID: revisionUUID, ExpireTime: expireTime.UTC()}
 	insertExpireTimeStmt, err := st.Prepare(insertExpireTimeQuery, expire)
 	if err != nil {
 		return errors.Trace(err)
@@ -1086,7 +1110,7 @@ func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecre
 }
 
 // GetRotationExpiryInfo returns the rotation expiry information for the specified secret.
-func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI) (*secret.RotationExpiryInfo, error) {
+func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI) (*domainsecret.RotationExpiryInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1119,7 +1143,7 @@ GROUP BY sr.secret_id`, input, result)
 	}); err != nil {
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
-	info := &secret.RotationExpiryInfo{
+	info := &domainsecret.RotationExpiryInfo{
 		RotatePolicy:   coresecrets.RotatePolicy(result.RotatePolicy),
 		LatestRevision: result.LatestRevision,
 	}
@@ -3324,7 +3348,7 @@ func (st State) getSecretsRotationChanges(
 	ctx context.Context, runner coredatabase.TxnRunner,
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	secretIDs ...string,
-) ([]secret.RotationInfo, error) {
+) ([]domainsecret.RotationInfo, error) {
 	if len(secretIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
 		return nil, nil
 	}
@@ -3401,9 +3425,9 @@ GROUP BY sro.secret_id`
 	if err != nil {
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
-	result := make([]secret.RotationInfo, len(data))
+	result := make([]domainsecret.RotationInfo, len(data))
 	for i, d := range data {
-		result[i] = secret.RotationInfo{
+		result[i] = domainsecret.RotationInfo{
 			Revision:        d.Revision,
 			NextTriggerTime: d.NextRotateTime,
 		}
@@ -3438,7 +3462,7 @@ func (st State) InitialWatchStatementForSecretsRotationChanges(
 // GetSecretsRotationChanges returns the rotation changes for the owners' secrets.
 func (st State) GetSecretsRotationChanges(
 	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, secretIDs ...string,
-) ([]secret.RotationInfo, error) {
+) ([]domainsecret.RotationInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -3450,7 +3474,7 @@ func (st State) getSecretsRevisionExpiryChanges(
 	ctx context.Context, runner coredatabase.TxnRunner,
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	revisionIDs ...string,
-) ([]secret.ExpiryInfo, error) {
+) ([]domainsecret.ExpiryInfo, error) {
 	if len(revisionIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
 		return nil, nil
 	}
@@ -3528,9 +3552,9 @@ GROUP BY sr.secret_id`
 	if err != nil {
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
-	result := make([]secret.ExpiryInfo, len(data))
+	result := make([]domainsecret.ExpiryInfo, len(data))
 	for i, d := range data {
-		result[i] = secret.ExpiryInfo{
+		result[i] = domainsecret.ExpiryInfo{
 			RevisionID:      d.RevisionUUID,
 			Revision:        d.Revision,
 			NextTriggerTime: d.ExpireTime,
@@ -3566,7 +3590,7 @@ func (st State) InitialWatchStatementForSecretsRevisionExpiryChanges(
 // GetSecretsRevisionExpiryChanges returns the expiry changes for the owners' secret revisions.
 func (st State) GetSecretsRevisionExpiryChanges(
 	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
-) ([]secret.ExpiryInfo, error) {
+) ([]domainsecret.ExpiryInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
