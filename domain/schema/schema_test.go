@@ -224,6 +224,9 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 	// Ensure that each table is present.
 	expected := set.NewStrings(
+		// Application
+		"application",
+
 		// Annotations
 		"annotation_application",
 		"annotation_charm",
@@ -253,11 +256,16 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"object_store_metadata_path",
 		"object_store_metadata_hash_type",
 
-		"application",
+		// Node
 		"machine",
 		"net_node",
 		"cloud_service",
 		"cloud_container",
+		"instance_data",
+		"machine_lxd_profile",
+		"instance_tag",
+
+		// Unit
 		"unit",
 		"unit_state",
 		"unit_state_charm",
@@ -267,11 +275,11 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"charm",
 		"charm_storage",
 
-		// Spaces
+		// Space
 		"space",
 		"provider_space",
 
-		// Subnets
+		// Subnet
 		"subnet",
 		"provider_subnet",
 		"provider_network",
