@@ -21,7 +21,7 @@ func (OCIRenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte, 
 	var renderedUdata []byte
 	var err error
 	switch os {
-	case ostype.Ubuntu, ostype.CentOS:
+	case ostype.Ubuntu:
 		renderedUdata, err = renderers.RenderYAML(cfg)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())

@@ -10,12 +10,10 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4/keyvalues"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/base"
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/secrets"
@@ -188,15 +186,6 @@ func (s *EnvSuite) setBaseUpgrade(ctx *context.HookContext) (expectedVars []stri
 	}
 }
 
-func (s *EnvSuite) TestEnvSetsPath(c *gc.C) {
-	paths := context.OSDependentEnvVars(MockEnvPaths{}, context.NewHostEnvironmenter())
-	c.Assert(paths, gc.Not(gc.HasLen), 0)
-	vars, err := keyvalues.Parse(paths, true)
-	c.Assert(err, jc.ErrorIsNil)
-	key := "PATH"
-	c.Assert(vars[key], gc.Not(gc.Equals), "")
-}
-
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -254,119 +243,6 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, noticeVars, upgradeVars)
 }
 
-func (s *EnvSuite) TestEnvCentos(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	state := api.NewMockUniterClient(ctrl)
-	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
-		Kind:     params.StorageKindBlock,
-		Location: "/dev/sdb",
-	}, nil).AnyTimes()
-	unit := api.NewMockUnit(ctrl)
-	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
-
-	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.CentOS })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-
-	// TERM is different for centos7.
-	for _, testBase := range []base.Base{base.MustParseBaseFromString("centos@7"), base.MustParseBaseFromString("centos@8")} {
-		s.PatchValue(&jujuos.HostBase, func() (base.Base, error) { return testBase, nil })
-		centosVars := []string{
-			"LANG=C.UTF-8",
-			"PATH=path-to-tools:foo:bar",
-		}
-
-		if testBase.Channel.Track == "7" {
-			centosVars = append(centosVars, "TERM=screen-256color")
-		} else {
-			centosVars = append(centosVars, "TERM=tmux-256color")
-		}
-
-		environmenter := context.NewRemoteEnvironmenter(
-			func() []string { return []string{} },
-			func(k string) string {
-				switch k {
-				case "PATH":
-					return "foo:bar"
-				}
-				return ""
-			},
-			func(k string) (string, bool) {
-				switch k {
-				case "PATH":
-					return "foo:bar", true
-				}
-				return "", false
-			},
-		)
-
-		hookContext, contextVars := s.getHookContext(c, false, state, unit)
-		paths, pathsVars := s.getPaths()
-		actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars)
-
-		relationVars := s.setRelation(hookContext)
-		secretVars := s.setSecret(hookContext)
-		actualVars, err = hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars, relationVars, secretVars)
-	}
-}
-
-func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	state := api.NewMockUniterClient(ctrl)
-	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
-		Kind:     params.StorageKindBlock,
-		Location: "/dev/sdb",
-	}, nil).AnyTimes()
-	unit := api.NewMockUnit(ctrl)
-	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
-
-	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.GenericLinux })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-
-	genericLinuxVars := []string{
-		"LANG=C.UTF-8",
-		"PATH=path-to-tools:foo:bar",
-		"TERM=screen",
-	}
-
-	environmenter := context.NewRemoteEnvironmenter(
-		func() []string { return []string{} },
-		func(k string) string {
-			switch k {
-			case "PATH":
-				return "foo:bar"
-			}
-			return ""
-		},
-		func(k string) (string, bool) {
-			switch k {
-			case "PATH":
-				return "foo:bar", true
-			}
-			return "", false
-		},
-	)
-
-	hookContext, contextVars := s.getHookContext(c, false, state, unit)
-	paths, pathsVars := s.getPaths()
-	actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars)
-
-	relationVars := s.setRelation(hookContext)
-	secretVars := s.setSecret(hookContext)
-	actualVars, err = hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, secretVars)
-}
-
 func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -379,13 +255,15 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	unit := api.NewMockUnit(ctrl)
 	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
 
-	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.GenericLinux })
+	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
 
-	genericLinuxVars := []string{
+	ubuntuVars := []string{
+		"APT_LISTCHANGES_FRONTEND=none",
+		"DEBIAN_FRONTEND=noninteractive",
 		"LANG=C.UTF-8",
 		"PATH=path-to-tools:foo:bar",
-		"TERM=screen",
+		"TERM=tmux-256color",
 	}
 
 	environmenter := context.NewRemoteEnvironmenter(
@@ -412,13 +290,13 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	paths, pathsVars := s.getPaths()
 	actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, []string{"KUBERNETES_SERVICE=test"})
+	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, []string{"KUBERNETES_SERVICE=test"})
 
 	relationVars := s.setRelation(hookContext)
 	secretVars := s.setSecret(hookContext)
 	actualVars, err = hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, secretVars, []string{"KUBERNETES_SERVICE=test"})
+	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, []string{"KUBERNETES_SERVICE=test"})
 }
 
 func (s *EnvSuite) TestContextDependentDoesNotIncludeUnSet(c *gc.C) {

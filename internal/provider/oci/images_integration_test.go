@@ -292,7 +292,6 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	fakeUbuntu4 := "fakeUbuntu4"
 	fakeUbuntuMinimal0 := "fakeUbuntuMinimal0"
 	fakeUbuntuMinimal1 := "fakeUbuntuMinimal1"
-	fakeCentOSID := "fakeCentOS"
 
 	listImageResponse := []ociCore.Image{
 		{
@@ -337,13 +336,6 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 			OperatingSystemVersion: makeStringPointer("22.04"),
 			DisplayName:            makeStringPointer("Canonical-Ubuntu-22.04-aarch64-2018.01.12-0"),
 		},
-		{
-			CompartmentId:          &s.testCompartment,
-			Id:                     makeStringPointer("fakeCentOS"),
-			OperatingSystem:        makeStringPointer("CentOS"),
-			OperatingSystemVersion: makeStringPointer("7"),
-			DisplayName:            makeStringPointer("CentOS-7-2017.10.19-0"),
-		},
 	}
 
 	compute.EXPECT().ListImages(context.Background(), &s.testCompartment).Return(listImageResponse, nil)
@@ -351,12 +343,11 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntu2).Return(listShapesResponse(), nil)
 	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntu3).Return(listShapesResponse(), nil)
 	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeUbuntu4).Return(listShapesResponse(), nil)
-	compute.EXPECT().ListShapes(context.Background(), &s.testCompartment, &fakeCentOSID).Return(listShapesResponse()[:2], nil)
 
 	imgCache, err := oci.RefreshImageCache(compute, &s.testCompartment)
 	c.Assert(err, gc.IsNil)
 	c.Assert(imgCache, gc.NotNil)
-	c.Check(imgCache.ImageMap(), gc.HasLen, 2)
+	c.Check(imgCache.ImageMap(), gc.HasLen, 1)
 
 	imageMap := imgCache.ImageMap()
 	jammy := corebase.MakeDefaultBase("ubuntu", "22.04")
@@ -366,9 +357,6 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	// Two images on each arch
 	c.Check(imageMap[jammy][corearch.AMD64], gc.HasLen, 2)
 	c.Check(imageMap[jammy][corearch.ARM64], gc.HasLen, 2)
-	// Only AMD64 on centos base
-	c.Check(imageMap[corebase.MakeDefaultBase("centos", "7")], gc.HasLen, 1)
-	c.Check(imageMap[corebase.MakeDefaultBase("centos", "7")][corearch.AMD64], gc.HasLen, 1)
 
 	timeStamp, _ := time.Parse("2006.01.02", "2018.01.12")
 
@@ -379,7 +367,6 @@ func (s *imagesSuite) TestRefreshImageCache(c *gc.C) {
 	// Check that InstanceTypes are set
 	c.Assert(imageMap[jammy][corearch.AMD64][0].InstanceTypes, gc.HasLen, 5)
 	c.Assert(imageMap[jammy][corearch.ARM64][0].InstanceTypes, gc.HasLen, 5)
-	c.Assert(imageMap[corebase.MakeDefaultBase("centos", "7")][corearch.AMD64][0].InstanceTypes, gc.HasLen, 2)
 }
 
 func (s *imagesSuite) TestRefreshImageCacheFetchFromCache(c *gc.C) {

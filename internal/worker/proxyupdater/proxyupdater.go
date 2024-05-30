@@ -16,16 +16,11 @@ import (
 
 	"github.com/juju/juju/api/agent/proxyupdater"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/snap"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/packaging/commands"
 	"github.com/juju/juju/internal/packaging/config"
 )
-
-// Overridden by tests
-var getHostOS = os.HostOS
 
 type Config struct {
 	SupportLegacyValues bool
@@ -170,10 +165,6 @@ func getPackageCommander() commands.PackageCommander {
 }
 
 func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, storeAssertions, storeProxyURL string) {
-	if hostOS := getHostOS(); hostOS == ostype.CentOS {
-		w.config.Logger.Tracef("no snap proxies on %s", hostOS)
-		return
-	}
 	if w.config.RunFunc == nil {
 		w.config.Logger.Tracef("snap proxies not updated")
 		return
@@ -246,11 +237,6 @@ func (w *proxyWorker) handleSnapProxyValues(proxy proxy.Settings, storeID, store
 }
 
 func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror string) {
-	if hostOS := getHostOS(); hostOS == ostype.CentOS {
-		w.config.Logger.Tracef("no apt proxies on %s", hostOS)
-		return
-	}
-
 	mirrorUpdateNeeded := aptMirror != "" && aptMirror != w.aptMirror
 	updateNeeded := w.first || aptSettings != w.aptProxy || mirrorUpdateNeeded
 	var (

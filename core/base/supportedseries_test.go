@@ -39,7 +39,6 @@ func (s *SupportedSeriesSuite) TestSupportedInfoForType(c *gc.C) {
 
 	workloadBases := info.workloadBases(false)
 	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
-		"centos@7", "centos@9", "genericlinux@genericlinux",
 		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
 	}, MustParseBaseFromString))
 }
@@ -58,7 +57,6 @@ func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingImageStream(c *gc.C)
 
 	workloadBases := info.workloadBases(false)
 	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
-		"centos@7", "centos@9", "genericlinux@genericlinux",
 		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
 	}, MustParseBaseFromString))
 }
@@ -77,7 +75,6 @@ func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingInvalidImageStream(c
 
 	workloadBases := info.workloadBases(false)
 	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
-		"centos@7", "centos@9", "genericlinux@genericlinux",
 		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
 	}, MustParseBaseFromString))
 }
@@ -96,7 +93,6 @@ func (s *SupportedSeriesSuite) TestSupportedInfoForTypeUsingInvalidSeries(c *gc.
 
 	workloadBases := info.workloadBases(false)
 	c.Assert(workloadBases, jc.DeepEquals, transform.Slice([]string{
-		"centos@7", "centos@9", "genericlinux@genericlinux",
 		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
 	}, MustParseBaseFromString))
 }

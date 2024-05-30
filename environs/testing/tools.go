@@ -291,31 +291,20 @@ var (
 	V100u32 = version.MustParseBinary("1.0.0-ubuntu-arm64")
 	V100p   = []version.Binary{V100u64, V100u32}
 
-	V100c64 = version.MustParseBinary("1.0.0-centos-amd64")
-	V100c32 = version.MustParseBinary("1.0.0-centos-arm64")
-	V100q   = []version.Binary{V100c64, V100c32}
-	V100all = append(V100p, V100q...)
-
 	V1001    = version.MustParse("1.0.0.1")
 	V1001u64 = version.MustParseBinary("1.0.0.1-ubuntu-amd64")
-	V100Xall = append(V100all, V1001u64)
 
 	V110    = version.MustParse("1.1.0")
 	V110u64 = version.MustParseBinary("1.1.0-ubuntu-amd64")
 	V110u32 = version.MustParseBinary("1.1.0-ubuntu-arm64")
 	V110p   = []version.Binary{V110u64, V110u32}
 
-	V110c64 = version.MustParseBinary("1.1.0-centos-amd64")
-	V110c32 = version.MustParseBinary("1.1.0-centos-arm64")
-	V110c   = []version.Binary{V110c64, V110c32}
-	V110all = append(V110p, V110c...)
-
 	V120    = version.MustParse("1.2.0")
 	V120u64 = version.MustParseBinary("1.2.0-ubuntu-amd64")
 	V120u32 = version.MustParseBinary("1.2.0-ubuntu-arm64")
 	V120all = []version.Binary{V120u64, V120u32}
 
-	V1all = append(V100Xall, append(V110all, V120all...)...)
+	V1all = append(V100p, append(V110p, V120all...)...)
 
 	V220    = version.MustParse("2.2.0")
 	V220u32 = version.MustParseBinary("2.2.0-ubuntu-arm64")
@@ -323,175 +312,3 @@ var (
 	V220all = []version.Binary{V220u64, V220u32}
 	VAll    = append(V1all, V220all...)
 )
-
-type BootstrapToolsTest struct {
-	Info          string
-	Available     []version.Binary
-	CliVersion    version.Binary
-	DefaultSeries string
-	AgentVersion  version.Number
-	Development   bool
-	Arch          string
-	Expect        []version.Binary
-	Err           string
-}
-
-var noToolsMessage = "Juju cannot bootstrap because no agent binaries are available for your model.*"
-
-var BootstrapToolsTests = []BootstrapToolsTest{
-	{
-		Info:          "no tools at all",
-		CliVersion:    V100u64,
-		DefaultSeries: "precise",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli: use newest compatible release version",
-		Available:     VAll,
-		CliVersion:    V100u64,
-		DefaultSeries: "precise",
-		Expect:        V100p,
-	}, {
-		Info:          "released cli: cli Arch ignored",
-		Available:     VAll,
-		CliVersion:    V100u32,
-		DefaultSeries: "precise",
-		Expect:        V100p,
-	}, {
-		Info:          "released cli: cli series ignored",
-		Available:     VAll,
-		CliVersion:    V100c64,
-		DefaultSeries: "precise",
-		Expect:        V100p,
-	}, {
-		Info:          "released cli: series taken from default-series",
-		Available:     V120all,
-		CliVersion:    V120u64,
-		DefaultSeries: "quantal",
-		Expect:        V120all,
-	}, {
-		Info:          "released cli: ignore close dev match",
-		Available:     V100Xall,
-		CliVersion:    V100u64,
-		DefaultSeries: "precise",
-		Expect:        V100p,
-	}, {
-		Info:          "released cli: filter by arch constraints",
-		Available:     V120all,
-		CliVersion:    V120u64,
-		DefaultSeries: "precise",
-		Arch:          "i386",
-		Expect:        []version.Binary{V120u32},
-	}, {
-		Info:          "released cli: specific released version",
-		Available:     VAll,
-		CliVersion:    V100u64,
-		AgentVersion:  V100,
-		DefaultSeries: "precise",
-		Expect:        V100p,
-	}, {
-		Info:          "released cli: specific dev version",
-		Available:     VAll,
-		CliVersion:    V110u64,
-		AgentVersion:  V110,
-		DefaultSeries: "precise",
-		Expect:        V110p,
-	}, {
-		Info:          "released cli: major upgrades bad",
-		Available:     V220all,
-		CliVersion:    V100u64,
-		DefaultSeries: "precise",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli: minor upgrades bad",
-		Available:     V120all,
-		CliVersion:    V100u64,
-		DefaultSeries: "precise",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli: major downgrades bad",
-		Available:     V100Xall,
-		CliVersion:    V220u64,
-		DefaultSeries: "precise",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli: minor downgrades bad",
-		Available:     V100Xall,
-		CliVersion:    V120u64,
-		DefaultSeries: "quantal",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli: no matching series",
-		Available:     VAll,
-		CliVersion:    V100u64,
-		DefaultSeries: "raring",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli: no matching arches",
-		Available:     VAll,
-		CliVersion:    V100u64,
-		DefaultSeries: "precise",
-		Arch:          "armhf",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli: specific bad major 1",
-		Available:     VAll,
-		CliVersion:    V220u64,
-		AgentVersion:  V120,
-		DefaultSeries: "precise",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli: specific bad major 2",
-		Available:     VAll,
-		CliVersion:    V120u64,
-		AgentVersion:  V220,
-		DefaultSeries: "precise",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli: ignore dev tools 1",
-		Available:     V110all,
-		CliVersion:    V100u64,
-		DefaultSeries: "precise",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli: ignore dev tools 2",
-		Available:     V110all,
-		CliVersion:    V120u64,
-		DefaultSeries: "precise",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli: ignore dev tools 3",
-		Available:     []version.Binary{V1001u64},
-		CliVersion:    V100u64,
-		DefaultSeries: "precise",
-		Err:           noToolsMessage,
-	}, {
-		Info:          "released cli with dev setting respects agent-version",
-		Available:     VAll,
-		CliVersion:    V100c32,
-		AgentVersion:  V1001,
-		DefaultSeries: "precise",
-		Development:   true,
-		Expect:        []version.Binary{V1001u64},
-	}, {
-		Info:          "dev cli respects agent-version",
-		Available:     VAll,
-		CliVersion:    V100c32,
-		AgentVersion:  V1001,
-		DefaultSeries: "precise",
-		Expect:        []version.Binary{V1001u64},
-	}, {
-		Info:          "released cli with dev setting respects agent-version",
-		Available:     V1all,
-		CliVersion:    V100c32,
-		AgentVersion:  V1001,
-		DefaultSeries: "precise",
-		Development:   true,
-		Expect:        []version.Binary{V1001u64},
-	}, {
-		Info:          "dev cli respects agent-version",
-		Available:     V1all,
-		CliVersion:    V100c32,
-		AgentVersion:  V1001,
-		DefaultSeries: "precise",
-		Expect:        []version.Binary{V1001u64},
-	}}

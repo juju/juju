@@ -17,7 +17,7 @@ type GCERenderer struct{}
 
 func (GCERenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte, error) {
 	switch os {
-	case ostype.Ubuntu, ostype.CentOS:
+	case ostype.Ubuntu:
 		return renderers.RenderYAML(cfg, utils.Gzip, renderers.ToBase64)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())

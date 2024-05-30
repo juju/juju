@@ -21,7 +21,6 @@ import (
 	"github.com/juju/utils/v4"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/internal/charm"
@@ -125,10 +124,6 @@ var (
 	// when initializing an Ubuntu system.
 	UbuntuGroups = []string{"adm", "audio", "cdrom", "dialout", "dip",
 		"floppy", "netdev", "plugdev", "sudo", "video"}
-
-	// CentOSGroups is the set of unix groups to add the "ubuntu" user to
-	// when initializing a CentOS system.
-	CentOSGroups = []string{"adm", "systemd-journal", "wheel"}
 )
 
 type unixConfigure struct {
@@ -175,19 +170,6 @@ func (w *unixConfigure) ConfigureBasic() error {
 	w.conf.AddRunCmd(
 		"set -xe", // ensure we run all the scripts or abort.
 	)
-	switch w.os {
-	case ostype.CentOS:
-		w.conf.AddScripts(
-			// Mask and stop firewalld, if enabled, so it cannot start. See
-			// http://pad.lv/1492066. firewalld might be missing, in which case
-			// is-enabled and is-active prints an error, which is why the output
-			// is suppressed.
-			"systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true",
-			"systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true",
-
-			`sed -i "s/^.*requiretty/#Defaults requiretty/" /etc/sudoers`,
-		)
-	}
 	SetUbuntuUser(w.conf, w.icfg.AuthorizedKeys)
 
 	if w.icfg.Bootstrap != nil {
@@ -222,13 +204,7 @@ func (w *unixConfigure) ConfigureBasic() error {
 }
 
 func (w *unixConfigure) setDataDirPermissions() string {
-	var user string
-	switch w.os {
-	case ostype.CentOS:
-		user = "root"
-	default:
-		user = "syslog"
-	}
+	user := "syslog"
 	return fmt.Sprintf("chown %s:adm %s", user, w.icfg.LogDir)
 }
 

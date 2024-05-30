@@ -20,7 +20,7 @@ import (
 var _ = gc.Suite(&ManagerSuite{})
 
 type ManagerSuite struct {
-	apt, snap, yum manager.PackageManager
+	apt, snap manager.PackageManager
 	testing.IsolationSuite
 	calledCommand string
 }
@@ -29,7 +29,6 @@ func (s *ManagerSuite) SetUpSuite(c *gc.C) {
 	s.IsolationSuite.SetUpSuite(c)
 	s.apt = manager.NewAptPackageManager()
 	s.snap = manager.NewSnapPackageManager()
-	s.yum = manager.NewYumPackageManager()
 }
 
 func (s *ManagerSuite) SetUpTest(c *gc.C) {
@@ -52,10 +51,6 @@ var (
 	// snapCmder is the commands.PackageCommander for snap-based
 	// systems whose commands will be checked against.
 	snapCmder = commands.NewSnapPackageCommander()
-
-	// yumCmder is the commands.PackageCommander for yum-based
-	// systems whose commands will be checked against.
-	yumCmder = commands.NewYumPackageCommander()
 
 	// testedPackageName is the package name used in all
 	// single-package testing scenarios.
@@ -112,12 +107,6 @@ type simpleTestCase struct {
 	// the expected result of the given snap operation:
 	expectedSnapResult interface{}
 
-	// the expected yum command which will get executed:
-	expectedYumCmd string
-
-	// the expected result of the given yum operation:
-	expectedYumResult interface{}
-
 	// the function to be applied on the package manager.
 	// returns the result of the operation and the error.
 	operation func(manager.PackageManager) (interface{}, error)
@@ -130,8 +119,6 @@ var simpleTestCases = []*simpleTestCase{
 		nil,
 		snapCmder.InstallPrerequisiteCmd(),
 		nil,
-		yumCmder.InstallPrerequisiteCmd(),
-		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.InstallPrerequisite()
 		},
@@ -141,8 +128,6 @@ var simpleTestCases = []*simpleTestCase{
 		aptCmder.UpdateCmd(),
 		nil,
 		snapCmder.UpdateCmd(),
-		nil,
-		yumCmder.UpdateCmd(),
 		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Update()
@@ -154,8 +139,6 @@ var simpleTestCases = []*simpleTestCase{
 		nil,
 		snapCmder.UpgradeCmd(),
 		nil,
-		yumCmder.UpgradeCmd(),
-		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Upgrade()
 		},
@@ -165,8 +148,6 @@ var simpleTestCases = []*simpleTestCase{
 		aptCmder.InstallCmd(testedPackageNames...),
 		nil,
 		snapCmder.InstallCmd(testedPackageNames...),
-		nil,
-		yumCmder.InstallCmd(testedPackageNames...),
 		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Install(testedPackageNames...)
@@ -178,8 +159,6 @@ var simpleTestCases = []*simpleTestCase{
 		nil,
 		snapCmder.RemoveCmd(testedPackageNames...),
 		nil,
-		yumCmder.RemoveCmd(testedPackageNames...),
-		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Remove(testedPackageNames...)
 		},
@@ -189,8 +168,6 @@ var simpleTestCases = []*simpleTestCase{
 		aptCmder.PurgeCmd(testedPackageNames...),
 		nil,
 		snapCmder.PurgeCmd(testedPackageNames...),
-		nil,
-		yumCmder.PurgeCmd(testedPackageNames...),
 		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Purge(testedPackageNames...)
@@ -202,8 +179,6 @@ var simpleTestCases = []*simpleTestCase{
 		nil,
 		snapCmder.AddRepositoryCmd(testedRepoName),
 		nil,
-		yumCmder.AddRepositoryCmd(testedRepoName),
-		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.AddRepository(testedRepoName)
 		},
@@ -214,8 +189,6 @@ var simpleTestCases = []*simpleTestCase{
 		nil,
 		snapCmder.RemoveRepositoryCmd(testedRepoName),
 		nil,
-		yumCmder.RemoveRepositoryCmd(testedRepoName),
-		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.RemoveRepository(testedRepoName)
 		},
@@ -225,8 +198,6 @@ var simpleTestCases = []*simpleTestCase{
 		aptCmder.CleanupCmd(),
 		nil,
 		snapCmder.CleanupCmd(),
-		nil,
-		yumCmder.CleanupCmd(),
 		nil,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return nil, pacman.Cleanup()
@@ -244,8 +215,6 @@ var searchingTestCases = []*simpleTestCase{
 		false,
 		snapCmder.SearchCmd(testedPackageName),
 		true,
-		yumCmder.SearchCmd(testedPackageName),
-		true,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return pacman.Search(testedPackageName)
 		},
@@ -255,8 +224,6 @@ var searchingTestCases = []*simpleTestCase{
 		aptCmder.IsInstalledCmd(testedPackageName),
 		true,
 		snapCmder.IsInstalledCmd(testedPackageName),
-		true,
-		yumCmder.IsInstalledCmd(testedPackageName),
 		true,
 		func(pacman manager.PackageManager) (interface{}, error) {
 			return pacman.IsInstalled(testedPackageName), nil
@@ -283,12 +250,6 @@ func (s *ManagerSuite) TestSimpleCases(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(s.calledCommand, gc.Equals, testCase.expectedSnapCmd)
 		c.Assert(res, jc.DeepEquals, testCase.expectedSnapResult)
-
-		// run for the yum PackageManager implementation.
-		res, err = testCase.operation(s.yum)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(s.calledCommand, gc.Equals, testCase.expectedYumCmd)
-		c.Assert(res, jc.DeepEquals, testCase.expectedYumResult)
 	}
 }
 
@@ -321,12 +282,5 @@ func (s *ManagerSuite) TestSimpleErrorCases(c *gc.C) {
 
 		cmd = <-cmdChan
 		c.Assert(strings.Join(cmd.Args, " "), gc.DeepEquals, testCase.expectedSnapCmd)
-
-		// run for the yum PackageManager implementation:
-		_, err = testCase.operation(s.yum)
-		c.Assert(err, gc.ErrorMatches, expectedErr)
-
-		cmd = <-cmdChan
-		c.Assert(strings.Join(cmd.Args, " "), gc.DeepEquals, testCase.expectedYumCmd)
 	}
 }

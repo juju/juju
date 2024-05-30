@@ -71,16 +71,3 @@ type PackageManager interface {
 	// package management system.
 	SetProxy(settings proxy.Settings) error
 }
-
-// NewPackageManager returns the appropriate PackageManager implementation
-// based on the provided series.
-func NewPackageManager(series string) (PackageManager, error) {
-	// TODO (aznashwan): find a more deterministic way of filtering out
-	// release series without importing version from core.
-	switch series {
-	case "centos7":
-		return NewYumPackageManager(), nil
-	default:
-		return NewAptPackageManager(), nil
-	}
-}

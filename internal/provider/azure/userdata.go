@@ -19,8 +19,6 @@ func (AzureRenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte
 	switch os {
 	case ostype.Ubuntu:
 		return renderers.RenderYAML(cfg, utils.Gzip, renderers.ToBase64)
-	case ostype.CentOS:
-		return renderers.RenderScript(cfg, renderers.ToBase64)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os)
 	}

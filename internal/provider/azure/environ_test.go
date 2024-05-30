@@ -63,12 +63,6 @@ var (
 		SKU:       to.Ptr("22_04-LTS"),
 		Version:   to.Ptr("latest"),
 	}
-	centos7ImageReference = armcompute.ImageReference{
-		Publisher: to.Ptr("OpenLogic"),
-		Offer:     to.Ptr("CentOS"),
-		SKU:       to.Ptr("7.3"),
-		Version:   to.Ptr("latest"),
-	}
 )
 
 type environSuite struct {
@@ -750,36 +744,6 @@ func (s *environSuite) TestStartInstanceInvalidCredential(c *gc.C) {
 	_, err = env.StartInstance(s.callCtx, makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("ubuntu", "22.04")))
 	c.Assert(err, gc.NotNil)
 	c.Assert(s.invalidatedCredential, jc.IsTrue)
-}
-
-func (s *environSuite) TestStartInstanceCentOS(c *gc.C) {
-	// Starting a CentOS VM, we should not expect an image query.
-	s.PatchValue(&s.ubuntuServerSKUs, nil)
-
-	env := s.openEnviron(c)
-	s.sender = s.startInstanceSenders(startInstanceSenderParams{bootstrap: false})
-	s.requests = nil
-	args := makeStartInstanceParams(c, s.controllerUUID, corebase.MakeDefaultBase("centos", "7"))
-	_, err := env.StartInstance(s.callCtx, args)
-	c.Assert(err, jc.ErrorIsNil)
-
-	vmExtensionSettings := map[string]interface{}{
-		"commandToExecute": `bash -c 'base64 -d /var/lib/waagent/CustomData | bash'`,
-	}
-	s.assertStartInstanceRequests(c, s.requests, assertStartInstanceRequestsParams{
-		imageReference: &centos7ImageReference,
-		diskSizeGB:     32,
-		vmExtension: &armcompute.VirtualMachineExtensionProperties{
-			Publisher:               to.Ptr("Microsoft.OSTCExtensions"),
-			Type:                    to.Ptr("CustomScriptForLinux"),
-			TypeHandlerVersion:      to.Ptr("1.4"),
-			AutoUpgradeMinorVersion: to.Ptr(true),
-			Settings:                &vmExtensionSettings,
-		},
-		osProfile:    &s.linuxOsProfile,
-		instanceType: "Standard_A1",
-		publicIP:     true,
-	})
 }
 
 func (s *environSuite) TestStartInstanceCommonDeployment(c *gc.C) {

@@ -74,13 +74,6 @@ func (s *imageutilsSuite) TestSeriesImageInvalidSKU(c *gc.C) {
 	})
 }
 
-func (s *imageutilsSuite) TestSeriesImageCentOS(c *gc.C) {
-	for _, cseries := range []string{"7", "8"} {
-		base := corebase.MakeDefaultBase("centos", cseries)
-		s.assertImageId(c, base, "released", "OpenLogic:CentOS:7.3:latest")
-	}
-}
-
 func (s *imageutilsSuite) TestSeriesImageStream(c *gc.C) {
 	s.mockSender.AppendAndRepeatResponse(azuretesting.NewResponseWithContent(
 		`[{"name": "22_04_2"}, {"name": "22_04_3-DAILY"}, {"name": "22_04_1-LTS"}]`), 2)

@@ -16,7 +16,7 @@ type lxdRenderer struct{}
 // EncodeUserdata implements renderers.ProviderRenderer.
 func (lxdRenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte, error) {
 	switch os {
-	case ostype.Ubuntu, ostype.CentOS:
+	case ostype.Ubuntu:
 		bytes, err := renderers.RenderYAML(cfg)
 		return bytes, errors.Trace(err)
 	default:

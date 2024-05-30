@@ -59,18 +59,15 @@ type UserdataConfig interface {
 func NewUserdataConfig(icfg *instancecfg.InstanceConfig, conf cloudinit.CloudConfig) (UserdataConfig, error) {
 	// TODO(ericsnow) bug #1426217
 	// Protect icfg and conf better.
-	operatingSystem := ostype.OSTypeForName(icfg.Base.OS)
 	base := baseConfigure{
 		tag:  names.NewMachineTag(icfg.MachineId),
 		icfg: icfg,
 		conf: conf,
-		os:   operatingSystem,
 	}
 
+	operatingSystem := ostype.OSTypeForName(icfg.Base.OS)
 	switch operatingSystem {
 	case ostype.Ubuntu:
-		return &unixConfigure{base}, nil
-	case ostype.CentOS:
 		return &unixConfigure{base}, nil
 	default:
 		return nil, errors.NotSupportedf("OS %s", icfg.Base.OS)
@@ -81,7 +78,6 @@ type baseConfigure struct {
 	tag  names.Tag
 	icfg *instancecfg.InstanceConfig
 	conf cloudinit.CloudConfig
-	os   ostype.OSType
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
@@ -139,8 +135,6 @@ func SetUbuntuUser(conf cloudinit.CloudConfig, authorizedKeys string) {
 	switch targetOS {
 	case ostype.Ubuntu:
 		groups = UbuntuGroups
-	case ostype.CentOS:
-		groups = CentOSGroups
 	}
 	conf.AddUser(&cloudinit.User{
 		Name:              "ubuntu",

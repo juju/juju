@@ -666,7 +666,7 @@ func (env *azureEnviron) createVirtualMachine(
 		}
 	}
 
-	osProfile, seriesOS, err := newOSProfile(
+	osProfile, err := newOSProfile(
 		vmName, instanceConfig,
 		env.provider.config.GenerateSSHKey,
 	)
@@ -841,26 +841,6 @@ func (env *azureEnviron) createVirtualMachine(
 		},
 		DependsOn: vmDependsOn,
 	})
-
-	// On CentOS, we must add the CustomScript VM extension to run the
-	// CustomData script.
-	if seriesOS == ostype.CentOS {
-		properties, err := vmExtensionProperties(seriesOS)
-		if err != nil {
-			return errors.Annotate(
-				err, "creating virtual machine extension",
-			)
-		}
-		res = append(res, armtemplates.Resource{
-			APIVersion: computeAPIVersion,
-			Type:       "Microsoft.Compute/virtualMachines/extensions",
-			Name:       vmName + "/" + extensionName,
-			Location:   env.location,
-			Tags:       vmTags,
-			Properties: properties,
-			DependsOn:  []string{"Microsoft.Compute/virtualMachines/" + vmName},
-		})
-	}
 
 	logger.Debugf("- creating virtual machine deployment in %q", env.resourceGroup)
 	template := armtemplates.Template{Resources: res}
@@ -1069,12 +1049,12 @@ func newOSProfile(
 	vmName string,
 	instanceConfig *instancecfg.InstanceConfig,
 	generateSSHKey func(string) (string, string, error),
-) (*armcompute.OSProfile, ostype.OSType, error) {
+) (*armcompute.OSProfile, error) {
 	logger.Debugf("creating OS profile for %q", vmName)
 
 	customData, err := providerinit.ComposeUserData(instanceConfig, nil, AzureRenderer{})
 	if err != nil {
-		return nil, ostype.Unknown, errors.Annotate(err, "composing user data")
+		return nil, errors.Annotate(err, "composing user data")
 	}
 
 	osProfile := &armcompute.OSProfile{
@@ -1084,10 +1064,10 @@ func newOSProfile(
 
 	instOS := ostype.OSTypeForName(instanceConfig.Base.OS)
 	if err != nil {
-		return nil, ostype.Unknown, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	switch instOS {
-	case ostype.Ubuntu, ostype.CentOS:
+	case ostype.Ubuntu:
 		// SSH keys are handled by custom data, but must also be
 		// specified in order to forego providing a password, and
 		// disable password authentication.
@@ -1101,7 +1081,7 @@ func newOSProfile(
 			// are updated with one that Juju tracks.
 			_, public, err := generateSSHKey("")
 			if err != nil {
-				return nil, ostype.Unknown, errors.Trace(err)
+				return nil, errors.Trace(err)
 			}
 			authorizedKeys = public
 		}
@@ -1116,9 +1096,9 @@ func newOSProfile(
 			SSH:                           &armcompute.SSHConfiguration{PublicKeys: publicKeys},
 		}
 	default:
-		return nil, ostype.Unknown, errors.NotSupportedf("%s", instOS)
+		return nil, errors.NotSupportedf("%s", instOS)
 	}
-	return osProfile, instOS, nil
+	return osProfile, nil
 }
 
 // StopInstances is specified in the InstanceBroker interface.

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 
-	jujuarch "github.com/juju/juju/core/arch"
 	jujubase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os/ostype"
@@ -248,15 +247,6 @@ func constructBaseRemoteAlias(base jujubase.Base, arch string) (string, error) {
 	switch seriesOS {
 	case ostype.Ubuntu:
 		return path.Join(base.Channel.Track, arch), nil
-	case ostype.CentOS:
-		if arch == jujuarch.AMD64 {
-			switch base.Channel.Track {
-			case "7", "8":
-				return fmt.Sprintf("centos/%s/cloud/amd64", base.Channel.Track), nil
-			case "9":
-				return "centos/9-Stream/cloud/amd64", nil
-			}
-		}
 	}
 	return "", errors.NotSupportedf("base %q", base.DisplayString())
 }

@@ -415,17 +415,6 @@ chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
 `,
 	},
 
-	// CentOS non controller
-	{
-		cfg:               makeNormalConfig(corebase.MakeDefaultBase("centos", "7"), 0),
-		inexactMatch:      true,
-		upgradedToVersion: "1.2.3",
-		expectScripts: `
-systemctl is-enabled firewalld &> /dev/null && systemctl mask firewalld || true
-systemctl is-active firewalld &> /dev/null && systemctl stop firewalld || true
-sed -i "s/\^\.\*requiretty/#Defaults requiretty/" /etc/sudoers
-`,
-	},
 	// check that it works ok with compound machine ids.
 	{
 		cfg: makeNormalConfig(jammy, 0).mutate(func(cfg *testInstanceConfig) {
@@ -1352,17 +1341,6 @@ func (*cloudinitSuite) TestSetUbuntuUserJammy(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	keys := []string{"akey"}
 	expected := expectedUbuntuUser(cloudconfig.UbuntuGroups, keys)
-	c.Assert(string(data), jc.YAMLEquals, expected)
-}
-
-func (*cloudinitSuite) TestSetUbuntuUserCentOS(c *gc.C) {
-	ci, err := cloudinit.New("centos")
-	c.Assert(err, jc.ErrorIsNil)
-	cloudconfig.SetUbuntuUser(ci, "akey\n#also\nbkey")
-	data, err := ci.RenderYAML()
-	c.Assert(err, jc.ErrorIsNil)
-	keys := []string{"akey", "bkey"}
-	expected := expectedUbuntuUser(cloudconfig.CentOSGroups, keys)
 	c.Assert(string(data), jc.YAMLEquals, expected)
 }
 

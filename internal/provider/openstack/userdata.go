@@ -17,7 +17,7 @@ type OpenstackRenderer struct{}
 
 func (OpenstackRenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte, error) {
 	switch os {
-	case ostype.Ubuntu, ostype.CentOS:
+	case ostype.Ubuntu:
 		return renderers.RenderYAML(cfg, utils.Gzip)
 	default:
 		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())

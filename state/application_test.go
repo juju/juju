@@ -404,20 +404,6 @@ func (s *ApplicationSuite) TestClientApplicationSetCharmUnsupportedBaseForce(c *
 	c.Assert(ch.URL(), gc.Equals, "ch:multi-series2-8")
 }
 
-func (s *ApplicationSuite) TestClientApplicationSetCharmWrongOS(c *gc.C) {
-	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "application", ch)
-
-	chDifferentSeries := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-centos")
-	cfg := state.SetCharmConfig{
-		Charm:       chDifferentSeries,
-		CharmOrigin: defaultCharmOrigin(chDifferentSeries.URL()),
-		ForceBase:   true,
-	}
-	err := app.SetCharm(cfg, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, gc.ErrorMatches, `cannot upgrade application "application" to charm "ch:multi-series-centos-1": OS "ubuntu" not supported by charm.*`)
-}
-
 func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
 	logging := s.AddTestingCharm(c, "logging")
 	cfg := state.SetCharmConfig{
