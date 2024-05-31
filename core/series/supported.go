@@ -253,7 +253,6 @@ const (
 	Kinetic SeriesName = "kinetic"
 	Lunar   SeriesName = "lunar"
 	Mantic  SeriesName = "mantic"
-	Noble   SeriesName = "noble"
 )
 
 var ubuntuSeries = map[SeriesName]seriesVersion{
