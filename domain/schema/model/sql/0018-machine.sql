@@ -48,18 +48,6 @@ CREATE TABLE machine_constraint (
         REFERENCES   "constraint"(uuid)
 );
 
-CREATE TABLE machine_principal (
-    machine_uuid      TEXT NOT NULL,
-    unit_uuid         TEXT NOT NULL,
-    CONSTRAINT        fk_machine_principal_machine
-        FOREIGN KEY   (machine_uuid)
-        REFERENCES    machine(uuid),
-    CONSTRAINT        fk_machine_principal_unit
-        FOREIGN KEY   (unit_uuid)
-        REFERENCES    unit(uuid),
-    PRIMARY KEY (machine_uuid, unit_uuid)
-);
-
 CREATE TABLE machine_tool (
     machine_uuid     TEXT NOT NULL,
     tool_url         TEXT NOT NULL,
@@ -103,81 +91,4 @@ CREATE TABLE machine_filesystem (
         FOREIGN KEY  (filesystem_uuid)
         REFERENCES   storage_filesystem(uuid),
     PRIMARY KEY (machine_uuid, filesystem_uuid)
-);
-
-CREATE TABLE address_type (
-    id      INT PRIMARY KEY,
-    value   TEXT NOT NULL
-);
-
-INSERT INTO address_type VALUES
-    (0, 'hostname'),
-    (1, 'ipv4'),
-    (2, 'ipv6');
-
-CREATE TABLE address_scope (
-    id      INT PRIMARY KEY,
-    value   TEXT NOT NULL
-);
-
-INSERT INTO address_scope VALUES
-    (0, 'unknown'),
-    (1, 'public'),
-    (2, 'local-cloud'),
-    (3, 'local-machine'),
-    (4, 'link-local');
-
-CREATE TABLE address_origin (
-    id      INT PRIMARY KEY,
-    value   TEXT NOT NULL
-);
-
-INSERT INTO address_origin VALUES
-    (0, 'unknown'),
-    (1, 'provider'),
-    (2, 'machine');
-
-CREATE TABLE address (
-    uuid            TEXT PRIMARY KEY,
-    value           TEXT NOT NULL,
-    address_type_id TEXT NOT NULL,
-    scope_id        TEXT NOT NULL,
-    origin_id       TEXT NOT NULL,
-    space_id        TEXT NOT NULL,
-    CONSTRAINT      fk_address_address_type
-        FOREIGN KEY (address_type_id)
-        REFERENCES  address_type(id),
-    CONSTRAINT      fk_address_space
-        FOREIGN KEY (scope_id)
-        REFERENCES  address_scope(id),
-    CONSTRAINT      fk_address_origin
-        FOREIGN KEY (origin_id)
-        REFERENCES  address_origin(id),
-    CONSTRAINT      fk_address_space
-        FOREIGN KEY (space_id)
-        REFERENCES  space(uuid)
-);
-
-CREATE TABLE machine_instance_address (
-    machine_uuid     TEXT NOT NULL,
-    address_uuid     TEXT NOT NULL,
-    CONSTRAINT       fk_machine_address_machine
-        FOREIGN KEY  (machine_uuid)
-        REFERENCES   machine(uuid),
-    CONSTRAINT       fk_machine_address_address
-        FOREIGN KEY  (address_uuid)
-        REFERENCES   address(uuid),
-    PRIMARY KEY (machine_uuid, address_uuid)
-);
-
-CREATE TABLE machine_machine_address (
-    machine_uuid            TEXT NOT NULL,
-    machine_address_uuid    TEXT NOT NULL,
-    CONSTRAINT              fk_machine_address_machine
-        FOREIGN KEY         (machine_uuid)
-        REFERENCES          machine(uuid),
-    CONSTRAINT              fk_machine_address_address
-        FOREIGN KEY         (machine_address_uuid)
-        REFERENCES          address(uuid),
-    PRIMARY KEY (machine_uuid, machine_address_uuid)
 );

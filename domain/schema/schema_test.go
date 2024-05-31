@@ -283,17 +283,10 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"machine",
 		"container_type",
 		"machine_constraint",
-		"machine_principal",
 		"machine_tool",
 		"machine_job",
 		"machine_volume",
 		"machine_filesystem",
-		"machine_instance_address",
-		"machine_machine_address",
-		"address",
-		"address_type",
-		"address_scope",
-		"address_origin",
 
 		// Charm
 		"charm",
