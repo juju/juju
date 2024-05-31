@@ -93,6 +93,14 @@ type State interface {
 	GetSecretsRotationChanges(
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, secretIDs ...string,
 	) ([]domainsecret.RotationInfo, error)
+
+	// For watching secret revision expiry changes.
+	InitialWatchStatementForSecretsRevisionExpiryChanges(
+		appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	) (string, eventsource.NamespaceQuery)
+	GetSecretsRevisionExpiryChanges(
+		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
+	) ([]domainsecret.ExpiryInfo, error)
 }
 
 // WatcherFactory describes methods for creating watchers.

@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/domain"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	modelerrors "github.com/juju/juju/domain/model/errors"
-	"github.com/juju/juju/domain/secret"
 	domainsecret "github.com/juju/juju/domain/secret"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	uniterrors "github.com/juju/juju/domain/unit/errors"
@@ -426,15 +425,21 @@ VALUES ($secretID.id)`
 		return errors.Annotatef(err, "creating user secret %q", uri)
 	}
 
-	dbRevision := secretRevision{
+	dbRevision := &secretRevision{
 		ID:         revisionUUID.String(),
 		SecretID:   uri.ID,
 		Revision:   1,
 		CreateTime: now,
 	}
 
-	if err := st.upsertSecretRevision(ctx, tx, dbRevision, secret.ExpireTime); err != nil {
+	if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
 		return errors.Annotatef(err, "inserting revision for secret %q", uri)
+	}
+
+	if secret.ExpireTime != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, dbRevision.ID, secret.ExpireTime); err != nil {
+			return errors.Annotatef(err, "inserting revision expiry for secret %q", uri)
+		}
 	}
 
 	if secret.NextRotateTime != nil {
@@ -468,7 +473,7 @@ func (st State) updateSecret(
 	// the update statement needed.
 	existingSecretQuery := `
 WITH rev AS (
-    SELECT MAX(revision) AS latest_revision
+    SELECT MAX(revision) AS latest_revision, uuid AS latest_revision_uuid
     FROM   secret_revision
     WHERE  secret_id = $secretID.id
 )
@@ -477,7 +482,8 @@ SELECT (sm.secret_id,
        description,
        auto_prune,
        rp.policy,
-       rev.latest_revision) AS (&secretInfo.*),
+       rev.latest_revision,
+       rev.latest_revision_uuid) AS (&secretInfo.*),
        (so.owner_kind,
        so.owner_id,
        so.label) AS (&secretOwner.*)
@@ -522,6 +528,7 @@ WHERE  sm.secret_id = $secretID.id`
 		return errors.Trace(err)
 	}
 	existing := existingResult[0]
+	latestRevisionUUID := dbSecrets[0].LatestRevisionUUID
 
 	// Check to be sure a duplicate label won't be used.
 	var checkExists checkExistsFunc
@@ -590,25 +597,32 @@ WHERE  sm.secret_id = $secretID.id`
 		}
 	}
 
-	if len(secret.Data) == 0 && secret.ValueRef == nil {
-		return nil
-	}
+	var dbRevision *secretRevision
+	if len(secret.Data) != 0 || secret.ValueRef != nil {
+		revisionUUID, err := uuid.NewUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		latestRevisionUUID = revisionUUID.String()
 
-	revisionUUID, err := uuid.NewUUID()
-	if err != nil {
-		return errors.Trace(err)
+		nextRevision := existing.LatestRevision + 1
+		dbRevision = &secretRevision{
+			ID:         revisionUUID.String(),
+			SecretID:   uri.ID,
+			Revision:   nextRevision,
+			CreateTime: now,
+		}
 	}
-
-	nextRevision := existing.LatestRevision + 1
-	dbRevision := secretRevision{
-		ID:         revisionUUID.String(),
-		SecretID:   uri.ID,
-		Revision:   nextRevision,
-		CreateTime: now,
+	if dbRevision != nil {
+		if err := st.upsertSecretRevision(ctx, tx, dbRevision); err != nil {
+			return errors.Annotatef(err, "inserting revision for secret %q", uri)
+		}
 	}
+	if secret.ExpireTime != nil {
+		if err := st.upsertSecretRevisionExpiry(ctx, tx, latestRevisionUUID, secret.ExpireTime); err != nil {
+			return errors.Annotatef(err, "inserting revision expiry for secret %q", uri)
+		}
 
-	if err := st.upsertSecretRevision(ctx, tx, dbRevision, secret.ExpireTime); err != nil {
-		return errors.Annotatef(err, "inserting revision for secret %q", uri)
 	}
 
 	if len(secret.Data) > 0 {
@@ -899,7 +913,7 @@ ON CONFLICT(secret_id) DO UPDATE SET
 }
 
 func (st State) upsertSecretRevision(
-	ctx context.Context, tx *sqlair.TX, dbRevision secretRevision, expireTime *time.Time,
+	ctx context.Context, tx *sqlair.TX, dbRevision *secretRevision,
 ) error {
 	insertQuery := `
 INSERT INTO secret_revision (*)
@@ -911,8 +925,18 @@ VALUES ($secretRevision.*)`
 	}
 
 	err = tx.Query(ctx, insertStmt, dbRevision).Run()
-	if err != nil || expireTime == nil {
+	if err != nil {
 		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func (st State) upsertSecretRevisionExpiry(
+	ctx context.Context, tx *sqlair.TX, revisionUUID string, expireTime *time.Time,
+) error {
+	if expireTime == nil {
+		return nil
 	}
 
 	insertExpireTimeQuery := `
@@ -921,7 +945,7 @@ VALUES ($secretRevisionExpire.*)
 ON CONFLICT(revision_uuid) DO UPDATE SET
     expire_time=excluded.expire_time`
 
-	expire := secretRevisionExpire{RevisionUUID: dbRevision.ID, ExpireTime: expireTime.UTC()}
+	expire := secretRevisionExpire{RevisionUUID: revisionUUID, ExpireTime: expireTime.UTC()}
 	insertExpireTimeStmt, err := st.Prepare(insertExpireTimeQuery, expire)
 	if err != nil {
 		return errors.Trace(err)
@@ -1086,7 +1110,7 @@ func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecre
 }
 
 // GetRotationExpiryInfo returns the rotation expiry information for the specified secret.
-func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI) (*secret.RotationExpiryInfo, error) {
+func (st State) GetRotationExpiryInfo(ctx context.Context, uri *coresecrets.URI) (*domainsecret.RotationExpiryInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1119,7 +1143,7 @@ GROUP BY sr.secret_id`, input, result)
 	}); err != nil {
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
-	info := &secret.RotationExpiryInfo{
+	info := &domainsecret.RotationExpiryInfo{
 		RotatePolicy:   coresecrets.RotatePolicy(result.RotatePolicy),
 		LatestRevision: result.LatestRevision,
 	}
@@ -3087,11 +3111,11 @@ FROM secret_revision_obsolete sro
 	}
 	if len(appOwners) > 0 && len(unitOwners) > 0 {
 		queryParams = append(queryParams, appOwners, unitOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id`,
-			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
-			`LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`,
-			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		joins = append(joins, `
+     LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+     LEFT JOIN application ON application.uuid = sao.application_uuid
+     LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+     LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
 		conditions = append(conditions, `AND (
     sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
@@ -3099,16 +3123,16 @@ FROM secret_revision_obsolete sro
 )`)
 	} else if len(appOwners) > 0 {
 		queryParams = append(queryParams, appOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id`,
-			`LEFT JOIN application ON application.uuid = sao.application_uuid`,
+		joins = append(joins, `
+     LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+     LEFT JOIN application ON application.uuid = sao.application_uuid`[1:],
 		)
 		conditions = append(conditions, "AND sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
 	} else if len(unitOwners) > 0 {
 		queryParams = append(queryParams, unitOwners)
-		joins = append(joins,
-			`LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id`,
-			`LEFT JOIN unit ON unit.uuid = suo.unit_uuid`,
+		joins = append(joins, `
+     LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+     LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
 		conditions = append(conditions, "AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
 	}
@@ -3324,7 +3348,7 @@ func (st State) getSecretsRotationChanges(
 	ctx context.Context, runner coredatabase.TxnRunner,
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
 	secretIDs ...string,
-) ([]secret.RotationInfo, error) {
+) ([]domainsecret.RotationInfo, error) {
 	if len(secretIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
 		return nil, nil
 	}
@@ -3347,10 +3371,10 @@ FROM   secret_rotation sro
 	if len(appOwners) > 0 && len(unitOwners) > 0 {
 		queryParams = append(queryParams, appOwners, unitOwners)
 		joins = append(joins, `
-LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id
-LEFT JOIN application ON application.uuid = sao.application_uuid
-LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id
-LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
+        LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id
+        LEFT JOIN application ON application.uuid = sao.application_uuid
+        LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id
+        LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
 		conditions = append(conditions, `(
     sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
@@ -3359,15 +3383,15 @@ LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 	} else if len(appOwners) > 0 {
 		queryParams = append(queryParams, appOwners)
 		joins = append(joins, `
-LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id
-LEFT JOIN application ON application.uuid = sao.application_uuid`[1:],
+        LEFT JOIN secret_application_owner sao ON sro.secret_id = sao.secret_id
+        LEFT JOIN application ON application.uuid = sao.application_uuid`[1:],
 		)
 		conditions = append(conditions, "sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
 	} else if len(unitOwners) > 0 {
 		queryParams = append(queryParams, unitOwners)
 		joins = append(joins, `
-LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id
-LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
+        LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id
+        LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
 		conditions = append(conditions, "suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
 	}
@@ -3401,9 +3425,9 @@ GROUP BY sro.secret_id`
 	if err != nil {
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
-	result := make([]secret.RotationInfo, len(data))
+	result := make([]domainsecret.RotationInfo, len(data))
 	for i, d := range data {
-		result[i] = secret.RotationInfo{
+		result[i] = domainsecret.RotationInfo{
 			Revision:        d.Revision,
 			NextTriggerTime: d.NextRotateTime,
 		}
@@ -3438,10 +3462,138 @@ func (st State) InitialWatchStatementForSecretsRotationChanges(
 // GetSecretsRotationChanges returns the rotation changes for the owners' secrets.
 func (st State) GetSecretsRotationChanges(
 	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, secretIDs ...string,
-) ([]secret.RotationInfo, error) {
+) ([]domainsecret.RotationInfo, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st.getSecretsRotationChanges(ctx, db, appOwners, unitOwners, secretIDs...)
+}
+
+func (st State) getSecretsRevisionExpiryChanges(
+	ctx context.Context, runner coredatabase.TxnRunner,
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+	revisionIDs ...string,
+) ([]domainsecret.ExpiryInfo, error) {
+	if len(revisionIDs) == 0 && len(appOwners) == 0 && len(unitOwners) == 0 {
+		return nil, nil
+	}
+
+	q := `
+SELECT 
+       sr.secret_id AS &secretRevisionExpireChange.secret_id,
+       sre.revision_uuid AS &secretRevisionExpireChange.revision_uuid,
+       sre.expire_time AS &secretRevisionExpireChange.expire_time,
+       MAX(sr.revision) AS &secretRevisionExpireChange.revision
+FROM   secret_revision_expire sre
+       JOIN secret_revision sr ON sr.uuid = sre.revision_uuid`
+
+	var queryParams []any
+	var joins []string
+	conditions := []string{}
+	if len(revisionIDs) > 0 {
+		queryParams = append(queryParams, revisionUUIDs(revisionIDs))
+		conditions = append(conditions, "sre.revision_uuid IN ($revisionUUIDs[:])")
+	}
+	if len(appOwners) > 0 && len(unitOwners) > 0 {
+		queryParams = append(queryParams, appOwners, unitOwners)
+		joins = append(joins, `
+        LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+        LEFT JOIN application ON application.uuid = sao.application_uuid
+        LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+        LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
+		)
+		conditions = append(conditions, `(
+    sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
+    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])
+)`)
+	} else if len(appOwners) > 0 {
+		queryParams = append(queryParams, appOwners)
+		joins = append(joins, `
+        LEFT JOIN secret_application_owner sao ON sr.secret_id = sao.secret_id
+        LEFT JOIN application ON application.uuid = sao.application_uuid`[1:],
+		)
+		conditions = append(conditions, "sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])")
+	} else if len(unitOwners) > 0 {
+		queryParams = append(queryParams, unitOwners)
+		joins = append(joins, `
+        LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
+        LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
+		)
+		conditions = append(conditions, "suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
+	}
+	if len(joins) > 0 {
+		q += fmt.Sprintf("\n%s", strings.Join(joins, "\n"))
+	}
+	if len(conditions) > 0 {
+		q += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, "\nAND "))
+	}
+	q += `
+GROUP BY sr.secret_id`
+	st.logger.Tracef(
+		"revisionIDs %+v, appOwners: %+v, unitOwners: %+v, query: \n%s",
+		revisionIDs, appOwners, unitOwners, q,
+	)
+
+	stmt, err := st.Prepare(q, append(queryParams, secretRevisionExpireChange{})...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var data []secretRevisionExpireChange
+	err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, queryParams...).GetAll(&data)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// It's ok because the secret or the expiry was just deleted.
+			return nil
+		}
+		return errors.Trace(err)
+	})
+
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+	result := make([]domainsecret.ExpiryInfo, len(data))
+	for i, d := range data {
+		result[i] = domainsecret.ExpiryInfo{
+			RevisionID:      d.RevisionUUID,
+			Revision:        d.Revision,
+			NextTriggerTime: d.ExpireTime,
+		}
+		uri, err := coresecrets.ParseURI(d.SecretID)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		result[i].URI = uri
+	}
+	return result, nil
+}
+
+// InitialWatchStatementForSecretsRevisionExpiryChanges returns the initial watch statement
+// and the table name for watching secret revision expiry changes.
+func (st State) InitialWatchStatementForSecretsRevisionExpiryChanges(
+	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
+) (string, eventsource.NamespaceQuery) {
+	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
+		result, err := st.getSecretsRevisionExpiryChanges(ctx, runner, appOwners, unitOwners)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		revisionUUIDs := make([]string, len(result))
+		for i, d := range result {
+			revisionUUIDs[i] = d.RevisionID
+		}
+		return revisionUUIDs, nil
+	}
+	return "secret_revision_expire", queryFunc
+}
+
+// GetSecretsRevisionExpiryChanges returns the expiry changes for the owners' secret revisions.
+func (st State) GetSecretsRevisionExpiryChanges(
+	ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
+) ([]domainsecret.ExpiryInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return st.getSecretsRevisionExpiryChanges(ctx, db, appOwners, unitOwners, revisionUUIDs...)
 }

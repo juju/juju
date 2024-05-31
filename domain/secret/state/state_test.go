@@ -3345,6 +3345,175 @@ func (s *stateSuite) TestGetSecretsRotationChanges(c *gc.C) {
 	c.Check(result, gc.HasLen, 0)
 }
 
+func (s *stateSuite) prepareWatchForWatchStatementForSecretsRevisionExpiryChanges(c *gc.C, ctx context.Context, st *State) (time.Time, *coresecrets.URI, *coresecrets.URI) {
+	s.setupUnits(c, "mysql")
+	s.setupUnits(c, "mediawiki")
+
+	now := time.Now()
+	uri1 := coresecrets.NewURI()
+	err := st.CreateCharmApplicationSecret(ctx, 1, uri1, "mysql", domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo": "bar", "hello": "world"},
+		ExpireTime: ptr(now.Add(1 * time.Hour)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	uri2 := coresecrets.NewURI()
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mediawiki/0", domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.UpdateSecret(context.Background(), uri2, domainsecret.UpsertSecretParams{
+		Data:       coresecrets.SecretData{"foo-new": "bar-new"},
+		ExpireTime: ptr(now.Add(2 * time.Hour)),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return now, uri1, uri2
+}
+
+func (s *stateSuite) TestInitialWatchStatementForSecretsRevisionExpiryChanges(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+	_, uri1, uri2 := s.prepareWatchForWatchStatementForSecretsRevisionExpiryChanges(c, ctx, st)
+
+	tableName, f := st.InitialWatchStatementForSecretsRevisionExpiryChanges(domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mediawiki/0"})
+	c.Check(tableName, gc.Equals, "secret_revision_expire")
+	result, err := f(ctx, s.TxnRunner())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []string{
+		getRevUUID(c, s.DB(), uri1, 1),
+		getRevUUID(c, s.DB(), uri2, 2),
+	})
+
+	tableName, f = st.InitialWatchStatementForSecretsRevisionExpiryChanges(domainsecret.ApplicationOwners{"mysql"}, nil)
+	c.Check(tableName, gc.Equals, "secret_revision_expire")
+	result, err = f(ctx, s.TxnRunner())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []string{
+		getRevUUID(c, s.DB(), uri1, 1),
+	})
+
+	tableName, f = st.InitialWatchStatementForSecretsRevisionExpiryChanges(nil, domainsecret.UnitOwners{"mediawiki/0"})
+	c.Check(tableName, gc.Equals, "secret_revision_expire")
+	result, err = f(ctx, s.TxnRunner())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []string{
+		getRevUUID(c, s.DB(), uri2, 2),
+	})
+
+	tableName, f = st.InitialWatchStatementForSecretsRevisionExpiryChanges(nil, nil)
+	c.Check(tableName, gc.Equals, "secret_revision_expire")
+	result, err = f(ctx, s.TxnRunner())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.HasLen, 0)
+}
+
+func (s *stateSuite) TestGetSecretsRevisionExpiryChanges(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+	now, uri1, uri2 := s.prepareWatchForWatchStatementForSecretsRevisionExpiryChanges(c, ctx, st)
+
+	result, err := st.GetSecretsRevisionExpiryChanges(ctx, domainsecret.ApplicationOwners{"mysql"}, domainsecret.UnitOwners{"mediawiki/0"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.ExpiryInfo{
+		{
+			URI:             uri1,
+			Revision:        1,
+			RevisionID:      getRevUUID(c, s.DB(), uri1, 1),
+			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+		},
+		{
+			URI:             uri2,
+			Revision:        2,
+			RevisionID:      getRevUUID(c, s.DB(), uri2, 2),
+			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
+		},
+	})
+
+	result, err = st.GetSecretsRevisionExpiryChanges(ctx,
+		domainsecret.ApplicationOwners{"mysql", "mediawiki"}, domainsecret.UnitOwners{"mysql/0", "mediawiki/0"},
+		getRevUUID(c, s.DB(), uri1, 1),
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.ExpiryInfo{
+		{
+			URI:             uri1,
+			Revision:        1,
+			RevisionID:      getRevUUID(c, s.DB(), uri1, 1),
+			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+		},
+	})
+
+	result, err = st.GetSecretsRevisionExpiryChanges(ctx,
+		domainsecret.ApplicationOwners{"mysql", "mediawiki"}, domainsecret.UnitOwners{"mysql/0", "mediawiki/0"},
+		getRevUUID(c, s.DB(), uri2, 2),
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.ExpiryInfo{
+		{
+			URI:             uri2,
+			Revision:        2,
+			RevisionID:      getRevUUID(c, s.DB(), uri2, 2),
+			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
+		},
+	})
+
+	result, err = st.GetSecretsRevisionExpiryChanges(ctx, domainsecret.ApplicationOwners{"mysql"}, nil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.ExpiryInfo{
+		{
+			URI:             uri1,
+			Revision:        1,
+			RevisionID:      getRevUUID(c, s.DB(), uri1, 1),
+			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+		},
+	})
+
+	// The uri2 is not owned by mysql, so it should not be returned.
+	result, err = st.GetSecretsRevisionExpiryChanges(ctx, domainsecret.ApplicationOwners{"mysql"}, nil,
+		getRevUUID(c, s.DB(), uri1, 1),
+		getRevUUID(c, s.DB(), uri2, 2),
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.ExpiryInfo{
+		{
+			URI:             uri1,
+			Revision:        1,
+			RevisionID:      getRevUUID(c, s.DB(), uri1, 1),
+			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+		},
+	})
+
+	result, err = st.GetSecretsRevisionExpiryChanges(ctx, nil, domainsecret.UnitOwners{"mediawiki/0"})
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.ExpiryInfo{
+		{
+			URI:             uri2,
+			Revision:        2,
+			RevisionID:      getRevUUID(c, s.DB(), uri2, 2),
+			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
+		},
+	})
+
+	// The uri1 is not owned by mediawiki/0, so it should not be returned.
+	result, err = st.GetSecretsRevisionExpiryChanges(ctx, nil, domainsecret.UnitOwners{"mediawiki/0"},
+		getRevUUID(c, s.DB(), uri1, 1),
+		getRevUUID(c, s.DB(), uri2, 2),
+	)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, jc.SameContents, []domainsecret.ExpiryInfo{
+		{
+			URI:             uri2,
+			Revision:        2,
+			RevisionID:      getRevUUID(c, s.DB(), uri2, 2),
+			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
+		},
+	})
+
+	result, err = st.GetSecretsRevisionExpiryChanges(ctx, nil, nil)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.HasLen, 0)
+}
+
 func (s *stateSuite) TestSecretRotated(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 	ctx := context.Background()

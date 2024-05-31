@@ -1692,3 +1692,86 @@ func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	)
 	wC.AssertNoChange()
 }
+
+func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.state = NewMockState(ctrl)
+	mockWatcherFactory := NewMockWatcherFactory(ctrl)
+
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+
+	ch := make(chan []string)
+	mockStringWatcher := NewMockStringsWatcher(ctrl)
+	mockStringWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	mockStringWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	mockStringWatcher.EXPECT().Kill().AnyTimes()
+
+	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
+		return nil, nil
+	}
+	s.state.EXPECT().InitialWatchStatementForSecretsRevisionExpiryChanges(
+		domainsecret.ApplicationOwners{"mediawiki"}, domainsecret.UnitOwners{"mysql/0", "mysql/1"},
+	).Return("secret_revision_expire", namespaceQuery)
+	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision_expire", changestream.All, gomock.Any()).Return(mockStringWatcher, nil)
+
+	now := time.Now()
+	s.state.EXPECT().GetSecretsRevisionExpiryChanges(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string) ([]domainsecret.ExpiryInfo, error) {
+		c.Assert(appOwners, jc.SameContents, domainsecret.ApplicationOwners{"mediawiki"})
+		c.Assert(unitOwners, jc.SameContents, domainsecret.UnitOwners{"mysql/0", "mysql/1"})
+		c.Assert(revisionUUIDs, jc.SameContents, []string{"revision-uuid-1", "revision-uuid-2"})
+		return []domainsecret.ExpiryInfo{
+			{
+				URI:             uri1,
+				Revision:        1,
+				NextTriggerTime: now,
+			},
+			{
+				URI:             uri2,
+				Revision:        2,
+				NextTriggerTime: now.Add(2 * time.Hour),
+			},
+		}, nil
+	})
+	svc := NewWatchableService(s.state, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
+	w, err := svc.WatchSecretRevisionsExpiryChanges(context.Background(),
+		CharmSecretOwner{
+			Kind: ApplicationOwner,
+			ID:   "mediawiki",
+		},
+		CharmSecretOwner{
+			Kind: UnitOwner,
+			ID:   "mysql/0",
+		},
+		CharmSecretOwner{
+			Kind: UnitOwner,
+			ID:   "mysql/1",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+	wC := watchertest.NewSecretsTriggerWatcherC(c, w)
+
+	select {
+	case ch <- []string{"revision-uuid-1", "revision-uuid-2"}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for the initial changes")
+	}
+
+	wC.AssertChange(
+		watcher.SecretTriggerChange{
+			URI:             uri1,
+			Revision:        1,
+			NextTriggerTime: now,
+		},
+		watcher.SecretTriggerChange{
+			URI:             uri2,
+			Revision:        2,
+			NextTriggerTime: now.Add(2 * time.Hour),
+		},
+	)
+	wC.AssertNoChange()
+}

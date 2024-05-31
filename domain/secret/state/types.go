@@ -63,9 +63,10 @@ type secretInfo struct {
 	CreateTime   time.Time `db:"create_time"`
 	UpdateTime   time.Time `db:"update_time"`
 
-	NextRotateTime   time.Time `db:"next_rotation_time"`
-	LatestExpireTime time.Time `db:"latest_expire_time"`
-	LatestRevision   int       `db:"latest_revision"`
+	NextRotateTime     time.Time `db:"next_rotation_time"`
+	LatestExpireTime   time.Time `db:"latest_expire_time"`
+	LatestRevision     int       `db:"latest_revision"`
+	LatestRevisionUUID string    `db:"latest_revision_uuid"`
 }
 
 type secretModelOwner struct {
@@ -118,6 +119,13 @@ type secretRevisionObsolete struct {
 
 type secretRevisionExpire struct {
 	RevisionUUID string    `db:"revision_uuid"`
+	ExpireTime   time.Time `db:"expire_time"`
+}
+
+type secretRevisionExpireChange struct {
+	SecretID     string    `db:"secret_id"`
+	RevisionUUID string    `db:"revision_uuid"`
+	Revision     int       `db:"revision"`
 	ExpireTime   time.Time `db:"expire_time"`
 }
 

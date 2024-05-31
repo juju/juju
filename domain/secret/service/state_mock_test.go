@@ -764,6 +764,50 @@ func (c *MockStateGetSecretValueCall) DoAndReturn(f func(context.Context, *secre
 	return c
 }
 
+// GetSecretsRevisionExpiryChanges mocks base method.
+func (m *MockState) GetSecretsRevisionExpiryChanges(arg0 context.Context, arg1 secret.ApplicationOwners, arg2 secret.UnitOwners, arg3 ...string) ([]secret.ExpiryInfo, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetSecretsRevisionExpiryChanges", varargs...)
+	ret0, _ := ret[0].([]secret.ExpiryInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSecretsRevisionExpiryChanges indicates an expected call of GetSecretsRevisionExpiryChanges.
+func (mr *MockStateMockRecorder) GetSecretsRevisionExpiryChanges(arg0, arg1, arg2 any, arg3 ...any) *MockStateGetSecretsRevisionExpiryChangesCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretsRevisionExpiryChanges", reflect.TypeOf((*MockState)(nil).GetSecretsRevisionExpiryChanges), varargs...)
+	return &MockStateGetSecretsRevisionExpiryChangesCall{Call: call}
+}
+
+// MockStateGetSecretsRevisionExpiryChangesCall wrap *gomock.Call
+type MockStateGetSecretsRevisionExpiryChangesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetSecretsRevisionExpiryChangesCall) Return(arg0 []secret.ExpiryInfo, arg1 error) *MockStateGetSecretsRevisionExpiryChangesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetSecretsRevisionExpiryChangesCall) Do(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners, ...string) ([]secret.ExpiryInfo, error)) *MockStateGetSecretsRevisionExpiryChangesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetSecretsRevisionExpiryChangesCall) DoAndReturn(f func(context.Context, secret.ApplicationOwners, secret.UnitOwners, ...string) ([]secret.ExpiryInfo, error)) *MockStateGetSecretsRevisionExpiryChangesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetSecretsRotationChanges mocks base method.
 func (m *MockState) GetSecretsRotationChanges(arg0 context.Context, arg1 secret.ApplicationOwners, arg2 secret.UnitOwners, arg3 ...string) ([]secret.RotationInfo, error) {
 	m.ctrl.T.Helper()
@@ -1076,6 +1120,45 @@ func (c *MockStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferi
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall) DoAndReturn(f func(string) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSideCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InitialWatchStatementForSecretsRevisionExpiryChanges mocks base method.
+func (m *MockState) InitialWatchStatementForSecretsRevisionExpiryChanges(arg0 secret.ApplicationOwners, arg1 secret.UnitOwners) (string, eventsource.NamespaceQuery) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchStatementForSecretsRevisionExpiryChanges", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(eventsource.NamespaceQuery)
+	return ret0, ret1
+}
+
+// InitialWatchStatementForSecretsRevisionExpiryChanges indicates an expected call of InitialWatchStatementForSecretsRevisionExpiryChanges.
+func (mr *MockStateMockRecorder) InitialWatchStatementForSecretsRevisionExpiryChanges(arg0, arg1 any) *MockStateInitialWatchStatementForSecretsRevisionExpiryChangesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForSecretsRevisionExpiryChanges", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForSecretsRevisionExpiryChanges), arg0, arg1)
+	return &MockStateInitialWatchStatementForSecretsRevisionExpiryChangesCall{Call: call}
+}
+
+// MockStateInitialWatchStatementForSecretsRevisionExpiryChangesCall wrap *gomock.Call
+type MockStateInitialWatchStatementForSecretsRevisionExpiryChangesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchStatementForSecretsRevisionExpiryChangesCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementForSecretsRevisionExpiryChangesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchStatementForSecretsRevisionExpiryChangesCall) Do(f func(secret.ApplicationOwners, secret.UnitOwners) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForSecretsRevisionExpiryChangesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchStatementForSecretsRevisionExpiryChangesCall) DoAndReturn(f func(secret.ApplicationOwners, secret.UnitOwners) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForSecretsRevisionExpiryChangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
