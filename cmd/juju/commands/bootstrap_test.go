@@ -21,8 +21,6 @@ import (
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	jujuos "github.com/juju/os/v2"
-	osseries "github.com/juju/os/v2/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/v4"
@@ -118,12 +116,6 @@ func init() {
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	s.PatchValue(
-		&corebase.LocalSeriesVersionInfo,
-		func() (jujuos.OSType, map[string]osseries.SeriesVersionInfo, error) {
-			return jujuos.Ubuntu, nil, nil
-		},
-	)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
@@ -136,7 +128,6 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&jujuversion.Current, v100u64.Number)
 	s.PatchValue(&arch.HostArch, func() string { return v100u64.Arch })
 	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
-	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 
 	// Ensure KUBECONFIG doesn't interfere with tests.
 	s.PatchEnvironment(k8scmd.RecommendedConfigPathEnvVar, filepath.Join(c.MkDir(), "config"))

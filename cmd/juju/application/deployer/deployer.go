@@ -280,16 +280,9 @@ func (d *factory) localPreDeployedCharmDeployer(getter ModelConfigGetter) (Deplo
 
 func (d *factory) determineBaseForLocalCharm(ch charm.Charm, getter ModelConfigGetter) (corebase.Base, string, error) {
 	var (
-		imageStream  string
 		selectedBase corebase.Base
 	)
 	modelCfg, err := getModelConfig(getter)
-	if err != nil {
-		return corebase.Base{}, "", errors.Trace(err)
-	}
-
-	imageStream = modelCfg.ImageStream()
-	workloadBases, err := SupportedJujuBases(d.clock.Now(), d.base, imageStream)
 	if err != nil {
 		return corebase.Base{}, "", errors.Trace(err)
 	}
@@ -304,7 +297,7 @@ func (d *factory) determineBaseForLocalCharm(ch charm.Charm, getter ModelConfigG
 		Logger:              logger,
 		RequestedBase:       d.base,
 		SupportedCharmBases: supportedBases,
-		WorkloadBases:       workloadBases,
+		WorkloadBases:       SupportedJujuBases(),
 		UsingImageID:        d.constraints.HasImageID() || d.modelConstraints.HasImageID(),
 	})
 	if err != nil {
@@ -315,7 +308,7 @@ func (d *factory) determineBaseForLocalCharm(ch charm.Charm, getter ModelConfigG
 	if err = charmValidationError(ch.Meta().Name, errors.Trace(err)); err != nil {
 		return corebase.Base{}, "", errors.Trace(err)
 	}
-	return selectedBase, imageStream, nil
+	return selectedBase, modelCfg.ImageStream(), nil
 }
 
 func (d *factory) checkHandleRevision(userCharmURL *charm.URL, charmHubSchemaCheck bool) (int, error) {
@@ -666,12 +659,7 @@ func (d *factory) validateCharmBase(base corebase.Base, imageStream string) erro
 	}
 	// attempt to locate the charm base from the list of known juju bases
 	// that we currently support.
-	workloadBases, err := SupportedJujuBases(d.clock.Now(), base, imageStream)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	for _, workloadBase := range workloadBases {
+	for _, workloadBase := range SupportedJujuBases() {
 		if workloadBase == base {
 			return nil
 		}

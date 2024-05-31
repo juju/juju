@@ -17,7 +17,6 @@ import (
 	openpgperrors "golang.org/x/crypto/openpgp/errors"
 	gc "gopkg.in/check.v1"
 
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -42,7 +41,6 @@ func newTestDataSourceFunc(s string) func() simplestreams.DataSource {
 }
 
 func (s *Suite) SetUpTest(c *gc.C) {
-	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 	imagemetadata.SimplestreamsImagesPublicKey = streamstesting.SignedMetadataPublicKey
 
 	// The index.sjson file used by these tests have been regenerated using
@@ -207,16 +205,16 @@ func (*Suite) TestOneAmd64XenialTarGz(c *gc.C) {
 	ss := simplestreams.NewSimpleStreams(streamstesting.TestDataSourceFactory())
 	ts := httptest.NewServer(&sstreamsHandler{})
 	defer ts.Close()
-	got, err := imagedownloads.One(context.Background(), ss, "amd64", "16.04", "", "tar.gz", newTestDataSourceFunc(ts.URL))
+	got, err := imagedownloads.One(context.Background(), ss, "amd64", "22.04", "", "tar.gz", newTestDataSourceFunc(ts.URL))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, &imagedownloads.Metadata{
 		Arch:    "amd64",
-		Release: "xenial",
-		Version: "16.04",
+		Release: "jammy",
+		Version: "22.04",
 		FType:   "tar.gz",
-		SHA256:  "c48036699274351be132f2aec7fec9fd2da936b6b512c65b2d9fd6531e5623ea",
-		Path:    "server/releases/xenial/release-20211001/ubuntu-16.04-server-cloudimg-amd64.tar.gz",
-		Size:    287684992,
+		SHA256:  "4e466ce60488c520e34c5f3e4aa57b88528b9500b2f48bf40773192c9260ed93",
+		Path:    "server/releases/jammy/release-20220923/ubuntu-22.04-server-cloudimg-amd64.tar.gz",
+		Size:    610831936,
 	})
 }
 

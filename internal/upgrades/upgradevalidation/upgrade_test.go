@@ -4,8 +4,6 @@
 package upgradevalidation_test
 
 import (
-	"time"
-
 	"github.com/juju/collections/transform"
 	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
@@ -31,8 +29,8 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 		3: version.MustParse("2.9.1"),
 	})
 
-	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
+		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
 	ctrlModelTag := names.NewModelTag("deadpork-0bad-400d-8000-4b1d0d06f00d")
@@ -113,8 +111,8 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
+		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
 	modelTag := coretesting.ModelTag

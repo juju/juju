@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -160,11 +159,7 @@ var SupportedJujuBases = corebase.WorkloadBases
 func checkForDeprecatedUbuntuSeriesForModel(
 	_ string, _ StatePool, st State, _ Model,
 ) (*Blocker, error) {
-	supportedBases, err := SupportedJujuBases(time.Now(), corebase.Base{}, "")
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot ready supported bases")
-	}
-
+	supportedBases := SupportedJujuBases()
 	stateBases := transform.Slice(supportedBases, func(b corebase.Base) state.Base {
 		return state.Base{OS: b.OS, Channel: b.Channel.String()}
 	})

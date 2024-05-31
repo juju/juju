@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/credential"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
@@ -107,6 +108,15 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 			return s.serverFactory
 		},
 	)
+
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
+		return []base.Base{
+			base.MustParseBaseFromString("ubuntu@24.04"),
+			base.MustParseBaseFromString("ubuntu@22.04"),
+			base.MustParseBaseFromString("ubuntu@20.04"),
+		}
+	})
+
 	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 
 	backend := newFakeBackend()
@@ -139,12 +149,20 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 cannot migrate to controller due to issues:
 "foo/model-1":
 - unexpected upgrade series lock found
-- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@20.04, ubuntu@22.04, ubuntu@24.04
+- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 
 func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
+		return []base.Base{
+			base.MustParseBaseFromString("ubuntu@24.04"),
+			base.MustParseBaseFromString("ubuntu@22.04"),
+			base.MustParseBaseFromString("ubuntu@20.04"),
+		}
+	})
 
 	backend := newFakeBackend()
 	hasUpgradeSeriesLocks := true
@@ -171,7 +189,7 @@ func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 cannot migrate to controller due to issues:
 "foo/model-1":
 - unexpected upgrade series lock found
-- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@20.04, ubuntu@22.04, ubuntu@24.04`[1:])
+- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04`[1:])
 }
 
 func (s *SourcePrecheckSuite) TestImportingModel(c *gc.C) {

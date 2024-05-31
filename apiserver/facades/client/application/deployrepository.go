@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"sync"
 
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -842,17 +841,13 @@ func (v *deployFromRepositoryValidator) resolveCharm(ctx context.Context, curl *
 	if err != nil {
 		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
 	}
-	workloadBases, err := corebase.WorkloadBases(jujuclock.WallClock.Now(), requestedBase, modelCfg.ImageStream())
-	if err != nil {
-		return corecharm.ResolvedDataForDeploy{}, errors.Trace(err)
-	}
 	bsCfg := corecharm.SelectorConfig{
 		Config:              modelCfg,
 		Force:               force,
 		Logger:              v.logger,
 		RequestedBase:       requestedBase,
 		SupportedCharmBases: supportedBases,
-		WorkloadBases:       workloadBases,
+		WorkloadBases:       corebase.WorkloadBases(),
 		UsingImageID:        cons.HasImageID() || modelCons.HasImageID(),
 	}
 	selector, err := corecharm.ConfigureBaseSelector(bsCfg)

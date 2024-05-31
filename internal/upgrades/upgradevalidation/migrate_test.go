@@ -4,8 +4,6 @@
 package upgradevalidation_test
 
 import (
-	"time"
-
 	"github.com/juju/collections/transform"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -88,8 +86,8 @@ func (s *migrateSuite) setupMocks(c *gc.C) (*gomock.Controller, environscloudspe
 		},
 	)
 
-	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
+		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
 	// - check no upgrade series in process.

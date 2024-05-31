@@ -1648,9 +1648,7 @@ type IsBaseLessThanMachineManagerSuite struct{}
 // but complex enough to warrant being exported from an export test package for
 // testing.
 func (s *IsBaseLessThanMachineManagerSuite) TestIsBaseLessThan(c *gc.C) {
-	workloadVersions, err := corebase.AllWorkloadVersions()
-	c.Assert(err, jc.ErrorIsNil)
-	vers := workloadVersions.Values()
+	vers := transform.Slice(corebase.WorkloadBases(), func(b corebase.Base) string { return b.Channel.Track })
 	s.assertSeriesLessThan(c, "ubuntu", vers)
 }
 

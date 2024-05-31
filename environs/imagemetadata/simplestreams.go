@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/arch"
@@ -140,11 +141,7 @@ type ImageConstraint struct {
 
 func NewImageConstraint(params simplestreams.LookupParams) (*ImageConstraint, error) {
 	if len(params.Releases) == 0 {
-		workloadVersions, err := corebase.AllWorkloadVersions()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		params.Releases = workloadVersions.SortedValues()
+		params.Releases = transform.Slice(corebase.WorkloadBases(), func(b corebase.Base) string { return b.Channel.Track })
 	}
 	if len(params.Arches) == 0 {
 		params.Arches = arch.AllSupportedArches

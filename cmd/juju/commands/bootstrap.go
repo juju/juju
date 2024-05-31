@@ -524,8 +524,6 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
-var supportedJujuBases = corebase.ControllerBases
-
 var (
 	bootstrapPrepareController = bootstrap.PrepareController
 	environsDestroy            = environs.Destroy
@@ -771,18 +769,6 @@ func (c *bootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	}
 
-	// Get the supported bootstrap series.
-	var imageStream string
-	if cfg, ok := bootstrapCfg.bootstrapModel["image-stream"]; ok {
-		imageStream = cfg.(string)
-	}
-	now := c.clock.Now()
-	supportedBootstrapBases, err := supportedJujuBases(now, bootstrapBase, imageStream)
-	if err != nil {
-		return errors.Annotate(err, "error reading supported bootstrap series")
-	}
-	logger.Tracef("supported bootstrap bases %v", supportedBootstrapBases)
-
 	bootstrapCfg.controller[controller.ControllerName] = c.controllerName
 
 	// Handle Ctrl-C during bootstrap by asking the bootstrap process to stop
@@ -888,6 +874,9 @@ to create a new model to deploy %sworkloads.
 			return errors.NewNotValid(err, "invalid storage provider config")
 		}
 	}
+
+	supportedBootstrapBases := corebase.ControllerBases()
+	logger.Tracef("supported bootstrap bases %v", supportedBootstrapBases)
 
 	bootstrapParams := bootstrap.BootstrapParams{
 		ControllerName:            c.controllerName,

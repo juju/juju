@@ -3646,19 +3646,15 @@ func (s *localServerSuite) TestIPv6RuleCreationForEmptyCIDR(c *gc.C) {
 func (s *localServerSuite) ensureAMDImages(c *gc.C) environs.Environ {
 	// Ensure amd64 tools are available, to ensure an amd64 image.
 	amd64Version := version.Binary{
-		Number: jujuversion.Current,
-		Arch:   arch.AMD64,
+		Number:  jujuversion.Current,
+		Arch:    arch.AMD64,
+		Release: corebase.UbuntuOS,
 	}
-	workloadOSList, err := corebase.AllWorkloadOSTypes()
-	c.Assert(err, jc.ErrorIsNil)
-	for _, workloadOS := range workloadOSList.Values() {
-		amd64Version.Release = workloadOS
-		envtesting.AssertUploadFakeToolsVersions(
-			c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
-	}
+	envtesting.AssertUploadFakeToolsVersions(
+		c, s.toolsMetadataStorage, s.env.Config().AgentStream(), s.env.Config().AgentStream(), amd64Version)
 
 	// Destroy the old Environ
-	err = environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
+	err := environs.Destroy(s.env.Config().Name(), s.env, s.callCtx, s.ControllerStore)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Prepare a new Environ

@@ -16,7 +16,6 @@ import (
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
-	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
@@ -51,7 +50,6 @@ func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
 	s.customToolsDir = c.MkDir()
 	s.publicToolsDir = c.MkDir()
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
-	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
@@ -220,7 +218,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 		{loggo.DEBUG, "reading agent binaries with major version 1"},
 		{loggo.DEBUG, "filtering agent binaries by version: \\d+\\.\\d+\\.\\d+"},
 		{loggo.TRACE, "no architecture specified when finding agent binaries, looking for "},
-		{loggo.TRACE, "no os type specified when finding agent binaries, looking for \\[.*\\]"},
+		{loggo.TRACE, "no os type specified when finding agent binaries, looking for .*"},
 	}
 	sources, err := envtools.GetMetadataSources(s.env, ss)
 	c.Assert(err, jc.ErrorIsNil)

@@ -122,12 +122,8 @@ func validateArgs(arch, release, ftype string) error {
 	}
 
 	validVersion := false
-	workloadVersions, err := corebase.AllWorkloadVersions()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, supported := range workloadVersions.Values() {
-		if release == supported {
+	for _, supported := range corebase.WorkloadBases() {
+		if release == supported.Channel.Track {
 			validVersion = true
 			break
 		}

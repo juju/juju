@@ -5,7 +5,6 @@ package modelupgrader_test
 
 import (
 	stdcontext "context"
-	"time"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -189,8 +188,8 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 		},
 	)
 
-	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
+		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
 	ctrlModelTag := coretesting.ModelTag
@@ -318,8 +317,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 		},
 	)
 
-	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
+		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
 	ctrlModelTag := coretesting.ModelTag
@@ -427,8 +426,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 		},
 	)
 
-	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
+		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
 	ctrlModelTag := coretesting.ModelTag
@@ -553,6 +552,14 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 		},
 	)
 
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
+		return []base.Base{
+			base.MustParseBaseFromString("ubuntu@24.04"),
+			base.MustParseBaseFromString("ubuntu@22.04"),
+			base.MustParseBaseFromString("ubuntu@20.04"),
+		}
+	})
+
 	modelUUID := coretesting.ModelTag.Id()
 	model := mocks.NewMockModel(ctrl)
 	st := mocks.NewMockState(ctrl)
@@ -588,7 +595,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 	// - check no upgrade series in process.
 	st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 	// - check if the model has deprecated ubuntu machines;
-	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"20.04/stable", "22.04/stable", "24.04/stable"})).Return(nil, nil)
+	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
 	st.EXPECT().AllMachinesCount().Return(0, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
@@ -639,8 +646,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		},
 	)
 
-	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, base.ParseBaseFromString)
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
+		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
 	modelUUID := coretesting.ModelTag.Id()
@@ -676,7 +683,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	st.EXPECT().HasUpgradeSeriesLocks().Return(true, nil)
 
 	// - check if the model has deprecated ubuntu machines;
-	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"20.04/stable", "22.04/stable", "24.04/stable"})).Return(map[string]int{
+	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(map[string]int{
 		"ubuntu@20.04": 1, "ubuntu@22.04": 2, "ubuntu@24.04": 3,
 	}, nil)
 	st.EXPECT().AllMachinesCount().Return(7, nil)
@@ -700,7 +707,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/model-1":
 - unexpected upgrade series lock found
-- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@20.04, ubuntu@22.04, ubuntu@24.04
+- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 

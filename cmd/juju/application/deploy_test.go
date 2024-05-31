@@ -12,7 +12,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -235,8 +234,8 @@ func (s *DeploySuite) TestDeployFromPathDefaultBase(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
 	// Do not remove this because we want to test: bases supported by the charm and bases supported by Juju have overlap.
-	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@12.10"}, corebase.ParseBaseFromString)
+	s.PatchValue(&deployer.SupportedJujuBases, func() []corebase.Base {
+		return transform.Slice([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@12.10"}, corebase.MustParseBaseFromString)
 	})
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "multi-series")
 	curl := charm.MustParseURL("local:multi-series-1")
@@ -249,8 +248,8 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesForce(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveOverlap(c *gc.C) {
 	// Do not remove this because we want to test: bases supported by the charm and bases supported by Juju have overlap.
-	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@12.10"}, corebase.ParseBaseFromString)
+	s.PatchValue(&deployer.SupportedJujuBases, func() []corebase.Base {
+		return transform.Slice([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@12.10"}, corebase.MustParseBaseFromString)
 	})
 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
@@ -261,8 +260,8 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedSeriesHaveOverlap(c *gc.C) {
 func (s *DeploySuite) TestDeployFromPathUnsupportedBaseHaveNoOverlap(c *gc.C) {
 	// Do not remove this because we want to test: bases supported by the charm and bases supported by Juju have NO overlap.
 	s.PatchValue(&deployer.SupportedJujuBases,
-		func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
-			return []corebase.Base{corebase.MustParseBaseFromString("ubuntu@22.10")}, nil
+		func() []corebase.Base {
+			return []corebase.Base{corebase.MustParseBaseFromString("ubuntu@22.10")}
 		},
 	)
 
@@ -273,8 +272,8 @@ func (s *DeploySuite) TestDeployFromPathUnsupportedBaseHaveNoOverlap(c *gc.C) {
 
 func (s *DeploySuite) TestDeployFromPathUnsupportedLXDProfileForce(c *gc.C) {
 	// TODO remove this patch once we removed all the old bases from tests in current package.
-	s.PatchValue(&deployer.SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@18.04", "ubuntu@12.10"}, corebase.ParseBaseFromString)
+	s.PatchValue(&deployer.SupportedJujuBases, func() []corebase.Base {
+		return transform.Slice([]string{"ubuntu@22.04", "ubuntu@20.04", "ubuntu@18.04", "ubuntu@12.10"}, corebase.MustParseBaseFromString)
 	})
 
 	charmDir := testcharms.RepoWithSeries("quantal").ClonedDir(c.MkDir(), "lxd-profile-fail")

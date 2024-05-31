@@ -220,7 +220,6 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 
 func (s *toolsSuite) TestFindAvailableToolsCompleteNoValidate(c *gc.C) {
 	s.PatchValue(&arch.HostArch, func() string { return arch.AMD64 })
-	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 
 	allTools := tools.List{
 		&tools.Tools{
