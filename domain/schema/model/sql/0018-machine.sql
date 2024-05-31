@@ -38,15 +38,14 @@ INSERT INTO container_type VALUES
     (0, 'lxd');
 
 CREATE TABLE machine_constraint (
-    machine_uuid     TEXT NOT NULL,
+    machine_uuid     TEXT PRIMARY KEY,
     constraint_uuid  TEXT NOT NULL,
     CONSTRAINT       fk_machine_constraint_machine
         FOREIGN KEY  (machine_uuid)
         REFERENCES   machine(uuid),
     CONSTRAINT       fk_machine_constraint_constraint
         FOREIGN KEY  (constraint_uuid)
-        REFERENCES   "constraint"(uuid),
-    PRIMARY KEY (machine_uuid, constraint_uuid)
+        REFERENCES   "constraint"(uuid)
 );
 
 CREATE TABLE machine_principal (
