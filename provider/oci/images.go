@@ -39,8 +39,6 @@ const (
 	centOS   = "CentOS"
 	ubuntuOS = "Canonical Ubuntu"
 
-	UbuntuBase = "ubuntu"
-
 	staleImageCacheTimeoutInMinutes = 30
 )
 
@@ -322,7 +320,7 @@ func parseUbuntuImage(img ociCore.Image) (corebase.Base, string, bool) {
 	//   the ubuntu image's metadata) so we need to find a workaround as
 	//   explained in the NOTE a few lines below.
 	channel, postfix, _ := strings.Cut(*img.OperatingSystemVersion, " ")
-	base = corebase.MakeDefaultBase(UbuntuBase, channel)
+	base = corebase.MakeDefaultBase(corebase.UbuntuOS, channel)
 	// if not found, means that the OperatingSystemVersion only contained
 	// the channel.
 	if strings.Contains(*img.DisplayName, "Minimal") ||

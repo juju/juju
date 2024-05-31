@@ -80,7 +80,7 @@ class TestStatusItem(TestCase):
                                      current='allocating', message='foo')
         with self.assertRaisesRegexp(
                 StuckAllocatingError,
-                "\('0', 'Stuck allocating.  Last message: foo'\)"):
+                "\\('0', 'Stuck allocating.  Last message: foo'\\)"):
             raise item.to_exception()
 
     def test_to_exception_allocating_unit(self):

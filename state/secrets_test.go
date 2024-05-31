@@ -176,7 +176,7 @@ func (s *SecretsSuite) TestCreateBackendRef(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestCreateDuplicateLabelApplicationOwned(c *gc.C) {
+func (s *SecretsSuite) assertCreateDuplicateLabelApplicationOwned(c *gc.C, label string) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
@@ -189,7 +189,7 @@ func (s *SecretsSuite) TestCreateDuplicateLabelApplicationOwned(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Description:    ptr("my secret"),
-			Label:          ptr("foobar"),
+			Label:          ptr(label),
 			ExpireTime:     ptr(expire),
 			Params:         nil,
 			Data:           map[string]string{"foo": "bar"},
@@ -209,14 +209,22 @@ func (s *SecretsSuite) TestCreateDuplicateLabelApplicationOwned(c *gc.C) {
 
 	// Existing application owner label should not be used for consumer label for its units.
 	cmd := &secrets.SecretConsumerMetadata{
-		Label:           "foobar",
+		Label:           label,
 		CurrentRevision: md.LatestRevision,
 	}
 	err = s.State.SaveSecretConsumer(uri, s.ownerUnit.Tag(), cmd)
 	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
 }
 
-func (s *SecretsSuite) TestCreateDuplicateLabelUnitOwned(c *gc.C) {
+func (s *SecretsSuite) TestCreateDuplicateLabelApplicationOwned(c *gc.C) {
+	s.assertCreateDuplicateLabelApplicationOwned(c, "foobar")
+}
+
+func (s *SecretsSuite) TestCreateDuplicateLabelApplicationOwnedSpecialChars(c *gc.C) {
+	s.assertCreateDuplicateLabelApplicationOwned(c, `\U.++foo`)
+}
+
+func (s *SecretsSuite) assertCreateDuplicateLabelUnitOwned(c *gc.C, label string) {
 	uri := secrets.NewURI()
 	now := s.Clock.Now().Round(time.Second).UTC()
 	next := now.Add(time.Minute).Round(time.Second).UTC()
@@ -229,7 +237,7 @@ func (s *SecretsSuite) TestCreateDuplicateLabelUnitOwned(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Description:    ptr("my secret"),
-			Label:          ptr("foobar"),
+			Label:          ptr(label),
 			ExpireTime:     ptr(expire),
 			Params:         nil,
 			Data:           map[string]string{"foo": "bar"},
@@ -249,14 +257,22 @@ func (s *SecretsSuite) TestCreateDuplicateLabelUnitOwned(c *gc.C) {
 
 	// Existing unit owner label should not be used for consumer label for the application.
 	cmd := &secrets.SecretConsumerMetadata{
-		Label:           "foobar",
+		Label:           label,
 		CurrentRevision: md.LatestRevision,
 	}
 	err = s.State.SaveSecretConsumer(uri, s.owner.Tag(), cmd)
 	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
 }
 
-func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumed(c *gc.C) {
+func (s *SecretsSuite) TestCreateDuplicateLabelUnitOwned(c *gc.C) {
+	s.assertCreateDuplicateLabelUnitOwned(c, "foobar")
+}
+
+func (s *SecretsSuite) TestCreateDuplicateLabelUnitOwnedSpecialChars(c *gc.C) {
+	s.assertCreateDuplicateLabelUnitOwned(c, `\U.++foo`)
+}
+
+func (s *SecretsSuite) assertCreateDuplicateLabelUnitConsumed(c *gc.C, label string) {
 	uri := secrets.NewURI()
 	p := state.CreateSecretParams{
 		Version: 1,
@@ -271,7 +287,7 @@ func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cmd := &secrets.SecretConsumerMetadata{
-		Label:           "foobar",
+		Label:           label,
 		CurrentRevision: md.LatestRevision,
 	}
 	err = s.State.SaveSecretConsumer(uri, s.ownerUnit.Tag(), cmd)
@@ -280,24 +296,32 @@ func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumed(c *gc.C) {
 	// Existing unit consumer label should not be used for owner label.
 	uri2 := secrets.NewURI()
 	p.Owner = s.ownerUnit.Tag()
-	p.Label = ptr("foobar")
+	p.Label = ptr(label)
 	_, err = s.store.CreateSecret(uri2, p)
 	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
 
 	// Existing unit consumer label should not be used for owner label for the application.
 	uri3 := secrets.NewURI()
 	p.Owner = s.owner.Tag()
-	p.Label = ptr("foobar")
+	p.Label = ptr(label)
 	_, err = s.store.CreateSecret(uri3, p)
 	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
 
 	// Existing unit consumer label should not be used for consumer label for the application.
 	cmd = &secrets.SecretConsumerMetadata{
-		Label:           "foobar",
+		Label:           label,
 		CurrentRevision: md.LatestRevision,
 	}
 	err = s.State.SaveSecretConsumer(uri, s.owner.Tag(), cmd)
 	c.Assert(errors.Is(err, state.LabelExists), jc.IsTrue)
+}
+
+func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumed(c *gc.C) {
+	s.assertCreateDuplicateLabelUnitConsumed(c, "foobar")
+}
+
+func (s *SecretsSuite) TestCreateDuplicateLabelUnitConsumedSpecialChars(c *gc.C) {
+	s.assertCreateDuplicateLabelUnitConsumed(c, `\U.++foo`)
 }
 
 func (s *SecretsSuite) TestCreateDyingOwner(c *gc.C) {

@@ -1055,7 +1055,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 	bsResult := &environs.BootstrapResult{
 		Arch:                    arch,
-		Base:                    corebase.MakeDefaultBase("ubuntu", "22.04"),
+		Base:                    corebase.MakeDefaultBase(corebase.UbuntuOS, "22.04"),
 		CloudBootstrapFinalizer: finalize,
 	}
 	return bsResult, nil
