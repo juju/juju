@@ -365,11 +365,6 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		WorkloadType: ControllerWorkloadType,
 		Version:      "23.10",
 	},
-	Noble: {
-		WorkloadType: ControllerWorkloadType,
-		Version:      "24.40",
-		LTS:          true,
-	},
 }
 
 const (
