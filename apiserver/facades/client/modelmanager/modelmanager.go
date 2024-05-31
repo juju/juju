@@ -190,9 +190,6 @@ func (m *ModelManagerAPI) newModelConfig(
 	for key, value := range args.Config {
 		joint[key] = value
 	}
-	if _, ok := joint[config.UUIDKey]; ok {
-		return nil, errors.New("uuid is generated, you cannot specify one")
-	}
 	if args.Name == "" {
 		return nil, errors.NewNotValid(nil, "Name must be specified")
 	}
@@ -250,9 +247,8 @@ func (m *ModelManagerAPI) checkAddModelPermission(ctx context.Context, cloud str
 // around to get the DDL changes needed into Juju before finishing the rest.
 func (m *ModelManagerAPI) createModelNew(
 	ctx context.Context,
-	uuid string,
 	args params.ModelCreateArgs,
-) error {
+) (coremodel.UUID, error) {
 	// TODO (stickupkid): We need to create a saga (pattern) coordinator here,
 	// to ensure that anything written to both databases are at least rollback
 	// if there was an error. If a failure to rollback occurs, then the endpoint
@@ -269,7 +265,7 @@ func (m *ModelManagerAPI) createModelNew(
 	// we will try and apply the defaults where authorisation allows us to.
 	defaultCloudName, _, err := m.modelService.DefaultModelCloudNameAndCredential(ctx)
 	if errors.Is(err, modelerrors.NotFound) {
-		return errors.New("failed to find default model cloud and credential for controller")
+		return coremodel.UUID(""), errors.New("failed to find default model cloud and credential for controller")
 	}
 
 	var cloudTag names.CloudTag
@@ -277,7 +273,7 @@ func (m *ModelManagerAPI) createModelNew(
 		var err error
 		cloudTag, err = names.ParseCloudTag(args.CloudTag)
 		if err != nil {
-			return errors.Trace(err)
+			return coremodel.UUID(""), errors.Trace(err)
 		}
 	} else {
 		cloudTag = names.NewCloudTag(defaultCloudName)
@@ -286,33 +282,33 @@ func (m *ModelManagerAPI) createModelNew(
 
 	err = m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
-		return errors.Trace(err)
+		return coremodel.UUID(""), errors.Trace(err)
 	}
 	if err != nil {
 		canAddModel, err := m.checkAddModelPermission(ctx, cloudTag.Id(), m.apiUser)
 		if err != nil {
-			return errors.Trace(err)
+			return coremodel.UUID(""), errors.Trace(err)
 		}
 		if !canAddModel {
-			return apiservererrors.ErrPerm
+			return coremodel.UUID(""), apiservererrors.ErrPerm
 		}
 	}
 
 	ownerTag, err := names.ParseUserTag(args.OwnerTag)
 	if err != nil {
-		return errors.Trace(err)
+		return coremodel.UUID(""), errors.Trace(err)
 	}
 
 	// a special case of ErrPerm will happen if the user has add-model permission but is trying to
 	// create a model for another person, which is not yet supported.
 	if !m.isAdmin && ownerTag != m.apiUser {
-		return errors.Annotatef(apiservererrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
+		return coremodel.UUID(""), errors.Annotatef(apiservererrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
 	}
 
 	user, err := m.accessService.GetUserByName(ctx, ownerTag.Name())
 	if err != nil {
 		// TODO handle error properly
-		return errors.Trace(err)
+		return coremodel.UUID(""), errors.Trace(err)
 	}
 	creationArgs.Owner = user.UUID
 
@@ -321,7 +317,7 @@ func (m *ModelManagerAPI) createModelNew(
 		var err error
 		cloudCredentialTag, err = names.ParseCloudCredentialTag(args.CloudCredentialTag)
 		if err != nil {
-			return errors.Trace(err)
+			return coremodel.UUID(""), errors.Trace(err)
 		}
 
 		creationArgs.Credential = credential.KeyFromTag(cloudCredentialTag)
@@ -330,7 +326,7 @@ func (m *ModelManagerAPI) createModelNew(
 	// Create the model in the controller database.
 	modelID, activator, err := m.modelService.CreateModel(ctx, creationArgs)
 	if err != nil {
-		return errors.Annotatef(err, "failed to create model %q", modelID)
+		return coremodel.UUID(""), errors.Annotatef(err, "failed to create model %q", modelID)
 	}
 
 	// We need to get the model service factory from the newly created model
@@ -346,25 +342,25 @@ func (m *ModelManagerAPI) createModelNew(
 	modelConfigService := modelServiceFactory.Config()
 
 	if err := modelConfigService.SetModelConfig(ctx, args.Config); err != nil {
-		return errors.Annotatef(err, "failed to set model config for model %q", modelID)
+		return modelID, errors.Annotatef(err, "failed to set model config for model %q", modelID)
 	}
 
 	// TODO (stickupkid): Once tlm has fixed the CreateModel method to read
 	// from the model database to create the model, move the activator call
 	// to the end of the method.
 	if err := activator(ctx); err != nil {
-		return errors.Annotatef(err, "failed to finalise model %q", modelID)
+		return modelID, errors.Annotatef(err, "failed to finalise model %q", modelID)
 	}
 
 	// Create the model information in the model database. This information
 	// is read-only and is used for providers and brokers without the need
 	// to query the controller database.
 	if err := modelInfoService.CreateModel(ctx, m.controllerUUID); err != nil {
-		return errors.Annotatef(err, "failed to create model info for model %q", modelID)
+		return modelID, errors.Annotatef(err, "failed to create model info for model %q", modelID)
 	}
 
 	// Reload the substrate spaces for the newly created model.
-	return reloadSpaces(ctx, modelServiceFactory.Network())
+	return modelID, reloadSpaces(ctx, modelServiceFactory.Network())
 }
 
 // reloadSpaces wraps the call to ReloadSpaces and its returned errors.
@@ -502,6 +498,26 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, errors.Trace(err)
 	}
 
+	// createModelNew represents the logic needed for moving to DQlite. It is in
+	// a half finished state at the moment for the purpose of removing the model
+	// manager service. This check will go in the very near future.
+	// We check here if the modelService is nil. If it is then we are in testing
+	// mode and don't make the calls so test can keep passing.
+	// THIS IS VERY TEMPORARY.
+	var modelID coremodel.UUID
+	if m.modelService != nil {
+		args.CloudRegion = cloudRegionName
+		modelID, err = m.createModelNew(ctx, args)
+		if err != nil {
+			return result, err
+		}
+
+		if args.Config == nil {
+			args.Config = map[string]any{}
+		}
+		args.Config[config.UUIDKey] = modelID.String()
+	}
+
 	newConfig, err := m.newModelConfig(ctx, cloudSpec, args, controllerModel)
 	if err != nil {
 		return result, errors.Annotate(err, "failed to create config")
@@ -542,17 +558,6 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		return result, err
 	}
 
-	// createModelNew represents the logic needed for moving to DQlite. It is in
-	// a half finished state at the moment for the purpose of removing the model
-	// manager service. This check will go in the very near future.
-	// We check here if the modelService is nil. If it is then we are in testing
-	// mode and don't make the calls so test can keep passing.
-	// THIS IS VERY TEMPORARY.
-	if m.modelService != nil {
-		args.CloudRegion = cloudRegionName
-
-		return modelInfo, m.createModelNew(ctx, modelInfo.UUID, args)
-	}
 	return modelInfo, nil
 }
 

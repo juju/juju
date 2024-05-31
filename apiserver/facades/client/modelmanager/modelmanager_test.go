@@ -1177,31 +1177,6 @@ func (s *modelManagerStateSuite) TestCreateModelValidatesConfig(c *gc.C) {
 	)
 }
 
-func (s *modelManagerStateSuite) TestCreateModelBadConfig(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	owner := names.NewUserTag("admin")
-	s.setAPIUser(c, owner)
-	for i, test := range []struct {
-		key      string
-		value    interface{}
-		errMatch string
-	}{
-		{
-			key:      "uuid",
-			value:    "anything",
-			errMatch: `failed to create config: uuid is generated, you cannot specify one`,
-		},
-	} {
-		c.Logf("%d: %s", i, test.key)
-		args := createArgs(owner)
-		args.Config[test.key] = test.value
-		_, err := s.modelmanager.CreateModel(stdcontext.Background(), args)
-		c.Assert(err, gc.ErrorMatches, test.errMatch)
-
-	}
-}
-
 func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

@@ -156,7 +156,6 @@ func Create(
 	// Creates a record for the newly created model and register the target
 	// agent version.
 	if err := createModelAgent(ctx, tx, modelID, input.AgentVersion); err != nil {
-
 		return fmt.Errorf(
 			"creating model %q with id %q agent: %w",
 			input.Name, modelID, err,
