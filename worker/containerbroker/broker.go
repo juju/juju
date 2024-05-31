@@ -101,28 +101,6 @@ func NewTracker(config Config) (*Tracker, error) {
 	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
 		return nil, dependency.ErrUninstall
 	}
-	machine := result[0].Machine
-	instanceContainers, determined, err := machine.SupportedContainers()
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving supported container types")
-	}
-	if !determined {
-		return nil, errors.Errorf("no container types determined")
-	}
-	if len(instanceContainers) == 0 {
-		return nil, dependency.ErrUninstall
-	}
-	// we only work on LXD, so check for that.
-	var found bool
-	for _, containerType := range instanceContainers {
-		if containerType == instance.LXD {
-			found = true
-			break
-		}
-	}
-	if !found {
-		return nil, dependency.ErrUninstall
-	}
 
 	// We guarded against non-LXD types, so lets talk about specific container
 	// types to prevent confusion.
@@ -134,7 +112,7 @@ func NewTracker(config Config) (*Tracker, error) {
 		return nil, errors.Annotate(err, "generating container manager config")
 	}
 	managerConfig := container.ManagerConfig(managerConfigResult.ManagerConfig)
-	managerConfigWithZones, err := broker.ConfigureAvailabilityZone(managerConfig, machine)
+	managerConfigWithZones, err := broker.ConfigureAvailabilityZone(managerConfig, result[0].Machine)
 	if err != nil {
 		return nil, errors.Annotate(err, "configuring availability zones")
 	}
