@@ -328,7 +328,7 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 	// NOTE(achilleasa): this is a hack and is only meant to be used
 	// temporarily; we must ensure that equinix mirrors the official
 	// ubuntu cloud images.
-	if _, err := corebase.GetSeriesFromBase(args.InstanceConfig.Base); err == nil {
+	if args.InstanceConfig.Base.OS == corebase.UbuntuOS {
 		cloudCfg.AddScripts(
 			"apt-get update",
 			"DEBIAN_FRONTEND=noninteractive apt-get --option=Dpkg::Options::=--force-confdef --option=Dpkg::Options::=--force-confold --option=Dpkg::Options::=--force-unsafe-io --assume-yes --quiet install dmidecode snapd",
@@ -340,7 +340,7 @@ func getCloudConfig(args environs.StartInstanceParams) (cloudinit.CloudConfig, e
 	// references the juju-assigned hostname before localhost. Otherwise,
 	// running 'hostname -f' would return localhost whereas 'hostname'
 	// returns the juju-assigned host (see LP1956538).
-	if _, err := corebase.GetSeriesFromBase(args.InstanceConfig.Base); err == nil {
+	if args.InstanceConfig.Base.OS == corebase.UbuntuOS {
 		cloudCfg.AddScripts(
 			`sed -i -e "/127\.0\.0\.1/c\127\.0\.0\.1 $(hostname) localhost" /etc/hosts`,
 		)

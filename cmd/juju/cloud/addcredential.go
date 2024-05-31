@@ -91,10 +91,6 @@ Use --controller option to upload a credential to a controller.
 
 Use --client option to add a credential to the current client.
 
-Further help:
-Please visit https://discourse.charmhub.io/t/1508 for cloud-specific
-instructions.
-
 `
 
 const usageAddCredentialExamples = `
