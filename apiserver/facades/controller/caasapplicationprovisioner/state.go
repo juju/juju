@@ -4,7 +4,6 @@
 package caasapplicationprovisioner
 
 import (
-	"context"
 	"io"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
@@ -38,16 +36,12 @@ type CAASApplicationProvisionerState interface {
 // CAASApplicationControllerState provides the subset of controller state
 // required by the CAAS operator provisioner facade.
 type CAASApplicationControllerState interface {
-	ModelUUID() string
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
 	WatchAPIHostPortsForAgents() state.NotifyWatcher
 }
 
 type Model interface {
-	UUID() string
-	ModelConfig(context.Context) (*config.Config, error)
 	Containers(providerIds ...string) ([]state.CloudContainer, error)
-	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
 type Application interface {

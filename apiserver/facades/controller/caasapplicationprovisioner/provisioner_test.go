@@ -12,12 +12,14 @@ import (
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasapplicationprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/config"
+	"github.com/juju/juju/core/model"
 	jujuresource "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -46,7 +48,9 @@ type CAASApplicationProvisionerSuite struct {
 	st                      *mockState
 	storage                 *mockStorage
 	storagePoolGetter       *mockStoragePoolGetter
-	controllerConfigService *mockControllerConfigService
+	controllerConfigService *MockControllerConfigService
+	modelConfigService      *MockModelConfigService
+	modelInfoService        *MockModelInfoService
 	registry                *mockStorageRegistry
 	store                   *mockObjectStore
 }
@@ -74,10 +78,18 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 	}
 	s.storagePoolGetter = &mockStoragePoolGetter{}
 	s.registry = &mockStorageRegistry{}
+}
+
+func (s *CAASApplicationProvisionerSuite) setupAPI(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.modelInfoService = NewMockModelInfoService(ctrl)
+
 	newResourceOpener := func(appName string) (jujuresource.Opener, error) {
 		return &mockResourceOpener{appName: appName, resources: s.st.resource}, nil
 	}
-	s.controllerConfigService = &mockControllerConfigService{}
 	api, err := caasapplicationprovisioner.NewCAASApplicationProvisionerAPI(
 		s.st, s.st,
 		s.resources, newResourceOpener,
@@ -85,12 +97,16 @@ func (s *CAASApplicationProvisionerSuite) SetUpTest(c *gc.C) {
 		s.storage,
 		s.storagePoolGetter,
 		s.controllerConfigService,
+		s.modelConfigService,
+		s.modelInfoService,
 		s.registry,
 		s.store,
 		s.clock,
 		loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
+
+	return ctrl
 }
 
 func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
@@ -104,6 +120,8 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 		s.storage,
 		s.storagePoolGetter,
 		s.controllerConfigService,
+		s.modelConfigService,
+		s.modelInfoService,
 		s.registry,
 		s.store,
 		s.clock,
@@ -112,6 +130,9 @@ func (s *CAASApplicationProvisionerSuite) TestPermission(c *gc.C) {
 }
 
 func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		life: state.Alive,
 		charm: &mockCharm{
@@ -124,6 +145,14 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			"trust": true,
 		},
 	}
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(s.fakeModelConfig())
+
+	modelInfo := model.ReadOnlyModel{
+		UUID: model.UUID(coretesting.ModelTag.Id()),
+	}
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(modelInfo, nil)
+
 	result, err := s.api.ProvisioningInfo(context.Background(), params.Entities{Entities: []params.Entity{{"application-gitlab"}}})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -147,6 +176,9 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 }
 
 func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		life:         state.Alive,
 		charmPending: true,
@@ -161,13 +193,16 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningInfoPendingCharmError(
 }
 
 func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	appChanged := make(chan struct{}, 1)
 	portsChanged := make(chan struct{}, 1)
-	modelConfigChanged := make(chan struct{}, 1)
+	modelConfigChanged := make(chan []string, 1)
 	controllerConfigChanged := make(chan []string, 1)
 	s.st.apiHostPortsForAgentsWatcher = statetesting.NewMockNotifyWatcher(portsChanged)
-	s.controllerConfigService.controllerConfigWatcher = watchertest.NewMockStringsWatcher(controllerConfigChanged)
-	s.st.model.modelConfigChanges = statetesting.NewMockNotifyWatcher(modelConfigChanged)
+	s.controllerConfigService.EXPECT().WatchControllerConfig().Return(watchertest.NewMockStringsWatcher(controllerConfigChanged), nil)
+	s.modelConfigService.EXPECT().Watch().Return(watchertest.NewMockStringsWatcher(modelConfigChanged), nil)
 	s.st.app = &mockApplication{
 		life: state.Alive,
 		charm: &mockCharm{
@@ -178,7 +213,7 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 	}
 	appChanged <- struct{}{}
 	portsChanged <- struct{}{}
-	modelConfigChanged <- struct{}{}
+	modelConfigChanged <- []string{}
 	controllerConfigChanged <- []string{}
 
 	results, err := s.api.WatchProvisioningInfo(context.Background(), params.Entities{
@@ -195,6 +230,9 @@ func (s *CAASApplicationProvisionerSuite) TestWatchProvisioningInfo(c *gc.C) {
 }
 
 func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		life: state.Alive,
 		charm: &mockCharm{
@@ -216,6 +254,9 @@ func (s *CAASApplicationProvisionerSuite) TestSetOperatorStatus(c *gc.C) {
 }
 
 func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		life: state.Alive,
 		charm: &mockCharm{
@@ -276,6 +317,9 @@ func (s *CAASApplicationProvisionerSuite) TestUnits(c *gc.C) {
 }
 
 func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
@@ -322,6 +366,9 @@ func (s *CAASApplicationProvisionerSuite) TestApplicationOCIResources(c *gc.C) {
 }
 
 func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
@@ -505,6 +552,9 @@ func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithStorage
 }
 
 func (s *CAASApplicationProvisionerSuite) TestUpdateApplicationsUnitsWithoutStorage(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		tag:  names.NewApplicationTag("gitlab"),
 		life: state.Alive,
@@ -603,6 +653,9 @@ func strPtr(s string) *string {
 }
 
 func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		life: state.Alive,
 		charm: &mockCharm{
@@ -623,6 +676,9 @@ func (s *CAASApplicationProvisionerSuite) TestClearApplicationsResources(c *gc.C
 }
 
 func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	unitsChanges := make(chan []string, 1)
 	s.st.app = &mockApplication{
 		life: state.Alive,
@@ -651,6 +707,9 @@ func (s *CAASApplicationProvisionerSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	s.st.app = &mockApplication{
 		life:              state.Alive,
 		provisioningState: nil,
@@ -681,6 +740,9 @@ func (s *CAASApplicationProvisionerSuite) TestProvisioningState(c *gc.C) {
 }
 
 func (s *CAASApplicationProvisionerSuite) TestProvisionerConfig(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	result, err := s.api.ProvisionerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
@@ -700,7 +762,7 @@ func (s *CAASApplicationProvisionerSuite) TestCharmStorageParamsPoolNotFound(c *
 	c.Assert(err, jc.ErrorIsNil)
 	p, err := caasapplicationprovisioner.CharmStorageParams(
 		context.Background(), coretesting.ControllerTag.Id(),
-		"notpool", cfg, "", s.storagePoolGetter, s.registry,
+		"notpool", cfg, model.UUID(coretesting.ModelTag.Id()), "", s.storagePoolGetter, s.registry,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(p, jc.DeepEquals, &params.KubernetesFilesystemParams{
@@ -710,4 +772,11 @@ func (s *CAASApplicationProvisionerSuite) TestCharmStorageParamsPoolNotFound(c *
 		Attributes:  map[string]any{"storage-class": "notpool"},
 		Tags:        map[string]string{"juju-controller-uuid": coretesting.ControllerTag.Id(), "juju-model-uuid": coretesting.ModelTag.Id()},
 	})
+}
+
+func (s *CAASApplicationProvisionerSuite) fakeModelConfig() (*envconfig.Config, error) {
+	attrs := coretesting.FakeConfig()
+	attrs["operator-storage"] = "k8s-storage"
+	attrs["agent-version"] = "2.6-beta3.666"
+	return envconfig.New(envconfig.UseDefaults, attrs)
 }

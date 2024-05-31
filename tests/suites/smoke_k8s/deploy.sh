@@ -11,9 +11,6 @@ run_charmstore_deploy() {
 	juju refresh snappass-test
 	wait_for "snappass-test" "$(idle_condition_for_rev "snappass-test" "9")"
 
-	# On microk8s, there's a bug where the application blocks the model teardown
-	# TODO: remove the next line once this bug is fixed.
-	juju remove-application snappass-test
 	destroy_model "test-charmstore-deploy"
 }
 

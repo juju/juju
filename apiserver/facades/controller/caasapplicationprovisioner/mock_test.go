@@ -26,16 +26,12 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/watchertest"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {
@@ -96,11 +92,6 @@ func (st *mockState) Model() (caasapplicationprovisioner.Model, error) {
 	return st.model, nil
 }
 
-func (st *mockState) ModelUUID() string {
-	st.MethodCall(st, "ModelUUID")
-	return coretesting.ModelTag.Id()
-}
-
 func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Value, error) {
 	st.MethodCall(st, "ResolveConstraints", cons)
 	if err := st.NextErr(); err != nil {
@@ -157,38 +148,9 @@ func (m *mockStoragePoolGetter) GetStoragePoolByName(_ context.Context, name str
 	return storage.NewConfig(name, k8sconstants.StorageProviderType, map[string]interface{}{"foo": "bar"})
 }
 
-type mockControllerConfigService struct {
-	testing.Stub
-	controllerConfigWatcher *watchertest.MockStringsWatcher
-}
-
-func (m *mockControllerConfigService) ControllerConfig(_ context.Context) (controller.Config, error) {
-	m.MethodCall(m, "ControllerConfig")
-	return coretesting.FakeControllerConfig(), nil
-}
-
-func (m *mockControllerConfigService) WatchControllerConfig() (watcher.StringsWatcher, error) {
-	m.MethodCall(m, "WatchControllerConfig")
-	return m.controllerConfigWatcher, nil
-}
-
 type mockModel struct {
 	testing.Stub
-	state              *mockState
-	modelConfigChanges *statetesting.MockNotifyWatcher
-}
-
-func (m *mockModel) UUID() string {
-	m.MethodCall(m, "UUID")
-	return coretesting.ModelTag.Id()
-}
-
-func (m *mockModel) ModelConfig(_ context.Context) (*config.Config, error) {
-	m.MethodCall(m, "ModelConfig")
-	attrs := coretesting.FakeConfig()
-	attrs["operator-storage"] = "k8s-storage"
-	attrs["agent-version"] = "2.6-beta3.666"
-	return config.New(config.UseDefaults, attrs)
+	state *mockState
 }
 
 func (m *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, error) {
@@ -214,11 +176,6 @@ func (m *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, e
 	}
 
 	return containers, nil
-}
-
-func (m *mockModel) WatchForModelConfigChanges() state.NotifyWatcher {
-	m.MethodCall(m, "WatchForModelConfigChanges")
-	return m.modelConfigChanges
 }
 
 type mockApplication struct {

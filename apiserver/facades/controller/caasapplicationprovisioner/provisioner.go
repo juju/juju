@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/controller"
 	coreapplication "github.com/juju/juju/core/application"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/resources"
@@ -49,12 +50,6 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
-
-// ControllerConfigService provides the controller configuration.
-type ControllerConfigService interface {
-	ControllerConfig(ctx context.Context) (controller.Config, error)
-	WatchControllerConfig() (corewatcher.StringsWatcher, error)
-}
 
 type APIGroup struct {
 	*common.PasswordChanger
@@ -79,6 +74,8 @@ type API struct {
 	storage                 StorageBackend
 	storagePoolGetter       StoragePoolGetter
 	controllerConfigService ControllerConfigService
+	modelConfigService      ModelConfigService
+	modelInfoService        ModelInfoService
 	registry                storage.ProviderRegistry
 	clock                   clock.Clock
 	logger                  corelogger.Logger
@@ -102,6 +99,8 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 
 	serviceFactory := ctx.ServiceFactory()
 	controllerConfigService := serviceFactory.ControllerConfig()
+	modelConfigService := serviceFactory.Config()
+	modelInfoService := serviceFactory.ModelInfo()
 	storageService := serviceFactory.Storage(registry)
 	sb, err := state.NewStorageBackend(ctx.State())
 	if err != nil {
@@ -135,6 +134,8 @@ func NewStateCAASApplicationProvisionerAPI(ctx facade.ModelContext) (*APIGroup, 
 		sb,
 		storageService,
 		controllerConfigService,
+		modelConfigService,
+		modelInfoService,
 		registry,
 		ctx.ObjectStore(),
 		clock.WallClock,
@@ -188,6 +189,8 @@ func NewCAASApplicationProvisionerAPI(
 	sb StorageBackend,
 	storagePoolGetter StoragePoolGetter,
 	controllerConfigService ControllerConfigService,
+	modelConfigService ModelConfigService,
+	modelInfoService ModelInfoService,
 	registry storage.ProviderRegistry,
 	store objectstore.ObjectStore,
 	clock clock.Clock,
@@ -207,6 +210,8 @@ func NewCAASApplicationProvisionerAPI(
 		store:                   store,
 		storagePoolGetter:       storagePoolGetter,
 		controllerConfigService: controllerConfigService,
+		modelConfigService:      modelConfigService,
+		modelInfoService:        modelInfoService,
 		registry:                registry,
 		clock:                   clock,
 		logger:                  logger,
@@ -258,11 +263,6 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 		return result, errors.Trace(err)
 	}
 
-	model, err := a.state.Model()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
 	appWatcher := app.Watch()
 	controllerConfigWatcher, err := a.controllerConfigService.WatchControllerConfig()
 	if err != nil {
@@ -274,13 +274,21 @@ func (a *API) watchProvisioningInfo(ctx context.Context, appName names.Applicati
 	}
 
 	controllerAPIHostPortsWatcher := a.ctrlSt.WatchAPIHostPortsForAgents()
-	modelConfigWatcher := model.WatchForModelConfigChanges()
+
+	modelConfigWatcher, err := a.modelConfigService.Watch()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	modelConfigNotifyWatcher, err := corewatcher.Normalise(modelConfigWatcher)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 
 	multiWatcher, err := eventsource.NewMultiNotifyWatcher(ctx,
 		appWatcher,
 		controllerConfigNotifyWatcher,
 		controllerAPIHostPortsWatcher,
-		modelConfigWatcher,
+		modelConfigNotifyWatcher,
 	)
 	if err != nil {
 		return result, errors.Trace(err)
@@ -335,16 +343,17 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 		return nil, errors.Trace(err)
 	}
 
-	model, err := a.state.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	modelConfig, err := model.ModelConfig(ctx)
+	modelConfig, err := a.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	filesystemParams, err := a.applicationFilesystemParams(ctx, app, cfg, modelConfig)
+	modelInfo, err := a.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	filesystemParams, err := a.applicationFilesystemParams(ctx, app, cfg, modelConfig, modelInfo.UUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -362,7 +371,7 @@ func (a *API) provisioningInfo(ctx context.Context, appName names.ApplicationTag
 		return nil, errors.Trace(err)
 	}
 	resourceTags := tags.ResourceTags(
-		names.NewModelTag(modelConfig.UUID()),
+		names.NewModelTag(modelInfo.UUID.String()),
 		names.NewControllerTag(cfg.ControllerUUID()),
 		modelConfig,
 	)
@@ -505,6 +514,7 @@ func CharmStorageParams(
 	controllerUUID string,
 	storageClassName string,
 	modelCfg *config.Config,
+	modelUUID model.UUID,
 	poolName string,
 	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
@@ -513,7 +523,7 @@ func CharmStorageParams(
 	// Workload storage will override these elsewhere.
 	const size uint64 = 1024
 	tags := tags.ResourceTags(
-		names.NewModelTag(modelCfg.UUID()),
+		names.NewModelTag(modelUUID.String()),
 		names.NewControllerTag(controllerUUID),
 		modelCfg,
 	)
@@ -588,6 +598,7 @@ func (a *API) applicationFilesystemParams(
 	app Application,
 	controllerConfig controller.Config,
 	modelConfig *config.Config,
+	modelUUID model.UUID,
 ) ([]params.KubernetesFilesystemParams, error) {
 	storageConstraints, err := app.StorageConstraints()
 	if err != nil {
@@ -613,6 +624,7 @@ func (a *API) applicationFilesystemParams(
 			app, cons, name,
 			controllerConfig.ControllerUUID(),
 			modelConfig,
+			modelUUID,
 			a.storagePoolGetter, a.registry,
 		)
 		if err != nil {
@@ -645,11 +657,12 @@ func filesystemParams(
 	storageName string,
 	controllerUUID string,
 	modelConfig *config.Config,
+	modelUUID model.UUID,
 	storagePoolGetter StoragePoolGetter,
 	registry storage.ProviderRegistry,
 ) (*params.KubernetesFilesystemParams, error) {
 
-	filesystemTags, err := storagecommon.StorageTags(nil, modelConfig.UUID(), controllerUUID, modelConfig)
+	filesystemTags, err := storagecommon.StorageTags(nil, modelUUID.String(), controllerUUID, modelConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "computing storage tags")
 	}
@@ -659,7 +672,7 @@ func filesystemParams(
 	if cons.Pool == "" && storageClassName == "" {
 		return nil, errors.Errorf("storage pool for %q must be specified since there's no model default storage class", storageName)
 	}
-	fsParams, err := CharmStorageParams(ctx, controllerUUID, storageClassName, modelConfig, cons.Pool, storagePoolGetter, registry)
+	fsParams, err := CharmStorageParams(ctx, controllerUUID, storageClassName, modelConfig, modelUUID, cons.Pool, storagePoolGetter, registry)
 	if err != nil {
 		return nil, errors.Maskf(err, "getting filesystem storage parameters")
 	}
