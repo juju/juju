@@ -22,7 +22,7 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/version/v2"
 
-	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -829,7 +829,7 @@ func (env *maasEnviron) distroSeries(args environs.StartInstanceParams) (string,
 	if args.Constraints.HasImageID() {
 		return *args.Constraints.ImageID, nil
 	}
-	return corebase.GetSeriesFromBase(args.InstanceConfig.Base)
+	return base.GetSeriesFromBase(args.InstanceConfig.Base)
 }
 
 func (env *maasEnviron) waitForNodeDeployment(ctx envcontext.ProviderCallContext, id instance.Id, timeout time.Duration) error {
