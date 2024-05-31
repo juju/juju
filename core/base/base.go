@@ -21,6 +21,16 @@ type Base struct {
 	Channel Channel
 }
 
+const (
+	// UbuntuOS is the special value to be places in OS field of a base to
+	// indicate an operating system is an Ubuntu distro
+	UbuntuOS = "ubuntu"
+
+	// CentosOS is the special value to be places in OS field of a base to
+	// indicate an operating system is a CentOS distro
+	CentosOS = "centos"
+)
+
 // ParseBase constructs a Base from the os and channel string.
 func ParseBase(os string, channel string) (Base, error) {
 	if os == "" && channel == "" {
@@ -114,6 +124,25 @@ func (b Base) IsCompatible(other Base) bool {
 	return b.OS == other.OS && b.Channel.Track == other.Channel.Track
 }
 
+// ubuntuLTSes lists the Ubuntu LTS releases that
+// this version of Juju knows about
+var ubuntuLTSes = []Base{
+	MakeDefaultBase(UbuntuOS, "20.04"),
+	MakeDefaultBase(UbuntuOS, "22.04"),
+	MakeDefaultBase(UbuntuOS, "24.04"),
+}
+
+// IsUbuntuLTS returns true if this base is a recognised
+// Ubuntu LTS.
+func (b Base) IsUbuntuLTS() bool {
+	for _, ubuntuLTS := range ubuntuLTSes {
+		if b.IsCompatible(ubuntuLTS) {
+			return true
+		}
+	}
+	return false
+}
+
 // DisplayString returns the base string ignoring risk.
 func (b Base) DisplayString() string {
 	if b.Channel.Track == "" || b.OS == "" {
@@ -155,9 +184,9 @@ func GetSeriesFromChannel(name string, channel string) (string, error) {
 func GetSeriesFromBase(v Base) (string, error) {
 	var osSeries map[SeriesName]seriesVersion
 	switch strings.ToLower(v.OS) {
-	case "ubuntu":
+	case UbuntuOS:
 		osSeries = ubuntuSeries
-	case "centos":
+	case CentosOS:
 		osSeries = centosSeries
 	}
 	for s, vers := range osSeries {
@@ -170,7 +199,7 @@ func GetSeriesFromBase(v Base) (string, error) {
 
 // LegacyKubernetesBase is the ubuntu base image for legacy k8s charms.
 func LegacyKubernetesBase() Base {
-	return MakeDefaultBase("ubuntu", "20.04")
+	return MakeDefaultBase(UbuntuOS, "20.04")
 }
 
 // LegacyKubernetesSeries is the ubuntu series for legacy k8s charms.

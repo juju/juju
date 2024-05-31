@@ -388,10 +388,10 @@ func bootstrapIAAS(
 		config.PreferredBase(cfg),
 	)
 	if !args.Force && err != nil {
-		// If the series isn't valid at all, then don't prompt users to use
+		// If the base isn't valid at all, then don't prompt users to use
 		// the --force flag.
-		if _, err := corebase.UbuntuBaseVersion(requestedBootstrapBase); err != nil {
-			return errors.NotValidf("base %q", requestedBootstrapBase.String())
+		if requestedBootstrapBase.OS != corebase.UbuntuOS {
+			return errors.NotValidf("non-ubuntu bootstrap base %q", requestedBootstrapBase.String())
 		}
 		return errors.Annotatef(err, "use --force to override")
 	}
