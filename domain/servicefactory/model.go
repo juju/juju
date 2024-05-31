@@ -74,6 +74,7 @@ func (s *ModelFactory) Config() *modelconfigservice.WatchableService {
 	return modelconfigservice.NewWatchableService(
 		defaultsProvider,
 		config.ModelValidator(),
+		s.logger.Child("modelconfig"),
 		modelconfigstate.NewControllerState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("modelconfig")),

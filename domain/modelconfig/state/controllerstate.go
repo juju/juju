@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/domain"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
-	"github.com/juju/juju/internal/database"
 )
 
 // ControllerState is a reference to the underlying data accessor for data
@@ -63,12 +62,11 @@ WHERE  b.name =
 		return errors.Trace(err)
 	}
 
-	modelBackendUpsert := `
-INSERT INTO model_secret_backend(model_uuid, secret_backend_uuid)
-VALUES ($SecretBackendInfo.model_uuid, $SecretBackendInfo.uuid)
-ON CONFLICT(model_uuid) DO UPDATE SET
-    secret_backend_uuid = EXCLUDED.secret_backend_uuid`
-	modelBackendUpsertStmt, err := s.Prepare(modelBackendUpsert, backendInfo)
+	modelBackendUpdate := `
+UPDATE model_secret_backend
+SET    secret_backend_uuid = $SecretBackendInfo.uuid
+WHERE  model_uuid = $SecretBackendInfo.model_uuid`
+	modelBackendUpdateStmt, err := s.Prepare(modelBackendUpdate, backendInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -81,12 +79,17 @@ ON CONFLICT(model_uuid) DO UPDATE SET
 		if err != nil {
 			return fmt.Errorf("querying secret backends: %w", err)
 		}
-		err = tx.Query(ctx, modelBackendUpsertStmt, backendInfo).Run()
-		if database.IsErrConstraintForeignKey(err) {
-			return fmt.Errorf("%w: model %q", modelerrors.NotFound, modelUUID)
-		}
+		var outcome sqlair.Outcome
+		err = tx.Query(ctx, modelBackendUpdateStmt, backendInfo).Get(&outcome)
 		if err != nil {
 			return fmt.Errorf("setting secret backend %q for model %q: %w", backendName, modelUUID, err)
+		}
+		affected, err := outcome.Result().RowsAffected()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if affected == 0 {
+			return fmt.Errorf("%w: model %q", modelerrors.NotFound, modelUUID)
 		}
 		return nil
 	})

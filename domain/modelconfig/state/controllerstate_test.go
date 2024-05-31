@@ -5,12 +5,10 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coremodel "github.com/juju/juju/core/model"
 	coremodeltesting "github.com/juju/juju/core/model/testing"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
@@ -49,7 +47,7 @@ func (s *controllerStateSuite) createSecretBackend(c *gc.C) {
 func (s *controllerStateSuite) TestSetModelSecretBackend(c *gc.C) {
 	db := s.DB()
 
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo", coremodel.IAAS)
+	modelUUID := modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "foo")
 	s.createSecretBackend(c)
 
 	st := NewControllerState(s.TxnRunnerFactory())
@@ -68,7 +66,7 @@ WHERE model_uuid = ?`[1:], modelUUID)
 }
 
 func (s *controllerStateSuite) TestSetModelSecretBackendNotFound(c *gc.C) {
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo", coremodel.IAAS)
+	modelUUID := modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "foo")
 	s.createSecretBackend(c)
 
 	st := NewControllerState(s.TxnRunnerFactory())
@@ -78,18 +76,18 @@ func (s *controllerStateSuite) TestSetModelSecretBackendNotFound(c *gc.C) {
 }
 
 func (s *controllerStateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
-	modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo", coremodel.IAAS)
+	modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "foo")
 	s.createSecretBackend(c)
 
-	modelUUID := coremodeltesting.GenModelUUID(c)
+	coremodeltesting.GenModelUUID(c)
 	st := NewControllerState(s.TxnRunnerFactory())
-	err := st.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
+	err := st.SetModelSecretBackend(context.Background(), "some-uuid", "my-backend")
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: model %q`, modelUUID))
+	c.Assert(err, gc.ErrorMatches, `model not found: model "some-uuid"`)
 }
 
 func (s *controllerStateSuite) TestSetModelSecretBackendAutoIAAS(c *gc.C) {
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo", coremodel.IAAS)
+	modelUUID := modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "foo")
 	s.createSecretBackend(c)
 
 	st := NewControllerState(s.TxnRunnerFactory())
@@ -111,7 +109,7 @@ WHERE model_uuid = ?`[1:], modelUUID)
 }
 
 func (s *controllerStateSuite) TestSetModelSecretBackendAutoCAAS(c *gc.C) {
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo", coremodel.CAAS)
+	modelUUID := modeltesting.CreateTestCAASModel(c, s.TxnRunnerFactory(), "foo")
 	s.createSecretBackend(c)
 
 	st := NewControllerState(s.TxnRunnerFactory())
@@ -133,7 +131,7 @@ WHERE model_uuid = ?`[1:], modelUUID)
 }
 
 func (s *controllerStateSuite) TestGetModelSecretBackendName(c *gc.C) {
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo", coremodel.IAAS)
+	modelUUID := modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "foo")
 	s.createSecretBackend(c)
 
 	st := NewControllerState(s.TxnRunnerFactory())

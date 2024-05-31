@@ -17,17 +17,18 @@ import (
 // MemoryState implements an in memory representation of the state required for
 // managing model config.
 type MemoryState struct {
-	Config map[string]string
+	Config        map[string]string
+	secretBackend string
 	*testing.NamespaceWatcherFactory
 }
 
 func (s *MemoryState) SetModelSecretBackend(ctx context.Context, modelUUID model.UUID, backendName string) error {
-	s.Config["secret-backend"] = backendName
+	s.secretBackend = backendName
 	return nil
 }
 
 func (s *MemoryState) GetModelSecretBackendName(ctx context.Context, modelUUID model.UUID) (string, error) {
-	return s.Config["secret-backend"], nil
+	return s.secretBackend, nil
 }
 
 func (s *MemoryState) GetModelInfo(_ context.Context) (model.UUID, model.ModelType, error) {
@@ -105,7 +106,17 @@ func (s *MemoryState) SetModelConfig(
 	if conf == nil {
 		conf = map[string]string{}
 	}
-	s.Config = conf
+	var updateErr error
+	for k, v := range conf {
+		if k == "foo" && v == "error" {
+			updateErr = fmt.Errorf("set config error")
+			continue
+		}
+		s.Config[k] = v
+	}
+	if updateErr != nil {
+		return updateErr
+	}
 
 	changes, err := s.KeysQuery(allKeysQuery)
 	if err != nil {
@@ -124,8 +135,16 @@ func (s *MemoryState) UpdateModelConfig(
 	for _, k := range remove {
 		delete(s.Config, k)
 	}
+	var updateErr error
 	for k, v := range update {
+		if k == "foo" && v == "error" {
+			updateErr = fmt.Errorf("update config error")
+			continue
+		}
 		s.Config[k] = v
+	}
+	if updateErr != nil {
+		return updateErr
 	}
 
 	// At the moment this is a little hacky. We should be breaking the changes up

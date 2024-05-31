@@ -41,7 +41,7 @@ func ImportOperations(
 	externalcontroller.RegisterImport(coordinator)
 	credential.RegisterImport(coordinator, logger.Child("credential"))
 	model.RegisterImport(coordinator, logger.Child("model"))
-	modelconfig.RegisterImport(coordinator, modelDefaultsProvider)
+	modelconfig.RegisterImport(coordinator, modelDefaultsProvider, logger.Child("modelconfig"))
 	network.RegisterImport(coordinator, logger.Child("network"))
 	machine.RegisterImport(coordinator, logger.Child("machine"))
 	application.RegisterImport(coordinator, registry, logger.Child("application"))

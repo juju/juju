@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -82,6 +83,7 @@ type WatcherFactory interface {
 type Service struct {
 	defaultsProvider ModelDefaultsProvider
 	modelValidator   config.Validator
+	logger           logger.Logger
 	ctrlSt           ControllerState
 	st               State
 }
@@ -90,25 +92,22 @@ type Service struct {
 func NewService(
 	defaultsProvider ModelDefaultsProvider,
 	modelValidator config.Validator,
+	logger logger.Logger,
 	ctrlSt ControllerState,
 	st State,
 ) *Service {
 	return &Service{
 		defaultsProvider: defaultsProvider,
 		modelValidator:   modelValidator,
+		logger:           logger,
 		ctrlSt:           ctrlSt,
 		st:               st,
 	}
 }
 
-func (s *Service) configHandlers(ctx context.Context, modelUUID model.UUID) ([]handlers.ConfigHandler, error) {
-	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot load model defaults")
-	}
+func (s *Service) configHandlers(modelUUID model.UUID) ([]handlers.ConfigHandler, error) {
 	return []handlers.ConfigHandler{
 		handlers.SecretBackendHandler{
-			Defaults:     defaults,
 			BackendState: s.ctrlSt,
 			ModelUUID:    modelUUID,
 		},
@@ -116,14 +115,14 @@ func (s *Service) configHandlers(ctx context.Context, modelUUID model.UUID) ([]h
 }
 
 func (s *Service) runOnLoadHandlers(ctx context.Context, modelUUID model.UUID, stConfig map[string]string) error {
-	cfgHandlers, err := s.configHandlers(ctx, modelUUID)
+	cfgHandlers, err := s.configHandlers(modelUUID)
 	if err != nil {
 		return fmt.Errorf("cannot set up config handlers: %w", err)
 	}
 	for _, h := range cfgHandlers {
 		additionalCfg, err := h.OnLoad(ctx)
 		if err != nil {
-			return fmt.Errorf("cannot apply config handler %s during load: %w", h.Name(), err)
+			return fmt.Errorf("cannot apply config handler %q during load: %w", h.Name(), err)
 		}
 		for k, v := range additionalCfg {
 			stConfig[k] = v
@@ -256,13 +255,37 @@ func (s *Service) reconcileRemovedAttributes(
 	return updates, nil
 }
 
+func (s *Service) runOnSaveHandlers(ctx context.Context, modelUUID model.UUID, newConfigAttrs map[string]any) (rollbacks handlers.Rollbacks, err error) {
+	defer func() {
+		if err != nil {
+			if rbErr := rollbacks.Rollback(ctx); rbErr != nil {
+				s.logger.Errorf("cannot rollback failed model config operations: %s", rbErr)
+			}
+			rollbacks = nil
+		}
+	}()
+
+	cfgHandlers, err := s.configHandlers(modelUUID)
+	if err != nil {
+		return rollbacks, fmt.Errorf("cannot set up config handlers: %w", err)
+	}
+	for _, h := range cfgHandlers {
+		rb, err := h.OnSave(ctx, newConfigAttrs)
+		if err != nil {
+			return nil, fmt.Errorf("cannot apply config handler %q during save: %w", h.Name(), err)
+		}
+		rollbacks = append(rollbacks, rb)
+	}
+	return rollbacks, nil
+}
+
 // SetModelConfig will remove any existing model config for the model and
 // replace with the new config provided. The new config will also be hydrated
 // with any model default attributes that have not been set on the config.
 func (s *Service) SetModelConfig(
 	ctx context.Context,
 	cfg map[string]any,
-) error {
+) (err error) {
 	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
 	if err != nil {
 		return fmt.Errorf("getting model defaults: %w", err)
@@ -291,25 +314,29 @@ func (s *Service) SetModelConfig(
 		return fmt.Errorf("validating model config to set for model: %w", err)
 	}
 
-	rawCfg, err := CoerceConfigForStorage(setCfg.AllAttrs())
+	modelUUID, _, err := s.st.GetModelInfo(ctx)
+	if err != nil {
+		return errors.Annotate(err, "cannot load model info")
+	}
+	attrs := setCfg.AllAttrs()
+	rollbacks, err := s.runOnSaveHandlers(ctx, modelUUID, attrs)
+	if err != nil {
+		return errors.Annotate(err, "cannot process model config")
+	}
+	defer func() {
+		if err != nil {
+			if rbErr := rollbacks.Rollback(ctx); rbErr != nil {
+				s.logger.Errorf("cannot rollback failed model config operations: %s", rbErr)
+			}
+		}
+	}()
+
+	rawCfg, err := CoerceConfigForStorage(attrs)
 	if err != nil {
 		return fmt.Errorf("coercing model config for storage: %w", err)
 	}
 
 	return s.st.SetModelConfig(ctx, rawCfg)
-}
-
-func (s *Service) runOnSaveHandlers(ctx context.Context, modelUUID model.UUID, stConfig map[string]any, removeAttrs []string) error {
-	cfgHandlers, err := s.configHandlers(ctx, modelUUID)
-	if err != nil {
-		return fmt.Errorf("cannot set up config handlers: %w", err)
-	}
-	for _, h := range cfgHandlers {
-		if err := h.OnSave(ctx, stConfig, removeAttrs); err != nil {
-			return fmt.Errorf("cannot apply config handler %s during save: %w", h.Name(), err)
-		}
-	}
-	return nil
 }
 
 // UpdateModelConfig takes a set of updated and removed attributes to apply.
@@ -331,7 +358,7 @@ func (s *Service) UpdateModelConfig(
 	updateAttrs map[string]any,
 	removeAttrs []string,
 	additionalValidators ...config.Validator,
-) error {
+) (err error) {
 	// noop with no updates or removals to perform.
 	if len(updateAttrs) == 0 && len(removeAttrs) == 0 {
 		return nil
@@ -364,11 +391,19 @@ func (s *Service) UpdateModelConfig(
 		return fmt.Errorf("validating updated model configuration: %w", err)
 	}
 
-	if err := s.runOnSaveHandlers(ctx, modelUUID, updates, removeAttrs); err != nil {
+	rollbacks, err := s.runOnSaveHandlers(ctx, modelUUID, updates)
+	if err != nil {
 		return errors.Annotate(err, "cannot process model config")
 	}
+	defer func() {
+		if err != nil {
+			if rbErr := rollbacks.Rollback(ctx); rbErr != nil {
+				s.logger.Errorf("cannot rollback failed model config operations: %s", rbErr)
+			}
+		}
+	}()
 
-	rawCfg, err := CoerceConfigForStorage(updateAttrs)
+	rawCfg, err := CoerceConfigForStorage(updates)
 	if err != nil {
 		return fmt.Errorf("coercing new configuration for persistence: %w", err)
 	}
@@ -430,6 +465,7 @@ type WatchableService struct {
 func NewWatchableService(
 	defaultsProvider ModelDefaultsProvider,
 	modelValidator config.Validator,
+	logger logger.Logger,
 	ctrlSt ControllerState,
 	st State,
 	watcherFactory WatcherFactory,
@@ -438,6 +474,7 @@ func NewWatchableService(
 		Service: Service{
 			defaultsProvider: defaultsProvider,
 			modelValidator:   modelValidator,
+			logger:           logger,
 			ctrlSt:           ctrlSt,
 			st:               st,
 		},

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
@@ -17,8 +18,8 @@ import (
 )
 
 // RegisterExport registers the export operations with the given coordinator.
-func RegisterExport(coordinator Coordinator) {
-	coordinator.Add(&exportOperation{})
+func RegisterExport(coordinator Coordinator, logger logger.Logger) {
+	coordinator.Add(&exportOperation{logger: logger})
 }
 
 // ExportService provides a subset of the external controller domain
@@ -33,6 +34,7 @@ type ExportService interface {
 type exportOperation struct {
 	modelmigration.BaseOperation
 
+	logger  logger.Logger
 	service ExportService
 }
 
@@ -44,6 +46,7 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 		// no-op provider.
 		noopModelDefaultsProvider{},
 		config.ModelValidator(),
+		e.logger,
 		state.NewControllerState(scope.ControllerDB()),
 		state.NewState(scope.ModelDB()))
 	return nil

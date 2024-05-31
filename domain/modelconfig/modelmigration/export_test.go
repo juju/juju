@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/logger/testing"
 )
 
 type exportSuite struct {
@@ -42,7 +43,7 @@ func (s *exportSuite) TestRegisterExport(c *gc.C) {
 
 	s.coordinator.EXPECT().Add(gomock.Any())
 
-	RegisterExport(s.coordinator)
+	RegisterExport(s.coordinator, testing.WrapCheckLog(c))
 }
 
 func (s *exportSuite) TestNilModelConfig(c *gc.C) {

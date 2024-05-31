@@ -339,12 +339,7 @@ func (m *ModelManagerAPI) createModelNew(
 	// was written to the database.
 	modelServiceFactory := m.serviceFactoryGetter.ServiceFactoryForModel(modelID)
 	modelInfoService := modelServiceFactory.ModelInfo()
-
 	modelConfigService := modelServiceFactory.Config()
-
-	if err := modelConfigService.SetModelConfig(ctx, args.Config); err != nil {
-		return modelID, errors.Annotatef(err, "failed to set model config for model %q", modelID)
-	}
 
 	// TODO (stickupkid): Once tlm has fixed the CreateModel method to read
 	// from the model database to create the model, move the activator call
@@ -358,6 +353,10 @@ func (m *ModelManagerAPI) createModelNew(
 	// to query the controller database.
 	if err := modelInfoService.CreateModel(ctx, m.controllerUUID); err != nil {
 		return modelID, errors.Annotatef(err, "failed to create model info for model %q", modelID)
+	}
+	// After creating the model, we can set the model config.
+	if err := modelConfigService.SetModelConfig(ctx, args.Config); err != nil {
+		return modelID, errors.Annotatef(err, "failed to set model config for model %q", modelUUID)
 	}
 
 	// Reload the substrate spaces for the newly created model.

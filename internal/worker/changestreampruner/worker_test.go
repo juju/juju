@@ -15,7 +15,6 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
-	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/domain/model/state/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
@@ -108,7 +107,7 @@ func (s *workerSuite) TestPruneModelList(c *gc.C) {
 	now := time.Now()
 
 	s.insertControllerNodes(c, 1)
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo", coremodel.IAAS)
+	modelUUID := modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "foo")
 	s.expectDBGet(modelUUID.String(), txnRunner)
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1002, UpdatedAt: now.Add(-time.Minute)})
 	s.truncateChangeLog(c, s.TxnRunner())
@@ -140,7 +139,7 @@ func (s *workerSuite) TestPruneModelListWithChangeLogItems(c *gc.C) {
 	now := time.Now()
 
 	s.insertControllerNodes(c, 1)
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "foo", coremodel.IAAS)
+	modelUUID := modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "foo")
 	s.expectDBGet(modelUUID.String(), txnRunner)
 	s.insertChangeLogWitness(c, s.TxnRunner(), Watermark{ControllerID: "0", LowerBound: 1002, UpdatedAt: now.Add(-time.Minute)})
 	s.truncateChangeLog(c, s.TxnRunner())

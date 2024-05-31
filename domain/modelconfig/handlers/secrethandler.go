@@ -7,12 +7,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/domain/modeldefaults"
-	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -24,7 +21,6 @@ type SecretBackendState interface {
 
 // SecretBackendHandler implements ConfigHandler.
 type SecretBackendHandler struct {
-	Defaults     modeldefaults.Defaults
 	BackendState SecretBackendState
 	ModelUUID    coremodel.UUID
 }
@@ -37,37 +33,31 @@ func (h SecretBackendHandler) Name() string {
 // OnSave is run when saving model config; any secret
 // backend is removed from rawCfg and used to update the
 // model secret backend config table.
-func (h SecretBackendHandler) OnSave(ctx context.Context, rawCfg map[string]any, removeAttrs []string) error {
-	// If removing, set to the model default value.
-	toRemove := set.NewStrings(removeAttrs...)
-	if toRemove.Contains(config.SecretBackendKey) {
-		var backendName any = config.DefaultSecretBackend
-		defaultBackend, ok := h.Defaults[config.SecretBackendKey]
-		if ok {
-			backendName = defaultBackend.Value
-		}
-		rawCfg[config.SecretBackendKey] = backendName
-	}
-
+func (h SecretBackendHandler) OnSave(ctx context.Context, rawCfg map[string]any) (RollbackFunc, error) {
 	// Exit early if secret backend is not being updated.
 	val, ok := rawCfg[config.SecretBackendKey]
 	if !ok {
-		return nil
+		return noopRollback, nil
 	}
-	backendName := fmt.Sprint(val)
 
-	err := h.BackendState.SetModelSecretBackend(ctx, h.ModelUUID, backendName)
-	if err != nil && !errors.Is(err, backenderrors.NotFound) {
-		return fmt.Errorf("cannot set secret backend to %q: %w", backendName, err)
-	}
+	// Set up the rollback func so we can revert to the current backend
+	// if there's any error.
+	currentBackendName, err := h.BackendState.GetModelSecretBackendName(ctx, h.ModelUUID)
 	if err != nil {
-		return &config.ValidationError{
-			InvalidAttrs: []string{config.SecretBackendKey},
-			Reason:       fmt.Sprintf("secret backend %q not found", backendName),
-		}
+		return noopRollback, errors.Trace(err)
+	}
+	rollbackFunc := func(ctx context.Context) error {
+		return h.BackendState.SetModelSecretBackend(ctx, h.ModelUUID, currentBackendName)
+	}
+
+	// Set the new backend.
+	backendName := fmt.Sprint(val)
+	err = h.BackendState.SetModelSecretBackend(ctx, h.ModelUUID, backendName)
+	if err != nil {
+		return noopRollback, fmt.Errorf("cannot set model secret backend to %q: %w", backendName, err)
 	}
 	delete(rawCfg, config.SecretBackendKey)
-	return nil
+	return rollbackFunc, nil
 }
 
 // OnLoad is run when loading model config. The result value is a map

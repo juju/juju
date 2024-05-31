@@ -13,7 +13,7 @@ type ConfigHandler interface {
 	Name() string
 	// OnSave is run when saving model config; some attributes
 	// from rawCfg might be removed as a result.
-	OnSave(ctx context.Context, rawCfg map[string]any, removeAttrs []string) error
+	OnSave(ctx context.Context, rawCfg map[string]any) (RollbackFunc, error)
 	// OnLoad is run when loading model config. The result value is a map
 	// containing any extra attributes to be added to the final config.
 	OnLoad(ctx context.Context) (map[string]string, error)

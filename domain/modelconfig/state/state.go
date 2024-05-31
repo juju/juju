@@ -37,12 +37,12 @@ func (st State) GetModelInfo(ctx context.Context) (coremodel.UUID, coremodel.Mod
 		return "", "", errors.Trace(err)
 	}
 
-	getModelStmt, err := st.Prepare("SELECT &ModelInfo.* FROM model", ModelInfo{})
+	var info ModelInfo
+	getModelStmt, err := st.Prepare("SELECT &ModelInfo.* FROM model", info)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
 
-	var info ModelInfo
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, getModelStmt).Get(&info)
 		if err != nil {

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/modelconfig/service"
 	"github.com/juju/juju/domain/modelconfig/state"
@@ -22,9 +23,10 @@ type Coordinator interface {
 }
 
 // RegisterImport registers the import operations with the given coordinator.
-func RegisterImport(coordinator Coordinator, defaultsProvider service.ModelDefaultsProvider) {
+func RegisterImport(coordinator Coordinator, defaultsProvider service.ModelDefaultsProvider, logger logger.Logger) {
 	coordinator.Add(&importOperation{
 		defaultsProvider: defaultsProvider,
+		logger:           logger,
 	})
 }
 
@@ -42,6 +44,7 @@ type ImportService interface {
 type importOperation struct {
 	modelmigration.BaseOperation
 
+	logger           logger.Logger
 	service          ImportService
 	defaultsProvider service.ModelDefaultsProvider
 }
@@ -54,6 +57,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		i.defaultsProvider,
 		config.NoControllerAttributesValidator(),
+		i.logger,
 		state.NewControllerState(scope.ControllerDB()),
 		state.NewState(scope.ModelDB()))
 	return nil

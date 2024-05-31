@@ -62,13 +62,41 @@ func CreateKubernetesSecretBackend(c *gc.C, runner database.TxnRunner) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// CreateTestModel is a testing utility function for creating a basic model for
+// CreateTestIAASModel is a testing utility function for creating a basic IAAS model for
 // a test to rely on. The created model will have it's uuid returned.
 //
 // This should only ever be used from within other state packages to establish a
 // reference model. This avoids the need for introducing cyclic imports with
 // tests.
-func CreateTestModel(
+func CreateTestIAASModel(
+	c *gc.C,
+	txnRunner database.TxnRunnerFactory,
+	name string,
+) coremodel.UUID {
+	runner, err := txnRunner()
+	c.Assert(err, jc.ErrorIsNil)
+	CreateInternalSecretBackend(c, runner)
+	return createTestModel(c, txnRunner, name, coremodel.IAAS)
+}
+
+// CreateTestCAASModel is a testing utility function for creating a basic CAAS model for
+// a test to rely on. The created model will have it's uuid returned.
+//
+// This should only ever be used from within other state packages to establish a
+// reference model. This avoids the need for introducing cyclic imports with
+// tests.
+func CreateTestCAASModel(
+	c *gc.C,
+	txnRunner database.TxnRunnerFactory,
+	name string,
+) coremodel.UUID {
+	runner, err := txnRunner()
+	c.Assert(err, jc.ErrorIsNil)
+	CreateKubernetesSecretBackend(c, runner)
+	return createTestModel(c, txnRunner, name, coremodel.CAAS)
+}
+
+func createTestModel(
 	c *gc.C,
 	txnRunner database.TxnRunnerFactory,
 	name string,
@@ -86,12 +114,6 @@ func CreateTestModel(
 	userName := "test-user" + name
 	runner, err := txnRunner()
 	c.Assert(err, jc.ErrorIsNil)
-
-	if modelType == coremodel.IAAS {
-		CreateInternalSecretBackend(c, runner)
-	} else {
-		CreateKubernetesSecretBackend(c, runner)
-	}
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `

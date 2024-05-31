@@ -23,7 +23,7 @@ func ExportOperations(
 	logger logger.Logger,
 ) {
 	// Note: All the export operations are registered here.
-	modelconfig.RegisterExport(coordinator)
+	modelconfig.RegisterExport(coordinator, logger.Child("modelconfig"))
 	credential.RegisterExport(coordinator, logger.Child("credential"))
 	network.RegisterExport(coordinator, logger.Child("network"))
 	externalcontroller.RegisterExport(coordinator)
