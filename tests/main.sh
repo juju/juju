@@ -6,7 +6,7 @@ export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002 -e SC2005 -e SC2
 export BOOTSTRAP_REUSE_LOCAL="${BOOTSTRAP_REUSE_LOCAL:-}"
 export BOOTSTRAP_REUSE="${BOOTSTRAP_REUSE:-false}"
 export BOOTSTRAP_PROVIDER="${BOOTSTRAP_PROVIDER:-lxd}"
-export BOOTSTRAP_CLOUD="${BOOTSTRAP_CLOUD:-lxd}"
+export BOOTSTRAP_CLOUD="${BOOTSTRAP_CLOUD:-localhost}"
 export BOOTSTRAP_SERIES="${BOOTSTRAP_SERIES:-}"
 export BOOTSTRAP_ARCH="${BOOTSTRAP_ARCH:-}"
 export BUILD_ARCH="${BUILD_ARCH:-}"
@@ -193,13 +193,6 @@ while getopts "hH?vAs:a:x:rl:p:c:R:S:" opt; do
 
 		CLOUD=$(juju show-controller "${OPTARG}" --format=json 2>/dev/null | jq -r ".[\"${OPTARG}\"] | .details | .cloud")
 		PROVIDER=$(juju clouds --client --all --format=json 2>/dev/null | jq -r ".[\"${CLOUD}\"] | .type")
-		if [[ -z ${PROVIDER} ]]; then
-			PROVIDER="${CLOUD}"
-		fi
-		# We want "ec2" to redirect to "aws". This is needed e.g. for the ck tests
-		if [[ ${PROVIDER} == "ec2" ]]; then
-			PROVIDER="aws"
-		fi
 		export BOOTSTRAP_PROVIDER="${PROVIDER}"
 		export BOOTSTRAP_CLOUD="${CLOUD}"
 		;;

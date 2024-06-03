@@ -10,7 +10,7 @@ test_deploy_os() {
 		cd .. || exit
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
-		"ec2" | "aws")
+		"ec2")
 			#
 			# A handy place to find the current AMIs for centos
 			# https://wiki.centos.org/Cloud/AWS
