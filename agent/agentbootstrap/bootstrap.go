@@ -242,7 +242,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	controllerModelCreateFunc := modelbootstrap.CreateModel(controllerModelArgs)
 
 	controllerModelDefaults := modeldefaultsbootstrap.ModelDefaultsProvider(
-		nil,
 		stateParams.ControllerInheritedConfig,
 		stateParams.RegionInheritedConfig[stateParams.ControllerCloudRegion])
 

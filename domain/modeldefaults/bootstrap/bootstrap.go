@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/domain/modeldefaults/service"
+	"github.com/juju/juju/domain/modeldefaults/state"
 	"github.com/juju/juju/environs/config"
 )
 
@@ -15,14 +16,13 @@ import (
 // passed in during bootstrap into a model default provider interface to be used
 // when persisting initial model config. Config passed to this func can be nil.
 func ModelDefaultsProvider(
-	configDefaults map[string]any,
 	controllerConfig map[string]any,
 	cloudRegionConfig map[string]any,
 ) service.ModelDefaultsProviderFunc {
 	return func(ctx context.Context) (modeldefaults.Defaults, error) {
 		defaults := modeldefaults.Defaults{}
 
-		for k, v := range configDefaults {
+		for k, v := range state.ConfigDefaults(ctx) {
 			defaults[k] = modeldefaults.DefaultAttributeValue{
 				Source: config.JujuDefaultSource,
 				Value:  v,

@@ -160,7 +160,7 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	fn = modelconfigbootstrap.SetModelConfig(
 		s.ControllerModelUUID,
 		nil,
-		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, nil),
+		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil),
 	)
 	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
@@ -184,7 +184,7 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 	fn = modelconfigbootstrap.SetModelConfig(
 		s.DefaultModelUUID,
 		nil,
-		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil, nil),
+		modeldefaultsbootstrap.ModelDefaultsProvider(nil, nil),
 	)
 	err = fn(ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.DefaultModelUUID.String()))
 	c.Assert(err, jc.ErrorIsNil)
