@@ -348,7 +348,7 @@ func deprecationWarningForSeries(ctx *cmd.Context, data *charm.BundleData) {
 	}
 
 	if includeSeries {
-		ctx.Warningf("series in being deprecated in favour of bases. For more information about the transition to bases see https://discourse.charmhub.io/t/transition-from-series-to-base-in-juju-4-0/14127")
+		ctx.Warningf("series are being deprecated in favour of bases. For more information about the transition to bases see https://discourse.charmhub.io/t/transition-from-series-to-base-in-juju-4-0/14127")
 	}
 }
 
