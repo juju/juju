@@ -271,7 +271,7 @@ type DeployCommand struct {
 
 	ApplicationName  string
 	ConfigOptions    common.ConfigFlag
-	ConstraintsStr   string
+	ConstraintsStr   common.ConstraintsFlag
 	Constraints      constraints.Value
 	ModelConstraints constraints.Value
 	BindToSpaces     string
@@ -639,7 +639,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Trust, "trust", false, "Allows charm to run hooks that require access credentials")
 
 	f.Var(cmd.NewAppendStringsValue(&c.BundleOverlayFile), "overlay", "Bundles to overlay on the primary bundle, applied in order")
-	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set application constraints")
+	f.Var(&c.ConstraintsStr, "constraints", "Set application constraints")
 	f.StringVar(&c.Series, "series", "", "The series on which to deploy. DEPRECATED: use --base")
 	f.StringVar(&c.Base, "base", "", "The base on which to deploy")
 	f.IntVar(&c.Revision, "revision", -1, "The revision to deploy")
@@ -816,7 +816,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 	}
-	if c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr); err != nil {
+	if c.Constraints, err = common.ParseConstraints(ctx, strings.Join(c.ConstraintsStr, " ")); err != nil {
 		return errors.Trace(err)
 	}
 

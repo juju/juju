@@ -33,7 +33,7 @@ func (c *BootstrapConstraintsFlag) Set(value string) error {
 	return nil
 }
 
-// ConstraintsFlag records constraints set in bootstrap command
+// ConstraintsFlag records constraints set in bootstrap and deploy commands
 // via constraints flag.
 type ConstraintsFlag []string
 

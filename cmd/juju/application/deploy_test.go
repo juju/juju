@@ -635,7 +635,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, charmURL, charmDir, false)
 	withCharmDeployable(s.fakeAPI, charmURL, defaultBase, charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
-	err := s.runDeployForState(c, charmDir.Path, "--constraints", "mem=2G cores=2", "--base", "ubuntu@22.04")
+	err := s.runDeployForState(c, charmDir.Path, "--constraints", "mem=2G", "--constraints", "cores=2", "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:jammy/multi-series-1")
 	app, _ := s.AssertApplication(c, "multi-series", curl.String(), 1, 0)
