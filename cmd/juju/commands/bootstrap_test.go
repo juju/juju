@@ -353,109 +353,119 @@ var bootstrapTests = []bootstrapTest{{
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cores=4"},
 	constraints: constraints.MustParse("mem=4G cores=4"),
-}, {
-	info:                 "bootstrap and environ constraints",
-	args:                 []string{"--constraints", "mem=4G cores=4", "--bootstrap-constraints", "mem=8G"},
-	constraints:          constraints.MustParse("mem=4G cores=4"),
-	bootstrapConstraints: constraints.MustParse("mem=8G cores=4"),
-}, {
-	info:        "unsupported constraint passed through but no error",
-	args:        []string{"--constraints", "mem=4G cores=4 cpu-power=10"},
-	constraints: constraints.MustParse("mem=4G cores=4 cpu-power=10"),
-}, {
-	info:        "--build-agent uses arch from constraint if it matches current version",
-	version:     "1.3.3-ubuntu-ppc64el",
-	hostArch:    "ppc64el",
-	args:        []string{"--build-agent", "--constraints", "arch=ppc64el"},
-	upload:      "1.3.3.1-ubuntu-ppc64el", // from jujuversion.Current
-	constraints: constraints.MustParse("arch=ppc64el"),
-}, {
-	info:      "--build-agent rejects mismatched arch",
-	version:   "1.3.3-ubuntu-amd64",
-	hostArch:  "amd64",
-	args:      []string{"--build-agent", "--constraints", "arch=ppc64el"},
-	silentErr: true,
-	logs: []jc.SimpleMessage{{
-		loggo.ERROR, `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
-	}},
-}, {
-	info:      "--build-agent rejects non-supported arch",
-	version:   "1.3.3-ubuntu-mips64",
-	hostArch:  "mips64",
-	args:      []string{"--build-agent"},
-	silentErr: true,
-	logs: []jc.SimpleMessage{{
-		loggo.ERROR, fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
-	}},
-}, {
-	info:     "--build-agent always bumps build number",
-	version:  "1.2.3.4-ubuntu-amd64",
-	hostArch: "amd64",
-	args:     []string{"--build-agent"},
-	upload:   "1.2.3.5-ubuntu-amd64",
-}, {
-	info:      "placement",
-	args:      []string{"--to", "something"},
-	placement: "something",
-}, {
-	info:       "keep broken",
-	args:       []string{"--keep-broken"},
-	keepBroken: true,
-}, {
-	info: "additional args",
-	args: []string{"anything", "else"},
-	err:  `unrecognized args: \["anything" "else"\]`,
-}, {
-	info: "--agent-version with --build-agent",
-	args: []string{"--agent-version", "1.1.0", "--build-agent"},
-	err:  `--agent-version and --build-agent can't be used together`,
-}, {
-	info: "invalid --agent-version value",
-	args: []string{"--agent-version", "foo"},
-	err:  `invalid version "foo"`,
-}, {
-	info:    "agent-version doesn't match client version major",
-	version: "1.3.3-ubuntu-ppc64el",
-	args:    []string{"--agent-version", "2.3.0"},
-	err:     regexp.QuoteMeta(`this client can only bootstrap 1.3 agents`),
-}, {
-	info:    "agent-version doesn't match client version minor",
-	version: "1.3.3-ubuntu-ppc64el",
-	args:    []string{"--agent-version", "1.4.0"},
-	err:     regexp.QuoteMeta(`this client can only bootstrap 1.3 agents`),
-}, {
-	info: "--clouds with --regions",
-	args: []string{"--clouds", "--regions", "aws"},
-	err:  `--clouds and --regions can't be used together`,
-}, {
-	info: "specifying bootstrap attribute as model-default",
-	args: []string{"--model-default", "bootstrap-timeout=10"},
-	err:  `"bootstrap-timeout" is a bootstrap only attribute, and cannot be set as a model-default`,
-}, {
-	info: "specifying controller attribute as model-default",
-	args: []string{"--model-default", "api-port=12345"},
-	err:  `"api-port" is a controller attribute, and cannot be set as a model-default`,
-}, {
-	info: "k8s config on iaas controller",
-	args: []string{"--config", "controller-service-type=loadbalancer"},
-	err:  `"controller-service-type", "controller-external-name" and "controller-external-ips"are only allowed for kubernetes controllers`,
-}, {
-	info: "controller name cannot be set via config",
-	args: []string{"--config", "controller-name=test"},
-	err:  `controller name cannot be set via config, please use cmd args`,
-}, {
-	info: "resource-group-name does not support add-model",
-	args: []string{"--config", "resource-group-name=foo", "--add-model", "foo"},
-	err:  `if using resource-group-name "foo" then a workload model cannot be specified as well`,
-}, {
-	info: "missing storage pool name",
-	args: []string{"--storage-pool", "type=ebs"},
-	err:  `storage pool requires a name`,
-}, {
-	info: "missing storage pool type",
-	args: []string{"--storage-pool", "name=test"},
-	err:  `storage pool requires a type`,
-}}
+},
+	{
+		info:        "multiple constraints",
+		args:        []string{"--constraints", "mem=4G", "--constraints", "cores=4"},
+		constraints: constraints.MustParse("mem=4G cores=4"),
+	},
+	{
+		info:                 "multiple bootstrap constraints",
+		args:                 []string{"--bootstrap-constraints", "mem=4G", "--bootstrap-constraints", "cores=4"},
+		bootstrapConstraints: constraints.MustParse("mem=4G cores=4"),
+	}, {
+		info:                 "bootstrap and environ constraints",
+		args:                 []string{"--constraints", "mem=4G cores=4", "--bootstrap-constraints", "mem=8G"},
+		constraints:          constraints.MustParse("mem=4G cores=4"),
+		bootstrapConstraints: constraints.MustParse("mem=8G cores=4"),
+	}, {
+		info:        "unsupported constraint passed through but no error",
+		args:        []string{"--constraints", "mem=4G cores=4 cpu-power=10"},
+		constraints: constraints.MustParse("mem=4G cores=4 cpu-power=10"),
+	}, {
+		info:        "--build-agent uses arch from constraint if it matches current version",
+		version:     "1.3.3-ubuntu-ppc64el",
+		hostArch:    "ppc64el",
+		args:        []string{"--build-agent", "--constraints", "arch=ppc64el"},
+		upload:      "1.3.3.1-ubuntu-ppc64el", // from jujuversion.Current
+		constraints: constraints.MustParse("arch=ppc64el"),
+	}, {
+		info:      "--build-agent rejects mismatched arch",
+		version:   "1.3.3-ubuntu-amd64",
+		hostArch:  "amd64",
+		args:      []string{"--build-agent", "--constraints", "arch=ppc64el"},
+		silentErr: true,
+		logs: []jc.SimpleMessage{{
+			loggo.ERROR, `failed to bootstrap model: cannot use agent built for "ppc64el" using a machine running on "amd64"`,
+		}},
+	}, {
+		info:      "--build-agent rejects non-supported arch",
+		version:   "1.3.3-ubuntu-mips64",
+		hostArch:  "mips64",
+		args:      []string{"--build-agent"},
+		silentErr: true,
+		logs: []jc.SimpleMessage{{
+			loggo.ERROR, fmt.Sprintf(`failed to bootstrap model: model %q of type dummy does not support instances running on "mips64"`, bootstrap.ControllerModelName),
+		}},
+	}, {
+		info:     "--build-agent always bumps build number",
+		version:  "1.2.3.4-ubuntu-amd64",
+		hostArch: "amd64",
+		args:     []string{"--build-agent"},
+		upload:   "1.2.3.5-ubuntu-amd64",
+	}, {
+		info:      "placement",
+		args:      []string{"--to", "something"},
+		placement: "something",
+	}, {
+		info:       "keep broken",
+		args:       []string{"--keep-broken"},
+		keepBroken: true,
+	}, {
+		info: "additional args",
+		args: []string{"anything", "else"},
+		err:  `unrecognized args: \["anything" "else"\]`,
+	}, {
+		info: "--agent-version with --build-agent",
+		args: []string{"--agent-version", "1.1.0", "--build-agent"},
+		err:  `--agent-version and --build-agent can't be used together`,
+	}, {
+		info: "invalid --agent-version value",
+		args: []string{"--agent-version", "foo"},
+		err:  `invalid version "foo"`,
+	}, {
+		info:    "agent-version doesn't match client version major",
+		version: "1.3.3-ubuntu-ppc64el",
+		args:    []string{"--agent-version", "2.3.0"},
+		err:     regexp.QuoteMeta(`this client can only bootstrap 1.3 agents`),
+	}, {
+		info:    "agent-version doesn't match client version minor",
+		version: "1.3.3-ubuntu-ppc64el",
+		args:    []string{"--agent-version", "1.4.0"},
+		err:     regexp.QuoteMeta(`this client can only bootstrap 1.3 agents`),
+	}, {
+		info: "--clouds with --regions",
+		args: []string{"--clouds", "--regions", "aws"},
+		err:  `--clouds and --regions can't be used together`,
+	}, {
+		info: "specifying bootstrap attribute as model-default",
+		args: []string{"--model-default", "bootstrap-timeout=10"},
+		err:  `"bootstrap-timeout" is a bootstrap only attribute, and cannot be set as a model-default`,
+	}, {
+		info: "specifying controller attribute as model-default",
+		args: []string{"--model-default", "api-port=12345"},
+		err:  `"api-port" is a controller attribute, and cannot be set as a model-default`,
+	}, {
+		info: "k8s config on iaas controller",
+		args: []string{"--config", "controller-service-type=loadbalancer"},
+		err:  `"controller-service-type", "controller-external-name" and "controller-external-ips"are only allowed for kubernetes controllers`,
+	}, {
+		info: "controller name cannot be set via config",
+		args: []string{"--config", "controller-name=test"},
+		err:  `controller name cannot be set via config, please use cmd args`,
+	}, {
+		info: "resource-group-name does not support add-model",
+		args: []string{"--config", "resource-group-name=foo", "--add-model", "foo"},
+		err:  `if using resource-group-name "foo" then a workload model cannot be specified as well`,
+	}, {
+		info: "missing storage pool name",
+		args: []string{"--storage-pool", "type=ebs"},
+		err:  `storage pool requires a name`,
+	}, {
+		info: "missing storage pool type",
+		args: []string{"--storage-pool", "name=test"},
+		err:  `storage pool requires a type`,
+	}}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *gc.C) {
 	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "unknown", "my-controller")
@@ -684,8 +694,6 @@ func (s *BootstrapSuite) TestBootstrapAllSpacesAsConstraintsMerged(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapAllConstraintsMerged(c *gc.C) {
-	s.patchVersionAndSeries(c, "jammy")
-
 	var bootstrapFuncs fakeBootstrapFuncs
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
@@ -693,7 +701,7 @@ func (s *BootstrapSuite) TestBootstrapAllConstraintsMerged(c *gc.C) {
 	cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
 		"--config", "juju-ha-space=ha-space", "--config", "juju-mgmt-space=management-space",
-		"--constraints", "spaces=ha-space,random-space","--constraints","mem=4G",
+		"--constraints", "spaces=ha-space,random-space", "--constraints", "mem=4G",
 	)
 
 	bootstrapCons := constraints.MustParse("mem=4G spaces=ha-space,management-space,random-space")

@@ -214,7 +214,7 @@ type bootstrapCommand struct {
 	Constraints              constraints.Value
 	ConstraintsStr           common.ConstraintsFlag
 	BootstrapConstraints     constraints.Value
-	BootstrapConstraintsStr  string
+	BootstrapConstraintsStr  common.BootstrapConstraintsFlag
 	BootstrapSeries          string
 	BootstrapBase            string
 	BootstrapImage           string
@@ -314,7 +314,7 @@ func (c *bootstrapCommand) setControllerName(controllerName string) {
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.Var(&c.ConstraintsStr, "constraints", "Set model constraints")
-	f.StringVar(&c.BootstrapConstraintsStr, "bootstrap-constraints", "", "Specify bootstrap machine constraints")
+	f.Var(&c.BootstrapConstraintsStr, "bootstrap-constraints", "Specify bootstrap machine constraints")
 	f.StringVar(&c.BootstrapSeries, "bootstrap-series", "", "Specify the series of the bootstrap machine (deprecated use bootstrap-base)")
 	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires --bootstrap-constraints specifying architecture)")
@@ -572,8 +572,8 @@ func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 		}
 		c.Constraints = cons
 	}
-	if c.BootstrapConstraintsStr != "" {
-		cons, aliases, err := constraints.ParseWithAliases(c.BootstrapConstraintsStr)
+	if c.BootstrapConstraintsStr.String() != "" {
+		cons, aliases, err := constraints.ParseWithAliases(strings.Join(c.BootstrapConstraintsStr, " "))
 		for k, v := range aliases {
 			allAliases[k] = v
 		}

@@ -18,7 +18,23 @@ import (
 	"github.com/juju/juju/core/constraints"
 )
 
-// ConstraintsFlag records constraints set in bootstrap command.
+// BootstrapConstraintsFlag records constraints set in bootstrap command
+// via bootstrap-constraints flag.
+type BootstrapConstraintsFlag []string
+
+// String implements gnuflag.Value.String.
+func (c *BootstrapConstraintsFlag) String() string {
+	return fmt.Sprintf("%v", *c)
+}
+
+// Set implements gnuflag.Value.Set.
+func (c *BootstrapConstraintsFlag) Set(value string) error {
+	*c = append(*c, value)
+	return nil
+}
+
+// ConstraintsFlag records constraints set in bootstrap command
+// via constraints flag.
 type ConstraintsFlag []string
 
 // String implements gnuflag.Value.String.
