@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/bakeryutil"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremacaroon "github.com/juju/juju/core/macaroon"
+	coremodel "github.com/juju/juju/core/model"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/state"
@@ -46,9 +47,9 @@ type UserService interface {
 	GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error)
 	// GetUserByName returns the user with the given name.
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
-	// UpdateLastLogin updates the last login time for the user with the
+	// UpdateLastModelLogin updates the last login time for the user with the
 	// given name.
-	UpdateLastLogin(ctx context.Context, name string) error
+	UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error
 }
 
 // AgentAuthenticatorFactory is a factory for creating authenticators, which

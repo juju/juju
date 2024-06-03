@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	model "github.com/juju/juju/core/model"
 	user "github.com/juju/juju/core/user"
 	auth "github.com/juju/juju/internal/auth"
 	gomock "go.uber.org/mock/gomock"
@@ -182,40 +183,40 @@ func (c *MockUserServiceGetUserByNameCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
-// UpdateLastLogin mocks base method.
-func (m *MockUserService) UpdateLastLogin(arg0 context.Context, arg1 string) error {
+// UpdateLastModelLogin mocks base method.
+func (m *MockUserService) UpdateLastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateLastLogin", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdateLastModelLogin", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateLastLogin indicates an expected call of UpdateLastLogin.
-func (mr *MockUserServiceMockRecorder) UpdateLastLogin(arg0, arg1 any) *MockUserServiceUpdateLastLoginCall {
+// UpdateLastModelLogin indicates an expected call of UpdateLastModelLogin.
+func (mr *MockUserServiceMockRecorder) UpdateLastModelLogin(arg0, arg1, arg2 any) *MockUserServiceUpdateLastModelLoginCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastLogin", reflect.TypeOf((*MockUserService)(nil).UpdateLastLogin), arg0, arg1)
-	return &MockUserServiceUpdateLastLoginCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastModelLogin", reflect.TypeOf((*MockUserService)(nil).UpdateLastModelLogin), arg0, arg1, arg2)
+	return &MockUserServiceUpdateLastModelLoginCall{Call: call}
 }
 
-// MockUserServiceUpdateLastLoginCall wrap *gomock.Call
-type MockUserServiceUpdateLastLoginCall struct {
+// MockUserServiceUpdateLastModelLoginCall wrap *gomock.Call
+type MockUserServiceUpdateLastModelLoginCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockUserServiceUpdateLastLoginCall) Return(arg0 error) *MockUserServiceUpdateLastLoginCall {
+func (c *MockUserServiceUpdateLastModelLoginCall) Return(arg0 error) *MockUserServiceUpdateLastModelLoginCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUserServiceUpdateLastLoginCall) Do(f func(context.Context, string) error) *MockUserServiceUpdateLastLoginCall {
+func (c *MockUserServiceUpdateLastModelLoginCall) Do(f func(context.Context, string, model.UUID) error) *MockUserServiceUpdateLastModelLoginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserServiceUpdateLastLoginCall) DoAndReturn(f func(context.Context, string) error) *MockUserServiceUpdateLastLoginCall {
+func (c *MockUserServiceUpdateLastModelLoginCall) DoAndReturn(f func(context.Context, string, model.UUID) error) *MockUserServiceUpdateLastModelLoginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

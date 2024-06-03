@@ -12,6 +12,7 @@ package mocks
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	credential "github.com/juju/juju/core/credential"
 	model "github.com/juju/juju/core/model"
@@ -81,6 +82,45 @@ func (c *MockAccessServiceGetUserByNameCall) Do(f func(context.Context, string) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockAccessServiceGetUserByNameCall) DoAndReturn(f func(context.Context, string) (user.User, error)) *MockAccessServiceGetUserByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// LastModelLogin mocks base method.
+func (m *MockAccessService) LastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) (time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LastModelLogin", arg0, arg1, arg2)
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LastModelLogin indicates an expected call of LastModelLogin.
+func (mr *MockAccessServiceMockRecorder) LastModelLogin(arg0, arg1, arg2 any) *MockAccessServiceLastModelLoginCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastModelLogin", reflect.TypeOf((*MockAccessService)(nil).LastModelLogin), arg0, arg1, arg2)
+	return &MockAccessServiceLastModelLoginCall{Call: call}
+}
+
+// MockAccessServiceLastModelLoginCall wrap *gomock.Call
+type MockAccessServiceLastModelLoginCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAccessServiceLastModelLoginCall) Return(arg0 time.Time, arg1 error) *MockAccessServiceLastModelLoginCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAccessServiceLastModelLoginCall) Do(f func(context.Context, string, model.UUID) (time.Time, error)) *MockAccessServiceLastModelLoginCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAccessServiceLastModelLoginCall) DoAndReturn(f func(context.Context, string, model.UUID) (time.Time, error)) *MockAccessServiceLastModelLoginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

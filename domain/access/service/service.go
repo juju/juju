@@ -5,8 +5,10 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/juju/juju/core/credential"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
@@ -119,10 +121,21 @@ type UserState interface {
 	// satisfies accesserrors.UserNotFound.
 	DisableUserAuthentication(context.Context, string) error
 
-	// UpdateLastLogin will update the last login time for the user.
-	// If no user is found for the supplied user name an error is returned that
-	// satisfies accesserrors.UserNotFound.
-	UpdateLastLogin(context.Context, string) error
+	// UpdateLastModelLogin will update the last login time for the user.
+	// The following error types are possible from this function:
+	// - accesserrors.UserNameNotValid: When the username is not valid.
+	// - accesserrors.UserNotFound: When the user cannot be found.
+	// - modelerrors.NotFound: If no model by the given modelUUID exists.
+	UpdateLastModelLogin(context.Context, string, coremodel.UUID) error
+
+	// LastModelLogin will return the last login time of the specified user.
+	// The following error types are possible from this function:
+	// - accesserrors.UserNameNotValid: When the username is not valid.
+	// - accesserrors.UserNotFound: When the user cannot be found.
+	// - modelerrors.NotFound: If no model by the given modelUUID exists.
+	// - accesserrors.UserNeverAccessedModel: If there is no record of the user
+	// accessing the model.
+	LastModelLogin(context.Context, string, coremodel.UUID) (time.Time, error)
 }
 
 // PermissionState describes retrieval and persistence methods for user

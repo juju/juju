@@ -11,13 +11,17 @@ import (
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/modelmanager"
+	"github.com/juju/juju/apiserver/facades/client/modelmanager/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
 	_ "github.com/juju/juju/internal/provider/ec2"
@@ -38,8 +42,9 @@ type ListModelsWithInfoSuite struct {
 	st   *mockState
 	cred cloud.Credential
 
-	authoriser apiservertesting.FakeAuthorizer
-	adminUser  names.UserTag
+	authoriser        apiservertesting.FakeAuthorizer
+	adminUser         names.UserTag
+	mockAccessService *mocks.MockAccessService
 
 	api *modelmanager.ModelManagerAPI
 
@@ -81,7 +86,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.mockAccessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -90,6 +95,32 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
+}
+
+func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockAccessService = mocks.NewMockAccessService(ctrl)
+	api, err := modelmanager.NewModelManagerAPI(
+		s.st, nil, &mockState{},
+		s.controllerUUID,
+		modelmanager.Services{
+			ServiceFactoryGetter: nil,
+			CloudService: &mockCloudService{
+				clouds: map[string]cloud.Cloud{"dummy": jtesting.DefaultCloud},
+			},
+			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
+			ModelService:         nil,
+			ModelDefaultsService: nil,
+			AccessService:        s.mockAccessService,
+			ObjectStore:          &mockObjectStore{},
+		},
+		state.NoopConfigSchemaSource,
+		nil, nil,
+		common.NewBlockChecker(s.st), s.authoriser, s.st.model,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	s.api = api
+	return ctrl
 }
 
 func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mockModel {
@@ -117,7 +148,7 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 			CredentialService:    apiservertesting.ConstCredentialGetter(&s.cred),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.mockAccessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -129,6 +160,14 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	lastLoginTime := time.Now()
+	s.mockAccessService.EXPECT().LastModelLogin(
+		gomock.Any(),
+		"admin",
+		coremodel.UUID(s.st.ModelUUID()),
+	).Return(lastLoginTime, nil)
+
 	result, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ModelSummaryResults{
@@ -145,6 +184,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 					Life:               "alive",
 					Status:             params.EntityStatus{},
 					Counts:             []params.ModelEntityCount{},
+					UserLastConnection: &lastLoginTime,
 				},
 			},
 		},
@@ -152,6 +192,12 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesWithUserAccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.mockAccessService.EXPECT().LastModelLogin(
+		gomock.Any(),
+		"admin",
+		coremodel.UUID(s.st.ModelUUID()),
+	).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		summary := s.st.model.getModelDetails()
 		summary.Access = permission.AdminAccess
@@ -175,6 +221,12 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithLastConnected(c *gc.
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineCount(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.mockAccessService.EXPECT().LastModelLogin(
+		gomock.Any(),
+		"admin",
+		coremodel.UUID(s.st.ModelUUID()),
+	).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		summary := s.st.model.getModelDetails()
 		summary.MachineCount = int64(64)
@@ -186,6 +238,12 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineCount(c *gc.C
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesWithCoreCount(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.mockAccessService.EXPECT().LastModelLogin(
+		gomock.Any(),
+		"admin",
+		coremodel.UUID(s.st.ModelUUID()),
+	).Return(time.Time{}, accesserrors.UserNeverAccessedModel)
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		summary := s.st.model.getModelDetails()
 		summary.CoreCount = int64(43)
@@ -198,10 +256,15 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesWithCoreCount(c *gc.C) {
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesWithMachineAndUserDetails(c *gc.C) {
 	now := time.Now()
+	defer s.setupMocks(c).Finish()
+	s.mockAccessService.EXPECT().LastModelLogin(
+		gomock.Any(),
+		"admin",
+		coremodel.UUID(s.st.ModelUUID()),
+	).Return(now, nil)
 	s.st.modelDetailsForUser = func() ([]state.ModelSummary, error) {
 		summary := s.st.model.getModelDetails()
 		summary.Access = permission.AdminAccess
-		summary.UserLastConnection = &now
 		summary.MachineCount = int64(10)
 		summary.CoreCount = int64(42)
 		return []state.ModelSummary{summary}, nil

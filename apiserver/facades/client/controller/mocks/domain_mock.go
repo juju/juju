@@ -12,8 +12,10 @@ package mocks
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	controller "github.com/juju/juju/controller"
+	model "github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
 	access "github.com/juju/juju/domain/access"
 	gomock "go.uber.org/mock/gomock"
@@ -40,6 +42,45 @@ func NewMockControllerAccessService(ctrl *gomock.Controller) *MockControllerAcce
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockControllerAccessService) EXPECT() *MockControllerAccessServiceMockRecorder {
 	return m.recorder
+}
+
+// LastModelLogin mocks base method.
+func (m *MockControllerAccessService) LastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) (time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LastModelLogin", arg0, arg1, arg2)
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LastModelLogin indicates an expected call of LastModelLogin.
+func (mr *MockControllerAccessServiceMockRecorder) LastModelLogin(arg0, arg1, arg2 any) *MockControllerAccessServiceLastModelLoginCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastModelLogin", reflect.TypeOf((*MockControllerAccessService)(nil).LastModelLogin), arg0, arg1, arg2)
+	return &MockControllerAccessServiceLastModelLoginCall{Call: call}
+}
+
+// MockControllerAccessServiceLastModelLoginCall wrap *gomock.Call
+type MockControllerAccessServiceLastModelLoginCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockControllerAccessServiceLastModelLoginCall) Return(arg0 time.Time, arg1 error) *MockControllerAccessServiceLastModelLoginCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockControllerAccessServiceLastModelLoginCall) Do(f func(context.Context, string, model.UUID) (time.Time, error)) *MockControllerAccessServiceLastModelLoginCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockControllerAccessServiceLastModelLoginCall) DoAndReturn(f func(context.Context, string, model.UUID) (time.Time, error)) *MockControllerAccessServiceLastModelLoginCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // ReadUserAccessLevelForTarget mocks base method.

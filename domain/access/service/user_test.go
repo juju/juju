@@ -11,12 +11,15 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
+	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
@@ -484,14 +487,48 @@ func FuzzGetUser(f *testing.F) {
 	})
 }
 
-// TestUpdateLastLogin tests the happy path for UpdateLastLogin.
-func (s *userServiceSuite) TestUpdateLastLogin(c *gc.C) {
+// TestUpdateLastModelLogin tests the happy path for UpdateLastModelLogin.
+func (s *userServiceSuite) TestUpdateLastModelLogin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.state.EXPECT().UpdateLastModelLogin(gomock.Any(), "name", modelUUID)
 
-	s.state.EXPECT().UpdateLastLogin(gomock.Any(), "name")
-
-	err := s.service().UpdateLastLogin(context.Background(), "name")
+	err := s.service().UpdateLastModelLogin(context.Background(), "name", modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestUpdateLastModelLogin tests a bad username for UpdateLastModelLogin.
+func (s *userServiceSuite) TestUpdateLastModelLoginBadUsername(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.service().UpdateLastModelLogin(context.Background(), "13987*($*($&(*&%(", modelUUID)
+	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
+}
+
+// TestLastModelLogin tests the happy path for LastModelLogin.
+func (s *userServiceSuite) TestLastModelLogin(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	modelUUID := modeltesting.GenModelUUID(c)
+	t := time.Now()
+	s.state.EXPECT().LastModelLogin(gomock.Any(), "name", modelUUID).Return(t, nil)
+
+	lastConnection, err := s.service().LastModelLogin(context.Background(), "name", modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lastConnection, gc.Equals, t)
+}
+
+// TestLastModelLoginBadUsername tests a bad username for LastModelLogin.
+func (s *userServiceSuite) TestLastModelLoginBadUsername(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := s.service().LastModelLogin(context.Background(), "1&(*£*(", "")
+	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
+}
+
+// TestLastModelLoginBadUUID tests a bad UUID given to LastModelLogin.
+func (s *userServiceSuite) TestLastModelLoginBadUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := s.service().LastModelLogin(context.Background(), "name", "bad-uuid")
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
 }
 
 type stringerNotEmpty struct{}

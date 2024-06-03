@@ -12,8 +12,10 @@ package service
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	credential "github.com/juju/juju/core/credential"
+	model "github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
 	access "github.com/juju/juju/domain/access"
@@ -546,6 +548,45 @@ func (c *MockStateGetUserByNameCall) DoAndReturn(f func(context.Context, string)
 	return c
 }
 
+// LastModelLogin mocks base method.
+func (m *MockState) LastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) (time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LastModelLogin", arg0, arg1, arg2)
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LastModelLogin indicates an expected call of LastModelLogin.
+func (mr *MockStateMockRecorder) LastModelLogin(arg0, arg1, arg2 any) *MockStateLastModelLoginCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastModelLogin", reflect.TypeOf((*MockState)(nil).LastModelLogin), arg0, arg1, arg2)
+	return &MockStateLastModelLoginCall{Call: call}
+}
+
+// MockStateLastModelLoginCall wrap *gomock.Call
+type MockStateLastModelLoginCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateLastModelLoginCall) Return(arg0 time.Time, arg1 error) *MockStateLastModelLoginCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateLastModelLoginCall) Do(f func(context.Context, string, model.UUID) (time.Time, error)) *MockStateLastModelLoginCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateLastModelLoginCall) DoAndReturn(f func(context.Context, string, model.UUID) (time.Time, error)) *MockStateLastModelLoginCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ReadAllAccessForUserAndObjectType mocks base method.
 func (m *MockState) ReadAllAccessForUserAndObjectType(arg0 context.Context, arg1 string, arg2 permission.ObjectType) ([]permission.UserAccess, error) {
 	m.ctrl.T.Helper()
@@ -855,40 +896,40 @@ func (c *MockStateSetPasswordHashCall) DoAndReturn(f func(context.Context, strin
 	return c
 }
 
-// UpdateLastLogin mocks base method.
-func (m *MockState) UpdateLastLogin(arg0 context.Context, arg1 string) error {
+// UpdateLastModelLogin mocks base method.
+func (m *MockState) UpdateLastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateLastLogin", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdateLastModelLogin", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateLastLogin indicates an expected call of UpdateLastLogin.
-func (mr *MockStateMockRecorder) UpdateLastLogin(arg0, arg1 any) *MockStateUpdateLastLoginCall {
+// UpdateLastModelLogin indicates an expected call of UpdateLastModelLogin.
+func (mr *MockStateMockRecorder) UpdateLastModelLogin(arg0, arg1, arg2 any) *MockStateUpdateLastModelLoginCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastLogin", reflect.TypeOf((*MockState)(nil).UpdateLastLogin), arg0, arg1)
-	return &MockStateUpdateLastLoginCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastModelLogin", reflect.TypeOf((*MockState)(nil).UpdateLastModelLogin), arg0, arg1, arg2)
+	return &MockStateUpdateLastModelLoginCall{Call: call}
 }
 
-// MockStateUpdateLastLoginCall wrap *gomock.Call
-type MockStateUpdateLastLoginCall struct {
+// MockStateUpdateLastModelLoginCall wrap *gomock.Call
+type MockStateUpdateLastModelLoginCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateUpdateLastLoginCall) Return(arg0 error) *MockStateUpdateLastLoginCall {
+func (c *MockStateUpdateLastModelLoginCall) Return(arg0 error) *MockStateUpdateLastModelLoginCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateLastLoginCall) Do(f func(context.Context, string) error) *MockStateUpdateLastLoginCall {
+func (c *MockStateUpdateLastModelLoginCall) Do(f func(context.Context, string, model.UUID) error) *MockStateUpdateLastModelLoginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateLastLoginCall) DoAndReturn(f func(context.Context, string) error) *MockStateUpdateLastLoginCall {
+func (c *MockStateUpdateLastModelLoginCall) DoAndReturn(f func(context.Context, string, model.UUID) error) *MockStateUpdateLastModelLoginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1339,6 +1380,45 @@ func (c *MockUserStateGetUserByNameCall) DoAndReturn(f func(context.Context, str
 	return c
 }
 
+// LastModelLogin mocks base method.
+func (m *MockUserState) LastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) (time.Time, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LastModelLogin", arg0, arg1, arg2)
+	ret0, _ := ret[0].(time.Time)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LastModelLogin indicates an expected call of LastModelLogin.
+func (mr *MockUserStateMockRecorder) LastModelLogin(arg0, arg1, arg2 any) *MockUserStateLastModelLoginCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LastModelLogin", reflect.TypeOf((*MockUserState)(nil).LastModelLogin), arg0, arg1, arg2)
+	return &MockUserStateLastModelLoginCall{Call: call}
+}
+
+// MockUserStateLastModelLoginCall wrap *gomock.Call
+type MockUserStateLastModelLoginCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockUserStateLastModelLoginCall) Return(arg0 time.Time, arg1 error) *MockUserStateLastModelLoginCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockUserStateLastModelLoginCall) Do(f func(context.Context, string, model.UUID) (time.Time, error)) *MockUserStateLastModelLoginCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockUserStateLastModelLoginCall) DoAndReturn(f func(context.Context, string, model.UUID) (time.Time, error)) *MockUserStateLastModelLoginCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RemoveUser mocks base method.
 func (m *MockUserState) RemoveUser(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -1453,40 +1533,40 @@ func (c *MockUserStateSetPasswordHashCall) DoAndReturn(f func(context.Context, s
 	return c
 }
 
-// UpdateLastLogin mocks base method.
-func (m *MockUserState) UpdateLastLogin(arg0 context.Context, arg1 string) error {
+// UpdateLastModelLogin mocks base method.
+func (m *MockUserState) UpdateLastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateLastLogin", arg0, arg1)
+	ret := m.ctrl.Call(m, "UpdateLastModelLogin", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// UpdateLastLogin indicates an expected call of UpdateLastLogin.
-func (mr *MockUserStateMockRecorder) UpdateLastLogin(arg0, arg1 any) *MockUserStateUpdateLastLoginCall {
+// UpdateLastModelLogin indicates an expected call of UpdateLastModelLogin.
+func (mr *MockUserStateMockRecorder) UpdateLastModelLogin(arg0, arg1, arg2 any) *MockUserStateUpdateLastModelLoginCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastLogin", reflect.TypeOf((*MockUserState)(nil).UpdateLastLogin), arg0, arg1)
-	return &MockUserStateUpdateLastLoginCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLastModelLogin", reflect.TypeOf((*MockUserState)(nil).UpdateLastModelLogin), arg0, arg1, arg2)
+	return &MockUserStateUpdateLastModelLoginCall{Call: call}
 }
 
-// MockUserStateUpdateLastLoginCall wrap *gomock.Call
-type MockUserStateUpdateLastLoginCall struct {
+// MockUserStateUpdateLastModelLoginCall wrap *gomock.Call
+type MockUserStateUpdateLastModelLoginCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockUserStateUpdateLastLoginCall) Return(arg0 error) *MockUserStateUpdateLastLoginCall {
+func (c *MockUserStateUpdateLastModelLoginCall) Return(arg0 error) *MockUserStateUpdateLastModelLoginCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUserStateUpdateLastLoginCall) Do(f func(context.Context, string) error) *MockUserStateUpdateLastLoginCall {
+func (c *MockUserStateUpdateLastModelLoginCall) Do(f func(context.Context, string, model.UUID) error) *MockUserStateUpdateLastModelLoginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserStateUpdateLastLoginCall) DoAndReturn(f func(context.Context, string) error) *MockUserStateUpdateLastLoginCall {
+func (c *MockUserStateUpdateLastModelLoginCall) DoAndReturn(f func(context.Context, string, model.UUID) error) *MockUserStateUpdateLastModelLoginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
