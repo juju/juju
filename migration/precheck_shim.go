@@ -9,6 +9,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
 // PrecheckShim wraps a pair of *state.States to implement PrecheckBackend.
@@ -56,12 +57,12 @@ func (s *precheckShim) AgentVersion() (version.Number, error) {
 }
 
 // AllMachines implements PrecheckBackend.
-func (s *precheckShim) AllMachines() ([]PrecheckMachine, error) {
+func (s *precheckShim) AllMachines() ([]upgradevalidation.Machine, error) {
 	machines, err := s.State.AllMachines()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]PrecheckMachine, len(machines))
+	out := make([]upgradevalidation.Machine, len(machines))
 	for i, machine := range machines {
 		out[i] = machine
 	}

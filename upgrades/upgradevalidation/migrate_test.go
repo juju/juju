@@ -11,8 +11,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 	"github.com/juju/juju/upgrades/upgradevalidation/mocks"
@@ -72,6 +74,16 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju3(c *gc.C) {
 	defer ctrl.Finish()
 
 	modelTag := coretesting.ModelTag
+
+	// - Check for fan networking and containers. Local networking method,
+	// this migration should not be blocked.
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		config.ContainerNetworkingMethod: "local",
+	})
+	cfg, err := config.New(config.NoDefaults, modelAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.model.EXPECT().Config().Return(cfg, nil)
+
 	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudSpec)
 
 	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), s.statePool, s.st, s.model, validators...)
@@ -85,6 +97,19 @@ func (s *migrateSuite) TestValidatorsForModelMigrationSourceJuju31(c *gc.C) {
 	defer ctrl.Finish()
 
 	modelTag := coretesting.ModelTag
+
+	// - Check for fan networking and containers. Fan networking method
+	// but containers deployed, this migration should not be blocked.
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		config.ContainerNetworkingMethod: "fan",
+		config.FanConfig:                 "10.100.0.0/16=251.0.0.0/8 192.168.0.0/16=252.0.0.0/8",
+	})
+	cfg, err := config.New(config.NoDefaults, modelAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	s.model.EXPECT().Config().Return(cfg, nil)
+	// No machines deployed
+	s.st.EXPECT().AllMachines()
+
 	validators := upgradevalidation.ValidatorsForModelMigrationSource(cloudSpec)
 
 	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), s.statePool, s.st, s.model, validators...)

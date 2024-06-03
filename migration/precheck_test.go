@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
@@ -748,7 +749,7 @@ func (*precheckBaseSuite) checkMachineVersionsDontMatch(c *gc.C, runPrecheck pre
 
 func newHappyBackend() *fakeBackend {
 	return &fakeBackend{
-		machines: []migration.PrecheckMachine{
+		machines: []upgradevalidation.Machine{
 			&fakeMachine{id: "0"},
 			&fakeMachine{id: "1"},
 		},
@@ -770,7 +771,7 @@ func newHappyBackend() *fakeBackend {
 
 func newBackendWithMismatchingTools() *fakeBackend {
 	return &fakeBackend{
-		machines: []migration.PrecheckMachine{
+		machines: []upgradevalidation.Machine{
 			&fakeMachine{id: "0"},
 			&fakeMachine{id: "1", version: version.MustParseBinary("1.3.1-ubuntu-amd64")},
 		},
@@ -779,7 +780,7 @@ func newBackendWithMismatchingTools() *fakeBackend {
 
 func newBackendWithRebootingMachine() *fakeBackend {
 	return &fakeBackend{
-		machines: []migration.PrecheckMachine{
+		machines: []upgradevalidation.Machine{
 			&fakeMachine{id: "0", rebootAction: state.ShouldReboot},
 		},
 	}
@@ -787,7 +788,7 @@ func newBackendWithRebootingMachine() *fakeBackend {
 
 func newBackendWithDyingMachine() *fakeBackend {
 	return &fakeBackend{
-		machines: []migration.PrecheckMachine{
+		machines: []upgradevalidation.Machine{
 			&fakeMachine{id: "0", life: state.Dying},
 			&fakeMachine{id: "1"},
 		},
@@ -796,7 +797,7 @@ func newBackendWithDyingMachine() *fakeBackend {
 
 func newBackendWithDownMachine() *fakeBackend {
 	return &fakeBackend{
-		machines: []migration.PrecheckMachine{
+		machines: []upgradevalidation.Machine{
 			&fakeMachine{id: "0", status: status.Down},
 			&fakeMachine{id: "1"},
 		},
@@ -805,7 +806,7 @@ func newBackendWithDownMachine() *fakeBackend {
 
 func newBackendWithProvisioningMachine() *fakeBackend {
 	return &fakeBackend{
-		machines: []migration.PrecheckMachine{
+		machines: []upgradevalidation.Machine{
 			&fakeMachine{id: "0", instanceStatus: status.Provisioning},
 			&fakeMachine{id: "1"},
 		},
@@ -833,7 +834,7 @@ type fakeBackend struct {
 	migrationActive    bool
 	migrationActiveErr error
 
-	machines       []migration.PrecheckMachine
+	machines       []upgradevalidation.Machine
 	allMachinesErr error
 
 	apps       []migration.PrecheckApplication
@@ -886,7 +887,7 @@ func (b *fakeBackend) CloudCredential(_ names.CloudCredentialTag) (state.Credent
 	return b.credentials, b.credentialsErr
 }
 
-func (b *fakeBackend) AllMachines() ([]migration.PrecheckMachine, error) {
+func (b *fakeBackend) AllMachines() ([]upgradevalidation.Machine, error) {
 	return b.machines, b.allMachinesErr
 }
 
@@ -1007,6 +1008,13 @@ func (m *fakeModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	return names.CloudCredentialTag{}, false
 }
 
+func (m *fakeModel) Config() (*config.Config, error) {
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		config.ContainerNetworkingMethod: "local",
+	})
+	return config.New(config.NoDefaults, modelAttrs)
+}
+
 type fakeMachine struct {
 	id             string
 	version        version.Binary
@@ -1059,6 +1067,10 @@ func (m *fakeMachine) ShouldRebootOrShutdown() (state.RebootAction, error) {
 		return state.ShouldDoNothing, nil
 	}
 	return m.rebootAction, nil
+}
+
+func (m *fakeMachine) Containers() ([]string, error) {
+	return []string{}, nil
 }
 
 type fakeApp struct {

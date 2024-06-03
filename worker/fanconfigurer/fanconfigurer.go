@@ -44,15 +44,13 @@ func (fc *FanConfigurer) processNewConfig() error {
 	defer fc.mu.Unlock()
 
 	fanConfig, err := fc.config.Facade.FanConfig()
-	if err != nil {
+	if errors.Is(err, errors.NotImplemented) {
 		// NOTE(nvinuesa - 2024/05/27): This worker and this facade is being
 		// removed in 4.0, and therefore we check for NotImplemented errors
 		// and not fail in that case, to keep 3.6->4.0 migrations working.
-		if errors.Is(err, errors.NotImplemented) {
-			logger.Tracef("The fanconfigurer facade is not implemented, this is probably a migration from 3.6 to 4.0 in which case this is normal")
-		} else {
-			return err
-		}
+		logger.Tracef("The fanconfigurer facade is not implemented, this is probably a migration from 3.6 to 4.0 in which case this is normal")
+	} else if err != nil {
+		return err
 	}
 	if len(fanConfig) == 0 {
 		logger.Debugf("Fan not enabled")

@@ -11,7 +11,9 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
 // StatePool represents a point of use interface for getting the state from the
@@ -34,6 +36,7 @@ type State interface {
 	AbortCurrentUpgrade() error
 	ControllerConfig() (controller.Config, error)
 	AllCharmURLs() ([]*string, error)
+	AllMachines() ([]upgradevalidation.Machine, error)
 }
 
 type SystemState interface {
@@ -49,6 +52,7 @@ type Model interface {
 	MigrationMode() state.MigrationMode
 	Type() state.ModelType
 	Life() state.Life
+	Config() (*config.Config, error)
 }
 
 type statePoolShim struct {
@@ -137,6 +141,18 @@ func (s stateShim) AllCharmURLs() ([]*string, error) {
 	return s.PooledState.AllCharmURLs()
 }
 
+func (s stateShim) AllMachines() ([]upgradevalidation.Machine, error) {
+	machines, err := s.State.AllMachines()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out := make([]upgradevalidation.Machine, len(machines))
+	for i, machine := range machines {
+		out[i] = machine
+	}
+	return out, nil
+}
+
 type modelShim struct {
 	*state.Model
 }
@@ -147,4 +163,8 @@ func (s modelShim) IsControllerModel() bool {
 
 func (s modelShim) MigrationMode() state.MigrationMode {
 	return s.Model.MigrationMode()
+}
+
+func (s modelShim) Config() (*config.Config, error) {
+	return s.Model.Config()
 }

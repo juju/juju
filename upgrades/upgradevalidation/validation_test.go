@@ -16,8 +16,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 	"github.com/juju/juju/upgrades/upgradevalidation/mocks"
@@ -423,4 +425,73 @@ func (s *upgradeValidationSuite) TestCheckForCharmStoreCharmsError(c *gc.C) {
 
 	_, err := upgradevalidation.CheckForCharmStoreCharms("", nil, st, nil)
 	c.Assert(errors.Is(err, errors.BadRequest), jc.IsTrue)
+}
+
+func (s *upgradeValidationSuite) TestCheckLocalFanNetworking(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	// - Check for fan networking and containers. Fan networking method
+	// but containers deployed, this migration should not be blocked.
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		config.ContainerNetworkingMethod: "local",
+	})
+	cfg, err := config.New(config.NoDefaults, modelAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	model.EXPECT().Config().Return(cfg, nil)
+
+	blocker, err := upgradevalidation.CheckFanNetworksAndContainers("", nil, st, model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+}
+
+func (s *upgradeValidationSuite) TestCheckFanNetworkingAndNoContainers(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	// - Check for fan networking and containers. Fan networking method
+	// but containers deployed, this migration should not be blocked.
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		config.ContainerNetworkingMethod: "fan",
+		config.FanConfig:                 "10.100.0.0/16=251.0.0.0/8 192.168.0.0/16=252.0.0.0/8",
+	})
+	cfg, err := config.New(config.NoDefaults, modelAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	model.EXPECT().Config().Return(cfg, nil)
+	// No machines deployed
+	st.EXPECT().AllMachines()
+
+	blocker, err := upgradevalidation.CheckFanNetworksAndContainers("", nil, st, model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.IsNil)
+}
+
+func (s *upgradeValidationSuite) TestCheckFanNetworkingAndOneContainer(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	st := mocks.NewMockState(ctrl)
+	model := mocks.NewMockModel(ctrl)
+	// - Check for fan networking and containers. Fan networking method
+	// but containers deployed, this migration should not be blocked.
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		config.ContainerNetworkingMethod: "fan",
+		config.FanConfig:                 "10.100.0.0/16=251.0.0.0/8 192.168.0.0/16=252.0.0.0/8",
+	})
+	cfg, err := config.New(config.NoDefaults, modelAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	model.EXPECT().Config().Return(cfg, nil)
+	// One container.
+	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().Containers().Return([]string{"somecontainer-id"}, nil)
+	st.EXPECT().AllMachines().Return([]upgradevalidation.Machine{machine}, nil)
+
+	blocker, err := upgradevalidation.CheckFanNetworksAndContainers("", nil, st, model)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(blocker, gc.NotNil)
+	c.Assert(blocker.Error(), gc.Equals, `cannot migrate models with container-networking-method=fan and containers deployed`)
 }

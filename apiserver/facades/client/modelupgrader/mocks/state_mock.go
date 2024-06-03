@@ -14,7 +14,9 @@ import (
 
 	modelupgrader "github.com/juju/juju/apiserver/facades/client/modelupgrader"
 	controller "github.com/juju/juju/controller"
+	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
+	upgradevalidation "github.com/juju/juju/upgrades/upgradevalidation"
 	names "github.com/juju/names/v5"
 	replicaset "github.com/juju/replicaset/v3"
 	version "github.com/juju/version/v2"
@@ -139,6 +141,21 @@ func (m *MockState) AllCharmURLs() ([]*string, error) {
 func (mr *MockStateMockRecorder) AllCharmURLs() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllCharmURLs", reflect.TypeOf((*MockState)(nil).AllCharmURLs))
+}
+
+// AllMachines mocks base method.
+func (m *MockState) AllMachines() ([]upgradevalidation.Machine, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllMachines")
+	ret0, _ := ret[0].([]upgradevalidation.Machine)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllMachines indicates an expected call of AllMachines.
+func (mr *MockStateMockRecorder) AllMachines() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachines", reflect.TypeOf((*MockState)(nil).AllMachines))
 }
 
 // AllModelUUIDs mocks base method.
@@ -299,6 +316,21 @@ func (m *MockModel) AgentVersion() (version.Number, error) {
 func (mr *MockModelMockRecorder) AgentVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockModel)(nil).AgentVersion))
+}
+
+// Config mocks base method.
+func (m *MockModel) Config() (*config.Config, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Config")
+	ret0, _ := ret[0].(*config.Config)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Config indicates an expected call of Config.
+func (mr *MockModelMockRecorder) Config() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockModel)(nil).Config))
 }
 
 // IsControllerModel mocks base method.

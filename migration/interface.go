@@ -11,8 +11,10 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades/upgradevalidation"
 )
 
 // PrecheckBackend defines the interface to query Juju's state
@@ -24,7 +26,7 @@ type PrecheckBackend interface {
 	AllModelUUIDs() ([]string, error)
 	IsUpgrading() (bool, error)
 	IsMigrationActive(string) (bool, error)
-	AllMachines() ([]PrecheckMachine, error)
+	AllMachines() ([]upgradevalidation.Machine, error)
 	AllApplications() ([]PrecheckApplication, error)
 	AllRelations() ([]PrecheckRelation, error)
 	AllCharmURLs() ([]*string, error)
@@ -52,17 +54,7 @@ type PrecheckModel interface {
 	MigrationMode() state.MigrationMode
 	AgentVersion() (version.Number, error)
 	CloudCredentialTag() (names.CloudCredentialTag, bool)
-}
-
-// PrecheckMachine describes the state interface for a machine needed
-// by migration prechecks.
-type PrecheckMachine interface {
-	Id() string
-	AgentTools() (*tools.Tools, error)
-	Life() state.Life
-	Status() (status.StatusInfo, error)
-	InstanceStatus() (status.StatusInfo, error)
-	ShouldRebootOrShutdown() (state.RebootAction, error)
+	Config() (*config.Config, error)
 }
 
 // PrecheckApplication describes the state interface for an

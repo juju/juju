@@ -27,11 +27,13 @@ import (
 	registrymocks "github.com/juju/juju/docker/registry/mocks"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades/upgradevalidation"
@@ -578,6 +580,10 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 	model.EXPECT().Life().Return(state.Alive)
 	model.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	model.EXPECT().IsControllerModel().Return(false).AnyTimes()
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		config.ContainerNetworkingMethod: "local",
+	})
+	model.EXPECT().Config().Return(config.New(config.NoDefaults, modelAttrs))
 	s.statePool.EXPECT().ControllerModel().Return(ctrlModel, nil)
 	ctrlModel.EXPECT().AgentVersion().Return(version.MustParse(ctrlModelVers), nil)
 	if ctrlModelVers != "3.9.99" {
@@ -692,6 +698,10 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	server.EXPECT().ServerVersion().Return("4.0")
 	model.EXPECT().Owner().Return(names.NewUserTag("admin"))
 	model.EXPECT().Name().Return("model-1")
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		config.ContainerNetworkingMethod: "local",
+	})
+	model.EXPECT().Config().Return(config.New(config.NoDefaults, modelAttrs))
 
 	result, err := api.UpgradeModel(
 		params.UpgradeModelParams{
