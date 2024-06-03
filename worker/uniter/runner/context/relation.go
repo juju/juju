@@ -80,6 +80,7 @@ type ContextRelation struct {
 	ru           RelationUnit
 	relationId   int
 	endpointName string
+	broken       bool
 
 	// settings allows read and write access to the relation unit settings.
 	settings *uniter.Settings
@@ -93,12 +94,13 @@ type ContextRelation struct {
 
 // NewContextRelation creates a new context for the given relation unit.
 // The unit-name keys of members supplies the initial membership.
-func NewContextRelation(ru RelationUnit, cache *RelationCache) *ContextRelation {
+func NewContextRelation(ru RelationUnit, cache *RelationCache, broken bool) *ContextRelation {
 	return &ContextRelation{
 		ru:           ru,
 		relationId:   ru.Relation().Id(),
 		endpointName: ru.Endpoint().Name,
 		cache:        cache,
+		broken:       broken,
 	}
 }
 
