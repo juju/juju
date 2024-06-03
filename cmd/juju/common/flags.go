@@ -33,8 +33,8 @@ func (c *BootstrapConstraintsFlag) Set(value string) error {
 	return nil
 }
 
-// ConstraintsFlag records constraints set in add-machine, bootstrap and deploy commands
-// via constraints flag.
+// ConstraintsFlag records constraints set in add-machine, bootstrap, deploy
+// and enable-ha commands via constraints flag.
 type ConstraintsFlag []string
 
 // String implements gnuflag.Value.String.
