@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -27,21 +27,11 @@ type ProxyUpdaterV2 interface {
 	WatchForProxyConfigAndAPIHostPortChanges(ctx context.Context, args params.Entities) params.NotifyWatchResults
 }
 
-// ControllerConfigService represents a way to get controller config.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
 var _ ProxyUpdaterV2 = (*API)(nil)
 
 // newFacadeBase provides the signature required for facade registration
 // and creates a v2 facade.
 func newFacadeBase(ctx facade.ModelContext) (*API, error) {
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, err
-	}
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -49,8 +39,8 @@ func newFacadeBase(ctx facade.ModelContext) (*API, error) {
 
 	return NewAPIV2(
 		systemState,
-		model,
 		ctx.ServiceFactory().ControllerConfig(),
+		ctx.ServiceFactory().Config(),
 		ctx.Resources(),
 		ctx.Auth(),
 	)
@@ -58,18 +48,11 @@ func newFacadeBase(ctx facade.ModelContext) (*API, error) {
 
 // API provides the ProxyUpdater version 2 facade.
 type API struct {
-	backend                 Backend
 	controller              ControllerBackend
 	controllerConfigService ControllerConfigService
+	modelConfigService      ModelConfigService
 	resources               facade.Resources
 	authorizer              facade.Authorizer
-}
-
-// Backend defines the model state methods this facade needs,
-// so they can be mocked for testing.
-type Backend interface {
-	ModelConfig(context.Context) (*config.Config, error)
-	WatchForModelConfigChanges() state.NotifyWatcher
 }
 
 // ControllerBackend defines the controller state methods this facade needs,
@@ -82,8 +65,8 @@ type ControllerBackend interface {
 // NewAPIV2 creates a new server-side API facade with the given Backing.
 func NewAPIV2(
 	controller ControllerBackend,
-	backend Backend,
 	controllerConfigService ControllerConfigService,
+	modelConfigService ModelConfigService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
@@ -91,9 +74,9 @@ func NewAPIV2(
 		return nil, apiservererrors.ErrPerm
 	}
 	return &API{
-		backend:                 backend,
 		controller:              controller,
 		controllerConfigService: controllerConfigService,
+		modelConfigService:      modelConfigService,
 		resources:               resources,
 		authorizer:              authorizer,
 	}, nil
@@ -102,8 +85,20 @@ func NewAPIV2(
 func (api *API) oneWatch(ctx context.Context) params.NotifyWatchResult {
 	var result params.NotifyWatchResult
 
+	modelConfigWatcher, err := api.modelConfigService.Watch()
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
+
+	modelConfigNotifyWatcher, err := watcher.Normalise(modelConfigWatcher)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+		return result
+	}
+
 	watch, err := eventsource.NewMultiNotifyWatcher(ctx,
-		api.backend.WatchForModelConfigChanges(),
+		modelConfigNotifyWatcher,
 		api.controller.WatchAPIHostPortsForAgents(),
 	)
 	if err != nil {
@@ -174,7 +169,7 @@ func (api *API) authEntities(args params.Entities) (params.ErrorResults, bool) {
 
 func (api *API) proxyConfig(ctx context.Context) params.ProxyConfigResult {
 	var result params.ProxyConfigResult
-	config, err := api.backend.ModelConfig(ctx)
+	config, err := api.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 		return result

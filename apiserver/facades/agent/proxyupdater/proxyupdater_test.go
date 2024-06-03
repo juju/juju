@@ -11,6 +11,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,7 +19,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -32,6 +33,9 @@ type ProxyUpdaterSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 	facade     *proxyupdater.API
 	tag        names.MachineTag
+
+	modelConfigService      *MockModelConfigService
+	controllerConfigService *MockControllerConfigService
 }
 
 var _ = gc.Suite(&ProxyUpdaterSuite{})
@@ -52,25 +56,44 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	s.state = &stubBackend{}
 	s.state.SetUp(c)
 	s.AddCleanup(func(_ *gc.C) { s.state.Kill() })
+}
 
-	api, err := proxyupdater.NewAPIV2(s.state, s.state, &stubControllerConfigService{}, s.resources, s.authorizer)
+func (s *ProxyUpdaterSuite) setupAPI(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+
+	api, err := proxyupdater.NewAPIV2(s.state, s.controllerConfigService, s.modelConfigService, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(api, gc.NotNil)
 	s.facade = api
 
 	// Shouldn't have any calls yet
 	apiservertesting.CheckMethodCalls(c, s.state.Stub)
+
+	return ctrl
 }
 
 func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	// WatchForProxyConfigAndAPIHostPortChanges combines WatchForModelConfigChanges
-	// and WatchAPIHostPorts. Check that they are both called and we get the
+	// and WatchAPIHostPorts. Check that they are both called.
+
+	// Create fake model config watcher preloaded with one item in the channel
+	modelConfigChanges := make(chan []string, 1)
+	modelConfigChanges <- []string{}
+	modelConfigWatcher := watchertest.NewMockStringsWatcher(modelConfigChanges)
+	defer modelConfigWatcher.Kill()
+	s.modelConfigService.EXPECT().Watch().Return(modelConfigWatcher, nil)
+
 	result := s.facade.WatchForProxyConfigAndAPIHostPortChanges(context.Background(), s.oneEntity())
 	c.Assert(result.Results, gc.HasLen, 1)
 	c.Assert(result.Results[0].Error, gc.IsNil)
 
 	s.state.Stub.CheckCallNames(c,
-		"WatchForModelConfigChanges",
 		"WatchAPIHostPortsForAgents",
 	)
 
@@ -97,14 +120,20 @@ func (s *ProxyUpdaterSuite) oneEntity() params.Entities {
 }
 
 func (s *ProxyUpdaterSuite) TestMirrorConfig(c *gc.C) {
-	s.state.SetModelConfig(coretesting.Attrs{
-		"apt-mirror": "http://mirror",
-	})
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(coretesting.CustomModelConfig(c,
+		coretesting.Attrs{
+			"apt-mirror": "http://mirror",
+		},
+	), nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
+
 	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
 
 	s.state.Stub.CheckCallNames(c,
-		"ModelConfig",
 		"APIHostPortsForAgents",
 	)
 
@@ -113,11 +142,22 @@ func (s *ProxyUpdaterSuite) TestMirrorConfig(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
-	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
-	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
 
+	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(coretesting.CustomModelConfig(c,
+		coretesting.Attrs{
+			"http-proxy":      "http proxy",
+			"https-proxy":     "https proxy",
+			"apt-http-proxy":  "apt http proxy",
+			"apt-https-proxy": "apt https proxy",
+		},
+	), nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
+
+	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
-		"ModelConfig",
 		"APIHostPortsForAgents",
 	)
 
@@ -136,17 +176,21 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfigJujuProxy(c *gc.C) {
-	s.state.SetModelConfig(coretesting.Attrs{
-		"juju-http-proxy":  "http proxy",
-		"juju-https-proxy": "https proxy",
-		"apt-http-proxy":   "apt http proxy",
-		"apt-https-proxy":  "apt https proxy",
-	})
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(coretesting.CustomModelConfig(c,
+		coretesting.Attrs{
+			"juju-http-proxy":  "http proxy",
+			"juju-https-proxy": "https proxy",
+			"apt-http-proxy":   "apt http proxy",
+			"apt-https-proxy":  "apt https proxy",
+		},
+	), nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
 
 	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
-
 	s.state.Stub.CheckCallNames(c,
-		"ModelConfig",
 		"APIHostPortsForAgents",
 	)
 
@@ -168,17 +212,23 @@ func (s *ProxyUpdaterSuite) TestProxyConfigJujuProxy(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
-	s.state.SetModelConfig(coretesting.Attrs{
-		"http-proxy":      "http proxy",
-		"https-proxy":     "https proxy",
-		"apt-http-proxy":  "apt http proxy",
-		"apt-https-proxy": "apt https proxy",
-		"no-proxy":        "9.9.9.9",
-	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(coretesting.CustomModelConfig(c,
+		coretesting.Attrs{
+			"http-proxy":      "http proxy",
+			"https-proxy":     "https proxy",
+			"apt-http-proxy":  "apt http proxy",
+			"apt-https-proxy": "apt https proxy",
+			"no-proxy":        "9.9.9.9",
+		},
+	), nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
+
 	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
-		"ModelConfig",
 		"APIHostPortsForAgents",
 	)
 
@@ -194,17 +244,23 @@ func (s *ProxyUpdaterSuite) TestProxyConfigExtendsExisting(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	// Check that the ProxyConfig combines data from ModelConfig and APIHostPorts
-	s.state.SetModelConfig(coretesting.Attrs{
-		"http-proxy":      "http proxy",
-		"https-proxy":     "https proxy",
-		"apt-http-proxy":  "apt http proxy",
-		"apt-https-proxy": "apt https proxy",
-		"no-proxy":        "0.1.2.3",
-	})
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(coretesting.CustomModelConfig(c,
+		coretesting.Attrs{
+			"http-proxy":      "http proxy",
+			"https-proxy":     "https proxy",
+			"apt-http-proxy":  "apt http proxy",
+			"apt-https-proxy": "apt https proxy",
+			"no-proxy":        "0.1.2.3",
+		},
+	), nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
+
 	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
-		"ModelConfig",
 		"APIHostPortsForAgents",
 	)
 
@@ -220,15 +276,21 @@ func (s *ProxyUpdaterSuite) TestProxyConfigNoDuplicates(c *gc.C) {
 }
 
 func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *gc.C) {
-	s.state.SetModelConfig(coretesting.Attrs{
-		"snap-http-proxy":       "http proxy",
-		"snap-https-proxy":      "https proxy",
-		"snap-store-proxy":      "store proxy",
-		"snap-store-assertions": "trust us",
-	})
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(coretesting.CustomModelConfig(c,
+		coretesting.Attrs{
+			"snap-http-proxy":       "http proxy",
+			"snap-https-proxy":      "https proxy",
+			"snap-store-proxy":      "store proxy",
+			"snap-store-assertions": "trust us",
+		},
+	), nil)
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(coretesting.FakeControllerConfig(), nil)
+
 	cfg := s.facade.ProxyConfig(context.Background(), s.oneEntity())
 	s.state.Stub.CheckCallNames(c,
-		"ModelConfig",
 		"APIHostPortsForAgents",
 	)
 
@@ -245,46 +307,18 @@ func (s *ProxyUpdaterSuite) TestSnapProxyConfig(c *gc.C) {
 
 type stubBackend struct {
 	*testing.Stub
-
-	EnvConfig   *config.Config
-	c           *gc.C
-	configAttrs coretesting.Attrs
-	hpWatcher   workertest.NotAWatcher
-	confWatcher workertest.NotAWatcher
+	c         *gc.C
+	hpWatcher workertest.NotAWatcher
 }
 
 func (sb *stubBackend) SetUp(c *gc.C) {
 	sb.Stub = &testing.Stub{}
 	sb.c = c
-	sb.configAttrs = coretesting.Attrs{
-		"http-proxy":      "http proxy",
-		"https-proxy":     "https proxy",
-		"apt-http-proxy":  "apt http proxy",
-		"apt-https-proxy": "apt https proxy",
-	}
 	sb.hpWatcher = workertest.NewFakeWatcher(1, 1)
-	sb.confWatcher = workertest.NewFakeWatcher(1, 1)
 }
 
 func (sb *stubBackend) Kill() {
 	sb.hpWatcher.Kill()
-	sb.confWatcher.Kill()
-}
-
-func (sb *stubBackend) SetModelConfig(ca coretesting.Attrs) {
-	sb.configAttrs = ca
-}
-
-func (sb *stubBackend) ModelConfig(ctx context.Context) (*config.Config, error) {
-	sb.MethodCall(sb, "ModelConfig")
-	if err := sb.NextErr(); err != nil {
-		return nil, err
-	}
-	return coretesting.CustomModelConfig(sb.c, sb.configAttrs), nil
-}
-
-func (sb *stubBackend) ControllerConfig() (controller.Config, error) {
-	return coretesting.FakeControllerConfig(), nil
 }
 
 func (sb *stubBackend) APIHostPortsForAgents(_ controller.Config) ([]network.SpaceHostPorts, error) {
@@ -303,15 +337,4 @@ func (sb *stubBackend) APIHostPortsForAgents(_ controller.Config) ([]network.Spa
 func (sb *stubBackend) WatchAPIHostPortsForAgents() state.NotifyWatcher {
 	sb.MethodCall(sb, "WatchAPIHostPortsForAgents")
 	return sb.hpWatcher
-}
-
-func (sb *stubBackend) WatchForModelConfigChanges() state.NotifyWatcher {
-	sb.MethodCall(sb, "WatchForModelConfigChanges")
-	return sb.confWatcher
-}
-
-type stubControllerConfigService struct{}
-
-func (s *stubControllerConfigService) ControllerConfig(ctx context.Context) (controller.Config, error) {
-	return coretesting.FakeControllerConfig(), nil
 }
