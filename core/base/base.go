@@ -124,6 +124,25 @@ func (b Base) IsCompatible(other Base) bool {
 	return b.OS == other.OS && b.Channel.Track == other.Channel.Track
 }
 
+// ubuntuLTSes lists the Ubuntu LTS releases that
+// this version of Juju knows about
+var ubuntuLTSes = []Base{
+	MakeDefaultBase(UbuntuOS, "20.04"),
+	MakeDefaultBase(UbuntuOS, "22.04"),
+	MakeDefaultBase(UbuntuOS, "24.04"),
+}
+
+// IsUbuntuLTS returns true if this base is a recognised
+// Ubuntu LTS.
+func (b Base) IsUbuntuLTS() bool {
+	for _, ubuntuLTS := range ubuntuLTSes {
+		if b.IsCompatible(ubuntuLTS) {
+			return true
+		}
+	}
+	return false
+}
+
 // DisplayString returns the base string ignoring risk.
 func (b Base) DisplayString() string {
 	if b.Channel.Track == "" || b.OS == "" {

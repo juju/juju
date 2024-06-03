@@ -62,7 +62,7 @@ test_model_defaults() {
 		run "run_model_defaults_boolean"
 
 		case "${BOOTSTRAP_PROVIDER-}" in
-		"aws")
+		"ec2")
 			run "run_model_defaults_region_aws"
 			;;
 		*)

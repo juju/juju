@@ -247,20 +247,26 @@ func (w *controllerWatcher) loop() error {
 			if reflect.DeepEqual(newInfo.Addrs, info.Addrs) {
 				continue
 			}
+
 			// API addresses have changed. Save the details to the
 			// local controller and stop the existing notify watcher
 			// and set it to nil, so we'll restart it with the new
 			// addresses.
-			info.Addrs = newInfo.Addrs
 			if err := w.setExternalControllerInfo(crossmodel.ControllerInfo{
 				ControllerTag: w.tag,
 				Alias:         info.Alias,
-				Addrs:         info.Addrs,
+				Addrs:         newInfo.Addrs,
 				CACert:        info.CACert,
 			}); err != nil {
 				return errors.Annotate(err, "caching external controller info")
 			}
-			logger.Infof("new controller info for controller %q: %v", w.tag.Id(), info)
+
+			logger.Infof("new controller info for controller %q: addresses changed: new %v, prev %v", w.tag.Id(), newInfo.Addrs, info.Addrs)
+
+			// Set the new addresses in the info struct so that
+			// we can reuse it in the next iteration.
+			info.Addrs = newInfo.Addrs
+
 			if err := worker.Stop(nw); err != nil {
 				return errors.Trace(err)
 			}
