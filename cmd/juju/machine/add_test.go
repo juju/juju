@@ -181,6 +181,18 @@ func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
 }
 
+func (s *AddMachineSuite) TestParamsPassedOnMultipleConstraints(c *gc.C) {
+	_, err := s.run(c, "--constraints", "mem=8G", "--constraints", "cores=4", "--base=ubuntu@22.04", "zone=nz")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
+
+	param := s.fakeAddMachine.args[0]
+
+	c.Assert(param.Placement.String(), gc.Equals, "fake-uuid:zone=nz")
+	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
+	c.Assert(param.Constraints.String(), gc.Equals, "cores=4 mem=8192M")
+}
+
 func (s *AddMachineSuite) TestParamsPassedOnNTimes(c *gc.C) {
 	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--base=ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
@@ -190,6 +202,19 @@ func (s *AddMachineSuite) TestParamsPassedOnNTimes(c *gc.C) {
 	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
 
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
+	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[1])
+	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[2])
+}
+
+func (s *AddMachineSuite) TestParamsPassedOnNTimesMultipleConstraints(c *gc.C) {
+	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--constraints", "cores=4", "--base=ubuntu@22.04")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.fakeAddMachine.args, gc.HasLen, 3)
+
+	param := s.fakeAddMachine.args[0]
+	c.Assert(param.Base, jc.DeepEquals, &params.Base{Name: "ubuntu", Channel: "22.04/stable"})
+
+	c.Assert(param.Constraints.String(), gc.Equals, "cores=4 mem=8192M")
 	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[1])
 	c.Assert(param, jc.DeepEquals, s.fakeAddMachine.args[2])
 }
