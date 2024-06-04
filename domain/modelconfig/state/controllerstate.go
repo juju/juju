@@ -44,20 +44,7 @@ func (s *ControllerState) SetModelSecretBackend(ctx context.Context, modelUUID c
 	q := `
 SELECT b.uuid AS &SecretBackendInfo.uuid
 FROM   secret_backend b
-WHERE  b.name =
-    CASE $SecretBackendInfo.name
-    WHEN 'auto' THEN
-        CASE (
-            SELECT mt.type FROM model_type mt
-            JOIN   model m on mt.id = m.model_type_id
-            WHERE  m.uuid = $SecretBackendInfo.model_uuid
-        )
-        WHEN 'iaas' THEN 'internal'
-        WHEN 'caas' THEN 'kubernetes'
-        END
-    ELSE
-        $SecretBackendInfo.name
-    END
+WHERE  b.name = $SecretBackendInfo.name
 `
 	backendInfo := SecretBackendInfo{Name: backendName, ModelUUID: modelUUID.String()}
 	stmt, err := s.Prepare(q, backendInfo)

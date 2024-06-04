@@ -86,50 +86,6 @@ func (s *controllerStateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `model not found: model "some-uuid"`)
 }
 
-func (s *controllerStateSuite) TestSetModelSecretBackendAutoIAAS(c *gc.C) {
-	modelUUID := modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "foo")
-	s.createSecretBackend(c)
-
-	st := NewControllerState(s.TxnRunnerFactory())
-	err := st.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
-	c.Assert(err, gc.IsNil)
-
-	err = st.SetModelSecretBackend(context.Background(), modelUUID, "auto")
-	c.Assert(err, gc.IsNil)
-
-	var configuredBackend string
-	row := s.DB().QueryRow(`
-SELECT sb.name
-FROM model_secret_backend msb
-JOIN secret_backend sb ON sb.uuid = msb.secret_backend_uuid
-WHERE model_uuid = ?`[1:], modelUUID)
-	err = row.Scan(&configuredBackend)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(configuredBackend, gc.Equals, "internal")
-}
-
-func (s *controllerStateSuite) TestSetModelSecretBackendAutoCAAS(c *gc.C) {
-	modelUUID := modeltesting.CreateTestCAASModel(c, s.TxnRunnerFactory(), "foo")
-	s.createSecretBackend(c)
-
-	st := NewControllerState(s.TxnRunnerFactory())
-	err := st.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
-	c.Assert(err, gc.IsNil)
-
-	err = st.SetModelSecretBackend(context.Background(), modelUUID, "auto")
-	c.Assert(err, gc.IsNil)
-
-	var configuredBackend string
-	row := s.DB().QueryRow(`
-SELECT sb.name
-FROM model_secret_backend msb
-JOIN secret_backend sb ON sb.uuid = msb.secret_backend_uuid
-WHERE model_uuid = ?`[1:], modelUUID)
-	err = row.Scan(&configuredBackend)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(configuredBackend, gc.Equals, "kubernetes")
-}
-
 func (s *controllerStateSuite) TestGetModelSecretBackendName(c *gc.C) {
 	modelUUID := modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "foo")
 	s.createSecretBackend(c)

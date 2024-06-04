@@ -1237,7 +1237,7 @@ func (s *userStateSuite) TestGetUserUUIDByNameNotFound(c *gc.C) {
 // TestUpdateLastModelLogin asserts that the model_last_login table is updated
 // with the last login time to the model on UpdateLastModelLogin.
 func (s *userStateSuite) TestUpdateLastModelLogin(c *gc.C) {
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-update-last-login-model")
+	modelUUID := modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "test-update-last-login-model")
 	st := NewUserState(s.TxnRunnerFactory())
 	name, adminUUID := s.addTestUser(c, st, "admin")
 
@@ -1279,7 +1279,7 @@ func (s *userStateSuite) TestUpdateLastModelLoginModelNotFound(c *gc.C) {
 }
 
 func (s *userStateSuite) TestLastModelLogin(c *gc.C) {
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-login")
+	modelUUID := modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "test-last-model-login")
 	st := NewUserState(s.TxnRunnerFactory())
 	username1, _ := s.addTestUser(c, st, "user1")
 	username2, _ := s.addTestUser(c, st, "user2")
@@ -1319,7 +1319,7 @@ func (s *userStateSuite) TestLastModelLoginModelNotFound(c *gc.C) {
 }
 
 func (s *userStateSuite) TestLastModelLoginModelUserNeverAccessedModel(c *gc.C) {
-	modelUUID := modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-last-model-login")
+	modelUUID := modeltesting.CreateTestIAASModel(c, s.TxnRunnerFactory(), "test-last-model-login")
 	st := NewUserState(s.TxnRunnerFactory())
 	name, _ := s.addTestUser(c, st, "admin")
 

@@ -11,6 +11,8 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/secrets/provider"
+	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
 
 // SecretBackendState provides access to the state where secret backends are stored.
@@ -23,6 +25,7 @@ type SecretBackendState interface {
 type SecretBackendHandler struct {
 	BackendState SecretBackendState
 	ModelUUID    coremodel.UUID
+	ModelType    coremodel.ModelType
 }
 
 // Name is the handler name.
@@ -55,6 +58,18 @@ func (h SecretBackendHandler) OnSave(ctx context.Context, rawCfg map[string]any)
 
 	// Set the new backend.
 	backendName := fmt.Sprint(val)
+	if backendName == provider.Auto {
+		switch h.ModelType {
+		case coremodel.IAAS:
+			backendName = provider.Internal
+		case coremodel.CAAS:
+			backendName = kubernetes.BackendName
+		default:
+			// Should never happen.
+			return nil, errors.NotValidf("model type %q", h.ModelType)
+		}
+	}
+
 	err = h.BackendState.SetModelSecretBackend(ctx, h.ModelUUID, backendName)
 	if err != nil {
 		return noopRollback, fmt.Errorf("cannot set model %q secret backend to %q: %w", h.ModelUUID, backendName, err)
@@ -69,6 +84,19 @@ func (h SecretBackendHandler) OnLoad(ctx context.Context) (map[string]string, er
 	backendName, err := h.BackendState.GetModelSecretBackendName(ctx, h.ModelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	switch h.ModelType {
+	case coremodel.IAAS:
+		if backendName == provider.Internal {
+			backendName = provider.Auto
+		}
+	case coremodel.CAAS:
+		if backendName == kubernetes.BackendName {
+			backendName = provider.Auto
+		}
+	default:
+		// Should never happen.
+		return nil, errors.NotValidf("model type %q", h.ModelType)
 	}
 	return map[string]string{
 		config.SecretBackendKey: backendName,

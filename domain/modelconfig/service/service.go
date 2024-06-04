@@ -104,17 +104,18 @@ func NewService(
 	}
 }
 
-func (s *Service) configHandlers(modelUUID model.UUID) ([]handlers.ConfigHandler, error) {
+func (s *Service) configHandlers(modelUUID model.UUID, modelType model.ModelType) ([]handlers.ConfigHandler, error) {
 	return []handlers.ConfigHandler{
 		handlers.SecretBackendHandler{
 			BackendState: s.ctrlSt,
 			ModelUUID:    modelUUID,
+			ModelType:    modelType,
 		},
 	}, nil
 }
 
-func (s *Service) runOnLoadHandlers(ctx context.Context, modelUUID model.UUID) (map[string]string, error) {
-	cfgHandlers, err := s.configHandlers(modelUUID)
+func (s *Service) runOnLoadHandlers(ctx context.Context, modelUUID model.UUID, modelType model.ModelType) (map[string]string, error) {
+	cfgHandlers, err := s.configHandlers(modelUUID, modelType)
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up config handlers: %w", err)
 	}
@@ -138,11 +139,11 @@ func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
 		return nil, fmt.Errorf("getting model config from state: %w", err)
 	}
 
-	modelUUID, _, err := s.st.GetModelInfo(ctx)
+	modelUUID, modelType, err := s.st.GetModelInfo(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot load model info")
 	}
-	resultConfig, err := s.runOnLoadHandlers(ctx, modelUUID)
+	resultConfig, err := s.runOnLoadHandlers(ctx, modelUUID, modelType)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot process model config")
 	}
@@ -259,7 +260,9 @@ func (s *Service) reconcileRemovedAttributes(
 	return updates, nil
 }
 
-func (s *Service) runOnSaveHandlers(ctx context.Context, modelUUID model.UUID, newConfigAttrs map[string]any) (rollbacks handlers.Rollbacks, err error) {
+func (s *Service) runOnSaveHandlers(
+	ctx context.Context, modelUUID model.UUID, modelType model.ModelType, newConfigAttrs map[string]any,
+) (rollbacks handlers.Rollbacks, err error) {
 	defer func() {
 		if err != nil {
 			if rbErr := rollbacks.Rollback(ctx); rbErr != nil {
@@ -269,7 +272,7 @@ func (s *Service) runOnSaveHandlers(ctx context.Context, modelUUID model.UUID, n
 		}
 	}()
 
-	cfgHandlers, err := s.configHandlers(modelUUID)
+	cfgHandlers, err := s.configHandlers(modelUUID, modelType)
 	if err != nil {
 		return rollbacks, fmt.Errorf("cannot set up config handlers: %w", err)
 	}
@@ -318,12 +321,12 @@ func (s *Service) SetModelConfig(
 		return fmt.Errorf("validating model config to set for model: %w", err)
 	}
 
-	modelUUID, _, err := s.st.GetModelInfo(ctx)
+	modelUUID, modelType, err := s.st.GetModelInfo(ctx)
 	if err != nil {
 		return errors.Annotate(err, "cannot load model info")
 	}
 	attrs := setCfg.AllAttrs()
-	rollbacks, err := s.runOnSaveHandlers(ctx, modelUUID, attrs)
+	rollbacks, err := s.runOnSaveHandlers(ctx, modelUUID, modelType, attrs)
 	if err != nil {
 		return errors.Annotate(err, "cannot process model config")
 	}
@@ -395,7 +398,7 @@ func (s *Service) UpdateModelConfig(
 		return fmt.Errorf("validating updated model configuration: %w", err)
 	}
 
-	rollbacks, err := s.runOnSaveHandlers(ctx, modelUUID, updates)
+	rollbacks, err := s.runOnSaveHandlers(ctx, modelUUID, modelType, updates)
 	if err != nil {
 		return errors.Annotate(err, "cannot process model config")
 	}

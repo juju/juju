@@ -11,9 +11,9 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type handlerSuite struct {
@@ -30,14 +30,12 @@ func (s *handlerSuite) TestSecretBackendOnLoad(c *gc.C) {
 	st := NewMockSecretBackendState(ctrl)
 	st.EXPECT().GetModelSecretBackendName(gomock.Any(), modelUUID).Return("some-backend", nil)
 
-	ctx, cancel := jujutesting.LongWaitContext()
-	defer cancel()
-
 	h := SecretBackendHandler{
 		BackendState: st,
 		ModelUUID:    modelUUID,
+		ModelType:    model.IAAS,
 	}
-	got, err := h.OnLoad(ctx)
+	got, err := h.OnLoad(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, map[string]string{
 		"secret-backend": "some-backend",
@@ -58,6 +56,7 @@ func (s *handlerSuite) TestSecretBackendOnSaveNoUpdate(c *gc.C) {
 	h := SecretBackendHandler{
 		BackendState: st,
 		ModelUUID:    modelUUID,
+		ModelType:    model.IAAS,
 	}
 	ctx := context.Background()
 	rb, err := h.OnSave(ctx, rawCfg)
@@ -85,6 +84,59 @@ func (s *handlerSuite) TestSecretBackendOnSave(c *gc.C) {
 	h := SecretBackendHandler{
 		BackendState: st,
 		ModelUUID:    modelUUID,
+		ModelType:    model.IAAS,
+	}
+	_, err := h.OnSave(context.Background(), rawCfg)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(rawCfg, jc.DeepEquals, map[string]any{
+		"name": "some-model",
+	})
+}
+
+func (s *handlerSuite) TestSecretBackendOnSaveAutoIAAS(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	st := NewMockSecretBackendState(ctrl)
+	st.EXPECT().GetModelSecretBackendName(gomock.Any(), modelUUID).Return("orig-backend", nil)
+	st.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "internal").Return(nil)
+
+	rawCfg := map[string]any{
+		"name":           "some-model",
+		"secret-backend": "auto",
+	}
+
+	h := SecretBackendHandler{
+		BackendState: st,
+		ModelUUID:    modelUUID,
+		ModelType:    model.IAAS,
+	}
+	_, err := h.OnSave(context.Background(), rawCfg)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(rawCfg, jc.DeepEquals, map[string]any{
+		"name": "some-model",
+	})
+}
+
+func (s *handlerSuite) TestSecretBackendOnSaveAutoCAAS(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	st := NewMockSecretBackendState(ctrl)
+	st.EXPECT().GetModelSecretBackendName(gomock.Any(), modelUUID).Return("orig-backend", nil)
+	st.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "kubernetes").Return(nil)
+
+	rawCfg := map[string]any{
+		"name":           "some-model",
+		"secret-backend": "auto",
+	}
+
+	h := SecretBackendHandler{
+		BackendState: st,
+		ModelUUID:    modelUUID,
+		ModelType:    model.CAAS,
 	}
 	_, err := h.OnSave(context.Background(), rawCfg)
 	c.Check(err, jc.ErrorIsNil)
