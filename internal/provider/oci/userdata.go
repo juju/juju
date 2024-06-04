@@ -18,15 +18,10 @@ type OCIRenderer struct{}
 
 // Renderer is defined in the renderers.ProviderRenderer interface
 func (OCIRenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte, error) {
-	var renderedUdata []byte
-	var err error
-	switch os {
-	case ostype.Ubuntu:
-		renderedUdata, err = renderers.RenderYAML(cfg)
-	default:
-		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
+	if os != ostype.Ubuntu {
+		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os)
 	}
-
+	renderedUdata, err := renderers.RenderYAML(cfg)
 	if err != nil {
 		return nil, err
 	}

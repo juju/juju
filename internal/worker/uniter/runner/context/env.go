@@ -6,9 +6,6 @@ package context
 import (
 	"fmt"
 	"os"
-
-	jujuos "github.com/juju/juju/core/os"
-	"github.com/juju/juju/core/os/ostype"
 )
 
 // Environmenter represent the os environ interface for fetching host level environment
@@ -102,23 +99,9 @@ func ContextDependentEnvVars(env Environmenter) []string {
 	return rval
 }
 
-// OSDependentEnvVars returns the OS-dependent environment variables that
+// UbuntuEnvVars returns the OS-dependent environment variables that
 // should be set for a hook context.
-func OSDependentEnvVars(paths Paths, env Environmenter) []string {
-	switch jujuos.HostOS() {
-	case ostype.Ubuntu:
-		return ubuntuEnv(paths, env)
-	}
-	return nil
-}
-
-func appendPath(paths Paths, env Environmenter) []string {
-	return []string{
-		"PATH=" + paths.GetToolsDir() + ":" + env.Getenv("PATH"),
-	}
-}
-
-func ubuntuEnv(paths Paths, envVars Environmenter) []string {
+func UbuntuEnvVars(paths Paths, envVars Environmenter) []string {
 	path := appendPath(paths, envVars)
 	env := []string{
 		"APT_LISTCHANGES_FRONTEND=none",
@@ -127,4 +110,10 @@ func ubuntuEnv(paths Paths, envVars Environmenter) []string {
 		"TERM=tmux-256color",
 	}
 	return append(env, path...)
+}
+
+func appendPath(paths Paths, env Environmenter) []string {
+	return []string{
+		"PATH=" + paths.GetToolsDir() + ":" + env.Getenv("PATH"),
+	}
 }

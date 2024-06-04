@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/v2"
 	"github.com/juju/utils/v4/arch"
@@ -27,7 +26,7 @@ func (b Base) Validate() error {
 		return errors.NotValidf("base without name")
 	}
 
-	if !validOSForBase.Contains(b.Name) {
+	if b.Name != strings.ToLower(os.Ubuntu.String()) {
 		return errors.NotValidf("os %q", b.Name)
 	}
 	if b.Channel.Empty() {
@@ -89,13 +88,3 @@ func ParseBase(s string, archs ...string) (Base, error) {
 	}
 	return base, nil
 }
-
-// validOSForBase is a string set of valid OS names for a base.
-var validOSForBase = set.NewStrings(
-	strings.ToLower(os.Ubuntu.String()),
-	strings.ToLower(os.CentOS.String()),
-	strings.ToLower(os.Windows.String()),
-	strings.ToLower(os.OSX.String()),
-	strings.ToLower(os.OpenSUSE.String()),
-	strings.ToLower(os.GenericLinux.String()),
-)

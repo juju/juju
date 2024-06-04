@@ -80,15 +80,14 @@ func NewMachineInitReaderFromConfig(cfg MachineInitReaderConfig) InitReader {
 // GetInitConfig returns a map of configuration data used to provision the
 // machine. It is sourced from both Cloud-Init and Curtin data.
 func (r *MachineInitReader) GetInitConfig() (map[string]interface{}, error) {
-	switch ostype.OSTypeForName(r.config.Base.OS) {
-	case ostype.Ubuntu:
-		base, err := utilsos.HostBase()
-		if err != nil || r.config.Base != base {
-			logger.Debugf("not attempting to get init config for %s, base of machine and container differ", r.config.Base.DisplayString())
-			return nil, nil
-		}
-	default:
+	if ostype.OSTypeForName(r.config.Base.OS) != ostype.Ubuntu {
 		logger.Debugf("not attempting to get init config for %s container", r.config.Base.DisplayString())
+		return nil, nil
+	}
+
+	base, err := utilsos.HostBase()
+	if err != nil || r.config.Base != base {
+		logger.Debugf("not attempting to get init config for %s, base of machine and container differ", r.config.Base.DisplayString())
 		return nil, nil
 	}
 

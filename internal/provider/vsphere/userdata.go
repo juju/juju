@@ -15,10 +15,8 @@ import (
 type VsphereRenderer struct{}
 
 func (VsphereRenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte, error) {
-	switch os {
-	case ostype.Ubuntu:
-		return renderers.RenderYAML(cfg, renderers.ToBase64)
-	default:
-		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
+	if os != ostype.Ubuntu {
+		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os)
 	}
+	return renderers.RenderYAML(cfg, renderers.ToBase64)
 }

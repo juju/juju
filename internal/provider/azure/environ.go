@@ -1052,6 +1052,11 @@ func newOSProfile(
 ) (*armcompute.OSProfile, error) {
 	logger.Debugf("creating OS profile for %q", vmName)
 
+	instOS := ostype.OSTypeForName(instanceConfig.Base.OS)
+	if instOS != ostype.Ubuntu {
+		return nil, errors.NotSupportedf("%s", instOS)
+	}
+
 	customData, err := providerinit.ComposeUserData(instanceConfig, nil, AzureRenderer{})
 	if err != nil {
 		return nil, errors.Annotate(err, "composing user data")
@@ -1062,41 +1067,32 @@ func newOSProfile(
 		CustomData:   to.Ptr(string(customData)),
 	}
 
-	instOS := ostype.OSTypeForName(instanceConfig.Base.OS)
-	if err != nil {
-		return nil, errors.Trace(err)
+	// SSH keys are handled by custom data, but must also be
+	// specified in order to forego providing a password, and
+	// disable password authentication.
+	authorizedKeys := instanceConfig.AuthorizedKeys
+	if len(authorizedKeys) == 0 {
+		// Azure requires that machines be provisioned with
+		// either a password or at least one SSH key. We
+		// generate a key-pair to make Azure happy, but throw
+		// away the private key so that nobody will be able
+		// to log into the machine directly unless the keys
+		// are updated with one that Juju tracks.
+		_, public, err := generateSSHKey("")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		authorizedKeys = public
 	}
-	switch instOS {
-	case ostype.Ubuntu:
-		// SSH keys are handled by custom data, but must also be
-		// specified in order to forego providing a password, and
-		// disable password authentication.
-		authorizedKeys := instanceConfig.AuthorizedKeys
-		if len(authorizedKeys) == 0 {
-			// Azure requires that machines be provisioned with
-			// either a password or at least one SSH key. We
-			// generate a key-pair to make Azure happy, but throw
-			// away the private key so that nobody will be able
-			// to log into the machine directly unless the keys
-			// are updated with one that Juju tracks.
-			_, public, err := generateSSHKey("")
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			authorizedKeys = public
-		}
 
-		publicKeys := []*armcompute.SSHPublicKey{{
-			Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
-			KeyData: to.Ptr(authorizedKeys),
-		}}
-		osProfile.AdminUsername = to.Ptr("ubuntu")
-		osProfile.LinuxConfiguration = &armcompute.LinuxConfiguration{
-			DisablePasswordAuthentication: to.Ptr(true),
-			SSH:                           &armcompute.SSHConfiguration{PublicKeys: publicKeys},
-		}
-	default:
-		return nil, errors.NotSupportedf("%s", instOS)
+	publicKeys := []*armcompute.SSHPublicKey{{
+		Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
+		KeyData: to.Ptr(authorizedKeys),
+	}}
+	osProfile.AdminUsername = to.Ptr("ubuntu")
+	osProfile.LinuxConfiguration = &armcompute.LinuxConfiguration{
+		DisablePasswordAuthentication: to.Ptr(true),
+		SSH:                           &armcompute.SSHConfiguration{PublicKeys: publicKeys},
 	}
 	return osProfile, nil
 }

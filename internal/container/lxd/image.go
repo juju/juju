@@ -243,10 +243,8 @@ func isCompatibleVirtType(virtType instance.VirtType, instanceType string) bool 
 }
 
 func constructBaseRemoteAlias(base jujubase.Base, arch string) (string, error) {
-	seriesOS := ostype.OSTypeForName(base.OS)
-	switch seriesOS {
-	case ostype.Ubuntu:
-		return path.Join(base.Channel.Track, arch), nil
+	if ostype.OSTypeForName(base.OS) != ostype.Ubuntu {
+		return "", errors.NotSupportedf("base %q", base.DisplayString())
 	}
-	return "", errors.NotSupportedf("base %q", base.DisplayString())
+	return path.Join(base.Channel.Track, arch), nil
 }
