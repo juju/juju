@@ -472,22 +472,19 @@ func (st State) updateSecret(
 	// so we may as well also include existing metadata as well so simplify
 	// the update statement needed.
 	existingSecretQuery := `
-WITH rev AS (
-    SELECT MAX(revision) AS latest_revision, uuid AS latest_revision_uuid
-    FROM   secret_revision
-    WHERE  secret_id = $secretID.id
-)
-SELECT (sm.secret_id,
-       version,
-       description,
-       auto_prune,
-       rp.policy,
-       rev.latest_revision,
-       rev.latest_revision_uuid) AS (&secretInfo.*),
+SELECT
+       sm.secret_id AS &secretInfo.secret_id,
+       version AS &secretInfo.version,
+       description AS &secretInfo.description,
+       auto_prune AS &secretInfo.auto_prune,
+       rp.policy AS &secretInfo.policy,
+       MAX(sr.revision) AS &secretInfo.latest_revision,
+       sr.uuid AS &secretInfo.latest_revision_uuid,
        (so.owner_kind,
-       so.owner_id,
-       so.label) AS (&secretOwner.*)
-FROM   secret_metadata sm, rev
+        so.owner_id,
+        so.label) AS (&secretOwner.*)
+FROM   secret_metadata sm
+       JOIN secret_revision sr ON sr.secret_id = sm.secret_id
        LEFT JOIN secret_rotate_policy rp ON rp.id = sm.rotate_policy_id
        LEFT JOIN (
           SELECT $ownerKind.model_owner_kind AS owner_kind, '' AS owner_id, label, secret_id
@@ -503,7 +500,8 @@ FROM   secret_metadata sm, rev
           JOIN   unit
           WHERE  unit.uuid = so.unit_uuid
        ) so ON so.secret_id = sm.secret_id
-WHERE  sm.secret_id = $secretID.id`
+WHERE  sm.secret_id = $secretID.id
+GROUP BY sm.secret_id`
 
 	existingSecretStmt, err := st.Prepare(existingSecretQuery, secretID{}, secretInfo{}, secretOwner{}, ownerKindParam)
 	if err != nil {
@@ -655,23 +653,24 @@ WHERE  sm.secret_id = $secretID.id`
 // revision.
 func (st State) markObsoleteRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
 	query, err := st.Prepare(`
-WITH in_use AS (
-    -- revisions that have local consumers.
-    SELECT DISTINCT current_revision FROM secret_unit_consumer suc
-    WHERE  suc.secret_id = $secretRef.secret_id
-    UNION
-    -- revisions that have remote consumers.
-    SELECT DISTINCT current_revision FROM secret_remote_unit_consumer suc
-    WHERE  suc.secret_id = $secretRef.secret_id
-    UNION
-    -- the latest revision.
-    SELECT MAX(revision) FROM secret_revision rev
-    WHERE  rev.secret_id = $secretRef.secret_id
-)
 SELECT sr.uuid AS &secretRevision.uuid
 FROM   secret_revision sr
-WHERE  sr.secret_id = $secretRef.secret_id
-AND    sr.revision NOT IN (SELECT * FROM in_use)`, secretRef{}, secretRevision{})
+       LEFT JOIN (
+           -- revisions that have local consumers.
+           SELECT DISTINCT current_revision AS revision FROM secret_unit_consumer suc
+           WHERE  suc.secret_id = $secretRef.secret_id
+           UNION
+           -- revisions that have remote consumers.
+           SELECT DISTINCT current_revision AS revision FROM secret_remote_unit_consumer suc
+           WHERE  suc.secret_id = $secretRef.secret_id
+           UNION
+           -- the latest revision.
+           SELECT MAX(revision) FROM secret_revision rev
+           WHERE  rev.secret_id = $secretRef.secret_id
+       ) in_use ON sr.revision = in_use.revision
+WHERE sr.secret_id = $secretRef.secret_id
+AND (in_use.revision IS NULL OR in_use.revision = 0);
+`, secretRef{}, secretRevision{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1189,35 +1188,24 @@ func (st State) listSecretsAnyOwner(
 ) ([]*coresecrets.SecretMetadata, error) {
 
 	query := `
-WITH rev AS (
-    SELECT   secret_id, MAX(revision) AS latest_revision
-    FROM     secret_revision
-    GROUP BY secret_id
-),
-exp AS (
-    SELECT   secret_id, expire_time AS latest_expire_time
-    FROM     secret_revision sr
-    JOIN     secret_revision_expire sre ON  sre.revision_uuid = sr.uuid
-    GROUP BY secret_id
-)
-SELECT (sm.secret_id,
-       version,
-       description,
-       auto_prune,
-       create_time,
-       update_time,
-       rp.policy,
-       sr.next_rotation_time,
-       exp.latest_expire_time,
-       rev.latest_revision) AS (&secretInfo.*),
+SELECT sm.secret_id AS &secretInfo.secret_id,
+       sm.version AS &secretInfo.version,
+       sm.description AS &secretInfo.description,
+       sm.auto_prune AS &secretInfo.auto_prune,
+       sm.create_time AS &secretInfo.create_time,
+       sm.update_time AS &secretInfo.update_time,
+       rp.policy AS &secretInfo.policy,
+       sro.next_rotation_time AS &secretInfo.next_rotation_time,
+       sre.expire_time AS &secretInfo.latest_expire_time,
+       MAX(sr.revision) AS &secretInfo.latest_revision,
        (so.owner_kind,
        so.owner_id,
        so.label) AS (&secretOwner.*)
 FROM   secret_metadata sm
-       JOIN rev ON rev.secret_id = sm.secret_id
-       LEFT JOIN exp ON exp.secret_id = sm.secret_id
+       JOIN secret_revision sr ON sm.secret_id = sr.secret_id
+       LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = sr.uuid
        LEFT JOIN secret_rotate_policy rp ON rp.id = sm.rotate_policy_id
-       LEFT JOIN secret_rotation sr ON sr.secret_id = sm.secret_id
+       LEFT JOIN secret_rotation sro ON sro.secret_id = sm.secret_id
        LEFT JOIN (
           SELECT $ownerKind.model_owner_kind AS owner_kind, (SELECT uuid FROM model) AS owner_id, label, secret_id
           FROM   secret_model_owner so
@@ -1244,9 +1232,10 @@ FROM   secret_metadata sm
 		query = query + "\nWHERE sm.secret_id = $secretID.id"
 		queryParams = append(queryParams, secretID{ID: uri.ID})
 	}
-
+	query += "\nGROUP BY sm.secret_id"
 	queryStmt, err := st.Prepare(query, queryTypes...)
 	if err != nil {
+		st.logger.Tracef("failed to prepare err: %v, query: \n%s", err, query)
 		return nil, errors.Trace(err)
 	}
 
@@ -1305,17 +1294,7 @@ func (st State) listCharmSecrets(
 		return nil, errors.New("must supply at least one app owner or unit owner")
 	}
 
-	preQueryParts := []string{`
-WITH rev AS
-    (SELECT  secret_id, MAX(revision) AS latest_revision
-    FROM     secret_revision
-    GROUP BY secret_id),
-exp AS
-    (SELECT  secret_id, expire_time AS latest_expire_time
-    FROM     secret_revision sr
-    JOIN     secret_revision_expire sre ON  sre.revision_uuid = sr.uuid
-    GROUP BY secret_id)`[1:]}
-
+	var preQueryParts []string
 	appOwnerSelect := `
 app_owners AS
     (SELECT $ownerKind.application_owner_kind AS owner_kind, application.name AS owner_id, label, secret_id
@@ -1336,27 +1315,30 @@ unit_owners AS
 	if len(unitOwners) > 0 {
 		preQueryParts = append(preQueryParts, unitOwnerSelect)
 	}
-	queryParts := []string{strings.Join(preQueryParts, ",\n")}
+	var queryParts []string
+	if len(preQueryParts) > 0 {
+		queryParts = append(queryParts, `WITH `+strings.Join(preQueryParts, ",\n"))
+	}
 
 	query := `
-SELECT (sm.secret_id,
-       version,
-       description,
-       auto_prune,
-       rp.policy,
-       sr.next_rotation_time,
-       exp.latest_expire_time,
-       create_time,
-       update_time,
-       rev.latest_revision) AS (&secretInfo.*),
+SELECT sm.secret_id AS &secretInfo.secret_id,
+       sm.version AS &secretInfo.version,
+       sm.description AS &secretInfo.description,
+       sm.auto_prune AS &secretInfo.auto_prune,
+       rp.policy AS &secretInfo.policy,
+       sro.next_rotation_time AS &secretInfo.next_rotation_time,
+       sre.expire_time AS &secretInfo.latest_expire_time,
+       sm.create_time AS &secretInfo.create_time,
+       sm.update_time AS &secretInfo.update_time,
+       MAX(sr.revision) AS &secretInfo.latest_revision,
        (so.owner_kind,
        so.owner_id,
        so.label) AS (&secretOwner.*)
 FROM   secret_metadata sm
-       JOIN rev ON rev.secret_id = sm.secret_id
-       LEFT JOIN exp ON exp.secret_id = sm.secret_id
+       JOIN secret_revision sr ON sr.secret_id = sm.secret_id
+       LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = sr.uuid
        LEFT JOIN secret_rotate_policy rp ON rp.id = sm.rotate_policy_id
-       LEFT JOIN secret_rotation sr ON sr.secret_id = sm.secret_id`
+       LEFT JOIN secret_rotation sro ON sro.secret_id = sm.secret_id`
 
 	queryParts = append(queryParts, query)
 
@@ -1384,8 +1366,7 @@ FROM   secret_metadata sm
     ) so ON so.secret_id = sm.secret_id
 `[1:], strings.Join(ownerParts, "\nUNION\n"))
 
-	queryParts = append(queryParts, ownerJoin)
-
+	queryParts = append(queryParts, ownerJoin, `GROUP BY sm.secret_id`)
 	queryStmt, err := st.Prepare(strings.Join(queryParts, "\n"), queryTypes...)
 	if err != nil {
 		return nil, errors.Trace(err)
