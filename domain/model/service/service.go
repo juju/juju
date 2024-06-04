@@ -17,6 +17,9 @@ import (
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
+	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -42,7 +45,7 @@ type State interface {
 	ModelTypeState
 
 	// Create creates a new model with all of its associated metadata.
-	Create(context.Context, coremodel.ModelType, model.ModelCreationArgs) error
+	Create(context.Context, coremodel.UUID, coremodel.ModelType, model.ModelCreationArgs) error
 
 	// Activate is responsible for setting a model as fully constructed and
 	// indicates the final system state for the model is ready for use.
@@ -180,12 +183,15 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 }
 
 // CreateModel is responsible for creating a new model from start to finish with
-// its associated metadata. The function will return the created model's uuid.
+// its associated metadata. The function will return the created model's id.
 // If the ModelCreationArgs does not have a credential name set then no cloud
 // credential will be associated with model.
 //
 // If the caller has not prescribed a specific agent version to use for the
 // model the current controllers supported agent version will be used.
+//
+// If no secret backend is defined for the created model then one will be
+// determined for the new model.
 //
 // Models created by this function must be activated using the returned
 // ModelActivator.
@@ -198,19 +204,78 @@ func (s *Service) DefaultModelCloudNameAndCredential(
 // model can not be found.
 // - [modelerrors.AgentVersionNotSupported]: When the prescribed agent version
 // cannot be used with this controller.
+// - [secretbackenderrors.NotFound] When the secret backend for the model
+// cannot be found.
 func (s *Service) CreateModel(
 	ctx context.Context,
 	args model.ModelCreationArgs,
-) (func(context.Context) error, error) {
+) (coremodel.UUID, func(context.Context) error, error) {
 	if err := args.Validate(); err != nil {
-		return nil, err
+		return coremodel.UUID(""), nil, fmt.Errorf(
+			"cannot validate model creation args: %w", err,
+		)
 	}
 
+	modelID, err := coremodel.NewUUID()
+	if err != nil {
+		return coremodel.UUID(""), nil, fmt.Errorf(
+			"cannot generate id for model %q: %w", args.Name, err,
+		)
+	}
+
+	activator, err := s.createModel(ctx, modelID, args)
+	return modelID, activator, err
+}
+
+// createModel is responsible for creating a new model from start to finish with
+// its associated metadata. The function takes the model id to be used as part
+// of the creation. This helps serve both new model creation and model
+// importing. If the ModelCreationArgs does not have a credential name set then
+// no cloud credential will be associated with model.
+//
+// If the caller has not prescribed a specific agent version to use for the
+// model the current controllers supported agent version will be used.
+//
+// If no secret backend is defined for the created model then one will be
+// determined for the new model.
+//
+// Models created by this function must be activated using the returned
+// ModelActivator.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.AlreadyExists]: When the model uuid is already in use or a
+// model with the same name and owner already exists.
+// - [errors.NotFound]: When the cloud, cloud region, or credential do not
+// exist.
+// - [github.com/juju/juju/domain/access/errors.NotFound]: When the owner of the
+// model can not be found.
+// - [modelerrors.AgentVersionNotSupported]: When the prescribed agent version
+// cannot be used with this controller.
+// - [secretbackenderrors.NotFound] When the secret backend for the model
+// cannot be found.
+func (s *Service) createModel(
+	ctx context.Context,
+	id coremodel.UUID,
+	args model.ModelCreationArgs,
+) (func(context.Context) error, error) {
 	modelType, err := ModelTypeForCloud(ctx, s.st, args.Cloud)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"determining model type when creating model %q: %w",
 			args.Name, err,
+		)
+	}
+
+	if args.SecretBackend == "" && modelType == coremodel.CAAS {
+		args.SecretBackend = kubernetessecrets.BackendName
+	} else if args.SecretBackend == "" && modelType == coremodel.IAAS {
+		args.SecretBackend = jujusecrets.BackendName
+	} else if args.SecretBackend == "" {
+		return nil, fmt.Errorf(
+			"%w for model type %q when creating model with name %q",
+			secretbackenderrors.NotFound,
+			modelType,
+			args.Name,
 		)
 	}
 
@@ -229,10 +294,51 @@ func (s *Service) CreateModel(
 	args.AgentVersion = agentVersion
 
 	activator := ModelActivator(func(ctx context.Context) error {
-		return s.st.Activate(ctx, args.UUID)
+		return s.st.Activate(ctx, id)
 	})
 
-	return activator, s.st.Create(ctx, modelType, args)
+	return activator, s.st.Create(ctx, id, modelType, args)
+}
+
+// ImportModel is responsible for importing an existing model into this Juju
+// controller. The caller must explicitly specify the agent version that is in
+// use for the imported model.
+//
+// Models created by this function must be activated using the returned
+// ModelActivator.
+//
+// The following error types can be expected to be returned:
+// - [modelerrors.AlreadyExists]: When the model uuid is already in use or a
+// model with the same name and owner already exists.
+// - [errors.NotFound]: When the cloud, cloud region, or credential do not
+// exist.
+// - [github.com/juju/juju/domain/access/errors.NotFound]: When the owner of the
+// model can not be found.
+// - [modelerrors.AgentVersionNotSupported]: When the prescribed agent version
+// cannot be used with this controller or the agent version is set to zero.
+// - [secretbackenderrors.NotFound] When the secret backend for the model
+// cannot be found.
+func (s *Service) ImportModel(
+	ctx context.Context,
+	args model.ModelImportArgs,
+) (func(context.Context) error, error) {
+	if err := args.Validate(); err != nil {
+		return nil, fmt.Errorf(
+			"cannot validate model import args: %w", err,
+		)
+	}
+
+	// If we are importing a model we need to know the agent version in use to
+	// make sure we have tools to support the model and it will work with this
+	// controller.
+	if args.AgentVersion == version.Zero {
+		return nil, fmt.Errorf(
+			"cannot import model with id %q, agent version cannot be zero: %w",
+			args.ID, modelerrors.AgentVersionNotSupported,
+		)
+	}
+
+	return s.createModel(ctx, args.ID, args.ModelCreationArgs)
 }
 
 // Model returns the model associated with the provided uuid.

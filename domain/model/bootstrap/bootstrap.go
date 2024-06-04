@@ -16,7 +16,10 @@ import (
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/domain/model/service"
 	"github.com/juju/juju/domain/model/state"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
+	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
+	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -41,12 +44,28 @@ func (m modelTypeStateFunc) CloudType(c context.Context, n string) (string, erro
 // - errors.NotFound: When the cloud, cloud region, or credential do not exist.
 // - errors.NotValid: When the model uuid is not valid.
 // - [modelerrors.AgentVersionNotSupported]
+// - [usererrors.NotFound] When the model owner does not exist.
+// - [secretbackenderrors.NotFound] When the secret backend for the model
+// cannot be found.
+//
+// CreateModel expects the caller to generate their own model id and pass it to
+// this function. In an ideal world we want to have this stopped and make this
+// function generate a new id and return the value. This can only be achieved
+// once we have the Juju client stop generating id's for controller models in
+// the bootstrap process.
 func CreateModel(
+	modelID coremodel.UUID,
 	args model.ModelCreationArgs,
 ) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 		if err := args.Validate(); err != nil {
-			return fmt.Errorf("model creation args: %w", err)
+			return fmt.Errorf("cannot create model when validating args: %w", err)
+		}
+
+		if err := modelID.Validate(); err != nil {
+			return fmt.Errorf(
+				"cannot create model %q when validating id: %w", args.Name, err,
+			)
 		}
 
 		agentVersion := args.AgentVersion
@@ -70,12 +89,25 @@ func CreateModel(
 				return fmt.Errorf("determining cloud type for model %q: %w", args.Name, err)
 			}
 
-			if err := state.Create(ctx, tx, modelType, args); err != nil {
-				return fmt.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, args.UUID, err)
+			if args.SecretBackend == "" && modelType == coremodel.CAAS {
+				args.SecretBackend = kubernetessecrets.BackendName
+			} else if args.SecretBackend == "" && modelType == coremodel.IAAS {
+				args.SecretBackend = jujusecrets.BackendName
+			} else if args.SecretBackend == "" {
+				return fmt.Errorf(
+					"%w for model type %q when creating model with name %q",
+					secretbackenderrors.NotFound,
+					modelType,
+					args.Name,
+				)
 			}
 
-			if err := activator(ctx, tx, args.UUID); err != nil {
-				return fmt.Errorf("activating bootstrap model %q with uuid %q: %w", args.Name, args.UUID, err)
+			if err := state.Create(ctx, tx, modelID, modelType, args); err != nil {
+				return fmt.Errorf("create bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
+			}
+
+			if err := activator(ctx, tx, modelID); err != nil {
+				return fmt.Errorf("activating bootstrap model %q with uuid %q: %w", args.Name, modelID, err)
 			}
 			return nil
 		})

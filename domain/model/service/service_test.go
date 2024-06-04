@@ -23,23 +23,24 @@ import (
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	jujusecrets "github.com/juju/juju/internal/secrets/provider/juju"
+	kubernetessecrets "github.com/juju/juju/internal/secrets/provider/kubernetes"
 	jujuversion "github.com/juju/juju/version"
 )
 
 type serviceSuite struct {
 	testing.IsolationSuite
 
-	modelUUID coremodel.UUID
-	userUUID  user.UUID
-	state     *dummyState
-	deleter   *dummyDeleter
+	userUUID user.UUID
+	state    *dummyState
+	deleter  *dummyDeleter
 }
 
 var _ = gc.Suite(&serviceSuite{})
 
 func (s *serviceSuite) SetUpTest(c *gc.C) {
-	s.modelUUID = modeltesting.GenModelUUID(c)
 	var err error
 	s.userUUID = usertesting.GenUserUUID(c)
 	c.Assert(err, jc.ErrorIsNil)
@@ -50,6 +51,10 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 		users: map[user.UUID]string{
 			s.userUUID: "admin",
 		},
+		secretBackends: []string{
+			jujusecrets.BackendName,
+			kubernetessecrets.BackendName,
+		},
 	}
 	s.deleter = &dummyDeleter{
 		deleted: map[string]struct{}{},
@@ -58,7 +63,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 
 func (s *serviceSuite) TestCreateModelInvalidArgs(c *gc.C) {
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	_, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{})
+	_, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{})
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
@@ -76,18 +81,17 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 	}
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	args, exists := s.state.models[s.modelUUID]
+	args, exists := s.state.models[id]
 	c.Assert(exists, jc.IsTrue)
 
 	// Test that because we have not specified an agent version that the current
@@ -97,19 +101,47 @@ func (s *serviceSuite) TestModelCreation(c *gc.C) {
 	modelList, err := svc.ListModelIDs(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelList, gc.DeepEquals, []coremodel.UUID{
-		s.modelUUID,
+		id,
 	})
+}
+
+// TestModelCreationSecretBackendNotFound is asserting that if we try and add a
+// model and define a secret backend for the new model that doesn't exist we get
+// back a [secretbackenderrors.NotFound] error.
+func (s *serviceSuite) TestModelCreationSecretBackendNotFound(c *gc.C) {
+	cred := credential.Key{
+		Cloud: "aws",
+		Name:  "foobar",
+		Owner: s.userUUID.String(),
+	}
+	s.state.clouds["aws"] = dummyStateCloud{
+		Credentials: map[string]credential.Key{
+			cred.String(): cred,
+		},
+		Regions: []string{"myregion"},
+	}
+
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	_, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+		Cloud:         "aws",
+		CloudRegion:   "myregion",
+		Credential:    cred,
+		Owner:         s.userUUID,
+		Name:          "my-awesome-model",
+		SecretBackend: "no-exist",
+	})
+
+	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotFound)
 }
 
 func (s *serviceSuite) TestModelCreationInvalidCloud(c *gc.C) {
 	s.state.clouds["aws"] = dummyStateCloud{}
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	_, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	_, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -121,12 +153,11 @@ func (s *serviceSuite) TestModelCreationNoCloudRegion(c *gc.C) {
 	}
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	_, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	_, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "noexist",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -144,12 +175,11 @@ func (s *serviceSuite) TestModelCreationOwnerNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	_, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	_, _, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Owner:       notFoundUser,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
@@ -162,7 +192,7 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
 	}
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	_, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	_, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential: credential.Key{
@@ -172,7 +202,6 @@ func (s *serviceSuite) TestModelCreationNoCloudCredential(c *gc.C) {
 		},
 		Owner: s.userUUID,
 		Name:  "my-awesome-model",
-		UUID:  s.modelUUID,
 	})
 
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -185,22 +214,20 @@ func (s *serviceSuite) TestModelCreationNameOwnerConflict(c *gc.C) {
 	}
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	_, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	_, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	_, _, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
@@ -233,17 +260,16 @@ func (s *serviceSuite) TestUpdateModelCredential(c *gc.C) {
 	}
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	err = svc.UpdateCredential(context.Background(), s.modelUUID, cred)
+	err = svc.UpdateCredential(context.Background(), id, cred)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -268,18 +294,17 @@ func (s *serviceSuite) TestUpdateModelCredentialReplace(c *gc.C) {
 	}
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	err = svc.UpdateCredential(context.Background(), s.modelUUID, cred2)
+	err = svc.UpdateCredential(context.Background(), id, cred2)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -298,17 +323,16 @@ func (s *serviceSuite) TestUpdateModelCredentialZeroValue(c *gc.C) {
 	}
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	err = svc.UpdateCredential(context.Background(), s.modelUUID, credential.Key{})
+	err = svc.UpdateCredential(context.Background(), id, credential.Key{})
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
@@ -338,18 +362,17 @@ func (s *serviceSuite) TestUpdateModelCredentialDifferentCloud(c *gc.C) {
 	}
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	err = svc.UpdateCredential(context.Background(), s.modelUUID, cred2)
+	err = svc.UpdateCredential(context.Background(), id, cred2)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
@@ -373,18 +396,17 @@ func (s *serviceSuite) TestUpdateModelCredentialNotFound(c *gc.C) {
 	}
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	err = svc.UpdateCredential(context.Background(), s.modelUUID, cred2)
+	err = svc.UpdateCredential(context.Background(), id, cred2)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
@@ -402,32 +424,31 @@ func (s *serviceSuite) TestDeleteModel(c *gc.C) {
 	}
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		Cloud:       "aws",
 		CloudRegion: "myregion",
 		Credential:  cred,
 		Owner:       s.userUUID,
 		Name:        "my-awesome-model",
-		UUID:        s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	_, exists := s.state.models[s.modelUUID]
+	_, exists := s.state.models[id]
 	c.Assert(exists, jc.IsTrue)
 
-	err = svc.DeleteModel(context.Background(), s.modelUUID, model.WithDeleteDB())
+	err = svc.DeleteModel(context.Background(), id, model.WithDeleteDB())
 	c.Assert(err, jc.ErrorIsNil)
-	_, exists = s.state.models[s.modelUUID]
+	_, exists = s.state.models[id]
 	c.Assert(exists, jc.IsFalse)
 
-	_, exists = s.deleter.deleted[s.modelUUID.String()]
+	_, exists = s.deleter.deleted[id.String()]
 	c.Assert(exists, jc.IsTrue)
 }
 
 func (s *serviceSuite) TestDeleteModelNotFound(c *gc.C) {
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	err := svc.DeleteModel(context.Background(), s.modelUUID)
+	err := svc.DeleteModel(context.Background(), modeltesting.GenModelUUID(c))
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -451,18 +472,17 @@ func (s *serviceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	_, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: agentVersion,
 		Cloud:        "aws",
 		CloudRegion:  "myregion",
 		Credential:   cred,
 		Owner:        s.userUUID,
 		Name:         "my-awesome-model",
-		UUID:         s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
 
-	_, exists := s.state.models[s.modelUUID]
+	_, exists := s.state.models[id]
 	c.Assert(exists, jc.IsFalse)
 }
 
@@ -487,19 +507,18 @@ func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	_, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: agentVersion,
 		Cloud:        "aws",
 		CloudRegion:  "myregion",
 		Credential:   cred,
 		Owner:        s.userUUID,
 		Name:         "my-awesome-model",
-		UUID:         s.modelUUID,
 	})
 
 	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
 
-	_, exists := s.state.models[s.modelUUID]
+	_, exists := s.state.models[id]
 	c.Assert(exists, jc.IsFalse)
 }
 
@@ -529,27 +548,24 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 	s.state.users[usr1] = "tlm"
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id1, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        "aws",
 		CloudRegion:  "myregion",
 		Credential:   cred,
 		Owner:        s.userUUID,
 		Name:         "my-awesome-model",
-		UUID:         s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	model2UUID := modeltesting.GenModelUUID(c)
-	activator, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id2, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        "aws",
 		CloudRegion:  "myregion",
 		Credential:   cred,
 		Owner:        usr1,
 		Name:         "my-awesome-model1",
-		UUID:         model2UUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
@@ -565,7 +581,7 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 		{
 			Name:         "my-awesome-model",
 			AgentVersion: jujuversion.Current,
-			UUID:         s.modelUUID,
+			UUID:         id1,
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
@@ -577,7 +593,7 @@ func (s *serviceSuite) TestListAllModels(c *gc.C) {
 		{
 			Name:         "my-awesome-model1",
 			AgentVersion: jujuversion.Current,
-			UUID:         model2UUID,
+			UUID:         id2,
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
@@ -616,27 +632,24 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 	s.state.users[usr1] = "tlm"
 
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id1, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        "aws",
 		CloudRegion:  "myregion",
 		Credential:   cred,
 		Owner:        usr1,
 		Name:         "my-awesome-model",
-		UUID:         s.modelUUID,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
 
-	id2 := modeltesting.GenModelUUID(c)
-	activator, err = svc.CreateModel(context.Background(), model.ModelCreationArgs{
+	id2, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
 		AgentVersion: jujuversion.Current,
 		Cloud:        "aws",
 		CloudRegion:  "myregion",
 		Credential:   cred,
 		Owner:        usr1,
 		Name:         "my-awesome-model1",
-		UUID:         id2,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activator(context.Background()), jc.ErrorIsNil)
@@ -652,7 +665,7 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 		{
 			Name:         "my-awesome-model",
 			AgentVersion: jujuversion.Current,
-			UUID:         s.modelUUID,
+			UUID:         id1,
 			Cloud:        "aws",
 			CloudRegion:  "myregion",
 			ModelType:    coremodel.IAAS,
@@ -674,4 +687,74 @@ func (s *serviceSuite) TestListModelsForUser(c *gc.C) {
 			Life:         life.Alive,
 		},
 	})
+}
+
+// TestImportModelWithMissingAgentVersion is asserting that if we try and import
+// a model that does not have an agent version set in the args we get back an
+// error that satisfies [modelerrors.AgentVersionNotSupported].
+func (s *serviceSuite) TestImportModelWithMissingAgentVersion(c *gc.C) {
+	cred := credential.Key{
+		Cloud: "aws",
+		Name:  "foobar",
+		Owner: s.userUUID.String(),
+	}
+	s.state.clouds["aws"] = dummyStateCloud{
+		Credentials: map[string]credential.Key{
+			cred.String(): cred,
+		},
+		Regions: []string{"myregion"},
+	}
+
+	modelID := modeltesting.GenModelUUID(c)
+
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	_, err := svc.ImportModel(context.Background(), model.ModelImportArgs{
+		ModelCreationArgs: model.ModelCreationArgs{
+			Cloud:       "aws",
+			CloudRegion: "myregion",
+			Credential:  cred,
+			Owner:       s.userUUID,
+			Name:        "my-awesome-model",
+		},
+		ID: modelID,
+	})
+	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
+
+	_, exists := s.state.models[modelID]
+	c.Assert(exists, jc.IsFalse)
+}
+
+// TestImportModel is asserting the happy path for importing a model.
+func (s *serviceSuite) TestImportModel(c *gc.C) {
+	cred := credential.Key{
+		Cloud: "aws",
+		Name:  "foobar",
+		Owner: s.userUUID.String(),
+	}
+	s.state.clouds["aws"] = dummyStateCloud{
+		Credentials: map[string]credential.Key{
+			cred.String(): cred,
+		},
+		Regions: []string{"myregion"},
+	}
+
+	modelID := modeltesting.GenModelUUID(c)
+
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	activator, err := svc.ImportModel(context.Background(), model.ModelImportArgs{
+		ModelCreationArgs: model.ModelCreationArgs{
+			Cloud:        "aws",
+			CloudRegion:  "myregion",
+			Credential:   cred,
+			Owner:        s.userUUID,
+			Name:         "my-awesome-model",
+			AgentVersion: jujuversion.Current,
+		},
+		ID: modelID,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+
+	_, exists := s.state.models[modelID]
+	c.Assert(exists, jc.IsTrue)
 }

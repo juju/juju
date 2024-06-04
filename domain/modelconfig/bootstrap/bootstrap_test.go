@@ -77,18 +77,20 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	testing.CreateInternalSecretBackend(c, s.ControllerTxnRunner())
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	modelFn := modelbootstrap.CreateModel(model.ModelCreationArgs{
-		AgentVersion: jujuversion.Current,
-		Cloud:        cloudName,
-		Credential: credential.Key{
-			Cloud: cloudName,
-			Name:  credentialName,
-			Owner: coreuser.AdminUserName,
+	modelFn := modelbootstrap.CreateModel(
+		modelUUID,
+		model.ModelCreationArgs{
+			AgentVersion: jujuversion.Current,
+			Cloud:        cloudName,
+			Credential: credential.Key{
+				Cloud: cloudName,
+				Name:  credentialName,
+				Owner: coreuser.AdminUserName,
+			},
+			Name:  "test",
+			Owner: userID,
 		},
-		Name:  "test",
-		Owner: userID,
-		UUID:  modelUUID,
-	})
+	)
 	s.modelID = modelUUID
 
 	err = modelFn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())

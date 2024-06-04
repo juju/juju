@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/internal/changestream/testing"
 	jujudb "github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -602,12 +603,13 @@ func (s *stateSuite) TestCloudIsControllerCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = modelSt.Create(
 		context.Background(),
+		modelUUID,
 		coremodel.IAAS,
 		model.ModelCreationArgs{
-			Cloud: testCloud.Name,
-			Name:  coremodel.ControllerModelName,
-			Owner: user.UUID(s.adminUUID.String()),
-			UUID:  modelUUID,
+			Cloud:         testCloud.Name,
+			Name:          coremodel.ControllerModelName,
+			Owner:         user.UUID(s.adminUUID.String()),
+			SecretBackend: juju.BackendName,
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)

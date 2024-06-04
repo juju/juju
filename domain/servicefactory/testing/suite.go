@@ -145,10 +145,9 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 		Credential:   s.CredentialKey,
 		Name:         coremodel.ControllerModelName,
 		Owner:        s.AdminUserUUID,
-		UUID:         s.ControllerModelUUID,
 	}
 
-	fn := modelbootstrap.CreateModel(controllerArgs)
+	fn := modelbootstrap.CreateModel(s.ControllerModelUUID, controllerArgs)
 	c.Assert(backendbootstrap.CreateDefaultBackends(coremodel.IAAS)(
 		ctx, s.ControllerTxnRunner(), s.ModelTxnRunner(c, s.ControllerModelUUID.String())), jc.ErrorIsNil)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
@@ -171,10 +170,9 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 		Credential:   s.CredentialKey,
 		Name:         "test",
 		Owner:        s.AdminUserUUID,
-		UUID:         s.DefaultModelUUID,
 	}
 
-	fn = modelbootstrap.CreateModel(modelArgs)
+	fn = modelbootstrap.CreateModel(s.DefaultModelUUID, modelArgs)
 	err = fn(ctx, s.ControllerTxnRunner(), s.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 

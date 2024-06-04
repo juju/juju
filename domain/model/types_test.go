@@ -10,7 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/credential"
-	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	usertesting "github.com/juju/juju/core/user/testing"
 )
@@ -21,55 +20,58 @@ type typesSuite struct {
 
 var _ = gc.Suite(&typesSuite{})
 
+// TestModelCreationArgsValidation is aserting all the validation cases that the
+// [ModelCreationArgs.Validate] function checks for.
 func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 	userUUID := usertesting.GenUserUUID(c)
-	modelUUID := modeltesting.GenModelUUID(c)
 
 	tests := []struct {
 		Args    ModelCreationArgs
+		Name    string
 		ErrTest error
 	}{
 		{
+			Name: "Test invalid name",
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "",
 				Owner:       userUUID,
-				UUID:        modelUUID,
 			},
 			ErrTest: errors.NotValid,
 		},
 		{
+			Name: "Test invalid owner",
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
 				Owner:       "",
-				UUID:        modelUUID,
 			},
 			ErrTest: errors.NotValid,
 		},
 		{
+			Name: "Test invalid cloud",
 			Args: ModelCreationArgs{
 				Cloud:       "",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
 				Owner:       userUUID,
-				UUID:        modelUUID,
 			},
 			ErrTest: errors.NotValid,
 		},
 		{
+			Name: "Test invalid cloud region",
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "",
 				Name:        "my-awesome-model",
 				Owner:       userUUID,
-				UUID:        modelUUID,
 			},
 			ErrTest: nil,
 		},
 		{
+			Name: "Test invalid credential key",
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
@@ -78,31 +80,21 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				},
 				Name:  "my-awesome-model",
 				Owner: userUUID,
-				UUID:  modelUUID,
 			},
 			ErrTest: errors.NotValid,
 		},
 		{
+			Name: "Test happy path without credential key",
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Name:        "my-awesome-model",
 				Owner:       userUUID,
-				UUID:        coremodel.UUID("not-valid"),
-			},
-			ErrTest: errors.NotValid,
-		},
-		{
-			Args: ModelCreationArgs{
-				Cloud:       "my-cloud",
-				CloudRegion: "my-region",
-				Name:        "my-awesome-model",
-				Owner:       userUUID,
-				UUID:        modelUUID,
 			},
 			ErrTest: nil,
 		},
 		{
+			Name: "Test happy path with credential key",
 			Args: ModelCreationArgs{
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
@@ -113,20 +105,78 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				},
 				Name:  "my-awesome-model",
 				Owner: userUUID,
-				UUID:  modelUUID,
 			},
 			ErrTest: nil,
 		},
 	}
 
 	for i, test := range tests {
-		c.Logf("testing: %d %v", i, test.Args)
+		c.Logf("testing %q: %d %v", test.Name, i, test.Args)
 
 		err := test.Args.Validate()
 		if test.ErrTest == nil {
-			c.Check(err, jc.ErrorIsNil)
+			c.Check(err, jc.ErrorIsNil, gc.Commentf("%s", test.Name))
 		} else {
-			c.Check(err, jc.ErrorIs, test.ErrTest)
+			c.Check(err, jc.ErrorIs, test.ErrTest, gc.Commentf("%s", test.Name))
+		}
+	}
+}
+
+// TestModelImportArgsValidation is aserting all the validation cases that the
+// [ModelImportArgs.Validate] function checks for.
+func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
+	userUUID := usertesting.GenUserUUID(c)
+
+	tests := []struct {
+		Args    ModelImportArgs
+		Name    string
+		ErrTest error
+	}{
+		{
+			Name: "Test happy path with valid model id",
+			Args: ModelImportArgs{
+				ModelCreationArgs: ModelCreationArgs{
+					Cloud:       "my-cloud",
+					CloudRegion: "my-region",
+					Credential: credential.Key{
+						Cloud: "cloud",
+						Owner: "wallyworld",
+						Name:  "mycred",
+					},
+					Name:  "my-awesome-model",
+					Owner: userUUID,
+				},
+				ID: modeltesting.GenModelUUID(c),
+			},
+		},
+		{
+			Name: "Test invalid model id",
+			Args: ModelImportArgs{
+				ModelCreationArgs: ModelCreationArgs{
+					Cloud:       "my-cloud",
+					CloudRegion: "my-region",
+					Credential: credential.Key{
+						Cloud: "cloud",
+						Owner: "wallyworld",
+						Name:  "mycred",
+					},
+					Name:  "my-awesome-model",
+					Owner: userUUID,
+				},
+				ID: "not valid",
+			},
+			ErrTest: errors.NotValid,
+		},
+	}
+
+	for i, test := range tests {
+		c.Logf("testing %q: %d %v", test.Name, i, test.Args)
+
+		err := test.Args.Validate()
+		if test.ErrTest == nil {
+			c.Check(err, jc.ErrorIsNil, gc.Commentf("%s", test.Name))
+		} else {
+			c.Check(err, jc.ErrorIs, test.ErrTest, gc.Commentf("%s", test.Name))
 		}
 	}
 }

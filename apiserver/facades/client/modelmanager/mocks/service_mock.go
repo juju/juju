@@ -288,12 +288,13 @@ func (m *MockModelService) EXPECT() *MockModelServiceMockRecorder {
 }
 
 // CreateModel mocks base method.
-func (m *MockModelService) CreateModel(arg0 context.Context, arg1 model0.ModelCreationArgs) (func(context.Context) error, error) {
+func (m *MockModelService) CreateModel(arg0 context.Context, arg1 model0.ModelCreationArgs) (model.UUID, func(context.Context) error, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateModel", arg0, arg1)
-	ret0, _ := ret[0].(func(context.Context) error)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(model.UUID)
+	ret1, _ := ret[1].(func(context.Context) error)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // CreateModel indicates an expected call of CreateModel.
@@ -309,19 +310,19 @@ type MockModelServiceCreateModelCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceCreateModelCall) Return(arg0 func(context.Context) error, arg1 error) *MockModelServiceCreateModelCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockModelServiceCreateModelCall) Return(arg0 model.UUID, arg1 func(context.Context) error, arg2 error) *MockModelServiceCreateModelCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceCreateModelCall) Do(f func(context.Context, model0.ModelCreationArgs) (func(context.Context) error, error)) *MockModelServiceCreateModelCall {
+func (c *MockModelServiceCreateModelCall) Do(f func(context.Context, model0.ModelCreationArgs) (model.UUID, func(context.Context) error, error)) *MockModelServiceCreateModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceCreateModelCall) DoAndReturn(f func(context.Context, model0.ModelCreationArgs) (func(context.Context) error, error)) *MockModelServiceCreateModelCall {
+func (c *MockModelServiceCreateModelCall) DoAndReturn(f func(context.Context, model0.ModelCreationArgs) (model.UUID, func(context.Context) error, error)) *MockModelServiceCreateModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -213,14 +213,20 @@ func (s *Service) SetModelConfig(
 		return fmt.Errorf("getting model defaults: %w", err)
 	}
 
+	// We want to make a copy of cfg so that we don't modify the users input.
+	cfgCopy := make(map[string]any, len(cfg))
+	for k, v := range cfg {
+		cfgCopy[k] = v
+	}
+
 	for k, v := range defaults {
-		applyVal := v.ApplyStrategy(cfg[k])
+		applyVal := v.ApplyStrategy(cfgCopy[k])
 		if applyVal != nil {
-			cfg[k] = applyVal
+			cfgCopy[k] = applyVal
 		}
 	}
 
-	setCfg, err := config.New(config.NoDefaults, cfg)
+	setCfg, err := config.New(config.NoDefaults, cfgCopy)
 	if err != nil {
 		return fmt.Errorf("constructing new model config with model defaults: %w", err)
 	}

@@ -16,15 +16,15 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	jujudb "github.com/juju/juju/internal/database"
-	"github.com/juju/juju/internal/secrets/provider/juju"
-	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	internaluuid "github.com/juju/juju/internal/uuid"
 )
 
@@ -88,14 +88,20 @@ WHERE c.name = ?
 	}
 }
 
-// Create is responsible for creating a new moddel from start to finish. It will
+// Create is responsible for creating a new model from start to finish. It will
 // register the model existence and associate all of the model metadata.
-// If a model already exists with the same name and owner then an error
-// satisfying modelerrors.AlreadyExists will be returned.
-// If the model type is not found then an error satisfying errors.NotSupported
-// will be returned.
+//
+// The following errors can be expected:
+// - [modelerrors.AlreadyExists] when a model already exists with the same name
+// and owner
+// - [errors.NotSupported] When the new models type cannot be found.
+// - [errors.NotFound] Should the provided cloud and region not be found.
+// - [usererrors.NotFound] When the model owner does not exist.
+// - [secretbackenderrors.NotFound] When the secret backend for the model
+// cannot be found.
 func (s *State) Create(
 	ctx context.Context,
+	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
 	input model.ModelCreationArgs,
 ) error {
@@ -105,36 +111,71 @@ func (s *State) Create(
 	}
 
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return Create(ctx, tx, modelType, input)
+		return Create(ctx, tx, modelID, modelType, input)
 	})
 }
 
 // Create is responsible for creating a new model from start to finish. It will
 // register the model existence and associate all of the model metadata.
-// If a model already exists with the same name and owner then an error
-// satisfying modelerrors.AlreadyExists will be returned.
-// If the model type is not found then an error satisfying errors.NotSupported
-// will be returned.
+//
+// The following errors can be expected:
+// - [modelerrors.AlreadyExists] when a model already exists with the same name
+// and owner
+// - [errors.NotSupported] When the new models type cannot be found.
+// - [errors.NotFound] Should the provided cloud and region not be found.
+// - [usererrors.NotFound] When the model owner does not exist.
+// - [secretbackenderrors.NotFound] When the secret backend for the model
+// cannot be found.
 func Create(
 	ctx context.Context,
 	tx *sql.Tx,
+	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
 	input model.ModelCreationArgs,
 ) error {
-	if err := createModel(ctx, tx, modelType, input); err != nil {
-		return fmt.Errorf("creating model %q: %w", input.UUID, err)
+	// This function is responsible for driving all of the facets of model
+	// creation.
+
+	// Create the initial model and associated metadata.
+	if err := createModel(ctx, tx, modelID, modelType, input); err != nil {
+		return fmt.Errorf(
+			"creating initial model %q with id %q: %w",
+			input.Name, modelID, err,
+		)
 	}
 
-	if err := createModelAgent(ctx, tx, input.UUID, input.AgentVersion); err != nil {
-		return fmt.Errorf("creating model %q agent: %w", input.UUID, err)
+	// Add permissions for the model owner to be an admin of the newly created
+	// model.
+	if err := addAdminPermissions(ctx, tx, modelID, input.Owner); err != nil {
+		return fmt.Errorf(
+			"adding admin permissions to model %q with id %q for owner %q: %w",
+			input.Name, modelID, input.Owner, err,
+		)
 	}
 
-	if err := setModelSecretBackend(ctx, tx, input.UUID, modelType); err != nil {
-		return err
+	// Creates a record for the newly created model and register the target
+	// agent version.
+	if err := createModelAgent(ctx, tx, modelID, input.AgentVersion); err != nil {
+		return fmt.Errorf(
+			"creating model %q with id %q agent: %w",
+			input.Name, modelID, err,
+		)
 	}
 
-	if _, err := registerModelNamespace(ctx, tx, input.UUID); err != nil {
-		return fmt.Errorf("registering model %q namespace: %w", input.UUID, err)
+	// Sets the secret backend to be used for the newly created model.
+	if err := setModelSecretBackend(ctx, tx, modelID, input.SecretBackend); err != nil {
+		return fmt.Errorf(
+			"setting model %q with id %q secret backend: %w",
+			input.Name, modelID, err,
+		)
+	}
+
+	// Register a DQlite namespace for the model.
+	if _, err := registerModelNamespace(ctx, tx, modelID); err != nil {
+		return fmt.Errorf(
+			"registering model %q with id %q database namespace: %w",
+			input.Name, modelID, err,
+		)
 	}
 
 	return nil
@@ -279,10 +320,11 @@ WHERE uuid = ?
 	return model, nil
 }
 
-// createModelAgent is responsible for create a new model's agent record for the
-// given model UUID. If a model agent record already exists for the given model
-// uuid then an error satisfying [modelerrors.AlreadyExists] is returned. If no
-// model exists for the provided UUID then a [modelerrors.NotFound] is returned.
+// createModelAgent is responsible for creating a new model's agent record for
+// the given model id. If a model agent record already exists for the given
+// model uuid then an error satisfying [modelerrors.AlreadyExists] is returned.
+// If no model exists for the provided UUID then a [modelerrors.NotFound] is
+// returned.
 func createModelAgent(
 	ctx context.Context,
 	tx *sql.Tx,
@@ -319,49 +361,70 @@ INSERT INTO model_agent (model_uuid, previous_version, target_version)
 	return nil
 }
 
+// setModelSecretBackend sets the secret backend for a given model id. If the
+// secret backend does not exist a [secretbackenderrors.NotFound] error will be
+// returned. Should the model already have a secret backend set an error
+// satisfying [modelerrors.SecretBackendAlreadySet].
 func setModelSecretBackend(
 	ctx context.Context,
 	tx *sql.Tx,
-	modelUUID coremodel.UUID,
-	modelType coremodel.ModelType,
+	modelID coremodel.UUID,
+	backend string,
 ) error {
-	stmt := `
-INSERT INTO model_secret_backend (model_uuid, secret_backend_uuid)
-    VALUES (?, (SELECT uuid FROM secret_backend WHERE name = ?) )
+	backendFindStmt := `
+SELECT uuid from secret_backend WHERE name = ?
 `
 
-	backendName := juju.BackendName
-	if modelType == coremodel.CAAS {
-		backendName = kubernetes.BackendName
+	var backendUUID string
+	err := tx.QueryRowContext(ctx, backendFindStmt, backend).Scan(&backendUUID)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf(
+			"setting model %q secret backend to %q: %w",
+			modelID, backend, secretbackenderrors.NotFound,
+		)
+	} else if err != nil {
+		return fmt.Errorf(
+			"setting model %q secret backend to %q: %w",
+			modelID, backend, err,
+		)
 	}
-	res, err := tx.ExecContext(ctx, stmt, modelUUID, backendName)
+
+	stmt := `
+INSERT INTO model_secret_backend (model_uuid, secret_backend_uuid) VALUES (?, ?)
+`
+
+	res, err := tx.ExecContext(ctx, stmt, modelID, backendUUID)
 	if jujudb.IsErrConstraintPrimaryKey(err) {
 		return fmt.Errorf(
-			"%w for uuid %q while setting model secret backend",
-			modelerrors.AlreadyExists, modelUUID,
+			"model for id %q %w", modelID, modelerrors.SecretBackendAlreadySet,
 		)
 	} else if jujudb.IsErrConstraintForeignKey(err) {
 		return fmt.Errorf(
-			"%w for uuid %q while setting model secret backend",
+			"%w for id %q while setting model secret backend to %q",
 			modelerrors.NotFound,
-			modelUUID,
+			modelID,
+			backend,
 		)
 	} else if err != nil {
-		return fmt.Errorf("setting model %q secret backend %q: %w", modelUUID, backendName, err)
+		return fmt.Errorf(
+			"setting model for id %q secret backend %q: %w",
+			modelID, backend, err,
+		)
 	}
 
 	if num, err := res.RowsAffected(); err != nil {
 		return errors.Trace(err)
 	} else if num != 1 {
-		return fmt.Errorf("creating model secet backend record, expected 1 row to be inserted got %d", num)
+		return fmt.Errorf("creating model secret backend record, expected 1 row to be inserted got %d", num)
 	}
 
 	return nil
 }
 
 // createModel is responsible for creating a new model record
-// for the given model UUID. If a model record already exists for the
-// given model uuid then an error satisfying modelerrors.AlreadyExists is
+// for the given model ID. If a model record already exists for the
+// given model id then an error satisfying modelerrors.AlreadyExists is
 // returned. Conversely, should the owner already have a model that exists with
 // the provided name then a modelerrors.AlreadyExists error will be returned. If
 // the model type supplied is not found then a errors.NotSupported error is
@@ -377,6 +440,7 @@ INSERT INTO model_secret_backend (model_uuid, secret_backend_uuid)
 func createModel(
 	ctx context.Context,
 	tx *sql.Tx,
+	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
 	input model.ModelCreationArgs,
 ) error {
@@ -437,14 +501,14 @@ WHERE model_type.type = ?
 `
 
 	res, err := tx.ExecContext(ctx, stmt,
-		input.UUID.String(), cloudUUID, life.Alive, input.Name, input.Owner, modelType,
+		modelID, cloudUUID, life.Alive, input.Name, input.Owner, modelType,
 	)
 	if jujudb.IsErrConstraintPrimaryKey(err) {
-		return fmt.Errorf("%w for uuid %q", modelerrors.AlreadyExists, input.UUID)
+		return fmt.Errorf("%w for id %q", modelerrors.AlreadyExists, modelID)
 	} else if jujudb.IsErrConstraintUnique(err) {
 		return fmt.Errorf("%w for name %q and owner %q", modelerrors.AlreadyExists, input.Name, input.Owner)
 	} else if err != nil {
-		return fmt.Errorf("setting model %q information: %w", input.UUID, err)
+		return fmt.Errorf("setting model %q information: %w", modelID, err)
 	}
 
 	if num, err := res.RowsAffected(); err != nil {
@@ -453,19 +517,15 @@ WHERE model_type.type = ?
 		return fmt.Errorf("creating model metadata, expected 1 row to be inserted, got %d", num)
 	}
 
-	if err := setCloudRegion(ctx, input.UUID, input.Cloud, input.CloudRegion, tx); err != nil {
-		return fmt.Errorf("setting cloud region for model %q: %w", input.UUID, err)
+	if err := setCloudRegion(ctx, modelID, input.Cloud, input.CloudRegion, tx); err != nil {
+		return fmt.Errorf("setting cloud region for model %q: %w", modelID, err)
 	}
 
 	if !input.Credential.IsZero() {
-		err := updateCredential(ctx, tx, input.UUID, input.Credential)
+		err := updateCredential(ctx, tx, modelID, input.Credential)
 		if err != nil {
-			return fmt.Errorf("setting cloud credential for model %q: %w", input.UUID, err)
+			return fmt.Errorf("setting cloud credential for model %q: %w", modelID, err)
 		}
-	}
-
-	if err = addOwnerPermissions(ctx, tx, input.UUID.String(), input.Owner.String()); err != nil {
-		return err
 	}
 
 	return nil
@@ -1121,9 +1181,15 @@ AND cloud_uuid = ?
 	return nil
 }
 
-// addOwnerPermissions inserts an Admin permission for the owner on the given
-// model during create model. The caller has already validated the user exists.
-func addOwnerPermissions(ctx context.Context, tx *sql.Tx, modelUUID, ownerUUID string) error {
+// addAdminPermission adds an Admin permission for the supplied user to the
+// given model. If the user already has admin permissions onto the model a
+// [usererrors.PermissionAlreadyExists] error is returned.
+func addAdminPermissions(
+	ctx context.Context,
+	tx *sql.Tx,
+	modelUUID coremodel.UUID,
+	ownerUUID coreuser.UUID,
+) error {
 	permUUID, err := internaluuid.NewUUID()
 	if err != nil {
 		return err

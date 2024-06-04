@@ -13,3 +13,8 @@
 
 # Charmhub
 /charmhub/**                    @hmlanigan @SimonRichardson
+
+# Model domain packages
+/core/model/**                  @tlm
+/domain/model/**                @tlm
+/domain/modelconfig/**          @tlm

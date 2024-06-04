@@ -41,12 +41,15 @@ type ModelCreationArgs struct {
 	// Owner is the uuid of the user that owns this model in the Juju controller.
 	Owner user.UUID
 
-	// UUID represents the unique id for the model when being created.
-	UUID coremodel.UUID
+	// SecretBackend dictates the secret backend to be used for the newly
+	// created model. SecretBackend can be left empty and a default will be
+	// chosen at creation time.
+	SecretBackend string
 }
 
 // Validate is responsible for checking all of the fields of ModelCreationArgs
-// are in a set state that is valid for use.
+// are in a set state that is valid for use. If a validation failure happens an
+// error satisfying [errors.NotValid] is returned.
 func (m ModelCreationArgs) Validate() error {
 	if m.Cloud == "" {
 		return fmt.Errorf("%w cloud cannot be empty", errors.NotValid)
@@ -62,9 +65,32 @@ func (m ModelCreationArgs) Validate() error {
 			return fmt.Errorf("credential: %w", err)
 		}
 	}
-	if err := m.UUID.Validate(); err != nil {
-		return fmt.Errorf("uuid: %w", err)
+	return nil
+}
+
+// ModelImportArgs supplies the information needed for importing a model into a
+// Juju controller.
+type ModelImportArgs struct {
+	// ID represents the unique id of the model to import.
+	ID coremodel.UUID
+
+	// ModelCreationArgs supplies the information needed for importing the new
+	// model into Juju.
+	ModelCreationArgs
+}
+
+// Validate is responsible for checking all of the fields of [ModelImportArgs]
+// are in a set state valid for use. If a validation failure happens an error
+// satisfying [errors.NotValid] is returned.
+func (m ModelImportArgs) Validate() error {
+	if err := m.ModelCreationArgs.Validate(); err != nil {
+		return fmt.Errorf("ModelCreationArgs %w", err)
 	}
+
+	if err := m.ID.Validate(); err != nil {
+		return fmt.Errorf("validating model import args id: %w", err)
+	}
+
 	return nil
 }
 

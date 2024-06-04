@@ -18,6 +18,7 @@ import (
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 )
 
 type dummyStateCloud struct {
@@ -30,6 +31,7 @@ type dummyState struct {
 	models             map[coremodel.UUID]coremodel.Model
 	nonActivatedModels map[coremodel.UUID]coremodel.Model
 	users              map[user.UUID]string
+	secretBackends     []string
 }
 
 type dummyDeleter struct {
@@ -55,11 +57,12 @@ func (d *dummyState) CloudType(
 
 func (d *dummyState) Create(
 	_ context.Context,
+	modelID coremodel.UUID,
 	modelType coremodel.ModelType,
 	args model.ModelCreationArgs,
 ) error {
-	if _, exists := d.models[args.UUID]; exists {
-		return fmt.Errorf("%w %q", modelerrors.AlreadyExists, args.UUID)
+	if _, exists := d.models[modelID]; exists {
+		return fmt.Errorf("%w %q", modelerrors.AlreadyExists, modelID)
 	}
 
 	for _, v := range d.models {
@@ -94,10 +97,21 @@ func (d *dummyState) Create(
 		}
 	}
 
-	d.nonActivatedModels[args.UUID] = coremodel.Model{
+	secretBackendFound := false
+	for _, backend := range d.secretBackends {
+		if backend == args.SecretBackend {
+			secretBackendFound = true
+		}
+	}
+
+	if !secretBackendFound {
+		return secretbackenderrors.NotFound
+	}
+
+	d.nonActivatedModels[modelID] = coremodel.Model{
 		AgentVersion: args.AgentVersion,
 		Name:         args.Name,
-		UUID:         args.UUID,
+		UUID:         modelID,
 		ModelType:    modelType,
 		Cloud:        args.Cloud,
 		CloudRegion:  args.CloudRegion,
