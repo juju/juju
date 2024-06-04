@@ -32,6 +32,9 @@ func NewControllerState(factory coredatabase.TxnRunnerFactory) *ControllerState 
 }
 
 // SetModelSecretBackend sets the secret backend for the given model.
+// It returns an error satisfying [backenderrors.NotFound]
+// if the secret  backend is not found or [modelerrors.NotFound]
+// if the model is not found.
 func (s *ControllerState) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
 	db, err := s.DB()
 	if err != nil {
@@ -117,7 +120,8 @@ WHERE  model_uuid = $SecretBackendInfo.model_uuid`, backendInfo)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, backendInfo).Get(&backendInfo)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("secret backend for model %q not found%w", modelUUID, errors.Hide(backenderrors.NotFound))
+			// Should never happen.
+			return fmt.Errorf("secret backend for model %q not found", modelUUID)
 		}
 		return errors.Trace(err)
 	})

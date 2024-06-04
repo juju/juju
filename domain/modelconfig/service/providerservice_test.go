@@ -4,6 +4,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 
 	jtesting "github.com/juju/testing"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/juju/juju/domain/modelconfig/service/testing"
 	"github.com/juju/juju/environs/config"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type providerServiceSuite struct {
@@ -22,9 +22,6 @@ type providerServiceSuite struct {
 var _ = gc.Suite(&providerServiceSuite{})
 
 func (s *providerServiceSuite) TestModelConfig(c *gc.C) {
-	ctx, cancel := jujutesting.LongWaitContext()
-	defer cancel()
-
 	st := testing.NewState()
 	defer st.Close()
 
@@ -41,7 +38,7 @@ func (s *providerServiceSuite) TestModelConfig(c *gc.C) {
 
 	svc := NewWatchableProviderService(st, st)
 
-	cfg, err = svc.ModelConfig(ctx)
+	cfg, err = svc.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Note: `foo: bar` is not present because we don't take into account

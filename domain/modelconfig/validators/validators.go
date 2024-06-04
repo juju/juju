@@ -169,9 +169,9 @@ func LoggingTracePermissionChecker(canTrace bool) config.ValidatorFunc {
 }
 
 // SecretBackendChecker is responsible for asserting the secret backend in the
-// updated model config is a valid secret backend in the controller. If the
-// secret backend has not changed or is the default backend then no validation
-// is performed. Any validation errors will satisfy config.ValidationError.
+// updated model config is valid for the model. If the secret backend has not
+// changed or is the default backend then no validation is performed.
+// Any validation errors will satisfy config.ValidationError.
 func SecretBackendChecker(modelType coremodel.ModelType) config.ValidatorFunc {
 	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
 		backendName := cfg.SecretBackend()

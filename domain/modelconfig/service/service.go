@@ -32,8 +32,7 @@ type ModelDefaultsProvider interface {
 // ControllerState represents the state entity for accessing secret
 // backend info for models.
 type ControllerState interface {
-	SetModelSecretBackend(ctx context.Context, modelUUID model.UUID, backendName string) error
-	GetModelSecretBackendName(ctx context.Context, modelUUID model.UUID) (string, error)
+	handlers.SecretBackendState
 }
 
 // State represents the state entity for accessing and setting per
@@ -114,21 +113,22 @@ func (s *Service) configHandlers(modelUUID model.UUID) ([]handlers.ConfigHandler
 	}, nil
 }
 
-func (s *Service) runOnLoadHandlers(ctx context.Context, modelUUID model.UUID, stConfig map[string]string) error {
+func (s *Service) runOnLoadHandlers(ctx context.Context, modelUUID model.UUID) (map[string]string, error) {
 	cfgHandlers, err := s.configHandlers(modelUUID)
 	if err != nil {
-		return fmt.Errorf("cannot set up config handlers: %w", err)
+		return nil, fmt.Errorf("cannot set up config handlers: %w", err)
 	}
+	resultConfig := make(map[string]string)
 	for _, h := range cfgHandlers {
 		additionalCfg, err := h.OnLoad(ctx)
 		if err != nil {
-			return fmt.Errorf("cannot apply config handler %q during load: %w", h.Name(), err)
+			return nil, fmt.Errorf("cannot apply config handler %q during load: %w", h.Name(), err)
 		}
 		for k, v := range additionalCfg {
-			stConfig[k] = v
+			resultConfig[k] = v
 		}
 	}
-	return nil
+	return resultConfig, nil
 }
 
 // ModelConfig returns the current config for the model.
@@ -142,8 +142,12 @@ func (s *Service) ModelConfig(ctx context.Context) (*config.Config, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot load model info")
 	}
-	if err := s.runOnLoadHandlers(ctx, modelUUID, stConfig); err != nil {
+	resultConfig, err := s.runOnLoadHandlers(ctx, modelUUID)
+	if err != nil {
 		return nil, errors.Annotate(err, "cannot process model config")
+	}
+	for k, v := range resultConfig {
+		stConfig[k] = v
 	}
 
 	agentVersion, err := s.st.AgentVersion(ctx)

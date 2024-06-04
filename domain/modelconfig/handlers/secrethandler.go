@@ -33,6 +33,9 @@ func (h SecretBackendHandler) Name() string {
 // OnSave is run when saving model config; any secret
 // backend is removed from rawCfg and used to update the
 // model secret backend config table.
+// It returns an error satisfying [github.com/juju/juju/domain/secretbackend/errors.NotFound]
+// if the secret  backend is not found or
+// [github.com/juju/juju/domain/model/errors.NotFound] if the model is not found.
 func (h SecretBackendHandler) OnSave(ctx context.Context, rawCfg map[string]any) (RollbackFunc, error) {
 	// Exit early if secret backend is not being updated.
 	val, ok := rawCfg[config.SecretBackendKey]
@@ -54,7 +57,7 @@ func (h SecretBackendHandler) OnSave(ctx context.Context, rawCfg map[string]any)
 	backendName := fmt.Sprint(val)
 	err = h.BackendState.SetModelSecretBackend(ctx, h.ModelUUID, backendName)
 	if err != nil {
-		return noopRollback, fmt.Errorf("cannot set model secret backend to %q: %w", backendName, err)
+		return noopRollback, fmt.Errorf("cannot set model %q secret backend to %q: %w", h.ModelUUID, backendName, err)
 	}
 	delete(rawCfg, config.SecretBackendKey)
 	return rollbackFunc, nil
