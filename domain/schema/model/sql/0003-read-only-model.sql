@@ -8,6 +8,7 @@ CREATE TABLE model (
     type                 TEXT NOT NULL,
     target_agent_version TEXT NOT NULL,
     cloud                TEXT NOT NULL,
+    cloud_type           TEXT NOT NULL,
     cloud_region         TEXT,
     credential_owner     TEXT,
     credential_name      TEXT

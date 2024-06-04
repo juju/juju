@@ -31,6 +31,9 @@ type ReadOnlyModel struct {
 	// Cloud is the name of the cloud to associate with the model.
 	Cloud string
 
+	// CloudType is the type of the underlying cloud (e.g. lxd, azure, ...)
+	CloudType string
+
 	// CloudRegion is the region that the model will use in the cloud.
 	CloudRegion string
 

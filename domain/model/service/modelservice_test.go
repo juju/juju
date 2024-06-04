@@ -44,6 +44,7 @@ func (d *dummyModelState) GetModel(ctx context.Context, id coremodel.UUID) (core
 		ModelType:    args.Type,
 		AgentVersion: args.AgentVersion,
 		Cloud:        args.Cloud,
+		CloudType:    args.CloudType,
 		CloudRegion:  args.CloudRegion,
 		Credential: corecredential.Key{
 			Name:  args.CredentialName,
@@ -67,6 +68,7 @@ func (d *dummyModelState) Model(ctx context.Context) (coremodel.ReadOnlyModel, e
 		Name:            args.Name,
 		Type:            args.Type,
 		Cloud:           args.Cloud,
+		CloudType:       args.CloudType,
 		CloudRegion:     args.CloudRegion,
 		CredentialOwner: args.CredentialOwner,
 		CredentialName:  args.CredentialName,
@@ -103,6 +105,7 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 		UUID:        id,
 		Name:        "my-awesome-model",
 		Cloud:       "aws",
+		CloudType:   "ec2",
 		CloudRegion: "myregion",
 		Type:        coremodel.IAAS,
 	}
@@ -116,6 +119,7 @@ func (s *modelServiceSuite) TestModelCreation(c *gc.C) {
 		ControllerUUID: s.controllerUUID,
 		Name:           "my-awesome-model",
 		Cloud:          "aws",
+		CloudType:      "ec2",
 		CloudRegion:    "myregion",
 		Type:           coremodel.IAAS,
 	})
@@ -129,6 +133,7 @@ func (s *modelServiceSuite) TestModelDeletion(c *gc.C) {
 		UUID:        id,
 		Name:        "my-awesome-model",
 		Cloud:       "aws",
+		CloudType:   "ec2",
 		CloudRegion: "myregion",
 		Type:        coremodel.IAAS,
 	}

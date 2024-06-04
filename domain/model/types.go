@@ -96,6 +96,9 @@ type ReadOnlyModelCreationArgs struct {
 	// Must not be empty for a valid struct.
 	Cloud string
 
+	// CloudType is the type of the underlying cloud (e.g. lxd, azure, ...)
+	CloudType string
+
 	// CloudRegion is the region that the model will use in the cloud.
 	// Optional and can be empty.
 	CloudRegion string

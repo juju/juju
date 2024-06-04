@@ -32,7 +32,7 @@ func (m *stateSuite) TestModelMetadataDefaults(c *gc.C) {
 	c.Check(defaults, jc.DeepEquals, map[string]string{
 		config.NameKey: "test",
 		config.UUIDKey: uuid.String(),
-		config.TypeKey: "iaas",
+		config.TypeKey: "ec2",
 	})
 }
 
