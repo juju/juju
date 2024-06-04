@@ -25,8 +25,13 @@ type State struct {
 }
 
 // ConfigDefaults returns the default configuration values set in Juju.
-func (s *State) ConfigDefaults(_ context.Context) map[string]any {
+func ConfigDefaults(_ context.Context) map[string]any {
 	return config.ConfigDefaults()
+}
+
+// ConfigDefaults returns the default configuration values set in Juju.
+func (s *State) ConfigDefaults(ctx context.Context) map[string]any {
+	return ConfigDefaults(ctx)
 }
 
 // ModelCloudDefaults returns the defaults associated with the model's cloud. If
