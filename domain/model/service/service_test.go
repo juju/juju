@@ -62,10 +62,10 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 }
 
 // TestControllerModelNameChange is here to make the breaker of this test stop
-// and think. There exists buisness logic in this package that is very dependent
+// and think. There exists business logic in this package that is very dependent
 // on the well known value defined in [coremodel.ControllerModelName]. If this
 // test has broken it means this value has changed and you could be at risk of
-// breaking Juju. Please consider the buisness logic in this package and if
+// breaking Juju. Please consider the business logic in this package and if
 // changing this well known value is handled correctly for both legacy and
 // future Juju versions!!!
 func (s *serviceSuite) TestControllerModelNameChange(c *gc.C) {
@@ -73,11 +73,11 @@ func (s *serviceSuite) TestControllerModelNameChange(c *gc.C) {
 }
 
 // TestControllerModelOwnerUsername is here to make the breaker of this test
-// stop and think. There exists buisness logic in this package that is very
+// stop and think. There exists business logic in this package that is very
 // dependent on the well known value defined in
 // [coremodel.ControllerModelOwnerUsername]. If this test has broken it means
 // this value has changed and you could be at risk of breaking Juju. Please
-// consider the buisness logic in this package and if changing this well known
+// consider the business logic in this package and if changing this well known
 // value is handled correctly for both legacy and future Juju versions!!!
 func (s *serviceSuite) TestControllerModelOwnerUsername(c *gc.C) {
 	c.Assert(coremodel.ControllerModelOwnerUsername, gc.Equals, "admin")
