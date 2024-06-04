@@ -164,6 +164,7 @@ func createTestModel(
 	modelSt := modelstate.NewState(txnRunner)
 	err = modelSt.Create(
 		context.Background(),
+		modelUUID,
 		modelType,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
