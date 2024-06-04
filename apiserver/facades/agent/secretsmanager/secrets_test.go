@@ -1601,7 +1601,7 @@ func (s *SecretsManagerSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 			StringsWatcherId: "1",
 			Changes:          []string{uri.String()},
 		}, {
-			Error: &params.Error{Code: "unauthorized access", Message: "permission denied"},
+			Error: &params.Error{Code: "not found", Message: "not found"},
 		}},
 	})
 }
