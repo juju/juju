@@ -3,7 +3,7 @@ check_secrets() {
 	juju --show-log deploy etcd
 	juju --show-log integrate etcd easyrsa
 
-	wait_for "active" '.applications["easyrsa"] | ."application-status".current'
+	wait_for "active" '.applications["easyrsa"] | ."application-status".current' 1200
 	wait_for "active" '.applications["etcd"] | ."application-status".current' 900
 	wait_for "easyrsa" "$(idle_condition "easyrsa" 0 0)"
 	wait_for "etcd" "$(idle_condition "etcd" 1 0)"
@@ -73,6 +73,7 @@ run_user_secrets() {
 
 	app_name='easyrsa-user-secrets'
 	juju --show-log deploy easyrsa "$app_name"
+	wait_for "active" ".applications[\"$app_name\"] | .\"application-status\".current" 1200
 
 	# create user secrets.
 	secret_uri=$(juju --show-log add-secret mysecret owned-by="$model_name-1" --info "this is a user secret")
