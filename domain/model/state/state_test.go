@@ -1062,3 +1062,43 @@ func (m *stateSuite) TestSecretBackendNotFoundForModelCreate(c *gc.C) {
 	)
 	c.Check(err, jc.ErrorIs, secretbackenderrors.NotFound)
 }
+
+// TestGetModelByNameNotFound is here to assert that if we try and get a model
+// by name for any combination of user or model name that doesn't exist we get
+// back an error that satisfies [modelerrors.NotFound].
+func (m *stateSuite) TestGetModelByNameNotFound(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	_, err := modelSt.GetModelByName(context.Background(), "nonuser", "my-test-model")
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+
+	_, err = modelSt.GetModelByName(context.Background(), m.userName, "noexist")
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+
+	_, err = modelSt.GetModelByName(context.Background(), "nouser", "noexist")
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestGetModelByName is asserting the happy path of [State.GetModelByName] and
+// checking that we can retrieve the model established in SetUpTest by username
+// and model name.
+func (m *stateSuite) TestGetModelByName(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+	model, err := modelSt.GetModelByName(context.Background(), m.userName, "my-test-model")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(model, gc.DeepEquals, coremodel.Model{
+		Name:         "my-test-model",
+		Life:         life.Alive,
+		UUID:         m.uuid,
+		ModelType:    coremodel.IAAS,
+		AgentVersion: version.Current,
+		Cloud:        "my-cloud",
+		CloudRegion:  "my-region",
+		Credential: corecredential.Key{
+			Cloud: "my-cloud",
+			Owner: "test-user",
+			Name:  "foobar",
+		},
+		Owner:     m.userUUID,
+		OwnerName: m.userName,
+	})
+}
