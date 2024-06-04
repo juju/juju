@@ -399,7 +399,10 @@ func (s *SecretsManagerAPI) getSecretConsumerInfo(consumerTag names.Tag, uriStr 
 			return nil, errors.Trace(err)
 		}
 		if !canRead {
-			return nil, apiservererrors.ErrPerm
+			// We should never return "permission denied", as this leaks the
+			// fact that a secret exists that the consumer cannot access.
+			// Instead, return "not found".
+			return nil, errors.NotFound
 		}
 	}
 	consumer, err := s.secretsConsumer.GetSecretConsumer(uri, consumerTag)
@@ -503,9 +506,6 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(uri *coresecrets.URI, refresh
 
 	scopeToken, err := extClient.GetSecretAccessScope(uri, token, unitId)
 	if err != nil {
-		if errors.Is(err, errors.NotFound) {
-			return nil, nil, false, apiservererrors.ErrPerm
-		}
 		return nil, nil, false, errors.Trace(err)
 	}
 	logger.Debugf("secret %q scope token for %v: %s", uri.String(), token, scopeToken)
@@ -736,7 +736,10 @@ func (s *SecretsManagerAPI) getSecretContent(arg params.GetSecretContentArg) (
 		return nil, nil, false, errors.Trace(err)
 	}
 	if !canRead {
-		return nil, nil, false, apiservererrors.ErrPerm
+		// We should never return "permission denied", as this leaks the
+		// fact that a secret exists that the consumer cannot access.
+		// Instead, return "not found".
+		return nil, nil, false, errors.NotFound
 	}
 
 	// labelToUpdate is the consumer label for consumers.
@@ -823,7 +826,10 @@ func (s *SecretsManagerAPI) WatchConsumedSecretsChanges(args params.Entities) (p
 			return "", nil, errors.Trace(err)
 		}
 		if !commonsecrets.IsSameApplication(s.authTag, tag) {
-			return "", nil, apiservererrors.ErrPerm
+			// We should never return "permission denied", as this leaks the
+			// fact that a secret exists that the consumer cannot access.
+			// Instead, return "not found".
+			return "", nil, errors.NotFound
 		}
 		w, err := s.secretsConsumer.WatchConsumedSecretsChanges(tag)
 		if err != nil {
@@ -864,7 +870,10 @@ func (s *SecretsManagerAPI) WatchObsolete(args params.Entities) (params.StringsW
 			return result, errors.Trace(err)
 		}
 		if !commonsecrets.IsSameApplication(s.authTag, ownerTag) {
-			return result, apiservererrors.ErrPerm
+			// We should never return "permission denied", as this leaks the
+			// fact that a secret exists that the consumer cannot access.
+			// Instead, return "not found".
+			return result, errors.NotFound
 		}
 		// Only unit leaders can watch application secrets.
 		// TODO(wallyworld) - temp fix for old podspec charms
@@ -900,7 +909,10 @@ func (s *SecretsManagerAPI) WatchSecretsRotationChanges(args params.Entities) (p
 			return result, errors.Trace(err)
 		}
 		if !commonsecrets.IsSameApplication(s.authTag, ownerTag) {
-			return result, apiservererrors.ErrPerm
+			// We should never return "permission denied", as this leaks the
+			// fact that a secret exists that the consumer cannot access.
+			// Instead, return "not found".
+			return result, errors.NotFound
 		}
 		// Only unit leaders can watch application secrets.
 		// TODO(wallyworld) - temp fix for old podspec charms
@@ -952,7 +964,10 @@ func (s *SecretsManagerAPI) SecretsRotated(args params.SecretRotatedArgs) (param
 			return errors.Trace(err)
 		}
 		if commonsecrets.AuthTagApp(s.authTag) != owner.Id() {
-			return apiservererrors.ErrPerm
+			// We should never return "permission denied", as this leaks the
+			// fact that a secret exists that the consumer cannot access.
+			// Instead, return "not found".
+			return errors.NotFound
 		}
 		if !md.RotatePolicy.WillRotate() {
 			logger.Debugf("secret %q was rotated but now is set to not rotate")
@@ -996,7 +1011,10 @@ func (s *SecretsManagerAPI) WatchSecretRevisionsExpiryChanges(args params.Entiti
 			return result, errors.Trace(err)
 		}
 		if !commonsecrets.IsSameApplication(s.authTag, ownerTag) {
-			return result, apiservererrors.ErrPerm
+			// We should never return "permission denied", as this leaks the
+			// fact that a secret exists that the consumer cannot access.
+			// Instead, return "not found".
+			return result, errors.NotFound
 		}
 		// Only unit leaders can watch application secrets.
 		// TODO(wallyworld) - temp fix for old podspec charms
