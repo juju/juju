@@ -174,10 +174,10 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 	var validationError *config.ValidationError
 	err = c.configService.UpdateModelConfig(ctx, args.Config, nil, logValidator)
 	if errors.As(err, &validationError) {
-		return fmt.Errorf("config key %q %w: %s",
+		return fmt.Errorf("config key %q %w: %w",
 			validationError.InvalidAttrs,
 			errors.NotValid,
-			validationError.Reason)
+			validationError.Cause)
 	}
 
 	return err
@@ -217,7 +217,7 @@ func LogTracingValidator(isAdmin bool) config.ValidatorFunc {
 		if !isAdmin {
 			return cfg, &config.ValidationError{
 				InvalidAttrs: []string{config.LoggingConfigKey},
-				Reason:       "only controller admins can set a model's logging level to TRACE",
+				Cause:        errors.ConstError("only controller admins can set a model's logging level to TRACE"),
 			}
 		}
 		return cfg, nil
@@ -236,10 +236,10 @@ func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset)
 	var validationError config.ValidationError
 	err := c.configService.UpdateModelConfig(ctx, nil, args.Keys)
 	if errors.As(err, &validationError) {
-		return fmt.Errorf("removing config key %q %w: %s",
+		return fmt.Errorf("removing config key %q %w: %w",
 			validationError.InvalidAttrs,
 			errors.NotValid,
-			validationError.Reason)
+			validationError.Cause)
 	}
 
 	return err

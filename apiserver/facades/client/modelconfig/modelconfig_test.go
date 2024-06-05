@@ -241,7 +241,7 @@ func (s *modelconfigSuite) TestUserCannotSetLogTrace(c *gc.C) {
 	c.Check(errors.As(err, &validationErr), jc.IsTrue)
 	c.Check(*validationErr, jc.DeepEquals, config.ValidationError{
 		InvalidAttrs: []string{config.LoggingConfigKey},
-		Reason:       "only controller admins can set a model's logging level to TRACE",
+		Cause:        errors.ConstError("only controller admins can set a model's logging level to TRACE"),
 	})
 }
 

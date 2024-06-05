@@ -10,10 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/internal/secrets/provider/juju"
-	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
 
 // CharmhubURLChange returns a config validator that will check to make sure
@@ -25,7 +22,7 @@ func CharmhubURLChange() config.ValidatorFunc {
 			if v != oldURL {
 				return cfg, &config.ValidationError{
 					InvalidAttrs: []string{config.CharmHubURLKey},
-					Reason:       "charmhub-url cannot be changed",
+					Cause:        errors.ConstError("charmhub-url cannot be changed"),
 				}
 			}
 		}
@@ -51,7 +48,7 @@ func AgentVersionChange() config.ValidatorFunc {
 			if v.Compare(oldVersion) != 0 {
 				return cfg, &config.ValidationError{
 					InvalidAttrs: []string{config.AgentVersionKey},
-					Reason:       "agent-version cannot be changed",
+					Cause:        errors.ConstError("agent-version cannot be changed"),
 				}
 			}
 		}
@@ -75,7 +72,7 @@ func AuthorizedKeysChange() config.ValidatorFunc {
 
 		return cfg, &config.ValidationError{
 			InvalidAttrs: []string{config.AuthorizedKeysKey},
-			Reason:       "authorized-keys cannot be changed",
+			Cause:        errors.ConstError("authorized-keys cannot be changed"),
 		}
 	}
 }
@@ -107,7 +104,7 @@ func SpaceChecker(provider SpaceProvider) config.ValidatorFunc {
 		if !has {
 			return cfg, &config.ValidationError{
 				InvalidAttrs: []string{config.DefaultSpaceKey},
-				Reason:       fmt.Sprintf("space %q does not exist", spaceName),
+				Cause:        fmt.Errorf("space %q does not exist", spaceName),
 			}
 		}
 
@@ -138,7 +135,7 @@ func LoggingTracePermissionChecker(canTrace bool) config.ValidatorFunc {
 		if err != nil {
 			return cfg, &config.ValidationError{
 				InvalidAttrs: []string{config.LoggingConfigKey},
-				Reason:       fmt.Sprintf("failed to parse logging config %q: %v", rawLogConf, err),
+				Cause:        fmt.Errorf("failed to parse logging config %q: %w", rawLogConf, err),
 			}
 		}
 
@@ -164,41 +161,6 @@ func LoggingTracePermissionChecker(canTrace bool) config.ValidatorFunc {
 			)
 		}
 
-		return cfg, nil
-	}
-}
-
-// SecretBackendChecker is responsible for asserting the secret backend in the
-// updated model config is valid for the model. If the secret backend has not
-// changed or is the default backend then no validation is performed.
-// Any validation errors will satisfy config.ValidationError.
-func SecretBackendChecker(modelType coremodel.ModelType) config.ValidatorFunc {
-	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
-		backendName := cfg.SecretBackend()
-		if backendName == old.SecretBackend() {
-			return cfg, nil
-		}
-		if backendName == "" {
-			return cfg, &config.ValidationError{
-				InvalidAttrs: []string{config.SecretBackendKey},
-				Reason:       "secret back cannot be empty",
-			}
-		}
-		if backendName == config.DefaultSecretBackend {
-			return cfg, nil
-		}
-		if modelType == coremodel.CAAS && backendName == juju.BackendName {
-			return cfg, &config.ValidationError{
-				InvalidAttrs: []string{config.SecretBackendKey},
-				Reason:       `caas secret backend cannot be set to "internal"`,
-			}
-		}
-		if modelType == coremodel.IAAS && backendName == kubernetes.BackendName {
-			return cfg, &config.ValidationError{
-				InvalidAttrs: []string{config.SecretBackendKey},
-				Reason:       `iaas secret backend cannot be set to "kubernetes"`,
-			}
-		}
 		return cfg, nil
 	}
 }

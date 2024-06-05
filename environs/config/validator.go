@@ -42,8 +42,8 @@ type ValidationError struct {
 	// InvalidAttrs is the list of attributes in the config that where invalid.
 	InvalidAttrs []string
 
-	// Reason is the human readable message for why the attributes are invalid.
-	Reason string
+	// Cause is the reason for why the attributes are invalid.
+	Cause error
 }
 
 var (
@@ -64,7 +64,10 @@ func (v *ValidationError) Is(err error) bool {
 
 // Error implements Error interface.
 func (v *ValidationError) Error() string {
-	return fmt.Sprintf("config attributes %v not valid because %s", v.InvalidAttrs, v.Reason)
+	if v.Cause == nil {
+		return fmt.Sprintf("config attributes %v not valid", v.InvalidAttrs)
+	}
+	return fmt.Sprintf("config attributes %v not valid because %s", v.InvalidAttrs, v.Cause)
 }
 
 // Validate implements Validator validate interface. This func will run all the
@@ -94,7 +97,7 @@ func NoControllerAttributesValidator() Validator {
 	return ValidatorFunc(func(ctx context.Context, cfg, _ *Config) (*Config, error) {
 		invalidKeysError := ValidationError{
 			InvalidAttrs: []string{},
-			Reason:       "controller only attributes not allowed",
+			Cause:        errors.ConstError("controller only attributes not allowed"),
 		}
 		allAttrs := cfg.AllAttrs()
 		for _, attr := range controller.ControllerOnlyConfigAttributes {
@@ -117,7 +120,7 @@ func ModelValidator() Validator {
 	modelConfigValidator := ValidatorFunc(func(ctx context.Context, cfg, _ *Config) (*Config, error) {
 		invalidKeysError := ValidationError{
 			InvalidAttrs: []string{},
-			Reason:       "attributes not allowed in model config",
+			Cause:        errors.ConstError("attributes not allowed"),
 		}
 		allAttrs := cfg.AllAttrs()
 		for _, attr := range disallowedModelConfigAttrs {

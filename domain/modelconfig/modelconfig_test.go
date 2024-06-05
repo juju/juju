@@ -136,16 +136,15 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *gc.C) {
 
 	// Changestream becomes idle and then we receive the bootstrap changes
 	// from the model config.
-	w.AssertChange("name", "uuid", "type", "foo", "logging-config", "secret-backend")
+	w.AssertChange("name", "uuid", "type", "foo", "logging-config")
 
 	// Ensure that the changestream is idle.
 	s.ModelSuite.AssertChangeStreamIdle(c)
 
 	// Now insert the change and watch it come through.
-	attrs = make(map[string]any)
 	attrs["logging-config"] = "<root>=WARNING"
 
-	err = svc.UpdateModelConfig(ctx, attrs, nil)
+	err = svc.SetModelConfig(ctx, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.ModelSuite.AssertChangeStreamIdle(c)

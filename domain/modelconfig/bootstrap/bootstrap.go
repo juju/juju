@@ -84,6 +84,12 @@ func SetModelConfig(
 			return fmt.Errorf("coercing model config for storage: %w", err)
 		}
 
+		// TODO(wallyworld) - similar to the agent version above,
+		// the secret backend comes in as a model config attribute
+		// to insert and we don't want that here as the model secret
+		// backend is set in the bootstrap worker.
+		delete(insert, config.SecretBackendKey)
+
 		insertQuery := `INSERT INTO model_config (*) VALUES ($dbKeyValue.*)`
 		insertStmt, err := sqlair.Prepare(insertQuery, dbKeyValue{})
 		if err != nil {

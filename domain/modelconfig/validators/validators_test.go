@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 )
@@ -278,73 +277,6 @@ func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *gc.C) {
 
 	_, err = LoggingTracePermissionChecker(true)(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (*validatorsSuite) TestSecretsBackendChecker(c *gc.C) {
-	oldCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "vault",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = SecretBackendChecker(coremodel.IAAS)(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (*validatorsSuite) TestSecretsBackendCheckerIAAS(c *gc.C) {
-	oldCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "kubernetes",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = SecretBackendChecker(coremodel.IAAS)(context.Background(), newCfg, oldCfg)
-	var validationError *config.ValidationError
-	c.Assert(errors.As(err, &validationError), jc.IsTrue)
-	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"secret-backend"})
-}
-
-func (*validatorsSuite) TestSecretsBackendCheckerCAAS(c *gc.C) {
-	oldCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "internal",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = SecretBackendChecker(coremodel.CAAS)(context.Background(), newCfg, oldCfg)
-	var validationError *config.ValidationError
-	c.Assert(errors.As(err, &validationError), jc.IsTrue)
-	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"secret-backend"})
 }
 
 // TestAuthorizedKeysChanged asserts that if we change the value of authorised

@@ -23,6 +23,9 @@ type MemoryState struct {
 }
 
 func (s *MemoryState) SetModelSecretBackend(ctx context.Context, modelUUID model.UUID, backendName string) error {
+	if backendName == "error-backend" {
+		return fmt.Errorf("error-backend")
+	}
 	s.secretBackend = backendName
 	return nil
 }

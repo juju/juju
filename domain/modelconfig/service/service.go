@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
+	modelconfigerrors "github.com/juju/juju/domain/modelconfig/errors"
 	"github.com/juju/juju/domain/modelconfig/handlers"
 	"github.com/juju/juju/domain/modelconfig/validators"
 	"github.com/juju/juju/domain/modeldefaults"
@@ -260,30 +261,48 @@ func (s *Service) reconcileRemovedAttributes(
 	return updates, nil
 }
 
+// runOnSaveHandlers runs all the onSave handlers and stops at the first error,
+// returning true if updates were made and any keys for the handler that errored out.
 func (s *Service) runOnSaveHandlers(
-	ctx context.Context, modelUUID model.UUID, modelType model.ModelType, newConfigAttrs map[string]any,
-) (rollbacks handlers.Rollbacks, err error) {
-	defer func() {
-		if err != nil {
-			if rbErr := rollbacks.Rollback(ctx); rbErr != nil {
-				s.logger.Errorf("cannot rollback failed model config operations: %s", rbErr)
-			}
-			rollbacks = nil
-		}
-	}()
-
+	ctx context.Context, modelUUID model.UUID, modelType model.ModelType, cfg, old *config.Config,
+) (map[string]any, bool, []string, error) {
 	cfgHandlers, err := s.configHandlers(modelUUID, modelType)
 	if err != nil {
-		return rollbacks, fmt.Errorf("cannot set up config handlers: %w", err)
+		return nil, false, nil, fmt.Errorf("cannot set up config handlers: %w", err)
 	}
+	newConfigAttrs := cfg.AllAttrs()
+	var oldConfigAttrs map[string]any
+	if old != nil {
+		oldConfigAttrs = old.AllAttrs()
+	}
+	updatesDone := false
 	for _, h := range cfgHandlers {
-		rb, err := h.OnSave(ctx, newConfigAttrs)
-		if err != nil {
-			return nil, fmt.Errorf("cannot apply config handler %q during save: %w", h.Name(), err)
+		// Extract only the keys the handler is interested in.
+		handlerAttrs := make(map[string]any)
+		oldHandlerAttrs := make(map[string]any)
+		handlerKeys := h.RegisteredKeys()
+		for _, key := range handlerKeys {
+			if v, ok := newConfigAttrs[key]; ok {
+				handlerAttrs[key] = v
+			}
+			oldHandlerAttrs[key] = oldConfigAttrs[key]
 		}
-		rollbacks = append(rollbacks, rb)
+		if len(handlerAttrs) == 0 {
+			continue
+		}
+		if err := h.Validate(ctx, handlerAttrs, oldHandlerAttrs); err != nil {
+			return newConfigAttrs, updatesDone, handlerKeys, fmt.Errorf("validation error for handler %q: %w", h.Name(), err)
+		}
+		if err := h.OnSave(ctx, handlerAttrs); err != nil {
+			return newConfigAttrs, updatesDone, handlerKeys, fmt.Errorf("cannot apply config handler %q during save: %w", h.Name(), err)
+		}
+		updatesDone = true
+		// On success, remove the handler keys from the config attrs.
+		for _, key := range handlerKeys {
+			delete(newConfigAttrs, key)
+		}
 	}
-	return rollbacks, nil
+	return newConfigAttrs, updatesDone, nil, nil
 }
 
 // SetModelConfig will remove any existing model config for the model and
@@ -292,7 +311,7 @@ func (s *Service) runOnSaveHandlers(
 func (s *Service) SetModelConfig(
 	ctx context.Context,
 	cfg map[string]any,
-) (err error) {
+) error {
 	defaults, err := s.defaultsProvider.ModelDefaults(ctx)
 	if err != nil {
 		return fmt.Errorf("getting model defaults: %w", err)
@@ -325,25 +344,30 @@ func (s *Service) SetModelConfig(
 	if err != nil {
 		return errors.Annotate(err, "cannot load model info")
 	}
-	attrs := setCfg.AllAttrs()
-	rollbacks, err := s.runOnSaveHandlers(ctx, modelUUID, modelType, attrs)
+	attrs, updatesDone, errorAttrs, err := s.runOnSaveHandlers(ctx, modelUUID, modelType, setCfg, nil)
 	if err != nil {
-		return errors.Annotate(err, "cannot process model config")
-	}
-	defer func() {
-		if err != nil {
-			if rbErr := rollbacks.Rollback(ctx); rbErr != nil {
-				s.logger.Errorf("cannot rollback failed model config operations: %s", rbErr)
+		if updatesDone {
+			err = modelconfigerrors.PartialSaveError{
+				ErrorAttrs: errorAttrs,
+				Cause:      err,
 			}
 		}
-	}()
+		return errors.Annotate(err, "cannot process model config")
+	}
 
 	rawCfg, err := CoerceConfigForStorage(attrs)
 	if err != nil {
 		return fmt.Errorf("coercing model config for storage: %w", err)
 	}
 
-	return s.st.SetModelConfig(ctx, rawCfg)
+	err = s.st.SetModelConfig(ctx, rawCfg)
+	if updatesDone && err != nil {
+		err = modelconfigerrors.PartialSaveError{
+			Cause: err,
+		}
+	}
+	return errors.Annotate(err, "setting model config")
+
 }
 
 // UpdateModelConfig takes a set of updated and removed attributes to apply.
@@ -365,7 +389,7 @@ func (s *Service) UpdateModelConfig(
 	updateAttrs map[string]any,
 	removeAttrs []string,
 	additionalValidators ...config.Validator,
-) (err error) {
+) error {
 	// noop with no updates or removals to perform.
 	if len(updateAttrs) == 0 && len(removeAttrs) == 0 {
 		return nil
@@ -393,33 +417,34 @@ func (s *Service) UpdateModelConfig(
 		return errors.Annotate(err, "cannot load model info")
 	}
 
-	_, err = s.updateModelConfigValidator(modelType, additionalValidators...).Validate(ctx, newCfg, currCfg)
+	_, err = s.updateModelConfigValidator(additionalValidators...).Validate(ctx, newCfg, currCfg)
 	if err != nil {
 		return fmt.Errorf("validating updated model configuration: %w", err)
 	}
 
-	rollbacks, err := s.runOnSaveHandlers(ctx, modelUUID, modelType, updates)
+	updateAttrs, updatesDone, errorAttrs, err := s.runOnSaveHandlers(ctx, modelUUID, modelType, newCfg, currCfg)
 	if err != nil {
-		return errors.Annotate(err, "cannot process model config")
-	}
-	defer func() {
-		if err != nil {
-			if rbErr := rollbacks.Rollback(ctx); rbErr != nil {
-				s.logger.Errorf("cannot rollback failed model config operations: %s", rbErr)
+		if updatesDone {
+			err = modelconfigerrors.PartialSaveError{
+				ErrorAttrs: errorAttrs,
+				Cause:      err,
 			}
 		}
-	}()
+		return errors.Annotate(err, "cannot process model config")
+	}
 
-	rawCfg, err := CoerceConfigForStorage(updates)
+	rawCfg, err := CoerceConfigForStorage(updateAttrs)
 	if err != nil {
 		return fmt.Errorf("coercing new configuration for persistence: %w", err)
 	}
 
 	err = s.st.UpdateModelConfig(ctx, rawCfg, removeAttrs)
-	if err != nil {
-		return fmt.Errorf("updating model config: %w", err)
+	if updatesDone && err != nil {
+		err = modelconfigerrors.PartialSaveError{
+			Cause: err,
+		}
 	}
-	return nil
+	return errors.Annotate(err, "updating model config")
 }
 
 // spaceValidator implements validators.SpaceProvider.
@@ -438,10 +463,8 @@ func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (bool, 
 // - Agent version is not being changed.
 // - CharmhubURL is not being changed.
 // - Network space exists.
-// - Secret backend is valid for the type of model.
 // - There is no changes to authorized keys.
 func (s *Service) updateModelConfigValidator(
-	modelType model.ModelType,
 	additional ...config.Validator,
 ) config.Validator {
 	agg := &config.AggregateValidator{
@@ -451,7 +474,6 @@ func (s *Service) updateModelConfigValidator(
 			validators.SpaceChecker(&spaceValidator{
 				st: s.st,
 			}),
-			validators.SecretBackendChecker(modelType),
 			validators.AuthorizedKeysChange(),
 			s.modelValidator,
 		},

@@ -25,8 +25,8 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) TestGetModelInfo(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-            INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, cloud)
-            VALUES ("123", "123", "test", "caas", "1.2.3", "kubernetes")
+            INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, cloud, cloud_type)
+            VALUES ("123", "123", "test", "caas", "1.2.3", "kubernetes", "kubernetes")
         `)
 		return err
 	})
