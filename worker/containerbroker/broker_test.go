@@ -158,7 +158,6 @@ func (s *trackerSuite) TestNewTracker(c *gc.C) {
 		},
 		s.expectMachineTag,
 		s.expectMachines,
-		s.expectSupportedContainers,
 		s.expectContainerConfig,
 	)
 	c.Assert(err, gc.IsNil)
@@ -193,33 +192,9 @@ func (s *trackerSuite) TestNewTrackerWithNoContainers(c *gc.C) {
 		nil,
 		s.expectMachineTag,
 		s.expectMachines,
-		s.expectNoSupportedContainers,
+		s.expectContainerConfig,
 	)
-	c.Assert(err, gc.ErrorMatches, "resource permanently unavailable")
-}
-
-func (s *trackerSuite) TestNewTrackerWithNoDeterminedContainers(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	_, err := s.withScenario(c,
-		nil,
-		s.expectMachineTag,
-		s.expectMachines,
-		s.expectNoDeterminedSupportedContainers,
-	)
-	c.Assert(err, gc.ErrorMatches, "no container types determined")
-}
-
-func (s *trackerSuite) TestNewTrackerWithKVMContainers(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	_, err := s.withScenario(c,
-		nil,
-		s.expectMachineTag,
-		s.expectMachines,
-		s.expectKVMSupportedContainers,
-	)
-	c.Assert(err, gc.ErrorMatches, "resource permanently unavailable")
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *trackerSuite) withScenario(c *gc.C, expected *broker.Config, behaviours ...func()) (*containerbroker.Tracker, error) {
@@ -265,28 +240,6 @@ func (s *trackerSuite) expectDeadMachines() {
 		Machine: s.machine,
 	}}, nil)
 	s.machine.EXPECT().Life().Return(life.Dead)
-}
-
-func (s *trackerSuite) expectSupportedContainers() {
-	s.machine.EXPECT().SupportedContainers().Return([]instance.ContainerType{
-		instance.LXD,
-	}, true, nil)
-}
-
-func (s *trackerSuite) expectNoSupportedContainers() {
-	s.machine.EXPECT().SupportedContainers().Return([]instance.ContainerType{}, true, nil)
-}
-
-func (s *trackerSuite) expectNoDeterminedSupportedContainers() {
-	s.machine.EXPECT().SupportedContainers().Return([]instance.ContainerType{
-		instance.LXD,
-	}, false, nil)
-}
-
-func (s *trackerSuite) expectKVMSupportedContainers() {
-	s.machine.EXPECT().SupportedContainers().Return([]instance.ContainerType{
-		instance.KVM,
-	}, true, nil)
 }
 
 func (s *trackerSuite) expectContainerConfig() {
