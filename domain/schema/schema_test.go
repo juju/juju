@@ -281,10 +281,8 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 		// Machine
 		"machine",
-		"container_type",
 		"machine_constraint",
 		"machine_tool",
-		"machine_job",
 		"machine_volume",
 		"machine_filesystem",
 

@@ -5,22 +5,19 @@ CREATE TABLE machine (
     life_id           INT NOT NULL,
     base              TEXT,
     nonce             TEXT,
-    container_type_id INT,
     password_hash     TEXT,
     clean             BOOLEAN,
     force_destroyed   BOOLEAN,
     placement         TEXT,
     agent_started_at  DATETIME,
     hostname          TEXT,
+    is_controller     BOOLEAN,
     CONSTRAINT        fk_machine_net_node
         FOREIGN KEY   (net_node_uuid)
         REFERENCES    net_node(uuid),
     CONSTRAINT        fk_machine_life
         FOREIGN KEY   (life_id)
-        REFERENCES    life(id),
-    CONSTRAINT        fk_machine_container_type
-        FOREIGN KEY   (container_type_id)
-        REFERENCES    container_type(id)
+        REFERENCES    life(id)
 );
 
 CREATE UNIQUE INDEX idx_machine_id
@@ -28,14 +25,6 @@ ON machine (machine_id);
 
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
-
-CREATE TABLE container_type (
-    id    INT PRIMARY KEY,
-    value TEXT NOT NULL
-);
-
-INSERT INTO container_type VALUES
-    (0, 'lxd');
 
 CREATE TABLE machine_constraint (
     machine_uuid     TEXT PRIMARY KEY,
@@ -58,15 +47,6 @@ CREATE TABLE machine_tool (
         FOREIGN KEY  (machine_uuid)
         REFERENCES   machine(uuid),
     PRIMARY KEY (machine_uuid, tool_url)
-);
-
-CREATE TABLE machine_job (
-    machine_uuid     TEXT NOT NULL,
-    machine_job      INT NOT NULL,
-    CONSTRAINT       fk_machine_principal_machine
-        FOREIGN KEY  (machine_uuid)
-        REFERENCES   machine(uuid),
-    PRIMARY KEY (machine_uuid, machine_job)
 );
 
 CREATE TABLE machine_volume (
