@@ -91,19 +91,6 @@ type PackageCommander interface {
 	SetProxyCmds(proxy.Settings) []string
 }
 
-// NewPackageCommander returns a new PackageCommander instance based on the
-// given series.
-func NewPackageCommander(series string) (PackageCommander, error) {
-	// TODO (aznashwan): find a more deterministic way of selection here which
-	// does not imply importing version from core.
-	switch series {
-	case "centos7":
-		return NewYumPackageCommander(), nil
-	default:
-		return NewAptPackageCommander(), nil
-	}
-}
-
 // NewAptPackageCommander returns a PackageCommander for apt-based systems.
 func NewAptPackageCommander() PackageCommander {
 	return &aptCmder
@@ -112,9 +99,4 @@ func NewAptPackageCommander() PackageCommander {
 // NewSnapPackageCommander returns a PackageCommander for snap-based systems.
 func NewSnapPackageCommander() PackageCommander {
 	return &snapCmder
-}
-
-// NewYumPackageCommander returns a PackageCommander for yum-based systems.
-func NewYumPackageCommander() PackageCommander {
-	return &yumCmder
 }

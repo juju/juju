@@ -16,8 +16,6 @@ func GetSeriesFromBase(v Base) (string, error) {
 	switch strings.ToLower(v.OS) {
 	case UbuntuOS:
 		osSeries = ubuntuSeries
-	case CentosOS:
-		osSeries = centosSeries
 	}
 	for s, vers := range osSeries {
 		if vers.Version == v.Channel.Track {

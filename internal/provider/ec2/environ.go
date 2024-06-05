@@ -42,7 +42,6 @@ import (
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
@@ -490,11 +489,7 @@ func (e *environ) AgentMetadataLookupParams(region string) (*simplestreams.Metad
 // ImageMetadataLookupParams returns parameters which are used to query image simple-streams metadata.
 func (e *environ) ImageMetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	base := config.PreferredBase(e.ecfg())
-	release, err := imagemetadata.ImageRelease(base)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return e.metadataLookupParams(region, release)
+	return e.metadataLookupParams(region, base.Channel.Track)
 }
 
 // MetadataLookupParams returns parameters which are used to query simple-streams metadata.

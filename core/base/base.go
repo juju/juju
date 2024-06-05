@@ -26,10 +26,6 @@ const (
 	// UbuntuOS is the special value to be places in OS field of a base to
 	// indicate an operating system is an Ubuntu distro
 	UbuntuOS = "ubuntu"
-
-	// CentosOS is the special value to be places in OS field of a base to
-	// indicate an operating system is a CentOS distro
-	CentosOS = "centos"
 )
 
 // ParseBase constructs a Base from the os and channel string.

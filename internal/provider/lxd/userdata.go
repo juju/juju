@@ -15,11 +15,9 @@ type lxdRenderer struct{}
 
 // EncodeUserdata implements renderers.ProviderRenderer.
 func (lxdRenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte, error) {
-	switch os {
-	case ostype.Ubuntu, ostype.CentOS:
-		bytes, err := renderers.RenderYAML(cfg)
-		return bytes, errors.Trace(err)
-	default:
-		return nil, errors.Errorf("cannot encode userdata for OS %q", os)
+	if os != ostype.Ubuntu {
+		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os)
 	}
+	bytes, err := renderers.RenderYAML(cfg)
+	return bytes, errors.Trace(err)
 }

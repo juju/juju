@@ -157,15 +157,6 @@ const (
 	ReleasedStream = "released"
 )
 
-// ImageRelease maps a base to an image version.
-func ImageRelease(base corebase.Base) (string, error) {
-	if base.OS != "centos" {
-		return base.Channel.Track, nil
-	}
-	// Centos requires special handling.
-	return "centos" + base.Channel.Track, nil
-}
-
 // idStream returns the string to use in making a product id
 // for the given product stream.
 func idStream(stream string) string {

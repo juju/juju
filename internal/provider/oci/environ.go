@@ -444,10 +444,6 @@ func (e *Environ) getCloudInitConfig(osname string, apiPort int, statePort int) 
 		cloudcfg.AddRunCmd(fmt.Sprintf("/sbin/iptables -I INPUT -p tcp --dport %d -j ACCEPT", apiPort))
 		cloudcfg.AddRunCmd(fmt.Sprintf("/sbin/iptables -I INPUT -p tcp --dport %d -j ACCEPT", statePort))
 		cloudcfg.AddScripts("/etc/init.d/netfilter-persistent save")
-	case ostype.CentOS:
-		cloudcfg.AddRunCmd(fmt.Sprintf("firewall-cmd --zone=public --add-port=%d/tcp --permanent", apiPort))
-		cloudcfg.AddRunCmd(fmt.Sprintf("firewall-cmd --zone=public --add-port=%d/tcp --permanent", statePort))
-		cloudcfg.AddRunCmd("firewall-cmd --reload")
 	}
 	return cloudcfg, nil
 }

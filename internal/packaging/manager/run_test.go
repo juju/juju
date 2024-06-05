@@ -73,13 +73,6 @@ func (s *RunSuite) TestRunCommandWithRetryDoesOnPackageLocationFailure(c *gc.C) 
 	err := apt.Install(testedPackageName)
 	c.Check(err, gc.ErrorMatches, "packaging command failed: attempt count exceeded: exit status.*")
 	c.Check(calls, gc.Equals, minRetries)
-
-	// reset calls and re-test for Yum calls:
-	calls = 0
-	yum := manager.NewYumPackageManager()
-	err = yum.Install(testedPackageName)
-	c.Check(err, gc.ErrorMatches, "packaging command failed: attempt count exceeded: exit status.*")
-	c.Check(calls, gc.Equals, minRetries)
 }
 
 func (s *RunSuite) TestRunCommandWithRetryStopsWithFatalError(c *gc.C) {

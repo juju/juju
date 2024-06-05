@@ -35,12 +35,6 @@ func getAllSeriesVersions() map[SeriesName]seriesVersion {
 	return copy
 }
 
-const (
-	genericLinuxSeries  = "genericlinux"
-	genericLinuxOS      = "genericlinux"
-	genericLinuxVersion = "genericlinux"
-)
-
 // LocalSeriesVersionInfo is patched for tests.
 var LocalSeriesVersionInfo = series.LocalSeriesVersionInfo
 
@@ -78,15 +72,6 @@ func composeSeriesVersions() {
 	allSeriesVersions = make(map[SeriesName]seriesVersion)
 	for k, v := range ubuntuSeries {
 		allSeriesVersions[k] = v
-	}
-	for k, v := range centosSeries {
-		allSeriesVersions[k] = v
-	}
-	allSeriesVersions[genericLinuxSeries] = seriesVersion{
-		WorkloadType: OtherWorkloadType,
-		OS:           genericLinuxOS,
-		Version:      genericLinuxVersion,
-		Supported:    true,
 	}
 }
 

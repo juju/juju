@@ -22,18 +22,6 @@ func (s *DependencyManagerTestSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 }
 
-func (s *DependencyManagerTestSuite) TestInstallWithCentos(c *gc.C) {
-	s.assertInstallCallsCorrectBinary(c, assertParams{
-		base:         base.MustParseBaseFromString("centos@7"),
-		pkg:          "foo",
-		pm:           packaging.YumPackageManager,
-		expPkgBinary: "yum",
-		expArgs: []string{
-			"--assumeyes", "--debuglevel=1", "install", "foo",
-		},
-	})
-}
-
 func (s *DependencyManagerTestSuite) TestInstallWithAptOnJammy(c *gc.C) {
 	s.assertInstallCallsCorrectBinary(c, assertParams{
 		base:         base.MustParseBaseFromString("ubuntu@22.04"),

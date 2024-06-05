@@ -38,7 +38,6 @@ func (s *SupportedSeriesLinuxSuite) TestWorkloadBases(c *gc.C) {
 	bases, err := WorkloadBases(time.Time{}, Base{}, "")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bases, gc.DeepEquals, transform.Slice([]string{
-		"centos@7", "centos@9", "genericlinux@genericlinux",
 		"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04",
 	}, MustParseBaseFromString))
 }

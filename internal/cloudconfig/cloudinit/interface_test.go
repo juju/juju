@@ -10,7 +10,6 @@ import (
 )
 
 var _ CloudConfig = (*ubuntuCloudConfig)(nil)
-var _ CloudConfig = (*centOSCloudConfig)(nil)
 
 type InterfaceSuite struct{}
 

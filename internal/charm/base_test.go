@@ -45,7 +45,8 @@ func (s *baseSuite) TestParseBase(c *gc.C) {
 			parsedBase: charm.Base{Name: strings.ToLower(os.Ubuntu.String()), Channel: mustParseChannel("20.04/stable")},
 		}, {
 			str:        "windows@win10/stable",
-			parsedBase: charm.Base{Name: strings.ToLower(os.Windows.String()), Channel: mustParseChannel("win10/stable")},
+			parsedBase: charm.Base{},
+			err:        `invalid base string "windows@win10/stable": os "windows" not valid`,
 		}, {
 			str:        "ubuntu@20.04/edge",
 			parsedBase: charm.Base{Name: strings.ToLower(os.Ubuntu.String()), Channel: mustParseChannel("20.04/edge")},
@@ -78,10 +79,10 @@ func (s *baseSuite) TestParseBaseWithArchitectures(c *gc.C) {
 			parsedBase: charm.Base{},
 			err:        `invalid base string "ubuntu@" with architectures "amd64": channel not valid`,
 		}, {
-			baseString: "windows@",
-			str:        "windows",
+			baseString: "ubuntu@",
+			str:        "ubuntu",
 			parsedBase: charm.Base{},
-			err:        `invalid base string "windows@": channel not valid`,
+			err:        `invalid base string "ubuntu@": channel not valid`,
 		}, {
 			baseString: "mythicalos@channel",
 			str:        "mythicalos",
@@ -96,11 +97,11 @@ func (s *baseSuite) TestParseBaseWithArchitectures(c *gc.C) {
 				Channel:       mustParseChannel("20.04/stable"),
 				Architectures: []string{arch.AMD64, arch.PPC64EL}},
 		}, {
-			baseString: "windows@win10/stable",
+			baseString: "ubuntu@24.04/stable",
 			archs:      []string{"testme"},
-			str:        "windows@win10/stable",
+			str:        "ubuntu@24.04/stable",
 			parsedBase: charm.Base{},
-			err:        `invalid base string "windows@win10/stable" with architectures "testme": architecture "testme" not valid`,
+			err:        `invalid base string "ubuntu@24.04/stable" with architectures "testme": architecture "testme" not valid`,
 		},
 	}
 	for i, v := range tests {
@@ -123,9 +124,6 @@ func (s *baseSuite) TestStringifyBase(c *gc.C) {
 		{
 			base: charm.Base{Name: strings.ToLower(os.Ubuntu.String()), Channel: mustParseChannel("20.04/stable")},
 			str:  "ubuntu@20.04/stable",
-		}, {
-			base: charm.Base{Name: strings.ToLower(os.Windows.String()), Channel: mustParseChannel("win10/stable")},
-			str:  "windows@win10/stable",
 		}, {
 			base: charm.Base{Name: strings.ToLower(os.Ubuntu.String()), Channel: mustParseChannel("20.04/edge")},
 			str:  "ubuntu@20.04/edge",

@@ -5,7 +5,5 @@
 package config
 
 var (
-	CloudArchivePackagesUbuntu   = cloudArchivePackagesUbuntu
-	CloudArchivePackagesCentOS   = cloudArchivePackagesCentOS
-	CloudArchivePackagesOpenSUSE = cloudArchivePackagesOpenSUSE
+	CloudArchivePackagesUbuntu = cloudArchivePackagesUbuntu
 )

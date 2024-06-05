@@ -14,10 +14,8 @@ import (
 type EquinixRenderer struct{}
 
 func (EquinixRenderer) Render(cfg cloudinit.CloudConfig, os ostype.OSType) ([]byte, error) {
-	switch os {
-	case ostype.Ubuntu, ostype.CentOS:
-		return renderers.RenderYAML(cfg)
-	default:
-		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os.String())
+	if os != ostype.Ubuntu {
+		return nil, errors.Errorf("Cannot encode userdata for OS: %s", os)
 	}
+	return renderers.RenderYAML(cfg)
 }

@@ -25,9 +25,6 @@ import (
 var logger = internallogger.GetLogger("juju.provider.azure")
 
 const (
-	centOSPublisher = "OpenLogic"
-	centOSOffering  = "CentOS"
-
 	ubuntuPublisher = "Canonical"
 
 	dailyStream = "daily"
@@ -54,16 +51,6 @@ func SeriesImage(
 		sku, offering, err = ubuntuSKU(ctx, base, stream, location, client)
 		if err != nil {
 			return nil, errors.Annotatef(err, "selecting SKU for %s", base.DisplayString())
-		}
-
-	case ostype.CentOS:
-		publisher = centOSPublisher
-		offering = centOSOffering
-		switch base.Channel.Track {
-		case "7", "8": // TODO: this doesn't look right. Add support for centos 9 stream.
-			sku = "7.3"
-		default:
-			return nil, errors.NotSupportedf("deploying %s", base)
 		}
 
 	default:

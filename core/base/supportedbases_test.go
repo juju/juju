@@ -29,9 +29,6 @@ func (s *BasesSuite) TestWorkloadBases(c *gc.C) {
 		requestedBase: Base{},
 		imageStream:   Daily,
 		expectedBase: []Base{
-			MustParseBaseFromString("centos@7/stable"),
-			MustParseBaseFromString("centos@9/stable"),
-			MustParseBaseFromString("genericlinux@genericlinux/stable"),
 			MustParseBaseFromString("ubuntu@20.04/stable"),
 			MustParseBaseFromString("ubuntu@22.04/stable"),
 			MustParseBaseFromString("ubuntu@24.04/stable"),
@@ -41,9 +38,6 @@ func (s *BasesSuite) TestWorkloadBases(c *gc.C) {
 		requestedBase: MustParseBaseFromString("ubuntu@22.04"),
 		imageStream:   Daily,
 		expectedBase: []Base{
-			MustParseBaseFromString("centos@7/stable"),
-			MustParseBaseFromString("centos@9/stable"),
-			MustParseBaseFromString("genericlinux@genericlinux/stable"),
 			MustParseBaseFromString("ubuntu@20.04/stable"),
 			MustParseBaseFromString("ubuntu@22.04/stable"),
 			MustParseBaseFromString("ubuntu@24.04/stable"),

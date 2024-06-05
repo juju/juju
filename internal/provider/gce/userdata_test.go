@@ -31,11 +31,6 @@ func (s *UserdataSuite) TestGCEUnix(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expected := base64.StdEncoding.EncodeToString(utils.Gzip(cloudcfg.YAML))
 	c.Assert(string(result), jc.DeepEquals, expected)
-
-	result, err = renderer.Render(cloudcfg, ostype.CentOS)
-	c.Assert(err, jc.ErrorIsNil)
-	expected = base64.StdEncoding.EncodeToString(utils.Gzip(cloudcfg.YAML))
-	c.Assert(string(result), jc.DeepEquals, expected)
 }
 
 func (s *UserdataSuite) TestGCEUnknownOS(c *gc.C) {

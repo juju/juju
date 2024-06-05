@@ -28,10 +28,6 @@ func (s *UserdataSuite) TestAmazonUnix(c *gc.C) {
 	result, err := renderer.Render(cloudcfg, ostype.Ubuntu)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, utils.Gzip(cloudcfg.YAML))
-
-	result, err = renderer.Render(cloudcfg, ostype.CentOS)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, utils.Gzip(cloudcfg.YAML))
 }
 
 func (s *UserdataSuite) TestAmazonUnknownOS(c *gc.C) {

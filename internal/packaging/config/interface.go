@@ -33,27 +33,10 @@ type PackagingConfigurer interface {
 	RenderPreferences(prefs source.PackagePreferences) (string, error)
 }
 
-func NewPackagingConfigurer(os string) (PackagingConfigurer, error) {
-	switch os {
-	case "centos":
-		return NewYumPackagingConfigurer(), nil
-	default:
-		return NewAptPackagingConfigurer(), nil
-	}
-}
-
 // NewAptPackagingConfigurer returns a PackagingConfigurer for apt-based systems.
 func NewAptPackagingConfigurer() PackagingConfigurer {
 	return &aptConfigurer{&baseConfigurer{
 		defaultPackages:      UbuntuDefaultPackages,
 		cloudArchivePackages: cloudArchivePackagesUbuntu,
-	}}
-}
-
-// NewYumPackagingConfigurer returns a PackagingConfigurer for yum-based systems.
-func NewYumPackagingConfigurer() PackagingConfigurer {
-	return &yumConfigurer{&baseConfigurer{
-		defaultPackages:      CentOSDefaultPackages,
-		cloudArchivePackages: cloudArchivePackagesCentOS,
 	}}
 }

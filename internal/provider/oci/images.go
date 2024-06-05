@@ -36,7 +36,6 @@ const (
 	// ImageTypeGeneric should work on any type of instance (bare metal or virtual)
 	ImageTypeGeneric ImageType = "generic"
 
-	centOS   = "CentOS"
 	ubuntuOS = "Canonical Ubuntu"
 
 	staleImageCacheTimeoutInMinutes = 30
@@ -258,23 +257,13 @@ func getImageType(img ociCore.Image) ImageType {
 // NewInstanceImage returns a populated InstanceImage from the ociCore.Image
 // struct returned by oci's API, the image's architecture or an error.
 func NewInstanceImage(img ociCore.Image, compartmentID *string) (InstanceImage, string, error) {
-	var (
-		err       error
-		arch      string
-		base      corebase.Base
-		isMinimal bool
-		imgType   InstanceImage
-	)
-	switch osName := *img.OperatingSystem; osName {
-	case centOS:
-		base = corebase.MakeDefaultBase("centos", *img.OperatingSystemVersion)
-		// For the moment, only x86 shapes are supported
-		arch = corearch.AMD64
-	case ubuntuOS:
-		base, arch, isMinimal = parseUbuntuImage(img)
-	default:
+	if osName := *img.OperatingSystem; osName != ubuntuOS {
 		return InstanceImage{}, "", errors.NotSupportedf("os %s", osName)
 	}
+	var (
+		imgType InstanceImage
+	)
+	base, arch, isMinimal := parseUbuntuImage(img)
 
 	imgType.ImageType = getImageType(img)
 	imgType.Id = *img.Id

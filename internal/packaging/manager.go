@@ -22,7 +22,6 @@ type PackageManagerName string
 // The list of supported package managers.
 const (
 	AptPackageManager  PackageManagerName = "apt"
-	YumPackageManager  PackageManagerName = "yum"
 	SnapPackageManager PackageManagerName = "snap"
 )
 
@@ -93,8 +92,6 @@ func newPackageManager(name PackageManagerName) (manager.PackageManager, error) 
 	switch name {
 	case AptPackageManager:
 		return manager.NewAptPackageManager(), nil
-	case YumPackageManager:
-		return manager.NewYumPackageManager(), nil
 	case SnapPackageManager:
 		return manager.NewSnapPackageManager(), nil
 	default:

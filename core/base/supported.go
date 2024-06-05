@@ -387,23 +387,3 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		ESMSupported: true,
 	},
 }
-
-const (
-	Centos7 SeriesName = "centos7"
-	Centos9 SeriesName = "centos9"
-)
-
-var centosSeries = map[SeriesName]seriesVersion{
-	Centos7: {
-		WorkloadType: OtherWorkloadType,
-		OS:           CentosOS,
-		Version:      "7",
-		Supported:    true,
-	},
-	Centos9: {
-		WorkloadType: OtherWorkloadType,
-		OS:           CentosOS,
-		Version:      "9",
-		Supported:    true,
-	},
-}

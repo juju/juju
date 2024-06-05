@@ -574,15 +574,11 @@ func (api *ProvisionerAPI) availableImageMetadata(
 
 // constructImageConstraint returns model-specific criteria used to look for image metadata.
 func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env environs.Environ) (*imagemetadata.ImageConstraint, error) {
-	// TODO(wallyworld) - does centos still need the series hack?
 	base, err := corebase.ParseBase(m.Base().OS, m.Base().Channel)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	vers := base.Channel.Track
-	if m.Base().OS == "centos" {
-		vers = "centos" + vers
-	}
 	lookup := simplestreams.LookupParams{
 		Releases: []string{vers},
 		Stream:   env.Config().ImageStream(),

@@ -666,7 +666,7 @@ func (env *azureEnviron) createVirtualMachine(
 		}
 	}
 
-	osProfile, seriesOS, err := newOSProfile(
+	osProfile, err := newOSProfile(
 		vmName, instanceConfig,
 		env.provider.config.GenerateSSHKey,
 	)
@@ -841,26 +841,6 @@ func (env *azureEnviron) createVirtualMachine(
 		},
 		DependsOn: vmDependsOn,
 	})
-
-	// On CentOS, we must add the CustomScript VM extension to run the
-	// CustomData script.
-	if seriesOS == ostype.CentOS {
-		properties, err := vmExtensionProperties(seriesOS)
-		if err != nil {
-			return errors.Annotate(
-				err, "creating virtual machine extension",
-			)
-		}
-		res = append(res, armtemplates.Resource{
-			APIVersion: computeAPIVersion,
-			Type:       "Microsoft.Compute/virtualMachines/extensions",
-			Name:       vmName + "/" + extensionName,
-			Location:   env.location,
-			Tags:       vmTags,
-			Properties: properties,
-			DependsOn:  []string{"Microsoft.Compute/virtualMachines/" + vmName},
-		})
-	}
 
 	logger.Debugf("- creating virtual machine deployment in %q", env.resourceGroup)
 	template := armtemplates.Template{Resources: res}
@@ -1069,12 +1049,17 @@ func newOSProfile(
 	vmName string,
 	instanceConfig *instancecfg.InstanceConfig,
 	generateSSHKey func(string) (string, string, error),
-) (*armcompute.OSProfile, ostype.OSType, error) {
+) (*armcompute.OSProfile, error) {
 	logger.Debugf("creating OS profile for %q", vmName)
+
+	instOS := ostype.OSTypeForName(instanceConfig.Base.OS)
+	if instOS != ostype.Ubuntu {
+		return nil, errors.NotSupportedf("%s", instOS)
+	}
 
 	customData, err := providerinit.ComposeUserData(instanceConfig, nil, AzureRenderer{})
 	if err != nil {
-		return nil, ostype.Unknown, errors.Annotate(err, "composing user data")
+		return nil, errors.Annotate(err, "composing user data")
 	}
 
 	osProfile := &armcompute.OSProfile{
@@ -1082,43 +1067,34 @@ func newOSProfile(
 		CustomData:   to.Ptr(string(customData)),
 	}
 
-	instOS := ostype.OSTypeForName(instanceConfig.Base.OS)
-	if err != nil {
-		return nil, ostype.Unknown, errors.Trace(err)
-	}
-	switch instOS {
-	case ostype.Ubuntu, ostype.CentOS:
-		// SSH keys are handled by custom data, but must also be
-		// specified in order to forego providing a password, and
-		// disable password authentication.
-		authorizedKeys := instanceConfig.AuthorizedKeys
-		if len(authorizedKeys) == 0 {
-			// Azure requires that machines be provisioned with
-			// either a password or at least one SSH key. We
-			// generate a key-pair to make Azure happy, but throw
-			// away the private key so that nobody will be able
-			// to log into the machine directly unless the keys
-			// are updated with one that Juju tracks.
-			_, public, err := generateSSHKey("")
-			if err != nil {
-				return nil, ostype.Unknown, errors.Trace(err)
-			}
-			authorizedKeys = public
+	// SSH keys are handled by custom data, but must also be
+	// specified in order to forego providing a password, and
+	// disable password authentication.
+	authorizedKeys := instanceConfig.AuthorizedKeys
+	if len(authorizedKeys) == 0 {
+		// Azure requires that machines be provisioned with
+		// either a password or at least one SSH key. We
+		// generate a key-pair to make Azure happy, but throw
+		// away the private key so that nobody will be able
+		// to log into the machine directly unless the keys
+		// are updated with one that Juju tracks.
+		_, public, err := generateSSHKey("")
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		authorizedKeys = public
+	}
 
-		publicKeys := []*armcompute.SSHPublicKey{{
-			Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
-			KeyData: to.Ptr(authorizedKeys),
-		}}
-		osProfile.AdminUsername = to.Ptr("ubuntu")
-		osProfile.LinuxConfiguration = &armcompute.LinuxConfiguration{
-			DisablePasswordAuthentication: to.Ptr(true),
-			SSH:                           &armcompute.SSHConfiguration{PublicKeys: publicKeys},
-		}
-	default:
-		return nil, ostype.Unknown, errors.NotSupportedf("%s", instOS)
+	publicKeys := []*armcompute.SSHPublicKey{{
+		Path:    to.Ptr("/home/ubuntu/.ssh/authorized_keys"),
+		KeyData: to.Ptr(authorizedKeys),
+	}}
+	osProfile.AdminUsername = to.Ptr("ubuntu")
+	osProfile.LinuxConfiguration = &armcompute.LinuxConfiguration{
+		DisablePasswordAuthentication: to.Ptr(true),
+		SSH:                           &armcompute.SSHConfiguration{PublicKeys: publicKeys},
 	}
-	return osProfile, instOS, nil
+	return osProfile, nil
 }
 
 // StopInstances is specified in the InstanceBroker interface.

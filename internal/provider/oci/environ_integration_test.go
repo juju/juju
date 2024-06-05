@@ -447,14 +447,6 @@ func (s *environSuite) TestCloudInit(c *gc.C) {
 	c.Check(script, gc.Not(jc.Contains), "/sbin/iptables -I INPUT -p tcp --dport 1234 -j ACCEPT")
 	c.Check(script, gc.Not(jc.Contains), "/sbin/iptables -I INPUT -p tcp --dport 4321 -j ACCEPT")
 	c.Check(script, gc.Not(jc.Contains), "/etc/init.d/netfilter-persistent save")
-
-	cfg, err = oci.GetCloudInitConfig(s.env, "centos", 1234, 4321)
-	c.Assert(err, jc.ErrorIsNil)
-	script, err = cfg.RenderScript()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(script, jc.Contains, "firewall-cmd --zone=public --add-port=1234/tcp --permanent")
-	c.Check(script, jc.Contains, "firewall-cmd --zone=public --add-port=4321/tcp --permanent")
-	c.Check(script, jc.Contains, "firewall-cmd --reload")
 }
 
 type instanceTermination struct {

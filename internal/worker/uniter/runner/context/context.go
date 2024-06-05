@@ -1380,7 +1380,7 @@ func (c *HookContext) HookVars(
 		)
 	}
 
-	return append(vars, OSDependentEnvVars(paths, env)...), nil
+	return append(vars, UbuntuEnvVars(paths, env)...), nil
 }
 
 func (c *HookContext) handleReboot(ctxErr error) error {

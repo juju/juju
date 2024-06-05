@@ -455,17 +455,6 @@ func New(osname string, opts ...func(*cloudConfig)) (CloudConfig, error) {
 			jujupackaging.AptPackageManager: config.NewAptPackagingConfigurer(),
 		}
 		return &ubuntuCloudConfig{cfg}, nil
-	case ostype.CentOS:
-		cfg.paccmder = map[jujupackaging.PackageManagerName]commands.PackageCommander{
-			jujupackaging.YumPackageManager: commands.NewYumPackageCommander(),
-		}
-		cfg.pacconfer = map[jujupackaging.PackageManagerName]config.PackagingConfigurer{
-			jujupackaging.YumPackageManager: config.NewYumPackagingConfigurer(),
-		}
-		return &centOSCloudConfig{
-			cloudConfig: cfg,
-			helper:      centOSHelper{},
-		}, nil
 	default:
 		return nil, errors.NotFoundf("cloudconfig for os %q", osname)
 	}

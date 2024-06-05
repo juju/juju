@@ -148,8 +148,8 @@ var findToolsTests = []struct {
 	info:   "public tools found",
 	major:  1,
 	minor:  1,
-	public: envtesting.VAll,
-	expect: envtesting.V110all,
+	public: envtesting.V110p,
+	expect: envtesting.V110p,
 }, {
 	info:   "public and custom tools found, only taken from custom",
 	major:  1,
@@ -245,7 +245,7 @@ var findExactToolsTests = []struct {
 	err:  envtools.ErrNoTools,
 }, {
 	info:   "only non-matches available in custom",
-	custom: append(envtesting.V110all, envtesting.V100u32, envtesting.V1001u64),
+	custom: append(envtesting.V110p, envtesting.V100u32, envtesting.V1001u64),
 	seek:   envtesting.V100u64,
 	err:    coretools.ErrNoMatches,
 }, {
@@ -254,7 +254,7 @@ var findExactToolsTests = []struct {
 	seek:   envtesting.V100u64,
 }, {
 	info:   "only non-matches available in public",
-	custom: append(envtesting.V110all, envtesting.V100u32, envtesting.V1001u64),
+	custom: append(envtesting.V110p, envtesting.V100u32, envtesting.V1001u64),
 	seek:   envtesting.V100u64,
 	err:    coretools.ErrNoMatches,
 }, {
@@ -263,7 +263,7 @@ var findExactToolsTests = []struct {
 	seek:   envtesting.V100u64,
 }, {
 	info:   "exact match in public not blocked by custom",
-	custom: envtesting.V110all,
+	custom: envtesting.V110p,
 	public: []version.Binary{envtesting.V100u64},
 	seek:   envtesting.V100u64,
 }}
@@ -334,9 +334,9 @@ var findToolsFallbackTests = []struct {
 	minor:    -1,
 	streams:  []string{"devel", "released"},
 	devel:    envtesting.V120all,
-	proposed: envtesting.V110all,
-	released: envtesting.V100all,
-	expect:   copyAndAppend(envtesting.V120all, envtesting.V100all),
+	proposed: envtesting.V110p,
+	released: envtesting.V100p,
+	expect:   copyAndAppend(envtesting.V120all, envtesting.V100p),
 }, {
 	info:     "finds matching things everywhere",
 	major:    1,
