@@ -36,6 +36,11 @@ type importOperation struct {
 	service ImportService
 }
 
+// Name returns the name of this operation.
+func (i *importOperation) Name() string {
+	return "import external controllers"
+}
+
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a
 	// nil watcher factory.

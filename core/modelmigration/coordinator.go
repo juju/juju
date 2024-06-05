@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 )
 
 // BaseOperation is a base implementation of the Operation interface.
@@ -40,6 +41,9 @@ func (b *BaseOperation) Rollback(context.Context, description.Model) error {
 // is not atomic, but it does allow for a rollback of the entire migration if
 // any operation fails.
 type Operation interface {
+	// Name returns the name of this operation.
+	Name() string
+
 	// Setup is called before the operation is executed. It should return an
 	// error if the operation cannot be performed.
 	Setup(Scope) error
@@ -101,11 +105,13 @@ type Hook func(Operation) error
 type Coordinator struct {
 	operations []Operation
 	hook       Hook
+	logger     logger.Logger
 }
 
 // NewCoordinator creates a new migration coordinator with the given operations.
-func NewCoordinator(operations ...Operation) *Coordinator {
+func NewCoordinator(logger logger.Logger, operations ...Operation) *Coordinator {
 	return &Coordinator{
+		logger:     logger,
 		operations: operations,
 		hook:       emptyHook,
 	}
@@ -123,12 +129,21 @@ func (m *Coordinator) Len() int {
 }
 
 // Perform executes the migration.
+// We log in addition to returning errors because the error is ultimately
+// returned to the caller on the source, and we want them to be reflected
+// in *this* controller's logs.
 func (m *Coordinator) Perform(ctx context.Context, scope Scope, model description.Model) (err error) {
 	var current int
 	defer func() {
 		if err != nil {
+			m.logger.Errorf("import failed: %s", err.Error())
+
 			for ; current >= 0; current-- {
-				if rollbackErr := m.operations[current].Rollback(ctx, model); rollbackErr != nil {
+				op := m.operations[current]
+
+				m.logger.Infof("rolling back operation: %s", op.Name())
+				if rollbackErr := op.Rollback(ctx, model); rollbackErr != nil {
+					m.logger.Errorf("rollback operation for %s failed: %s", op.Name(), rollbackErr)
 					err = errors.Annotatef(err, "rollback operation at %d with %v", current, rollbackErr)
 				}
 			}
@@ -137,14 +152,17 @@ func (m *Coordinator) Perform(ctx context.Context, scope Scope, model descriptio
 
 	var op Operation
 	for current, op = range m.operations {
+		opName := op.Name()
+		m.logger.Infof("running operation: %s", opName)
+
 		if err := op.Setup(scope); err != nil {
-			return errors.Annotatef(err, "setup operation at %d", current)
+			return errors.Annotatef(err, "setup operation %s", opName)
 		}
 		if err := op.Execute(ctx, model); err != nil {
-			return errors.Annotatef(err, "execute operation at %d", current)
+			return errors.Annotatef(err, "execute operation %s", opName)
 		}
 		if err := m.hook(op); err != nil {
-			return errors.Annotatef(err, "hook operation at %d", current)
+			return errors.Annotatef(err, "hook operation %s", opName)
 		}
 	}
 	return nil

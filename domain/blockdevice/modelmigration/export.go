@@ -38,6 +38,11 @@ type exportOperation struct {
 	service ExportService
 }
 
+// Name returns the name of this operation.
+func (e *exportOperation) Name() string {
+	return "export model configuration"
+}
+
 // Setup implements Operation.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a

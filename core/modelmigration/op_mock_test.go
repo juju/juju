@@ -78,6 +78,44 @@ func (c *MockOperationExecuteCall) DoAndReturn(f func(context.Context, descripti
 	return c
 }
 
+// Name mocks base method.
+func (m *MockOperation) Name() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name.
+func (mr *MockOperationMockRecorder) Name() *MockOperationNameCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockOperation)(nil).Name))
+	return &MockOperationNameCall{Call: call}
+}
+
+// MockOperationNameCall wrap *gomock.Call
+type MockOperationNameCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockOperationNameCall) Return(arg0 string) *MockOperationNameCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockOperationNameCall) Do(f func() string) *MockOperationNameCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockOperationNameCall) DoAndReturn(f func() string) *MockOperationNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Rollback mocks base method.
 func (m *MockOperation) Rollback(arg0 context.Context, arg1 description.Model) error {
 	m.ctrl.T.Helper()

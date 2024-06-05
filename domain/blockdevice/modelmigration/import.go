@@ -42,6 +42,11 @@ type importOperation struct {
 	service ImportService
 }
 
+// Name returns the name of this operation.
+func (i *importOperation) Name() string {
+	return "import block devices"
+}
+
 // Setup implements Operation.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	// We must not use a watcher during migration, so it's safe to pass a

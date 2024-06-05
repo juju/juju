@@ -42,6 +42,11 @@ type exportOperation struct {
 	logger   logger.Logger
 }
 
+// Name returns the name of this operation.
+func (e *exportOperation) Name() string {
+	return "export storage"
+}
+
 // Setup implements Operation.
 func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 	e.service = service.NewService(

@@ -41,6 +41,11 @@ type ImportService interface {
 	CreateMachine(context.Context, string) error
 }
 
+// Name returns the name of this operation.
+func (i *importOperation) Name() string {
+	return "import machines"
+}
+
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(state.NewState(scope.ModelDB(), i.logger))
 	return nil

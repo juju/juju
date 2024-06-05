@@ -11,6 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type migrationSuite struct {
@@ -28,7 +30,7 @@ var _ = gc.Suite(&migrationSuite{})
 func (s *migrationSuite) TestAdd(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := NewCoordinator()
+	m := NewCoordinator(loggertesting.WrapCheckLog(c))
 	c.Assert(m.Len(), gc.Equals, 0)
 
 	m.Add(s.op)
@@ -38,13 +40,14 @@ func (s *migrationSuite) TestAdd(c *gc.C) {
 func (s *migrationSuite) TestPerform(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := NewCoordinator()
+	m := NewCoordinator(loggertesting.WrapCheckLog(c))
 	c.Assert(m.Len(), gc.Equals, 0)
 
 	m.Add(s.op)
 
 	// We do care about the order of the calls.
 	gomock.InOrder(
+		s.op.EXPECT().Name().Return("op"),
 		s.op.EXPECT().Setup(s.scope).Return(nil),
 		s.op.EXPECT().Execute(gomock.Any(), s.model).Return(nil),
 	)
@@ -55,30 +58,34 @@ func (s *migrationSuite) TestPerform(c *gc.C) {
 func (s *migrationSuite) TestPerformWithRollbackAtSetup(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := NewCoordinator()
+	m := NewCoordinator(loggertesting.WrapCheckLog(c))
 	c.Assert(m.Len(), gc.Equals, 0)
 
 	m.Add(s.op)
 
-	// We do care about the order of the calls.
+	s.op.EXPECT().Name().Return("op").MinTimes(1)
+
+	// We do care about the order of these calls.
 	gomock.InOrder(
 		s.op.EXPECT().Setup(s.scope).Return(errors.New("boom")),
 		s.op.EXPECT().Rollback(gomock.Any(), s.model).Return(nil),
 	)
 
 	err := m.Perform(context.Background(), s.scope, s.model)
-	c.Assert(err, gc.ErrorMatches, `setup operation at 0: boom`)
+	c.Assert(err, gc.ErrorMatches, `setup operation op: boom`)
 }
 
 func (s *migrationSuite) TestPerformWithRollbackAtExecution(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := NewCoordinator()
+	m := NewCoordinator(loggertesting.WrapCheckLog(c))
 	c.Assert(m.Len(), gc.Equals, 0)
 
 	m.Add(s.op)
 
-	// We do care about the order of the calls.
+	s.op.EXPECT().Name().Return("op").MinTimes(1)
+
+	// We do care about the order of these calls.
 	gomock.InOrder(
 		s.op.EXPECT().Setup(s.scope).Return(nil),
 		s.op.EXPECT().Execute(gomock.Any(), s.model).Return(errors.New("boom")),
@@ -86,18 +93,20 @@ func (s *migrationSuite) TestPerformWithRollbackAtExecution(c *gc.C) {
 	)
 
 	err := m.Perform(context.Background(), s.scope, s.model)
-	c.Assert(err, gc.ErrorMatches, `execute operation at 0: boom`)
+	c.Assert(err, gc.ErrorMatches, `execute operation op: boom`)
 }
 
 func (s *migrationSuite) TestPerformWithRollbackError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	m := NewCoordinator()
+	m := NewCoordinator(loggertesting.WrapCheckLog(c))
 	c.Assert(m.Len(), gc.Equals, 0)
 
 	m.Add(s.op)
 
-	// We do care about the order of the calls.
+	s.op.EXPECT().Name().Return("op").MinTimes(1)
+
+	// We do care about the order of these calls.
 	gomock.InOrder(
 		s.op.EXPECT().Setup(s.scope).Return(nil),
 		s.op.EXPECT().Execute(gomock.Any(), s.model).Return(errors.New("boom")),
@@ -105,7 +114,7 @@ func (s *migrationSuite) TestPerformWithRollbackError(c *gc.C) {
 	)
 
 	err := m.Perform(context.Background(), s.scope, s.model)
-	c.Assert(err, gc.ErrorMatches, `rollback operation at 0 with sad: execute operation at 0: boom`)
+	c.Assert(err, gc.ErrorMatches, `rollback operation at 0 with sad: execute operation op: boom`)
 }
 
 func (s *migrationSuite) setupMocks(c *gc.C) *gomock.Controller {

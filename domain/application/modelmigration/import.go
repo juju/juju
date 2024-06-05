@@ -46,6 +46,11 @@ type ImportService interface {
 	CreateApplication(context.Context, string, service.AddApplicationParams, ...service.AddUnitParams) error
 }
 
+// Name returns the name of this operation.
+func (i *importOperation) Name() string {
+	return "import applications"
+}
+
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		state.NewState(scope.ModelDB(), i.logger),

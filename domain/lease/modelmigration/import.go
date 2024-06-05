@@ -49,6 +49,11 @@ type importOperation struct {
 	logger  logger.Logger
 }
 
+// Name returns the name of this operation.
+func (i *importOperation) Name() string {
+	return "import leases"
+}
+
 // Setup is called before the operation is executed. It should return an
 // error if the operation cannot be performed.
 func (o *importOperation) Setup(scope modelmigration.Scope) error {
