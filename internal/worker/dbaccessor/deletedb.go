@@ -76,19 +76,19 @@ func deleteDBContents(ctx context.Context, tx *sql.Tx, logger logger.Logger) err
 	// 5. Drop all tables (ignoring sqlite_master)
 	var stmts []string
 	for name := range tables {
-		stmts = append(stmts, fmt.Sprintf("DELETE FROM %s;", name))
+		stmts = append(stmts, fmt.Sprintf("DELETE FROM %q;", name))
 	}
 	for name := range indexes {
-		stmts = append(stmts, fmt.Sprintf("DROP INDEX IF EXISTS %s;", name))
+		stmts = append(stmts, fmt.Sprintf("DROP INDEX IF EXISTS %q;", name))
 	}
 	for name := range triggers {
-		stmts = append(stmts, fmt.Sprintf("DROP TRIGGER IF EXISTS %s;", name))
+		stmts = append(stmts, fmt.Sprintf("DROP TRIGGER IF EXISTS %q;", name))
 	}
 	for name := range views {
-		stmts = append(stmts, fmt.Sprintf("DROP VIEW IF EXISTS %s;", name))
+		stmts = append(stmts, fmt.Sprintf("DROP VIEW IF EXISTS %q;", name))
 	}
 	for name := range tables {
-		stmts = append(stmts, fmt.Sprintf("DROP TABLE IF EXISTS %s;", name))
+		stmts = append(stmts, fmt.Sprintf("DROP TABLE IF EXISTS %q;", name))
 	}
 
 	logger.Debugf("deleting database contents: %d statements", len(stmts))

@@ -2,25 +2,6 @@ CREATE TABLE net_node (
     uuid TEXT PRIMARY KEY
 );
 
-CREATE TABLE machine (
-    uuid            TEXT PRIMARY KEY,
-    machine_id      TEXT NOT NULL,
-    net_node_uuid   TEXT NOT NULL,
-    life_id         INT NOT NULL,
-    CONSTRAINT      fk_machine_net_node
-        FOREIGN KEY (net_node_uuid)
-        REFERENCES  net_node(uuid),
-    CONSTRAINT      fk_machine_life
-        FOREIGN KEY (life_id)
-        REFERENCES  life(id)
-);
-
-CREATE UNIQUE INDEX idx_machine_id
-ON machine (machine_id);
-
-CREATE UNIQUE INDEX idx_machine_net_node
-ON machine (net_node_uuid);
-
 CREATE TABLE cloud_service (
     uuid             TEXT PRIMARY KEY,
     net_node_uuid    TEXT NOT NULL,

@@ -273,6 +273,19 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"unit_state_charm",
 		"unit_state_relation",
 
+		// Constraint
+		"constraint",
+		"constraint_tag",
+		"constraint_space",
+		"constraint_zone",
+
+		// Machine
+		"machine",
+		"machine_constraint",
+		"machine_tool",
+		"machine_volume",
+		"machine_filesystem",
+
 		// Charm
 		"charm",
 		"charm_storage",
