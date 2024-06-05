@@ -41,6 +41,45 @@ func (m *MockWatcherFactory) EXPECT() *MockWatcherFactoryMockRecorder {
 	return m.recorder
 }
 
+// NewNamespaceMapperWatcher mocks base method.
+func (m *MockWatcherFactory) NewNamespaceMapperWatcher(arg0 string, arg1 changestream.ChangeType, arg2 eventsource.NamespaceQuery, arg3 eventsource.Mapper) (watcher.Watcher[[]string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewNamespaceMapperWatcher", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(watcher.Watcher[[]string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewNamespaceMapperWatcher indicates an expected call of NewNamespaceMapperWatcher.
+func (mr *MockWatcherFactoryMockRecorder) NewNamespaceMapperWatcher(arg0, arg1, arg2, arg3 any) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNamespaceMapperWatcher", reflect.TypeOf((*MockWatcherFactory)(nil).NewNamespaceMapperWatcher), arg0, arg1, arg2, arg3)
+	return &MockWatcherFactoryNewNamespaceMapperWatcherCall{Call: call}
+}
+
+// MockWatcherFactoryNewNamespaceMapperWatcherCall wrap *gomock.Call
+type MockWatcherFactoryNewNamespaceMapperWatcherCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockWatcherFactoryNewNamespaceMapperWatcherCall) Return(arg0 watcher.Watcher[[]string], arg1 error) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockWatcherFactoryNewNamespaceMapperWatcherCall) Do(f func(string, changestream.ChangeType, eventsource.NamespaceQuery, eventsource.Mapper) (watcher.Watcher[[]string], error)) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockWatcherFactoryNewNamespaceMapperWatcherCall) DoAndReturn(f func(string, changestream.ChangeType, eventsource.NamespaceQuery, eventsource.Mapper) (watcher.Watcher[[]string], error)) *MockWatcherFactoryNewNamespaceMapperWatcherCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NewNamespaceWatcher mocks base method.
 func (m *MockWatcherFactory) NewNamespaceWatcher(arg0 string, arg1 changestream.ChangeType, arg2 eventsource.NamespaceQuery) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()

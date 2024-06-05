@@ -17,8 +17,7 @@ import (
 
 // DeleteObsoleteUserSecrets deletes any obsolete user secret revisions that are marked as auto-prune.
 func (s *SecretService) DeleteObsoleteUserSecrets(ctx context.Context) error {
-	// TODO(secrets)
-	return nil
+	return s.st.DeleteObsoleteUserSecrets(ctx)
 }
 
 // DeleteSecret removes the specified secret.

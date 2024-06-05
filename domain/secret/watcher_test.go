@@ -279,6 +279,67 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 	wCSingleUnit.AssertNoChange()
 }
 
+func (s *watcherSuite) TestWatchObsoleteForUserSecrets(c *gc.C) {
+	ctx := context.Background()
+	svc, st := s.setupServiceAndState(c)
+
+	data := coresecrets.SecretData{"foo": "bar", "hello": "world"}
+	uri1 := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	c.Logf("uri1: %v, uri2: %v", uri1, uri2)
+
+	err := st.CreateUserSecret(ctx, 1, uri1, secret.UpsertSecretParams{
+		Data: data,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateUserSecret(ctx, 1, uri2, secret.UpsertSecretParams{
+		Data:      data,
+		AutoPrune: ptr(true),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := svc.WatchObsoleteUserSecretsToPrune(ctx)
+	c.Assert(err, gc.IsNil)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+
+	wc := watchertest.NewStringsWatcherC(c, w)
+
+	// Wait for the initial changes.
+	wc.AssertOneChange()
+
+	// create revision 2, and obsolete revision 1.
+	createNewRevision(c, st, uri1)
+	wc.AssertNoChange()
+	createNewRevision(c, st, uri2)
+	wc.AssertChange(uri2.ID + "/1")
+
+	err = st.UpdateSecret(context.Background(), uri1, secret.UpsertSecretParams{
+		AutoPrune: ptr(true),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(
+		uri1.ID+"/1",
+		uri2.ID+"/1",
+	)
+	wc.AssertNoChange()
+
+	// Pretend that the agent restarted and the watcher is re-created.
+	w1, err := svc.WatchObsoleteUserSecretsToPrune(ctx)
+	c.Assert(err, gc.IsNil)
+	c.Assert(w1, gc.NotNil)
+	defer workertest.CleanKill(c, w1)
+	wc1 := watchertest.NewStringsWatcherC(c, w1)
+	wc.AssertOneChange()
+	s.AssertChangeStreamIdle(c)
+	wc.AssertChange(
+		uri1.ID+"/1",
+		uri2.ID+"/1",
+	)
+	wc1.AssertNoChange()
+}
+
 func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	s.setupUnits(c, "mysql")
 	s.setupUnits(c, "mediawiki")
