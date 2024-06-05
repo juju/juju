@@ -18,15 +18,16 @@ CREATE TABLE "constraint" (
 );
 
 CREATE TABLE constraint_tag (
-    constraint_uuid     TEXT PRIMARY KEY,
+    constraint_uuid     TEXT NOT NULL,
     tag                 TEXT NOT NULL,
     CONSTRAINT          fk_constraint_tag_constraint
         FOREIGN KEY     (constraint_uuid)
-        REFERENCES      "constraint"(uuid)
+        REFERENCES      "constraint"(uuid),
+    PRIMARY KEY         (constraint_uuid, tag)
 );
 
 CREATE TABLE constraint_space (
-    constraint_uuid     TEXT PRIMARY KEY,
+    constraint_uuid     TEXT NOT NULL,
     space               TEXT NOT NULL,
     exclude             BOOLEAN,
     CONSTRAINT          fk_constraint_space_constraint
@@ -34,13 +35,15 @@ CREATE TABLE constraint_space (
         REFERENCES      "constraint"(uuid)
     CONSTRAINT          fk_constraint_space_space
         FOREIGN KEY     (space)
-        REFERENCES      space(name)
+        REFERENCES      space(name),
+    PRIMARY KEY         (constraint_uuid, space)
 );
 
 CREATE TABLE constraint_zone (
-    constraint_uuid     TEXT PRIMARY KEY,
+    constraint_uuid     TEXT NOT NULL,
     zone                TEXT NOT NULL,
     CONSTRAINT          fk_constraint_zone_constraint
         FOREIGN KEY     (constraint_uuid)
-        REFERENCES      "constraint"(uuid)
+        REFERENCES      "constraint"(uuid),
+    PRIMARY KEY         (constraint_uuid, zone)
 );
