@@ -16,6 +16,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -86,12 +87,16 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine,
 		return nil, errors.Trace(err)
 	}
 
-	machineSpaces, err := api.machineSpaces(m, spaceInfos, endpointBindings)
+	cons, err := m.Constraints()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving machine constraints")
+	}
+	machineSpaces, err := api.machineSpaces(cons, spaceInfos, endpointBindings)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(m.Id(), machineSpaces); err != nil {
+	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(m.Id(), cons, machineSpaces); err != nil {
 		return nil, errors.Annotate(err, "matching subnets to zones")
 	}
 
@@ -310,14 +315,11 @@ func (api *ProvisionerAPI) machineTags(m *state.Machine, isController bool) (map
 //
 // It is the responsibility of the provider to negotiate this information
 // appropriately.
-func (api *ProvisionerAPI) machineSpaces(m *state.Machine,
+func (api *ProvisionerAPI) machineSpaces(
+	cons constraints.Value,
 	allSpaceInfos network.SpaceInfos,
 	endpointBindings map[string]*state.Bindings,
 ) ([]string, error) {
-	cons, err := m.Constraints()
-	if err != nil {
-		return nil, errors.Annotate(err, "retrieving machine constraints")
-	}
 
 	includeSpaces := set.NewStrings(cons.IncludeSpaces()...)
 	excludeSpaces := set.NewStrings(cons.ExcludeSpaces()...)
@@ -340,13 +342,20 @@ func (api *ProvisionerAPI) machineSpaces(m *state.Machine,
 	return includeSpaces.SortedValues(), nil
 }
 
-func (api *ProvisionerAPI) machineSpaceTopology(machineID string, spaceNames []string) (params.ProvisioningNetworkTopology, error) {
+func (api *ProvisionerAPI) machineSpaceTopology(
+	machineID string,
+	cons constraints.Value,
+	spaceNames []string,
+) (params.ProvisioningNetworkTopology, error) {
 	var topology params.ProvisioningNetworkTopology
 
 	// If there are no space names, or if there is only one space
-	// name and that's the alpha space, we don't bother setting a
-	// topology that constrains provisioning.
-	if len(spaceNames) < 1 || (len(spaceNames) == 1 && spaceNames[0] == network.AlphaSpaceName) {
+	// name and that's the alpha space unless it was explicitly set as a
+	// constraint, we don't bother setting a topology that constrains
+	// provisioning.
+	consHasOnlyAlpha := len(cons.IncludeSpaces()) == 1 && cons.IncludeSpaces()[0] == network.AlphaSpaceName
+	if len(spaceNames) < 1 ||
+		((len(spaceNames) == 1 && spaceNames[0] == network.AlphaSpaceName) && !consHasOnlyAlpha) {
 		return topology, nil
 	}
 
