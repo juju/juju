@@ -767,7 +767,10 @@ func (s *StateSuite) TestPing(c *gc.C) {
 func (s *StateSuite) AssertMachineCount(c *gc.C, expect int) {
 	ms, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(ms), gc.Equals, expect)
+	count, err := s.State.AllMachinesCount()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ms, gc.HasLen, expect)
+	c.Assert(count, gc.Equals, expect)
 }
 
 var jobStringTests = []struct {
@@ -824,7 +827,10 @@ func (s *StateSuite) TestAddMachine(c *gc.C) {
 
 	m, err := s.State.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
+	count, err := s.State.AllMachinesCount()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.HasLen, 2)
+	c.Assert(count, gc.Equals, 2)
 	check(m[0], "0", state.UbuntuBase("12.10"), allJobs)
 	check(m[1], "1", state.UbuntuBase("22.04"), oneJob)
 

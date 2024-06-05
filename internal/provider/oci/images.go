@@ -260,25 +260,20 @@ func NewInstanceImage(img ociCore.Image, compartmentID *string) (InstanceImage, 
 	if osName := *img.OperatingSystem; osName != ubuntuOS {
 		return InstanceImage{}, "", errors.NotSupportedf("os %s", osName)
 	}
-	var (
-		imgType InstanceImage
-	)
 	base, arch, isMinimal := parseUbuntuImage(img)
-
-	imgType.ImageType = getImageType(img)
-	imgType.Id = *img.Id
-	imgType.Base = base
-	imgType.Raw = img
-	imgType.CompartmentId = compartmentID
-	imgType.IsMinimal = isMinimal
-
 	version, err := NewImageVersion(img)
 	if err != nil {
 		return InstanceImage{}, "", err
 	}
-	imgType.Version = version
-
-	return imgType, arch, nil
+	return InstanceImage{
+		ImageType:     getImageType(img),
+		Id:            *img.Id,
+		Base:          base,
+		Raw:           img,
+		CompartmentId: compartmentID,
+		IsMinimal:     isMinimal,
+		Version:       version,
+	}, arch, nil
 }
 
 // parseUbuntuImage returns the base and architecture of the returned image

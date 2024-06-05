@@ -631,7 +631,10 @@ func (s *AssignSuite) TestAssignUnitWithSubordinate(c *gc.C) {
 func assertMachineCount(c *gc.C, st *state.State, expect int) {
 	ms, err := st.AllMachines()
 	c.Assert(err, jc.ErrorIsNil)
+	count, err := st.AllMachinesCount()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ms, gc.HasLen, expect, gc.Commentf("%v", ms))
+	c.Assert(count, gc.Equals, expect, gc.Commentf("%v", ms))
 }
 
 // assignSuite has tests for assigning units to 1. clean, and 2. clean&empty machines.

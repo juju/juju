@@ -4,6 +4,9 @@
 package upgradevalidation_test
 
 import (
+	"time"
+
+	"github.com/juju/collections/transform"
 	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
 	jc "github.com/juju/testing/checkers"
@@ -11,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -25,6 +29,10 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 
 	s.PatchValue(&upgradevalidation.MinAgentVersions, map[int]version.Number{
 		3: version.MustParse("2.9.1"),
+	})
+
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
 	})
 
 	ctrlModelTag := names.NewModelTag("deadpork-0bad-400d-8000-4b1d0d06f00d")
@@ -71,7 +79,8 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	}, nil)
 	// - check mongo version;
 	statePool.EXPECT().MongoVersion().Return("4.4", nil)
-	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
+	ctrlState.EXPECT().AllMachinesCount().Return(0, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
@@ -80,7 +89,8 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	model1.EXPECT().AgentVersion().Return(version.MustParse("2.9.1"), nil)
 	//  - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
-	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
+	state1.EXPECT().AllMachinesCount().Return(0, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
@@ -103,9 +113,13 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	})
+
 	modelTag := coretesting.ModelTag
 	statePool := mocks.NewMockStatePool(ctrl)
-	state := mocks.NewMockState(ctrl)
+	st := mocks.NewMockState(ctrl)
 	model := mocks.NewMockModel(ctrl)
 
 	server := mocks.NewMockServer(ctrl)
@@ -118,15 +132,17 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 
 	// - check no upgrade series in process.
-	state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
-	state.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
+	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
+	st.EXPECT().AllMachinesCount().Return(0, nil)
+
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 
 	targetVersion := version.MustParse("3.0.0")
 	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion, cloudSpec.CloudSpec)
-	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), statePool, state, model, validators...)
+	checker := upgradevalidation.NewModelUpgradeCheck(modelTag.Id(), statePool, st, model, validators...)
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers, gc.IsNil)

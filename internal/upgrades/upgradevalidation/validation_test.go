@@ -5,7 +5,9 @@ package upgradevalidation_test
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
@@ -15,6 +17,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/base"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
@@ -114,12 +117,17 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *g
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	})
+
 	st := mocks.NewMockState(ctrl)
-	st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}, nil)
+	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(map[string]int{"ubuntu@20.04": 1, "ubuntu@22.04": 1, "ubuntu@24.04": 2}, nil)
+	st.EXPECT().AllMachinesCount().Return(5, nil)
 
 	blocker, err := upgradevalidation.CheckForDeprecatedUbuntuSeriesForModel("", nil, st, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `the model hosts deprecated ubuntu machine(s): trusty(3) vivid(2) xenial(1)`)
+	c.Assert(blocker.Error(), gc.Equals, `the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04`)
 }
 
 func (s *upgradeValidationSuite) TestGetCheckUpgradeSeriesLockForModel(c *gc.C) {

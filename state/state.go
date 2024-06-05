@@ -743,6 +743,16 @@ func (st *State) AllMachines() ([]*Machine, error) {
 	return st.allMachines(machinesCollection)
 }
 
+// AllMachinesCount returns thje total number of
+// machines in the model
+func (st *State) AllMachinesCount() (int, error) {
+	allMachines, err := st.AllMachines()
+	if err != nil {
+		return 0, errors.Annotatef(err, "cannot get all machines")
+	}
+	return len(allMachines), nil
+}
+
 // MachineCountForBase counts the machines for the provided bases in the model.
 // The bases must all be for the one os.
 func (st *State) MachineCountForBase(base ...Base) (map[string]int, error) {

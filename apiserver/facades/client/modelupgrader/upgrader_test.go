@@ -5,7 +5,9 @@ package modelupgrader_test
 
 import (
 	stdcontext "context"
+	"time"
 
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
@@ -20,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/modelupgrader/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/environs"
@@ -39,32 +42,6 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
-
-var ubuntuVersions = []string{
-	"12.04",
-	"12.10",
-	"13.04",
-	"13.10",
-	"14.04",
-	"14.10",
-	"15.04",
-	"15.10",
-	"16.04",
-	"16.10",
-	"17.04",
-	"17.10",
-	"18.04",
-	"18.10",
-	"19.04",
-	"19.10",
-	"20.10",
-	"21.04",
-	"21.10",
-	"22.10",
-	"23.04",
-	"23.10",
-	"24.04",
-}
 
 var controllerCfg = controller.Config{
 	controller.ControllerUUIDKey: coretesting.ControllerTag.Id(),
@@ -212,6 +189,10 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 		},
 	)
 
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	})
+
 	ctrlModelTag := coretesting.ModelTag
 	model1ModelUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
@@ -270,7 +251,8 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	// - check mongo version;
 	s.statePool.EXPECT().MongoVersion().Return("4.4", nil)
 	// - check if the model has deprecated ubuntu machines;
-	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
+	ctrlState.EXPECT().AllMachinesCount().Return(0, nil)
 	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
 
@@ -285,7 +267,8 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	//  - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
 	// - check if the model has deprecated ubuntu machines;
-	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
+	state1.EXPECT().AllMachinesCount().Return(0, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
@@ -334,6 +317,10 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 			return serverFactory
 		},
 	)
+
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	})
 
 	ctrlModelTag := coretesting.ModelTag
 	model1ModelUUID, err := uuid.NewUUID()
@@ -391,7 +378,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 	// - check mongo version;
 	s.statePool.EXPECT().MongoVersion().Return("4.4", nil)
 	// - check if the model has deprecated ubuntu machines;
-	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
+	ctrlState.EXPECT().AllMachinesCount().Return(0, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
@@ -438,6 +426,10 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 			return serverFactory
 		},
 	)
+
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	})
 
 	ctrlModelTag := coretesting.ModelTag
 	model1ModelUUID, err := uuid.NewUUID()
@@ -496,7 +488,8 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	// - check mongo version;
 	s.statePool.EXPECT().MongoVersion().Return("4.3", nil)
 	// - check if the model has deprecated ubuntu machines;
-	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{"xenial": 2}, nil)
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
+	ctrlState.EXPECT().AllMachinesCount().Return(1, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("4.0")
@@ -513,12 +506,10 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	//  - check if model migration is ongoing;
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeExporting)
 	// - check if the model has deprecated ubuntu machines;
-	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{
-		"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
-		"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
-		"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
-		"xenial": 16, "yakkety": 17, "zesty": 18,
+	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(map[string]int{
+		"ubuntu@20.04": 1, "ubuntu@22.04": 2, "ubuntu@24.04": 3,
 	}, nil)
+	state1.EXPECT().AllMachinesCount().Return(7, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("4.0")
@@ -541,12 +532,12 @@ cannot upgrade to "3.9.99" due to issues with these models:
 - upgrading a controller to a newer major.minor version 3.9 not supported
 - unable to upgrade, database node 1 (1.1.1.1) has state FATAL, node 2 (2.2.2.2) has state ARBITER, node 3 (3.3.3.3) has state RECOVERING
 - mongo version has to be "4.4" at least, but current version is "4.3"
-- the model hosts deprecated ubuntu machine(s): xenial(2)
+- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"
 "admin/model-1":
 - current model ("2.9.0") has to be upgraded to "2.9.2" at least
 - model is under "exporting" mode, upgrade blocked
-- the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
+- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 
@@ -597,7 +588,8 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 	// - check no upgrade series in process.
 	st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 	// - check if the model has deprecated ubuntu machines;
-	st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"20.04/stable", "22.04/stable", "24.04/stable"})).Return(nil, nil)
+	st.EXPECT().AllMachinesCount().Return(0, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
@@ -647,6 +639,10 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		},
 	)
 
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
+		return transform.SliceOrErr([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, base.ParseBaseFromString)
+	})
+
 	modelUUID := coretesting.ModelTag.Id()
 	model := mocks.NewMockModel(ctrl)
 	st := mocks.NewMockState(ctrl)
@@ -680,12 +676,10 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	st.EXPECT().HasUpgradeSeriesLocks().Return(true, nil)
 
 	// - check if the model has deprecated ubuntu machines;
-	st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{
-		"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
-		"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
-		"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
-		"xenial": 16, "yakkety": 17, "zesty": 18,
+	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"20.04/stable", "22.04/stable", "24.04/stable"})).Return(map[string]int{
+		"ubuntu@20.04": 1, "ubuntu@22.04": 2, "ubuntu@24.04": 3,
 	}, nil)
+	st.EXPECT().AllMachinesCount().Return(7, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("4.0")
@@ -706,7 +700,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/model-1":
 - unexpected upgrade series lock found
-- the model hosts deprecated ubuntu machine(s): artful(1) cosmic(2) disco(3) eoan(4) groovy(5) hirsute(6) impish(7) precise(8) quantal(9) raring(10) saucy(11) trusty(12) utopic(13) vivid(14) wily(15) xenial(16) yakkety(17) zesty(18)
+- the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@20.04, ubuntu@22.04, ubuntu@24.04
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
 

@@ -29,6 +29,7 @@ type PrecheckBackend interface {
 	AllModelUUIDs() ([]string, error)
 	IsMigrationActive(string) (bool, error)
 	AllMachines() ([]PrecheckMachine, error)
+	AllMachinesCount() (int, error)
 	AllApplications() ([]PrecheckApplication, error)
 	AllRelations() ([]PrecheckRelation, error)
 	ControllerBackend() (PrecheckBackend, error)

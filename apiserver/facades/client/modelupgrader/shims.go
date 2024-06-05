@@ -28,6 +28,7 @@ type State interface {
 	Release() bool
 	AllModelUUIDs() ([]string, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
+	AllMachinesCount() (int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
 	SetModelAgentVersion(newVersion version.Number, stream *string, ignoreAgentVersions bool, upgrader state.Upgrader) error
 }
@@ -102,6 +103,14 @@ func (s stateShim) MachineCountForBase(base ...state.Base) (map[string]int, erro
 	count, err := s.PooledState.MachineCountForBase(base...)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+	return count, nil
+}
+
+func (s stateShim) AllMachinesCount() (int, error) {
+	count, err := s.PooledState.AllMachinesCount()
+	if err != nil {
+		return 0, errors.Trace(err)
 	}
 	return count, nil
 }
