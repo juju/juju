@@ -51,7 +51,7 @@ func (environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud.C
 		cloud.JSONFileAuthType: {{
 			Name: credAttrFile,
 			CredentialAttr: cloud.CredentialAttr{
-				Description: "path to the .json file containing a service account key for your project\n(detailed instructions available at https://discourse.charmhub.io/t/1508).\nPath",
+				Description: "path to the .json file containing a service account key for your project\nPath",
 				FilePath:    true,
 			},
 		}},

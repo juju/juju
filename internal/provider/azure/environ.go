@@ -1083,9 +1083,6 @@ func newOSProfile(
 	}
 
 	instOS := ostype.OSTypeForName(instanceConfig.Base.OS)
-	if err != nil {
-		return nil, ostype.Unknown, errors.Trace(err)
-	}
 	switch instOS {
 	case ostype.Ubuntu, ostype.CentOS:
 		// SSH keys are handled by custom data, but must also be

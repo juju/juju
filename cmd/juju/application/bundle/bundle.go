@@ -290,7 +290,6 @@ func ComposeAndVerifyBundle(ctx *cmd.Context, base BundleDataSource, pathToOverl
 	}
 
 	warnSeries(ctx, dsList)
-
 	return bundleData, unMarshallErrors, nil
 }
 

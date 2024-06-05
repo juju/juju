@@ -10,7 +10,7 @@ test_spaces_manual() {
 		cd .. || exit
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
-		"aws")
+		"ec2")
 			run "run_spaces_manual_aws"
 			;;
 		*)

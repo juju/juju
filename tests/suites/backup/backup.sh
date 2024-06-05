@@ -59,7 +59,7 @@ run_basic_backup_restore() {
 	juju status --format json | jq '.machines | length' | check 1
 
 	# Only do this check if provider is LXD (too hard to do for all providers)
-	if [ "${BOOTSTRAP_PROVIDER}" == "lxd" ] || [ "${BOOTSTRAP_PROVIDER}" == "localhost" ]; then
+	if [ "${BOOTSTRAP_PROVIDER}" == "lxd" ]; then
 		echo "Ensure that both instances are running (restore shouldn't terminate machines)"
 		lxc list --format json | jq --arg name "${id0}" -r '.[] | select(.name==$name) | .state.status' | check Running
 		lxc list --format json | jq --arg name "${id1}" -r '.[] | select(.name==$name) | .state.status' | check Running
