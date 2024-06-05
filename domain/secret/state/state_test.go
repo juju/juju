@@ -52,8 +52,8 @@ func (s *stateSuite) setupModel(c *gc.C) string {
 	modelUUID := uuid.MustNewUUID()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud)
-			VALUES (?, ?, ?, "test", "iaas", "fluffy")
+			INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type)
+			VALUES (?, ?, ?, "test", "iaas", "fluffy", "ec2")
 		`, modelUUID.String(), coretesting.ControllerTag.Id(), jujuversion.Current.String())
 		return err
 	})

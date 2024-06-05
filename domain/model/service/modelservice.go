@@ -77,6 +77,7 @@ func (s *ModelService) CreateModel(
 		Name:            m.Name,
 		Type:            m.ModelType,
 		Cloud:           m.Cloud,
+		CloudType:       m.CloudType,
 		CloudRegion:     m.CloudRegion,
 		CredentialOwner: m.Credential.Owner,
 		CredentialName:  m.Credential.Name,

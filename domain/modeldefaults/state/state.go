@@ -131,7 +131,7 @@ WHERE m.uuid = ?
 	return rval, nil
 }
 
-// ModelMetadataDefaults is responsible for providing metadata default's for a
+// ModelMetadataDefaults is responsible for providing metadata defaults for a
 // model's config. These include things like the model's name and uuid.
 // If no model exists for the provided uuid then a [modelerrors.NotFound] error
 // is returned.
@@ -145,18 +145,19 @@ func (s *State) ModelMetadataDefaults(
 	}
 
 	stmt := `
-SELECT m.name, mt.type
+SELECT m.name, ct.type
 FROM model m
-INNER JOIN model_type mt ON m.model_type_id = mt.id
+JOIN cloud c ON m.cloud_uuid = c.uuid
+JOIN cloud_type ct ON c.cloud_type_id = ct.id
 WHERE m.uuid = ?
 `
 
 	var (
 		modelName string
-		modelType string
+		cloudType string
 	)
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, stmt, uuid).Scan(&modelName, &modelType)
+		return tx.QueryRowContext(ctx, stmt, uuid).Scan(&modelName, &cloudType)
 	})
 
 	if errors.Is(err, sql.ErrNoRows) {
@@ -172,7 +173,7 @@ WHERE m.uuid = ?
 	return map[string]string{
 		config.NameKey: modelName,
 		config.UUIDKey: uuid.String(),
-		config.TypeKey: modelType,
+		config.TypeKey: cloudType,
 	}, nil
 }
 

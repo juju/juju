@@ -106,6 +106,7 @@ SELECT uuid,
        name, 
        type, 
        cloud, 
+       cloud_type, 
        cloud_region, 
        credential_owner, 
        credential_name
@@ -126,6 +127,7 @@ FROM model
 			&model.Name,
 			&model.Type,
 			&model.Cloud,
+			&model.CloudType,
 			&model.CloudRegion,
 			&model.CredentialOwner,
 			&model.CredentialName,
@@ -157,8 +159,8 @@ FROM model
 // database.
 func CreateReadOnlyModel(ctx context.Context, args model.ReadOnlyModelCreationArgs, tx *sql.Tx) error {
 	stmt := `
-INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, cloud, cloud_region, credential_owner, credential_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, cloud, cloud_type, cloud_region, credential_owner, credential_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT (uuid) DO NOTHING;
 `
 
@@ -178,6 +180,7 @@ INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, clou
 		args.Type,
 		agentVersion,
 		args.Cloud,
+		args.CloudType,
 		args.CloudRegion,
 		args.CredentialOwner,
 		args.CredentialName,

@@ -43,6 +43,7 @@ func (s *modelSuite) TestCreateModel(c *gc.C) {
 		Name:            "my-awesome-model",
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
+		CloudType:       "ec2",
 		CloudRegion:     "myregion",
 		CredentialOwner: "myowner",
 		CredentialName:  "mycredential",
@@ -60,6 +61,7 @@ func (s *modelSuite) TestCreateModel(c *gc.C) {
 		Name:            "my-awesome-model",
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
+		CloudType:       "ec2",
 		CloudRegion:     "myregion",
 		CredentialOwner: "myowner",
 		CredentialName:  "mycredential",
@@ -78,6 +80,7 @@ func (s *modelSuite) TestDeleteModel(c *gc.C) {
 		Name:            "my-awesome-model",
 		Type:            coremodel.IAAS,
 		Cloud:           "aws",
+		CloudType:       "ec2",
 		CloudRegion:     "myregion",
 		CredentialOwner: "myowner",
 		CredentialName:  "mycredential",
@@ -110,6 +113,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithSameUUID(c *gc.C) {
 		Name:           "my-awesome-model",
 		Type:           coremodel.IAAS,
 		Cloud:          "aws",
+		CloudType:      "ec2",
 		CloudRegion:    "myregion",
 	}
 	err := state.Create(context.Background(), args)
@@ -130,6 +134,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 		Name:         "my-awesome-model",
 		Type:         coremodel.IAAS,
 		Cloud:        "aws",
+		CloudType:    "ec2",
 		CloudRegion:  "myregion",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,6 +145,7 @@ func (s *modelSuite) TestCreateModelMultipleTimesWithDifferentUUID(c *gc.C) {
 		Name:         "my-awesome-model",
 		Type:         coremodel.IAAS,
 		Cloud:        "aws",
+		CloudType:    "ec2",
 		CloudRegion:  "myregion",
 	})
 	c.Assert(err, jc.ErrorIs, modelerrors.AlreadyExists)
@@ -159,6 +165,7 @@ func (s *modelSuite) TestCreateModelAndUpdate(c *gc.C) {
 		Name:           "my-awesome-model",
 		Type:           coremodel.IAAS,
 		Cloud:          "aws",
+		CloudType:      "ec2",
 		CloudRegion:    "myregion",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -181,6 +188,7 @@ func (s *modelSuite) TestCreateModelAndDelete(c *gc.C) {
 		Name:         "my-awesome-model",
 		Type:         coremodel.IAAS,
 		Cloud:        "aws",
+		CloudType:    "ec2",
 		CloudRegion:  "myregion",
 	})
 	c.Assert(err, jc.ErrorIsNil)

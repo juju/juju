@@ -272,6 +272,7 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 		AgentVersion: jujuversion.Current,
 		UUID:         m.uuid,
 		Cloud:        "my-cloud",
+		CloudType:    "ec2",
 		CloudRegion:  "my-region",
 		Credential: corecredential.Key{
 			Cloud: "my-cloud",
