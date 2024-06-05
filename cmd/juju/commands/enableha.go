@@ -53,7 +53,7 @@ type enableHACommand struct {
 	Constraints constraints.Value
 
 	// ConstraintsStr contains the stringified version of the constraints.
-	ConstraintsStr string
+	ConstraintsStr common.ConstraintsFlag
 
 	// Placement specifies specific machine(s) which will be used to host
 	// new controllers. If there are more controllers required than
@@ -150,7 +150,7 @@ func (c *enableHACommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ControllerCommandBase.SetFlags(f)
 	f.IntVar(&c.NumControllers, "n", 0, "Number of controllers to make available")
 	f.StringVar(&c.PlacementSpec, "to", "", "The machine(s) to become controllers, bypasses constraints")
-	f.StringVar(&c.ConstraintsStr, "constraints", "", "Additional machine constraints")
+	f.Var(&c.ConstraintsStr, "constraints", "Additional machine constraints")
 	c.out.AddFlags(f, "simple", map[string]cmd.Formatter{
 		"yaml":   cmd.FormatYaml,
 		"json":   cmd.FormatJson,
@@ -216,7 +216,7 @@ func (c *enableHACommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	c.Constraints, err = common.ParseConstraints(ctx, c.ConstraintsStr)
+	c.Constraints, err = common.ParseConstraints(ctx, strings.Join(c.ConstraintsStr, " "))
 	if err != nil {
 		return err
 	}
