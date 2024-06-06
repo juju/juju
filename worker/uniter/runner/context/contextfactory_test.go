@@ -56,7 +56,10 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 
 	s.HookContextSuite.SetUpTest(c)
 	s.paths = runnertesting.NewRealPaths(c)
-	s.membership = map[int][]string{}
+	s.membership = map[int][]string{
+		0: {"r/0"},
+		1: {"r/1"},
+	}
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            s.uniter,
@@ -207,6 +210,24 @@ func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
 	s.AssertNotStorageContext(c, ctx)
 	s.AssertNotWorkloadContext(c, ctx)
 	s.AssertNotSecretContext(c, ctx)
+}
+
+func (s *ContextFactorySuite) TestRelationBrokenHookContext(c *gc.C) {
+	delete(s.membership, 1)
+	rel, err := s.State.Relation(1)
+	c.Assert(err, jc.ErrorIsNil)
+	err = rel.SetSuspended(true, "")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.apiRelunits[1].Relation().Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	hi := hook.Info{
+		Kind:       hooks.RelationBroken,
+		RelationId: 1,
+	}
+	ctx, err := s.factory.HookContext(hi)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(context.RelationBroken(ctx, 0), jc.IsFalse)
+	c.Assert(context.RelationBroken(ctx, 1), jc.IsTrue)
 }
 
 func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {

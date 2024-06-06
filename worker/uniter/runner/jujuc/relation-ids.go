@@ -40,14 +40,15 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 	if r, err := c.ctx.HookRelation(); err == nil {
 		// There's not much we can do about this error here.
 		args = "[<name>]"
-		doc = fmt.Sprintf("Current default relation name is %q.", r.Name())
+		doc = fmt.Sprintf("Current default endpoint name is %q.", r.Name())
 	} else if !errors.IsNotFound(err) {
 		logger.Errorf("Could not retrieve hook relation: %v", err)
 	}
+	doc += "\nOnly relation ids for relations which are not broken are included."
 	return jujucmd.Info(&cmd.Info{
 		Name:    "relation-ids",
 		Args:    args,
-		Purpose: "list all relation ids with the given relation name",
+		Purpose: "list all relation ids for the given endpoint",
 		Doc:     doc,
 	})
 }
@@ -61,7 +62,7 @@ func (c *RelationIdsCommand) Init(args []string) error {
 		c.Name = args[0]
 		args = args[1:]
 	} else if c.Name == "" {
-		return fmt.Errorf("no relation name specified")
+		return fmt.Errorf("no endpoint name specified")
 	}
 	return cmd.CheckEmpty(args)
 }

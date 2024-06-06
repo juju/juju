@@ -187,7 +187,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 	relctxs := map[int]*runnercontext.ContextRelation{}
 	for relId, relUnit := range s.apiRelunits {
 		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = runnercontext.NewContextRelation(&relUnitShim{relUnit}, cache)
+		relctxs[relId] = runnercontext.NewContextRelation(&relUnitShim{relUnit}, cache, false)
 	}
 
 	env, err := s.State.Model()
@@ -233,7 +233,7 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 	relctxs := map[int]*runnercontext.ContextRelation{}
 	for relId, relUnit := range s.apiRelunits {
 		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = runnercontext.NewContextRelation(&relUnitShim{relUnit}, cache)
+		relctxs[relId] = runnercontext.NewContextRelation(&relUnitShim{relUnit}, cache, false)
 	}
 
 	context, err := runnercontext.NewHookContext(runnercontext.HookContextParams{

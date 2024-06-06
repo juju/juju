@@ -47,13 +47,13 @@ func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 
 func (s *imageutilsSuite) TestBaseImageOldStyle(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
-		`[{"name": "20_04"}, {"name": "20_04-LTS"}, {"name": "19_04"}]`,
+		`[{"name": "20_04-gen2"}, {"name": "20_04-lts"}, {"name": "20_04-arm64"}]`,
 	))
 	image, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.NotNil)
 	c.Assert(image, jc.DeepEquals, &instances.Image{
-		Id:       "Canonical:0001-com-ubuntu-server-focal:20_04-LTS:latest",
+		Id:       "Canonical:0001-com-ubuntu-server-focal:20_04-lts:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
 	})
@@ -61,13 +61,13 @@ func (s *imageutilsSuite) TestBaseImageOldStyle(c *gc.C) {
 
 func (s *imageutilsSuite) TestBaseImageOldStyleInvalidSKU(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
-		`[{"name": "22_04_invalid"}, {"name": "22_04_5-LTS"}]`,
+		`[{"name": "22_04-invalid"}, {"name": "22_04-lts"}]`,
 	))
 	image, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.NotNil)
 	c.Assert(image, jc.DeepEquals, &instances.Image{
-		Id:       "Canonical:0001-com-ubuntu-server-jammy:22_04_5-LTS:latest",
+		Id:       "Canonical:0001-com-ubuntu-server-jammy:22_04-lts:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
 	})
@@ -104,16 +104,20 @@ func (s *imageutilsSuite) TestBaseImageNonLTS(c *gc.C) {
 func (s *imageutilsSuite) TestBaseImageCentOS(c *gc.C) {
 	for _, cseries := range []string{"7", "8"} {
 		base := corebase.MakeDefaultBase("centos", cseries)
-		s.assertImageId(c, base, "released", "OpenLogic:CentOS:7.3:latest")
+		image, err := imageutils.BaseImage(s.callCtx, base, "released", "westus", s.client)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(image.Id, gc.Equals, "OpenLogic:CentOS:7.3:latest")
 	}
 }
 
-func (s *imageutilsSuite) TestBaseImageStream(c *gc.C) {
+func (s *imageutilsSuite) TestBaseImageStreamDaily(c *gc.C) {
 	s.mockSender.AppendAndRepeatResponse(azuretesting.NewResponseWithContent(
-		`[{"name": "22_04_2"}, {"name": "22_04_3-DAILY"}, {"name": "22_04_1-LTS"}]`), 2)
+		`[{"name": "22_04-daily-lts-gen2"}, {"name": "22_04-daily-lts"}, {"name": "22_04-daily-lts-arm64"}]`), 2)
 	base := corebase.MakeDefaultBase("ubuntu", "22.04")
-	s.assertImageId(c, base, "daily", "Canonical:0001-com-ubuntu-server-jammy:22_04_3-DAILY:latest")
-	s.assertImageId(c, base, "released", "Canonical:0001-com-ubuntu-server-jammy:22_04_2:latest")
+
+	image, err := imageutils.BaseImage(s.callCtx, base, "daily", "westus", s.client)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(image.Id, gc.Equals, "Canonical:0001-com-ubuntu-server-jammy-daily:22_04-daily-lts:latest")
 }
 
 func (s *imageutilsSuite) TestBaseImageOldStyleNotFound(c *gc.C) {
@@ -160,10 +164,4 @@ func (s *imageutilsSuite) TestBaseImageStreamThrewNonCredentialError(c *gc.C) {
 	_, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
 	c.Assert(err.Error(), jc.Contains, "RESPONSE 308")
 	c.Assert(called, jc.IsFalse)
-}
-
-func (s *imageutilsSuite) assertImageId(c *gc.C, base corebase.Base, stream, id string) {
-	image, err := imageutils.BaseImage(s.callCtx, base, stream, "westus", s.client)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(image.Id, gc.Equals, id)
 }
