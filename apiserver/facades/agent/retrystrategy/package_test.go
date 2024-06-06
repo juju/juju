@@ -5,11 +5,13 @@
 package retrystrategy_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	coretesting "github.com/juju/juju/testing"
 )
 
-func TestAll(t *stdtesting.T) {
+//go:generate go run go.uber.org/mock/mockgen -package retrystrategy_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/retrystrategy ModelConfigService
+
+func TestAll(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }

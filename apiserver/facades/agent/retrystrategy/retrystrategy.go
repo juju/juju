@@ -37,12 +37,27 @@ type RetryStrategy interface {
 // RetryStrategyAPI implements RetryStrategy
 type RetryStrategyAPI struct {
 	canAccess          common.GetAuthFunc
-	resources          facade.Resources
 	modelConfigService ModelConfigService
 	watcherRegistry    facade.WatcherRegistry
 }
 
 var _ RetryStrategy = (*RetryStrategyAPI)(nil)
+
+func NewRetryStrategyAPI(
+	authorizer facade.Authorizer,
+	modelConfigService ModelConfigService,
+	watcherRegistry facade.WatcherRegistry,
+) (*RetryStrategyAPI, error) {
+	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	return &RetryStrategyAPI{
+		canAccess:          func() (common.AuthFunc, error) { return authorizer.AuthOwner, nil },
+		modelConfigService: modelConfigService,
+		watcherRegistry:    watcherRegistry,
+	}, nil
+}
 
 // RetryStrategy returns RetryStrategyResults that can be used by any code that uses
 // to configure the retry timer that's currently in juju utils.
