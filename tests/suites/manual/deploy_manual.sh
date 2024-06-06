@@ -13,7 +13,7 @@ test_deploy_manual() {
 		"lxd")
 			run "run_deploy_manual_lxd"
 			;;
-		"aws")
+		"ec2")
 			run "run_deploy_manual_aws"
 			;;
 		*)
