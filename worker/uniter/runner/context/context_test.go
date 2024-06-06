@@ -80,6 +80,7 @@ func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
 	relIds, err := ctx.RelationIds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relIds, gc.HasLen, 2)
+	c.Assert(relIds, jc.SameContents, []int{0, 1})
 	r, err := ctx.Relation(0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name(), gc.Equals, "db")
@@ -87,6 +88,16 @@ func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
 	r, err = ctx.Relation(123)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(r, gc.IsNil)
+}
+
+func (s *InterfaceSuite) TestRelationIdsExcludesBroken(c *gc.C) {
+	ctx := s.GetContext(c, -1, "", names.StorageTag{})
+	// Broken relations have no member settings.
+	context.SetRelationBroken(ctx, 1)
+	relIds, err := ctx.RelationIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relIds, gc.HasLen, 1)
+	c.Assert(relIds, jc.SameContents, []int{0})
 }
 
 func (s *InterfaceSuite) TestRelationContext(c *gc.C) {

@@ -444,7 +444,7 @@ type AddMachineOptions struct {
 	Series string `json:"series,omitempty"`
 	// Constraints holds the machine constraints.
 	Constraints string `json:"constraints,omitempty"`
-	// ContainerType holds the machine container type (like "lxc" or "kvm").
+	// ContainerType holds the machine container type (like "lxd" or "kvm").
 	ContainerType string `json:"containerType,omitempty"`
 	// ParentId holds the id of the parent machine.
 	ParentId string `json:"parentId,omitempty"`
