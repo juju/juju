@@ -446,9 +446,16 @@ func (s *serviceSuite) TestDeleteModel(c *gc.C) {
 	c.Assert(exists, jc.IsTrue)
 }
 
+type notFoundDeleter struct{}
+
+func (d notFoundDeleter) DeleteDB(string) error {
+	return errors.NotFound
+}
+
 func (s *serviceSuite) TestDeleteModelNotFound(c *gc.C) {
-	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
-	err := svc.DeleteModel(context.Background(), modeltesting.GenModelUUID(c))
+
+	svc := NewService(s.state, notFoundDeleter{}, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	err := svc.DeleteModel(context.Background(), modeltesting.GenModelUUID(c), model.WithDeleteDB())
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 }
 

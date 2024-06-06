@@ -134,7 +134,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 // error satisfying [errors.NotValid] will be returned.
 // If the user specified for the model cannot be found an error satisfying
 // [accesserrors.NotFound] will be returned.
-func (i importOperation) Execute(ctx context.Context, model description.Model) error {
+func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	modelName, modelID, err := i.getModelNameAndID(model)
 	if err != nil {
 		return fmt.Errorf("importing model during migration %w", errors.NotValid)
@@ -152,12 +152,12 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 		)
 	}
 
-	credential := credential.Key{}
-	// CloudCredential could be nil
+	cred := credential.Key{}
+	// CloudCredential could be nil.
 	if model.CloudCredential() != nil {
-		credential.Name = model.CloudCredential().Name()
-		credential.Cloud = model.CloudCredential().Cloud()
-		credential.Owner = model.CloudCredential().Owner()
+		cred.Name = model.CloudCredential().Name()
+		cred.Cloud = model.CloudCredential().Cloud()
+		cred.Owner = model.CloudCredential().Owner()
 	}
 
 	args := domainmodel.ModelImportArgs{
@@ -165,7 +165,7 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 			AgentVersion: model.LatestToolsVersion(),
 			Cloud:        model.Cloud(),
 			CloudRegion:  model.CloudRegion(),
-			Credential:   credential,
+			Credential:   cred,
 			Name:         modelName,
 			Owner:        user.UUID,
 		},
@@ -223,21 +223,13 @@ func (i importOperation) Execute(ctx context.Context, model description.Model) e
 	return nil
 }
 
-// Rollback will attempt to rollback the import operation if it was
+// Rollback will attempt to roll back the import operation if it was
 // unsuccessful.
-func (i importOperation) Rollback(ctx context.Context, model description.Model) error {
-	// Attempt to rollback the model database if it was created.
+func (i *importOperation) Rollback(ctx context.Context, model description.Model) error {
+	// Attempt to roll back the model database if it was created.
 	modelName, modelID, err := i.getModelNameAndID(model)
 	if err != nil {
 		return fmt.Errorf("rollback of model during migration %w", errors.NotValid)
-	}
-
-	// If the read only model isn't found, we can simply ignore the error.
-	if err := i.readOnlyModelServiceFunc(modelID).DeleteModel(ctx); err != nil && !errors.Is(err, modelerrors.NotFound) {
-		return fmt.Errorf(
-			"rollback of read only model %q with uuid %q during migration: %w",
-			modelName, modelID, err,
-		)
 	}
 
 	// If the model isn't found, we can simply ignore the error.
@@ -251,7 +243,7 @@ func (i importOperation) Rollback(ctx context.Context, model description.Model) 
 	return nil
 }
 
-func (i importOperation) getModelNameAndID(model description.Model) (string, coremodel.UUID, error) {
+func (i *importOperation) getModelNameAndID(model description.Model) (string, coremodel.UUID, error) {
 	modelConfig := model.Config()
 	if modelConfig == nil {
 		return "", "", errors.New("model config is empty")
