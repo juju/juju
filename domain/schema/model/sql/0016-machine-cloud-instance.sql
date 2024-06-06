@@ -1,7 +1,6 @@
-CREATE TABLE instance_data (
+CREATE TABLE machine_cloud_instance (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     instance_id TEXT NOT NULL,
-    display_name TEXT NOT NULL,
     arch TEXT,
     mem INT,
     root_disk INT,
