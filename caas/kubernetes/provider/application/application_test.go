@@ -642,6 +642,10 @@ func getPodSpec() corev1.PodSpec {
 					MountPath: "path/to/here",
 				},
 			},
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:  int64Ptr(0),
+				RunAsGroup: int64Ptr(0),
+			},
 		}, {
 			Name:            "gitlab",
 			ImagePullPolicy: corev1.PullIfNotPresent,
@@ -709,6 +713,10 @@ func getPodSpec() corev1.PodSpec {
 					MountPath: "path/to/here",
 				},
 			},
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:  int64Ptr(0),
+				RunAsGroup: int64Ptr(0),
+			},
 		}, {
 			Name:            "nginx",
 			ImagePullPolicy: corev1.PullIfNotPresent,
@@ -771,6 +779,10 @@ func getPodSpec() corev1.PodSpec {
 					MountPath: "/charm/container",
 					SubPath:   "charm/containers/nginx",
 				},
+			},
+			SecurityContext: &corev1.SecurityContext{
+				RunAsUser:  int64Ptr(0),
+				RunAsGroup: int64Ptr(0),
 			},
 		}},
 		Volumes: []corev1.Volume{

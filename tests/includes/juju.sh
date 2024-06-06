@@ -84,10 +84,10 @@ bootstrap() {
 	"microk8s")
 		cloud="microk8s"
 		;;
-	"localhost" | "lxd")
-		cloud="localhost"
+	"lxd")
+		cloud="${BOOTSTRAP_CLOUD:-localhost}"
 		;;
-	"lxd-remote" | "vsphere" | "openstack" | "k8s" | "maas")
+	"vsphere" | "openstack" | "k8s" | "maas")
 		cloud="${BOOTSTRAP_CLOUD}"
 		;;
 	"manual")

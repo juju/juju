@@ -55,7 +55,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charmhub"
-	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/container/broker"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
@@ -758,10 +757,7 @@ func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Conn
 	m := result[0].Machine
 
 	var supportedContainers []instance.ContainerType
-	supportsContainers := container.ContainersSupported()
-	if supportsContainers {
-		supportedContainers = append(supportedContainers, instance.LXD)
-	}
+	supportedContainers = append(supportedContainers, instance.LXD)
 
 	logger.Debugf("Supported container types %q", supportedContainers)
 

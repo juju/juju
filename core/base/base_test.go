@@ -80,3 +80,41 @@ func (s *BaseSuite) TestParseManifestBases(c *gc.C) {
 	}
 	c.Assert(obtained, jc.DeepEquals, expected)
 }
+
+var ubuntuLTS = []Base{
+	MustParseBaseFromString("ubuntu@20.04"),
+	MustParseBaseFromString("ubuntu@22.04"),
+	MustParseBaseFromString("ubuntu@24.04"),
+	MustParseBaseFromString("ubuntu@24.04/stable"),
+	MustParseBaseFromString("ubuntu@24.04/edge"),
+}
+
+func (s *BaseSuite) TestIsUbuntuLTSForLTSes(c *gc.C) {
+	for i, lts := range ubuntuLTS {
+		c.Logf("Checking index %d base %v", i, lts)
+		c.Check(lts.IsUbuntuLTS(), jc.IsTrue)
+	}
+}
+
+var nonUbuntuLTS = []Base{
+	MustParseBaseFromString("ubuntu@17.04"),
+	MustParseBaseFromString("ubuntu@19.04"),
+	MustParseBaseFromString("ubuntu@21.04"),
+
+	MustParseBaseFromString("ubuntu@18.10"),
+	MustParseBaseFromString("ubuntu@20.10"),
+	MustParseBaseFromString("ubuntu@22.10"),
+
+	MustParseBaseFromString("ubuntu@22.04-blah"),
+	MustParseBaseFromString("ubuntu@22.04.1234"),
+
+	MustParseBaseFromString("centos@7"),
+	MustParseBaseFromString("centos@20.04"),
+}
+
+func (s *BaseSuite) TestIsUbuntuLTSForNonLTSes(c *gc.C) {
+	for i, lts := range nonUbuntuLTS {
+		c.Logf("Checking index %d base %v", i, lts)
+		c.Check(lts.IsUbuntuLTS(), jc.IsFalse)
+	}
+}

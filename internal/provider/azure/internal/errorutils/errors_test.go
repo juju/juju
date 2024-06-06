@@ -66,7 +66,7 @@ func (s *ErrorSuite) TestInvalidationCallbackErrorOnlyLogs(c *gc.C) {
 func (s *ErrorSuite) TestAuthRelatedStatusCodes(c *gc.C) {
 	called := false
 	ctx := envcontext.WithCredentialInvalidator(context.Background(), func(_ context.Context, msg string) error {
-		c.Assert(msg, gc.Matches, "azure cloud denied access: .*")
+		c.Assert(msg, gc.Matches, "(?s)azure cloud denied access: .*")
 		called = true
 		return nil
 	})

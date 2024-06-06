@@ -195,6 +195,19 @@ func (s *EnableHASuite) TestEnableHAWithConstraints(c *gc.C) {
 	c.Assert(len(s.fake.placement), gc.Equals, 0)
 }
 
+func (s *EnableHASuite) TestEnableHAWithMultipleConstraints(c *gc.C) {
+	ctx, err := s.runEnableHA(c, "--constraints", "cores=4", "--constraints", "mem=4G", "-n", "3")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals,
+		"maintaining machines: 0\n"+
+			"adding machines: 1, 2\n")
+
+	c.Assert(s.fake.numControllers, gc.Equals, 3)
+	expectedCons := constraints.MustParse("cores=4 mem=4G")
+	c.Assert(s.fake.cons, gc.DeepEquals, expectedCons)
+	c.Assert(len(s.fake.placement), gc.Equals, 0)
+}
+
 func (s *EnableHASuite) TestEnableHAWithPlacement(c *gc.C) {
 	ctx, err := s.runEnableHA(c, "--to", "valid", "-n", "3")
 	c.Assert(err, jc.ErrorIsNil)

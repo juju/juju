@@ -380,7 +380,7 @@ test_deploy_bundles() {
 
 		# LXD specific profile tests.
 		case "${BOOTSTRAP_PROVIDER:-}" in
-		"lxd" | "localhost")
+		"lxd")
 			run "run_deploy_lxd_profile_bundle_openstack"
 			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for non LXD only"
 			;;
@@ -392,7 +392,7 @@ test_deploy_bundles() {
 
 		# AWS specific image id tests.
 		case "${BOOTSTRAP_PROVIDER:-}" in
-		"ec2" | "aws")
+		"ec2")
 			check_dependencies aws
 			add_clean_func "run_cleanup_ami"
 			export ami_id

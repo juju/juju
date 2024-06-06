@@ -44,7 +44,7 @@ func (s *ContextRelationSuite) assertSettingsCaching(c *gc.C, members ...string)
 	s.relUnit.EXPECT().ReadSettings("u/1").Return(params.Settings{"blib": "blob"}, nil)
 
 	cache := context.NewRelationCache(s.relUnit.ReadSettings, members)
-	ctx := context.NewContextRelation(s.relUnit, cache)
+	ctx := context.NewContextRelation(s.relUnit, cache, false)
 
 	// Check that uncached settings are read once.
 	m, err := ctx.ReadSettings("u/1")
@@ -78,7 +78,7 @@ func (s *ContextRelationSuite) TestSuspended(c *gc.C) {
 	defer s.setUp(c).Finish()
 
 	s.rel.EXPECT().Suspended().Return(true)
-	ctx := context.NewContextRelation(s.relUnit, nil)
+	ctx := context.NewContextRelation(s.relUnit, nil, false)
 	c.Assert(ctx.Suspended(), jc.IsTrue)
 }
 
@@ -87,7 +87,7 @@ func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
 
 	s.rel.EXPECT().SetStatus(gomock.Any(), relation.Suspended).Return(nil)
 
-	ctx := context.NewContextRelation(s.relUnit, nil)
+	ctx := context.NewContextRelation(s.relUnit, nil, false)
 	err := ctx.SetStatus(stdcontext.Background(), relation.Suspended)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -97,6 +97,6 @@ func (s *ContextRelationSuite) TestRemoteApplicationName(c *gc.C) {
 
 	s.rel.EXPECT().OtherApplication().Return("u")
 
-	ctx := context.NewContextRelation(s.relUnit, nil)
+	ctx := context.NewContextRelation(s.relUnit, nil, false)
 	c.Assert(ctx.RemoteApplicationName(), gc.Equals, "u")
 }

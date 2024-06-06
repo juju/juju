@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/charm"
@@ -135,6 +136,8 @@ func (s *BaseHookContextSuite) AddContextRelation(c *gc.C, ctrl *gomock.Controll
 	rel := uniterapi.NewMockRelation(ctrl)
 	rel.EXPECT().Id().Return(num).AnyTimes()
 	rel.EXPECT().Tag().Return(names.NewRelationTag("mysql:server wordpress:" + name)).AnyTimes()
+	rel.EXPECT().Life().Return(life.Alive).AnyTimes()
+	rel.EXPECT().Suspended().Return(false).AnyTimes()
 
 	relUnit := uniterapi.NewMockRelationUnit(ctrl)
 	relUnit.EXPECT().Relation().Return(rel).AnyTimes()
@@ -180,7 +183,7 @@ func (s *BaseHookContextSuite) getHookContext(c *gc.C, ctrl *gomock.Controller, 
 	relctxs := map[int]*runnercontext.ContextRelation{}
 	for relId, relUnit := range s.relunits {
 		cache := runnercontext.NewRelationCache(relUnit.ReadSettings, nil)
-		relctxs[relId] = runnercontext.NewContextRelation(relUnit, cache)
+		relctxs[relId] = runnercontext.NewContextRelation(relUnit, cache, false)
 	}
 	context, err := runnercontext.NewHookContext(c, runnercontext.HookContextParams{
 		Unit:                s.unit,

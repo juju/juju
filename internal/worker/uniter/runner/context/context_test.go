@@ -102,6 +102,7 @@ func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
 	relIds, err := ctx.RelationIds()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relIds, gc.HasLen, 2)
+	c.Assert(relIds, jc.SameContents, []int{0, 1})
 	r, err := ctx.Relation(0)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Name(), gc.Equals, "db")
@@ -109,6 +110,21 @@ func (s *InterfaceSuite) TestRelationIds(c *gc.C) {
 	r, err = ctx.Relation(123)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	c.Assert(r, gc.IsNil)
+}
+
+func (s *InterfaceSuite) TestRelationIdsExcludesBroken(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.AddContextRelation(c, ctrl, "db")
+	s.AddContextRelation(c, ctrl, "db1")
+	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
+	// Broken relations have no member settings.
+	context.SetRelationBroken(ctx, 1)
+	relIds, err := ctx.RelationIds()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(relIds, gc.HasLen, 1)
+	c.Assert(relIds, jc.SameContents, []int{0})
 }
 
 func (s *InterfaceSuite) TestRelationContext(c *gc.C) {

@@ -210,9 +210,9 @@ type bootstrapCommand struct {
 	clock jujuclock.Clock
 
 	Constraints              constraints.Value
-	ConstraintsStr           string
+	ConstraintsStr           common.ConstraintsFlag
 	BootstrapConstraints     constraints.Value
-	BootstrapConstraintsStr  string
+	BootstrapConstraintsStr  common.BootstrapConstraintsFlag
 	BootstrapBase            string
 	BootstrapImage           string
 	BuildAgent               bool
@@ -310,8 +310,8 @@ func (c *bootstrapCommand) setControllerName(controllerName string) {
 
 func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.StringVar(&c.ConstraintsStr, "constraints", "", "Set model constraints")
-	f.StringVar(&c.BootstrapConstraintsStr, "bootstrap-constraints", "", "Specify bootstrap machine constraints")
+	f.Var(&c.ConstraintsStr, "constraints", "Set model constraints")
+	f.Var(&c.BootstrapConstraintsStr, "bootstrap-constraints", "Specify bootstrap machine constraints")
 	f.StringVar(&c.BootstrapBase, "bootstrap-base", "", "Specify the base of the bootstrap machine")
 	f.StringVar(&c.BootstrapImage, "bootstrap-image", "", "Specify the image of the bootstrap machine (requires --bootstrap-constraints specifying architecture)")
 	f.BoolVar(&c.BuildAgent, "build-agent", false, "Build local version of agent binary before bootstrapping")
@@ -545,8 +545,8 @@ specify a credential using the --credential argument`[1:],
 func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 	allAliases := map[string]string{}
 	defer common.WarnConstraintAliases(ctx, allAliases)
-	if c.ConstraintsStr != "" {
-		cons, aliases, err := constraints.ParseWithAliases(c.ConstraintsStr)
+	if c.ConstraintsStr.String() != "" {
+		cons, aliases, err := constraints.ParseWithAliases(strings.Join(c.ConstraintsStr, " "))
 		for k, v := range aliases {
 			allAliases[k] = v
 		}
@@ -555,8 +555,8 @@ func (c *bootstrapCommand) parseConstraints(ctx *cmd.Context) (err error) {
 		}
 		c.Constraints = cons
 	}
-	if c.BootstrapConstraintsStr != "" {
-		cons, aliases, err := constraints.ParseWithAliases(c.BootstrapConstraintsStr)
+	if c.BootstrapConstraintsStr.String() != "" {
+		cons, aliases, err := constraints.ParseWithAliases(strings.Join(c.BootstrapConstraintsStr, " "))
 		for k, v := range aliases {
 			allAliases[k] = v
 		}
