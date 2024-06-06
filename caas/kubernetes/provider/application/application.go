@@ -1502,6 +1502,12 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				RunAsGroup: pointer.Int64(constants.JujuGroupID),
 			}
 		}
+	} else {
+		// Pre-3.5 logic.
+		charmContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser:  pointer.Int64(0),
+			RunAsGroup: pointer.Int64(0),
+		}
 	}
 
 	containerExtraEnv := []corev1.EnvVar{{
@@ -1573,6 +1579,12 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			}
 			if v.Gid != nil {
 				container.SecurityContext.RunAsGroup = pointer.Int64(int64(*v.Gid))
+			}
+		} else {
+			// Pre-3.5 logic.
+			container.SecurityContext = &corev1.SecurityContext{
+				RunAsUser:  pointer.Int64(0),
+				RunAsGroup: pointer.Int64(0),
 			}
 		}
 		if v.Image.Password != "" {
@@ -1691,6 +1703,9 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				RunAsGroup: pointer.Int64(constants.JujuGroupID),
 			}
 		}
+	} else {
+		// Pre-3.5 logic.
+		charmInitContainer.SecurityContext = nil
 	}
 
 	automountToken := true

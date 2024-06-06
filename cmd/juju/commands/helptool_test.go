@@ -76,7 +76,7 @@ Currently available charm hook tools are:
     pod-spec-get             get k8s spec information (deprecated)
     pod-spec-set             set k8s spec information (deprecated)
     relation-get             get relation settings
-    relation-ids             list all relation ids with the given relation name
+    relation-ids             list all relation ids for the given endpoint
     relation-list            list relation units
     relation-set             set relation settings
     resource-get             get the path to the locally cached resource file

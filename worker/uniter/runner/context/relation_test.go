@@ -93,7 +93,7 @@ func (s *ContextRelationSuite) TestMemberCaching(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cache := context.NewRelationCache(s.relUnit.ReadSettings, []string{"u/1"})
-	ctx := context.NewContextRelation(s.relUnit, cache)
+	ctx := context.NewContextRelation(s.relUnit, cache, false)
 
 	// Check that uncached settings are read from state.
 	m, err := ctx.ReadSettings("u/1")
@@ -125,7 +125,7 @@ func (s *ContextRelationSuite) TestNonMemberCaching(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	cache := context.NewRelationCache(s.relUnit.ReadSettings, nil)
-	ctx := context.NewContextRelation(s.relUnit, cache)
+	ctx := context.NewContextRelation(s.relUnit, cache, false)
 
 	// Check that settings are read from state.
 	m, err := ctx.ReadSettings("u/1")
@@ -157,7 +157,7 @@ func (s *ContextRelationSuite) TestSuspended(c *gc.C) {
 	err = s.rel.SetSuspended(true, "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := context.NewContextRelation(s.relUnit, nil)
+	ctx := context.NewContextRelation(s.relUnit, nil, false)
 	err = s.relUnit.Relation().Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ctx.Suspended(), jc.IsTrue)
@@ -171,7 +171,7 @@ func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
 	err = claimer.Claim("u", "u/0", time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx := context.NewContextRelation(s.relUnit, nil)
+	ctx := context.NewContextRelation(s.relUnit, nil, false)
 	err = ctx.SetStatus(relation.Suspended)
 	c.Assert(err, jc.ErrorIsNil)
 	relStatus, err := s.rel.Status()
@@ -180,7 +180,7 @@ func (s *ContextRelationSuite) TestSetStatus(c *gc.C) {
 }
 
 func (s *ContextRelationSuite) TestRemoteApplicationName(c *gc.C) {
-	ctx := context.NewContextRelation(s.relUnit, nil)
+	ctx := context.NewContextRelation(s.relUnit, nil, false)
 	c.Assert(ctx.RemoteApplicationName(), gc.Equals, "u")
 }
 

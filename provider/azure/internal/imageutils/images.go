@@ -5,8 +5,6 @@ package imageutils
 
 import (
 	"fmt"
-	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
@@ -123,10 +121,6 @@ func ubuntuBaseIslegacy(base jujubase.Base) bool {
 
 // ubuntuSKU returns the best SKU for the Canonical:UbuntuServer offering,
 // matching the given series.
-//
-// TODO(jack-w-shaw): Selecting the 'daily' stream is currently broken for legacy
-// Ubuntu SKU selection. See the following lp bug:
-// https://bugs.launchpad.net/juju/+bug/2067717
 func ubuntuSKU(ctx context.ProviderCallContext, base jujubase.Base, stream, location string, client *armcompute.VirtualMachineImagesClient) (string, string, error) {
 	if ubuntuBaseIslegacy(base) {
 		return legacyUbuntuSKU(ctx, base, stream, location, client)
@@ -162,6 +156,9 @@ func legacyUbuntuSKU(ctx context.ProviderCallContext, base jujubase.Base, stream
 		return "", "", errors.Trace(err)
 	}
 	offer := fmt.Sprintf("0001-com-ubuntu-server-%s", series)
+	if stream == dailyStream {
+		offer = fmt.Sprintf("%s-daily", offer)
+	}
 	desiredSKUPrefix := strings.ReplaceAll(base.Channel.Track, ".", "_")
 
 	logger.Debugf("listing SKUs: Location=%s, Publisher=%s, Offer=%s", location, ubuntuPublisher, offer)
@@ -169,8 +166,6 @@ func legacyUbuntuSKU(ctx context.ProviderCallContext, base jujubase.Base, stream
 	if err != nil {
 		return "", "", errorutils.HandleCredentialError(errors.Annotate(err, "listing Ubuntu SKUs"), ctx)
 	}
-	skuNamesByVersion := make(map[ubuntuVersion]string)
-	var versions ubuntuVersions
 	for _, img := range result.VirtualMachineImageResourceArray {
 		skuName := *img.Name
 		logger.Debugf("found Azure SKU Name: %v", skuName)
@@ -178,12 +173,8 @@ func legacyUbuntuSKU(ctx context.ProviderCallContext, base jujubase.Base, stream
 			logger.Debugf("ignoring SKU %q (does not match series %q)", skuName, series)
 			continue
 		}
-		version, tag, err := parselegacyUbuntuSKU(skuName)
-		if err != nil {
-			logger.Errorf("ignoring SKU %q (failed to parse: %s)", skuName, err)
-			continue
-		}
-		logger.Debugf("SKU has version %#v and tag %q", version, tag)
+		tag := getLegacyUbuntuSKUTag(skuName)
+		logger.Debugf("SKU has tag %q", tag)
 		var skuStream string
 		switch tag {
 		case "", "LTS":
@@ -195,76 +186,19 @@ func legacyUbuntuSKU(ctx context.ProviderCallContext, base jujubase.Base, stream
 			logger.Debugf("ignoring SKU %q (not in %q stream)", skuName, stream)
 			continue
 		}
-		skuNamesByVersion[version] = skuName
-		versions = append(versions, version)
+		return skuName, offer, nil
+
 	}
-	if len(versions) == 0 {
-		return "", "", errors.NotFoundf("legacy ubuntu %q SKUs for %s stream", series, stream)
-	}
-	sort.Sort(versions)
-	bestVersion := versions[len(versions)-1]
-	return skuNamesByVersion[bestVersion], offer, nil
+	return "", "", errors.NotFoundf("legacy ubuntu %q SKUs for %s stream", series, stream)
 }
 
-type ubuntuVersion struct {
-	Year  int
-	Month int
-	Point int
-}
-
-// parselegacyUbuntuSKU splits an UbuntuServer SKU into its
-// version ("22_04.3") and tag ("LTS") parts.
-func parselegacyUbuntuSKU(sku string) (ubuntuVersion, string, error) {
-	var version ubuntuVersion
+// getLegacyUbuntuSKUTag splits an UbuntuServer SKU and extracts
+// the tag ("LTS") part.
+func getLegacyUbuntuSKUTag(sku string) string {
 	var tag string
-	var err error
 	parts := strings.SplitN(sku, "-", 2)
 	if len(parts) > 1 {
 		tag = strings.ToUpper(parts[1])
 	}
-	sep := "_"
-	if strings.Contains(parts[0], ".") {
-		sep = "."
-	}
-	parts = strings.SplitN(parts[0], sep, 3)
-	version.Year, err = strconv.Atoi(parts[0])
-	if err != nil {
-		return ubuntuVersion{}, "", errors.Trace(err)
-	}
-	version.Month, err = strconv.Atoi(parts[1])
-	if err != nil {
-		return ubuntuVersion{}, "", errors.Trace(err)
-	}
-	if len(parts) > 2 {
-		version.Point, err = strconv.Atoi(parts[2])
-		if err != nil {
-			return ubuntuVersion{}, "", errors.Trace(err)
-		}
-	}
-	return version, tag, nil
-}
-
-type ubuntuVersions []ubuntuVersion
-
-func (v ubuntuVersions) Len() int {
-	return len(v)
-}
-
-func (v ubuntuVersions) Swap(i, j int) {
-	v[i], v[j] = v[j], v[i]
-}
-
-func (v ubuntuVersions) Less(i, j int) bool {
-	vi, vj := v[i], v[j]
-	if vi.Year < vj.Year {
-		return true
-	} else if vi.Year > vj.Year {
-		return false
-	}
-	if vi.Month < vj.Month {
-		return true
-	} else if vi.Month > vj.Month {
-		return false
-	}
-	return vi.Point < vj.Point
+	return tag
 }
