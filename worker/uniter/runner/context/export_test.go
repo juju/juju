@@ -206,6 +206,15 @@ func SetEnvironmentHookContextNotice(context *HookContext, workloadName, noticeI
 	context.noticeKey = noticeKey
 }
 
+// SetRelationBroken sets the relation as broken.
+func SetRelationBroken(context jujuc.Context, relId int) {
+	context.(*HookContext).relations[relId].broken = true
+}
+
+// RelationBroken returns the relation broken state.
+func RelationBroken(context jujuc.Context, relId int) bool {
+	return context.(*HookContext).relations[relId].broken
+}
 func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {
 	hctx := ctx.(*HookContext)
 	oldStatus := hctx.status

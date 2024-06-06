@@ -47,7 +47,6 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/reboot"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/controller"
@@ -734,10 +733,7 @@ func (a *MachineAgent) setupContainerSupport(st api.Connection, logger machine.L
 	m := result[0].Machine
 
 	var supportedContainers []instance.ContainerType
-	supportsContainers := container.ContainersSupported()
-	if supportsContainers {
-		supportedContainers = append(supportedContainers, instance.LXD)
-	}
+	supportedContainers = append(supportedContainers, instance.LXD)
 
 	supportsKvm, err := kvm.IsKVMSupported()
 	if err != nil {
