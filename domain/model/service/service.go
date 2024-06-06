@@ -70,7 +70,7 @@ type State interface {
 	// ListModelIDs returns a list of all model UUIDs.
 	ListModelIDs(context.Context) ([]coremodel.UUID, error)
 
-	// ListModelsOwnedByUser returns a slice of models owned by the user
+	// ListModelsForUser returns a slice of models owned by the user
 	// specified by user id. If no user or models are found an empty slice is
 	// returned.
 	ListModelsForUser(context.Context, coreuser.UUID) ([]coremodel.Model, error)
@@ -211,14 +211,14 @@ func (s *Service) CreateModel(
 	args model.ModelCreationArgs,
 ) (coremodel.UUID, func(context.Context) error, error) {
 	if err := args.Validate(); err != nil {
-		return coremodel.UUID(""), nil, fmt.Errorf(
+		return "", nil, fmt.Errorf(
 			"cannot validate model creation args: %w", err,
 		)
 	}
 
 	modelID, err := coremodel.NewUUID()
 	if err != nil {
-		return coremodel.UUID(""), nil, fmt.Errorf(
+		return "", nil, fmt.Errorf(
 			"cannot generate id for model %q: %w", args.Name, err,
 		)
 	}
@@ -356,7 +356,7 @@ func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Mod
 // for the model.
 func (s *Service) ModelType(ctx context.Context, uuid coremodel.UUID) (coremodel.ModelType, error) {
 	if err := uuid.Validate(); err != nil {
-		return coremodel.ModelType(""), fmt.Errorf("model type uuid: %w", err)
+		return "", fmt.Errorf("model type uuid: %w", err)
 	}
 
 	return s.st.GetModelType(ctx, uuid)
@@ -382,7 +382,7 @@ func (s *Service) DeleteModel(
 
 	// Delete common items from the model. This helps to ensure that the
 	// model is cleaned up correctly.
-	if err := s.st.Delete(ctx, uuid); err != nil {
+	if err := s.st.Delete(ctx, uuid); err != nil && !errors.Is(err, modelerrors.NotFound) {
 		return fmt.Errorf("delete model: %w", err)
 	}
 
@@ -397,6 +397,9 @@ func (s *Service) DeleteModel(
 	// supported in dqlite). For now we do a best effort to remove all items
 	// with in the db.
 	if err := s.modelDeleter.DeleteDB(uuid.String()); err != nil {
+		if errors.Is(err, errors.NotFound) {
+			return modelerrors.NotFound
+		}
 		return fmt.Errorf("delete model: %w", err)
 	}
 
@@ -441,7 +444,7 @@ func ModelTypeForCloud(
 ) (coremodel.ModelType, error) {
 	cloudType, err := state.CloudType(ctx, cloudName)
 	if err != nil {
-		return coremodel.ModelType(""), fmt.Errorf("determining model type from cloud: %w", err)
+		return "", fmt.Errorf("determining model type from cloud: %w", err)
 	}
 
 	if set.NewStrings(caasCloudTypes...).Contains(cloudType) {
@@ -479,11 +482,11 @@ func (s *Service) UpdateCredential(
 // If the agent version is equal to that of the currently running controller
 // then this will be allowed.
 //
-// If the agent version is greater then that of the currently running controller
+// If the agent version is greater than that of the currently running controller
 // then a [modelerrors.AgentVersionNotSupported] error is returned as
-// we can't run a agent version that is greater then that of a controller.
+// we can't run an agent version that is greater than that of a controller.
 //
-// If the agent version is less then that of the current controller we use the
+// If the agent version is less than that of the current controller we use the
 // toolFinder to make sure that we have tools available for this version. If no
 // tools are available to support the agent version a
 // [modelerrors.AgentVersionNotSupported] error is returned.
@@ -493,14 +496,14 @@ func validateAgentVersion(
 ) error {
 	n := agentVersion.Compare(jujuversion.Current)
 	switch {
-	// agentVersion is greater then that of the current version.
+	// agentVersion is greater than that of the current version.
 	case n > 0:
 		return fmt.Errorf(
 			"%w %q cannot be greater then the controller version %q",
 			modelerrors.AgentVersionNotSupported,
 			agentVersion.String(), jujuversion.Current.String(),
 		)
-	// agentVersion is less then that of the current version.
+	// agentVersion is less than that of the current version.
 	case n < 0:
 		has, err := agentFinder.HasBinariesForVersion(agentVersion)
 		if err != nil {

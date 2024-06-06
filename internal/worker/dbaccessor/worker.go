@@ -322,6 +322,7 @@ func (w *dbWorker) loop() (err error) {
 					continue
 				}
 			} else if req.op == delOp {
+				w.cfg.Logger.Infof("deleting database for namespace %q", req.namespace)
 				if err := w.deleteDatabase(req.namespace); err != nil {
 					select {
 					case req.done <- errors.Annotatef(err, "deleting database for namespace %q", req.namespace):
