@@ -99,6 +99,11 @@ type importOperation struct {
 	logger logger.Logger
 }
 
+// Name returns the name of this operation.
+func (i *importOperation) Name() string {
+	return "import model"
+}
+
 // Setup is responsible for taking the model migration scope and creating the
 // needed services used during import.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {

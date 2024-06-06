@@ -103,7 +103,7 @@ func (e *ModelExporter) Export(ctx context.Context, model description.Model) (de
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	coordinator := modelmigration.NewCoordinator()
+	coordinator := modelmigration.NewCoordinator(e.logger)
 	migrations.ExportOperations(coordinator, registry, e.logger)
 	if err := coordinator.Perform(ctx, e.scope, model); err != nil {
 		return nil, errors.Trace(err)
@@ -190,7 +190,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	coordinator := modelmigration.NewCoordinator()
+	coordinator := modelmigration.NewCoordinator(i.logger)
 	migrations.ImportOperations(coordinator, i.logger, modelDefaultsProvider, registry)
 	if err := coordinator.Perform(ctx, i.scope(modelUUID.String()), model); err != nil {
 		return nil, nil, errors.Trace(err)

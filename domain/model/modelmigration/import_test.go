@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -184,7 +185,10 @@ func (i *importSuite) TestModelCreate(c *gc.C) {
 		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
 	}
 
-	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
+	coordinator := modelmigration.NewCoordinator(
+		loggertesting.WrapCheckLog(c),
+		modelmigrationtesting.IgnoredSetupOperation(importOp),
+	)
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(activated, jc.IsTrue)
@@ -265,7 +269,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailure(c *gc.C) {
 		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
 	}
 
-	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
+	coordinator := modelmigration.NewCoordinator(
+		loggertesting.WrapCheckLog(c),
+		modelmigrationtesting.IgnoredSetupOperation(importOp),
+	)
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Check(err, gc.ErrorMatches, `.*boom.*`)
 
@@ -342,7 +349,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundModel(c *gc
 		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
 	}
 
-	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
+	coordinator := modelmigration.NewCoordinator(
+		loggertesting.WrapCheckLog(c),
+		modelmigrationtesting.IgnoredSetupOperation(importOp),
+	)
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Check(err, gc.ErrorMatches, `.*boom.*`)
 
@@ -419,7 +429,10 @@ func (i *importSuite) TestModelCreateRollbacksOnFailureIgnoreNotFoundReadOnlyMod
 		readOnlyModelServiceFunc: func(_ coremodel.UUID) ReadOnlyModelService { return i.readOnlyModelService },
 	}
 
-	coordinator := modelmigration.NewCoordinator(modelmigrationtesting.IgnoredSetupOperation(importOp))
+	coordinator := modelmigration.NewCoordinator(
+		loggertesting.WrapCheckLog(c),
+		modelmigrationtesting.IgnoredSetupOperation(importOp),
+	)
 	err = coordinator.Perform(context.Background(), modelmigration.NewScope(nil, nil, nil), model)
 	c.Check(err, gc.ErrorMatches, `.*boom.*`)
 

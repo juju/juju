@@ -44,6 +44,11 @@ type importOperation struct {
 	logger   logger.Logger
 }
 
+// Name returns the name of this operation.
+func (i *importOperation) Name() string {
+	return "import storage"
+}
+
 // Setup implements Operation.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(

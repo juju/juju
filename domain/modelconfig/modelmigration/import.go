@@ -46,6 +46,11 @@ type importOperation struct {
 	defaultsProvider service.ModelDefaultsProvider
 }
 
+// Name returns the name of this operation.
+func (i *importOperation) Name() string {
+	return "import model configuration"
+}
+
 // Setup the import operation, this will ensure the service is created
 // and ready to be used.
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
