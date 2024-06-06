@@ -64,7 +64,7 @@ require (
 	github.com/juju/names/v5 v5.0.0
 	github.com/juju/naturalsort v1.0.0
 	github.com/juju/os/v2 v2.2.5
-	github.com/juju/packaging/v3 v3.0.0
+	github.com/juju/packaging/v3 v3.1.0
 	github.com/juju/persistent-cookiejar v1.0.0
 	github.com/juju/proxy v1.0.0
 	github.com/juju/pubsub/v2 v2.0.0
