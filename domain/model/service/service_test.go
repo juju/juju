@@ -61,6 +61,28 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+// TestControllerModelNameChange is here to make the breaker of this test stop
+// and think. There exists business logic in this package that is very dependent
+// on the well known value defined in [coremodel.ControllerModelName]. If this
+// test has broken it means this value has changed and you could be at risk of
+// breaking Juju. Please consider the business logic in this package and if
+// changing this well known value is handled correctly for both legacy and
+// future Juju versions!!!
+func (s *serviceSuite) TestControllerModelNameChange(c *gc.C) {
+	c.Assert(coremodel.ControllerModelName, gc.Equals, "controller")
+}
+
+// TestControllerModelOwnerUsername is here to make the breaker of this test
+// stop and think. There exists business logic in this package that is very
+// dependent on the well known value defined in
+// [coremodel.ControllerModelOwnerUsername]. If this test has broken it means
+// this value has changed and you could be at risk of breaking Juju. Please
+// consider the business logic in this package and if changing this well known
+// value is handled correctly for both legacy and future Juju versions!!!
+func (s *serviceSuite) TestControllerModelOwnerUsername(c *gc.C) {
+	c.Assert(coremodel.ControllerModelOwnerUsername, gc.Equals, "admin")
+}
+
 func (s *serviceSuite) TestCreateModelInvalidArgs(c *gc.C) {
 	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
 	_, _, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{})
@@ -764,4 +786,59 @@ func (s *serviceSuite) TestImportModel(c *gc.C) {
 
 	_, exists := s.state.models[modelID]
 	c.Assert(exists, jc.IsTrue)
+}
+
+// TestControllerModelNotFound is testing that if we ask the service for the
+// controller model and it doesn't exist we get back a [modelerrors.NotFound]
+// error. This should be a very unlikely scenario but we need to test the
+// schemantics.
+func (s *serviceSuite) TestControllerModelNotFound(c *gc.C) {
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	_, err := svc.ControllerModel(context.Background())
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestControllerModel is asserting the happy path of [Service.ControllerModel].
+func (s *serviceSuite) TestControllerModel(c *gc.C) {
+	adminUUID := usertesting.GenUserUUID(c)
+	s.state.users[adminUUID] = coremodel.ControllerModelOwnerUsername
+
+	cred := credential.Key{
+		Cloud: "aws",
+		Name:  "foobar",
+		Owner: adminUUID.String(),
+	}
+	s.state.clouds["aws"] = dummyStateCloud{
+		Credentials: map[string]credential.Key{
+			cred.String(): cred,
+		},
+		Regions: []string{"myregion"},
+	}
+
+	svc := NewService(s.state, s.deleter, DefaultAgentBinaryFinder(), loggertesting.WrapCheckLog(c))
+	modelID, activator, err := svc.CreateModel(context.Background(), model.ModelCreationArgs{
+		AgentVersion: jujuversion.Current,
+		Cloud:        "aws",
+		CloudRegion:  "myregion",
+		Credential:   cred,
+		Owner:        adminUUID,
+		Name:         coremodel.ControllerModelName,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(activator(context.Background()), jc.ErrorIsNil)
+
+	model, err := svc.ControllerModel(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(model, gc.DeepEquals, coremodel.Model{
+		Name:         coremodel.ControllerModelName,
+		Life:         life.Alive,
+		UUID:         modelID,
+		ModelType:    coremodel.IAAS,
+		AgentVersion: jujuversion.Current,
+		Cloud:        "aws",
+		CloudRegion:  "myregion",
+		Credential:   cred,
+		Owner:        adminUUID,
+		OwnerName:    coremodel.ControllerModelOwnerUsername,
+	})
 }

@@ -198,6 +198,109 @@ func (s *State) GetModel(ctx context.Context, uuid coremodel.UUID) (coremodel.Mo
 	})
 }
 
+// GetModelByName returns the model found for the given username and model name
+// for which there can only be one. Should no model be found for the provided
+// search criteria an error satisfying [modelerrors.NotFound] will be returned.
+func (s *State) GetModelByName(
+	ctx context.Context,
+	username string,
+	modelName string,
+) (coremodel.Model, error) {
+	db, err := s.DB()
+	if err != nil {
+		return coremodel.Model{}, errors.Trace(err)
+	}
+
+	q := `
+SELECT uuid,
+       name,
+       ma.target_version           AS agent_version,
+       cloud_name,
+       cloud_region_name,
+       model_type,
+       owner_uuid,
+	   owner_name,
+       cloud_credential_cloud_name,
+       cloud_credential_owner_name,
+       cloud_credential_name,
+       life
+FROM v_model
+INNER JOIN model_agent ma ON v_model.uuid = ma.model_uuid
+WHERE name = ?
+AND owner_name = ?
+`
+
+	var (
+		agentVersion string
+		cloudRegion  sql.NullString
+		modelType    string
+		userUUID     string
+		credName     sql.NullString
+		credOwner    sql.NullString
+		credCloud    sql.NullString
+		model        coremodel.Model
+		modelIdStr   string
+	)
+
+	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, q, modelName, username)
+
+		return row.Scan(
+			&modelIdStr,
+			&model.Name,
+			&agentVersion,
+			&model.Cloud,
+			&cloudRegion,
+			&modelType,
+			&userUUID,
+			&model.OwnerName,
+			&credCloud,
+			&credOwner,
+			&credName,
+			&model.Life,
+		)
+
+	})
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return coremodel.Model{}, fmt.Errorf(
+			"%w for user %q and name %q",
+			modelerrors.NotFound,
+			username,
+			modelName,
+		)
+	} else if err != nil {
+		return coremodel.Model{}, fmt.Errorf(
+			"cannot find model for user %q and name %q: %w",
+			username,
+			modelName,
+			domain.CoerceError(err),
+		)
+	}
+
+	model.AgentVersion, err = version.Parse(agentVersion)
+	if err != nil {
+		return coremodel.Model{}, fmt.Errorf(
+			"parsing model %q agent version %q: %w",
+			modelIdStr,
+			agentVersion,
+			err,
+		)
+	}
+
+	model.CloudRegion = cloudRegion.String
+	model.ModelType = coremodel.ModelType(modelType)
+	model.Owner = user.UUID(userUUID)
+	model.Credential = credential.Key{
+		Name:  credName.String,
+		Cloud: credCloud.String,
+		Owner: credOwner.String,
+	}
+	model.UUID = coremodel.UUID(modelIdStr)
+
+	return model, nil
+}
+
 // GetModelType returns the model type for the provided model uuid. If the model
 // does not exist then an error satisfying [modelerrors.NotFound] will be
 // returned.

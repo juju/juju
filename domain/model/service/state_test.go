@@ -150,6 +150,19 @@ func (d *dummyState) GetModel(
 	return info, nil
 }
 
+func (d *dummyState) GetModelByName(
+	_ context.Context,
+	userName string,
+	modelName string,
+) (coremodel.Model, error) {
+	for _, model := range d.models {
+		if model.OwnerName == userName && model.Name == modelName {
+			return model, nil
+		}
+	}
+	return coremodel.Model{}, modelerrors.NotFound
+}
+
 func (d *dummyState) GetModelType(
 	_ context.Context,
 	uuid coremodel.UUID,

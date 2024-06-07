@@ -57,6 +57,11 @@ type State interface {
 	// GetModel returns the model associated with the provided uuid.
 	GetModel(context.Context, coremodel.UUID) (coremodel.Model, error)
 
+	// GetModelByName returns the model associated with the given user and name.
+	// If no model exists for the provided user or model name then an error of
+	// [modelerrors.NotFound] will be returned.
+	GetModelByName(context.Context, string, string) (coremodel.Model, error)
+
 	// GetModelType returns the model type for a model with the provided uuid.
 	GetModelType(context.Context, coremodel.UUID) (coremodel.ModelType, error)
 
@@ -339,6 +344,13 @@ func (s *Service) ImportModel(
 	}
 
 	return s.createModel(ctx, args.ID, args.ModelCreationArgs)
+}
+
+// ControllerModel returns the model used for housing the Juju controller.
+// Should no model exist for the controller an error of [modelerrors.NotFound]
+// will be returned.
+func (s *Service) ControllerModel(ctx context.Context) (coremodel.Model, error) {
+	return s.st.GetModelByName(ctx, coremodel.ControllerModelOwnerUsername, coremodel.ControllerModelName)
 }
 
 // Model returns the model associated with the provided uuid.
