@@ -46,6 +46,9 @@ func (c *showMachineCommand) Info() *cmd.Info {
 		Purpose:  "Show a machine's status.",
 		Doc:      showMachineCommandDoc,
 		Examples: showMachineExamples,
+		SeeAlso: []string{
+			"add-machine",
+		},
 	})
 }
 

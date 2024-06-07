@@ -88,6 +88,7 @@ func (c *showTaskCommand) Info() *cmd.Info {
 		Doc:      showTaskDoc,
 		Examples: showTaskExamples,
 		SeeAlso: []string{
+			"cancel-task",
 			"run",
 			"operations",
 			"show-operation",

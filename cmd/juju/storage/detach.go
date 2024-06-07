@@ -89,6 +89,10 @@ func (c *detachStorageCommand) Info() *cmd.Info {
 		Doc:      detachStorageCommandDoc,
 		Examples: detachStorageCommandExamples,
 		Args:     detachStorageCommandArgs,
+		SeeAlso: []string{
+			"storage",
+			"attach-storage",
+		},
 	})
 }
 

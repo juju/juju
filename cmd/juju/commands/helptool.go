@@ -117,6 +117,7 @@ func (t *helpToolCommand) Info() *cmd.Info {
 		Purpose:  "Show help on a Juju charm hook tool.",
 		Doc:      helpToolDoc,
 		Examples: helpToolExamples,
+		SeeAlso:  []string{"help"},
 	})
 }
 

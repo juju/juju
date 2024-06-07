@@ -196,6 +196,7 @@ func (c *grantCommand) Info() *cmd.Info {
 		SeeAlso: []string{
 			"revoke",
 			"add-user",
+			"grant-cloud",
 		},
 	})
 }

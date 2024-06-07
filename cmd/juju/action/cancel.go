@@ -37,12 +37,20 @@ func (c *cancelCommand) SetFlags(f *gnuflag.FlagSet) {
 const cancelDoc = `
 Cancel pending or running tasks matching given IDs or partial ID prefixes.`
 
+const cancelExamples = `
+    juju cancel-task 1 2 3
+`
+
 func (c *cancelCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "cancel-task",
-		Args:    "(<task-id>|<task-id-prefix>) [...]",
-		Purpose: "Cancel pending or running tasks.",
-		Doc:     cancelDoc,
+		Name:     "cancel-task",
+		Args:     "(<task-id>|<task-id-prefix>) [...]",
+		Purpose:  "Cancel pending or running tasks.",
+		Doc:      cancelDoc,
+		Examples: cancelExamples,
+		SeeAlso: []string{
+			"show-task",
+		},
 	}
 	return jujucmd.Info(info)
 }

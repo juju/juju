@@ -46,7 +46,9 @@ type detectCredentialsCommand struct {
 	remoteClouds      map[string]jujucloud.Cloud
 }
 
-const detectCredentialsSummary = `Attempts to automatically detect and add credentials for a cloud.`
+const detectCredentialsSummary = `
+Attempts to automatically detect and add credentials for a cloud.
+`
 
 var detectCredentialsDoc = `
 The command searches well known, cloud-specific locations on this client.

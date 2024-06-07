@@ -93,6 +93,10 @@ func (c *removeApplicationCommand) Info() *cmd.Info {
 		Purpose:  helpSummaryRmApp,
 		Doc:      helpDetailsRmApp,
 		Examples: helpExamplesRmApp,
+		SeeAlso: []string{
+			"scale-application",
+			"show-application",
+		},
 	})
 }
 

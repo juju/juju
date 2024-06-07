@@ -112,6 +112,7 @@ func (c *grantCloudCommand) Info() *cmd.Info {
 		Doc:      usageGrantCloudDetails,
 		Examples: usageGrantCloudExamples,
 		SeeAlso: []string{
+			"grant",
 			"revoke-cloud",
 			"add-user",
 		},
