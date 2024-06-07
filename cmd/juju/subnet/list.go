@@ -47,14 +47,29 @@ output formats include "yaml" (default) and "json". To redirect the
 output to a file, use --output.
 `
 
+const listCommandExample = `
+To list all subnets known to Juju:
+
+    juju subnets
+
+To list subnets associated with a specific network space:
+
+    juju subnets --space my-space
+
+To list subnets associated with a specific availability zone:
+
+    juju subnets --zone my-zone
+`
+
 // Info is defined on the cmd.Command interface.
 func (c *ListCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "subnets",
-		Args:    "[--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]",
-		Purpose: "List subnets known to Juju.",
-		Doc:     strings.TrimSpace(listCommandDoc),
-		Aliases: []string{"list-subnets"},
+		Name:     "subnets",
+		Args:     "[--space <name>] [--zone <name>] [--format yaml|json] [--output <path>]",
+		Purpose:  "List subnets known to Juju.",
+		Doc:      strings.TrimSpace(listCommandDoc),
+		Aliases:  []string{"list-subnets"},
+		Examples: listCommandExample,
 	})
 }
 

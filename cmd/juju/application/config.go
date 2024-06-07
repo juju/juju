@@ -95,6 +95,24 @@ settings back to their default value as defined in the charm metadata:
 juju config apache2 --reset servername
 juju config apache2 --reset servername,lb_balancer_timeout
 `
+
+	examples = `
+To view all configuration values for an application, run
+
+    juju config mysql --format json
+
+To set a configuration value for an application, run
+
+    juju config mysql foo=bar
+
+To set some keys and reset others:
+
+    juju config mysql key1=val1 key2=val2 --reset key3,key4
+
+To set a configuration value for an application from a file:
+
+    juju config mysql --file=path/to/cfg.yaml
+`
 )
 
 var appConfigBase = config.ConfigCommandBase{
@@ -130,10 +148,11 @@ type ApplicationAPI interface {
 // Info is part of the cmd.Command interface.
 func (c *configCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "config",
-		Args:    "<application name> [--branch <branch-name>] [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
-		Purpose: configSummary,
-		Doc:     configDetails,
+		Name:     "config",
+		Args:     "<application name> [--branch <branch-name>] [--reset <key[,key]>] [<attribute-key>][=<value>] ...]",
+		Purpose:  configSummary,
+		Doc:      configDetails,
+		Examples: examples,
 		SeeAlso: []string{
 			"deploy",
 			"status",

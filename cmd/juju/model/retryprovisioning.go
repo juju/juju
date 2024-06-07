@@ -40,11 +40,21 @@ type RetryProvisioningAPI interface {
 	RetryProvisioning(all bool, machines ...names.MachineTag) ([]params.ErrorResult, error)
 }
 
+const retryProvisioningCommandExamples = `
+
+	juju retry-provisioning 0
+
+	juju retry-provisioning 0 1
+
+	juju retry-provisioning --all
+`
+
 func (c *retryProvisioningCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "retry-provisioning",
-		Args:    "<machine> [...]",
-		Purpose: "Retries provisioning for failed machines.",
+		Name:     "retry-provisioning",
+		Args:     "<machine> [...]",
+		Purpose:  "Retries provisioning for failed machines.",
+		Examples: retryProvisioningCommandExamples,
 	})
 }
 

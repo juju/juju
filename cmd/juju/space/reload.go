@@ -28,12 +28,23 @@ const ReloadCommandDoc = `
 Reloades spaces and subnets from substrate.
 `
 
+const ReloadCommandExamples = `
+	juju reload-spaces
+`
+
 // Info is defined on the cmd.Command interface.
 func (c *ReloadCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "reload-spaces",
-		Purpose: "Reloads spaces and subnets from substrate.",
-		Doc:     strings.TrimSpace(ReloadCommandDoc),
+		Name:     "reload-spaces",
+		Purpose:  "Reloads spaces and subnets from substrate.",
+		Doc:      strings.TrimSpace(ReloadCommandDoc),
+		Examples: ReloadCommandExamples,
+		SeeAlso: []string{
+			"spaces",
+			"add-space",
+			"show-space",
+			"move-to-space",
+		},
 	})
 }
 

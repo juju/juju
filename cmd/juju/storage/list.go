@@ -29,6 +29,20 @@ const listCommandDoc = `
 List information about storage.
 `
 
+const listCommandExample = `
+List all storage:
+
+    juju storage
+
+List only filesystem storage:
+
+    juju storage --filesystem
+
+List only volume storage:
+
+    juju storage --volume
+`
+
 // listCommand returns storage instances.
 type listCommand struct {
 	StorageCommandBase
@@ -42,11 +56,17 @@ type listCommand struct {
 // Info implements Command.Info.
 func (c *listCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "storage",
-		Args:    "<filesystem|volume> ...",
-		Purpose: "Lists storage details.",
-		Doc:     listCommandDoc,
-		Aliases: []string{"list-storage"},
+		Name:     "storage",
+		Args:     "<filesystem|volume> ...",
+		Purpose:  "Lists storage details.",
+		Doc:      listCommandDoc,
+		Aliases:  []string{"list-storage"},
+		Examples: listCommandExample,
+		SeeAlso: []string{
+			"show-storage",
+			"add-storage",
+			"remove-storage",
+		},
 	})
 }
 
@@ -60,8 +80,8 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 	// TODO(axw) deprecate these flags, and introduce separate commands
 	// for listing just filesystems or volumes.
-	f.BoolVar(&c.filesystem, "filesystem", false, "List filesystem storage")
-	f.BoolVar(&c.volume, "volume", false, "List volume storage")
+	f.BoolVar(&c.filesystem, "filesystem", false, "List filesystem storage(deprecated)")
+	f.BoolVar(&c.volume, "volume", false, "List volume storage(deprecated)")
 }
 
 // Init implements Command.Init.
