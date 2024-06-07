@@ -89,7 +89,6 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	stor, err := filestorage.NewFileStorageWriter(storageDir)
 	c.Assert(err, jc.ErrorIsNil)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
-	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 	envtesting.UploadFakeTools(c, stor, "released", "released")
 
 	s.callContext = envcontext.WithoutCredentialInvalidator(context.Background())
@@ -911,7 +910,7 @@ func createImageMetadataForArch(c *gc.C, arch string) (dir string, _ []*imagemet
 	im := []*imagemetadata.ImageMetadata{{
 		Id:         "1234",
 		Arch:       arch,
-		Version:    "16.04",
+		Version:    "22.04",
 		RegionName: "region",
 		Endpoint:   "endpoint",
 	}}
@@ -923,7 +922,7 @@ func createImageMetadataForArch(c *gc.C, arch string) (dir string, _ []*imagemet
 	sourceStor, err := filestorage.NewFileStorageWriter(sourceDir)
 	c.Assert(err, jc.ErrorIsNil)
 	ss := simplestreams.NewSimpleStreams(sstesting.TestDataSourceFactory())
-	base := corebase.MustParseBaseFromString("ubuntu@16.04")
+	base := corebase.MustParseBaseFromString("ubuntu@22.04")
 	err = imagemetadata.MergeAndWriteMetadata(context.Background(), ss, base, im, cloudSpec, sourceStor)
 	c.Assert(err, jc.ErrorIsNil)
 	return sourceDir, im

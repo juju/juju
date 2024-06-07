@@ -4,13 +4,9 @@
 package upgrades_test
 
 import (
-	"os/exec"
-
 	"github.com/dustin/go-humanize"
-	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	pkgmgr "github.com/juju/juju/internal/packaging/manager"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/testing"
 )
@@ -26,39 +22,4 @@ func (s *preupgradechecksSuite) TestCheckFreeDiskSpace(c *gc.C) {
 	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(humanize.PiByte/humanize.MiByte))
 	err := upgrades.PreUpgradeSteps(&mockAgentConfig{dataDir: "/"}, false)
 	c.Assert(err, gc.ErrorMatches, `not enough free disk space on "/" for upgrade: .* available, require 1073741824MiB`)
-}
-
-func (s *preupgradechecksSuite) TestUpdateDistroInfo(c *gc.C) {
-	s.PatchValue(&upgrades.MinDiskSpaceMib, uint64(0))
-	expectedAptCommandArgs := [][]string{
-		{"update"},
-		{"install", "distro-info"},
-	}
-
-	commandChan := s.HookCommandOutput(&pkgmgr.CommandOutput, nil, nil)
-	err := upgrades.PreUpgradeSteps(&mockAgentConfig{dataDir: "/"}, true)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var commands []*exec.Cmd
-loop:
-	for i := 0; i < cap(expectedAptCommandArgs)+1; i++ {
-		select {
-		case cmd := <-commandChan:
-			commands = append(commands, cmd)
-		default:
-			break loop
-		}
-	}
-	if len(commands) != len(expectedAptCommandArgs) {
-		c.Fatalf("expected %d commands, got %d", len(expectedAptCommandArgs), len(commands))
-	}
-
-	assertAptCommand := func(cmd *exec.Cmd, tailArgs ...string) {
-		args := cmd.Args
-		c.Assert(len(args), jc.GreaterThan, len(tailArgs))
-		c.Assert(args[0], gc.Equals, "apt-get")
-		c.Assert(args[len(args)-len(tailArgs):], gc.DeepEquals, tailArgs)
-	}
-	assertAptCommand(commands[0], "update")
-	assertAptCommand(commands[1], "install", "distro-info")
 }

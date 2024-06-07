@@ -9,8 +9,6 @@ import (
 	"github.com/juju/utils/v4/du"
 
 	"github.com/juju/juju/agent"
-	corebase "github.com/juju/juju/core/base"
-	"github.com/juju/juju/internal/packaging/manager"
 )
 
 // PreUpgradeStepsFunc is the function type of PreUpgradeSteps. This may be
@@ -24,14 +22,6 @@ func PreUpgradeSteps(agentConf agent.Config, isController bool) error {
 	if err := CheckFreeDiskSpace(agentConf.DataDir(), MinDiskSpaceMib); err != nil {
 		return errors.Trace(err)
 	}
-	if isController {
-		// Update distro info in case the new Juju controller version
-		// is aware of new supported series. We'll keep going if this
-		// fails, and the user can manually update it if they need to.
-		logger.Infof("updating distro-info")
-		err := updateDistroInfo()
-		return errors.Annotate(err, "failed to update distro-info")
-	}
 	return nil
 }
 
@@ -39,14 +29,6 @@ func PreUpgradeSteps(agentConf agent.Config, isController bool) error {
 // performing an upgrade. If any check fails, an error is returned which
 // aborts the upgrade.
 func PreUpgradeStepsCAAS(agentConf agent.Config, isController bool) error {
-	if isController {
-		// Update distro info in case the new Juju controller version
-		// is aware of new supported series. We'll keep going if this
-		// fails, and the user can manually update it if they need to.
-		logger.Infof("updating distro-info")
-		err := updateDistroInfo()
-		return errors.Annotate(err, "failed to update distro-info")
-	}
 	return nil
 }
 
@@ -65,15 +47,4 @@ func CheckFreeDiskSpace(dir string, thresholdMib uint64) error {
 			dir, humanize.IBytes(available), thresholdMib)
 	}
 	return nil
-}
-
-func updateDistroInfo() error {
-	pm := manager.NewAptPackageManager()
-	if err := pm.Update(); err != nil {
-		return errors.Annotate(err, "updating package list")
-	}
-	if err := pm.Install("distro-info"); err != nil {
-		return errors.Annotate(err, "updating distro-info package")
-	}
-	return corebase.UpdateSeriesVersions()
 }

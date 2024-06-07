@@ -20,18 +20,14 @@ import (
 )
 
 var (
-	testBase    = corebase.MustParseBaseFromString("ubuntu@16.04")
-	testVersion = "16.04"
+	testBase    = corebase.MustParseBaseFromString("ubuntu@22.04")
+	testVersion = "22.04"
 )
 
 var _ = gc.Suite(&generateSuite{})
 
 type generateSuite struct {
 	coretesting.BaseSuite
-}
-
-func (s *generateSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 }
 
 func assertFetch(c *gc.C, ss *simplestreams.Simplestreams, stor storage.Storage, version, arch, region, endpoint string, ids ...string) {

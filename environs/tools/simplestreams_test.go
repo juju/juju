@@ -24,7 +24,6 @@ import (
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
-	corebase "github.com/juju/juju/core/base"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
@@ -145,7 +144,6 @@ type simplestreamsSuite struct {
 func (s *simplestreamsSuite) SetUpSuite(c *gc.C) {
 	s.LocalLiveSimplestreamsSuite.SetUpSuite(c)
 	s.TestDataSuite.SetUpSuite(c)
-	s.PatchValue(&corebase.UbuntuDistroInfo, "/path/notexists")
 }
 
 func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {

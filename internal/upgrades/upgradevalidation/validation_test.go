@@ -5,7 +5,6 @@ package upgradevalidation_test
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
@@ -117,8 +116,8 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *g
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.PatchValue(&upgradevalidation.SupportedJujuBases, func(time.Time, base.Base, string) ([]base.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.ParseBaseFromString)
+	s.PatchValue(&upgradevalidation.SupportedJujuBases, func() []base.Base {
+		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
 	st := mocks.NewMockState(ctrl)

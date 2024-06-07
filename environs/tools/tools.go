@@ -53,12 +53,8 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, stream string, major
 	if filter.OSType != "" {
 		osToSearch = []string{filter.OSType}
 	} else {
-		workloadOSTypes, err := corebase.AllWorkloadOSTypes()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		osToSearch = workloadOSTypes.Values()
-		logger.Tracef("no os type specified when finding agent binaries, looking for %v", osToSearch)
+		osToSearch = []string{corebase.UbuntuOS}
+		logger.Tracef("no os type specified when finding agent binaries, looking for ubuntu")
 	}
 	toolsConstraint.Releases = osToSearch
 	return toolsConstraint, nil

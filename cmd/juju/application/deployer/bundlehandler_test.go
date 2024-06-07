@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/collections/set"
@@ -64,8 +63,8 @@ func (s *BundleDeployRepositorySuite) SetUpTest(_ *gc.C) {
 	s.deployArgs = make(map[string]application.DeployArgs)
 	s.output = bytes.NewBuffer([]byte{})
 
-	s.PatchValue(&SupportedJujuBases, func(time.Time, corebase.Base, string) ([]corebase.Base, error) {
-		return transform.SliceOrErr([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, corebase.ParseBaseFromString)
+	s.PatchValue(&SupportedJujuBases, func() []corebase.Base {
+		return transform.Slice([]string{"ubuntu@20.04", "ubuntu@22.04", "ubuntu@24.04"}, corebase.MustParseBaseFromString)
 	})
 }
 
