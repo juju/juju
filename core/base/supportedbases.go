@@ -9,6 +9,7 @@ func ControllerBases() []Base {
 	return []Base{
 		MakeDefaultBase(UbuntuOS, "20.04"),
 		MakeDefaultBase(UbuntuOS, "22.04"),
+		MakeDefaultBase(UbuntuOS, "24.04"),
 	}
 }
 
