@@ -46,56 +46,93 @@ func (s *imageutilsSuite) SetUpTest(c *gc.C) {
 	s.callCtx = envcontext.WithoutCredentialInvalidator(context.Background())
 }
 
-func (s *imageutilsSuite) TestSeriesImage(c *gc.C) {
+func (s *imageutilsSuite) TestBaseImageOldStyle(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
-		`[{"name": "20_04"}, {"name": "20_04-LTS"}, {"name": "19_04"}]`,
+		`[{"name": "20_04-gen2"}, {"name": "20_04-lts"}, {"name": "20_04-arm64"}]`,
 	))
-	image, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", s.client)
+	image, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "20.04"), "released", "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.NotNil)
 	c.Assert(image, jc.DeepEquals, &instances.Image{
-		Id:       "Canonical:0001-com-ubuntu-server-focal:20_04-LTS:latest",
+		Id:       "Canonical:0001-com-ubuntu-server-focal:20_04-lts:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
 	})
 }
 
-func (s *imageutilsSuite) TestSeriesImageInvalidSKU(c *gc.C) {
+func (s *imageutilsSuite) TestBaseImageOldStyleInvalidSKU(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
-		`[{"name": "22_04_invalid"}, {"name": "22_04_5-LTS"}]`,
+		`[{"name": "22_04-invalid"}, {"name": "22_04-lts"}]`,
 	))
-	image, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", s.client)
+	image, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", s.client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(image, gc.NotNil)
 	c.Assert(image, jc.DeepEquals, &instances.Image{
-		Id:       "Canonical:0001-com-ubuntu-server-jammy:22_04_5-LTS:latest",
+		Id:       "Canonical:0001-com-ubuntu-server-jammy:22_04-lts:latest",
 		Arch:     arch.AMD64,
 		VirtType: "Hyper-V",
 	})
 }
 
-func (s *imageutilsSuite) TestSeriesImageStream(c *gc.C) {
+func (s *imageutilsSuite) TestBaseImage(c *gc.C) {
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
+	))
+	image, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "24.04"), "released", "westus", s.client)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(image, gc.NotNil)
+	c.Assert(image, jc.DeepEquals, &instances.Image{
+		Id:       "Canonical:ubuntu-24_04-lts:server-gen1:latest",
+		Arch:     arch.AMD64,
+		VirtType: "Hyper-V",
+	})
+}
+
+func (s *imageutilsSuite) TestBaseImageNonLTS(c *gc.C) {
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(
+		`[{"name": "server"}, {"name": "server-gen1"}, {"name": "server-arm64"}]`,
+	))
+	image, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "25.04"), "released", "westus", s.client)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(image, gc.NotNil)
+	c.Assert(image, jc.DeepEquals, &instances.Image{
+		Id:       "Canonical:ubuntu-25_04:server-gen1:latest",
+		Arch:     arch.AMD64,
+		VirtType: "Hyper-V",
+	})
+}
+
+func (s *imageutilsSuite) TestBaseImageStreamDaily(c *gc.C) {
 	s.mockSender.AppendAndRepeatResponse(azuretesting.NewResponseWithContent(
-		`[{"name": "22_04_2"}, {"name": "22_04_3-DAILY"}, {"name": "22_04_1-LTS"}]`), 2)
+		`[{"name": "22_04-daily-lts-gen2"}, {"name": "22_04-daily-lts"}, {"name": "22_04-daily-lts-arm64"}]`), 2)
 	base := corebase.MakeDefaultBase("ubuntu", "22.04")
-	s.assertImageId(c, base, "daily", "Canonical:0001-com-ubuntu-server-jammy:22_04_3-DAILY:latest")
-	s.assertImageId(c, base, "released", "Canonical:0001-com-ubuntu-server-jammy:22_04_2:latest")
+
+	image, err := imageutils.BaseImage(s.callCtx, base, "daily", "westus", s.client)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(image.Id, gc.Equals, "Canonical:0001-com-ubuntu-server-jammy-daily:22_04-daily-lts:latest")
 }
 
-func (s *imageutilsSuite) TestSeriesImageNotFound(c *gc.C) {
+func (s *imageutilsSuite) TestBaseImageOldStyleNotFound(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[]`))
-	image, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", s.client)
-	c.Assert(err, gc.ErrorMatches, "selecting SKU for ubuntu@22.04: Ubuntu SKUs for released stream not found")
+	image, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "released", "westus", s.client)
+	c.Assert(err, gc.ErrorMatches, `selecting SKU for ubuntu@22.04: legacy ubuntu "jammy" SKUs for released stream not found`)
 	c.Assert(image, gc.IsNil)
 }
 
-func (s *imageutilsSuite) TestSeriesImageStreamNotFound(c *gc.C) {
-	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[{"name": "22_04-beta1"}]`))
-	_, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
-	c.Assert(err, gc.ErrorMatches, "selecting SKU for ubuntu@22.04: Ubuntu SKUs for whatever stream not found")
+func (s *imageutilsSuite) TestBaseImageNotFound(c *gc.C) {
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[]`))
+	image, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "24.04"), "released", "westus", s.client)
+	c.Assert(err, gc.ErrorMatches, `selecting SKU for ubuntu@24.04: ubuntu "ubuntu@24.04/stable" SKUs for released stream not found`)
+	c.Assert(image, gc.IsNil)
 }
 
-func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
+func (s *imageutilsSuite) TestBaseImageStreamNotFound(c *gc.C) {
+	s.mockSender.AppendResponse(azuretesting.NewResponseWithContent(`[{"name": "22_04-beta1"}]`))
+	_, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
+	c.Assert(err, gc.ErrorMatches, `selecting SKU for ubuntu@22.04: legacy ubuntu "jammy" SKUs for whatever stream not found`)
+}
+
+func (s *imageutilsSuite) TestBaseImageStreamThrewCredentialError(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("401 Unauthorized", http.StatusUnauthorized))
 	called := false
 	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
@@ -103,12 +140,12 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewCredentialError(c *gc.C) {
 		return nil
 	})
 
-	_, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
+	_, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
 	c.Assert(err.Error(), jc.Contains, "RESPONSE 401")
 	c.Assert(called, jc.IsTrue)
 }
 
-func (s *imageutilsSuite) TestSeriesImageStreamThrewNonCredentialError(c *gc.C) {
+func (s *imageutilsSuite) TestBaseImageStreamThrewNonCredentialError(c *gc.C) {
 	s.mockSender.AppendResponse(azuretesting.NewResponseWithStatus("308 Permanent Redirect", http.StatusPermanentRedirect))
 	called := false
 	s.callCtx = envcontext.WithCredentialInvalidator(context.Background(), func(context.Context, string) error {
@@ -116,13 +153,7 @@ func (s *imageutilsSuite) TestSeriesImageStreamThrewNonCredentialError(c *gc.C) 
 		return nil
 	})
 
-	_, err := imageutils.SeriesImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
+	_, err := imageutils.BaseImage(s.callCtx, corebase.MakeDefaultBase("ubuntu", "22.04"), "whatever", "westus", s.client)
 	c.Assert(err.Error(), jc.Contains, "RESPONSE 308")
 	c.Assert(called, jc.IsFalse)
-}
-
-func (s *imageutilsSuite) assertImageId(c *gc.C, base corebase.Base, stream, id string) {
-	image, err := imageutils.SeriesImage(s.callCtx, base, stream, "westus", s.client)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(image.Id, gc.Equals, id)
 }

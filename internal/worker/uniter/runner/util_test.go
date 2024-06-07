@@ -21,6 +21,7 @@ import (
 
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/api/types"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -67,6 +68,8 @@ func (s *ContextSuite) AddContextRelation(c *gc.C, ctrl *gomock.Controller, name
 	rel := uniterapi.NewMockRelation(ctrl)
 	rel.EXPECT().Id().Return(num).AnyTimes()
 	rel.EXPECT().Tag().Return(names.NewRelationTag("mysql:server wordpress:" + name)).AnyTimes()
+	rel.EXPECT().Life().Return(life.Alive).AnyTimes()
+	rel.EXPECT().Suspended().Return(false).AnyTimes()
 
 	relUnit := uniterapi.NewMockRelationUnit(ctrl)
 	relUnit.EXPECT().Relation().Return(rel).AnyTimes()

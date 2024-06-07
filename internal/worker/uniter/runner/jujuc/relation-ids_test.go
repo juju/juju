@@ -44,7 +44,7 @@ var relationIdsTests = []struct {
 		summary: "no default, no name",
 		relid:   -1,
 		code:    2,
-		out:     "(.|\n)*ERROR no relation name specified\n",
+		out:     "(.|\n)*ERROR no endpoint name specified\n",
 	}, {
 		summary: "default name",
 		relid:   1,
@@ -129,7 +129,7 @@ func (s *RelationIdsSuite) TestHelp(c *gc.C) {
 Usage: %s
 
 Summary:
-list all relation ids with the given relation name
+list all relation ids for the given endpoint
 
 Options:
 --format  (= smart)
@@ -141,9 +141,9 @@ Options:
 	for relid, t := range map[int]struct {
 		usage, doc string
 	}{
-		-1: {"relation-ids [options] <name>", ""},
-		0:  {"relation-ids [options] [<name>]", "\nDetails:\nCurrent default relation name is \"x\".\n"},
-		3:  {"relation-ids [options] [<name>]", "\nDetails:\nCurrent default relation name is \"y\".\n"},
+		-1: {"relation-ids [options] <name>", "\nDetails:\nOnly relation ids for relations which are not broken are included.\n"},
+		0:  {"relation-ids [options] [<name>]", "\nDetails:\nCurrent default endpoint name is \"x\".\nOnly relation ids for relations which are not broken are included.\n"},
+		3:  {"relation-ids [options] [<name>]", "\nDetails:\nCurrent default endpoint name is \"y\".\nOnly relation ids for relations which are not broken are included.\n"},
 	} {
 		c.Logf("relid %d", relid)
 		hctx, _ := s.newHookContext(relid, "")

@@ -24,8 +24,8 @@ run_deploy_charm_placement_directive() {
 	expected_base="ubuntu@20.04"
 	# Setup machines for placement based on provider used for test.
 	# Container in container doesn't work consistently enough,
-	# for test. Use kvm via lxc instead.
-	if [[ ${BOOTSTRAP_PROVIDER} == "lxd" ]] || [[ ${BOOTSTRAP_PROVIDER} == "localhost" ]]; then
+	# for test. Use kvm via lxc.
+	if [[ ${BOOTSTRAP_PROVIDER} == "lxd" ]]; then
 		juju add-machine --base "${expected_base}" --constraints="virt-type=virtual-machine"
 	else
 		juju add-machine --base "${expected_base}"
@@ -352,13 +352,17 @@ test_deploy_charms() {
 		cd .. || exit
 
 		run "run_deploy_charm"
-		run "run_deploy_charm_placement_directive"
 		run "run_deploy_specific_series"
 		run "run_resolve_charm"
 		run "run_deploy_charm_unsupported_series"
 
 		case "${BOOTSTRAP_PROVIDER:-}" in
-		"lxd" | "localhost")
+		"lxd")
+			if stat /dev/kvm; then
+				run "run_deploy_charm_placement_directive"
+			else
+				echo "==> TEST SKIPPED: deploy_charm_placement_directive - lxd without kvm is not supported"
+			fi
 			run "run_deploy_lxd_to_machine"
 			run "run_deploy_lxd_profile_charm"
 			run "run_deploy_local_predeployed_charm"
@@ -367,6 +371,7 @@ test_deploy_charms() {
 			echo "==> TEST SKIPPED: deploy_lxd_profile_charm_container - tests for non LXD only"
 			;;
 		*)
+			run "run_deploy_charm_placement_directive"
 			echo "==> TEST SKIPPED: deploy_lxd_to_machine - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_lxd_profile_charm - tests for LXD only"
 			echo "==> TEST SKIPPED: deploy_local_lxd_profile_charm - tests for LXD only"

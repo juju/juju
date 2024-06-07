@@ -40,7 +40,10 @@ var _ = gc.Suite(&ContextFactorySuite{})
 func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 	s.BaseHookContextSuite.SetUpTest(c)
 	s.paths = runnertesting.NewRealPaths(c)
-	s.membership = map[int][]string{}
+	s.membership = map[int][]string{
+		0: {"r/0"},
+		1: {"r/1"},
+	}
 	s.modelType = types.IAAS
 }
 

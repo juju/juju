@@ -382,7 +382,7 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 	withLocalCharmDeployable(s.fakeAPI, charmURL, charmDir, false)
 	withCharmDeployableWithConstraints(s.fakeAPI, charmURL, defaultBase, charmDir.Meta(), false, 1, constraints.MustParse("mem=2G cores=2"))
 
-	err := s.runDeploy(c, charmDir.Path, "--constraints", "mem=2G cores=2", "--base", "ubuntu@22.04")
+	err := s.runDeploy(c, charmDir.Path, "--constraints", "mem=2G", "--constraints", "cores=2", "--base", "ubuntu@22.04")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

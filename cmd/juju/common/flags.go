@@ -18,6 +18,36 @@ import (
 	"github.com/juju/juju/core/constraints"
 )
 
+// BootstrapConstraintsFlag records constraints set in bootstrap command
+// via bootstrap-constraints flag.
+type BootstrapConstraintsFlag []string
+
+// String implements gnuflag.Value.String.
+func (c *BootstrapConstraintsFlag) String() string {
+	return fmt.Sprintf("%v", *c)
+}
+
+// Set implements gnuflag.Value.Set.
+func (c *BootstrapConstraintsFlag) Set(value string) error {
+	*c = append(*c, value)
+	return nil
+}
+
+// ConstraintsFlag records constraints set in add-machine, bootstrap, deploy
+// and enable-ha commands via constraints flag.
+type ConstraintsFlag []string
+
+// String implements gnuflag.Value.String.
+func (c *ConstraintsFlag) String() string {
+	return fmt.Sprintf("%v", *c)
+}
+
+// Set implements gnuflag.Value.Set.
+func (c *ConstraintsFlag) Set(value string) error {
+	*c = append(*c, value)
+	return nil
+}
+
 // ConfigFlag records k=v attributes from command arguments
 // and/or specified files containing key values.
 type ConfigFlag struct {

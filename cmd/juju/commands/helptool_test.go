@@ -69,7 +69,7 @@ Currently available charm hook tools are:
     payload-status-set       update the status of a payload
     payload-unregister       stop tracking a payload
     relation-get             get relation settings
-    relation-ids             list all relation ids with the given relation name
+    relation-ids             list all relation ids for the given endpoint
     relation-list            list relation units
     relation-set             set relation settings
     resource-get             get the path to the locally cached resource file

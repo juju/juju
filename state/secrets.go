@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -1353,6 +1354,7 @@ func (st *State) uniqueSecretLabelBaseOps(tag names.Tag, label string) (ops []tx
 		errorMsg   string
 	)
 
+	label = regexp.QuoteMeta(label)
 	switch tag := tag.(type) {
 	case names.ApplicationTag:
 		// Ensure no units use this label for both owner and consumer label.

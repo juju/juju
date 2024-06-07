@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/types"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -353,7 +354,11 @@ func (f *contextFactory) getContextRelations() map[int]*ContextRelation {
 			cache = NewRelationCache(relationUnit.ReadSettings, memberNames)
 		}
 		relationCaches[id] = cache
-		contextRelations[id] = NewContextRelation(relationUnit, cache)
+		// If there are no members and the relation is dying or suspended, a relation is broken.
+		rel := info.RelationUnit.Relation()
+		relationInactive := rel.Life() != life.Alive || rel.Suspended()
+		broken := relationInactive && len(memberNames) == 0
+		contextRelations[id] = NewContextRelation(relationUnit, cache, broken)
 	}
 	f.relationCaches = relationCaches
 	return contextRelations

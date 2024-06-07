@@ -1236,7 +1236,11 @@ func (c *HookContext) Relation(id int) (jujuc.ContextRelation, error) {
 // Implements jujuc.HookContext.ContextRelations, part of runner.Context.
 func (c *HookContext) RelationIds() ([]int, error) {
 	ids := []int{}
-	for id := range c.relations {
+	for id, r := range c.relations {
+		if r.broken {
+			c.logger.Debugf("relation %d is broken, excluding from relations-ids", id)
+			continue
+		}
 		ids = append(ids, id)
 	}
 	return ids, nil

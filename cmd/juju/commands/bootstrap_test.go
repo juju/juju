@@ -367,6 +367,14 @@ var bootstrapTests = []bootstrapTest{{
 	args:        []string{"--constraints", "mem=4G cores=4"},
 	constraints: constraints.MustParse("mem=4G cores=4"),
 }, {
+	info:        "multiple constraints",
+	args:        []string{"--constraints", "mem=4G", "--constraints", "cores=4"},
+	constraints: constraints.MustParse("mem=4G cores=4"),
+}, {
+	info:                 "multiple bootstrap constraints",
+	args:                 []string{"--bootstrap-constraints", "mem=4G", "--bootstrap-constraints", "cores=4"},
+	bootstrapConstraints: constraints.MustParse("mem=4G cores=4"),
+}, {
 	info:                 "bootstrap and environ constraints",
 	args:                 []string{"--constraints", "mem=4G cores=4", "--bootstrap-constraints", "mem=8G"},
 	constraints:          constraints.MustParse("mem=4G cores=4"),
@@ -691,8 +699,24 @@ func (s *BootstrapSuite) TestBootstrapAllSpacesAsConstraintsMerged(c *gc.C) {
 		"--constraints", "spaces=ha-space,random-space",
 	)
 
+	c.Log(bootstrapFuncs.args.BootstrapConstraints.String())
 	got := *(bootstrapFuncs.args.BootstrapConstraints.Spaces)
 	c.Check(got, gc.DeepEquals, []string{"ha-space", "management-space", "random-space"})
+}
+
+func (s *BootstrapSuite) TestBootstrapAllConstraintsMerged(c *gc.C) {
+	var bootstrapFuncs fakeBootstrapFuncs
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return &bootstrapFuncs
+	})
+	cmdtesting.RunCommand(
+		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
+		"--config", "juju-ha-space=ha-space", "--config", "juju-mgmt-space=management-space",
+		"--constraints", "spaces=ha-space,random-space", "--constraints", "mem=4G",
+	)
+
+	bootstrapCons := constraints.MustParse("mem=4G spaces=ha-space,management-space,random-space")
+	c.Assert(bootstrapFuncs.args.BootstrapConstraints, gc.DeepEquals, bootstrapCons)
 }
 
 func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *gc.C) {
