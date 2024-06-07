@@ -67,8 +67,8 @@ func (s *InitialiserSuite) SetUpTest(c *gc.C) {
 // with an identical signature to manager.RunCommandWithRetry which saves each
 // command it receives in a slice and always returns no output, error code 0
 // and a nil error.
-func getMockRunCommandWithRetry(calledCmds *[]string) func(string, manager.Retryable, manager.RetryPolicy) (string, int, error) {
-	return func(cmd string, _ manager.Retryable, _ manager.RetryPolicy) (string, int, error) {
+func getMockRunCommandWithRetry(calledCmds *[]string) func(string, manager.Retryable, manager.RetryPolicy, []string) (string, int, error) {
+	return func(cmd string, _ manager.Retryable, _ manager.RetryPolicy, _ []string) (string, int, error) {
 		*calledCmds = append(*calledCmds, cmd)
 		return "", 0, nil
 	}
