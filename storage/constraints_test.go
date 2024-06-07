@@ -49,6 +49,11 @@ func (s *ConstraintsSuite) TestParseConstraintsCountSize(c *gc.C) {
 		Count: 3,
 		Size:  1024 * 1024 * 128,
 	})
+	s.testParse(c, "3,p,0.125P", storage.Constraints{
+		Pool:  "p",
+		Count: 3,
+		Size:  1024 * 1024 * 128,
+	})
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsOptions(c *gc.C) {
@@ -75,6 +80,14 @@ func (s *ConstraintsSuite) TestParseMultiplePoolNames(c *gc.C) {
 	s.testParseError(c, "pool1,anyoldjunk", `pool name is already set to "pool1", new value "anyoldjunk" not valid`)
 	s.testParseError(c, "pool1,pool2", `pool name is already set to "pool1", new value "pool2" not valid`)
 	s.testParseError(c, "pool1,pool2,pool3", `pool name is already set to "pool1", new value "pool2" not valid`)
+}
+
+func (s *ConstraintsSuite) TestParseMultipleCounts(c *gc.C) {
+	s.testParseError(c, "pool1,10,20", `storage instance count is already set to 10, new value 20 not valid`)
+}
+
+func (s *ConstraintsSuite) TestParseMultipleStorageSize(c *gc.C) {
+	s.testParseError(c, "pool1,10M,20M", `storage size is already set to 10, new value 20 not valid`)
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsUnknown(c *gc.C) {
