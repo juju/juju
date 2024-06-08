@@ -16,6 +16,10 @@ type State interface {
 
 	// DeleteMachine deletes the input machine entity.
 	DeleteMachine(context.Context, string) error
+
+	// InitialWatchStatement returns the table and the initial watch statement
+	// for the machines.
+	InitialWatchStatement() (string, string)
 }
 
 // Service provides the API for working with machines.

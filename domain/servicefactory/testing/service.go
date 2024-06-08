@@ -32,7 +32,7 @@ import (
 
 // TestingServiceFactory provides access to the services required by the apiserver.
 type TestingServiceFactory struct {
-	machineServiceGetter     func() *machineservice.Service
+	machineServiceGetter     func() *machineservice.WatchableService
 	applicationServiceGetter func() *applicationservice.Service
 	unitServiceGetter        func() *unitservice.Service
 }
@@ -114,7 +114,7 @@ func (s *TestingServiceFactory) Access() *accessservice.Service {
 }
 
 // Machine returns the machine service.
-func (s *TestingServiceFactory) Machine() *machineservice.Service {
+func (s *TestingServiceFactory) Machine() *machineservice.WatchableService {
 	if s.machineServiceGetter == nil {
 		return nil
 	}
@@ -149,7 +149,7 @@ func (s *TestingServiceFactory) FactoryForModel(modelUUID string) servicefactory
 
 // WithMachineService returns a service factory which gets its machine service
 // using the supplied getter.
-func (s *TestingServiceFactory) WithMachineService(getter func() *machineservice.Service) *TestingServiceFactory {
+func (s *TestingServiceFactory) WithMachineService(getter func() *machineservice.WatchableService) *TestingServiceFactory {
 	s.machineServiceGetter = getter
 	return s
 }

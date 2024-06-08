@@ -71,7 +71,7 @@ type ModelServiceFactory interface {
 	// ObjectStore returns the object store service.
 	ObjectStore() *objectstoreservice.WatchableService
 	// Machine returns the machine service.
-	Machine() *machineservice.Service
+	Machine() *machineservice.WatchableService
 	// BlockDevice returns the block device service.
 	BlockDevice() *blockdeviceservice.WatchableService
 	// Application returns the application service.

@@ -732,10 +732,10 @@ func (c *MockModelServiceFactoryConfigCall) DoAndReturn(f func() *service12.Watc
 }
 
 // Machine mocks base method.
-func (m *MockModelServiceFactory) Machine() *service10.Service {
+func (m *MockModelServiceFactory) Machine() *service10.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine")
-	ret0, _ := ret[0].(*service10.Service)
+	ret0, _ := ret[0].(*service10.WatchableService)
 	return ret0
 }
 
@@ -752,19 +752,19 @@ type MockModelServiceFactoryMachineCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockModelServiceFactoryMachineCall) Return(arg0 *service10.Service) *MockModelServiceFactoryMachineCall {
+func (c *MockModelServiceFactoryMachineCall) Return(arg0 *service10.WatchableService) *MockModelServiceFactoryMachineCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceFactoryMachineCall) Do(f func() *service10.Service) *MockModelServiceFactoryMachineCall {
+func (c *MockModelServiceFactoryMachineCall) Do(f func() *service10.WatchableService) *MockModelServiceFactoryMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceFactoryMachineCall) DoAndReturn(f func() *service10.Service) *MockModelServiceFactoryMachineCall {
+func (c *MockModelServiceFactoryMachineCall) DoAndReturn(f func() *service10.WatchableService) *MockModelServiceFactoryMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1515,10 +1515,10 @@ func (c *MockServiceFactoryFlagCall) DoAndReturn(f func() *service9.Service) *Mo
 }
 
 // Machine mocks base method.
-func (m *MockServiceFactory) Machine() *service10.Service {
+func (m *MockServiceFactory) Machine() *service10.WatchableService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine")
-	ret0, _ := ret[0].(*service10.Service)
+	ret0, _ := ret[0].(*service10.WatchableService)
 	return ret0
 }
 
@@ -1535,19 +1535,19 @@ type MockServiceFactoryMachineCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockServiceFactoryMachineCall) Return(arg0 *service10.Service) *MockServiceFactoryMachineCall {
+func (c *MockServiceFactoryMachineCall) Return(arg0 *service10.WatchableService) *MockServiceFactoryMachineCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryMachineCall) Do(f func() *service10.Service) *MockServiceFactoryMachineCall {
+func (c *MockServiceFactoryMachineCall) Do(f func() *service10.WatchableService) *MockServiceFactoryMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryMachineCall) DoAndReturn(f func() *service10.Service) *MockServiceFactoryMachineCall {
+func (c *MockServiceFactoryMachineCall) DoAndReturn(f func() *service10.WatchableService) *MockServiceFactoryMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
