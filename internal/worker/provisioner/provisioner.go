@@ -269,7 +269,7 @@ func (p *environProvisioner) loop() error {
 }
 
 func (p *environProvisioner) getMachineWatcher(_ context.Context) (watcher.StringsWatcher, error) {
-	return p.machinesAPI.WatchModelMachines()
+	return p.serviceFactory.Machine().WatchModelMachines()
 }
 
 func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {

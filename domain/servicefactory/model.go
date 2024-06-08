@@ -91,9 +91,13 @@ func (s *ModelFactory) ObjectStore() *objectstoreservice.WatchableService {
 }
 
 // Machine returns the model's machine service.
-func (s *ModelFactory) Machine() *machineservice.Service {
-	return machineservice.NewService(
+func (s *ModelFactory) Machine() *machineservice.WatchableService {
+	return machineservice.NewWatchableService(
 		machinestate.NewState(changestream.NewTxnRunnerFactory(s.modelDB), s.logger.Child("machine")),
+		domain.NewWatcherFactory(
+			s.modelDB,
+			s.logger.Child("machine"),
+		),
 	)
 }
 
