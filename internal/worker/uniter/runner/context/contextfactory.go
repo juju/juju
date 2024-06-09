@@ -374,7 +374,7 @@ func (f *contextFactory) getContextRelations() map[int]*ContextRelation {
 func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext) (err error) {
 	defer func() { err = errors.Trace(err) }()
 
-	ctx.apiAddrs, err = f.client.APIAddresses()
+	ctx.apiAddrs, err = f.client.APIAddresses(stdCtx)
 	if err != nil {
 		return err
 	}

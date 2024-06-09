@@ -49,18 +49,18 @@ func (m *MockUniterClient) EXPECT() *MockUniterClientMockRecorder {
 }
 
 // APIAddresses mocks base method.
-func (m *MockUniterClient) APIAddresses() ([]string, error) {
+func (m *MockUniterClient) APIAddresses(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIAddresses")
+	ret := m.ctrl.Call(m, "APIAddresses", arg0)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // APIAddresses indicates an expected call of APIAddresses.
-func (mr *MockUniterClientMockRecorder) APIAddresses() *MockUniterClientAPIAddressesCall {
+func (mr *MockUniterClientMockRecorder) APIAddresses(arg0 any) *MockUniterClientAPIAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIAddresses", reflect.TypeOf((*MockUniterClient)(nil).APIAddresses))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIAddresses", reflect.TypeOf((*MockUniterClient)(nil).APIAddresses), arg0)
 	return &MockUniterClientAPIAddressesCall{Call: call}
 }
 
@@ -76,13 +76,13 @@ func (c *MockUniterClientAPIAddressesCall) Return(arg0 []string, arg1 error) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUniterClientAPIAddressesCall) Do(f func() ([]string, error)) *MockUniterClientAPIAddressesCall {
+func (c *MockUniterClientAPIAddressesCall) Do(f func(context.Context) ([]string, error)) *MockUniterClientAPIAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUniterClientAPIAddressesCall) DoAndReturn(f func() ([]string, error)) *MockUniterClientAPIAddressesCall {
+func (c *MockUniterClientAPIAddressesCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockUniterClientAPIAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

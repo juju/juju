@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	network "github.com/juju/juju/core/network"
@@ -41,18 +42,18 @@ func (m *MockAPIAddresser) EXPECT() *MockAPIAddresserMockRecorder {
 }
 
 // APIHostPorts mocks base method.
-func (m *MockAPIAddresser) APIHostPorts() ([]network.ProviderHostPorts, error) {
+func (m *MockAPIAddresser) APIHostPorts(arg0 context.Context) ([]network.ProviderHostPorts, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIHostPorts")
+	ret := m.ctrl.Call(m, "APIHostPorts", arg0)
 	ret0, _ := ret[0].([]network.ProviderHostPorts)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // APIHostPorts indicates an expected call of APIHostPorts.
-func (mr *MockAPIAddresserMockRecorder) APIHostPorts() *MockAPIAddresserAPIHostPortsCall {
+func (mr *MockAPIAddresserMockRecorder) APIHostPorts(arg0 any) *MockAPIAddresserAPIHostPortsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPorts", reflect.TypeOf((*MockAPIAddresser)(nil).APIHostPorts))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIHostPorts", reflect.TypeOf((*MockAPIAddresser)(nil).APIHostPorts), arg0)
 	return &MockAPIAddresserAPIHostPortsCall{Call: call}
 }
 
@@ -68,30 +69,30 @@ func (c *MockAPIAddresserAPIHostPortsCall) Return(arg0 []network.ProviderHostPor
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPIAddresserAPIHostPortsCall) Do(f func() ([]network.ProviderHostPorts, error)) *MockAPIAddresserAPIHostPortsCall {
+func (c *MockAPIAddresserAPIHostPortsCall) Do(f func(context.Context) ([]network.ProviderHostPorts, error)) *MockAPIAddresserAPIHostPortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPIAddresserAPIHostPortsCall) DoAndReturn(f func() ([]network.ProviderHostPorts, error)) *MockAPIAddresserAPIHostPortsCall {
+func (c *MockAPIAddresserAPIHostPortsCall) DoAndReturn(f func(context.Context) ([]network.ProviderHostPorts, error)) *MockAPIAddresserAPIHostPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchAPIHostPorts mocks base method.
-func (m *MockAPIAddresser) WatchAPIHostPorts() (watcher.Watcher[struct{}], error) {
+func (m *MockAPIAddresser) WatchAPIHostPorts(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchAPIHostPorts")
+	ret := m.ctrl.Call(m, "WatchAPIHostPorts", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchAPIHostPorts indicates an expected call of WatchAPIHostPorts.
-func (mr *MockAPIAddresserMockRecorder) WatchAPIHostPorts() *MockAPIAddresserWatchAPIHostPortsCall {
+func (mr *MockAPIAddresserMockRecorder) WatchAPIHostPorts(arg0 any) *MockAPIAddresserWatchAPIHostPortsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchAPIHostPorts", reflect.TypeOf((*MockAPIAddresser)(nil).WatchAPIHostPorts))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchAPIHostPorts", reflect.TypeOf((*MockAPIAddresser)(nil).WatchAPIHostPorts), arg0)
 	return &MockAPIAddresserWatchAPIHostPortsCall{Call: call}
 }
 
@@ -107,13 +108,13 @@ func (c *MockAPIAddresserWatchAPIHostPortsCall) Return(arg0 watcher.Watcher[stru
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPIAddresserWatchAPIHostPortsCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockAPIAddresserWatchAPIHostPortsCall {
+func (c *MockAPIAddresserWatchAPIHostPortsCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockAPIAddresserWatchAPIHostPortsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPIAddresserWatchAPIHostPortsCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockAPIAddresserWatchAPIHostPortsCall {
+func (c *MockAPIAddresserWatchAPIHostPortsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockAPIAddresserWatchAPIHostPortsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

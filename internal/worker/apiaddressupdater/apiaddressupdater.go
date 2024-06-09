@@ -20,8 +20,8 @@ import (
 // APIAddresser is an interface that is provided to NewAPIAddressUpdater
 // which can be used to watch for API address changes.
 type APIAddresser interface {
-	APIHostPorts() ([]corenetwork.ProviderHostPorts, error)
-	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
+	APIHostPorts(context.Context) ([]corenetwork.ProviderHostPorts, error)
+	WatchAPIHostPorts(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // APIAddressSetter is an interface that is provided to NewAPIAddressUpdater
@@ -81,13 +81,13 @@ func NewAPIAddressUpdater(config Config) (worker.Worker, error) {
 }
 
 // SetUp is part of the watcher.NotifyHandler interface.
-func (c *APIAddressUpdater) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
-	return c.config.Addresser.WatchAPIHostPorts()
+func (c *APIAddressUpdater) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
+	return c.config.Addresser.WatchAPIHostPorts(ctx)
 }
 
 // Handle is part of the watcher.NotifyHandler interface.
-func (c *APIAddressUpdater) Handle(_ context.Context) error {
-	hps, err := c.getAddresses()
+func (c *APIAddressUpdater) Handle(ctx context.Context) error {
+	hps, err := c.getAddresses(ctx)
 	if err != nil {
 		return err
 	}
@@ -124,8 +124,8 @@ func (c *APIAddressUpdater) Handle(_ context.Context) error {
 	return nil
 }
 
-func (c *APIAddressUpdater) getAddresses() ([]corenetwork.ProviderHostPorts, error) {
-	addresses, err := c.config.Addresser.APIHostPorts()
+func (c *APIAddressUpdater) getAddresses(ctx context.Context) ([]corenetwork.ProviderHostPorts, error) {
+	addresses, err := c.config.Addresser.APIHostPorts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting addresses: %v", err)
 	}

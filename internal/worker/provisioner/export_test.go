@@ -71,7 +71,7 @@ func SetupToStartMachine(
 	version *version.Number,
 	pInfoResult params.ProvisioningInfoResult,
 ) (environs.StartInstanceParams, error) {
-	return p.(*provisionerTask).setupToStartMachine(machine, version, pInfoResult)
+	return p.(*provisionerTask).setupToStartMachine(context.Background(), machine, version, pInfoResult)
 }
 
 func MachineSupportsContainers(

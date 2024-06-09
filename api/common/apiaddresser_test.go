@@ -4,6 +4,7 @@
 package common_test
 
 import (
+	"context"
 	"time"
 
 	jujutesting "github.com/juju/testing"
@@ -38,7 +39,7 @@ func (s *apiaddresserSuite) TestAPIAddresses(c *gc.C) {
 	facade.EXPECT().FacadeCall(gomock.Any(), "APIAddresses", nil, gomock.Any()).SetArg(3, result).Return(nil)
 
 	client := common.NewAPIAddresser(facade)
-	addresses, err := client.APIAddresses()
+	addresses, err := client.APIAddresses(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
 }
@@ -81,7 +82,7 @@ func (s *apiaddresserSuite) TestAPIHostPorts(c *gc.C) {
 		{corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("3.4.5.6").AsProviderAddress(), NetPort: 3456}},
 	}
 
-	serverAddrs, err := client.APIHostPorts()
+	serverAddrs, err := client.APIHostPorts(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(serverAddrs, gc.DeepEquals, expectServerAddrs)
 }
@@ -100,7 +101,7 @@ func (s *apiaddresserSuite) TestWatchAPIHostPorts(c *gc.C) {
 	facade.EXPECT().RawAPICaller().Return(caller)
 
 	client := common.NewAPIAddresser(facade)
-	w, err := client.WatchAPIHostPorts()
+	w, err := client.WatchAPIHostPorts(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// watch for the changes

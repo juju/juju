@@ -80,7 +80,7 @@ func (s *CommonProvisionerSuite) expectStartup(c *gc.C) {
 }
 
 func (s *CommonProvisionerSuite) expectAuth() {
-	s.controllerAPI.EXPECT().APIAddresses().Return([]string{"10.0.0.1"}, nil).AnyTimes()
+	s.controllerAPI.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.0.0.1"}, nil).AnyTimes()
 	s.controllerAPI.EXPECT().ModelUUID().Return(coretesting.ModelTag.Id(), nil).AnyTimes()
 	s.controllerAPI.EXPECT().CACert().Return(coretesting.CACert, nil).AnyTimes()
 }

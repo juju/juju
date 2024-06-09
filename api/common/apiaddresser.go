@@ -28,9 +28,9 @@ func NewAPIAddresser(facade base.FacadeCaller) *APIAddresser {
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-func (a *APIAddresser) APIAddresses() ([]string, error) {
+func (a *APIAddresser) APIAddresses(ctx context.Context) ([]string, error) {
 	var result params.StringsResult
-	err := a.facade.FacadeCall(context.TODO(), "APIAddresses", nil, &result)
+	err := a.facade.FacadeCall(ctx, "APIAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -42,9 +42,9 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 }
 
 // APIHostPorts returns the host/port addresses of the API servers.
-func (a *APIAddresser) APIHostPorts() ([]network.ProviderHostPorts, error) {
+func (a *APIAddresser) APIHostPorts(ctx context.Context) ([]network.ProviderHostPorts, error) {
 	var result params.APIHostPortsResult
-	err := a.facade.FacadeCall(context.TODO(), "APIHostPorts", nil, &result)
+	err := a.facade.FacadeCall(ctx, "APIHostPorts", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -52,9 +52,9 @@ func (a *APIAddresser) APIHostPorts() ([]network.ProviderHostPorts, error) {
 }
 
 // WatchAPIHostPorts watches the host/port addresses of the API servers.
-func (a *APIAddresser) WatchAPIHostPorts() (watcher.NotifyWatcher, error) {
+func (a *APIAddresser) WatchAPIHostPorts(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := a.facade.FacadeCall(context.TODO(), "WatchAPIHostPorts", nil, &result)
+	err := a.facade.FacadeCall(ctx, "WatchAPIHostPorts", nil, &result)
 	if err != nil {
 		return nil, err
 	}

@@ -100,7 +100,7 @@ type ControllerAPI interface {
 	ModelUUID() (string, error)
 	ModelConfig(stdcontext.Context) (*config.Config, error)
 	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
-	APIAddresses() ([]string, error)
+	APIAddresses(context.Context) ([]string, error)
 }
 
 // ContainerProvisionerAPI describes methods for provisioning a container.
@@ -789,10 +789,11 @@ func (task *provisionerTask) doStopInstances(ctx envcontext.ProviderCallContext,
 }
 
 func (task *provisionerTask) constructInstanceConfig(
+	ctx context.Context,
 	machine apiprovisioner.MachineProvisioner,
 	pInfo *params.ProvisioningInfo,
 ) (*instancecfg.InstanceConfig, error) {
-	apiAddresses, err := task.controllerAPI.APIAddresses()
+	apiAddresses, err := task.controllerAPI.APIAddresses(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1391,7 +1392,7 @@ func (task *provisionerTask) doStartMachine(
 		return errors.Trace(err)
 	}
 
-	startInstanceParams, err := task.setupToStartMachine(machine, v, pInfoResult)
+	startInstanceParams, err := task.setupToStartMachine(ctx, machine, v, pInfoResult)
 	if err != nil {
 		return errors.Trace(task.setErrorStatus("%v %v", machine, err))
 	}
@@ -1543,6 +1544,7 @@ func (task *provisionerTask) doStartMachine(
 // based on the specified machine, to create ProvisioningInfo
 // and StartInstanceParams to be used by startMachine.
 func (task *provisionerTask) setupToStartMachine(
+	ctx context.Context,
 	machine apiprovisioner.MachineProvisioner, version *version.Number, pInfoResult params.ProvisioningInfoResult,
 ) (environs.StartInstanceParams, error) {
 	// Check that we have a result.
@@ -1556,7 +1558,7 @@ func (task *provisionerTask) setupToStartMachine(
 		return environs.StartInstanceParams{}, errors.Errorf("no provisioning info for machine %q", machine.Id())
 	}
 
-	instanceCfg, err := task.constructInstanceConfig(machine, pInfo)
+	instanceCfg, err := task.constructInstanceConfig(ctx, machine, pInfo)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "creating instance config for machine %q", machine)
 	}

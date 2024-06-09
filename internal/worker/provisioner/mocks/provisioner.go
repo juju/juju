@@ -592,18 +592,18 @@ func (m *MockControllerAPI) EXPECT() *MockControllerAPIMockRecorder {
 }
 
 // APIAddresses mocks base method.
-func (m *MockControllerAPI) APIAddresses() ([]string, error) {
+func (m *MockControllerAPI) APIAddresses(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "APIAddresses")
+	ret := m.ctrl.Call(m, "APIAddresses", arg0)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // APIAddresses indicates an expected call of APIAddresses.
-func (mr *MockControllerAPIMockRecorder) APIAddresses() *MockControllerAPIAPIAddressesCall {
+func (mr *MockControllerAPIMockRecorder) APIAddresses(arg0 any) *MockControllerAPIAPIAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIAddresses", reflect.TypeOf((*MockControllerAPI)(nil).APIAddresses))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "APIAddresses", reflect.TypeOf((*MockControllerAPI)(nil).APIAddresses), arg0)
 	return &MockControllerAPIAPIAddressesCall{Call: call}
 }
 
@@ -619,13 +619,13 @@ func (c *MockControllerAPIAPIAddressesCall) Return(arg0 []string, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerAPIAPIAddressesCall) Do(f func() ([]string, error)) *MockControllerAPIAPIAddressesCall {
+func (c *MockControllerAPIAPIAddressesCall) Do(f func(context.Context) ([]string, error)) *MockControllerAPIAPIAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerAPIAPIAddressesCall) DoAndReturn(f func() ([]string, error)) *MockControllerAPIAPIAddressesCall {
+func (c *MockControllerAPIAPIAddressesCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockControllerAPIAPIAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -42,7 +42,7 @@ type UniterClient interface {
 	OpenedPortRangesByEndpoint(ctx context.Context) (map[names.UnitTag]network.GroupedPortRanges, error)
 	LeadershipSettings() uniter.LeadershipSettingsAccessor
 	CloudAPIVersion(context.Context) (string, error)
-	APIAddresses() ([]string, error)
+	APIAddresses(context.Context) ([]string, error)
 	WatchRelationUnits(context.Context, names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
 	WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error)
