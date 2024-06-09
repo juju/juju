@@ -277,11 +277,6 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 				return u.loop(uniterParams.UnitTag)
 			},
 		}
-		if u.modelType == model.CAAS {
-			// For CAAS models, make sure the leadership tracker is killed when the Uniter
-			// dies.
-			plan.Init = append(plan.Init, u.leadershipTracker)
-		}
 		if err := catacomb.Invoke(plan); err != nil {
 			return nil, errors.Trace(err)
 		}
