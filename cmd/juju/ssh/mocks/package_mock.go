@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	io "io"
 	os "os"
 	reflect "reflect"
@@ -811,18 +812,18 @@ func (m *MockSSHControllerAPI) EXPECT() *MockSSHControllerAPIMockRecorder {
 }
 
 // ControllerConfig mocks base method.
-func (m *MockSSHControllerAPI) ControllerConfig() (controller.Config, error) {
+func (m *MockSSHControllerAPI) ControllerConfig(arg0 context.Context) (controller.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret := m.ctrl.Call(m, "ControllerConfig", arg0)
 	ret0, _ := ret[0].(controller.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockSSHControllerAPIMockRecorder) ControllerConfig() *MockSSHControllerAPIControllerConfigCall {
+func (mr *MockSSHControllerAPIMockRecorder) ControllerConfig(arg0 any) *MockSSHControllerAPIControllerConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockSSHControllerAPI)(nil).ControllerConfig))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockSSHControllerAPI)(nil).ControllerConfig), arg0)
 	return &MockSSHControllerAPIControllerConfigCall{Call: call}
 }
 
@@ -838,13 +839,13 @@ func (c *MockSSHControllerAPIControllerConfigCall) Return(arg0 controller.Config
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSSHControllerAPIControllerConfigCall) Do(f func() (controller.Config, error)) *MockSSHControllerAPIControllerConfigCall {
+func (c *MockSSHControllerAPIControllerConfigCall) Do(f func(context.Context) (controller.Config, error)) *MockSSHControllerAPIControllerConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSSHControllerAPIControllerConfigCall) DoAndReturn(f func() (controller.Config, error)) *MockSSHControllerAPIControllerConfigCall {
+func (c *MockSSHControllerAPIControllerConfigCall) DoAndReturn(f func(context.Context) (controller.Config, error)) *MockSSHControllerAPIControllerConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

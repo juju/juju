@@ -576,10 +576,10 @@ func (s *sshContainerSuite) TestNamespaceControllerModel(c *gc.C) {
 	mc.EXPECT().ModelIdentifier().Return("admin/controller", nil)
 	mc.EXPECT().NewControllerAPIRoot().Return(nil, nil)
 	mc.EXPECT().NewAPIRoot().Return(nil, nil)
-	s.controllerAPI.EXPECT().ControllerConfig().Return(
+	s.controllerAPI.EXPECT().ControllerConfig(gomock.Any()).Return(
 		controller.Config{"controller-name": "foobar"}, nil)
 
-	err := s.sshC.InitRun(mc)
+	err := s.sshC.InitRun(context.Background(), mc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.sshC.Namespace(), gc.Equals, "controller-foobar")
 }

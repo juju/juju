@@ -143,7 +143,7 @@ func (p *provisioner) getStartTask(ctx context.Context, harvestMode config.Harve
 		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
 
-	controllerCfg, err := p.controllerAPI.ControllerConfig()
+	controllerCfg, err := p.controllerAPI.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the controller config.")
 	}

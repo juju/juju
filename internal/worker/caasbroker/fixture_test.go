@@ -90,7 +90,7 @@ func (context *runContext) ModelConfig(_ context.Context) (*config.Config, error
 	return config.New(config.UseDefaults, context.config)
 }
 
-func (context *runContext) ControllerConfig() (controller.Config, error) {
+func (context *runContext) ControllerConfig(_ context.Context) (controller.Config, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.stub.AddCall("ControllerConfig")

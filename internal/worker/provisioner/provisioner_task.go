@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"math/rand"
@@ -94,7 +95,7 @@ type ToolsFinder interface {
 
 // ControllerAPI describes API methods for querying a controller.
 type ControllerAPI interface {
-	ControllerConfig() (controller.Config, error)
+	ControllerConfig(context.Context) (controller.Config, error)
 	CACert() (string, error)
 	ModelUUID() (string, error)
 	ModelConfig(stdcontext.Context) (*config.Config, error)

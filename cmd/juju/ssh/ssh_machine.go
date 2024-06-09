@@ -5,6 +5,7 @@ package ssh
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -135,7 +136,7 @@ func (c *sshMachine) setPublicKeyRetryStrategy(retryStrategy retry.CallArgs) {
 // command's Run method.
 //
 // The sshClient, apiAddr and proxy fields are initialized after this call.
-func (c *sshMachine) initRun(mc ModelCommand) (err error) {
+func (c *sshMachine) initRun(ctx context.Context, mc ModelCommand) (err error) {
 	if c.modelName, err = mc.ModelIdentifier(); err != nil {
 		return errors.Trace(err)
 	}

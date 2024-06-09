@@ -670,18 +670,18 @@ func (c *MockControllerAPICACertCall) DoAndReturn(f func() (string, error)) *Moc
 }
 
 // ControllerConfig mocks base method.
-func (m *MockControllerAPI) ControllerConfig() (controller.Config, error) {
+func (m *MockControllerAPI) ControllerConfig(arg0 context.Context) (controller.Config, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret := m.ctrl.Call(m, "ControllerConfig", arg0)
 	ret0, _ := ret[0].(controller.Config)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ControllerConfig indicates an expected call of ControllerConfig.
-func (mr *MockControllerAPIMockRecorder) ControllerConfig() *MockControllerAPIControllerConfigCall {
+func (mr *MockControllerAPIMockRecorder) ControllerConfig(arg0 any) *MockControllerAPIControllerConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockControllerAPI)(nil).ControllerConfig))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockControllerAPI)(nil).ControllerConfig), arg0)
 	return &MockControllerAPIControllerConfigCall{Call: call}
 }
 
@@ -697,13 +697,13 @@ func (c *MockControllerAPIControllerConfigCall) Return(arg0 controller.Config, a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerAPIControllerConfigCall) Do(f func() (controller.Config, error)) *MockControllerAPIControllerConfigCall {
+func (c *MockControllerAPIControllerConfigCall) Do(f func(context.Context) (controller.Config, error)) *MockControllerAPIControllerConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerAPIControllerConfigCall) DoAndReturn(f func() (controller.Config, error)) *MockControllerAPIControllerConfigCall {
+func (c *MockControllerAPIControllerConfigCall) DoAndReturn(f func(context.Context) (controller.Config, error)) *MockControllerAPIControllerConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

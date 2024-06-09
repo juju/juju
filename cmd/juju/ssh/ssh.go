@@ -4,6 +4,7 @@
 package ssh
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -234,7 +235,7 @@ type ModelCommand interface {
 
 // sshProvider is implemented by either a CaaS or IaaS model instance.
 type sshProvider interface {
-	initRun(ModelCommand) error
+	initRun(context.Context, ModelCommand) error
 	cleanupRun()
 	setLeaderAPI(leaderAPI LeaderAPI)
 	setHostChecker(checker jujussh.ReachableChecker)
@@ -257,7 +258,7 @@ type sshProvider interface {
 // Run resolves the given target to a machine or unit, then opens
 // an SSH connection to this target.
 func (c *sshCommand) Run(ctx *cmd.Context) error {
-	if err := c.provider.initRun(&c.ModelCommandBase); err != nil {
+	if err := c.provider.initRun(ctx.Context, &c.ModelCommandBase); err != nil {
 		return errors.Trace(err)
 	}
 	defer c.provider.cleanupRun()

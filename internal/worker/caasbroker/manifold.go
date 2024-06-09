@@ -44,7 +44,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			w, err := NewTracker(Config{
+			w, err := NewTracker(ctx, Config{
 				ConfigAPI:              api,
 				NewContainerBrokerFunc: config.NewContainerBrokerFunc,
 				Logger:                 config.Logger,

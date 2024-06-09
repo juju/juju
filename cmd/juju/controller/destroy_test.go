@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"bytes"
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -87,7 +88,7 @@ func (f *fakeDestroyAPI) ModelConfig() (map[string]interface{}, error) {
 	return testing.FakeConfig(), nil
 }
 
-func (f *fakeDestroyAPI) ControllerConfig() (jujucontroller.Config, error) {
+func (f *fakeDestroyAPI) ControllerConfig(context.Context) (jujucontroller.Config, error) {
 	f.MethodCall(f, "ControllerConfig")
 	if err := f.NextErr(); err != nil {
 		return nil, err

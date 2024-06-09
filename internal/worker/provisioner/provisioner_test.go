@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -72,7 +73,7 @@ func (s *CommonProvisionerSuite) expectStartup(c *gc.C) {
 
 	s.provisionerStarted = make(chan bool)
 	controllerCfg := coretesting.FakeControllerConfig()
-	s.controllerAPI.EXPECT().ControllerConfig().DoAndReturn(func() (controller.Config, error) {
+	s.controllerAPI.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (controller.Config, error) {
 		defer close(s.provisionerStarted)
 		return controllerCfg, nil
 	})

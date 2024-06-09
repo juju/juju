@@ -5,6 +5,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	stdcontext "context"
 	"fmt"
 	"text/template"
@@ -150,7 +151,7 @@ type destroyControllerAPI interface {
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
-	ControllerConfig() (controller.Config, error)
+	ControllerConfig(context.Context) (controller.Config, error)
 }
 
 // Info implements Command.Info.
@@ -662,7 +663,7 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	if err != nil {
 		return nil, errors.Annotate(err, "getting cloud spec from API")
 	}
-	ctrlCfg, err := api.ControllerConfig()
+	ctrlCfg, err := api.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config from API")
 	}
