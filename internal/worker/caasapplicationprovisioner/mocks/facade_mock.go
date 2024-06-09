@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	charms "github.com/juju/juju/api/common/charms"
@@ -625,18 +626,18 @@ func (c *MockCAASProvisionerFacadeUpdateUnitsCall) DoAndReturn(f func(params.Upd
 }
 
 // WatchApplication mocks base method.
-func (m *MockCAASProvisionerFacade) WatchApplication(arg0 string) (watcher.Watcher[struct{}], error) {
+func (m *MockCAASProvisionerFacade) WatchApplication(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplication", arg0)
+	ret := m.ctrl.Call(m, "WatchApplication", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchApplication indicates an expected call of WatchApplication.
-func (mr *MockCAASProvisionerFacadeMockRecorder) WatchApplication(arg0 any) *MockCAASProvisionerFacadeWatchApplicationCall {
+func (mr *MockCAASProvisionerFacadeMockRecorder) WatchApplication(arg0, arg1 any) *MockCAASProvisionerFacadeWatchApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplication", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).WatchApplication), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplication", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).WatchApplication), arg0, arg1)
 	return &MockCAASProvisionerFacadeWatchApplicationCall{Call: call}
 }
 
@@ -652,13 +653,13 @@ func (c *MockCAASProvisionerFacadeWatchApplicationCall) Return(arg0 watcher.Watc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCAASProvisionerFacadeWatchApplicationCall) Do(f func(string) (watcher.Watcher[struct{}], error)) *MockCAASProvisionerFacadeWatchApplicationCall {
+func (c *MockCAASProvisionerFacadeWatchApplicationCall) Do(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockCAASProvisionerFacadeWatchApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASProvisionerFacadeWatchApplicationCall) DoAndReturn(f func(string) (watcher.Watcher[struct{}], error)) *MockCAASProvisionerFacadeWatchApplicationCall {
+func (c *MockCAASProvisionerFacadeWatchApplicationCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockCAASProvisionerFacadeWatchApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

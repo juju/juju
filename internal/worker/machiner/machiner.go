@@ -92,7 +92,7 @@ func (mr *Machiner) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 		// Can happen when the machiner is restarting after a failure in EnsureDead.
 		// Since we're dying or dead, no need handle the machine addresses.
 		logger.Infof("%q not alive", mr.config.Tag)
-		return m.Watch()
+		return m.Watch(ctx)
 	case mr.config.ClearMachineAddressesOnStart:
 		logger.Debugf("machiner configured to reset machine %q addresses to empty", mr.config.Tag)
 		if err := m.SetMachineAddresses(nil); err != nil {
@@ -113,7 +113,7 @@ func (mr *Machiner) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 	}
 	logger.Infof("%q started", mr.config.Tag)
 
-	return m.Watch()
+	return m.Watch(ctx)
 }
 
 var interfaceAddrs = net.InterfaceAddrs

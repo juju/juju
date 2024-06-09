@@ -4,6 +4,7 @@
 package jujuctesting
 
 import (
+	"context"
 	"sync"
 )
 
@@ -25,7 +26,7 @@ func (u *UnitCharmState) SetCharmState(newCharmState map[string]string) {
 }
 
 // GetCharmState implements jujuc.unitCharmStateContext.
-func (c *ContextUnitCharmState) GetCharmState() (map[string]string, error) {
+func (c *ContextUnitCharmState) GetCharmState(_ context.Context) (map[string]string, error) {
 	c.stub.AddCall("GetCharmState")
 	_ = c.stub.NextErr()
 	c.info.mu.Lock()
@@ -43,7 +44,7 @@ func (c *ContextUnitCharmState) GetCharmState() (map[string]string, error) {
 }
 
 // GetCharmStateValue implements jujuc.unitCharmStateContext.
-func (c *ContextUnitCharmState) GetCharmStateValue(key string) (string, error) {
+func (c *ContextUnitCharmState) GetCharmStateValue(_ context.Context, key string) (string, error) {
 	c.stub.AddCall("GetSCharmStateValue")
 	c.info.mu.Lock()
 	defer c.info.mu.Unlock()
@@ -53,7 +54,7 @@ func (c *ContextUnitCharmState) GetCharmStateValue(key string) (string, error) {
 }
 
 // DeleteCharmStateValue implements jujuc.unitCharmStateContext.
-func (c *ContextUnitCharmState) DeleteCharmStateValue(key string) error {
+func (c *ContextUnitCharmState) DeleteCharmStateValue(_ context.Context, key string) error {
 	c.stub.AddCall("DeleteCharmStateValue")
 	_ = c.stub.NextErr()
 	c.info.mu.Lock()
@@ -65,7 +66,7 @@ func (c *ContextUnitCharmState) DeleteCharmStateValue(key string) error {
 }
 
 // SetCharmStateValue implements jujuc.unitCharmStateContext.
-func (c *ContextUnitCharmState) SetCharmStateValue(key string, value string) error {
+func (c *ContextUnitCharmState) SetCharmStateValue(_ context.Context, key string, value string) error {
 	c.stub.AddCall("SetCharmStateValue")
 	_ = c.stub.NextErr()
 	c.info.mu.Lock()

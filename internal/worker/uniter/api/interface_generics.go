@@ -45,7 +45,7 @@ type UniterClient interface {
 	APIAddresses(context.Context) ([]string, error)
 	WatchRelationUnits(context.Context, names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
-	WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error)
-	UpdateStatusHookInterval() (time.Duration, error)
+	WatchUpdateStatusHookInterval(context.Context) (watcher.NotifyWatcher, error)
+	UpdateStatusHookInterval(context.Context) (time.Duration, error)
 	StorageAttachmentLife([]params.StorageAttachmentId) ([]params.LifeResult, error)
 }

@@ -32,8 +32,8 @@ func (s *Application) Tag() names.ApplicationTag {
 }
 
 // Watch returns a watcher for observing changes to an application.
-func (s *Application) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.client.facade, "Watch", s.tag)
+func (s *Application) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
+	return common.Watch(ctx, s.client.facade, "Watch", s.tag)
 }
 
 // ExposeInfo returns a flag to indicate whether an application is exposed

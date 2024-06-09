@@ -242,7 +242,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	client := machiner.NewClient(apiCaller)
 	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.Watch()
+	_, err = m.Watch(context.Background())
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 	c.Assert(calls, gc.Equals, 2)
 }

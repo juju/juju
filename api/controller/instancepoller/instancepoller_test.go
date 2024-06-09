@@ -113,7 +113,7 @@ func (s *InstancePollerSuite) TestWatchForModelConfigChangesClientError(c *gc.C)
 	apiCaller := clientErrorAPICaller(c, "WatchForModelConfigChanges", nil)
 
 	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchForModelConfigChanges()
+	w, err := api.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(w, gc.IsNil)

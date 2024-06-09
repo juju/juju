@@ -214,7 +214,7 @@ type UniterParams struct {
 }
 
 // NewOperationExecutorFunc is a func which returns an operations.Executor.
-type NewOperationExecutorFunc func(string, operation.ExecutorConfig) (operation.Executor, error)
+type NewOperationExecutorFunc func(stdcontext.Context, string, operation.ExecutorConfig) (operation.Executor, error)
 
 // NewRunnerExecutorFunc defines the type of the NewRunnerExecutor.
 type NewRunnerExecutorFunc func(api.ProviderIDGetter, Paths) runner.ExecFunc
@@ -702,7 +702,7 @@ func (u *Uniter) charmState(ctx stdcontext.Context) (bool, string, int, error) {
 }
 
 func (u *Uniter) terminate(ctx stdcontext.Context) error {
-	unitWatcher, err := u.unit.Watch()
+	unitWatcher, err := u.unit.Watch(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -808,6 +808,7 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 	u.commandChannel = make(chan string)
 
 	storageAttachments, err := storage.NewAttachments(
+		ctx,
 		u.client, unitTag, u.unit, u.catacomb.Dying(),
 	)
 	if err != nil {
@@ -816,7 +817,9 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 	u.storage = storageAttachments
 
 	secretsTracker, err := secrets.NewSecrets(
-		u.secretsClient, unitTag, u.unit, u.logger.Child("secrets", corelogger.SECRETS),
+		ctx,
+		u.secretsClient, unitTag, u.unit,
+		u.logger.Child("secrets", corelogger.SECRETS),
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create secrets tracker")
@@ -886,7 +889,7 @@ func (u *Uniter) init(ctx stdcontext.Context, unitTag names.UnitTag) (err error)
 		CharmURL: charmURL,
 	}
 
-	operationExecutor, err := u.newOperationExecutor(u.unit.Name(), operation.ExecutorConfig{
+	operationExecutor, err := u.newOperationExecutor(ctx, u.unit.Name(), operation.ExecutorConfig{
 		StateReadWriter: u.unit,
 		InitialState:    initialState,
 		AcquireLock:     u.acquireExecutionLock,

@@ -294,7 +294,7 @@ func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
 	exp.FinishUpgradeSeries(b).Return(nil)
 
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleted, "success")
-	exp.UnpinMachineApplications().Return(map[string]error{
+	exp.UnpinMachineApplications(gomock.Any()).Return(map[string]error{
 		"mysql":     nil,
 		"wordpress": nil,
 	}, nil)
@@ -343,7 +343,7 @@ func (s *workerSuite) expectUnitsPrepared(units ...string) {
 // often be in the Test... method instead of its partner expectation
 // method.
 func (s *workerSuite) expectPinLeadership() {
-	s.facade.EXPECT().PinMachineApplications().Return(map[string]error{
+	s.facade.EXPECT().PinMachineApplications(gomock.Any()).Return(map[string]error{
 		"mysql":     nil,
 		"wordpress": nil,
 	}, nil)
@@ -384,7 +384,7 @@ func (s *workerSuite) notify(times int) {
 	s.notifyWorker.EXPECT().Kill().AnyTimes()
 	s.notifyWorker.EXPECT().Wait().Return(nil).AnyTimes()
 
-	s.facade.EXPECT().WatchUpgradeSeriesNotifications().Return(
+	s.facade.EXPECT().WatchUpgradeSeriesNotifications(gomock.Any()).Return(
 		&fakeWatcher{
 			Worker: s.notifyWorker,
 			ch:     ch,

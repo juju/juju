@@ -787,18 +787,18 @@ func (c *MockControllerAPIModelUUIDCall) DoAndReturn(f func() (string, error)) *
 }
 
 // WatchForModelConfigChanges mocks base method.
-func (m *MockControllerAPI) WatchForModelConfigChanges() (watcher.Watcher[struct{}], error) {
+func (m *MockControllerAPI) WatchForModelConfigChanges(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchForModelConfigChanges")
+	ret := m.ctrl.Call(m, "WatchForModelConfigChanges", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchForModelConfigChanges indicates an expected call of WatchForModelConfigChanges.
-func (mr *MockControllerAPIMockRecorder) WatchForModelConfigChanges() *MockControllerAPIWatchForModelConfigChangesCall {
+func (mr *MockControllerAPIMockRecorder) WatchForModelConfigChanges(arg0 any) *MockControllerAPIWatchForModelConfigChangesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchForModelConfigChanges", reflect.TypeOf((*MockControllerAPI)(nil).WatchForModelConfigChanges))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchForModelConfigChanges", reflect.TypeOf((*MockControllerAPI)(nil).WatchForModelConfigChanges), arg0)
 	return &MockControllerAPIWatchForModelConfigChangesCall{Call: call}
 }
 
@@ -814,13 +814,13 @@ func (c *MockControllerAPIWatchForModelConfigChangesCall) Return(arg0 watcher.Wa
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerAPIWatchForModelConfigChangesCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockControllerAPIWatchForModelConfigChangesCall {
+func (c *MockControllerAPIWatchForModelConfigChangesCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockControllerAPIWatchForModelConfigChangesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerAPIWatchForModelConfigChangesCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockControllerAPIWatchForModelConfigChangesCall {
+func (c *MockControllerAPIWatchForModelConfigChangesCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockControllerAPIWatchForModelConfigChangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

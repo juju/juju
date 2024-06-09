@@ -25,7 +25,7 @@ type ConfigAPI interface {
 	CloudSpec(context.Context) (environscloudspec.CloudSpec, error)
 	ModelConfig(context.Context) (*config.Config, error)
 	ControllerConfig(context.Context) (controller.Config, error)
-	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
+	WatchForModelConfigChanges(context.Context) (watcher.NotifyWatcher, error)
 	WatchCloudSpecChanges() (watcher.NotifyWatcher, error)
 }
 
@@ -115,7 +115,11 @@ func (t *Tracker) Broker() caas.Broker {
 
 func (t *Tracker) loop() error {
 	logger := t.config.Logger
-	modelWatcher, err := t.config.ConfigAPI.WatchForModelConfigChanges()
+
+	ctx, cancel := t.scopedContext()
+	defer cancel()
+
+	modelWatcher, err := t.config.ConfigAPI.WatchForModelConfigChanges(ctx)
 	if err != nil {
 		return errors.Annotate(err, "cannot watch model config")
 	}
@@ -188,4 +192,8 @@ func (t *Tracker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (t *Tracker) Wait() error {
 	return t.catacomb.Wait()
+}
+
+func (t *Tracker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(t.catacomb.Context(context.Background()))
 }

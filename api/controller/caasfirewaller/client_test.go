@@ -4,6 +4,8 @@
 package caasfirewaller_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -22,7 +24,7 @@ import (
 
 type clientCommmon interface {
 	WatchApplications() (watcher.StringsWatcher, error)
-	WatchApplication(string) (watcher.NotifyWatcher, error)
+	WatchApplication(context.Context, string) (watcher.NotifyWatcher, error)
 	IsExposed(string) (bool, error)
 	ApplicationConfig(string) (config.ConfigAttributes, error)
 	Life(string) (life.Value, error)
@@ -251,7 +253,7 @@ func (s *firewallerSuite) TestWatchApplication(c *gc.C) {
 	})
 
 	client := s.newFunc(apiCaller)
-	watcher, err := client.WatchApplication("gitlab")
+	watcher, err := client.WatchApplication(context.Background(), "gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

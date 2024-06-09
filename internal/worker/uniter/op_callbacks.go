@@ -75,7 +75,7 @@ func (opc *operationCallbacks) CommitHook(ctx stdcontext.Context, hi hook.Info) 
 	case hi.Kind.IsRelation():
 		return opc.u.relationStateTracker.CommitHook(ctx, hi)
 	case hi.Kind.IsStorage():
-		return opc.u.storage.CommitHook(hi)
+		return opc.u.storage.CommitHook(ctx, hi)
 	case hi.Kind.IsSecret():
 		return opc.u.secretsTracker.CommitHook(ctx, hi)
 	}
@@ -151,8 +151,8 @@ func (opc *operationCallbacks) SetExecutingStatus(message string) error {
 }
 
 // SetUpgradeSeriesStatus is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SetUpgradeSeriesStatus(upgradeSeriesStatus model.UpgradeSeriesStatus, reason string) error {
-	return setUpgradeSeriesStatus(opc.u, upgradeSeriesStatus, reason)
+func (opc *operationCallbacks) SetUpgradeSeriesStatus(ctx stdcontext.Context, upgradeSeriesStatus model.UpgradeSeriesStatus, reason string) error {
+	return setUpgradeSeriesStatus(ctx, opc.u, upgradeSeriesStatus, reason)
 }
 
 // RemoteInit is part of the operation.Callbacks interface.
@@ -173,6 +173,6 @@ func (opc *operationCallbacks) SetSecretRotated(uri string, oldRevision int) err
 }
 
 // SecretsRemoved is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SecretsRemoved(uris []string) error {
-	return opc.u.secretsTracker.SecretsRemoved(uris)
+func (opc *operationCallbacks) SecretsRemoved(ctx stdcontext.Context, uris []string) error {
+	return opc.u.secretsTracker.SecretsRemoved(ctx, uris)
 }

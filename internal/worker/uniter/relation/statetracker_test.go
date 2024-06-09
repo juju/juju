@@ -620,7 +620,7 @@ func (s *baseStateTrackerSuite) expectRelationerCommitHookFail() {
 }
 
 func (s *baseStateTrackerSuite) expectRelationerJoin() {
-	s.relationer.EXPECT().Join().Return(nil)
+	s.relationer.EXPECT().Join(gomock.Any()).Return(nil)
 }
 
 func (s *baseStateTrackerSuite) expectRelationerRelationUnit() {
@@ -716,7 +716,7 @@ func (s *baseStateTrackerSuite) expectRelationsStatus(status []uniter.RelationSt
 func (s *baseStateTrackerSuite) expectWatch(c *gc.C) {
 	s.unitChanges = make(chan struct{})
 	s.watcher = watchertest.NewMockNotifyWatcher(s.unitChanges)
-	s.unit.EXPECT().Watch().DoAndReturn(func() (watcher.Watcher[struct{}], error) {
+	s.unit.EXPECT().Watch(gomock.Any()).DoAndReturn(func(stdcontext.Context) (watcher.Watcher[struct{}], error) {
 		go func() {
 			select {
 			case s.unitChanges <- struct{}{}:

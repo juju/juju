@@ -27,7 +27,7 @@ type Machine interface {
 	EnsureDead() error
 	SetMachineAddresses(addresses []network.MachineAddress) error
 	SetStatus(machineStatus status.Status, info string, data map[string]interface{}) error
-	Watch() (watcher.NotifyWatcher, error)
+	Watch(context.Context) (watcher.NotifyWatcher, error)
 	SetObservedNetworkConfig(netConfig []params.NetworkConfig) error
 }
 

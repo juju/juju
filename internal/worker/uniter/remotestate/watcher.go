@@ -365,14 +365,17 @@ func (w *RemoteStateWatcher) setUp(ctx context.Context, unitTag names.UnitTag) (
 }
 
 func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
-	if err := w.setUp(context.TODO(), unitTag); err != nil {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	if err := w.setUp(ctx, unitTag); err != nil {
 		return errors.Trace(err)
 	}
 
 	var requiredEvents int
 
 	var seenUnitChange bool
-	unitw, err := w.unit.Watch()
+	unitw, err := w.unit.Watch(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -442,7 +445,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		instanceDataChannel     watcher.NotifyChannel
 	)
 
-	applicationw, err := w.application.Watch()
+	applicationw, err := w.application.Watch(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -454,7 +457,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	if w.modelType == model.IAAS {
 		// Only IAAS models support upgrading the machine series.
 		// TODO(externalreality) This pattern should probably be extracted
-		upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications()
+		upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -509,7 +512,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenUpdateStatusIntervalChange bool
-	updateStatusIntervalw, err := w.client.WatchUpdateStatusHookInterval()
+	updateStatusIntervalw, err := w.client.WatchUpdateStatusHookInterval(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -579,7 +582,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("unit watcher closed")
 			}
-			if err := w.unitChanged(context.TODO()); err != nil {
+			if err := w.unitChanged(ctx); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenUnitChange)
@@ -589,7 +592,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			if err := w.applicationChanged(context.TODO()); err != nil {
+			if err := w.applicationChanged(ctx); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenApplicationChange)
@@ -620,7 +623,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.New("running status watcher closed")
 			}
 			if w.current.ProviderID == "" {
-				if err := w.unitChanged(context.TODO()); err != nil {
+				if err := w.unitChanged(ctx); err != nil {
 					return errors.Trace(err)
 				}
 				if w.current.ProviderID == "" {
@@ -664,7 +667,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("upgrades series watcher closed")
 			}
-			if err := w.upgradeSeriesStatusChanged(); err != nil {
+			if err := w.upgradeSeriesStatusChanged(ctx); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenUpgradeSeriesChange)
@@ -703,7 +706,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("relations watcher closed")
 			}
-			if err := w.relationsChanged(context.TODO(), keys); err != nil {
+			if err := w.relationsChanged(ctx, keys); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenRelationsChange)
@@ -726,7 +729,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			observedEvent(&seenUpdateStatusIntervalChange)
 
 			var err error
-			updateStatusInterval, err = w.client.UpdateStatusHookInterval()
+			updateStatusInterval, err = w.client.UpdateStatusHookInterval(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -830,11 +833,11 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 // upgradeSeriesStatusChanged is called when the remote status of a series
 // upgrade changes.
-func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
+func (w *RemoteStateWatcher) upgradeSeriesStatusChanged(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	status, target, err := w.upgradeSeriesStatus()
+	status, target, err := w.upgradeSeriesStatus(ctx)
 	if errors.Is(err, errors.NotFound) {
 		// There is no remote state so no upgrade is started.
 		w.logger.Debugf("no upgrade series in progress, reinitializing local upgrade series state")
@@ -851,8 +854,8 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 	return nil
 }
 
-func (w *RemoteStateWatcher) upgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
-	status, target, err := w.unit.UpgradeSeriesStatus()
+func (w *RemoteStateWatcher) upgradeSeriesStatus(ctx context.Context) (model.UpgradeSeriesStatus, string, error) {
+	status, target, err := w.unit.UpgradeSeriesStatus(ctx)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -1413,4 +1416,8 @@ func (w *RemoteStateWatcher) markShutdown() {
 	w.mu.Lock()
 	w.current.Shutdown = true
 	w.mu.Unlock()
+}
+
+func (w *RemoteStateWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

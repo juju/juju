@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -109,7 +110,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 					return
 				}
 				defer client.Close()
-				if err := c.refreshControllerDetails(client, name); err != nil {
+				if err := c.refreshControllerDetails(ctx, client, name); err != nil {
 					fmt.Fprintf(ctx.GetStderr(), "error updating cached details for %q: %v\n", name, err)
 				}
 			}()
@@ -138,7 +139,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, controllerSet)
 }
 
-func (c *listControllersCommand) refreshControllerDetails(client ControllerAccessAPI, controllerName string) error {
+func (c *listControllersCommand) refreshControllerDetails(ctx context.Context, client ControllerAccessAPI, controllerName string) error {
 	// First, get all the models the user can see, and their details.
 	allModels, err := client.AllModels()
 	if err != nil {
@@ -157,7 +158,7 @@ func (c *listControllersCommand) refreshControllerDetails(client ControllerAcces
 			controllerModelUUID = m.UUID
 		}
 	}
-	modelStatus, err := client.ModelStatus(modelTags...)
+	modelStatus, err := client.ModelStatus(ctx, modelTags...)
 	if err != nil {
 		return err
 	}

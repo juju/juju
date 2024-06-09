@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -58,7 +60,7 @@ func (s *upgradeSeriesSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
 	facadeCaller.ReturnRawAPICaller = apitesting.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 1}
 
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	_, err := api.WatchUpgradeSeriesNotifications()
+	_, err := api.WatchUpgradeSeriesNotifications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -78,7 +80,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusWithComplete(c *gc.C) {
 		return nil
 	}
 
-	sts, target, err := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag).UpgradeSeriesUnitStatus()
+	sts, target, err := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag).UpgradeSeriesUnitStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sts, gc.Equals, model.UpgradeSeriesCompleted)
 	c.Check(target, gc.Equals, "focal")
@@ -102,7 +104,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusNotFound(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	_, _, err := api.UpgradeSeriesUnitStatus()
+	_, _, err := api.UpgradeSeriesUnitStatus(context.Background())
 	c.Assert(err, gc.ErrorMatches, "testing")
 	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
@@ -123,7 +125,7 @@ func (s *upgradeSeriesSuite) TestUpgradeSeriesStatusMultiple(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	_, _, err := api.UpgradeSeriesUnitStatus()
+	_, _, err := api.UpgradeSeriesUnitStatus(context.Background())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
@@ -145,7 +147,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesUnitStatus(model.UpgradeSeriesError, "")
+	err := api.SetUpgradeSeriesUnitStatus(context.Background(), model.UpgradeSeriesError, "")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -165,7 +167,7 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusNotOne(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesUnitStatus(model.UpgradeSeriesError, "")
+	err := api.SetUpgradeSeriesUnitStatus(context.Background(), model.UpgradeSeriesError, "")
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
@@ -187,6 +189,6 @@ func (s *upgradeSeriesSuite) TestSetUpgradeSeriesStatusResultError(c *gc.C) {
 		return nil
 	}
 	api := common.NewUpgradeSeriesAPI(&facadeCaller, s.tag)
-	err := api.SetUpgradeSeriesUnitStatus(model.UpgradeSeriesError, "")
+	err := api.SetUpgradeSeriesUnitStatus(context.Background(), model.UpgradeSeriesError, "")
 	c.Assert(err, gc.ErrorMatches, "error in call")
 }

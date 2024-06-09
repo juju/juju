@@ -207,11 +207,11 @@ func (m *mockUniterClient) WatchStorageAttachment(
 	return watcher, nil
 }
 
-func (m *mockUniterClient) UpdateStatusHookInterval() (time.Duration, error) {
+func (m *mockUniterClient) UpdateStatusHookInterval(context.Context) (time.Duration, error) {
 	return m.updateStatusInterval, nil
 }
 
-func (m *mockUniterClient) WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error) {
+func (m *mockUniterClient) WatchUpdateStatusHookInterval(context.Context) (watcher.NotifyWatcher, error) {
 	return m.updateStatusIntervalWatcher, nil
 }
 
@@ -262,7 +262,7 @@ func (u *mockUnit) Tag() names.UnitTag {
 	return u.tag
 }
 
-func (u *mockUnit) Watch() (watcher.NotifyWatcher, error) {
+func (u *mockUnit) Watch(context.Context) (watcher.NotifyWatcher, error) {
 	return u.unitWatcher, nil
 }
 
@@ -290,7 +290,7 @@ func (u *mockUnit) WatchRelations() (watcher.StringsWatcher, error) {
 	return u.relationsWatcher, nil
 }
 
-func (u *mockUnit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) {
+func (u *mockUnit) WatchUpgradeSeriesNotifications(context.Context) (watcher.NotifyWatcher, error) {
 	return u.upgradeSeriesWatcher, nil
 }
 
@@ -298,11 +298,11 @@ func (u *mockUnit) WatchInstanceData() (watcher.NotifyWatcher, error) {
 	return u.instanceDataWatcher, nil
 }
 
-func (u *mockUnit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
+func (u *mockUnit) UpgradeSeriesStatus(context.Context) (model.UpgradeSeriesStatus, string, error) {
 	return model.UpgradeSeriesPrepareStarted, "ubuntu@20.04", nil
 }
 
-func (u *mockUnit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error {
+func (u *mockUnit) SetUpgradeSeriesStatus(ctx context.Context, status model.UpgradeSeriesStatus, reason string) error {
 	return nil
 }
 
@@ -337,7 +337,7 @@ func (s *mockApplication) Tag() names.ApplicationTag {
 	return s.tag
 }
 
-func (s *mockApplication) Watch() (watcher.NotifyWatcher, error) {
+func (s *mockApplication) Watch(context.Context) (watcher.NotifyWatcher, error) {
 	return s.applicationWatcher, nil
 }
 

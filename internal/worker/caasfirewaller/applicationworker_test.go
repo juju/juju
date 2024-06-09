@@ -112,7 +112,7 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.firewallerAPI.EXPECT().WatchApplication(s.appName).Return(s.appsWatcher, nil),
+		s.firewallerAPI.EXPECT().WatchApplication(gomock.Any(), s.appName).Return(s.appsWatcher, nil),
 		s.firewallerAPI.EXPECT().WatchOpenedPorts().Return(s.portsWatcher, nil),
 		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
 

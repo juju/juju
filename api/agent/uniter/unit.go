@@ -160,8 +160,8 @@ func (u *Unit) EnsureDead() error {
 }
 
 // Watch returns a watcher for observing changes to the unit.
-func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(u.client.facade, "Watch", u.tag)
+func (u *Unit) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
+	return common.Watch(ctx, u.client.facade, "Watch", u.tag)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to
@@ -547,8 +547,8 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 
 // WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing the
 // state of a series upgrade.
-func (u *Unit) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) {
-	return u.client.WatchUpgradeSeriesNotifications()
+func (u *Unit) WatchUpgradeSeriesNotifications(ctx context.Context) (watcher.NotifyWatcher, error) {
+	return u.client.WatchUpgradeSeriesNotifications(ctx)
 }
 
 // LogActionMessage logs a progress message for the specified action.
@@ -565,13 +565,13 @@ func (u *Unit) LogActionMessage(tag names.ActionTag, message string) error {
 }
 
 // UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
-func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
-	return u.client.UpgradeSeriesUnitStatus()
+func (u *Unit) UpgradeSeriesStatus(ctx context.Context) (model.UpgradeSeriesStatus, string, error) {
+	return u.client.UpgradeSeriesUnitStatus(ctx)
 }
 
 // SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
-func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error {
-	return u.client.SetUpgradeSeriesUnitStatus(status, reason)
+func (u *Unit) SetUpgradeSeriesStatus(ctx context.Context, status model.UpgradeSeriesStatus, reason string) error {
+	return u.client.SetUpgradeSeriesUnitStatus(ctx, status, reason)
 }
 
 // RequestReboot sets the reboot flag for its machine agent
@@ -726,14 +726,14 @@ func (u *Unit) NetworkInfo(bindings []string, relationId *int) (map[string]param
 
 // State returns the state persisted by the charm running in this unit
 // and the state internal to the uniter for this unit.
-func (u *Unit) State() (params.UnitStateResult, error) {
-	return u.client.State()
+func (u *Unit) State(ctx context.Context) (params.UnitStateResult, error) {
+	return u.client.State(ctx)
 }
 
 // SetState sets the state persisted by the charm running in this unit
 // and the state internal to the uniter for this unit.
-func (u *Unit) SetState(unitState params.SetUnitStateArg) error {
-	return u.client.SetState(unitState)
+func (u *Unit) SetState(ctx context.Context, unitState params.SetUnitStateArg) error {
+	return u.client.SetState(ctx, unitState)
 }
 
 // CommitHookChanges batches together all required API calls for applying

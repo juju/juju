@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -252,24 +254,24 @@ func (s *StateOpsSuite) TestStates(c *gc.C) {
 func (s *StateOpsSuite) runTest(c *gc.C, t stateTest) {
 	defer s.setupMocks(c).Finish()
 	ops := operation.NewStateOps(s.mockStateRW)
-	_, err := ops.Read()
+	_, err := ops.Read(context.Background())
 	c.Assert(err, gc.Equals, operation.ErrNoSavedState)
 
 	if t.err == "" {
 		s.expectSetState(c, t.st, t.err)
 	}
-	err = ops.Write(&t.st)
+	err = ops.Write(context.Background(), &t.st)
 	if t.err == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
 		c.Assert(err, gc.ErrorMatches, "invalid operation state: "+t.err)
 		s.expectState(c, t.st)
-		_, err = ops.Read()
+		_, err = ops.Read(context.Background())
 		c.Assert(err, gc.ErrorMatches, `validation of uniter state: invalid operation state: `+t.err)
 		return
 	}
 	s.expectState(c, t.st)
-	st, err := ops.Read()
+	st, err := ops.Read(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, jc.DeepEquals, &t.st)
 }
@@ -279,7 +281,7 @@ func (s *StateOpsSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.mockStateRW = mocks.NewMockUnitStateReadWriter(ctlr)
 
 	mExp := s.mockStateRW.EXPECT()
-	mExp.State().Return(params.UnitStateResult{}, nil)
+	mExp.State(gomock.Any()).Return(params.UnitStateResult{}, nil)
 	return ctlr
 }
 
@@ -292,7 +294,7 @@ func (s *StateOpsSuite) expectSetState(c *gc.C, st operation.State, errStr strin
 	}
 
 	mExp := s.mockStateRW.EXPECT()
-	mExp.SetState(unitStateMatcher{c: c, expected: strUniterState}).Return(err)
+	mExp.SetState(gomock.Any(), unitStateMatcher{c: c, expected: strUniterState}).Return(err)
 }
 
 func (s *StateOpsSuite) expectState(c *gc.C, st operation.State) {
@@ -301,7 +303,7 @@ func (s *StateOpsSuite) expectState(c *gc.C, st operation.State) {
 	stStr := string(data)
 
 	mExp := s.mockStateRW.EXPECT()
-	mExp.State().Return(params.UnitStateResult{UniterState: stStr}, nil)
+	mExp.State(gomock.Any()).Return(params.UnitStateResult{UniterState: stStr}, nil)
 }
 
 type unitStateMatcher struct {

@@ -4,6 +4,8 @@
 package caasfirewaller
 
 import (
+	"context"
+
 	charmscommon "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/core/config"
 	"github.com/juju/juju/core/life"
@@ -25,7 +27,7 @@ type Client interface {
 // model, and fetching their details.
 type CAASFirewallerAPI interface {
 	WatchApplications() (watcher.StringsWatcher, error)
-	WatchApplication(string) (watcher.NotifyWatcher, error)
+	WatchApplication(context.Context, string) (watcher.NotifyWatcher, error)
 	WatchOpenedPorts() (watcher.StringsWatcher, error)
 	GetOpenedPorts(appName string) (network.GroupedPortRanges, error)
 

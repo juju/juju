@@ -23,7 +23,7 @@ func Life(ctx context.Context, caller base.FacadeCaller, tags []names.Tag) ([]pa
 	var result params.LifeResults
 	entities := make([]params.Entity, len(tags))
 	for i, t := range tags {
-		entities[i] = params.Entity{t.String()}
+		entities[i] = params.Entity{Tag: t.String()}
 	}
 	args := params.Entities{Entities: entities}
 	if err := caller.FacadeCall(ctx, "Life", args, &result); err != nil {

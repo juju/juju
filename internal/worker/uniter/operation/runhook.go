@@ -227,9 +227,9 @@ func (rh *runHook) beforeHook(ctx stdcontext.Context, state State) error {
 			Info:   "cleaning up prior to charm deletion",
 		})
 	case hooks.PreSeriesUpgrade:
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareRunning, "pre-series-upgrade hook running")
+		err = rh.callbacks.SetUpgradeSeriesStatus(ctx, model.UpgradeSeriesPrepareRunning, "pre-series-upgrade hook running")
 	case hooks.PostSeriesUpgrade:
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleteRunning, "post-series-upgrade hook running")
+		err = rh.callbacks.SetUpgradeSeriesStatus(ctx, model.UpgradeSeriesCompleteRunning, "post-series-upgrade hook running")
 	}
 
 	if err != nil {
@@ -325,10 +325,10 @@ func (rh *runHook) Commit(ctx stdcontext.Context, state State) (*State, error) {
 		}
 	case hooks.PreSeriesUpgrade:
 		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesPrepareCompleted, message)
+		err = rh.callbacks.SetUpgradeSeriesStatus(ctx, model.UpgradeSeriesPrepareCompleted, message)
 	case hooks.PostSeriesUpgrade:
 		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
-		err = rh.callbacks.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, message)
+		err = rh.callbacks.SetUpgradeSeriesStatus(ctx, model.UpgradeSeriesCompleted, message)
 	case hooks.SecretRotate:
 		var info map[string]jujuc.SecretMetadata
 		info, err = rh.runner.Context().SecretMetadata()

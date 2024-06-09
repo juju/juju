@@ -96,7 +96,7 @@ type StateManager interface {
 
 	// SetRelation persists the given state, overwriting the previous
 	// state for a given id or creating state at a new id.
-	SetRelation(*State) error
+	SetRelation(stdcontext.Context, *State) error
 
 	// RelationFound returns true if the state manager has a
 	// state for the given id.
@@ -118,11 +118,11 @@ type UnitGetter interface {
 type UnitStateReadWriter interface {
 	// SetState sets the state persisted by the charm running in this unit
 	// and the state internal to the uniter for this unit.
-	SetState(unitState params.SetUnitStateArg) error
+	SetState(ctx stdcontext.Context, unitState params.SetUnitStateArg) error
 
 	// State returns the state persisted by the charm running in this unit
 	// and the state internal to the uniter for this unit.
-	State() (params.UnitStateResult, error)
+	State(ctx stdcontext.Context) (params.UnitStateResult, error)
 }
 
 // StateTrackerClient encapsulates the uniter client API methods
@@ -161,7 +161,7 @@ type Relationer interface {
 	// Join initializes local state and causes the unit to enter its relation
 	// scope, allowing its counterpart units to detect its presence and settings
 	// changes.
-	Join() error
+	Join(ctx stdcontext.Context) error
 
 	// PrepareHook checks that the relation is in a state such that it makes
 	// sense to execute the supplied hook, and ensures that the relation context

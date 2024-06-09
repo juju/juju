@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"context"
 	"regexp"
 
 	"github.com/juju/cmd/v4"
@@ -637,7 +638,7 @@ func (*fakeController) ModelConfig() (map[string]interface{}, error) {
 	return map[string]interface{}{"agent-version": "999.99.99"}, nil
 }
 
-func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.ModelStatus, _ error) {
+func (c *fakeController) ModelStatus(_ context.Context, models ...names.ModelTag) (result []base.ModelStatus, _ error) {
 	if c.emptyModelStatus {
 		return result, nil
 	}

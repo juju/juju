@@ -49,7 +49,7 @@ func (s *secretsSuite) yamlString(c *gc.C, st *secrets.State) string {
 func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.stateReadWriter.EXPECT().State().Return(params.UnitStateResult{SecretState: s.yamlString(c,
+	s.stateReadWriter.EXPECT().State(gomock.Any()).Return(params.UnitStateResult{SecretState: s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo: map[string]int{
 				"secret:666e2mr0ui3e8a215n4g": 664,
@@ -63,14 +63,14 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 	)
 	s.secretsClient.EXPECT().SecretMetadata().Return(nil, nil)
 
-	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
+	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo:      map[string]int{"secret:9m4e2mr0ui3e8a215n4g": 667},
 			SecretObsoleteRevisions: map[string][]int{},
 		},
 	))})
 
-	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
+	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo:      map[string]int{"secret:9m4e2mr0ui3e8a215n4g": 666},
 			SecretObsoleteRevisions: map[string][]int{},
@@ -78,7 +78,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 	))})
 
 	tag := names.NewUnitTag("foo/0")
-	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
+	tracker, err := secrets.NewSecrets(context.Background(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -93,7 +93,7 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.stateReadWriter.EXPECT().State().Return(params.UnitStateResult{SecretState: s.yamlString(c,
+	s.stateReadWriter.EXPECT().State(gomock.Any()).Return(params.UnitStateResult{SecretState: s.yamlString(c,
 		&secrets.State{
 			SecretObsoleteRevisions: map[string][]int{
 				"secret:666e2mr0ui3e8a215n4g": {664},
@@ -103,7 +103,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 	)}, nil)
 	s.secretsClient.EXPECT().SecretMetadata().Return(
 		[]coresecrets.SecretOwnerMetadata{{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}}}, nil)
-	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
+	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo: map[string]int{},
 			SecretObsoleteRevisions: map[string][]int{
@@ -111,7 +111,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 		},
 	))})
 
-	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
+	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo: map[string]int{},
 			SecretObsoleteRevisions: map[string][]int{
@@ -120,7 +120,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 	))})
 
 	tag := names.NewUnitTag("foo/0")
-	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
+	tracker, err := secrets.NewSecrets(context.Background(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	info := hook.Info{
@@ -135,7 +135,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.stateReadWriter.EXPECT().State().Return(params.UnitStateResult{SecretState: s.yamlString(c,
+	s.stateReadWriter.EXPECT().State(gomock.Any()).Return(params.UnitStateResult{SecretState: s.yamlString(c,
 		&secrets.State{
 			SecretObsoleteRevisions: map[string][]int{
 				"secret:666e2mr0ui3e8a215n4g": {664},
@@ -159,7 +159,7 @@ func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *gc.C) {
 			{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}},
 			{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "666e2mr0ui3e8a215n4g"}}},
 		}, nil)
-	s.stateReadWriter.EXPECT().SetState(params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
+	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
 			ConsumedSecretInfo: map[string]int{
 				"secret:9m4e2mr0ui3e8a215n4g": 667,
@@ -170,9 +170,9 @@ func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *gc.C) {
 	))})
 
 	tag := names.NewUnitTag("foo/0")
-	tracker, err := secrets.NewSecrets(s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
+	tracker, err := secrets.NewSecrets(context.Background(), s.secretsClient, tag, s.stateReadWriter, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = tracker.SecretsRemoved([]string{"secret:666e2mr0ui3e8a215n4g"})
+	err = tracker.SecretsRemoved(context.Background(), []string{"secret:666e2mr0ui3e8a215n4g"})
 	c.Assert(err, jc.ErrorIsNil)
 }

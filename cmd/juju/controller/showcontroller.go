@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -98,7 +99,7 @@ func (c *showControllerCommand) SetClientStore(store jujuclient.ClientStore) {
 type ControllerAccessAPI interface {
 	GetControllerAccess(user string) (permission.Access, error)
 	ModelConfig() (map[string]interface{}, error)
-	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
+	ModelStatus(ctx context.Context, models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
 	MongoVersion() (string, error)
 	IdentityProviderURL() (string, error)
@@ -214,7 +215,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 				controllerModelUUID = m.UUID
 			}
 		}
-		modelStatusResults, err := client.ModelStatus(modelTags...)
+		modelStatusResults, err := client.ModelStatus(ctx.Context, modelTags...)
 		if err != nil {
 			details.Errors = append(details.Errors, err.Error())
 		}

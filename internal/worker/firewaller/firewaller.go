@@ -571,7 +571,10 @@ func (fw *Firewaller) startApplication(app Application) error {
 	err = catacomb.Invoke(catacomb.Plan{
 		Site: &applicationd.catacomb,
 		Work: func() error {
-			return applicationd.watchLoop(exposed, exposedEndpoints)
+			ctx, cancel := context.WithCancel(applicationd.catacomb.Context(context.Background()))
+			defer cancel()
+
+			return applicationd.watchLoop(ctx, exposed, exposedEndpoints)
 		},
 	})
 	if err != nil {
@@ -1308,8 +1311,8 @@ type applicationData struct {
 }
 
 // watchLoop watches the application's exposed flag for changes.
-func (ad *applicationData) watchLoop(curExposed bool, curExposedEndpoints map[string]params.ExposedEndpoint) error {
-	appWatcher, err := ad.application.Watch()
+func (ad *applicationData) watchLoop(ctx context.Context, curExposed bool, curExposedEndpoints map[string]params.ExposedEndpoint) error {
+	appWatcher, err := ad.application.Watch(ctx)
 	if err != nil {
 		if params.IsCodeNotFound(err) {
 			return nil

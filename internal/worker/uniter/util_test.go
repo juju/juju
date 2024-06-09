@@ -675,7 +675,7 @@ func (w *unitWatcher) Kill() {
 
 func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 	ctx.sendEvents = true
-	ctx.unit.EXPECT().Watch().DoAndReturn(func() (watcher.NotifyWatcher, error) {
+	ctx.unit.EXPECT().Watch(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		num := int(ctx.unitWatchCounter.Add(1))
 		ch := make(chan struct{}, 3)
 		ctx.unitCh.Store(num, ch)
@@ -688,14 +688,14 @@ func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 		}, nil
 	}).AnyTimes()
 
-	ctx.unit.EXPECT().WatchUpgradeSeriesNotifications().DoAndReturn(func() (watcher.NotifyWatcher, error) {
+	ctx.unit.EXPECT().WatchUpgradeSeriesNotifications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		ch := make(chan struct{}, 1)
 		ch <- struct{}{}
 		w := watchertest.NewMockNotifyWatcher(ch)
 		return w, nil
 	}).AnyTimes()
 
-	ctx.app.EXPECT().Watch().DoAndReturn(func() (watcher.NotifyWatcher, error) {
+	ctx.app.EXPECT().Watch(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		ctx.sendNotify(c, ctx.applicationCh, "initial application event")
 		w := watchertest.NewMockNotifyWatcher(ctx.applicationCh)
 		return w, nil
@@ -714,7 +714,7 @@ func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 		return w, nil
 	}).AnyTimes()
 
-	ctx.api.EXPECT().WatchUpdateStatusHookInterval().DoAndReturn(func() (watcher.NotifyWatcher, error) {
+	ctx.api.EXPECT().WatchUpdateStatusHookInterval(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		ch := make(chan struct{}, 1)
 		ch <- struct{}{}
 		w := watchertest.NewMockNotifyWatcher(ch)
@@ -843,7 +843,7 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	// Consumed secrets initial event.
 	ctx.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(ctx.unit.Name(), []string(nil)).Return(nil, nil).AnyTimes()
 
-	ctx.api.EXPECT().UpdateStatusHookInterval().Return(time.Minute, nil).AnyTimes()
+	ctx.api.EXPECT().UpdateStatusHookInterval(gomock.Any()).Return(time.Minute, nil).AnyTimes()
 	ctx.api.EXPECT().LeadershipSettings().Return(&stubLeadershipSettingsAccessor{}).AnyTimes()
 
 	// Storage attachments init.
@@ -892,7 +892,7 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	st := string(data)
-	ctx.unit.EXPECT().SetState(unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1)
+	ctx.unit.EXPECT().SetState(gomock.Any(), unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1)
 
 	data, err = yaml.Marshal(operation.State{
 		CharmURL: ctx.charm.URL(),
@@ -901,14 +901,14 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	st = string(data)
-	ctx.unit.EXPECT().SetState(unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1)
+	ctx.unit.EXPECT().SetState(gomock.Any(), unitStateMatcher{c: c, expected: st}).Return(nil).MaxTimes(1)
 }
 
 func (s startUniter) setupUniterHookExec(c *gc.C, ctx *testContext) {
 	ctx.api.EXPECT().Application(gomock.Any(), ctx.app.Tag()).Return(ctx.app, nil).AnyTimes()
 	ctx.expectHookContext(c)
 
-	setState := func(unitState params.SetUnitStateArg) error {
+	setState := func(_ context.Context, unitState params.SetUnitStateArg) error {
 		ctx.stateMu.Lock()
 		defer ctx.stateMu.Unlock()
 		if unitState.UniterState != nil {
@@ -922,13 +922,13 @@ func (s startUniter) setupUniterHookExec(c *gc.C, ctx *testContext) {
 		}
 		return nil
 	}
-	ctx.unit.EXPECT().SetState(uniterCharmUpgradeStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(uniterRunHookStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(uniterRunActionStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(uniterContinueStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(uniterSecretsStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(uniterStorageStateMatcher{}).DoAndReturn(setState).AnyTimes()
-	ctx.unit.EXPECT().SetState(uniterRelationStateMatcher{}).DoAndReturn(setState).AnyTimes()
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterCharmUpgradeStateMatcher{}).DoAndReturn(setState).AnyTimes()
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterRunHookStateMatcher{}).DoAndReturn(setState).AnyTimes()
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterRunActionStateMatcher{}).DoAndReturn(setState).AnyTimes()
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterContinueStateMatcher{}).DoAndReturn(setState).AnyTimes()
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterSecretsStateMatcher{}).DoAndReturn(setState).AnyTimes()
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterStorageStateMatcher{}).DoAndReturn(setState).AnyTimes()
+	ctx.unit.EXPECT().SetState(gomock.Any(), uniterRelationStateMatcher{}).DoAndReturn(setState).AnyTimes()
 }
 
 func (s startUniter) step(c *gc.C, ctx *testContext) {

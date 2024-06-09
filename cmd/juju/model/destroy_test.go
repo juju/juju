@@ -5,6 +5,7 @@ package model_test
 
 import (
 	"bytes"
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -53,7 +54,7 @@ func (f *fakeAPI) DestroyModel(tag names.ModelTag, destroyStorage *bool, force *
 	return f.NextErr()
 }
 
-func (f *fakeAPI) ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error) {
+func (f *fakeAPI) ModelStatus(_ context.Context, models ...names.ModelTag) ([]base.ModelStatus, error) {
 	var err error
 	if f.statusCallCount < len(f.modelInfoErr) {
 		modelInfoErr := f.modelInfoErr[f.statusCallCount]

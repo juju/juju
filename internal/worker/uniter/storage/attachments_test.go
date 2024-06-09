@@ -75,7 +75,7 @@ func (s *attachmentsSuite) TestNewAttachments(c *gc.C) {
 		},
 	}
 
-	_, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
+	_, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -108,7 +108,7 @@ func (s *attachmentsSuite) assertNewAttachments(c *gc.C, storageTag names.Storag
 		},
 	}
 
-	att, err := storage.NewAttachments(storSt, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(context.Background(), storSt, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	return att
 }
@@ -161,7 +161,7 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
@@ -226,7 +226,7 @@ func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.Sta
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
@@ -261,7 +261,7 @@ func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
@@ -307,7 +307,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 
@@ -331,7 +331,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 
 	s.storSt.Attach(storageTag.Id())
 	s.expectSetState(c, "")
-	err = att.CommitHook(hook.Info{
+	err = att.CommitHook(context.Background(), hook.Info{
 		Kind:      hooks.StorageAttached,
 		StorageId: storageTag.Id(),
 	})
@@ -341,7 +341,7 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.expectSetState(c, "")
 	c.Assert(removed, jc.IsFalse)
-	err = att.CommitHook(hook.Info{
+	err = att.CommitHook(context.Background(), hook.Info{
 		Kind:      hooks.StorageDetaching,
 		StorageId: storageTag.Id(),
 	})
@@ -387,7 +387,7 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(att.Pending(), gc.Equals, 1)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
@@ -428,7 +428,7 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *gc.C) {
 		},
 	}
 
-	att, err := storage.NewAttachments(st, unitTag, s.mockStateOps, abort)
+	att, err := storage.NewAttachments(context.Background(), st, unitTag, s.mockStateOps, abort)
 	c.Assert(err, jc.ErrorIsNil)
 	r := storage.NewResolver(loggertesting.WrapCheckLog(c), att, s.modelType)
 

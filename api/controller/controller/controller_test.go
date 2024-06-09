@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
@@ -289,7 +290,7 @@ func (s *Suite) TestModelStatusEmpty(c *gc.C) {
 	})
 
 	client := controller.NewClient(apiCaller)
-	results, err := client.ModelStatus()
+	results, err := client.ModelStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []base.ModelStatus{})
 }
@@ -330,7 +331,7 @@ func (s *Suite) TestModelStatus(c *gc.C) {
 	}
 
 	client := controller.NewClient(apiCaller)
-	results, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
+	results, err := client.ModelStatus(context.Background(), coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results[0], jc.DeepEquals, base.ModelStatus{
 		UUID:               coretesting.ModelTag.Id(),
@@ -350,7 +351,7 @@ func (s *Suite) TestModelStatusError(c *gc.C) {
 			return errors.New("model error")
 		})
 	client := controller.NewClient(apiCaller)
-	out, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
+	out, err := client.ModelStatus(context.Background(), coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, gc.ErrorMatches, "model error")
 	c.Assert(out, gc.IsNil)
 }
@@ -527,7 +528,7 @@ func (s *Suite) TestControllerConfig(c *gc.C) {
 	})
 
 	client := controller.NewClient(apiCaller)
-	m, err := client.ControllerConfig()
+	m, err := client.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, jc.DeepEquals, corecontroller.Config{"api-port": 666})
 }

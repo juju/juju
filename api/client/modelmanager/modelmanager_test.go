@@ -4,6 +4,7 @@
 package modelmanager_test
 
 import (
+	"context"
 	"regexp"
 	"time"
 
@@ -325,7 +326,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).SetArg(3, ress).Return(nil)
 	client := common.NewModelStatusAPI(mockFacadeCaller)
 
-	results, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
+	results, err := client.ModelStatus(context.Background(), coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results[0], jc.DeepEquals, base.ModelStatus{
 		UUID:               coretesting.ModelTag.Id(),
@@ -354,7 +355,7 @@ func (s *modelmanagerSuite) TestModelStatusEmpty(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).SetArg(3, ress).Return(nil)
 	client := common.NewModelStatusAPI(mockFacadeCaller)
 
-	results, err := client.ModelStatus()
+	results, err := client.ModelStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []base.ModelStatus{})
 }
@@ -375,7 +376,7 @@ func (s *modelmanagerSuite) TestModelStatusError(c *gc.C) {
 	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "ModelStatus", args, res).Return(errors.New("model error"))
 	client := common.NewModelStatusAPI(mockFacadeCaller)
-	out, err := client.ModelStatus(coretesting.ModelTag, coretesting.ModelTag)
+	out, err := client.ModelStatus(context.Background(), coretesting.ModelTag, coretesting.ModelTag)
 	c.Assert(err, gc.ErrorMatches, "model error")
 	c.Assert(out, gc.IsNil)
 }

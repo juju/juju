@@ -38,13 +38,13 @@ func (s *mockStateOpsSuite) expectSetState(c *gc.C, errStr string) {
 	}
 
 	mExp := s.mockStateOps.EXPECT()
-	mExp.SetState(unitStateMatcher{c: c, expected: strStorageState}).Return(err)
+	mExp.SetState(gomock.Any(), unitStateMatcher{c: c, expected: strStorageState}).Return(err)
 }
 
 func (s *mockStateOpsSuite) expectSetStateEmpty(c *gc.C) {
 	var strStorageState string
 	mExp := s.mockStateOps.EXPECT()
-	mExp.SetState(unitStateMatcher{c: c, expected: strStorageState}).Return(nil)
+	mExp.SetState(gomock.Any(), unitStateMatcher{c: c, expected: strStorageState}).Return(nil)
 }
 
 func (s *mockStateOpsSuite) expectState(c *check.C) {
@@ -53,12 +53,12 @@ func (s *mockStateOpsSuite) expectState(c *check.C) {
 	strStorageState := string(data)
 
 	mExp := s.mockStateOps.EXPECT()
-	mExp.State().Return(params.UnitStateResult{StorageState: strStorageState}, nil)
+	mExp.State(gomock.Any()).Return(params.UnitStateResult{StorageState: strStorageState}, nil)
 }
 
 func (s *mockStateOpsSuite) expectStateNotFound() {
 	mExp := s.mockStateOps.EXPECT()
-	mExp.State().Return(params.UnitStateResult{StorageState: ""}, nil)
+	mExp.State(gomock.Any()).Return(params.UnitStateResult{StorageState: ""}, nil)
 }
 
 type unitStateMatcher struct {

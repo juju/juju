@@ -68,7 +68,7 @@ func (m *mockMachine) SetStatus(status status.Status, info string, data map[stri
 	return m.NextErr()
 }
 
-func (m *mockMachine) Watch() (watcher.NotifyWatcher, error) {
+func (m *mockMachine) Watch(_ context.Context) (watcher.NotifyWatcher, error) {
 	m.MethodCall(m, "Watch")
 	if err := m.NextErr(); err != nil {
 		return nil, err

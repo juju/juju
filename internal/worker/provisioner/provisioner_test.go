@@ -66,7 +66,7 @@ func (s *CommonProvisionerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 func (s *CommonProvisionerSuite) expectStartup(c *gc.C) {
 	s.modelConfigCh = make(chan struct{})
 	watchCfg := watchertest.NewMockNotifyWatcher(s.modelConfigCh)
-	s.controllerAPI.EXPECT().WatchForModelConfigChanges().Return(watchCfg, nil)
+	s.controllerAPI.EXPECT().WatchForModelConfigChanges(gomock.Any()).Return(watchCfg, nil)
 
 	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{config.ProvisionerHarvestModeKey: config.HarvestDestroyed.String()})
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).MaxTimes(2)

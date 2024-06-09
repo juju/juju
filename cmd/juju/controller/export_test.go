@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -173,7 +174,7 @@ func FmtModelStatus(data ModelData) string {
 }
 
 func NewData(api destroyControllerAPI, ctrUUID string) (environmentStatus, error) {
-	return newData(api, ctrUUID)
+	return newData(context.Background(), api, ctrUUID)
 }
 
 var (

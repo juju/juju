@@ -4,6 +4,8 @@
 package caasmodelconfigmanager_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -46,7 +48,7 @@ func (s *caasmodelconfigmanagerSuite) TestControllerConfig(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := client.ControllerConfig()
+	cfg, err := client.ControllerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, controller.Config{
 		"caas-image-repo": `

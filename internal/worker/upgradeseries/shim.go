@@ -4,6 +4,8 @@
 package upgradeseries
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/agent/upgradeseries"
@@ -16,7 +18,7 @@ import (
 // Facade exposes the API surface required by the upgrade-series worker.
 type Facade interface {
 	// Getters
-	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
+	WatchUpgradeSeriesNotifications(context.Context) (watcher.NotifyWatcher, error)
 	MachineStatus() (model.UpgradeSeriesStatus, error)
 	UnitsPrepared() ([]names.UnitTag, error)
 	UnitsCompleted() ([]names.UnitTag, error)
@@ -25,8 +27,8 @@ type Facade interface {
 	StartUnitCompletion(reason string) error
 	SetMachineStatus(status model.UpgradeSeriesStatus, reason string) error
 	FinishUpgradeSeries(corebase.Base) error
-	PinMachineApplications() (map[string]error, error)
-	UnpinMachineApplications() (map[string]error, error)
+	PinMachineApplications(context.Context) (map[string]error, error)
+	UnpinMachineApplications(context.Context) (map[string]error, error)
 	SetInstanceStatus(model.UpgradeSeriesStatus, string) error
 }
 

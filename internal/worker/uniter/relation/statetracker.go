@@ -79,7 +79,7 @@ func NewRelationStateTracker(ctx stdcontext.Context, cfg RelationStateTrackerCon
 		logger:          cfg.Logger,
 		newRelationer:   NewRelationer,
 	}
-	r.stateMgr, err = NewStateManager(r.unit, r.logger)
+	r.stateMgr, err = NewStateManager(ctx, r.unit, r.logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -173,7 +173,7 @@ func (r *relationStateTracker) joinRelation(ctx stdcontext.Context, rel api.Rela
 		return errors.Trace(err)
 	}
 	relationer := r.newRelationer(ru, r.stateMgr, r.client, r.logger)
-	unitWatcher, err := r.unit.Watch()
+	unitWatcher, err := r.unit.Watch(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -199,7 +199,7 @@ func (r *relationStateTracker) joinRelation(ctx stdcontext.Context, rel api.Rela
 			if !ok {
 				return errors.New("unit watcher closed")
 			}
-			err := relationer.Join()
+			err := relationer.Join(ctx)
 			if params.IsCodeCannotEnterScopeYet(err) {
 				r.logger.Infof("cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
 				continue

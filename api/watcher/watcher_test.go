@@ -148,7 +148,7 @@ func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 	m, err := client.Machine(context.Background(), names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := m.Watch()
+	w, err := m.Watch(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -183,7 +183,7 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 	m, err := client.Machine(context.Background(), names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := m.Watch()
+	w, err := m.Watch(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 

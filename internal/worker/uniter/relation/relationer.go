@@ -77,7 +77,7 @@ func (r *relationer) RelationUnit() api.RelationUnit {
 // Join initializes local state and causes the unit to enter its relation
 // scope, allowing its counterpart units to detect its presence and settings
 // changes.
-func (r *relationer) Join() error {
+func (r *relationer) Join(ctx stdcontext.Context) error {
 	if r.dying {
 		return errors.New("dying relationer must not join!")
 	}
@@ -87,7 +87,7 @@ func (r *relationer) Join() error {
 	if !r.stateMgr.RelationFound(r.relationId) {
 		// Add a state for the new relation to the state manager.
 		st := NewState(r.relationId)
-		if err := r.stateMgr.SetRelation(st); err != nil {
+		if err := r.stateMgr.SetRelation(ctx, st); err != nil {
 			return err
 		}
 	}
@@ -156,5 +156,5 @@ func (r *relationer) CommitHook(ctx stdcontext.Context, hi hook.Info) error {
 		return errors.Trace(err)
 	}
 	st.UpdateStateForHook(hi, r.logger)
-	return r.stateMgr.SetRelation(st)
+	return r.stateMgr.SetRelation(ctx, st)
 }

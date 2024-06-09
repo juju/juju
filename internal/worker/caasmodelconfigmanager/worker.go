@@ -231,5 +231,5 @@ func (w *manager) ensureImageRepoSecret(ctx context.Context, reg registry.Regist
 }
 
 func (w *manager) scopedContext() (context.Context, context.CancelFunc) {
-	return context.WithCancel(context.Background())
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

@@ -32,7 +32,7 @@ type SecretStateTracker interface {
 
 	// SecretsRemoved updates the unit secrets state
 	// when secrets are removed.
-	SecretsRemoved(uris []string) error
+	SecretsRemoved(ctx context.Context, uris []string) error
 
 	// Report provides information for the engine report.
 	Report() map[string]interface{}

@@ -231,17 +231,17 @@ func (c *MockSecretStateTrackerSecretObsoleteRevisionsCall) DoAndReturn(f func(s
 }
 
 // SecretsRemoved mocks base method.
-func (m *MockSecretStateTracker) SecretsRemoved(arg0 []string) error {
+func (m *MockSecretStateTracker) SecretsRemoved(arg0 context.Context, arg1 []string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SecretsRemoved", arg0)
+	ret := m.ctrl.Call(m, "SecretsRemoved", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SecretsRemoved indicates an expected call of SecretsRemoved.
-func (mr *MockSecretStateTrackerMockRecorder) SecretsRemoved(arg0 any) *MockSecretStateTrackerSecretsRemovedCall {
+func (mr *MockSecretStateTrackerMockRecorder) SecretsRemoved(arg0, arg1 any) *MockSecretStateTrackerSecretsRemovedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretsRemoved", reflect.TypeOf((*MockSecretStateTracker)(nil).SecretsRemoved), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SecretsRemoved", reflect.TypeOf((*MockSecretStateTracker)(nil).SecretsRemoved), arg0, arg1)
 	return &MockSecretStateTrackerSecretsRemovedCall{Call: call}
 }
 
@@ -257,13 +257,13 @@ func (c *MockSecretStateTrackerSecretsRemovedCall) Return(arg0 error) *MockSecre
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretStateTrackerSecretsRemovedCall) Do(f func([]string) error) *MockSecretStateTrackerSecretsRemovedCall {
+func (c *MockSecretStateTrackerSecretsRemovedCall) Do(f func(context.Context, []string) error) *MockSecretStateTrackerSecretsRemovedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretStateTrackerSecretsRemovedCall) DoAndReturn(f func([]string) error) *MockSecretStateTrackerSecretsRemovedCall {
+func (c *MockSecretStateTrackerSecretsRemovedCall) DoAndReturn(f func(context.Context, []string) error) *MockSecretStateTrackerSecretsRemovedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

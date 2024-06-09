@@ -107,7 +107,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 	u.EXPECT().ApplicationTag().Return(appTag).AnyTimes()
 	u.EXPECT().Refresh(gomock.Any()).Return(nil).AnyTimes()
 	u.EXPECT().ProviderID().Return("").AnyTimes()
-	u.EXPECT().UpgradeSeriesStatus().Return(model.UpgradeSeriesNotStarted, "", nil).AnyTimes()
+	u.EXPECT().UpgradeSeriesStatus(gomock.Any()).Return(model.UpgradeSeriesNotStarted, "", nil).AnyTimes()
 	u.EXPECT().PrincipalName().Return("u", false, nil).AnyTimes()
 	u.EXPECT().EnsureDead().DoAndReturn(func() error {
 		u.mu.Lock()
@@ -189,7 +189,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		return nil
 	}).AnyTimes()
 
-	getState := func() (params.UnitStateResult, error) {
+	getState := func(context.Context) (params.UnitStateResult, error) {
 		ctx.stateMu.Lock()
 		defer ctx.stateMu.Unlock()
 		result := params.UnitStateResult{
@@ -199,7 +199,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		}
 		return result, nil
 	}
-	u.EXPECT().State().DoAndReturn(getState).AnyTimes()
+	u.EXPECT().State(gomock.Any()).DoAndReturn(getState).AnyTimes()
 
 	u.EXPECT().RelationsStatus().DoAndReturn(func() ([]apiuniter.RelationStatus, error) {
 		u.mu.Lock()

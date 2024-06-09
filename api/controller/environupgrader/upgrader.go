@@ -94,8 +94,8 @@ func (c *Client) SetModelEnvironVersion(tag names.ModelTag, v int) error {
 
 // WatchModelEnvironVersion starts a NotifyWatcher that notifies the caller upon
 // changes to the environ version of the model with the specified tag.
-func (c *Client) WatchModelEnvironVersion(tag names.ModelTag) (watcher.NotifyWatcher, error) {
-	return common.Watch(c.facade, "WatchModelEnvironVersion", tag)
+func (c *Client) WatchModelEnvironVersion(ctx context.Context, tag names.ModelTag) (watcher.NotifyWatcher, error) {
+	return common.Watch(ctx, c.facade, "WatchModelEnvironVersion", tag)
 }
 
 // SetModelStatus sets the status of a model.

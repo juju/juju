@@ -149,7 +149,7 @@ type destroyControllerAPI interface {
 	CloudSpec(names.ModelTag) (environscloudspec.CloudSpec, error)
 	DestroyController(controllerapi.DestroyControllerParams) error
 	ListBlockedModels() ([]params.ModelBlockInfo, error)
-	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
+	ModelStatus(ctx context.Context, models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
 	ControllerConfig(context.Context) (controller.Config, error)
 }

@@ -58,7 +58,7 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := u.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = app.Watch()
+	_, err = app.Watch(context.Background())
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 	c.Assert(calls, gc.Equals, 2)
 }

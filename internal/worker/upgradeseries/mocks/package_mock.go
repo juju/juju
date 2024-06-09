@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	base "github.com/juju/juju/core/base"
@@ -120,18 +121,18 @@ func (c *MockFacadeMachineStatusCall) DoAndReturn(f func() (model.UpgradeSeriesS
 }
 
 // PinMachineApplications mocks base method.
-func (m *MockFacade) PinMachineApplications() (map[string]error, error) {
+func (m *MockFacade) PinMachineApplications(arg0 context.Context) (map[string]error, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PinMachineApplications")
+	ret := m.ctrl.Call(m, "PinMachineApplications", arg0)
 	ret0, _ := ret[0].(map[string]error)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PinMachineApplications indicates an expected call of PinMachineApplications.
-func (mr *MockFacadeMockRecorder) PinMachineApplications() *MockFacadePinMachineApplicationsCall {
+func (mr *MockFacadeMockRecorder) PinMachineApplications(arg0 any) *MockFacadePinMachineApplicationsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinMachineApplications", reflect.TypeOf((*MockFacade)(nil).PinMachineApplications))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PinMachineApplications", reflect.TypeOf((*MockFacade)(nil).PinMachineApplications), arg0)
 	return &MockFacadePinMachineApplicationsCall{Call: call}
 }
 
@@ -147,13 +148,13 @@ func (c *MockFacadePinMachineApplicationsCall) Return(arg0 map[string]error, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadePinMachineApplicationsCall) Do(f func() (map[string]error, error)) *MockFacadePinMachineApplicationsCall {
+func (c *MockFacadePinMachineApplicationsCall) Do(f func(context.Context) (map[string]error, error)) *MockFacadePinMachineApplicationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadePinMachineApplicationsCall) DoAndReturn(f func() (map[string]error, error)) *MockFacadePinMachineApplicationsCall {
+func (c *MockFacadePinMachineApplicationsCall) DoAndReturn(f func(context.Context) (map[string]error, error)) *MockFacadePinMachineApplicationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -351,18 +352,18 @@ func (c *MockFacadeUnitsPreparedCall) DoAndReturn(f func() ([]names.UnitTag, err
 }
 
 // UnpinMachineApplications mocks base method.
-func (m *MockFacade) UnpinMachineApplications() (map[string]error, error) {
+func (m *MockFacade) UnpinMachineApplications(arg0 context.Context) (map[string]error, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnpinMachineApplications")
+	ret := m.ctrl.Call(m, "UnpinMachineApplications", arg0)
 	ret0, _ := ret[0].(map[string]error)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UnpinMachineApplications indicates an expected call of UnpinMachineApplications.
-func (mr *MockFacadeMockRecorder) UnpinMachineApplications() *MockFacadeUnpinMachineApplicationsCall {
+func (mr *MockFacadeMockRecorder) UnpinMachineApplications(arg0 any) *MockFacadeUnpinMachineApplicationsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpinMachineApplications", reflect.TypeOf((*MockFacade)(nil).UnpinMachineApplications))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpinMachineApplications", reflect.TypeOf((*MockFacade)(nil).UnpinMachineApplications), arg0)
 	return &MockFacadeUnpinMachineApplicationsCall{Call: call}
 }
 
@@ -378,30 +379,30 @@ func (c *MockFacadeUnpinMachineApplicationsCall) Return(arg0 map[string]error, a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeUnpinMachineApplicationsCall) Do(f func() (map[string]error, error)) *MockFacadeUnpinMachineApplicationsCall {
+func (c *MockFacadeUnpinMachineApplicationsCall) Do(f func(context.Context) (map[string]error, error)) *MockFacadeUnpinMachineApplicationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeUnpinMachineApplicationsCall) DoAndReturn(f func() (map[string]error, error)) *MockFacadeUnpinMachineApplicationsCall {
+func (c *MockFacadeUnpinMachineApplicationsCall) DoAndReturn(f func(context.Context) (map[string]error, error)) *MockFacadeUnpinMachineApplicationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchUpgradeSeriesNotifications mocks base method.
-func (m *MockFacade) WatchUpgradeSeriesNotifications() (watcher.Watcher[struct{}], error) {
+func (m *MockFacade) WatchUpgradeSeriesNotifications(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchUpgradeSeriesNotifications")
+	ret := m.ctrl.Call(m, "WatchUpgradeSeriesNotifications", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchUpgradeSeriesNotifications indicates an expected call of WatchUpgradeSeriesNotifications.
-func (mr *MockFacadeMockRecorder) WatchUpgradeSeriesNotifications() *MockFacadeWatchUpgradeSeriesNotificationsCall {
+func (mr *MockFacadeMockRecorder) WatchUpgradeSeriesNotifications(arg0 any) *MockFacadeWatchUpgradeSeriesNotificationsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUpgradeSeriesNotifications", reflect.TypeOf((*MockFacade)(nil).WatchUpgradeSeriesNotifications))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUpgradeSeriesNotifications", reflect.TypeOf((*MockFacade)(nil).WatchUpgradeSeriesNotifications), arg0)
 	return &MockFacadeWatchUpgradeSeriesNotificationsCall{Call: call}
 }
 
@@ -417,13 +418,13 @@ func (c *MockFacadeWatchUpgradeSeriesNotificationsCall) Return(arg0 watcher.Watc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeWatchUpgradeSeriesNotificationsCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockFacadeWatchUpgradeSeriesNotificationsCall {
+func (c *MockFacadeWatchUpgradeSeriesNotificationsCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockFacadeWatchUpgradeSeriesNotificationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeWatchUpgradeSeriesNotificationsCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockFacadeWatchUpgradeSeriesNotificationsCall {
+func (c *MockFacadeWatchUpgradeSeriesNotificationsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockFacadeWatchUpgradeSeriesNotificationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

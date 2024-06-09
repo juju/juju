@@ -4,6 +4,7 @@
 package upgradeseries
 
 import (
+	"context"
 	"strings"
 	"sync"
 
@@ -117,7 +118,10 @@ func NewWorker(config Config) (worker.Worker, error) {
 }
 
 func (w *upgradeSeriesWorker) loop() error {
-	uw, err := w.WatchUpgradeSeriesNotifications()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	uw, err := w.WatchUpgradeSeriesNotifications(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -130,7 +134,7 @@ func (w *upgradeSeriesWorker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-uw.Changes():
-			if err := w.handleUpgradeSeriesChange(); err != nil {
+			if err := w.handleUpgradeSeriesChange(ctx); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -140,7 +144,7 @@ func (w *upgradeSeriesWorker) loop() error {
 // handleUpgradeSeriesChange retrieves the current upgrade-series status for
 // this machine and based on the status, calls methods that will progress
 // the workflow accordingly.
-func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
+func (w *upgradeSeriesWorker) handleUpgradeSeriesChange(ctx context.Context) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -173,11 +177,11 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange() error {
 	case model.UpgradeSeriesValidate:
 		err = w.handleValidate()
 	case model.UpgradeSeriesPrepareStarted:
-		err = w.handlePrepareStarted()
+		err = w.handlePrepareStarted(ctx)
 	case model.UpgradeSeriesCompleteStarted:
 		err = w.handleCompleteStarted()
 	case model.UpgradeSeriesCompleted:
-		err = w.handleCompleted()
+		err = w.handleCompleted(ctx)
 	}
 
 	if err != nil {
@@ -199,14 +203,14 @@ func (w *upgradeSeriesWorker) handleValidate() error {
 
 // handlePrepareStarted handles workflow for the machine with an upgrade-series
 // lock status of "UpgradeSeriesPrepareStarted"
-func (w *upgradeSeriesWorker) handlePrepareStarted() error {
+func (w *upgradeSeriesWorker) handlePrepareStarted(ctx context.Context) error {
 	var err error
 	if err = w.SetInstanceStatus(model.UpgradeSeriesPrepareStarted, "preparing units"); err != nil {
 		return errors.Trace(err)
 	}
 
 	if !w.leadersPinned {
-		if err = w.pinLeaders(); err != nil {
+		if err = w.pinLeaders(ctx); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -294,7 +298,7 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 
 // handleCompleted notifies the server that it has completed the upgrade
 // workflow, then unpins leadership for applications running on the machine.
-func (w *upgradeSeriesWorker) handleCompleted() error {
+func (w *upgradeSeriesWorker) handleCompleted(ctx context.Context) error {
 	if err := w.SetInstanceStatus(model.UpgradeSeriesCompleted, "finalising upgrade"); err != nil {
 		return errors.Trace(err)
 	}
@@ -306,7 +310,7 @@ func (w *upgradeSeriesWorker) handleCompleted() error {
 	if err = w.FinishUpgradeSeries(b); err != nil {
 		return errors.Trace(err)
 	}
-	if err = w.unpinLeaders(); err != nil {
+	if err = w.unpinLeaders(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -315,18 +319,18 @@ func (w *upgradeSeriesWorker) handleCompleted() error {
 
 // pinLeaders pins leadership for applications
 // represented by units running on this machine.
-func (w *upgradeSeriesWorker) pinLeaders() (err error) {
+func (w *upgradeSeriesWorker) pinLeaders(ctx context.Context) (err error) {
 	// if we encounter an error,
 	// attempt to ensure that no application leaders remain pinned.
 	defer func() {
 		if err != nil {
-			if unpinErr := w.unpinLeaders(); unpinErr != nil {
+			if unpinErr := w.unpinLeaders(ctx); unpinErr != nil {
 				err = errors.Wrap(err, unpinErr)
 			}
 		}
 	}()
 
-	results, err := w.PinMachineApplications()
+	results, err := w.PinMachineApplications(ctx)
 	if err != nil {
 		// If pin machine applications method return not implemented because it's
 		// utilising the legacy leases store, then we should display the warning
@@ -358,8 +362,8 @@ func (w *upgradeSeriesWorker) pinLeaders() (err error) {
 
 // unpinLeaders unpins leadership for applications
 // represented by units running on this machine.
-func (w *upgradeSeriesWorker) unpinLeaders() error {
-	results, err := w.UnpinMachineApplications()
+func (w *upgradeSeriesWorker) unpinLeaders(ctx context.Context) error {
+	results, err := w.UnpinMachineApplications(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -422,6 +426,10 @@ func (w *upgradeSeriesWorker) Wait() error {
 func (w *upgradeSeriesWorker) Stop() error {
 	w.Kill()
 	return w.Wait()
+}
+
+func (w *upgradeSeriesWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
 func asGenericTags(units []names.UnitTag) []names.Tag {

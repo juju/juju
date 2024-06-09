@@ -98,7 +98,7 @@ func (s *relationerSuite) TestIfDyingFailJoin(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Try to Join
-	err = r.Join()
+	err = r.Join(context.Background())
 	c.Assert(err, gc.ErrorMatches, `dying relationer must not join!`)
 }
 
@@ -202,7 +202,7 @@ func (s *relationerSuite) TestJoinRelation(c *gc.C) {
 
 	r := s.newRelationer(c)
 
-	err := r.Join()
+	err := r.Join(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -214,7 +214,7 @@ func (s *relationerSuite) TestJoinRelationNotFound(c *gc.C) {
 	s.expectSetRelation()
 
 	r := s.newRelationer(c)
-	err := r.Join()
+	err := r.Join(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -286,7 +286,7 @@ func (s *relationerSuite) expectRelationFound(found bool) {
 }
 
 func (s *relationerSuite) expectSetRelation() {
-	s.stateManager.EXPECT().SetRelation(gomock.Any()).Return(nil)
+	s.stateManager.EXPECT().SetRelation(gomock.Any(), gomock.Any()).Return(nil)
 }
 
 func (s *relationerSuite) expectStateManagerRelation(err error) {

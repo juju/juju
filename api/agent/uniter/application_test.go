@@ -128,7 +128,7 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	w, err := app.Watch()
+	w, err := app.Watch(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()

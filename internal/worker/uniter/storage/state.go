@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
@@ -74,8 +76,8 @@ type stateOps struct {
 // UnitStateReadWriter encapsulates the methods from a state.Unit
 // required to set and get unit state.
 type UnitStateReadWriter interface {
-	State() (params.UnitStateResult, error)
-	SetState(unitState params.SetUnitStateArg) error
+	State(context.Context) (params.UnitStateResult, error)
+	SetState(ctx context.Context, unitState params.SetUnitStateArg) error
 }
 
 // NewStateOps returns a new StateOps.
@@ -85,9 +87,9 @@ func NewStateOps(rw UnitStateReadWriter) *stateOps {
 
 // Read reads a storage State from the controller. If the saved State
 // does not exist it returns NotFound and a new state.
-func (f *stateOps) Read() (*State, error) {
+func (f *stateOps) Read(ctx context.Context) (*State, error) {
 	var stor map[string]bool
-	unitState, err := f.unitStateRW.State()
+	unitState, err := f.unitStateRW.State(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -102,7 +104,7 @@ func (f *stateOps) Read() (*State, error) {
 
 // Write stores the supplied State storage map on the controller.  If
 // the storage map is empty, all data will be removed.
-func (f *stateOps) Write(st *State) error {
+func (f *stateOps) Write(ctx context.Context, st *State) error {
 	if st == nil {
 		return errors.Trace(errors.BadRequestf("arg is nil"))
 	}
@@ -114,5 +116,5 @@ func (f *stateOps) Write(st *State) error {
 		}
 		str = string(data)
 	}
-	return f.unitStateRW.SetState(params.SetUnitStateArg{StorageState: &str})
+	return f.unitStateRW.SetState(ctx, params.SetUnitStateArg{StorageState: &str})
 }

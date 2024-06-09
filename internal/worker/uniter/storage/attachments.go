@@ -4,6 +4,8 @@
 package storage
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -32,6 +34,7 @@ type Attachments struct {
 
 // NewAttachments returns a new Attachments.
 func NewAttachments(
+	ctx context.Context,
 	client api.StorageAccessor,
 	tag names.UnitTag,
 	rw UnitStateReadWriter,
@@ -44,7 +47,7 @@ func NewAttachments(
 		stateOps: NewStateOps(rw),
 		pending:  names.NewSet(),
 	}
-	if err := a.init(); err != nil {
+	if err := a.init(ctx); err != nil {
 		return nil, err
 	}
 	return a, nil
@@ -52,7 +55,7 @@ func NewAttachments(
 
 // init processes the storage State directory and creates storagers
 // for the State files found.
-func (a *Attachments) init() error {
+func (a *Attachments) init(ctx context.Context) error {
 	// Query all remote, known storage attachments for the unit,
 	// so we can store current context, and find pending storage.
 	attachmentIds, err := a.client.UnitStorageAttachments(a.unitTag)
@@ -67,7 +70,7 @@ func (a *Attachments) init() error {
 		}
 		attachmentsByTag.Add(storageTag)
 	}
-	existingStorageState, err := a.stateOps.Read()
+	existingStorageState, err := a.stateOps.Read(ctx)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "reading storage State")
 	}
@@ -89,7 +92,7 @@ func (a *Attachments) init() error {
 	if a.storageState.Empty() {
 		return nil
 	}
-	if err := a.stateOps.Write(newStateStorage); err != nil {
+	if err := a.stateOps.Write(ctx, newStateStorage); err != nil {
 		return err
 	}
 
@@ -118,7 +121,7 @@ func (a *Attachments) ValidateHook(hi hook.Info) error {
 
 // CommitHook persists the State change encoded in the supplied storage
 // hook, or returns an error if the hook is invalid given current State.
-func (a *Attachments) CommitHook(hi hook.Info) error {
+func (a *Attachments) CommitHook(ctx context.Context, hi hook.Info) error {
 	if !hi.Kind.IsStorage() {
 		return errors.Errorf("not a storage hook: %#v", hi)
 	}
@@ -130,7 +133,7 @@ func (a *Attachments) CommitHook(hi hook.Info) error {
 	} else {
 		a.storageState.Attach(hi.StorageId)
 	}
-	if err := a.stateOps.Write(a.storageState); err != nil {
+	if err := a.stateOps.Write(ctx, a.storageState); err != nil {
 		return err
 	}
 

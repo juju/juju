@@ -1521,8 +1521,8 @@ func (s *UniterSuite) TestTranslateResolverError(c *gc.C) {
 }
 
 func executorFunc(c *gc.C) uniter.NewOperationExecutorFunc {
-	return func(unitName string, cfg operation.ExecutorConfig) (operation.Executor, error) {
-		e, err := operation.NewExecutor(unitName, cfg)
+	return func(ctx context.Context, unitName string, cfg operation.ExecutorConfig) (operation.Executor, error) {
+		e, err := operation.NewExecutor(ctx, unitName, cfg)
 		c.Assert(err, jc.ErrorIsNil)
 		return &mockExecutor{e}, nil
 	}

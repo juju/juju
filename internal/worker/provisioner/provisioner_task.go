@@ -98,8 +98,8 @@ type ControllerAPI interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 	CACert() (string, error)
 	ModelUUID() (string, error)
-	ModelConfig(stdcontext.Context) (*config.Config, error)
-	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
+	ModelConfig(context.Context) (*config.Config, error)
+	WatchForModelConfigChanges(context.Context) (watcher.NotifyWatcher, error)
 	APIAddresses(context.Context) ([]string, error)
 }
 
