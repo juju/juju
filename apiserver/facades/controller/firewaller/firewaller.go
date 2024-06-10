@@ -35,6 +35,14 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// WatchModelMachines returns a StringsWatcher that notifies of the changes
+	// in the machines table for the model.
+	WatchModelMachines(context.Context) (watcher.StringsWatcher, error)
+}
+
 // ModelConfigService is an interface that provides access to the
 // model configuration.
 type ModelConfigService interface {
@@ -69,6 +77,7 @@ type FirewallerAPI struct {
 
 	controllerConfigService ControllerConfigService
 	modelConfigService      ModelConfigService
+	machineService          MachineService
 }
 
 // NewStateFirewallerAPI creates a new server-side FirewallerAPIV7 facade.
@@ -82,6 +91,7 @@ func NewStateFirewallerAPI(
 	controllerConfigAPI ControllerConfigAPI,
 	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
+	machineService MachineService,
 	logger corelogger.Logger,
 ) (*FirewallerAPI, error) {
 	if !authorizer.AuthController() {
@@ -123,6 +133,8 @@ func NewStateFirewallerAPI(
 		st,
 		resources,
 		authorizer,
+		watcherRegistry,
+		machineService,
 	)
 	// InstanceId() is supported for machines.
 	instanceIdGetter := common.NewInstanceIdGetter(
@@ -150,6 +162,7 @@ func NewStateFirewallerAPI(
 		controllerConfigService: controllerConfigService,
 		modelConfigService:      modelConfigService,
 		networkService:          networkService,
+		machineService:          machineService,
 		logger:                  logger,
 	}, nil
 }

@@ -37,6 +37,7 @@ type firewallerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	modelConfigService      *MockModelConfigService
 	networkService          *MockNetworkService
+	machineService          *MockMachineService
 }
 
 var _ = gc.Suite(&firewallerSuite{})
@@ -51,6 +52,7 @@ func (s *firewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 
 	return ctrl
 }
@@ -80,6 +82,7 @@ func (s *firewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigAPI,
 		s.controllerConfigService,
 		s.modelConfigService,
+		s.machineService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,11 +117,39 @@ func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 	s.testInstanceId(c, s.firewaller)
 }
 
+type fakeStringsWatcher struct {
+	changes chan []string
+}
+
+func (*fakeStringsWatcher) Stop() error {
+	return nil
+}
+
+func (*fakeStringsWatcher) Kill() {}
+
+func (*fakeStringsWatcher) Wait() error {
+	return nil
+}
+
+func (*fakeStringsWatcher) Err() error {
+	return nil
+}
+
+func (w *fakeStringsWatcher) Changes() <-chan []string {
+	return w.changes
+}
+
 func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 	s.setupAPI(c)
 
+	changes := make(chan []string, 3)
+	// Simulate initial event.
+	changes <- []string{"0", "1", "2"}
+	s.machineService.EXPECT().WatchModelMachines(gomock.Any()).Return(
+		&fakeStringsWatcher{changes: changes}, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 	s.testWatchModelMachines(c, s.firewaller)
 }
 

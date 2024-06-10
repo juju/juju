@@ -44,6 +44,7 @@ type RemoteFirewallerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	modelConfigService      *MockModelConfigService
 	networkService          *MockNetworkService
+	machineService          *MockMachineService
 }
 
 func (s *RemoteFirewallerSuite) SetUpTest(c *gc.C) {
@@ -69,6 +70,7 @@ func (s *RemoteFirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 
 	return ctrl
 }
@@ -85,6 +87,7 @@ func (s *RemoteFirewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigAPI,
 		s.controllerConfigService,
 		s.modelConfigService,
+		s.machineService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,6 +182,7 @@ type FirewallerSuite struct {
 	controllerConfigService *MockControllerConfigService
 	modelConfigService      *MockModelConfigService
 	networkService          *MockNetworkService
+	machineService          *MockMachineService
 }
 
 func (s *FirewallerSuite) SetUpTest(c *gc.C) {
@@ -201,6 +205,7 @@ func (s *FirewallerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.modelConfigService = NewMockModelConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 
 	return ctrl
 }
@@ -217,6 +222,7 @@ func (s *FirewallerSuite) setupAPI(c *gc.C) {
 		s.controllerConfigAPI,
 		s.controllerConfigService,
 		s.modelConfigService,
+		s.machineService,
 		loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
