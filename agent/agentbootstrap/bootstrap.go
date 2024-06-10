@@ -445,17 +445,11 @@ func initBootstrapMachine(st *state.State, args InitializeStateParams) (bootstra
 		hardware = *args.BootstrapMachineHardwareCharacteristics
 	}
 
-	spaceAddrs, err := args.BootstrapMachineAddresses.ToSpaceAddresses(st)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	base, err := coreos.HostBase()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
-		Addresses:               spaceAddrs,
 		Base:                    state.Base{OS: base.OS, Channel: base.Channel.String()},
 		Nonce:                   agent.BootstrapNonce,
 		Constraints:             args.BootstrapMachineConstraints,
