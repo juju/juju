@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/watcher"
 )
 
 // Right now, these are defined as constants, but the plan is to maybe make
@@ -36,13 +36,28 @@ type RetryStrategy interface {
 
 // RetryStrategyAPI implements RetryStrategy
 type RetryStrategyAPI struct {
-	st        *state.State
-	model     *state.Model
-	canAccess common.GetAuthFunc
-	resources facade.Resources
+	canAccess          common.GetAuthFunc
+	modelConfigService ModelConfigService
+	watcherRegistry    facade.WatcherRegistry
 }
 
 var _ RetryStrategy = (*RetryStrategyAPI)(nil)
+
+func NewRetryStrategyAPI(
+	authorizer facade.Authorizer,
+	modelConfigService ModelConfigService,
+	watcherRegistry facade.WatcherRegistry,
+) (*RetryStrategyAPI, error) {
+	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
+		return nil, apiservererrors.ErrPerm
+	}
+
+	return &RetryStrategyAPI{
+		canAccess:          func() (common.AuthFunc, error) { return authorizer.AuthOwner, nil },
+		modelConfigService: modelConfigService,
+		watcherRegistry:    watcherRegistry,
+	}, nil
+}
 
 // RetryStrategy returns RetryStrategyResults that can be used by any code that uses
 // to configure the retry timer that's currently in juju utils.
@@ -54,7 +69,7 @@ func (h *RetryStrategyAPI) RetryStrategy(ctx context.Context, args params.Entiti
 	if err != nil {
 		return params.RetryStrategyResults{}, errors.Trace(err)
 	}
-	config, err := h.model.ModelConfig(ctx)
+	config, err := h.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return params.RetryStrategyResults{}, errors.Trace(err)
 	}
@@ -99,20 +114,29 @@ func (h *RetryStrategyAPI) WatchRetryStrategy(ctx context.Context, args params.E
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		err = apiservererrors.ErrPerm
-		if canAccess(tag) {
-			watch := h.model.WatchForModelConfigChanges()
-			// Consume the initial event. Technically, API calls to Watch
-			// 'transmit' the initial event in the Watch response. But
-			// NotifyWatchers have no state to transmit.
-			if _, ok := <-watch.Changes(); ok {
-				results.Results[i].NotifyWatcherId = h.resources.Register(watch)
-				err = nil
-			} else {
-				err = watcher.EnsureErr(watch)
-			}
+
+		if !canAccess(tag) {
+			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
+			continue
 		}
-		results.Results[i].Error = apiservererrors.ServerError(err)
+
+		watch, err := h.modelConfigService.Watch()
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		notifyWatcher, err := watcher.Normalise[[]string](watch)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+
+		results.Results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](ctx, h.watcherRegistry, notifyWatcher)
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
 	}
 	return results, nil
 }

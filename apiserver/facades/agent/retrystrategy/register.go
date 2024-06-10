@@ -7,10 +7,6 @@ import (
 	"context"
 	"reflect"
 
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/apiserver/common"
-	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -23,23 +19,5 @@ func Register(registry facade.FacadeRegistry) {
 
 // newRetryStrategyAPI creates a new API endpoint for getting retry strategies.
 func newRetryStrategyAPI(ctx facade.ModelContext) (*RetryStrategyAPI, error) {
-	authorizer := ctx.Auth()
-	if !authorizer.AuthUnitAgent() && !authorizer.AuthApplicationAgent() {
-		return nil, apiservererrors.ErrPerm
-	}
-
-	st := ctx.State()
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &RetryStrategyAPI{
-		st:    st,
-		model: model,
-		canAccess: func() (common.AuthFunc, error) {
-			return authorizer.AuthOwner, nil
-		},
-		resources: ctx.Resources(),
-	}, nil
+	return NewRetryStrategyAPI(ctx.Auth(), ctx.ServiceFactory().Config(), ctx.WatcherRegistry())
 }

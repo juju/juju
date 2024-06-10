@@ -7,32 +7,26 @@ package retrystrategy_test
 import (
 	"context"
 
+	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facade/facadetest"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/retrystrategy"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	jujufactory "github.com/juju/juju/testing/factory"
 )
 
 var _ = gc.Suite(&retryStrategySuite{})
 
 type retryStrategySuite struct {
-	jujutesting.ApiServerSuite
-
-	authorizer apiservertesting.FakeAuthorizer
-	resources  *common.Resources
-
-	unit *state.Unit
-
-	strategy retrystrategy.RetryStrategy
+	strategy           retrystrategy.RetryStrategy
+	authorizer         apiservertesting.FakeAuthorizer
+	modelConfigService *MockModelConfigService
+	watcherRegistry    *facademocks.MockWatcherRegistry
 }
 
 var tagsTests = []struct {
@@ -46,41 +40,44 @@ var tagsTests = []struct {
 }
 
 func (s *retryStrategySuite) SetUpTest(c *gc.C) {
-	s.ApiServerSuite.SetUpTest(c)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	s.unit = f.MakeUnit(c, nil)
-
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming unit 0 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.unit.UnitTag(),
+		Tag: names.NewUnitTag("mysql/0"),
 	}
+}
 
-	// Create the resource registry separately to track invocations to
-	// Register.
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+func (s *retryStrategySuite) setupAPI(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
 
-	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.ModelContext{
-		State_:     s.ControllerModel(c).State(),
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-	})
+	s.modelConfigService = NewMockModelConfigService(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
+
+	strategy, err := retrystrategy.NewRetryStrategyAPI(
+		s.authorizer,
+		s.modelConfigService,
+		s.watcherRegistry,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.strategy = strategy
+
+	return ctrl
 }
 
 func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *gc.C) {
-	app, err := s.unit.Application()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	otherUnit := f.MakeUnit(c, &jujufactory.UnitParams{Application: app})
-	args := params.Entities{Entities: []params.Entity{{otherUnit.Tag().String()}}}
+	args := params.Entities{Entities: []params.Entity{{"unit-mysql-1"}}}
 
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(
+		config.New(false, map[string]any{
+			"name":                         "donotuse",
+			"type":                         "donotuse",
+			"uuid":                         "00000000-0000-0000-0000-000000000000",
+			config.AutomaticallyRetryHooks: true,
+		}),
+	)
 	res, err := s.strategy.RetryStrategy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
@@ -89,10 +86,22 @@ func (s *retryStrategySuite) TestRetryStrategyUnauthenticated(c *gc.C) {
 }
 
 func (s *retryStrategySuite) TestRetryStrategyBadTag(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	args := params.Entities{Entities: make([]params.Entity, len(tagsTests))}
 	for i, t := range tagsTests {
 		args.Entities[i] = params.Entity{Tag: t.tag}
 	}
+
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(
+		config.New(false, map[string]any{
+			"name":                         "donotuse",
+			"type":                         "donotuse",
+			"uuid":                         "00000000-0000-0000-0000-000000000000",
+			config.AutomaticallyRetryHooks: true,
+		}),
+	)
 	res, err := s.strategy.RetryStrategy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, len(tagsTests))
@@ -104,27 +113,20 @@ func (s *retryStrategySuite) TestRetryStrategyBadTag(c *gc.C) {
 }
 
 func (s *retryStrategySuite) TestRetryStrategyUnit(c *gc.C) {
-	s.assertRetryStrategy(c, s.unit.Tag().String())
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	s.assertRetryStrategy(c, "unit-mysql-0")
 }
 
 func (s *retryStrategySuite) TestRetryStrategyApplication(c *gc.C) {
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	app := f.MakeApplication(c, &jujufactory.ApplicationParams{Name: "app"})
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: app.Tag(),
+		Tag: names.NewApplicationTag("app"),
 	}
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
 
-	strategy, err := retrystrategy.NewRetryStrategyAPI(facadetest.ModelContext{
-		State_:     s.ControllerModel(c).State(),
-		Resources_: s.resources,
-		Auth_:      s.authorizer,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.strategy = strategy
-
-	s.assertRetryStrategy(c, app.Tag().String())
+	s.assertRetryStrategy(c, "application-app")
 }
 
 func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
@@ -136,13 +138,29 @@ func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
 		RetryTimeFactor: retrystrategy.RetryTimeFactor,
 	}
 	args := params.Entities{Entities: []params.Entity{{Tag: tag}}}
+
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(
+		config.New(false, map[string]any{
+			"name":                         "donotuse",
+			"type":                         "donotuse",
+			"uuid":                         "00000000-0000-0000-0000-000000000000",
+			config.AutomaticallyRetryHooks: true,
+		}),
+	)
 	r, err := s.strategy.RetryStrategy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, 1)
 	c.Assert(r.Results[0].Error, gc.IsNil)
 	c.Assert(r.Results[0].Result, jc.DeepEquals, expected)
 
-	s.setRetryStrategy(c, false)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(
+		config.New(false, map[string]any{
+			"name":                         "donotuse",
+			"type":                         "donotuse",
+			"uuid":                         "00000000-0000-0000-0000-000000000000",
+			config.AutomaticallyRetryHooks: false,
+		}),
+	)
 	expected.ShouldRetry = false
 
 	r, err = s.strategy.RetryStrategy(context.Background(), args)
@@ -152,23 +170,11 @@ func (s *retryStrategySuite) assertRetryStrategy(c *gc.C, tag string) {
 	c.Assert(r.Results[0].Result, jc.DeepEquals, expected)
 }
 
-func (s *retryStrategySuite) setRetryStrategy(c *gc.C, automaticallyRetryHooks bool) {
-	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{"automatically-retry-hooks": automaticallyRetryHooks}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := s.ControllerModel(c).ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelConfig.AutomaticallyRetryHooks(), gc.Equals, automaticallyRetryHooks)
-}
-
 func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *gc.C) {
-	app, err := s.unit.Application()
-	c.Assert(err, jc.ErrorIsNil)
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	otherUnit := f.MakeUnit(c, &jujufactory.UnitParams{Application: app})
-	args := params.Entities{Entities: []params.Entity{{otherUnit.Tag().String()}}}
-
+	args := params.Entities{Entities: []params.Entity{{"unit-mysql-1"}}}
 	res, err := s.strategy.WatchRetryStrategy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results, gc.HasLen, 1)
@@ -177,6 +183,9 @@ func (s *retryStrategySuite) TestWatchRetryStrategyUnauthenticated(c *gc.C) {
 }
 
 func (s *retryStrategySuite) TestWatchRetryStrategyBadTag(c *gc.C) {
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
 	args := params.Entities{Entities: make([]params.Entity, len(tagsTests))}
 	for i, t := range tagsTests {
 		args.Entities[i] = params.Entity{Tag: t.tag}
@@ -192,10 +201,17 @@ func (s *retryStrategySuite) TestWatchRetryStrategyBadTag(c *gc.C) {
 }
 
 func (s *retryStrategySuite) TestWatchRetryStrategy(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	ctrl := s.setupAPI(c)
+	defer ctrl.Finish()
+
+	notifyCh := make(chan []string, 1)
+	notifyCh <- []string{}
+	watcher := watchertest.NewMockStringsWatcher(notifyCh)
+	s.modelConfigService.EXPECT().Watch().Return(watcher, nil)
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.unit.UnitTag().String()},
+		{Tag: "unit-mysql-0"},
 		{Tag: "unit-foo-42"},
 	}}
 	r, err := s.strategy.WatchRetryStrategy(context.Background(), args)
@@ -206,15 +222,4 @@ func (s *retryStrategySuite) TestWatchRetryStrategy(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
-
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
-
-	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
-	wc.AssertNoChange()
-
-	s.setRetryStrategy(c, false)
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
 }
