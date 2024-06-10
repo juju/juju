@@ -50,7 +50,6 @@ func (s *ModelState) Create(ctx context.Context, args model.ReadOnlyModelCreatio
 
 // Delete deletes a model.
 func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
-	// TODO (manadart 2024-06-06): Check why we block here prior to PR 17472.
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
@@ -248,8 +249,21 @@ func (i *importOperation) Rollback(ctx context.Context, model description.Model)
 		return fmt.Errorf("rollback of model during migration %w", errors.NotValid)
 	}
 
+	// If the model is not found, or the underlying db is not found, we can
+	// ignore the error.
+	if err := i.readOnlyModelServiceFunc(modelID).DeleteModel(ctx); err != nil &&
+		!errors.Is(err, modelerrors.NotFound) &&
+		!errors.Is(err, coredatabase.ErrDBNotFound) {
+		return fmt.Errorf(
+			"rollback of read only model %q with uuid %q during migration: %w",
+			modelName, modelID, err,
+		)
+	}
+
 	// If the model isn't found, we can simply ignore the error.
-	if err := i.modelService.DeleteModel(ctx, modelID, domainmodel.WithDeleteDB()); err != nil && !errors.Is(err, modelerrors.NotFound) {
+	if err := i.modelService.DeleteModel(ctx, modelID, domainmodel.WithDeleteDB()); err != nil &&
+		!errors.Is(err, modelerrors.NotFound) &&
+		!errors.Is(err, coredatabase.ErrDBNotFound) {
 		return fmt.Errorf(
 			"rollback of model %q with uuid %q during migration: %w",
 			modelName, modelID, err,

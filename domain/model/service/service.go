@@ -409,9 +409,6 @@ func (s *Service) DeleteModel(
 	// supported in dqlite). For now we do a best effort to remove all items
 	// with in the db.
 	if err := s.modelDeleter.DeleteDB(uuid.String()); err != nil {
-		if errors.Is(err, errors.NotFound) {
-			return modelerrors.NotFound
-		}
 		return fmt.Errorf("delete model: %w", err)
 	}
 

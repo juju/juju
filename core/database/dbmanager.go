@@ -21,6 +21,10 @@ const (
 	// ErrDBDead is used to indicate that the database is dead and should no
 	// longer be used.
 	ErrDBDead = errors.ConstError("database is dead")
+
+	// ErrDBNotFound is used to indicate that the requested database does not
+	// exist.
+	ErrDBNotFound = errors.ConstError("database not found")
 )
 
 // DBGetter describes the ability to supply a transaction runner
