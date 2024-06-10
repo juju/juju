@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -189,16 +188,12 @@ func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owne
 }
 
 func (s *WatchableService) WatchObsoleteUserSecrets(ctx context.Context) (watcher.NotifyWatcher, error) {
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
-	return watchertest.NewMockNotifyWatcher(ch), nil
+	return watcher.TODO[struct{}](), nil
 }
 
 // WatchSecretBackendChanged notifies when the model secret backend has changed.
 func (s *WatchableService) WatchSecretBackendChanged(ctx context.Context) (watcher.NotifyWatcher, error) {
-	ch := make(chan struct{}, 1)
-	ch <- struct{}{}
-	return watchertest.NewMockNotifyWatcher(ch), nil
+	return watcher.TODO[struct{}](), nil
 }
 
 // secretWatcher is a watcher that watches for secret changes to a set of strings.

@@ -124,6 +124,16 @@ func (c StringsWatcherC) AssertNoChange() {
 // error before a long time has passed; and (2) that Changes remains open but
 // no values are being sent.
 func (c StringsWatcherC) AssertStops() {
+	c.assertStops(false)
+}
+
+// AssertKilled Kills the watcher and asserts that Wait completes without
+// error before a long time has passed.
+func (c StringsWatcherC) AssertKilled() {
+	c.assertStops(true)
+}
+
+func (c StringsWatcherC) assertStops(changesClosed bool) {
 	c.Watcher.Kill()
 	wait := make(chan error)
 	go func() {
@@ -138,7 +148,9 @@ func (c StringsWatcherC) AssertStops() {
 
 	select {
 	case change, ok := <-c.Watcher.Changes():
-		c.Fatalf("watcher sent unexpected change: (%#v, %v)", change, ok)
+		if ok || !changesClosed {
+			c.Fatalf("watcher sent unexpected change: (%#v, %v)", change, ok)
+		}
 	default:
 	}
 }
