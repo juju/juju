@@ -4,6 +4,8 @@
 package service
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -34,7 +36,7 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 
 // WatchModelMachines returns a StringsWatcher that is subscribed to the changes
 // in the machines table in the model.
-func (s *WatchableService) WatchModelMachines() (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error) {
 	table, stmt := s.st.InitialWatchStatement()
 	return s.watcherFactory.NewNamespaceWatcher(
 		table,
