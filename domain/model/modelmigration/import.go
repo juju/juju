@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
+	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
@@ -160,9 +161,24 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		cred.Owner = model.CloudCredential().Owner()
 	}
 
+	// TODO: handle this magic in juju/description, preferably sending the agent-version
+	// over the wire as a top-level field on the model, removing it from model config.
+	agentVersionStr, ok := model.Config()[config.AgentVersionKey].(string)
+	if !ok {
+		return fmt.Errorf(
+			"cannot import model %q with uuid %q: agent-version missing from model config",
+			modelName, modelID)
+	}
+	agentVersion, err := version.Parse(agentVersionStr)
+	if err != nil {
+		return fmt.Errorf(
+			"cannot import model %q with uuid %q: cannot parse agent-version: %w",
+			modelName, modelID, err)
+	}
+
 	args := domainmodel.ModelImportArgs{
 		ModelCreationArgs: domainmodel.ModelCreationArgs{
-			AgentVersion: model.LatestToolsVersion(),
+			AgentVersion: agentVersion,
 			Cloud:        model.Cloud(),
 			CloudRegion:  model.CloudRegion(),
 			Credential:   cred,
