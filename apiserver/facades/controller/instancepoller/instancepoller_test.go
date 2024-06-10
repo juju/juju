@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/common/networkingcommon/mocks"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
@@ -36,11 +37,13 @@ import (
 type InstancePollerSuite struct {
 	testing.IsolationSuite
 
-	st             *mockState
-	api            *instancepoller.InstancePollerAPI
-	authoriser     apiservertesting.FakeAuthorizer
-	resources      *common.Resources
-	networkService *MockNetworkService
+	st              *mockState
+	api             *instancepoller.InstancePollerAPI
+	authoriser      apiservertesting.FakeAuthorizer
+	resources       *common.Resources
+	watcherRegistry *facademocks.MockWatcherRegistry
+	networkService  *MockNetworkService
+	machineService  *MockMachineService
 
 	machineEntities     params.Entities
 	machineErrorResults params.ErrorResults
@@ -57,6 +60,8 @@ func (s *InstancePollerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.networkService = NewMockNetworkService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 	return ctrl
 }
 
@@ -77,7 +82,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.clock = testclock.NewClock(time.Now())
 	controllerConfigService := controllerConfigService{}
-	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.networkService, nil, s.resources, s.authoriser, controllerConfigService, s.clock, loggertesting.WrapCheckLog(c))
+	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.networkService, nil, s.resources, s.authoriser, s.watcherRegistry, s.machineService, controllerConfigService, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineEntities = params.Entities{
@@ -123,7 +128,7 @@ func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *gc.C
 
 	controllerConfigService := controllerConfigService{}
 
-	api, err := instancepoller.NewInstancePollerAPI(nil, nil, nil, s.resources, anAuthoriser, controllerConfigService, s.clock, loggertesting.WrapCheckLog(c))
+	api, err := instancepoller.NewInstancePollerAPI(nil, nil, nil, s.resources, anAuthoriser, s.watcherRegistry, s.machineService, controllerConfigService, s.clock, loggertesting.WrapCheckLog(c))
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
