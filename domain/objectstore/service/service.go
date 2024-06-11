@@ -127,9 +127,6 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 	}
 }
 
-// It's for testing.
-var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
-
 // Watch returns a watcher that emits the path changes that either have been
 // added or removed.
 func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
@@ -137,6 +134,6 @@ func (s *WatchableService) Watch() (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewNamespaceWatcher(
 		table,
 		changestream.All,
-		InitialNamespaceChanges(stmt),
+		eventsource.InitialNamespaceChanges(stmt),
 	)
 }
