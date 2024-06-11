@@ -564,10 +564,8 @@ Enter a name for this controller: »foo
 	s.apiOpenError = errors.New("open failed")
 	err := s.run(c, prompter, registrationData)
 	c.Assert(c.GetTestLog(), gc.Matches, "(.|\n)*open failed(.|\n)*")
-	c.Assert(err, gc.ErrorMatches, `
-Provided registration token may have been expired.
-A controller administrator must reset your user to issue a new token.
-See "juju help change-user-password" for more information.`[1:])
+	c.Assert(err, gc.ErrorMatches, `Cannot reach controller "foo" at: `+s.apiConnection.Addr()+".\n"+
+		"Check that the controller ip is reachable from your network.")
 }
 
 func (s *RegisterSuite) TestRegisterServerError(c *gc.C) {
@@ -596,7 +594,7 @@ Enter a name for this controller: »foo
 	err = s.run(c, prompter, registrationData)
 	c.Assert(c.GetTestLog(), gc.Matches, "(.|\n)* xyz(.|\n)*")
 	c.Assert(err, gc.ErrorMatches, `
-Provided registration token may have been expired.
+Provided registration token may have expired.
 A controller administrator must reset your user to issue a new token.
 See "juju help change-user-password" for more information.`[1:])
 

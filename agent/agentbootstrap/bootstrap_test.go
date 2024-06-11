@@ -205,8 +205,8 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// Check that the model has been set up.
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(model.UUID(), gc.Equals, modelCfg.UUID())
-	c.Assert(model.EnvironVersion(), gc.Equals, 666)
+	c.Check(model.UUID(), gc.Equals, modelCfg.UUID())
+	c.Check(model.EnvironVersion(), gc.Equals, 666)
 
 	// Check that initial admin user has been set up correctly.
 	modelTag := model.Tag().(names.ModelTag)
@@ -214,7 +214,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	s.assertCanLogInAsAdmin(c, modelTag, controllerTag, testing.DefaultMongoPassword)
 	user, err := st.User(model.Owner())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
+	c.Check(user.PasswordValid(testing.DefaultMongoPassword), jc.IsTrue)
 
 	// Check that controller model configuration has been added, and
 	// model constraints set.
@@ -230,11 +230,11 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	expectedAttrs := expectedCfg.AllAttrs()
 	expectedAttrs["apt-mirror"] = "http://mirror"
 	expectedAttrs["no-proxy"] = "value"
-	c.Assert(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
+	c.Check(newModelCfg.AllAttrs(), jc.DeepEquals, expectedAttrs)
 
 	gotModelConstraints, err := st.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
+	c.Check(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
 
 	// Check that the hosted model has been added, model constraints
 	// set, and its config contains the same authorized-keys as the
@@ -244,39 +244,43 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	defer initialModelSt.Release()
 	gotModelConstraints, err = initialModelSt.ModelConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
+	c.Check(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
+
 	initialModel, err := initialModelSt.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(initialModel.Name(), gc.Equals, "hosted")
-	c.Assert(initialModel.CloudRegion(), gc.Equals, "dummy-region")
-	c.Assert(initialModel.EnvironVersion(), gc.Equals, 123)
+	c.Check(initialModel.Name(), gc.Equals, "hosted")
+	c.Check(initialModel.CloudRegion(), gc.Equals, "dummy-region")
+	c.Check(initialModel.EnvironVersion(), gc.Equals, 123)
+
 	hostedCfg, err := initialModel.ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
-	c.Assert(hasUnexpected, jc.IsFalse)
-	c.Assert(hostedCfg.AuthorizedKeys(), gc.Equals, newModelCfg.AuthorizedKeys())
+	c.Check(hasUnexpected, jc.IsFalse)
+	c.Check(hostedCfg.AuthorizedKeys(), gc.Equals, newModelCfg.AuthorizedKeys())
 
 	// Check that the bootstrap machine looks correct.
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Id(), gc.Equals, "0")
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
+	c.Check(m.Id(), gc.Equals, "0")
+	c.Check(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageModel})
+
 	base, err := corebase.ParseBase(m.Base().OS, m.Base().Channel)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.Base().String(), gc.Equals, base.String())
-	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
+	c.Check(m.Base().String(), gc.Equals, base.String())
+	c.Check(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
+
 	gotBootstrapConstraints, err := m.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(gotBootstrapConstraints, gc.DeepEquals, expectBootstrapConstraints)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(gotBootstrapConstraints, gc.DeepEquals, expectBootstrapConstraints)
+
 	gotHW, err := m.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*gotHW, gc.DeepEquals, expectHW)
+	c.Check(*gotHW, gc.DeepEquals, expectHW)
 
 	// Check that the state serving info is initialised correctly.
 	stateServingInfo, err := st.StateServingInfo()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stateServingInfo, jc.DeepEquals, controller.StateServingInfo{
+	c.Check(stateServingInfo, jc.DeepEquals, controller.StateServingInfo{
 		APIPort:        1234,
 		StatePort:      s.mgoInst.Port(),
 		Cert:           testing.ServerCert,
@@ -291,10 +295,11 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	machine0 := names.NewMachineTag("0")
 	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, machine0))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(newCfg.Tag(), gc.Equals, machine0)
+	c.Check(newCfg.Tag(), gc.Equals, machine0)
+
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	c.Assert(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
+	c.Check(info.Password, gc.Not(gc.Equals), testing.DefaultMongoPassword)
 
 	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)

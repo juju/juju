@@ -416,6 +416,92 @@ func (s *withoutControllerSuite) TestConflictingNegativeConstraintWithBindingErr
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
+func (s *withoutControllerSuite) TestNoSpaceConstraintsProvidedSpaceTopologyEmpty(c *gc.C) {
+	st := s.ControllerModel(c).State()
+	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
+		Base: state.UbuntuBase("12.10"),
+		Jobs: []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	// Simulates running `juju deploy --bind "..."`.
+	bindings := map[string]string{
+		"url": network.AlphaSpaceId,
+		"db":  network.AlphaSpaceId,
+	}
+	wordpressService := f.MakeApplication(c, &factory.ApplicationParams{
+		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+		EndpointBindings: bindings,
+	})
+	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = wordpressUnit.AssignToMachine(wordpressMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: wordpressMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Result.ProvisioningNetworkTopology.SubnetAZs, gc.IsNil)
+	c.Assert(result.Results[0].Result.ProvisioningNetworkTopology.SpaceSubnets, gc.IsNil)
+}
+
+func (s *withoutControllerSuite) TestAlphaSpaceConstraintsProvidedExplicitly(c *gc.C) {
+	s.addSpacesAndSubnets(c)
+	st := s.ControllerModel(c).State()
+
+	networkService := s.serviceFactory.Network()
+	networkService.AddSubnet(context.Background(), network.SubnetInfo{
+		CIDR:              "10.10.4.0/24",
+		ProviderId:        "subnet-alpha",
+		AvailabilityZones: []string{"zone-alpha"},
+		SpaceID:           network.AlphaSpaceId,
+		VLANTag:           43,
+	})
+
+	cons := constraints.MustParse("spaces=alpha")
+	wordpressMachine, err := st.AddOneMachine(s.InstancePrechecker(c, st), state.MachineTemplate{
+		Base:        state.UbuntuBase("12.10"),
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	f, release := s.NewFactory(c, s.ControllerModelUUID())
+	defer release()
+
+	// Simulates running `juju deploy --bind "..."`.
+	bindings := map[string]string{
+		"url": network.AlphaSpaceId,
+		"db":  network.AlphaSpaceId,
+	}
+	wordpressService := f.MakeApplication(c, &factory.ApplicationParams{
+		Charm:            f.MakeCharm(c, &factory.CharmParams{Name: "wordpress"}),
+		EndpointBindings: bindings,
+	})
+	wordpressUnit, err := wordpressService.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = wordpressUnit.AssignToMachine(wordpressMachine)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: wordpressMachine.Tag().String()},
+	}}
+	result, err := s.provisioner.ProvisioningInfo(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+	c.Assert(result.Results[0].Result.ProvisioningNetworkTopology.SubnetAZs, gc.DeepEquals, map[string][]string{"subnet-alpha": {"zone-alpha"}})
+	c.Assert(result.Results[0].Result.ProvisioningNetworkTopology.SpaceSubnets, gc.DeepEquals, map[string][]string{"alpha": {"subnet-alpha"}})
+}
 func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) network.SpaceInfos {
 	networkService := s.serviceFactory.Network()
 	// Add a couple of spaces.
