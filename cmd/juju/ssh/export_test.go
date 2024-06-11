@@ -4,6 +4,8 @@
 package ssh
 
 import (
+	"context"
+
 	"github.com/juju/retry"
 
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
@@ -59,8 +61,8 @@ func (c *sshContainer) SetArgs(args []string) {
 	c.setArgs(args)
 }
 
-func (c *sshContainer) InitRun(mc ModelCommand) (err error) {
-	return c.initRun(mc)
+func (c *sshContainer) InitRun(ctx context.Context, mc ModelCommand) (err error) {
+	return c.initRun(ctx, mc)
 }
 
 func (c *sshContainer) Namespace() string {
@@ -75,7 +77,7 @@ type SSHContainerInterfaceForTest interface {
 	GetExecClient() (k8sexec.Executor, error)
 	ModelName() string
 	SetArgs([]string)
-	InitRun(mc ModelCommand) (err error)
+	InitRun(ctx context.Context, mc ModelCommand) (err error)
 	Namespace() string
 }
 

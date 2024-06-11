@@ -4,6 +4,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -60,7 +61,7 @@ func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controlle
 
 		// If we hit an error, status.HostedModelCount will be 0, the polling
 		// loop will stop and we'll go directly to destroying the model.
-		envStatus, err := newData(api, controllerModelUUID)
+		envStatus, err := newData(ctx.Context, api, controllerModelUUID)
 		if err != nil {
 			ctx.Infof("Unable to get the controller summary from the API: %s.", err)
 		}
@@ -69,7 +70,7 @@ func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controlle
 	}
 }
 
-func newData(api destroyControllerAPI, controllerModelUUID string) (environmentStatus, error) {
+func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID string) (environmentStatus, error) {
 	models, err := api.AllModels()
 	if err != nil {
 		return environmentStatus{
@@ -93,7 +94,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (environmentS
 		modelName[model.UUID] = model.Name
 	}
 
-	status, err := api.ModelStatus(modelTags...)
+	status, err := api.ModelStatus(ctx, modelTags...)
 	if err != nil {
 		return environmentStatus{
 			Controller:   ctrData{},

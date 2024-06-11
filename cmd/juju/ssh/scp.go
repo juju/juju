@@ -184,7 +184,7 @@ func (c *scpCommand) Init(args []string) (err error) {
 // Run resolves c.Target to a machine, or host of a unit and
 // forks ssh with c.Args, if provided.
 func (c *scpCommand) Run(ctx *cmd.Context) error {
-	if err := c.provider.initRun(&c.ModelCommandBase); err != nil {
+	if err := c.provider.initRun(ctx.Context, &c.ModelCommandBase); err != nil {
 		return errors.Trace(err)
 	}
 	defer c.provider.cleanupRun()

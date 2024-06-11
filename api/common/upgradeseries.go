@@ -32,12 +32,12 @@ func NewUpgradeSeriesAPI(facade base.FacadeCaller, tag names.Tag) *UpgradeSeries
 
 // WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing the state of
 // a series upgrade.
-func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error) {
+func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.facade.FacadeCall(context.TODO(), "WatchUpgradeSeriesNotifications", args, &results)
+	err := u.facade.FacadeCall(ctx, "WatchUpgradeSeriesNotifications", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -54,13 +54,13 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications() (watcher.NotifyWatc
 
 // UpgradeSeriesUnitStatus returns the upgrade series status of a
 // unit from remote state.
-func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus() (model.UpgradeSeriesStatus, string, error) {
+func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus(ctx context.Context) (model.UpgradeSeriesStatus, string, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 
-	err := u.facade.FacadeCall(context.TODO(), "UpgradeSeriesUnitStatus", args, &results)
+	err := u.facade.FacadeCall(ctx, "UpgradeSeriesUnitStatus", args, &results)
 	if err != nil {
 		return "", "", err
 	}
@@ -85,7 +85,7 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus() (model.UpgradeSeriesStatus,
 
 // SetUpgradeSeriesUnitStatus sets the upgrade series status of the
 // unit in the remote state.
-func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(status model.UpgradeSeriesStatus, reason string) error {
+func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(ctx context.Context, status model.UpgradeSeriesStatus, reason string) error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatusParam{{
@@ -94,7 +94,7 @@ func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(status model.UpgradeSeries
 			Message: reason,
 		}},
 	}
-	err := u.facade.FacadeCall(context.TODO(), "SetUpgradeSeriesUnitStatus", args, &results)
+	err := u.facade.FacadeCall(ctx, "SetUpgradeSeriesUnitStatus", args, &results)
 	if err != nil {
 		return err
 	}

@@ -28,7 +28,7 @@ func NewModelStatusAPI(facade base.FacadeCaller) *ModelStatusAPI {
 }
 
 // ModelStatus returns a status summary for each model tag passed in.
-func (c *ModelStatusAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error) {
+func (c *ModelStatusAPI) ModelStatus(ctx context.Context, tags ...names.ModelTag) ([]base.ModelStatus, error) {
 	result := params.ModelStatusResults{}
 	models := make([]params.Entity, len(tags))
 	for i, tag := range tags {
@@ -37,7 +37,7 @@ func (c *ModelStatusAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus
 	req := params.Entities{
 		Entities: models,
 	}
-	if err := c.facade.FacadeCall(context.TODO(), "ModelStatus", req, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ModelStatus", req, &result); err != nil {
 		return nil, err
 	}
 	if len(result.Results) != len(tags) {

@@ -261,6 +261,9 @@ func (fw *Firewaller) setUp() error {
 }
 
 func (fw *Firewaller) loop() error {
+	ctx, cancel := fw.scopedContext()
+	defer cancel()
+
 	if err := fw.setUp(); err != nil {
 		return errors.Trace(err)
 	}
@@ -301,7 +304,7 @@ func (fw *Firewaller) loop() error {
 				return errors.New("machines watcher closed")
 			}
 			for _, machineId := range change {
-				if err := fw.machineLifeChanged(context.TODO(), names.NewMachineTag(machineId)); err != nil {
+				if err := fw.machineLifeChanged(ctx, names.NewMachineTag(machineId)); err != nil {
 					return err
 				}
 			}
@@ -309,9 +312,9 @@ func (fw *Firewaller) loop() error {
 				reconciled = true
 				var err error
 				if fw.globalMode {
-					err = fw.reconcileGlobal()
+					err = fw.reconcileGlobal(ctx)
 				} else {
-					err = fw.reconcileInstances(context.TODO())
+					err = fw.reconcileInstances(ctx)
 				}
 				if err != nil {
 					return errors.Trace(err)
@@ -330,7 +333,7 @@ func (fw *Firewaller) loop() error {
 			}
 			for _, portsGlobalKey := range change {
 				machineTag := names.NewMachineTag(portsGlobalKey)
-				if err := fw.openedPortsChanged(context.TODO(), machineTag); err != nil {
+				if err := fw.openedPortsChanged(ctx, machineTag); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -339,7 +342,7 @@ func (fw *Firewaller) loop() error {
 				return errors.New("remote relations watcher closed")
 			}
 			for _, relationKey := range change {
-				if err := fw.relationLifeChanged(context.TODO(), names.NewRelationTag(relationKey)); err != nil {
+				if err := fw.relationLifeChanged(ctx, names.NewRelationTag(relationKey)); err != nil {
 					return err
 				}
 			}
@@ -348,18 +351,18 @@ func (fw *Firewaller) loop() error {
 				return errors.New("subnet watcher closed")
 			}
 
-			if err := fw.subnetsChanged(context.TODO()); err != nil {
+			if err := fw.subnetsChanged(ctx); err != nil {
 				return errors.Trace(err)
 			}
 		case change := <-fw.localRelationsChange:
 			// We have a notification that the remote (consuming) model
 			// has changed egress networks so need to update the local
 			// model to allow those networks through the firewall.
-			if err := fw.relationIngressChanged(context.TODO(), change); err != nil {
+			if err := fw.relationIngressChanged(ctx, change); err != nil {
 				return errors.Trace(err)
 			}
 		case change := <-fw.unitsChange:
-			if err := fw.unitsChanged(context.TODO(), change); err != nil {
+			if err := fw.unitsChanged(ctx, change); err != nil {
 				return errors.Trace(err)
 			}
 		case change := <-fw.exposedChange:
@@ -369,7 +372,7 @@ func (fw *Firewaller) loop() error {
 			for _, unitd := range change.applicationd.unitds {
 				unitds = append(unitds, unitd)
 			}
-			if err := fw.flushUnits(context.TODO(), unitds); err != nil {
+			if err := fw.flushUnits(ctx, unitds); err != nil {
 				return errors.Annotate(err, "cannot change firewall ports")
 			}
 		}
@@ -586,16 +589,15 @@ func (fw *Firewaller) startApplication(app Application) error {
 // reconcileGlobal compares the initially started watcher for machines,
 // units and applications with the opened and closed ports globally and
 // opens and closes the appropriate ports for the whole environment.
-func (fw *Firewaller) reconcileGlobal() error {
+func (fw *Firewaller) reconcileGlobal(ctx context.Context) error {
 	var machines []*machineData
 	for _, machined := range fw.machineds {
 		machines = append(machines, machined)
 	}
-	want, err := fw.gatherIngressRules(machines...)
+	want, err := fw.gatherIngressRules(ctx, machines...)
 	if err != nil {
 		return err
 	}
-	ctx := stdcontext.Background()
 	initialPortRanges, err := fw.environFirewaller.IngressRules(fw.cloudCallContextFunc(ctx))
 	if err != nil {
 		return err
@@ -807,7 +809,7 @@ func (fw *Firewaller) flushMachine(ctx context.Context, machined *machineData) e
 			fw.flushMachineNotify(machined.tag.Id())
 		}
 	}()
-	want, err := fw.gatherIngressRules(machined)
+	want, err := fw.gatherIngressRules(ctx, machined)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -821,7 +823,7 @@ func (fw *Firewaller) flushMachine(ctx context.Context, machined *machineData) e
 
 // gatherIngressRules returns the ingress rules to open and close
 // for the specified machines.
-func (fw *Firewaller) gatherIngressRules(machines ...*machineData) (firewall.IngressRules, error) {
+func (fw *Firewaller) gatherIngressRules(ctx context.Context, machines ...*machineData) (firewall.IngressRules, error) {
 	var want firewall.IngressRules
 	for _, machined := range machines {
 		for unitTag := range machined.openedPortRangesByEndpoint {
@@ -831,7 +833,7 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) (firewall.Ing
 				continue
 			}
 
-			unitRules, err := fw.ingressRulesForMachineUnit(machined, unitd)
+			unitRules, err := fw.ingressRulesForMachineUnit(ctx, machined, unitd)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -853,7 +855,7 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) (firewall.Ing
 	return want, nil
 }
 
-func (fw *Firewaller) ingressRulesForMachineUnit(machine *machineData, unit *unitData) (firewall.IngressRules, error) {
+func (fw *Firewaller) ingressRulesForMachineUnit(ctx context.Context, machine *machineData, unit *unitData) (firewall.IngressRules, error) {
 	unitPortRanges := machine.openedPortRangesByEndpoint[unit.tag]
 	if len(unitPortRanges) == 0 {
 		return nil, nil // no ports opened by the charm
@@ -862,10 +864,13 @@ func (fw *Firewaller) ingressRulesForMachineUnit(machine *machineData, unit *uni
 	var rules firewall.IngressRules
 	var err error
 	if unit.applicationd.exposed {
-		rules = fw.ingressRulesForExposedMachineUnit(machine, unit, unitPortRanges)
+		rules = fw.ingressRulesForExposedMachineUnit(unit, unitPortRanges)
 	} else {
-		if rules, err = fw.ingressRulesForNonExposedMachineUnit(unit.applicationd.application.Tag(),
-			unitPortRanges); err != nil {
+		if rules, err = fw.ingressRulesForNonExposedMachineUnit(
+			ctx,
+			unit.applicationd.application.Tag(),
+			unitPortRanges,
+		); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -877,10 +882,11 @@ func (fw *Firewaller) ingressRulesForMachineUnit(machine *machineData, unit *uni
 	return rules, nil
 }
 
-func (fw *Firewaller) ingressRulesForNonExposedMachineUnit(appTag names.ApplicationTag,
+func (fw *Firewaller) ingressRulesForNonExposedMachineUnit(ctx context.Context,
+	appTag names.ApplicationTag,
 	openUnitPortRanges network.GroupedPortRanges) (firewall.IngressRules, error) {
 	// Not exposed, so add any ingress rules required by remote relations.
-	srcCIDRs, err := fw.updateForRemoteRelationIngress(appTag)
+	srcCIDRs, err := fw.updateForRemoteRelationIngress(ctx, appTag)
 	if err != nil || len(srcCIDRs) == 0 {
 		return nil, errors.Trace(err)
 	}
@@ -893,8 +899,7 @@ func (fw *Firewaller) ingressRulesForNonExposedMachineUnit(appTag names.Applicat
 	return rules, nil
 }
 
-func (fw *Firewaller) ingressRulesForExposedMachineUnit(machine *machineData, unit *unitData,
-	openUnitPortRanges network.GroupedPortRanges) firewall.IngressRules {
+func (fw *Firewaller) ingressRulesForExposedMachineUnit(unit *unitData, openUnitPortRanges network.GroupedPortRanges) firewall.IngressRules {
 	var (
 		exposedEndpoints = unit.applicationd.exposedEndpoints
 		rules            firewall.IngressRules
@@ -966,7 +971,7 @@ func (fw *Firewaller) ingressRulesForExposedMachineUnit(machine *machineData, un
 // TODO(wallyworld) - consider making this configurable.
 const maxAllowedCIDRS = 20
 
-func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag) (set.Strings, error) {
+func (fw *Firewaller) updateForRemoteRelationIngress(ctx context.Context, appTag names.ApplicationTag) (set.Strings, error) {
 	fw.logger.Debugf("finding egress rules for %v", appTag)
 	// Now create the rules for any remote relations of which the
 	// unit's application is a part.
@@ -996,7 +1001,7 @@ func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag
 
 	// If there's still too many after merging, look for any firewall whitelist.
 	if cidrs.Size() > maxAllowedCIDRS {
-		cfg, err := fw.firewallerApi.ModelConfig(context.TODO())
+		cfg, err := fw.firewallerApi.ModelConfig(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1228,6 +1233,10 @@ func (fw *Firewaller) Wait() error {
 	return fw.catacomb.Wait()
 }
 
+func (fw *Firewaller) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(fw.catacomb.Context(context.Background()))
+}
+
 // unitsChange contains the changed units for one specific machine.
 type unitsChange struct {
 	machined *machineData
@@ -1309,7 +1318,10 @@ type applicationData struct {
 
 // watchLoop watches the application's exposed flag for changes.
 func (ad *applicationData) watchLoop(curExposed bool, curExposedEndpoints map[string]params.ExposedEndpoint) error {
-	appWatcher, err := ad.application.Watch()
+	ctx, cancel := ad.scopedContext()
+	defer cancel()
+
+	appWatcher, err := ad.application.Watch(ctx)
 	if err != nil {
 		if params.IsCodeNotFound(err) {
 			return nil
@@ -1392,6 +1404,10 @@ func (ad *applicationData) Kill() {
 // Wait is part of the worker.Worker interface.
 func (ad *applicationData) Wait() error {
 	return ad.catacomb.Wait()
+}
+
+func (ad *applicationData) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(ad.catacomb.Context(context.Background()))
 }
 
 // relationLifeChanged manages the workers to process ingress changes for
@@ -1507,6 +1523,9 @@ func (fw *Firewaller) startRelation(rel *params.RemoteRelation, role charm.Relat
 
 // watchLoop watches the relation for networks added or removed.
 func (rd *remoteRelationData) watchLoop() error {
+	ctx, cancel := rd.scopedContext()
+	defer cancel()
+
 	defer func() {
 		if rd.crossModelFirewallerFacade != nil {
 			rd.crossModelFirewallerFacade.Close()
@@ -1527,9 +1546,9 @@ func (rd *remoteRelationData) watchLoop() error {
 	}
 
 	if rd.endpointRole == charm.RoleRequirer {
-		return rd.requirerEndpointLoop(context.TODO())
+		return rd.requirerEndpointLoop(ctx)
 	}
-	return rd.providerEndpointLoop()
+	return rd.providerEndpointLoop(ctx)
 }
 
 func (rd *remoteRelationData) requirerEndpointLoop(ctx context.Context) error {
@@ -1570,10 +1589,10 @@ func (rd *remoteRelationData) requirerEndpointLoop(ctx context.Context) error {
 	}
 }
 
-func (rd *remoteRelationData) providerEndpointLoop() error {
+func (rd *remoteRelationData) providerEndpointLoop(ctx context.Context) error {
 	rd.fw.logger.Debugf("starting provider endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
 	// Watch for ingress changes requested by the consuming model.
-	ingressAddressWatcher, err := rd.ingressAddressWatcher(context.TODO())
+	ingressAddressWatcher, err := rd.ingressAddressWatcher(ctx)
 	if err != nil {
 		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
 			return errors.Trace(err)
@@ -1626,6 +1645,10 @@ func (rd *remoteRelationData) ingressAddressWatcher(ctx context.Context) (watche
 		}
 		return rd.crossModelFirewallerFacade.WatchEgressAddressesForRelation(ctx, arg)
 	}
+}
+
+func (rd *remoteRelationData) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(rd.catacomb.Context(context.Background()))
 }
 
 type remoteRelationNetworkChange struct {

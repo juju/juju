@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	params "github.com/juju/juju/rpc/params"
@@ -40,17 +41,17 @@ func (m *MockUnitStateReadWriter) EXPECT() *MockUnitStateReadWriterMockRecorder 
 }
 
 // SetState mocks base method.
-func (m *MockUnitStateReadWriter) SetState(arg0 params.SetUnitStateArg) error {
+func (m *MockUnitStateReadWriter) SetState(arg0 context.Context, arg1 params.SetUnitStateArg) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetState", arg0)
+	ret := m.ctrl.Call(m, "SetState", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetState indicates an expected call of SetState.
-func (mr *MockUnitStateReadWriterMockRecorder) SetState(arg0 any) *MockUnitStateReadWriterSetStateCall {
+func (mr *MockUnitStateReadWriterMockRecorder) SetState(arg0, arg1 any) *MockUnitStateReadWriterSetStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetState", reflect.TypeOf((*MockUnitStateReadWriter)(nil).SetState), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetState", reflect.TypeOf((*MockUnitStateReadWriter)(nil).SetState), arg0, arg1)
 	return &MockUnitStateReadWriterSetStateCall{Call: call}
 }
 
@@ -66,30 +67,30 @@ func (c *MockUnitStateReadWriterSetStateCall) Return(arg0 error) *MockUnitStateR
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitStateReadWriterSetStateCall) Do(f func(params.SetUnitStateArg) error) *MockUnitStateReadWriterSetStateCall {
+func (c *MockUnitStateReadWriterSetStateCall) Do(f func(context.Context, params.SetUnitStateArg) error) *MockUnitStateReadWriterSetStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitStateReadWriterSetStateCall) DoAndReturn(f func(params.SetUnitStateArg) error) *MockUnitStateReadWriterSetStateCall {
+func (c *MockUnitStateReadWriterSetStateCall) DoAndReturn(f func(context.Context, params.SetUnitStateArg) error) *MockUnitStateReadWriterSetStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // State mocks base method.
-func (m *MockUnitStateReadWriter) State() (params.UnitStateResult, error) {
+func (m *MockUnitStateReadWriter) State(arg0 context.Context) (params.UnitStateResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "State")
+	ret := m.ctrl.Call(m, "State", arg0)
 	ret0, _ := ret[0].(params.UnitStateResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // State indicates an expected call of State.
-func (mr *MockUnitStateReadWriterMockRecorder) State() *MockUnitStateReadWriterStateCall {
+func (mr *MockUnitStateReadWriterMockRecorder) State(arg0 any) *MockUnitStateReadWriterStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockUnitStateReadWriter)(nil).State))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockUnitStateReadWriter)(nil).State), arg0)
 	return &MockUnitStateReadWriterStateCall{Call: call}
 }
 
@@ -105,13 +106,13 @@ func (c *MockUnitStateReadWriterStateCall) Return(arg0 params.UnitStateResult, a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitStateReadWriterStateCall) Do(f func() (params.UnitStateResult, error)) *MockUnitStateReadWriterStateCall {
+func (c *MockUnitStateReadWriterStateCall) Do(f func(context.Context) (params.UnitStateResult, error)) *MockUnitStateReadWriterStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitStateReadWriterStateCall) DoAndReturn(f func() (params.UnitStateResult, error)) *MockUnitStateReadWriterStateCall {
+func (c *MockUnitStateReadWriterStateCall) DoAndReturn(f func(context.Context) (params.UnitStateResult, error)) *MockUnitStateReadWriterStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

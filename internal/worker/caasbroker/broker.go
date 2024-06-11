@@ -24,8 +24,8 @@ import (
 type ConfigAPI interface {
 	CloudSpec(context.Context) (environscloudspec.CloudSpec, error)
 	ModelConfig(context.Context) (*config.Config, error)
-	ControllerConfig() (controller.Config, error)
-	WatchForModelConfigChanges() (watcher.NotifyWatcher, error)
+	ControllerConfig(context.Context) (controller.Config, error)
+	WatchForModelConfigChanges(context.Context) (watcher.NotifyWatcher, error)
 	WatchCloudSpecChanges() (watcher.NotifyWatcher, error)
 }
 
@@ -67,23 +67,23 @@ type Tracker struct {
 //
 // The caller is responsible for Kill()ing the returned Tracker and Wait()ing
 // for any errors it might return.
-func NewTracker(config Config) (*Tracker, error) {
+func NewTracker(ctx context.Context, config Config) (*Tracker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudSpec, err := config.ConfigAPI.CloudSpec(context.TODO())
+	cloudSpec, err := config.ConfigAPI.CloudSpec(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get cloud information")
 	}
-	cfg, err := config.ConfigAPI.ModelConfig(context.TODO())
+	cfg, err := config.ConfigAPI.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	ctrlCfg, err := config.ConfigAPI.ControllerConfig()
+	ctrlCfg, err := config.ConfigAPI.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	broker, err := config.NewContainerBrokerFunc(context.TODO(), environs.OpenParams{
+	broker, err := config.NewContainerBrokerFunc(ctx, environs.OpenParams{
 		ControllerUUID: ctrlCfg.ControllerUUID(),
 		Cloud:          cloudSpec,
 		Config:         cfg,
@@ -115,7 +115,11 @@ func (t *Tracker) Broker() caas.Broker {
 
 func (t *Tracker) loop() error {
 	logger := t.config.Logger
-	modelWatcher, err := t.config.ConfigAPI.WatchForModelConfigChanges()
+
+	ctx, cancel := t.scopedContext()
+	defer cancel()
+
+	modelWatcher, err := t.config.ConfigAPI.WatchForModelConfigChanges(ctx)
 	if err != nil {
 		return errors.Annotate(err, "cannot watch model config")
 	}
@@ -188,4 +192,8 @@ func (t *Tracker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (t *Tracker) Wait() error {
 	return t.catacomb.Wait()
+}
+
+func (t *Tracker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(t.catacomb.Context(context.Background()))
 }

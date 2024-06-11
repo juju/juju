@@ -53,7 +53,7 @@ func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 	client := mocks.NewMockAPIAddresser(ctrl)
 	ch := make(chan struct{}, 1)
 	watch := watchertest.NewMockNotifyWatcher(ch)
-	client.EXPECT().WatchAPIHostPorts().Return(watch, nil)
+	client.EXPECT().WatchAPIHostPorts(gomock.Any()).Return(watch, nil)
 
 	worker, err := apiaddressupdater.NewAPIAddressUpdater(
 		apiaddressupdater.Config{
@@ -76,8 +76,8 @@ func (s *APIAddressUpdaterSuite) assertInitialUpdate(c *gc.C, ctrl *gomock.Contr
 	}
 
 	client := mocks.NewMockAPIAddresser(ctrl)
-	client.EXPECT().WatchAPIHostPorts().Return(watch, nil).MinTimes(1)
-	client.EXPECT().APIHostPorts().Return([]corenetwork.ProviderHostPorts{result}, nil)
+	client.EXPECT().WatchAPIHostPorts(gomock.Any()).Return(watch, nil).MinTimes(1)
+	client.EXPECT().APIHostPorts(gomock.Any()).Return([]corenetwork.ProviderHostPorts{result}, nil)
 
 	w, err := apiaddressupdater.NewAPIAddressUpdater(
 		apiaddressupdater.Config{
@@ -126,7 +126,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
 		corenetwork.ProviderHostPort{ProviderAddress: corenetwork.NewMachineAddress("10.0.0.1").AsProviderAddress(), NetPort: 1234},
 	}
 
-	client.EXPECT().APIHostPorts().Return([]corenetwork.ProviderHostPorts{result}, nil)
+	client.EXPECT().APIHostPorts(gomock.Any()).Return([]corenetwork.ProviderHostPorts{result}, nil)
 
 	ch <- struct{}{}
 
@@ -147,7 +147,7 @@ func (s *APIAddressUpdaterSuite) TestAddressChangeEmpty(c *gc.C) {
 	w, client, ch := s.assertInitialUpdate(c, ctrl, setter)
 	defer workertest.CleanKill(c, w)
 
-	client.EXPECT().APIHostPorts().Return([]corenetwork.ProviderHostPorts{}, nil)
+	client.EXPECT().APIHostPorts(gomock.Any()).Return([]corenetwork.ProviderHostPorts{}, nil)
 
 	ch <- struct{}{}
 
@@ -205,7 +205,7 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 	w, client, ch := s.assertInitialUpdate(c, ctrl, setter)
 	defer workertest.CleanKill(c, w)
 
-	client.EXPECT().APIHostPorts().Return(initialServers, nil)
+	client.EXPECT().APIHostPorts(gomock.Any()).Return(initialServers, nil)
 
 	ch <- struct{}{}
 
@@ -238,7 +238,7 @@ func (s *APIAddressUpdaterSuite) TestBridgeAddressesFiltering(c *gc.C) {
 		c.Check(servers, jc.DeepEquals, []corenetwork.HostPorts{expServer1, expServerInit})
 	}
 
-	client.EXPECT().APIHostPorts().Return(updatedServers, nil)
+	client.EXPECT().APIHostPorts(gomock.Any()).Return(updatedServers, nil)
 
 	ch <- struct{}{}
 

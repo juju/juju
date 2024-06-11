@@ -84,7 +84,7 @@ func (c *sshContainer) setPublicKeyRetryStrategy(_ retry.CallArgs) {}
 
 // initRun initializes the API connection if required. It must be called
 // at the top of the command's Run method.
-func (c *sshContainer) initRun(mc ModelCommand) (err error) {
+func (c *sshContainer) initRun(ctx context.Context, mc ModelCommand) (err error) {
 	if c.modelName, err = mc.ModelIdentifier(); err != nil {
 		return errors.Trace(err)
 	}
@@ -119,7 +119,7 @@ func (c *sshContainer) initRun(mc ModelCommand) (err error) {
 		if c.controllerAPI == nil {
 			c.controllerAPI = controllerapi.NewClient(cAPI)
 		}
-		controllerCfg, err := c.controllerAPI.ControllerConfig()
+		controllerCfg, err := c.controllerAPI.ControllerConfig(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}

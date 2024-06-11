@@ -22,5 +22,5 @@ type Machiner interface {
 // a machiner's machine.
 type Machine interface {
 	Jobs() (*params.JobsResult, error)
-	Watch() (watcher.NotifyWatcher, error)
+	Watch(context.Context) (watcher.NotifyWatcher, error)
 }

@@ -97,7 +97,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			controllerConfig, err := apiState.ControllerConfig()
+			controllerConfig, err := apiState.ControllerConfig(ctx)
 			if err != nil {
 				return nil, errors.Annotate(err, "getting controller config")
 			}

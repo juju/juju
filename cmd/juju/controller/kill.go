@@ -206,7 +206,7 @@ func (c *killCommand) DirectDestroyRemaining(
 	}
 	ctrlUUID := ""
 	// try to get controller UUID or just ignore.
-	if ctrlCfg, err := api.ControllerConfig(); err == nil {
+	if ctrlCfg, err := api.ControllerConfig(ctx.Context); err == nil {
 		ctrlUUID = ctrlCfg.ControllerUUID()
 	} else {
 		logger.Warningf("getting controller config from API: %v", err)

@@ -138,12 +138,12 @@ func (p *provisioner) getStartTask(ctx context.Context, harvestMode config.Harve
 		return nil, errors.Errorf("agent's tag is not a machine or controller agent tag, got %T", hostTag)
 	}
 
-	modelCfg, err := p.controllerAPI.ModelConfig(context.TODO())
+	modelCfg, err := p.controllerAPI.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the model config.")
 	}
 
-	controllerCfg, err := p.controllerAPI.ControllerConfig()
+	controllerCfg, err := p.controllerAPI.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not retrieve the controller config.")
 	}
@@ -214,12 +214,15 @@ func NewEnvironProvisioner(
 }
 
 func (p *environProvisioner) loop() error {
+	ctx, cancel := p.scopedContext()
+	defer cancel()
+
 	// TODO(mjs channeling axw) - It would be better if there were
 	// APIs to watch and fetch provisioner specific config instead of
 	// watcher for all changes to model config. This would avoid the
 	// need for a full model config.
 	var modelConfigChanges <-chan struct{}
-	modelWatcher, err := p.controllerAPI.WatchForModelConfigChanges()
+	modelWatcher, err := p.controllerAPI.WatchForModelConfigChanges(ctx)
 	if err != nil {
 		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
@@ -228,14 +231,14 @@ func (p *environProvisioner) loop() error {
 	}
 	modelConfigChanges = modelWatcher.Changes()
 
-	modelConfig, err := p.controllerAPI.ModelConfig(context.TODO())
+	modelConfig, err := p.controllerAPI.ModelConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	p.configObserver.notify(modelConfig)
 	harvestMode := modelConfig.ProvisionerHarvestMode()
 	workerCount := modelConfig.NumProvisionWorkers()
-	task, err := p.getStartTask(context.TODO(), harvestMode, workerCount)
+	task, err := p.getStartTask(ctx, harvestMode, workerCount)
 	if err != nil {
 		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
@@ -251,12 +254,12 @@ func (p *environProvisioner) loop() error {
 			if !ok {
 				return errors.New("model configuration watcher closed")
 			}
-			modelConfig, err := p.controllerAPI.ModelConfig(context.TODO())
+			modelConfig, err := p.controllerAPI.ModelConfig(ctx)
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}
 
-			if err := p.setConfig(context.TODO(), modelConfig); err != nil {
+			if err := p.setConfig(ctx, modelConfig); err != nil {
 				return errors.Annotate(err, "loaded invalid model configuration")
 			}
 			task.SetHarvestMode(modelConfig.ProvisionerHarvestMode())
@@ -281,6 +284,10 @@ func (p *environProvisioner) setConfig(ctx context.Context, modelConfig *config.
 	}
 	p.configObserver.notify(modelConfig)
 	return nil
+}
+
+func (p *environProvisioner) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(p.catacomb.Context(context.Background()))
 }
 
 // NewContainerProvisioner returns a new Provisioner. When new machines
@@ -324,7 +331,10 @@ func NewContainerProvisioner(
 }
 
 func (p *containerProvisioner) loop() error {
-	modelWatcher, err := p.controllerAPI.WatchForModelConfigChanges()
+	ctx, cancel := p.scopedContext()
+	defer cancel()
+
+	modelWatcher, err := p.controllerAPI.WatchForModelConfigChanges(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -332,7 +342,7 @@ func (p *containerProvisioner) loop() error {
 		return errors.Trace(err)
 	}
 
-	modelConfig, err := p.controllerAPI.ModelConfig(context.TODO())
+	modelConfig, err := p.controllerAPI.ModelConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -340,7 +350,7 @@ func (p *containerProvisioner) loop() error {
 	harvestMode := modelConfig.ProvisionerHarvestMode()
 	workerCount := modelConfig.NumContainerProvisionWorkers()
 
-	task, err := p.getStartTask(context.TODO(), harvestMode, workerCount)
+	task, err := p.getStartTask(ctx, harvestMode, workerCount)
 	if err != nil {
 		return loggedErrorStack(p.logger, errors.Trace(err))
 	}
@@ -356,7 +366,7 @@ func (p *containerProvisioner) loop() error {
 			if !ok {
 				return errors.New("model configuration watch closed")
 			}
-			modelConfig, err := p.controllerAPI.ModelConfig(context.TODO())
+			modelConfig, err := p.controllerAPI.ModelConfig(ctx)
 			if err != nil {
 				return errors.Annotate(err, "cannot load model configuration")
 			}
@@ -398,4 +408,8 @@ func (p *containerProvisioner) getMachineWatcher(ctx context.Context) (watcher.S
 
 func (p *containerProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
 	return nil, errors.NotImplementedf("getRetryWatcher")
+}
+
+func (p *containerProvisioner) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(p.catacomb.Context(context.Background()))
 }

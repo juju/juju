@@ -295,7 +295,7 @@ func (s *firewallerBaseSuite) addModelMachine(ctrl *gomock.Controller, manual bo
 func (s *firewallerBaseSuite) addApplication(ctrl *gomock.Controller, appName string, exposed bool) *mocks.MockApplication {
 	app := mocks.NewMockApplication(ctrl)
 	appWatch := watchertest.NewMockNotifyWatcher(s.applicationsCh)
-	app.EXPECT().Watch().Return(appWatch, nil).AnyTimes()
+	app.EXPECT().Watch(gomock.Any()).Return(appWatch, nil).AnyTimes()
 	app.EXPECT().Name().Return(appName).AnyTimes()
 	app.EXPECT().Tag().Return(names.NewApplicationTag(appName)).AnyTimes()
 	app.EXPECT().ExposeInfo().Return(exposed, map[string]params.ExposedEndpoint{

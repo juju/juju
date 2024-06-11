@@ -194,17 +194,17 @@ func (c *MockStateManagerRemoveRelationCall) DoAndReturn(f func(context.Context,
 }
 
 // SetRelation mocks base method.
-func (m *MockStateManager) SetRelation(arg0 *relation.State) error {
+func (m *MockStateManager) SetRelation(arg0 context.Context, arg1 *relation.State) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetRelation", arg0)
+	ret := m.ctrl.Call(m, "SetRelation", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetRelation indicates an expected call of SetRelation.
-func (mr *MockStateManagerMockRecorder) SetRelation(arg0 any) *MockStateManagerSetRelationCall {
+func (mr *MockStateManagerMockRecorder) SetRelation(arg0, arg1 any) *MockStateManagerSetRelationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelation", reflect.TypeOf((*MockStateManager)(nil).SetRelation), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRelation", reflect.TypeOf((*MockStateManager)(nil).SetRelation), arg0, arg1)
 	return &MockStateManagerSetRelationCall{Call: call}
 }
 
@@ -220,13 +220,13 @@ func (c *MockStateManagerSetRelationCall) Return(arg0 error) *MockStateManagerSe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateManagerSetRelationCall) Do(f func(*relation.State) error) *MockStateManagerSetRelationCall {
+func (c *MockStateManagerSetRelationCall) Do(f func(context.Context, *relation.State) error) *MockStateManagerSetRelationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateManagerSetRelationCall) DoAndReturn(f func(*relation.State) error) *MockStateManagerSetRelationCall {
+func (c *MockStateManagerSetRelationCall) DoAndReturn(f func(context.Context, *relation.State) error) *MockStateManagerSetRelationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

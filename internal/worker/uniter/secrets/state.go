@@ -4,6 +4,8 @@
 package secrets
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
@@ -73,8 +75,8 @@ type stateOps struct {
 // UnitStateReadWriter encapsulates the methods from a state.Unit
 // required to set and get unit state.
 type UnitStateReadWriter interface {
-	State() (params.UnitStateResult, error)
-	SetState(unitState params.SetUnitStateArg) error
+	State(context.Context) (params.UnitStateResult, error)
+	SetState(ctx context.Context, unitState params.SetUnitStateArg) error
 }
 
 // NewStateOps returns a new StateOps.
@@ -84,9 +86,9 @@ func NewStateOps(rw UnitStateReadWriter) *stateOps {
 
 // Read reads secrets state from the controller. If the saved State
 // does not exist it returns NotFound and a new state.
-func (f *stateOps) Read() (*State, error) {
+func (f *stateOps) Read(ctx context.Context) (*State, error) {
 	var st State
-	unitState, err := f.unitStateRW.State()
+	unitState, err := f.unitStateRW.State(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,7 +102,7 @@ func (f *stateOps) Read() (*State, error) {
 }
 
 // Write stores the supplied secrets state to the controller.
-func (f *stateOps) Write(st *State) error {
+func (f *stateOps) Write(ctx context.Context, st *State) error {
 	if st == nil {
 		return errors.Trace(errors.BadRequestf("arg is nil"))
 	}
@@ -110,5 +112,5 @@ func (f *stateOps) Write(st *State) error {
 		return errors.Trace(err)
 	}
 	str = string(data)
-	return f.unitStateRW.SetState(params.SetUnitStateArg{SecretState: &str})
+	return f.unitStateRW.SetState(ctx, params.SetUnitStateArg{SecretState: &str})
 }

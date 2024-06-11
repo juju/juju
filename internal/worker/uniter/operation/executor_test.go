@@ -51,12 +51,12 @@ func (s *NewExecutorSuite) expectState(c *gc.C, st operation.State) {
 	stStr := string(data)
 
 	mExp := s.mockStateRW.EXPECT()
-	mExp.State().Return(params.UnitStateResult{UniterState: stStr}, nil)
+	mExp.State(gomock.Any()).Return(params.UnitStateResult{UniterState: stStr}, nil)
 }
 
 func (s *NewExecutorSuite) expectStateNil() {
 	mExp := s.mockStateRW.EXPECT()
-	mExp.State().Return(params.UnitStateResult{}, nil)
+	mExp.State(gomock.Any()).Return(params.UnitStateResult{}, nil)
 }
 
 func (s *NewExecutorSuite) TestNewExecutorInvalidStateRead(c *gc.C) {
@@ -69,7 +69,7 @@ func (s *NewExecutorSuite) TestNewExecutorInvalidStateRead(c *gc.C) {
 		AcquireLock:     failAcquireLock,
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
-	executor, err := operation.NewExecutor("test", cfg)
+	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
 	c.Assert(executor, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `validation of uniter state: invalid operation state: .*`)
 }
@@ -84,7 +84,7 @@ func (s *NewExecutorSuite) TestNewExecutorNoInitialState(c *gc.C) {
 		AcquireLock:     failAcquireLock,
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
-	executor, err := operation.NewExecutor("test", cfg)
+	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
 }
@@ -95,14 +95,14 @@ func (s *NewExecutorSuite) TestNewExecutorValidFile(c *gc.C) {
 	// during hook error states. If you do this, please leave at least one test
 	// with this form of the yaml in place.
 	defer s.setupMocks(c).Finish()
-	s.mockStateRW.EXPECT().State().Return(params.UnitStateResult{UniterState: "started: true\nop: continue\nopstep: pending\n"}, nil)
+	s.mockStateRW.EXPECT().State(gomock.Any()).Return(params.UnitStateResult{UniterState: "started: true\nop: continue\nopstep: pending\n"}, nil)
 	cfg := operation.ExecutorConfig{
 		StateReadWriter: s.mockStateRW,
 		InitialState:    operation.State{Step: operation.Queued},
 		AcquireLock:     failAcquireLock,
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
-	executor, err := operation.NewExecutor("test", cfg)
+	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(executor.State(), gc.DeepEquals, operation.State{
 		Kind:    operation.Continue,
@@ -130,7 +130,7 @@ func (s *ExecutorSuite) expectSetState(c *gc.C, st operation.State) {
 	strUniterState := string(data)
 
 	mExp := s.mockStateRW.EXPECT()
-	mExp.SetState(unitStateMatcher{c: c, expected: strUniterState}).Return(nil)
+	mExp.SetState(gomock.Any(), unitStateMatcher{c: c, expected: strUniterState}).Return(nil)
 }
 
 func (s *ExecutorSuite) expectState(c *gc.C, st operation.State) {
@@ -139,7 +139,7 @@ func (s *ExecutorSuite) expectState(c *gc.C, st operation.State) {
 	strState := string(data)
 
 	mExp := s.mockStateRW.EXPECT()
-	mExp.State().Return(params.UnitStateResult{UniterState: strState}, nil)
+	mExp.State(gomock.Any()).Return(params.UnitStateResult{UniterState: strState}, nil)
 }
 
 func (s *ExecutorSuite) expectConfigChangedPendingOp(c *gc.C) operation.State {
@@ -193,7 +193,7 @@ func (s *ExecutorSuite) newExecutor(c *gc.C, st *operation.State) operation.Exec
 		AcquireLock:     failAcquireLock,
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
-	executor, err := operation.NewExecutor("test", cfg)
+	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	return executor
 }
@@ -469,7 +469,7 @@ func (s *ExecutorSuite) TestFailCommitWithStateChange(c *gc.C) {
 
 func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string, string) (func(), error)) operation.Executor {
 	initialState := justInstalledState()
-	err := operation.NewStateOps(s.mockStateRW).Write(&initialState)
+	err := operation.NewStateOps(s.mockStateRW).Write(context.Background(), &initialState)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := operation.ExecutorConfig{
 		StateReadWriter: s.mockStateRW,
@@ -477,7 +477,7 @@ func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string, string) (fun
 		AcquireLock:     lockFunc,
 		Logger:          loggertesting.WrapCheckLog(c),
 	}
-	executor, err := operation.NewExecutor("test", cfg)
+	executor, err := operation.NewExecutor(context.Background(), "test", cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return executor

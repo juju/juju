@@ -67,7 +67,7 @@ func (c *converter) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 		return nil, errors.Trace(err)
 	}
 	c.machine = m
-	return m.Watch()
+	return m.Watch(ctx)
 }
 
 // Handle implements NotifyWatchHandler's Handle method.  If the change means

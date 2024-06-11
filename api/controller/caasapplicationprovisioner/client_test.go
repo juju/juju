@@ -4,6 +4,8 @@
 package caasapplicationprovisioner_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -398,7 +400,7 @@ func (s *provisionerSuite) TestWatchApplication(c *gc.C) {
 		}
 		return nil
 	})
-	watcher, err := client.WatchApplication("gitlab")
+	watcher, err := client.WatchApplication(context.Background(), "gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

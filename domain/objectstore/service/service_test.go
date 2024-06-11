@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain/objectstore"
 	"github.com/juju/juju/internal/uuid"
@@ -120,10 +119,6 @@ func (s *serviceSuite) TestWatch(c *gc.C) {
 	stmt := "SELECT key FROM objectstore"
 	s.state.EXPECT().InitialWatchStatement().Return(table, stmt)
 
-	s.PatchValue(&InitialNamespaceChanges, func(selectAll string) eventsource.NamespaceQuery {
-		c.Assert(selectAll, gc.Equals, stmt)
-		return nil
-	})
 	s.watcherFactory.EXPECT().NewNamespaceWatcher(table, changestream.All, gomock.Any()).Return(watcher, nil)
 
 	w, err := NewWatchableService(s.state, s.watcherFactory).Watch()

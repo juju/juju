@@ -5,6 +5,7 @@ package relation
 
 import (
 	"context"
+	stdcontext "context"
 	"fmt"
 	"sync"
 
@@ -19,9 +20,9 @@ import (
 )
 
 // NewStateManager creates a new StateManager instance.
-func NewStateManager(rw UnitStateReadWriter, logger logger.Logger) (StateManager, error) {
+func NewStateManager(ctx stdcontext.Context, rw UnitStateReadWriter, logger logger.Logger) (StateManager, error) {
 	mgr := &stateManager{unitStateRW: rw, logger: logger}
-	return mgr, mgr.initialize()
+	return mgr, mgr.initialize(ctx)
 }
 
 type stateManager struct {
@@ -75,7 +76,7 @@ func (m *stateManager) RemoveRelation(ctx context.Context, id int, unitGetter Un
 	if knownMembers.Size() != 0 {
 		return errors.New(fmt.Sprintf("cannot remove persisted state, relation %d has members: %v", id, knownMembers.SortedValues()))
 	}
-	if err := m.remove(id); err != nil {
+	if err := m.remove(ctx, id); err != nil {
 		return err
 	}
 	delete(m.relationState, id)
@@ -101,10 +102,10 @@ func (m *stateManager) KnownIDs() []int {
 // SetRelation persists the given state, overwriting the previous
 // state for a given id or creating state at a new id. The change to
 // the manager is only made when the data is successfully saved.
-func (m *stateManager) SetRelation(st *State) error {
+func (m *stateManager) SetRelation(ctx stdcontext.Context, st *State) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if err := m.write(st); err != nil {
+	if err := m.write(ctx, st); err != nil {
 		return errors.Annotatef(err, "could not persist relation %d state", st.RelationId)
 	}
 	m.relationState[st.RelationId] = *st
@@ -121,8 +122,8 @@ func (m *stateManager) RelationFound(id int) bool {
 }
 
 // initialize loads the current state into the manager.
-func (m *stateManager) initialize() error {
-	unitState, err := m.unitStateRW.State()
+func (m *stateManager) initialize(ctx stdcontext.Context) error {
+	unitState, err := m.unitStateRW.State(ctx)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Trace(err)
 	}
@@ -140,7 +141,7 @@ func (m *stateManager) initialize() error {
 	return nil
 }
 
-func (m *stateManager) write(st *State) error {
+func (m *stateManager) write(ctx stdcontext.Context, st *State) error {
 	newSt, err := m.stateToPersist()
 	if err != nil {
 		return errors.Trace(err)
@@ -150,16 +151,16 @@ func (m *stateManager) write(st *State) error {
 		return errors.Trace(err)
 	}
 	newSt[st.RelationId] = str
-	return m.unitStateRW.SetState(params.SetUnitStateArg{RelationState: &newSt})
+	return m.unitStateRW.SetState(ctx, params.SetUnitStateArg{RelationState: &newSt})
 }
 
-func (m *stateManager) remove(id int) error {
+func (m *stateManager) remove(ctx stdcontext.Context, id int) error {
 	newSt, err := m.stateToPersist()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	delete(newSt, id)
-	return m.unitStateRW.SetState(params.SetUnitStateArg{RelationState: &newSt})
+	return m.unitStateRW.SetState(ctx, params.SetUnitStateArg{RelationState: &newSt})
 }
 
 // stateToPersist transforms the relationState of this manager

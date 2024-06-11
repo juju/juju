@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	charms "github.com/juju/juju/api/common/charms"
@@ -239,18 +240,18 @@ func (c *MockClientLifeCall) DoAndReturn(f func(string) (life.Value, error)) *Mo
 }
 
 // WatchApplication mocks base method.
-func (m *MockClient) WatchApplication(arg0 string) (watcher.Watcher[struct{}], error) {
+func (m *MockClient) WatchApplication(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplication", arg0)
+	ret := m.ctrl.Call(m, "WatchApplication", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchApplication indicates an expected call of WatchApplication.
-func (mr *MockClientMockRecorder) WatchApplication(arg0 any) *MockClientWatchApplicationCall {
+func (mr *MockClientMockRecorder) WatchApplication(arg0, arg1 any) *MockClientWatchApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplication", reflect.TypeOf((*MockClient)(nil).WatchApplication), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplication", reflect.TypeOf((*MockClient)(nil).WatchApplication), arg0, arg1)
 	return &MockClientWatchApplicationCall{Call: call}
 }
 
@@ -266,13 +267,13 @@ func (c *MockClientWatchApplicationCall) Return(arg0 watcher.Watcher[struct{}], 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockClientWatchApplicationCall) Do(f func(string) (watcher.Watcher[struct{}], error)) *MockClientWatchApplicationCall {
+func (c *MockClientWatchApplicationCall) Do(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockClientWatchApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClientWatchApplicationCall) DoAndReturn(f func(string) (watcher.Watcher[struct{}], error)) *MockClientWatchApplicationCall {
+func (c *MockClientWatchApplicationCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockClientWatchApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -535,18 +536,18 @@ func (c *MockCAASFirewallerAPIIsExposedCall) DoAndReturn(f func(string) (bool, e
 }
 
 // WatchApplication mocks base method.
-func (m *MockCAASFirewallerAPI) WatchApplication(arg0 string) (watcher.Watcher[struct{}], error) {
+func (m *MockCAASFirewallerAPI) WatchApplication(arg0 context.Context, arg1 string) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplication", arg0)
+	ret := m.ctrl.Call(m, "WatchApplication", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchApplication indicates an expected call of WatchApplication.
-func (mr *MockCAASFirewallerAPIMockRecorder) WatchApplication(arg0 any) *MockCAASFirewallerAPIWatchApplicationCall {
+func (mr *MockCAASFirewallerAPIMockRecorder) WatchApplication(arg0, arg1 any) *MockCAASFirewallerAPIWatchApplicationCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplication", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).WatchApplication), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplication", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).WatchApplication), arg0, arg1)
 	return &MockCAASFirewallerAPIWatchApplicationCall{Call: call}
 }
 
@@ -562,13 +563,13 @@ func (c *MockCAASFirewallerAPIWatchApplicationCall) Return(arg0 watcher.Watcher[
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCAASFirewallerAPIWatchApplicationCall) Do(f func(string) (watcher.Watcher[struct{}], error)) *MockCAASFirewallerAPIWatchApplicationCall {
+func (c *MockCAASFirewallerAPIWatchApplicationCall) Do(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockCAASFirewallerAPIWatchApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASFirewallerAPIWatchApplicationCall) DoAndReturn(f func(string) (watcher.Watcher[struct{}], error)) *MockCAASFirewallerAPIWatchApplicationCall {
+func (c *MockCAASFirewallerAPIWatchApplicationCall) DoAndReturn(f func(context.Context, string) (watcher.Watcher[struct{}], error)) *MockCAASFirewallerAPIWatchApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -35,22 +35,22 @@ func (*RestrictedContext) GoalState(context.Context) (*application.GoalState, er
 }
 
 // GetCharmState implements jujuc.unitCharmStateContext.
-func (*RestrictedContext) GetCharmState() (map[string]string, error) {
+func (*RestrictedContext) GetCharmState(context.Context) (map[string]string, error) {
 	return nil, ErrRestrictedContext
 }
 
 // GetCharmStateValue implements jujuc.unitCharmStateContext.
-func (*RestrictedContext) GetCharmStateValue(string) (string, error) {
+func (*RestrictedContext) GetCharmStateValue(context.Context, string) (string, error) {
 	return "", ErrRestrictedContext
 }
 
 // DeleteCharmStateValue implements jujuc.unitCharmStateContext.
-func (*RestrictedContext) DeleteCharmStateValue(string) error {
+func (*RestrictedContext) DeleteCharmStateValue(context.Context, string) error {
 	return ErrRestrictedContext
 }
 
 // SetCharmStateValue implements jujuc.unitCharmStateContext.
-func (*RestrictedContext) SetCharmStateValue(string, string) error {
+func (*RestrictedContext) SetCharmStateValue(context.Context, string, string) error {
 	return ErrRestrictedContext
 }
 

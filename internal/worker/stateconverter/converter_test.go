@@ -29,7 +29,7 @@ type converterSuite struct {
 func (s *converterSuite) TestSetUp(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil)
-	s.machine.EXPECT().Watch().Return(nil, nil)
+	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil)
 
 	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
@@ -51,7 +51,7 @@ func (s *converterSuite) TestSetupWatchErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil)
 	expectedError := errors.NotValidf("machine tag")
-	s.machine.EXPECT().Watch().Return(nil, expectedError)
+	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, expectedError)
 
 	conv := s.newConverter(c)
 	w, err := conv.SetUp(context.Background())
@@ -62,7 +62,7 @@ func (s *converterSuite) TestSetupWatchErr(c *gc.C) {
 func (s *converterSuite) TestHandle(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil)
-	s.machine.EXPECT().Watch().Return(nil, nil)
+	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil)
 	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits, model.JobManageModel}}
 	s.machine.EXPECT().Jobs().Return(&jobs, nil)
 
@@ -78,7 +78,7 @@ func (s *converterSuite) TestHandle(c *gc.C) {
 func (s *converterSuite) TestHandleNotController(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil)
-	s.machine.EXPECT().Watch().Return(nil, nil)
+	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil)
 	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits}}
 	s.machine.EXPECT().Jobs().Return(&jobs, nil)
 
@@ -92,7 +92,7 @@ func (s *converterSuite) TestHandleNotController(c *gc.C) {
 func (s *converterSuite) TestHandleJobsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil).AnyTimes()
-	s.machine.EXPECT().Watch().Return(nil, nil).AnyTimes()
+	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil).AnyTimes()
 	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits, model.JobManageModel}}
 	s.machine.EXPECT().Jobs().Return(&jobs, nil)
 	expectedError := errors.New("foo")

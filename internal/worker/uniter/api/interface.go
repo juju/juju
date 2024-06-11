@@ -43,7 +43,7 @@ type Unit interface {
 	LXDProfileName() (string, error)
 	CanApplyLXDProfile() (bool, error)
 	CharmURL() (string, error)
-	Watch() (watcher.NotifyWatcher, error)
+	Watch(stdcontext.Context) (watcher.NotifyWatcher, error)
 
 	// Used by runner.context.
 
@@ -55,8 +55,8 @@ type Unit interface {
 	RequestReboot() error
 	SetUnitStatus(ctx stdcontext.Context, unitStatus status.Status, info string, data map[string]interface{}) error
 	SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error
-	State() (params.UnitStateResult, error)
-	SetState(unitState params.SetUnitStateArg) error
+	State(ctx stdcontext.Context) (params.UnitStateResult, error)
+	SetState(ctx stdcontext.Context, unitState params.SetUnitStateArg) error
 	Tag() names.UnitTag
 	UnitStatus(stdcontext.Context) (params.StatusResult, error)
 	CommitHookChanges(params.CommitHookChangesArgs) error
@@ -73,11 +73,11 @@ type Unit interface {
 	WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchRelations() (watcher.StringsWatcher, error)
 	WatchAddressesHash() (watcher.StringsWatcher, error)
-	WatchUpgradeSeriesNotifications() (watcher.NotifyWatcher, error)
+	WatchUpgradeSeriesNotifications(ctx stdcontext.Context) (watcher.NotifyWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchInstanceData() (watcher.NotifyWatcher, error)
-	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error)
+	UpgradeSeriesStatus(ctx stdcontext.Context) (model.UpgradeSeriesStatus, string, error)
 
 	// Used by relationer.
 
@@ -87,7 +87,7 @@ type Unit interface {
 
 	// Used by operation.Callbacks.
 
-	SetUpgradeSeriesStatus(upgradeSeriesStatus model.UpgradeSeriesStatus, reason string) error
+	SetUpgradeSeriesStatus(ctx stdcontext.Context, upgradeSeriesStatus model.UpgradeSeriesStatus, reason string) error
 	SetCharmURL(curl string) error
 }
 
@@ -103,7 +103,7 @@ type Application interface {
 	// Used by remotestate watcher.
 
 	WatchLeadershipSettings() (watcher.NotifyWatcher, error)
-	Watch() (watcher.NotifyWatcher, error)
+	Watch(ctx stdcontext.Context) (watcher.NotifyWatcher, error)
 	Refresh(stdcontext.Context) error
 }
 

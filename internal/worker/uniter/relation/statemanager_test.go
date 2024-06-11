@@ -32,7 +32,7 @@ func (s *stateManagerSuite) TestNewStateManagerHasState(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	states := s.setupFourStates(c)
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	for _, st := range states {
 		v, err := mgr.Relation(st.RelationId)
@@ -45,7 +45,7 @@ func (s *stateManagerSuite) TestNewStateManagerNoState(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateEmpty()
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mgr.KnownIDs(), gc.HasLen, 0)
 }
@@ -54,7 +54,7 @@ func (s *stateManagerSuite) TestNewStateManagerErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateEmptyError()
 
-	_, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	_, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 }
 
@@ -62,7 +62,7 @@ func (s *stateManagerSuite) TestKnownIds(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	states := s.setupFourStates(c)
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	ids := mgr.KnownIDs()
 	intSet := set.NewInts(ids...)
@@ -76,7 +76,7 @@ func (s *stateManagerSuite) TestRelation(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	states := s.setupFourStates(c)
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	st, err := mgr.Relation(states[1].RelationId)
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,7 +87,7 @@ func (s *stateManagerSuite) TestRelationNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	_ = s.setupFourStates(c)
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = mgr.Relation(42)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -103,9 +103,9 @@ func (s *stateManagerSuite) TestSetNew(c *gc.C) {
 	}
 	s.expectSetState(c, *st2)
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
-	err = mgr.SetRelation(st2)
+	err = mgr.SetRelation(context.Background(), st2)
 	c.Assert(err, jc.ErrorIsNil)
 	found := mgr.RelationFound(456)
 	c.Assert(found, jc.IsTrue)
@@ -115,14 +115,14 @@ func (s *stateManagerSuite) TestSetChangeExisting(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	states := s.setupFourStates(c)
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	states[3].ChangedPending = "foo/1"
 	s.expectSetState(c, states...)
 	st := states[3]
 
-	err = mgr.SetRelation(&st)
+	err = mgr.SetRelation(context.Background(), &st)
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtained, err := mgr.Relation(st.RelationId)
@@ -135,12 +135,12 @@ func (s *stateManagerSuite) TestSetChangeExistingFail(c *gc.C) {
 	states := s.setupFourStates(c)
 	s.expectSetStateError()
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	st := states[3]
 	st.ChangedPending = "foo/1"
-	err = mgr.SetRelation(&st)
+	err = mgr.SetRelation(context.Background(), &st)
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
 
 	obtained, err := mgr.Relation(st.RelationId)
@@ -154,7 +154,7 @@ func (s *stateManagerSuite) TestRemove(c *gc.C) {
 	s.expectState(c, state)
 	s.expectSetStateEmpty(c)
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	err = mgr.RemoveRelation(context.Background(), 1, s.mockUnitGetter, map[string]bool{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -166,7 +166,7 @@ func (s *stateManagerSuite) TestRemoveNotFound(c *gc.C) {
 	stateTwo.Members = map[string]int64{"foo/1": 0}
 	s.expectState(c, stateTwo)
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	err = mgr.RemoveRelation(context.Background(), 1, s.mockUnitGetter, map[string]bool{})
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -179,7 +179,7 @@ func (s *stateManagerSuite) TestRemoveFailHasMembers(c *gc.C) {
 	s.expectState(c, stateTwo)
 	s.mockUnitGetter.EXPECT().Unit(gomock.Any(), names.NewUnitTag("foo/1")).Return(nil, nil)
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	err = mgr.RemoveRelation(context.Background(), 99, s.mockUnitGetter, map[string]bool{})
 	c.Assert(err, gc.ErrorMatches, `*has members: \[foo/1\]`)
@@ -197,7 +197,7 @@ func (s *stateManagerSuite) TestRemoveIgnoresMissingUnits(c *gc.C) {
 	var tw loggo.TestWriter
 	c.Assert(loggo.RegisterWriter("relations-tester", &tw), gc.IsNil)
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, logger)
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, logger)
 	c.Assert(err, jc.ErrorIsNil)
 	err = mgr.RemoveRelation(context.Background(), 99, s.mockUnitGetter, map[string]bool{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -217,7 +217,7 @@ func (s *stateManagerSuite) TestRemoveCachesUnits(c *gc.C) {
 	s.expectSetState(c, stateThree)
 	s.mockUnitGetter.EXPECT().Unit(gomock.Any(), names.NewUnitTag("foo/1")).Return(nil, &params.Error{Code: "not found"})
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	knownUnits := make(map[string]bool)
 	err = mgr.RemoveRelation(context.Background(), 99, s.mockUnitGetter, knownUnits)
@@ -235,7 +235,7 @@ func (s *stateManagerSuite) TestRemoveFailRequest(c *gc.C) {
 	s.expectState(c, stateTwo)
 	s.expectSetStateError()
 
-	mgr, err := relation.NewStateManager(s.mockUnitRW, loggertesting.WrapCheckLog(c))
+	mgr, err := relation.NewStateManager(context.Background(), s.mockUnitRW, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	err = mgr.RemoveRelation(context.Background(), 99, s.mockUnitGetter, map[string]bool{})
 	c.Assert(err, jc.ErrorIs, errors.BadRequest)
@@ -276,12 +276,12 @@ func (s *stateManagerSuite) setupFourStates(c *gc.C) []relation.State {
 
 func (s *stateManagerSuite) expectStateEmpty() {
 	exp := s.mockUnitRW.EXPECT()
-	exp.State().Return(params.UnitStateResult{}, nil)
+	exp.State(gomock.Any()).Return(params.UnitStateResult{}, nil)
 }
 
 func (s *stateManagerSuite) expectStateEmptyError() {
 	exp := s.mockUnitRW.EXPECT()
-	exp.State().Return(params.UnitStateResult{}, errors.BadRequestf("testing"))
+	exp.State(gomock.Any()).Return(params.UnitStateResult{}, errors.BadRequestf("testing"))
 }
 
 func (s *stateManagerSuite) expectSetState(c *gc.C, states ...relation.State) {
@@ -292,17 +292,17 @@ func (s *stateManagerSuite) expectSetState(c *gc.C, states ...relation.State) {
 		expectedStates[s.RelationId] = str
 	}
 	exp := s.mockUnitRW.EXPECT()
-	exp.SetState(unitStateMatcher{c: c, expected: expectedStates}).Return(nil)
+	exp.SetState(gomock.Any(), unitStateMatcher{c: c, expected: expectedStates}).Return(nil)
 }
 
 func (s *stateManagerSuite) expectSetStateEmpty(c *gc.C) {
 	exp := s.mockUnitRW.EXPECT()
-	exp.SetState(unitStateMatcher{c: c, expected: map[int]string{}}).Return(nil)
+	exp.SetState(gomock.Any(), unitStateMatcher{c: c, expected: map[int]string{}}).Return(nil)
 }
 
 func (s *stateManagerSuite) expectSetStateError() {
 	exp := s.mockUnitRW.EXPECT()
-	exp.SetState(gomock.Any()).Return(errors.BadRequestf("testing"))
+	exp.SetState(gomock.Any(), gomock.Any()).Return(errors.BadRequestf("testing"))
 }
 
 func (s *stateManagerSuite) expectState(c *gc.C, states ...relation.State) {
@@ -314,7 +314,7 @@ func (s *stateManagerSuite) expectState(c *gc.C, states ...relation.State) {
 		relationMap[state.RelationId] = strState
 	}
 	exp := s.mockUnitRW.EXPECT()
-	exp.State().Return(params.UnitStateResult{
+	exp.State(gomock.Any()).Return(params.UnitStateResult{
 		RelationState: relationMap,
 	}, nil)
 }

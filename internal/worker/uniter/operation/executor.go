@@ -5,6 +5,7 @@ package operation
 
 import (
 	"context"
+	stdcontext "context"
 	"fmt"
 	"runtime/pprof"
 
@@ -59,12 +60,12 @@ func (e ExecutorConfig) validate() error {
 // NewExecutor returns an Executor which takes its starting state from
 // the controller, and records state changes there. If no saved state
 // exists, the executor's starting state will be the supplied InitialState.
-func NewExecutor(unitName string, cfg ExecutorConfig) (Executor, error) {
+func NewExecutor(ctx stdcontext.Context, unitName string, cfg ExecutorConfig) (Executor, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
 	stateOps := NewStateOps(cfg.StateReadWriter)
-	state, err := stateOps.Read()
+	state, err := stateOps.Read(ctx)
 	if err == ErrNoSavedState {
 		state = &cfg.InitialState
 	} else if err != nil {
@@ -167,7 +168,7 @@ func (x *executor) do(ctx context.Context, op Operation, step executorStep) (err
 	x.logger.Debugf(message)
 	newState, firstErr := step.run(op, ctx, *x.state)
 	if newState != nil {
-		writeErr := x.writeState(*newState)
+		writeErr := x.writeState(ctx, *newState)
 		if firstErr == nil {
 			firstErr = writeErr
 		} else if writeErr != nil {
@@ -177,14 +178,14 @@ func (x *executor) do(ctx context.Context, op Operation, step executorStep) (err
 	return errors.Annotatef(firstErr, message)
 }
 
-func (x *executor) writeState(newState State) error {
+func (x *executor) writeState(ctx context.Context, newState State) error {
 	if err := newState.Validate(); err != nil {
 		return err
 	}
 	if x.state != nil && x.state.match(newState) {
 		return nil
 	}
-	if err := x.stateOps.Write(&newState); err != nil {
+	if err := x.stateOps.Write(ctx, &newState); err != nil {
 		return errors.Annotatef(err, "writing state")
 	}
 	x.state = &newState

@@ -5,6 +5,7 @@ package model
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -120,7 +121,7 @@ var destroyModelMsgDetails = `
 type DestroyModelAPI interface {
 	Close() error
 	DestroyModel(tag names.ModelTag, destroyStorage, force *bool, maxWait *time.Duration, timeout *time.Duration) error
-	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
+	ModelStatus(ctx context.Context, models ...names.ModelTag) ([]base.ModelStatus, error)
 }
 
 // Info implements Command.Info.
@@ -259,7 +260,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	defer func() { _ = api.Close() }()
 
 	if c.DestroyConfirmationCommandBase.NeedsConfirmation() {
-		modelStatuses, err := api.ModelStatus(names.NewModelTag(modelDetails.ModelUUID))
+		modelStatuses, err := api.ModelStatus(ctx, names.NewModelTag(modelDetails.ModelUUID))
 		if err != nil {
 			return errors.Annotate(err, "getting model status")
 		}
@@ -294,6 +295,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	if err := api.DestroyModel(modelTag, destroyStorage, force, maxWait, timeout); err != nil {
 		return c.handleError(
+			ctx,
 			modelTag, modelName, api,
 			errors.Annotate(err, "cannot destroy model"),
 		)
@@ -424,7 +426,7 @@ You can fix the problem causing the errors and run destroy-model again.
 func getModelStatus(ctx *cmd.Context, api DestroyModelAPI, tag names.ModelTag) (*modelData, modelResourceErrorStatusSummary) {
 	var erroredStatuses modelResourceErrorStatusSummary
 
-	status, err := api.ModelStatus(tag)
+	status, err := api.ModelStatus(ctx, tag)
 	if err == nil && len(status) == 1 && status[0].Error != nil {
 		// In 2.2 an error of one model generate an error for the entire request,
 		// in 2.3 this was corrected to just be an error for the requested model.
@@ -530,6 +532,7 @@ func formatDestroyModelAbortInfo(data *modelData, timeout, force bool) string {
 }
 
 func (c *destroyCommand) handleError(
+	ctx context.Context,
 	modelTag names.ModelTag,
 	modelName string,
 	api DestroyModelAPI,
@@ -539,18 +542,19 @@ func (c *destroyCommand) handleError(
 		return block.ProcessBlockedError(err, block.BlockDestroy)
 	}
 	if params.IsCodeHasPersistentStorage(err) {
-		return handlePersistentStorageError(modelTag, modelName, api)
+		return handlePersistentStorageError(ctx, modelTag, modelName, api)
 	}
 	logger.Errorf(`failed to destroy model %q`, modelName)
 	return err
 }
 
 func handlePersistentStorageError(
+	ctx context.Context,
 	modelTag names.ModelTag,
 	modelName string,
 	api DestroyModelAPI,
 ) error {
-	modelStatuses, err := api.ModelStatus(modelTag)
+	modelStatuses, err := api.ModelStatus(ctx, modelTag)
 	if err != nil {
 		return errors.Annotate(err, "getting model status")
 	}

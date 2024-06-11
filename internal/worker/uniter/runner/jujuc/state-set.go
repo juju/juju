@@ -93,7 +93,7 @@ func (c *StateSetCommand) Run(ctx *cmd.Context) error {
 	}
 
 	for k, v := range c.StateValues {
-		if err := c.ctx.SetCharmStateValue(k, v); err != nil {
+		if err := c.ctx.SetCharmStateValue(ctx, k, v); err != nil {
 			return err
 		}
 	}

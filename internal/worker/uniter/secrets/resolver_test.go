@@ -504,7 +504,7 @@ func (s *secretDeletedSuite) TestCommit(c *gc.C) {
 	_, err = op.Execute(context.Background(), operation.State{})
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 
-	s.mockCallbacks.EXPECT().SecretsRemoved([]string{"secret:9m4e2mr0ui3e8a215n4g"}).Return(nil)
+	s.mockCallbacks.EXPECT().SecretsRemoved(gomock.Any(), []string{"secret:9m4e2mr0ui3e8a215n4g"}).Return(nil)
 
 	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)

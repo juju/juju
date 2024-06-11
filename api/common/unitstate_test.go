@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -42,7 +44,7 @@ func (s *unitStateSuite) TestSetStateSingleResult(c *gc.C) {
 		return nil
 	}
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
-	err := api.SetState(params.SetUnitStateArg{
+	err := api.SetState(context.Background(), params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -60,7 +62,7 @@ func (s *unitStateSuite) TestSetStateReturnsQuotaExceededError(c *gc.C) {
 
 	// The client should reconstruct the quota error from the server response
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
-	err := api.SetState(params.SetUnitStateArg{
+	err := api.SetState(context.Background(), params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
 	c.Assert(err, jc.ErrorIs, errors.QuotaLimitExceeded, gc.Commentf("expected the client to reconstruct QuotaLimitExceeded error from server response"))
@@ -83,7 +85,7 @@ func (s *unitStateSuite) TestSetStateMultipleReturnsError(c *gc.C) {
 	}
 
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
-	err := api.SetState(params.SetUnitStateArg{
+	err := api.SetState(context.Background(), params.SetUnitStateArg{
 		CharmState: &map[string]string{"one": "two"},
 	})
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
@@ -108,7 +110,7 @@ func (s *unitStateSuite) TestStateSingleResult(c *gc.C) {
 	}
 
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
-	obtainedUnitState, err := api.State()
+	obtainedUnitState, err := api.State(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(expectedCharmState, gc.DeepEquals, obtainedUnitState.CharmState)
 	c.Assert(expectedUniterState, gc.DeepEquals, obtainedUnitState.UniterState)
@@ -127,6 +129,6 @@ func (s *unitStateSuite) TestStateMultipleReturnsError(c *gc.C) {
 	}
 
 	api := common.NewUniterStateAPI(&facadeCaller, s.tag)
-	_, err := api.State()
+	_, err := api.State(context.Background())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }

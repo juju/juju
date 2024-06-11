@@ -359,17 +359,17 @@ func (c *MockContextCreateSecretCall) DoAndReturn(f func(*jujuc.SecretCreateArgs
 }
 
 // DeleteCharmStateValue mocks base method.
-func (m *MockContext) DeleteCharmStateValue(arg0 string) error {
+func (m *MockContext) DeleteCharmStateValue(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteCharmStateValue", arg0)
+	ret := m.ctrl.Call(m, "DeleteCharmStateValue", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteCharmStateValue indicates an expected call of DeleteCharmStateValue.
-func (mr *MockContextMockRecorder) DeleteCharmStateValue(arg0 any) *MockContextDeleteCharmStateValueCall {
+func (mr *MockContextMockRecorder) DeleteCharmStateValue(arg0, arg1 any) *MockContextDeleteCharmStateValueCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCharmStateValue", reflect.TypeOf((*MockContext)(nil).DeleteCharmStateValue), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCharmStateValue", reflect.TypeOf((*MockContext)(nil).DeleteCharmStateValue), arg0, arg1)
 	return &MockContextDeleteCharmStateValueCall{Call: call}
 }
 
@@ -385,13 +385,13 @@ func (c *MockContextDeleteCharmStateValueCall) Return(arg0 error) *MockContextDe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextDeleteCharmStateValueCall) Do(f func(string) error) *MockContextDeleteCharmStateValueCall {
+func (c *MockContextDeleteCharmStateValueCall) Do(f func(context.Context, string) error) *MockContextDeleteCharmStateValueCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextDeleteCharmStateValueCall) DoAndReturn(f func(string) error) *MockContextDeleteCharmStateValueCall {
+func (c *MockContextDeleteCharmStateValueCall) DoAndReturn(f func(context.Context, string) error) *MockContextDeleteCharmStateValueCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -474,18 +474,18 @@ func (c *MockContextFlushPayloadsCall) DoAndReturn(f func() error) *MockContextF
 }
 
 // GetCharmState mocks base method.
-func (m *MockContext) GetCharmState() (map[string]string, error) {
+func (m *MockContext) GetCharmState(arg0 context.Context) (map[string]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmState")
+	ret := m.ctrl.Call(m, "GetCharmState", arg0)
 	ret0, _ := ret[0].(map[string]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetCharmState indicates an expected call of GetCharmState.
-func (mr *MockContextMockRecorder) GetCharmState() *MockContextGetCharmStateCall {
+func (mr *MockContextMockRecorder) GetCharmState(arg0 any) *MockContextGetCharmStateCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmState", reflect.TypeOf((*MockContext)(nil).GetCharmState))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmState", reflect.TypeOf((*MockContext)(nil).GetCharmState), arg0)
 	return &MockContextGetCharmStateCall{Call: call}
 }
 
@@ -501,30 +501,30 @@ func (c *MockContextGetCharmStateCall) Return(arg0 map[string]string, arg1 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextGetCharmStateCall) Do(f func() (map[string]string, error)) *MockContextGetCharmStateCall {
+func (c *MockContextGetCharmStateCall) Do(f func(context.Context) (map[string]string, error)) *MockContextGetCharmStateCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextGetCharmStateCall) DoAndReturn(f func() (map[string]string, error)) *MockContextGetCharmStateCall {
+func (c *MockContextGetCharmStateCall) DoAndReturn(f func(context.Context) (map[string]string, error)) *MockContextGetCharmStateCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetCharmStateValue mocks base method.
-func (m *MockContext) GetCharmStateValue(arg0 string) (string, error) {
+func (m *MockContext) GetCharmStateValue(arg0 context.Context, arg1 string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmStateValue", arg0)
+	ret := m.ctrl.Call(m, "GetCharmStateValue", arg0, arg1)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetCharmStateValue indicates an expected call of GetCharmStateValue.
-func (mr *MockContextMockRecorder) GetCharmStateValue(arg0 any) *MockContextGetCharmStateValueCall {
+func (mr *MockContextMockRecorder) GetCharmStateValue(arg0, arg1 any) *MockContextGetCharmStateValueCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmStateValue", reflect.TypeOf((*MockContext)(nil).GetCharmStateValue), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmStateValue", reflect.TypeOf((*MockContext)(nil).GetCharmStateValue), arg0, arg1)
 	return &MockContextGetCharmStateValueCall{Call: call}
 }
 
@@ -540,13 +540,13 @@ func (c *MockContextGetCharmStateValueCall) Return(arg0 string, arg1 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextGetCharmStateValueCall) Do(f func(string) (string, error)) *MockContextGetCharmStateValueCall {
+func (c *MockContextGetCharmStateValueCall) Do(f func(context.Context, string) (string, error)) *MockContextGetCharmStateValueCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextGetCharmStateValueCall) DoAndReturn(f func(string) (string, error)) *MockContextGetCharmStateValueCall {
+func (c *MockContextGetCharmStateValueCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockContextGetCharmStateValueCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1594,17 +1594,17 @@ func (c *MockContextSetApplicationStatusCall) DoAndReturn(f func(context.Context
 }
 
 // SetCharmStateValue mocks base method.
-func (m *MockContext) SetCharmStateValue(arg0, arg1 string) error {
+func (m *MockContext) SetCharmStateValue(arg0 context.Context, arg1, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCharmStateValue", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetCharmStateValue", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetCharmStateValue indicates an expected call of SetCharmStateValue.
-func (mr *MockContextMockRecorder) SetCharmStateValue(arg0, arg1 any) *MockContextSetCharmStateValueCall {
+func (mr *MockContextMockRecorder) SetCharmStateValue(arg0, arg1, arg2 any) *MockContextSetCharmStateValueCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmStateValue", reflect.TypeOf((*MockContext)(nil).SetCharmStateValue), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmStateValue", reflect.TypeOf((*MockContext)(nil).SetCharmStateValue), arg0, arg1, arg2)
 	return &MockContextSetCharmStateValueCall{Call: call}
 }
 
@@ -1620,13 +1620,13 @@ func (c *MockContextSetCharmStateValueCall) Return(arg0 error) *MockContextSetCh
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContextSetCharmStateValueCall) Do(f func(string, string) error) *MockContextSetCharmStateValueCall {
+func (c *MockContextSetCharmStateValueCall) Do(f func(context.Context, string, string) error) *MockContextSetCharmStateValueCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContextSetCharmStateValueCall) DoAndReturn(f func(string, string) error) *MockContextSetCharmStateValueCall {
+func (c *MockContextSetCharmStateValueCall) DoAndReturn(f func(context.Context, string, string) error) *MockContextSetCharmStateValueCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

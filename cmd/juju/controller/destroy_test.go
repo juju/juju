@@ -5,6 +5,7 @@ package controller_test
 
 import (
 	"bytes"
+	"context"
 	"time"
 
 	"github.com/juju/cmd/v4"
@@ -87,7 +88,7 @@ func (f *fakeDestroyAPI) ModelConfig() (map[string]interface{}, error) {
 	return testing.FakeConfig(), nil
 }
 
-func (f *fakeDestroyAPI) ControllerConfig() (jujucontroller.Config, error) {
+func (f *fakeDestroyAPI) ControllerConfig(context.Context) (jujucontroller.Config, error) {
 	f.MethodCall(f, "ControllerConfig")
 	if err := f.NextErr(); err != nil {
 		return nil, err
@@ -113,7 +114,7 @@ func (f *fakeDestroyAPI) ListBlockedModels() ([]params.ModelBlockInfo, error) {
 	return f.blocks, f.NextErr()
 }
 
-func (f *fakeDestroyAPI) ModelStatus(tags ...names.ModelTag) ([]base.ModelStatus, error) {
+func (f *fakeDestroyAPI) ModelStatus(_ context.Context, tags ...names.ModelTag) ([]base.ModelStatus, error) {
 	f.MethodCall(f, "ModelStatus", tags)
 	status := make([]base.ModelStatus, len(tags))
 	for i, tag := range tags {

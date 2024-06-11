@@ -32,7 +32,7 @@ type WorkerSuite struct {
 var _ = gc.Suite(&WorkerSuite{})
 
 func (*WorkerSuite) TestNewWorkerValidatesConfig(c *gc.C) {
-	_, err := environupgrader.NewWorker(environupgrader.Config{})
+	_, err := environupgrader.NewWorker(context.Background(), environupgrader.Config{})
 	c.Assert(err, gc.ErrorMatches, "nil Facade not valid")
 }
 
@@ -40,7 +40,7 @@ func (*WorkerSuite) TestNewWorker(c *gc.C) {
 	mockFacade := mockFacade{current: 123, target: 124}
 	mockEnviron := mockEnviron{}
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := environupgrader.NewWorker(environupgrader.Config{
+	w, err := environupgrader.NewWorker(context.Background(), environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       &mockEnviron,
 		GateUnlocker:  &mockGateUnlocker,
@@ -66,7 +66,7 @@ func (*WorkerSuite) TestNewWorkerModelRemovedUninstalls(c *gc.C) {
 	mockFacade.SetErrors(&params.Error{Code: params.CodeNotFound})
 	mockEnviron := mockEnviron{}
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := environupgrader.NewWorker(environupgrader.Config{
+	w, err := environupgrader.NewWorker(context.Background(), environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       &mockEnviron,
 		GateUnlocker:  &mockGateUnlocker,
@@ -88,7 +88,7 @@ func (*WorkerSuite) TestNonUpgradeable(c *gc.C) {
 	mockFacade := mockFacade{current: 123, target: 124}
 	mockEnviron := struct{ environs.Environ }{} // not an Upgrader
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := environupgrader.NewWorker(environupgrader.Config{
+	w, err := environupgrader.NewWorker(context.Background(), environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       &mockEnviron,
 		GateUnlocker:  &mockGateUnlocker,
@@ -141,7 +141,7 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 		}},
 	}
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := environupgrader.NewWorker(environupgrader.Config{
+	w, err := environupgrader.NewWorker(context.Background(), environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       &mockEnviron,
 		GateUnlocker:  &mockGateUnlocker,
@@ -193,7 +193,7 @@ func (*WorkerSuite) TestRunUpgradeOperationsStepError(c *gc.C) {
 		}},
 	}
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := environupgrader.NewWorker(environupgrader.Config{
+	w, err := environupgrader.NewWorker(context.Background(), environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       &mockEnviron,
 		GateUnlocker:  &mockGateUnlocker,
@@ -224,7 +224,7 @@ func (*WorkerSuite) TestWaitForUpgrade(c *gc.C) {
 		watcher: newMockNotifyWatcher(ch),
 	}
 	mockGateUnlocker := mockGateUnlocker{}
-	w, err := environupgrader.NewWorker(environupgrader.Config{
+	w, err := environupgrader.NewWorker(context.Background(), environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       nil, // not responsible for running upgrades
 		GateUnlocker:  &mockGateUnlocker,
@@ -276,7 +276,7 @@ func (*WorkerSuite) TestModelNotFoundWhenRunning(c *gc.C) {
 		target:  125,
 		watcher: newMockNotifyWatcher(ch),
 	}
-	w, err := environupgrader.NewWorker(environupgrader.Config{
+	w, err := environupgrader.NewWorker(context.Background(), environupgrader.Config{
 		Facade:        &mockFacade,
 		Environ:       nil, // not responsible for running upgrades
 		GateUnlocker:  &mockGateUnlocker{},
@@ -348,7 +348,7 @@ func (f *mockFacade) SetModelEnvironVersion(tag names.ModelTag, v int) error {
 	return f.NextErr()
 }
 
-func (f *mockFacade) WatchModelEnvironVersion(tag names.ModelTag) (watcher.NotifyWatcher, error) {
+func (f *mockFacade) WatchModelEnvironVersion(_ context.Context, tag names.ModelTag) (watcher.NotifyWatcher, error) {
 	f.MethodCall(f, "WatchModelEnvironVersion", tag)
 	if err := f.NextErr(); err != nil {
 		return nil, err

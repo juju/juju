@@ -29,11 +29,11 @@ type ManifoldConfig struct {
 	Logger        logger.Logger
 
 	NewFacade                    func(base.APICaller) (Facade, error)
-	NewWorker                    func(Config) (worker.Worker, error)
+	NewWorker                    func(context.Context, Config) (worker.Worker, error)
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
 
-func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	var environ environs.Environ
 	if err := getter.Get(config.EnvironName, &environ); err != nil {
 		if errors.Cause(err) != dependency.ErrMissing {
@@ -65,7 +65,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
-	worker, err := config.NewWorker(Config{
+	worker, err := config.NewWorker(ctx, Config{
 		Facade:        facade,
 		Environ:       environ,
 		GateUnlocker:  gate,

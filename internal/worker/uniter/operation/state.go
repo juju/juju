@@ -4,6 +4,8 @@
 package operation
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 
@@ -244,15 +246,15 @@ func NewStateOps(readwriter UnitStateReadWriter) *StateOps {
 //
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/uniterstaterw_mock.go github.com/juju/juju/internal/worker/uniter/operation UnitStateReadWriter
 type UnitStateReadWriter interface {
-	State() (params.UnitStateResult, error)
-	SetState(unitState params.SetUnitStateArg) error
+	State(stdcontext.Context) (params.UnitStateResult, error)
+	SetState(ctx stdcontext.Context, unitState params.SetUnitStateArg) error
 }
 
 // Read a State from the controller. If the saved state does not exist
 // it returns ErrNoSavedState.
-func (f *StateOps) Read() (*State, error) {
+func (f *StateOps) Read(ctx stdcontext.Context) (*State, error) {
 	var st State
-	unitState, err := f.unitStateRW.State()
+	unitState, err := f.unitStateRW.State(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -269,7 +271,7 @@ func (f *StateOps) Read() (*State, error) {
 }
 
 // Write stores the supplied state on the controller.
-func (f *StateOps) Write(st *State) error {
+func (f *StateOps) Write(ctx stdcontext.Context, st *State) error {
 	if err := st.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -278,5 +280,5 @@ func (f *StateOps) Write(st *State) error {
 		return errors.Trace(err)
 	}
 	s := string(data)
-	return f.unitStateRW.SetState(params.SetUnitStateArg{UniterState: &s})
+	return f.unitStateRW.SetState(ctx, params.SetUnitStateArg{UniterState: &s})
 }

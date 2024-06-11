@@ -4,6 +4,8 @@
 package ssh
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/client/application"
@@ -62,5 +64,5 @@ type SSHClientAPI interface {
 
 // SSHControllerAPI defines controller related APIs.
 type SSHControllerAPI interface {
-	ControllerConfig() (controller.Config, error)
+	ControllerConfig(context.Context) (controller.Config, error)
 }

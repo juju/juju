@@ -108,7 +108,7 @@ func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 		NewFacade: func(_ base.APICaller) (environupgrader.Facade, error) {
 			return expectFacade, nil
 		},
-		NewWorker: func(config environupgrader.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, config environupgrader.Config) (worker.Worker, error) {
 			c.Check(config.Facade, gc.Equals, expectFacade)
 			return nil, errors.New("boof")
 		},
@@ -136,7 +136,7 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithEnviron(c *gc.C) {
 		NewFacade: func(_ base.APICaller) (environupgrader.Facade, error) {
 			return struct{ environupgrader.Facade }{}, nil
 		},
-		NewWorker: func(config environupgrader.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, config environupgrader.Config) (worker.Worker, error) {
 			newWorkerConfig = config
 			return expectWorker, nil
 		},
@@ -164,7 +164,7 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithoutEnviron(c *gc.C) {
 		NewFacade: func(_ base.APICaller) (environupgrader.Facade, error) {
 			return struct{ environupgrader.Facade }{}, nil
 		},
-		NewWorker: func(config environupgrader.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, config environupgrader.Config) (worker.Worker, error) {
 			newWorkerConfig = config
 			return expectWorker, nil
 		},

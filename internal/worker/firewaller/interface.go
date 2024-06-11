@@ -4,6 +4,7 @@
 package firewaller
 
 import (
+	"context"
 	stdcontext "context"
 	"io"
 
@@ -115,6 +116,6 @@ type Unit interface {
 type Application interface {
 	Name() string
 	Tag() names.ApplicationTag
-	Watch() (watcher.NotifyWatcher, error)
+	Watch(context.Context) (watcher.NotifyWatcher, error)
 	ExposeInfo() (bool, map[string]params.ExposedEndpoint, error)
 }

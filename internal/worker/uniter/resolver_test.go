@@ -94,9 +94,9 @@ func (s *rebootResolverSuite) SetUpTest(_ *gc.C) {
 }
 
 func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, rebootDetected bool) {
-	attachments, err := storage.NewAttachments(&dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
+	attachments, err := storage.NewAttachments(context.Background(), &dummyStorageAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	secretsTracker, err := secrets.NewSecrets(&dummySecretsAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
+	secretsTracker, err := secrets.NewSecrets(context.Background(), &dummySecretsAccessor{}, names.NewUnitTag("u/0"), &fakeRW{}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	logger := loggertesting.WrapCheckLog(c)
 
@@ -863,11 +863,11 @@ func (s *baseResolverSuite) setupForceCharmModifiedTrue() {
 type fakeRW struct {
 }
 
-func (m *fakeRW) State() (params.UnitStateResult, error) {
+func (m *fakeRW) State(context.Context) (params.UnitStateResult, error) {
 	return params.UnitStateResult{}, nil
 }
 
-func (m *fakeRW) SetState(_ params.SetUnitStateArg) error {
+func (m *fakeRW) SetState(context.Context, params.SetUnitStateArg) error {
 	return nil
 }
 

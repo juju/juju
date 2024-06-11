@@ -231,14 +231,14 @@ type Callbacks interface {
 	// upgrade the status of a running series upgrade before or after
 	// upgrade series hook code completes and, for display purposes, to
 	// supply a reason as to why it is making the change.
-	SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, reason string) error
+	SetUpgradeSeriesStatus(ctx stdcontext.Context, status model.UpgradeSeriesStatus, reason string) error
 
 	// SetSecretRotated updates the secret rotation status.
 	SetSecretRotated(url string, originalRevision int) error
 
 	// SecretsRemoved updates the unit secret state when
 	// secrets are removed.
-	SecretsRemoved(uris []string) error
+	SecretsRemoved(ctx stdcontext.Context, uris []string) error
 
 	// RemoteInit copies the charm to the remote instance. CAAS only.
 	RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error

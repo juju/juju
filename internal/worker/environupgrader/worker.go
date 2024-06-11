@@ -4,6 +4,7 @@
 package environupgrader
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 
@@ -32,7 +33,7 @@ type Facade interface {
 	ModelTargetEnvironVersion(tag names.ModelTag) (int, error)
 	SetModelEnvironVersion(tag names.ModelTag, v int) error
 	SetModelStatus(names.ModelTag, status.Status, string, map[string]interface{}) error
-	WatchModelEnvironVersion(tag names.ModelTag) (watcher.NotifyWatcher, error)
+	WatchModelEnvironVersion(ctx context.Context, tag names.ModelTag) (watcher.NotifyWatcher, error)
 }
 
 // Config holds the configuration and dependencies for a worker.
@@ -94,7 +95,7 @@ func (config Config) Validate() error {
 // are run when the model is first loaded by a controller of a new version. The
 // worker either runs the upgrades or waits for another controller unit to run
 // them, depending on the configuration.
-func NewWorker(config Config) (worker.Worker, error) {
+func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -108,14 +109,14 @@ func NewWorker(config Config) (worker.Worker, error) {
 	if config.Environ != nil {
 		return newUpgradeWorker(config, targetVersion)
 	}
-	return newWaitWorker(config, targetVersion)
+	return newWaitWorker(ctx, config, targetVersion)
 }
 
 // newWaitWorker returns a worker that waits for the controller leader to run
 // the upgrade steps and update the model's environ version, and then unlocks
 // the gate.
-func newWaitWorker(config Config, targetVersion int) (worker.Worker, error) {
-	watcher, err := config.Facade.WatchModelEnvironVersion(config.ModelTag)
+func newWaitWorker(ctx context.Context, config Config, targetVersion int) (worker.Worker, error) {
+	watcher, err := config.Facade.WatchModelEnvironVersion(ctx, config.ModelTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

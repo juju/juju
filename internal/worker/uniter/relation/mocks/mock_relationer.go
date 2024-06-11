@@ -195,17 +195,17 @@ func (c *MockRelationerIsImplicitCall) DoAndReturn(f func() bool) *MockRelatione
 }
 
 // Join mocks base method.
-func (m *MockRelationer) Join() error {
+func (m *MockRelationer) Join(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Join")
+	ret := m.ctrl.Call(m, "Join", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Join indicates an expected call of Join.
-func (mr *MockRelationerMockRecorder) Join() *MockRelationerJoinCall {
+func (mr *MockRelationerMockRecorder) Join(arg0 any) *MockRelationerJoinCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Join", reflect.TypeOf((*MockRelationer)(nil).Join))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Join", reflect.TypeOf((*MockRelationer)(nil).Join), arg0)
 	return &MockRelationerJoinCall{Call: call}
 }
 
@@ -221,13 +221,13 @@ func (c *MockRelationerJoinCall) Return(arg0 error) *MockRelationerJoinCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationerJoinCall) Do(f func() error) *MockRelationerJoinCall {
+func (c *MockRelationerJoinCall) Do(f func(context.Context) error) *MockRelationerJoinCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationerJoinCall) DoAndReturn(f func() error) *MockRelationerJoinCall {
+func (c *MockRelationerJoinCall) DoAndReturn(f func(context.Context) error) *MockRelationerJoinCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

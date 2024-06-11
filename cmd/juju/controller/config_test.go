@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -256,7 +257,7 @@ func (f *fakeControllerAPI) Close() error {
 	return nil
 }
 
-func (f *fakeControllerAPI) ControllerConfig() (jujucontroller.Config, error) {
+func (f *fakeControllerAPI) ControllerConfig(context.Context) (jujucontroller.Config, error) {
 	if f.err != nil {
 		return nil, f.err
 	}

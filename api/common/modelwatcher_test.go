@@ -61,7 +61,7 @@ func (s *modelwatcherTests) TestWatchForModelConfigChanges(c *gc.C) {
 	facade.EXPECT().RawAPICaller().Return(caller)
 
 	client := common.NewModelWatcher(facade)
-	w, err := client.WatchForModelConfigChanges()
+	w, err := client.WatchForModelConfigChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// watch for the changes

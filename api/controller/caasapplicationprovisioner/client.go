@@ -349,8 +349,8 @@ func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateA
 
 // WatchApplication returns a NotifyWatcher that notifies of
 // changes to the application in the current model.
-func (c *Client) WatchApplication(appName string) (watcher.NotifyWatcher, error) {
-	return common.Watch(c.facade, "Watch", names.NewApplicationTag(appName))
+func (c *Client) WatchApplication(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
+	return common.Watch(ctx, c.facade, "Watch", names.NewApplicationTag(appName))
 }
 
 // ClearApplicationResources clears the flag which indicates an

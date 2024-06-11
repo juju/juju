@@ -41,9 +41,9 @@ func NewLeadershipPinningAPIFromFacade(facade base.FacadeCaller) *LeadershipPinn
 // PinnedLeadership returns a collection of application names for which
 // leadership is currently pinned, with the entities requiring each
 // application's pinned behaviour.
-func (a *LeadershipPinningAPI) PinnedLeadership() (map[string][]names.Tag, error) {
+func (a *LeadershipPinningAPI) PinnedLeadership(ctx context.Context) (map[string][]names.Tag, error) {
 	var callResult params.PinnedLeadershipResult
-	err := a.facade.FacadeCall(context.TODO(), "PinnedLeadership", nil, &callResult)
+	err := a.facade.FacadeCall(ctx, "PinnedLeadership", nil, &callResult)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -73,8 +73,8 @@ func (a *LeadershipPinningAPI) PinnedLeadership() (map[string][]names.Tag, error
 // If the caller is not a machine agent, an error will be returned.
 // The return is a collection of applications determined to be running on the
 // machine, with the result of each individual pin operation.
-func (a *LeadershipPinningAPI) PinMachineApplications() (map[string]error, error) {
-	res, err := a.pinMachineAppsOps("PinMachineApplications")
+func (a *LeadershipPinningAPI) PinMachineApplications(ctx context.Context) (map[string]error, error) {
+	res, err := a.pinMachineAppsOps(ctx, "PinMachineApplications")
 	return res, errors.Trace(err)
 }
 
@@ -83,16 +83,16 @@ func (a *LeadershipPinningAPI) PinMachineApplications() (map[string]error, error
 // If the caller is not a machine agent, an error will be returned.
 // The return is a collection of applications determined to be running on the
 // machine, with the result of each individual unpin operation.
-func (a *LeadershipPinningAPI) UnpinMachineApplications() (map[string]error, error) {
-	res, err := a.pinMachineAppsOps("UnpinMachineApplications")
+func (a *LeadershipPinningAPI) UnpinMachineApplications(ctx context.Context) (map[string]error, error) {
+	res, err := a.pinMachineAppsOps(ctx, "UnpinMachineApplications")
 	return res, errors.Trace(err)
 }
 
 // pinMachineAppsOps makes a facade call to the input method name and
 // transforms the response into map.
-func (a *LeadershipPinningAPI) pinMachineAppsOps(callName string) (map[string]error, error) {
+func (a *LeadershipPinningAPI) pinMachineAppsOps(ctx context.Context, callName string) (map[string]error, error) {
 	var callResult params.PinApplicationsResults
-	err := a.facade.FacadeCall(context.TODO(), callName, nil, &callResult)
+	err := a.facade.FacadeCall(ctx, callName, nil, &callResult)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

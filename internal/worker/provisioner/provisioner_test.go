@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -65,21 +66,21 @@ func (s *CommonProvisionerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 func (s *CommonProvisionerSuite) expectStartup(c *gc.C) {
 	s.modelConfigCh = make(chan struct{})
 	watchCfg := watchertest.NewMockNotifyWatcher(s.modelConfigCh)
-	s.controllerAPI.EXPECT().WatchForModelConfigChanges().Return(watchCfg, nil)
+	s.controllerAPI.EXPECT().WatchForModelConfigChanges(gomock.Any()).Return(watchCfg, nil)
 
 	cfg := coretesting.CustomModelConfig(c, coretesting.Attrs{config.ProvisionerHarvestModeKey: config.HarvestDestroyed.String()})
 	s.controllerAPI.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).MaxTimes(2)
 
 	s.provisionerStarted = make(chan bool)
 	controllerCfg := coretesting.FakeControllerConfig()
-	s.controllerAPI.EXPECT().ControllerConfig().DoAndReturn(func() (controller.Config, error) {
+	s.controllerAPI.EXPECT().ControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (controller.Config, error) {
 		defer close(s.provisionerStarted)
 		return controllerCfg, nil
 	})
 }
 
 func (s *CommonProvisionerSuite) expectAuth() {
-	s.controllerAPI.EXPECT().APIAddresses().Return([]string{"10.0.0.1"}, nil).AnyTimes()
+	s.controllerAPI.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.0.0.1"}, nil).AnyTimes()
 	s.controllerAPI.EXPECT().ModelUUID().Return(coretesting.ModelTag.Id(), nil).AnyTimes()
 	s.controllerAPI.EXPECT().CACert().Return(coretesting.CACert, nil).AnyTimes()
 }

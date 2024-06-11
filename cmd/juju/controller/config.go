@@ -5,6 +5,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -159,7 +160,7 @@ func (c *configCommand) Init(args []string) error {
 
 type controllerAPI interface {
 	Close() error
-	ControllerConfig() (controller.Config, error)
+	ControllerConfig(context.Context) (controller.Config, error)
 	ConfigSet(map[string]interface{}) error
 }
 
@@ -209,7 +210,7 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 
 // getAllConfig returns the entire configuration for the selected controller.
 func (c *configCommand) getAllConfig(client controllerAPI, ctx *cmd.Context) error {
-	attrs, err := client.ControllerConfig()
+	attrs, err := client.ControllerConfig(ctx.Context)
 	if err != nil {
 		return err
 	}
@@ -223,7 +224,7 @@ func (c *configCommand) getConfig(client controllerAPI, ctx *cmd.Context) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	attrs, err := client.ControllerConfig()
+	attrs, err := client.ControllerConfig(ctx.Context)
 	if err != nil {
 		return err
 	}

@@ -53,7 +53,7 @@ type CAASProvisionerFacade interface {
 	Units(appName string) ([]params.CAASUnit, error)
 	ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error)
 	UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
-	WatchApplication(appName string) (watcher.NotifyWatcher, error)
+	WatchApplication(ctx context.Context, appName string) (watcher.NotifyWatcher, error)
 	ClearApplicationResources(appName string) error
 	WatchUnits(application string) (watcher.StringsWatcher, error)
 	RemoveUnit(unitName string) error

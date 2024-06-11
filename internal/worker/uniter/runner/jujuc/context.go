@@ -124,16 +124,16 @@ type workloadHookContext interface {
 // that is stored within the context.
 type unitCharmStateContext interface {
 	// GetCharmState returns a copy of the charm state.
-	GetCharmState() (map[string]string, error)
+	GetCharmState(context.Context) (map[string]string, error)
 
 	// GetCharmStateValue returns the value of the given key.
-	GetCharmStateValue(string) (string, error)
+	GetCharmStateValue(context.Context, string) (string, error)
 
 	// DeleteCharmStateValue deletes the key/value pair for the given key.
-	DeleteCharmStateValue(string) error
+	DeleteCharmStateValue(context.Context, string) error
 
 	// SetCharmStateValue sets the key to the specified value.
-	SetCharmStateValue(string, string) error
+	SetCharmStateValue(context.Context, string, string) error
 }
 
 // ContextUnit is the part of a hook context related to the unit.

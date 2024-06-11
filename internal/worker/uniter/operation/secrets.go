@@ -23,7 +23,7 @@ func (op *noOpSecretsRemoved) String() string {
 
 // Commit is part of the Operation interface.
 func (op *noOpSecretsRemoved) Commit(ctx context.Context, state State) (*State, error) {
-	if err := op.callbacks.SecretsRemoved(op.uris); err != nil {
+	if err := op.callbacks.SecretsRemoved(ctx, op.uris); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// make no change to state

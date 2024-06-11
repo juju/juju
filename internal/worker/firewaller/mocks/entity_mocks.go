@@ -672,18 +672,18 @@ func (c *MockApplicationTagCall) DoAndReturn(f func() names.ApplicationTag) *Moc
 }
 
 // Watch mocks base method.
-func (m *MockApplication) Watch() (watcher.Watcher[struct{}], error) {
+func (m *MockApplication) Watch(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Watch")
+	ret := m.ctrl.Call(m, "Watch", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Watch indicates an expected call of Watch.
-func (mr *MockApplicationMockRecorder) Watch() *MockApplicationWatchCall {
+func (mr *MockApplicationMockRecorder) Watch(arg0 any) *MockApplicationWatchCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockApplication)(nil).Watch))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Watch", reflect.TypeOf((*MockApplication)(nil).Watch), arg0)
 	return &MockApplicationWatchCall{Call: call}
 }
 
@@ -699,13 +699,13 @@ func (c *MockApplicationWatchCall) Return(arg0 watcher.Watcher[struct{}], arg1 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationWatchCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockApplicationWatchCall {
+func (c *MockApplicationWatchCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockApplicationWatchCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationWatchCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockApplicationWatchCall {
+func (c *MockApplicationWatchCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockApplicationWatchCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

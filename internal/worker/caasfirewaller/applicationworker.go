@@ -4,6 +4,7 @@
 package caasfirewaller
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -79,8 +80,8 @@ func (w *applicationWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *applicationWorker) setUp() (err error) {
-	w.appWatcher, err = w.firewallerAPI.WatchApplication(w.appName)
+func (w *applicationWorker) setUp(ctx context.Context) (err error) {
+	w.appWatcher, err = w.firewallerAPI.WatchApplication(ctx, w.appName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -117,7 +118,10 @@ func (w *applicationWorker) loop() (err error) {
 		}
 	}()
 
-	if err = w.setUp(); err != nil {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	if err = w.setUp(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -222,6 +226,10 @@ func (w *applicationWorker) onApplicationChanged() (err error) {
 		return errors.Trace(exposeService(w.serviceUpdater))
 	}
 	return errors.Trace(unExposeService(w.serviceUpdater))
+}
+
+func (w *applicationWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
 func exposeService(app ServiceUpdater) error {

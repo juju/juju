@@ -250,7 +250,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.Watch()
+	w, err := unit.Watch(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
@@ -639,7 +639,7 @@ func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.WatchUpgradeSeriesNotifications()
+	w, err := unit.WatchUpgradeSeriesNotifications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
@@ -673,7 +673,7 @@ func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.SetUpgradeSeriesStatus(model.UpgradeSeriesCompleted, "done")
+	err := unit.SetUpgradeSeriesStatus(context.Background(), model.UpgradeSeriesCompleted, "done")
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
@@ -694,7 +694,7 @@ func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	seriesStatus, target, err := unit.UpgradeSeriesStatus()
+	seriesStatus, target, err := unit.UpgradeSeriesStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(seriesStatus, gc.Equals, model.UpgradeSeriesCompleted)
 	c.Check(target, gc.Equals, "focal")
@@ -750,7 +750,7 @@ func (s *unitSuite) TestUnitState(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	result, err := unit.State()
+	result, err := unit.State(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, unitState)
 }
@@ -776,7 +776,7 @@ func (s *unitSuite) TestSetState(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.SetState(unitState)
+	err := unit.SetState(context.Background(), unitState)
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 

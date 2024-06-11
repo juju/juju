@@ -134,12 +134,12 @@ func (c *Client) WatchApplications() (watcher.StringsWatcher, error) {
 
 // WatchApplication returns a NotifyWatcher that notifies of
 // changes to the application in the current model.
-func (c *Client) WatchApplication(appName string) (watcher.NotifyWatcher, error) {
+func (c *Client) WatchApplication(ctx context.Context, appName string) (watcher.NotifyWatcher, error) {
 	appTag, err := applicationTag(appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return common.Watch(c.facade, "Watch", appTag)
+	return common.Watch(ctx, c.facade, "Watch", appTag)
 }
 
 // Life returns the lifecycle state for the specified CAAS application

@@ -112,7 +112,7 @@ type HookProcess interface {
 // HookUnit represents the functions needed by a unit in a hook context to
 // call into state.
 type HookUnit interface {
-	Application(ctx context.Context) (api.Application, error)
+	Application(context.Context) (api.Application, error)
 	ApplicationName() string
 	ConfigSettings() (charm.Settings, error)
 	LogActionMessage(names.ActionTag, string) error
@@ -121,9 +121,9 @@ type HookUnit interface {
 	RequestReboot() error
 	SetUnitStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]interface{}) error
 	SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error
-	State() (params.UnitStateResult, error)
+	State(context.Context) (params.UnitStateResult, error)
 	Tag() names.UnitTag
-	UnitStatus(ctx context.Context) (params.StatusResult, error)
+	UnitStatus(context.Context) (params.StatusResult, error)
 	CommitHookChanges(params.CommitHookChangesArgs) error
 	PublicAddress() (string, error)
 }
@@ -331,10 +331,10 @@ func (c *HookContext) GetLoggerByName(module string) logger.Logger {
 
 // GetCharmState returns a copy of the cached charm state.
 // Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
-func (c *HookContext) GetCharmState() (map[string]string, error) {
+func (c *HookContext) GetCharmState(ctx context.Context) (map[string]string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := c.ensureCharmStateLoaded(); err != nil {
+	if err := c.ensureCharmStateLoaded(ctx); err != nil {
 		return nil, err
 	}
 
@@ -351,10 +351,10 @@ func (c *HookContext) GetCharmState() (map[string]string, error) {
 
 // GetCharmStateValue returns the value of the given key.
 // Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
-func (c *HookContext) GetCharmStateValue(key string) (string, error) {
+func (c *HookContext) GetCharmStateValue(ctx context.Context, key string) (string, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := c.ensureCharmStateLoaded(); err != nil {
+	if err := c.ensureCharmStateLoaded(ctx); err != nil {
 		return "", err
 	}
 
@@ -367,10 +367,10 @@ func (c *HookContext) GetCharmStateValue(key string) (string, error) {
 
 // SetCharmStateValue sets the key/value pair provided in the cache.
 // Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
-func (c *HookContext) SetCharmStateValue(key, value string) error {
+func (c *HookContext) SetCharmStateValue(ctx context.Context, key, value string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := c.ensureCharmStateLoaded(); err != nil {
+	if err := c.ensureCharmStateLoaded(ctx); err != nil {
 		return err
 	}
 
@@ -394,10 +394,10 @@ func (c *HookContext) SetCharmStateValue(key, value string) error {
 // DeleteCharmStateValue deletes the key/value pair for the given key from
 // the cache.
 // Implements jujuc.HookContext.unitCharmStateContext, part of runner.Context.
-func (c *HookContext) DeleteCharmStateValue(key string) error {
+func (c *HookContext) DeleteCharmStateValue(ctx context.Context, key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if err := c.ensureCharmStateLoaded(); err != nil {
+	if err := c.ensureCharmStateLoaded(ctx); err != nil {
 		return err
 	}
 
@@ -412,7 +412,7 @@ func (c *HookContext) DeleteCharmStateValue(key string) error {
 
 // ensureCharmStateLoaded retrieves and caches the unit's charm state from the
 // controller. The caller of this method must be holding the ctx mutex.
-func (c *HookContext) ensureCharmStateLoaded() error {
+func (c *HookContext) ensureCharmStateLoaded(ctx context.Context) error {
 	// NOTE: Assuming lock to be held!
 	if c.cachedCharmState != nil {
 		return nil
@@ -420,7 +420,7 @@ func (c *HookContext) ensureCharmStateLoaded() error {
 
 	// Load from controller
 	var charmState map[string]string
-	unitState, err := c.unit.State()
+	unitState, err := c.unit.State(ctx)
 	if err != nil {
 		return errors.Annotate(err, "loading unit state from database")
 	}

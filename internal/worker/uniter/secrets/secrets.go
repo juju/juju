@@ -40,6 +40,7 @@ type Secrets struct {
 
 // NewSecrets returns a new secrets tracker.
 func NewSecrets(
+	ctx context.Context,
 	client SecretsClient,
 	tag names.UnitTag,
 	rw UnitStateReadWriter,
@@ -51,7 +52,7 @@ func NewSecrets(
 		logger:   logger,
 		stateOps: NewStateOps(rw),
 	}
-	if err := s.init(); err != nil {
+	if err := s.init(ctx); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -59,8 +60,8 @@ func NewSecrets(
 
 // init processes initialises the tracker based on the unit
 // state read from the controller.
-func (s *Secrets) init() error {
-	existingSecretsState, err := s.stateOps.Read()
+func (s *Secrets) init(ctx context.Context) error {
+	existingSecretsState, err := s.stateOps.Read(ctx)
 	if err != nil && !errors.Is(err, errors.NotFound) {
 		return errors.Annotate(err, "reading secrets state")
 	}
@@ -103,7 +104,7 @@ func (s *Secrets) init() error {
 		return nil
 	}
 
-	return s.stateOps.Write(s.secretsState)
+	return s.stateOps.Write(ctx, s.secretsState)
 }
 
 // ConsumedSecretRevision implements SecretStateTracker.
@@ -135,7 +136,7 @@ func (s *Secrets) PrepareHook(_ context.Context, hi hook.Info) error {
 }
 
 // CommitHook implements SecretStateTracker.
-func (s *Secrets) CommitHook(_ context.Context, hi hook.Info) error {
+func (s *Secrets) CommitHook(ctx context.Context, hi hook.Info) error {
 	if !hi.Kind.IsSecret() {
 		return errors.Errorf("not a secret hook: %#v", hi)
 	}
@@ -144,14 +145,14 @@ func (s *Secrets) CommitHook(_ context.Context, hi hook.Info) error {
 	defer s.mu.Unlock()
 
 	s.secretsState.UpdateStateForHook(hi)
-	if err := s.stateOps.Write(s.secretsState); err != nil {
+	if err := s.stateOps.Write(ctx, s.secretsState); err != nil {
 		return err
 	}
 	return nil
 }
 
 // SecretsRemoved implements SecretStateTracker.
-func (s *Secrets) SecretsRemoved(uris []string) error {
+func (s *Secrets) SecretsRemoved(ctx context.Context, uris []string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -159,7 +160,7 @@ func (s *Secrets) SecretsRemoved(uris []string) error {
 		delete(s.secretsState.ConsumedSecretInfo, uri)
 		delete(s.secretsState.SecretObsoleteRevisions, uri)
 	}
-	if err := s.stateOps.Write(s.secretsState); err != nil {
+	if err := s.stateOps.Write(ctx, s.secretsState); err != nil {
 		return err
 	}
 	return nil
