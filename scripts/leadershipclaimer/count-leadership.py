@@ -13,9 +13,9 @@ def main(args):
     p.add_argument("--tick", type=float, default=1.0,
             help="seconds between printing status ticks")
     opts = p.parse_args(args)
-    actionsRE = re.compile("\\s*(?P<time>\\d+\\.\\d\\d\\d)s\\s+(?P<action>claimed|extended|lost|connected).*in (?P<duration>[0-9m.]+s)")
+    actionsRE = re.compile(r"\s*(?P<time>\d+\.\d\d\d)s\s+(?P<action>claimed|extended|lost|connected).*in (?P<duration>[0-9m.]+s)")
     # We don't have minutes if we have 'ms', so match 'ms' first, we might have 'm' if we have 's', so put it before s.
-    durationRE = re.compile("((?P<milliseconds>\\d+)ms)?((?P<minutes>\\d+)m)?((?P<seconds>\\d+(\\.\\d+)?)s)?")
+    durationRE = re.compile(r"((?P<milliseconds>\d+)ms)?((?P<minutes>\d+)m)?((?P<seconds>\d+(\.\d+)?)s)?")
     totalClaims = 0
     extendedSum = 0
     extendedCount = 0

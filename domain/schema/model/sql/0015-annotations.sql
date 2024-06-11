@@ -1,13 +1,13 @@
 CREATE TABLE annotation_model (
-    key                 TEXT PRIMARY KEY,
-    value               TEXT NOT NULL
+    "key" TEXT PRIMARY KEY,
+    value TEXT NOT NULL
 );
 
 CREATE TABLE annotation_application (
-    uuid                TEXT NOT NULL,
-    key                 TEXT NOT NULL,
-    value               TEXT NOT NULL,
-    PRIMARY KEY         (uuid, key)
+    uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (uuid, "key")
     -- Following needs to be uncommented when we do have the
     -- annotatables as real domain entities.
     -- CONSTRAINT          fk_annotation_application
@@ -16,10 +16,10 @@ CREATE TABLE annotation_application (
 );
 
 CREATE TABLE annotation_charm (
-    uuid                TEXT NOT NULL,
-    key                 TEXT NOT NULL,
-    value               TEXT NOT NULL,
-    PRIMARY KEY         (uuid, key)
+    uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (uuid, "key")
     -- Following needs to be uncommented when we do have the
     -- annotatables as real domain entities.
     -- CONSTRAINT          fk_annotation_charm
@@ -28,10 +28,10 @@ CREATE TABLE annotation_charm (
 );
 
 CREATE TABLE annotation_machine (
-    uuid                TEXT NOT NULL,
-    key                 TEXT NOT NULL,
-    value               TEXT NOT NULL,
-    PRIMARY KEY         (uuid, key)
+    uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (uuid, "key")
     -- Following needs to be uncommented when we do have the
     -- annotatables as real domain entities.
     -- CONSTRAINT          fk_annotation_machine
@@ -40,10 +40,10 @@ CREATE TABLE annotation_machine (
 );
 
 CREATE TABLE annotation_unit (
-    uuid                TEXT NOT NULL,
-    key                 TEXT NOT NULL,
-    value               TEXT NOT NULL,
-    PRIMARY KEY         (uuid, key)
+    uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (uuid, "key")
     -- Following needs to be uncommented when we do have the
     -- annotatables as real domain entities.
     -- CONSTRAINT          fk_annotation_unit
@@ -52,10 +52,10 @@ CREATE TABLE annotation_unit (
 );
 
 CREATE TABLE annotation_storage_instance (
-    uuid                TEXT NOT NULL,
-    key                 TEXT NOT NULL,
-    value               TEXT NOT NULL,
-    PRIMARY KEY         (uuid, key)
+    uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (uuid, "key")
     -- Following needs to be uncommented when we do have the
     -- annotatables as real domain entities.
     -- CONSTRAINT          fk_annotation_storage_instance
@@ -64,10 +64,10 @@ CREATE TABLE annotation_storage_instance (
 );
 
 CREATE TABLE annotation_storage_volume (
-    uuid                TEXT NOT NULL,
-    key                 TEXT NOT NULL,
-    value               TEXT NOT NULL,
-    PRIMARY KEY         (uuid, key)
+    uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (uuid, "key")
     -- Following needs to be uncommented when we do have the
     -- annotatables as real domain entities.
     -- CONSTRAINT          fk_annotation_storage_volume
@@ -76,10 +76,10 @@ CREATE TABLE annotation_storage_volume (
 );
 
 CREATE TABLE annotation_storage_filesystem (
-    uuid                TEXT NOT NULL,
-    key                 TEXT NOT NULL,
-    value               TEXT NOT NULL,
-    PRIMARY KEY         (uuid, key)
+    uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (uuid, "key")
     -- Following needs to be uncommented when we do have the
     -- annotatables as real domain entities.
     -- CONSTRAINT          fk_annotation_storage_filesystem

@@ -142,3 +142,22 @@ jobs:
       run: |
         STATIC_ANALYSIS_JOB=test_schema make static-analysis
       shell: bash
+
+  sql:
+    name: SQL
+    runs-on: [self-hosted, linux, x64, aws, large]
+    if: github.event.pull_request.draft == false
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: "actions/setup-python@v2"
+      with:
+          python-version: "3.9"
+
+    - name: Install SQLFluff
+      run: "pip install sqlfluff==3.0.7"
+
+    - name: Lint SQL
+      run: "sqlfluff lint --config .github/.sqlfluff domain/schema/**/sql/*.sql"

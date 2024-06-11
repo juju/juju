@@ -1,11 +1,11 @@
 CREATE TABLE autocert_cache (
-    uuid 		TEXT PRIMARY KEY,
-    name 		TEXT NOT NULL UNIQUE,
-    data 		TEXT NOT NULL,
-    encoding       	TEXT NOT NULL,
-    CONSTRAINT 		fk_autocert_cache_encoding
-        FOREIGN KEY 	    (encoding)
-	REFERENCES 	    autocert_cache_encoding(id)
+    uuid TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    data TEXT NOT NULL,
+    encoding TEXT NOT NULL,
+    CONSTRAINT fk_autocert_cache_encoding
+    FOREIGN KEY (encoding)
+    REFERENCES autocert_cache_encoding (id)
 );
 
 -- NOTE(nvinuesa): This table only populated with *one* hard-coded value
@@ -14,9 +14,9 @@ CREATE TABLE autocert_cache (
 -- of this table is to correctly represent the domain and already have a
 -- list of possible encodings when we update our code in the future.
 CREATE TABLE autocert_cache_encoding (
-    id   INTEGER PRIMARY KEY AUTOINCREMENT,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL
 );
 
 INSERT INTO autocert_cache_encoding VALUES
-    (0, 'x509');    -- Only x509 certs encoding supported today.
+(0, 'x509');    -- Only x509 certs encoding supported today.
