@@ -22,8 +22,6 @@ import (
 
 type modelMachinesWatcherSuite struct {
 	testing.BaseSuite
-
-	machineService *commonmocks.MockMachineService
 }
 
 var _ = gc.Suite(&modelMachinesWatcherSuite{})
