@@ -1007,7 +1007,7 @@ func (w *dbWorker) ensureNamespace(namespace string) error {
 		return errors.Trace(err)
 	}
 	if !known {
-		return errors.NotFoundf("namespace %q", namespace)
+		return database.ErrDBNotFound
 	}
 	return nil
 }

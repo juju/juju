@@ -142,7 +142,7 @@ func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
 
 	done := make(chan struct{})
 
-	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil).Times(1)
+	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), nil)
 	s.watchableDBWorker.EXPECT().Kill().AnyTimes()
 	s.watchableDBWorker.EXPECT().Wait().DoAndReturn(func() error {
 		select {
@@ -167,6 +167,28 @@ func (s *workerSuite) TestEventSourceCalledTwice(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	close(done)
+}
+
+func (s *workerSuite) TestEventSourceCalledWithError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectClock()
+
+	// Test that the worker doesn't restart in the face of a ErrDBNotFound
+	// error.
+
+	s.dbGetter.EXPECT().GetDB("controller").Return(s.TxnRunner(), coredatabase.ErrDBNotFound)
+	s.watchableDBWorker.EXPECT().Kill().AnyTimes()
+
+	w := s.newWorker(c, 1)
+	defer workertest.CleanKill(c, w)
+
+	stream, ok := w.(changestream.WatchableDBGetter)
+	c.Assert(ok, jc.IsTrue, gc.Commentf("worker does not implement ChangeStream"))
+
+	// Ensure that the event queue is only created once.
+	_, err := stream.GetWatchableDB("controller")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *workerSuite) newWorker(c *gc.C, attempts int) worker.Worker {

@@ -90,9 +90,15 @@ func newWorker(cfg WorkerConfig) (*changeStreamWorker, error) {
 			},
 			// ShouldRestart is used to determine if the worker should be
 			// restarted. We only want to restart the worker if the error is not
-			// ErrDBDead.
+			// ErrDBDead and ErrDBNotFound.
+			// The ErrDBNotFound error can be returned if the namespace doesn't
+			// exist and so can not be retrieved. When this happens, we do not
+			// want to restart the worker and instead return the error to the
+			// caller.
+			// The caller can retry if they want, but internally to the
+			// changestream, the worker is dead.
 			ShouldRestart: func(err error) bool {
-				return !errors.Is(err, coredatabase.ErrDBDead)
+				return !(errors.Is(err, coredatabase.ErrDBDead) || errors.Is(err, coredatabase.ErrDBNotFound))
 			},
 			Clock: cfg.Clock,
 		}),
