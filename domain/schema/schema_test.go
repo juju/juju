@@ -314,6 +314,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"charm_tag",
 		"charm_term",
 		"hash_kind",
+		"os",
 
 		// Space
 		"space",
