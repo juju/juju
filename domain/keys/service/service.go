@@ -133,9 +133,9 @@ func (s *Service) AddKeysForUser(ctx context.Context, userID user.UUID, keys ...
 
 // DeleteKeysForUser removes the keys associated with targets from the users
 // list of authorised keys. Targets can be an arbitary list of a authorised
-// key's fingerprint, comment or full key value to be removed. Where a match is
-// found the key will be removed. If no key exists for a target this will result
-// in no operation. The following errors can be expected:
+// key's fingerprint (sha256), comment or full key value to be removed. Where a
+// match is found the key will be removed. If no key exists for a target this
+// will result in no operation. The following errors can be expected:
 // - [errors.NotValid] when the user id is not valid
 // - [accesserrors.UserNotFound] when the provided user does not exist.
 func (s *Service) DeleteKeysForUser(
