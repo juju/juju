@@ -288,7 +288,33 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 		// Charm
 		"charm",
+		"architecture",
+		"charm_category",
+		"charm_channel",
+		"charm_container_mount",
+		"charm_container",
+		"charm_device",
+		"charm_extra_binding",
+		"charm_hash",
+		"charm_origin",
+		"charm_payload",
+		"charm_platform",
+		"charm_relation_kind",
+		"charm_relation_role",
+		"charm_relation_scope",
+		"charm_relation",
+		"charm_resource_kind",
+		"charm_resource",
+		"charm_run_as_kind",
+		"charm_source",
+		"charm_state",
+		"charm_storage_property",
 		"charm_storage",
+		"charm_storage_kind",
+		"charm_tag",
+		"charm_term",
+		"hash_kind",
+		"os",
 
 		// Space
 		"space",
@@ -348,7 +374,22 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"secret_grant_subject_type",
 		"secret_grant_scope_type",
 	)
-	c.Assert(readEntityNames(c, s.DB(), "table"), jc.SameContents, expected.Union(internalTableNames).SortedValues())
+	got := readEntityNames(c, s.DB(), "table")
+	wanted := expected.Union(internalTableNames)
+	c.Assert(got, jc.SameContents, wanted.SortedValues(), gc.Commentf("difference %v", set.NewStrings(got...).Difference(wanted).SortedValues()))
+}
+
+func (s *schemaSuite) TestModelViews(c *gc.C) {
+	c.Logf("Committing schema DDL")
+
+	s.applyDDL(c, ModelDDL())
+
+	// Ensure that each view is present.
+	expected := set.NewStrings(
+		"v_charm_url",
+		"v_secret_permission",
+	)
+	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }
 
 func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
