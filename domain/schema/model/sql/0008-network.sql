@@ -1,6 +1,6 @@
 CREATE TABLE net_node (
     uuid TEXT PRIMARY KEY
-);
+) STRICT;
 
 CREATE TABLE cloud_service (
     uuid TEXT PRIMARY KEY,
@@ -12,7 +12,7 @@ CREATE TABLE cloud_service (
     CONSTRAINT fk_cloud_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_cloud_service_net_node
 ON cloud_service (net_node_uuid);
@@ -26,7 +26,7 @@ CREATE TABLE cloud_container (
     CONSTRAINT fk_cloud_container_net_node
     FOREIGN KEY (net_node_uuid)
     REFERENCES net_node (uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_cloud_container_net_node
 ON cloud_container (net_node_uuid);

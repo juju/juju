@@ -1,11 +1,11 @@
 CREATE TABLE controller_config (
     "key" TEXT PRIMARY KEY,
     value TEXT
-);
+) STRICT;
 
 CREATE TABLE controller (
     uuid TEXT PRIMARY KEY NOT NULL
-);
+) STRICT;
 
 -- A unique constraint over a constant index ensures only 1 entry matching the 
 -- condition can exist.

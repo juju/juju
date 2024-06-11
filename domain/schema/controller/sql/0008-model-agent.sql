@@ -13,4 +13,4 @@ CREATE TABLE model_agent (
     CONSTRAINT fk_model_agent_model
     FOREIGN KEY (model_uuid)
     REFERENCES model (uuid)
-);
+) STRICT;

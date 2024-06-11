@@ -6,7 +6,7 @@ CREATE TABLE autocert_cache (
     CONSTRAINT fk_autocert_cache_encoding
     FOREIGN KEY (encoding)
     REFERENCES autocert_cache_encoding (id)
-);
+) STRICT;
 
 -- NOTE(nvinuesa): This table only populated with *one* hard-coded value
 -- (x509) because golang's autocert cache doesn't provide encoding in it's
@@ -16,7 +16,7 @@ CREATE TABLE autocert_cache (
 CREATE TABLE autocert_cache_encoding (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL
-);
+) STRICT;
 
 INSERT INTO autocert_cache_encoding VALUES
 (0, 'x509');    -- Only x509 certs encoding supported today.

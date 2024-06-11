@@ -1,7 +1,7 @@
 CREATE TABLE lease_type (
     id INT PRIMARY KEY,
     type TEXT
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_lease_type_type
 ON lease_type (type);
@@ -16,12 +16,12 @@ CREATE TABLE lease (
     model_uuid TEXT,
     name TEXT,
     holder TEXT,
-    start TIMESTAMP,
-    expiry TIMESTAMP,
+    start TEXT,
+    expiry TEXT,
     CONSTRAINT fk_lease_lease_type
     FOREIGN KEY (lease_type_id)
     REFERENCES lease_type (id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_lease_model_type_name
 ON lease (model_uuid, lease_type_id, name);
@@ -38,7 +38,7 @@ CREATE TABLE lease_pin (
     CONSTRAINT fk_lease_pin_lease
     FOREIGN KEY (lease_uuid)
     REFERENCES lease (uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_lease_pin_lease_entity
 ON lease_pin (lease_uuid, entity_id);

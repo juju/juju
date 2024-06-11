@@ -5,7 +5,7 @@ CREATE TABLE secret_rotate_policy (
     policy TEXT NOT NULL,
     CONSTRAINT chk_empty_policy
     CHECK (policy != '')
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_secret_rotate_policy_policy ON secret_rotate_policy (policy);
 
@@ -20,7 +20,7 @@ INSERT INTO secret_rotate_policy VALUES
 
 CREATE TABLE secret (
     id TEXT PRIMARY KEY
-);
+) STRICT;
 
 -- secret_reference stores details about
 -- secrets hosted by another model and
@@ -32,31 +32,31 @@ CREATE TABLE secret_reference (
     CONSTRAINT fk_secret_id
     FOREIGN KEY (secret_id)
     REFERENCES secret (id)
-);
+) STRICT;
 
 CREATE TABLE secret_metadata (
     secret_id TEXT PRIMARY KEY,
     version INT NOT NULL,
     description TEXT,
     rotate_policy_id INT NOT NULL,
-    auto_prune BOOLEAN NOT NULL DEFAULT (FALSE),
-    create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
-    update_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+    auto_prune INT NOT NULL DEFAULT (0),
+    create_time TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+    update_time TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
     CONSTRAINT fk_secret_id
     FOREIGN KEY (secret_id)
     REFERENCES secret (id),
     CONSTRAINT fk_secret_rotate_policy
     FOREIGN KEY (rotate_policy_id)
     REFERENCES secret_rotate_policy (id)
-);
+) STRICT;
 
 CREATE TABLE secret_rotation (
     secret_id TEXT PRIMARY KEY,
-    next_rotation_time DATETIME NOT NULL,
+    next_rotation_time TEXT NOT NULL,
     CONSTRAINT fk_secret_rotation_secret_metadata_id
     FOREIGN KEY (secret_id)
     REFERENCES secret_metadata (secret_id)
-);
+) STRICT;
 
 -- 1:1
 CREATE TABLE secret_value_ref (
@@ -67,7 +67,7 @@ CREATE TABLE secret_value_ref (
     CONSTRAINT fk_secret_value_ref_secret_revision_uuid
     FOREIGN KEY (revision_uuid)
     REFERENCES secret_revision (uuid)
-);
+) STRICT;
 
 -- 1:many
 CREATE TABLE secret_content (
@@ -83,7 +83,7 @@ CREATE TABLE secret_content (
     CONSTRAINT fk_secret_content_secret_revision_uuid
     FOREIGN KEY (revision_uuid)
     REFERENCES secret_revision (uuid)
-);
+) STRICT;
 
 CREATE INDEX idx_secret_content_revision_uuid ON secret_content (revision_uuid);
 
@@ -91,32 +91,32 @@ CREATE TABLE secret_revision (
     uuid TEXT PRIMARY KEY,
     secret_id TEXT NOT NULL,
     revision INT NOT NULL,
-    create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+    create_time TEXT NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
     CONSTRAINT fk_secret_revision_secret_metadata_id
     FOREIGN KEY (secret_id)
     REFERENCES secret_metadata (secret_id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_secret_revision_secret_id_revision ON secret_revision (secret_id, revision);
 
 CREATE TABLE secret_revision_obsolete (
     revision_uuid TEXT PRIMARY KEY,
-    obsolete BOOLEAN NOT NULL DEFAULT (FALSE),
+    obsolete INT NOT NULL DEFAULT (0),
     -- pending_delete is true if the revision is to be deleted.
     -- It will not be drained to a new active backend.
-    pending_delete BOOLEAN NOT NULL DEFAULT (FALSE),
+    pending_delete INT NOT NULL DEFAULT (0),
     CONSTRAINT fk_secret_revision_obsolete_revision_uuid
     FOREIGN KEY (revision_uuid)
     REFERENCES secret_revision (uuid)
-);
+) STRICT;
 
 CREATE TABLE secret_revision_expire (
     revision_uuid TEXT PRIMARY KEY,
-    expire_time DATETIME NOT NULL,
+    expire_time TEXT NOT NULL,
     CONSTRAINT fk_secret_revision_expire_revision_uuid
     FOREIGN KEY (revision_uuid)
     REFERENCES secret_revision (uuid)
-);
+) STRICT;
 
 CREATE TABLE secret_application_owner (
     secret_id TEXT NOT NULL,
@@ -129,7 +129,7 @@ CREATE TABLE secret_application_owner (
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),
     PRIMARY KEY (secret_id, application_uuid)
-);
+) STRICT;
 
 CREATE INDEX idx_secret_application_owner_secret_id ON secret_application_owner (secret_id);
 -- We need to ensure the label is unique per the application.
@@ -146,7 +146,7 @@ CREATE TABLE secret_unit_owner (
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid),
     PRIMARY KEY (secret_id, unit_uuid)
-);
+) STRICT;
 
 CREATE INDEX idx_secret_unit_owner_secret_id ON secret_unit_owner (secret_id);
 -- We need to ensure the label is unique per unit.
@@ -158,7 +158,7 @@ CREATE TABLE secret_model_owner (
     CONSTRAINT fk_secret_model_owner_secret_metadata_id
     FOREIGN KEY (secret_id)
     REFERENCES secret_metadata (secret_id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_secret_model_owner_label ON secret_model_owner (label) WHERE label != '';
 
@@ -176,7 +176,7 @@ CREATE TABLE secret_unit_consumer (
     CONSTRAINT fk_secret_unit_consumer_secret_id
     FOREIGN KEY (secret_id)
     REFERENCES secret (id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_secret_unit_consumer_secret_id_unit_uuid ON secret_unit_consumer (secret_id, unit_uuid);
 CREATE UNIQUE INDEX idx_secret_unit_consumer_label ON secret_unit_consumer (label, unit_uuid) WHERE label != '';
@@ -192,14 +192,14 @@ CREATE TABLE secret_remote_unit_consumer (
     CONSTRAINT fk_secret_remote_unit_consumer_secret_metadata_id
     FOREIGN KEY (secret_id)
     REFERENCES secret_metadata (secret_id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_id_unit_id ON secret_remote_unit_consumer (secret_id, unit_id);
 
 CREATE TABLE secret_role (
     id INT PRIMARY KEY,
     role TEXT
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_secret_role_role ON secret_role (role);
 
@@ -211,7 +211,7 @@ INSERT INTO secret_role VALUES
 CREATE TABLE secret_grant_subject_type (
     id INT PRIMARY KEY,
     type TEXT
-);
+) STRICT;
 
 INSERT INTO secret_grant_subject_type VALUES
 (0, 'unit'),
@@ -222,7 +222,7 @@ INSERT INTO secret_grant_subject_type VALUES
 CREATE TABLE secret_grant_scope_type (
     id INT PRIMARY KEY,
     type TEXT
-);
+) STRICT;
 
 INSERT INTO secret_grant_scope_type VALUES
 (0, 'unit'),
@@ -261,7 +261,7 @@ CREATE TABLE secret_permission (
     CONSTRAINT fk_secret_permission_secret_grant_scope_type_id
     FOREIGN KEY (scope_type_id)
     REFERENCES secret_grant_scope_type (id)
-);
+) STRICT;
 
 CREATE INDEX idx_secret_permission_secret_id ON secret_permission (secret_id);
 CREATE INDEX idx_secret_permission_subject_uuid_subject_type_id ON secret_permission (subject_uuid, subject_type_id);

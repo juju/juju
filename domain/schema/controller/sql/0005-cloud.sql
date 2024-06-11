@@ -1,7 +1,7 @@
 CREATE TABLE cloud_type (
     id INT PRIMARY KEY,
     type TEXT NOT NULL
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_cloud_type_type
 ON cloud_type (type);
@@ -25,7 +25,7 @@ INSERT INTO cloud_type VALUES
 CREATE TABLE auth_type (
     id INT PRIMARY KEY,
     type TEXT
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_auth_type_type
 ON auth_type (type);
@@ -52,12 +52,12 @@ CREATE TABLE cloud (
     endpoint TEXT NOT NULL,
     identity_endpoint TEXT,
     storage_endpoint TEXT,
-    skip_tls_verify BOOLEAN NOT NULL,
+    skip_tls_verify INT NOT NULL,
     CONSTRAINT chk_name_empty CHECK (name != ''),
     CONSTRAINT fk_cloud_type
     FOREIGN KEY (cloud_type_id)
     REFERENCES cloud_type (id)
-);
+) STRICT;
 
 -- v_cloud is used to fetch well constructed information about a cloud. This
 -- view also includes information on whether the cloud is the controller
@@ -120,7 +120,7 @@ CREATE TABLE cloud_defaults (
     CONSTRAINT fk_cloud_uuid
     FOREIGN KEY (cloud_uuid)
     REFERENCES cloud (uuid)
-);
+) STRICT;
 
 CREATE TABLE cloud_auth_type (
     cloud_uuid TEXT NOT NULL,
@@ -132,7 +132,7 @@ CREATE TABLE cloud_auth_type (
     FOREIGN KEY (auth_type_id)
     REFERENCES auth_type (id),
     PRIMARY KEY (cloud_uuid, auth_type_id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_cloud_auth_type_cloud_uuid_auth_type_id
 ON cloud_auth_type (cloud_uuid, auth_type_id);
@@ -147,7 +147,7 @@ CREATE TABLE cloud_region (
     CONSTRAINT fk_cloud_region_cloud
     FOREIGN KEY (cloud_uuid)
     REFERENCES cloud (uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_cloud_region_cloud_uuid_name
 ON cloud_region (cloud_uuid, name);
@@ -164,7 +164,7 @@ CREATE TABLE cloud_region_defaults (
     CONSTRAINT fk_region_uuid
     FOREIGN KEY (region_uuid)
     REFERENCES cloud_region (uuid)
-);
+) STRICT;
 
 CREATE TABLE cloud_ca_cert (
     cloud_uuid TEXT NOT NULL,
@@ -173,7 +173,7 @@ CREATE TABLE cloud_ca_cert (
     FOREIGN KEY (cloud_uuid)
     REFERENCES cloud (uuid),
     PRIMARY KEY (cloud_uuid, ca_cert)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_cloud_ca_cert_cloud_uuid_ca_cert
 ON cloud_ca_cert (cloud_uuid, ca_cert);
@@ -184,8 +184,8 @@ CREATE TABLE cloud_credential (
     auth_type_id TEXT NOT NULL,
     owner_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
-    revoked BOOLEAN,
-    invalid BOOLEAN,
+    revoked INT,
+    invalid INT,
     invalid_reason TEXT,
     CONSTRAINT chk_name_empty CHECK (name != ''),
     CONSTRAINT fk_cloud_credential_cloud
@@ -197,7 +197,7 @@ CREATE TABLE cloud_credential (
     CONSTRAINT fk_cloud_credential_user
     FOREIGN KEY (owner_uuid)
     REFERENCES user (uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_cloud_credential_cloud_uuid_owner_uuid
 ON cloud_credential (cloud_uuid, owner_uuid, name);
@@ -233,7 +233,7 @@ CREATE TABLE cloud_credential_attributes (
     CONSTRAINT fk_cloud_credential_uuid
     FOREIGN KEY (cloud_credential_uuid)
     REFERENCES cloud_credential (uuid)
-);
+) STRICT;
 
 -- v_cloud_credential_attributes is responsible for return a view of all cloud
 -- credentials and their attributes repeated for every attribute.

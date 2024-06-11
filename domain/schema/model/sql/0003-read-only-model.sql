@@ -12,7 +12,7 @@ CREATE TABLE model (
     cloud_region TEXT,
     credential_owner TEXT,
     credential_name TEXT
-);
+) STRICT;
 
 -- A unique constraint over a constant index ensures only 1 entry matching the
 -- condition can exist.

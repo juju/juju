@@ -2,4 +2,4 @@
 -- controller.
 CREATE TABLE namespace_list (
     namespace TEXT PRIMARY KEY
-);
+) STRICT;

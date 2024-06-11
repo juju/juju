@@ -5,7 +5,7 @@ CREATE TABLE application (
     CONSTRAINT fk_application_life
     FOREIGN KEY (life_id)
     REFERENCES life (id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_application_name
 ON application (name);

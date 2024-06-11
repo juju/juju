@@ -1,7 +1,7 @@
 CREATE TABLE space (
     uuid TEXT PRIMARY KEY,
     name TEXT NOT NULL
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_spaces_uuid_name
 ON space (name);
@@ -12,7 +12,7 @@ CREATE TABLE provider_space (
     CONSTRAINT fk_provider_space_space_uuid
     FOREIGN KEY (space_uuid)
     REFERENCES space (uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_provider_space_space_uuid
 ON provider_space (space_uuid);

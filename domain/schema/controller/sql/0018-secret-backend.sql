@@ -6,7 +6,7 @@ CREATE TABLE secret_backend_type (
     description TEXT,
     CONSTRAINT chk_empty_type
     CHECK (type != '')
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_secret_backend_type_type ON secret_backend_type (type);
 
@@ -46,7 +46,7 @@ CREATE TABLE secret_backend_config (
 
 CREATE TABLE secret_backend_rotation (
     backend_uuid TEXT PRIMARY KEY,
-    next_rotation_time DATETIME NOT NULL,
+    next_rotation_time TEXT NOT NULL,
     CONSTRAINT fk_secret_backend_rotation_secret_backend_uuid
     FOREIGN KEY (backend_uuid)
     REFERENCES secret_backend (uuid)

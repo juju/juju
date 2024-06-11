@@ -6,19 +6,19 @@ CREATE TABLE machine (
     base TEXT,
     nonce TEXT,
     password_hash TEXT,
-    clean BOOLEAN,
-    force_destroyed BOOLEAN,
+    clean INT,
+    force_destroyed INT,
     placement TEXT,
-    agent_started_at DATETIME,
+    agent_started_at TEXT,
     hostname TEXT,
-    is_controller BOOLEAN,
+    is_controller INT,
     CONSTRAINT fk_machine_net_node
     FOREIGN KEY (net_node_uuid)
     REFERENCES net_node (uuid),
     CONSTRAINT fk_machine_life
     FOREIGN KEY (life_id)
     REFERENCES life (id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_machine_id
 ON machine (machine_id);
@@ -35,7 +35,7 @@ CREATE TABLE machine_constraint (
     CONSTRAINT fk_machine_constraint_constraint
     FOREIGN KEY (constraint_uuid)
     REFERENCES "constraint" (uuid)
-);
+) STRICT;
 
 CREATE TABLE machine_tool (
     machine_uuid TEXT NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE machine_tool (
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid),
     PRIMARY KEY (machine_uuid, tool_url)
-);
+) STRICT;
 
 CREATE TABLE machine_volume (
     machine_uuid TEXT NOT NULL,
@@ -59,7 +59,7 @@ CREATE TABLE machine_volume (
     FOREIGN KEY (volume_uuid)
     REFERENCES storage_volume (uuid),
     PRIMARY KEY (machine_uuid, volume_uuid)
-);
+) STRICT;
 
 CREATE TABLE machine_filesystem (
     machine_uuid TEXT NOT NULL,
@@ -71,4 +71,4 @@ CREATE TABLE machine_filesystem (
     FOREIGN KEY (filesystem_uuid)
     REFERENCES storage_filesystem (uuid),
     PRIMARY KEY (machine_uuid, filesystem_uuid)
-);
+) STRICT;

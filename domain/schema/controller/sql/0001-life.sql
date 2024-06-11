@@ -1,7 +1,7 @@
 CREATE TABLE life (
     id INT PRIMARY KEY,
     value TEXT NOT NULL
-);
+) STRICT;
 
 INSERT INTO life VALUES
 (0, 'alive'),

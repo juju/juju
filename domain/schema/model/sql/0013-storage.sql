@@ -8,7 +8,7 @@ CREATE TABLE storage_pool (
     --   - Knowing every possible type up front to populate a look-up or;
     --   - Sourcing the lookup from the provider and keeping it updated. 
     type TEXT NOT NULL
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_storage_pool_name
 ON storage_pool (name);
@@ -21,13 +21,13 @@ CREATE TABLE storage_pool_attribute (
     FOREIGN KEY (storage_pool_uuid)
     REFERENCES storage_pool (uuid),
     PRIMARY KEY (storage_pool_uuid, "key")
-);
+) STRICT;
 
 CREATE TABLE storage_kind (
     id INT PRIMARY KEY,
     kind TEXT NOT NULL,
     description TEXT
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_storage_kind
 ON storage_kind (kind);
@@ -67,7 +67,7 @@ CREATE TABLE application_storage_directive (
     FOREIGN KEY (charm_uuid, storage_name)
     REFERENCES charm_storage (charm_uuid, name),
     PRIMARY KEY (application_uuid, charm_uuid, storage_name)
-);
+) STRICT;
 
 -- Note that this is not unique; it speeds access by application.
 CREATE INDEX idx_application_storage_directive
@@ -104,7 +104,7 @@ CREATE TABLE unit_storage_directive (
     FOREIGN KEY (charm_uuid, storage_name)
     REFERENCES charm_storage (charm_uuid, name),
     PRIMARY KEY (unit_uuid, charm_uuid, storage_name)
-);
+) STRICT;
 
 -- Note that this is not unique; it speeds access by unit.
 CREATE INDEX idx_unit_storage_directive
@@ -128,7 +128,7 @@ CREATE TABLE storage_instance (
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
     REFERENCES life (id)
-);
+) STRICT;
 
 -- storage_unit_owner is used to indicate when
 -- a unit is the owner of a storage instance.
@@ -142,7 +142,7 @@ CREATE TABLE storage_unit_owner (
     CONSTRAINT fk_storage_owner_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid)
-);
+) STRICT;
 
 CREATE TABLE storage_attachment (
     storage_instance_uuid TEXT PRIMARY KEY,
@@ -157,7 +157,7 @@ CREATE TABLE storage_attachment (
     CONSTRAINT fk_storage_attachment_life
     FOREIGN KEY (life_id)
     REFERENCES life (id)
-);
+) STRICT;
 
 -- Note that this is not unique; it speeds access by unit.
 CREATE INDEX idx_storage_attachment_unit
@@ -167,7 +167,7 @@ CREATE TABLE storage_provisioning_status (
     id INT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_storage_provisioning_status
 ON storage_provisioning_status (name);
@@ -186,7 +186,7 @@ CREATE TABLE storage_volume (
     size_mib INT,
     hardware_id TEXT,
     wwn TEXT,
-    persistent BOOLEAN,
+    persistent INT,
     provisioning_status_id INT NOT NULL,
     CONSTRAINT fk_storage_instance_life
     FOREIGN KEY (life_id)
@@ -197,7 +197,7 @@ CREATE TABLE storage_volume (
     CONSTRAINT fk_storage_vol_provisioning_status
     FOREIGN KEY (provisioning_status_id)
     REFERENCES storage_provisioning_status (id)
-);
+) STRICT;
 
 -- An instance can have at most one volume.
 -- A volume can have at most one instance.
@@ -210,7 +210,7 @@ CREATE TABLE storage_instance_volume (
     CONSTRAINT fk_storage_instance_volume_volume
     FOREIGN KEY (storage_volume_uuid)
     REFERENCES storage_volume (uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_storage_instance_volume
 ON storage_instance_volume (storage_volume_uuid);
@@ -221,7 +221,7 @@ CREATE TABLE storage_volume_attachment (
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
     block_device_uuid TEXT,
-    read_only BOOLEAN,
+    read_only INT,
     provisioning_status_id INT NOT NULL,
     CONSTRAINT fk_storage_volume_attachment_vol
     FOREIGN KEY (storage_volume_uuid)
@@ -238,7 +238,7 @@ CREATE TABLE storage_volume_attachment (
     CONSTRAINT fk_storage_vol_att_provisioning_status
     FOREIGN KEY (provisioning_status_id)
     REFERENCES storage_provisioning_status (id)
-);
+) STRICT;
 
 CREATE TABLE storage_filesystem (
     uuid TEXT PRIMARY KEY,
@@ -256,7 +256,7 @@ CREATE TABLE storage_filesystem (
     CONSTRAINT fk_storage_fs_provisioning_status
     FOREIGN KEY (provisioning_status_id)
     REFERENCES storage_provisioning_status (id)
-);
+) STRICT;
 
 -- An instance can have at most one filesystem.
 -- A filesystem can have at most one instance.
@@ -269,7 +269,7 @@ CREATE TABLE storage_instance_filesystem (
     CONSTRAINT fk_storage_instance_filesystem_fs
     FOREIGN KEY (storage_filesystem_uuid)
     REFERENCES storage_filesystem (uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_storage_instance_filesystem
 ON storage_instance_filesystem (storage_filesystem_uuid);
@@ -280,7 +280,7 @@ CREATE TABLE storage_filesystem_attachment (
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
     mount_point TEXT,
-    read_only BOOLEAN,
+    read_only INT,
     provisioning_status_id INT NOT NULL,
     CONSTRAINT fk_storage_filesystem_attachment_fs
     FOREIGN KEY (storage_filesystem_uuid)
@@ -294,13 +294,13 @@ CREATE TABLE storage_filesystem_attachment (
     CONSTRAINT fk_storage_fs_provisioning_status
     FOREIGN KEY (provisioning_status_id)
     REFERENCES storage_provisioning_status (id)
-);
+) STRICT;
 
 CREATE TABLE storage_volume_device_type (
     id INT PRIMARY KEY,
     name TEXT NOT NULL,
     description TEXT
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_storage_volume_dev_type
 ON storage_volume_device_type (name);
@@ -335,7 +335,7 @@ CREATE TABLE storage_volume_attachment_plan (
     CONSTRAINT fk_storage_fs_provisioning_status
     FOREIGN KEY (provisioning_status_id)
     REFERENCES storage_provisioning_status (id)
-);
+) STRICT;
 
 CREATE TABLE storage_volume_attachment_plan_attr (
     uuid TEXT PRIMARY KEY,
@@ -345,7 +345,7 @@ CREATE TABLE storage_volume_attachment_plan_attr (
     CONSTRAINT fk_storage_vol_attach_plan_attr_plan
     FOREIGN KEY (attachment_plan_uuid)
     REFERENCES storage_volume_attachment_plan (attachment_plan_uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_storage_vol_attachment_plan_attr
 ON storage_volume_attachment_plan_attr (attachment_plan_uuid, "key");

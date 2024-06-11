@@ -2,23 +2,23 @@ CREATE TABLE user (
     uuid TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     display_name TEXT,
-    removed BOOLEAN NOT NULL DEFAULT FALSE,
+    removed INT NOT NULL,
     created_by_uuid TEXT NOT NULL,
-    created_at TIMESTAMP NOT NULL,
+    created_at TEXT NOT NULL,
     CONSTRAINT fk_user_created_by_user
     FOREIGN KEY (created_by_uuid)
     REFERENCES user (uuid)
-);
+) STRICT;
 
-CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE removed IS FALSE;
+CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE removed IS 0;
 
 CREATE TABLE user_authentication (
     user_uuid TEXT PRIMARY KEY,
-    disabled BOOLEAN NOT NULL,
+    disabled INT NOT NULL,
     CONSTRAINT fk_user_authentication_user
     FOREIGN KEY (user_uuid)
     REFERENCES user (uuid)
-);
+) STRICT;
 
 CREATE TABLE user_password (
     user_uuid TEXT PRIMARY KEY,
@@ -27,7 +27,7 @@ CREATE TABLE user_password (
     CONSTRAINT fk_user_password_user
     FOREIGN KEY (user_uuid)
     REFERENCES user_authentication (user_uuid)
-);
+) STRICT;
 
 CREATE TABLE user_activation_key (
     user_uuid TEXT PRIMARY KEY,
@@ -35,7 +35,7 @@ CREATE TABLE user_activation_key (
     CONSTRAINT fk_user_activation_key_user
     FOREIGN KEY (user_uuid)
     REFERENCES user_authentication (user_uuid)
-);
+) STRICT;
 
 CREATE VIEW v_user_auth AS
 SELECT

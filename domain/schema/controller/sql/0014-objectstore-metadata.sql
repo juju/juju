@@ -1,7 +1,7 @@
 CREATE TABLE object_store_metadata_hash_type (
     id INT PRIMARY KEY,
     hash_type TEXT NOT NULL
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_object_store_metadata_hash_type_name
 ON object_store_metadata_hash_type (hash_type);
@@ -18,7 +18,7 @@ CREATE TABLE object_store_metadata (
     CONSTRAINT fk_object_store_metadata_hash_type
     FOREIGN KEY (hash_type_id)
     REFERENCES object_store_metadata_hash_type (id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_object_store_metadata_hash ON object_store_metadata (hash);
 
@@ -28,4 +28,4 @@ CREATE TABLE object_store_metadata_path (
     CONSTRAINT fk_object_store_metadata_metadata_uuid
     FOREIGN KEY (metadata_uuid)
     REFERENCES object_store_metadata (uuid)
-);
+) STRICT;

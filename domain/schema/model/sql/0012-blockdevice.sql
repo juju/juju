@@ -11,14 +11,14 @@ CREATE TABLE block_device (
     filesystem_type_id INT,
     size_mib INT,
     mount_point TEXT,
-    in_use BOOLEAN,
+    in_use INT,
     CONSTRAINT fk_filesystem_type
     FOREIGN KEY (filesystem_type_id)
     REFERENCES filesystem_type (id),
     CONSTRAINT fk_block_device_machine
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_block_device_name
 ON block_device (machine_uuid, name);
@@ -26,7 +26,7 @@ ON block_device (machine_uuid, name);
 CREATE TABLE filesystem_type (
     id INT PRIMARY KEY,
     name TEXT NOT NULL
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_filesystem_type_name
 ON filesystem_type (name);
@@ -49,7 +49,7 @@ CREATE TABLE block_device_link_device (
     FOREIGN KEY (block_device_uuid)
     REFERENCES block_device (uuid),
     PRIMARY KEY (block_device_uuid, name)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_block_device_link_device
 ON block_device_link_device (block_device_uuid, name);

@@ -16,7 +16,7 @@ CREATE TABLE instance_data (
     CONSTRAINT fk_availability_zone_availability_zone_uuid
     FOREIGN KEY (availability_zone_uuid)
     REFERENCES availability_zone (uuid)
-);
+) STRICT;
 
 CREATE TABLE instance_tag (
     machine_uuid TEXT NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE instance_tag (
     CONSTRAINT fk_machine_machine_uuid
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
-);
+) STRICT;
 
 CREATE TABLE machine_lxd_profile (
     machine_uuid TEXT NOT NULL,
@@ -37,4 +37,4 @@ CREATE TABLE machine_lxd_profile (
     CONSTRAINT fk_machine_machine_uuid
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
-);
+) STRICT;

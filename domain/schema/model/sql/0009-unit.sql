@@ -13,7 +13,7 @@ CREATE TABLE unit (
     CONSTRAINT fk_unit_life
     FOREIGN KEY (life_id)
     REFERENCES life (id)
-);
+) STRICT;
 
 CREATE UNIQUE INDEX idx_unit_id
 ON unit (unit_id);
@@ -32,7 +32,7 @@ CREATE TABLE unit_state (
     CONSTRAINT fk_unit_state_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid)
-);
+) STRICT;
 
 -- Local charm state stored upon hook commit with uniter state.
 CREATE TABLE unit_state_charm (
@@ -43,7 +43,7 @@ CREATE TABLE unit_state_charm (
     CONSTRAINT fk_unit_state_charm_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid)
-);
+) STRICT;
 
 -- Local relation state stored upon hook commit with uniter state.
 CREATE TABLE unit_state_relation (
@@ -54,4 +54,4 @@ CREATE TABLE unit_state_relation (
     CONSTRAINT fk_unit_state_relation_unit
     FOREIGN KEY (unit_uuid)
     REFERENCES unit (uuid)
-);
+) STRICT;
