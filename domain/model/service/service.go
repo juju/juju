@@ -122,6 +122,20 @@ var (
 	caasCloudTypes = []string{cloud.CloudTypeKubernetes}
 )
 
+// importAgentBinaryFinder returns a [agentBinaryFinderFn] for use with model
+// importing. Currently this [AgentBinaryFinder] returns true for all versions.
+//
+// When bringing this logic over in the transition from Mongo to DQlite we
+// currently do any checks to make sure we have tools for the imported model
+// version. We assume these tools exist as part of the migration process.
+//
+// Eventually we want to move towards checking this and not assuming.
+func importAgentBinaryFinder() agentBinaryFinderFn {
+	return agentBinaryFinderFn(func(v version.Number) (bool, error) {
+		return true, nil
+	})
+}
+
 func (t agentBinaryFinderFn) HasBinariesForVersion(v version.Number) (bool, error) {
 	return t(v)
 }
@@ -228,7 +242,7 @@ func (s *Service) CreateModel(
 		)
 	}
 
-	activator, err := s.createModel(ctx, modelID, args)
+	activator, err := s.createModel(ctx, s.agentBinaryFinder, modelID, args)
 	return modelID, activator, err
 }
 
@@ -260,6 +274,7 @@ func (s *Service) CreateModel(
 // cannot be found.
 func (s *Service) createModel(
 	ctx context.Context,
+	binaryFinder AgentBinaryFinder,
 	id coremodel.UUID,
 	args model.ModelCreationArgs,
 ) (func(context.Context) error, error) {
@@ -289,7 +304,7 @@ func (s *Service) createModel(
 		agentVersion = agentVersionSelector()
 	}
 
-	if err := validateAgentVersion(agentVersion, s.agentBinaryFinder); err != nil {
+	if err := validateAgentVersion(agentVersion, binaryFinder); err != nil {
 		return nil, fmt.Errorf(
 			"creating model %q with agent version %q: %w",
 			args.Name, agentVersion, err,
@@ -307,7 +322,8 @@ func (s *Service) createModel(
 
 // ImportModel is responsible for importing an existing model into this Juju
 // controller. The caller must explicitly specify the agent version that is in
-// use for the imported model.
+// use for the imported model. The only check performed on agent version is that
+// it is not the zero value.
 //
 // Models created by this function must be activated using the returned
 // ModelActivator.
@@ -343,7 +359,12 @@ func (s *Service) ImportModel(
 		)
 	}
 
-	return s.createModel(ctx, args.ID, args.ModelCreationArgs)
+	return s.createModel(
+		ctx,
+		importAgentBinaryFinder(),
+		args.ID,
+		args.ModelCreationArgs,
+	)
 }
 
 // ControllerModel returns the model used for housing the Juju controller.
