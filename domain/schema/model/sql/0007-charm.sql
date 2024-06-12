@@ -19,11 +19,15 @@ CREATE TABLE charm (
     summary TEXT,
     min_juju_version TEXT,
     run_as_id INT,
+    track TEXT,
+    risk TEXT,
+    branch TEXT,
     -- Assumes is a blob of YAML that will be parsed by the charm to compute
     -- the result of the SAT expression.
     -- As the expression tree is generic, you can't use RI or index into the
     -- blob without constraining the expression to a specific set of rules.
-    assumes_blob TEXT,
+    assumes TEXT,
+    lxd_profile TEXT,
     CONSTRAINT fk_charm_run_as_kind_charm
     FOREIGN KEY (run_as_id)
     REFERENCES charm_run_as_kind (id)
@@ -70,16 +74,6 @@ CREATE TABLE charm_origin (
     FOREIGN KEY (source_id)
     REFERENCES charm_source (id),
     CONSTRAINT fk_charm_origin_charm
-    FOREIGN KEY (charm_uuid)
-    REFERENCES charm (uuid)
-);
-
-CREATE TABLE charm_channel (
-    charm_uuid TEXT NOT NULL,
-    track TEXT,
-    risk TEXT,
-    branch TEXT,
-    CONSTRAINT fk_charm_channel_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid)
 );
@@ -417,3 +411,65 @@ SELECT
 FROM charm AS c
 INNER JOIN charm_origin AS co ON c.uuid = co.charm_uuid
 LEFT JOIN charm_source AS cs ON co.source_id = cs.id;
+
+CREATE TABLE charm_action (
+    charm_uuid TEXT NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    parallel BOOLEAN,
+    execution_group TEXT,
+    params TEXT,
+    CONSTRAINT fk_charm_actions_charm
+    FOREIGN KEY (charm_uuid)
+    REFERENCES charm (uuid),
+    PRIMARY KEY (charm_uuid, name)
+);
+
+CREATE TABLE charm_manifest_base (
+    charm_uuid TEXT NOT NULL,
+    os_id TEXT NOT NULL,
+    track TEXT,
+    risk TEXT NOT NULL,
+    branch TEXT,
+    architecture_id TEXT NOT NULL,
+    CONSTRAINT fk_charm_manifest_charm
+    FOREIGN KEY (charm_uuid)
+    REFERENCES charm (uuid),
+    CONSTRAINT fk_charm_manifest_base_os
+    FOREIGN KEY (os_id)
+    REFERENCES os (id),
+    CONSTRAINT fk_charm_manifest_base_architecture
+    FOREIGN KEY (architecture_id)
+    REFERENCES architecture (id),
+    PRIMARY KEY (charm_uuid, os_id, track, risk, branch, architecture_id)
+);
+
+CREATE TABLE charm_config_type (
+    id INT PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+CREATE UNIQUE INDEX idx_charm_config_type_name
+ON charm_config_type (name);
+
+INSERT INTO charm_config_type VALUES
+(0, 'string'),
+(1, 'int'),
+(2, 'float'),
+(3, 'boolean'),
+(4, 'secret');
+
+CREATE TABLE charm_config (
+    charm_uuid TEXT NOT NULL,
+    name TEXT NOT NULL,
+    type_id TEXT,
+    default_value TEXT,
+    description TEXT,
+    CONSTRAINT fk_charm_config_charm
+    FOREIGN KEY (charm_uuid)
+    REFERENCES charm (uuid),
+    CONSTRAINT fk_charm_config_charm_config_type
+    FOREIGN KEY (type_id)
+    REFERENCES charm_config_type (id),
+    PRIMARY KEY (charm_uuid, name)
+);
