@@ -8,13 +8,13 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/unitcommon"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
@@ -26,20 +26,24 @@ func Register(registry facade.FacadeRegistry) {
 }
 
 // newUniterAPI creates a new instance of the core Uniter API.
-func newUniterAPI(_ context.Context, ctx facade.ModelContext) (*UniterAPI, error) {
-	m, err := ctx.State().Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+func newUniterAPI(stdCtx context.Context, ctx facade.ModelContext) (*UniterAPI, error) {
 	serviceFactory := ctx.ServiceFactory()
+	modelInfoService := serviceFactory.ModelInfo()
 	secretBackendService := serviceFactory.SecretBackend()
 	secretBackendAdminConfigGetter := func(stdCtx context.Context) (*provider.ModelBackendConfigInfo, error) {
-		return secretBackendService.GetSecretBackendConfigForAdmin(stdCtx, model.UUID(m.UUID()))
+		modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return secretBackendService.GetSecretBackendConfigForAdmin(stdCtx, modelInfo.UUID)
 	}
 	return newUniterAPIWithServices(
-		ctx,
+		stdCtx, ctx,
 		serviceFactory.ControllerConfig(),
+		serviceFactory.Config(),
+		modelInfoService,
 		serviceFactory.Secret(secretBackendAdminConfigGetter),
+		serviceFactory.Network(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Unit(),
@@ -48,9 +52,13 @@ func newUniterAPI(_ context.Context, ctx facade.ModelContext) (*UniterAPI, error
 
 // newUniterAPIWithServices creates a new instance using the services.
 func newUniterAPIWithServices(
+	stdCtx context.Context,
 	context facade.ModelContext,
 	controllerConfigService ControllerConfigService,
+	modelConfigService ModelConfigService,
+	modelInfoService ModelInfoService,
 	secretService SecretService,
+	networkService NetworkService,
 	cloudService CloudService,
 	credentialService CredentialService,
 	unitRemover UnitRemover,
@@ -93,12 +101,18 @@ func newUniterAPIWithServices(
 
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
+	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelTag := names.NewModelTag(modelInfo.UUID.String())
+
 	cloudSpec := cloudspec.NewCloudSpecV2(resources,
 		cloudspec.MakeCloudSpecGetterForModel(st, cloudService, credentialService),
 		cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
 		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
-		common.AuthFuncForTag(m.ModelTag()),
+		common.AuthFuncForTag(modelTag),
 	)
 
 	systemState, err := context.StatePool().SystemState()
@@ -116,7 +130,7 @@ func newUniterAPIWithServices(
 		UpgradeSeriesAPI:           common.NewExternalUpgradeSeriesAPI(st, resources, authorizer, accessMachine, accessUnit, logger),
 		UnitStateAPI:               common.NewExternalUnitStateAPI(controllerConfigService, st, resources, authorizer, accessUnit, logger),
 		LeadershipSettingsAccessor: leadershipSettingsAccessorFactory(st, leadershipChecker, resources, authorizer),
-		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger),
+		lxdProfileAPI:              NewExternalLXDProfileAPIv2(st, resources, authorizer, accessUnit, logger, modelInfoService),
 		// TODO(fwereade): so *every* unit should be allowed to get/set its
 		// own status *and* its application's? This is not a pleasing arrangement.
 		StatusAPI: NewStatusAPI(m, accessUnitOrApplication, leadershipChecker),
@@ -124,8 +138,10 @@ func newUniterAPIWithServices(
 		m:                       m,
 		st:                      st,
 		controllerConfigService: controllerConfigService,
+		modelConfigService:      modelConfigService,
+		modelInfoService:        modelInfoService,
 		secretService:           secretService,
-		networkService:          context.ServiceFactory().Network(),
+		networkService:          networkService,
 		cloudService:            cloudService,
 		credentialService:       credentialService,
 		unitRemover:             unitRemover,

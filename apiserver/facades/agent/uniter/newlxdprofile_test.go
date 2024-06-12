@@ -17,10 +17,9 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
 
@@ -33,8 +32,9 @@ type newLxdProfileSuite struct {
 	backend *MockLXDProfileBackendV2
 	charm   *MockLXDProfileCharmV2
 	machine *MockLXDProfileMachineV2
-	model   *MockLXDProfileModelV2
 	unit    *MockLXDProfileUnitV2
+
+	modelInfoService *MockModelInfoService
 }
 
 var _ = gc.Suite(&newLxdProfileSuite{})
@@ -118,9 +118,10 @@ func (s *newLxdProfileSuite) TestLXDProfileRequired(c *gc.C) {
 
 func (s *newLxdProfileSuite) TestCanApplyLXDProfileUnauthorized(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.expectModel()
-	s.expectModelTypeIAAS()
-	s.expectProviderType(c, "lxd")
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+		Type:      model.IAAS,
+		CloudType: "lxd",
+	}, nil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -145,9 +146,10 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASLXDNotManual(c *gc.C) {
 	// manual: false
 	defer s.setupMocks(c).Finish()
 	s.expectUnitAndMachine()
-	s.expectModel()
-	s.expectModelTypeIAAS()
-	s.expectProviderType(c, "lxd")
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+		Type:      model.IAAS,
+		CloudType: "lxd",
+	}, nil)
 	s.expectManual(false)
 
 	s.testCanApplyLXDProfile(c, true)
@@ -159,9 +161,10 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASLXDManual(c *gc.C) {
 	// manual: true
 	defer s.setupMocks(c).Finish()
 	s.expectUnitAndMachine()
-	s.expectModel()
-	s.expectModelTypeIAAS()
-	s.expectProviderType(c, "lxd")
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+		Type:      model.IAAS,
+		CloudType: "lxd",
+	}, nil)
 	s.expectManual(true)
 
 	s.testCanApplyLXDProfile(c, false)
@@ -171,9 +174,10 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileCAAS(c *gc.C) {
 	// model type: CAAS
 	// provider type: k8s
 	defer s.setupMocks(c).Finish()
-	s.expectModel()
-	s.expectModelTypeCAAS()
-	s.expectProviderType(c, "k8s")
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+		Type:      model.CAAS,
+		CloudType: "k8s",
+	}, nil)
 
 	s.testCanApplyLXDProfile(c, false)
 }
@@ -185,9 +189,10 @@ func (s *newLxdProfileSuite) TestCanApplyLXDProfileIAASMAASNotManualLXD(c *gc.C)
 	// container: LXD
 	defer s.setupMocks(c).Finish()
 	s.expectUnitAndMachine()
-	s.expectModel()
-	s.expectModelTypeIAAS()
-	s.expectProviderType(c, "maas")
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+		Type:      model.IAAS,
+		CloudType: "maas",
+	}, nil)
 	s.expectManual(false)
 	s.expectContainerType(instance.LXD)
 
@@ -226,7 +231,9 @@ func (s *newLxdProfileSuite) newAPI(c *gc.C) *uniter.LXDProfileAPIv2 {
 		resources,
 		authorizer,
 		unitAuthFunc,
-		loggertesting.WrapCheckLog(c))
+		loggertesting.WrapCheckLog(c),
+		s.modelInfoService,
+	)
 	return api
 }
 
@@ -235,8 +242,8 @@ func (s *newLxdProfileSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.backend = NewMockLXDProfileBackendV2(ctrl)
 	s.charm = NewMockLXDProfileCharmV2(ctrl)
 	s.machine = NewMockLXDProfileMachineV2(ctrl)
-	s.model = NewMockLXDProfileModelV2(ctrl)
 	s.unit = NewMockLXDProfileUnitV2(ctrl)
+	s.modelInfoService = NewMockModelInfoService(ctrl)
 	return ctrl
 }
 
@@ -257,30 +264,6 @@ func (s *newLxdProfileSuite) expectOneLXDProfileRequired() {
 	s.charm.EXPECT().LXDProfile().Return(lxdprofile.Profile{Config: map[string]string{"one": "two"}})
 
 	s.backend.EXPECT().Charm("ch:testme-3").Return(nil, errors.NotFoundf("ch:testme-3"))
-}
-
-func (s *newLxdProfileSuite) expectModel() {
-	s.backend.EXPECT().Model().Return(s.model, nil)
-}
-
-func (s *newLxdProfileSuite) expectModelTypeIAAS() {
-	s.model.EXPECT().Type().Return(state.ModelTypeIAAS)
-}
-
-func (s *newLxdProfileSuite) expectModelTypeCAAS() {
-	s.model.EXPECT().Type().Return(state.ModelTypeCAAS)
-}
-
-func (s *newLxdProfileSuite) expectProviderType(c *gc.C, pType string) {
-	attrs := map[string]interface{}{
-		config.TypeKey:          pType,
-		config.NameKey:          "testmodel",
-		config.UUIDKey:          "deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		config.SecretBackendKey: "auto",
-	}
-	cfg, err := config.New(config.NoDefaults, attrs)
-	c.Assert(err, jc.ErrorIsNil)
-	s.model.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil)
 }
 
 func (s *newLxdProfileSuite) expectManual(manual bool) {

@@ -60,8 +60,15 @@ type NetworkInfoBase struct {
 
 // NewNetworkInfo initialises and returns a new NetworkInfo
 // based on the input state and unit tag.
-func NewNetworkInfo(ctx context.Context, st *state.State, networkService NetworkService, tag names.UnitTag, logger corelogger.Logger) (NetworkInfo, error) {
-	n, err := NewNetworkInfoForStrategy(ctx, st, networkService, tag, defaultRetryFactory, net.LookupHost, logger)
+func NewNetworkInfo(
+	ctx context.Context,
+	st *state.State,
+	networkService NetworkService,
+	modelConfigService ModelConfigService,
+	tag names.UnitTag,
+	logger corelogger.Logger,
+) (NetworkInfo, error) {
+	n, err := NewNetworkInfoForStrategy(ctx, st, networkService, modelConfigService, tag, defaultRetryFactory, net.LookupHost, logger)
 	return n, errors.Trace(err)
 }
 
@@ -72,16 +79,13 @@ func NewNetworkInfoForStrategy(
 	ctx context.Context,
 	st *state.State,
 	networkService NetworkService,
+	modelConfigService ModelConfigService,
 	tag names.UnitTag,
 	retryFactory func() retry.CallArgs,
 	lookupHost func(string) ([]string, error),
 	logger corelogger.Logger,
 ) (NetworkInfo, error) {
-	model, err := st.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	cfg, err := model.ModelConfig(ctx)
+	cfg, err := modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

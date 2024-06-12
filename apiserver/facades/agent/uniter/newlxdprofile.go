@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -25,12 +25,6 @@ type LXDProfileBackendV2 interface {
 	Charm(string) (LXDProfileCharmV2, error)
 	Machine(string) (LXDProfileMachineV2, error)
 	Unit(string) (LXDProfileUnitV2, error)
-	Model() (LXDProfileModelV2, error)
-}
-
-type LXDProfileModelV2 interface {
-	ModelConfig(context.Context) (*config.Config, error)
-	Type() state.ModelType
 }
 
 // LXDProfileMachineV2 describes machine-receiver state methods
@@ -64,6 +58,8 @@ type LXDProfileAPIv2 struct {
 
 	logger     corelogger.Logger
 	accessUnit common.GetAuthFunc
+
+	modelInfoService ModelInfoService
 }
 
 // NewLXDProfileAPIv2 returns a new LXDProfileAPIv2. Currently both
@@ -74,13 +70,15 @@ func NewLXDProfileAPIv2(
 	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
 	logger corelogger.Logger,
+	modelInfoService ModelInfoService,
 ) *LXDProfileAPIv2 {
 	logger.Tracef("LXDProfileAPIv2 called with %s", authorizer.GetAuthTag())
 	return &LXDProfileAPIv2{
-		backend:    backend,
-		resources:  resources,
-		accessUnit: accessUnit,
-		logger:     logger,
+		backend:          backend,
+		resources:        resources,
+		accessUnit:       accessUnit,
+		logger:           logger,
+		modelInfoService: modelInfoService,
 	}
 }
 
@@ -102,10 +100,6 @@ func (s LXDProfileStateV2) Unit(id string) (LXDProfileUnitV2, error) {
 func (s LXDProfileStateV2) Charm(curl string) (LXDProfileCharmV2, error) {
 	c, err := s.st.Charm(curl)
 	return &lxdProfileCharmV2{c}, err
-}
-
-func (s LXDProfileStateV2) Model() (LXDProfileModelV2, error) {
-	return s.st.Model()
 }
 
 type lxdProfileMachineV2 struct {
@@ -135,6 +129,7 @@ func NewExternalLXDProfileAPIv2(
 	authorizer facade.Authorizer,
 	accessUnit common.GetAuthFunc,
 	logger corelogger.Logger,
+	modelInfoService ModelInfoService,
 ) *LXDProfileAPIv2 {
 	return NewLXDProfileAPIv2(
 		LXDProfileStateV2{st},
@@ -142,6 +137,7 @@ func NewExternalLXDProfileAPIv2(
 		authorizer,
 		accessUnit,
 		logger,
+		modelInfoService,
 	)
 }
 
@@ -252,13 +248,13 @@ func (u *LXDProfileAPIv2) CanApplyLXDProfile(ctx context.Context, args params.En
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.BoolResults{}, err
+		return params.BoolResults{}, errors.Trace(err)
 	}
-	providerType, mType, err := u.getModelTypeProviderType(ctx)
+	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
-		return params.BoolResults{}, err
+		return params.BoolResults{}, errors.Trace(err)
 	}
-	if mType != state.ModelTypeIAAS {
+	if modelInfo.Type != model.IAAS {
 		return result, nil
 	}
 	for i, entity := range args.Entities {
@@ -277,7 +273,7 @@ func (u *LXDProfileAPIv2) CanApplyLXDProfile(ctx context.Context, args params.En
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		name, err := u.getOneCanApplyLXDProfile(machine, providerType)
+		name, err := u.getOneCanApplyLXDProfile(machine, modelInfo.CloudType)
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -305,18 +301,6 @@ func (u *LXDProfileAPIv2) getOneCanApplyLXDProfile(machine LXDProfileMachineV2, 
 		return true, nil
 	}
 	return false, nil
-}
-
-func (u *LXDProfileAPIv2) getModelTypeProviderType(ctx context.Context) (string, state.ModelType, error) {
-	m, err := u.backend.Model()
-	if err != nil {
-		return "", "", err
-	}
-	cfg, err := m.ModelConfig(ctx)
-	if err != nil {
-		return "", "", err
-	}
-	return cfg.Type(), m.Type(), nil
 }
 
 // LXDProfileRequired returns true if charm has an lxd profile in it.
