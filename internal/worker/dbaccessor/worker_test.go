@@ -550,7 +550,7 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 // The Kill expectation is soft, because this can be done via parent catacomb,
 // rather than a direct call.
 func (s *workerSuite) expectTrackedDBUpdateNodeAndKill(done chan struct{}) {
-	s.trackedDB.EXPECT().StdTxn(gomock.Any(), gomock.Any())
+	s.trackedDB.EXPECT().Txn(gomock.Any(), gomock.Any())
 	s.trackedDB.EXPECT().Kill().AnyTimes()
 	s.trackedDB.EXPECT().Wait().DoAndReturn(func() error {
 		<-done

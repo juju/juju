@@ -5,10 +5,10 @@ package state
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strconv"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
@@ -36,19 +36,34 @@ func (st *State) CurateNodes(ctx context.Context, insert, delete []string) error
 		return errors.Trace(err)
 	}
 
-	// These are never going to be many at a time. Just repeat as required.
-	iq := "INSERT INTO controller_node (controller_id) VALUES (?)"
-	dq := "DELETE FROM controller_node WHERE controller_id = ?"
+	// Single dbControllerNode object created here and reused.
+	controllerNode := dbControllerNode{}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	// These are never going to be many at a time. Just repeat as required.
+	insertStmt, err := st.Prepare(`
+INSERT INTO controller_node (controller_id)
+VALUES      ($dbControllerNode.*)`, controllerNode)
+	if err != nil {
+		return errors.Annotate(err, "preparing insert controller node statement")
+	}
+	deleteStmt, err := st.Prepare(`
+DELETE FROM controller_node 
+WHERE       controller_id = $dbControllerNode.controller_id`, controllerNode)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete controller node statement")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for _, cID := range insert {
-			if _, err := tx.ExecContext(ctx, iq, cID); err != nil {
-				return errors.Annotatef(err, "inserting controller node %q", cID)
+			controllerNode.ControllerID = cID
+			if err := tx.Query(ctx, insertStmt, controllerNode).Run(); err != nil {
+				return errors.Annotatef(domain.CoerceError(err), "inserting controller node %q", cID)
 			}
 		}
 
 		for _, cID := range delete {
-			if _, err := tx.ExecContext(ctx, dq, cID); err != nil {
+			controllerNode.ControllerID = cID
+			if err := tx.Query(ctx, deleteStmt, controllerNode).Run(); err != nil {
 				return errors.Annotatef(err, "deleting controller node %q", cID)
 			}
 		}
@@ -67,22 +82,31 @@ func (st *State) UpdateDqliteNode(ctx context.Context, controllerID string, node
 		return errors.Trace(err)
 	}
 
-	q := `
-UPDATE controller_node 
-SET    dqlite_node_id = ?,
-       bind_address = ? 
-WHERE  controller_id = ?
-AND    (dqlite_node_id != ? OR bind_address != ?)`
-
 	// uint64 values with the high bit set cause the driver to throw an error,
 	// so we parse them as strings. The node_id is defined as being TEXT,
 	// which makes no difference - it can still be scanned directly into
 	// uint64 when querying the table.
 	nodeStr := strconv.FormatUint(nodeID, 10)
+	controllerNode := dbControllerNode{
+		ControllerID: controllerID,
+		DQLiteNodeID: nodeStr,
+		BindAddress:  addr,
+	}
 
-	return errors.Trace(db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, nodeStr, addr, controllerID, nodeStr, addr)
-		return errors.Trace(err)
+	q := `
+UPDATE controller_node 
+SET    dqlite_node_id = $dbControllerNode.dqlite_node_id,
+       bind_address = $dbControllerNode.bind_address 
+WHERE  controller_id = $dbControllerNode.controller_id
+AND    (dqlite_node_id != $dbControllerNode.dqlite_node_id OR bind_address != $dbControllerNode.bind_address)`
+	stmt, err := st.Prepare(q, controllerNode)
+	if err != nil {
+		return errors.Annotate(err, "preparing update controller node statement")
+	}
+
+	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, controllerNode).Run()
+		return errors.Trace(domain.CoerceError(err))
 	}))
 }
 
@@ -95,12 +119,20 @@ func (st *State) SelectDatabaseNamespace(ctx context.Context, namespace string) 
 		return "", errors.Trace(err)
 	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, db *sql.Tx) error {
-		row := db.QueryRowContext(ctx, "SELECT namespace from namespace_list WHERE namespace = ?", namespace)
-		return row.Scan(&namespace)
+	dbNamespace := dbNamespace{Namespace: namespace}
+
+	stmt, err := st.Prepare(`
+SELECT &dbNamespace.* from namespace_list 
+WHERE  namespace = $dbNamespace.namespace`, dbNamespace)
+	if err != nil {
+		return "", fmt.Errorf("preparing select namespace statement")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, db *sqlair.TX) error {
+		return db.Query(ctx, stmt, dbNamespace).Get(&dbNamespace)
 	})
 
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, sqlair.ErrNoRows) {
 		return "", fmt.Errorf("namespace %q %w", namespace, errors.NotFound)
 	} else if err != nil {
 		return "", fmt.Errorf("selecting namespace %q: %w", namespace, domain.CoerceError(err))
