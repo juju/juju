@@ -17,3 +17,7 @@ class Client(pydiscourse.DiscourseClient):
         else:
             kwargs["locked"] = "false"
         return self._put(f"posts/{post_id}/locked.json", **kwargs)
+
+    def add_staff_notice(self, post_id: int, notice: str, **kwargs):
+        kwargs["notice"] = notice
+        return self._put(f"posts/{post_id}/notice", **kwargs)
