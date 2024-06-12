@@ -1,7 +1,7 @@
 import os
 import sys
 import yaml
-from pydiscourse import DiscourseClient
+from client import Client
 from pydiscourse.exceptions import DiscourseClientError
 
 
@@ -12,7 +12,7 @@ DISCOURSE_API_KEY = os.environ.get('DISCOURSE_API_KEY')
 DOCS_DIR = os.environ.get('DOCS_DIR')
 TOPIC_IDS = os.environ.get('TOPIC_IDS')
 
-client = DiscourseClient(
+client = Client(
     host=DISCOURSE_HOST,
     api_username=DISCOURSE_API_USERNAME,
     api_key=DISCOURSE_API_KEY,
@@ -20,7 +20,7 @@ client = DiscourseClient(
 
 
 def main():
-    if len(sys.argv) < 1:
+    if len(sys.argv) < 2:
         sys.exit('no command provided, must be one of: check, sync, create, delete')
 
     command = sys.argv[1]
@@ -130,17 +130,26 @@ def sync():
         current_contents = post2['raw']
         if current_contents == content.rstrip('\n'):
             print(f'doc {doc_name} (topic #{topic_ids[doc_name]}): already up-to-date: skipping')
-            continue
+        else:
+            # Update Discourse post
+            print(f'doc {doc_name} (topic #{topic_ids[doc_name]}): updating')
+            try:
+                client.update_post(
+                    post_id=post_id,
+                    content=content,
+                )
+            except DiscourseClientError as e:
+                couldnt_sync[doc_name] = f"couldn't update post with ID #{post_id}: {e}"
+                continue
 
-        # Update Discourse post
-        print(f'doc {doc_name} (topic #{topic_ids[doc_name]}): updating')
+        # Lock post for editing
         try:
-            client.update_post(
+            client.lock_post(
                 post_id=post_id,
-                content=content,
+                locked=True,
             )
         except DiscourseClientError as e:
-            couldnt_sync[doc_name] = f"couldn't update post with ID #{post_id}: {e}"
+            couldnt_sync[doc_name] = f"couldn't lock post with ID #{post_id}: {e}"
             continue
 
     if len(couldnt_sync) > 0:
