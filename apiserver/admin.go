@@ -313,8 +313,10 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 			startPinger = false
 			controllerConn = true
 		}
-	} else if a.root.model == nil {
-		// Anonymous login to unknown model.
+	}
+	if a.root.model == nil {
+		// Login to an unknown or migrated model.
+		// See maybeEmitRedirectError for user logins who are redirected.
 		// Hide the fact that the model does not exist.
 		return nil, errors.Unauthorizedf("invalid entity name or password")
 	}
