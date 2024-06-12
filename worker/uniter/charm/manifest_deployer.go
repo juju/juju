@@ -259,7 +259,7 @@ func (rbr RetryingBundleReader) Read(bi BundleInfo, abort <-chan struct{}) (Bund
 			return nil
 		},
 		IsFatalError: func(err error) bool {
-			return err != nil && !errors.IsNotYetAvailable(err)
+			return err != nil && !errors.Is(err, errors.NotYetAvailable)
 		},
 	})
 

@@ -72,6 +72,12 @@ func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struc
 	if err != nil {
 		return errors.Annotatef(err, "failed to get archive sha256 for charm %q", info.URL())
 	}
+	// If the expected sha256 is empty, it means the controller hasn't
+	// downloaded the charm yet.
+	if expectedSha256 == "" {
+		d.logger.Debugf("controller haven't downloaded the charm yet, waiting")
+		return errors.NotYetAvailable
+	}
 	req := downloader.Request{
 		ArchiveSha256: expectedSha256,
 		URL:           curl,
