@@ -182,7 +182,13 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		"secret_backend_type",
 		"model_secret_backend",
 	)
-	c.Assert(readEntityNames(c, s.DB(), "table"), jc.SameContents, expected.Union(internalTableNames).SortedValues())
+	got := readEntityNames(c, s.DB(), "table")
+	wanted := expected.Union(internalTableNames)
+	c.Assert(got, jc.SameContents, wanted.SortedValues(), gc.Commentf(
+		"additive: %v, deletion: %v",
+		set.NewStrings(got...).Difference(wanted).SortedValues(),
+		wanted.Difference(set.NewStrings(got...)).SortedValues(),
+	))
 }
 
 func (s *schemaSuite) TestControllerViews(c *gc.C) {
@@ -228,6 +234,12 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 	expected := set.NewStrings(
 		// Application
 		"application",
+		"application_caas",
+		"application_channel",
+		"application_endpoints_space",
+		"application_endpoints_cidr",
+		"application_platform",
+		"application_settings",
 
 		// Annotations
 		"annotation_application",
@@ -239,7 +251,11 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"annotation_storage_filesystem",
 		"annotation_storage_volume",
 
+		// Life
 		"life",
+
+		// Password
+		"password_hash_algorithm",
 
 		// Change log
 		"change_log",
@@ -291,6 +307,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"architecture",
 		"charm_action",
 		"charm_category",
+		"charm_channel",
 		"charm_config",
 		"charm_config_type",
 		"charm_container_mount",
@@ -379,7 +396,11 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
-	c.Assert(got, jc.SameContents, wanted.SortedValues(), gc.Commentf("difference %v", set.NewStrings(got...).Difference(wanted).SortedValues()))
+	c.Assert(got, jc.SameContents, wanted.SortedValues(), gc.Commentf(
+		"additive: %v, deletion: %v",
+		set.NewStrings(got...).Difference(wanted).SortedValues(),
+		wanted.Difference(set.NewStrings(got...)).SortedValues(),
+	))
 }
 
 func (s *schemaSuite) TestModelViews(c *gc.C) {
@@ -679,7 +700,9 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 4, tableSecretReference, 1)
 
 	appUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, `INSERT INTO application (uuid, name, life_id) VALUES (?, 'mysql', 0);`, "", appUUID)
+	s.assertExecSQL(c, `
+INSERT INTO application (uuid, name, life_id, password_hash_algorithm_id, password_hash) 
+VALUES (?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, "", appUUID)
 
 	netNodeUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, "", netNodeUUID)
