@@ -13,7 +13,7 @@ INSERT INTO charm_run_as_kind VALUES
 (3, 'non-root');
 
 CREATE TABLE charm (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT,
     description TEXT,
     summary TEXT,

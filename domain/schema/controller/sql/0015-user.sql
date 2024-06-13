@@ -1,5 +1,5 @@
 CREATE TABLE user (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     display_name TEXT,
     removed BOOLEAN NOT NULL DEFAULT FALSE,
@@ -13,7 +13,7 @@ CREATE TABLE user (
 CREATE UNIQUE INDEX idx_singleton_active_user ON user (name) WHERE removed IS FALSE;
 
 CREATE TABLE user_authentication (
-    user_uuid TEXT PRIMARY KEY,
+    user_uuid TEXT NOT NULL PRIMARY KEY,
     disabled BOOLEAN NOT NULL,
     CONSTRAINT fk_user_authentication_user
     FOREIGN KEY (user_uuid)
@@ -21,7 +21,7 @@ CREATE TABLE user_authentication (
 );
 
 CREATE TABLE user_password (
-    user_uuid TEXT PRIMARY KEY,
+    user_uuid TEXT NOT NULL PRIMARY KEY,
     password_hash TEXT NOT NULL,
     password_salt TEXT NOT NULL,
     CONSTRAINT fk_user_password_user
@@ -30,7 +30,7 @@ CREATE TABLE user_password (
 );
 
 CREATE TABLE user_activation_key (
-    user_uuid TEXT PRIMARY KEY,
+    user_uuid TEXT NOT NULL PRIMARY KEY,
     activation_key TEXT NOT NULL,
     CONSTRAINT fk_user_activation_key_user
     FOREIGN KEY (user_uuid)

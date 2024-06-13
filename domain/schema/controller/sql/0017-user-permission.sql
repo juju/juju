@@ -62,7 +62,7 @@ INSERT INTO permission_object_access VALUES
 -- The name of the column is general, but for now we retain the FK constraint.
 -- We will need to remove/replace it in the event of change
 CREATE TABLE permission (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     access_type_id INT NOT NULL,
     object_type_id INT NOT NULL,
     grant_on TEXT NOT NULL, -- name or uuid of the object

@@ -1,5 +1,5 @@
 CREATE TABLE instance_data (
-    machine_uuid TEXT PRIMARY KEY,
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
     instance_id TEXT NOT NULL,
     display_name TEXT NOT NULL,
     arch TEXT,

@@ -1,5 +1,5 @@
 CREATE TABLE application (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     life_id INT NOT NULL,
     charm_modified_version INT,
@@ -15,28 +15,26 @@ CREATE TABLE application (
 );
 
 CREATE TABLE application_channel (
-    application_uuid TEXT NOT NULL,
+    application_uuid TEXT NOT NULL PRIMARY KEY,
     track TEXT,
     risk TEXT NOT NULL,
     branch TEXT,
     CONSTRAINT fk_application_channel_application
     FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid),
-    PRIMARY KEY (application_uuid)
+    REFERENCES application (uuid)
 );
 
 CREATE TABLE application_caas (
-    application_uuid TEXT,
+    application_uuid TEXT NOT NULL PRIMARY KEY,
     scale_target TEXT,
     scaling BOOLEAN DEFAULT FALSE,
     CONSTRAINT fk_application_endpoints_space_application
     FOREIGN KEY (application_uuid)
-    REFERENCES application (uuid),
-    PRIMARY KEY (application_uuid)
+    REFERENCES application (uuid)
 );
 
 CREATE TABLE application_platform (
-    application_uuid TEXT NOT NULL,
+    application_uuid TEXT NOT NULL PRIMARY KEY,
     os_id TEXT,
     channel TEXT,
     architecture_id TEXT,
@@ -55,7 +53,7 @@ CREATE UNIQUE INDEX idx_application_name
 ON application (name);
 
 CREATE TABLE application_endpoints_space (
-    application_uuid TEXT,
+    application_uuid TEXT NOT NULL,
     space_uuid TEXT,
     CONSTRAINT fk_application_endpoints_space_application
     FOREIGN KEY (application_uuid)

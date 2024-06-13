@@ -1,10 +1,10 @@
 CREATE TABLE controller_config (
-    "key" TEXT PRIMARY KEY,
+    "key" TEXT NOT NULL PRIMARY KEY,
     value TEXT
 );
 
 CREATE TABLE controller (
-    uuid TEXT PRIMARY KEY NOT NULL
+    uuid TEXT NOT NULL PRIMARY KEY
 );
 
 -- A unique constraint over a constant index ensures only 1 entry matching the 

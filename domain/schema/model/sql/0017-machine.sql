@@ -1,5 +1,5 @@
 CREATE TABLE machine (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     machine_id TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
@@ -28,7 +28,7 @@ CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
 
 CREATE TABLE machine_constraint (
-    machine_uuid TEXT PRIMARY KEY,
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
     constraint_uuid TEXT NOT NULL,
     CONSTRAINT fk_machine_constraint_machine
     FOREIGN KEY (machine_uuid)

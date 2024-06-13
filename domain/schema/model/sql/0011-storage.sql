@@ -1,5 +1,5 @@
 CREATE TABLE storage_pool (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     -- Types are provider sourced, so we do not use a lookup with ID.
     -- This constitutes "repeating data" and would tend to indicate 
@@ -111,7 +111,7 @@ CREATE INDEX idx_unit_storage_directive
 ON unit_storage_directive (unit_uuid);
 
 CREATE TABLE storage_instance (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     storage_kind_id INT NOT NULL,
     name TEXT NOT NULL,
     life_id INT NOT NULL,
@@ -134,7 +134,7 @@ CREATE TABLE storage_instance (
 -- a unit is the owner of a storage instance.
 -- This is different to a storage attachment.
 CREATE TABLE storage_unit_owner (
-    storage_instance_uuid TEXT PRIMARY KEY,
+    storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
     unit_uuid TEXT NOT NULL,
     CONSTRAINT fk_storage_owner_storage
     FOREIGN KEY (storage_instance_uuid)
@@ -145,7 +145,7 @@ CREATE TABLE storage_unit_owner (
 );
 
 CREATE TABLE storage_attachment (
-    storage_instance_uuid TEXT PRIMARY KEY,
+    storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
     unit_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
     CONSTRAINT fk_storage_owner_storage
@@ -178,7 +178,7 @@ INSERT INTO storage_provisioning_status VALUES
 (2, 'error', 'An error was encountered during creation or attachment');
 
 CREATE TABLE storage_volume (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     life_id INT NOT NULL,
     name TEXT NOT NULL,
     provider_id TEXT,
@@ -202,7 +202,7 @@ CREATE TABLE storage_volume (
 -- An instance can have at most one volume.
 -- A volume can have at most one instance.
 CREATE TABLE storage_instance_volume (
-    storage_instance_uuid TEXT PRIMARY KEY,
+    storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
     storage_volume_uuid TEXT NOT NULL,
     CONSTRAINT fk_storage_instance_volume_instance
     FOREIGN KEY (storage_instance_uuid)
@@ -216,7 +216,7 @@ CREATE UNIQUE INDEX idx_storage_instance_volume
 ON storage_instance_volume (storage_volume_uuid);
 
 CREATE TABLE storage_volume_attachment (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     storage_volume_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
@@ -241,7 +241,7 @@ CREATE TABLE storage_volume_attachment (
 );
 
 CREATE TABLE storage_filesystem (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     life_id INT NOT NULL,
     provider_id TEXT,
     storage_pool_uuid TEXT,
@@ -261,7 +261,7 @@ CREATE TABLE storage_filesystem (
 -- An instance can have at most one filesystem.
 -- A filesystem can have at most one instance.
 CREATE TABLE storage_instance_filesystem (
-    storage_instance_uuid TEXT PRIMARY KEY,
+    storage_instance_uuid TEXT NOT NULL PRIMARY KEY,
     storage_filesystem_uuid TEXT NOT NULL,
     CONSTRAINT fk_storage_instance_filesystem_instance
     FOREIGN KEY (storage_instance_uuid)
@@ -275,7 +275,7 @@ CREATE UNIQUE INDEX idx_storage_instance_filesystem
 ON storage_instance_filesystem (storage_filesystem_uuid);
 
 CREATE TABLE storage_filesystem_attachment (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     storage_filesystem_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
@@ -310,7 +310,7 @@ INSERT INTO storage_volume_device_type VALUES
 (1, 'iscsi', 'iSCSI protocol for linking storage');
 
 CREATE TABLE storage_volume_attachment_plan (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     storage_volume_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
@@ -338,7 +338,7 @@ CREATE TABLE storage_volume_attachment_plan (
 );
 
 CREATE TABLE storage_volume_attachment_plan_attr (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     attachment_plan_uuid TEXT NOT NULL,
     "key" TEXT NOT NULL,
     value TEXT NOT NULL,

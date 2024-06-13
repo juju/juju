@@ -46,7 +46,7 @@ INSERT INTO auth_type VALUES
 (12, 'service-principal-secret');
 
 CREATE TABLE cloud (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     cloud_type_id INT NOT NULL,
     endpoint TEXT NOT NULL,
@@ -138,7 +138,7 @@ CREATE UNIQUE INDEX idx_cloud_auth_type_cloud_uuid_auth_type_id
 ON cloud_auth_type (cloud_uuid, auth_type_id);
 
 CREATE TABLE cloud_region (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     cloud_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
     endpoint TEXT,
@@ -179,7 +179,7 @@ CREATE UNIQUE INDEX idx_cloud_ca_cert_cloud_uuid_ca_cert
 ON cloud_ca_cert (cloud_uuid, ca_cert);
 
 CREATE TABLE cloud_credential (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     cloud_uuid TEXT NOT NULL,
     auth_type_id TEXT NOT NULL,
     owner_uuid TEXT NOT NULL,

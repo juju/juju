@@ -23,7 +23,7 @@ INSERT INTO model_type VALUES
 (1, 'caas');
 
 CREATE TABLE model (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     -- activated tells us if the model creation process has been completed and
     -- we can use this model. The reason for this is model creation still happens
     -- over several transactions with any one of them possibly failing. We write true
