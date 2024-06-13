@@ -28,21 +28,21 @@ func (s *watcherSuite) TestWatchWithCreate(c *gc.C) {
 	machineService, watcherC := s.machineServiceAndWatcher(c)
 
 	// Create a machine
-	err := machineService.CreateMachine(context.Background(), "machine-1")
+	uuid, err := machineService.CreateMachine(context.Background(), "machine-1")
 	c.Assert(err, gc.IsNil)
-	watcherC.AssertOneChange()
+	watcherC.AssertChange(uuid)
 }
 
 func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 	machineService, watcherC := s.machineServiceAndWatcher(c)
 
 	// Create a machine
-	err := machineService.CreateMachine(context.Background(), "machine-1")
+	uuid, err := machineService.CreateMachine(context.Background(), "machine-1")
 	c.Assert(err, gc.IsNil)
 	// Delete the machine
 	err = machineService.DeleteMachine(context.Background(), "machine-1")
 	c.Assert(err, gc.IsNil)
-	watcherC.AssertChanges()
+	watcherC.AssertChange(uuid)
 }
 
 func (s *watcherSuite) machineServiceAndWatcher(c *gc.C) (*service.WatchableService, watchertest.StringsWatcherC) {
