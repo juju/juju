@@ -5,6 +5,7 @@ package service
 
 import (
 	"context"
+	"net/url"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -18,6 +19,7 @@ import (
 	"github.com/juju/juju/domain/keymanager"
 	keyserrors "github.com/juju/juju/domain/keymanager/errors"
 	"github.com/juju/juju/internal/ssh"
+	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )
 
 type serviceSuite struct {
@@ -26,6 +28,7 @@ type serviceSuite struct {
 	keyImporter *MockPublicKeyImporter
 	state       *MockState
 	userID      user.UUID
+	subjectURI  *url.URL
 }
 
 var (
@@ -65,6 +68,10 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.userID = usertesting.GenUserUUID(c)
+
+	uri, err := url.Parse("gh:tlm")
+	c.Check(err, jc.ErrorIsNil)
+	s.subjectURI = uri
 }
 
 // TestAddKeysForInvalidUser is asserting that if we pass in an invalid user id
@@ -375,5 +382,99 @@ func (s *serviceSuite) TestDeleteKeysForUserCombination(c *gc.C) {
 			key.Comment,
 			existingUserPublicKeys[1],
 		)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestImportKeyForUnknownSource is asserting that if we try and import keys for
+// a subject where the source is unknown.
+func (s *serviceSuite) TestImportKeysForUnknownSource(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.keyImporter.EXPECT().FetchPublicKeysForSubject(
+		gomock.Any(),
+		s.subjectURI,
+	).Return(nil, importererrors.NoResolver)
+
+	err := NewService(s.keyImporter, s.state).
+		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
+	c.Check(err, jc.ErrorIs, keyserrors.UnknownImportSource)
+}
+
+// TestImportKeyForUnknownSubject is asserting that if we ask to import keys for
+// a subject that doesn't exist we get back a [keyserrors.ImportSubjectNotFound]
+// error.
+func (s *serviceSuite) TestImportKeysForUnknownSubject(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.keyImporter.EXPECT().FetchPublicKeysForSubject(
+		gomock.Any(),
+		s.subjectURI,
+	).Return(nil, importererrors.SubjectNotFound)
+
+	err := NewService(s.keyImporter, s.state).
+		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
+	c.Check(err, jc.ErrorIs, keyserrors.ImportSubjectNotFound)
+}
+
+// TestImportKeysInvalidPublicKeys is asserting that if the key importer returns
+// invalid public keys a [keyserrors.InvalidPublicKey] error is returned.
+func (s *serviceSuite) TestImportKeysInvalidPublicKeys(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.keyImporter.EXPECT().FetchPublicKeysForSubject(
+		gomock.Any(),
+		s.subjectURI,
+	).Return([]string{"bad"}, nil)
+
+	err := NewService(s.keyImporter, s.state).
+		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
+	c.Check(err, jc.ErrorIs, keyserrors.InvalidPublicKey)
+}
+
+// TestImportKeysWithReservedComment is asserting that if we import keys where
+// one or more of the keys has a reserved comment we return an error that
+// satisfies [keyserrors.ReservedCommentViolation].
+func (s *serviceSuite) TestImportKeysWithReservedComment(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.keyImporter.EXPECT().FetchPublicKeysForSubject(
+		gomock.Any(),
+		s.subjectURI,
+	).Return(reservedPublicKeys, nil)
+
+	err := NewService(s.keyImporter, s.state).
+		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
+	c.Check(err, jc.ErrorIs, keyserrors.ReservedCommentViolation)
+}
+
+// TestImportPublicKeysForUser is asserting the happy path of
+// [Service.ImportPublicKeysForUser].
+func (s *serviceSuite) TestImportPublicKeysForUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.keyImporter.EXPECT().FetchPublicKeysForSubject(
+		gomock.Any(),
+		s.subjectURI,
+	).Return(testingPublicKeys, nil)
+
+	expectedKeys := make([]keymanager.PublicKey, 0, len(testingPublicKeys))
+	for _, key := range testingPublicKeys {
+		keyInfo, err := ssh.ParsePublicKey(key)
+		c.Assert(err, jc.ErrorIsNil)
+		expectedKeys = append(expectedKeys, keymanager.PublicKey{
+			Comment:     keyInfo.Comment,
+			Fingerprint: keyInfo.Fingerprint(),
+			Key:         key,
+		})
+	}
+
+	s.state.EXPECT().AddPublicKeyForUserIfNotFound(
+		gomock.Any(),
+		s.userID,
+		expectedKeys,
+	).Return(nil)
+
+	err := NewService(s.keyImporter, s.state).
+		ImportPublicKeysForUser(context.Background(), s.userID, s.subjectURI)
 	c.Check(err, jc.ErrorIsNil)
 }

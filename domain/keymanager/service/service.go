@@ -16,6 +16,7 @@ import (
 	keyserrors "github.com/juju/juju/domain/keymanager/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/ssh"
+	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )
 
 // PublicKeyImporter describes a service that is capable of fetching and
@@ -24,6 +25,11 @@ import (
 type PublicKeyImporter interface {
 	// FetchPublicKeysForSubject is responsible for gathering all of the
 	// public keys available for a specified subject.
+	// The following errors can be expected:
+	// - [importererrors.NoResolver] when there is import resolver the subject
+	// schema.
+	// - [importerrors.SubjectNotFound] when the resolver has reported that no
+	// subject exists.
 	FetchPublicKeysForSubject(context.Context, *url.URL) ([]string, error)
 }
 
@@ -166,12 +172,62 @@ func (s *Service) DeleteKeysForUser(
 // - [keyserrors.InvalidPublicKey] when a key being imported fails validation.
 // - [keyserrors.ReservedCommentViolation] when a key being added contains a
 // comment string that is reserved.
+// - [keyserrors.UnknownImportSource] when the source for the import operation
+// is unknown to the service.
+// - [keyserrors.ImportSubjectNotFound] when the source has indicated that the
+// subject for the import operation does not exist.
 func (s *Service) ImportPublicKeysForUser(
 	ctx context.Context,
 	userID user.UUID,
 	subject *url.URL,
 ) error {
-	return nil
+	keys, err := s.keyImporter.FetchPublicKeysForSubject(ctx, subject)
+	if errors.Is(err, importererrors.NoResolver) {
+		return fmt.Errorf(
+			"cannot import public keys for user %q, unknown public key source %q%w",
+			userID, subject.Scheme, errors.Hide(keyserrors.UnknownImportSource),
+		)
+	} else if errors.Is(err, importererrors.SubjectNotFound) {
+		return fmt.Errorf(
+			"cannot import public keys for user %q, import subject %q not found%w",
+			userID, subject.String(), errors.Hide(keyserrors.ImportSubjectNotFound),
+		)
+	} else if err != nil {
+		return fmt.Errorf(
+			"cannot import public keys for user %q using subject %q: %w",
+			userID, subject.String(), err,
+		)
+	}
+
+	keysToAdd := make([]keymanager.PublicKey, 0, len(keys))
+	for i, key := range keys {
+		parsedKey, err := ssh.ParsePublicKey(key)
+		if err != nil {
+			return fmt.Errorf(
+				"cannot parse key %d for subject %q when importing keys for user %q: %w%w",
+				i, subject.String(), userID, err, errors.Hide(keyserrors.InvalidPublicKey),
+			)
+		}
+
+		if reservedPublicKeyComments.Contains(parsedKey.Comment) {
+			return fmt.Errorf(
+				"cannot import key %d for user %q with subject %q because the comment %q is reserverd%w",
+				i,
+				userID,
+				subject.String(),
+				parsedKey.Comment,
+				errors.Hide(keyserrors.ReservedCommentViolation),
+			)
+		}
+
+		keysToAdd = append(keysToAdd, keymanager.PublicKey{
+			Comment:     parsedKey.Comment,
+			Key:         key,
+			Fingerprint: parsedKey.Fingerprint(),
+		})
+	}
+
+	return s.st.AddPublicKeyForUserIfNotFound(ctx, userID, keysToAdd)
 }
 
 // ListPublicKeysForUser is responsible for returning the public ssh keys for
