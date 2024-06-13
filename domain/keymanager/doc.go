@@ -14,4 +14,4 @@
 //
 // Both of the problems described above exist with the original implementation
 // using Mongo and model config.
-package keys
+package keymanager

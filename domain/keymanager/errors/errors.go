@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	// AuthorisedKeyAlreadyExists indicates that the authorised key already
+	// PublicKeyAlreadyExists indicates that the authorised key already
 	// exists for the specified user.
-	AuthorisedKeyAlreadyExists = errors.ConstError("authorised key already exists")
+	PublicKeyAlreadyExists = errors.ConstError("public key already exists")
 
-	// InvalidAuthorisedKey indicates a problem with an authorised key where it
+	// InvalidPublicKey indicates a problem with a public key where it
 	// was unable to be understood.
-	InvalidAuthorisedKey = errors.ConstError("invalid authorised key")
+	InvalidPublicKey = errors.ConstError("invalid public key")
 
 	// ReservedCommentViolation indicates that a key contains a comment that is
 	// reserved within the Juju system and cannot be used.

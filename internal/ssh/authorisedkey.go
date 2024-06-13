@@ -24,14 +24,14 @@ func (a *AuthorisedKey) Fingerprint() string {
 	return ssh.FingerprintSHA256(a.Key)
 }
 
-// ParseAuthorisedKey parses a single line from an authorised keys file
+// ParsePublicKey parses a single line from an authorised keys file
 // returning a [AuthorisedKey] representation of the data.
 // [ssh.ParseAuthorizedKey] is used to perform the underlying validating and
 // parsing.
-func ParseAuthorisedKey(key string) (AuthorisedKey, error) {
+func ParsePublicKey(key string) (AuthorisedKey, error) {
 	parsedKey, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(key))
 	if err != nil {
-		return AuthorisedKey{}, fmt.Errorf("parsing authorised key %q: %w", err)
+		return AuthorisedKey{}, fmt.Errorf("parsing public key %q: %w", err)
 	}
 
 	return AuthorisedKey{
