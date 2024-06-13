@@ -91,7 +91,7 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 }
 
 // GetDeployer returns the correct deployer to use based on the cfg provided.
-// A ModelConfigGetter needed to find the deployer.
+// A ModelConfigGetter is needed to find the deployer.
 func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, resolver Resolver) (Deployer, error) {
 	// Determine the type of deploy we have
 	var dk DeployerKind

@@ -132,8 +132,9 @@ func (s BaseSelector) validate(supportedCharmBases, supportedJujuBases []base.Ba
 // Order of preference is:
 //   - user requested with --base or defined by bundle when deploying
 //   - model default, if set, acts like --base
-//   - juju default ubuntu LTS from charm manifest
-//   - first base listed in the charm manifest
+//   - juju's default supported Ubuntu LTS (if compatible with valid charm bases)
+//   - the latest known Ubuntu LTS (if compatible with valid charm bases)
+//   - the first supported base in the charm manifest
 //   - in the case of local charms with no manifest nor base in metadata,
 //     base must be provided by the user.
 func (s BaseSelector) CharmBase() (selectedBase base.Base, err error) {
@@ -156,6 +157,13 @@ func (s BaseSelector) CharmBase() (selectedBase base.Base, err error) {
 		return s.userRequested(s.defaultBase)
 	}
 
+	// Try juju's current default supported Ubuntu LTS
+	jujuDefaultBase, err := BaseForCharm(version.DefaultSupportedLTSBase(), s.supportedBases)
+	if err == nil {
+		s.logger.Infof(msgLatestLTSBase, version.DefaultSupportedLTSBase())
+		return jujuDefaultBase, nil
+	}
+
 	// Prefer latest Ubuntu LTS.
 	preferredBase, err := BaseForCharm(base.LatestLTSBase(), s.supportedBases)
 	if err == nil {
@@ -163,13 +171,6 @@ func (s BaseSelector) CharmBase() (selectedBase base.Base, err error) {
 		return preferredBase, nil
 	} else if errors.Is(err, MissingBaseError) {
 		return base.Base{}, err
-	}
-
-	// Try juju's current default supported Ubuntu LTS
-	jujuDefaultBase, err := BaseForCharm(version.DefaultSupportedLTSBase(), s.supportedBases)
-	if err == nil {
-		s.logger.Infof(msgLatestLTSBase, version.DefaultSupportedLTSBase())
-		return jujuDefaultBase, nil
 	}
 
 	// Last chance, the first base in the charm's manifest
