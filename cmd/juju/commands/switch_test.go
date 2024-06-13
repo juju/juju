@@ -100,15 +100,6 @@ func (s *SwitchSimpleSuite) TestSwitchWritesCurrentController(c *gc.C) {
 	})
 }
 
-func (s *SwitchSimpleSuite) TestSwitchWithCurrentController(c *gc.C) {
-	s.store.CurrentControllerName = "old"
-	s.addController(c, "old")
-	s.addController(c, "new")
-	context, err := s.run(c, "new")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(context), gc.Equals, "old (controller) -> new (controller)\n")
-}
-
 func (s *SwitchSimpleSuite) TestSwitchLocalControllerWithCurrent(c *gc.C) {
 	s.store.CurrentControllerName = "old"
 	s.addController(c, "old")
