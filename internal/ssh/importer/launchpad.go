@@ -39,7 +39,7 @@ func (l *LaunchpadResolver) PublicKeysForSubject(
 	ctx context.Context,
 	subject string,
 ) ([]string, error) {
-	url, err := url.Parse(launchpadPathUserKeys)
+	url, err := url.Parse(launchpadURL)
 	if err != nil {
 		return nil, fmt.Errorf("parsing launchpad url %q: %w", launchpadURL, err)
 	}
@@ -70,7 +70,7 @@ func (l *LaunchpadResolver) PublicKeysForSubject(
 		)
 	} else if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf(
-			"cannot get public keys for launchpad user %q, recieved status %q",
+			"cannot get public keys for launchpad user %q, received status %q",
 			subject, res.Status,
 		)
 	}

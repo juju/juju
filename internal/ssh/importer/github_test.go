@@ -32,7 +32,7 @@ func (s *githubSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 // TestSubjectNotFound is asserting that if the [GithubResolver] gets a 404
-// return it propogates a [SubjectNotFound] error.
+// return it propagates a [SubjectNotFound] error.
 func (g *githubSuite) TestSubjectNotFound(c *gc.C) {
 	defer g.setupMocks(c).Finish()
 

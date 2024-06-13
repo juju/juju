@@ -20,7 +20,7 @@ type launchpadSuite struct {
 }
 
 var (
-	_ = gc.Suite(&githubSuite{})
+	_ = gc.Suite(&launchpadSuite{})
 )
 
 func (s *launchpadSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -30,14 +30,14 @@ func (s *launchpadSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 // TestSubjectNotFound is asserting that if the [LaunchpadResolver] gets a 404
-// return it propogates a [SubjectNotFound] error.
+// return it propagates a [SubjectNotFound] error.
 func (l *launchpadSuite) TestSubjectNotFound(c *gc.C) {
 	defer l.setupMocks(c).Finish()
 
 	l.client.EXPECT().Do(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			c.Check(req.URL.Path, gc.Equals, "/~tlm/+sshkeys")
-			c.Check(req.Header.Get("Accept"), gc.Equals, "text/plain; charset=utf-8")
+			c.Check(req.Header.Get("Accept"), gc.Equals, "text/plain;charset=utf-8")
 			return &http.Response{
 				Body:       io.NopCloser(strings.NewReader("")),
 				StatusCode: http.StatusNotFound,
@@ -57,11 +57,11 @@ func (l *launchpadSuite) TestSubjectPublicKeys(c *gc.C) {
 	l.client.EXPECT().Do(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
 			c.Check(req.URL.Path, gc.Equals, "/~tlm/+sshkeys")
-			c.Check(req.Header.Get("Accept"), gc.Equals, "text/plain; charset=utf-8")
+			c.Check(req.Header.Get("Accept"), gc.Equals, "text/plain;charset=utf-8")
 
 			builder := strings.NewReader(`
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC key1 
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe key2 
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII4GpCvqUUYUJlx6d1kpUO9k/t4VhSYsf0yE0/QTqDzC key1
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJQJ9wv0uC3yytXM3d2sJJWvZLuISKo7ZHwafHVviwVe key2
 `)
 
 			return &http.Response{

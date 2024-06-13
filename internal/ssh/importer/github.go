@@ -85,7 +85,7 @@ func (g *GithubResolver) PublicKeysForSubject(
 		)
 	} else if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf(
-			"cannot get public keys for github user %q, recieved status %q",
+			"cannot get public keys for github user %q, received status %q",
 			subject, res.Status,
 		)
 	}
