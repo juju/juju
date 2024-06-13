@@ -12,14 +12,10 @@ import (
 // State describes retrieval and persistence methods for machines.
 type State interface {
 	// UpsertMachine persists the input machine entity.
-	UpsertMachine(context.Context, string) error
+	UpsertMachine(context.Context, string) (string, error)
 
 	// DeleteMachine deletes the input machine entity.
 	DeleteMachine(context.Context, string) error
-
-	// InitialWatchStatement returns the table and the initial watch statement
-	// for the machines.
-	InitialWatchStatement() (string, string)
 }
 
 // Service provides the API for working with machines.
@@ -35,9 +31,9 @@ func NewService(st State) *Service {
 }
 
 // CreateMachine creates the specified machine.
-func (s *Service) CreateMachine(ctx context.Context, machineId string) error {
-	err := s.st.UpsertMachine(ctx, machineId)
-	return errors.Annotatef(err, "creating machine %q", machineId)
+func (s *Service) CreateMachine(ctx context.Context, machineId string) (string, error) {
+	machineUUID, err := s.st.UpsertMachine(ctx, machineId)
+	return machineUUID, errors.Annotatef(err, "creating machine %q", machineId)
 }
 
 // DeleteMachine deletes the specified machine.

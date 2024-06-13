@@ -16,7 +16,7 @@ func (s *stateSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.UpsertMachine(context.Background(), "42")
+	_, err := s.state.UpsertMachine(context.Background(), "42")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
 	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id='42'")
@@ -61,7 +61,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.UpsertMachine(context.Background(), "42")
+	_, err := s.state.UpsertMachine(context.Background(), "42")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
 	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id='42'")
@@ -136,7 +136,7 @@ func (s *stateSuite) TestDeleteInstanceData(c *gc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.UpsertMachine(context.Background(), "42")
+	_, err := s.state.UpsertMachine(context.Background(), "42")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
 	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id='42'")

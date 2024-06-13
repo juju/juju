@@ -4,9 +4,10 @@
 package service
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/core/watcher/eventsource"
 )
 
 type WatchableService struct {
@@ -17,9 +18,11 @@ type WatchableService struct {
 
 // WatcherFactory describes methods for creating watchers.
 type WatcherFactory interface {
-	// NewNamespaceWatcher returns a new namespace watcher
-	// for events based on the input change mask.
-	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
+	// NewUUIDsWatcher returns a watcher that emits the UUIDs for
+	// changes to the input table name that match the input mask.
+	NewUUIDsWatcher(
+		tableName string, changeMask changestream.ChangeType,
+	) (watcher.StringsWatcher, error)
 }
 
 // NewWatchableService returns a new service reference wrapping the input state.
@@ -34,11 +37,9 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 
 // WatchModelMachines returns a StringsWatcher that is subscribed to the changes
 // in the machines table in the model.
-func (s *WatchableService) WatchModelMachines() (watcher.StringsWatcher, error) {
-	table, stmt := s.st.InitialWatchStatement()
-	return s.watcherFactory.NewNamespaceWatcher(
-		table,
+func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error) {
+	return s.watcherFactory.NewUUIDsWatcher(
+		"machine",
 		changestream.All,
-		eventsource.InitialNamespaceChanges(stmt),
 	)
 }

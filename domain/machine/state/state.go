@@ -33,17 +33,17 @@ func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
 
 // UpsertMachine creates or updates the specified machine.
 // TODO - this just creates a minimal row for now.
-func (st *State) UpsertMachine(ctx context.Context, machineId string) error {
+func (st *State) UpsertMachine(ctx context.Context, machineId string) (string, error) {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	machineIDParam := sqlair.M{"machine_id": machineId}
 	query := `SELECT &M.uuid FROM machine WHERE machine_id = $M.machine_id`
 	queryStmt, err := st.Prepare(query, sqlair.M{})
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	createMachine := `
@@ -52,15 +52,16 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 `
 	createMachineStmt, err := st.Prepare(createMachine, sqlair.M{})
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
 	createNode := `INSERT INTO net_node (uuid) VALUES ($M.net_node_uuid)`
 	createNodeStmt, err := st.Prepare(createNode, sqlair.M{})
 	if err != nil {
-		return errors.Trace(err)
+		return "", errors.Trace(err)
 	}
 
+	newUUID := ""
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		result := sqlair.M{}
 		err := tx.Query(ctx, queryStmt, machineIDParam).Get(&result)
@@ -81,6 +82,7 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 		if err != nil {
 			return errors.Trace(err)
 		}
+		newUUID = machineUUID.String()
 		createParams := sqlair.M{
 			"machine_uuid":  machineUUID.String(),
 			"net_node_uuid": nodeUUID.String(),
@@ -95,7 +97,7 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 		}
 		return nil
 	})
-	return errors.Annotatef(err, "upserting machine %q", machineId)
+	return newUUID, errors.Annotatef(err, "upserting machine %q", machineId)
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.
@@ -155,10 +157,4 @@ DELETE FROM net_node WHERE uuid IN
 		return nil
 	})
 	return errors.Annotatef(err, "deleting machine %q", machineId)
-}
-
-// InitialWatchStatement returns the table and the initial watch statement
-// for the machines.
-func (s *State) InitialWatchStatement() (string, string) {
-	return "machine", "SELECT uuid FROM machine"
 }
