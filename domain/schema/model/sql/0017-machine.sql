@@ -6,7 +6,7 @@ CREATE TABLE machine (
     base TEXT,
     nonce TEXT,
     password_hash_algorithm_id TEXT,
-    password_hash TEXT NOT NULL,
+    password_hash TEXT,
     clean BOOLEAN,
     force_destroyed BOOLEAN,
     placement TEXT,

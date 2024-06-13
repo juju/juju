@@ -241,7 +241,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"application_endpoints_space",
 		"application_endpoints_cidr",
 		"application_platform",
-		"application_settings",
+		"application_setting",
 
 		// Annotations
 		"annotation_application",
