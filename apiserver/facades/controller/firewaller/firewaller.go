@@ -77,7 +77,6 @@ type FirewallerAPI struct {
 
 	controllerConfigService ControllerConfigService
 	modelConfigService      ModelConfigService
-	machineService          MachineService
 }
 
 // NewStateFirewallerAPI creates a new server-side FirewallerAPIV7 facade.
@@ -162,7 +161,6 @@ func NewStateFirewallerAPI(
 		controllerConfigService: controllerConfigService,
 		modelConfigService:      modelConfigService,
 		networkService:          networkService,
-		machineService:          machineService,
 		logger:                  logger,
 	}, nil
 }
