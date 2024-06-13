@@ -181,6 +181,13 @@ func (s *Service) ImportPublicKeysForUser(
 	userID user.UUID,
 	subject *url.URL,
 ) error {
+	if err := userID.Validate(); err != nil {
+		return fmt.Errorf(
+			"validating user id %q when importing public keys from %q: %w",
+			userID, subject.String(), err,
+		)
+	}
+
 	keys, err := s.keyImporter.FetchPublicKeysForSubject(ctx, subject)
 	if errors.Is(err, importererrors.NoResolver) {
 		return fmt.Errorf(
