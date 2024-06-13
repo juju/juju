@@ -66,9 +66,9 @@ type fakeMachineService struct {
 	machineIds []string
 }
 
-func (f *fakeMachineService) CreateMachine(_ context.Context, machineId string) error {
+func (f *fakeMachineService) CreateMachine(_ context.Context, machineId string) (string, error) {
 	f.machineIds = append(f.machineIds, machineId)
-	return nil
+	return "", nil
 }
 
 type fakeNetworkService struct {
