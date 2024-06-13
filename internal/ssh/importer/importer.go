@@ -9,6 +9,8 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+
+	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )
 
 // Importer is responsible for providing a pattern for importing a subjects
@@ -27,15 +29,20 @@ type Importer struct {
 //
 // The following errors can be expected:
 // - [errors.NotValid] when the opaque data for the URI is empty.
-// - [NoResolver] when no resolver is defined for the schema of the URI.
-// - [SubjectNotFound] when no subject exists for the [Resolver].
+// - [importererrors.NoResolver] when no resolver is defined for the schema of
+// the URI.
+// - [importererrors.SubjectNotFound] when no subject exists for the [Resolver].
 func (i *Importer) FetchPublicKeysForSubject(
 	ctx context.Context,
 	subject *url.URL,
 ) ([]string, error) {
 	resolver, has := i.resolvers[subject.Scheme]
 	if !has {
-		return nil, fmt.Errorf("%w for subject scheme %q", NoResolver, subject.Scheme)
+		return nil, fmt.Errorf(
+			"%w for subject scheme %q",
+			importererrors.NoResolver,
+			subject.Scheme,
+		)
 	}
 
 	if subject.Opaque == "" {

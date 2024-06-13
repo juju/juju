@@ -12,6 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )
 
 type importerSuite struct {
@@ -45,7 +47,7 @@ func (i *importerSuite) TestInvalidURI(c *gc.C) {
 }
 
 // TestNoResolver is testing that if we ask for a subjects public key using a
-// resolver that dosn't exist we get back a [NoResolver] error.
+// resolver that dosn't exist we get back a [importererrors.NoResolver] error.
 func (i *importerSuite) TestNoResolver(c *gc.C) {
 	defer i.setupMocks(c).Finish()
 
@@ -57,15 +59,16 @@ func (i *importerSuite) TestNoResolver(c *gc.C) {
 		},
 	}
 	_, err = importer.FetchPublicKeysForSubject(context.Background(), uri)
-	c.Check(err, jc.ErrorIs, NoResolver)
+	c.Check(err, jc.ErrorIs, importererrors.NoResolver)
 }
 
 // TestSubjectNotFound is testing that if the resolver tells a subject does not
-// exist we return a [SubjectNotFound] error.
+// exist we return a [importererrors.SubjectNotFound] error.
 func (i *importerSuite) TestSubjectNotFound(c *gc.C) {
 	defer i.setupMocks(c).Finish()
 
-	i.resolver.EXPECT().PublicKeysForSubject(gomock.Any(), "tlm").Return(nil, SubjectNotFound)
+	i.resolver.EXPECT().PublicKeysForSubject(gomock.Any(), "tlm").
+		Return(nil, importererrors.SubjectNotFound)
 
 	uri, err := url.Parse("gh:tlm")
 	c.Assert(err, jc.ErrorIsNil)
@@ -75,7 +78,7 @@ func (i *importerSuite) TestSubjectNotFound(c *gc.C) {
 		},
 	}
 	_, err = importer.FetchPublicKeysForSubject(context.Background(), uri)
-	c.Check(err, jc.ErrorIs, SubjectNotFound)
+	c.Check(err, jc.ErrorIs, importererrors.SubjectNotFound)
 }
 
 // TestFetchPublicKeysForSubject is testing the happy path for

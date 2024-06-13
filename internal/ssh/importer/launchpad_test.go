@@ -13,6 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )
 
 type launchpadSuite struct {
@@ -30,7 +32,7 @@ func (s *launchpadSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 // TestSubjectNotFound is asserting that if the [LaunchpadResolver] gets a 404
-// return it propagates a [SubjectNotFound] error.
+// return it propagates a [importererrors.SubjectNotFound] error.
 func (l *launchpadSuite) TestSubjectNotFound(c *gc.C) {
 	defer l.setupMocks(c).Finish()
 
@@ -47,7 +49,7 @@ func (l *launchpadSuite) TestSubjectNotFound(c *gc.C) {
 
 	lp := LaunchpadResolver{l.client}
 	_, err := lp.PublicKeysForSubject(context.Background(), "~tlm")
-	c.Check(err, jc.ErrorIs, SubjectNotFound)
+	c.Check(err, jc.ErrorIs, importererrors.SubjectNotFound)
 }
 
 // TestSubjectPublicKeys is asserting the happy path for the [LaunchpadResolver].
