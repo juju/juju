@@ -42,7 +42,8 @@ var winVersions = []string{
 	"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 }
 
-var ubuntuVersions = []string{
+// unsupportedUbuntuVersions are the ubuntu versions that juju does not support.
+var unsupportedUbuntuVersions = []string{
 	"12.04",
 	"12.10",
 	"13.04",
@@ -65,7 +66,6 @@ var ubuntuVersions = []string{
 	"22.10",
 	"23.04",
 	"23.10",
-	"24.04",
 }
 
 var controllerCfg = controller.Config{
@@ -257,7 +257,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	// - check if the model has win machines;
 	ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	// - check if the model has deprecated ubuntu machines;
-	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
 	// - check LXD version.
 	// - check if model has charm store charms;
 	ctrlState.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
@@ -277,7 +277,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelForControllerModelJuju3(c *gc.C, d
 	// - check if the model has win machines;
 	state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	// - check if the model has deprecated ubuntu machines;
-	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
 	// - check if model has charm store charms;
 	state1.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
 	// - check LXD version.
@@ -383,7 +383,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerDyingHostedModelJuju3(c
 	// - check if the model has win machines;
 	ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	// - check if the model has deprecated ubuntu machines;
-	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
 	// - check LXD version.
 	// - check if model has charm store charms;
 	ctrlState.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
@@ -488,7 +488,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	// - check if the model has win machines;
 	ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 2}, nil)
 	// - check if the model has deprecated ubuntu machines;
-	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{"xenial": 2}, nil)
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(map[string]int{"xenial": 2}, nil)
 	// - check if model has charm store charms;
 	ctrlState.EXPECT().AllCharmURLs().Return(nil, errors.NotFoundf("charms"))
 	// - check LXD version.
@@ -509,7 +509,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelForControllerModelJuju3Failed(c *gc.
 	// - check if the model has win machines;
 	state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 3}, nil)
 	// - check if the model has deprecated ubuntu machines;
-	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{
+	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(map[string]int{
 		"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
 		"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
 		"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
@@ -597,7 +597,7 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 	// - check if the model has win machines;
 	st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
 	// - check if the model has deprecated ubuntu machines;
-	st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	st.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(s.cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
@@ -678,7 +678,7 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	// - check if the model has win machines;
 	st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(map[string]int{"win10": 1, "win7": 3}, nil)
 	// - check if the model has deprecated ubuntu machines;
-	st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{
+	st.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(map[string]int{
 		"artful": 1, "cosmic": 2, "disco": 3, "eoan": 4, "groovy": 5,
 		"hirsute": 6, "impish": 7, "precise": 8, "quantal": 9, "raring": 10,
 		"saucy": 11, "trusty": 12, "utopic": 13, "vivid": 14, "wily": 15,
