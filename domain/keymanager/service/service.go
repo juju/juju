@@ -139,7 +139,7 @@ func (s *Service) AddPublicKeysForUser(
 }
 
 // DeletePublicKeysForUser removes the keys associated with targets from the
-// users list of public keys. Targets can be an arbitary list of a
+// users list of public keys. Targets can be an arbitrary list of a
 // public key fingerprint (sha256), comment or full key value to be
 // removed. Where a match is found the key will be removed. If no key exists for
 // a target this will result in no operation. The following errors can be
@@ -211,7 +211,7 @@ func (s *Service) ImportPublicKeysForUser(
 
 		if reservedPublicKeyComments.Contains(parsedKey.Comment) {
 			return fmt.Errorf(
-				"cannot import key %d for user %q with subject %q because the comment %q is reserverd%w",
+				"cannot import key %d for user %q with subject %q because the comment %q is reserved%w",
 				i,
 				userID,
 				subject.String(),
