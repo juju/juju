@@ -15,7 +15,7 @@ import (
 )
 
 // HardwareCharacteristics returns the hardware characteristics struct with
-// data retrieved from the machine_cloud_instance table.
+// data retrieved from the machine cloud instance table.
 func (st *State) HardwareCharacteristics(
 	ctx context.Context,
 	machineUUID string,
@@ -28,8 +28,10 @@ func (st *State) HardwareCharacteristics(
 SELECT (*) AS (&instanceData.*)
 FROM   machine_cloud_instance 
 WHERE  machine_uuid = $instanceData.machine_uuid`
-	machineUUIDQuery := instanceData{MachineUUID: machineUUID}
-	retrieveHardwareCharacteristicsStmt, err := st.Prepare(retrieveHardwareCharacteristics, machineUUIDQuery, sqlair.M{})
+	machineUUIDQuery := instanceData{
+		MachineUUID: machineUUID,
+	}
+	retrieveHardwareCharacteristicsStmt, err := st.Prepare(retrieveHardwareCharacteristics, machineUUIDQuery)
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing retrieve hardware characteristics statement")
 	}
@@ -39,16 +41,16 @@ WHERE  machine_uuid = $instanceData.machine_uuid`
 		return errors.Trace(tx.Query(ctx, retrieveHardwareCharacteristicsStmt, machineUUIDQuery).Get(&row))
 	}); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.Annotatef(errors.NotFound, "instance data for machine %q", machineUUID)
+			return nil, errors.Annotatef(errors.NotFound, "machine cloud instance for machine %q", machineUUID)
 		}
-		return nil, errors.Annotatef(domain.CoerceError(err), "querying instance data for machine %q", machineUUID)
+		return nil, errors.Annotatef(domain.CoerceError(err), "querying machine cloud instance for machine %q", machineUUID)
 	}
 	return row.toHardwareCharacteristics(), nil
 }
 
-// SetInstanceData sets an entry in the instance data table along with
-// the instance tags and the link to a lxd profile if any.
-func (st *State) SetInstanceData(
+// SetMachineCloudInstance sets an entry in the machine cloud instance table
+// along with the instance tags and the link to a lxd profile if any.
+func (st *State) SetMachineCloudInstance(
 	ctx context.Context,
 	machineUUID string,
 	instanceID instance.Id,
@@ -91,24 +93,19 @@ VALUES ($instanceTag.*)
 			VirtType:             hardwareCharacteristics.VirtType,
 		}
 		if err := tx.Query(ctx, setInstanceDataStmt, instanceData).Run(); err != nil {
-			return errors.Annotatef(domain.CoerceError(err), "inserting instance data for machine %q", machineUUID)
+			return errors.Annotatef(domain.CoerceError(err), "inserting machine cloud instance for machine %q", machineUUID)
 		}
-		for _, tag := range *hardwareCharacteristics.Tags {
-			instanceTag := instanceTag{
-				MachineUUID: machineUUID,
-				Tag:         tag,
-			}
-			if err := tx.Query(ctx, setInstanceTagStmt, instanceTag).Run(); err != nil {
-				return errors.Annotatef(domain.CoerceError(err), "inserting instance tag %q for machine %q", tag, machineUUID)
-			}
+		instanceTags := tagsFromHardwareCharacteristics(machineUUID, &hardwareCharacteristics)
+		if err := tx.Query(ctx, setInstanceTagStmt, instanceTags).Run(); err != nil {
+			return errors.Annotatef(domain.CoerceError(err), "inserting instance tags for machine %q", machineUUID)
 		}
 		return nil
 	})
 }
 
-// DeleteInstanceData removes an entry in the instance data table along with
-// the instance tags and the link to a lxd profile if any.
-func (st *State) DeleteInstanceData(
+// DeleteMachineCloudInstance removes an entry in the machine cloud instance table
+// along with the instance tags and the link to a lxd profile if any.
+func (st *State) DeleteMachineCloudInstance(
 	ctx context.Context,
 	machineUUID string,
 ) error {
@@ -121,7 +118,10 @@ func (st *State) DeleteInstanceData(
 DELETE FROM machine_cloud_instance 
 WHERE machine_uuid=$instanceData.machine_uuid
 `
-	deleteInstanceDataStmt, err := st.Prepare(deleteInstanceData, instanceData{})
+	machineUUIDQuery := instanceData{
+		MachineUUID: machineUUID,
+	}
+	deleteInstanceDataStmt, err := st.Prepare(deleteInstanceData, machineUUIDQuery)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -130,22 +130,19 @@ WHERE machine_uuid=$instanceData.machine_uuid
 DELETE FROM instance_tag 
 WHERE machine_uuid=$instanceTag.machine_uuid
 `
-	deleteInstanceTagStmt, err := st.Prepare(deleteInstanceTags, instanceTag{})
+	machineUUIDQueryTag := instanceTag{
+		MachineUUID: machineUUID,
+	}
+	deleteInstanceTagStmt, err := st.Prepare(deleteInstanceTags, machineUUIDQueryTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		instanceData := instanceData{
-			MachineUUID: machineUUID,
+		if err := tx.Query(ctx, deleteInstanceDataStmt, machineUUIDQuery).Run(); err != nil {
+			return errors.Annotatef(domain.CoerceError(err), "deleting machine cloud instance for machine %q", machineUUID)
 		}
-		if err := tx.Query(ctx, deleteInstanceDataStmt, instanceData).Run(); err != nil {
-			return errors.Annotatef(domain.CoerceError(err), "deleting instance data for machine %q", machineUUID)
-		}
-		instanceTag := instanceTag{
-			MachineUUID: machineUUID,
-		}
-		if err := tx.Query(ctx, deleteInstanceTagStmt, instanceTag).Run(); err != nil {
+		if err := tx.Query(ctx, deleteInstanceTagStmt, machineUUIDQueryTag).Run(); err != nil {
 			return errors.Annotatef(domain.CoerceError(err), "deleting instance tags for machine %q", machineUUID)
 		}
 		return nil

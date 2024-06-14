@@ -27,6 +27,17 @@ type instanceTag struct {
 	Tag         string `db:"tag"`
 }
 
+func tagsFromHardwareCharacteristics(machineUUID string, hc *instance.HardwareCharacteristics) []instanceTag {
+	res := make([]instanceTag, len(*hc.Tags))
+	for i, tag := range *hc.Tags {
+		res[i] = instanceTag{
+			MachineUUID: machineUUID,
+			Tag:         tag,
+		}
+	}
+	return res
+}
+
 func (d *instanceData) toHardwareCharacteristics() *instance.HardwareCharacteristics {
 	return &instance.HardwareCharacteristics{
 		Arch:             d.Arch,

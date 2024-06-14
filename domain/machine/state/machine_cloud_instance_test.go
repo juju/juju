@@ -19,15 +19,15 @@ func (s *stateSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	err := s.state.UpsertMachine(context.Background(), "42")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id=\"42\"")
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id='42'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES(\"az-1\", \"az1\")")
+	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetInstanceData(
+	err = s.state.SetMachineCloudInstance(
 		context.Background(),
 		machineUUID,
 		instance.Id("1"),
@@ -64,15 +64,15 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	err := s.state.UpsertMachine(context.Background(), "42")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id=\"42\"")
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id='42'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES(\"az-1\", \"az1\")")
+	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetInstanceData(
+	err = s.state.SetMachineCloudInstance(
 		context.Background(),
 		machineUUID,
 		instance.Id("1"),
@@ -80,7 +80,6 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 			Arch:             strptr("arm64"),
 			Mem:              uintptr(1024),
 			RootDisk:         uintptr(256),
-			RootDiskSource:   strptr("/test"),
 			CpuCores:         uintptr(4),
 			CpuPower:         uintptr(75),
 			Tags:             strsliceptr([]string{"tag1", "tag2"}),
@@ -91,7 +90,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var instanceData instanceData
-	row = db.QueryRowContext(context.Background(), "SELECT * FROM machine_cloud_instance WHERE instance_id=\"1\"")
+	row = db.QueryRowContext(context.Background(), "SELECT * FROM machine_cloud_instance WHERE instance_id='1'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(
 		&instanceData.MachineUUID,
@@ -111,13 +110,15 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	c.Check(*instanceData.Arch, gc.Equals, "arm64")
 	c.Check(*instanceData.Mem, gc.Equals, uint64(1024))
 	c.Check(*instanceData.RootDisk, gc.Equals, uint64(256))
-	c.Check(*instanceData.RootDiskSource, gc.Equals, "/test")
+	// Make sure we also handle correctly NULL values.
+	c.Check(instanceData.RootDiskSource, gc.IsNil)
 	c.Check(*instanceData.CPUCores, gc.Equals, uint64(4))
 	c.Check(*instanceData.CPUPower, gc.Equals, uint64(75))
 	c.Check(*instanceData.AvailabilityZoneUUID, gc.Equals, "az-1")
 	c.Check(*instanceData.VirtType, gc.Equals, "virtual-machine")
 
-	rows, err := db.QueryContext(context.Background(), "SELECT tag FROM instance_tag WHERE machine_uuid=\""+machineUUID+"\"")
+	rows, err := db.QueryContext(context.Background(), "SELECT tag FROM instance_tag WHERE machine_uuid='"+machineUUID+"'")
+	defer rows.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	var instanceTags []string
 	for rows.Next() {
@@ -138,15 +139,15 @@ func (s *stateSuite) TestDeleteInstanceData(c *gc.C) {
 	err := s.state.UpsertMachine(context.Background(), "42")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id=\"42\"")
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id='42'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES(\"az-1\", \"az1\")")
+	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetInstanceData(
+	err = s.state.SetMachineCloudInstance(
 		context.Background(),
 		machineUUID,
 		instance.Id("1"),
@@ -164,14 +165,18 @@ func (s *stateSuite) TestDeleteInstanceData(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.DeleteInstanceData(context.Background(), machineUUID)
+	err = s.state.DeleteMachineCloudInstance(context.Background(), machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that all rows've been deleted.
-	rows, err := db.QueryContext(context.Background(), "SELECT * FROM machine_cloud_instance WHERE instance_id=\"1\"")
+	rows, err := db.QueryContext(context.Background(), "SELECT * FROM machine_cloud_instance WHERE instance_id='1'")
+	defer rows.Close()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rows.Err(), jc.ErrorIsNil)
 	c.Check(rows.Next(), jc.IsFalse)
-	rows, err = db.QueryContext(context.Background(), "SELECT * FROM instance_tag WHERE machine_uuid=\""+machineUUID+"\"")
+	rows, err = db.QueryContext(context.Background(), "SELECT * FROM instance_tag WHERE machine_uuid='"+machineUUID+"'")
+	defer rows.Close()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rows.Err(), jc.ErrorIsNil)
 	c.Check(rows.Next(), jc.IsFalse)
 }
