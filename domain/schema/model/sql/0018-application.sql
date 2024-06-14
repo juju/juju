@@ -16,7 +16,7 @@ CREATE TABLE application (
 
 CREATE TABLE application_channel (
     application_uuid TEXT NOT NULL PRIMARY KEY,
-    track TEXT,
+    track TEXT NOT NULL,
     risk TEXT NOT NULL,
     branch TEXT,
     CONSTRAINT fk_application_channel_application

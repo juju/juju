@@ -33,7 +33,7 @@ CREATE TABLE charm (
 
 CREATE TABLE charm_channel (
     charm_uuid TEXT NOT NULL,
-    track TEXT,
+    track TEXT NOT NULL,
     risk TEXT NOT NULL,
     branch TEXT,
     CONSTRAINT fk_charm_channel_charm
