@@ -339,11 +339,22 @@ func (s *nodeManagerSuite) TestWithTLSOptionSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *nodeManagerSuite) TestWithClusterOptionSuccess(c *gc.C) {
+func (s *nodeManagerSuite) TestWithClusterOptionIPv4Success(c *gc.C) {
 	cfg := fakeAgentConfig{}
 	m := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
 
 	dqliteApp, err := app.New(c.MkDir(), m.WithClusterOption([]string{"10.6.6.6"}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = dqliteApp.Close()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *nodeManagerSuite) TestWithClusterOptionIPv6Success(c *gc.C) {
+	cfg := fakeAgentConfig{}
+	m := NewNodeManager(cfg, true, stubLogger{}, coredatabase.NoopSlowQueryLogger{})
+
+	dqliteApp, err := app.New(c.MkDir(), m.WithClusterOption([]string{"::1"}))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = dqliteApp.Close()
