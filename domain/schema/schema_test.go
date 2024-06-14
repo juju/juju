@@ -238,8 +238,8 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"application_channel",
 		"application_config",
 		"application_constraint",
-		"application_endpoints_space",
-		"application_endpoints_cidr",
+		"application_endpoint_space",
+		"application_endpoint_cidr",
 		"application_platform",
 		"application_setting",
 

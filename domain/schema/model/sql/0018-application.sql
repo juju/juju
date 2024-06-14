@@ -5,7 +5,6 @@ CREATE TABLE application (
     charm_modified_version INT,
     charm_upgrade_on_error BOOLEAN DEFAULT FALSE,
     exposed BOOLEAN DEFAULT FALSE,
-    scale INT,
     placement TEXT,
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
@@ -26,9 +25,10 @@ CREATE TABLE application_channel (
 
 CREATE TABLE application_caas (
     application_uuid TEXT NOT NULL PRIMARY KEY,
+    scale INT,
     scale_target TEXT,
     scaling BOOLEAN DEFAULT FALSE,
-    CONSTRAINT fk_application_endpoints_space_application
+    CONSTRAINT fk_application_endpoint_space_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid)
 );
@@ -52,22 +52,22 @@ CREATE TABLE application_platform (
 CREATE UNIQUE INDEX idx_application_name
 ON application (name);
 
-CREATE TABLE application_endpoints_space (
+CREATE TABLE application_endpoint_space (
     application_uuid TEXT NOT NULL,
     space_uuid TEXT,
-    CONSTRAINT fk_application_endpoints_space_application
+    CONSTRAINT fk_application_endpoint_space_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),
-    CONSTRAINT fk_application_endpoints_space_space
+    CONSTRAINT fk_application_endpoint_space_space
     FOREIGN KEY (space_uuid)
     REFERENCES space (uuid),
     PRIMARY KEY (application_uuid, space_uuid)
 );
 
-CREATE TABLE application_endpoints_cidr (
+CREATE TABLE application_endpoint_cidr (
     application_uuid TEXT NOT NULL,
     cidr TEXT,
-    CONSTRAINT fk_application_endpoints_space_application
+    CONSTRAINT fk_application_endpoint_space_application
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),
     PRIMARY KEY (application_uuid, cidr)
