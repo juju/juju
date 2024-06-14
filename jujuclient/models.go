@@ -94,8 +94,8 @@ func addModelType(models map[string]*ControllerModels) error {
 // migrateLocalModelUsers strips any @local domains from any qualified model names.
 func migrateLocalModelUsers(usermodels map[string]*ControllerModels) error {
 	changes := false
-	for _, modelDetails := range usermodels {
-		for name, model := range modelDetails.Models {
+	for _, userModel := range usermodels {
+		for name, modelDetails := range userModel.Models {
 			migratedName, changed, err := migrateModelName(name)
 			if err != nil {
 				return errors.Trace(err)
@@ -103,18 +103,18 @@ func migrateLocalModelUsers(usermodels map[string]*ControllerModels) error {
 			if !changed {
 				continue
 			}
-			delete(modelDetails.Models, name)
-			modelDetails.Models[migratedName] = model
+			delete(userModel.Models, name)
+			userModel.Models[migratedName] = modelDetails
 			changes = true
 		}
-		migratedName, changed, err := migrateModelName(modelDetails.CurrentModel)
+		migratedName, changed, err := migrateModelName(userModel.CurrentModel)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if !changed {
 			continue
 		}
-		modelDetails.CurrentModel = migratedName
+		userModel.CurrentModel = migratedName
 	}
 	if changes {
 		return WriteModelsFile(usermodels)

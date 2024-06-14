@@ -249,7 +249,7 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	var err error
 	select {
 	case err = <-errc:
-	case <-time.After(3 * coretesting.LongWait):
+	case <-time.After(3 * testing.LongWait):
 		c.Fatal("timed out")
 	}
 	c.Check(s.tw.Log(), jc.LogMatches, test.logs)
@@ -629,13 +629,14 @@ func (s *BootstrapSuite) TestBootstrapWithWorkloadModel(c *gc.C) {
 		return &bootstrapFuncs
 	})
 
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--auto-upgrade",
 		"--add-model", "mymodel",
 		"--config", "foo=bar",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
 	c.Assert(bootstrapFuncs.args.InitialModelConfig["name"], gc.Equals, "mymodel")
 	c.Assert(bootstrapFuncs.args.InitialModelConfig["foo"], gc.Equals, "bar")
@@ -649,12 +650,13 @@ func (s *BootstrapSuite) TestBootstrapNoWorkloadModel(c *gc.C) {
 		return &bootstrapFuncs
 	})
 
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--auto-upgrade",
 		"--config", "foo=bar",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
 	c.Assert(bootstrapFuncs.args.InitialModelConfig, gc.HasLen, 0)
 }
@@ -666,10 +668,11 @@ func (s *BootstrapSuite) TestBootstrapTimeout(c *gc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
 		"--config", "bootstrap-timeout=99",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.DialOpts.Timeout, gc.Equals, 99*time.Second)
 }
 
@@ -680,11 +683,12 @@ func (s *BootstrapSuite) TestBootstrapAllSpacesAsConstraintsMerged(c *gc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
 		"--config", "juju-ha-space=ha-space", "--config", "juju-mgmt-space=management-space",
 		"--constraints", "spaces=ha-space,random-space",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 
 	c.Log(bootstrapFuncs.args.BootstrapConstraints.String())
 	got := *(bootstrapFuncs.args.BootstrapConstraints.Spaces)
@@ -696,11 +700,12 @@ func (s *BootstrapSuite) TestBootstrapAllConstraintsMerged(c *gc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade",
 		"--config", "juju-ha-space=ha-space", "--config", "juju-mgmt-space=management-space",
 		"--constraints", "spaces=ha-space,random-space", "--constraints", "mem=4G",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 
 	bootstrapCons := constraints.MustParse("mem=4G spaces=ha-space,management-space,random-space")
 	c.Assert(bootstrapFuncs.args.BootstrapConstraints, gc.DeepEquals, bootstrapCons)
@@ -717,12 +722,13 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *
 	fakeSSHFile := filepath.Join(c.MkDir(), "ssh")
 	err := os.WriteFile(fakeSSHFile, []byte("ssh-key"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
-	cmdtesting.RunCommand(
+	_, err = cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--auto-upgrade",
 		"--config", "authorized-keys-path="+fakeSSHFile,
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	_, ok := bootstrapFuncs.args.InitialModelConfig["authorized-keys-path"]
 	c.Assert(ok, jc.IsFalse)
 }
@@ -735,7 +741,7 @@ func (s *BootstrapSuite) TestBootstrapModelDefaultConfig(c *gc.C) {
 		return &bootstrapFuncs
 	})
 
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--add-model", "workload",
@@ -743,6 +749,7 @@ func (s *BootstrapSuite) TestBootstrapModelDefaultConfig(c *gc.C) {
 		"--model-default", "ftp-proxy=model-proxy",
 		"--config", "ftp-proxy=controller-proxy",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 
 	c.Check(bootstrapFuncs.args.InitialModelConfig["network"], gc.Equals, "foo")
 	c.Check(bootstrapFuncs.args.ControllerInheritedConfig["network"], gc.Equals, "foo")
@@ -762,13 +769,14 @@ func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *
 	fakeSSHFile := filepath.Join(c.MkDir(), "ssh")
 	err := os.WriteFile(fakeSSHFile, []byte("ssh-key"), 0600)
 	c.Assert(err, jc.ErrorIsNil)
-	cmdtesting.RunCommand(
+	_, err = cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--auto-upgrade",
 		"--config", "authorized-keys=ssh-key",
 		"--config", "agent-version=1.19.0",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	_, ok := bootstrapFuncs.args.InitialModelConfig["authorized-keys"]
 	c.Assert(ok, jc.IsFalse)
 	_, ok = bootstrapFuncs.args.InitialModelConfig["agent-version"]
@@ -800,13 +808,13 @@ func checkConfigs(
 // matches those in expect[name].
 func checkConfigEntryMatches(c *gc.C, configMap map[string]interface{}, key, name string, expect map[string]map[string]interface{}) {
 	v, ok := configMap[key]
-	expected_config, expected_config_ok := expect[name]
-	c.Assert(expected_config_ok, jc.IsTrue)
-	v_expect, ok_expect := expected_config[key]
+	expectedConfig, expectedConfigOk := expect[name]
+	c.Assert(expectedConfigOk, jc.IsTrue)
+	vExpect, okExpect := expectedConfig[key]
 
 	c.Logf("checkConfigEntryMatches %v %v", name, key)
-	c.Check(ok, gc.Equals, ok_expect)
-	c.Check(v, gc.Equals, v_expect)
+	c.Check(ok, gc.Equals, okExpect)
+	c.Check(v, gc.Equals, vExpect)
 }
 
 func (s *BootstrapSuite) TestBootstrapAttributesInheritedOverDefaults(c *gc.C) {
@@ -921,7 +929,8 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverDefaults(c *gc.C) {
 
 	// Second test that use-default-secgroup passed on the command line overwrites the
 	// provider default of false with true
-	s.bootstrapCmd.config.Set("use-default-secgroup=true")
+	err = s.bootstrapCmd.config.Set("use-default-secgroup=true")
+	c.Assert(err, jc.ErrorIsNil)
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: "true"},
 		"inheritedControllerAttrs": {},
@@ -957,7 +966,8 @@ func (s *BootstrapSuite) TestBootstrapAttributesCLIOverInherited(c *gc.C) {
 	// inherited attribute
 	testCloud, err = cloud.CloudByName("dummy-cloud-with-config")
 	c.Assert(err, jc.ErrorIsNil)
-	s.bootstrapCmd.config.Set("use-default-secgroup=false")
+	err = s.bootstrapCmd.config.Set("use-default-secgroup=false")
+	c.Assert(err, jc.ErrorIsNil)
 	checkConfigs(c, s.bootstrapCmd, key, ctx, testCloud, provider, map[string]map[string]interface{}{
 		"bootstrapModelConfig":     {key: "false"},
 		"inheritedControllerAttrs": {key: true},
@@ -973,13 +983,14 @@ func (s *BootstrapSuite) TestBootstrapWithStoragePool(c *gc.C) {
 		return &bootstrapFuncs
 	})
 
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"dummy", "devcontroller",
 		"--storage-pool", "name=test",
 		"--storage-pool", "type=loop",
 		"--storage-pool", "foo=bar",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 
 	c.Assert(bootstrapFuncs.args.StoragePools, jc.DeepEquals, map[string]storage.Attrs{
 		"test": {
@@ -1252,12 +1263,13 @@ func (s *BootstrapSuite) TestBootstrapCalledWithMetadataDir(c *gc.C) {
 		return &bootstrapFuncs
 	})
 
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"--metadata-source", sourceDir, "--constraints", "mem=4G",
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-series=jammy",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.MetadataDir, gc.Equals, sourceDir)
 }
 
@@ -1270,12 +1282,13 @@ func (s *BootstrapSuite) TestBootstrapCalledWitBase(c *gc.C) {
 		return &bootstrapFuncs
 	})
 
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"--metadata-source", sourceDir, "--constraints", "mem=4G",
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@22.04",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.MetadataDir, gc.Equals, sourceDir)
 }
 
@@ -1291,12 +1304,13 @@ func (s *BootstrapSuite) checkBootstrapWithVersion(c *gc.C, vers, expect string)
 	num.Major = 2
 	num.Minor = 3
 	s.PatchValue(&jujuversion.Current, num)
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"--agent-version", vers,
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-series=jammy",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.AgentVersion, gc.NotNil)
 	c.Assert(*bootstrapFuncs.args.AgentVersion, gc.Equals, version.MustParse(expect))
 }
@@ -1321,12 +1335,13 @@ func (s *BootstrapSuite) checkBootstrapBaseWithVersion(c *gc.C, vers, expect str
 	num.Major = 2
 	num.Minor = 3
 	s.PatchValue(&jujuversion.Current, num)
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"--agent-version", vers,
 		"dummy-cloud/region-1", "devcontroller",
 		"--config", "default-base=ubuntu@22.04",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.AgentVersion, gc.NotNil)
 	c.Assert(*bootstrapFuncs.args.AgentVersion, gc.Equals, version.MustParse(expect))
 }
@@ -1346,11 +1361,12 @@ func (s *BootstrapSuite) TestBootstrapWithAutoUpgrade(c *gc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(),
 		"--auto-upgrade",
 		"dummy-cloud/region-1", "devcontroller",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.AgentVersion, gc.IsNil)
 }
 
@@ -1447,7 +1463,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	select {
 	case err := <-errc:
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
 	c.Check((<-opc).(dummy.OpBootstrap).Env, gc.Equals, bootstrap.ControllerModelName)
@@ -1512,7 +1528,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	select {
 	case err := <-errc:
 		c.Assert(err, gc.Equals, cmd.ErrSilent)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
 
@@ -1552,7 +1568,7 @@ func (s *BootstrapSuite) TestBootstrapKeepBroken(c *gc.C) {
 	select {
 	case err := <-errc:
 		c.Assert(err, gc.ErrorMatches, "failed to bootstrap model: dummy.Bootstrap is broken")
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
 	done := false
@@ -1690,7 +1706,7 @@ func (s *BootstrapSuite) TestBootstrapProviderFileCredential(c *gc.C) {
 	tmpFile, err := os.CreateTemp("", "juju-bootstrap-test")
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		err := os.Remove(tmpFile.Name())
 		c.Assert(err, jc.ErrorIsNil)
 	}()
@@ -1744,10 +1760,11 @@ func (s *BootstrapSuite) TestBootstrapProviderManyCredentialsCloudNoAuthTypes(c 
 			AuthCredentials: map[string]cloud.Credential{"one": cloud.NewCredential("one", nil)},
 		},
 	}
-	cmdtesting.RunCommand(c, s.newBootstrapCommand(),
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(),
 		"many-credentials-no-auth-types", "ctrl",
 		"--credential", "one",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.Cloud.AuthTypes, jc.SameContents, cloud.AuthTypes{"one", "two"})
 }
 
@@ -1797,8 +1814,8 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectCloud(c *gc.C) {
 	})
 
 	s.patchVersion(c)
-	cmdtesting.RunCommand(c, s.newBootstrapCommand(), "bruce", "ctrl")
-	c.Assert(err, jc.ErrorIsNil)
+	_, err = cmdtesting.RunCommand(c, s.newBootstrapCommand(), "bruce", "ctrl")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.CloudRegion, gc.Equals, "gazza")
 	c.Assert(bootstrapFuncs.args.CloudCredentialName, gc.Equals, "default")
 	c.Assert(bootstrapFuncs.args.Cloud, jc.DeepEquals, cloud.Cloud{
@@ -1821,7 +1838,8 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectRegions(c *gc.C) {
 	})
 
 	s.patchVersion(c)
-	cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.CloudRegion, gc.Equals, "bruce")
 	c.Assert(bootstrapFuncs.args.CloudCredentialName, gc.Equals, "default")
 	sort.Sort(bootstrapFuncs.args.Cloud.AuthTypes)
@@ -1845,7 +1863,8 @@ func (s *BootstrapSuite) TestBootstrapProviderDetectNoRegions(c *gc.C) {
 	})
 
 	s.patchVersion(c)
-	cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.CloudRegion, gc.Equals, "")
 	sort.Sort(bootstrapFuncs.args.Cloud.AuthTypes)
 	c.Assert(bootstrapFuncs.args.Cloud, jc.DeepEquals, cloud.Cloud{
@@ -1873,7 +1892,8 @@ func (s *BootstrapSuite) TestBootstrapProviderFinalizeCloud(c *gc.C) {
 	})
 
 	s.patchVersion(c)
-	cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "ctrl")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.Cloud, jc.DeepEquals, cloud.Cloud{
 		Name:      "override",
 		Type:      "dummy",
@@ -1967,10 +1987,11 @@ func (s *BootstrapSuite) TestBootstrapAutocertDNSNameDefaultPort(c *gc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "ctrl",
 		"--config", "autocert-dns-name=foo.example",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.ControllerConfig.APIPort(), gc.Equals, 443)
 }
 
@@ -1980,11 +2001,12 @@ func (s *BootstrapSuite) TestBootstrapAutocertDNSNameExplicitAPIPort(c *gc.C) {
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return &bootstrapFuncs
 	})
-	cmdtesting.RunCommand(
+	_, err := cmdtesting.RunCommand(
 		c, s.newBootstrapCommand(), "dummy", "ctrl",
 		"--config", "autocert-dns-name=foo.example",
 		"--config", "api-port=12345",
 	)
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(bootstrapFuncs.args.ControllerConfig.APIPort(), gc.Equals, 12345)
 }
 
@@ -2076,7 +2098,7 @@ func (s *BootstrapSuite) TestBootstrapPrintCloudsInvalidCredential(c *gc.C) {
 	writerName := "TestBootstrapPrintCloudsInvalidCredential"
 	c.Assert(loggo.RegisterWriter(writerName, &logWriter), jc.ErrorIsNil)
 	defer func() {
-		loggo.RemoveWriter(writerName)
+		_, _ = loggo.RemoveWriter(writerName)
 		logWriter.Clear()
 	}()
 
@@ -2269,7 +2291,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	case op := <-opc:
 		_, ok := op.(dummy.OpBootstrap)
 		c.Assert(ok, jc.IsTrue)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
 
@@ -2287,7 +2309,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	case op := <-opc:
 		_, ok := op.(dummy.OpFinalizeBootstrap)
 		c.Assert(ok, jc.IsTrue)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
 
@@ -2295,7 +2317,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	select {
 	case err := <-errc:
 		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
 
@@ -2303,7 +2325,7 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerOnBase(c *gc.C) {
 	select {
 	case _, ok := <-opc:
 		c.Assert(ok, jc.IsFalse)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("timed out")
 	}
 
