@@ -553,6 +553,85 @@ func (c *MockClientStoreModelByNameCall) DoAndReturn(f func(string, string) (*ju
 	return c
 }
 
+// PreviousController mocks base method.
+func (m *MockClientStore) PreviousController() (string, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PreviousController")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// PreviousController indicates an expected call of PreviousController.
+func (mr *MockClientStoreMockRecorder) PreviousController() *MockClientStorePreviousControllerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreviousController", reflect.TypeOf((*MockClientStore)(nil).PreviousController))
+	return &MockClientStorePreviousControllerCall{Call: call}
+}
+
+// MockClientStorePreviousControllerCall wrap *gomock.Call
+type MockClientStorePreviousControllerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockClientStorePreviousControllerCall) Return(arg0 string, arg1 bool, arg2 error) *MockClientStorePreviousControllerCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockClientStorePreviousControllerCall) Do(f func() (string, bool, error)) *MockClientStorePreviousControllerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockClientStorePreviousControllerCall) DoAndReturn(f func() (string, bool, error)) *MockClientStorePreviousControllerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// PreviousModel mocks base method.
+func (m *MockClientStore) PreviousModel(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PreviousModel", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PreviousModel indicates an expected call of PreviousModel.
+func (mr *MockClientStoreMockRecorder) PreviousModel(arg0 any) *MockClientStorePreviousModelCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreviousModel", reflect.TypeOf((*MockClientStore)(nil).PreviousModel), arg0)
+	return &MockClientStorePreviousModelCall{Call: call}
+}
+
+// MockClientStorePreviousModelCall wrap *gomock.Call
+type MockClientStorePreviousModelCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockClientStorePreviousModelCall) Return(arg0 string, arg1 error) *MockClientStorePreviousModelCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockClientStorePreviousModelCall) Do(f func(string) (string, error)) *MockClientStorePreviousModelCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockClientStorePreviousModelCall) DoAndReturn(f func(string) (string, error)) *MockClientStorePreviousModelCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // RemoveAccount mocks base method.
 func (m *MockClientStore) RemoveAccount(arg0 string) error {
 	m.ctrl.T.Helper()

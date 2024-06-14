@@ -72,4 +72,10 @@ type Controllers struct {
 
 	// CurrentController is the name of the active controller.
 	CurrentController string `yaml:"current-controller,omitempty"`
+
+	// PreviousController is the name of the previous active controller.
+	PreviousController string `yaml:"previous-controller,omitempty"`
+
+	// HasControllerChangedOnPreviousSwitch represents whether the controller has changed during the previous switch.
+	HasControllerChangedOnPreviousSwitch bool `yaml:"has-controller-changed-on-previous-switch"`
 }

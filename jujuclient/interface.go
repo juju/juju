@@ -231,6 +231,12 @@ type ControllerGetter interface {
 	// If there is no current controller, an error satisfying
 	// errors.IsNotFound will be returned.
 	CurrentController() (string, error)
+
+	// PreviousController returns the name of the previous controller used.
+	// If there is no previous controller (for instance controller has never been switched),
+	// an error satisfying errors.IsNotFound will be returned.
+	// It also retrieve if the last switch update the current controller or just shift the model
+	PreviousController() (string, bool, error)
 }
 
 // ModelUpdater stores model details.
@@ -277,6 +283,12 @@ type ModelGetter interface {
 	// model for the controller, an error satisfying
 	// errors.IsNotFound is returned.
 	CurrentModel(controllerName string) (string, error)
+
+	// PreviousModel returns the name of the previous model for
+	// the specified controller. If there is no previous
+	// model for the controller, an error satisfying
+	// errors.IsNotFound is returned.
+	PreviousModel(controllerName string) (string, error)
 
 	// ModelByName returns the model with the specified controller,
 	// and model name. If a model with the specified name does not
