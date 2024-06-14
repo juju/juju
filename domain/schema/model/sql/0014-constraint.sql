@@ -1,5 +1,5 @@
 CREATE TABLE "constraint" (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     arch TEXT,
     cpu_cores INT,
     cpu_power INT,

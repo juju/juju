@@ -1,5 +1,5 @@
 CREATE TABLE flag (
-    name TEXT PRIMARY KEY,
+    name TEXT NOT NULL PRIMARY KEY,
     value BOOLEAN DEFAULT 0,
     description TEXT NOT NULL
 );

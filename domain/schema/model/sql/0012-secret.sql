@@ -27,7 +27,7 @@ CREATE TABLE secret (
 -- is used on the consumer side of cross
 -- model secrets.
 CREATE TABLE secret_reference (
-    secret_id TEXT PRIMARY KEY,
+    secret_id TEXT NOT NULL PRIMARY KEY,
     latest_revision INT NOT NULL,
     CONSTRAINT fk_secret_id
     FOREIGN KEY (secret_id)
@@ -35,7 +35,7 @@ CREATE TABLE secret_reference (
 );
 
 CREATE TABLE secret_metadata (
-    secret_id TEXT PRIMARY KEY,
+    secret_id TEXT NOT NULL PRIMARY KEY,
     version INT NOT NULL,
     description TEXT,
     rotate_policy_id INT NOT NULL,
@@ -51,7 +51,7 @@ CREATE TABLE secret_metadata (
 );
 
 CREATE TABLE secret_rotation (
-    secret_id TEXT PRIMARY KEY,
+    secret_id TEXT NOT NULL PRIMARY KEY,
     next_rotation_time DATETIME NOT NULL,
     CONSTRAINT fk_secret_rotation_secret_metadata_id
     FOREIGN KEY (secret_id)
@@ -60,7 +60,7 @@ CREATE TABLE secret_rotation (
 
 -- 1:1
 CREATE TABLE secret_value_ref (
-    revision_uuid TEXT PRIMARY KEY,
+    revision_uuid TEXT NOT NULL PRIMARY KEY,
     -- backend_uuid is the UUID of the backend in the controller database.
     backend_uuid TEXT NOT NULL,
     revision_id TEXT NOT NULL,
@@ -88,7 +88,7 @@ CREATE TABLE secret_content (
 CREATE INDEX idx_secret_content_revision_uuid ON secret_content (revision_uuid);
 
 CREATE TABLE secret_revision (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     secret_id TEXT NOT NULL,
     revision INT NOT NULL,
     create_time DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
@@ -100,7 +100,7 @@ CREATE TABLE secret_revision (
 CREATE UNIQUE INDEX idx_secret_revision_secret_id_revision ON secret_revision (secret_id, revision);
 
 CREATE TABLE secret_revision_obsolete (
-    revision_uuid TEXT PRIMARY KEY,
+    revision_uuid TEXT NOT NULL PRIMARY KEY,
     obsolete BOOLEAN NOT NULL DEFAULT (FALSE),
     -- pending_delete is true if the revision is to be deleted.
     -- It will not be drained to a new active backend.
@@ -111,7 +111,7 @@ CREATE TABLE secret_revision_obsolete (
 );
 
 CREATE TABLE secret_revision_expire (
-    revision_uuid TEXT PRIMARY KEY,
+    revision_uuid TEXT NOT NULL PRIMARY KEY,
     expire_time DATETIME NOT NULL,
     CONSTRAINT fk_secret_revision_expire_revision_uuid
     FOREIGN KEY (revision_uuid)
@@ -153,7 +153,7 @@ CREATE INDEX idx_secret_unit_owner_secret_id ON secret_unit_owner (secret_id);
 CREATE UNIQUE INDEX idx_secret_unit_owner_label ON secret_unit_owner (label, unit_uuid) WHERE label != '';
 
 CREATE TABLE secret_model_owner (
-    secret_id TEXT PRIMARY KEY,
+    secret_id TEXT NOT NULL PRIMARY KEY,
     label TEXT,
     CONSTRAINT fk_secret_model_owner_secret_metadata_id
     FOREIGN KEY (secret_id)

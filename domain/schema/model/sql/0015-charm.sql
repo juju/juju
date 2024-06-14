@@ -13,15 +13,13 @@ INSERT INTO charm_run_as_kind VALUES
 (3, 'non-root');
 
 CREATE TABLE charm (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT,
     description TEXT,
     summary TEXT,
+    subordinate BOOLEAN DEFAULT FALSE,
     min_juju_version TEXT,
     run_as_id INT,
-    track TEXT,
-    risk TEXT,
-    branch TEXT,
     -- Assumes is a blob of YAML that will be parsed by the charm to compute
     -- the result of the SAT expression.
     -- As the expression tree is generic, you can't use RI or index into the
@@ -31,6 +29,17 @@ CREATE TABLE charm (
     CONSTRAINT fk_charm_run_as_kind_charm
     FOREIGN KEY (run_as_id)
     REFERENCES charm_run_as_kind (id)
+);
+
+CREATE TABLE charm_channel (
+    charm_uuid TEXT NOT NULL,
+    track TEXT NOT NULL,
+    risk TEXT NOT NULL,
+    branch TEXT,
+    CONSTRAINT fk_charm_channel_charm
+    FOREIGN KEY (charm_uuid)
+    REFERENCES charm (uuid),
+    PRIMARY KEY (charm_uuid)
 );
 
 CREATE UNIQUE INDEX idx_charm_name
@@ -77,32 +86,6 @@ CREATE TABLE charm_origin (
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid)
 );
-
-CREATE TABLE os (
-    id INT PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
-CREATE UNIQUE INDEX idx_os_name
-ON os (name);
-
-INSERT INTO os VALUES
-(0, 'ubuntu');
-
-CREATE TABLE architecture (
-    id INT PRIMARY KEY,
-    name TEXT NOT NULL
-);
-
-CREATE UNIQUE INDEX idx_architecture_name
-ON architecture (name);
-
-INSERT INTO architecture VALUES
-(0, 'amd64'),
-(1, 'arm64'),
-(2, 'ppc64el'),
-(3, 's390x'),
-(4, 'riscv64');
 
 CREATE TABLE charm_platform (
     charm_uuid TEXT NOT NULL,

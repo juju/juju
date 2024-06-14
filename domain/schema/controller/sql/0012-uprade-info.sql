@@ -14,7 +14,7 @@ INSERT INTO upgrade_state_type VALUES
 (4, 'error');
 
 CREATE TABLE upgrade_info (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     previous_version TEXT NOT NULL,
     target_version TEXT NOT NULL,
     state_type_id INT NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE upgrade_info (
 CREATE UNIQUE INDEX idx_singleton_active_upgrade ON upgrade_info ((1)) WHERE state_type_id < 3;
 
 CREATE TABLE upgrade_info_controller_node (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     controller_node_id TEXT NOT NULL,
     upgrade_info_uuid TEXT NOT NULL,
     node_upgrade_completed_at TIMESTAMP,

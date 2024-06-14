@@ -16,7 +16,7 @@ INSERT INTO secret_backend_type VALUES
 (2, 'vault', 'the vault secret backend');
 
 CREATE TABLE secret_backend (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     backend_type_id INT NOT NULL,
     token_rotate_interval INT,
@@ -45,7 +45,7 @@ CREATE TABLE secret_backend_config (
 );
 
 CREATE TABLE secret_backend_rotation (
-    backend_uuid TEXT PRIMARY KEY,
+    backend_uuid TEXT NOT NULL PRIMARY KEY,
     next_rotation_time DATETIME NOT NULL,
     CONSTRAINT fk_secret_backend_rotation_secret_backend_uuid
     FOREIGN KEY (backend_uuid)
@@ -53,7 +53,7 @@ CREATE TABLE secret_backend_rotation (
 );
 
 CREATE TABLE model_secret_backend (
-    model_uuid TEXT PRIMARY KEY,
+    model_uuid TEXT NOT NULL PRIMARY KEY,
     secret_backend_uuid TEXT NOT NULL,
     CONSTRAINT fk_model_secret_backend_model_uuid
     FOREIGN KEY (model_uuid)

@@ -11,7 +11,7 @@ INSERT INTO lease_type VALUES
 (1, 'application-leadership'); -- The unit that holds leadership for an application.
 
 CREATE TABLE lease (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     lease_type_id INT NOT NULL,
     model_uuid TEXT,
     name TEXT,
@@ -32,7 +32,7 @@ ON lease (expiry);
 CREATE TABLE lease_pin (
     -- The presence of entries in this table for a particular lease_uuid
     -- implies that the lease in question is pinned and cannot expire.
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     lease_uuid TEXT,
     entity_id TEXT,
     CONSTRAINT fk_lease_pin_lease

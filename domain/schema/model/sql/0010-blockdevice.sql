@@ -1,5 +1,5 @@
 CREATE TABLE block_device (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     machine_uuid TEXT NOT NULL,
     name TEXT NOT NULL,
     label TEXT,

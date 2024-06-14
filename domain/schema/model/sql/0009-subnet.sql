@@ -1,5 +1,5 @@
 CREATE TABLE subnet (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     cidr TEXT NOT NULL,
     vlan_tag INT,
     space_uuid TEXT,
@@ -9,7 +9,7 @@ CREATE TABLE subnet (
 );
 
 CREATE TABLE provider_subnet (
-    provider_id TEXT PRIMARY KEY,
+    provider_id TEXT NOT NULL PRIMARY KEY,
     subnet_uuid TEXT NOT NULL,
     CONSTRAINT fk_provider_subnet_subnet_uuid
     FOREIGN KEY (subnet_uuid)
@@ -20,7 +20,7 @@ CREATE UNIQUE INDEX idx_provider_subnet_subnet_uuid
 ON provider_subnet (subnet_uuid);
 
 CREATE TABLE provider_network (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     provider_network_id TEXT NOT NULL
 );
 
@@ -28,7 +28,7 @@ CREATE UNIQUE INDEX idx_provider_network_id
 ON provider_network (provider_network_id);
 
 CREATE TABLE provider_network_subnet (
-    subnet_uuid TEXT PRIMARY KEY,
+    subnet_uuid TEXT NOT NULL PRIMARY KEY,
     provider_network_uuid TEXT NOT NULL,
     CONSTRAINT fk_provider_network_subnet_provider_network_uuid
     FOREIGN KEY (provider_network_uuid)
@@ -39,7 +39,7 @@ CREATE TABLE provider_network_subnet (
 );
 
 CREATE TABLE availability_zone (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL
 );
 

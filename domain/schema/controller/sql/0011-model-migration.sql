@@ -1,5 +1,5 @@
 CREATE TABLE model_migration (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     attempt INT,
     target_controller_uuid TEXT NOT NULL,
     target_entity TEXT,
@@ -18,7 +18,7 @@ CREATE TABLE model_migration (
 );
 
 CREATE TABLE model_migration_status (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     start_time TIMESTAMP,
     success_time TIMESTAMP,
     end_time TIMESTAMP,
@@ -28,7 +28,7 @@ CREATE TABLE model_migration_status (
 );
 
 CREATE TABLE model_migration_user (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     --     user_uuid       TEXT NOT NULL,
     migration_uuid TEXT NOT NULL,
     permission TEXT,
@@ -41,7 +41,7 @@ CREATE TABLE model_migration_user (
 );
 
 CREATE TABLE model_migration_minion_sync (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     migration_uuid TEXT NOT NULL,
     phase TEXT,
     entity_key TEXT,

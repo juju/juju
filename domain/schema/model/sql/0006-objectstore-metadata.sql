@@ -11,7 +11,7 @@ INSERT INTO object_store_metadata_hash_type VALUES
 (1, 'sha512-384');
 
 CREATE TABLE object_store_metadata (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     hash_type_id INT NOT NULL,
     hash TEXT NOT NULL,
     size INT NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE object_store_metadata (
 CREATE UNIQUE INDEX idx_object_store_metadata_hash ON object_store_metadata (hash);
 
 CREATE TABLE object_store_metadata_path (
-    path TEXT PRIMARY KEY,
+    path TEXT NOT NULL PRIMARY KEY,
     metadata_uuid TEXT NOT NULL,
     CONSTRAINT fk_object_store_metadata_metadata_uuid
     FOREIGN KEY (metadata_uuid)

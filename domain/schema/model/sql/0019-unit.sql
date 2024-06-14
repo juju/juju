@@ -1,5 +1,5 @@
 CREATE TABLE unit (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     unit_id TEXT NOT NULL,
     application_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
@@ -25,7 +25,7 @@ CREATE INDEX idx_unit_net_node
 ON unit (net_node_uuid);
 
 CREATE TABLE unit_state (
-    unit_uuid TEXT PRIMARY KEY,
+    unit_uuid TEXT NOT NULL PRIMARY KEY,
     uniter_state TEXT,
     storage_state TEXT,
     secret_state TEXT,

@@ -1,5 +1,5 @@
 CREATE TABLE model_agent (
-    model_uuid TEXT PRIMARY KEY,
+    model_uuid TEXT NOT NULL PRIMARY KEY,
 
     -- previous_version describes the agent version that was in use before the
     -- the current target_version.

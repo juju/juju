@@ -1,5 +1,5 @@
 CREATE TABLE annotation_model (
-    "key" TEXT PRIMARY KEY,
+    "key" TEXT NOT NULL PRIMARY KEY,
     value TEXT NOT NULL
 );
 

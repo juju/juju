@@ -1,5 +1,5 @@
 CREATE TABLE autocert_cache (
-    uuid TEXT PRIMARY KEY,
+    uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     data TEXT NOT NULL,
     encoding TEXT NOT NULL,
