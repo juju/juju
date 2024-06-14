@@ -48,11 +48,11 @@ func (s *SwitchSimpleSuite) refreshModels(store jujuclient.ClientStore, controll
 }
 
 func (s *SwitchSimpleSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
-	cmd := &switchCommand{
+	switchCmd := &switchCommand{
 		Store:         s.stubStore,
 		RefreshModels: s.refreshModels,
 	}
-	return cmdtesting.RunCommand(c, modelcmd.WrapBase(cmd), args...)
+	return cmdtesting.RunCommand(c, modelcmd.WrapBase(switchCmd), args...)
 }
 
 func (s *SwitchSimpleSuite) TestNoArgs(c *gc.C) {
@@ -321,14 +321,16 @@ func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsFails
 }
 
 func (s *SwitchSimpleSuite) TestSettingWhenModelEnvVarSet(c *gc.C) {
-	os.Setenv("JUJU_MODEL", "using-model")
-	_, err := s.run(c, "erewhemos-2")
+	err := os.Setenv("JUJU_MODEL", "using-model")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.run(c, "erewhemos-2")
 	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_MODEL is overriding the model \(set to "using-model"\)`)
 }
 
 func (s *SwitchSimpleSuite) TestSettingWhenControllerEnvVarSet(c *gc.C) {
-	os.Setenv("JUJU_CONTROLLER", "using-controller")
-	_, err := s.run(c, "erewhemos-2")
+	err := os.Setenv("JUJU_CONTROLLER", "using-controller")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.run(c, "erewhemos-2")
 	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_CONTROLLER is overriding the controller \(set to "using-controller"\)`)
 }
 

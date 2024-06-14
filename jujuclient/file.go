@@ -816,12 +816,12 @@ func (s *store) AllCredentials() (map[string]cloud.CloudCredential, error) {
 	}
 	cloudNames := credentialCollection.CloudNames()
 	cloudCredentials := make(map[string]cloud.CloudCredential)
-	for _, cloud := range cloudNames {
-		v, err := credentialCollection.CloudCredential(cloud)
+	for _, cloudName := range cloudNames {
+		v, err := credentialCollection.CloudCredential(cloudName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cloudCredentials[cloud] = *v
+		cloudCredentials[cloudName] = *v
 	}
 	return cloudCredentials, nil
 }

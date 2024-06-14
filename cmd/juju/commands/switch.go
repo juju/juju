@@ -106,8 +106,8 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if currentName == "" {
 			return common.MissingModelNameError("switch")
 		}
-		fmt.Fprintf(ctx.Stdout, "%s\n", currentName)
-		return nil
+		_, err = fmt.Fprintf(ctx.Stdout, "%s\n", currentName)
+		return err
 	}
 	currentName, err := c.name(store, currentControllerName, false)
 	if err != nil {
