@@ -661,6 +661,24 @@ func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
 	})
 }
 
+func (s *AddModelSuite) TestSwitch(c *gc.C) {
+	s.SetFeatureFlags(feature.Branches)
+	const controllerName = "test-master"
+
+	// if the previous switch was on another controller, add model would have switch to model
+	s.store.HasControllerChangedOnPreviousSwitch = true
+
+	_, err := s.run(c, "test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelName, err := s.store.CurrentModel(controllerName)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(s.store.HasControllerChangedOnPreviousSwitch, gc.Equals, false)
+	c.Check(s.store.CurrentControllerName, gc.Equals, controllerName)
+	c.Check(modelName, gc.Equals, "bob/test")
+}
+
 func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
 	s.SetFeatureFlags(feature.Branches)
 	const controllerName = "test-master"

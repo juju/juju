@@ -115,6 +115,25 @@ func (s *store) CurrentController() (string, error) {
 	return controllers.CurrentController, nil
 }
 
+// PreviousController implements ControllerGetter
+func (s *store) PreviousController() (string, bool, error) {
+	releaser, err := s.acquireLock()
+	if err != nil {
+		return "", false, errors.Annotate(err,
+			"cannot acquire lock file to get the previous controller name",
+		)
+	}
+	defer releaser.Release()
+	controllers, err := ReadControllersFile(JujuControllersPath())
+	if err != nil {
+		return "", false, errors.Trace(err)
+	}
+	if controllers.PreviousController == "" {
+		return "", false, errors.NotFoundf("previous controller")
+	}
+	return controllers.PreviousController, controllers.HasControllerChangedOnPreviousSwitch, nil
+}
+
 // ControllerByName implements ControllersGetter.
 func (s *store) ControllerByName(name string) (*ControllerDetails, error) {
 	if err := ValidateControllerName(name); err != nil {
@@ -266,10 +285,10 @@ func (s *store) SetCurrentController(name string) error {
 	if _, ok := controllers.Controllers[name]; !ok {
 		return errors.NotFoundf("controller %v", name)
 	}
-	if controllers.CurrentController == name {
-		return nil
+	if controllers.HasControllerChangedOnPreviousSwitch = controllers.CurrentController != name; controllers.HasControllerChangedOnPreviousSwitch {
+		controllers.PreviousController = controllers.CurrentController
+		controllers.CurrentController = name
 	}
-	controllers.CurrentController = name
 	return WriteControllersFile(controllers)
 }
 
@@ -436,6 +455,7 @@ func (s *store) SetCurrentModel(controllerName, modelName string) error {
 					modelName,
 				)
 			}
+			models.PreviousModel = models.CurrentModel
 			models.CurrentModel = modelName
 			return true, nil
 		},
@@ -533,6 +553,38 @@ Use "juju switch" to select one of the following models:
 		return "", errors.NewNotFound(nil, msg)
 	}
 	return controllerModels.CurrentModel, nil
+}
+
+// PreviousModel implements ModelGetter.
+func (s *store) PreviousModel(controllerName string) (string, error) {
+	if err := ValidateControllerName(controllerName); err != nil {
+		return "", errors.Trace(err)
+	}
+
+	releaser, err := s.acquireLock()
+	if err != nil {
+		return "", errors.Annotatef(err,
+			"cannot acquire lock file for getting current model for controller %s", controllerName,
+		)
+	}
+	defer releaser.Release()
+
+	all, err := ReadModelsFile(JujuModelsPath())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	controllerModels, ok := all[controllerName]
+	if !ok {
+		return "", errors.NotFoundf(
+			"previous model for controller %s",
+			controllerName,
+		)
+	}
+
+	if controllerModels.PreviousModel == "" {
+		return "", errors.NotFoundf("previous model for controller %s", controllerName)
+	}
+	return controllerModels.PreviousModel, nil
 }
 
 // ModelByName implements ModelGetter.

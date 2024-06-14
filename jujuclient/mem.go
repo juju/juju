@@ -19,14 +19,16 @@ var _ ClientStore = (*MemStore)(nil)
 type MemStore struct {
 	mu sync.Mutex
 
-	Controllers           map[string]ControllerDetails
-	CurrentControllerName string
-	Models                map[string]*ControllerModels
-	Accounts              map[string]AccountDetails
-	Credentials           map[string]cloud.CloudCredential
-	BootstrapConfig       map[string]BootstrapConfig
-	CookieJars            map[string]*cookiejar.Jar
-	ImmutableAccount      bool
+	Controllers                          map[string]ControllerDetails
+	CurrentControllerName                string
+	PreviousControllerName               string
+	HasControllerChangedOnPreviousSwitch bool
+	Models                               map[string]*ControllerModels
+	Accounts                             map[string]AccountDetails
+	Credentials                          map[string]cloud.CloudCredential
+	BootstrapConfig                      map[string]BootstrapConfig
+	CookieJars                           map[string]*cookiejar.Jar
+	ImmutableAccount                     bool
 }
 
 // NewMemStore returns a new MemStore.
@@ -102,6 +104,17 @@ func (c *MemStore) CurrentController() (string, error) {
 	return c.CurrentControllerName, nil
 }
 
+// PreviousController implements ControllerGetter.PreviousController
+func (c *MemStore) PreviousController() (string, bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.PreviousControllerName == "" {
+		return "", false, errors.NotFoundf("previous controller")
+	}
+	return c.PreviousControllerName, c.HasControllerChangedOnPreviousSwitch, nil
+}
+
 // SetCurrentController implements ControllerUpdater.SetCurrentController
 func (c *MemStore) SetCurrentController(name string) error {
 	c.mu.Lock()
@@ -113,7 +126,10 @@ func (c *MemStore) SetCurrentController(name string) error {
 	if _, ok := c.Controllers[name]; !ok {
 		return errors.NotFoundf("controller %s", name)
 	}
-	c.CurrentControllerName = name
+	if c.HasControllerChangedOnPreviousSwitch = c.CurrentControllerName != name; c.HasControllerChangedOnPreviousSwitch {
+		c.PreviousControllerName = c.CurrentControllerName
+		c.CurrentControllerName = name
+	}
 	return nil
 }
 
@@ -277,6 +293,7 @@ func (c *MemStore) SetCurrentModel(controllerName, modelName string) error {
 	if _, ok := controllerModels.Models[modelName]; !ok {
 		return errors.NotFoundf("model %s:%s", controllerName, modelName)
 	}
+	controllerModels.PreviousModel = controllerModels.CurrentModel
 	controllerModels.CurrentModel = modelName
 	return nil
 }
@@ -334,6 +351,24 @@ func (c *MemStore) CurrentModel(controller string) (string, error) {
 		return "", errors.NotFoundf("current model for controller %s", controller)
 	}
 	return controllerModels.CurrentModel, nil
+}
+
+// PreviousModel implements ModelGetter.
+func (c *MemStore) PreviousModel(controller string) (string, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if err := ValidateControllerName(controller); err != nil {
+		return "", errors.Trace(err)
+	}
+	controllerModels, ok := c.Models[controller]
+	if !ok {
+		return "", errors.NotFoundf("previous model for controller %s", controller)
+	}
+	if controllerModels.PreviousModel == "" {
+		return "", errors.NotFoundf("previous model for controller %s", controller)
+	}
+	return controllerModels.PreviousModel, nil
 }
 
 // ModelByName implements ModelGetter.

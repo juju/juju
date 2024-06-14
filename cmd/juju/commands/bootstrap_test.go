@@ -1029,9 +1029,15 @@ func (s *BootstrapSuite) TestBootstrapPropagatesStoreErrors(c *gc.C) {
 	store.CurrentControllerFunc = func() (string, error) {
 		return "arthur", nil
 	}
+	store.PreviousControllerFunc = func() (string, bool, error) {
+		return "", false, errors.NotFound
+	}
 	store.CurrentModelFunc = func(controller string) (string, error) {
 		c.Assert(controller, gc.Equals, "arthur")
 		return "sword", nil
+	}
+	store.PreviousModelFunc = func(controller string) (string, error) {
+		return "", errors.NotFound
 	}
 	store.ModelByNameFunc = func(controller, model string) (*jujuclient.ModelDetails, error) {
 		c.Assert(controller, gc.Equals, "arthur")

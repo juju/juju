@@ -129,6 +129,8 @@ func (s *SwitchSimpleSuite) TestSwitchSameController(c *gc.C) {
 		{"ControllerByName", []interface{}{"same"}},
 		{"CurrentModel", []interface{}{"same"}},
 		{"ControllerByName", []interface{}{"same"}},
+		{"CurrentModel", []interface{}{"same"}},
+		{"SetCurrentController", []interface{}{"same"}},
 	})
 }
 
@@ -146,6 +148,7 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModel(c *gc.C) {
 		{"ControllerByName", []interface{}{"ctrl"}},
 		{"CurrentModel", []interface{}{"ctrl"}},
 		{"ControllerByName", []interface{}{"mymodel"}},
+		{"SetCurrentController", []interface{}{"ctrl"}},
 		{"AccountDetails", []interface{}{"ctrl"}},
 		{"SetCurrentModel", []interface{}{"ctrl", "admin/mymodel"}},
 	})
@@ -166,11 +169,9 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToModelDifferentController(c *gc
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"old"}},
 		{"CurrentModel", []interface{}{"old"}},
-		{"ControllerByName", []interface{}{"new:mymodel"}},
-		{"ControllerByName", []interface{}{"new"}},
+		{"SetCurrentController", []interface{}{"new"}},
 		{"AccountDetails", []interface{}{"new"}},
 		{"SetCurrentModel", []interface{}{"new", "admin/mymodel"}},
-		{"SetCurrentController", []interface{}{"new"}},
 	})
 	c.Assert(s.store.Models["new"].CurrentModel, gc.Equals, "admin/mymodel")
 }
@@ -223,11 +224,9 @@ func (s *SwitchSimpleSuite) TestSwitchLocalControllerToModelDifferentController(
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"old"}},
 		{"CurrentModel", []interface{}{"old"}},
-		{"ControllerByName", []interface{}{"new:mymodel"}},
-		{"ControllerByName", []interface{}{"new"}},
+		{"SetCurrentController", []interface{}{"new"}},
 		{"AccountDetails", []interface{}{"new"}},
 		{"SetCurrentModel", []interface{}{"new", "admin/mymodel"}},
-		{"SetCurrentController", []interface{}{"new"}},
 	})
 	c.Assert(s.store.Models["new"].CurrentModel, gc.Equals, "admin/mymodel")
 }
@@ -247,11 +246,9 @@ func (s *SwitchSimpleSuite) TestSwitchControllerToDifferentControllerCurrentMode
 		{"CurrentController", nil},
 		{"ControllerByName", []interface{}{"old"}},
 		{"CurrentModel", []interface{}{"old"}},
-		{"ControllerByName", []interface{}{"new:mymodel"}},
-		{"ControllerByName", []interface{}{"new"}},
+		{"SetCurrentController", []interface{}{"new"}},
 		{"AccountDetails", []interface{}{"new"}},
 		{"SetCurrentModel", []interface{}{"new", "admin/mymodel"}},
-		{"SetCurrentController", []interface{}{"new"}},
 	})
 }
 
@@ -354,6 +351,7 @@ func (s *SwitchSimpleSuite) TestSwitchCurrentModelInStore(c *gc.C) {
 		{"ControllerByName", []interface{}{"same"}},
 		{"CurrentModel", []interface{}{"same"}},
 		{"ControllerByName", []interface{}{"mymodel"}},
+		{"SetCurrentController", []interface{}{"same"}},
 		{"AccountDetails", []interface{}{"same"}},
 		{"SetCurrentModel", []interface{}{"same", "admin/mymodel"}},
 	})
@@ -365,4 +363,230 @@ func (s *SwitchSimpleSuite) TestSwitchCurrentModelNoLongerInStore(c *gc.C) {
 	s.store.Models["same"] = &jujuclient.ControllerModels{CurrentModel: "admin/mymodel"}
 	_, err := s.run(c, "mymodel")
 	c.Assert(err, gc.ErrorMatches, `"mymodel" is not the name of a model or controller`)
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousControllerAndModelThroughFlagsShouldFail(c *gc.C) {
+	s.store.CurrentControllerName = "currentCtrl"
+	s.store.PreviousControllerName = "previousCtrl"
+	s.addController(c, "currentCtrl")
+	s.addController(c, "previousCtrl")
+
+	// juju switch -m model -c controller: # Should fails
+	_, err := s.run(c, "-m", "model", "-c", "controller")
+
+	c.Assert(err, gc.ErrorMatches, "cannot specify both a --model and --controller")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousController(c *gc.C) {
+	s.store.CurrentControllerName = "currentCtrl"
+	s.store.PreviousControllerName = "previousCtrl"
+	s.addController(c, "currentCtrl")
+	s.addController(c, "previousCtrl")
+
+	// juju switch -c - # Should switch to previous controller
+	context, err := s.run(c, "-c", "-")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "currentCtrl (controller) -> previousCtrl (controller)\n")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousControllerWhichDoesntExists(c *gc.C) {
+	s.store.CurrentControllerName = "currentCtrl"
+	s.store.PreviousControllerName = "noCtrl"
+	s.addController(c, "currentCtrl")
+
+	// juju switch --controller - # previous controller may have been deleted, should do nothing
+	_, err := s.run(c, "--controller", "-")
+
+	c.Assert(err, gc.ErrorMatches, "controller noCtrl not found")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousControllerWhichIsEmpty(c *gc.C) {
+	s.store.CurrentControllerName = "currentCtrl"
+	s.addController(c, "currentCtrl")
+
+	// juju switch -c - # no previous controller may have been deleted, should do nothing
+	_, err := s.run(c, "-c", "-")
+
+	c.Assert(err, gc.ErrorMatches, "previous controller not found")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousModel(c *gc.C) {
+	s.store.CurrentControllerName = "ctrl"
+	s.addController(c, "ctrl")
+	s.store.Models["ctrl"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/current-model": {},
+			"admin/previous-model": {}},
+		CurrentModel:  "admin/current-model",
+		PreviousModel: "admin/previous-model",
+	}
+
+	// juju switch --model - # Should switch to previous model in current controller
+	context, err := s.run(c, "--model", "-")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "ctrl:admin/current-model -> ctrl:admin/previous-model\n")
+	c.Assert(s.store.Models["ctrl"].CurrentModel, gc.Equals, "admin/previous-model")
+	c.Assert(s.store.Models["ctrl"].PreviousModel, gc.Equals, "admin/current-model")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousModelWhichDoesntExits(c *gc.C) {
+	s.store.CurrentControllerName = "ctrl"
+	s.addController(c, "ctrl")
+	s.store.Models["ctrl"] = &jujuclient.ControllerModels{
+		Models:        map[string]jujuclient.ModelDetails{"admin/current-model": {}},
+		CurrentModel:  "admin/current-model",
+		PreviousModel: "admin/previous-model",
+	}
+
+	// juju switch -m - # previous model may have been deleted, should do nothing
+	_, err := s.run(c, "-m", "-")
+
+	c.Assert(err, gc.ErrorMatches, `":admin/previous-model" is not the name of a model or controller`)
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousModelWhichIsEmpty(c *gc.C) {
+	s.store.CurrentControllerName = "ctrl"
+	s.addController(c, "ctrl")
+	s.store.Models["ctrl"] = &jujuclient.ControllerModels{
+		Models:       map[string]jujuclient.ModelDetails{"admin/current-model": {}},
+		CurrentModel: "admin/current-model",
+	}
+
+	// juju switch -m - # previous model may have been deleted, should do nothing
+	_, err := s.run(c, "-m", "-")
+
+	c.Assert(err, gc.ErrorMatches, `previous model for controller ctrl not found`)
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousAcrossControllers(c *gc.C) {
+	s.store.CurrentControllerName = "current-ctrl"
+	s.store.PreviousControllerName = "previous-ctrl"
+	s.store.HasControllerChangedOnPreviousSwitch = true
+	s.addController(c, "current-ctrl")
+	s.addController(c, "previous-ctrl")
+	s.store.Models["current-ctrl"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/current-model": {},
+			"admin/previous-model": {}},
+		CurrentModel:  "admin/current-model",
+		PreviousModel: "admin/previous-model",
+	}
+	s.store.Models["previous-ctrl"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/current-model": {},
+			"admin/previous-model": {}},
+		CurrentModel:  "admin/current-model",
+		PreviousModel: "admin/previous-model",
+	}
+
+	// juju switch -
+	context, err := s.run(c, "-")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "current-ctrl:admin/current-model -> previous-ctrl:admin/current-model\n")
+	c.Assert(s.store.Models["current-ctrl"].CurrentModel, gc.Equals, "admin/current-model")
+	c.Assert(s.store.Models["current-ctrl"].PreviousModel, gc.Equals, "admin/previous-model")
+	c.Assert(s.store.Models["previous-ctrl"].CurrentModel, gc.Equals, "admin/current-model")
+	c.Assert(s.store.Models["previous-ctrl"].PreviousModel, gc.Equals, "admin/previous-model")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousAcrossModels(c *gc.C) {
+	s.store.CurrentControllerName = "current-ctrl"
+	s.store.PreviousControllerName = "current-ctrl"
+	s.store.HasControllerChangedOnPreviousSwitch = false
+	s.addController(c, "current-ctrl")
+	s.addController(c, "another-ctrl")
+	s.store.Models["current-ctrl"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/current-model": {},
+			"admin/previous-model": {}},
+		CurrentModel:  "admin/current-model",
+		PreviousModel: "admin/previous-model",
+	}
+
+	// juju switch -
+	context, err := s.run(c, "-")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "current-ctrl:admin/current-model -> current-ctrl:admin/previous-model\n")
+	c.Assert(s.store.Models["current-ctrl"].CurrentModel, gc.Equals, "admin/previous-model")
+	c.Assert(s.store.Models["current-ctrl"].PreviousModel, gc.Equals, "admin/current-model")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousAcrossModels2(c *gc.C) {
+	s.store.CurrentControllerName = "current-ctrl"
+	s.store.PreviousControllerName = "current-ctrl"
+	s.addController(c, "current-ctrl")
+	s.addController(c, "another-ctrl")
+	s.store.Models["current-ctrl"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/current-model": {},
+			"admin/previous-model": {}},
+		CurrentModel:  "admin/current-model",
+		PreviousModel: "admin/previous-model",
+	}
+
+	// juju switch -
+	context, err := s.run(c, "-")
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "current-ctrl:admin/current-model -> current-ctrl:admin/previous-model\n")
+	c.Assert(s.store.Models["current-ctrl"].CurrentModel, gc.Equals, "admin/previous-model")
+	c.Assert(s.store.Models["current-ctrl"].PreviousModel, gc.Equals, "admin/current-model")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousControllerTwice(c *gc.C) {
+	s.store.CurrentControllerName = "currentCtrl"
+	s.store.PreviousControllerName = "previousCtrl"
+	s.addController(c, "currentCtrl")
+	s.addController(c, "previousCtrl")
+
+	// juju switch --controller - && juju switch -c - # Should return to current controller
+	_, err := s.run(c, "--controller", "-")
+	c.Assert(err, jc.ErrorIsNil)
+	context, err := s.run(c, "-c", "-")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "previousCtrl (controller) -> currentCtrl (controller)\n")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousModelTwice(c *gc.C) {
+	s.store.CurrentControllerName = "ctrl"
+	s.addController(c, "ctrl")
+	s.store.Models["ctrl"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/current-model": {},
+			"admin/previous-model": {}},
+		CurrentModel:  "admin/current-model",
+		PreviousModel: "admin/previous-model",
+	}
+
+	// juju switch --model - && juju switch -m -  # Should switch to current model in current controller
+	_, err := s.run(c, "--model", "-")
+	c.Assert(err, jc.ErrorIsNil)
+	context, err := s.run(c, "-m", "-")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "ctrl:admin/previous-model -> ctrl:admin/current-model\n")
+	c.Assert(s.store.Models["ctrl"].CurrentModel, gc.Equals, "admin/current-model")
+	c.Assert(s.store.Models["ctrl"].PreviousModel, gc.Equals, "admin/previous-model")
+}
+
+func (s *SwitchSimpleSuite) TestSwitchPreviousModelThenController(c *gc.C) {
+	s.store.CurrentControllerName = "ctrl-1"
+	s.store.PreviousControllerName = "ctrl-2"
+	s.addController(c, "ctrl-1")
+	s.addController(c, "ctrl-2")
+	s.store.Models["ctrl-1"] = &jujuclient.ControllerModels{
+		Models: map[string]jujuclient.ModelDetails{"admin/current-model": {},
+			"admin/previous-model": {}},
+		CurrentModel:  "admin/current-model",
+		PreviousModel: "admin/previous-model",
+	}
+
+	// juju switch --model - && juju switch -c -  # Should switch to previous model in current controller, then go to the previous controller
+	_, err := s.run(c, "--model", "-")
+	c.Assert(err, jc.ErrorIsNil)
+	context, err := s.run(c, "-c", "-")
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(cmdtesting.Stderr(context), gc.Equals, "ctrl-1:admin/previous-model -> ctrl-2 (controller)\n")
+	c.Assert(s.store.Models["ctrl-1"].CurrentModel, gc.Equals, "admin/previous-model")
+	c.Assert(s.store.Models["ctrl-1"].PreviousModel, gc.Equals, "admin/current-model")
 }

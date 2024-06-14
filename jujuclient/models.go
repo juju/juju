@@ -171,6 +171,9 @@ type ControllerModels struct {
 
 	// CurrentModel is the name of the active model for the account.
 	CurrentModel string `yaml:"current-model,omitempty"`
+
+	// PreviousModel is the name of the previous model for the account.
+	PreviousModel string `yaml:"previous-model,omitempty"`
 }
 
 // JoinOwnerModelName returns a model name qualified with the model owner.
