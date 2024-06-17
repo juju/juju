@@ -146,7 +146,7 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 			selector: BaseSelector{
 				supportedBases: []base.Base{utopic, vivid, jujuDefault, latest},
 			},
-			expectedBase: jujuDefault,
+			expectedBase: latest,
 		},
 	}
 
