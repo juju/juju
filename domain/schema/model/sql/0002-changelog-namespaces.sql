@@ -16,4 +16,5 @@ INSERT INTO change_log_namespace VALUES
 (12, 'secret_revision_expire', 'Secret revision next expire time changes based on UUID'),
 (13, 'secret_revision', 'Secret revision changes based on UUID'),
 (14, 'secret_reference', 'Secret reference changes based on UUID'),
-(15, 'subnet', 'Subnet changes based on UUID');
+(15, 'subnet', 'Subnet changes based on UUID'),
+(16, 'machine', 'Machine changes based on UUID');
