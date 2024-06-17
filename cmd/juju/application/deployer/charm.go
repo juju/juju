@@ -50,8 +50,7 @@ type deployCharm struct {
 	storage          map[string]storage.Constraints
 	trust            bool
 
-	validateCharmBaseWithName             func(base corebase.Base, name string, imageStream string) error
-	validateResourcesNeededForLocalDeploy func(charmMeta *charm.Meta) error
+	validateCharmBaseWithName func(base corebase.Base, name string, imageStream string) error
 }
 
 // deploy is the business logic of deploying a charm after
@@ -193,6 +192,7 @@ func (d *deployCharm) formatDeployingText(applicationName, charmName string) str
 type predeployedLocalCharm struct {
 	deployCharm
 	userCharmURL *charm.URL
+	base         corebase.Base
 }
 
 // String returns a string description of the deployer.
@@ -222,51 +222,9 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	charmInfo, err := deployAPI.CharmInfo(d.userCharmURL.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
 	ctx.Infof(formatLocatedText(d.userCharmURL, commoncharm.Origin{}))
-	checkPodspec(charmInfo.Charm(), ctx)
 
-	if err := d.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
-		return errors.Trace(err)
-	}
-
-	modelCfg, err := getModelConfig(deployAPI)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	imageStream := modelCfg.ImageStream()
-	workloadBases, err := SupportedJujuBases(jujuclock.WallClock.Now(), d.baseFlag, imageStream)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	supportedBases, err := corecharm.ComputedBases(charmInfo.Charm())
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	baseSelector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
-		Config:              modelCfg,
-		Force:               d.force,
-		Logger:              logger,
-		RequestedBase:       d.baseFlag,
-		SupportedCharmBases: supportedBases,
-		WorkloadBases:       workloadBases,
-		UsingImageID:        d.constraints.HasImageID() || d.modelConstraints.HasImageID(),
-	})
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	selectedBase, err := baseSelector.CharmBase()
-	if err = charmValidationError(charmInfo.Meta.Name, errors.Trace(err)); err != nil {
-		return errors.Trace(err)
-	}
-
-	platform := utils.MakePlatform(d.constraints, selectedBase, d.modelConstraints)
+	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	origin, err := utils.MakeOrigin(charm.Local, userCharmURL.Revision, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
