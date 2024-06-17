@@ -4,12 +4,9 @@
 package caasmodeloperator
 
 import (
-	"context"
-
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
@@ -17,29 +14,10 @@ import (
 // model operator provisioner.
 type CAASModelOperatorState interface {
 	FindEntity(tag names.Tag) (state.Entity, error)
-	Model() (Model, error)
-	ModelUUID() string
 }
 
 // CAASModelOperatorState provides the subset of controller state required by the
 // model operator provisioner.
 type CAASControllerState interface {
 	common.APIAddressAccessor
-}
-
-type Model interface {
-	ModelConfig(context.Context) (*config.Config, error)
-	WatchForModelConfigChanges() state.NotifyWatcher
-}
-
-type stateShim struct {
-	*state.State
-}
-
-func (s stateShim) Model() (Model, error) {
-	model, err := s.State.Model()
-	if err != nil {
-		return nil, err
-	}
-	return model.CAASModel()
 }

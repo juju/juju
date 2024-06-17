@@ -13,8 +13,6 @@ on:
       - 'scripts/dqlite/**'
       - 'Makefile'
       - 'make_functions.sh'
-    branches-ignore:
-      - 'main'
   workflow_dispatch:
 
 permissions:

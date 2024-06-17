@@ -59,10 +59,6 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	return nil, errors.NotFoundf("entity %v", tag)
 }
 
-func (st *mockState) Model() (Model, error) {
-	return st.model, nil
-}
-
 func (m *mockState) WatchAPIHostPortsForAgents() state.NotifyWatcher {
 	return m.apiHostPortsForAgentsWatcher
 }
