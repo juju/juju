@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -36,11 +35,13 @@ import (
 type InstancePollerSuite struct {
 	testing.IsolationSuite
 
-	st             *mockState
-	api            *instancepoller.InstancePollerAPI
-	authoriser     apiservertesting.FakeAuthorizer
-	resources      *common.Resources
-	networkService *MockNetworkService
+	st         *mockState
+	api        *instancepoller.InstancePollerAPI
+	authoriser apiservertesting.FakeAuthorizer
+	resources  *common.Resources
+
+	controllerConfigService *MockControllerConfigService
+	networkService          *MockNetworkService
 
 	machineEntities     params.Entities
 	machineErrorResults params.ErrorResults
@@ -55,14 +56,26 @@ var _ = gc.Suite(&InstancePollerSuite{})
 
 func (s *InstancePollerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-
+	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
 	return ctrl
 }
 
-func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
-	defer s.setUpMocks(c).Finish()
+func (s *InstancePollerSuite) setupAPI(c *gc.C) (err error) {
+	s.api, err = instancepoller.NewInstancePollerAPI(
+		nil,
+		s.networkService,
+		nil,
+		s.resources,
+		s.authoriser,
+		s.controllerConfigService,
+		s.clock,
+		loggertesting.WrapCheckLog(c),
+	)
+	return err
+}
 
+func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
@@ -74,11 +87,7 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 	s.st = NewMockState()
 	instancepoller.PatchState(s, s.st)
 
-	var err error
 	s.clock = testclock.NewClock(time.Now())
-	controllerConfigService := controllerConfigService{}
-	s.api, err = instancepoller.NewInstancePollerAPI(nil, s.networkService, nil, s.resources, s.authoriser, controllerConfigService, s.clock, loggertesting.WrapCheckLog(c))
-	c.Assert(err, jc.ErrorIsNil)
 
 	s.machineEntities = params.Entities{
 		Entities: []params.Entity{
@@ -118,89 +127,46 @@ func (s *InstancePollerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *gc.C) {
-	anAuthoriser := s.authoriser
-	anAuthoriser.Controller = false
+	s.authoriser.Controller = false
 
-	controllerConfigService := controllerConfigService{}
-
-	api, err := instancepoller.NewInstancePollerAPI(nil, nil, nil, s.resources, anAuthoriser, controllerConfigService, s.clock, loggertesting.WrapCheckLog(c))
-	c.Assert(api, gc.IsNil)
+	err := s.setupAPI(c)
+	c.Assert(s.api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *InstancePollerSuite) TestModelConfigFailure(c *gc.C) {
-	s.st.SetErrors(errors.New("boom"))
-
-	result, err := s.api.ModelConfig(context.Background())
-	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(result, jc.DeepEquals, params.ModelConfigResult{})
-
-	s.st.CheckCallNames(c, "ModelConfig")
-}
-
-func (s *InstancePollerSuite) TestModelConfigSuccess(c *gc.C) {
-	modelConfig := jujutesting.ModelConfig(c)
-	s.st.SetConfig(c, modelConfig)
-
-	result, err := s.api.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ModelConfigResult{
-		Config: modelConfig.AllAttrs(),
-	})
-
-	s.st.CheckCallNames(c, "ModelConfig")
-}
-
-func (s *InstancePollerSuite) TestWatchForModelConfigChangesFailure(c *gc.C) {
-	// Force the Changes() method of the mock watcher to return a
-	// closed channel by setting an error.
-	s.st.SetErrors(errors.New("boom"))
-
-	result, err := s.api.WatchForModelConfigChanges(context.Background())
-	c.Assert(err, gc.ErrorMatches, "boom")
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{})
-
-	c.Assert(s.resources.Count(), gc.Equals, 0) // no watcher registered
-	s.st.CheckCallNames(c, "WatchForModelConfigChanges")
-}
-
-func (s *InstancePollerSuite) TestWatchForModelConfigChangesSuccess(c *gc.C) {
-	result, err := s.api.WatchForModelConfigChanges(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.NotifyWatchResult{
-		Error: nil, NotifyWatcherId: "1",
-	})
-
-	// Verify the watcher resource was registered.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
-
-	// Check that the watcher has consumed the initial event
-	wc := statetesting.NewNotifyWatcherC(c, resource.(state.NotifyWatcher))
-	wc.AssertNoChange()
-
-	s.st.CheckCallNames(c, "WatchForModelConfigChanges")
-
-	// Try changing the config to verify an event is reported.
-	modelConfig := jujutesting.ModelConfig(c)
-	s.st.SetConfig(c, modelConfig)
-	wc.AssertOneChange()
-}
-
 func (s *InstancePollerSuite) TestWatchModelMachinesFailure(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.assertMachineWatcherFails(c, "WatchModelMachines", s.api.WatchModelMachines)
 }
 
 func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.assertMachineWatcherSucceeds(c, "WatchModelMachines", s.api.WatchModelMachines)
 }
 
 func (s *InstancePollerSuite) TestWatchModelMachineStartTimesFailure(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.assertMachineWatcherFails(c, "WatchModelMachineStartTimes", s.api.WatchModelMachineStartTimes)
 }
 
 func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.assertMachineWatcherFails(c, "WatchModelMachineStartTimes", s.api.WatchModelMachineStartTimes)
 }
 
@@ -277,6 +243,11 @@ func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeN
 }
 
 func (s *InstancePollerSuite) TestLifeSuccess(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Alive})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", life: state.Dying})
 
@@ -303,6 +274,11 @@ func (s *InstancePollerSuite) TestLifeSuccess(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestLifeFailure(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1"); Life not called
 		nil,                                  // m2 := FindEntity("2")
@@ -330,6 +306,11 @@ func (s *InstancePollerSuite) TestLifeFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestInstanceIdSuccess(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceId: "i-foo"})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceId: ""})
 
@@ -356,6 +337,11 @@ func (s *InstancePollerSuite) TestInstanceIdSuccess(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestInstanceIdFailure(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1"); InstanceId not called
 		nil,                                  // m2 := FindEntity("2")
@@ -382,6 +368,11 @@ func (s *InstancePollerSuite) TestInstanceIdFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	now := time.Now()
 	s1 := status.StatusInfo{
 		Status:  status.Error,
@@ -425,6 +416,11 @@ func (s *InstancePollerSuite) TestStatusSuccess(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestStatusFailure(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1"); Status not called
 		nil,                                  // m2 := FindEntity("2")
@@ -450,152 +446,12 @@ func (s *InstancePollerSuite) TestStatusFailure(c *gc.C) {
 	s.st.CheckFindEntityCall(c, 3, "3")
 }
 
-func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
-	s.expectDefaultSpaces()
-	addrs := network.NewSpaceAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
-	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: addrs})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
-
-	result, err := s.api.ProviderAddresses(context.Background(), s.mixedEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.MachineAddressesResults{
-		Results: []params.MachineAddressesResult{
-			{Addresses: toParamAddresses(addrs)},
-			{Addresses: nil},
-			{Error: apiservertesting.NotFoundError("machine 42")},
-			{Error: apiservertesting.ServerError(`"application-unknown" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"invalid-tag" is not a valid tag`)},
-			{Error: apiservertesting.ServerError(`"unit-missing-1" is not a valid machine tag`)},
-			{Error: apiservertesting.ServerError(`"" is not a valid tag`)},
-			{Error: apiservertesting.ServerError(`"42" is not a valid tag`)},
-		}},
-	)
-
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckCall(c, 1, "ProviderAddresses")
-	s.st.CheckMachineCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "ProviderAddresses")
-	s.st.CheckMachineCall(c, 4, "42")
-}
-
-func (s *InstancePollerSuite) TestProviderAddressesFailure(c *gc.C) {
-	s.expectDefaultSpaces()
-	s.st.SetErrors(
-		errors.New("pow!"),                   // m1 := FindEntity("1")
-		nil,                                  // m2 := FindEntity("2")
-		errors.New("FAIL"),                   // m2.ProviderAddresses()- unused
-		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
-	)
-	s.st.SetMachineInfo(c, machineInfo{id: "1"})
-	s.st.SetMachineInfo(c, machineInfo{id: "2"})
-
-	result, err := s.api.ProviderAddresses(context.Background(), s.machineEntities)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.MachineAddressesResults{
-		Results: []params.MachineAddressesResult{
-			{Error: apiservertesting.ServerError("pow!")},
-			{Addresses: nil},
-			{Error: apiservertesting.NotProvisionedError("42")},
-		}},
-	)
-
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckMachineCall(c, 1, "2")
-	s.st.CheckCall(c, 2, "ProviderAddresses")
-	s.st.CheckMachineCall(c, 3, "3")
-}
-
-func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
-	oldAddrs := network.NewSpaceAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
-	newAddrs := network.SpaceAddresses{
-		network.NewSpaceAddress("1.2.3.4", network.WithCIDR("1.2.3.0/24")),
-		network.NewSpaceAddress("8.4.4.8", network.WithCIDR("8.4.4.0/24")),
-		network.NewSpaceAddress("2001:db8::"),
-	}
-
-	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: oldAddrs})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
-	s.expectDefaultSpaces()
-
-	result, err := s.api.SetProviderAddresses(context.Background(), params.SetMachinesAddresses{
-		MachineAddresses: []params.MachineAddresses{
-			{Tag: "machine-1", Addresses: nil},
-			{Tag: "machine-2", Addresses: toParamAddresses(newAddrs)},
-			{Tag: "machine-42"},
-			{Tag: "application-unknown"},
-			{Tag: "invalid-tag"},
-			{Tag: "unit-missing-1"},
-			{Tag: ""},
-			{Tag: "42"},
-		}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, s.mixedErrorResults)
-
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckSetProviderAddressesCall(c, 1, []network.SpaceAddress{})
-	s.st.CheckMachineCall(c, 2, "2")
-	s.st.CheckSetProviderAddressesCall(c, 3, newAddrs)
-	s.st.CheckMachineCall(c, 4, "42")
-
-	// Ensure machines were updated.
-	machine, err := s.st.Machine("1")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.ProviderAddresses(), gc.HasLen, 0)
-
-	machine, err = s.st.Machine("2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.ProviderAddresses(), jc.DeepEquals, newAddrs)
-}
-
-func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
-	s.expectDefaultSpaces()
-	s.st.SetErrors(
-		errors.New("pow!"),                   // m1 := FindEntity("1")
-		nil,                                  // m2 := FindEntity("2")
-		errors.New("FAIL"),                   // m2.SetProviderAddresses()
-		errors.NotProvisionedf("machine 42"), // FindEntity("3") (ensure wrapping is preserved)
-	)
-	oldAddrs := network.NewSpaceAddresses("0.1.2.3", "127.0.0.1", "8.8.8.8")
-	newAddrs := network.NewSpaceAddresses("1.2.3.4", "8.4.4.8", "2001:db8::")
-	s.st.SetMachineInfo(c, machineInfo{id: "1", providerAddresses: oldAddrs})
-	s.st.SetMachineInfo(c, machineInfo{id: "2", providerAddresses: nil})
-
-	result, err := s.api.SetProviderAddresses(context.Background(), params.SetMachinesAddresses{
-		MachineAddresses: []params.MachineAddresses{
-			{Tag: "machine-1"},
-			{Tag: "machine-2", Addresses: toParamAddresses(newAddrs)},
-			{Tag: "machine-3"},
-		}},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, jc.DeepEquals, s.machineErrorResults)
-
-	s.st.CheckMachineCall(c, 0, "1")
-	s.st.CheckMachineCall(c, 1, "2")
-	s.st.CheckSetProviderAddressesCall(c, 2, newAddrs)
-	s.st.CheckMachineCall(c, 3, "3")
-
-	// Ensure machine 2 wasn't updated.
-	machine, err := s.st.Machine("2")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.ProviderAddresses(), gc.HasLen, 0)
-}
-
-func toParamAddresses(addrs network.SpaceAddresses) []params.Address {
-	paramAddrs := make([]params.Address, len(addrs))
-	for i, addr := range addrs {
-		paramAddrs[i] = params.Address{
-			Value: addr.Value,
-			Type:  string(addr.Type),
-			Scope: string(addr.Scope),
-			CIDR:  addr.CIDR,
-		}
-	}
-	return paramAddrs
-}
-
 func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
@@ -623,6 +479,11 @@ func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1")
 		nil,                                  // m2 := FindEntity("2")
@@ -649,6 +510,11 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", instanceStatus: statusInfo("")})
 
@@ -693,6 +559,11 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1")
 		nil,                                  // m2 := FindEntity("2")
@@ -720,6 +591,11 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetMachineInfo(c, machineInfo{id: "1", isManual: true})
 	s.st.SetMachineInfo(c, machineInfo{id: "2", isManual: false})
 
@@ -746,6 +622,11 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetErrors(
 		errors.New("pow!"),                   // m1 := FindEntity("1")
 		nil,                                  // m2 := FindEntity("2")
@@ -772,9 +653,16 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.expectDefaultSpaces()
 
 	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
+
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(jujutesting.FakeControllerConfig(), nil)
 
 	results, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
@@ -873,6 +761,11 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.expectDefaultSpaces()
 
 	s.st.SetMachineInfo(c, machineInfo{
@@ -953,6 +846,11 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigNotAlive(c *gc.C) {
+	ctrl := s.setUpMocks(c)
+	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.st.SetMachineInfo(c, machineInfo{id: "1", life: state.Dying})
 	s.expectDefaultSpaces()
 
@@ -974,8 +872,10 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNotAlive(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectDefaultSpaces()
 
@@ -1025,8 +925,10 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigRelinquishUnseen(c *gc
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectDefaultSpaces()
 
@@ -1052,6 +954,9 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 		linkLayerDevices: []networkingcommon.LinkLayerDevice{dev},
 		addresses:        []networkingcommon.LinkLayerAddress{addr},
 	})
+
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(
+		jujutesting.FakeControllerConfig(), nil)
 
 	result, err := s.api.SetProviderNetworkConfig(context.Background(), params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{
@@ -1104,8 +1009,10 @@ func (s *InstancePollerSuite) TestSetProviderNetworkClaimProviderOrigin(c *gc.C)
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectDefaultSpaces()
 
@@ -1160,8 +1067,10 @@ func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDGoesToEthernetDev(
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkProviderIDMultipleRefsError(c *gc.C) {
-	ctrl := gomock.NewController(c)
+	ctrl := s.setUpMocks(c)
 	defer ctrl.Finish()
+	err := s.setupAPI(c)
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.expectDefaultSpaces()
 
@@ -1238,10 +1147,4 @@ func makeSpaceAddress(ip string, scope network.Scope, spaceID string) network.Sp
 
 func statusInfo(st string) status.StatusInfo {
 	return status.StatusInfo{Status: status.Status(st)}
-}
-
-type controllerConfigService struct{}
-
-func (controllerConfigService) ControllerConfig(context.Context) (controller.Config, error) {
-	return jujutesting.FakeControllerConfig(), nil
 }

@@ -31,7 +31,6 @@ type StateMachine interface {
 }
 
 type StateInterface interface {
-	state.ModelAccessor
 	state.ModelMachinesWatcher
 	state.EntityFinder
 

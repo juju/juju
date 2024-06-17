@@ -27,8 +27,6 @@ const instancePollerFacade = "InstancePoller"
 
 // API provides access to the InstancePoller API facade.
 type API struct {
-	*common.ModelWatcher
-
 	facade base.FacadeCaller
 }
 
@@ -39,8 +37,7 @@ func NewAPI(caller base.APICaller, options ...Option) *API {
 	}
 	facadeCaller := base.NewFacadeCaller(caller, instancePollerFacade, options...)
 	return &API{
-		ModelWatcher: common.NewModelWatcher(facadeCaller),
-		facade:       facadeCaller,
+		facade: facadeCaller,
 	}
 }
 

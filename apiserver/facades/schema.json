@@ -20324,27 +20324,6 @@
                     },
                     "description": "Life returns the life status of every supplied entity, where available."
                 },
-                "ModelConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelConfigResult"
-                        }
-                    },
-                    "description": "ModelConfig returns the current model's configuration."
-                },
-                "ProviderAddresses": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MachineAddressesResults"
-                        }
-                    },
-                    "description": "ProviderAddresses returns the list of all known provider addresses\nfor each given entity. Only machine tags are accepted."
-                },
                 "SetInstanceStatus": {
                     "type": "object",
                     "properties": {
@@ -20356,18 +20335,6 @@
                         }
                     },
                     "description": "SetInstanceStatus updates the instance status for each given entity.\nOnly machine tags are accepted."
-                },
-                "SetProviderAddresses": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetMachinesAddresses"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    },
-                    "description": "SetProviderAddresses updates the list of known provider addresses\nfor each given entity. Only machine tags are accepted."
                 },
                 "SetProviderNetworkConfig": {
                     "type": "object",
@@ -20392,15 +20359,6 @@
                         }
                     },
                     "description": "Status returns the status of each given entity."
-                },
-                "WatchForModelConfigChanges": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
-                        }
-                    },
-                    "description": "WatchForModelConfigChanges returns a NotifyWatcher that observes\nchanges to the model configuration.\nNote that although the NotifyWatchResult contains an Error field,\nit's not used because we are only returning a single watcher,\nso we use the regular error return."
                 },
                 "WatchModelMachineStartTimes": {
                     "type": "object",
@@ -20623,76 +20581,6 @@
                         "results"
                     ]
                 },
-                "MachineAddresses": {
-                    "type": "object",
-                    "properties": {
-                        "addresses": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Address"
-                            }
-                        },
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag",
-                        "addresses"
-                    ]
-                },
-                "MachineAddressesResult": {
-                    "type": "object",
-                    "properties": {
-                        "addresses": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Address"
-                            }
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "addresses"
-                    ]
-                },
-                "MachineAddressesResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MachineAddressesResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
-                "ModelConfigResult": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config"
-                    ]
-                },
                 "NetworkConfig": {
                     "type": "object",
                     "properties": {
@@ -20832,21 +20720,6 @@
                         "metric"
                     ]
                 },
-                "NotifyWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "NotifyWatcherId": {
-                            "type": "string"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "NotifyWatcherId"
-                    ]
-                },
                 "ProviderNetworkConfig": {
                     "type": "object",
                     "properties": {
@@ -20864,21 +20737,6 @@
                     "required": [
                         "tag",
                         "config"
-                    ]
-                },
-                "SetMachinesAddresses": {
-                    "type": "object",
-                    "properties": {
-                        "machine-addresses": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MachineAddresses"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine-addresses"
                     ]
                 },
                 "SetProviderNetworkConfig": {

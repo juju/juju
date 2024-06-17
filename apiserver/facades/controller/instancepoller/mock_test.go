@@ -7,7 +7,6 @@
 package instancepoller_test
 
 import (
-	"context"
 	"sort"
 	"sync"
 	"time"
@@ -26,7 +25,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 // mockState implements StateInterface and allows inspection of called
@@ -72,31 +70,6 @@ func (m *mockState) CheckSetProviderAddressesCall(c *gc.C, index int, addrs []ne
 		args[i] = addr
 	}
 	m.CheckCall(c, index, "SetProviderAddresses", args...)
-}
-
-// WatchForModelConfigChanges implements StateInterface.
-func (m *mockState) WatchForModelConfigChanges() state.NotifyWatcher {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.MethodCall(m, "WatchForModelConfigChanges")
-
-	w := NewMockConfigWatcher(m.NextErr())
-	m.configWatchers = append(m.configWatchers, w)
-	return w
-}
-
-// ModelConfig implements StateInterface.
-func (m *mockState) ModelConfig(_ context.Context) (*config.Config, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.MethodCall(m, "ModelConfig")
-
-	if err := m.NextErr(); err != nil {
-		return nil, err
-	}
-	return m.config, nil
 }
 
 // SetConfig updates the model config stored internally. Triggers a
@@ -243,12 +216,6 @@ func (m *mockState) ApplyOperation(op state.ModelOperation) error {
 		m.MethodCall(m, "ApplyOperation.Build", ops)
 	}
 	return err
-}
-
-func (m *mockState) ControllerConfig() (controller.Config, error) {
-	m.MethodCall(m, "ControllerConfig")
-
-	return jujutesting.FakeControllerConfig(), nil
 }
 
 type machineInfo struct {
