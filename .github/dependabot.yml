@@ -2,11 +2,26 @@
 
 version: 2
 updates:
-
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      # Check for updates to GitHub Actions every weekday
       interval: "daily"
-
-target-branch: 2.9
+    commit-message:
+      prefix: "build"
+      include: "scope"
+    assignees:
+      - "hpidcock"
+      - "anvial"
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    allow:
+      - dependency-name: "golang.org/x/*"
+    assignees:
+      - "hpidcock"
+      - "anvial"
+    target-branch: 2.9 # these should always go to 2.9 as it may contain security fixes
