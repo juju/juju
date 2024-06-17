@@ -551,6 +551,10 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_subnet_delete",
 		"trg_log_subnet_insert",
 		"trg_log_subnet_update",
+
+		"trg_log_machine_insert",
+		"trg_log_machine_update",
+		"trg_log_machine_delete",
 	)
 
 	// These are additional triggers that are not change log triggers, but
