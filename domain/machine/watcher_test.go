@@ -30,6 +30,8 @@ func (s *watcherSuite) TestWatchWithCreate(c *gc.C) {
 	// Create a machine
 	uuid, err := machineService.CreateMachine(context.Background(), "machine-1")
 	c.Assert(err, gc.IsNil)
+
+	// Assert the create change
 	watcherC.AssertChange(uuid)
 }
 
@@ -39,9 +41,18 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 	// Create a machine
 	uuid, err := machineService.CreateMachine(context.Background(), "machine-1")
 	c.Assert(err, gc.IsNil)
+
+	// Assert the first change
+	watcherC.AssertChange(uuid)
+
+	// Ensure that the changestream is idle.
+	s.ModelSuite.AssertChangeStreamIdle(c)
+
 	// Delete the machine
 	err = machineService.DeleteMachine(context.Background(), "machine-1")
 	c.Assert(err, gc.IsNil)
+
+	// Assert the second change
 	watcherC.AssertChange(uuid)
 }
 

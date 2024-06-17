@@ -17,6 +17,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_revision,secret_reference
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -38,6 +39,7 @@ const (
 	tableSecretRevision
 	tableSecretReference
 	tableSubnet
+	tableMachine
 )
 
 // ModelDDL is used to create model databases.
@@ -89,6 +91,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForSecretRevision("uuid", tableSecretRevision),
 		triggers.ChangeLogTriggersForSecretReference("secret_id", tableSecretReference),
 		triggers.ChangeLogTriggersForSubnet("uuid", tableSubnet),
+		triggers.ChangeLogTriggersForMachine("uuid", tableMachine),
 	)
 
 	// Generic triggers.
