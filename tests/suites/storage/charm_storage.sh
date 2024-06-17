@@ -8,6 +8,15 @@ run_charm_storage() {
 
 	ensure "${model_name}" "${file}"
 
+	echo "Assessing default storage pools"
+	juju list-storage-pools -m "${model_name}" --format json | jq '.loop | .provider' | check "loop"
+	juju list-storage-pools -m "${model_name}" --format json | jq '.rootfs | .provider' | check "rootfs"
+	juju list-storage-pools -m "${model_name}" --format json | jq '.tmpfs | .provider' | check "tmpfs"
+	if [ "${BOOTSTRAP_PROVIDER:-}" == "ec2" ]; then
+		juju list-storage-pools -m "${model_name}" --format json | jq '.["ebs-ssd"] | .provider' | check "ebs"
+	fi
+	echo "Default storage pools PASSED"
+
 	echo "Assess create-storage-pool"
 	juju create-storage-pool -m "${model_name}" loopy loop size=1G
 	juju create-storage-pool -m "${model_name}" rooty rootfs size=1G
@@ -17,18 +26,10 @@ run_charm_storage() {
 
 	# Assess the above created storage pools.
 	echo "Assessing storage pool"
-	if [ "${BOOTSTRAP_PROVIDER:-}" == "ec2" ]; then
-		juju list-storage-pools -m "${model_name}" --format json | jq '.ebs | .provider' | check "ebs"
-		juju list-storage-pools -m "${model_name}" --format json | jq '.["ebs-ssd"] | .provider' | check "ebs"
-		juju list-storage-pools -m "${model_name}" --format json | jq '.tmpfs | .provider' | check "tmpfs"
-		juju list-storage-pools -m "${model_name}" --format json | jq '.loop | .provider' | check "loop"
-		juju list-storage-pools -m "${model_name}" --format json | jq '.rootfs | .provider' | check "rootfs"
-	else
-		juju list-storage-pools -m "${model_name}" --format json | jq '.rooty | .provider' | check "rootfs"
-		juju list-storage-pools -m "${model_name}" --format json | jq '.tempy | .provider' | check "tmpfs"
-		juju list-storage-pools -m "${model_name}" --format json | jq '.loopy | .provider' | check "loop"
-		juju list-storage-pools -m "${model_name}" --format json | jq '.ebsy | .provider' | check "ebs"
-	fi
+	juju list-storage-pools -m "${model_name}" --format json | jq '.rooty | .provider' | check "rootfs"
+	juju list-storage-pools -m "${model_name}" --format json | jq '.tempy | .provider' | check "tmpfs"
+	juju list-storage-pools -m "${model_name}" --format json | jq '.loopy | .provider' | check "loop"
+	juju list-storage-pools -m "${model_name}" --format json | jq '.ebsy | .provider' | check "ebs"
 	echo "Storage pool PASSED"
 
 	# Assess charm storage with the filesystem storage provider
@@ -39,7 +40,7 @@ run_charm_storage() {
 		assess_rootfs
 	fi
 	# remove the application
-	juju remove-application dummy-storage-fs
+	juju remove-application --no-prompt dummy-storage-fs
 	wait_for "{}" ".applications"
 
 	# Assess charm storage with the filesystem storage provider
@@ -58,7 +59,7 @@ run_charm_storage() {
 		assess_loop_disk2
 	fi
 	# remove the application
-	juju remove-application dummy-storage-lp
+	juju remove-application --no-prompt dummy-storage-lp
 	wait_for "{}" ".applications"
 
 	# Assess tmpfs pool for the filesystem provider
@@ -69,7 +70,7 @@ run_charm_storage() {
 		assess_tmpfs
 	fi
 	# remove the application
-	juju remove-application dummy-storage-tp
+	juju remove-application --no-prompt dummy-storage-tp
 	wait_for "{}" ".applications"
 
 	#Assessing for persistent filesystem
@@ -79,7 +80,7 @@ run_charm_storage() {
 		assess_fs
 	fi
 	# remove application
-	juju remove-application dummy-storage-np
+	juju remove-application --no-prompt dummy-storage-np
 	wait_for "{}" ".applications"
 	# We remove storage data/4 since in Juju 2.3+ it is persistent. Otherwise it will interfere with the next test's results
 	juju remove-storage data/4
@@ -91,7 +92,7 @@ run_charm_storage() {
 		assess_multiple_fs
 	fi
 	# remove application
-	juju remove-application dummy-storage-mp
+	juju remove-application --no-prompt dummy-storage-mp
 	wait_for "{}" ".applications"
 	echo "All charm storage tests PASSED"
 
