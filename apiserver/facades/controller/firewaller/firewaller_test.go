@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/firewaller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -117,28 +118,6 @@ func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 	s.testInstanceId(c, s.firewaller)
 }
 
-type fakeStringsWatcher struct {
-	changes chan []string
-}
-
-func (*fakeStringsWatcher) Stop() error {
-	return nil
-}
-
-func (*fakeStringsWatcher) Kill() {}
-
-func (*fakeStringsWatcher) Wait() error {
-	return nil
-}
-
-func (*fakeStringsWatcher) Err() error {
-	return nil
-}
-
-func (w *fakeStringsWatcher) Changes() <-chan []string {
-	return w.changes
-}
-
 func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -147,8 +126,9 @@ func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
 	changes := make(chan []string, 3)
 	// Simulate initial event.
 	changes <- []string{"0", "1", "2"}
+	stringsWatcher := watchertest.NewMockStringsWatcher(changes)
 	s.machineService.EXPECT().WatchModelMachines(gomock.Any()).Return(
-		&fakeStringsWatcher{changes: changes}, nil)
+		stringsWatcher, nil)
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
 	s.testWatchModelMachines(c, s.firewaller)
 }
