@@ -39,6 +39,12 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		return nil, errors.Trace(err)
 	}
 
+	// Get model UUID
+	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	backend, storageBackend, err := NewStateBackends(st)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -50,10 +56,12 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		storageBackend,
 		serviceFactory.BlockDevice(),
 		serviceFactory.ControllerConfig(),
+		serviceFactory.Config(),
 		ctx.Resources(),
 		ctx.Auth(),
 		registry,
 		serviceFactory.Storage(registry),
 		ctx.Logger().Child("storageprovisioner"),
+		modelInfo.UUID,
 	)
 }

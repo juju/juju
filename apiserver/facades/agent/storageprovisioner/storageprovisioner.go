@@ -15,34 +15,16 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
 	"github.com/juju/juju/apiserver/internal"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
-	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
-
-// ControllerConfigService provides access to the controller configuration.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// BlockDeviceService instances can fetch and watch block devices on a machine.
-type BlockDeviceService interface {
-	BlockDevices(ctx context.Context, machineId string) ([]blockdevice.BlockDevice, error)
-	WatchBlockDevices(ctx context.Context, machineId string) (corewatcher.NotifyWatcher, error)
-}
-
-// StoragePoolGetter instances get a storage pool by name.
-type StoragePoolGetter interface {
-	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
-}
 
 // StorageProvisionerAPIv4 provides the StorageProvisioner API v4 facade.
 type StorageProvisionerAPIv4 struct {
@@ -60,6 +42,7 @@ type StorageProvisionerAPIv4 struct {
 	authorizer               facade.Authorizer
 	registry                 storage.ProviderRegistry
 	storagePoolGetter        StoragePoolGetter
+	modelConfigService       ModelConfigService
 	getScopeAuthFunc         common.GetAuthFunc
 	getStorageEntityAuthFunc common.GetAuthFunc
 	getMachineAuthFunc       common.GetAuthFunc
@@ -68,6 +51,7 @@ type StorageProvisionerAPIv4 struct {
 	logger                   logger.Logger
 
 	controllerUUID string
+	modelUUID      model.UUID
 }
 
 // NewStorageProvisionerAPIv4 creates a new server-side StorageProvisioner v3 facade.
@@ -78,11 +62,13 @@ func NewStorageProvisionerAPIv4(
 	sb StorageBackend,
 	blockDeviceService BlockDeviceService,
 	controllerConfigService ControllerConfigService,
+	modelConfigService ModelConfigService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	registry storage.ProviderRegistry,
 	storagePoolGetter StoragePoolGetter,
 	logger logger.Logger,
+	modelUUID model.UUID,
 ) (*StorageProvisionerAPIv4, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -119,7 +105,7 @@ func NewStorageProvisionerAPIv4(
 				// Controllers can access all volumes
 				// and file systems scoped to the environment.
 				isModelManager := authorizer.AuthController()
-				return isModelManager && tag == st.ModelTag()
+				return isModelManager && tag == names.NewModelTag(modelUUID.String())
 			case names.MachineTag:
 				return canAccessStorageMachine(tag, false)
 			case names.ApplicationTag:
@@ -254,6 +240,7 @@ func NewStorageProvisionerAPIv4(
 		authorizer:               authorizer,
 		registry:                 registry,
 		storagePoolGetter:        storagePoolGetter,
+		modelConfigService:       modelConfigService,
 		getScopeAuthFunc:         getScopeAuthFunc,
 		getStorageEntityAuthFunc: getStorageEntityAuthFunc,
 		getAttachmentAuthFunc:    getAttachmentAuthFunc,
@@ -263,6 +250,7 @@ func NewStorageProvisionerAPIv4(
 		logger:                   logger,
 
 		controllerUUID: controllerUUID,
+		modelUUID:      modelUUID,
 	}, nil
 }
 
@@ -763,7 +751,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
-	modelCfg, err := s.st.ModelConfig(ctx)
+	modelCfg, err := s.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return params.VolumeParamsResults{}, err
 	}
@@ -794,7 +782,7 @@ func (s *StorageProvisionerAPIv4) VolumeParams(ctx context.Context, args params.
 			return params.VolumeParams{}, err
 		}
 		volumeParams, err := storagecommon.VolumeParams(
-			ctx, volume, storageInstance, modelCfg.UUID(), s.controllerUUID,
+			ctx, volume, storageInstance, s.modelUUID.String(), s.controllerUUID,
 			modelCfg, s.storagePoolGetter, s.registry,
 		)
 		if err != nil {
@@ -912,7 +900,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
-	modelConfig, err := s.st.ModelConfig(ctx)
+	modelConfig, err := s.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return params.FilesystemParamsResults{}, err
 	}
@@ -938,7 +926,7 @@ func (s *StorageProvisionerAPIv4) FilesystemParams(ctx context.Context, args par
 			return params.FilesystemParams{}, err
 		}
 		filesystemParams, err := storagecommon.FilesystemParams(
-			ctx, filesystem, storageInstance, modelConfig.UUID(), s.controllerUUID,
+			ctx, filesystem, storageInstance, s.modelUUID.String(), s.controllerUUID,
 			modelConfig, s.storagePoolGetter, s.registry,
 		)
 		if err != nil {
