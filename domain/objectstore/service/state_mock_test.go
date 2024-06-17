@@ -14,9 +14,9 @@ import (
 	reflect "reflect"
 
 	changestream "github.com/juju/juju/core/changestream"
+	objectstore "github.com/juju/juju/core/objectstore"
 	watcher "github.com/juju/juju/core/watcher"
 	eventsource "github.com/juju/juju/core/watcher/eventsource"
-	objectstore "github.com/juju/juju/domain/objectstore"
 	gomock "go.uber.org/mock/gomock"
 )
 

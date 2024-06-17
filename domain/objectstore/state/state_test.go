@@ -10,10 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/domain/objectstore"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/internal/uuid"
 )
 
 type stateSuite struct {
@@ -32,8 +31,7 @@ func (s *stateSuite) TestGetMetadataNotFound(c *gc.C) {
 func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	metadata := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo",
 		Size: 666,
@@ -50,8 +48,7 @@ func (s *stateSuite) TestGetMetadataFound(c *gc.C) {
 func (s *stateSuite) TestListMetadataFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	metadata := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo",
 		Size: 666,
@@ -62,14 +59,13 @@ func (s *stateSuite) TestListMetadataFound(c *gc.C) {
 
 	received, err := st.ListMetadata(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(received, gc.DeepEquals, []objectstore.Metadata{metadata})
+	c.Check(received, gc.DeepEquals, []coreobjectstore.Metadata{metadata})
 }
 
 func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	metadata := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo",
 		Size: 666,
@@ -86,14 +82,12 @@ func (s *stateSuite) TestPutMetadataConflict(c *gc.C) {
 func (s *stateSuite) TestPutMetadataWithSameHashAndSize(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	metadata1 := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata1 := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo-1",
 		Size: 666,
 	}
-	metadata2 := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata2 := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo-2",
 		Size: 666,
@@ -113,14 +107,12 @@ func (s *stateSuite) TestPutMetadataWithSameHashDifferentSize(c *gc.C) {
 	// cause of this, is if the hash is the same, but the size is different.
 	// There is a broken hash function somewhere.
 
-	metadata1 := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata1 := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo-1",
 		Size: 666,
 	}
-	metadata2 := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata2 := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo-2",
 		Size: 42,
@@ -137,11 +129,10 @@ func (s *stateSuite) TestPutMetadataMultipleTimes(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
 	// Ensure that we can add the same metadata multiple times.
-	metadatas := make([]objectstore.Metadata, 10)
+	metadatas := make([]coreobjectstore.Metadata, 10)
 
 	for i := 0; i < 10; i++ {
-		metadatas[i] = objectstore.Metadata{
-			UUID: uuid.MustNewUUID().String(),
+		metadatas[i] = coreobjectstore.Metadata{
 			Hash: fmt.Sprintf("hash-%d", i),
 			Path: fmt.Sprintf("blah-foo-%d", i),
 			Size: 666,
@@ -168,14 +159,12 @@ func (s *stateSuite) TestRemoveMetadataNotExists(c *gc.C) {
 func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	metadata1 := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata1 := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo-1",
 		Size: 666,
 	}
-	metadata2 := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata2 := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo-2",
 		Size: 666,
@@ -198,14 +187,12 @@ func (s *stateSuite) TestRemoveMetadataDoesNotRemoveMetadataIfReferenced(c *gc.C
 func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	metadata1 := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata1 := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo-1",
 		Size: 666,
 	}
-	metadata2 := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata2 := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo-2",
 		Size: 666,
@@ -230,8 +217,7 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, objectstoreerrors.ErrNotFound)
 
 	// Add a new metadata with the same hash and size.
-	metadata3 := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata3 := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo-3",
 		Size: 666,
@@ -250,8 +236,7 @@ func (s *stateSuite) TestRemoveMetadataCleansUpEverything(c *gc.C) {
 func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	metadata := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo-1",
 		Size: 666,
@@ -274,8 +259,7 @@ func (s *stateSuite) TestRemoveMetadataThenAddAgain(c *gc.C) {
 func (s *stateSuite) TestListMetadata(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
-	metadata := objectstore.Metadata{
-		UUID: uuid.MustNewUUID().String(),
+	metadata := coreobjectstore.Metadata{
 		Hash: "hash",
 		Path: "blah-foo-1",
 		Size: 666,

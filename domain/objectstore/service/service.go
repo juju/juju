@@ -14,18 +14,16 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/objectstore"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods for the coreobjectstore.
 type State interface {
 	// GetMetadata returns the persistence metadata for the specified path.
-	GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error)
+	GetMetadata(ctx context.Context, path string) (coreobjectstore.Metadata, error)
 	// PutMetadata adds a new specified path for the persistence metadata.
-	PutMetadata(ctx context.Context, metadata objectstore.Metadata) error
+	PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) error
 	// ListMetadata returns the persistence metadata for all paths.
-	ListMetadata(ctx context.Context) ([]objectstore.Metadata, error)
+	ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, error)
 	// RemoveMetadata removes the specified path for the persistence metadata.
 	RemoveMetadata(ctx context.Context, path string) error
 	// InitialWatchStatement returns the table and the initial watch statement
@@ -84,13 +82,7 @@ func (s *Service) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata,
 
 // PutMetadata adds a new specified path for the persistence metadata.
 func (s *Service) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) error {
-	uuid, err := uuid.NewUUID()
-	if err != nil {
-		return err
-	}
-
-	err = s.st.PutMetadata(ctx, objectstore.Metadata{
-		UUID: uuid.String(),
+	err := s.st.PutMetadata(ctx, coreobjectstore.Metadata{
 		Hash: metadata.Hash,
 		Path: metadata.Path,
 		Size: metadata.Size,
