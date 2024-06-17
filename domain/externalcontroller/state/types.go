@@ -6,8 +6,6 @@ package state
 import (
 	"database/sql"
 
-	"github.com/canonical/sqlair"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -59,79 +57,10 @@ type Model struct {
 
 type Controllers []Controller
 
-// uuids is a slice of controller uuids from the database.
-type uuids []string
+type ModelUUIDs []string
 
-// updateStatements contains the prepared statements used by
-// updateExternalControllerTx.
-type updateStatements struct {
-	// upsertController upserts the controller alias and certificate in
-	// external_controller.
-	upsertController *sqlair.Statement
-	// deleteUnusedAddresses removes addresses not passed in the uuids slice
-	// from external_controller_addresses.
-	deleteUnusedAddresses *sqlair.Statement
-	// insertNewAddresses adds new addresses to external_controller_addresses,
-	// leaving existing ones untouched.
-	insertNewAddresses *sqlair.Statement
-	// upsertModel upserts the model uuids associated with the controller in
-	// external_model.
-	upsertModel *sqlair.Statement
-}
-
-// NewUpdateStatements prepares the SQLair statements used by
-// updateExternalControllerTx.
-func NewUpdateStatements() (*updateStatements, error) {
-	upsertControllerQuery := `
-INSERT INTO external_controller (uuid, alias, ca_cert)
-VALUES ($Controller.uuid, $Controller.alias, $Controller.ca_cert)
-  ON CONFLICT(uuid) DO UPDATE SET alias=excluded.alias, ca_cert=excluded.ca_cert
-`
-	upsertControllerStmt, err := sqlair.Prepare(upsertControllerQuery, Controller{})
-	if err != nil {
-		return nil, errors.Annotatef(err, "preparing %q:", upsertControllerQuery)
-	}
-
-	deleteUnusedAddressesQuery := `
-DELETE FROM external_controller_address
-WHERE  controller_uuid = $Controller.uuid
-AND    address NOT IN ($uuids[:])
-`
-	deleteUnusedAddressesStmt, err := sqlair.Prepare(deleteUnusedAddressesQuery, Controller{}, uuids{})
-	if err != nil {
-		return nil, errors.Annotatef(err, "preparing %q:", deleteUnusedAddressesQuery)
-	}
-
-	insertNewAddressesQuery := `
-INSERT INTO external_controller_address (uuid, controller_uuid, address)
-VALUES ($Address.uuid, $Address.controller_uuid, $Address.address)
-  ON CONFLICT(controller_uuid, address) DO NOTHING
-`
-	insertNewAddressesStmt, err := sqlair.Prepare(insertNewAddressesQuery, Address{})
-	if err != nil {
-		return nil, errors.Annotatef(err, "preparing %q:", insertNewAddressesQuery)
-	}
-
-	// TODO (manadart 2023-05-13): Check current implementation and see if
-	// we need to delete models as we do for addresses, or whether this
-	// (additive) approach is what we have now.
-	upsertModelQuery := `
-INSERT INTO external_model (uuid, controller_uuid)
-VALUES ($Model.uuid, $Model.controller_uuid)
-  ON CONFLICT(uuid) DO UPDATE SET controller_uuid=excluded.controller_uuid
-`
-	upsertModelStmt, err := sqlair.Prepare(upsertModelQuery, Model{})
-	if err != nil {
-		return nil, errors.Annotatef(err, "preparing %q:", upsertModelQuery)
-	}
-
-	return &updateStatements{
-		upsertController:      upsertControllerStmt,
-		deleteUnusedAddresses: deleteUnusedAddressesStmt,
-		insertNewAddresses:    insertNewAddressesStmt,
-		upsertModel:           upsertModelStmt,
-	}, nil
-}
+// ControllerUUIDs is a slice of controller uuids from the database.
+type ControllerUUIDs []string
 
 // ToControllerInfo Controllers to a slice of crossmodel.ControllerInfo
 // structs. This method makes sure only unique models and addresses are mapped
