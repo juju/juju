@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
@@ -61,6 +62,9 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 
 func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisioner.BlockDeviceService, watcherRegistry facade.WatcherRegistry) *storageprovisioner.StorageProvisionerAPIv4 {
 	serviceFactory := s.ControllerServiceFactory(c)
+	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
 	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.ControllerModel(c), serviceFactory.Cloud(), serviceFactory.Credential())
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
@@ -82,11 +86,13 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 		storageBackend,
 		blockDeviceService,
 		s.ControllerServiceFactory(c).ControllerConfig(),
+		s.ControllerServiceFactory(c).Config(),
 		s.resources,
 		s.authorizer,
 		registry,
 		storageService,
 		loggertesting.WrapCheckLog(c),
+		modelInfo.UUID,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api
@@ -367,6 +373,14 @@ func (s *iaasProvisionerSuite) TestFilesystemAttachments(c *gc.C) {
 }
 
 func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
+	// Set custom resource-tags in model config, and check they show up in the
+	// returned volume params
+	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(
+		context.Background(), map[string]any{
+			config.ResourceTagsKey: "origin=v2 owner=Canonical",
+		}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	// Only IAAS models support block storage right now.
 	s.setupVolumes(c)
 	results, err := s.api.VolumeParams(context.Background(), params.Entities{
@@ -387,6 +401,8 @@ func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
 				Tags: map[string]string{
 					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
+					"origin":            "v2",
+					"owner":             "Canonical",
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -402,6 +418,8 @@ func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
 				Tags: map[string]string{
 					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
+					"origin":            "v2",
+					"owner":             "Canonical",
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -417,6 +435,8 @@ func (s *iaasProvisionerSuite) TestVolumeParams(c *gc.C) {
 				Tags: map[string]string{
 					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
+					"origin":            "v2",
+					"owner":             "Canonical",
 				},
 				Attachment: &params.VolumeAttachmentParams{
 					MachineTag: "machine-0",
@@ -529,6 +549,14 @@ func (s *iaasProvisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 }
 
 func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
+	// Set custom resource-tags in model config, and check they show up in the
+	// returned filesystem params
+	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(
+		context.Background(), map[string]any{
+			config.ResourceTagsKey: "origin=v2 owner=Canonical",
+		}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.setupFilesystems(c)
 	results, err := s.api.FilesystemParams(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "filesystem-0-0"}, {Tag: "filesystem-1"}, {Tag: "filesystem-42"}},
@@ -543,6 +571,8 @@ func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
 				Tags: map[string]string{
 					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
+					"origin":            "v2",
+					"owner":             "Canonical",
 				},
 			}},
 			{Result: params.FilesystemParams{
@@ -552,6 +582,8 @@ func (s *iaasProvisionerSuite) TestFilesystemParams(c *gc.C) {
 				Tags: map[string]string{
 					tags.JujuController: testing.ControllerTag.Id(),
 					tags.JujuModel:      testing.ModelTag.Id(),
+					"origin":            "v2",
+					"owner":             "Canonical",
 				},
 			}},
 			{Error: &params.Error{Message: "permission denied", Code: "unauthorized access"}},

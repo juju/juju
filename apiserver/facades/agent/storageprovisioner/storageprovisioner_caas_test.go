@@ -53,6 +53,8 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	serviceFactory := s.ControllerServiceFactory(c)
+	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
 
 	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(m, serviceFactory.Cloud(), serviceFactory.Credential())
 	c.Assert(err, jc.ErrorIsNil)
@@ -74,11 +76,13 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 		storageBackend,
 		s.DefaultModelServiceFactory(c).BlockDevice(),
 		s.ControllerServiceFactory(c).ControllerConfig(),
+		s.ControllerServiceFactory(c).Config(),
 		s.resources,
 		s.authorizer,
 		registry,
 		storageService,
 		loggertesting.WrapCheckLog(c),
+		modelInfo.UUID,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -179,9 +183,11 @@ func (s *caasProvisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 	s.setupFilesystems(c)
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
+	modelInfo, err := s.ControllerServiceFactory(c).ModelInfo().GetModelInfo(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "application-mariadb"},
-		{Tag: names.NewModelTag(s.st.ModelUUID()).String()},
+		{Tag: names.NewModelTag(modelInfo.UUID.String()).String()},
 		{Tag: "environ-adb650da-b77b-4ee8-9cbb-d57a9a592847"},
 		{Tag: "unit-mysql-0"}},
 	}

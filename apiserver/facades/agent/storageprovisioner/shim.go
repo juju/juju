@@ -20,10 +20,8 @@ import (
 
 type Backend interface {
 	state.EntityFinder
-	state.ModelAccessor
 
 	MachineInstanceId(names.MachineTag) (instance.Id, error)
-	ModelTag() names.ModelTag
 	WatchMachine(names.MachineTag) (state.NotifyWatcher, error)
 	WatchApplications() state.StringsWatcher
 }

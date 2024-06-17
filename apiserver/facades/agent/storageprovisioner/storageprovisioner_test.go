@@ -40,6 +40,9 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 	authorizer := &apiservertesting.FakeAuthorizer{Tag: tag}
 	backend, storageBackend, err := storageprovisioner.NewStateBackends(s.st)
 	c.Assert(err, jc.ErrorIsNil)
+
+	modelInfo, err := s.ControllerServiceFactory(c).ModelInfo().GetModelInfo(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
 	_, err = storageprovisioner.NewStorageProvisionerAPIv4(
 		context.Background(),
 		nil,
@@ -47,10 +50,12 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 		storageBackend,
 		s.DefaultModelServiceFactory(c).BlockDevice(),
 		s.ControllerServiceFactory(c).ControllerConfig(),
+		s.ControllerServiceFactory(c).Config(),
 		common.NewResources(),
 		authorizer,
 		nil, nil,
 		loggertesting.WrapCheckLog(c),
+		modelInfo.UUID,
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

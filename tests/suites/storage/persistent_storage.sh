@@ -66,7 +66,8 @@ run_persistent_storage() {
 	echo "Check properties of single filesystem storage unit: PASSED."
 
 	# assert charm removal message for single block and filesystem storage
-	removal_msg=$(juju remove-application dummy-storage 2>&1)
+	echo "Remove application, check that storage is also removed"
+	removal_msg=$(juju remove-application --no-prompt dummy-storage 2>&1)
 	echo "${removal_msg}" | sed -sn 3p | sed 's/^-//' | check "will remove storage single-fs/1"
 	echo "${removal_msg}" | sed -sn 4p | sed 's/^-//' | check "will detach storage single-blk/0"
 	#
@@ -77,6 +78,7 @@ run_persistent_storage() {
 	wait_for "{}" ".applications" # we use this wait_for command as an indicator that the application
 	# status has changed and now we can check for the storage status and assert that indeed the
 	# single filesystem storage unit has been removed successfully.
+	sleep 5 # avoid races, sometimes the storage disappears just after the app
 	assert_storage false '.storage | has("single-fs/1")'
 
 	echo "Checking total number of storage unit(s)."
@@ -110,7 +112,7 @@ run_persistent_storage() {
 	assert_storage "attached" '.volumes | ."0" | .status | .current'
 
 	# remove charm
-	juju remove-application dummy-storage
+	juju remove-application --no-prompt dummy-storage
 	# wait for application to be removed
 	wait_for "{}" ".applications"
 	# persistent storage should remain after remove-application
