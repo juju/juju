@@ -31,6 +31,7 @@ WHEN
 	NEW.life_id != OLD.life_id OR
 	(NEW.base != OLD.base OR (NEW.base IS NOT NULL AND OLD.base IS NULL) OR (NEW.base IS NULL AND OLD.base IS NOT NULL)) OR
 	(NEW.nonce != OLD.nonce OR (NEW.nonce IS NOT NULL AND OLD.nonce IS NULL) OR (NEW.nonce IS NULL AND OLD.nonce IS NOT NULL)) OR
+	(NEW.password_hash_algorithm_id != OLD.password_hash_algorithm_id OR (NEW.password_hash_algorithm_id IS NOT NULL AND OLD.password_hash_algorithm_id IS NULL) OR (NEW.password_hash_algorithm_id IS NULL AND OLD.password_hash_algorithm_id IS NOT NULL)) OR
 	(NEW.password_hash != OLD.password_hash OR (NEW.password_hash IS NOT NULL AND OLD.password_hash IS NULL) OR (NEW.password_hash IS NULL AND OLD.password_hash IS NOT NULL)) OR
 	(NEW.clean != OLD.clean OR (NEW.clean IS NOT NULL AND OLD.clean IS NULL) OR (NEW.clean IS NULL AND OLD.clean IS NOT NULL)) OR
 	(NEW.force_destroyed != OLD.force_destroyed OR (NEW.force_destroyed IS NOT NULL AND OLD.force_destroyed IS NULL) OR (NEW.force_destroyed IS NULL AND OLD.force_destroyed IS NOT NULL)) OR
