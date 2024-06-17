@@ -24,4 +24,4 @@ updates:
     assignees:
       - "hpidcock"
       - "anvial"
-    target-branch: 2.9 # these should always go to 2.9 as it may contain security fixes
+    target-branch: "2.9" # these should always go to 2.9 as it may contain security fixes
