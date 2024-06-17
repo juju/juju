@@ -5,8 +5,8 @@ package state
 
 import (
 	"context"
-	"database/sql"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
 	coredb "github.com/juju/juju/core/database"
@@ -29,67 +29,74 @@ func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
 }
 
 // SetFlag sets the value of a flag.
-// Description is used to describe the flag and it's potential state.
-func (s *State) SetFlag(ctx context.Context, flag string, value bool, description string) error {
+// Description is used to describe the flag and its potential state.
+func (s *State) SetFlag(ctx context.Context, flagName string, value bool, description string) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	query := `
-INSERT INTO flag (name, value, description)
-VALUES (?, ?, ?)
+	flag := dbFlag{Name: flagName, Value: value, Description: description}
+
+	stmt, err := s.Prepare(`
+INSERT INTO   flag (name, value, description)
+VALUES        ($dbFlag.*)
 ON CONFLICT (name) DO UPDATE SET value = excluded.value,
                                  description = excluded.description;
-`
+`, flag)
+	if err != nil {
+		return errors.Annotate(err, "preparing set flag stmt")
+	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, query, flag, value, description)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+		err := tx.Query(ctx, stmt, flag).Get(&outcome)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if affected, err := result.RowsAffected(); err != nil {
+		if affected, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Trace(err)
 		} else if affected != 1 {
-			return errors.Errorf("unexpected number of rows affected: %d", affected)
+			return errors.Errorf("unexpected number of rows affected: %d (should be 1)", affected)
 		}
 		return nil
 	})
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(domain.CoerceError(err))
 	}
 
-	s.logger.Debugf("set flag %q to %v", flag, value)
+	s.logger.Debugf("set flag %q to %v", flagName, value)
 
 	return nil
 }
 
 // GetFlag returns the value of a flag.
-func (s *State) GetFlag(ctx context.Context, flag string) (bool, error) {
+func (s *State) GetFlag(ctx context.Context, flagName string) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 
-	query := `
-SELECT value
-FROM flag
-WHERE name = ?;
-`
+	flag := dbFlag{Name: flagName}
 
-	var value bool
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, query, flag)
-		if err := row.Scan(&value); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return errors.NotFoundf("flag %q", flag)
-			}
-			return errors.Trace(err)
+	stmt, err := s.Prepare(`
+SELECT &dbFlag.value
+FROM   flag
+WHERE  name = $dbFlag.name;
+	`, flag)
+	if err != nil {
+		return false, errors.Annotate(err, "preparing select flag stmt")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, flag).Get(&flag)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.NotFoundf("flag %q", flagName)
 		}
-		return nil
+		return errors.Trace(err)
 	})
 	if err != nil {
-		return false, errors.Trace(err)
+		return false, errors.Trace(domain.CoerceError(err))
 	}
-	return value, nil
+	return flag.Value, nil
 }

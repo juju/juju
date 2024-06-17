@@ -5,8 +5,8 @@ package state
 
 import (
 	"context"
-	"database/sql"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -48,23 +48,27 @@ func (s *stateSuite) TestSetFlag(c *gc.C) {
 	err := s.state.SetFlag(context.Background(), "foo", true, "foo set to true")
 	c.Assert(err, jc.ErrorIsNil)
 
-	var (
-		value       bool
-		description string
-	)
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT value, description FROM flag WHERE name = 'foo'").Scan(&value, &description)
+	var flag dbFlag
+	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		stmt, err := sqlair.Prepare(`
+SELECT (value, description) AS (&dbFlag.*) 
+FROM   flag 
+WHERE  name = 'foo'`, flag)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if !value {
-			return errors.Errorf("unexpected value: %v", value)
+		err = tx.Query(ctx, stmt).Get(&flag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if !flag.Value {
+			return errors.Errorf("unexpected value: %v", flag.Value)
 		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value, jc.IsTrue)
-	c.Assert(description, gc.Equals, "foo set to true")
+	c.Assert(flag.Value, jc.IsTrue)
+	c.Assert(flag.Description, gc.Equals, "foo set to true")
 }
 
 func (s *stateSuite) TestSetFlagAlreadyFound(c *gc.C) {
