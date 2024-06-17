@@ -218,20 +218,6 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		ctx.Infof("ignoring dry-run flag for local charms")
 	}
 
-	modelCfg, err := getModelConfig(deployAPI)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	// Avoid deploying charm if it's not valid for the model.
-	base, err := corebase.GetBaseFromSeries(d.userCharmURL.Series)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := d.validateCharmBaseWithName(base, userCharmURL.Name, modelCfg.ImageStream()); err != nil {
-		return errors.Trace(err)
-	}
-
 	if err := d.validateCharmFlags(); err != nil {
 		return errors.Trace(err)
 	}
@@ -247,7 +233,40 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	platform := utils.MakePlatform(d.constraints, base, d.modelConstraints)
+	modelCfg, err := getModelConfig(deployAPI)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	imageStream := modelCfg.ImageStream()
+	workloadBases, err := SupportedJujuBases(jujuclock.WallClock.Now(), d.baseFlag, imageStream)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	supportedBases, err := corecharm.ComputedBases(charmInfo.Charm())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	baseSelector, err := corecharm.ConfigureBaseSelector(corecharm.SelectorConfig{
+		Config:              modelCfg,
+		Force:               d.force,
+		Logger:              logger,
+		RequestedBase:       d.baseFlag,
+		SupportedCharmBases: supportedBases,
+		WorkloadBases:       workloadBases,
+		UsingImageID:        d.constraints.HasImageID() || d.modelConstraints.HasImageID(),
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	selectedBase, err := baseSelector.CharmBase()
+	if err = charmValidationError(charmInfo.Meta.Name, errors.Trace(err)); err != nil {
+		return errors.Trace(err)
+	}
+
+	platform := utils.MakePlatform(d.constraints, selectedBase, d.modelConstraints)
 	origin, err := utils.MakeOrigin(charm.Local, userCharmURL.Revision, charm.Channel{}, platform)
 	if err != nil {
 		return errors.Trace(err)
