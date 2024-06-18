@@ -484,7 +484,6 @@ func (d *factory) newDeployCharm() deployCharm {
 		storage:          d.storage,
 		trust:            d.trust,
 
-		validateCharmBaseWithName:             d.validateCharmBaseWithName,
 		validateResourcesNeededForLocalDeploy: d.validateResourcesNeededForLocalDeploy,
 	}
 }
@@ -541,9 +540,6 @@ func (dk *localPreDeployerKind) CreateDeployer(_ context.Context, d factory) (De
 	if deployCharm.baseFlag.Empty() {
 		return nil, errors.Errorf("must provide a base with the `--base` flag when deploying new copies of local charms already deployed to the model")
 	}
-	if err := d.validateCharmBaseWithName(dk.base, dk.userCharmURL.Name, dk.imageStream); err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &predeployedLocalCharm{
 		deployCharm:  deployCharm,
 		userCharmURL: dk.userCharmURL,
@@ -555,9 +551,6 @@ func (dk *localCharmDeployerKind) CreateDeployer(_ context.Context, d factory) (
 	// Avoid deploying charm if the charm base is not correct for the
 	// available image streams.
 	var err error
-	if err = d.validateCharmBaseWithName(dk.base, dk.curl.Name, dk.imageStream); err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err := d.validateResourcesNeededForLocalDeploy(dk.ch.Meta()); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -649,30 +642,6 @@ var getModelConfig = func(api ModelConfigGetter) (*config.Config, error) {
 	}
 
 	return config.New(config.NoDefaults, attrs)
-}
-
-func (d *factory) validateCharmBase(base corebase.Base, imageStream string) error {
-	// TODO(sidecar): handle systems
-
-	if d.force {
-		return nil
-	}
-	// attempt to locate the charm base from the list of known juju bases
-	// that we currently support.
-	for _, workloadBase := range SupportedJujuBases() {
-		if workloadBase == base {
-			return nil
-		}
-	}
-	return errors.NotSupportedf("base: %s", base)
-}
-
-// validateCharmBaseWithName calls the validateCharmBase, but handles the
-// error return value to check for NotSupported error and returns a custom error
-// message if that's found.
-func (d *factory) validateCharmBaseWithName(base corebase.Base, name string, imageStream string) error {
-	err := d.validateCharmBase(base, imageStream)
-	return charmValidationError(name, errors.Trace(err))
 }
 
 // charmValidationError consumes an error along with a charmSeries and name
