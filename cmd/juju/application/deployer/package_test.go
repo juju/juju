@@ -10,7 +10,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/deploy_mock.go github.com/juju/juju/cmd/juju/application/deployer DeployerAPI,CharmReader,DeployConfigFlag
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/deployer_mock.go github.com/juju/juju/cmd/juju/application/deployer ModelCommand,ConsumeDetails,ModelConfigGetter
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/deployer_mock.go github.com/juju/juju/cmd/juju/application/deployer ModelCommand,ConsumeDetails,CharmDeployAPI
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/resolver_mock.go github.com/juju/juju/cmd/juju/application/deployer Resolver
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/api_mock.go github.com/juju/juju/api AllWatch
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/modelcmd_mock.go github.com/juju/juju/cmd/modelcmd Filesystem

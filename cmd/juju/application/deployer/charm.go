@@ -49,8 +49,6 @@ type deployCharm struct {
 	baseFlag         corebase.Base
 	storage          map[string]storage.Directive
 	trust            bool
-
-	validateResourcesNeededForLocalDeploy func(charmMeta *charm.Meta) error
 }
 
 func checkCharmFormat(m ModelCommand, charmInfo *apicharms.CharmInfo) error {
@@ -238,19 +236,7 @@ func (d *predeployedLocalCharm) PrepareAndDeploy(ctx *cmd.Context, deployAPI Dep
 		return errors.Trace(err)
 	}
 
-	charmInfo, err := deployAPI.CharmInfo(d.userCharmURL.String())
-	if err != nil {
-		return errors.Trace(err)
-	}
 	ctx.Infof(formatLocatedText(d.userCharmURL, commoncharm.Origin{}))
-	if err := checkCharmFormat(d.model, charmInfo); err != nil {
-		return err
-	}
-
-	if err := d.validateResourcesNeededForLocalDeploy(charmInfo.Meta); err != nil {
-		return errors.Trace(err)
-	}
-
 	platform := utils.MakePlatform(d.constraints, d.base, d.modelConstraints)
 	origin, err := utils.MakeOrigin(charm.Local, userCharmURL.Revision, charm.Channel{}, platform)
 	if err != nil {
