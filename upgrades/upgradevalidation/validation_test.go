@@ -134,7 +134,7 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *g
 	defer ctrl.Finish()
 
 	st := mocks.NewMockState(ctrl)
-	st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}, nil)
+	st.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(map[string]int{"xenial": 1, "vivid": 2, "trusty": 3}, nil)
 
 	blocker, err := upgradevalidation.CheckForDeprecatedUbuntuSeriesForModel("", nil, st, nil)
 	c.Assert(err, jc.ErrorIsNil)

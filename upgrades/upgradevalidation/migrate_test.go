@@ -23,7 +23,7 @@ var winVersions = []string{
 	"win2016", "win2016hv", "win2019", "win7", "win8", "win81", "win10",
 }
 
-var ubuntuVersions = []string{
+var unsupportedUbuntuVersions = []string{
 	"12.04",
 	"12.10",
 	"13.04",
@@ -46,7 +46,6 @@ var ubuntuVersions = []string{
 	"22.10",
 	"23.04",
 	"23.10",
-	"24.04",
 }
 
 func makeBases(os string, vers []string) []state.Base {
@@ -119,7 +118,7 @@ func (s *migrateSuite) setupMocks(c *gc.C) (*gomock.Controller, environscloudspe
 	s.st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 	// - check if the model has win machines;
 	s.st.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
-	s.st.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	s.st.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
 	// - check no charm store charms
 	s.st.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
 

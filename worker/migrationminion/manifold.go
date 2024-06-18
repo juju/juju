@@ -20,6 +20,8 @@ type Logger interface {
 	Errorf(string, ...interface{})
 	Infof(string, ...interface{})
 	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Criticalf(string, ...interface{})
 }
 
 // ManifoldConfig defines the names of the manifolds on which a
@@ -98,6 +100,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Clock:             config.Clock,
 		APIOpen:           config.APIOpen,
 		ValidateMigration: config.ValidateMigration,
+		NewFacade:         config.NewFacade,
 		Logger:            config.Logger,
 	})
 	if err != nil {
