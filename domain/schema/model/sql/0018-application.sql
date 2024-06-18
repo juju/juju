@@ -10,7 +10,10 @@ CREATE TABLE application (
     password_hash TEXT,
     CONSTRAINT fk_application_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_application_password_hash_algorithm
+    FOREIGN KEY (password_hash_algorithm_id)
+    REFERENCES password_hash_algorithm (id)
 );
 
 CREATE UNIQUE INDEX idx_application_name
