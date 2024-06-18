@@ -1119,21 +1119,21 @@ func (srv *Server) serveConn(
 	host string,
 ) error {
 	codec := jsoncodec.NewWebsocket(wsConn.Conn)
-	recorderFactory := observer.NewRecorderFactory(
-		apiObserver, nil, observer.NoCaptureArgs)
+	recorderFactory := observer.NewRecorderFactory(apiObserver, nil, observer.NoCaptureArgs)
 	conn := rpc.NewConn(codec, recorderFactory)
+
+	modelService := srv.shared.serviceFactoryGetter.FactoryForModel(database.ControllerNS).Model()
 
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying
 	// the API version used.
 	resolvedModelUUID := modelUUID
-	statePool := srv.shared.statePool
 	if modelUUID == "" {
-		systemState, err := statePool.SystemState()
+		info, err := modelService.ControllerModel(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		resolvedModelUUID = systemState.ModelUUID()
+		resolvedModelUUID = info.UUID.String()
 	}
 
 	tracer, err := srv.shared.tracerGetter.GetTracer(
@@ -1161,7 +1161,7 @@ func (srv *Server) serveConn(
 	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(resolvedModelUUID)
 
 	var handler *apiHandler
-	st, err := statePool.Get(resolvedModelUUID)
+	st, err := srv.shared.statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
 		handler, err = newAPIHandler(
