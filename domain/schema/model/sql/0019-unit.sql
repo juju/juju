@@ -1,6 +1,6 @@
 CREATE TABLE unit (
     uuid TEXT NOT NULL PRIMARY KEY,
-    unit_id TEXT NOT NULL,
+    name TEXT NOT NULL,
     application_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
@@ -15,8 +15,8 @@ CREATE TABLE unit (
     REFERENCES life (id)
 );
 
-CREATE UNIQUE INDEX idx_unit_id
-ON unit (unit_id);
+CREATE UNIQUE INDEX idx_unit_name
+ON unit (name);
 
 CREATE INDEX idx_unit_application
 ON unit (application_uuid);

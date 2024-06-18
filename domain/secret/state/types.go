@@ -33,8 +33,8 @@ type entityRef struct {
 }
 
 type unit struct {
-	UUID     string `db:"uuid"`
-	UnitName string `db:"unit_id"`
+	UUID string `db:"uuid"`
+	Name string `db:"name"`
 }
 
 type secretRef struct {
@@ -156,7 +156,7 @@ type secretUnitConsumer struct {
 }
 
 type secretRemoteUnitConsumer struct {
-	UnitID          string `db:"unit_id"`
+	UnitName        string `db:"unit_name"`
 	SecretID        string `db:"secret_id"`
 	CurrentRevision int    `db:"current_revision"`
 }

@@ -72,7 +72,7 @@ func (s *stateSuite) TestCreateApplication(c *gc.C) {
 
 	var unitID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT unit_id FROM unit").Scan(&unitID)
+		err := tx.QueryRowContext(ctx, "SELECT name FROM unit").Scan(&unitID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -105,7 +105,7 @@ func (s *stateSuite) TestUpdateApplication(c *gc.C) {
 
 	var unitID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT unit_id FROM unit").Scan(&unitID)
+		err := tx.QueryRowContext(ctx, "SELECT name FROM unit").Scan(&unitID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -182,7 +182,7 @@ func (s *stateSuite) TestAddUnits(c *gc.C) {
 
 	var unitID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT unit_id FROM unit").Scan(&unitID)
+		err := tx.QueryRowContext(ctx, "SELECT name FROM unit").Scan(&unitID)
 		if err != nil {
 			return errors.Trace(err)
 		}

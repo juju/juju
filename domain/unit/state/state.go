@@ -35,15 +35,15 @@ func (st *State) DeleteUnit(ctx context.Context, unitName string) error {
 		return errors.Trace(err)
 	}
 
-	unitIDParam := sqlair.M{"unit_id": unitName}
+	unitIDParam := sqlair.M{"name": unitName}
 
-	queryUnit := `SELECT uuid as &M.uuid FROM unit WHERE unit_id = $M.unit_id`
+	queryUnit := `SELECT uuid as &M.uuid FROM unit WHERE name = $M.name`
 	queryUnitStmt, err := st.Prepare(queryUnit, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	deleteUnit := `DELETE FROM unit WHERE unit_id = $M.unit_id`
+	deleteUnit := `DELETE FROM unit WHERE name = $M.name`
 	deleteUnitStmt, err := st.Prepare(deleteUnit, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
@@ -51,7 +51,7 @@ func (st *State) DeleteUnit(ctx context.Context, unitName string) error {
 
 	deleteNode := `
 DELETE FROM net_node WHERE uuid IN
-(SELECT net_node_uuid FROM unit WHERE unit_id = $M.unit_id) 
+(SELECT net_node_uuid FROM unit WHERE name = $M.name) 
 `
 	deleteNodeStmt, err := st.Prepare(deleteNode, sqlair.M{})
 	if err != nil {

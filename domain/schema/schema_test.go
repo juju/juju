@@ -709,7 +709,7 @@ VALUES (?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, "",
 	netNodeUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, "", netNodeUUID)
 	unitUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, `INSERT INTO unit (uuid, unit_id, application_uuid, net_node_uuid, life_id) VALUES (?, 0, ?, ?, 0);`, "", unitUUID, appUUID, netNodeUUID)
+	s.assertExecSQL(c, `INSERT INTO unit (uuid, name, application_uuid, net_node_uuid, life_id) VALUES (?, 0, ?, ?, 0);`, "", unitUUID, appUUID, netNodeUUID)
 }
 
 func (s *schemaSuite) TestControllerTriggersForImmutableTables(c *gc.C) {

@@ -281,14 +281,14 @@ func (st State) CreateCharmUnitSecret(
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		dbSecretOwner := secretUnitOwner{SecretID: uri.ID, Label: label}
 
-		selectUnitUUID := `SELECT &unit.uuid FROM unit WHERE unit_id=$unit.unit_id`
+		selectUnitUUID := `SELECT &unit.uuid FROM unit WHERE name=$unit.name`
 		selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, unit{})
 		if err != nil {
 			return errors.Trace(err)
 		}
 
 		result := unit{}
-		err = tx.Query(ctx, selectUnitUUIDStmt, unit{UnitName: unitName}).Get(&result)
+		err = tx.Query(ctx, selectUnitUUIDStmt, unit{Name: unitName}).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
@@ -1215,7 +1215,7 @@ FROM   secret_metadata sm
           JOIN   application
           WHERE  application.uuid = so.application_uuid
           UNION
-          SELECT $ownerKind.unit_owner_kind AS owner_kind, unit.unit_id AS owner_id, label, secret_id
+          SELECT $ownerKind.unit_owner_kind AS owner_kind, unit.name AS owner_id, label, secret_id
           FROM   secret_unit_owner so
           JOIN   unit
           WHERE  unit.uuid = so.unit_uuid
@@ -1304,10 +1304,10 @@ app_owners AS
 
 	unitOwnerSelect := `
 unit_owners AS
-    (SELECT $ownerKind.unit_owner_kind AS owner_kind, unit.unit_id AS owner_id, label, secret_id
+    (SELECT $ownerKind.unit_owner_kind AS owner_kind, unit.name AS owner_id, label, secret_id
      FROM   secret_unit_owner so
      JOIN   unit ON unit.uuid = so.unit_uuid
-     AND unit.unit_id IN ($UnitOwners[:]))`[1:]
+     AND unit.name IN ($UnitOwners[:]))`[1:]
 
 	if len(appOwners) > 0 {
 		preQueryParts = append(preQueryParts, appOwnerSelect)
@@ -1450,7 +1450,7 @@ unit_owned AS
     (SELECT secret_id
      FROM   secret_unit_owner so
      JOIN   unit ON unit.uuid = so.unit_uuid
-     AND unit.unit_id IN ($UnitOwners[:]))`[1:]
+     AND unit.name IN ($UnitOwners[:]))`[1:]
 
 	queryTypes := []any{
 		secretID{},
@@ -1586,7 +1586,7 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 		return nil, errors.Trace(err)
 	}
 
-	selectUnitUUID := `select &unit.uuid FROM unit WHERE unit_id=$unit.unit_id`
+	selectUnitUUID := `select &unit.uuid FROM unit WHERE name=$unit.name`
 	selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, unit{})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1595,7 +1595,7 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 	var dbConsumers []secretUnitConsumer
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		result := unit{}
-		err = tx.Query(ctx, selectUnitUUIDStmt, unit{UnitName: unitName}).Get(&result)
+		err = tx.Query(ctx, selectUnitUUIDStmt, unit{Name: unitName}).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
@@ -1866,7 +1866,7 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid`
 		return nil, 0, errors.Trace(err)
 	}
 
-	selectUnitUUID := `SELECT &unit.uuid FROM unit WHERE unit_id=$unit.unit_id`
+	selectUnitUUID := `SELECT &unit.uuid FROM unit WHERE name=$unit.name`
 	selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, unit{})
 	if err != nil {
 		return nil, 0, errors.Trace(err)
@@ -1901,7 +1901,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 		}
 
 		result := unit{}
-		err = tx.Query(ctx, selectUnitUUIDStmt, unit{UnitName: unitName}).Get(&result)
+		err = tx.Query(ctx, selectUnitUUIDStmt, unit{Name: unitName}).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
@@ -1969,7 +1969,7 @@ ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
 		return errors.Trace(err)
 	}
 
-	selectUnitUUID := `select &M.uuid FROM unit WHERE unit_id=$M.unit_id`
+	selectUnitUUID := `select &M.uuid FROM unit WHERE name=$M.name`
 	selectUnitUUIDStmt, err := st.Prepare(selectUnitUUID, sqlair.M{})
 	if err != nil {
 		return errors.Trace(err)
@@ -2010,7 +2010,7 @@ ON CONFLICT DO NOTHING`
 		}
 
 		result := sqlair.M{}
-		err = tx.Query(ctx, selectUnitUUIDStmt, sqlair.M{"unit_id": unitName}).Get(&result)
+		err = tx.Query(ctx, selectUnitUUIDStmt, sqlair.M{"name": unitName}).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return fmt.Errorf("unit %q not found%w", unitName, errors.Hide(uniterrors.NotFound))
@@ -2047,14 +2047,14 @@ func (st State) GetSecretRemoteConsumer(
 
 	consumer := secretRemoteUnitConsumer{
 		SecretID: uri.ID,
-		UnitID:   unitName,
+		UnitName: unitName,
 	}
 
 	query := `
 SELECT suc.current_revision AS &secretRemoteUnitConsumer.current_revision
 FROM   secret_remote_unit_consumer suc
 WHERE  suc.secret_id = $secretRemoteUnitConsumer.secret_id
-AND    suc.unit_id = $secretRemoteUnitConsumer.unit_id`
+AND    suc.unit_name = $secretRemoteUnitConsumer.unit_name`
 
 	queryStmt, err := st.Prepare(query, secretRemoteUnitConsumer{})
 	if err != nil {
@@ -2124,7 +2124,7 @@ func (st State) SaveSecretRemoteConsumer(
 	insertQuery := `
 INSERT INTO secret_remote_unit_consumer (*)
 VALUES ($secretRemoteUnitConsumer.*)
-ON CONFLICT(secret_id, unit_id) DO UPDATE SET
+ON CONFLICT(secret_id, unit_name) DO UPDATE SET
     current_revision=excluded.current_revision`
 
 	insertStmt, err := st.Prepare(insertQuery, secretRemoteUnitConsumer{})
@@ -2134,7 +2134,7 @@ ON CONFLICT(secret_id, unit_id) DO UPDATE SET
 
 	consumer := secretRemoteUnitConsumer{
 		SecretID:        uri.ID,
-		UnitID:          unitName,
+		UnitName:        unitName,
 		CurrentRevision: md.CurrentRevision,
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -2272,7 +2272,7 @@ AND    (sp.subject_type_id <> $secretPermission.subject_type_id
 }
 
 const (
-	selectUnitUUID        = `SELECT uuid AS &entityRef.uuid FROM unit WHERE unit_id=$entityRef.id`
+	selectUnitUUID        = `SELECT uuid AS &entityRef.uuid FROM unit WHERE name=$entityRef.id`
 	selectApplicationUUID = `SELECT uuid AS &entityRef.uuid FROM application WHERE name=$entityRef.id`
 	selectModelUUID       = `SELECT uuid AS &entityRef.uuid FROM model WHERE uuid=$entityRef.id`
 )
@@ -2691,12 +2691,12 @@ SELECT   DISTINCT sr.uuid AS &revisionUUID.uuid
 FROM     secret_unit_consumer suc
          JOIN unit u ON u.uuid = suc.unit_uuid
          JOIN secret_revision sr ON sr.secret_id = suc.secret_id
-WHERE    u.unit_id = $unit.unit_id
+WHERE    u.name = $unit.name
 GROUP BY sr.secret_id
 HAVING   suc.current_revision < MAX(sr.revision)`
 
 		queryParams := []any{
-			unit{UnitName: unitName},
+			unit{Name: unitName},
 		}
 
 		stmt, err := st.Prepare(q, append(queryParams, revisionUUID{})...)
@@ -2741,10 +2741,10 @@ SELECT DISTINCT suc.secret_id AS &secretUnitConsumer.secret_id
 FROM   secret_unit_consumer suc
        JOIN unit u ON u.uuid = suc.unit_uuid
        JOIN secret_revision sr ON sr.secret_id = suc.secret_id
-WHERE  u.unit_id = $unit.unit_id`
+WHERE  u.name = $unit.name`
 
 	queryParams := []any{
-		unit{UnitName: unitName},
+		unit{Name: unitName},
 	}
 
 	if len(revisionIDs) > 0 {
@@ -2795,12 +2795,12 @@ SELECT   DISTINCT sr.secret_id AS &remoteSecret.secret_id
 FROM     secret_unit_consumer suc
          JOIN unit u ON u.uuid = suc.unit_uuid
          JOIN secret_reference sr ON sr.secret_id = suc.secret_id
-WHERE    u.unit_id = $unit.unit_id
+WHERE    u.name = $unit.name
 GROUP BY sr.secret_id
 HAVING   suc.current_revision < sr.latest_revision`
 
 		queryParams := []any{
-			unit{UnitName: unitName},
+			unit{Name: unitName},
 		}
 
 		stmt, err := st.Prepare(q, append(queryParams, remoteSecret{})...)
@@ -2846,10 +2846,10 @@ SELECT suc.secret_id AS &secretUnitConsumer.secret_id,
 FROM   secret_unit_consumer suc
        JOIN unit u ON u.uuid = suc.unit_uuid
        JOIN secret_reference sr ON sr.secret_id = suc.secret_id
-WHERE  u.unit_id = $unit.unit_id`
+WHERE  u.name = $unit.name`
 
 	queryParams := []any{
-		unit{UnitName: unitName},
+		unit{Name: unitName},
 	}
 
 	if len(secretIDs) > 0 {
@@ -2903,13 +2903,13 @@ func (st State) InitialWatchStatementForRemoteConsumedSecretsChangesFromOffering
 		// SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
 		// FROM secret_remote_unit_consumer sruc
 		// LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-		// WHERE sruc.unit_id LIKE '$M.app_name/%'`
+		// WHERE sruc.unit_name LIKE '$M.app_name/%'`
 
 		q := fmt.Sprintf(`
 SELECT DISTINCT sr.uuid AS &revisionUUID.uuid
 FROM   secret_remote_unit_consumer sruc
        LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-WHERE  sruc.unit_id LIKE '%s/%%'`, appName)
+WHERE  sruc.unit_name LIKE '%s/%%'`, appName)
 
 		queryParams := []any{
 			// TODO: enable this once https://github.com/canonical/sqlair/issues/148 is fixed.
@@ -2959,13 +2959,13 @@ func (st State) GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(
 	// SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
 	// FROM secret_remote_unit_consumer sruc
 	// LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-	// WHERE sruc.unit_id LIKE '$M.app_name/%'`
+	// WHERE sruc.unit_name LIKE '$M.app_name/%'`
 
 	q := fmt.Sprintf(`
 SELECT DISTINCT sruc.secret_id AS &secretRemoteUnitConsumer.secret_id
 FROM   secret_remote_unit_consumer sruc
        LEFT JOIN secret_revision sr ON sr.secret_id = sruc.secret_id
-WHERE  sruc.unit_id LIKE '%s/%%'`, appName)
+WHERE  sruc.unit_name LIKE '%s/%%'`, appName)
 
 	queryParams := []any{
 		// TODO: enable this once https://github.com/canonical/sqlair/issues/148 is fixed.
@@ -3100,7 +3100,7 @@ FROM secret_revision_obsolete sro
 		)
 		conditions = append(conditions, `AND (
     sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
-    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])
+    OR suo.unit_uuid IS NOT NULL AND unit.name IN ($UnitOwners[:])
 )`)
 	} else if len(appOwners) > 0 {
 		queryParams = append(queryParams, appOwners)
@@ -3115,7 +3115,7 @@ FROM secret_revision_obsolete sro
      LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
      LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
-		conditions = append(conditions, "AND suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
+		conditions = append(conditions, "AND suo.unit_uuid IS NOT NULL AND unit.name IN ($UnitOwners[:])")
 	}
 	if len(joins) > 0 {
 		q += fmt.Sprintf("\n%s", strings.Join(joins, "\n"))
@@ -3359,7 +3359,7 @@ FROM   secret_rotation sro
 		)
 		conditions = append(conditions, `(
     sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
-    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])
+    OR suo.unit_uuid IS NOT NULL AND unit.name IN ($UnitOwners[:])
 )`)
 	} else if len(appOwners) > 0 {
 		queryParams = append(queryParams, appOwners)
@@ -3374,7 +3374,7 @@ FROM   secret_rotation sro
         LEFT JOIN secret_unit_owner suo ON sro.secret_id = suo.secret_id
         LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
-		conditions = append(conditions, "suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
+		conditions = append(conditions, "suo.unit_uuid IS NOT NULL AND unit.name IN ($UnitOwners[:])")
 	}
 	if len(joins) > 0 {
 		q += fmt.Sprintf("\n%s", strings.Join(joins, "\n"))
@@ -3486,7 +3486,7 @@ FROM   secret_revision_expire sre
 		)
 		conditions = append(conditions, `(
     sao.application_uuid IS NOT NULL AND application.name IN ($ApplicationOwners[:])
-    OR suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])
+    OR suo.unit_uuid IS NOT NULL AND unit.name IN ($UnitOwners[:])
 )`)
 	} else if len(appOwners) > 0 {
 		queryParams = append(queryParams, appOwners)
@@ -3501,7 +3501,7 @@ FROM   secret_revision_expire sre
         LEFT JOIN secret_unit_owner suo ON sr.secret_id = suo.secret_id
         LEFT JOIN unit ON unit.uuid = suo.unit_uuid`[1:],
 		)
-		conditions = append(conditions, "suo.unit_uuid IS NOT NULL AND unit.unit_id IN ($UnitOwners[:])")
+		conditions = append(conditions, "suo.unit_uuid IS NOT NULL AND unit.name IN ($UnitOwners[:])")
 	}
 	if len(joins) > 0 {
 		q += fmt.Sprintf("\n%s", strings.Join(joins, "\n"))
