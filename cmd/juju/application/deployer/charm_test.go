@@ -81,9 +81,6 @@ func (s *charmSuite) TestRepositoryCharmDeployDryRunDefaultSeriesForce(c *gc.C) 
 	dCharm := s.newDeployCharm()
 	dCharm.dryRun = true
 	dCharm.force = true
-	dCharm.validateCharmBaseWithName = func(_ corebase.Base, _ string, _ string) error {
-		return nil
-	}
 	repoCharm := &repositoryCharm{
 		deployCharm:      *dCharm,
 		userRequestedURL: s.url,
@@ -220,9 +217,6 @@ func (s *charmSuite) TestDeployFromPredeployed(c *gc.C) {
 	s.deployerAPI.EXPECT().Deploy(gomock.Any()).Return(nil)
 
 	dCharm := s.newDeployCharm()
-	dCharm.validateCharmBaseWithName = func(_ corebase.Base, _ string, _ string) error {
-		return nil
-	}
 	dCharm.validateResourcesNeededForLocalDeploy = func(_ *charm.Meta) error {
 		return nil
 	}

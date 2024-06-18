@@ -50,7 +50,6 @@ type deployCharm struct {
 	storage          map[string]storage.Directive
 	trust            bool
 
-	validateCharmBaseWithName             func(base corebase.Base, name string, imageStream string) error
 	validateResourcesNeededForLocalDeploy func(charmMeta *charm.Meta) error
 }
 
