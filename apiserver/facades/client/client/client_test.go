@@ -5,36 +5,25 @@ package client_test
 
 import (
 	"context"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/agent"
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/multiwatcher"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/access/service"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/internal/auth"
-	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/docker/registry"
 	"github.com/juju/juju/internal/docker/registry/image"
@@ -43,9 +32,7 @@ import (
 	"github.com/juju/juju/internal/tools"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type clientSuite struct {
@@ -141,7 +128,6 @@ func clearContollerTimestamp(status *params.FullStatus) {
 
 func (s *clientSuite) TestClientStatus(c *gc.C) {
 	loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
-	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	s.setUpScenario(c)
 	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), jjtesting.AdminUser, defaultPassword(jjtesting.AdminUser), "")
 	status, err := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c)).Status(nil)
@@ -158,238 +144,6 @@ func (s *clientSuite) TestClientStatusControllerTimestamp(c *gc.C) {
 	clearSinceTimes(status)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status.ControllerTimestamp, gc.NotNil)
-}
-
-var _ = gc.Suite(&clientWatchSuite{})
-
-type clientWatchSuite struct {
-	clientSuite
-}
-
-func (s *clientWatchSuite) SetUpTest(c *gc.C) {
-	s.ApiServerSuite.WithMultiWatcher = true
-	s.clientSuite.SetUpTest(c)
-}
-
-func (s *clientWatchSuite) TestClientWatchAllReadPermission(c *gc.C) {
-	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	// A very simple end-to-end test, because
-	// all the logic is tested elsewhere.
-	st := s.ControllerModel(c).State()
-	m, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	userService := s.ControllerServiceFactory(c).Access()
-	userTag := names.NewUserTag("fred")
-	_, _, err = userService.AddUser(context.Background(), service.AddUserArg{
-		Name:        userTag.Name(),
-		DisplayName: "Fred Flintstone",
-		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword("ro-password")),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	user := f.MakeUser(c, &factory.UserParams{
-		Name:   userTag.Name(),
-		Access: permission.ReadAccess,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	conn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), user.UserTag(), "ro-password", "")
-	roClient := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
-	defer roClient.Close()
-
-	watcher, err := roClient.WatchAll()
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := watcher.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	deltasCh := make(chan []params.Delta)
-	go func() {
-		for {
-			deltas, err := watcher.Next()
-			if err != nil {
-				return // watcher stopped
-			}
-			deltasCh <- deltas
-		}
-	}()
-
-	machineReady := func(got *params.MachineInfo) bool {
-		equal, _ := jc.DeepEqual(got, &params.MachineInfo{
-			ModelUUID:  s.ControllerModelUUID(),
-			Id:         m.Id(),
-			InstanceId: "i-0",
-			AgentStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			InstanceStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			Life:                    life.Alive,
-			Base:                    "ubuntu@12.10",
-			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []params.Address{},
-			HardwareCharacteristics: &instance.HardwareCharacteristics{},
-			HasVote:                 false,
-			WantsVote:               true,
-		})
-		return equal
-	}
-
-	machineMatched := false
-	timeout := time.After(coretesting.LongWait)
-	i := 0
-	for !machineMatched {
-		select {
-		case deltas := <-deltasCh:
-			for _, delta := range deltas {
-				entity := delta.Entity
-				c.Logf("delta.Entity %d kind %s: %#v", i, entity.EntityId().Kind, entity)
-				i++
-
-				switch entity.EntityId().Kind {
-				case multiwatcher.MachineKind:
-					machine := entity.(*params.MachineInfo)
-					machine.AgentStatus.Since = nil
-					machine.InstanceStatus.Since = nil
-					if machineReady(machine) {
-						machineMatched = true
-					} else {
-						c.Log("machine delta not yet matched")
-					}
-				}
-			}
-		case <-timeout:
-			c.Fatal("timed out waiting for watcher deltas to be ready")
-		}
-	}
-}
-
-func (s *clientWatchSuite) TestClientWatchAllAdminPermission(c *gc.C) {
-	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
-	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
-	// A very simple end-to-end test, because
-	// all the logic is tested elsewhere.
-	st := s.ControllerModel(c).State()
-	m, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	// Include a remote app that needs admin access to see.
-
-	_, err = st.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "remote-db2",
-		OfferUUID:   "offer-uuid",
-		URL:         "admin/prod.db2",
-		SourceModel: coretesting.ModelTag,
-		Endpoints: []charm.Relation{
-			{
-				Name:      "database",
-				Interface: "db2",
-				Role:      charm.RoleProvider,
-				Scope:     charm.ScopeGlobal,
-			},
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	conn := s.OpenControllerModelAPI(c)
-	watcher, err := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c)).WatchAll()
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		err := watcher.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-	}()
-
-	deltasCh := make(chan []params.Delta)
-	go func() {
-		for {
-			deltas, err := watcher.Next()
-			if err != nil {
-				return // watcher stopped
-			}
-			deltasCh <- deltas
-		}
-	}()
-
-	machineReady := func(got *params.MachineInfo) bool {
-		equal, _ := jc.DeepEqual(got, &params.MachineInfo{
-			ModelUUID:  st.ModelUUID(),
-			Id:         m.Id(),
-			InstanceId: "i-0",
-			AgentStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			InstanceStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			Life:                    life.Alive,
-			Base:                    "ubuntu@12.10",
-			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []params.Address{},
-			HardwareCharacteristics: &instance.HardwareCharacteristics{},
-			HasVote:                 false,
-			WantsVote:               true,
-		})
-		return equal
-	}
-
-	appReady := func(got *params.RemoteApplicationUpdate) bool {
-		equal, _ := jc.DeepEqual(got, &params.RemoteApplicationUpdate{
-			Name:      "remote-db2",
-			ModelUUID: st.ModelUUID(),
-			OfferURL:  "admin/prod.db2",
-			Life:      "alive",
-			Status: params.StatusInfo{
-				Current: status.Unknown,
-			},
-		})
-		return equal
-	}
-
-	machineMatched := false
-	appMatched := false
-	timeout := time.After(coretesting.LongWait)
-	i := 0
-	for !machineMatched || !appMatched {
-		select {
-		case deltas := <-deltasCh:
-			for _, delta := range deltas {
-				entity := delta.Entity
-				c.Logf("delta.Entity %d kind %s: %#v", i, entity.EntityId().Kind, entity)
-				i++
-
-				switch entity.EntityId().Kind {
-				case multiwatcher.MachineKind:
-					machine := entity.(*params.MachineInfo)
-					machine.AgentStatus.Since = nil
-					machine.InstanceStatus.Since = nil
-					if machineReady(machine) {
-						machineMatched = true
-					} else {
-						c.Log("machine delta not yet matched")
-					}
-				case multiwatcher.RemoteApplicationKind:
-					app := entity.(*params.RemoteApplicationUpdate)
-					app.Status.Since = nil
-					if appReady(app) {
-						appMatched = true
-					} else {
-						c.Log("remote application delta not yet matched")
-					}
-				}
-			}
-		case <-timeout:
-			c.Fatal("timed out waiting for watcher deltas to be ready")
-		}
-	}
 }
 
 type findToolsSuite struct {
@@ -436,7 +190,7 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 		backend, modelInfoService, nil,
 		nil, blockDeviceService, nil, nil,
 		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil,
+		nil, nil, nil,
 		networkService,
 		func(docker.ImageRepoDetails) (registry.Registry, error) {
 			return registryProvider, nil
@@ -514,7 +268,7 @@ func (s *findToolsSuite) TestFindToolsCAASReleased(c *gc.C) {
 		backend, modelInfoService, nil,
 		nil, blockDeviceService, controllerConfigService, nil,
 		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil,
+		nil, nil, nil,
 		networkService,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
 			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{
@@ -609,7 +363,7 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 		backend, modelInfoService, nil,
 		nil, blockDeviceService, controllerConfigService, nil,
 		authorizer, nil, toolsFinder,
-		nil, nil, nil, nil,
+		nil, nil, nil,
 		networkService,
 		func(repo docker.ImageRepoDetails) (registry.Registry, error) {
 			c.Assert(repo, gc.DeepEquals, docker.ImageRepoDetails{

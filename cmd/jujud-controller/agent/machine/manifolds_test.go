@@ -111,7 +111,6 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"migration-inactive-flag",
 			"migration-minion",
 			"model-worker-manager",
-			"multiwatcher",
 			"object-store-s3-caller",
 			"object-store",
 			"peer-grouper",

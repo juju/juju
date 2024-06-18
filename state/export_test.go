@@ -31,6 +31,8 @@ import (
 	"github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
@@ -271,8 +273,6 @@ func AddTestingApplicationWithStorage(c *gc.C, st *State, objectStore objectstor
 		source = "local"
 	case "ch":
 		source = "charm-hub"
-	case "cs":
-		source = "charm-store"
 	}
 	origin := &CharmOrigin{
 		Source: source,
@@ -308,6 +308,12 @@ func AddTestingApplicationWithBindings(c *gc.C, st *State, objectStore objectsto
 	})
 }
 
+type testInstancePreChecker struct{}
+
+func (testInstancePreChecker) PrecheckInstance(envcontext.ProviderCallContext, environs.PrecheckInstanceParams) error {
+	return errors.NotSupportedf("prechecking instances")
+}
+
 type addTestingApplicationParams struct {
 	st       *State
 	name     string
@@ -335,8 +341,6 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 			source = "local"
 		case "ch":
 			source = "charm-hub"
-		case "cs":
-			source = "charm-store"
 		}
 		origin = &CharmOrigin{
 			Channel: channel,
@@ -347,7 +351,7 @@ func addTestingApplication(c *gc.C, objectStore objectstore.ObjectStore, params 
 			},
 		}
 	}
-	app, err := params.st.AddApplication(testInstancePrechecker{}, AddApplicationArgs{
+	app, err := params.st.AddApplication(testInstancePreChecker{}, AddApplicationArgs{
 		Name:             params.name,
 		Charm:            params.ch,
 		CharmOrigin:      origin,

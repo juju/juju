@@ -45,7 +45,6 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		nil, // newEnviron
 		nil, // blockChecker
 		nil,
-		nil, // multiwatcher.Factory
 		nil, // networkService
 		nil,
 	)

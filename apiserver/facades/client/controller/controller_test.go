@@ -16,9 +16,7 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 	"github.com/juju/worker/v4/workertest"
-	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -33,7 +31,6 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
-	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/domain/access"
@@ -45,7 +42,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	pscontroller "github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/internal/worker/multiwatcher"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -93,20 +89,9 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.ServiceFactorySuite.SetUpTest(c)
 	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), controllerCfg)
 
-	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
-	c.Assert(err, jc.ErrorIsNil)
-	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
-		Clock:                clock.WallClock,
-		Logger:               loggertesting.WrapCheckLog(c),
-		Backing:              allWatcherBacking,
-		PrometheusRegisterer: noopRegisterer{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	// The worker itself is a coremultiwatcher.Factory.
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
-
 	s.hub = pubsub.NewStructuredHub(nil)
 
+	var err error
 	s.watcherRegistry, err = registry.NewRegistry(clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, s.watcherRegistry) })
@@ -120,15 +105,14 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	}
 
 	s.context = facadetest.ModelContext{
-		State_:               s.State,
-		StatePool_:           s.StatePool,
-		Resources_:           s.resources,
-		WatcherRegistry_:     s.watcherRegistry,
-		Auth_:                s.authorizer,
-		Hub_:                 s.hub,
-		MultiwatcherFactory_: multiWatcherWorker,
-		ServiceFactory_:      s.ControllerServiceFactory(c),
-		Logger_:              loggertesting.WrapCheckLog(c),
+		State_:           s.State,
+		StatePool_:       s.StatePool,
+		Resources_:       s.resources,
+		WatcherRegistry_: s.watcherRegistry,
+		Auth_:            s.authorizer,
+		Hub_:             s.hub,
+		ServiceFactory_:  s.ControllerServiceFactory(c),
+		Logger_:          loggertesting.WrapCheckLog(c),
 	}
 	controller, err := controller.LatestAPI(context.Background(), s.context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -363,97 +347,6 @@ func (s *controllerSuite) TestRemoveBlocks(c *gc.C) {
 func (s *controllerSuite) TestRemoveBlocksNotAll(c *gc.C) {
 	err := s.controller.RemoveBlocks(stdcontext.Background(), params.RemoveBlocksArgs{})
 	c.Assert(err, gc.ErrorMatches, "not supported")
-}
-
-func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
-	watcherId, err := s.controller.WatchAllModels(stdcontext.Background())
-	c.Assert(err, jc.ErrorIsNil)
-
-	var disposed bool
-	watcherAPI_, err := apiserver.NewAllWatcher(context.Background(), facadetest.ModelContext{
-		State_:           s.State,
-		Resources_:       s.resources,
-		WatcherRegistry_: s.watcherRegistry,
-		ServiceFactory_:  s.ControllerServiceFactory(c),
-		Auth_:            s.authorizer,
-		ID_:              watcherId.AllWatcherId,
-		Dispose_:         func() { disposed = true },
-		Logger_:          loggertesting.WrapCheckLog(c),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	watcherAPI := watcherAPI_.(*apiserver.SrvAllWatcher)
-	defer func() {
-		err := watcherAPI.Stop()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(disposed, jc.IsTrue)
-	}()
-
-	done := make(chan bool)
-	defer close(done)
-	resultC := make(chan params.AllWatcherNextResults)
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			default:
-				result, err := watcherAPI.Next(context.Background())
-				if err != nil {
-					c.Assert(err, jc.Satisfies, coremultiwatcher.IsErrStopped)
-					return
-				}
-				resultC <- result
-			}
-		}
-	}()
-
-	select {
-	case result := <-resultC:
-		// Expect to see the initial model be reported.
-		deltas := result.Deltas
-		c.Assert(deltas, gc.HasLen, 1)
-		modelInfo := deltas[0].Entity.(*params.ModelUpdate)
-		c.Assert(modelInfo.ModelUUID, gc.Equals, s.State.ModelUUID())
-		c.Assert(modelInfo.IsController, gc.Equals, s.State.IsController())
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out")
-	}
-
-	// To ensure we really watch all models, make another one.
-	st := s.Factory.MakeModel(c, &factory.ModelParams{
-		Name: "test"})
-	defer st.Close()
-
-	// Update the model agent versions to ensure settings changes cause an update.
-	err = s.State.SetModelAgentVersion(version.MustParse("2.6.666"), nil, true, stubUpgrader{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.SetModelAgentVersion(version.MustParse("2.6.667"), nil, true, stubUpgrader{})
-	c.Assert(err, jc.ErrorIsNil)
-	expectedVersions := map[string]string{
-		s.State.ModelUUID(): "2.6.666",
-		st.ModelUUID():      "2.6.667",
-	}
-
-	for resultCount := 0; resultCount != 2; {
-		select {
-		case result := <-resultC:
-			c.Logf("got change: %# v", pretty.Formatter(result))
-			for _, d := range result.Deltas {
-				if d.Removed {
-					continue
-				}
-				modelInfo, ok := d.Entity.(*params.ModelUpdate)
-				if !ok {
-					continue
-				}
-				if modelInfo.Config["agent-version"] == expectedVersions[modelInfo.ModelUUID] {
-					resultCount = resultCount + 1
-				}
-			}
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timed out waiting for 2 model updates, got %d", resultCount)
-		}
-	}
 }
 
 func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
@@ -1093,7 +986,6 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		s.StatePool,
 		s.authorizer,
 		s.resources,
-		nil,
 		nil,
 		nil,
 		loggertesting.WrapCheckLog(c),

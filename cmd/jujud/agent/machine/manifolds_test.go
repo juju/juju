@@ -191,7 +191,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"lease-manager",
 		"log-sink",
 		"model-worker-manager",
-		"multiwatcher",
 		"peer-grouper",
 		"presence",
 		"pubsub-forwarder",
@@ -281,9 +280,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	)
 
 	// bootstrapWorkers are workers that are run directly run after bootstrap.
-	bootstrapWorkers := set.NewStrings(
-		"multiwatcher",
-	)
+	bootstrapWorkers := set.NewStrings()
 
 	for name, manifold := range manifolds {
 		c.Logf(name)

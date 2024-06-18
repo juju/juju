@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/pubsub/controller"
@@ -42,13 +41,12 @@ type SharedHub interface {
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
-	statePool           *state.StatePool
-	multiwatcherFactory multiwatcher.Factory
-	centralHub          SharedHub
-	presence            presence.Recorder
-	leaseManager        lease.Manager
-	logger              corelogger.Logger
-	charmhubHTTPClient  facade.HTTPClient
+	statePool          *state.StatePool
+	centralHub         SharedHub
+	presence           presence.Recorder
+	leaseManager       lease.Manager
+	logger             corelogger.Logger
+	charmhubHTTPClient facade.HTTPClient
 
 	// dbGetter is used to access databases from the API server. Along with
 	// creating a new database for new models and during model migrations.
@@ -82,7 +80,6 @@ type sharedServerContext struct {
 
 type sharedServerConfig struct {
 	statePool            *state.StatePool
-	multiwatcherFactory  multiwatcher.Factory
 	centralHub           SharedHub
 	presence             presence.Recorder
 	leaseManager         lease.Manager
@@ -102,9 +99,6 @@ type sharedServerConfig struct {
 func (c *sharedServerConfig) validate() error {
 	if c.statePool == nil {
 		return errors.NotValidf("nil statePool")
-	}
-	if c.multiwatcherFactory == nil {
-		return errors.NotValidf("nil multiwatcherFactory")
 	}
 	if c.centralHub == nil {
 		return errors.NotValidf("nil centralHub")
@@ -145,7 +139,6 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 	}
 	ctx := &sharedServerContext{
 		statePool:            config.statePool,
-		multiwatcherFactory:  config.multiwatcherFactory,
 		centralHub:           config.centralHub,
 		presence:             config.presence,
 		leaseManager:         config.leaseManager,

@@ -62,11 +62,6 @@ type watcherPermSuite struct {
 
 var _ = gc.Suite(&watcherPermSuite{})
 
-func (s *watcherPermSuite) SetUpTest(c *gc.C) {
-	s.ApiServerSuite.WithMultiWatcher = true
-	s.permSuite.SetUpTest(c)
-}
-
 func (s *permSuite) TestOperationPermClientSetApplicationConstraints(c *gc.C) {
 	s.testOperationPerm(c, opClientSetApplicationConstraints)
 }
@@ -81,10 +76,6 @@ func (s *permSuite) TestOperationPermClientModelGet(c *gc.C) {
 
 func (s *permSuite) TestOperationPermClientModelSet(c *gc.C) {
 	s.testOperationPerm(c, opClientModelSet)
-}
-
-func (s *watcherPermSuite) TestOperationPermClientWatchAll(c *gc.C) {
-	s.testOperationPerm(c, opClientWatchAll)
 }
 
 func (s *permSuite) TestOperationPermApplicationAddRelation(c *gc.C) {
@@ -379,12 +370,4 @@ func opClientModelSet(c *gc.C, st api.Connection, _ *state.State) (func(), error
 		args["some-key"] = nil
 		modelconfig.NewClient(st).ModelSet(args)
 	}, nil
-}
-
-func opClientWatchAll(c *gc.C, st api.Connection, _ *state.State) (func(), error) {
-	watcher, err := apiclient.NewClient(st, loggertesting.WrapCheckLog(c)).WatchAll()
-	if err == nil {
-		watcher.Stop()
-	}
-	return func() {}, err
 }

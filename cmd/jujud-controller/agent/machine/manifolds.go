@@ -87,7 +87,6 @@ import (
 	"github.com/juju/juju/internal/worker/migrationflag"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/internal/worker/modelworkermanager"
-	"github.com/juju/juju/internal/worker/multiwatcher"
 	"github.com/juju/juju/internal/worker/objectstore"
 	"github.com/juju/juju/internal/worker/objectstores3caller"
 	"github.com/juju/juju/internal/worker/peergrouper"
@@ -436,18 +435,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SetStatePool:           config.SetStatePool,
 		})),
 
-		// The multiwatcher manifold watches all the changes in the database
-		// through the AllWatcherBacking and manages notifying the multiwatchers.
-		// Note: ifDatabaseUpgradeComplete implies running on a controller.
-		multiwatcherName: ifBootstrapComplete(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
-			StateName:            stateName,
-			Clock:                config.Clock,
-			Logger:               internallogger.GetLogger("juju.worker.multiwatcher"),
-			PrometheusRegisterer: config.PrometheusRegisterer,
-			NewWorker:            multiwatcher.NewWorkerShim,
-			NewAllWatcher:        state.NewAllWatcherBacking,
-		})),
-
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
 		// change. It's required as part of model migrations.
@@ -664,7 +651,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:              clockName,
 			StateName:              stateName,
 			LogSinkName:            logSinkName,
-			MultiwatcherName:       multiwatcherName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
 			UpgradeGateName:        upgradeStepsGateName,
@@ -1340,7 +1326,6 @@ const (
 	instanceMutaterName           = "instance-mutater"
 	certificateWatcherName        = "certificate-watcher"
 	modelWorkerManagerName        = "model-worker-manager"
-	multiwatcherName              = "multiwatcher"
 	peergrouperName               = "peer-grouper"
 	dbAccessorName                = "db-accessor"
 	queryLoggerName               = "query-logger"

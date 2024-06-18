@@ -299,12 +299,6 @@ func AdminFacadeDetails() []facade.Details {
 }
 
 func registerWatchers(registry *facade.Registry) {
-	registry.MustRegister("AllWatcher", 3, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
-	// Note: AllModelWatcher uses the same infrastructure as AllWatcher
-	// but they are get under separate names as it possible the may
-	// diverge in the future (especially in terms of authorisation
-	// checks).
-	registry.MustRegister("AllModelWatcher", 4, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	registry.MustRegister("NotifyWatcher", 1, newNotifyWatcher, reflect.TypeOf((*srvNotifyWatcher)(nil)))
 	registry.MustRegister("StringsWatcher", 1, newStringsWatcher, reflect.TypeOf((*srvStringsWatcher)(nil)))
 	registry.MustRegister("OfferStatusWatcher", 1, newOfferStatusWatcher, reflect.TypeOf((*srvOfferStatusWatcher)(nil)))

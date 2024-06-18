@@ -113,7 +113,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		LocalMacaroonAuthenticator: s.authenticator,
 		Mux:                        s.mux,
 		Clock:                      s.clock,
-		MultiwatcherFactory:        s.multiwatcherFactory,
 		Tag:                        s.agentConfig.Tag(),
 		DataDir:                    s.agentConfig.DataDir(),
 		LogDir:                     s.agentConfig.LogDir(),

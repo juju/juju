@@ -26,7 +26,6 @@ func newControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*Cont
 		resources      = ctx.Resources()
 		presence       = ctx.Presence()
 		hub            = ctx.Hub()
-		factory        = ctx.MultiwatcherFactory()
 		serviceFactory = ctx.ServiceFactory()
 	)
 
@@ -38,7 +37,6 @@ func newControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*Cont
 		resources,
 		presence,
 		hub,
-		factory,
 		ctx.Logger().Child("controller"),
 		serviceFactory.ControllerConfig(),
 		serviceFactory.ExternalController(),

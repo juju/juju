@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/state"
@@ -40,7 +39,6 @@ type workerFixture struct {
 	config                  apiserver.Config
 	stub                    testing.Stub
 	metricsCollector        *coreapiserver.Collector
-	multiwatcherFactory     multiwatcher.Factory
 	logSink                 corelogger.ModelLogger
 	charmhubHTTPClient      *http.Client
 	dbGetter                stubWatchableDBGetter
@@ -68,7 +66,6 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.leaseManager = &struct{ lease.Manager }{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
-	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
@@ -82,7 +79,6 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Hub:                               &s.hub,
 		Presence:                          presence.New(s.clock),
 		Mux:                               s.mux,
-		MultiwatcherFactory:               s.multiwatcherFactory,
 		StatePool:                         &state.StatePool{},
 		LeaseManager:                      s.leaseManager,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
@@ -142,9 +138,6 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *apiserver.Config) { cfg.MetricsCollector = nil },
 		"nil MetricsCollector not valid",
-	}, {
-		func(cfg *apiserver.Config) { cfg.MultiwatcherFactory = nil },
-		"nil MultiwatcherFactory not valid",
 	}, {
 		func(cfg *apiserver.Config) { cfg.LeaseManager = nil },
 		"nil LeaseManager not valid",

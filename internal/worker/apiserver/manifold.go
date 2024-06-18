@@ -28,7 +28,6 @@ import (
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/servicefactory"
@@ -64,7 +63,6 @@ type ManifoldConfig struct {
 	AgentName              string
 	AuthenticatorName      string
 	ClockName              string
-	MultiwatcherName       string
 	MuxName                string
 	StateName              string
 	UpgradeGateName        string
@@ -98,9 +96,6 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ClockName == "" {
 		return errors.NotValidf("empty ClockName")
-	}
-	if config.MultiwatcherName == "" {
-		return errors.NotValidf("empty MultiwatcherName")
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
@@ -171,7 +166,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AgentName,
 			config.AuthenticatorName,
 			config.ClockName,
-			config.MultiwatcherName,
 			config.MuxName,
 			config.StateName,
 			config.UpgradeGateName,
@@ -217,11 +211,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 
 	var stTracker workerstate.StateTracker
 	if err := getter.Get(config.StateName, &stTracker); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var factory multiwatcher.Factory
-	if err := getter.Get(config.MultiwatcherName, &factory); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -303,7 +292,6 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		Clock:                             clock,
 		Mux:                               mux,
 		StatePool:                         statePool,
-		MultiwatcherFactory:               factory,
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 		UpgradeComplete:                   upgradeLock.IsUnlocked,
