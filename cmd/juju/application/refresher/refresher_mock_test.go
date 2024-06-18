@@ -186,18 +186,18 @@ func (m *MockCharmRepository) EXPECT() *MockCharmRepositoryMockRecorder {
 	return m.recorder
 }
 
-// NewCharmAtPathForceBase mocks base method.
-func (m *MockCharmRepository) NewCharmAtPathForceBase(arg0 string, arg1 base.Base, arg2 bool) (charm.Charm, *charm.URL, error) {
+// NewCharmAtPath mocks base method.
+func (m *MockCharmRepository) NewCharmAtPath(arg0 string) (charm.Charm, *charm.URL, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewCharmAtPathForceBase", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NewCharmAtPath", arg0)
 	ret0, _ := ret[0].(charm.Charm)
 	ret1, _ := ret[1].(*charm.URL)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// NewCharmAtPathForceBase indicates an expected call of NewCharmAtPathForceBase.
-func (mr *MockCharmRepositoryMockRecorder) NewCharmAtPathForceBase(arg0, arg1, arg2 any) *gomock.Call {
+// NewCharmAtPath indicates an expected call of NewCharmAtPath.
+func (mr *MockCharmRepositoryMockRecorder) NewCharmAtPath(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewCharmAtPathForceBase", reflect.TypeOf((*MockCharmRepository)(nil).NewCharmAtPathForceBase), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewCharmAtPath", reflect.TypeOf((*MockCharmRepository)(nil).NewCharmAtPath), arg0)
 }

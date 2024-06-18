@@ -16,22 +16,8 @@ import (
 )
 
 // NewCharmAtPath returns the charm represented by this path,
-// and a URL that describes it. If the base is empty,
-// the charm's default base is used, if any.
-// Otherwise, the base is validated against those the
-// charm declares it supports.
-func NewCharmAtPath(path string, b base.Base) (charm.Charm, *charm.URL, error) {
-	return NewCharmAtPathForceBase(path, b, false)
-}
-
-// NewCharmAtPathForceBase returns the charm represented by this path,
-// and a URL that describes it. If the base is empty,
-// the charm's default base is used, if any.
-// Otherwise, the base is validated against those the
-// charm declares it supports. If force is true, then any
-// base validation errors are ignored and the requested
-// base is used regardless.
-func NewCharmAtPathForceBase(path string, b base.Base, force bool) (charm.Charm, *charm.URL, error) {
+// and a URL that describes it.
+func NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
 	if path == "" {
 		return nil, nil, errors.New("empty charm path")
 	}
@@ -50,53 +36,12 @@ func NewCharmAtPathForceBase(path string, b base.Base, force bool) (charm.Charm,
 	}
 	name := ch.Meta().Name
 
-	baseToUse, err := charmBase(b, force, ch)
-	if err != nil {
-		return nil, nil, err
-	}
-	seriesToUse, err := base.GetSeriesFromBase(baseToUse)
-	if err != nil {
-		return nil, nil, err
-	}
-
 	url := &charm.URL{
 		Schema:   "local",
 		Name:     name,
-		Series:   seriesToUse,
 		Revision: ch.Revision(),
 	}
 	return ch, url, nil
-}
-
-func charmBase(b base.Base, force bool, cm charm.CharmMeta) (base.Base, error) {
-	if force && !b.Empty() {
-		return b, nil
-	}
-	computedBases, err := ComputedBases(cm)
-	logger.Tracef("base %q, %v", b, computedBases)
-	if err != nil {
-		return base.Base{}, err
-	}
-	if len(computedBases) == 0 {
-		if b.Empty() {
-			return base.Base{}, errors.New("base not specified and charm does not define any")
-		} else {
-			// old style charm with no base in metadata.
-			return b, nil
-		}
-	}
-	if !b.Empty() {
-		for _, computedBase := range computedBases {
-			if b == computedBase {
-				return b, nil
-			}
-		}
-		return base.Base{}, NewUnsupportedBaseError(b, computedBases)
-	}
-	if len(computedBases) > 0 {
-		return computedBases[0], nil
-	}
-	return base.Base{}, errors.Errorf("base not specified and charm does not define any")
 }
 
 func isNotExistsError(err error) bool {

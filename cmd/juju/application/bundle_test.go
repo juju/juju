@@ -30,8 +30,6 @@ type BundleDeploySuite struct {
 	FakeStoreStateSuite
 }
 
-var _ = gc.Suite(&BundleDeployInvalidSeries{})
-
 func (s *BundleDeploySuite) SetUpSuite(c *gc.C) {
 	s.DeploySuiteBase.SetUpSuite(c)
 	s.PatchValue(&watcher.Period, 10*time.Millisecond)
@@ -90,14 +88,14 @@ func (s *BundleDeployInvalidSeries) assertDeployBundleLocalPathInvalidSeriesWith
 	dir := c.MkDir()
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
 
-	dummyURL := charm.MustParseURL("local:quantal/dummy-1")
+	dummyURL := charm.MustParseURL("local:dummy-1")
 	withAllWatcher(s.fakeAPI)
 	withLocalCharmDeployable(s.fakeAPI, dummyURL, charmDir, force)
 	withLocalBundleCharmDeployable(
 		s.fakeAPI, dummyURL, base.MustParseBaseFromString("ubuntu@12.10"),
 		charmDir.Meta(), charmDir.Manifest(), force,
 	)
-	s.fakeAPI.Call("CharmInfo", "local:quantal/dummy-1").Returns(
+	s.fakeAPI.Call("CharmInfo", "local:dummy-1").Returns(
 		&apicommoncharms.CharmInfo{
 			URL:  "local:dummy",
 			Meta: &charm.Meta{Name: "dummy", Series: []string{"jammy"}},
@@ -120,11 +118,41 @@ func (s *BundleDeployInvalidSeries) assertDeployBundleLocalPathInvalidSeriesWith
 		args = append(args, "--force")
 	}
 	err = s.runDeploy(c, args...)
-	if force {
-		c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: base: ubuntu@12.10/stable")
-	} else {
-		c.Assert(err, gc.ErrorMatches, `cannot deploy bundle:.*base "ubuntu@12.10" not supported by charm.*`)
-	}
+	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: base: ubuntu@12.10/stable")
+}
+
+func (s *BundleDeployInvalidSeries) TestDeployBundleLocalPathInvalidJujuSeries(c *gc.C) {
+	dir := c.MkDir()
+	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
+
+	dummyURL := charm.MustParseURL("local:dummy-1")
+	withAllWatcher(s.fakeAPI)
+	withLocalCharmDeployable(s.fakeAPI, dummyURL, charmDir, false)
+	withLocalBundleCharmDeployable(
+		s.fakeAPI, dummyURL, base.MustParseBaseFromString("ubuntu@12.10"),
+		charmDir.Meta(), charmDir.Manifest(), false,
+	)
+	s.fakeAPI.Call("CharmInfo", "local:dummy-1").Returns(
+		&apicommoncharms.CharmInfo{
+			URL:  "local:dummy",
+			Meta: &charm.Meta{Name: "dummy", Series: []string{"quantal", "jammy"}},
+		},
+		error(nil),
+	)
+
+	path := filepath.Join(dir, "mybundle")
+	data := `
+        series: focal
+        applications:
+            dummy:
+                charm: ./dummy
+                num_units: 1
+    `
+	err := os.WriteFile(path, []byte(data), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.runDeploy(c, path)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: base "ubuntu@20.04/stable" is not supported, supported bases are: .*`)
 }
 
 // NOTE:
@@ -548,7 +576,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleApplicationDefaultArchCons
                charm: ch:wordpress
                constraints: mem=4G cores=2
            customized:
-               charm: ch:bionic/dummy-0
+               charm: ch:dummy-0
                num_units: 1
                constraints: arch=amd64
    `)

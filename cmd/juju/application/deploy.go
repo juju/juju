@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	corebase "github.com/juju/juju/core/base"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/model"
@@ -938,7 +939,8 @@ func (c *DeployCommand) getCharmHubURL(modelConfigClient ModelConfigGetter) (str
 
 type defaultCharmReader struct{}
 
-// ReadCharm attempts to read a charm from a path on the filesystem.
-func (defaultCharmReader) ReadCharm(path string) (charm.Charm, error) {
-	return charm.ReadCharm(path)
+// NewCharmAtPath returns the charm represented by this path,
+// and a URL that describes it.
+func (defaultCharmReader) NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
+	return corecharm.NewCharmAtPath(path)
 }

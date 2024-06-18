@@ -88,7 +88,7 @@ var _ = gc.Suite(&RefreshSuite{})
 
 func (s *RefreshSuite) SetUpTest(c *gc.C) {
 	s.BaseRefreshSuite.SetUpSuite(c)
-	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:quantal/foo-1"), charm.MustParseURL("ch:quantal/foo-2"))
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@12.10"), charm.MustParseURL("ch:foo-1"), charm.MustParseURL("ch:foo-2"))
 }
 
 func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
@@ -96,14 +96,12 @@ func (s *BaseRefreshSuite) SetUpTest(c *gc.C) {
 	s.Stub.ResetCalls()
 }
 
-func (s *BaseRefreshSuite) setup(c *gc.C, currentCharmURL, latestCharmURL *charm.URL) {
+func (s *BaseRefreshSuite) setup(c *gc.C, b corebase.Base, currentCharmURL, latestCharmURL *charm.URL) {
 	// Create persistent cookies in a temporary location.
 	cookieFile := filepath.Join(c.MkDir(), "cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookieFile)
 
-	var err error
-	s.testBase, err = corebase.GetBaseFromSeries(currentCharmURL.Series)
-	c.Assert(err, jc.ErrorIsNil)
+	s.testBase = b
 	s.testPlatform = corecharm.MustParsePlatform(fmt.Sprintf("%s/%s/%s", arch.DefaultArchitecture, s.testBase.OS, s.testBase.Channel))
 
 	s.deployResources = func(
@@ -506,7 +504,7 @@ func (s *RefreshErrorsStateSuite) TestInvalidApplication(c *gc.C) {
 
 func (s *RefreshErrorsStateSuite) deployApplication(c *gc.C) {
 	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "riak")
-	curl := charm.MustParseURL("local:bionic/riak-7")
+	curl := charm.MustParseURL("local:riak-7")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
 	withCharmDeployable(s.fakeAPI, curl, corebase.MustParseBaseFromString("ubuntu@18.04"), charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
 
@@ -600,7 +598,7 @@ func (s *RefreshSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.path = testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	err := runDeploy(c, s.path, "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
-	curl := "local:bionic/riak-7"
+	curl := "local:riak-7"
 	s.riak, _ = s.RepoSuite.AssertApplication(c, "riak", curl, 1, 1)
 
 	_, forced, err := s.riak.Charm()
@@ -669,7 +667,7 @@ func (s *RefreshSuite) TestUpgradeWithChannelNoNewCharmURL(c *gc.C) {
 	// Test setting a new charm channel, without an actual
 	// charm upgrade needed.
 	s.resolvedChannel = charm.Beta
-	s.resolvedCharmURL = charm.MustParseURL("ch:quantal/foo-1")
+	s.resolvedCharmURL = charm.MustParseURL("ch:foo-1")
 
 	_, err := s.runRefresh(c, "foo", "--channel=beta")
 	c.Assert(err, jc.ErrorIsNil)
@@ -960,7 +958,7 @@ func (s *RefreshSuccessStateSuite) TestInitWithResources(c *gc.C) {
 }
 
 func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *gc.C) {
-	s.resolvedCharmURL = charm.MustParseURL("ch:quantal/foo-1")
+	s.resolvedCharmURL = charm.MustParseURL("ch:foo-1")
 	s.charmClient.charmInfo = &apicommoncharms.CharmInfo{
 		URL: s.resolvedCharmURL.String(),
 		Meta: &charm.Meta{
@@ -1011,7 +1009,7 @@ var _ = gc.Suite(&RefreshCharmHubSuite{})
 
 func (s *RefreshCharmHubSuite) SetUpTest(c *gc.C) {
 	s.BaseRefreshSuite.SetUpSuite(c)
-	s.BaseRefreshSuite.setup(c, charm.MustParseURL("ch:quantal/foo-1"), charm.MustParseURL("ch:quantal/foo-2"))
+	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@12.10"), charm.MustParseURL("ch:foo-1"), charm.MustParseURL("ch:foo-2"))
 }
 
 func (s *BaseRefreshSuite) TearDownTest(c *gc.C) {
@@ -1168,7 +1166,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPath(c *gc.C) {
 	_, err = s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
 	curl, _ := s.assertUpgraded(c, s.riak, 42, false)
-	c.Assert(curl, gc.Equals, "local:bionic/riak-42")
+	c.Assert(curl, gc.Equals, "local:riak-42")
 	s.assertLocalRevision(c, 42, myriakPath)
 }
 
@@ -1190,7 +1188,7 @@ func (s *RefreshSuccessStateSuite) TestSwitchToLocal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rev := 42
 	curl, origin := s.assertUpgraded(c, s.riak, rev, false)
-	c.Assert(curl, gc.Equals, "local:bionic/riak-42")
+	c.Assert(curl, gc.Equals, "local:riak-42")
 	c.Assert(origin, gc.DeepEquals, &state.CharmOrigin{
 		Source:   "local",
 		Revision: &rev,
@@ -1218,7 +1216,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	_, err := s.runRefresh(c, s.cmd, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
 	curl, _ := s.assertUpgraded(c, s.riak, 8, false)
-	c.Assert(curl, gc.Equals, "local:bionic/riak-8")
+	c.Assert(curl, gc.Equals, "local:riak-8")
 }
 
 func (s *RefreshSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {

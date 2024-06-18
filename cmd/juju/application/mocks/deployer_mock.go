@@ -92,7 +92,7 @@ func (m *MockDeployerFactory) EXPECT() *MockDeployerFactoryMockRecorder {
 }
 
 // GetDeployer mocks base method.
-func (m *MockDeployerFactory) GetDeployer(arg0 deployer.DeployerConfig, arg1 deployer.ModelConfigGetter, arg2 deployer.Resolver) (deployer.Deployer, error) {
+func (m *MockDeployerFactory) GetDeployer(arg0 deployer.DeployerConfig, arg1 deployer.CharmDeployAPI, arg2 deployer.Resolver) (deployer.Deployer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDeployer", arg0, arg1, arg2)
 	ret0, _ := ret[0].(deployer.Deployer)

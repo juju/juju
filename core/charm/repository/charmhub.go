@@ -181,19 +181,10 @@ func (c *CharmHubRepository) resolveWithPreferredChannel(charmName string, reque
 
 	// Ensure we send the updated charmURL back, with all the correct segments.
 	revision := response.Entity.Revision
-	// TODO(wallyworld) - does charm url still need a series?
-	var series string
-	if chSuggestedOrigin.Platform.Channel != "" {
-		series, err = corebase.GetSeriesFromChannel(chSuggestedOrigin.Platform.OS, chSuggestedOrigin.Platform.Channel)
-		if err != nil {
-			return nil, corecharm.Origin{}, nil, transport.RefreshResponse{}, errors.Trace(err)
-		}
-	}
 	resCurl := &charm.URL{
 		Schema:       "ch",
 		Name:         charmName,
 		Revision:     revision,
-		Series:       series,
 		Architecture: chSuggestedOrigin.Platform.Architecture,
 	}
 

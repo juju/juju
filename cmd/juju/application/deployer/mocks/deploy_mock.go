@@ -697,19 +697,20 @@ func (m *MockCharmReader) EXPECT() *MockCharmReaderMockRecorder {
 	return m.recorder
 }
 
-// ReadCharm mocks base method.
-func (m *MockCharmReader) ReadCharm(arg0 string) (charm.Charm, error) {
+// NewCharmAtPath mocks base method.
+func (m *MockCharmReader) NewCharmAtPath(arg0 string) (charm.Charm, *charm.URL, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadCharm", arg0)
+	ret := m.ctrl.Call(m, "NewCharmAtPath", arg0)
 	ret0, _ := ret[0].(charm.Charm)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(*charm.URL)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
-// ReadCharm indicates an expected call of ReadCharm.
-func (mr *MockCharmReaderMockRecorder) ReadCharm(arg0 any) *gomock.Call {
+// NewCharmAtPath indicates an expected call of NewCharmAtPath.
+func (mr *MockCharmReaderMockRecorder) NewCharmAtPath(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadCharm", reflect.TypeOf((*MockCharmReader)(nil).ReadCharm), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewCharmAtPath", reflect.TypeOf((*MockCharmReader)(nil).NewCharmAtPath), arg0)
 }
 
 // MockDeployConfigFlag is a mock of DeployConfigFlag interface.

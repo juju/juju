@@ -28,7 +28,7 @@ import (
 
 // DeployerFactory contains a method to get a deployer.
 type DeployerFactory interface {
-	GetDeployer(DeployerConfig, ModelConfigGetter, Resolver) (Deployer, error)
+	GetDeployer(DeployerConfig, CharmDeployAPI, Resolver) (Deployer, error)
 }
 
 // Deployer defines the functionality of a deployer returned by the
@@ -53,8 +53,8 @@ type ModelAPI interface {
 // CharmDeployAPI represents the methods of the API the deploy
 // command needs for charms.
 type CharmDeployAPI interface {
+	ModelConfigGetter
 	CharmInfo(string) (*apicharms.CharmInfo, error)
-	ListCharmResources(curl string, origin commoncharm.Origin) ([]charmresource.Resource, error)
 }
 
 // OfferAPI represents the methods of the API the deploy command needs
@@ -88,6 +88,7 @@ type DeployerAPI interface {
 	Deploy(application.DeployArgs) error
 	Status(*client.StatusArgs) (*apiparams.FullStatus, error)
 	WatchAll() (api.AllWatch, error)
+	ListCharmResources(curl string, origin commoncharm.Origin) ([]charmresource.Resource, error)
 }
 
 type ApplicationAPI interface {
@@ -167,8 +168,9 @@ type ModelCommand interface {
 
 // CharmReader aims to read a charm from the filesystem.
 type CharmReader interface {
-	// ReadCharm reads a given charm from the filesystem.
-	ReadCharm(string) (charm.Charm, error)
+	// NewCharmAtPath returns the charm represented by this path,
+	// and a URL that describes it.
+	NewCharmAtPath(string) (charm.Charm, *charm.URL, error)
 }
 
 // DeployConfigFlag defines methods required for charm config when deploying a charm.

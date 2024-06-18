@@ -51,6 +51,8 @@ type localBundleDeployerKind struct {
 // localPreDeployerKind represents a local pre-deployed charm deployment
 type localPreDeployerKind struct {
 	userCharmURL *charm.URL
+	base         corebase.Base
+	ch           charm.Charm
 }
 
 // localCharmDeployerKind represents a local charm deployment
@@ -91,8 +93,8 @@ func NewDeployerFactory(dep DeployerDependencies) DeployerFactory {
 }
 
 // GetDeployer returns the correct deployer to use based on the cfg provided.
-// A ModelConfigGetter needed to find the deployer.
-func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, resolver Resolver) (Deployer, error) {
+// A CharmDeployAPI is needed to find the deployer.
+func (d *factory) GetDeployer(cfg DeployerConfig, deployAPI CharmDeployAPI, resolver Resolver) (Deployer, error) {
 	// Determine the type of deploy we have
 	var dk DeployerKind
 
@@ -116,7 +118,7 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 		// Go for local charm (if it's not set by the localBundleDeployer above)
 		if dk == nil {
 			var localCharmErr error
-			if dk, localCharmErr = d.localCharmDeployer(getter); localCharmErr != nil {
+			if dk, localCharmErr = d.localCharmDeployer(deployAPI); localCharmErr != nil {
 				return nil, errors.Trace(localCharmErr)
 			}
 		}
@@ -124,7 +126,7 @@ func (d *factory) GetDeployer(cfg DeployerConfig, getter ModelConfigGetter, reso
 		// Go for local pre-deployed charm (if it's not set by the localCharmDeployer above)
 		if dk == nil {
 			var localPreDeployedCharmErr error
-			if dk, localPreDeployedCharmErr = d.localPreDeployedCharmDeployer(); localPreDeployedCharmErr != nil {
+			if dk, localPreDeployedCharmErr = d.localPreDeployedCharmDeployer(deployAPI); localPreDeployedCharmErr != nil {
 				return nil, errors.Trace(localPreDeployedCharmErr)
 			}
 		}
@@ -226,18 +228,14 @@ func (d *factory) localBundleDeployer() (DeployerKind, error) {
 }
 
 func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, error) {
-	// Determine base
 	charmOrBundle := d.charmOrBundle
 	if isLocalSchema(charmOrBundle) {
 		charmOrBundle = charmOrBundle[6:]
 	}
-	base, imageStream, baseErr := d.determineBaseForLocalCharm(charmOrBundle, getter)
-	if baseErr != nil {
-		return nil, errors.Trace(baseErr)
-	}
 
 	// Charm may have been supplied via a path reference.
-	ch, curl, err := corecharm.NewCharmAtPathForceBase(charmOrBundle, base, d.force)
+	ch, curl, err := d.charmReader.NewCharmAtPath(d.charmOrBundle)
+
 	// We check for several types of known error which indicate
 	// that the supplied reference was indeed a path but there was
 	// an issue reading the charm located there.
@@ -258,10 +256,16 @@ func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, er
 		// we return the error.
 		return nil, errors.Annotatef(err, "attempting to deploy %q", charmOrBundle)
 	}
+
+	base, imageStream, err := d.determineBaseForCharm(ch, getter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return &localCharmDeployerKind{base, imageStream, ch, curl}, nil
 }
 
-func (d *factory) localPreDeployedCharmDeployer() (DeployerKind, error) {
+func (d *factory) localPreDeployedCharmDeployer(deployAPI CharmDeployAPI) (DeployerKind, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
 	// environment.
@@ -272,24 +276,26 @@ func (d *factory) localPreDeployedCharmDeployer() (DeployerKind, error) {
 	if !charm.Local.Matches(userCharmURL.Schema) {
 		return nil, errors.Errorf("cannot interpret as a redeployment of a local charm from the controller")
 	}
-	return &localPreDeployerKind{userCharmURL: userCharmURL}, nil
+
+	charmInfo, err := deployAPI.CharmInfo(userCharmURL.String())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	ch := charmInfo.Charm()
+
+	base, _, err := d.determineBaseForCharm(ch, deployAPI)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return &localPreDeployerKind{base: base, userCharmURL: userCharmURL, ch: ch}, nil
 }
 
-func (d *factory) determineBaseForLocalCharm(charmOrBundle string, getter ModelConfigGetter) (corebase.Base, string, error) {
-	// NOTE: Reading the charm here is only meant to aid in inferring the
-	// correct base. If this fails, we simply return with default values
-	// and trust the caller to handle this failure properly (the charm is
-	// read again later).
-	// TODO: A proper refactoring is required for a proper fix
+func (d *factory) determineBaseForCharm(ch charm.Charm, getter ModelConfigGetter) (corebase.Base, string, error) {
 	var (
 		imageStream  string
 		selectedBase corebase.Base
 	)
-	ch, err := d.charmReader.ReadCharm(charmOrBundle)
-	if err != nil {
-		return corebase.Base{}, "", nil
-	}
-
 	modelCfg, err := getModelConfig(getter)
 	if err != nil {
 		return corebase.Base{}, "", errors.Trace(err)
@@ -498,8 +504,7 @@ func (d *factory) newDeployCharm() deployCharm {
 		storage:          d.storage,
 		trust:            d.trust,
 
-		validateCharmBaseWithName:             d.validateCharmBaseWithName,
-		validateResourcesNeededForLocalDeploy: d.validateResourcesNeededForLocalDeploy,
+		validateCharmBaseWithName: d.validateCharmBaseWithName,
 	}
 }
 
@@ -551,9 +556,13 @@ func (d *factory) newDeployBundle(_ charm.Schema, ds charm.BundleDataSource) dep
 }
 
 func (dk *localPreDeployerKind) CreateDeployer(d factory) (Deployer, error) {
+	if err := d.validateResourcesNeededForLocalDeploy(dk.ch.Meta()); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return &predeployedLocalCharm{
 		deployCharm:  d.newDeployCharm(),
 		userCharmURL: dk.userCharmURL,
+		base:         dk.base,
 	}, nil
 }
 
