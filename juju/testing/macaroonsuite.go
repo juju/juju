@@ -5,6 +5,7 @@ package testing
 
 import (
 	"context"
+	"github.com/juju/juju/domain/access/service"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -21,8 +22,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 )
 
 // MacaroonSuite wraps a ApiServerSuite with macaroon authentication
@@ -80,27 +80,50 @@ func (s *MacaroonSuite) DischargerLocation() string {
 }
 
 // AddModelUser is a convenience function that adds an external
-// user to the current model. It will panic
-// if the user name is local.
+// user to the current model.
+// It will panic if the user is local.
 func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 	if names.NewUserTag(username).IsLocal() {
 		panic("cannot use MacaroonSuite.AddModelUser to add a local name")
 	}
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeModelUser(c, &factory.ModelUserParams{
-		User: username,
+
+	accessService := s.ControllerServiceFactory(c).Access()
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
+		Name:        username,
+		DisplayName: "Remote User",
+		CreatorUUID: s.AdminUserUUID,
+		Permission: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        s.ControllerModelUUID(),
+			},
+			Access: permission.WriteAccess,
+		},
 	})
+	c.Assert(err, jc.ErrorIsNil)
 }
 
-// AddControllerUser is a convenience funcation that adds
+// AddControllerUser is a convenience function that adds
 // a controller user with the specified access.
 func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, access permission.Access) {
-	_, err := s.ControllerModel(c).State().AddControllerUser(state.UserAccessSpec{
-		User:      names.NewUserTag(username),
-		CreatedBy: AdminUser,
-		Access:    access,
+	accessService := s.ControllerServiceFactory(c).Access()
+	perm := permission.ControllerForAccess(access)
+
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
+		Name:        username,
+		DisplayName: "User Name",
+		CreatorUUID: s.AdminUserUUID,
+		Permission:  perm,
 	})
+
+	// If we created this user prior, just add the controller permission.
+	if errors.Is(err, accesserrors.UserAlreadyExists) {
+		_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+			AccessSpec: perm,
+			User:       username,
+		})
+	}
+
 	c.Assert(err, jc.ErrorIsNil)
 }
 
