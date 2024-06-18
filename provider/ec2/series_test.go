@@ -134,6 +134,61 @@ const testImageMetadataProduct = `
 {
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
+    "com.ubuntu.cloud:server:24.04:amd64": {
+      "release": "noble",
+      "version": "24.04",
+      "arch": "amd64",
+      "versions": {
+        "20121218": {
+          "items": {
+            "usee1pi": {
+              "root_store": "instance",
+              "virt": "pv",
+              "region": "us-east-1",
+              "id": "ami-02204111"
+            },
+            "usww1pe": {
+              "root_store": "ssd",
+              "virt": "pv",
+              "region": "eu-west-1",
+              "id": "ami-02204116"
+            },
+            "apne1pe": {
+              "root_store": "ssd",
+              "virt": "pv",
+              "region": "ap-northeast-1",
+              "id": "ami-02204126"
+            },
+            "apne1he": {
+              "root_store": "ssd",
+              "virt": "hvm",
+              "region": "ap-northeast-1",
+              "id": "ami-02204187"
+            },
+            "test1peebs": {
+              "root_store": "ssd",
+              "virt": "pv",
+              "region": "test",
+              "id": "ami-02204133"
+            },
+            "test1pessd": {
+              "root_store": "ebs",
+              "virt": "pv",
+              "region": "test",
+              "id": "ami-02204139"
+            },
+            "test1he": {
+              "root_store": "ssd",
+              "virt": "hvm",
+              "region": "test",
+              "id": "ami-02204135"
+            }
+          },
+          "pubname": "ubuntu-noble-24.04-amd64-server-20121218",
+          "label": "release"
+        }
+      }
+    },
     "com.ubuntu.cloud:server:22.04:amd64": {
       "release": "jammy",
       "version": "22.04",

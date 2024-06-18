@@ -305,8 +305,8 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 				return u.loop(uniterParams.UnitTag)
 			},
 		}
-		if u.modelType == model.CAAS {
-			// For CAAS models, make sure the leadership tracker is killed when the Uniter
+		if u.modelType == model.CAAS && !uniterParams.Sidecar {
+			// For podspec units, make sure the leadership tracker is killed when the Uniter
 			// dies.
 			plan.Init = append(plan.Init, u.leadershipTracker)
 		}
