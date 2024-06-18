@@ -281,7 +281,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"net_node",
 		"cloud_service",
 		"cloud_container",
-		"instance_data",
+		"machine_cloud_instance",
 		"machine_lxd_profile",
 		"instance_tag",
 
