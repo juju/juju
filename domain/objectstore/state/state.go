@@ -153,8 +153,9 @@ AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 			err := tx.Query(ctx, metadataLookupStmt, dbMetadata).Get(&dbMetadataPath)
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return objectstoreerrors.ErrHashAndSizeAlreadyExists
+			} else if err != nil {
+				return errors.Annotatef(err, "inserting metadata")
 			}
-			return errors.Annotatef(err, "inserting metadata")
 		}
 
 		err = tx.Query(ctx, pathStmt, dbMetadataPath).Get(&outcome)
