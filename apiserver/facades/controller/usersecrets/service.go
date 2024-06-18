@@ -14,5 +14,5 @@ import (
 type SecretService interface {
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	DeleteObsoleteUserSecrets(ctx context.Context) error
-	WatchObsoleteUserSecrets(ctx context.Context) (watcher.NotifyWatcher, error)
+	WatchObsoleteUserSecretsToPrune(ctx context.Context) (watcher.StringsWatcher, error)
 }

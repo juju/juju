@@ -13,7 +13,7 @@ import (
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/service.go github.com/juju/juju/apiserver/facades/controller/usersecrets SecretService
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/watcher.go github.com/juju/juju/core/watcher NotifyWatcher
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/watcher.go github.com/juju/juju/core/watcher StringsWatcher
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
@@ -21,15 +21,14 @@ func TestPackage(t *testing.T) {
 
 func NewTestAPI(
 	authorizer facade.Authorizer,
-	resources facade.Resources,
+	watcherRegistry facade.WatcherRegistry,
 	secretService SecretService,
 ) (*UserSecretsManager, error) {
 	if !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
 	}
 	return &UserSecretsManager{
-		authorizer:    authorizer,
-		resources:     resources,
-		secretService: secretService,
+		secretService:   secretService,
+		watcherRegistry: watcherRegistry,
 	}, nil
 }

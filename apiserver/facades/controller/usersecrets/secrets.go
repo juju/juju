@@ -8,30 +8,29 @@ import (
 
 	"github.com/juju/errors"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/rpc/params"
 )
 
 // UserSecretsManager is the implementation for the usersecrets facade.
 type UserSecretsManager struct {
-	authorizer facade.Authorizer
-	resources  facade.Resources
-
-	secretService SecretService
+	watcherRegistry facade.WatcherRegistry
+	secretService   SecretService
 }
 
 // WatchRevisionsToPrune returns a watcher for notifying when:
 //   - a secret revision owned by the model no longer
 //     has any consumers and should be pruned.
-func (s *UserSecretsManager) WatchRevisionsToPrune(ctx context.Context) (params.NotifyWatchResult, error) {
-	result := params.NotifyWatchResult{}
-	w, err := s.secretService.WatchObsoleteUserSecrets(ctx)
+func (s *UserSecretsManager) WatchRevisionsToPrune(ctx context.Context) (params.StringsWatchResult, error) {
+	result := params.StringsWatchResult{}
+	w, err := s.secretService.WatchObsoleteUserSecretsToPrune(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if _, ok := <-w.Changes(); ok {
-		result.NotifyWatcherId = s.resources.Register(w)
-	}
+	result.StringsWatcherId, result.Changes, err = internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, w)
+	result.Error = apiservererrors.ServerError(err)
 	return result, nil
 }
 
