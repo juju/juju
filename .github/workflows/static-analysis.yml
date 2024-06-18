@@ -142,3 +142,10 @@ jobs:
       run: |
         STATIC_ANALYSIS_JOB=test_schema make static-analysis
       shell: bash
+
+  conventional-commits:
+    name: Check conventional commits
+    runs-on: ubuntu-latest
+    steps:
+        - uses: actions/checkout@v4
+        - uses: wagoid/commitlint-github-action@v6
