@@ -109,7 +109,7 @@ require (
 	golang.org/x/net v0.23.0
 	golang.org/x/oauth2 v0.15.0
 	golang.org/x/sync v0.5.0
-	golang.org/x/sys v0.18.0
+	golang.org/x/sys v0.21.0
 	golang.org/x/tools v0.16.0
 	google.golang.org/api v0.152.0
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
@@ -252,7 +252,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.21.0 // indirect
 	go.opentelemetry.io/otel/trace v1.21.0 // indirect
 	golang.org/x/mod v0.18.0 // indirect
-	golang.org/x/term v0.18.0 // indirect
+	golang.org/x/term v0.21.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
