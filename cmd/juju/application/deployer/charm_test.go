@@ -217,9 +217,6 @@ func (s *charmSuite) TestDeployFromPredeployed(c *gc.C) {
 	s.deployerAPI.EXPECT().Deploy(gomock.Any()).Return(nil)
 
 	dCharm := s.newDeployCharm()
-	dCharm.validateResourcesNeededForLocalDeploy = func(_ *charm.Meta) error {
-		return nil
-	}
 
 	predeployedCharm := &predeployedLocalCharm{
 		deployCharm:  *dCharm,

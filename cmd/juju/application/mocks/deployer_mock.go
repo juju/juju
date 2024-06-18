@@ -141,7 +141,7 @@ func (m *MockDeployerFactory) EXPECT() *MockDeployerFactoryMockRecorder {
 }
 
 // GetDeployer mocks base method.
-func (m *MockDeployerFactory) GetDeployer(arg0 context.Context, arg1 deployer.DeployerConfig, arg2 deployer.ModelConfigGetter, arg3 deployer.Resolver) (deployer.Deployer, error) {
+func (m *MockDeployerFactory) GetDeployer(arg0 context.Context, arg1 deployer.DeployerConfig, arg2 deployer.CharmDeployAPI, arg3 deployer.Resolver) (deployer.Deployer, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetDeployer", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(deployer.Deployer)
@@ -168,13 +168,13 @@ func (c *MockDeployerFactoryGetDeployerCall) Return(arg0 deployer.Deployer, arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerFactoryGetDeployerCall) Do(f func(context.Context, deployer.DeployerConfig, deployer.ModelConfigGetter, deployer.Resolver) (deployer.Deployer, error)) *MockDeployerFactoryGetDeployerCall {
+func (c *MockDeployerFactoryGetDeployerCall) Do(f func(context.Context, deployer.DeployerConfig, deployer.CharmDeployAPI, deployer.Resolver) (deployer.Deployer, error)) *MockDeployerFactoryGetDeployerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerFactoryGetDeployerCall) DoAndReturn(f func(context.Context, deployer.DeployerConfig, deployer.ModelConfigGetter, deployer.Resolver) (deployer.Deployer, error)) *MockDeployerFactoryGetDeployerCall {
+func (c *MockDeployerFactoryGetDeployerCall) DoAndReturn(f func(context.Context, deployer.DeployerConfig, deployer.CharmDeployAPI, deployer.Resolver) (deployer.Deployer, error)) *MockDeployerFactoryGetDeployerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
