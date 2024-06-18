@@ -13,6 +13,9 @@ CREATE TABLE application (
     REFERENCES life (id)
 );
 
+CREATE UNIQUE INDEX idx_application_name
+ON application (name);
+
 CREATE TABLE application_channel (
     application_uuid TEXT NOT NULL PRIMARY KEY,
     track TEXT NOT NULL,
@@ -23,7 +26,8 @@ CREATE TABLE application_channel (
     REFERENCES application (uuid)
 );
 
-CREATE TABLE application_caas (
+-- Application scale is currently only targeting k8s applications.
+CREATE TABLE application_scale (
     application_uuid TEXT NOT NULL PRIMARY KEY,
     scale INT,
     scale_target TEXT,
@@ -48,9 +52,6 @@ CREATE TABLE application_platform (
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id)
 );
-
-CREATE UNIQUE INDEX idx_application_name
-ON application (name);
 
 CREATE TABLE application_endpoint_space (
     application_uuid TEXT NOT NULL,

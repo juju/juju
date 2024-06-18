@@ -234,7 +234,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 	expected := set.NewStrings(
 		// Application
 		"application",
-		"application_caas",
 		"application_channel",
 		"application_config",
 		"application_constraint",
@@ -242,6 +241,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"application_endpoint_cidr",
 		"application_platform",
 		"application_setting",
+		"application_scale",
 
 		// Annotations
 		"annotation_application",
