@@ -150,10 +150,6 @@ func (s *baseSelectorSuite) TestCharmBase(c *gc.C) {
 		},
 	}
 
-	// Use bionic for LTS for all calls.
-	previous := base.SetLatestLtsForTesting("focal")
-	defer base.SetLatestLtsForTesting(previous)
-
 	for i, test := range deployBasesTests {
 		c.Logf("test %d [%s]", i, test.title)
 		test.selector.logger = s.logger

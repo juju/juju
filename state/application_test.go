@@ -457,6 +457,7 @@ func (s *ApplicationSuite) TestMergeBindings(c *gc.C) {
 		"metrics-client": network.AlphaSpaceName,
 		"server":         network.AlphaSpaceName,
 		"server-admin":   network.AlphaSpaceName,
+		"db-router":      network.AlphaSpaceName,
 	}
 	b, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -499,6 +500,7 @@ func (s *ApplicationSuite) TestMergeBindingsWithForce(c *gc.C) {
 		"metrics-client": network.AlphaSpaceName,
 		"server":         network.AlphaSpaceName,
 		"server-admin":   network.AlphaSpaceName,
+		"db-router":      network.AlphaSpaceName,
 	}
 	b, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2489,6 +2491,17 @@ func (s *ApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	})
+	dbRouterEP, err := s.mysql.Endpoint("db-router")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dbRouterEP, gc.DeepEquals, state.Endpoint{
+		ApplicationName: "mysql",
+		Relation: charm.Relation{
+			Interface: "db-router",
+			Name:      "db-router",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	})
 	monitoringEP, err := s.mysql.Endpoint("metrics-client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(monitoringEP, gc.DeepEquals, state.Endpoint{
@@ -2503,7 +2516,7 @@ func (s *ApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 
 	eps, err := s.mysql.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(eps, jc.SameContents, []state.Endpoint{jiEP, serverEP, serverAdminEP, monitoringEP})
+	c.Assert(eps, jc.SameContents, []state.Endpoint{jiEP, serverEP, serverAdminEP, dbRouterEP, monitoringEP})
 }
 
 func (s *ApplicationSuite) TestRiakEndpoints(c *gc.C) {
