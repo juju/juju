@@ -267,8 +267,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	mariadbCurl := charm.MustParseURL("ch:jammy/mariadb-k8s")
-	gitlabCurl := charm.MustParseURL("ch:jammy/gitlab-k8s")
+	mariadbCurl := charm.MustParseURL("ch:noble/mariadb-k8s")
+	gitlabCurl := charm.MustParseURL("ch:noble/gitlab-k8s")
 	chUnits := []charmUnit{
 		{
 			charmMetaSeries:      []string{"kubernetes"},
@@ -287,8 +287,8 @@ func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C)
 	s.runDeploy(c, kubernetesGitlabBundle)
 
 	c.Assert(s.deployArgs, gc.HasLen, 2)
-	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "ubuntu", "22.04")
-	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "ubuntu", "22.04")
+	s.assertDeployArgs(c, gitlabCurl.String(), "gitlab", "ubuntu", "24.04")
+	s.assertDeployArgs(c, mariadbCurl.String(), "mariadb", "ubuntu", "24.04")
 	s.assertDeployArgsStorage(c, "mariadb", map[string]storage.Constraints{"database": {Pool: "mariadb-pv", Size: 0x14, Count: 0x1}})
 	s.assertDeployArgsConfig(c, "mariadb", map[string]interface{}{"dataset-size": "70%"})
 
@@ -1256,7 +1256,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c 
 	s.expectWatchAll()
 	s.expectResolveCharm(nil)
 
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
+	wordpressCurl := charm.MustParseURL("ch:noble/wordpress")
 	s.expectResolveCharm(nil)
 	charmInfo := &apicharms.CharmInfo{
 		Revision: wordpressCurl.Revision,
@@ -1277,7 +1277,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c 
 		{Entity: &params.UnitInfo{Name: "wordpress/1", MachineId: "1"}},
 	}, nil)
 
-	djangoCurl := charm.MustParseURL("ch:jammy/django")
+	djangoCurl := charm.MustParseURL("ch:noble/django")
 	s.expectResolveCharm(nil)
 	charmInfo2 := &apicharms.CharmInfo{
 		Revision: djangoCurl.Revision,
@@ -1327,7 +1327,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundlePeerContainer(c *gc.C) {
 	s.expectAddContainer("0", "0/lxd/1", "", "lxd")
 	s.expectAddContainer("1", "1/lxd/1", "", "lxd")
 
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
+	wordpressCurl := charm.MustParseURL("ch:noble/wordpress")
 	s.expectResolveCharm(nil)
 	charmInfo := &apicharms.CharmInfo{
 		URL: wordpressCurl.String(),
@@ -1341,7 +1341,7 @@ func (s *BundleDeployRepositorySuite) TestDeployBundlePeerContainer(c *gc.C) {
 	s.expectAddOneUnit("wordpress", "0/lxd/0", "0")
 	s.expectAddOneUnit("wordpress", "1/lxd/0", "1")
 
-	djangoCurl := charm.MustParseURL("ch:jammy/django")
+	djangoCurl := charm.MustParseURL("ch:noble/django")
 	s.expectResolveCharm(nil)
 	charmInfo2 := &apicharms.CharmInfo{
 		URL: djangoCurl.String(),
@@ -1543,8 +1543,8 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	djangoCurl := charm.MustParseURL("ch:jammy/django")
-	memCurl := charm.MustParseURL("ch:jammy/mem")
+	djangoCurl := charm.MustParseURL("ch:noble/django")
+	memCurl := charm.MustParseURL("ch:noble/mem")
 	chUnits := []charmUnit{
 		{
 			curl:                 memCurl,
@@ -1761,12 +1761,12 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
 	s.expectEmptyModelToStart(c)
 	s.expectWatchAll()
 
-	wordpressCurl := charm.MustParseURL("ch:jammy/wordpress")
+	wordpressCurl := charm.MustParseURL("ch:noble/wordpress")
 	chUnits := []charmUnit{
 		{
 			charmMetaSeries:      []string{"jammy", "focal"},
 			curl:                 wordpressCurl,
-			machineUbuntuVersion: "22.04",
+			machineUbuntuVersion: "24.04",
 		},
 	}
 	s.setupCharmUnits(chUnits)
@@ -1781,7 +1781,7 @@ applications:
 `
 	s.runDeploy(c, content)
 
-	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "22.04")
+	s.assertDeployArgs(c, wordpressCurl.String(), "wordpress", "ubuntu", "24.04")
 	c.Check(s.output.String(), gc.Equals, ""+
 		"Located charm \"wordpress\" in charm-hub\n"+
 		"Executing changes:\n"+
