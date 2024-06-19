@@ -20,7 +20,7 @@ CREATE TABLE unit (
     -- charm_uuid should not be nullable, but we need to allow it for now
     -- whilst we're wiring up the model.
     charm_uuid TEXT,
-    resolve_kind_id TEXT NOT NULL,
+    resolve_kind_id INT NOT NULL DEFAULT 0,
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
     CONSTRAINT fk_unit_life
