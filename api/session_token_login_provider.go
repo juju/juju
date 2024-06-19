@@ -145,14 +145,14 @@ func (p *sessionTokenLoginProvider) login(ctx context.Context, caller base.APICa
 		return nil, errors.Trace(err)
 	}
 	return &LoginResultParams{
-		tag:              tag,
-		modelTag:         result.ModelTag,
-		controllerTag:    result.ControllerTag,
-		servers:          servers,
-		publicDNSName:    result.PublicDNSName,
-		facades:          result.Facades,
-		modelAccess:      modelAccess,
-		controllerAccess: controllerAccess,
-		serverVersion:    serverVersion,
+		Tag:              tag,
+		ModelTag:         result.ModelTag,
+		ControllerTag:    result.ControllerTag,
+		Servers:          servers,
+		PublicDNSName:    result.PublicDNSName,
+		Facades:          result.Facades,
+		ModelAccess:      modelAccess,
+		ControllerAccess: controllerAccess,
+		ServerVersion:    serverVersion,
 	}, nil
 }
