@@ -287,7 +287,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 		// Unit
 		"unit",
-		"unit_config",
 		"unit_platform",
 		"unit_resolve_kind",
 		"unit_state_charm",
@@ -714,13 +713,11 @@ VALUES (?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, "",
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, "", netNodeUUID)
 	charmUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, "INSERT INTO charm (uuid, name) VALUES (?, 'mysql');", "", charmUUID)
-	machineUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, `INSERT INTO machine (uuid, machine_id, life_id, net_node_uuid) VALUES (?, 0, 0, ?);`, "", machineUUID, netNodeUUID)
 	unitUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO unit (uuid, life_id, name, application_uuid, net_node_uuid, charm_uuid, machine_uuid, resolve_kind_id) 
-VALUES (?, 0, 0, ?, ?, ?, ?, 0);`,
-		"", unitUUID, appUUID, netNodeUUID, charmUUID, machineUUID)
+INSERT INTO unit (uuid, life_id, name, application_uuid, net_node_uuid, charm_uuid, resolve_kind_id) 
+VALUES (?, 0, 0, ?, ?, ?, 0);`,
+		"", unitUUID, appUUID, netNodeUUID, charmUUID)
 }
 
 func (s *schemaSuite) TestControllerTriggersForImmutableTables(c *gc.C) {

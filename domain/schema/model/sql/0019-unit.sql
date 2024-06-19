@@ -17,8 +17,9 @@ CREATE TABLE unit (
     life_id INT NOT NULL,
     application_uuid TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
-    charm_uuid TEXT NOT NULL,
-    machine_uuid TEXT NOT NULL,
+    -- charm_uuid should not be nullable, but we need to allow it for now
+    -- whilst we're wiring up the model.
+    charm_uuid TEXT,
     resolve_kind_id TEXT NOT NULL,
     password_hash_algorithm_id TEXT,
     password_hash TEXT,
@@ -37,9 +38,6 @@ CREATE TABLE unit (
     CONSTRAINT fk_unit_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    CONSTRAINT fk_unit_machine
-    FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid),
     CONSTRAINT fk_unit_password_hash_algorithm
     FOREIGN KEY (password_hash_algorithm_id)
     REFERENCES password_hash_algorithm (id)
@@ -53,20 +51,6 @@ ON unit (application_uuid);
 
 CREATE INDEX idx_unit_net_node
 ON unit (net_node_uuid);
-
-CREATE TABLE unit_config (
-    unit_uuid TEXT NOT NULL,
-    name TEXT NOT NULL,
-    type_id TEXT,
-    value TEXT,
-    CONSTRAINT fk_unit_config_unit
-    FOREIGN KEY (unit_uuid)
-    REFERENCES unit (uuid),
-    CONSTRAINT fk_unit_config_charm_config_type
-    FOREIGN KEY (type_id)
-    REFERENCES charm_config_type (id),
-    PRIMARY KEY (unit_uuid, name)
-);
 
 CREATE TABLE unit_platform (
     unit_uuid TEXT NOT NULL PRIMARY KEY,
