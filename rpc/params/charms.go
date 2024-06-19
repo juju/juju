@@ -161,14 +161,6 @@ type CharmPlan struct {
 	Required bool `json:"required"`
 }
 
-// CharmDeployment mirrors charm.Deployment.
-type CharmDeployment struct {
-	DeploymentType string `json:"type"`
-	DeploymentMode string `json:"mode"`
-	ServiceType    string `json:"service"`
-	MinVersion     string `json:"min-version"`
-}
-
 // CharmManifest mirrors charm.Manifest
 type CharmManifest struct {
 	Bases []CharmBase `json:"bases,omitempty"`

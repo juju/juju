@@ -148,42 +148,6 @@ type Device struct {
 	CountMax int64 `bson:"countmax"`
 }
 
-// DeploymentType defines a deployment type.
-type DeploymentType string
-
-const (
-	DeploymentStateless DeploymentType = "stateless"
-	DeploymentStateful  DeploymentType = "stateful"
-	DeploymentDaemon    DeploymentType = "daemon"
-)
-
-// DeploymentMode defines a deployment mode.
-type DeploymentMode string
-
-const (
-	ModeOperator DeploymentMode = "operator"
-	ModeWorkload DeploymentMode = "workload"
-)
-
-// ServiceType defines a service type.
-type ServiceType string
-
-const (
-	ServiceCluster      ServiceType = "cluster"
-	ServiceLoadBalancer ServiceType = "loadbalancer"
-	ServiceExternal     ServiceType = "external"
-	ServiceOmit         ServiceType = "omit"
-)
-
-// Deployment represents a charm's deployment requirements in the charm
-// metadata.yaml file.
-type Deployment struct {
-	DeploymentType DeploymentType `bson:"type"`
-	DeploymentMode DeploymentMode `bson:"mode"`
-	ServiceType    ServiceType    `bson:"service"`
-	MinVersion     string         `bson:"min-version"`
-}
-
 // Relation represents a single relation defined in the charm
 // metadata.yaml file.
 type Relation struct {
