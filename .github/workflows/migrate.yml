@@ -4,14 +4,6 @@ on:
     branches: [2.*, 3.*, 4.*, main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - 'snap/**'
-      - '.github/workflows/migrate.yml'
-      - 'scripts/dqlite/**'
-      - 'Makefile'
-      - 'make_functions.sh'
   workflow_dispatch:
 
 permissions:
