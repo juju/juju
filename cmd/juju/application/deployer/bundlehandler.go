@@ -17,10 +17,10 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
+	"github.com/juju/retry"
 	"github.com/kr/pretty"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/client/resources"
@@ -44,7 +44,6 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state/watcher"
 )
 
 type bundleDeploySpec struct {
@@ -189,10 +188,6 @@ type bundleHandler struct {
 	// knownSpaceNames is a set of the names of existing spaces an application
 	// can bind to
 	knownSpaceNames set.Strings
-
-	// watcher holds an environment mega-watcher used to keep the environment
-	// status up to date.
-	watcher api.AllWatch
 
 	// The name and UUID of the model where the bundle is about to be deployed.
 	targetModelName string
@@ -501,14 +496,6 @@ func (h *bundleHandler) getChanges() error {
 }
 
 func (h *bundleHandler) handleChanges(ctx context.Context) error {
-	var err error
-	// Instantiate a watcher used to follow the deployment progress.
-	h.watcher, err = h.deployAPI.WatchAll()
-	if err != nil {
-		return errors.Annotate(err, "cannot watch model")
-	}
-	defer func() { _ = h.watcher.Stop() }()
-
 	if len(h.changes) == 0 {
 		h.ctx.Infof("No changes to apply.")
 		return nil
@@ -526,6 +513,8 @@ func (h *bundleHandler) handleChanges(ctx context.Context) error {
 		if logger.IsLevelEnabled(corelogger.TRACE) {
 			logger.Tracef("%d: change %s", i, pretty.Sprint(change))
 		}
+
+		var err error
 		switch change := change.(type) {
 		case *bundlechanges.AddCharmChange:
 			err = h.addCharm(change)
@@ -1532,41 +1521,6 @@ func (h *bundleHandler) applicationsForMachineChange(change *bundlechanges.AddMa
 	return applications.SortedValues()
 }
 
-// updateUnitStatusPeriod is the time duration used to wait for a mega-watcher
-// change to be available.
-var updateUnitStatusPeriod = watcher.Period + 5*time.Second
-
-// updateUnitStatus uses the mega-watcher to update units and machines info
-// (h.unitStatus) so that it reflects the current environment status.
-// This function must be called assuming new delta changes are available or
-// will be available within the watcher time period. Otherwise, the function
-// unblocks and an error is returned.
-func (h *bundleHandler) updateUnitStatus() error {
-	var delta []params.Delta
-	var err error
-	ch := make(chan struct{})
-	go func() {
-		delta, err = h.watcher.Next()
-		close(ch)
-	}()
-	select {
-	case <-ch:
-		if err != nil {
-			return errors.Annotate(err, "cannot update model status")
-		}
-		for _, d := range delta {
-			switch entityInfo := d.Entity.(type) {
-			case *params.UnitInfo:
-				h.unitStatus[entityInfo.Name] = entityInfo.MachineId
-			}
-		}
-	case <-time.After(updateUnitStatusPeriod):
-		// TODO(fwereade): 2016-03-17 lp:1558657
-		return errors.New("timeout while trying to get new changes from the watcher")
-	}
-	return nil
-}
-
 // resolveMachine returns the machine id resolving the given unit or machine
 // placeholder.
 func (h *bundleHandler) resolveMachine(placeholder string) (string, error) {
@@ -1579,12 +1533,41 @@ func (h *bundleHandler) resolveMachine(placeholder string) (string, error) {
 	if !names.IsValidUnit(machineOrUnit) {
 		return machineOrUnit, nil
 	}
-	for h.unitStatus[machineOrUnit] == "" {
-		if err := h.updateUnitStatus(); err != nil {
-			return "", errors.Annotate(err, "cannot resolve machine")
-		}
+
+	if h.unitStatus[machineOrUnit] != "" {
+		return h.unitStatus[machineOrUnit], nil
 	}
-	return h.unitStatus[machineOrUnit], nil
+
+	// This should be optimized to avoid calling full status. This should really
+	// use the new all watcher, but we're not there yet. For now call status
+	// until we get the machine id.
+	var result string
+	err := retry.Call(retry.CallArgs{
+		Func: func() error {
+			status, err := h.deployAPI.Status(nil)
+			if err != nil {
+				return errors.Annotate(err, "cannot get model status")
+			}
+
+			for _, appData := range status.Applications {
+				for unit, unitData := range appData.Units {
+					if unit == machineOrUnit {
+						h.unitStatus[unit] = unitData.Machine
+						result = unitData.Machine
+						return nil
+					}
+				}
+			}
+
+			return errors.NotFoundf("unit %s", machineOrUnit)
+		},
+		Delay:       1 * time.Second,
+		MaxDuration: 5 * time.Minute,
+		BackoffFunc: retry.ExpBackoff(1*time.Second, 30*time.Second, 1.5, true),
+		Clock:       h.clock,
+		Stop:        h.ctx.Done(),
+	})
+	return result, errors.Trace(err)
 }
 
 func (h *bundleHandler) topLevelMachine(id string) string {

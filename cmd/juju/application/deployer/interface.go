@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/names/v5"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/api/client/client"
@@ -89,7 +88,6 @@ type DeployerAPI interface {
 	ListSpaces() ([]apiparams.Space, error)
 	Deploy(application.DeployArgs) error
 	Status(*client.StatusArgs) (*apiparams.FullStatus, error)
-	WatchAll() (api.AllWatch, error)
 	ListCharmResources(curl string, origin commoncharm.Origin) ([]charmresource.Resource, error)
 }
 

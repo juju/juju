@@ -42,7 +42,6 @@ import (
 	"github.com/juju/juju/cmd/juju/storage"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/juju/user"
-	"github.com/juju/juju/cmd/juju/waitfor"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	proxy "github.com/juju/juju/internal/proxy/config"
@@ -572,7 +571,6 @@ func registerCommands(r commandRegistry) {
 
 	// Payload commands.
 	r.Register(payload.NewListCommand())
-	r.Register(waitfor.NewWaitForCommand())
 
 	// Agreement commands
 	r.Register(agree.NewAgreeCommand())

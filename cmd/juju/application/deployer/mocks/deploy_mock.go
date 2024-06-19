@@ -16,7 +16,6 @@ import (
 	reflect "reflect"
 
 	cmd "github.com/juju/cmd/v4"
-	api "github.com/juju/juju/api"
 	base "github.com/juju/juju/api/base"
 	application "github.com/juju/juju/api/client/application"
 	client "github.com/juju/juju/api/client/client"
@@ -1577,45 +1576,6 @@ func (c *MockDeployerAPIStatusCall) Do(f func(*client.StatusArgs) (*params.FullS
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockDeployerAPIStatusCall) DoAndReturn(f func(*client.StatusArgs) (*params.FullStatus, error)) *MockDeployerAPIStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchAll mocks base method.
-func (m *MockDeployerAPI) WatchAll() (api.AllWatch, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchAll")
-	ret0, _ := ret[0].(api.AllWatch)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchAll indicates an expected call of WatchAll.
-func (mr *MockDeployerAPIMockRecorder) WatchAll() *MockDeployerAPIWatchAllCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchAll", reflect.TypeOf((*MockDeployerAPI)(nil).WatchAll))
-	return &MockDeployerAPIWatchAllCall{Call: call}
-}
-
-// MockDeployerAPIWatchAllCall wrap *gomock.Call
-type MockDeployerAPIWatchAllCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockDeployerAPIWatchAllCall) Return(arg0 api.AllWatch, arg1 error) *MockDeployerAPIWatchAllCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIWatchAllCall) Do(f func() (api.AllWatch, error)) *MockDeployerAPIWatchAllCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIWatchAllCall) DoAndReturn(f func() (api.AllWatch, error)) *MockDeployerAPIWatchAllCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
