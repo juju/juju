@@ -80,7 +80,7 @@ jobs:
         run: |
           set -euxo pipefail
           
-          sourceJujuVersion=$(snap info juju | yq ".channels[\"${{ needs.setup.outputs.channel }}\"]" | cut -d' ' -f1)
+          sourceJujuVersion=$(snap info juju | yq ".channels[\"${{ needs.setup.outputs.channel }}\"]" | cut -d' ' -f1 | cut -d'-' -f1)
           echo "source-juju-version=${sourceJujuVersion}" >> $GITHUB_OUTPUT
         id: vars
 
