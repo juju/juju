@@ -331,13 +331,10 @@ func (s *watcherSuite) TestWatchObsoleteForUserSecrets(c *gc.C) {
 	c.Assert(w1, gc.NotNil)
 	defer workertest.CleanKill(c, w1)
 	wc1 := watchertest.NewStringsWatcherC(c, w1)
-	wc.AssertOneChange()
-	s.AssertChangeStreamIdle(c)
-	wc.AssertChange(
+	wc1.AssertChange(
 		uri1.ID+"/1",
 		uri2.ID+"/1",
 	)
-	wc1.AssertNoChange()
 }
 
 func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {

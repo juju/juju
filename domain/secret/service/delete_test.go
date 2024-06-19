@@ -50,9 +50,11 @@ func (s *serviceSuite) TestDeleteObsoleteUserSecrets(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	s.state = NewMockState(ctrl)
-	s.state.EXPECT().DeleteObsoleteUserSecrets(gomock.Any()).Return(nil)
+	uri := coresecrets.NewURI()
 
-	err := s.service(c).DeleteObsoleteUserSecrets(context.Background())
+	s.state = NewMockState(ctrl)
+	s.state.EXPECT().DeleteObsoleteUserSecrets(gomock.Any(), uri, []int{1, 2}).Return(nil)
+
+	err := s.service(c).DeleteObsoleteUserSecrets(context.Background(), uri, []int{1, 2})
 	c.Assert(err, jc.ErrorIsNil)
 }

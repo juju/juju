@@ -14,6 +14,7 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets"
 	"github.com/juju/juju/apiserver/facades/controller/usersecrets/mocks"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -68,8 +69,12 @@ func (s *userSecretsSuite) TestWatchRevisionsToPrune(c *gc.C) {
 func (s *userSecretsSuite) TestDeleteRevisionsAutoPruneEnabled(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretService.EXPECT().DeleteObsoleteUserSecrets(gomock.Any()).Return(nil)
+	uri := coresecrets.NewURI()
 
-	err := s.facade.DeleteObsoleteUserSecrets(context.Background())
+	s.secretService.EXPECT().DeleteObsoleteUserSecrets(gomock.Any(), uri, []int{1, 2}).Return(nil)
+
+	err := s.facade.DeleteObsoleteUserSecrets(context.Background(),
+		params.DeleteSecretArg{URI: uri.String(), Revisions: []int{1, 2}},
+	)
 	c.Assert(err, jc.ErrorIsNil)
 }

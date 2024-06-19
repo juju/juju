@@ -42,17 +42,17 @@ func (m *MockSecretService) EXPECT() *MockSecretServiceMockRecorder {
 }
 
 // DeleteObsoleteUserSecrets mocks base method.
-func (m *MockSecretService) DeleteObsoleteUserSecrets(arg0 context.Context) error {
+func (m *MockSecretService) DeleteObsoleteUserSecrets(arg0 context.Context, arg1 *secrets.URI, arg2 []int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteObsoleteUserSecrets", arg0)
+	ret := m.ctrl.Call(m, "DeleteObsoleteUserSecrets", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteObsoleteUserSecrets indicates an expected call of DeleteObsoleteUserSecrets.
-func (mr *MockSecretServiceMockRecorder) DeleteObsoleteUserSecrets(arg0 any) *MockSecretServiceDeleteObsoleteUserSecretsCall {
+func (mr *MockSecretServiceMockRecorder) DeleteObsoleteUserSecrets(arg0, arg1, arg2 any) *MockSecretServiceDeleteObsoleteUserSecretsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteObsoleteUserSecrets", reflect.TypeOf((*MockSecretService)(nil).DeleteObsoleteUserSecrets), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteObsoleteUserSecrets", reflect.TypeOf((*MockSecretService)(nil).DeleteObsoleteUserSecrets), arg0, arg1, arg2)
 	return &MockSecretServiceDeleteObsoleteUserSecretsCall{Call: call}
 }
 
@@ -68,13 +68,13 @@ func (c *MockSecretServiceDeleteObsoleteUserSecretsCall) Return(arg0 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretServiceDeleteObsoleteUserSecretsCall) Do(f func(context.Context) error) *MockSecretServiceDeleteObsoleteUserSecretsCall {
+func (c *MockSecretServiceDeleteObsoleteUserSecretsCall) Do(f func(context.Context, *secrets.URI, []int) error) *MockSecretServiceDeleteObsoleteUserSecretsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretServiceDeleteObsoleteUserSecretsCall) DoAndReturn(f func(context.Context) error) *MockSecretServiceDeleteObsoleteUserSecretsCall {
+func (c *MockSecretServiceDeleteObsoleteUserSecretsCall) DoAndReturn(f func(context.Context, *secrets.URI, []int) error) *MockSecretServiceDeleteObsoleteUserSecretsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

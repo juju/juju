@@ -158,17 +158,17 @@ func (c *MockStateCreateUserSecretCall) DoAndReturn(f func(context.Context, int,
 }
 
 // DeleteObsoleteUserSecrets mocks base method.
-func (m *MockState) DeleteObsoleteUserSecrets(arg0 context.Context) error {
+func (m *MockState) DeleteObsoleteUserSecrets(arg0 context.Context, arg1 *secrets.URI, arg2 []int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteObsoleteUserSecrets", arg0)
+	ret := m.ctrl.Call(m, "DeleteObsoleteUserSecrets", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DeleteObsoleteUserSecrets indicates an expected call of DeleteObsoleteUserSecrets.
-func (mr *MockStateMockRecorder) DeleteObsoleteUserSecrets(arg0 any) *MockStateDeleteObsoleteUserSecretsCall {
+func (mr *MockStateMockRecorder) DeleteObsoleteUserSecrets(arg0, arg1, arg2 any) *MockStateDeleteObsoleteUserSecretsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteObsoleteUserSecrets", reflect.TypeOf((*MockState)(nil).DeleteObsoleteUserSecrets), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteObsoleteUserSecrets", reflect.TypeOf((*MockState)(nil).DeleteObsoleteUserSecrets), arg0, arg1, arg2)
 	return &MockStateDeleteObsoleteUserSecretsCall{Call: call}
 }
 
@@ -184,13 +184,13 @@ func (c *MockStateDeleteObsoleteUserSecretsCall) Return(arg0 error) *MockStateDe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDeleteObsoleteUserSecretsCall) Do(f func(context.Context) error) *MockStateDeleteObsoleteUserSecretsCall {
+func (c *MockStateDeleteObsoleteUserSecretsCall) Do(f func(context.Context, *secrets.URI, []int) error) *MockStateDeleteObsoleteUserSecretsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeleteObsoleteUserSecretsCall) DoAndReturn(f func(context.Context) error) *MockStateDeleteObsoleteUserSecretsCall {
+func (c *MockStateDeleteObsoleteUserSecretsCall) DoAndReturn(f func(context.Context, *secrets.URI, []int) error) *MockStateDeleteObsoleteUserSecretsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

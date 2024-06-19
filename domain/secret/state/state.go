@@ -3162,7 +3162,11 @@ func (st State) DeleteSecret(ctx context.Context, uri *coresecrets.URI, revs []i
 }
 
 // DeleteObsoleteUserSecrets deletes the obsolete user secret revisions.
-func (st State) DeleteObsoleteUserSecrets(ctx context.Context) error {
+func (st State) DeleteObsoleteUserSecrets(ctx context.Context, uri *coresecrets.URI, revs []int) error {
+	if len(revs) == 0 {
+		return fmt.Errorf("no revisions to delete")
+	}
+
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -3175,9 +3179,9 @@ FROM   secret_model_owner smo
        JOIN secret_metadata sm ON sm.secret_id = smo.secret_id
        JOIN secret_revision sr ON sr.secret_id = smo.secret_id
        LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
-WHERE  sm.auto_prune = true AND sro.obsolete = true`
+WHERE  sm.auto_prune = true AND sro.obsolete = true AND sr.revision IN ($revisions[:]) AND sm.secret_id = $secretID.id`
 
-	stmt, err := st.Prepare(q, secretID{}, secretExternalRevision{})
+	stmt, err := st.Prepare(q, secretID{}, secretExternalRevision{}, revisions{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -3186,7 +3190,7 @@ WHERE  sm.auto_prune = true AND sro.obsolete = true`
 			dbSecrets    secretIDs
 			dbsecretRevs secretExternalRevisions
 		)
-		err = tx.Query(ctx, stmt).GetAll(&dbSecrets, &dbsecretRevs)
+		err = tx.Query(ctx, stmt, secretID{ID: uri.ID}, revisions(revs)).GetAll(&dbSecrets, &dbsecretRevs)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// Nothing to delete.
 			return nil

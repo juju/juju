@@ -11,6 +11,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -35,6 +36,10 @@ func (s *UserSecretsManager) WatchRevisionsToPrune(ctx context.Context) (params.
 }
 
 // DeleteObsoleteUserSecrets deletes any obsolete user secret revisions.
-func (s *UserSecretsManager) DeleteObsoleteUserSecrets(ctx context.Context) error {
-	return s.secretService.DeleteObsoleteUserSecrets(ctx)
+func (s *UserSecretsManager) DeleteObsoleteUserSecrets(ctx context.Context, params params.DeleteSecretArg) error {
+	uri, err := coresecrets.ParseURI(params.URI)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return s.secretService.DeleteObsoleteUserSecrets(ctx, uri, params.Revisions)
 }

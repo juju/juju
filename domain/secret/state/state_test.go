@@ -2932,7 +2932,13 @@ func (s *stateSuite) TestDeleteObsoleteUserSecrets(c *gc.C) {
 	err = st.UpdateSecret(context.Background(), uriCharm, sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.DeleteObsoleteUserSecrets(ctx)
+	err = st.DeleteObsoleteUserSecrets(ctx, uriUser1, []int{1, 2})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.DeleteObsoleteUserSecrets(ctx, uriUser2, []int{1, 2})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.DeleteObsoleteUserSecrets(ctx, uriUser3, []int{1, 2})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.DeleteObsoleteUserSecrets(ctx, uriCharm, []int{1, 2})
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertRevision(c, s.DB(), uriUser1, 1, true)
