@@ -810,8 +810,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"provider-service-factory",
 		"query-logger",
 		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"instance-mutater": {
@@ -1588,8 +1586,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"provider-service-factory",
 		"query-logger",
 		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"is-bootstrap-flag": {

@@ -1,6 +1,10 @@
 -- The model table represents a readonly denormalised model data. The intended
 -- use is to provide a read-only view of the model data for the purpose of
 -- accessing common model data without the need to span multiple databases.
+--
+-- The model table primarily is used to drive the provider tracker. The model
+-- table should *not* be changed in a patch/build release. The only time to make
+-- changes to this table is during a major/minor release. 
 CREATE TABLE model (
     uuid TEXT NOT NULL PRIMARY KEY,
     controller_uuid TEXT NOT NULL,

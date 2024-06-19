@@ -728,7 +728,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            peergrouper.New,
 		})),
 
-		serviceFactoryName: workerservicefactory.Manifold(workerservicefactory.ManifoldConfig{
+		serviceFactoryName: ifDatabaseUpgradeComplete(workerservicefactory.Manifold(workerservicefactory.ManifoldConfig{
 			DBAccessorName:              dbAccessorName,
 			ChangeStreamName:            changeStreamName,
 			ProviderFactoryName:         providerTrackerName,
@@ -737,7 +737,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewServiceFactoryGetter:     workerservicefactory.NewServiceFactoryGetter,
 			NewControllerServiceFactory: workerservicefactory.NewControllerServiceFactory,
 			NewModelServiceFactory:      workerservicefactory.NewProviderTrackerModelServiceFactory,
-		}),
+		})),
 
 		providerServiceFactoryName: providerservicefactory.Manifold(providerservicefactory.ManifoldConfig{
 			ChangeStreamName:                changeStreamName,
@@ -877,7 +877,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                  objectstores3caller.NewWorker,
 		})),
 
-		providerTrackerName: ifDatabaseUpgradeComplete(providertracker.MultiTrackerManifold(providertracker.ManifoldConfig{
+		// Provider tracker manifold is not dependent on the
+		// ifDatabaseUpgradeComplete gate. The provider tracker data must not
+		// change between patch/build versions and should be available to all
+		// workers from the start. This includes the controller and read-only
+		// model data that the provider tracker worker is responsible for.
+		//
+		// Migration away to a major/minor version is the correct way to move
+		// a model for upgrade scenarios.
+		providerTrackerName: providertracker.MultiTrackerManifold(providertracker.ManifoldConfig{
 			ProviderServiceFactoriesName:    providerServiceFactoryName,
 			NewWorker:                       providertracker.NewWorker,
 			NewTrackerWorker:                providertracker.NewTrackerWorker,
@@ -890,7 +898,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			}),
 			Logger: internallogger.GetLogger("juju.worker.providertracker"),
 			Clock:  config.Clock,
-		})),
+		}),
 	}
 
 	return manifolds
