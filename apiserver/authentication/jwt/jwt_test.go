@@ -64,11 +64,10 @@ func (s *loginTokenSuite) TestCacheRegistration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *loginTokenSuite) TestCacheRegistrationFailureWithBadURL(c *gc.C) {
+func (s *loginTokenSuite) TestCacheRegistrationSucceedsWithBadURL(c *gc.C) {
 	authenticator := jwt.NewAuthenticator("noexisturl")
 	err := authenticator.RegisterJWKSCache(context.Background())
-	// We want to make sure that we get an error for a bad url.
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *loginTokenSuite) TestAuthenticateLoginRequestNotSupported(c *gc.C) {

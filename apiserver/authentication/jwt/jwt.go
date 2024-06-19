@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -20,6 +21,8 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.authentication.jwt")
 
 type Authenticator interface {
 	authentication.RequestAuthenticator
@@ -173,6 +176,9 @@ func (j *JWTAuthenticator) Parse(ctx context.Context, tok string) (jwt.Token, au
 }
 
 // RegisterJWKSCache sets up the token key cache and refreshes the public key.
+// The cache will repeatedly refresh the JWKS, if the key set is not available
+// initially then no error is returned to avoid blocking controller startup.
+// The refresh URL is validated earlier, see config.Validate()
 func (j *JWTAuthenticator) RegisterJWKSCache(ctx context.Context) error {
 	j.cache = jwk.NewCache(ctx)
 
@@ -182,7 +188,8 @@ func (j *JWTAuthenticator) RegisterJWKSCache(ctx context.Context) error {
 	}
 	_, err = j.cache.Refresh(ctx, j.refreshURL)
 	if err != nil {
-		return fmt.Errorf("refreshing jwk cache at %q: %w", j.refreshURL, err)
+		logger.Errorf("refreshing jwk cache at %q: %s", j.refreshURL, err)
+		return nil
 	}
 	return nil
 }

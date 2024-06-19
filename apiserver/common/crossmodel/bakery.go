@@ -176,6 +176,8 @@ var (
 )
 
 // NewJaaSOfferBakery creates a new bakery service for JaaS offer access.
+// Attempts to refresh the bakery information but won't fail on errors
+// to prevent blocking controller startup.
 func NewJaaSOfferBakery(
 	loginTokenRefreshURL, location string,
 	bakeryConfig bakerystorage.BakeryConfig,
@@ -190,7 +192,7 @@ func NewJaaSOfferBakery(
 		OfferBakery:  &OfferBakery{clock: clock.WallClock},
 	}
 	if _, err := offerBakery.RefreshDischargeURL(loginTokenRefreshURL); err != nil {
-		return nil, errors.Trace(err)
+		logger.Errorf("refreshing jaas offer discharger at %q: %s", loginTokenRefreshURL, err)
 	}
 	return offerBakery, nil
 }
