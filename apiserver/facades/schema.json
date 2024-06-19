@@ -45535,19 +45535,46 @@
             "properties": {
                 "DeleteObsoleteUserSecrets": {
                     "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/DeleteSecretArg"
+                        }
+                    },
                     "description": "DeleteObsoleteUserSecrets deletes any obsolete user secret revisions."
                 },
                 "WatchRevisionsToPrune": {
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/NotifyWatchResult"
+                            "$ref": "#/definitions/StringsWatchResult"
                         }
                     },
                     "description": "WatchRevisionsToPrune returns a watcher for notifying when:\n  - a secret revision owned by the model no longer\n    has any consumers and should be pruned."
                 }
             },
             "definitions": {
+                "DeleteSecretArg": {
+                    "type": "object",
+                    "properties": {
+                        "label": {
+                            "type": "string"
+                        },
+                        "revisions": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "uri": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uri",
+                        "label"
+                    ]
+                },
                 "Error": {
                     "type": "object",
                     "properties": {
@@ -45573,19 +45600,25 @@
                         "code"
                     ]
                 },
-                "NotifyWatchResult": {
+                "StringsWatchResult": {
                     "type": "object",
                     "properties": {
-                        "NotifyWatcherId": {
-                            "type": "string"
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "NotifyWatcherId"
+                        "watcher-id"
                     ]
                 }
             }
