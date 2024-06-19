@@ -330,14 +330,14 @@ func (s *stateSuite) ensureApplication(c *gc.C, name, uuid string) {
 }
 
 // ensureUnit manually inserts a row into the unit table.
-func (s *stateSuite) ensureUnit(c *gc.C, unit_id, uuid string) {
+func (s *stateSuite) ensureUnit(c *gc.C, unitName, uuid string) {
 	s.ensureApplication(c, "myapp", "123")
 	s.ensureNetNode(c, "321")
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO unit (uuid, unit_id, application_uuid, net_node_uuid, life_id)
-		VALUES (?, ?, ?, ?, ?)`, uuid, unit_id, "123", "321", "0")
+		INSERT INTO unit (uuid, name, application_uuid, net_node_uuid, life_id)
+		VALUES (?, ?, ?, ?, ?)`, uuid, unitName, "123", "321", "0")
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

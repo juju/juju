@@ -193,7 +193,7 @@ type upsertUnitFunc func(ctx context.Context, tx *sqlair.TX, appName string, par
 // as needed to add units, ensuring that statement preparation is only done once.
 // TODO - this just creates a minimal row for now.
 func (st *State) upsertUnitFuncGetter() (upsertUnitFunc, error) {
-	query := `SELECT &M.uuid FROM unit WHERE unit_id = $M.name`
+	query := `SELECT &M.uuid FROM unit WHERE name = $M.name`
 	queryStmt, err := st.Prepare(query, sqlair.M{})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -206,8 +206,8 @@ func (st *State) upsertUnitFuncGetter() (upsertUnitFunc, error) {
 	}
 
 	createUnit := `
-INSERT INTO unit (uuid, net_node_uuid, unit_id, life_id, application_uuid)
-VALUES ($M.unit_uuid, $M.net_node_uuid, $M.unit_id, $M.life_id, $M.application_uuid)
+INSERT INTO unit (uuid, net_node_uuid, name, life_id, application_uuid)
+VALUES ($M.unit_uuid, $M.net_node_uuid, $M.name, $M.life_id, $M.application_uuid)
 `
 	createUnitStmt, err := st.Prepare(createUnit, sqlair.M{})
 	if err != nil {
@@ -262,7 +262,7 @@ VALUES ($M.unit_uuid, $M.net_node_uuid, $M.unit_id, $M.life_id, $M.application_u
 		createParams := sqlair.M{
 			"unit_uuid":        unitUUID.String(),
 			"net_node_uuid":    nodeUUID.String(),
-			"unit_id":          unitName,
+			"name":             unitName,
 			"life_id":          life.Alive,
 			"application_uuid": applicationUUID,
 		}

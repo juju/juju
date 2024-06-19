@@ -185,16 +185,16 @@ CREATE UNIQUE INDEX idx_secret_unit_consumer_label ON secret_unit_consumer (labe
 -- units in the consuming model for cross model secrets.
 CREATE TABLE secret_remote_unit_consumer (
     secret_id TEXT NOT NULL,
-    -- unit_id is the anonymised name of the unit
+    -- unit_name is the anonymised name of the unit
     -- from the consuming model.
-    unit_id TEXT NOT NULL,
+    unit_name TEXT NOT NULL,
     current_revision INT NOT NULL,
     CONSTRAINT fk_secret_remote_unit_consumer_secret_metadata_id
     FOREIGN KEY (secret_id)
     REFERENCES secret_metadata (secret_id)
 );
 
-CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_id_unit_id ON secret_remote_unit_consumer (secret_id, unit_id);
+CREATE UNIQUE INDEX idx_secret_remote_unit_consumer_secret_id_unit_name ON secret_remote_unit_consumer (secret_id, unit_name);
 
 CREATE TABLE secret_role (
     id INT PRIMARY KEY,
@@ -274,7 +274,7 @@ SELECT
     sp.scope_type_id,
     -- subject_id is the natural id of the subject entity (uuid for model)
     (CASE
-        WHEN sp.subject_type_id = 0 THEN suu.unit_id
+        WHEN sp.subject_type_id = 0 THEN suu.name
         WHEN sp.subject_type_id = 1 THEN sua.name
         WHEN sp.subject_type_id = 2 THEN m.uuid
         -- TODO: we don't have a remote-application table yet
@@ -282,7 +282,7 @@ SELECT
     END) AS subject_id,
     -- scope_id is the natural id of the scope entity (uuid for model)
     (CASE
-        WHEN sp.scope_type_id = 0 THEN scu.unit_id
+        WHEN sp.scope_type_id = 0 THEN scu.name
         WHEN sp.scope_type_id = 1 THEN sca.name
         WHEN sp.scope_type_id = 2 THEN m.uuid
         -- TODO: we don't have a relation table yet

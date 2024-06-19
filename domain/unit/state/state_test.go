@@ -39,7 +39,7 @@ func (s *stateSuite) TestDeleteUnit(c *gc.C) {
 
 	var unitCount int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE unit_id=?", "foo/666").Scan(&unitCount)
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM unit WHERE name=?", "foo/666").Scan(&unitCount)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -65,7 +65,7 @@ VALUES (?, ?, ?)
 	c.Assert(err, jc.ErrorIsNil)
 	machineUUID := uuid.MustNewUUID().String()
 	_, err = db.ExecContext(context.Background(), `
-INSERT INTO unit (uuid, life_id, unit_id, net_node_uuid, application_uuid)
+INSERT INTO unit (uuid, life_id, name, net_node_uuid, application_uuid)
 VALUES (?, ?, ?, ?, (SELECT uuid from application WHERE name = ?))
 `, machineUUID, life.Alive, appName+"/0", netNodeUUID, appName)
 	c.Assert(err, jc.ErrorIsNil)

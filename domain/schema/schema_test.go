@@ -234,7 +234,6 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 	expected := set.NewStrings(
 		// Application
 		"application",
-		"application_caas",
 		"application_channel",
 		"application_config",
 		"application_constraint",
@@ -242,6 +241,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"application_endpoint_cidr",
 		"application_platform",
 		"application_setting",
+		"application_scale",
 
 		// Annotations
 		"annotation_application",
@@ -287,9 +287,12 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 		// Unit
 		"unit",
-		"unit_state",
+		"unit_platform",
+		"unit_resolve_kind",
 		"unit_state_charm",
 		"unit_state_relation",
+		"unit_state",
+		"unit_tool",
 
 		// Constraint
 		"constraint",
@@ -708,8 +711,13 @@ VALUES (?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, "",
 
 	netNodeUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, "", netNodeUUID)
+	charmUUID := utils.MustNewUUID().String()
+	s.assertExecSQL(c, "INSERT INTO charm (uuid, name) VALUES (?, 'mysql');", "", charmUUID)
 	unitUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, `INSERT INTO unit (uuid, unit_id, application_uuid, net_node_uuid, life_id) VALUES (?, 0, ?, ?, 0);`, "", unitUUID, appUUID, netNodeUUID)
+	s.assertExecSQL(c, `
+INSERT INTO unit (uuid, life_id, name, application_uuid, net_node_uuid, charm_uuid, resolve_kind_id) 
+VALUES (?, 0, 0, ?, ?, ?, 0);`,
+		"", unitUUID, appUUID, netNodeUUID, charmUUID)
 }
 
 func (s *schemaSuite) TestControllerTriggersForImmutableTables(c *gc.C) {
@@ -743,8 +751,7 @@ func (s *schemaSuite) TestModelTriggersForImmutableTables(c *gc.C) {
 
 	modelUUID := utils.MustNewUUID().String()
 	controllerUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c,
-		`
+	s.assertExecSQL(c, `
 INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type, cloud_region)
 VALUES (?, ?, ?, 'my-model', 'caas', 'cloud-1', 'kubernetes', 'cloud-region-1');`,
 		"", modelUUID, controllerUUID, jujuversion.Current.String())

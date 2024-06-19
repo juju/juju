@@ -2,6 +2,9 @@ CREATE TABLE application (
     uuid TEXT NOT NULL PRIMARY KEY,
     name TEXT NOT NULL,
     life_id INT NOT NULL,
+    -- charm_uuid should not be nullable, but we need to allow it for now
+    -- whilst we're wiring up the model.
+    charm_uuid TEXT,
     charm_modified_version INT,
     charm_upgrade_on_error BOOLEAN DEFAULT FALSE,
     exposed BOOLEAN DEFAULT FALSE,
@@ -10,8 +13,17 @@ CREATE TABLE application (
     password_hash TEXT,
     CONSTRAINT fk_application_life
     FOREIGN KEY (life_id)
-    REFERENCES life (id)
+    REFERENCES life (id),
+    CONSTRAINT fk_application_charm
+    FOREIGN KEY (charm_uuid)
+    REFERENCES charm (uuid),
+    CONSTRAINT fk_application_password_hash_algorithm
+    FOREIGN KEY (password_hash_algorithm_id)
+    REFERENCES password_hash_algorithm (id)
 );
+
+CREATE UNIQUE INDEX idx_application_name
+ON application (name);
 
 CREATE TABLE application_channel (
     application_uuid TEXT NOT NULL PRIMARY KEY,
@@ -23,7 +35,8 @@ CREATE TABLE application_channel (
     REFERENCES application (uuid)
 );
 
-CREATE TABLE application_caas (
+-- Application scale is currently only targeting k8s applications.
+CREATE TABLE application_scale (
     application_uuid TEXT NOT NULL PRIMARY KEY,
     scale INT,
     scale_target TEXT,
@@ -48,9 +61,6 @@ CREATE TABLE application_platform (
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id)
 );
-
-CREATE UNIQUE INDEX idx_application_name
-ON application (name);
 
 CREATE TABLE application_endpoint_space (
     application_uuid TEXT NOT NULL,
