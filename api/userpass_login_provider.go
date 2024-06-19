@@ -171,6 +171,13 @@ func (p *userpassLoginProvider) Login(ctx context.Context, caller base.APICaller
 			return nil, errors.Errorf("login with discharged macaroons failed: %s", result.DischargeRequiredReason)
 		}
 	}
-
-	return NewLoginResultParams(result)
+	loginResult, err := NewLoginResultParams(result)
+	if err != nil {
+		return loginResult, err
+	}
+	// Edge case for username/password login. Ensure the result has a tag set.
+	// Currently no tag is returned when performing a login as a machine rather than a user.
+	// Ideally the server would respond with the tag used as part of the request.
+	loginResult.EnsureTag(p.tag)
+	return loginResult, nil
 }

@@ -140,6 +140,15 @@ type LoginResultParams struct {
 	serverVersion    version.Number
 }
 
+// EnsureTag should be used when a login provider needs to ensure
+// a login result has a tag set, particularly in cases where the
+// server doesn't return a user identity.
+func (l *LoginResultParams) EnsureTag(tag names.Tag) {
+	if l.tag == nil {
+		l.tag = tag
+	}
+}
+
 // NewLoginResultParams constructs a LoginResultParams from a Juju login response.
 func NewLoginResultParams(result params.LoginResult) (*LoginResultParams, error) {
 	var controllerAccess string
