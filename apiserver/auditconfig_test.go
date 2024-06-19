@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -53,24 +52,9 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	}
 
 	userTag := names.NewUserTag("bobbrown")
-	password := "shhh..."
-	userService := s.ControllerServiceFactory(c).Access()
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
-		Name:        userTag.Name(),
-		DisplayName: "Bob Brown",
-		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(password)),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	password := "password"
+	s.createModelAdminUser(c, userTag, password)
 
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeUser(c, &factory.UserParams{
-		Name: userTag.Name(),
-	})
 	conn := s.openAPIWithoutLogin(c)
 
 	var result params.LoginResult
@@ -81,7 +65,7 @@ func (s *auditConfigSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 		ClientVersion: jujuversion.Current.String(),
 	}
 	loginTime := s.Clock.Now()
-	err = conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	// Nothing's logged at this point because there haven't been any
@@ -146,24 +130,9 @@ func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) 
 	}
 
 	userTag := names.NewUserTag("bobbrown")
-	password := "shhh..."
-	userService := s.ControllerServiceFactory(c).Access()
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
-		Name:        userTag.Name(),
-		DisplayName: "Bob Brown",
-		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(password)),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	password := "password"
+	s.createModelAdminUser(c, userTag, password)
 
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeUser(c, &factory.UserParams{
-		Name: userTag.Name(),
-	})
 	conn := s.openAPIWithoutLogin(c)
 
 	var result params.LoginResult
@@ -173,7 +142,7 @@ func (s *auditConfigSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) 
 		CLIArgs:       "hey you guys",
 		ClientVersion: jujuversion.Current.String(),
 	}
-	err = conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	// No error yet since logging the conversation is deferred until
 	// something happens.
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,24 +166,9 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 	}
 
 	userTag := names.NewUserTag("bobbrown")
-	password := "shhh..."
-	userService := s.ControllerServiceFactory(c).Access()
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
-		Name:        userTag.Name(),
-		DisplayName: "Bob Brown",
-		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(password)),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	password := "password"
+	s.createModelAdminUser(c, userTag, password)
 
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeUser(c, &factory.UserParams{
-		Name: userTag.Name(),
-	})
 	conn := s.openAPIWithoutLogin(c)
 
 	var result params.LoginResult
@@ -224,7 +178,7 @@ func (s *auditConfigSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 		CLIArgs:       "hey you guys",
 		ClientVersion: jujuversion.Current.String(),
 	}
-	err = conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
+	err := conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
 	// Nothing's logged at this point because there haven't been any
@@ -270,4 +224,29 @@ func (s *auditConfigSuite) TestNewServerValidatesConfig(c *gc.C) {
 	srv, err := apiserver.NewServer(context.Background(), cfg)
 	c.Assert(err, gc.ErrorMatches, "missing GetAuditConfig not valid")
 	c.Assert(srv, gc.IsNil)
+}
+
+func (s *auditConfigSuite) createModelAdminUser(c *gc.C, userTag names.UserTag, password string) {
+	accessService := s.ControllerServiceFactory(c).Access()
+
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userTag.Name(),
+		DisplayName: userTag.Name(),
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword(password)),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        s.ControllerModelUUID(),
+			},
+			Access: permission.AdminAccess,
+		},
+		User: userTag.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }
