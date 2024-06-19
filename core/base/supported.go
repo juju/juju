@@ -384,6 +384,7 @@ var ubuntuSeries = map[SeriesName]seriesVersion{
 		OS:           UbuntuOS,
 		Version:      "24.04",
 		LTS:          true,
+		Supported:    true,
 		ESMSupported: true,
 	},
 }

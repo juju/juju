@@ -74,7 +74,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	statePool.EXPECT().MongoVersion().Return("4.4", nil)
 	// - check if the model has win machines;
 	ctrlState.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
-	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	ctrlState.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
 	// - check no charm store charms
 	ctrlState.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
 	// - check LXD version.
@@ -87,7 +87,7 @@ func (s *upgradeValidationSuite) TestValidatorsForControllerUpgradeJuju3(c *gc.C
 	model1.EXPECT().MigrationMode().Return(state.MigrationModeNone)
 	// - check if the model has win machines;
 	state1.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
-	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	state1.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
 	// - check no charm store charms
 	state1.EXPECT().AllCharmURLs().Return([]*string{}, errors.NotFoundf("charm urls"))
 	// - check LXD version.
@@ -130,7 +130,7 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	state.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 	// - check if the model has win machines.
 	state.EXPECT().MachineCountForBase(makeBases("windows", winVersions)).Return(nil, nil)
-	state.EXPECT().MachineCountForBase(makeBases("ubuntu", ubuntuVersions)).Return(nil, nil)
+	state.EXPECT().MachineCountForBase(makeBases("ubuntu", unsupportedUbuntuVersions)).Return(nil, nil)
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
