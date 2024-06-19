@@ -2,10 +2,10 @@ name: "Docs"
 on:
   push:
     branches:
-      - '3.3'
+      - '3.5'
   pull_request:
     branches:
-      - '3.3'
+      - '3.5'
   workflow_dispatch:
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
 
       - name: Build Juju client
         run: |
-          go install -v ./cmd/juju
+          go install -v -tags minimal ./cmd/juju
 
       - name: Generate CLI docs
         id: gen
@@ -48,14 +48,15 @@ jobs:
 
       - name: pip install requirements
         run: |
-          python3 -m pip install -r ./scripts/discourse-sync/requirements.txt
+          python3 -m venv .venv
+          .venv/bin/python3 -m pip install -r ./scripts/discourse-sync/requirements.txt
 
       - name: Check docs on Discourse
         if: github.event_name == 'pull_request'
         env:
           DOCS_DIR: ${{ steps.gen.outputs.dir }}
         run: |
-          python3 ./scripts/discourse-sync/main.py check
+          .venv/bin/python3 ./scripts/discourse-sync/main.py check
 
       - name: Sync docs to Discourse
         if: github.event_name == 'push'
@@ -64,4 +65,4 @@ jobs:
           DISCOURSE_API_KEY: ${{ secrets.DISCOURSE_API_KEY }}
           DOCS_DIR: ${{ steps.gen.outputs.dir }}
         run: |
-          python3 ./scripts/discourse-sync/main.py sync
+          .venv/bin/python3 ./scripts/discourse-sync/main.py sync

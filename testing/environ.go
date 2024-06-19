@@ -40,6 +40,7 @@ var (
 	FakeSupportedJujuBases = []corebase.Base{
 		corebase.MustParseBaseFromString("ubuntu@20.04"),
 		corebase.MustParseBaseFromString("ubuntu@22.04"),
+		corebase.MustParseBaseFromString("ubuntu@24.04"),
 		jujuversion.DefaultSupportedLTSBase(),
 	}
 )

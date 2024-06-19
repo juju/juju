@@ -94,6 +94,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		Clock:             config.Clock,
 		APIOpen:           config.APIOpen,
 		ValidateMigration: config.ValidateMigration,
+		NewFacade:         config.NewFacade,
 		Logger:            config.Logger,
 	})
 	if err != nil {

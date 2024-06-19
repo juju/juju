@@ -2055,10 +2055,21 @@ func (s *ApplicationSuite) TestMysqlEndpoints(c *gc.C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	})
+	dbRouterEP, err := s.mysql.Endpoint("db-router")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(dbRouterEP, gc.DeepEquals, state.Endpoint{
+		ApplicationName: "mysql",
+		Relation: charm.Relation{
+			Interface: "db-router",
+			Name:      "db-router",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeGlobal,
+		},
+	})
 
 	eps, err := s.mysql.Endpoints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(eps, jc.SameContents, []state.Endpoint{jiEP, serverEP, serverAdminEP, monitoringEP})
+	c.Assert(eps, jc.SameContents, []state.Endpoint{jiEP, serverEP, serverAdminEP, dbRouterEP, monitoringEP})
 }
 
 func (s *ApplicationSuite) TestRiakEndpoints(c *gc.C) {

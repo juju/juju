@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"io"
 	"net"
 	"os"
@@ -321,7 +320,7 @@ func (m *NodeManager) WithTLSOption() (app.Option, error) {
 // Dqlite as the member of a cluster with peers representing other controllers.
 func (m *NodeManager) WithClusterOption(addrs []string) app.Option {
 	peerAddrs := transform.Slice(addrs, func(addr string) string {
-		return fmt.Sprintf("%s:%d", addr, m.port)
+		return net.JoinHostPort(addr, strconv.Itoa(m.port))
 	})
 
 	m.logger.Debugf("determined Dqlite cluster members: %v", peerAddrs)
