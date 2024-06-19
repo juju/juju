@@ -12,6 +12,9 @@ run_charm_storage() {
 	juju list-storage-pools -m "${model_name}" --format json | jq '.loop | .provider' | check "loop"
 	juju list-storage-pools -m "${model_name}" --format json | jq '.rootfs | .provider' | check "rootfs"
 	juju list-storage-pools -m "${model_name}" --format json | jq '.tmpfs | .provider' | check "tmpfs"
+	if [ "${BOOTSTRAP_PROVIDER:-}" == "ec2" ]; then
+		juju list-storage-pools -m "${model_name}" --format json | jq '.["ebs-ssd"] | .provider' | check "ebs"
+	fi
 	echo "Default storage pools PASSED"
 
 	echo "Assess create-storage-pool"
