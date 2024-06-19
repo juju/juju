@@ -328,22 +328,11 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 
 	// Explicitly guarded by ifController.
 	controllerWorkers := set.NewStrings(
-		"audit-config-updater",
 		"certificate-watcher",
-		"change-stream",
-		"change-stream",
-		"control-socket",
 		"controller-agent-config",
 		"db-accessor",
-		"db-accessor",
-		"file-notify-watcher",
 		"file-notify-watcher",
 		"is-primary-controller-flag",
-		"lease-manager",
-		"log-sink",
-		"object-store",
-		"object-store-s3-caller",
-		"query-logger",
 		"query-logger",
 		"s3-http-client",
 		"upgrade-database-flag",
@@ -363,7 +352,14 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 	// flag. If no worker is guarded then we know that workers are accessing
 	// the database before it has been upgraded.
 	dbUpgradedWorkers := set.NewStrings(
+		"audit-config-updater",
 		"bootstrap",
+		"control-socket",
+		"http-server-args",
+		"log-sink",
+		"object-store",
+		"object-store-s3-caller",
+		"state",
 	)
 
 	// bootstrapWorkers are workers that are run directly run after bootstrap.
@@ -1165,8 +1161,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"provider-service-factory",
 		"query-logger",
 		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"ssh-authkeys-updater": {
@@ -1285,7 +1279,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"query-logger",
 		"service-factory",
 		"state-config-watcher",
-		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
@@ -1319,8 +1312,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"query-logger",
 		"service-factory",
 		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -1866,8 +1857,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"provider-service-factory",
 		"query-logger",
 		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"ssh-identity-writer": {
@@ -1931,7 +1920,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"query-logger",
 		"service-factory",
 		"state-config-watcher",
-		"upgrade-database-flag",
 		"upgrade-database-gate",
 	},
 
@@ -1953,8 +1941,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"query-logger",
 		"service-factory",
 		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
