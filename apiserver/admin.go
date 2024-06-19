@@ -458,8 +458,6 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 	if !userTag.IsLocal() {
 
 		// TODO (manadart 2024-05-27): This is a huge wart.
-		// We already do a lot of the checking in this method in
-		// AuthenticateLoginRequest.
 		// Having to acquire the service this way is an abysmal failure of
 		// encapsulation.
 		// The best option might be to round up all of these special case

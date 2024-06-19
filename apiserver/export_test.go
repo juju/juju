@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/juju/clock"
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
@@ -115,10 +114,22 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 // anything real. It's enough to let test some basic functionality though.
 func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servicefactory.ServiceFactory) (*apiHandler, *common.Resources) {
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(st, loggertesting.WrapCheckLog(c))
-	authenticator, err := stateauthenticator.NewAuthenticator(context.Background(), pool, st, sf.ControllerConfig(), sf.Access(), sf.Macaroon(), agentAuthFactory, clock.WallClock)
+
+	authenticator, err := stateauthenticator.NewAuthenticator(
+		context.Background(),
+		pool,
+		st,
+		sf.ControllerConfig(),
+		sf.Access(),
+		sf.Macaroon(),
+		agentAuthFactory,
+		clock.WallClock,
+	)
 	c.Assert(err, jc.ErrorIsNil)
+
 	offerAuthCtxt, err := newOfferAuthContext(context.Background(), pool, sf.ControllerConfig(), sf.Macaroon())
 	c.Assert(err, jc.ErrorIsNil)
+
 	srv := &Server{
 		httpAuthenticators:  []authentication.HTTPAuthenticator{authenticator},
 		loginAuthenticators: []authentication.LoginAuthenticator{authenticator},
@@ -131,6 +142,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 	}
 	h, err := newAPIHandler(context.Background(), srv, st, nil, sf, nil, coretrace.NoopTracer{}, nil, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
+
 	return h, h.Resources()
 }
 
@@ -283,23 +295,6 @@ func AssertHasPermission(c *gc.C, handler *apiHandler, access permission.Access,
 	if expect {
 		c.Assert(err, jc.ErrorIsNil)
 	}
-}
-
-func CheckHasPermission(st *state.State, entity names.Tag, operation permission.Access, target names.Tag) (bool, error) {
-	if operation != permission.SuperuserAccess || entity.Kind() != names.UserTagKind {
-		return false, errors.Errorf("%s is not a user", names.ReadableString(entity))
-	}
-	if target.Kind() != names.ControllerTagKind || target.Id() != st.ControllerUUID() {
-		return false, errors.Errorf("%s is not a valid controller", names.ReadableString(target))
-	}
-	isAdmin, err := st.IsControllerAdmin(entity.(names.UserTag))
-	if err != nil {
-		return false, err
-	}
-	if !isAdmin {
-		return false, errors.Errorf("%s is not a controller admin", names.ReadableString(entity))
-	}
-	return true, nil
 }
 
 // TODO (stickupkid): This purely used for testing and should be removed.
