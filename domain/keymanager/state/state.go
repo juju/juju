@@ -25,6 +25,8 @@ type State struct {
 	*domain.StateBase
 }
 
+// NewState is responsible for constructing a new [State] that can be used with
+// this domains corresponding service.
 func NewState(factory database.TxnRunnerFactory) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
