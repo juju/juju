@@ -229,6 +229,10 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		// Application
 		"application",
 
+		// User Public Keys
+		"ssh_fingerprint_hash_algorithm",
+		"user_public_ssh_key",
+
 		// Annotations
 		"annotation_application",
 		"annotation_charm",
