@@ -73,6 +73,8 @@ Used without arguments, bootstrap will step you through the process of
 initializing a Juju cloud environment. Initialization consists of creating
 a 'controller' model and provisioning a machine to act as controller.
 
+Controller names may only contain lowercase letters, digits and hyphens, and
+may not start with a hyphen.
 We recommend you call your controller ‘username-region’ e.g. ‘fred-us-east-1’.
 See --clouds for a list of clouds and credentials.
 See --regions <cloud> for a list of available regions for a given cloud.

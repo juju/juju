@@ -1188,6 +1188,13 @@ func Validate(c Config) error {
 			return errors.NotValidf("controller-api-port matching state-port")
 		}
 	}
+
+	if v, ok := c[ControllerName].(string); ok {
+		if !names.IsValidControllerName(v) {
+			return errors.Errorf("%s value must be a valid controller name (lowercase or digit with non-leading hyphen), got %q", ControllerName, v)
+		}
+	}
+
 	if v, ok := c[APIPortOpenDelay].(string); ok {
 		_, err := time.ParseDuration(v)
 		if err != nil {
