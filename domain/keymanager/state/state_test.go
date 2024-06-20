@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 	"slices"
 
 	jc "github.com/juju/testing/checkers"
@@ -223,7 +222,6 @@ func (s *stateSuite) TestDeletePublicKeysForComment(c *gc.C) {
 
 	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
-	fmt.Println(keys)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
 	c.Check(testingPublicKeys[1:], jc.DeepEquals, keys)
@@ -245,7 +243,6 @@ func (s *stateSuite) TestDeletePublicKeysForFingerprint(c *gc.C) {
 
 	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
-	fmt.Println(keys)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
 	c.Check(testingPublicKeys[1:], jc.DeepEquals, keys)
@@ -267,7 +264,6 @@ func (s *stateSuite) TestDeletePublicKeysForKeyData(c *gc.C) {
 
 	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
-	fmt.Println(keys)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
 	c.Check(testingPublicKeys[1:], jc.DeepEquals, keys)
@@ -290,8 +286,30 @@ func (s *stateSuite) TestDeletePublicKeysForCombination(c *gc.C) {
 
 	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
-	fmt.Println(keys)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
 	c.Check(testingPublicKeys[2:], jc.DeepEquals, keys)
+}
+
+// TestDeleteSamePublicKeyByTwoMethods is here to assert that if we call one
+// delete operation with both a fingerprint and a comment for the same key only
+// that key is removed and no other keys are removed and no other errors happen.
+func (s *stateSuite) TestDeleteSamePublicKeyByTwoMethods(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+
+	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
+	c.Check(err, jc.ErrorIsNil)
+
+	err = state.DeletePublicKeysForUser(context.Background(), s.userId, []string{
+		keysToAdd[0].Comment,
+		keysToAdd[0].Fingerprint,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
+	c.Assert(err, jc.ErrorIsNil)
+	slices.Sort(keys)
+	slices.Sort(testingPublicKeys)
+	c.Check(testingPublicKeys[1:], jc.DeepEquals, keys)
 }
