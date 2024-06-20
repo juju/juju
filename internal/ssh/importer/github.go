@@ -51,8 +51,7 @@ const (
 // the user has for their profile.
 // The following errors can be expected:
 // - [importererrors.SubjectNotFound] when the subject being asked for does not
-// exist in
-// the resolvers domain.
+// exist in the resolvers domain.
 func (g *GithubResolver) PublicKeysForSubject(
 	ctx context.Context,
 	subject string,

@@ -40,12 +40,12 @@ type Service struct {
 	// public key's for subject.
 	keyImporter PublicKeyImporter
 
-	// st is the provides the state access layer to this service.
+	// st provides the state access layer to this service.
 	st State
 }
 
 // State provides the access layer the [Service] needs for persisting and
-// retrieving a users public keys on a model.
+// retrieving a user's public keys on a model.
 type State interface {
 	// AddPublicKeysForUser adds a set of public keys for a user on
 	// this model. If one or more of the public keys to add for the user already
@@ -61,7 +61,7 @@ type State interface {
 	// public keys for the current user in this model.
 	GetPublicKeysForUser(context.Context, user.UUID) ([]string, error)
 
-	// DeletePublicKeysForUser is responsible for removing the keys form the
+	// DeletePublicKeysForUser is responsible for removing the keys from the
 	// users list of public keys where the string list represents one of
 	// the keys fingerprint, public key data or comment.
 	DeletePublicKeysForUser(context.Context, user.UUID, []string) error
@@ -139,7 +139,7 @@ func (s *Service) AddPublicKeysForUser(
 }
 
 // DeletePublicKeysForUser removes the keys associated with targets from the
-// users list of public keys. Targets can be an arbitrary list of a
+// user's list of public keys. Targets can be an arbitrary list of a
 // public key fingerprint (sha256), comment or full key value to be
 // removed. Where a match is found the key will be removed. If no key exists for
 // a target this will result in no operation. The following errors can be
@@ -189,17 +189,19 @@ func (s *Service) ImportPublicKeysForUser(
 	}
 
 	keys, err := s.keyImporter.FetchPublicKeysForSubject(ctx, subject)
-	if errors.Is(err, importererrors.NoResolver) {
+
+	switch {
+	case errors.Is(err, importererrors.NoResolver):
 		return fmt.Errorf(
 			"cannot import public keys for user %q, unknown public key source %q%w",
 			userID, subject.Scheme, errors.Hide(keyserrors.UnknownImportSource),
 		)
-	} else if errors.Is(err, importererrors.SubjectNotFound) {
+	case errors.Is(err, importererrors.SubjectNotFound):
 		return fmt.Errorf(
 			"cannot import public keys for user %q, import subject %q not found%w",
 			userID, subject.String(), errors.Hide(keyserrors.ImportSubjectNotFound),
 		)
-	} else if err != nil {
+	case err != nil:
 		return fmt.Errorf(
 			"cannot import public keys for user %q using subject %q: %w",
 			userID, subject.String(), err,
