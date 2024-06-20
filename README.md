@@ -145,7 +145,7 @@ snap remove multipass
 
 Read our [Code of conduct](https://ubuntu.com/community/code-of-conduct) and:
 
-- Join our chat: [Mattermost](https://chat.charmhub.io/charmhub/channels/juju), [Freenode IRC](https://webchat.freenode.net/#juju)
+- Join our chat: [Matrix](https://matrix.to/#/#charmhub-juju:ubuntu.com)
 - Join our forum: [Discourse](https://discourse.charmhub.io/)
 
 
@@ -157,4 +157,4 @@ Read our [Code of conduct](https://ubuntu.com/community/code-of-conduct) and:
 ### Make your mark
 
 - Read our [documentation contributor guidelines](https://discourse.charmhub.io/t/documentation-guidelines-for-contributors/1245) and help improve a doc 
-- Read our [codebase contributor guidelines](https://github.com/juju/juju/blob/3.3/CONTRIBUTING.md) and help improve the codebase
+- Read our [codebase contributor guidelines](CONTRIBUTING.md) and help improve the codebase
