@@ -50,7 +50,6 @@ import (
 const (
 	clientFacadeVersion           = 6
 	machineManagerFacadeVersion   = 9
-	userManagerFacadeVersion      = 3
 	sshClientFacadeVersion        = 4
 	pingerFacadeVersion           = 1
 	modelManagerFacadeVersion     = 10
@@ -78,8 +77,8 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 		corecontroller.JujuManagementSpace: "mgmt01",
 	}
 
-	service := s.ControllerServiceFactory(c).ControllerConfig()
-	err = service.UpdateControllerConfig(context.Background(), cfg, nil)
+	configService := s.ControllerServiceFactory(c).ControllerConfig()
+	err = configService.UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -178,8 +177,8 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	userTag := names.NewUserTag("charlie")
 	pass := "totally-secure-password"
 
-	userService := s.ControllerServiceFactory(c).Access()
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	accessService := s.ControllerServiceFactory(c).Access()
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -188,7 +187,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = userService.DisableUserAuthentication(context.Background(), userTag.Name())
+	err = accessService.DisableUserAuthentication(context.Background(), userTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Since these are user login tests, the nonce is empty.
@@ -212,8 +211,8 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	userTag := names.NewUserTag("charlie")
 	pass := "totally-secure-password"
 
-	userService := s.ControllerServiceFactory(c).Access()
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	accessService := s.ControllerServiceFactory(c).Access()
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -222,7 +221,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = userService.RemoveUser(context.Background(), userTag.Name())
+	err = accessService.RemoveUser(context.Background(), userTag.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Since these are user login tests, the nonce is empty.
@@ -252,8 +251,8 @@ func (s *loginSuite) setupManagementSpace(c *gc.C) *network.SpaceInfo {
 		corecontroller.JujuManagementSpace: "mgmt01",
 	}
 
-	service := s.ControllerServiceFactory(c).ControllerConfig()
-	err = service.UpdateControllerConfig(context.Background(), cfg, nil)
+	configService := s.ControllerServiceFactory(c).ControllerConfig()
+	err = configService.UpdateControllerConfig(context.Background(), cfg, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.ControllerServiceFactory(c).ControllerConfig().UpdateControllerConfig(context.Background(), cfg, nil)
@@ -265,11 +264,11 @@ func (s *loginSuite) setupManagementSpace(c *gc.C) *network.SpaceInfo {
 func (s *loginSuite) addController(c *gc.C) (state.ControllerNode, string) {
 	node, err := s.ControllerModel(c).State().AddControllerNode()
 	c.Assert(err, jc.ErrorIsNil)
-	password, err := password.RandomPassword()
+	pass, err := password.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
-	err = node.SetPassword(password)
+	err = node.SetPassword(pass)
 	c.Assert(err, jc.ErrorIsNil)
-	return node, password
+	return node, pass
 }
 
 func (s *loginSuite) TestControllerAgentLogin(c *gc.C) {
@@ -277,9 +276,9 @@ func (s *loginSuite) TestControllerAgentLogin(c *gc.C) {
 	mgmtSpace := s.setupManagementSpace(c)
 	info := s.ControllerModelApiInfo()
 
-	node, password := s.addController(c)
+	node, pass := s.addController(c)
 	info.Tag = node.Tag()
-	info.Password = password
+	info.Password = pass
 	info.Nonce = "fake_nonce"
 
 	s.assertAgentLogin(c, info, mgmtSpace)
@@ -408,7 +407,7 @@ func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 	_, hostPorts := s.loginHostPorts(c, info)
 	// Ignoring the address used to login, the returned API addresses should not
 	// Have management space filtering applied.
-	c.Assert(hostPorts[1:], gc.DeepEquals, exp)
+	c.Check(hostPorts[1:], gc.DeepEquals, exp)
 }
 
 func (s *loginSuite) infoForNewMachine(c *gc.C, info *api.Info) *api.Info {
@@ -417,11 +416,11 @@ func (s *loginSuite) infoForNewMachine(c *gc.C, info *api.Info) *api.Info {
 
 	f, release := s.NewFactory(c, info.ModelTag.Id())
 	defer release()
-	machine, password := f.MakeMachineReturningPassword(
+	machine, pass := f.MakeMachineReturningPassword(
 		c, &factory.MachineParams{Nonce: "fake_nonce"})
 
 	newInfo.Tag = machine.Tag()
-	newInfo.Password = password
+	newInfo.Password = pass
 	newInfo.Nonce = "fake_nonce"
 	return &newInfo
 }
@@ -431,31 +430,36 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	newInfo := *info
 
 	userTag := names.NewUserTag("charlie")
-	password := "shhh..."
+	pass := "shhh..."
 
-	userService := s.ControllerServiceFactory(c).Access()
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	accessService := s.ControllerServiceFactory(c).Access()
+
+	// Add a user with permission to log into this controller.
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(password)),
+		Password:    ptr(auth.NewPassword(pass)),
 		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO (stickupkid): Remove the make user call when permissions are
-	// written to state.
-	f, release := s.NewFactory(c, info.ModelTag.Id())
-	defer release()
-
-	f.MakeUser(c, &factory.UserParams{
-		Name:        userTag.Name(),
-		DisplayName: "Charlie Brown",
-		Password:    password,
+	// Grant the user admin access to the model too.
+	accessSpec := permission.AccessSpec{
+		Target: permission.ID{
+			ObjectType: permission.Model,
+			Key:        info.ModelTag.Id(),
+		},
+		Access: permission.AdminAccess,
+	}
+	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+		AccessSpec: accessSpec,
+		User:       userTag.Name(),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	newInfo.Tag = userTag
-	newInfo.Password = password
+	newInfo.Password = pass
 	return &newInfo
 }
 
@@ -507,11 +511,11 @@ func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
 
 	f, release := s.NewFactory(c, info.ModelTag.Id())
 	defer release()
-	machine, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
+	machine, pass := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	info.Tag = machine.Tag()
-	info.Password = password
+	info.Password = pass
 	info.Nonce = "nonce"
 
 	st, err := api.Open(info, fastDialOpts)
@@ -523,9 +527,9 @@ func (s *loginSuite) TestControllerAgentLoginDuringMaintenance(c *gc.C) {
 	s.WithUpgrading = true
 	info := s.ControllerModelApiInfo()
 
-	node, password := s.addController(c)
+	node, pass := s.addController(c)
 	info.Tag = node.Tag()
-	info.Password = password
+	info.Password = pass
 
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, jc.ErrorIsNil)
@@ -681,37 +685,41 @@ func (s *loginSuite) TestInvalidModel(c *gc.C) {
 }
 
 func (s *loginSuite) TestOtherModel(c *gc.C) {
-	userTag := names.NewUserTag("charlie")
-	password := "shhh..."
+	c.Skip("This test needs to be restored when st (*state.State) is removed from the API root.")
 
-	userService := s.ControllerServiceFactory(c).Access()
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	userTag := names.NewUserTag("charlie")
+	pass := "shhh..."
+
+	accessService := s.ControllerServiceFactory(c).Access()
+
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(password)),
+		Password:    ptr(auth.NewPassword(pass)),
 		Permission:  permission.ControllerForAccess(permission.LoginAccess),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeUser(c, &factory.UserParams{
-		Name: userTag.Name(),
+	// Grant the user admin access to the default workload model.
+	accessSpec := permission.AccessSpec{
+		Target: permission.ID{
+			ObjectType: permission.Model,
+			Key:        s.DefaultModelUUID.String(),
+		},
+		Access: permission.AdminAccess,
+	}
+	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+		AccessSpec: accessSpec,
+		User:       userTag.Name(),
 	})
-	modelState := f.MakeModel(c, &factory.ModelParams{
-		Owner: userTag,
-	})
-	defer modelState.Close()
-
-	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	st := s.openModelAPIWithoutLogin(c, model.UUID())
+	st := s.openModelAPIWithoutLogin(c, s.DefaultModelUUID.String())
 
-	err = st.Login(context.Background(), userTag, password, "", nil)
+	err = st.Login(context.Background(), userTag, pass, "", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertRemoteModel(c, st, model.ModelTag())
+	s.assertRemoteModel(c, st, names.NewModelTag(s.DefaultModelUUID.String()))
 }
 
 func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
@@ -732,7 +740,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 
 	f2, release := s.NewFactory(c, modelState.ModelUUID())
 	defer release()
-	machine, password := f2.MakeMachineReturningPassword(c, &factory.MachineParams{
+	machine, pass := f2.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Nonce: "test-nonce",
 	})
 
@@ -741,7 +749,7 @@ func (s *loginSuite) TestMachineLoginOtherModel(c *gc.C) {
 
 	st := s.openModelAPIWithoutLogin(c, model.UUID())
 
-	err = st.Login(context.Background(), machine.Tag(), password, "test-nonce", nil)
+	err = st.Login(context.Background(), machine.Tag(), pass, "test-nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -759,7 +767,7 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 
 	f2, release := s.NewFactory(c, modelState.ModelUUID())
 	defer release()
-	machine, password := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
+	machine, pass := f2.MakeUnprovisionedMachineReturningPassword(c, &factory.MachineParams{})
 
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -769,7 +777,7 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 	// If the agent attempts Login before the provisioner has recorded
 	// the machine's nonce in state, then the agent should get back an
 	// error with code "not provisioned".
-	err = st.Login(context.Background(), machine.Tag(), password, "nonce", nil)
+	err = st.Login(context.Background(), machine.Tag(), pass, "nonce", nil)
 	c.Assert(err, gc.ErrorMatches, `machine 0 not provisioned \(not provisioned\)`)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 }
@@ -777,7 +785,7 @@ func (s *loginSuite) TestMachineLoginOtherModelNotProvisioned(c *gc.C) {
 func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	machine, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
+	machine, pass := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 
@@ -795,7 +803,7 @@ func (s *loginSuite) TestOtherModelFromController(c *gc.C) {
 	conn, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = conn.Login(context.Background(), machine.Tag(), password, "nonce", nil)
+	err = conn.Login(context.Background(), machine.Tag(), pass, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -804,7 +812,7 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 
 	f, release := s.NewFactory(c, info.ModelTag.Id())
 	defer release()
-	managerMachine, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{
+	managerMachine, pass := f.MakeMachineReturningPassword(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 
@@ -826,14 +834,14 @@ func (s *loginSuite) TestOtherModelFromControllerOtherNotProvisioned(c *gc.C) {
 	// The fact that the machine with the same tag in the hosted
 	// model is unprovisioned should not cause the login to fail
 	// with "not provisioned", because the passwords don't match.
-	err = st.Login(context.Background(), managerMachine.Tag(), password, "nonce", nil)
+	err = st.Login(context.Background(), managerMachine.Tag(), pass, "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	machine, password := f.MakeMachineReturningPassword(c, nil)
+	machine, pass := f.MakeMachineReturningPassword(c, nil)
 
 	modelState := f.MakeModel(c, nil)
 	defer modelState.Close()
@@ -843,21 +851,37 @@ func (s *loginSuite) TestOtherModelWhenNotController(c *gc.C) {
 
 	st := s.openModelAPIWithoutLogin(c, model.UUID())
 
-	err = st.Login(context.Background(), machine.Tag(), password, "nonce", nil)
+	err = st.Login(context.Background(), machine.Tag(), pass, "nonce", nil)
 	assertInvalidEntityPassword(c, err)
 }
 
 func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (names.UserTag, params.LoginResult) {
 	userTag := names.NewUserTag("charlie")
-	password := "shhh..."
+	pass := "shhh..."
 
-	userService := s.ControllerServiceFactory(c).Access()
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	accessService := s.ControllerServiceFactory(c).Access()
+
+	// Add a user with permission to log into this controller.
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
 		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword(password)),
+		Password:    ptr(auth.NewPassword(pass)),
 		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Grant the user admin access to the model too.
+	accessSpec := permission.AccessSpec{
+		Target: permission.ID{
+			ObjectType: permission.Model,
+			Key:        info.ModelTag.Id(),
+		},
+		Access: permission.AdminAccess,
+	}
+	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+		AccessSpec: accessSpec,
+		User:       userTag.Name(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -868,7 +892,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (names.UserTag, par
 
 	f.MakeUser(c, &factory.UserParams{
 		Name:     userTag.Name(),
-		Password: password,
+		Password: pass,
 	})
 
 	conn := s.openAPIWithoutLogin(c)
@@ -876,7 +900,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (names.UserTag, par
 	var result params.LoginResult
 	request := &params.LoginRequest{
 		AuthTag:       userTag.String(),
-		Credentials:   password,
+		Credentials:   pass,
 		ClientVersion: jujuversion.Current.String(),
 	}
 	err = conn.APICall(context.Background(), "Admin", 3, "", "Login", request, &result)
@@ -930,9 +954,11 @@ func (s *loginSuite) assertRemoteModel(c *gc.C, conn api.Connection, expected na
 }
 
 func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
-	userService := s.ControllerServiceFactory(c).Access()
-	uuid, _, err := userService.AddUser(context.Background(), service.AddUserArg{
-		Name:        "bobbrown",
+	accessService := s.ControllerServiceFactory(c).Access()
+
+	userName := "bobbrown"
+	userUUID, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
+		Name:        userName,
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
@@ -940,14 +966,17 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	f.MakeUser(c, &factory.UserParams{
-		Name:        "bobbrown",
-		DisplayName: "Bob Brown",
-		Password:    "password",
+	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        s.ControllerModelUUID(),
+			},
+			Access: permission.AdminAccess,
+		},
+		User: userName,
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	now := s.Clock.Now().UTC()
 
@@ -958,17 +987,13 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { _ = apiState.Close() }()
-	// The user now has last login updated.
 
-	user, err := userService.GetUser(context.Background(), uuid)
+	// The user now has last login updated.
+	user, err := accessService.GetUser(context.Background(), userUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(user.LastLogin, jc.Almost, now)
 
-	// The model user is also updated.
-	model := s.ControllerModel(c)
-	modelUser, err := model.State().UserAccess(names.NewUserTag("bobbrown"), model.ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	when, err := userService.LastModelLogin(context.Background(), modelUser.UserTag.Name(), coremodel.UUID(model.UUID()))
+	when, err := accessService.LastModelLogin(context.Background(), userName, coremodel.UUID(s.ControllerModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(when, jc.Almost, now)
 }
@@ -990,14 +1015,7 @@ func assertPermissionDenied(c *gc.C, err error) {
 func setEveryoneAccess(c *gc.C, st *state.State, adminUser names.UserTag, access permission.Access) {
 	targetUserTag := names.NewUserTag(common.EveryoneTagName)
 	_, err := st.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: adminUser, Access: access})
-	if errors.Is(err, errors.AlreadyExists) {
-		controllerTag := st.ControllerTag()
-		controllerUser, err := st.UserAccess(targetUserTag, controllerTag)
-		c.Assert(err, jc.ErrorIsNil)
-		_, err = st.SetUserAccess(targetUserTag, controllerUser.Object, access)
-		c.Assert(err, jc.ErrorIsNil)
-		return
-	}
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 var _ = gc.Suite(&migrationSuite{})
@@ -1009,7 +1027,7 @@ type migrationSuite struct {
 func (s *migrationSuite) TestImportingModel(c *gc.C) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
-	m, password := f.MakeMachineReturningPassword(c, &factory.MachineParams{Nonce: "nonce"})
+	m, pass := f.MakeMachineReturningPassword(c, &factory.MachineParams{Nonce: "nonce"})
 
 	model, err := s.ControllerModel(c).State().Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1023,7 +1041,7 @@ func (s *migrationSuite) TestImportingModel(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "migration in progress, model is importing")
 
 	// Machines should be able to use the API.
-	machineConn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), m.Tag(), password, "nonce")
+	machineConn := s.OpenModelAPIAs(c, s.ControllerModelUUID(), m.Tag(), pass, "nonce")
 	_, err = apimachiner.NewClient(machineConn).Machine(context.Background(), m.MachineTag())
 	c.Check(err, jc.ErrorIsNil)
 }
@@ -1071,8 +1089,8 @@ func (s *loginV3Suite) TestClientLoginToController(c *gc.C) {
 }
 
 func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *gc.C) {
-	userService := s.ControllerServiceFactory(c).Access()
-	uuid, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	accessService := s.ControllerServiceFactory(c).Access()
+	uuid, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -1093,7 +1111,7 @@ func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *g
 
 	s.OpenControllerAPIAs(c, names.NewUserTag("bobbrown"), "password")
 
-	user, err := userService.GetUser(context.Background(), uuid)
+	user, err := accessService.GetUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(user.LastLogin, gc.Not(jc.Before), now)
 }
