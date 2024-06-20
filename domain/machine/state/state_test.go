@@ -32,7 +32,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *stateSuite) TestCreateMachine(c *gc.C) {
-	_, err := s.state.UpsertMachine(context.Background(), "666")
+	err := s.state.UpsertMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
@@ -50,9 +50,9 @@ func (s *stateSuite) TestCreateMachine(c *gc.C) {
 }
 
 func (s *stateSuite) TestUpdateMachine(c *gc.C) {
-	_, err := s.state.UpsertMachine(context.Background(), "666")
+	err := s.state.UpsertMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.state.UpsertMachine(context.Background(), "666")
+	err = s.state.UpsertMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	var machineID string
@@ -68,7 +68,7 @@ func (s *stateSuite) TestUpdateMachine(c *gc.C) {
 }
 
 func (s *stateSuite) TestDeleteMachine(c *gc.C) {
-	_, err := s.state.UpsertMachine(context.Background(), "666")
+	err := s.state.UpsertMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	bd := blockdevice.BlockDevice{

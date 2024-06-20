@@ -77,58 +77,18 @@ func (c *MockStateDeleteMachineCall) DoAndReturn(f func(context.Context, string)
 	return c
 }
 
-// InitialWatchStatement mocks base method.
-func (m *MockState) InitialWatchStatement() (string, string) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitialWatchStatement")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(string)
-	return ret0, ret1
-}
-
-// InitialWatchStatement indicates an expected call of InitialWatchStatement.
-func (mr *MockStateMockRecorder) InitialWatchStatement() *MockStateInitialWatchStatementCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatement", reflect.TypeOf((*MockState)(nil).InitialWatchStatement))
-	return &MockStateInitialWatchStatementCall{Call: call}
-}
-
-// MockStateInitialWatchStatementCall wrap *gomock.Call
-type MockStateInitialWatchStatementCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateInitialWatchStatementCall) Return(arg0, arg1 string) *MockStateInitialWatchStatementCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementCall) Do(f func() (string, string)) *MockStateInitialWatchStatementCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementCall) DoAndReturn(f func() (string, string)) *MockStateInitialWatchStatementCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // UpsertMachine mocks base method.
-func (m *MockState) UpsertMachine(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockState) UpsertMachine(arg0 context.Context, arg1, arg2, arg3 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpsertMachine", arg0, arg1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "UpsertMachine", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // UpsertMachine indicates an expected call of UpsertMachine.
-func (mr *MockStateMockRecorder) UpsertMachine(arg0, arg1 any) *MockStateUpsertMachineCall {
+func (mr *MockStateMockRecorder) UpsertMachine(arg0, arg1, arg2, arg3 any) *MockStateUpsertMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertMachine", reflect.TypeOf((*MockState)(nil).UpsertMachine), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertMachine", reflect.TypeOf((*MockState)(nil).UpsertMachine), arg0, arg1, arg2, arg3)
 	return &MockStateUpsertMachineCall{Call: call}
 }
 
@@ -138,19 +98,19 @@ type MockStateUpsertMachineCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateUpsertMachineCall) Return(arg0 string, arg1 error) *MockStateUpsertMachineCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateUpsertMachineCall) Return(arg0 error) *MockStateUpsertMachineCall {
+	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpsertMachineCall) Do(f func(context.Context, string) (string, error)) *MockStateUpsertMachineCall {
+func (c *MockStateUpsertMachineCall) Do(f func(context.Context, string, string, string) error) *MockStateUpsertMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpsertMachineCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockStateUpsertMachineCall {
+func (c *MockStateUpsertMachineCall) DoAndReturn(f func(context.Context, string, string, string) error) *MockStateUpsertMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/domain"
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -33,17 +32,17 @@ func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
 
 // UpsertMachine creates or updates the specified machine.
 // TODO - this just creates a minimal row for now.
-func (st *State) UpsertMachine(ctx context.Context, machineId string) (string, error) {
+func (st *State) UpsertMachine(ctx context.Context, machineId, nodeUUID, machineUUID string) error {
 	db, err := st.DB()
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	machineIDParam := sqlair.M{"machine_id": machineId}
 	query := `SELECT &M.uuid FROM machine WHERE machine_id = $M.machine_id`
 	queryStmt, err := st.Prepare(query, sqlair.M{})
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	createMachine := `
@@ -52,16 +51,15 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 `
 	createMachineStmt, err := st.Prepare(createMachine, sqlair.M{})
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 
 	createNode := `INSERT INTO net_node (uuid) VALUES ($M.net_node_uuid)`
 	createNodeStmt, err := st.Prepare(createNode, sqlair.M{})
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 
-	newUUID := ""
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		result := sqlair.M{}
 		err := tx.Query(ctx, queryStmt, machineIDParam).Get(&result)
@@ -74,18 +72,10 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 		if err == nil {
 			return nil
 		}
-		nodeUUID, err := uuid.NewUUID()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		machineUUID, err := uuid.NewUUID()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		newUUID = machineUUID.String()
+
 		createParams := sqlair.M{
-			"machine_uuid":  machineUUID.String(),
-			"net_node_uuid": nodeUUID.String(),
+			"machine_uuid":  machineUUID,
+			"net_node_uuid": nodeUUID,
 			"machine_id":    machineId,
 			"life_id":       life.Alive,
 		}
@@ -97,7 +87,7 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 		}
 		return nil
 	})
-	return newUUID, errors.Annotatef(err, "upserting machine %q", machineId)
+	return errors.Annotatef(err, "upserting machine %q", machineId)
 }
 
 // DeleteMachine deletes the specified machine and any dependent child records.
