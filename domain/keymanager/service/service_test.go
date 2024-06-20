@@ -94,9 +94,10 @@ func (s *serviceSuite) TestAddKeysForNonExistentUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedKeys := []keymanager.PublicKey{
 		{
-			Comment:     keyInfo.Comment,
-			Fingerprint: keyInfo.Fingerprint(),
-			Key:         testingPublicKeys[0],
+			Comment:         keyInfo.Comment,
+			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+			Fingerprint:     keyInfo.Fingerprint(),
+			Key:             testingPublicKeys[0],
 		},
 	}
 
@@ -170,9 +171,10 @@ func (s *serviceSuite) TestAddExistingKeysForUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectedKeys := []keymanager.PublicKey{
 		{
-			Comment:     keyInfo1.Comment,
-			Fingerprint: keyInfo1.Fingerprint(),
-			Key:         existingUserPublicKeys[1],
+			Comment:         keyInfo1.Comment,
+			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+			Fingerprint:     keyInfo1.Fingerprint(),
+			Key:             existingUserPublicKeys[1],
 		},
 	}
 
@@ -189,14 +191,16 @@ func (s *serviceSuite) TestAddExistingKeysForUser(c *gc.C) {
 
 	expectedKeys = []keymanager.PublicKey{
 		{
-			Comment:     keyInfo2.Comment,
-			Fingerprint: keyInfo2.Fingerprint(),
-			Key:         testingPublicKeys[1],
+			Comment:         keyInfo2.Comment,
+			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+			Fingerprint:     keyInfo2.Fingerprint(),
+			Key:             testingPublicKeys[1],
 		},
 		{
-			Comment:     keyInfo1.Comment,
-			Fingerprint: keyInfo1.Fingerprint(),
-			Key:         existingUserPublicKeys[1],
+			Comment:         keyInfo1.Comment,
+			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+			Fingerprint:     keyInfo1.Fingerprint(),
+			Key:             existingUserPublicKeys[1],
 		},
 	}
 
@@ -224,9 +228,10 @@ func (s *serviceSuite) TestAddKeysForUser(c *gc.C) {
 		keyInfo, err := ssh.ParsePublicKey(key)
 		c.Assert(err, jc.ErrorIsNil)
 		expectedKeys = append(expectedKeys, keymanager.PublicKey{
-			Comment:     keyInfo.Comment,
-			Fingerprint: keyInfo.Fingerprint(),
-			Key:         key,
+			Comment:         keyInfo.Comment,
+			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+			Fingerprint:     keyInfo.Fingerprint(),
+			Key:             key,
 		})
 	}
 
@@ -462,9 +467,10 @@ func (s *serviceSuite) TestImportPublicKeysForUser(c *gc.C) {
 		keyInfo, err := ssh.ParsePublicKey(key)
 		c.Assert(err, jc.ErrorIsNil)
 		expectedKeys = append(expectedKeys, keymanager.PublicKey{
-			Comment:     keyInfo.Comment,
-			Fingerprint: keyInfo.Fingerprint(),
-			Key:         key,
+			Comment:         keyInfo.Comment,
+			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+			Fingerprint:     keyInfo.Fingerprint(),
+			Key:             key,
 		})
 	}
 
