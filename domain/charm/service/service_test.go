@@ -1,0 +1,209 @@
+// Copyright 2024 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package service
+
+import (
+	"context"
+
+	"github.com/juju/errors"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
+	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/core/changestream"
+	charmtesting "github.com/juju/juju/core/charm/testing"
+	domaincharm "github.com/juju/juju/domain/charm"
+	charmerrors "github.com/juju/juju/domain/charm/errors"
+	internalcharm "github.com/juju/juju/internal/charm"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/state/watcher/watchertest"
+)
+
+type serviceSuite struct {
+	testing.IsolationSuite
+
+	state *MockState
+
+	service *Service
+}
+
+var _ = gc.Suite(&serviceSuite{})
+
+func (s *serviceSuite) TestGetCharmUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := charmtesting.GenCharmUUID(c)
+
+	s.state.EXPECT().GetCharmUUID(gomock.Any(), "foo").Return(uuid, nil)
+
+	result, err := s.service.GetCharmUUID(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.Equals, uuid)
+}
+
+func (s *serviceSuite) TestGetCharmUUIDInvalidName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmUUID(context.Background(), "Foo")
+	c.Assert(err, jc.ErrorIs, charmerrors.NameNotValid)
+}
+
+func (s *serviceSuite) TestGetCharmUUIDErrorNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetCharmUUID(gomock.Any(), "foo").Return("", charmerrors.NotFound)
+
+	_, err := s.service.GetCharmUUID(context.Background(), "foo")
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *serviceSuite) TestIsControllerCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := charmtesting.GenCharmUUID(c)
+
+	s.state.EXPECT().IsControllerCharm(gomock.Any(), uuid).Return(true, nil)
+
+	result, err := s.service.IsControllerCharm(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestIsControllerCharmNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := charmtesting.GenCharmUUID(c)
+
+	s.state.EXPECT().IsControllerCharm(gomock.Any(), uuid).Return(false, charmerrors.NotFound)
+
+	_, err := s.service.IsControllerCharm(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *serviceSuite) TestIsControllerCharmInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.IsControllerCharm(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *serviceSuite) TestSupportsContainers(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := charmtesting.GenCharmUUID(c)
+
+	s.state.EXPECT().SupportsContainers(gomock.Any(), uuid).Return(true, nil)
+
+	result, err := s.service.SupportsContainers(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestSupportsContainersNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := charmtesting.GenCharmUUID(c)
+
+	s.state.EXPECT().SupportsContainers(gomock.Any(), uuid).Return(false, charmerrors.NotFound)
+
+	_, err := s.service.SupportsContainers(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *serviceSuite) TestSupportsContainersInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.SupportsContainers(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *serviceSuite) TestGetCharmMetadata(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	// Conversion of the metadata tests is done in the types package.
+
+	uuid := charmtesting.GenCharmUUID(c)
+
+	s.state.EXPECT().GetCharmMetadata(gomock.Any(), uuid).Return(domaincharm.Metadata{
+		Name: "foo",
+
+		// RunAs becomes mandatory when being persisted. Empty string is not
+		// allowed.
+		RunAs: "default",
+	}, nil)
+
+	metadata, err := s.service.GetCharmMetadata(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(metadata, gc.DeepEquals, internalcharm.Meta{
+		Name: "foo",
+
+		// Notice that the RunAs field becomes empty string when being returned.
+	})
+}
+
+func (s *serviceSuite) TestGetCharmMetadataNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	uuid := charmtesting.GenCharmUUID(c)
+
+	s.state.EXPECT().GetCharmMetadata(gomock.Any(), uuid).Return(domaincharm.Metadata{}, charmerrors.NotFound)
+
+	_, err := s.service.GetCharmMetadata(context.Background(), uuid)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *serviceSuite) TestGetCharmMetadataInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmMetadata(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.state = NewMockState(ctrl)
+
+	s.service = NewService(s.state, loggertesting.WrapCheckLog(c))
+
+	return ctrl
+}
+
+type watchableServiceSuite struct {
+	testing.IsolationSuite
+
+	state          *MockState
+	watcherFactory *MockWatcherFactory
+
+	service *WatchableService
+}
+
+var _ = gc.Suite(&watchableServiceSuite{})
+
+func (s *watchableServiceSuite) TestWatchCharms(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	ch := make(chan []string)
+	stringsWatcher := watchertest.NewStringsWatcher(ch)
+	defer workertest.DirtyKill(c, stringsWatcher)
+
+	s.watcherFactory.EXPECT().NewUUIDsWatcher("charm", changestream.All).Return(stringsWatcher, nil)
+
+	watcher, err := s.service.WatchCharms()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(watcher, gc.Equals, stringsWatcher)
+}
+
+func (s *watchableServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.state = NewMockState(ctrl)
+	s.watcherFactory = NewMockWatcherFactory(ctrl)
+
+	s.service = NewWatchableService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+
+	return ctrl
+}
