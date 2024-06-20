@@ -4,11 +4,6 @@
 package migrationmaster
 
 import (
-	"context"
-
-	"github.com/juju/names/v5"
-	"github.com/juju/version/v2"
-
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/migration"
@@ -22,10 +17,6 @@ type Backend interface {
 
 	WatchForMigration() state.NotifyWatcher
 	LatestMigration() (state.ModelMigration, error)
-	ModelUUID() string
-	ModelName() (string, error)
-	ModelOwner() (names.UserTag, error)
-	AgentVersion(ctx context.Context) (version.Number, error)
 	RemoveExportingModelDocs() error
 	AllLocalRelatedModels() ([]string, error)
 }

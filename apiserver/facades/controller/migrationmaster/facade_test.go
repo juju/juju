@@ -26,9 +26,11 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -46,6 +48,9 @@ type Suite struct {
 	upgradeService          *mocks.MockUpgradeService
 	store                   *mocks.MockObjectStore
 	controllerConfigService *mocks.MockControllerConfigService
+	modelConfigService      *mocks.MockModelConfigService
+	modelInfoService        *mocks.MockModelInfoService
+	modelService            *mocks.MockModelService
 
 	precheckBackend *mocks.MockPrecheckBackend
 
@@ -172,11 +177,20 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 func (s *Suite) TestModelInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	exp := s.backend.EXPECT()
-	exp.ModelUUID().Return("model-uuid")
-	exp.ModelName().Return("model-name", nil)
-	exp.ModelOwner().Return(names.NewUserTag("owner"), nil)
-	exp.AgentVersion(gomock.Any()).Return(version.MustParse("1.2.3"), nil)
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
+		UUID:            "model-uuid",
+		Name:            "model-name",
+		CredentialOwner: "owner",
+	}, nil)
+
+	modelConfig, err := config.New(false, map[string]any{
+		config.UUIDKey:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+		config.NameKey:         "model-name",
+		config.TypeKey:         "ec2",
+		config.AgentVersionKey: "1.2.3",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
 
 	mod, err := s.mustMakeAPI(c).ModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -298,10 +312,10 @@ func (s *Suite) TestSetStatusMessageError(c *gc.C) {
 func (s *Suite) TestPrechecksModelError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.precheckBackend.EXPECT().Model().Return(nil, errors.New("boom"))
+	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{}, errors.New("boom"))
 
 	err := s.mustMakeAPI(c).Prechecks(context.Background(), params.PrechecksArgs{TargetControllerVersion: version.MustParse("2.9.32")})
-	c.Assert(err, gc.ErrorMatches, "retrieving model: boom")
+	c.Assert(err, gc.ErrorMatches, "retrieving model info: boom")
 }
 
 func (s *Suite) TestProcessRelations(c *gc.C) {
@@ -595,6 +609,9 @@ func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {
 	s.upgradeService = mocks.NewMockUpgradeService(ctrl)
 	s.store = mocks.NewMockObjectStore(ctrl)
 	s.controllerConfigService = mocks.NewMockControllerConfigService(ctrl)
+	s.modelConfigService = mocks.NewMockModelConfigService(ctrl)
+	s.modelInfoService = mocks.NewMockModelInfoService(ctrl)
+	s.modelService = mocks.NewMockModelService(ctrl)
 	return ctrl
 }
 
@@ -619,6 +636,9 @@ func (s *Suite) makeAPI() (*migrationmaster.API, error) {
 		stubLeadership{},
 		s.credentialService,
 		s.controllerConfigService,
+		s.modelConfigService,
+		s.modelInfoService,
+		s.modelService,
 		s.upgradeService,
 	)
 }
