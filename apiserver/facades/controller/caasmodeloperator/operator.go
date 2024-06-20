@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
-	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
@@ -26,11 +26,6 @@ import (
 // TODO (manadart 2020-10-21): Remove the ModelUUID method
 // from the next version of this facade.
 
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-	WatchControllerConfig() (corewatcher.StringsWatcher, error)
-}
-
 // API represents the controller model operator facade.
 type API struct {
 	*common.APIAddresser
@@ -38,11 +33,12 @@ type API struct {
 
 	auth                    facade.Authorizer
 	ctrlState               CAASControllerState
-	state                   CAASModelOperatorState
 	controllerConfigService ControllerConfigService
+	modelConfigService      ModelConfigService
 	logger                  corelogger.Logger
 
 	resources facade.Resources
+	modelUUID model.UUID
 }
 
 // NewAPI is alternative means of constructing a controller model facade.
@@ -52,7 +48,9 @@ func NewAPI(
 	ctrlSt CAASControllerState,
 	st CAASModelOperatorState,
 	controllerConfigService ControllerConfigService,
+	modelConfigService ModelConfigService,
 	logger corelogger.Logger,
+	modelUUID model.UUID,
 ) (*API, error) {
 
 	if !authorizer.AuthController() {
@@ -64,10 +62,11 @@ func NewAPI(
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
 		PasswordChanger:         common.NewPasswordChanger(st, common.AuthFuncForTagKind(names.ModelTagKind)),
 		ctrlState:               ctrlSt,
-		state:                   st,
 		controllerConfigService: controllerConfigService,
+		modelConfigService:      modelConfigService,
 		logger:                  logger,
 		resources:               resources,
+		modelUUID:               modelUUID,
 	}, nil
 }
 
@@ -75,11 +74,6 @@ func NewAPI(
 // information returned by ModelOperatorProvisioningInfo.
 func (a *API) WatchModelOperatorProvisioningInfo(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-
-	model, err := a.state.Model()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
 
 	controllerConfigWatcher, err := a.controllerConfigService.WatchControllerConfig()
 	if err != nil {
@@ -91,12 +85,20 @@ func (a *API) WatchModelOperatorProvisioningInfo(ctx context.Context) (params.No
 	}
 
 	controllerAPIHostPortsWatcher := a.ctrlState.WatchAPIHostPortsForAgents()
-	modelConfigWatcher := model.WatchForModelConfigChanges()
+
+	modelConfigWatcher, err := a.modelConfigService.Watch()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	modelConfigNotifyWatcher, err := eventsource.NewStringsNotifyWatcher(modelConfigWatcher)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
 
 	multiWatcher, err := eventsource.NewMultiNotifyWatcher(ctx,
 		controllerConfigNotifyWatcher,
 		controllerAPIHostPortsWatcher,
-		modelConfigWatcher,
+		modelConfigNotifyWatcher,
 	)
 
 	if err != nil {
@@ -120,11 +122,7 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 		return result, err
 	}
 
-	model, err := a.state.Model()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	modelConfig, err := model.ModelConfig(ctx)
+	modelConfig, err := a.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -169,7 +167,7 @@ func (a *API) ModelOperatorProvisioningInfo(ctx context.Context) (params.ModelOp
 // embedded APIAddresser *without* bumping the facade version.
 // It should be blanked when this facade version is next incremented.
 func (a *API) ModelUUID(ctx context.Context) params.StringResult {
-	return params.StringResult{Result: a.state.ModelUUID()}
+	return params.StringResult{Result: a.modelUUID.String()}
 }
 
 // APIHostPorts returns the API server addresses.
