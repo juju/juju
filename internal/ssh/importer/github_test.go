@@ -15,6 +15,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )
 
 type githubSuite struct {
@@ -32,7 +34,7 @@ func (s *githubSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 // TestSubjectNotFound is asserting that if the [GithubResolver] gets a 404
-// return it propagates a [SubjectNotFound] error.
+// return it propagates a [importererrors.SubjectNotFound] error.
 func (g *githubSuite) TestSubjectNotFound(c *gc.C) {
 	defer g.setupMocks(c).Finish()
 
@@ -49,7 +51,7 @@ func (g *githubSuite) TestSubjectNotFound(c *gc.C) {
 
 	gh := GithubResolver{g.client}
 	_, err := gh.PublicKeysForSubject(context.Background(), "tlm")
-	c.Check(err, jc.ErrorIs, SubjectNotFound)
+	c.Check(err, jc.ErrorIs, importererrors.SubjectNotFound)
 }
 
 // TestSubjectPublicKeys is asserting the happy path for the [GithubResolver].

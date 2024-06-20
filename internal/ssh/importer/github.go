@@ -11,6 +11,8 @@ import (
 	"net/url"
 
 	"github.com/juju/errors"
+
+	importererrors "github.com/juju/juju/internal/ssh/importer/errors"
 )
 
 // githubKeyResponse represents the response returned by Github for fetching a
@@ -48,8 +50,8 @@ const (
 // Github subject in this case a user and returning all of the public ssh keys
 // the user has for their profile.
 // The following errors can be expected:
-// - [SubjectNotFound] when the subject being asked for does not exist in
-// the resolvers domain.
+// - [importererrors.SubjectNotFound] when the subject being asked for does not
+// exist in the resolvers domain.
 func (g *GithubResolver) PublicKeysForSubject(
 	ctx context.Context,
 	subject string,
@@ -81,7 +83,7 @@ func (g *GithubResolver) PublicKeysForSubject(
 	if res.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf(
 			"cannot find github user %q%w",
-			subject, errors.Hide(SubjectNotFound),
+			subject, errors.Hide(importererrors.SubjectNotFound),
 		)
 	} else if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf(

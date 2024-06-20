@@ -21,9 +21,9 @@ var usageRemoveSSHKeyDetails = `
 Juju maintains a per-model cache of public SSH keys which it copies to
 each unit. This command will remove a specified key (or space separated
 list of keys) from the model cache and all current units deployed in that
-model. The keys to be removed may be specified by the key's fingerprint,
-or by the text label associated with them. Invalid keys in the model cache
-can be removed by specifying the key verbatim.
+model. The keys to be removed may be specified by the key's fingerprint using a
+sah256 sum, or by the text label associated with them. Invalid keys in the model
+cache can be removed by specifying the key verbatim.
 
 `[1:]
 
