@@ -380,7 +380,7 @@ go-client-build: $(BUILD_CLIENT_TARGETS)
 
 .PHONY: go-build
 go-build: go-agent-build go-client-build
-## build: builds all the targets withouth rebuilding a new schema.
+## go-build: builds all the targets without rebuilding a new schema.
 
 .PHONY: release-build
 release-build: go-agent-build
