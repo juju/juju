@@ -272,6 +272,7 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (state.Entity, names.C
 	c.Assert(err, jc.ErrorIsNil)
 
 	user, err := accessService.GetUser(context.Background(), userUUID)
+	c.Assert(err, jc.ErrorIsNil)
 
 	st := s.ControllerModel(c).State()
 	cTag := names.NewControllerTag(st.ControllerUUID())

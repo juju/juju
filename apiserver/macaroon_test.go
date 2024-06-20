@@ -5,7 +5,6 @@ package apiserver_test
 
 import (
 	"context"
-	"github.com/juju/juju/apiserver/common"
 	"net/http"
 	"net/url"
 
@@ -20,6 +19,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access/service"

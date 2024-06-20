@@ -5,7 +5,6 @@ package testing
 
 import (
 	"context"
-	"github.com/juju/juju/domain/access/service"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -23,6 +22,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
 	accesserrors "github.com/juju/juju/domain/access/errors"
+	"github.com/juju/juju/domain/access/service"
 )
 
 // MacaroonSuite wraps a ApiServerSuite with macaroon authentication
