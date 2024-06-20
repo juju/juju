@@ -129,9 +129,10 @@ func (s *Service) AddPublicKeysForUser(
 		}
 
 		toAdd = append(toAdd, keymanager.PublicKey{
-			Comment:     parsedKey.Comment,
-			Fingerprint: parsedKey.Fingerprint(),
-			Key:         keyToAdd,
+			Comment:         parsedKey.Comment,
+			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+			Fingerprint:     parsedKey.Fingerprint(),
+			Key:             keyToAdd,
 		})
 	}
 
@@ -230,9 +231,10 @@ func (s *Service) ImportPublicKeysForUser(
 		}
 
 		keysToAdd = append(keysToAdd, keymanager.PublicKey{
-			Comment:     parsedKey.Comment,
-			Key:         key,
-			Fingerprint: parsedKey.Fingerprint(),
+			Comment:         parsedKey.Comment,
+			Key:             key,
+			FingerprintHash: keymanager.FingerprintHashAlgorithmSHA256,
+			Fingerprint:     parsedKey.Fingerprint(),
 		})
 	}
 
