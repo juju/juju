@@ -428,13 +428,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The state manifold creates a *state.State and makes it
 		// available to other manifolds. It pings the mongodb session
 		// regularly and will die if pings fail.
-		stateName: workerstate.Manifold(workerstate.ManifoldConfig{
+		stateName: ifDatabaseUpgradeComplete(workerstate.Manifold(workerstate.ManifoldConfig{
 			AgentName:              agentName,
 			StateConfigWatcherName: stateConfigWatcherName,
 			ServiceFactoryName:     serviceFactoryName,
 			OpenStatePool:          config.OpenStatePool,
 			SetStatePool:           config.SetStatePool,
-		}),
+		})),
 
 		// The multiwatcher manifold watches all the changes in the database
 		// through the AllWatcherBacking and manages notifying the multiwatchers.
@@ -625,12 +625,12 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Kind:            coretrace.KindController,
 		}),
 
-		httpServerArgsName: httpserverargs.Manifold(httpserverargs.ManifoldConfig{
+		httpServerArgsName: ifDatabaseUpgradeComplete(httpserverargs.Manifold(httpserverargs.ManifoldConfig{
 			ClockName:             clockName,
 			StateName:             stateName,
 			ServiceFactoryName:    serviceFactoryName,
 			NewStateAuthenticator: httpserverargs.NewStateAuthenticator,
-		}),
+		})),
 
 		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
 			AuthorityName:        certificateWatcherName,
@@ -650,7 +650,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            httpserver.NewWorkerShim,
 		}),
 
-		logSinkName: ifController(logsink.Manifold(logsink.ManifoldConfig{
+		logSinkName: ifDatabaseUpgradeComplete(logsink.Manifold(logsink.ManifoldConfig{
 			ClockName:          clockName,
 			ServiceFactoryName: serviceFactoryName,
 			AgentName:          agentName,
@@ -760,7 +760,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewINotifyWatcher: filenotifywatcher.NewINotifyWatcher,
 		})),
 
-		changeStreamName: ifController(changestream.Manifold(changestream.ManifoldConfig{
+		changeStreamName: changestream.Manifold(changestream.ManifoldConfig{
 			AgentName:            agentName,
 			DBAccessor:           dbAccessorName,
 			FileNotifyWatcher:    fileNotifyWatcherName,
@@ -769,7 +769,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWatchableDB:       changestream.NewWatchableDB,
 			NewMetricsCollector:  changestream.NewMetricsCollector,
-		})),
+		}),
 
 		changeStreamPrunerName: ifPrimaryController(changestreampruner.Manifold(changestreampruner.ManifoldConfig{
 			DBAccessor: dbAccessorName,
@@ -778,7 +778,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:  changestreampruner.NewWorker,
 		})),
 
-		auditConfigUpdaterName: ifController(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
+		auditConfigUpdaterName: ifDatabaseUpgradeComplete(auditconfigupdater.Manifold(auditconfigupdater.ManifoldConfig{
 			AgentName:                  agentName,
 			ServiceFactoryName:         serviceFactoryName,
 			NewWorker:                  auditconfigupdater.NewWorker,
@@ -797,7 +797,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		// The global lease manager tracks lease information in the Dqlite database.
-		leaseManagerName: ifController(leasemanager.Manifold(leasemanager.ManifoldConfig{
+		leaseManagerName: leasemanager.Manifold(leasemanager.ManifoldConfig{
 			AgentName:            agentName,
 			ClockName:            clockName,
 			DBAccessorName:       dbAccessorName,
@@ -808,7 +808,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:            leasemanager.NewWorker,
 			NewStore:             leasemanager.NewStore,
 			NewSecretaryFinder:   internallease.NewSecretaryFinder,
-		})),
+		}),
 
 		// The proxy config updater is a leaf worker that sets http/https/apt/etc
 		// proxy settings.
@@ -843,7 +843,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		))),
 
 		// The controlsocket worker runs on the controller machine.
-		controlSocketName: ifController(controlsocket.Manifold(controlsocket.ManifoldConfig{
+		controlSocketName: ifDatabaseUpgradeComplete(controlsocket.Manifold(controlsocket.ManifoldConfig{
 			ServiceFactoryName: serviceFactoryName,
 			Logger:             internallogger.GetLogger("juju.worker.controlsocket"),
 			NewWorker:          controlsocket.NewWorker,
@@ -853,7 +853,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			StateName: stateName,
 		})),
 
-		objectStoreName: ifController(objectstore.Manifold(objectstore.ManifoldConfig{
+		objectStoreName: ifDatabaseUpgradeComplete(objectstore.Manifold(objectstore.ManifoldConfig{
 			AgentName:                  agentName,
 			TraceName:                  traceName,
 			ServiceFactoryName:         serviceFactoryName,
@@ -867,7 +867,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			IsBootstrapController:      internalbootstrap.IsBootstrapController,
 		})),
 
-		objectStoreS3CallerName: ifController(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
+		objectStoreS3CallerName: ifDatabaseUpgradeComplete(objectstores3caller.Manifold(objectstores3caller.ManifoldConfig{
 			HTTPClientName:             s3HTTPClientName,
 			ServiceFactoryName:         serviceFactoryName,
 			NewClient:                  objectstores3caller.NewS3Client,
@@ -877,7 +877,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                  objectstores3caller.NewWorker,
 		})),
 
-		providerTrackerName: ifDatabaseUpgradeComplete(providertracker.MultiTrackerManifold(providertracker.ManifoldConfig{
+		// Provider tracker manifold is not dependent on the
+		// ifDatabaseUpgradeComplete gate. The provider tracker data must not
+		// change between patch/build versions and should be available to all
+		// workers from the start. This includes the controller and read-only
+		// model data that the provider tracker worker is responsible for.
+		//
+		// Migration away to a major/minor version is the correct way to move
+		// a model for upgrade scenarios.
+		providerTrackerName: providertracker.MultiTrackerManifold(providertracker.ManifoldConfig{
 			ProviderServiceFactoriesName:    providerServiceFactoryName,
 			NewWorker:                       providertracker.NewWorker,
 			NewTrackerWorker:                providertracker.NewTrackerWorker,
@@ -890,7 +898,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			}),
 			Logger: internallogger.GetLogger("juju.worker.providertracker"),
 			Clock:  config.Clock,
-		})),
+		}),
 	}
 
 	return manifolds

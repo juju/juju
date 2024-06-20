@@ -1,3 +1,7 @@
+-- The cloud and accompanying tables drive the provider tracker. It is not safe 
+-- to modify the cloud or other tables in a patch/build release. Only make 
+-- changes to this table during a major/minor release. Changes to the cloud
+-- table will cause undefined behavior in the provider tracker.
 CREATE TABLE cloud_type (
     id INT PRIMARY KEY,
     type TEXT NOT NULL
