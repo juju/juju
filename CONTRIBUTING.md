@@ -457,5 +457,6 @@ beyond the workflow and the [issue tracker](https://bugs.launchpad.net/juju/+bug
 
 Use the following links to contact the community:
 
- - Mattermost chat: [https://chat.charmhub.io/](https://chat.charmhub.io/)
+ - Matrix juju chat: [https://matrix.to/#/#charmhub-juju:ubuntu.com](https://matrix.to/#/#charmhub-juju:ubuntu.com)
+ - Matrix juju development chat: [https://matrix.to/#/#charmhub-jujudev:ubuntu.com](https://matrix.to/#/#charmhub-jujudev:ubuntu.com)
  - Discourse forum: [https://discourse.charmhub.io/](https://discourse.charmhub.io/)
