@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	corecontroller "github.com/juju/juju/controller"
@@ -150,16 +149,4 @@ func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
 	c.Check(ctx.featureEnabled("bar"), jc.IsTrue)
 	c.Check(ctx.featureEnabled("baz"), jc.IsFalse)
 	c.Check(stub.published, gc.HasLen, 0)
-}
-
-type noopRegisterer struct {
-	prometheus.Registerer
-}
-
-func (noopRegisterer) Register(prometheus.Collector) error {
-	return nil
-}
-
-func (noopRegisterer) Unregister(prometheus.Collector) bool {
-	return true
 }

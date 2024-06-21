@@ -17,7 +17,6 @@ import (
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
-	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon.v2"
@@ -1099,22 +1098,4 @@ func (s *accessSuite) checkModelMatches(c *gc.C, model params.Model, expected *s
 	c.Check(model.Name, gc.Equals, expected.Name())
 	c.Check(model.UUID, gc.Equals, expected.UUID())
 	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
-}
-
-type noopRegisterer struct {
-	prometheus.Registerer
-}
-
-func (noopRegisterer) Register(prometheus.Collector) error {
-	return nil
-}
-
-func (noopRegisterer) Unregister(prometheus.Collector) bool {
-	return true
-}
-
-type stubUpgrader struct{}
-
-func (stubUpgrader) IsUpgrading() (bool, error) {
-	return false, nil
 }

@@ -4,7 +4,6 @@
 package state
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -21,7 +20,6 @@ import (
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/storage/provider/dummy"
-	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/testing"
 )
 
@@ -37,7 +35,6 @@ type internalStateSuite struct {
 	pool       *StatePool
 	state      *State
 	owner      names.UserTag
-	modelCount int
 }
 
 func (s *internalStateSuite) SetUpSuite(c *gc.C) {
@@ -93,50 +90,6 @@ func (s *internalStateSuite) SetUpTest(c *gc.C) {
 func (s *internalStateSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-}
-
-func (s *internalStateSuite) newState(c *gc.C) *State {
-	s.modelCount++
-	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name": fmt.Sprintf("testmodel%d", s.modelCount),
-		"uuid": uuid.MustNewUUID().String(),
-	})
-	_, st, err := s.controller.NewModel(NoopConfigSchemaSource, ModelArgs{
-		Type:        ModelTypeIAAS,
-		CloudName:   "dummy",
-		CloudRegion: "dummy-region",
-		Config:      cfg,
-		Owner:       s.owner,
-		StorageProviderRegistry: storage.ChainedProviderRegistry{
-			dummy.StorageProviders(),
-			provider.CommonStorageProviders(),
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { st.Close() })
-	return st
-}
-
-func (s *internalStateSuite) newCAASState(c *gc.C) *State {
-	s.modelCount++
-	cfg := testing.CustomModelConfig(c, testing.Attrs{
-		"name": fmt.Sprintf("testmodel%d", s.modelCount),
-		"uuid": uuid.MustNewUUID().String(),
-	})
-	_, st, err := s.controller.NewModel(NoopConfigSchemaSource, ModelArgs{
-		Type:        ModelTypeCAAS,
-		CloudName:   "dummy",
-		CloudRegion: "dummy-region",
-		Config:      cfg,
-		Owner:       s.owner,
-		StorageProviderRegistry: storage.ChainedProviderRegistry{
-			dummy.StorageProviders(),
-			provider.CommonStorageProviders(),
-		},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(*gc.C) { st.Close() })
-	return st
 }
 
 type internalStatePolicy struct{}

@@ -190,7 +190,6 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"migration-inactive-flag",
 			"migration-minion",
 			"model-worker-manager",
-			"multiwatcher",
 			"object-store-s3-caller",
 			"object-store",
 			"peer-grouper",
@@ -278,7 +277,6 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"migration-inactive-flag",
 		"migration-minion",
 		"model-worker-manager",
-		"multiwatcher",
 		"object-store-s3-caller",
 		"object-store",
 		"peer-grouper",
@@ -363,7 +361,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 
 	// bootstrapWorkers are workers that are run directly run after bootstrap.
 	bootstrapWorkers := set.NewStrings(
-		"multiwatcher",
+		"api-server",
 	)
 
 	for name, manifold := range manifolds {
@@ -533,7 +531,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
-		"multiwatcher",
 		"object-store",
 		"object-store-s3-caller",
 		"provider-service-factory",
@@ -762,7 +759,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
-		"multiwatcher",
 		"object-store",
 		"object-store-s3-caller",
 		"provider-service-factory",
@@ -998,25 +994,6 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-database-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
-	},
-
-	"multiwatcher": {
-		"agent",
-		"change-stream",
-		"controller-agent-config",
-		"db-accessor",
-		"file-notify-watcher",
-		"provider-tracker",
-		"is-bootstrap-flag",
-		"is-bootstrap-gate",
-		"is-controller-flag",
-		"provider-service-factory",
-		"query-logger",
-		"service-factory",
-		"state",
-		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"peer-grouper": {
@@ -1368,7 +1345,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
-		"multiwatcher",
 		"object-store",
 		"object-store-s3-caller",
 		"provider-service-factory",
@@ -1533,7 +1509,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"is-controller-flag",
 		"lease-manager",
 		"log-sink",
-		"multiwatcher",
 		"object-store",
 		"object-store-s3-caller",
 		"provider-service-factory",
@@ -1706,25 +1681,6 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-database-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
-	},
-
-	"multiwatcher": {
-		"agent",
-		"change-stream",
-		"controller-agent-config",
-		"db-accessor",
-		"file-notify-watcher",
-		"provider-tracker",
-		"is-bootstrap-flag",
-		"is-bootstrap-gate",
-		"is-controller-flag",
-		"provider-service-factory",
-		"query-logger",
-		"service-factory",
-		"state",
-		"state-config-watcher",
-		"upgrade-database-flag",
-		"upgrade-database-gate",
 	},
 
 	"peer-grouper": {

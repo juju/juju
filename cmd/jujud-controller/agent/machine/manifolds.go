@@ -645,7 +645,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:          logsink.NewWorker,
 		})),
 
-		apiServerName: apiserver.Manifold(apiserver.ManifoldConfig{
+		apiServerName: ifBootstrapComplete(apiserver.Manifold(apiserver.ManifoldConfig{
 			AgentName:              agentName,
 			AuthenticatorName:      httpServerArgsName,
 			ClockName:              clockName,
@@ -673,7 +673,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			GetControllerConfigService:        apiserver.GetControllerConfigService,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
-		}),
+		})),
 
 		charmhubHTTPClientName: dependency.Manifold{
 			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {

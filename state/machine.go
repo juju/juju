@@ -72,15 +72,6 @@ func (job MachineJob) ToParams() model.MachineJob {
 	return model.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
 }
 
-// paramsJobsFromJobs converts state jobs to juju jobs.
-func paramsJobsFromJobs(jobs []MachineJob) []model.MachineJob {
-	jujuJobs := make([]model.MachineJob, len(jobs))
-	for i, machineJob := range jobs {
-		jujuJobs[i] = machineJob.ToParams()
-	}
-	return jujuJobs
-}
-
 // MigrationValue converts the state job into a useful human readable
 // string for model migration.
 func (job MachineJob) MigrationValue() string {
