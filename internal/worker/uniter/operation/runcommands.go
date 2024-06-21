@@ -67,7 +67,7 @@ func (rc *runCommands) Prepare(ctx stdcontext.Context, state State) (*State, err
 // Execute is part of the Operation interface.
 func (rc *runCommands) Execute(ctx stdcontext.Context, state State) (*State, error) {
 	rc.logger.Tracef("run commands: %s", rc)
-	if err := rc.callbacks.SetExecutingStatus("running commands"); err != nil {
+	if err := rc.callbacks.SetExecutingStatus(ctx, "running commands"); err != nil {
 		return nil, errors.Trace(err)
 	}
 

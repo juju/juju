@@ -64,7 +64,7 @@ func (s *StorageSuite) assertUnitStorageAdded(c *gc.C, ctrl *gomock.Controller, 
 		c.Check(err, jc.ErrorIsNil)
 	}
 
-	s.unit.EXPECT().CommitHookChanges(hookCommitMatcher{c, params.CommitHookChangesArgs{
+	s.unit.EXPECT().CommitHookChanges(gomock.Any(), hookCommitMatcher{c: c, expected: params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{arg},
 	}}).Return(nil)
 

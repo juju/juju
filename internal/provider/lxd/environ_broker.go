@@ -4,6 +4,7 @@
 package lxd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -41,7 +42,7 @@ func (env *environ) StartInstance(
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 		if args.StatusCallback != nil {
-			_ = args.StatusCallback(status.ProvisioningError, err.Error(), nil)
+			_ = args.StatusCallback(ctx, status.ProvisioningError, err.Error(), nil)
 		}
 		return nil, errors.Trace(err)
 	}
@@ -106,9 +107,9 @@ func (env *environ) newContainer(
 	// are made, instead of at a higher level in the package, so as not to
 	// assume that all providers will have the same need to be implemented
 	// in the same way.
-	statusCallback := func(currentStatus status.Status, msg string, data map[string]interface{}) error {
+	statusCallback := func(ctx context.Context, currentStatus status.Status, msg string, data map[string]interface{}) error {
 		if args.StatusCallback != nil {
-			_ = args.StatusCallback(currentStatus, msg, nil)
+			_ = args.StatusCallback(ctx, currentStatus, msg, nil)
 		}
 		return nil
 	}
@@ -135,12 +136,12 @@ func (env *environ) newContainer(
 		return nil, errors.Trace(err)
 	}
 
-	_ = statusCallback(status.Allocating, "Creating container", nil)
+	_ = statusCallback(ctx, status.Allocating, "Creating container", nil)
 	container, err := target.CreateContainerFromSpec(cSpec)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	_ = statusCallback(status.Running, "Container started", nil)
+	_ = statusCallback(ctx, status.Running, "Container started", nil)
 	return container, nil
 }
 

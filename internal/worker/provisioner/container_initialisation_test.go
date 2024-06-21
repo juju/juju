@@ -73,7 +73,7 @@ func (s *containerSetupSuite) testInitialiseContainers(c *gc.C, containerType in
 	cs := s.setUpContainerSetup(c, containerType)
 	abort := make(chan struct{})
 	close(abort)
-	err := cs.initialiseContainers(abort)
+	err := cs.initialiseContainers(context.Background(), abort)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -92,7 +92,7 @@ func (s *containerSetupSuite) TestContainerManagerConfigError(c *gc.C) {
 	cs := s.setUpContainerSetup(c, instance.LXD)
 	abort := make(chan struct{})
 	close(abort)
-	err := cs.initialiseContainers(abort)
+	err := cs.initialiseContainers(context.Background(), abort)
 	c.Assert(err, gc.ErrorMatches, ".*generating container manager config: boom")
 }
 

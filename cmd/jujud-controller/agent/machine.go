@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	stdcontext "context"
 	"fmt"
 	"net/http"
@@ -801,7 +802,7 @@ func (a *MachineAgent) machineStartup(ctx stdcontext.Context, apiConn api.Connec
 type noopStatusSetter struct{}
 
 // SetStatus implements upgradesteps.StatusSetter
-func (a *noopStatusSetter) SetStatus(_ status.Status, _ string, _ map[string]interface{}) error {
+func (a *noopStatusSetter) SetStatus(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
 	return nil
 }
 
@@ -834,7 +835,7 @@ func (a *MachineAgent) recordAgentStartInformation(ctx stdcontext.Context, apiCo
 		return errors.Annotatef(err, "cannot load machine %s from state", a.CurrentConfig().Tag())
 	}
 
-	if err := m.RecordAgentStartInformation(hostname); err != nil {
+	if err := m.RecordAgentStartInformation(ctx, hostname); err != nil {
 		return errors.Annotate(err, "cannot record agent start information")
 	}
 	return nil
@@ -887,12 +888,12 @@ func (a *MachineAgent) setupContainerSupport(ctx stdcontext.Context, st api.Conn
 	logger.Debugf("Supported container types %q", supportedContainers)
 
 	if len(supportedContainers) == 0 {
-		if err := m.SupportsNoContainers(); err != nil {
+		if err := m.SupportsNoContainers(ctx); err != nil {
 			return errors.Annotatef(err, "clearing supported supportedContainers for %s", mTag)
 		}
 		return nil
 	}
-	err = m.SetSupportedContainers(supportedContainers...)
+	err = m.SetSupportedContainers(ctx, supportedContainers...)
 	if err != nil {
 		return errors.Annotatef(err, "setting supported supportedContainers for %s", mTag)
 	}

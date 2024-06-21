@@ -81,8 +81,8 @@ func (s *CommonProvisionerSuite) expectStartup(c *gc.C) {
 
 func (s *CommonProvisionerSuite) expectAuth() {
 	s.controllerAPI.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.0.0.1"}, nil).AnyTimes()
-	s.controllerAPI.EXPECT().ModelUUID().Return(coretesting.ModelTag.Id(), nil).AnyTimes()
-	s.controllerAPI.EXPECT().CACert().Return(coretesting.CACert, nil).AnyTimes()
+	s.controllerAPI.EXPECT().ModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil).AnyTimes()
+	s.controllerAPI.EXPECT().CACert(gomock.Any()).Return(coretesting.CACert, nil).AnyTimes()
 }
 
 func (s *CommonProvisionerSuite) sendModelConfigChange(c *gc.C) {
@@ -103,7 +103,7 @@ func (s *CommonProvisionerSuite) waitForProvisioner(c *gc.C) {
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *testMachine) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		_, err := m.InstanceId()
+		_, err := m.InstanceId(context.Background())
 		if err == nil {
 			return
 		}
@@ -217,10 +217,10 @@ func (s *CommonProvisionerSuite) waitForRemovalMark(c *gc.C, m *testMachine) {
 func (s *CommonProvisionerSuite) expectMachinesWatcher() {
 	s.machinesCh = make(chan []string)
 	mw := watchertest.NewMockStringsWatcher(s.machinesCh)
-	s.machinesAPI.EXPECT().WatchModelMachines().Return(mw, nil)
+	s.machinesAPI.EXPECT().WatchModelMachines(gomock.Any()).Return(mw, nil)
 
 	rw := watchertest.NewMockNotifyWatcher(make(chan struct{}))
-	s.machinesAPI.EXPECT().WatchMachineErrorRetry().Return(rw, nil)
+	s.machinesAPI.EXPECT().WatchMachineErrorRetry(gomock.Any()).Return(rw, nil)
 }
 
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
@@ -295,7 +295,7 @@ func (s *ProvisionerSuite) TestMachineStartedAndStopped(c *gc.C) {
 	s.machinesAPI.EXPECT().Machines(gomock.Any(), mTag).Return([]apiprovisioner.MachineResult{{
 		Machine: m666,
 	}}, nil).Times(2)
-	s.machinesAPI.EXPECT().ProvisioningInfo([]names.MachineTag{mTag}).Return(params.ProvisioningInfoResults{
+	s.machinesAPI.EXPECT().ProvisioningInfo(gomock.Any(), []names.MachineTag{mTag}).Return(params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
 				ControllerConfig: coretesting.FakeControllerConfig(),
@@ -387,7 +387,7 @@ func (s *MachineClassifySuite) TestMachineClassification(c *gc.C) {
 			ensureDeadErr: s2e(t.ensureDeadErr),
 			statusErr:     s2e(t.statusErr),
 		}
-		classification, err := provisioner.ClassifyMachine(loggertesting.WrapCheckLog(c), &machine)
+		classification, err := provisioner.ClassifyMachine(context.Background(), loggertesting.WrapCheckLog(c), &machine)
 		if err != nil {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf(t.expectErrFmt, machine.Id()))
 		} else {
@@ -404,6 +404,7 @@ type mockDistributionGroupFinder struct {
 }
 
 func (mock *mockDistributionGroupFinder) DistributionGroupByMachineId(
+	ctx context.Context,
 	tags ...names.MachineTag,
 ) ([]apiprovisioner.DistributionGroupResult, error) {
 	result := make([]apiprovisioner.DistributionGroupResult, len(tags))
@@ -427,7 +428,7 @@ func (mock *mockDistributionGroupFinder) DistributionGroupByMachineId(
 type mockToolsFinder struct {
 }
 
-func (f mockToolsFinder) FindTools(number version.Number, os string, a string) (coretools.List, error) {
+func (f mockToolsFinder) FindTools(ctx context.Context, number version.Number, os string, a string) (coretools.List, error) {
 	if number.Compare(version.MustParse("6.6.6")) == 0 {
 		return nil, coretools.ErrNoMatches
 	}

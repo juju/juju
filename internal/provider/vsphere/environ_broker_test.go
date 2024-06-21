@@ -82,7 +82,7 @@ func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.Sta
 		InstanceConfig:   instanceConfig,
 		Tools:            tools,
 		Constraints:      cons,
-		StatusCallback: func(status status.Status, info string, data map[string]interface{}) error {
+		StatusCallback: func(ctx context.Context, status status.Status, info string, data map[string]interface{}) error {
 			s.statusCallbackStub.AddCall("StatusCallback", status, info, data)
 			return s.statusCallbackStub.NextErr()
 		},

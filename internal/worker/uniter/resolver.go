@@ -27,7 +27,7 @@ import (
 type ResolverConfig struct {
 	ModelType           model.ModelType
 	ClearResolved       func() error
-	ReportHookError     func(hook.Info) error
+	ReportHookError     func(stdcontext.Context, hook.Info) error
 	ShouldRetryHooks    bool
 	StartRetryHookTimer func()
 	StopRetryHookTimer  func()
@@ -269,7 +269,7 @@ func (s *uniterResolver) nextOpHookError(
 ) (operation.Operation, error) {
 
 	// Report the hook error.
-	if err := s.config.ReportHookError(*localState.Hook); err != nil {
+	if err := s.config.ReportHookError(ctx, *localState.Hook); err != nil {
 		return nil, errors.Trace(err)
 	}
 

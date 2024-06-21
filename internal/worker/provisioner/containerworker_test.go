@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -177,10 +178,10 @@ func (s *containerWorkerSuite) setUpContainerWorker(c *gc.C) worker.Worker {
 	cs := provisioner.NewContainerSetup(args)
 
 	// Stub out network config getter.
-	watcherFunc := func() (watcher.StringsWatcher, error) {
+	watcherFunc := func(context.Context) (watcher.StringsWatcher, error) {
 		return s.stringsWatcher, nil
 	}
-	w, err := provisioner.NewContainerSetupAndProvisioner(cs, watcherFunc)
+	w, err := provisioner.NewContainerSetupAndProvisioner(context.Background(), cs, watcherFunc)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return w
@@ -296,7 +297,7 @@ func (s *containerWorkerSuite) expectContainerManagerConfig(cType instance.Conta
 		"Provisioner", 0, "", "ContainerManagerConfig", params.ContainerManagerConfigParams{Type: cType}, gomock.Any(),
 	).SetArg(6, resultSource).MinTimes(1)
 
-	s.machine.EXPECT().AvailabilityZone().Return("az1", nil)
+	s.machine.EXPECT().AvailabilityZone(gomock.Any()).Return("az1", nil)
 }
 
 // cleanKill waits for notifications to be processed, then waits for the input

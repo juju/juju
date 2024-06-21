@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
@@ -22,10 +23,10 @@ type mockDeployer struct {
 	err      error
 }
 
-func (m *mockDeployer) Stage(info charm.BundleInfo, abort <-chan struct{}) error {
+func (m *mockDeployer) Stage(ctx context.Context, info charm.BundleInfo, abort <-chan struct{}) error {
 	m.staged = info.URL()
 	var err error
-	m.bundle, err = m.bundles.Read(info, abort)
+	m.bundle, err = m.bundles.Read(ctx, info, abort)
 	return err
 }
 

@@ -5,6 +5,7 @@ package context_test
 
 import (
 	"context"
+	stdcontext "context"
 	"reflect"
 	"time"
 
@@ -142,7 +143,7 @@ func (s *BaseHookContextSuite) AddContextRelation(c *gc.C, ctrl *gomock.Controll
 	relUnit := uniterapi.NewMockRelationUnit(ctrl)
 	relUnit.EXPECT().Relation().Return(rel).AnyTimes()
 	relUnit.EXPECT().Endpoint().Return(apiuniter.Endpoint{Relation: charm.Relation{Name: "db"}}).AnyTimes()
-	relUnit.EXPECT().Settings().Return(
+	relUnit.EXPECT().Settings(gomock.Any()).Return(
 		apiuniter.NewSettings(rel.Tag().String(), names.NewUnitTag("u/0").String(), params.Settings{}), nil,
 	).AnyTimes()
 
@@ -154,12 +155,12 @@ func (s *BaseHookContextSuite) setupUnit(ctrl *gomock.Controller) names.MachineT
 	s.unit = uniterapi.NewMockUnit(ctrl)
 	s.unit.EXPECT().Tag().Return(unitTag).AnyTimes()
 	s.unit.EXPECT().Name().Return(unitTag.Id()).AnyTimes()
-	s.unit.EXPECT().PublicAddress().Return("u-0.testing.invalid", nil).AnyTimes()
-	s.unit.EXPECT().PrivateAddress().Return("u-0.testing.invalid", nil).AnyTimes()
-	s.unit.EXPECT().AvailabilityZone().Return("a-zone", nil).AnyTimes()
+	s.unit.EXPECT().PublicAddress(gomock.Any()).Return("u-0.testing.invalid", nil).AnyTimes()
+	s.unit.EXPECT().PrivateAddress(gomock.Any()).Return("u-0.testing.invalid", nil).AnyTimes()
+	s.unit.EXPECT().AvailabilityZone(gomock.Any()).Return("a-zone", nil).AnyTimes()
 
 	machineTag := names.NewMachineTag("0")
-	s.unit.EXPECT().AssignedMachine().Return(machineTag, nil).AnyTimes()
+	s.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes()
 	return machineTag
 }
 
@@ -219,7 +220,7 @@ func (s *BaseHookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.Hoo
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.Equals, "u-0.testing.invalid")
 
-	actual, err = ctx.PublicAddress()
+	actual, err = ctx.PublicAddress(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actual, gc.Equals, "u-0.testing.invalid")
 
@@ -272,13 +273,13 @@ func (s *BaseHookContextSuite) AssertActionContext(c *gc.C, ctx *runnercontext.H
 }
 
 func (s *BaseHookContextSuite) AssertNotStorageContext(c *gc.C, ctx *runnercontext.HookContext) {
-	storageAttachment, err := ctx.HookStorage()
+	storageAttachment, err := ctx.HookStorage(stdcontext.Background())
 	c.Assert(storageAttachment, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, ".*")
 }
 
 func (s *BaseHookContextSuite) AssertStorageContext(c *gc.C, ctx *runnercontext.HookContext, id string, attachment storage.StorageAttachmentInfo) {
-	fromCache, err := ctx.HookStorage()
+	fromCache, err := ctx.HookStorage(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(fromCache, gc.NotNil)
 	c.Assert(fromCache.Tag().Id(), gc.Equals, id)
@@ -369,11 +370,11 @@ type stubLeadershipSettingsAccessor struct {
 	results map[string]string
 }
 
-func (s *stubLeadershipSettingsAccessor) Read(_ string) (result map[string]string, _ error) {
+func (s *stubLeadershipSettingsAccessor) Read(_ context.Context, _ string) (result map[string]string, _ error) {
 	return result, nil
 }
 
-func (s *stubLeadershipSettingsAccessor) Merge(_, _ string, settings map[string]string) error {
+func (s *stubLeadershipSettingsAccessor) Merge(_ context.Context, _, _ string, settings map[string]string) error {
 	if s.results == nil {
 		s.results = make(map[string]string)
 	}

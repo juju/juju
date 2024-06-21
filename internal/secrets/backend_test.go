@@ -4,6 +4,8 @@
 package secrets_test
 
 import (
+	"context"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -39,7 +41,7 @@ func (s *backendSuite) TestSaveContent(c *gc.C) {
 	client, err := secrets.NewClient(jujuapi)
 	c.Assert(err, jc.ErrorIsNil)
 
-	jujuapi.EXPECT().GetSecretBackendConfig(nil).Return(&provider.ModelBackendConfigInfo{
+	jujuapi.EXPECT().GetSecretBackendConfig(gomock.Any(), nil).Return(&provider.ModelBackendConfigInfo{
 		ActiveID: "backend-id2",
 		Configs: map[string]provider.ModelBackendConfig{
 			"backend-id1": {
@@ -61,7 +63,7 @@ func (s *backendSuite) TestSaveContent(c *gc.C) {
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	backend.EXPECT().SaveContent(gomock.Any(), uri, 666, secretValue).Return("rev-id", nil)
 
-	val, err := client.SaveContent(uri, 666, secretValue)
+	val, err := client.SaveContent(context.Background(), uri, 666, secretValue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val, jc.DeepEquals, coresecrets.ValueRef{
 		BackendID:  "backend-id2",
@@ -86,7 +88,7 @@ func (s *backendSuite) TestGetContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri := coresecrets.NewURI()
-	jujuapi.EXPECT().GetContentInfo(uri, "label", true, false).Return(&secrets.ContentParams{
+	jujuapi.EXPECT().GetContentInfo(gomock.Any(), uri, "label", true, false).Return(&secrets.ContentParams{
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id1",
 			RevisionID: "rev-id",
@@ -100,7 +102,7 @@ func (s *backendSuite) TestGetContent(c *gc.C) {
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	backend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(secretValue, nil)
 
-	val, err := client.GetContent(uri, "label", true, false)
+	val, err := client.GetContent(context.Background(), uri, "label", true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val, jc.DeepEquals, secretValue)
 }
@@ -124,7 +126,7 @@ func (s *backendSuite) TestGetContentSecretDrained(c *gc.C) {
 	uri := coresecrets.NewURI()
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	gomock.InOrder(
-		jujuapi.EXPECT().GetContentInfo(uri, "label", true, false).Return(&secrets.ContentParams{
+		jujuapi.EXPECT().GetContentInfo(gomock.Any(), uri, "label", true, false).Return(&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id1",
 				RevisionID: "rev-id",
@@ -138,7 +140,7 @@ func (s *backendSuite) TestGetContentSecretDrained(c *gc.C) {
 
 		// First not found - we try again with the active backend.
 		backend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(nil, secreterrors.SecretRevisionNotFound),
-		jujuapi.EXPECT().GetContentInfo(uri, "label", true, false).Return(&secrets.ContentParams{
+		jujuapi.EXPECT().GetContentInfo(gomock.Any(), uri, "label", true, false).Return(&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id2",
 				RevisionID: "rev-id2",
@@ -154,7 +156,7 @@ func (s *backendSuite) TestGetContentSecretDrained(c *gc.C) {
 		backend.EXPECT().GetContent(gomock.Any(), "rev-id2").Return(nil, secreterrors.SecretRevisionNotFound),
 
 		// Third time lucky.
-		jujuapi.EXPECT().GetContentInfo(uri, "label", true, false).Return(&secrets.ContentParams{
+		jujuapi.EXPECT().GetContentInfo(gomock.Any(), uri, "label", true, false).Return(&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id3",
 				RevisionID: "rev-id3",
@@ -168,7 +170,7 @@ func (s *backendSuite) TestGetContentSecretDrained(c *gc.C) {
 		backend.EXPECT().GetContent(gomock.Any(), "rev-id3").Return(secretValue, nil),
 	)
 
-	val, err := client.GetContent(uri, "label", true, false)
+	val, err := client.GetContent(context.Background(), uri, "label", true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val, jc.DeepEquals, secretValue)
 }
@@ -190,7 +192,7 @@ func (s *backendSuite) TestDeleteContent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri := coresecrets.NewURI()
-	jujuapi.EXPECT().GetRevisionContentInfo(uri, 666, true).Return(&secrets.ContentParams{
+	jujuapi.EXPECT().GetRevisionContentInfo(gomock.Any(), uri, 666, true).Return(&secrets.ContentParams{
 		ValueRef: &coresecrets.ValueRef{
 			BackendID:  "backend-id2",
 			RevisionID: "rev-id",
@@ -204,7 +206,7 @@ func (s *backendSuite) TestDeleteContent(c *gc.C) {
 
 	backend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(nil)
 
-	err = client.DeleteContent(uri, 666)
+	err = client.DeleteContent(context.Background(), uri, 666)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -226,7 +228,7 @@ func (s *backendSuite) TestDeleteContentDrained(c *gc.C) {
 
 	uri := coresecrets.NewURI()
 	gomock.InOrder(
-		jujuapi.EXPECT().GetRevisionContentInfo(uri, 666, true).Return(&secrets.ContentParams{
+		jujuapi.EXPECT().GetRevisionContentInfo(gomock.Any(), uri, 666, true).Return(&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id1",
 				RevisionID: "rev-id",
@@ -240,7 +242,7 @@ func (s *backendSuite) TestDeleteContentDrained(c *gc.C) {
 		backend.EXPECT().DeleteContent(gomock.Any(), "rev-id").Return(secreterrors.SecretRevisionNotFound),
 
 		// Second not found - refresh backend config.
-		jujuapi.EXPECT().GetRevisionContentInfo(uri, 666, true).Return(&secrets.ContentParams{
+		jujuapi.EXPECT().GetRevisionContentInfo(gomock.Any(), uri, 666, true).Return(&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id2",
 				RevisionID: "rev-id2",
@@ -254,7 +256,7 @@ func (s *backendSuite) TestDeleteContentDrained(c *gc.C) {
 		backend.EXPECT().DeleteContent(gomock.Any(), "rev-id2").Return(secreterrors.SecretRevisionNotFound),
 
 		// Third time lucky.
-		jujuapi.EXPECT().GetRevisionContentInfo(uri, 666, true).Return(&secrets.ContentParams{
+		jujuapi.EXPECT().GetRevisionContentInfo(gomock.Any(), uri, 666, true).Return(&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id3",
 				RevisionID: "rev-id3",
@@ -268,7 +270,7 @@ func (s *backendSuite) TestDeleteContentDrained(c *gc.C) {
 		backend.EXPECT().DeleteContent(gomock.Any(), "rev-id3").Return(nil),
 	)
 
-	err = client.DeleteContent(uri, 666)
+	err = client.DeleteContent(context.Background(), uri, 666)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -297,7 +299,7 @@ func (s *backendSuite) TestGetBackend(c *gc.C) {
 	backendID := "backend-id1"
 
 	gomock.InOrder(
-		jujuapi.EXPECT().GetSecretBackendConfig(nil).Return(&provider.ModelBackendConfigInfo{
+		jujuapi.EXPECT().GetSecretBackendConfig(gomock.Any(), nil).Return(&provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id2",
 			Configs: map[string]provider.ModelBackendConfig{
 				"backend-id1": {
@@ -314,7 +316,7 @@ func (s *backendSuite) TestGetBackend(c *gc.C) {
 				},
 			},
 		}, nil),
-		jujuapi.EXPECT().GetSecretBackendConfig(&backendID).Return(&provider.ModelBackendConfigInfo{
+		jujuapi.EXPECT().GetSecretBackendConfig(gomock.Any(), &backendID).Return(&provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id2",
 			Configs: map[string]provider.ModelBackendConfig{
 				"backend-id1": {
@@ -331,7 +333,7 @@ func (s *backendSuite) TestGetBackend(c *gc.C) {
 				},
 			},
 		}, nil),
-		jujuapi.EXPECT().GetBackendConfigForDrain(&backendID).Return(
+		jujuapi.EXPECT().GetBackendConfigForDrain(gomock.Any(), &backendID).Return(
 			&provider.ModelBackendConfig{
 				ControllerUUID: "controller-uuid1",
 				ModelUUID:      "model-uuid1",
@@ -340,17 +342,17 @@ func (s *backendSuite) TestGetBackend(c *gc.C) {
 			}, "backend-id1", nil,
 		),
 	)
-	result, activeBackendID, err := client.GetBackend(nil, false)
+	result, activeBackendID, err := client.GetBackend(context.Background(), nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activeBackendID, gc.Equals, "backend-id2")
 	c.Assert(result, gc.Equals, backend)
 
-	result, activeBackendID, err = client.GetBackend(&backendID, false)
+	result, activeBackendID, err = client.GetBackend(context.Background(), &backendID, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activeBackendID, gc.Equals, "backend-id2")
 	c.Assert(result, gc.Equals, backend)
 
-	result, activeBackendID, err = client.GetBackend(&backendID, true)
+	result, activeBackendID, err = client.GetBackend(context.Background(), &backendID, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(activeBackendID, gc.Equals, "backend-id1")
 	c.Assert(result, gc.Equals, backend)
@@ -375,7 +377,7 @@ func (s *backendSuite) TestGetRevisionContent(c *gc.C) {
 	uri := coresecrets.NewURI()
 	secretValue := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	gomock.InOrder(
-		jujuapi.EXPECT().GetRevisionContentInfo(uri, 666, false).Return(&secrets.ContentParams{
+		jujuapi.EXPECT().GetRevisionContentInfo(gomock.Any(), uri, 666, false).Return(&secrets.ContentParams{
 			ValueRef: &coresecrets.ValueRef{
 				BackendID:  "backend-id2",
 				RevisionID: "rev-id",
@@ -386,7 +388,7 @@ func (s *backendSuite) TestGetRevisionContent(c *gc.C) {
 			ModelName:      "model2",
 			BackendConfig:  provider.BackendConfig{BackendType: "somebackend2"},
 		}, false, nil),
-		jujuapi.EXPECT().GetSecretBackendConfig(ptr("backend-id2")).Return(&provider.ModelBackendConfigInfo{
+		jujuapi.EXPECT().GetSecretBackendConfig(gomock.Any(), ptr("backend-id2")).Return(&provider.ModelBackendConfigInfo{
 			ActiveID: "backend-id2",
 			Configs: map[string]provider.ModelBackendConfig{
 				"backend-id1": {
@@ -406,7 +408,7 @@ func (s *backendSuite) TestGetRevisionContent(c *gc.C) {
 		backend.EXPECT().GetContent(gomock.Any(), "rev-id").Return(secretValue, nil),
 	)
 
-	val, err := client.GetRevisionContent(uri, 666)
+	val, err := client.GetRevisionContent(context.Background(), uri, 666)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val, gc.Equals, secretValue)
 }

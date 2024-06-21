@@ -4,6 +4,8 @@
 package applicationscaler
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 
@@ -43,7 +45,7 @@ func New(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	swConfig := watcher.StringsConfig{
-		Handler: &handler{config},
+		Handler: &handler{config: config},
 	}
 	return watcher.NewStringsWorker(swConfig)
 }
@@ -55,12 +57,12 @@ type handler struct {
 }
 
 // SetUp is part of the watcher.StringsHandler interface.
-func (handler *handler) SetUp() (watcher.StringsWatcher, error) {
+func (handler *handler) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
 	return handler.config.Facade.Watch()
 }
 
 // Handle is part of the watcher.StringsHandler interface.
-func (handler *handler) Handle(_ <-chan struct{}, applications []string) error {
+func (handler *handler) Handle(ctx context.Context, applications []string) error {
 	return handler.config.Facade.Rescale(applications)
 }
 

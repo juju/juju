@@ -1179,12 +1179,15 @@ func (e *Environ) startInstance(
 				return nil
 			},
 			NotifyFunc: func(lastError error, attempt int) {
-				_ = args.StatusCallback(status.Provisioning,
+				_ = args.StatusCallback(
+					ctx,
+					status.Provisioning,
 					fmt.Sprintf("%s, wait 10 seconds before retry, attempt %d", lastError, attempt), nil)
 			},
 			IsFatalError: func(err error) bool {
 				return err != errStillBuilding
 			},
+			Stop: ctx.Done(),
 		})
 		if err != nil {
 			return nil, err

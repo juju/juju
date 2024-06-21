@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -16,8 +17,8 @@ import (
 )
 
 // NewContainerSetupAndProvisioner returns a ContainerSetupAndProvisioner.
-func NewContainerSetupAndProvisioner(cs *ContainerSetup, getContainerWatcherFunc GetContainerWatcherFunc) (worker.Worker, error) {
-	containerWatcher, err := getContainerWatcherFunc()
+func NewContainerSetupAndProvisioner(ctx context.Context, cs *ContainerSetup, getContainerWatcherFunc GetContainerWatcherFunc) (worker.Worker, error) {
+	containerWatcher, err := getContainerWatcherFunc(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -55,6 +56,9 @@ type ContainerSetupAndProvisioner struct {
 }
 
 func (w *ContainerSetupAndProvisioner) work() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	// Wait for a container of w.ContainerType type to be
 	// found.
 	if err := w.waitForContainers(); err != nil {
@@ -75,7 +79,7 @@ func (w *ContainerSetupAndProvisioner) work() error {
 
 	// Set up w.ContainerType provisioning dependencies
 	// on this machine.
-	if err := w.cs.initialiseContainers(w.catacomb.Dying()); err != nil {
+	if err := w.cs.initialiseContainers(ctx, w.catacomb.Dying()); err != nil {
 		return err
 	}
 	if err := w.checkDying(); err != nil {
@@ -83,7 +87,7 @@ func (w *ContainerSetupAndProvisioner) work() error {
 	}
 
 	// Configure and Add the w.ContainerType Provisioner
-	provisioner, err := w.cs.initialiseContainerProvisioner()
+	provisioner, err := w.cs.initialiseContainerProvisioner(ctx)
 	if err != nil {
 		return err
 	}
@@ -164,4 +168,8 @@ func (w *ContainerSetupAndProvisioner) Report() map[string]interface{} {
 
 	w.mu.Unlock()
 	return result
+}
+
+func (w *ContainerSetupAndProvisioner) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

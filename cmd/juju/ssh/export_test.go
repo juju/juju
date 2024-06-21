@@ -37,8 +37,8 @@ func (c *sshContainer) CleanupRun() {
 	c.cleanupRun()
 }
 
-func (c *sshContainer) ResolveTarget(target string) (*resolvedTarget, error) {
-	return c.resolveTarget(target)
+func (c *sshContainer) ResolveTarget(ctx context.Context, target string) (*resolvedTarget, error) {
+	return c.resolveTarget(ctx, target)
 }
 
 func (c *sshContainer) SSH(ctx Context, enablePty bool, target *resolvedTarget) error {
@@ -71,7 +71,7 @@ func (c *sshContainer) Namespace() string {
 
 type SSHContainerInterfaceForTest interface {
 	CleanupRun()
-	ResolveTarget(string) (*resolvedTarget, error)
+	ResolveTarget(context.Context, string) (*resolvedTarget, error)
 	SSH(Context, bool, *resolvedTarget) error
 	Copy(ctx Context) error
 	GetExecClient() (k8sexec.Executor, error)

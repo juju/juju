@@ -43,7 +43,7 @@ type ApplicationAPI interface {
 
 // CharmAPI defines charm related APIs.
 type CharmAPI interface {
-	CharmInfo(charmURL string) (*charms.CharmInfo, error)
+	CharmInfo(ctx context.Context, charmURL string) (*charms.CharmInfo, error)
 	Close() error
 }
 

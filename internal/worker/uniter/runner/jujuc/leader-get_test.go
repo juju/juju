@@ -4,6 +4,8 @@
 package jujuc_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	"github.com/juju/errors"
@@ -170,7 +172,7 @@ type leaderGetContext struct {
 	err      error
 }
 
-func (c *leaderGetContext) LeaderSettings() (map[string]string, error) {
+func (c *leaderGetContext) LeaderSettings(_ context.Context) (map[string]string, error) {
 	c.called = true
 	return c.settings, c.err
 }

@@ -64,7 +64,7 @@ func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {
 	s.expectStat(ch, errors.NotFoundf("file"))
 	cfg.CharmOrBundle = ch
 
-	s.charmDeployAPI.EXPECT().CharmInfo("local:test-charm").Return(&charms.CharmInfo{
+	s.charmDeployAPI.EXPECT().CharmInfo(gomock.Any(), "local:test-charm").Return(&charms.CharmInfo{
 		Meta: &charm.Meta{
 			Name: "wordpress",
 		},

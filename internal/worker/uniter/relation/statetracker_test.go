@@ -702,15 +702,15 @@ func (s *baseStateTrackerSuite) expectUnitName() {
 }
 
 func (s *baseStateTrackerSuite) expectUnitDestroy() {
-	s.unit.EXPECT().Destroy().Return(nil)
+	s.unit.EXPECT().Destroy(gomock.Any()).Return(nil)
 }
 
 func (s *baseStateTrackerSuite) expectRelationsStatusEmpty() {
-	s.unit.EXPECT().RelationsStatus().Return([]uniter.RelationStatus{}, nil)
+	s.unit.EXPECT().RelationsStatus(gomock.Any()).Return([]uniter.RelationStatus{}, nil)
 }
 
 func (s *baseStateTrackerSuite) expectRelationsStatus(status []uniter.RelationStatus) {
-	s.unit.EXPECT().RelationsStatus().Return(status, nil)
+	s.unit.EXPECT().RelationsStatus(gomock.Any()).Return(status, nil)
 }
 
 func (s *baseStateTrackerSuite) expectWatch(c *gc.C) {

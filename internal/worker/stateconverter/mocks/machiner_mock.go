@@ -106,18 +106,18 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 }
 
 // Jobs mocks base method.
-func (m *MockMachine) Jobs() (*params.JobsResult, error) {
+func (m *MockMachine) Jobs(arg0 context.Context) (*params.JobsResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Jobs")
+	ret := m.ctrl.Call(m, "Jobs", arg0)
 	ret0, _ := ret[0].(*params.JobsResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Jobs indicates an expected call of Jobs.
-func (mr *MockMachineMockRecorder) Jobs() *MockMachineJobsCall {
+func (mr *MockMachineMockRecorder) Jobs(arg0 any) *MockMachineJobsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Jobs", reflect.TypeOf((*MockMachine)(nil).Jobs))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Jobs", reflect.TypeOf((*MockMachine)(nil).Jobs), arg0)
 	return &MockMachineJobsCall{Call: call}
 }
 
@@ -133,13 +133,13 @@ func (c *MockMachineJobsCall) Return(arg0 *params.JobsResult, arg1 error) *MockM
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineJobsCall) Do(f func() (*params.JobsResult, error)) *MockMachineJobsCall {
+func (c *MockMachineJobsCall) Do(f func(context.Context) (*params.JobsResult, error)) *MockMachineJobsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineJobsCall) DoAndReturn(f func() (*params.JobsResult, error)) *MockMachineJobsCall {
+func (c *MockMachineJobsCall) DoAndReturn(f func(context.Context) (*params.JobsResult, error)) *MockMachineJobsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

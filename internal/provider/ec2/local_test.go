@@ -70,7 +70,7 @@ var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{
 	"agent-version": coretesting.FakeVersionNumber.String(),
 })
 
-func fakeCallback(_ status.Status, _ string, _ map[string]interface{}) error {
+func fakeCallback(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
 	return nil
 }
 

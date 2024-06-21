@@ -546,12 +546,12 @@ func (e *environ) StartInstance(
 			return
 		}
 		if err := e.StopInstances(ctx, inst.Id()); err != nil {
-			_ = callback(status.Error, fmt.Sprintf("error stopping failed instance: %v", err), nil)
+			_ = callback(ctx, status.Error, fmt.Sprintf("error stopping failed instance: %v", err), nil)
 			logger.Errorf("error stopping failed instance: %v", err)
 		}
 	}()
 
-	_ = callback(status.Allocating, "Verifying availability zone", nil)
+	_ = callback(ctx, status.Allocating, "Verifying availability zone", nil)
 
 	annotateWrapError := func(received error, annotation string) error {
 		if received == nil {
@@ -638,14 +638,14 @@ func (e *environ) StartInstance(
 		return nil, environs.ZoneIndependentError(err)
 	}
 
-	_ = callback(status.Allocating, "Making user data", nil)
+	_ = callback(ctx, status.Allocating, "Making user data", nil)
 	userData, err := providerinit.ComposeUserData(args.InstanceConfig, nil, AmazonRenderer{})
 	if err != nil {
 		return nil, environs.ZoneIndependentError(fmt.Errorf("constructing user data: %w", err))
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 
-	_ = callback(status.Allocating, "Setting up groups", nil)
+	_ = callback(ctx, status.Allocating, "Setting up groups", nil)
 	groupIDs, err := e.setUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId)
 	if err != nil {
 		return nil, annotateWrapError(err, "cannot set up groups")
@@ -713,7 +713,7 @@ func (e *environ) StartInstance(
 	}
 	runArgs.SubnetId = subnet.SubnetId
 
-	_ = callback(status.Allocating,
+	_ = callback(ctx, status.Allocating,
 		fmt.Sprintf("Trying to start instance in availability zone %q", availabilityZone), nil)
 
 	instResp, err = runInstances(e.ec2Client, ctx, runArgs, callback)
@@ -774,6 +774,7 @@ func (e *environ) maybeAttachInstanceProfile(
 	}
 
 	_ = statusCallback(
+		ctx,
 		status.Allocating,
 		fmt.Sprintf("finding aws instance profile %s", *constraints.InstanceRole),
 		nil,
@@ -784,6 +785,7 @@ func (e *environ) maybeAttachInstanceProfile(
 	}
 
 	_ = statusCallback(
+		ctx,
 		status.Allocating,
 		fmt.Sprintf("attaching aws instance profile %s", *instProfile.Arn),
 		nil,
@@ -1190,7 +1192,7 @@ func _runInstances(e Client, ctx envcontext.ProviderCallContext, ri *ec2.RunInst
 		return !isNotFoundError(err)
 	}
 	retryStrategy.Func = func() error {
-		_ = callback(status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
+		_ = callback(ctx, status.Allocating, fmt.Sprintf("Start instance attempt %d", try), nil)
 		var err error
 		resp, err = e.RunInstances(ctx, ri)
 		try++

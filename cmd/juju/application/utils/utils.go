@@ -4,6 +4,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -30,8 +31,8 @@ var logger = internallogger.GetLogger("juju.cmd.juju.application.utils")
 
 // GetMetaResources retrieves metadata resources for the given
 // charmURL.
-func GetMetaResources(charmURL string, client CharmClient) (map[string]charmresource.Meta, error) {
-	charmInfo, err := client.CharmInfo(charmURL)
+func GetMetaResources(ctx context.Context, charmURL string, client CharmClient) (map[string]charmresource.Meta, error) {
+	charmInfo, err := client.CharmInfo(ctx, charmURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -79,6 +80,7 @@ func flagWithMinus(name string) string {
 // GetUpgradeResources returns a map of resources which require
 // refresh.
 func GetUpgradeResources(
+	ctx context.Context,
 	newCharmID application.CharmID,
 	repositoryResourceLister CharmClient,
 	resourceLister ResourceLister,
@@ -89,7 +91,7 @@ func GetUpgradeResources(
 	if len(meta) == 0 {
 		return nil, nil
 	}
-	available, err := getAvailableRepositoryResources(newCharmID, repositoryResourceLister)
+	available, err := getAvailableRepositoryResources(ctx, newCharmID, repositoryResourceLister)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -115,12 +117,12 @@ func getCurrentResources(
 
 // getAvailableRepositoryResources gets the current resources for this
 // charm available in the repository.
-func getAvailableRepositoryResources(newCharmID application.CharmID, repositoryResourceLister CharmClient) (map[string]charmresource.Resource, error) {
+func getAvailableRepositoryResources(ctx context.Context, newCharmID application.CharmID, repositoryResourceLister CharmClient) (map[string]charmresource.Resource, error) {
 	if repositoryResourceLister == nil || !corecharm.CharmHub.Matches(newCharmID.Origin.Source.String()) {
 		// not required for local charms
 		return nil, nil
 	}
-	available, err := repositoryResourceLister.ListCharmResources(newCharmID.URL, newCharmID.Origin)
+	available, err := repositoryResourceLister.ListCharmResources(ctx, newCharmID.URL, newCharmID.Origin)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

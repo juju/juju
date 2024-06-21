@@ -4,6 +4,8 @@
 package jujuctesting
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 )
 
@@ -30,7 +32,7 @@ func (c *ContextLeader) IsLeader() (bool, error) {
 }
 
 // LeaderSettings implements jujuc.ContextLeader.
-func (c *ContextLeader) LeaderSettings() (map[string]string, error) {
+func (c *ContextLeader) LeaderSettings(_ context.Context) (map[string]string, error) {
 	c.stub.AddCall("LeaderSettings")
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -40,7 +42,7 @@ func (c *ContextLeader) LeaderSettings() (map[string]string, error) {
 }
 
 // WriteLeaderSettings implements jujuc.ContextLeader.
-func (c *ContextLeader) WriteLeaderSettings(settings map[string]string) error {
+func (c *ContextLeader) WriteLeaderSettings(_ context.Context, settings map[string]string) error {
 	c.stub.AddCall("WriteLeaderSettings")
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)

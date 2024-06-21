@@ -63,7 +63,7 @@ func (c *PayloadUnregisterCmd) Run(ctx *cmd.Context) error {
 
 	// TODO(ericsnow) Verify that Untrack gives a meaningful error when
 	// the ID is not found.
-	if err := c.ctx.UntrackPayload(c.class, c.id); err != nil {
+	if err := c.ctx.UntrackPayload(ctx, c.class, c.id); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -71,7 +71,7 @@ func (c *PayloadUnregisterCmd) Run(ctx *cmd.Context) error {
 
 	// We flush to state immediately so that status reflects the
 	// payload correctly.
-	if err := c.ctx.FlushPayloads(); err != nil {
+	if err := c.ctx.FlushPayloads(ctx); err != nil {
 		return errors.Trace(err)
 	}
 

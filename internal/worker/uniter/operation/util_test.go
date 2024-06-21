@@ -56,7 +56,7 @@ func (cb *DeployCallbacks) GetArchiveInfo(charmURL string) (charm.BundleInfo, er
 	return cb.MockGetArchiveInfo.Call(charmURL)
 }
 
-func (cb *DeployCallbacks) SetCurrentCharm(charmURL string) error {
+func (cb *DeployCallbacks) SetCurrentCharm(ctx context.Context, charmURL string) error {
 	return cb.MockSetCurrentCharm.Call(charmURL)
 }
 
@@ -98,7 +98,7 @@ type MockDeployer struct {
 	MockNotifyResolved *MockNoArgs
 }
 
-func (d *MockDeployer) Stage(info charm.BundleInfo, abort <-chan struct{}) error {
+func (d *MockDeployer) Stage(ctx context.Context, info charm.BundleInfo, abort <-chan struct{}) error {
 	return d.MockStage.Call(info, abort)
 }
 
@@ -131,7 +131,7 @@ func (cb *RunActionCallbacks) FailAction(_ context.Context, actionId, message st
 	return cb.MockFailAction.Call(actionId, message)
 }
 
-func (cb *RunActionCallbacks) SetExecutingStatus(message string) error {
+func (cb *RunActionCallbacks) SetExecutingStatus(_ context.Context, message string) error {
 	cb.mut.Lock()
 	defer cb.mut.Unlock()
 	cb.executingMessage = message
@@ -156,7 +156,7 @@ type RunCommandsCallbacks struct {
 	executingMessage string
 }
 
-func (cb *RunCommandsCallbacks) SetExecutingStatus(message string) error {
+func (cb *RunCommandsCallbacks) SetExecutingStatus(_ context.Context, message string) error {
 	cb.executingMessage = message
 	return nil
 }
@@ -182,7 +182,7 @@ func (cb *PrepareHookCallbacks) PrepareHook(_ context.Context, hookInfo hook.Inf
 	return cb.MockPrepareHook.Call(hookInfo)
 }
 
-func (cb *PrepareHookCallbacks) SetExecutingStatus(message string) error {
+func (cb *PrepareHookCallbacks) SetExecutingStatus(_ context.Context, message string) error {
 	cb.executingMessage = message
 	return nil
 }
@@ -237,7 +237,7 @@ func (cb *CommitHookCallbacks) CommitHook(_ context.Context, hookInfo hook.Info)
 	return cb.MockCommitHook.Call(hookInfo)
 }
 
-func (cb *CommitHookCallbacks) SetSecretRotated(url string, oldRevision int) error {
+func (cb *CommitHookCallbacks) SetSecretRotated(_ context.Context, url string, oldRevision int) error {
 	cb.rotatedSecretURI = url
 	cb.rotatedOldRevision = oldRevision
 	return nil

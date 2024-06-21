@@ -146,23 +146,23 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 		Meta:     &charm.Meta{},
 		Manifest: &charm.Manifest{Bases: []charm.Base{{}}}, // bases make it a v2 charm
 	}
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(charmInfo, nil)
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app1").Return(charmInfo, nil)
 	s.lifeGetter.EXPECT().Life("app1").Return(life.Alive, nil)
 	// Added app1's worker to catacomb.
 	app1Worker.EXPECT().Wait().Return(nil)
 
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app2").Return(charmInfo, nil)
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app2").Return(charmInfo, nil)
 	s.lifeGetter.EXPECT().Life("app2").Return(life.Alive, nil)
 	// Added app2's worker to catacomb.
 	app2Worker.EXPECT().Wait().Return(nil)
 
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(charmInfo, nil)
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app1").Return(charmInfo, nil)
 	s.lifeGetter.EXPECT().Life("app1").Return(life.Value(""), errors.NotFoundf("%q", "app1"))
 	// Stopped app1's worker because it's removed.
 	app1Worker.EXPECT().Kill()
 	app1Worker.EXPECT().Wait().Return(nil)
 
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app2").Return(charmInfo, nil)
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app2").Return(charmInfo, nil)
 	s.lifeGetter.EXPECT().Life("app2").Return(life.Dead, nil)
 	// Stopped app2's worker because it's dead.
 	app2Worker.EXPECT().Kill()
@@ -186,7 +186,7 @@ func (s *workerSuite) TestV1CharmSkipsProcessing(c *gc.C) {
 		Meta:     &charm.Meta{},
 		Manifest: &charm.Manifest{},
 	}
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(charmInfo, nil)
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app1").Return(charmInfo, nil)
 
 	w, err := caasfirewaller.NewWorkerForTest(s.config, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -202,7 +202,7 @@ func (s *workerSuite) TestNotFoundCharmSkipsProcessing(c *gc.C) {
 		s.applicationChanges <- []string{"app1"}
 	}()
 
-	s.firewallerAPI.EXPECT().ApplicationCharmInfo("app1").Return(nil, errors.NotFoundf("app1"))
+	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app1").Return(nil, errors.NotFoundf("app1"))
 
 	w, err := caasfirewaller.NewWorkerForTest(s.config, nil)
 	c.Assert(err, jc.ErrorIsNil)

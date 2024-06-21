@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
@@ -39,17 +40,17 @@ func (m *MockSubordinateDestroyer) EXPECT() *MockSubordinateDestroyerMockRecorde
 }
 
 // DestroyAllSubordinates mocks base method.
-func (m *MockSubordinateDestroyer) DestroyAllSubordinates() error {
+func (m *MockSubordinateDestroyer) DestroyAllSubordinates(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyAllSubordinates")
+	ret := m.ctrl.Call(m, "DestroyAllSubordinates", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DestroyAllSubordinates indicates an expected call of DestroyAllSubordinates.
-func (mr *MockSubordinateDestroyerMockRecorder) DestroyAllSubordinates() *MockSubordinateDestroyerDestroyAllSubordinatesCall {
+func (mr *MockSubordinateDestroyerMockRecorder) DestroyAllSubordinates(arg0 any) *MockSubordinateDestroyerDestroyAllSubordinatesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyAllSubordinates", reflect.TypeOf((*MockSubordinateDestroyer)(nil).DestroyAllSubordinates))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyAllSubordinates", reflect.TypeOf((*MockSubordinateDestroyer)(nil).DestroyAllSubordinates), arg0)
 	return &MockSubordinateDestroyerDestroyAllSubordinatesCall{Call: call}
 }
 
@@ -65,13 +66,13 @@ func (c *MockSubordinateDestroyerDestroyAllSubordinatesCall) Return(arg0 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSubordinateDestroyerDestroyAllSubordinatesCall) Do(f func() error) *MockSubordinateDestroyerDestroyAllSubordinatesCall {
+func (c *MockSubordinateDestroyerDestroyAllSubordinatesCall) Do(f func(context.Context) error) *MockSubordinateDestroyerDestroyAllSubordinatesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSubordinateDestroyerDestroyAllSubordinatesCall) DoAndReturn(f func() error) *MockSubordinateDestroyerDestroyAllSubordinatesCall {
+func (c *MockSubordinateDestroyerDestroyAllSubordinatesCall) DoAndReturn(f func(context.Context) error) *MockSubordinateDestroyerDestroyAllSubordinatesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

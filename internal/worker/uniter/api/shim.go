@@ -28,7 +28,7 @@ func (s UniterClientShim) Unit(ctx context.Context, tag names.UnitTag) (Unit, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return UnitShim{u}, nil
+	return UnitShim{Unit: u}, nil
 }
 
 func (s UniterClientShim) Relation(ctx context.Context, tag names.RelationTag) (Relation, error) {
@@ -36,7 +36,7 @@ func (s UniterClientShim) Relation(ctx context.Context, tag names.RelationTag) (
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return relationShim{r}, nil
+	return relationShim{Relation: r}, nil
 }
 
 func (s UniterClientShim) RelationById(ctx context.Context, id int) (Relation, error) {
@@ -44,7 +44,7 @@ func (s UniterClientShim) RelationById(ctx context.Context, id int) (Relation, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return relationShim{r}, nil
+	return relationShim{Relation: r}, nil
 }
 
 func (s UniterClientShim) Application(ctx context.Context, tag names.ApplicationTag) (Application, error) {
@@ -68,7 +68,7 @@ func (s relationShim) Unit(ctx context.Context, tag names.UnitTag) (RelationUnit
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return RelationUnitShim{ru}, nil
+	return RelationUnitShim{RelationUnit: ru}, nil
 }
 
 type RelationUnitShim struct {
@@ -76,5 +76,5 @@ type RelationUnitShim struct {
 }
 
 func (s RelationUnitShim) Relation() Relation {
-	return relationShim{s.RelationUnit.Relation()}
+	return relationShim{Relation: s.RelationUnit.Relation()}
 }

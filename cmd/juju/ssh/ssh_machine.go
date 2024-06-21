@@ -227,8 +227,8 @@ func (c *sshMachine) ssh(ctx Context, enablePty bool, target *resolvedTarget) er
 	return cmd.Run()
 }
 
-func (c *sshMachine) copy(_ Context) error {
-	args, targets, err := c.expandSCPArgs(c.getArgs())
+func (c *sshMachine) copy(ctx Context) error {
+	args, targets, err := c.expandSCPArgs(ctx, c.getArgs())
 	if err != nil {
 		return err
 	}
@@ -256,7 +256,7 @@ func (c *sshMachine) copy(_ Context) error {
 // 0:some/path or application/0:some/path, and translates them into
 // ubuntu@machine:some/path so they can be passed as arguments to scp, and pass
 // the rest verbatim on to scp
-func (c *sshMachine) expandSCPArgs(args []string) ([]string, []*resolvedTarget, error) {
+func (c *sshMachine) expandSCPArgs(ctx context.Context, args []string) ([]string, []*resolvedTarget, error) {
 	outArgs := make([]string, len(args))
 	var targets []*resolvedTarget
 	for i, arg := range args {
@@ -267,7 +267,7 @@ func (c *sshMachine) expandSCPArgs(args []string) ([]string, []*resolvedTarget, 
 			continue
 		}
 
-		target, err := c.resolveTarget(v[0])
+		target, err := c.resolveTarget(ctx, v[0])
 		if err != nil {
 			return nil, nil, err
 		}
@@ -415,7 +415,7 @@ func (c *sshMachine) ensureAPIClient(mc ModelCommand) error {
 	return nil
 }
 
-func (c *sshMachine) resolveTarget(target string) (*resolvedTarget, error) {
+func (c *sshMachine) resolveTarget(ctx context.Context, target string) (*resolvedTarget, error) {
 	// If the user specified a leader unit, try to resolve it to the
 	// appropriate unit name and override the requested target name.
 	resolvedTargetName, err := c.maybeResolveLeaderUnit(target)

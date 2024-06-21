@@ -190,7 +190,7 @@ func (w *controllerWorker) run() error {
 			// All the controllers have completed their upgrade steps, so
 			// we can now proceed with the upgrade.
 			w.logger.Infof("upgrade to %v completed successfully.", w.base.ToVersion)
-			_ = w.base.StatusSetter.SetStatus(status.Started, "", nil)
+			_ = w.base.StatusSetter.SetStatus(ctx, status.Started, "", nil)
 			w.base.UpgradeCompleteLock.Unlock()
 
 			return nil
@@ -258,7 +258,7 @@ func (w *controllerWorker) addWatcher(ctx context.Context, watcher eventsource.W
 func (w *controllerWorker) abort(ctx context.Context, upgradeUUID domainupgrade.UUID, err error) error {
 	// Set the status to error, we can't proceed with the upgrade.
 	// Ignore the error as it's not critical if it fails.
-	_ = w.base.StatusSetter.SetStatus(status.Error, "failed to perform upgrade steps, check logs.", nil)
+	_ = w.base.StatusSetter.SetStatus(ctx, status.Error, "failed to perform upgrade steps, check logs.", nil)
 
 	w.logger.Errorf("aborting upgrade steps: %v, manual intervention is required", err)
 	if err := w.upgradeService.SetDBUpgradeFailed(ctx, upgradeUUID); err != nil {

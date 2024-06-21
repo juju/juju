@@ -5,7 +5,6 @@ package provisioner
 
 import (
 	"context"
-	stdcontext "context"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -66,11 +65,11 @@ type ProvisionerTask interface {
 
 // MachinesAPI describes API methods required to access machine provisioning info.
 type MachinesAPI interface {
-	Machines(stdcontext.Context, ...names.MachineTag) ([]apiprovisioner.MachineResult, error)
-	MachinesWithTransientErrors() ([]apiprovisioner.MachineStatusResult, error)
-	WatchMachineErrorRetry() (watcher.NotifyWatcher, error)
-	WatchModelMachines() (watcher.StringsWatcher, error)
-	ProvisioningInfo(machineTags []names.MachineTag) (params.ProvisioningInfoResults, error)
+	Machines(context.Context, ...names.MachineTag) ([]apiprovisioner.MachineResult, error)
+	MachinesWithTransientErrors(context.Context) ([]apiprovisioner.MachineStatusResult, error)
+	WatchMachineErrorRetry(context.Context) (watcher.NotifyWatcher, error)
+	WatchModelMachines(context.Context) (watcher.StringsWatcher, error)
+	ProvisioningInfo(_ context.Context, machineTags []names.MachineTag) (params.ProvisioningInfoResults, error)
 }
 
 // Environ describes the methods for provisioning instances.
@@ -81,7 +80,7 @@ type Environ interface {
 
 // DistributionGroupFinder provides access to machine distribution groups.
 type DistributionGroupFinder interface {
-	DistributionGroupByMachineId(...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error)
+	DistributionGroupByMachineId(context.Context, ...names.MachineTag) ([]apiprovisioner.DistributionGroupResult, error)
 }
 
 // ToolsFinder is an interface used for finding tools to run on
@@ -90,14 +89,14 @@ type ToolsFinder interface {
 	// FindTools returns a list of tools matching the specified
 	// version, os, and architecture. If arch is empty, the
 	// implementation is expected to use a well documented default.
-	FindTools(version version.Number, os string, arch string) (coretools.List, error)
+	FindTools(ctx context.Context, version version.Number, os string, arch string) (coretools.List, error)
 }
 
 // ControllerAPI describes API methods for querying a controller.
 type ControllerAPI interface {
 	ControllerConfig(context.Context) (controller.Config, error)
-	CACert() (string, error)
-	ModelUUID() (string, error)
+	CACert(context.Context) (string, error)
+	ModelUUID(context.Context) (string, error)
 	ModelConfig(context.Context) (*config.Config, error)
 	WatchForModelConfigChanges(context.Context) (watcher.NotifyWatcher, error)
 	APIAddresses(context.Context) ([]string, error)
@@ -229,6 +228,9 @@ func (task *provisionerTask) Wait() error {
 }
 
 func (task *provisionerTask) loop() (taskErr error) {
+	ctx, cancel := task.scopedContext()
+	defer cancel()
+
 	task.logger.Infof("entering provisioner task loop; using provisioner pool with %d workers", task.wp.Size())
 	defer func() {
 		wpErr := task.wp.Close()
@@ -247,7 +249,7 @@ func (task *provisionerTask) loop() (taskErr error) {
 	// When the watcher is started, it will have the initial changes be all
 	// the machines that are relevant. Also, since this is available straight
 	// away, we know there will be some changes right off the bat.
-	ctx := task.cloudCallCtxFunc(stdcontext.Background())
+	providerContext := task.cloudCallCtxFunc(context.Background())
 	for {
 		select {
 		case ids, ok := <-task.machineChanges:
@@ -255,7 +257,7 @@ func (task *provisionerTask) loop() (taskErr error) {
 				return errors.New("machine watcher closed channel")
 			}
 
-			if err := task.processMachines(ctx, ids); err != nil {
+			if err := task.processMachines(ctx, providerContext, ids); err != nil {
 				return errors.Annotate(err, "processing updated machines")
 			}
 
@@ -286,13 +288,13 @@ func (task *provisionerTask) loop() (taskErr error) {
 			task.notifyEventProcessedCallback(eventTypeHarvestModeChanged)
 			if harvestMode.HarvestUnknown() {
 				task.logger.Infof("harvesting unknown machines")
-				if err := task.processMachines(ctx, nil); err != nil {
+				if err := task.processMachines(ctx, providerContext, nil); err != nil {
 					return errors.Annotate(err, "processing machines after safe mode disabled")
 				}
 				task.notifyEventProcessedCallback(eventTypeProcessedMachines)
 			}
 		case <-task.retryChanges:
-			if err := task.processMachinesWithTransientErrors(ctx); err != nil {
+			if err := task.processMachinesWithTransientErrors(ctx, providerContext); err != nil {
 				return errors.Annotate(err, "processing machines with transient errors")
 			}
 			task.notifyEventProcessedCallback(eventTypeRetriedMachinesWithErrors)
@@ -330,8 +332,8 @@ func (task *provisionerTask) SetNumProvisionWorkers(numWorkers int) {
 	}
 }
 
-func (task *provisionerTask) processMachinesWithTransientErrors(ctx envcontext.ProviderCallContext) error {
-	results, err := task.machinesAPI.MachinesWithTransientErrors()
+func (task *provisionerTask) processMachinesWithTransientErrors(ctx context.Context, providerContext envcontext.ProviderCallContext) error {
+	results, err := task.machinesAPI.MachinesWithTransientErrors(ctx)
 	if err != nil || len(results) == 0 {
 		return nil
 	}
@@ -343,15 +345,15 @@ func (task *provisionerTask) processMachinesWithTransientErrors(ctx envcontext.P
 			continue
 		}
 		machine := result.Machine
-		if err := machine.SetStatus(status.Pending, "", nil); err != nil {
+		if err := machine.SetStatus(ctx, status.Pending, "", nil); err != nil {
 			task.logger.Errorf("cannot reset status of machine %q: %v", machine.Id(), err)
 			continue
 		}
-		if err := machine.SetInstanceStatus(status.Provisioning, "", nil); err != nil {
+		if err := machine.SetInstanceStatus(ctx, status.Provisioning, "", nil); err != nil {
 			task.logger.Errorf("cannot reset instance status of machine %q: %v", machine.Id(), err)
 			continue
 		}
-		if err := machine.SetModificationStatus(status.Idle, "", nil); err != nil {
+		if err := machine.SetModificationStatus(ctx, status.Idle, "", nil); err != nil {
 			task.logger.Errorf("cannot reset modification status of machine %q: %v", machine.Id(), err)
 			continue
 		}
@@ -360,37 +362,37 @@ func (task *provisionerTask) processMachinesWithTransientErrors(ctx envcontext.P
 		task.machinesMutex.Unlock()
 		pending = append(pending, machine)
 	}
-	return task.queueStartMachines(ctx, pending)
+	return task.queueStartMachines(ctx, providerContext, pending)
 }
 
-func (task *provisionerTask) processMachines(ctx envcontext.ProviderCallContext, ids []string) error {
+func (task *provisionerTask) processMachines(ctx context.Context, providerContext envcontext.ProviderCallContext, ids []string) error {
 	task.logger.Tracef("processMachines(%v)", ids)
 
 	// Populate the tasks maps of current instances and machines.
-	if err := task.populateMachineMaps(ctx, ids); err != nil {
+	if err := task.populateMachineMaps(providerContext, ids); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Maintain zone-machine distributions.
-	err := task.updateAvailabilityZoneMachines(ctx)
+	err := task.updateAvailabilityZoneMachines(ctx, providerContext)
 	if err != nil && !errors.Is(err, errors.NotImplemented) {
 		return errors.Annotate(err, "updating AZ distributions")
 	}
 
 	// Find machines without an instance ID or that are dead.
-	pending, dead, err := task.pendingOrDead(ids)
+	pending, dead, err := task.pendingOrDead(ctx, ids)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	// Queue removal of any dead machines that are not already being
 	// stopped or flagged for deferred stopping once they are online.
-	if err := task.filterAndQueueRemovalOfDeadMachines(ctx, dead); err != nil {
+	if err := task.filterAndQueueRemovalOfDeadMachines(providerContext, dead); err != nil {
 		return errors.Trace(err)
 	}
 
 	// Queue start requests for any other pending instances.
-	return errors.Trace(task.queueStartMachines(ctx, pending))
+	return errors.Trace(task.queueStartMachines(ctx, providerContext, pending))
 }
 
 func instanceIds(instances []instances.Instance) []string {
@@ -448,7 +450,7 @@ func (task *provisionerTask) populateMachineMaps(ctx envcontext.ProviderCallCont
 // that are currently being stopped or have been marked for deferred stopping
 // once they are online will be skipped.
 func (task *provisionerTask) pendingOrDead(
-	ids []string,
+	ctx context.Context, ids []string,
 ) (pending, dead []apiprovisioner.MachineProvisioner, err error) {
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
@@ -469,7 +471,7 @@ func (task *provisionerTask) pendingOrDead(
 			continue
 		}
 		var classification MachineClassification
-		classification, err = classifyMachine(task.logger, machine)
+		classification, err = classifyMachine(ctx, task.logger, machine)
 		if err != nil {
 			return // return the error
 		}
@@ -485,13 +487,17 @@ func (task *provisionerTask) pendingOrDead(
 	return
 }
 
+func (task *provisionerTask) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(task.catacomb.Context(context.Background()))
+}
+
 type ClassifiableMachine interface {
 	Life() life.Value
-	InstanceId() (instance.Id, error)
-	EnsureDead() error
-	Status() (status.Status, string, error)
-	InstanceStatus() (status.Status, string, error)
 	Id() string
+	InstanceId(context.Context) (instance.Id, error)
+	EnsureDead(context.Context) error
+	Status(context.Context) (status.Status, string, error)
+	InstanceStatus(context.Context) (status.Status, string, error)
 }
 
 type MachineClassification string
@@ -502,29 +508,29 @@ const (
 	Dead    MachineClassification = "Dead"
 )
 
-func classifyMachine(logger logger.Logger, machine ClassifiableMachine) (
+func classifyMachine(ctx context.Context, logger logger.Logger, machine ClassifiableMachine) (
 	MachineClassification, error) {
 	switch machine.Life() {
 	case life.Dying:
-		if _, err := machine.InstanceId(); err == nil {
+		if _, err := machine.InstanceId(ctx); err == nil {
 			return None, nil
 		} else if !params.IsCodeNotProvisioned(err) {
 			return None, errors.Annotatef(err, "loading dying machine id:%s, details:%v", machine.Id(), machine)
 		}
 		logger.Infof("killing dying, unprovisioned machine %q", machine)
-		if err := machine.EnsureDead(); err != nil {
+		if err := machine.EnsureDead(ctx); err != nil {
 			return None, errors.Annotatef(err, "ensuring machine dead id:%s, details:%v", machine.Id(), machine)
 		}
 		fallthrough
 	case life.Dead:
 		return Dead, nil
 	}
-	instId, err := machine.InstanceId()
+	instId, err := machine.InstanceId(ctx)
 	if err != nil {
 		if !params.IsCodeNotProvisioned(err) {
 			return None, errors.Annotatef(err, "loading machine id:%s, details:%v", machine.Id(), machine)
 		}
-		machineStatus, _, err := machine.Status()
+		machineStatus, _, err := machine.Status(ctx)
 		if err != nil {
 			logger.Infof("cannot get machine id:%s, details:%v, err:%v", machine.Id(), machine, err)
 			return None, nil
@@ -533,7 +539,7 @@ func classifyMachine(logger logger.Logger, machine ClassifiableMachine) (
 			logger.Infof("found machine pending provisioning id:%s, details:%v", machine.Id(), machine)
 			return Pending, nil
 		}
-		instanceStatus, _, err := machine.InstanceStatus()
+		instanceStatus, _, err := machine.InstanceStatus(ctx)
 		if err != nil {
 			logger.Infof("cannot read instance status id:%s, details:%v, err:%v", machine.Id(), machine, err)
 			return None, nil
@@ -550,7 +556,7 @@ func classifyMachine(logger logger.Logger, machine ClassifiableMachine) (
 }
 
 // findUnknownInstances finds instances which are not associated with a machine.
-func (task *provisionerTask) findUnknownInstances(stopping []instances.Instance) ([]instances.Instance, error) {
+func (task *provisionerTask) findUnknownInstances(ctx context.Context, stopping []instances.Instance) ([]instances.Instance, error) {
 	// Make a copy of the instances we know about.
 	taskInstances := make(map[instance.Id]instances.Instance)
 	for k, v := range task.instances {
@@ -560,7 +566,7 @@ func (task *provisionerTask) findUnknownInstances(stopping []instances.Instance)
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
 	for _, m := range task.machines {
-		instId, err := m.InstanceId()
+		instId, err := m.InstanceId(ctx)
 		switch {
 		case err == nil:
 			delete(taskInstances, instId)
@@ -619,10 +625,10 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 	dead []apiprovisioner.MachineProvisioner,
 ) error {
 	// Collect the instances for all provisioned machines that are dead.
-	stopping := task.instancesForDeadMachines(dead)
+	stopping := task.instancesForDeadMachines(ctx, dead)
 
 	// Find running instances that have no machines associated.
-	unknown, err := task.findUnknownInstances(stopping)
+	unknown, err := task.findUnknownInstances(ctx, stopping)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -672,7 +678,7 @@ func (task *provisionerTask) queueRemovalOfDeadMachines(
 			// Remove any dead machines from state.
 			for _, machine := range dead {
 				task.logger.Infof("removing dead machine %q", machine.Id())
-				if err := machine.MarkForRemoval(); err != nil {
+				if err := machine.MarkForRemoval(ctx); err != nil {
 					task.logger.Errorf("failed to remove dead machine %q", machine.Id())
 				}
 				task.removeMachineFromAZMap(machine)
@@ -740,7 +746,7 @@ func (task *provisionerTask) deferStopForNotYetStartedMachines(dead []apiprovisi
 // instancesForDeadMachines returns a list of instances that correspond to
 // machines with a life of "dead" in state. Missing machines and machines that
 // have not finished starting are omitted from the list.
-func (task *provisionerTask) instancesForDeadMachines(dead []apiprovisioner.MachineProvisioner) []instances.Instance {
+func (task *provisionerTask) instancesForDeadMachines(ctx context.Context, dead []apiprovisioner.MachineProvisioner) []instances.Instance {
 	var deadInstances []instances.Instance
 	for _, machine := range dead {
 		// Ignore machines that are still provisioning
@@ -751,9 +757,9 @@ func (task *provisionerTask) instancesForDeadMachines(dead []apiprovisioner.Mach
 		}
 		task.machinesMutex.RUnlock()
 
-		instId, err := machine.InstanceId()
+		instId, err := machine.InstanceId(ctx)
 		if err == nil {
-			keep, _ := machine.KeepInstance()
+			keep, _ := machine.KeepInstance(ctx)
 			if keep {
 				task.logger.Debugf("machine %v is dead but keep-instance is true", instId)
 				continue
@@ -797,11 +803,11 @@ func (task *provisionerTask) constructInstanceConfig(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	caCert, err := task.controllerAPI.CACert()
+	caCert, err := task.controllerAPI.CACert(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelUUID, err := task.controllerAPI.ModelUUID()
+	modelUUID, err := task.controllerAPI.ModelUUID(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -809,7 +815,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	if err != nil {
 		return nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
 	}
-	if err := machine.SetPassword(password); err != nil {
+	if err := machine.SetPassword(ctx, password); err != nil {
 		return nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
 	}
 	apiInfo := &api.Info{
@@ -1017,7 +1023,7 @@ func (az *AvailabilityZoneMachine) MatchesConstraints(cons constraints.Value) bo
 // updateAvailabilityZoneMachines maintains a mapping of AZs to machines
 // running in each zone.
 // If the provider does not implement the ZonedEnviron interface, return nil.
-func (task *provisionerTask) updateAvailabilityZoneMachines(ctx envcontext.ProviderCallContext) error {
+func (task *provisionerTask) updateAvailabilityZoneMachines(ctx context.Context, providerContext envcontext.ProviderCallContext) error {
 	zonedEnv, ok := task.broker.(providercommon.ZonedEnviron)
 	if !ok {
 		return nil
@@ -1029,11 +1035,11 @@ func (task *provisionerTask) updateAvailabilityZoneMachines(ctx envcontext.Provi
 	// Only populate from the provider if we have no data.
 	// Otherwise, just check that we know all the current AZs.
 	if len(task.availabilityZoneMachines) == 0 {
-		if err := task.populateAvailabilityZoneMachines(ctx, zonedEnv); err != nil {
+		if err := task.populateAvailabilityZoneMachines(ctx, providerContext, zonedEnv); err != nil {
 			return errors.Trace(err)
 		}
 	} else {
-		if err := task.checkProviderAvailabilityZones(ctx, zonedEnv); err != nil {
+		if err := task.checkProviderAvailabilityZones(providerContext, zonedEnv); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -1051,16 +1057,17 @@ func (task *provisionerTask) updateAvailabilityZoneMachines(ctx envcontext.Provi
 // availabilityZoneMachines, with each zone and the IDs of
 // machines running in that zone, according to the provider.
 func (task *provisionerTask) populateAvailabilityZoneMachines(
-	ctx envcontext.ProviderCallContext, zonedEnv providercommon.ZonedEnviron,
+	ctx context.Context,
+	providerContext envcontext.ProviderCallContext, zonedEnv providercommon.ZonedEnviron,
 ) error {
-	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(zonedEnv, ctx, []instance.Id{})
+	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(zonedEnv, providerContext, []instance.Id{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	instanceMachines := make(map[instance.Id]string)
 	for _, machine := range task.machines {
-		instId, err := machine.InstanceId()
+		instId, err := machine.InstanceId(ctx)
 		if err != nil {
 			continue
 		}
@@ -1253,7 +1260,7 @@ done:
 // machine status and immediately return with an error if that operation fails.
 // Any provisioning-related errors are reported asynchronously by the worker
 // pool.
-func (task *provisionerTask) queueStartMachines(ctx envcontext.ProviderCallContext, machines []apiprovisioner.MachineProvisioner) error {
+func (task *provisionerTask) queueStartMachines(ctx context.Context, providerContext envcontext.ProviderCallContext, machines []apiprovisioner.MachineProvisioner) error {
 	if len(machines) == 0 {
 		return nil
 	}
@@ -1265,7 +1272,7 @@ func (task *provisionerTask) queueStartMachines(ctx envcontext.ProviderCallConte
 	for i, machine := range machines {
 		machineTags[i] = machine.MachineTag()
 	}
-	machineDistributionGroups, err := task.distributionGroupFinder.DistributionGroupByMachineId(machineTags...)
+	machineDistributionGroups, err := task.distributionGroupFinder.DistributionGroupByMachineId(ctx, machineTags...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1275,7 +1282,7 @@ func (task *provisionerTask) queueStartMachines(ctx envcontext.ProviderCallConte
 	// key the results by machine IDs for retrieval in the loop below.
 	// We rely here on the API guarantee - that the returned results are
 	// ordered to correspond to the call arguments.
-	pInfoResults, err := task.machinesAPI.ProvisioningInfo(machineTags)
+	pInfoResults, err := task.machinesAPI.ProvisioningInfo(ctx, machineTags)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1286,7 +1293,7 @@ func (task *provisionerTask) queueStartMachines(ctx envcontext.ProviderCallConte
 
 	for i, m := range machines {
 		if machineDistributionGroups[i].Err != nil {
-			if err := task.setErrorStatus("fetching distribution groups for machine %q: %v", m, machineDistributionGroups[i].Err); err != nil {
+			if err := task.setErrorStatus(ctx, "fetching distribution groups for machine %q: %v", m, machineDistributionGroups[i].Err); err != nil {
 				return errors.Trace(err)
 			}
 			continue
@@ -1310,7 +1317,7 @@ func (task *provisionerTask) queueStartMachines(ctx envcontext.ProviderCallConte
 			Process: func() error {
 				machID := machine.Id()
 
-				if provisionErr := task.doStartMachine(ctx, machine, distGroup, pInfoMap[machID]); provisionErr != nil {
+				if provisionErr := task.doStartMachine(ctx, providerContext, machine, distGroup, pInfoMap[machID]); provisionErr != nil {
 					return provisionErr
 				}
 
@@ -1327,7 +1334,7 @@ func (task *provisionerTask) queueStartMachines(ctx envcontext.ProviderCallConte
 
 				if stopDeferred {
 					task.logger.Debugf("triggering deferred stop of machine %q", machID)
-					return task.queueRemovalOfDeadMachines(ctx, []apiprovisioner.MachineProvisioner{
+					return task.queueRemovalOfDeadMachines(providerContext, []apiprovisioner.MachineProvisioner{
 						machine,
 					})
 				}
@@ -1350,10 +1357,10 @@ func (task *provisionerTask) queueStartMachines(ctx envcontext.ProviderCallConte
 	return nil
 }
 
-func (task *provisionerTask) setErrorStatus(msg string, machine apiprovisioner.MachineProvisioner, err error) error {
+func (task *provisionerTask) setErrorStatus(ctx context.Context, msg string, machine apiprovisioner.MachineProvisioner, err error) error {
 	task.logger.Errorf(msg, machine, err)
 	errForStatus := errors.Cause(err)
-	if err2 := machine.SetInstanceStatus(status.ProvisioningError, errForStatus.Error(), nil); err2 != nil {
+	if err2 := machine.SetInstanceStatus(ctx, status.ProvisioningError, errForStatus.Error(), nil); err2 != nil {
 		// Something is wrong with this machine, better report it back.
 		return errors.Annotatef(err2, "setting error status for machine %q", machine)
 	}
@@ -1361,7 +1368,8 @@ func (task *provisionerTask) setErrorStatus(msg string, machine apiprovisioner.M
 }
 
 func (task *provisionerTask) doStartMachine(
-	ctx envcontext.ProviderCallContext,
+	ctx context.Context,
+	providerContext envcontext.ProviderCallContext,
 	machine apiprovisioner.MachineProvisioner,
 	distributionGroupMachineIds []string,
 	pInfoResult params.ProvisioningInfoResult,
@@ -1383,24 +1391,24 @@ func (task *provisionerTask) doStartMachine(
 		}
 	}()
 
-	if err := machine.SetInstanceStatus(status.Provisioning, "starting", nil); err != nil {
+	if err := machine.SetInstanceStatus(ctx, status.Provisioning, "starting", nil); err != nil {
 		task.logger.Errorf("%v", err)
 	}
 
-	v, err := machine.ModelAgentVersion()
+	v, err := machine.ModelAgentVersion(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	startInstanceParams, err := task.setupToStartMachine(ctx, machine, v, pInfoResult)
+	startInstanceParams, err := task.setupToStartMachine(providerContext, machine, v, pInfoResult)
 	if err != nil {
-		return errors.Trace(task.setErrorStatus("%v %v", machine, err))
+		return errors.Trace(task.setErrorStatus(ctx, "%v %v", machine, err))
 	}
 
 	// Figure out if the zones available to use for a new instance are
 	// restricted based on placement, and if so exclude those machines
 	// from being started in any other zone.
-	if err := task.populateExcludedMachines(ctx, machine.Id(), startInstanceParams); err != nil {
+	if err := task.populateExcludedMachines(providerContext, machine.Id(), startInstanceParams); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1418,14 +1426,14 @@ func (task *provisionerTask) doStartMachine(
 		if startInstanceParams.AvailabilityZone, err = task.machineAvailabilityZoneDistribution(
 			machine.Id(), distributionGroupMachineIds, startInstanceParams.Constraints,
 		); err != nil {
-			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
+			return task.setErrorStatus(ctx, "cannot start instance for machine %q: %v", machine, err)
 		}
 		if startInstanceParams.AvailabilityZone != "" {
 			task.logger.Infof("trying machine %s StartInstance in availability zone %s",
 				machine, startInstanceParams.AvailabilityZone)
 		}
 
-		attemptResult, err := task.broker.StartInstance(ctx, startInstanceParams)
+		attemptResult, err := task.broker.StartInstance(providerContext, startInstanceParams)
 		if err == nil {
 			result = attemptResult
 			break
@@ -1433,7 +1441,7 @@ func (task *provisionerTask) doStartMachine(
 			// Set the state to error, so the machine will be skipped
 			// next time until the error is resolved.
 			task.removeMachineFromAZMap(machine)
-			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
+			return task.setErrorStatus(ctx, "cannot start instance for machine %q: %v", machine, err)
 		} else {
 			if startInstanceParams.AvailabilityZone != "" {
 				task.logger.Warningf("machine %s failed to start in availability zone %s: %v",
@@ -1451,7 +1459,7 @@ func (task *provisionerTask) doStartMachine(
 			azRemaining, err2 := task.markMachineFailedInAZ(machine,
 				startInstanceParams.AvailabilityZone, startInstanceParams.Constraints)
 			if err2 != nil {
-				if err = task.setErrorStatus("cannot start instance: %v", machine, err2); err != nil {
+				if err = task.setErrorStatus(ctx, "cannot start instance: %v", machine, err2); err != nil {
 					task.logger.Errorf("setting error status: %s", err)
 				}
 				return err2
@@ -1481,7 +1489,7 @@ func (task *provisionerTask) doStartMachine(
 			attemptsLeft--
 		}
 
-		if err3 := machine.SetInstanceStatus(status.Provisioning, retryMsg, nil); err3 != nil {
+		if err3 := machine.SetInstanceStatus(ctx, status.Provisioning, retryMsg, nil); err3 != nil {
 			task.logger.Warningf("failed to set instance status: %v", err3)
 		}
 
@@ -1506,6 +1514,7 @@ func (task *provisionerTask) doStartMachine(
 	}
 
 	if err := machine.SetInstanceInfo(
+		ctx,
 		instanceID,
 		result.DisplayName,
 		startInstanceParams.InstanceConfig.MachineNonce,
@@ -1516,10 +1525,10 @@ func (task *provisionerTask) doStartMachine(
 		charmLXDProfiles,
 	); err != nil {
 		// We need to stop the instance right away here, set error status and go on.
-		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
+		if err2 := task.setErrorStatus(ctx, "cannot register instance for machine %v: %v", machine, err); err2 != nil {
 			task.logger.Errorf("%v", errors.Annotate(err2, "setting machine status"))
 		}
-		if err2 := task.broker.StopInstances(ctx, instanceID); err2 != nil {
+		if err2 := task.broker.StopInstances(providerContext, instanceID); err2 != nil {
 			task.logger.Errorf("%v", errors.Annotate(err2, "after failing to set instance info"))
 		}
 		return errors.Annotate(err, "setting instance info")
@@ -1569,7 +1578,7 @@ func (task *provisionerTask) setupToStartMachine(
 		agentArch = *pInfo.Constraints.Arch
 	}
 
-	possibleTools, err := task.toolsFinder.FindTools(*version, pInfo.Base.Name, agentArch)
+	possibleTools, err := task.toolsFinder.FindTools(ctx, *version, pInfo.Base.Name, agentArch)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "finding agent binaries for machine %q", machine)
 	}

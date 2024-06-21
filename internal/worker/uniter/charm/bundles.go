@@ -4,6 +4,7 @@
 package charm
 
 import (
+	"context"
 	"net/url"
 	"os"
 	"path"
@@ -47,13 +48,13 @@ func NewBundlesDir(path string, dlr Downloader, logger logger.Logger) *BundlesDi
 // Read returns a charm bundle from the directory. If no bundle exists yet,
 // one will be downloaded and validated and copied into the directory before
 // being returned. Downloads will be aborted if a value is received on abort.
-func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error) {
+func (d *BundlesDir) Read(ctx context.Context, info BundleInfo, abort <-chan struct{}) (Bundle, error) {
 	path := d.bundlePath(info)
 	if _, err := os.Stat(path); err != nil {
 		if !os.IsNotExist(err) {
 			return nil, err
 		}
-		if err := d.download(info, path, abort); err != nil {
+		if err := d.download(ctx, info, path, abort); err != nil {
 			return nil, err
 		}
 	}
@@ -63,13 +64,13 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 // download fetches the supplied charm and checks that it has the correct sha256
 // hash, then copies it into the directory. If a value is received on abort, the
 // download will be stopped.
-func (d *BundlesDir) download(info BundleInfo, target string, abort <-chan struct{}) error {
+func (d *BundlesDir) download(ctx context.Context, info BundleInfo, target string, abort <-chan struct{}) error {
 	// First download...
 	curl, err := url.Parse(info.URL())
 	if err != nil {
 		return errors.Annotate(err, "could not parse charm URL")
 	}
-	expectedSha256, err := info.ArchiveSha256()
+	expectedSha256, err := info.ArchiveSha256(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "failed to get archive sha256 for charm %q", info.URL())
 	}

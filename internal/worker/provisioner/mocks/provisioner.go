@@ -51,18 +51,18 @@ func (m *MockContainerMachine) EXPECT() *MockContainerMachineMockRecorder {
 }
 
 // AvailabilityZone mocks base method.
-func (m *MockContainerMachine) AvailabilityZone() (string, error) {
+func (m *MockContainerMachine) AvailabilityZone(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AvailabilityZone")
+	ret := m.ctrl.Call(m, "AvailabilityZone", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AvailabilityZone indicates an expected call of AvailabilityZone.
-func (mr *MockContainerMachineMockRecorder) AvailabilityZone() *MockContainerMachineAvailabilityZoneCall {
+func (mr *MockContainerMachineMockRecorder) AvailabilityZone(arg0 any) *MockContainerMachineAvailabilityZoneCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailabilityZone", reflect.TypeOf((*MockContainerMachine)(nil).AvailabilityZone))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailabilityZone", reflect.TypeOf((*MockContainerMachine)(nil).AvailabilityZone), arg0)
 	return &MockContainerMachineAvailabilityZoneCall{Call: call}
 }
 
@@ -78,13 +78,13 @@ func (c *MockContainerMachineAvailabilityZoneCall) Return(arg0 string, arg1 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContainerMachineAvailabilityZoneCall) Do(f func() (string, error)) *MockContainerMachineAvailabilityZoneCall {
+func (c *MockContainerMachineAvailabilityZoneCall) Do(f func(context.Context) (string, error)) *MockContainerMachineAvailabilityZoneCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContainerMachineAvailabilityZoneCall) DoAndReturn(f func() (string, error)) *MockContainerMachineAvailabilityZoneCall {
+func (c *MockContainerMachineAvailabilityZoneCall) DoAndReturn(f func(context.Context) (string, error)) *MockContainerMachineAvailabilityZoneCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -128,9 +128,9 @@ func (c *MockContainerMachineLifeCall) DoAndReturn(f func() life.Value) *MockCon
 }
 
 // SupportedContainers mocks base method.
-func (m *MockContainerMachine) SupportedContainers() ([]instance.ContainerType, bool, error) {
+func (m *MockContainerMachine) SupportedContainers(arg0 context.Context) ([]instance.ContainerType, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SupportedContainers")
+	ret := m.ctrl.Call(m, "SupportedContainers", arg0)
 	ret0, _ := ret[0].([]instance.ContainerType)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(error)
@@ -138,9 +138,9 @@ func (m *MockContainerMachine) SupportedContainers() ([]instance.ContainerType, 
 }
 
 // SupportedContainers indicates an expected call of SupportedContainers.
-func (mr *MockContainerMachineMockRecorder) SupportedContainers() *MockContainerMachineSupportedContainersCall {
+func (mr *MockContainerMachineMockRecorder) SupportedContainers(arg0 any) *MockContainerMachineSupportedContainersCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedContainers", reflect.TypeOf((*MockContainerMachine)(nil).SupportedContainers))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedContainers", reflect.TypeOf((*MockContainerMachine)(nil).SupportedContainers), arg0)
 	return &MockContainerMachineSupportedContainersCall{Call: call}
 }
 
@@ -156,30 +156,30 @@ func (c *MockContainerMachineSupportedContainersCall) Return(arg0 []instance.Con
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContainerMachineSupportedContainersCall) Do(f func() ([]instance.ContainerType, bool, error)) *MockContainerMachineSupportedContainersCall {
+func (c *MockContainerMachineSupportedContainersCall) Do(f func(context.Context) ([]instance.ContainerType, bool, error)) *MockContainerMachineSupportedContainersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContainerMachineSupportedContainersCall) DoAndReturn(f func() ([]instance.ContainerType, bool, error)) *MockContainerMachineSupportedContainersCall {
+func (c *MockContainerMachineSupportedContainersCall) DoAndReturn(f func(context.Context) ([]instance.ContainerType, bool, error)) *MockContainerMachineSupportedContainersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchContainers mocks base method.
-func (m *MockContainerMachine) WatchContainers(arg0 instance.ContainerType) (watcher.Watcher[[]string], error) {
+func (m *MockContainerMachine) WatchContainers(arg0 context.Context, arg1 instance.ContainerType) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchContainers", arg0)
+	ret := m.ctrl.Call(m, "WatchContainers", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchContainers indicates an expected call of WatchContainers.
-func (mr *MockContainerMachineMockRecorder) WatchContainers(arg0 any) *MockContainerMachineWatchContainersCall {
+func (mr *MockContainerMachineMockRecorder) WatchContainers(arg0, arg1 any) *MockContainerMachineWatchContainersCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockContainerMachine)(nil).WatchContainers), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockContainerMachine)(nil).WatchContainers), arg0, arg1)
 	return &MockContainerMachineWatchContainersCall{Call: call}
 }
 
@@ -195,13 +195,13 @@ func (c *MockContainerMachineWatchContainersCall) Return(arg0 watcher.Watcher[[]
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContainerMachineWatchContainersCall) Do(f func(instance.ContainerType) (watcher.Watcher[[]string], error)) *MockContainerMachineWatchContainersCall {
+func (c *MockContainerMachineWatchContainersCall) Do(f func(context.Context, instance.ContainerType) (watcher.Watcher[[]string], error)) *MockContainerMachineWatchContainersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContainerMachineWatchContainersCall) DoAndReturn(f func(instance.ContainerType) (watcher.Watcher[[]string], error)) *MockContainerMachineWatchContainersCall {
+func (c *MockContainerMachineWatchContainersCall) DoAndReturn(f func(context.Context, instance.ContainerType) (watcher.Watcher[[]string], error)) *MockContainerMachineWatchContainersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -297,18 +297,18 @@ func (m *MockContainerProvisionerAPI) EXPECT() *MockContainerProvisionerAPIMockR
 }
 
 // ContainerConfig mocks base method.
-func (m *MockContainerProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
+func (m *MockContainerProvisionerAPI) ContainerConfig(arg0 context.Context) (params.ContainerConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerConfig")
+	ret := m.ctrl.Call(m, "ContainerConfig", arg0)
 	ret0, _ := ret[0].(params.ContainerConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContainerConfig indicates an expected call of ContainerConfig.
-func (mr *MockContainerProvisionerAPIMockRecorder) ContainerConfig() *MockContainerProvisionerAPIContainerConfigCall {
+func (mr *MockContainerProvisionerAPIMockRecorder) ContainerConfig(arg0 any) *MockContainerProvisionerAPIContainerConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerConfig", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).ContainerConfig))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerConfig", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).ContainerConfig), arg0)
 	return &MockContainerProvisionerAPIContainerConfigCall{Call: call}
 }
 
@@ -324,30 +324,30 @@ func (c *MockContainerProvisionerAPIContainerConfigCall) Return(arg0 params.Cont
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContainerProvisionerAPIContainerConfigCall) Do(f func() (params.ContainerConfig, error)) *MockContainerProvisionerAPIContainerConfigCall {
+func (c *MockContainerProvisionerAPIContainerConfigCall) Do(f func(context.Context) (params.ContainerConfig, error)) *MockContainerProvisionerAPIContainerConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContainerProvisionerAPIContainerConfigCall) DoAndReturn(f func() (params.ContainerConfig, error)) *MockContainerProvisionerAPIContainerConfigCall {
+func (c *MockContainerProvisionerAPIContainerConfigCall) DoAndReturn(f func(context.Context) (params.ContainerConfig, error)) *MockContainerProvisionerAPIContainerConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ContainerManagerConfig mocks base method.
-func (m *MockContainerProvisionerAPI) ContainerManagerConfig(arg0 params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
+func (m *MockContainerProvisionerAPI) ContainerManagerConfig(arg0 context.Context, arg1 params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerManagerConfig", arg0)
+	ret := m.ctrl.Call(m, "ContainerManagerConfig", arg0, arg1)
 	ret0, _ := ret[0].(params.ContainerManagerConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContainerManagerConfig indicates an expected call of ContainerManagerConfig.
-func (mr *MockContainerProvisionerAPIMockRecorder) ContainerManagerConfig(arg0 any) *MockContainerProvisionerAPIContainerManagerConfigCall {
+func (mr *MockContainerProvisionerAPIMockRecorder) ContainerManagerConfig(arg0, arg1 any) *MockContainerProvisionerAPIContainerManagerConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerManagerConfig", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).ContainerManagerConfig), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerManagerConfig", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).ContainerManagerConfig), arg0, arg1)
 	return &MockContainerProvisionerAPIContainerManagerConfigCall{Call: call}
 }
 
@@ -363,30 +363,30 @@ func (c *MockContainerProvisionerAPIContainerManagerConfigCall) Return(arg0 para
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContainerProvisionerAPIContainerManagerConfigCall) Do(f func(params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)) *MockContainerProvisionerAPIContainerManagerConfigCall {
+func (c *MockContainerProvisionerAPIContainerManagerConfigCall) Do(f func(context.Context, params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)) *MockContainerProvisionerAPIContainerManagerConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContainerProvisionerAPIContainerManagerConfigCall) DoAndReturn(f func(params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)) *MockContainerProvisionerAPIContainerManagerConfigCall {
+func (c *MockContainerProvisionerAPIContainerManagerConfigCall) DoAndReturn(f func(context.Context, params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)) *MockContainerProvisionerAPIContainerManagerConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetContainerProfileInfo mocks base method.
-func (m *MockContainerProvisionerAPI) GetContainerProfileInfo(arg0 names.MachineTag) ([]*provisioner.LXDProfileResult, error) {
+func (m *MockContainerProvisionerAPI) GetContainerProfileInfo(arg0 context.Context, arg1 names.MachineTag) ([]*provisioner.LXDProfileResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerProfileInfo", arg0)
+	ret := m.ctrl.Call(m, "GetContainerProfileInfo", arg0, arg1)
 	ret0, _ := ret[0].([]*provisioner.LXDProfileResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetContainerProfileInfo indicates an expected call of GetContainerProfileInfo.
-func (mr *MockContainerProvisionerAPIMockRecorder) GetContainerProfileInfo(arg0 any) *MockContainerProvisionerAPIGetContainerProfileInfoCall {
+func (mr *MockContainerProvisionerAPIMockRecorder) GetContainerProfileInfo(arg0, arg1 any) *MockContainerProvisionerAPIGetContainerProfileInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerProfileInfo", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).GetContainerProfileInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerProfileInfo", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).GetContainerProfileInfo), arg0, arg1)
 	return &MockContainerProvisionerAPIGetContainerProfileInfoCall{Call: call}
 }
 
@@ -402,21 +402,21 @@ func (c *MockContainerProvisionerAPIGetContainerProfileInfoCall) Return(arg0 []*
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContainerProvisionerAPIGetContainerProfileInfoCall) Do(f func(names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockContainerProvisionerAPIGetContainerProfileInfoCall {
+func (c *MockContainerProvisionerAPIGetContainerProfileInfoCall) Do(f func(context.Context, names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockContainerProvisionerAPIGetContainerProfileInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContainerProvisionerAPIGetContainerProfileInfoCall) DoAndReturn(f func(names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockContainerProvisionerAPIGetContainerProfileInfoCall {
+func (c *MockContainerProvisionerAPIGetContainerProfileInfoCall) DoAndReturn(f func(context.Context, names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockContainerProvisionerAPIGetContainerProfileInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // HostChangesForContainer mocks base method.
-func (m *MockContainerProvisionerAPI) HostChangesForContainer(arg0 names.MachineTag) ([]network0.DeviceToBridge, int, error) {
+func (m *MockContainerProvisionerAPI) HostChangesForContainer(arg0 context.Context, arg1 names.MachineTag) ([]network0.DeviceToBridge, int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HostChangesForContainer", arg0)
+	ret := m.ctrl.Call(m, "HostChangesForContainer", arg0, arg1)
 	ret0, _ := ret[0].([]network0.DeviceToBridge)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
@@ -424,9 +424,9 @@ func (m *MockContainerProvisionerAPI) HostChangesForContainer(arg0 names.Machine
 }
 
 // HostChangesForContainer indicates an expected call of HostChangesForContainer.
-func (mr *MockContainerProvisionerAPIMockRecorder) HostChangesForContainer(arg0 any) *MockContainerProvisionerAPIHostChangesForContainerCall {
+func (mr *MockContainerProvisionerAPIMockRecorder) HostChangesForContainer(arg0, arg1 any) *MockContainerProvisionerAPIHostChangesForContainerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostChangesForContainer", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).HostChangesForContainer), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostChangesForContainer", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).HostChangesForContainer), arg0, arg1)
 	return &MockContainerProvisionerAPIHostChangesForContainerCall{Call: call}
 }
 
@@ -442,30 +442,30 @@ func (c *MockContainerProvisionerAPIHostChangesForContainerCall) Return(arg0 []n
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContainerProvisionerAPIHostChangesForContainerCall) Do(f func(names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockContainerProvisionerAPIHostChangesForContainerCall {
+func (c *MockContainerProvisionerAPIHostChangesForContainerCall) Do(f func(context.Context, names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockContainerProvisionerAPIHostChangesForContainerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContainerProvisionerAPIHostChangesForContainerCall) DoAndReturn(f func(names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockContainerProvisionerAPIHostChangesForContainerCall {
+func (c *MockContainerProvisionerAPIHostChangesForContainerCall) DoAndReturn(f func(context.Context, names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockContainerProvisionerAPIHostChangesForContainerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // PrepareContainerInterfaceInfo mocks base method.
-func (m *MockContainerProvisionerAPI) PrepareContainerInterfaceInfo(arg0 names.MachineTag) (network.InterfaceInfos, error) {
+func (m *MockContainerProvisionerAPI) PrepareContainerInterfaceInfo(arg0 context.Context, arg1 names.MachineTag) (network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareContainerInterfaceInfo", arg0)
+	ret := m.ctrl.Call(m, "PrepareContainerInterfaceInfo", arg0, arg1)
 	ret0, _ := ret[0].(network.InterfaceInfos)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareContainerInterfaceInfo indicates an expected call of PrepareContainerInterfaceInfo.
-func (mr *MockContainerProvisionerAPIMockRecorder) PrepareContainerInterfaceInfo(arg0 any) *MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall {
+func (mr *MockContainerProvisionerAPIMockRecorder) PrepareContainerInterfaceInfo(arg0, arg1 any) *MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContainerInterfaceInfo", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).PrepareContainerInterfaceInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContainerInterfaceInfo", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).PrepareContainerInterfaceInfo), arg0, arg1)
 	return &MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall{Call: call}
 }
 
@@ -481,29 +481,29 @@ func (c *MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall) Return(ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall) Do(f func(names.MachineTag) (network.InterfaceInfos, error)) *MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall {
+func (c *MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall) Do(f func(context.Context, names.MachineTag) (network.InterfaceInfos, error)) *MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall) DoAndReturn(f func(names.MachineTag) (network.InterfaceInfos, error)) *MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall {
+func (c *MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall) DoAndReturn(f func(context.Context, names.MachineTag) (network.InterfaceInfos, error)) *MockContainerProvisionerAPIPrepareContainerInterfaceInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReleaseContainerAddresses mocks base method.
-func (m *MockContainerProvisionerAPI) ReleaseContainerAddresses(arg0 names.MachineTag) error {
+func (m *MockContainerProvisionerAPI) ReleaseContainerAddresses(arg0 context.Context, arg1 names.MachineTag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0)
+	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReleaseContainerAddresses indicates an expected call of ReleaseContainerAddresses.
-func (mr *MockContainerProvisionerAPIMockRecorder) ReleaseContainerAddresses(arg0 any) *MockContainerProvisionerAPIReleaseContainerAddressesCall {
+func (mr *MockContainerProvisionerAPIMockRecorder) ReleaseContainerAddresses(arg0, arg1 any) *MockContainerProvisionerAPIReleaseContainerAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseContainerAddresses", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).ReleaseContainerAddresses), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseContainerAddresses", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).ReleaseContainerAddresses), arg0, arg1)
 	return &MockContainerProvisionerAPIReleaseContainerAddressesCall{Call: call}
 }
 
@@ -519,29 +519,29 @@ func (c *MockContainerProvisionerAPIReleaseContainerAddressesCall) Return(arg0 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContainerProvisionerAPIReleaseContainerAddressesCall) Do(f func(names.MachineTag) error) *MockContainerProvisionerAPIReleaseContainerAddressesCall {
+func (c *MockContainerProvisionerAPIReleaseContainerAddressesCall) Do(f func(context.Context, names.MachineTag) error) *MockContainerProvisionerAPIReleaseContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContainerProvisionerAPIReleaseContainerAddressesCall) DoAndReturn(f func(names.MachineTag) error) *MockContainerProvisionerAPIReleaseContainerAddressesCall {
+func (c *MockContainerProvisionerAPIReleaseContainerAddressesCall) DoAndReturn(f func(context.Context, names.MachineTag) error) *MockContainerProvisionerAPIReleaseContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetHostMachineNetworkConfig mocks base method.
-func (m *MockContainerProvisionerAPI) SetHostMachineNetworkConfig(arg0 names.MachineTag, arg1 []params.NetworkConfig) error {
+func (m *MockContainerProvisionerAPI) SetHostMachineNetworkConfig(arg0 context.Context, arg1 names.MachineTag, arg2 []params.NetworkConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetHostMachineNetworkConfig", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetHostMachineNetworkConfig", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetHostMachineNetworkConfig indicates an expected call of SetHostMachineNetworkConfig.
-func (mr *MockContainerProvisionerAPIMockRecorder) SetHostMachineNetworkConfig(arg0, arg1 any) *MockContainerProvisionerAPISetHostMachineNetworkConfigCall {
+func (mr *MockContainerProvisionerAPIMockRecorder) SetHostMachineNetworkConfig(arg0, arg1, arg2 any) *MockContainerProvisionerAPISetHostMachineNetworkConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostMachineNetworkConfig", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).SetHostMachineNetworkConfig), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostMachineNetworkConfig", reflect.TypeOf((*MockContainerProvisionerAPI)(nil).SetHostMachineNetworkConfig), arg0, arg1, arg2)
 	return &MockContainerProvisionerAPISetHostMachineNetworkConfigCall{Call: call}
 }
 
@@ -557,13 +557,13 @@ func (c *MockContainerProvisionerAPISetHostMachineNetworkConfigCall) Return(arg0
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockContainerProvisionerAPISetHostMachineNetworkConfigCall) Do(f func(names.MachineTag, []params.NetworkConfig) error) *MockContainerProvisionerAPISetHostMachineNetworkConfigCall {
+func (c *MockContainerProvisionerAPISetHostMachineNetworkConfigCall) Do(f func(context.Context, names.MachineTag, []params.NetworkConfig) error) *MockContainerProvisionerAPISetHostMachineNetworkConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockContainerProvisionerAPISetHostMachineNetworkConfigCall) DoAndReturn(f func(names.MachineTag, []params.NetworkConfig) error) *MockContainerProvisionerAPISetHostMachineNetworkConfigCall {
+func (c *MockContainerProvisionerAPISetHostMachineNetworkConfigCall) DoAndReturn(f func(context.Context, names.MachineTag, []params.NetworkConfig) error) *MockContainerProvisionerAPISetHostMachineNetworkConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -631,18 +631,18 @@ func (c *MockControllerAPIAPIAddressesCall) DoAndReturn(f func(context.Context) 
 }
 
 // CACert mocks base method.
-func (m *MockControllerAPI) CACert() (string, error) {
+func (m *MockControllerAPI) CACert(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CACert")
+	ret := m.ctrl.Call(m, "CACert", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CACert indicates an expected call of CACert.
-func (mr *MockControllerAPIMockRecorder) CACert() *MockControllerAPICACertCall {
+func (mr *MockControllerAPIMockRecorder) CACert(arg0 any) *MockControllerAPICACertCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CACert", reflect.TypeOf((*MockControllerAPI)(nil).CACert))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CACert", reflect.TypeOf((*MockControllerAPI)(nil).CACert), arg0)
 	return &MockControllerAPICACertCall{Call: call}
 }
 
@@ -658,13 +658,13 @@ func (c *MockControllerAPICACertCall) Return(arg0 string, arg1 error) *MockContr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerAPICACertCall) Do(f func() (string, error)) *MockControllerAPICACertCall {
+func (c *MockControllerAPICACertCall) Do(f func(context.Context) (string, error)) *MockControllerAPICACertCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerAPICACertCall) DoAndReturn(f func() (string, error)) *MockControllerAPICACertCall {
+func (c *MockControllerAPICACertCall) DoAndReturn(f func(context.Context) (string, error)) *MockControllerAPICACertCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -748,18 +748,18 @@ func (c *MockControllerAPIModelConfigCall) DoAndReturn(f func(context.Context) (
 }
 
 // ModelUUID mocks base method.
-func (m *MockControllerAPI) ModelUUID() (string, error) {
+func (m *MockControllerAPI) ModelUUID(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelUUID")
+	ret := m.ctrl.Call(m, "ModelUUID", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelUUID indicates an expected call of ModelUUID.
-func (mr *MockControllerAPIMockRecorder) ModelUUID() *MockControllerAPIModelUUIDCall {
+func (mr *MockControllerAPIMockRecorder) ModelUUID(arg0 any) *MockControllerAPIModelUUIDCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockControllerAPI)(nil).ModelUUID))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockControllerAPI)(nil).ModelUUID), arg0)
 	return &MockControllerAPIModelUUIDCall{Call: call}
 }
 
@@ -775,13 +775,13 @@ func (c *MockControllerAPIModelUUIDCall) Return(arg0 string, arg1 error) *MockCo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerAPIModelUUIDCall) Do(f func() (string, error)) *MockControllerAPIModelUUIDCall {
+func (c *MockControllerAPIModelUUIDCall) Do(f func(context.Context) (string, error)) *MockControllerAPIModelUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerAPIModelUUIDCall) DoAndReturn(f func() (string, error)) *MockControllerAPIModelUUIDCall {
+func (c *MockControllerAPIModelUUIDCall) DoAndReturn(f func(context.Context) (string, error)) *MockControllerAPIModelUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -893,18 +893,18 @@ func (c *MockMachinesAPIMachinesCall) DoAndReturn(f func(context.Context, ...nam
 }
 
 // MachinesWithTransientErrors mocks base method.
-func (m *MockMachinesAPI) MachinesWithTransientErrors() ([]provisioner.MachineStatusResult, error) {
+func (m *MockMachinesAPI) MachinesWithTransientErrors(arg0 context.Context) ([]provisioner.MachineStatusResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MachinesWithTransientErrors")
+	ret := m.ctrl.Call(m, "MachinesWithTransientErrors", arg0)
 	ret0, _ := ret[0].([]provisioner.MachineStatusResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MachinesWithTransientErrors indicates an expected call of MachinesWithTransientErrors.
-func (mr *MockMachinesAPIMockRecorder) MachinesWithTransientErrors() *MockMachinesAPIMachinesWithTransientErrorsCall {
+func (mr *MockMachinesAPIMockRecorder) MachinesWithTransientErrors(arg0 any) *MockMachinesAPIMachinesWithTransientErrorsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachinesWithTransientErrors", reflect.TypeOf((*MockMachinesAPI)(nil).MachinesWithTransientErrors))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachinesWithTransientErrors", reflect.TypeOf((*MockMachinesAPI)(nil).MachinesWithTransientErrors), arg0)
 	return &MockMachinesAPIMachinesWithTransientErrorsCall{Call: call}
 }
 
@@ -920,30 +920,30 @@ func (c *MockMachinesAPIMachinesWithTransientErrorsCall) Return(arg0 []provision
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachinesAPIMachinesWithTransientErrorsCall) Do(f func() ([]provisioner.MachineStatusResult, error)) *MockMachinesAPIMachinesWithTransientErrorsCall {
+func (c *MockMachinesAPIMachinesWithTransientErrorsCall) Do(f func(context.Context) ([]provisioner.MachineStatusResult, error)) *MockMachinesAPIMachinesWithTransientErrorsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachinesAPIMachinesWithTransientErrorsCall) DoAndReturn(f func() ([]provisioner.MachineStatusResult, error)) *MockMachinesAPIMachinesWithTransientErrorsCall {
+func (c *MockMachinesAPIMachinesWithTransientErrorsCall) DoAndReturn(f func(context.Context) ([]provisioner.MachineStatusResult, error)) *MockMachinesAPIMachinesWithTransientErrorsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ProvisioningInfo mocks base method.
-func (m *MockMachinesAPI) ProvisioningInfo(arg0 []names.MachineTag) (params.ProvisioningInfoResults, error) {
+func (m *MockMachinesAPI) ProvisioningInfo(arg0 context.Context, arg1 []names.MachineTag) (params.ProvisioningInfoResults, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProvisioningInfo", arg0)
+	ret := m.ctrl.Call(m, "ProvisioningInfo", arg0, arg1)
 	ret0, _ := ret[0].(params.ProvisioningInfoResults)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ProvisioningInfo indicates an expected call of ProvisioningInfo.
-func (mr *MockMachinesAPIMockRecorder) ProvisioningInfo(arg0 any) *MockMachinesAPIProvisioningInfoCall {
+func (mr *MockMachinesAPIMockRecorder) ProvisioningInfo(arg0, arg1 any) *MockMachinesAPIProvisioningInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProvisioningInfo", reflect.TypeOf((*MockMachinesAPI)(nil).ProvisioningInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProvisioningInfo", reflect.TypeOf((*MockMachinesAPI)(nil).ProvisioningInfo), arg0, arg1)
 	return &MockMachinesAPIProvisioningInfoCall{Call: call}
 }
 
@@ -959,30 +959,30 @@ func (c *MockMachinesAPIProvisioningInfoCall) Return(arg0 params.ProvisioningInf
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachinesAPIProvisioningInfoCall) Do(f func([]names.MachineTag) (params.ProvisioningInfoResults, error)) *MockMachinesAPIProvisioningInfoCall {
+func (c *MockMachinesAPIProvisioningInfoCall) Do(f func(context.Context, []names.MachineTag) (params.ProvisioningInfoResults, error)) *MockMachinesAPIProvisioningInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachinesAPIProvisioningInfoCall) DoAndReturn(f func([]names.MachineTag) (params.ProvisioningInfoResults, error)) *MockMachinesAPIProvisioningInfoCall {
+func (c *MockMachinesAPIProvisioningInfoCall) DoAndReturn(f func(context.Context, []names.MachineTag) (params.ProvisioningInfoResults, error)) *MockMachinesAPIProvisioningInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchMachineErrorRetry mocks base method.
-func (m *MockMachinesAPI) WatchMachineErrorRetry() (watcher.Watcher[struct{}], error) {
+func (m *MockMachinesAPI) WatchMachineErrorRetry(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchMachineErrorRetry")
+	ret := m.ctrl.Call(m, "WatchMachineErrorRetry", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchMachineErrorRetry indicates an expected call of WatchMachineErrorRetry.
-func (mr *MockMachinesAPIMockRecorder) WatchMachineErrorRetry() *MockMachinesAPIWatchMachineErrorRetryCall {
+func (mr *MockMachinesAPIMockRecorder) WatchMachineErrorRetry(arg0 any) *MockMachinesAPIWatchMachineErrorRetryCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachineErrorRetry", reflect.TypeOf((*MockMachinesAPI)(nil).WatchMachineErrorRetry))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachineErrorRetry", reflect.TypeOf((*MockMachinesAPI)(nil).WatchMachineErrorRetry), arg0)
 	return &MockMachinesAPIWatchMachineErrorRetryCall{Call: call}
 }
 
@@ -998,30 +998,30 @@ func (c *MockMachinesAPIWatchMachineErrorRetryCall) Return(arg0 watcher.Watcher[
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachinesAPIWatchMachineErrorRetryCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockMachinesAPIWatchMachineErrorRetryCall {
+func (c *MockMachinesAPIWatchMachineErrorRetryCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockMachinesAPIWatchMachineErrorRetryCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachinesAPIWatchMachineErrorRetryCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockMachinesAPIWatchMachineErrorRetryCall {
+func (c *MockMachinesAPIWatchMachineErrorRetryCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockMachinesAPIWatchMachineErrorRetryCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchModelMachines mocks base method.
-func (m *MockMachinesAPI) WatchModelMachines() (watcher.Watcher[[]string], error) {
+func (m *MockMachinesAPI) WatchModelMachines(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchModelMachines")
+	ret := m.ctrl.Call(m, "WatchModelMachines", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchModelMachines indicates an expected call of WatchModelMachines.
-func (mr *MockMachinesAPIMockRecorder) WatchModelMachines() *MockMachinesAPIWatchModelMachinesCall {
+func (mr *MockMachinesAPIMockRecorder) WatchModelMachines(arg0 any) *MockMachinesAPIWatchModelMachinesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelMachines", reflect.TypeOf((*MockMachinesAPI)(nil).WatchModelMachines))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelMachines", reflect.TypeOf((*MockMachinesAPI)(nil).WatchModelMachines), arg0)
 	return &MockMachinesAPIWatchModelMachinesCall{Call: call}
 }
 
@@ -1037,13 +1037,13 @@ func (c *MockMachinesAPIWatchModelMachinesCall) Return(arg0 watcher.Watcher[[]st
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachinesAPIWatchModelMachinesCall) Do(f func() (watcher.Watcher[[]string], error)) *MockMachinesAPIWatchModelMachinesCall {
+func (c *MockMachinesAPIWatchModelMachinesCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachinesAPIWatchModelMachinesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachinesAPIWatchModelMachinesCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockMachinesAPIWatchModelMachinesCall {
+func (c *MockMachinesAPIWatchModelMachinesCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachinesAPIWatchModelMachinesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

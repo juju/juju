@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	provisioner "github.com/juju/juju/api/agent/provisioner"
@@ -44,18 +45,18 @@ func (m *MockAPICalls) EXPECT() *MockAPICallsMockRecorder {
 }
 
 // ContainerConfig mocks base method.
-func (m *MockAPICalls) ContainerConfig() (params.ContainerConfig, error) {
+func (m *MockAPICalls) ContainerConfig(arg0 context.Context) (params.ContainerConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerConfig")
+	ret := m.ctrl.Call(m, "ContainerConfig", arg0)
 	ret0, _ := ret[0].(params.ContainerConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContainerConfig indicates an expected call of ContainerConfig.
-func (mr *MockAPICallsMockRecorder) ContainerConfig() *MockAPICallsContainerConfigCall {
+func (mr *MockAPICallsMockRecorder) ContainerConfig(arg0 any) *MockAPICallsContainerConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerConfig", reflect.TypeOf((*MockAPICalls)(nil).ContainerConfig))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerConfig", reflect.TypeOf((*MockAPICalls)(nil).ContainerConfig), arg0)
 	return &MockAPICallsContainerConfigCall{Call: call}
 }
 
@@ -71,30 +72,30 @@ func (c *MockAPICallsContainerConfigCall) Return(arg0 params.ContainerConfig, ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPICallsContainerConfigCall) Do(f func() (params.ContainerConfig, error)) *MockAPICallsContainerConfigCall {
+func (c *MockAPICallsContainerConfigCall) Do(f func(context.Context) (params.ContainerConfig, error)) *MockAPICallsContainerConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPICallsContainerConfigCall) DoAndReturn(f func() (params.ContainerConfig, error)) *MockAPICallsContainerConfigCall {
+func (c *MockAPICallsContainerConfigCall) DoAndReturn(f func(context.Context) (params.ContainerConfig, error)) *MockAPICallsContainerConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetContainerProfileInfo mocks base method.
-func (m *MockAPICalls) GetContainerProfileInfo(arg0 names.MachineTag) ([]*provisioner.LXDProfileResult, error) {
+func (m *MockAPICalls) GetContainerProfileInfo(arg0 context.Context, arg1 names.MachineTag) ([]*provisioner.LXDProfileResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerProfileInfo", arg0)
+	ret := m.ctrl.Call(m, "GetContainerProfileInfo", arg0, arg1)
 	ret0, _ := ret[0].([]*provisioner.LXDProfileResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetContainerProfileInfo indicates an expected call of GetContainerProfileInfo.
-func (mr *MockAPICallsMockRecorder) GetContainerProfileInfo(arg0 any) *MockAPICallsGetContainerProfileInfoCall {
+func (mr *MockAPICallsMockRecorder) GetContainerProfileInfo(arg0, arg1 any) *MockAPICallsGetContainerProfileInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerProfileInfo", reflect.TypeOf((*MockAPICalls)(nil).GetContainerProfileInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerProfileInfo", reflect.TypeOf((*MockAPICalls)(nil).GetContainerProfileInfo), arg0, arg1)
 	return &MockAPICallsGetContainerProfileInfoCall{Call: call}
 }
 
@@ -110,21 +111,21 @@ func (c *MockAPICallsGetContainerProfileInfoCall) Return(arg0 []*provisioner.LXD
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPICallsGetContainerProfileInfoCall) Do(f func(names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockAPICallsGetContainerProfileInfoCall {
+func (c *MockAPICallsGetContainerProfileInfoCall) Do(f func(context.Context, names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockAPICallsGetContainerProfileInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPICallsGetContainerProfileInfoCall) DoAndReturn(f func(names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockAPICallsGetContainerProfileInfoCall {
+func (c *MockAPICallsGetContainerProfileInfoCall) DoAndReturn(f func(context.Context, names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockAPICallsGetContainerProfileInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // HostChangesForContainer mocks base method.
-func (m *MockAPICalls) HostChangesForContainer(arg0 names.MachineTag) ([]network0.DeviceToBridge, int, error) {
+func (m *MockAPICalls) HostChangesForContainer(arg0 context.Context, arg1 names.MachineTag) ([]network0.DeviceToBridge, int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HostChangesForContainer", arg0)
+	ret := m.ctrl.Call(m, "HostChangesForContainer", arg0, arg1)
 	ret0, _ := ret[0].([]network0.DeviceToBridge)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
@@ -132,9 +133,9 @@ func (m *MockAPICalls) HostChangesForContainer(arg0 names.MachineTag) ([]network
 }
 
 // HostChangesForContainer indicates an expected call of HostChangesForContainer.
-func (mr *MockAPICallsMockRecorder) HostChangesForContainer(arg0 any) *MockAPICallsHostChangesForContainerCall {
+func (mr *MockAPICallsMockRecorder) HostChangesForContainer(arg0, arg1 any) *MockAPICallsHostChangesForContainerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostChangesForContainer", reflect.TypeOf((*MockAPICalls)(nil).HostChangesForContainer), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostChangesForContainer", reflect.TypeOf((*MockAPICalls)(nil).HostChangesForContainer), arg0, arg1)
 	return &MockAPICallsHostChangesForContainerCall{Call: call}
 }
 
@@ -150,30 +151,30 @@ func (c *MockAPICallsHostChangesForContainerCall) Return(arg0 []network0.DeviceT
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPICallsHostChangesForContainerCall) Do(f func(names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockAPICallsHostChangesForContainerCall {
+func (c *MockAPICallsHostChangesForContainerCall) Do(f func(context.Context, names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockAPICallsHostChangesForContainerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPICallsHostChangesForContainerCall) DoAndReturn(f func(names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockAPICallsHostChangesForContainerCall {
+func (c *MockAPICallsHostChangesForContainerCall) DoAndReturn(f func(context.Context, names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockAPICallsHostChangesForContainerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // PrepareContainerInterfaceInfo mocks base method.
-func (m *MockAPICalls) PrepareContainerInterfaceInfo(arg0 names.MachineTag) (network.InterfaceInfos, error) {
+func (m *MockAPICalls) PrepareContainerInterfaceInfo(arg0 context.Context, arg1 names.MachineTag) (network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareContainerInterfaceInfo", arg0)
+	ret := m.ctrl.Call(m, "PrepareContainerInterfaceInfo", arg0, arg1)
 	ret0, _ := ret[0].(network.InterfaceInfos)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareContainerInterfaceInfo indicates an expected call of PrepareContainerInterfaceInfo.
-func (mr *MockAPICallsMockRecorder) PrepareContainerInterfaceInfo(arg0 any) *MockAPICallsPrepareContainerInterfaceInfoCall {
+func (mr *MockAPICallsMockRecorder) PrepareContainerInterfaceInfo(arg0, arg1 any) *MockAPICallsPrepareContainerInterfaceInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContainerInterfaceInfo", reflect.TypeOf((*MockAPICalls)(nil).PrepareContainerInterfaceInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContainerInterfaceInfo", reflect.TypeOf((*MockAPICalls)(nil).PrepareContainerInterfaceInfo), arg0, arg1)
 	return &MockAPICallsPrepareContainerInterfaceInfoCall{Call: call}
 }
 
@@ -189,29 +190,29 @@ func (c *MockAPICallsPrepareContainerInterfaceInfoCall) Return(arg0 network.Inte
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPICallsPrepareContainerInterfaceInfoCall) Do(f func(names.MachineTag) (network.InterfaceInfos, error)) *MockAPICallsPrepareContainerInterfaceInfoCall {
+func (c *MockAPICallsPrepareContainerInterfaceInfoCall) Do(f func(context.Context, names.MachineTag) (network.InterfaceInfos, error)) *MockAPICallsPrepareContainerInterfaceInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPICallsPrepareContainerInterfaceInfoCall) DoAndReturn(f func(names.MachineTag) (network.InterfaceInfos, error)) *MockAPICallsPrepareContainerInterfaceInfoCall {
+func (c *MockAPICallsPrepareContainerInterfaceInfoCall) DoAndReturn(f func(context.Context, names.MachineTag) (network.InterfaceInfos, error)) *MockAPICallsPrepareContainerInterfaceInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReleaseContainerAddresses mocks base method.
-func (m *MockAPICalls) ReleaseContainerAddresses(arg0 names.MachineTag) error {
+func (m *MockAPICalls) ReleaseContainerAddresses(arg0 context.Context, arg1 names.MachineTag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0)
+	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReleaseContainerAddresses indicates an expected call of ReleaseContainerAddresses.
-func (mr *MockAPICallsMockRecorder) ReleaseContainerAddresses(arg0 any) *MockAPICallsReleaseContainerAddressesCall {
+func (mr *MockAPICallsMockRecorder) ReleaseContainerAddresses(arg0, arg1 any) *MockAPICallsReleaseContainerAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseContainerAddresses", reflect.TypeOf((*MockAPICalls)(nil).ReleaseContainerAddresses), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseContainerAddresses", reflect.TypeOf((*MockAPICalls)(nil).ReleaseContainerAddresses), arg0, arg1)
 	return &MockAPICallsReleaseContainerAddressesCall{Call: call}
 }
 
@@ -227,29 +228,29 @@ func (c *MockAPICallsReleaseContainerAddressesCall) Return(arg0 error) *MockAPIC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPICallsReleaseContainerAddressesCall) Do(f func(names.MachineTag) error) *MockAPICallsReleaseContainerAddressesCall {
+func (c *MockAPICallsReleaseContainerAddressesCall) Do(f func(context.Context, names.MachineTag) error) *MockAPICallsReleaseContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPICallsReleaseContainerAddressesCall) DoAndReturn(f func(names.MachineTag) error) *MockAPICallsReleaseContainerAddressesCall {
+func (c *MockAPICallsReleaseContainerAddressesCall) DoAndReturn(f func(context.Context, names.MachineTag) error) *MockAPICallsReleaseContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetHostMachineNetworkConfig mocks base method.
-func (m *MockAPICalls) SetHostMachineNetworkConfig(arg0 names.MachineTag, arg1 []params.NetworkConfig) error {
+func (m *MockAPICalls) SetHostMachineNetworkConfig(arg0 context.Context, arg1 names.MachineTag, arg2 []params.NetworkConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetHostMachineNetworkConfig", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetHostMachineNetworkConfig", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetHostMachineNetworkConfig indicates an expected call of SetHostMachineNetworkConfig.
-func (mr *MockAPICallsMockRecorder) SetHostMachineNetworkConfig(arg0, arg1 any) *MockAPICallsSetHostMachineNetworkConfigCall {
+func (mr *MockAPICallsMockRecorder) SetHostMachineNetworkConfig(arg0, arg1, arg2 any) *MockAPICallsSetHostMachineNetworkConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostMachineNetworkConfig", reflect.TypeOf((*MockAPICalls)(nil).SetHostMachineNetworkConfig), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostMachineNetworkConfig", reflect.TypeOf((*MockAPICalls)(nil).SetHostMachineNetworkConfig), arg0, arg1, arg2)
 	return &MockAPICallsSetHostMachineNetworkConfigCall{Call: call}
 }
 
@@ -265,13 +266,13 @@ func (c *MockAPICallsSetHostMachineNetworkConfigCall) Return(arg0 error) *MockAP
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAPICallsSetHostMachineNetworkConfigCall) Do(f func(names.MachineTag, []params.NetworkConfig) error) *MockAPICallsSetHostMachineNetworkConfigCall {
+func (c *MockAPICallsSetHostMachineNetworkConfigCall) Do(f func(context.Context, names.MachineTag, []params.NetworkConfig) error) *MockAPICallsSetHostMachineNetworkConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAPICallsSetHostMachineNetworkConfigCall) DoAndReturn(f func(names.MachineTag, []params.NetworkConfig) error) *MockAPICallsSetHostMachineNetworkConfigCall {
+func (c *MockAPICallsSetHostMachineNetworkConfigCall) DoAndReturn(f func(context.Context, names.MachineTag, []params.NetworkConfig) error) *MockAPICallsSetHostMachineNetworkConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

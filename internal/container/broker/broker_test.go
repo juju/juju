@@ -119,7 +119,7 @@ var fakeInterfaceInfo = corenetwork.InterfaceInfo{
 
 func fakeContainerConfig() params.ContainerConfig {
 	return params.ContainerConfig{
-		UpdateBehavior:          &params.UpdateBehavior{true, true},
+		UpdateBehavior:          &params.UpdateBehavior{EnableOSRefreshUpdate: true, EnableOSUpgrade: true},
 		ProviderType:            "fake",
 		AuthorizedKeys:          coretesting.FakeAuthKeys,
 		SSLHostnameVerification: true,
@@ -140,7 +140,7 @@ func NewFakeAPI() *fakeAPI {
 	}
 }
 
-func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
+func (f *fakeAPI) ContainerConfig(ctx context.Context) (params.ContainerConfig, error) {
 	f.MethodCall(f, "ContainerConfig")
 	if err := f.NextErr(); err != nil {
 		return params.ContainerConfig{}, err
@@ -148,7 +148,7 @@ func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return f.fakeContainerConfig, nil
 }
 
-func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) (corenetwork.InterfaceInfos, error) {
+func (f *fakeAPI) PrepareContainerInterfaceInfo(ctx context.Context, tag names.MachineTag) (corenetwork.InterfaceInfos, error) {
 	f.MethodCall(f, "PrepareContainerInterfaceInfo", tag)
 	if err := f.NextErr(); err != nil {
 		return nil, err
@@ -156,7 +156,7 @@ func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) (corenetwo
 	return corenetwork.InterfaceInfos{f.fakeInterfaceInfo}, nil
 }
 
-func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) (corenetwork.InterfaceInfos, error) {
+func (f *fakeAPI) GetContainerInterfaceInfo(ctx context.Context, tag names.MachineTag) (corenetwork.InterfaceInfos, error) {
 	f.MethodCall(f, "GetContainerInterfaceInfo", tag)
 	if err := f.NextErr(); err != nil {
 		return nil, err
@@ -164,7 +164,7 @@ func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) (corenetwork.I
 	return corenetwork.InterfaceInfos{f.fakeInterfaceInfo}, nil
 }
 
-func (f *fakeAPI) ReleaseContainerAddresses(tag names.MachineTag) error {
+func (f *fakeAPI) ReleaseContainerAddresses(ctx context.Context, tag names.MachineTag) error {
 	f.MethodCall(f, "ReleaseContainerAddresses", tag)
 	if err := f.NextErr(); err != nil {
 		return err
@@ -172,7 +172,7 @@ func (f *fakeAPI) ReleaseContainerAddresses(tag names.MachineTag) error {
 	return nil
 }
 
-func (f *fakeAPI) SetHostMachineNetworkConfig(hostMachineTag names.MachineTag, netConfig []params.NetworkConfig) error {
+func (f *fakeAPI) SetHostMachineNetworkConfig(ctx context.Context, hostMachineTag names.MachineTag, netConfig []params.NetworkConfig) error {
 	f.MethodCall(f, "SetHostMachineNetworkConfig", hostMachineTag.String(), netConfig)
 	if err := f.NextErr(); err != nil {
 		return err
@@ -180,7 +180,7 @@ func (f *fakeAPI) SetHostMachineNetworkConfig(hostMachineTag names.MachineTag, n
 	return nil
 }
 
-func (f *fakeAPI) HostChangesForContainer(machineTag names.MachineTag) ([]network.DeviceToBridge, int, error) {
+func (f *fakeAPI) HostChangesForContainer(ctx context.Context, machineTag names.MachineTag) ([]network.DeviceToBridge, int, error) {
 	f.MethodCall(f, "HostChangesForContainer", machineTag)
 	if err := f.NextErr(); err != nil {
 		return nil, 0, err
@@ -188,7 +188,7 @@ func (f *fakeAPI) HostChangesForContainer(machineTag names.MachineTag) ([]networ
 	return []network.DeviceToBridge{f.fakeDeviceToBridge}, 0, nil
 }
 
-func (f *fakeAPI) PrepareHost(containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error {
+func (f *fakeAPI) PrepareHost(ctx context.Context, containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error {
 	// This is not actually part of the API, however it is something that the
 	// Brokers should be calling, and putting it here means we get a wholistic
 	// view of when what function is getting called.
@@ -197,12 +197,12 @@ func (f *fakeAPI) PrepareHost(containerTag names.MachineTag, log corelogger.Logg
 		return err
 	}
 	if f.fakePreparer != nil {
-		return f.fakePreparer(containerTag, log, abort)
+		return f.fakePreparer(ctx, containerTag, log, abort)
 	}
 	return nil
 }
 
-func (f *fakeAPI) GetContainerProfileInfo(containerTag names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error) {
+func (f *fakeAPI) GetContainerProfileInfo(ctx context.Context, containerTag names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error) {
 	f.MethodCall(f, "GetContainerProfileInfo", containerTag)
 	if err := f.NextErr(); err != nil {
 		return nil, err
@@ -315,8 +315,8 @@ func makePossibleTools() coretools.List {
 	}}
 }
 
-func makeNoOpStatusCallback() func(settableStatus status.Status, info string, data map[string]interface{}) error {
-	return func(_ status.Status, _ string, _ map[string]interface{}) error {
+func makeNoOpStatusCallback() func(ctx context.Context, settableStatus status.Status, info string, data map[string]interface{}) error {
+	return func(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
 		return nil
 	}
 }

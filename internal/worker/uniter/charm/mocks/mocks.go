@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	set "github.com/juju/collections/set"
@@ -41,18 +42,18 @@ func (m *MockBundleReader) EXPECT() *MockBundleReaderMockRecorder {
 }
 
 // Read mocks base method.
-func (m *MockBundleReader) Read(arg0 charm.BundleInfo, arg1 <-chan struct{}) (charm.Bundle, error) {
+func (m *MockBundleReader) Read(arg0 context.Context, arg1 charm.BundleInfo, arg2 <-chan struct{}) (charm.Bundle, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Read", arg0, arg1)
+	ret := m.ctrl.Call(m, "Read", arg0, arg1, arg2)
 	ret0, _ := ret[0].(charm.Bundle)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Read indicates an expected call of Read.
-func (mr *MockBundleReaderMockRecorder) Read(arg0, arg1 any) *MockBundleReaderReadCall {
+func (mr *MockBundleReaderMockRecorder) Read(arg0, arg1, arg2 any) *MockBundleReaderReadCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockBundleReader)(nil).Read), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockBundleReader)(nil).Read), arg0, arg1, arg2)
 	return &MockBundleReaderReadCall{Call: call}
 }
 
@@ -68,13 +69,13 @@ func (c *MockBundleReaderReadCall) Return(arg0 charm.Bundle, arg1 error) *MockBu
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBundleReaderReadCall) Do(f func(charm.BundleInfo, <-chan struct{}) (charm.Bundle, error)) *MockBundleReaderReadCall {
+func (c *MockBundleReaderReadCall) Do(f func(context.Context, charm.BundleInfo, <-chan struct{}) (charm.Bundle, error)) *MockBundleReaderReadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBundleReaderReadCall) DoAndReturn(f func(charm.BundleInfo, <-chan struct{}) (charm.Bundle, error)) *MockBundleReaderReadCall {
+func (c *MockBundleReaderReadCall) DoAndReturn(f func(context.Context, charm.BundleInfo, <-chan struct{}) (charm.Bundle, error)) *MockBundleReaderReadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -103,18 +104,18 @@ func (m *MockBundleInfo) EXPECT() *MockBundleInfoMockRecorder {
 }
 
 // ArchiveSha256 mocks base method.
-func (m *MockBundleInfo) ArchiveSha256() (string, error) {
+func (m *MockBundleInfo) ArchiveSha256(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ArchiveSha256")
+	ret := m.ctrl.Call(m, "ArchiveSha256", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ArchiveSha256 indicates an expected call of ArchiveSha256.
-func (mr *MockBundleInfoMockRecorder) ArchiveSha256() *MockBundleInfoArchiveSha256Call {
+func (mr *MockBundleInfoMockRecorder) ArchiveSha256(arg0 any) *MockBundleInfoArchiveSha256Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ArchiveSha256", reflect.TypeOf((*MockBundleInfo)(nil).ArchiveSha256))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ArchiveSha256", reflect.TypeOf((*MockBundleInfo)(nil).ArchiveSha256), arg0)
 	return &MockBundleInfoArchiveSha256Call{Call: call}
 }
 
@@ -130,13 +131,13 @@ func (c *MockBundleInfoArchiveSha256Call) Return(arg0 string, arg1 error) *MockB
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBundleInfoArchiveSha256Call) Do(f func() (string, error)) *MockBundleInfoArchiveSha256Call {
+func (c *MockBundleInfoArchiveSha256Call) Do(f func(context.Context) (string, error)) *MockBundleInfoArchiveSha256Call {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBundleInfoArchiveSha256Call) DoAndReturn(f func() (string, error)) *MockBundleInfoArchiveSha256Call {
+func (c *MockBundleInfoArchiveSha256Call) DoAndReturn(f func(context.Context) (string, error)) *MockBundleInfoArchiveSha256Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

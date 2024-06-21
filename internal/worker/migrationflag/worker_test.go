@@ -4,6 +4,8 @@
 package migrationflag_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -29,7 +31,7 @@ func (*WorkerSuite) TestPhaseErrorOnStartup(c *gc.C) {
 		Model:  validUUID,
 		Check:  panicCheck,
 	}
-	worker, err := migrationflag.New(config)
+	worker, err := migrationflag.New(context.Background(), config)
 	c.Check(worker, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "gaah")
 	checkCalls(c, stub, "Phase")
@@ -44,7 +46,7 @@ func (*WorkerSuite) TestWatchError(c *gc.C) {
 		Model:  validUUID,
 		Check:  neverCheck,
 	}
-	worker, err := migrationflag.New(config)
+	worker, err := migrationflag.New(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(worker.Check(), jc.IsFalse)
 
@@ -62,7 +64,7 @@ func (*WorkerSuite) TestPhaseErrorWhileRunning(c *gc.C) {
 		Model:  validUUID,
 		Check:  neverCheck,
 	}
-	worker, err := migrationflag.New(config)
+	worker, err := migrationflag.New(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(worker.Check(), jc.IsFalse)
 
@@ -81,7 +83,7 @@ func (*WorkerSuite) TestImmediatePhaseChange(c *gc.C) {
 		Model:  validUUID,
 		Check:  isQuiesce,
 	}
-	worker, err := migrationflag.New(config)
+	worker, err := migrationflag.New(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(worker.Check(), jc.IsTrue)
 
@@ -100,7 +102,7 @@ func (*WorkerSuite) TestSubsequentPhaseChange(c *gc.C) {
 		Model:  validUUID,
 		Check:  isQuiesce,
 	}
-	worker, err := migrationflag.New(config)
+	worker, err := migrationflag.New(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(worker.Check(), jc.IsFalse)
 
@@ -122,7 +124,7 @@ func (*WorkerSuite) TestNoRelevantPhaseChange(c *gc.C) {
 		Model:  validUUID,
 		Check:  isQuiesce,
 	}
-	worker, err := migrationflag.New(config)
+	worker, err := migrationflag.New(context.Background(), config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(worker.Check(), jc.IsFalse)
 

@@ -4,6 +4,8 @@
 package remotestate
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
@@ -16,7 +18,7 @@ import (
 type StorageAccessor interface {
 	// StorageAttachment returns the storage attachment with the specified
 	// unit and storage tags.
-	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
+	StorageAttachment(context.Context, names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
 }
 
 // newStorageAttachmentsWatcher creates a new worker that wakes on input from
@@ -69,11 +71,12 @@ type storageAttachmentChange struct {
 }
 
 func getStorageSnapshot(
+	ctx context.Context,
 	st StorageAccessor,
 	storageTag names.StorageTag,
 	unitTag names.UnitTag,
 ) (StorageSnapshot, error) {
-	attachment, err := st.StorageAttachment(storageTag, unitTag)
+	attachment, err := st.StorageAttachment(ctx, storageTag, unitTag)
 	if err != nil {
 		return StorageSnapshot{}, errors.Annotate(err, "refreshing storage details")
 	}
@@ -87,6 +90,9 @@ func getStorageSnapshot(
 }
 
 func (s *storageAttachmentWatcher) loop() error {
+	ctx, cancel := s.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		case <-s.catacomb.Dying():
@@ -96,6 +102,7 @@ func (s *storageAttachmentWatcher) loop() error {
 				return errors.New("storage attachment watcher closed")
 			}
 			snapshot, err := getStorageSnapshot(
+				ctx,
 				s.st, s.storageTag, s.unitTag,
 			)
 			if errors.Is(err, errors.NotFound) {
@@ -130,4 +137,8 @@ func (s *storageAttachmentWatcher) Kill() {
 // Wait is part of the worker.Worker interface.
 func (s *storageAttachmentWatcher) Wait() error {
 	return s.catacomb.Wait()
+}
+
+func (s *storageAttachmentWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(s.catacomb.Context(context.Background()))
 }

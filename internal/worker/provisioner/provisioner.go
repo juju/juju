@@ -36,7 +36,7 @@ var (
 type Provisioner interface {
 	worker.Worker
 	getMachineWatcher(context.Context) (watcher.StringsWatcher, error)
-	getRetryWatcher() (watcher.NotifyWatcher, error)
+	getRetryWatcher(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // environProvisioner represents a running provisioning worker for machine nodes
@@ -129,7 +129,7 @@ func (p *provisioner) getStartTask(ctx context.Context, harvestMode config.Harve
 	if err != nil {
 		return nil, err
 	}
-	retryWatcher, err := p.getRetryWatcher()
+	retryWatcher, err := p.getRetryWatcher(ctx)
 	if err != nil && !errors.Is(err, errors.NotImplemented) {
 		return nil, err
 	}
@@ -268,12 +268,12 @@ func (p *environProvisioner) loop() error {
 	}
 }
 
-func (p *environProvisioner) getMachineWatcher(_ context.Context) (watcher.StringsWatcher, error) {
-	return p.machinesAPI.WatchModelMachines()
+func (p *environProvisioner) getMachineWatcher(ctx context.Context) (watcher.StringsWatcher, error) {
+	return p.machinesAPI.WatchModelMachines(ctx)
 }
 
-func (p *environProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
-	return p.machinesAPI.WatchMachineErrorRetry()
+func (p *environProvisioner) getRetryWatcher(ctx context.Context) (watcher.NotifyWatcher, error) {
+	return p.machinesAPI.WatchMachineErrorRetry(ctx)
 }
 
 // setConfig updates the environment configuration and notifies
@@ -403,10 +403,10 @@ func (p *containerProvisioner) getMachineWatcher(ctx context.Context) (watcher.S
 	if err != nil {
 		return nil, err
 	}
-	return machine.WatchContainers(p.containerType)
+	return machine.WatchContainers(ctx, p.containerType)
 }
 
-func (p *containerProvisioner) getRetryWatcher() (watcher.NotifyWatcher, error) {
+func (p *containerProvisioner) getRetryWatcher(ctx context.Context) (watcher.NotifyWatcher, error) {
 	return nil, errors.NotImplementedf("getRetryWatcher")
 }
 

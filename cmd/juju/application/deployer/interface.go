@@ -55,7 +55,7 @@ type ModelAPI interface {
 // command needs for charms.
 type CharmDeployAPI interface {
 	ModelConfigGetter
-	CharmInfo(string) (*apicharms.CharmInfo, error)
+	CharmInfo(context.Context, string) (*apicharms.CharmInfo, error)
 }
 
 // OfferAPI represents the methods of the API the deploy command needs
@@ -88,7 +88,7 @@ type DeployerAPI interface {
 	ListSpaces() ([]apiparams.Space, error)
 	Deploy(application.DeployArgs) error
 	Status(*client.StatusArgs) (*apiparams.FullStatus, error)
-	ListCharmResources(curl string, origin commoncharm.Origin) ([]charmresource.Resource, error)
+	ListCharmResources(ctx context.Context, curl string, origin commoncharm.Origin) ([]charmresource.Resource, error)
 }
 
 type ApplicationAPI interface {

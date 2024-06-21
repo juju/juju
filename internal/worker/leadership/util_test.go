@@ -4,6 +4,7 @@
 package leadership_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/testing"
@@ -17,12 +18,12 @@ type StubClaimer struct {
 	releases chan struct{}
 }
 
-func (stub *StubClaimer) ClaimLeadership(serviceName, unitName string, duration time.Duration) error {
+func (stub *StubClaimer) ClaimLeadership(_ context.Context, serviceName, unitName string, duration time.Duration) error {
 	stub.MethodCall(stub, "ClaimLeadership", serviceName, unitName, duration)
 	return stub.NextErr()
 }
 
-func (stub *StubClaimer) BlockUntilLeadershipReleased(serviceName string, cancel <-chan struct{}) error {
+func (stub *StubClaimer) BlockUntilLeadershipReleased(_ context.Context, serviceName string, cancel <-chan struct{}) error {
 	stub.MethodCall(stub, "BlockUntilLeadershipReleased", serviceName)
 	select {
 	case <-cancel:

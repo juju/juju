@@ -104,7 +104,7 @@ func (d *Deployer) Report() map[string]interface{} {
 
 // SetUp is called by the NewStringsWorker to create the watcher that drives the
 // worker.
-func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
+func (d *Deployer) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
 	d.logger.Tracef("SetUp")
 	tag := d.ctx.AgentConfig().Tag()
 	machineTag, ok := tag.(names.MachineTag)
@@ -117,7 +117,7 @@ func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
 		return nil, err
 	}
 	d.logger.Tracef("getting units watcher")
-	machineUnitsWatcher, err := machine.WatchUnits(context.TODO())
+	machineUnitsWatcher, err := machine.WatchUnits(ctx)
 	if err != nil {
 		d.logger.Tracef("error: %v", err)
 		return nil, err
@@ -131,7 +131,7 @@ func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
 	d.logger.Tracef("deployed units: %v", deployed)
 	for _, unitName := range deployed {
 		d.deployed.Add(unitName)
-		if err := d.changed(context.TODO(), unitName); err != nil {
+		if err := d.changed(ctx, unitName); err != nil {
 			return nil, err
 		}
 	}
@@ -139,10 +139,10 @@ func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
 }
 
 // Handle is called for new value in the StringsWatcher.
-func (d *Deployer) Handle(_ <-chan struct{}, unitNames []string) error {
+func (d *Deployer) Handle(ctx context.Context, unitNames []string) error {
 	d.logger.Tracef("Handle: %v", unitNames)
 	for _, unitName := range unitNames {
-		if err := d.changed(context.TODO(), unitName); err != nil {
+		if err := d.changed(ctx, unitName); err != nil {
 			return err
 		}
 	}

@@ -176,7 +176,7 @@ func (c *Client) CheckCharmPlacement(applicationName string, curl *charm.URL) er
 }
 
 // ListCharmResources returns a list of associated resources for a given charm.
-func (c *Client) ListCharmResources(curl string, origin apicharm.Origin) ([]charmresource.Resource, error) {
+func (c *Client) ListCharmResources(ctx context.Context, curl string, origin apicharm.Origin) ([]charmresource.Resource, error) {
 	args := params.CharmURLAndOrigins{
 		Entities: []params.CharmURLAndOrigin{{
 			CharmURL: curl,
@@ -184,7 +184,7 @@ func (c *Client) ListCharmResources(curl string, origin apicharm.Origin) ([]char
 		}},
 	}
 	var results params.CharmResourcesResults
-	if err := c.facade.FacadeCall(context.TODO(), "ListCharmResources", args, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ListCharmResources", args, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 

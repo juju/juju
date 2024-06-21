@@ -51,12 +51,12 @@ func (ctx *testContext) makeApplication(appTag names.ApplicationTag) *applicatio
 	app.EXPECT().Tag().Return(appTag).AnyTimes()
 	app.EXPECT().Life().Return(life.Alive).AnyTimes()
 	app.EXPECT().Refresh(gomock.Any()).Return(nil).AnyTimes()
-	app.EXPECT().CharmURL().DoAndReturn(func() (string, bool, error) {
+	app.EXPECT().CharmURL(gomock.Any()).DoAndReturn(func(context.Context) (string, bool, error) {
 		app.mu.Lock()
 		defer app.mu.Unlock()
 		return app.charmURL, app.charmForced, nil
 	}).AnyTimes()
-	app.EXPECT().CharmModifiedVersion().DoAndReturn(func() (int, error) {
+	app.EXPECT().CharmModifiedVersion(gomock.Any()).DoAndReturn(func(context.Context) (int, error) {
 		app.mu.Lock()
 		defer app.mu.Unlock()
 		return app.charmModifiedVersion, nil
@@ -106,18 +106,18 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 	u.EXPECT().ApplicationTag().Return(appTag).AnyTimes()
 	u.EXPECT().Refresh(gomock.Any()).Return(nil).AnyTimes()
 	u.EXPECT().ProviderID().Return("").AnyTimes()
-	u.EXPECT().PrincipalName().Return("u", false, nil).AnyTimes()
-	u.EXPECT().EnsureDead().DoAndReturn(func() error {
+	u.EXPECT().PrincipalName(gomock.Any()).Return("u", false, nil).AnyTimes()
+	u.EXPECT().EnsureDead(gomock.Any()).DoAndReturn(func(context.Context) error {
 		u.mu.Lock()
 		u.life = life.Dead
 		u.mu.Unlock()
 		return nil
 	}).AnyTimes()
-	u.EXPECT().PrivateAddress().Return(dummyPrivateAddress.Value, nil).AnyTimes()
-	u.EXPECT().PublicAddress().Return(dummyPublicAddress.Value, nil).AnyTimes()
-	u.EXPECT().AvailabilityZone().Return("zone-1", nil).AnyTimes()
+	u.EXPECT().PrivateAddress(gomock.Any()).Return(dummyPrivateAddress.Value, nil).AnyTimes()
+	u.EXPECT().PublicAddress(gomock.Any()).Return(dummyPublicAddress.Value, nil).AnyTimes()
+	u.EXPECT().AvailabilityZone(gomock.Any()).Return("zone-1", nil).AnyTimes()
 
-	u.EXPECT().SetCharmURL(gomock.Any()).DoAndReturn(func(curl string) error {
+	u.EXPECT().SetCharmURL(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, curl string) error {
 		u.mu.Lock()
 		defer u.mu.Unlock()
 		u.charmURL = curl
@@ -129,13 +129,13 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		defer u.mu.Unlock()
 		return u.life
 	}).AnyTimes()
-	u.EXPECT().CharmURL().DoAndReturn(func() (string, error) {
+	u.EXPECT().CharmURL(gomock.Any()).DoAndReturn(func(context.Context) (string, error) {
 		u.mu.Lock()
 		defer u.mu.Unlock()
 		return u.charmURL, nil
 	}).AnyTimes()
 
-	u.EXPECT().DestroyAllSubordinates().DoAndReturn(func() error {
+	u.EXPECT().DestroyAllSubordinates(gomock.Any()).DoAndReturn(func(context.Context) error {
 		u.mu.Lock()
 		defer u.mu.Unlock()
 		if u.subordinate == nil {
@@ -152,7 +152,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		defer u.mu.Unlock()
 		return u.resolved
 	}).AnyTimes()
-	u.EXPECT().ClearResolved().DoAndReturn(func() error {
+	u.EXPECT().ClearResolved(gomock.Any()).DoAndReturn(func(context.Context) error {
 		u.mu.Lock()
 		u.resolved = params.ResolvedNone
 		u.mu.Unlock()
@@ -160,7 +160,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		return nil
 	}).AnyTimes()
 
-	u.EXPECT().HasSubordinates().DoAndReturn(func() (bool, error) {
+	u.EXPECT().HasSubordinates(gomock.Any()).DoAndReturn(func(context.Context) (bool, error) {
 		u.mu.Lock()
 		defer u.mu.Unlock()
 		return u.subordinate != nil, nil
@@ -176,7 +176,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		u.mu.Unlock()
 		return nil
 	}).AnyTimes()
-	u.EXPECT().SetAgentStatus(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(st status.Status, info string, data map[string]any) error {
+	u.EXPECT().SetAgentStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, st status.Status, info string, data map[string]any) error {
 		u.mu.Lock()
 		u.agentStatus = status.StatusInfo{
 			Status:  st,
@@ -199,7 +199,7 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 	}
 	u.EXPECT().State(gomock.Any()).DoAndReturn(getState).AnyTimes()
 
-	u.EXPECT().RelationsStatus().DoAndReturn(func() ([]apiuniter.RelationStatus, error) {
+	u.EXPECT().RelationsStatus(gomock.Any()).DoAndReturn(func(context.Context) ([]apiuniter.RelationStatus, error) {
 		u.mu.Lock()
 		defer u.mu.Unlock()
 		var result []apiuniter.RelationStatus
@@ -228,14 +228,14 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 		return ctx.app, nil
 	}).AnyTimes()
 
-	u.EXPECT().CanApplyLXDProfile().DoAndReturn(func() (bool, error) {
+	u.EXPECT().CanApplyLXDProfile(gomock.Any()).DoAndReturn(func(context.Context) (bool, error) {
 		u.mu.Lock()
-		tag, err := u.AssignedMachine()
+		tag, err := u.AssignedMachine(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 		u.mu.Unlock()
 		return tag.ContainerType() == "lxd", nil
 	}).AnyTimes()
-	u.EXPECT().LXDProfileName().DoAndReturn(func() (string, error) {
+	u.EXPECT().LXDProfileName(gomock.Any()).DoAndReturn(func(context.Context) (string, error) {
 		ctx.stateMu.Lock()
 		defer ctx.stateMu.Unlock()
 		return lxdprofile.MatchProfileNameByAppName(ctx.machineProfiles, ctx.app.Tag().Id())
@@ -348,7 +348,7 @@ func (ctx *testContext) makeRelationUnit(c *gc.C, rel *relation, u *unit) *relat
 	c.Assert(err, jc.ErrorIsNil)
 	ru.EXPECT().Endpoint().Return(*ep).AnyTimes()
 
-	ru.EXPECT().EnterScope().DoAndReturn(func() error {
+	ru.EXPECT().EnterScope(gomock.Any()).DoAndReturn(func(context.Context) error {
 		if u.Life() != life.Alive || rel.Life() != life.Alive {
 			return &params.Error{Code: params.CodeCannotEnterScope, Message: "cannot enter scope: unit or relation is not alive"}
 		}
@@ -357,7 +357,7 @@ func (ctx *testContext) makeRelationUnit(c *gc.C, rel *relation, u *unit) *relat
 		u.mu.Unlock()
 		return nil
 	}).AnyTimes()
-	ru.EXPECT().LeaveScope().DoAndReturn(func() error {
+	ru.EXPECT().LeaveScope(gomock.Any()).DoAndReturn(func(context.Context) error {
 		u.mu.Lock()
 		u.inScope = false
 		u.mu.Unlock()
@@ -371,11 +371,11 @@ type stubLeadershipSettingsAccessor struct {
 	results map[string]string
 }
 
-func (s *stubLeadershipSettingsAccessor) Read(_ string) (result map[string]string, _ error) {
+func (s *stubLeadershipSettingsAccessor) Read(_ context.Context, _ string) (result map[string]string, _ error) {
 	return result, nil
 }
 
-func (s *stubLeadershipSettingsAccessor) Merge(_, _ string, settings map[string]string) error {
+func (s *stubLeadershipSettingsAccessor) Merge(_ context.Context, _, _ string, settings map[string]string) error {
 	if s.results == nil {
 		s.results = make(map[string]string)
 	}

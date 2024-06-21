@@ -68,9 +68,13 @@ func CreateContainerWithMachineAndNetworkAndStorageConfig(
 	networkConfig *container.NetworkConfig,
 	storageConfig *container.StorageConfig,
 ) instances.Instance {
-	callback := func(settableStatus status.Status, info string, data map[string]interface{}) error { return nil }
+	callback := func(ctx context.Context, settableStatus status.Status, info string, data map[string]interface{}) error {
+		return nil
+	}
 	inst, hardware, err := manager.CreateContainer(
-		context.Background(), instanceConfig, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "18.04"), networkConfig, storageConfig, callback)
+		context.Background(),
+		instanceConfig, constraints.Value{}, corebase.MakeDefaultBase("ubuntu", "18.04"),
+		networkConfig, storageConfig, callback)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")

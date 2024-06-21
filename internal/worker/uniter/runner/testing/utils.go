@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -125,13 +126,13 @@ type SecretsContextAccessor struct {
 	jujusecrets.BackendsClient
 }
 
-func (s SecretsContextAccessor) CreateSecretURIs(int) ([]*secrets.URI, error) {
+func (s SecretsContextAccessor) CreateSecretURIs(context.Context, int) ([]*secrets.URI, error) {
 	return []*secrets.URI{{
 		ID: "8m4e2mr0ui3e8a215n4g",
 	}}, nil
 }
 
-func (s SecretsContextAccessor) SecretMetadata() ([]secrets.SecretOwnerMetadata, error) {
+func (s SecretsContextAccessor) SecretMetadata(context.Context) ([]secrets.SecretOwnerMetadata, error) {
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
 	return []secrets.SecretOwnerMetadata{{
 		Metadata: secrets.SecretMetadata{
@@ -147,10 +148,10 @@ func (s SecretsContextAccessor) SecretMetadata() ([]secrets.SecretOwnerMetadata,
 	}}, nil
 }
 
-func (s SecretsContextAccessor) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error) {
+func (s SecretsContextAccessor) SaveContent(_ context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error) {
 	return secrets.ValueRef{}, errors.NotSupportedf("")
 }
 
-func (s SecretsContextAccessor) DeleteContent(uri *secrets.URI, revision int) error {
+func (s SecretsContextAccessor) DeleteContent(_ context.Context, uri *secrets.URI, revision int) error {
 	return errors.NotSupportedf("")
 }

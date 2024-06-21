@@ -83,7 +83,7 @@ func (env *environ) Region() (simplestreams.CloudSpec, error) {
 func (env *sessionEnviron) StartInstance(ctx envcontext.ProviderCallContext, args environs.StartInstanceParams) (*environs.StartInstanceResult, error) {
 	vm, hw, err := env.newRawInstance(ctx, args)
 	if err != nil {
-		_ = args.StatusCallback(status.ProvisioningError, fmt.Sprint(err), nil)
+		_ = args.StatusCallback(ctx, status.ProvisioningError, fmt.Sprint(err), nil)
 		return nil, errors.Trace(err)
 	}
 
@@ -150,7 +150,7 @@ func (env *sessionEnviron) newRawInstance(
 		updateProgressInterval = bootstrapUpdateProgressInterval
 	}
 	updateProgress := func(message string) {
-		_ = args.StatusCallback(status.Provisioning, message, nil)
+		_ = args.StatusCallback(ctx, status.Provisioning, message, nil)
 	}
 
 	statusUpdateArgs := vsphereclient.StatusUpdateParams{

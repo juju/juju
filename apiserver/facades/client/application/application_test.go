@@ -293,7 +293,7 @@ func (s *applicationSuite) TestApplicationDeployToMachine(c *gc.C) {
 	c.Assert(charm.Meta(), gc.DeepEquals, ch.Meta())
 	c.Assert(charm.Config(), gc.DeepEquals, ch.Config())
 
-	errs, err := unitassignerapi.New(s.OpenControllerModelAPI(c)).AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
+	errs, err := unitassignerapi.New(s.OpenControllerModelAPI(c)).AssignUnits(context.Background(), []names.UnitTag{names.NewUnitTag("application-name/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -349,7 +349,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 		Devices:     expectedProfile.Devices,
 	})
 
-	errs, err := unitassignerapi.New(s.OpenControllerModelAPI(c)).AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
+	errs, err := unitassignerapi.New(s.OpenControllerModelAPI(c)).AssignUnits(context.Background(), []names.UnitTag{names.NewUnitTag("application-name/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -405,7 +405,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 		Devices:     expectedProfile.Devices,
 	})
 
-	errs, err := unitassignerapi.New(s.OpenControllerModelAPI(c)).AssignUnits([]names.UnitTag{names.NewUnitTag("application-name/0")})
+	errs, err := unitassignerapi.New(s.OpenControllerModelAPI(c)).AssignUnits(context.Background(), []names.UnitTag{names.NewUnitTag("application-name/0")})
 	c.Assert(errs, gc.DeepEquals, []error{nil})
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -34,7 +34,7 @@ type CAASFirewallerAPI interface {
 	IsExposed(string) (bool, error)
 	ApplicationConfig(string) (config.ConfigAttributes, error)
 
-	ApplicationCharmInfo(appName string) (*charmscommon.CharmInfo, error)
+	ApplicationCharmInfo(ctx context.Context, appName string) (*charmscommon.CharmInfo, error)
 }
 
 // LifeGetter provides an interface for getting the

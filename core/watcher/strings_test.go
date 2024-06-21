@@ -4,6 +4,7 @@
 package watcher_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -63,7 +64,7 @@ type stringsHandler struct {
 	setupDone     chan struct{}
 }
 
-func (sh *stringsHandler) SetUp() (watcher.StringsWatcher, error) {
+func (sh *stringsHandler) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
 	defer func() { sh.setupDone <- struct{}{} }()
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
@@ -84,7 +85,7 @@ func (sh *stringsHandler) TearDown() error {
 	return sh.teardownError
 }
 
-func (sh *stringsHandler) Handle(_ <-chan struct{}, changes []string) error {
+func (sh *stringsHandler) Handle(ctx context.Context, changes []string) error {
 	sh.mu.Lock()
 	defer sh.mu.Unlock()
 	sh.actions = append(sh.actions, "handler")

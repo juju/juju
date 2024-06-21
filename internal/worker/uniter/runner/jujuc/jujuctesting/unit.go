@@ -38,7 +38,7 @@ func (c *ContextUnit) UnitName() string {
 }
 
 // ConfigSettings implements jujuc.ContextUnit.
-func (c *ContextUnit) ConfigSettings() (charm.Settings, error) {
+func (c *ContextUnit) ConfigSettings(context.Context) (charm.Settings, error) {
 	c.stub.AddCall("ConfigSettings")
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

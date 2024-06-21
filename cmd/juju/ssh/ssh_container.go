@@ -170,7 +170,7 @@ func (c *sshContainer) cleanupRun() {
 
 const charmContainerName = "charm"
 
-func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
+func (c *sshContainer) resolveTarget(ctx context.Context, target string) (*resolvedTarget, error) {
 	if modelNameWithoutUsername(c.modelName) == environsbootstrap.ControllerModelName && names.IsValidMachine(target) {
 		// TODO(caas): change here to controller unit tag once we refactored controller to an application.
 		if target != "0" {
@@ -200,7 +200,7 @@ func (c *sshContainer) resolveTarget(target string) (*resolvedTarget, error) {
 		return nil, errors.Annotatef(unit.Error, "getting unit %q", resolvedTargetName)
 	}
 
-	charmInfo, err := c.charmAPI.CharmInfo(unit.Charm)
+	charmInfo, err := c.charmAPI.CharmInfo(ctx, unit.Charm)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting charm info for %q", resolvedTargetName)
 	}
@@ -292,11 +292,11 @@ func (c *sshContainer) copy(ctx Context) error {
 		return errors.New("only one source and one destination are allowed for a k8s application")
 	}
 
-	srcSpec, err := c.expandSCPArg(args[0])
+	srcSpec, err := c.expandSCPArg(ctx, args[0])
 	if err != nil {
 		return err
 	}
-	destSpec, err := c.expandSCPArg(args[1])
+	destSpec, err := c.expandSCPArg(ctx, args[1])
 	if err != nil {
 		return err
 	}
@@ -306,13 +306,13 @@ func (c *sshContainer) copy(ctx Context) error {
 	return c.execClient.Copy(ctx, k8sexec.CopyParams{Src: srcSpec, Dest: destSpec}, cancel)
 }
 
-func (c *sshContainer) expandSCPArg(arg string) (o k8sexec.FileResource, err error) {
+func (c *sshContainer) expandSCPArg(ctx context.Context, arg string) (o k8sexec.FileResource, err error) {
 	if i := strings.Index(arg, ":"); i == -1 {
 		return k8sexec.FileResource{Path: arg}, nil
 	} else if i > 0 {
 		o.Path = arg[i+1:]
 
-		resolvedTarget, err := c.resolveTarget(arg[:i])
+		resolvedTarget, err := c.resolveTarget(ctx, arg[:i])
 		if err != nil {
 			return o, err
 		}

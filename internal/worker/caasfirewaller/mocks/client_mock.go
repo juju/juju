@@ -45,18 +45,18 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // ApplicationCharmInfo mocks base method.
-func (m *MockClient) ApplicationCharmInfo(arg0 string) (*charms.CharmInfo, error) {
+func (m *MockClient) ApplicationCharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationCharmInfo", arg0)
+	ret := m.ctrl.Call(m, "ApplicationCharmInfo", arg0, arg1)
 	ret0, _ := ret[0].(*charms.CharmInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ApplicationCharmInfo indicates an expected call of ApplicationCharmInfo.
-func (mr *MockClientMockRecorder) ApplicationCharmInfo(arg0 any) *MockClientApplicationCharmInfoCall {
+func (mr *MockClientMockRecorder) ApplicationCharmInfo(arg0, arg1 any) *MockClientApplicationCharmInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmInfo", reflect.TypeOf((*MockClient)(nil).ApplicationCharmInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmInfo", reflect.TypeOf((*MockClient)(nil).ApplicationCharmInfo), arg0, arg1)
 	return &MockClientApplicationCharmInfoCall{Call: call}
 }
 
@@ -72,13 +72,13 @@ func (c *MockClientApplicationCharmInfoCall) Return(arg0 *charms.CharmInfo, arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockClientApplicationCharmInfoCall) Do(f func(string) (*charms.CharmInfo, error)) *MockClientApplicationCharmInfoCall {
+func (c *MockClientApplicationCharmInfoCall) Do(f func(context.Context, string) (*charms.CharmInfo, error)) *MockClientApplicationCharmInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClientApplicationCharmInfoCall) DoAndReturn(f func(string) (*charms.CharmInfo, error)) *MockClientApplicationCharmInfoCall {
+func (c *MockClientApplicationCharmInfoCall) DoAndReturn(f func(context.Context, string) (*charms.CharmInfo, error)) *MockClientApplicationCharmInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -380,18 +380,18 @@ func (m *MockCAASFirewallerAPI) EXPECT() *MockCAASFirewallerAPIMockRecorder {
 }
 
 // ApplicationCharmInfo mocks base method.
-func (m *MockCAASFirewallerAPI) ApplicationCharmInfo(arg0 string) (*charms.CharmInfo, error) {
+func (m *MockCAASFirewallerAPI) ApplicationCharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationCharmInfo", arg0)
+	ret := m.ctrl.Call(m, "ApplicationCharmInfo", arg0, arg1)
 	ret0, _ := ret[0].(*charms.CharmInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ApplicationCharmInfo indicates an expected call of ApplicationCharmInfo.
-func (mr *MockCAASFirewallerAPIMockRecorder) ApplicationCharmInfo(arg0 any) *MockCAASFirewallerAPIApplicationCharmInfoCall {
+func (mr *MockCAASFirewallerAPIMockRecorder) ApplicationCharmInfo(arg0, arg1 any) *MockCAASFirewallerAPIApplicationCharmInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmInfo", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).ApplicationCharmInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmInfo", reflect.TypeOf((*MockCAASFirewallerAPI)(nil).ApplicationCharmInfo), arg0, arg1)
 	return &MockCAASFirewallerAPIApplicationCharmInfoCall{Call: call}
 }
 
@@ -407,13 +407,13 @@ func (c *MockCAASFirewallerAPIApplicationCharmInfoCall) Return(arg0 *charms.Char
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCAASFirewallerAPIApplicationCharmInfoCall) Do(f func(string) (*charms.CharmInfo, error)) *MockCAASFirewallerAPIApplicationCharmInfoCall {
+func (c *MockCAASFirewallerAPIApplicationCharmInfoCall) Do(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCAASFirewallerAPIApplicationCharmInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASFirewallerAPIApplicationCharmInfoCall) DoAndReturn(f func(string) (*charms.CharmInfo, error)) *MockCAASFirewallerAPIApplicationCharmInfoCall {
+func (c *MockCAASFirewallerAPIApplicationCharmInfoCall) DoAndReturn(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCAASFirewallerAPIApplicationCharmInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

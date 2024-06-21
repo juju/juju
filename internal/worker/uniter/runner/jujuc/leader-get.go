@@ -63,7 +63,7 @@ func (c *leaderGetCommand) Init(args []string) error {
 
 // Run is part of the cmd.Command interface.
 func (c *leaderGetCommand) Run(ctx *cmd.Context) error {
-	settings, err := c.ctx.LeaderSettings()
+	settings, err := c.ctx.LeaderSettings(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "cannot read leadership settings")
 	}

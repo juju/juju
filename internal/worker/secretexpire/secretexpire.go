@@ -4,6 +4,7 @@
 package secretexpire
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 
 // SecretManagerFacade instances provide a watcher for secret revision expiry changes.
 type SecretManagerFacade interface {
-	WatchSecretRevisionsExpiryChanges(ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error)
+	WatchSecretRevisionsExpiryChanges(ctx context.Context, ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error)
 }
 
 // Config defines the operation of the Worker.
@@ -107,7 +108,10 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	changes, err := w.config.SecretManagerFacade.WatchSecretRevisionsExpiryChanges(w.config.SecretOwners...)
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	changes, err := w.config.SecretManagerFacade.WatchSecretRevisionsExpiryChanges(ctx, w.config.SecretOwners...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -238,4 +242,8 @@ func (w *Worker) computeNextExpireTime() {
 		}
 		w.alarm.Reset(w.nextTrigger)
 	}
+}
+
+func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

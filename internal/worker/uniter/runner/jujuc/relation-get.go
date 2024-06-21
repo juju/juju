@@ -4,6 +4,7 @@
 package jujuc
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -180,7 +181,7 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 		settingsReaderFn = c.readRemoteUnitOrAppSettings
 	}
 
-	settings, err := settingsReaderFn(r)
+	settings, err := settingsReaderFn(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -218,16 +219,16 @@ func (c *RelationGetCommand) mustReadSettingsFromController() (bool, error) {
 	return true, nil
 }
 
-func (c *RelationGetCommand) readLocalUnitOrAppSettings(r ContextRelation) (params.Settings, error) {
+func (c *RelationGetCommand) readLocalUnitOrAppSettings(ctx context.Context, r ContextRelation) (params.Settings, error) {
 	var (
 		node Settings
 		err  error
 	)
 
 	if c.Application {
-		node, err = r.ApplicationSettings()
+		node, err = r.ApplicationSettings(ctx)
 	} else {
-		node, err = r.Settings()
+		node, err = r.Settings(ctx)
 	}
 	if err != nil {
 		return nil, err
@@ -236,10 +237,10 @@ func (c *RelationGetCommand) readLocalUnitOrAppSettings(r ContextRelation) (para
 	return node.Map(), nil
 }
 
-func (c *RelationGetCommand) readRemoteUnitOrAppSettings(r ContextRelation) (params.Settings, error) {
+func (c *RelationGetCommand) readRemoteUnitOrAppSettings(ctx context.Context, r ContextRelation) (params.Settings, error) {
 	if !c.Application {
-		return r.ReadSettings(c.UnitOrAppName)
+		return r.ReadSettings(ctx, c.UnitOrAppName)
 	}
 
-	return r.ReadApplicationSettings(c.UnitOrAppName)
+	return r.ReadApplicationSettings(ctx, c.UnitOrAppName)
 }

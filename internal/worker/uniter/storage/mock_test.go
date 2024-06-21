@@ -22,19 +22,19 @@ type mockStorageAccessor struct {
 	remove                        func(names.StorageTag, names.UnitTag) error
 }
 
-func (m *mockStorageAccessor) StorageAttachment(s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
+func (m *mockStorageAccessor) StorageAttachment(ctx context.Context, s names.StorageTag, u names.UnitTag) (params.StorageAttachment, error) {
 	return m.storageAttachment(s, u)
 }
 
-func (m *mockStorageAccessor) UnitStorageAttachments(u names.UnitTag) ([]params.StorageAttachmentId, error) {
+func (m *mockStorageAccessor) UnitStorageAttachments(ctx context.Context, u names.UnitTag) ([]params.StorageAttachmentId, error) {
 	return m.unitStorageAttachments(u)
 }
 
-func (m *mockStorageAccessor) DestroyUnitStorageAttachments(u names.UnitTag) error {
+func (m *mockStorageAccessor) DestroyUnitStorageAttachments(ctx context.Context, u names.UnitTag) error {
 	return m.destroyUnitStorageAttachments(u)
 }
 
-func (m *mockStorageAccessor) RemoveStorageAttachment(s names.StorageTag, u names.UnitTag) error {
+func (m *mockStorageAccessor) RemoveStorageAttachment(ctx context.Context, s names.StorageTag, u names.UnitTag) error {
 	return m.remove(s, u)
 }
 

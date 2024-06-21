@@ -125,20 +125,20 @@ func (m *containerManager) CreateContainer(
 		return nil, nil, errors.Trace(err)
 	}
 
-	_ = callback(status.Provisioning, "Creating container spec", nil)
+	_ = callback(ctx, status.Provisioning, "Creating container spec", nil)
 	spec, err := m.getContainerSpec(ctx, instanceConfig, cons, base, networkConfig, callback)
 	if err != nil {
-		_ = callback(status.ProvisioningError, fmt.Sprintf("Creating container spec: %v", err), nil)
+		_ = callback(ctx, status.ProvisioningError, fmt.Sprintf("Creating container spec: %v", err), nil)
 		return nil, nil, errors.Trace(err)
 	}
 
-	_ = callback(status.Provisioning, "Creating container", nil)
+	_ = callback(ctx, status.Provisioning, "Creating container", nil)
 	c, err := m.server.CreateContainerFromSpec(spec)
 	if err != nil {
-		_ = callback(status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
+		_ = callback(ctx, status.ProvisioningError, fmt.Sprintf("Creating container: %v", err), nil)
 		return nil, nil, errors.Trace(err)
 	}
-	_ = callback(status.Running, "Container started", nil)
+	_ = callback(ctx, status.Running, "Container started", nil)
 
 	virtType := string(spec.VirtType)
 	arch := c.Arch()

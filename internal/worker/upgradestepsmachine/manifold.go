@@ -23,7 +23,7 @@ import (
 // StatusSetter defines the single method required to set an agent's
 // status.
 type StatusSetter interface {
-	SetStatus(setableStatus status.Status, info string, data map[string]any) error
+	SetStatus(ctx context.Context, setableStatus status.Status, info string, data map[string]any) error
 }
 
 type (

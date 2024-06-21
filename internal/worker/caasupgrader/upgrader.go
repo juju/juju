@@ -37,9 +37,9 @@ type Upgrader struct {
 
 // UpgraderClient provides the facade methods used by the worker.
 type UpgraderClient interface {
-	DesiredVersion(tag string) (version.Number, error)
-	SetVersion(tag string, v version.Binary) error
-	WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
+	DesiredVersion(ctx context.Context, tag string) (version.Number, error)
+	SetVersion(ctx context.Context, tag string, v version.Binary) error
+	WatchAPIVersion(ctx context.Context, agentTag string) (watcher.NotifyWatcher, error)
 }
 
 type CAASOperatorUpgrader interface {
@@ -88,10 +88,13 @@ func (u *Upgrader) Wait() error {
 }
 
 func (u *Upgrader) loop() error {
+	ctx, cancel := u.scopedContext()
+	defer cancel()
+
 	// Only controllers and sidecar unit agents set their version here - application agents do it in the main agent worker loop.
 	hostOSType := coreos.HostOSTypeName()
 	if coreagent.IsAllowedControllerTag(u.tag.Kind()) || u.tag.Kind() == names.UnitTagKind {
-		if err := u.upgraderClient.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
+		if err := u.upgraderClient.SetVersion(ctx, u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
 			return errors.Annotatef(err, "setting agent version for %q", u.tag.String())
 		}
 	}
@@ -107,7 +110,7 @@ func (u *Upgrader) loop() error {
 	// initial event, and we should assume that it'll break its contract
 	// sometime. So we allow the watcher to wait patiently for the event
 	// for a full minute; but after that we proceed regardless.
-	versionWatcher, err := u.upgraderClient.WatchAPIVersion(u.tag.String())
+	versionWatcher, err := u.upgraderClient.WatchAPIVersion(ctx, u.tag.String())
 	if err != nil {
 		return errors.Annotate(err, "getting upgrader facade watch api version client")
 	}
@@ -145,7 +148,7 @@ func (u *Upgrader) loop() error {
 			}
 		}
 
-		wantVersion, err := u.upgraderClient.DesiredVersion(u.tag.String())
+		wantVersion, err := u.upgraderClient.DesiredVersion(ctx, u.tag.String())
 		if err != nil {
 			return err
 		}
@@ -170,6 +173,10 @@ func (u *Upgrader) loop() error {
 				err, "requesting upgrade for %v from %v to %v", u.tag.String(), jujuversion.Current, wantVersion)
 		}
 	}
+}
+
+func (u *Upgrader) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(u.catacomb.Context(context.Background()))
 }
 
 func toBinaryVersion(vers version.Number, osType string) version.Binary {

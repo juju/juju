@@ -27,7 +27,9 @@ var ErrRestrictedContext = errors.NotImplementedf("not implemented for restricte
 type RestrictedContext struct{}
 
 // ConfigSettings implements hooks.Context.
-func (*RestrictedContext) ConfigSettings() (charm.Settings, error) { return nil, ErrRestrictedContext }
+func (*RestrictedContext) ConfigSettings(context.Context) (charm.Settings, error) {
+	return nil, ErrRestrictedContext
+}
 
 // GoalState implements hooks.Context.
 func (*RestrictedContext) GoalState(context.Context) (*application.GoalState, error) {
@@ -88,7 +90,9 @@ func (*RestrictedContext) RequestReboot(prio RebootPriority) error {
 }
 
 // PublicAddress implements hooks.Context.
-func (*RestrictedContext) PublicAddress() (string, error) { return "", ErrRestrictedContext }
+func (*RestrictedContext) PublicAddress(_ context.Context) (string, error) {
+	return "", ErrRestrictedContext
+}
 
 // PrivateAddress implements hooks.Context.
 func (*RestrictedContext) PrivateAddress() (string, error) { return "", ErrRestrictedContext }
@@ -107,7 +111,7 @@ func (*RestrictedContext) ClosePortRange(string, network.PortRange) error {
 func (*RestrictedContext) OpenedPortRanges() network.GroupedPortRanges { return nil }
 
 // NetworkInfo implements hooks.Context.
-func (*RestrictedContext) NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {
+func (*RestrictedContext) NetworkInfo(_ context.Context, bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {
 	return map[string]params.NetworkInfoResult{}, ErrRestrictedContext
 }
 
@@ -115,12 +119,14 @@ func (*RestrictedContext) NetworkInfo(bindingNames []string, relationId int) (ma
 func (*RestrictedContext) IsLeader() (bool, error) { return false, ErrRestrictedContext }
 
 // LeaderSettings implements hooks.Context.
-func (*RestrictedContext) LeaderSettings() (map[string]string, error) {
+func (*RestrictedContext) LeaderSettings(_ context.Context) (map[string]string, error) {
 	return nil, ErrRestrictedContext
 }
 
 // WriteLeaderSettings implements hooks.Context.
-func (*RestrictedContext) WriteLeaderSettings(map[string]string) error { return ErrRestrictedContext }
+func (*RestrictedContext) WriteLeaderSettings(context.Context, map[string]string) error {
+	return ErrRestrictedContext
+}
 
 // AddMetric implements hooks.Context.
 func (*RestrictedContext) AddMetric(string, string, time.Time) error { return ErrRestrictedContext }
@@ -131,15 +137,17 @@ func (*RestrictedContext) AddMetricLabels(string, string, time.Time, map[string]
 }
 
 // StorageTags implements hooks.Context.
-func (*RestrictedContext) StorageTags() ([]names.StorageTag, error) { return nil, ErrRestrictedContext }
+func (*RestrictedContext) StorageTags(_ context.Context) ([]names.StorageTag, error) {
+	return nil, ErrRestrictedContext
+}
 
 // Storage implements hooks.Context.
-func (*RestrictedContext) Storage(names.StorageTag) (ContextStorageAttachment, error) {
+func (*RestrictedContext) Storage(context.Context, names.StorageTag) (ContextStorageAttachment, error) {
 	return nil, ErrRestrictedContext
 }
 
 // HookStorage implements hooks.Context.
-func (*RestrictedContext) HookStorage() (ContextStorageAttachment, error) {
+func (*RestrictedContext) HookStorage(_ context.Context) (ContextStorageAttachment, error) {
 	return nil, ErrRestrictedContext
 }
 
@@ -164,12 +172,12 @@ func (ctx *RestrictedContext) TrackPayload(payload payloads.Payload) error {
 }
 
 // UntrackPayload implements hooks.Context.
-func (ctx *RestrictedContext) UntrackPayload(class, id string) error {
+func (ctx *RestrictedContext) UntrackPayload(_ context.Context, class, id string) error {
 	return ErrRestrictedContext
 }
 
 // SetPayloadStatus implements hooks.Context.
-func (ctx *RestrictedContext) SetPayloadStatus(class, id, status string) error {
+func (ctx *RestrictedContext) SetPayloadStatus(_ context.Context, class, id, status string) error {
 	return ErrRestrictedContext
 }
 
@@ -179,7 +187,7 @@ func (ctx *RestrictedContext) ListPayloads() ([]string, error) {
 }
 
 // FlushPayloads pushes the hook context data out to state.
-func (ctx *RestrictedContext) FlushPayloads() error {
+func (ctx *RestrictedContext) FlushPayloads(_ context.Context) error {
 	return ErrRestrictedContext
 }
 
@@ -213,7 +221,9 @@ func (*RestrictedContext) UpdateActionResults(keys []string, value interface{}) 
 }
 
 // LogActionMessage implements hooks.Context.
-func (*RestrictedContext) LogActionMessage(string) error { return ErrRestrictedContext }
+func (*RestrictedContext) LogActionMessage(context.Context, string) error {
+	return ErrRestrictedContext
+}
 
 // SetActionMessage implements hooks.Context.
 func (*RestrictedContext) SetActionMessage(string) error { return ErrRestrictedContext }
@@ -237,12 +247,12 @@ func (*RestrictedContext) WorkloadName() (string, error) {
 }
 
 // GetSecret implements runner.Context.
-func (ctx *RestrictedContext) GetSecret(*secrets.URI, string, bool, bool) (secrets.SecretValue, error) {
+func (ctx *RestrictedContext) GetSecret(context.Context, *secrets.URI, string, bool, bool) (secrets.SecretValue, error) {
 	return nil, ErrRestrictedContext
 }
 
 // CreateSecret implements runner.Context.
-func (ctx *RestrictedContext) CreateSecret(args *SecretCreateArgs) (*secrets.URI, error) {
+func (ctx *RestrictedContext) CreateSecret(_ context.Context, args *SecretCreateArgs) (*secrets.URI, error) {
 	return nil, ErrRestrictedContext
 }
 

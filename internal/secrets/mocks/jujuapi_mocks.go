@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	secrets "github.com/juju/juju/core/secrets"
@@ -42,9 +43,9 @@ func (m *MockJujuAPIClient) EXPECT() *MockJujuAPIClientMockRecorder {
 }
 
 // GetBackendConfigForDrain mocks base method.
-func (m *MockJujuAPIClient) GetBackendConfigForDrain(arg0 *string) (*provider.ModelBackendConfig, string, error) {
+func (m *MockJujuAPIClient) GetBackendConfigForDrain(arg0 context.Context, arg1 *string) (*provider.ModelBackendConfig, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBackendConfigForDrain", arg0)
+	ret := m.ctrl.Call(m, "GetBackendConfigForDrain", arg0, arg1)
 	ret0, _ := ret[0].(*provider.ModelBackendConfig)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
@@ -52,9 +53,9 @@ func (m *MockJujuAPIClient) GetBackendConfigForDrain(arg0 *string) (*provider.Mo
 }
 
 // GetBackendConfigForDrain indicates an expected call of GetBackendConfigForDrain.
-func (mr *MockJujuAPIClientMockRecorder) GetBackendConfigForDrain(arg0 any) *MockJujuAPIClientGetBackendConfigForDrainCall {
+func (mr *MockJujuAPIClientMockRecorder) GetBackendConfigForDrain(arg0, arg1 any) *MockJujuAPIClientGetBackendConfigForDrainCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBackendConfigForDrain", reflect.TypeOf((*MockJujuAPIClient)(nil).GetBackendConfigForDrain), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBackendConfigForDrain", reflect.TypeOf((*MockJujuAPIClient)(nil).GetBackendConfigForDrain), arg0, arg1)
 	return &MockJujuAPIClientGetBackendConfigForDrainCall{Call: call}
 }
 
@@ -70,21 +71,21 @@ func (c *MockJujuAPIClientGetBackendConfigForDrainCall) Return(arg0 *provider.Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJujuAPIClientGetBackendConfigForDrainCall) Do(f func(*string) (*provider.ModelBackendConfig, string, error)) *MockJujuAPIClientGetBackendConfigForDrainCall {
+func (c *MockJujuAPIClientGetBackendConfigForDrainCall) Do(f func(context.Context, *string) (*provider.ModelBackendConfig, string, error)) *MockJujuAPIClientGetBackendConfigForDrainCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJujuAPIClientGetBackendConfigForDrainCall) DoAndReturn(f func(*string) (*provider.ModelBackendConfig, string, error)) *MockJujuAPIClientGetBackendConfigForDrainCall {
+func (c *MockJujuAPIClientGetBackendConfigForDrainCall) DoAndReturn(f func(context.Context, *string) (*provider.ModelBackendConfig, string, error)) *MockJujuAPIClientGetBackendConfigForDrainCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetContentInfo mocks base method.
-func (m *MockJujuAPIClient) GetContentInfo(arg0 *secrets.URI, arg1 string, arg2, arg3 bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error) {
+func (m *MockJujuAPIClient) GetContentInfo(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3, arg4 bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContentInfo", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "GetContentInfo", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(*secrets0.ContentParams)
 	ret1, _ := ret[1].(*provider.ModelBackendConfig)
 	ret2, _ := ret[2].(bool)
@@ -93,9 +94,9 @@ func (m *MockJujuAPIClient) GetContentInfo(arg0 *secrets.URI, arg1 string, arg2,
 }
 
 // GetContentInfo indicates an expected call of GetContentInfo.
-func (mr *MockJujuAPIClientMockRecorder) GetContentInfo(arg0, arg1, arg2, arg3 any) *MockJujuAPIClientGetContentInfoCall {
+func (mr *MockJujuAPIClientMockRecorder) GetContentInfo(arg0, arg1, arg2, arg3, arg4 any) *MockJujuAPIClientGetContentInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContentInfo", reflect.TypeOf((*MockJujuAPIClient)(nil).GetContentInfo), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContentInfo", reflect.TypeOf((*MockJujuAPIClient)(nil).GetContentInfo), arg0, arg1, arg2, arg3, arg4)
 	return &MockJujuAPIClientGetContentInfoCall{Call: call}
 }
 
@@ -111,21 +112,21 @@ func (c *MockJujuAPIClientGetContentInfoCall) Return(arg0 *secrets0.ContentParam
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJujuAPIClientGetContentInfoCall) Do(f func(*secrets.URI, string, bool, bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error)) *MockJujuAPIClientGetContentInfoCall {
+func (c *MockJujuAPIClientGetContentInfoCall) Do(f func(context.Context, *secrets.URI, string, bool, bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error)) *MockJujuAPIClientGetContentInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJujuAPIClientGetContentInfoCall) DoAndReturn(f func(*secrets.URI, string, bool, bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error)) *MockJujuAPIClientGetContentInfoCall {
+func (c *MockJujuAPIClientGetContentInfoCall) DoAndReturn(f func(context.Context, *secrets.URI, string, bool, bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error)) *MockJujuAPIClientGetContentInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetRevisionContentInfo mocks base method.
-func (m *MockJujuAPIClient) GetRevisionContentInfo(arg0 *secrets.URI, arg1 int, arg2 bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error) {
+func (m *MockJujuAPIClient) GetRevisionContentInfo(arg0 context.Context, arg1 *secrets.URI, arg2 int, arg3 bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRevisionContentInfo", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetRevisionContentInfo", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*secrets0.ContentParams)
 	ret1, _ := ret[1].(*provider.ModelBackendConfig)
 	ret2, _ := ret[2].(bool)
@@ -134,9 +135,9 @@ func (m *MockJujuAPIClient) GetRevisionContentInfo(arg0 *secrets.URI, arg1 int, 
 }
 
 // GetRevisionContentInfo indicates an expected call of GetRevisionContentInfo.
-func (mr *MockJujuAPIClientMockRecorder) GetRevisionContentInfo(arg0, arg1, arg2 any) *MockJujuAPIClientGetRevisionContentInfoCall {
+func (mr *MockJujuAPIClientMockRecorder) GetRevisionContentInfo(arg0, arg1, arg2, arg3 any) *MockJujuAPIClientGetRevisionContentInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRevisionContentInfo", reflect.TypeOf((*MockJujuAPIClient)(nil).GetRevisionContentInfo), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRevisionContentInfo", reflect.TypeOf((*MockJujuAPIClient)(nil).GetRevisionContentInfo), arg0, arg1, arg2, arg3)
 	return &MockJujuAPIClientGetRevisionContentInfoCall{Call: call}
 }
 
@@ -152,30 +153,30 @@ func (c *MockJujuAPIClientGetRevisionContentInfoCall) Return(arg0 *secrets0.Cont
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJujuAPIClientGetRevisionContentInfoCall) Do(f func(*secrets.URI, int, bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error)) *MockJujuAPIClientGetRevisionContentInfoCall {
+func (c *MockJujuAPIClientGetRevisionContentInfoCall) Do(f func(context.Context, *secrets.URI, int, bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error)) *MockJujuAPIClientGetRevisionContentInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJujuAPIClientGetRevisionContentInfoCall) DoAndReturn(f func(*secrets.URI, int, bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error)) *MockJujuAPIClientGetRevisionContentInfoCall {
+func (c *MockJujuAPIClientGetRevisionContentInfoCall) DoAndReturn(f func(context.Context, *secrets.URI, int, bool) (*secrets0.ContentParams, *provider.ModelBackendConfig, bool, error)) *MockJujuAPIClientGetRevisionContentInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetSecretBackendConfig mocks base method.
-func (m *MockJujuAPIClient) GetSecretBackendConfig(arg0 *string) (*provider.ModelBackendConfigInfo, error) {
+func (m *MockJujuAPIClient) GetSecretBackendConfig(arg0 context.Context, arg1 *string) (*provider.ModelBackendConfigInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretBackendConfig", arg0)
+	ret := m.ctrl.Call(m, "GetSecretBackendConfig", arg0, arg1)
 	ret0, _ := ret[0].(*provider.ModelBackendConfigInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecretBackendConfig indicates an expected call of GetSecretBackendConfig.
-func (mr *MockJujuAPIClientMockRecorder) GetSecretBackendConfig(arg0 any) *MockJujuAPIClientGetSecretBackendConfigCall {
+func (mr *MockJujuAPIClientMockRecorder) GetSecretBackendConfig(arg0, arg1 any) *MockJujuAPIClientGetSecretBackendConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackendConfig", reflect.TypeOf((*MockJujuAPIClient)(nil).GetSecretBackendConfig), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretBackendConfig", reflect.TypeOf((*MockJujuAPIClient)(nil).GetSecretBackendConfig), arg0, arg1)
 	return &MockJujuAPIClientGetSecretBackendConfigCall{Call: call}
 }
 
@@ -191,13 +192,13 @@ func (c *MockJujuAPIClientGetSecretBackendConfigCall) Return(arg0 *provider.Mode
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockJujuAPIClientGetSecretBackendConfigCall) Do(f func(*string) (*provider.ModelBackendConfigInfo, error)) *MockJujuAPIClientGetSecretBackendConfigCall {
+func (c *MockJujuAPIClientGetSecretBackendConfigCall) Do(f func(context.Context, *string) (*provider.ModelBackendConfigInfo, error)) *MockJujuAPIClientGetSecretBackendConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockJujuAPIClientGetSecretBackendConfigCall) DoAndReturn(f func(*string) (*provider.ModelBackendConfigInfo, error)) *MockJujuAPIClientGetSecretBackendConfigCall {
+func (c *MockJujuAPIClientGetSecretBackendConfigCall) DoAndReturn(f func(context.Context, *string) (*provider.ModelBackendConfigInfo, error)) *MockJujuAPIClientGetSecretBackendConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

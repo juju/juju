@@ -38,14 +38,14 @@ func New(caller base.APICaller, options ...Option) API {
 // AssignUnits tells the controller to run whatever unit assignments it has.
 // Unit assignments for units that no longer exist will return an error that
 // satisfies errors.IsNotFound.
-func (a API) AssignUnits(tags []names.UnitTag) ([]error, error) {
+func (a API) AssignUnits(ctx context.Context, tags []names.UnitTag) ([]error, error) {
 	entities := make([]params.Entity, len(tags))
 	for i, tag := range tags {
 		entities[i] = params.Entity{Tag: tag.String()}
 	}
 	args := params.Entities{Entities: entities}
 	var result params.ErrorResults
-	if err := a.facade.FacadeCall(context.TODO(), "AssignUnits", args, &result); err != nil {
+	if err := a.facade.FacadeCall(ctx, "AssignUnits", args, &result); err != nil {
 		return nil, err
 	}
 
@@ -68,9 +68,9 @@ func convertNotFound(err error) error {
 
 // WatchUnitAssignments watches the server for new unit assignments to be
 // created.
-func (a API) WatchUnitAssignments() (watcher.StringsWatcher, error) {
+func (a API) WatchUnitAssignments(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := a.facade.FacadeCall(context.TODO(), "WatchUnitAssignments", nil, &result)
+	err := a.facade.FacadeCall(ctx, "WatchUnitAssignments", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -82,9 +82,9 @@ func (a API) WatchUnitAssignments() (watcher.StringsWatcher, error) {
 }
 
 // SetAgentStatus sets the status of the unit agents.
-func (a API) SetAgentStatus(args params.SetStatus) error {
+func (a API) SetAgentStatus(ctx context.Context, args params.SetStatus) error {
 	var result params.ErrorResults
-	err := a.facade.FacadeCall(context.TODO(), "SetAgentStatus", args, &result)
+	err := a.facade.FacadeCall(ctx, "SetAgentStatus", args, &result)
 	if err != nil {
 		return err
 	}

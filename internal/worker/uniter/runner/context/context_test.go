@@ -180,9 +180,9 @@ func (s *InterfaceSuite) TestUnitNetworkInfo(c *gc.C) {
 			},
 		},
 	}
-	s.unit.EXPECT().NetworkInfo([]string{"unknown"}, nil).Return(result, nil)
+	s.unit.EXPECT().NetworkInfo(gomock.Any(), []string{"unknown"}, nil).Return(result, nil)
 
-	netInfo, err := ctx.NetworkInfo([]string{"unknown"}, -1)
+	netInfo, err := ctx.NetworkInfo(stdcontext.Background(), []string{"unknown"}, -1)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(netInfo, gc.DeepEquals, result)
 }
@@ -296,7 +296,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 	pr, err := ctx.PrivateAddress()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(pr, gc.Equals, "u-0.testing.invalid")
-	pa, err := ctx.PublicAddress()
+	pa, err := ctx.PublicAddress(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	// Initially the public address is the same as the private address since
 	// the "most public" address is chosen.
@@ -314,14 +314,14 @@ func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
 
 	ctx := s.GetContext(c, ctrl, -1, "", names.StorageTag{})
 	cfg := charm.Settings{"blog-title": "My Title"}
-	s.unit.EXPECT().ConfigSettings().Return(cfg, nil)
+	s.unit.EXPECT().ConfigSettings(gomock.Any()).Return(cfg, nil)
 
-	settings, err := ctx.ConfigSettings()
+	settings, err := ctx.ConfigSettings(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, cfg)
 
 	// Second call does not hit backend.
-	settings, err = ctx.ConfigSettings()
+	settings, err = ctx.ConfigSettings(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, cfg)
 }
@@ -388,7 +388,7 @@ func (s *InterfaceSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.SetActionMessage("foo")
 	c.Check(err, gc.ErrorMatches, "not running an action")
-	err = ctx.LogActionMessage("foo")
+	err = ctx.LogActionMessage(stdcontext.Background(), "foo")
 	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.UpdateActionResults([]string{"1", "2", "3"}, "value")
 	c.Check(err, gc.ErrorMatches, "not running an action")
@@ -481,9 +481,9 @@ func (s *InterfaceSuite) TestLogActionMessage(c *gc.C) {
 	defer ctrl.Finish()
 
 	hctx := s.getHookContext(c, ctrl, coretesting.ModelTag.Id(), -1, "", names.StorageTag{})
-	s.unit.EXPECT().LogActionMessage(names.NewActionTag("2"), "hello world").Return(nil)
+	s.unit.EXPECT().LogActionMessage(gomock.Any(), names.NewActionTag("2"), "hello world").Return(nil)
 	context.WithActionContext(hctx, nil, nil)
-	err := hctx.LogActionMessage("hello world")
+	err := hctx.LogActionMessage(stdcontext.Background(), "hello world")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -684,7 +684,7 @@ func (s *InterfaceSuite) TestSecretMetadata(c *gc.C) {
 			Description: "will be removed",
 		},
 	})
-	uri3, err := ctx.CreateSecret(&jujuc.SecretCreateArgs{
+	uri3, err := ctx.CreateSecret(stdcontext.Background(), &jujuc.SecretCreateArgs{
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "foo"},
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Description: ptr("a new one"),
@@ -908,7 +908,7 @@ func (s *HookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
 
 	// We expect a single call for the following API endpoints
 	s.expectStateValues()
-	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
+	s.mockUnit.EXPECT().CommitHookChanges(gomock.Any(), params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{
 			{
 				Tag: "unit-wordpress-0",
@@ -942,7 +942,7 @@ func (s *HookContextSuite) TestOpenPortRange(c *gc.C) {
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.CAAS, s.mockLeadership)
 
-	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
+	s.mockUnit.EXPECT().CommitHookChanges(gomock.Any(), params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{
 			{
 				Tag: "unit-wordpress-0",
@@ -968,7 +968,7 @@ func (s *HookContextSuite) TestOpenPortRange(c *gc.C) {
 func (s *HookContextSuite) TestOpenedPortRanges(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
+	s.mockUnit.EXPECT().CommitHookChanges(gomock.Any(), params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{
 			{
 				Tag: "unit-wordpress-0",
@@ -1022,7 +1022,7 @@ func (s *HookContextSuite) TestClosePortRange(c *gc.C) {
 
 	hookContext := context.NewMockUnitHookContext(c, s.mockUnit, model.CAAS, s.mockLeadership)
 
-	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
+	s.mockUnit.EXPECT().CommitHookChanges(gomock.Any(), params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{
 			{
 				Tag: "unit-wordpress-0",
@@ -1104,7 +1104,7 @@ func (s *HookContextSuite) TestActionFlushError(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
+	s.mockUnit.EXPECT().CommitHookChanges(gomock.Any(), params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{{
 			Tag: "unit-wordpress-0",
 			OpenPorts: []params.EntityPortRange{{
@@ -1165,7 +1165,7 @@ func (s *HookContextSuite) assertSecretGetFromPendingChanges(c *gc.C,
 	setPendingSecretChanges(hookContext, uri, label, data)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, nil, mockBackendClient{})
 
-	value, err := hookContext.GetSecret(nil, label, refresh, peek)
+	value, err := hookContext.GetSecret(stdcontext.Background(), nil, label, refresh, peek)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, data)
 }
@@ -1241,7 +1241,7 @@ type mockBackendClient struct {
 	secrets.BackendsClient
 }
 
-func (mockBackendClient) GetContent(uri *coresecrets.URI, label string, refresh, peek bool) (coresecrets.SecretValue, error) {
+func (mockBackendClient) GetContent(_ stdcontext.Context, uri *coresecrets.URI, label string, refresh, peek bool) (coresecrets.SecretValue, error) {
 	return coresecrets.NewSecretValue(map[string]string{"foo": "existing"}), nil
 }
 
@@ -1296,7 +1296,7 @@ func (s *HookContextSuite) TestSecretGet(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	context.SetEnvironmentHookContextSecret(hookContext, uri.String(), nil, jujuSecretsAPI, secretsBackend)
 
-	value, err := hookContext.GetSecret(uri, "label", true, true)
+	value, err := hookContext.GetSecret(stdcontext.Background(), uri, "label", true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1323,7 +1323,7 @@ func (s *HookContextSuite) assertSecretGetOwnedSecretURILookup(
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
-			[]params.SecretContentResult{{
+			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
 			}},
 		}
@@ -1338,7 +1338,7 @@ func (s *HookContextSuite) assertSecretGetOwnedSecretURILookup(
 
 	patchContext(hookContext, uri, "label", jujuSecretsAPI, secretsBackend)
 
-	value, err := hookContext.GetSecret(nil, "label", false, false)
+	value, err := hookContext.GetSecret(stdcontext.Background(), nil, "label", false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1388,7 +1388,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingCreates
 	hookContext.SetPendingSecretCreates(
 		map[string]uniter.SecretCreateArg{uri.ID: arg})
 
-	value, err := hookContext.GetSecret(nil, label, false, false)
+	value, err := hookContext.GetSecret(stdcontext.Background(), nil, label, false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1411,7 +1411,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingCreateLabel(c *g
 	hookContext.SetPendingSecretCreates(
 		map[string]uniter.SecretCreateArg{uri.ID: arg})
 
-	value, err := hookContext.GetSecret(uri, "foobar", false, true)
+	value, err := hookContext.GetSecret(stdcontext.Background(), uri, "foobar", false, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1452,7 +1452,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdates
 	hookContext.SetPendingSecretUpdates(
 		map[string]uniter.SecretUpdateArg{uri.ID: arg})
 
-	value, err := hookContext.GetSecret(nil, label, false, true)
+	value, err := hookContext.GetSecret(stdcontext.Background(), nil, label, false, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1476,7 +1476,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretLabelLookupFromPendingUpdates
 	hookContext.SetPendingSecretUpdates(
 		map[string]uniter.SecretUpdateArg{uri.ID: arg})
 
-	value, err := hookContext.GetSecret(nil, label, true, false)
+	value, err := hookContext.GetSecret(stdcontext.Background(), nil, label, true, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1500,7 +1500,7 @@ func (s *HookContextSuite) TestSecretGetOwnedSecretUpdatePendingLabel(c *gc.C) {
 	hookContext.SetPendingSecretUpdates(
 		map[string]uniter.SecretUpdateArg{uri.ID: arg})
 
-	value, err := hookContext.GetSecret(uri, "foobar", false, true)
+	value, err := hookContext.GetSecret(stdcontext.Background(), uri, "foobar", false, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(value.EncodedValues(), jc.DeepEquals, map[string]string{
 		"foo": "bar",
@@ -1539,7 +1539,7 @@ func (s *HookContextSuite) assertSecretCreate(c *gc.C, owner coresecrets.Owner) 
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
-			[]params.StringResult{{
+			Results: []params.StringResult{{
 				Result: "secret:9m4e2mr0ui3e8a215n4g",
 			}},
 		}
@@ -1553,7 +1553,7 @@ func (s *HookContextSuite) assertSecretCreate(c *gc.C, owner coresecrets.Owner) 
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
 	context.SetEnvironmentHookContextSecret(hookContext, "", nil, jujuSecretsAPI, nil)
 
-	uri, err := hookContext.CreateSecret(&jujuc.SecretCreateArgs{
+	uri, err := hookContext.CreateSecret(stdcontext.Background(), &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value:        value,
 			RotatePolicy: ptr(coresecrets.RotateDaily),
@@ -1595,7 +1595,7 @@ func (s *HookContextSuite) TestSecretCreateDupLabel(c *gc.C) {
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
-			[]params.StringResult{{
+			Results: []params.StringResult{{
 				Result: "secret:9m4e2mr0ui3e8a215n4g",
 			}},
 		}
@@ -1607,7 +1607,7 @@ func (s *HookContextSuite) TestSecretCreateDupLabel(c *gc.C) {
 	jujuSecretsAPI := secretsmanager.NewClient(apiCaller)
 	context.SetEnvironmentHookContextSecret(hookContext, "", nil, jujuSecretsAPI, nil)
 
-	_, err := hookContext.CreateSecret(&jujuc.SecretCreateArgs{
+	_, err := hookContext.CreateSecret(stdcontext.Background(), &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value: value,
 			Label: ptr("foo"),
@@ -1615,7 +1615,7 @@ func (s *HookContextSuite) TestSecretCreateDupLabel(c *gc.C) {
 		Owner: coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "myapp"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = hookContext.CreateSecret(&jujuc.SecretCreateArgs{
+	_, err = hookContext.CreateSecret(stdcontext.Background(), &jujuc.SecretCreateArgs{
 		SecretUpdateArgs: jujuc.SecretUpdateArgs{
 			Value: value,
 			Label: ptr("foo"),
@@ -2029,13 +2029,13 @@ func (s *HookContextSuite) TestHookStorage(c *gc.C) {
 	defer ctrl.Finish()
 
 	st := api.NewMockUniterClient(ctrl)
-	st.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("wordpress/0")).Return(params.StorageAttachment{
+	st.EXPECT().StorageAttachment(gomock.Any(), names.NewStorageTag("data/0"), names.NewUnitTag("wordpress/0")).Return(params.StorageAttachment{
 		StorageTag: "data/0",
 	}, nil)
 	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).AnyTimes()
 	ctx := context.NewMockUnitHookContextWithStateAndStorage(c, "wordpress/0", s.mockUnit, st, names.NewStorageTag("data/0"))
 
-	storage, err := ctx.HookStorage()
+	storage, err := ctx.HookStorage(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(storage, gc.NotNil)
 	c.Assert(storage.Tag().Id(), gc.Equals, "data/0")

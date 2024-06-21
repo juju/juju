@@ -79,7 +79,7 @@ func Bootstrap(
 // This method is called by Bootstrap above, which implements environs.Bootstrap, but
 // is also exported so that providers can manipulate the started instance.
 func BootstrapInstance(
-	ctx environs.BootstrapContext,
+	bootstrapContext environs.BootstrapContext,
 	env environs.Environ,
 	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
@@ -164,13 +164,13 @@ func BootstrapInstance(
 	if args.CloudRegion != "" {
 		cloudRegion += "/" + args.CloudRegion
 	}
-	ctx.Infof("Launching controller instance(s) on %s...", cloudRegion)
+	bootstrapContext.Infof("Launching controller instance(s) on %s...", cloudRegion)
 	// Print instance status reports status changes during provisioning.
 	// Note the carriage returns, meaning subsequent prints are to the same
 	// line of stderr, not a new line.
 	lastLength := 0
 	statusCleanedUp := false
-	instanceStatus := func(settableStatus status.Status, info string, data map[string]interface{}) error {
+	instanceStatus := func(ctx context.Context, settableStatus status.Status, info string, data map[string]interface{}) error {
 		// The data arg is not expected to be used in this case, but
 		// print it, rather than ignore it, if we get something.
 		dataString := ""
@@ -184,7 +184,7 @@ func BootstrapInstance(
 		}
 		lastLength = length
 		statusCleanedUp = false
-		fmt.Fprintf(ctx.GetStderr(), " - %s%s%s\r", info, dataString, padding)
+		fmt.Fprintf(bootstrapContext.GetStderr(), " - %s%s%s\r", info, dataString, padding)
 		return nil
 	}
 	// Likely used after the final instanceStatus call to white-out the
@@ -198,7 +198,7 @@ func BootstrapInstance(
 		// The leading spaces account for the leading characters
 		// emitted by instanceStatus above.
 		padding := strings.Repeat(" ", lastLength)
-		fmt.Fprintf(ctx.GetStderr(), "   %s\r", padding)
+		fmt.Fprintf(bootstrapContext.GetStderr(), "   %s\r", padding)
 		return nil
 	}
 
@@ -270,7 +270,7 @@ func BootstrapInstance(
 		zoneErrors = append(zoneErrors, fmt.Errorf("starting bootstrap instance in zone %q: %w", zone, err))
 
 		select {
-		case <-ctx.Done():
+		case <-bootstrapContext.Done():
 			return nil, nil, nil, errors.Annotate(err, "starting controller (cancelled)")
 		default:
 		}
@@ -310,7 +310,7 @@ func BootstrapInstance(
 		padding := make([]string, 40-len(msg))
 		msg += strings.Join(padding, " ")
 	}
-	ctx.Infof(msg)
+	bootstrapContext.Infof(msg)
 
 	finalizer := func(ctx environs.BootstrapContext, icfg *instancecfg.InstanceConfig, opts environs.BootstrapDialOpts) error {
 		icfg.Bootstrap.BootstrapMachineInstanceId = result.Instance.Id()

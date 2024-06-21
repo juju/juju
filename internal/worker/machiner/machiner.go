@@ -95,20 +95,20 @@ func (mr *Machiner) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 		return m.Watch(ctx)
 	case mr.config.ClearMachineAddressesOnStart:
 		logger.Debugf("machiner configured to reset machine %q addresses to empty", mr.config.Tag)
-		if err := m.SetMachineAddresses(nil); err != nil {
+		if err := m.SetMachineAddresses(ctx, nil); err != nil {
 			return nil, errors.Annotate(err, "resetting machine addresses")
 		}
 	default:
 		// Set the addresses in state to the host's addresses if the
 		// machine is alive.  No need to set addresses if the machine
 		// is dying or dead on a worker restart.
-		if err := setMachineAddresses(mr.config.Tag, m); err != nil {
+		if err := setMachineAddresses(ctx, mr.config.Tag, m); err != nil {
 			return nil, errors.Annotate(err, "setting machine addresses")
 		}
 	}
 
 	// Mark the machine as started and log it.
-	if err := m.SetStatus(status.Started, "", nil); err != nil {
+	if err := m.SetStatus(ctx, status.Started, "", nil); err != nil {
 		return nil, errors.Annotatef(err, "%s failed to set status started", mr.config.Tag)
 	}
 	logger.Infof("%q started", mr.config.Tag)
@@ -120,7 +120,7 @@ var interfaceAddrs = net.InterfaceAddrs
 
 // setMachineAddresses sets the addresses for this machine to all of the
 // host's non-loopback interface IP addresses.
-func setMachineAddresses(tag names.MachineTag, m Machine) error {
+func setMachineAddresses(ctx context.Context, tag names.MachineTag, m Machine) error {
 	addrs, err := interfaceAddrs()
 	if err != nil {
 		return err
@@ -173,7 +173,7 @@ func setMachineAddresses(tag names.MachineTag, m Machine) error {
 		machineAddresses[i] = addr.MachineAddress
 	}
 
-	return m.SetMachineAddresses(machineAddresses)
+	return m.SetMachineAddresses(ctx, machineAddresses)
 }
 
 func (mr *Machiner) Handle(ctx context.Context) error {
@@ -199,7 +199,7 @@ func (mr *Machiner) Handle(ctx context.Context) error {
 
 		observedConfig := params.NetworkConfigFromInterfaceInfo(interfaceInfos)
 		if len(observedConfig) > 0 {
-			if err := mr.machine.SetObservedNetworkConfig(observedConfig); err != nil {
+			if err := mr.machine.SetObservedNetworkConfig(ctx, observedConfig); err != nil {
 				return errors.Annotate(err, "cannot update observed network config")
 			}
 		}
@@ -209,7 +209,7 @@ func (mr *Machiner) Handle(ctx context.Context) error {
 	}
 
 	logger.Debugf("%q is now %s", mr.config.Tag, life)
-	if err := mr.machine.SetStatus(status.Stopped, "", nil); err != nil {
+	if err := mr.machine.SetStatus(ctx, status.Stopped, "", nil); err != nil {
 		return errors.Annotatef(err, "%s failed to set status stopped", mr.config.Tag)
 	}
 
@@ -220,7 +220,7 @@ func (mr *Machiner) Handle(ctx context.Context) error {
 	// and we'll reattempt.  If the machine has containers, EnsureDead will
 	// fail with CodeMachineHasContainers.  However the watcher will not
 	// trigger again, so fail and let the machiner restart and try again.
-	if err := mr.machine.EnsureDead(); err != nil {
+	if err := mr.machine.EnsureDead(ctx); err != nil {
 		if params.IsCodeHasAssignedUnits(err) {
 			logger.Tracef("machine still has units")
 			return nil
@@ -238,7 +238,7 @@ func (mr *Machiner) Handle(ctx context.Context) error {
 			return errors.Annotatef(err, "%q", mr.config.Tag)
 		}
 		err = errors.Annotatef(err, "%s failed to set machine to dead", mr.config.Tag)
-		if e := mr.machine.SetStatus(status.Error, errors.Annotate(err, "destroying machine").Error(), nil); e != nil {
+		if e := mr.machine.SetStatus(ctx, status.Error, errors.Annotate(err, "destroying machine").Error(), nil); e != nil {
 			logger.Errorf("failed to set status for error %v ", err)
 		}
 		return errors.Trace(err)

@@ -174,7 +174,7 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	defer ctrl.Finish()
 
 	state := api.NewMockUniterClient(ctrl)
-	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
+	state.EXPECT().StorageAttachment(gomock.Any(), names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
 		Kind:     params.StorageKindBlock,
 		Location: "/dev/sdb",
 	}, nil).AnyTimes()

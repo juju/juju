@@ -104,7 +104,7 @@ func (s *baseResolverSuite) SetUpTest(c *gc.C, modelType model.ModelType, reboot
 	s.lastOptionalResolver = &fakeResolver{}
 	s.resolverConfig = uniter.ResolverConfig{
 		ClearResolved:       func() error { return s.clearResolved() },
-		ReportHookError:     func(info hook.Info) error { return s.reportHookError(info) },
+		ReportHookError:     func(_ context.Context, info hook.Info) error { return s.reportHookError(info) },
 		StartRetryHookTimer: func() { s.stub.AddCall("StartRetryHookTimer") },
 		StopRetryHookTimer:  func() { s.stub.AddCall("StopRetryHookTimer") },
 		ShouldRetryHooks:    true,
@@ -728,7 +728,7 @@ func (m *fakeRW) SetState(context.Context, params.SetUnitStateArg) error {
 type fakeDeployer struct {
 }
 
-func (m *fakeDeployer) Stage(_ unitercharm.BundleInfo, _ <-chan struct{}) error {
+func (m *fakeDeployer) Stage(_ context.Context, _ unitercharm.BundleInfo, _ <-chan struct{}) error {
 	return nil
 }
 

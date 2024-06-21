@@ -103,7 +103,7 @@ func (w *machineWorker) run() error {
 
 	// Upgrade succeeded - signal that the upgrade is complete.
 	w.logger.Infof("upgrade to %v completed successfully.", w.base.ToVersion)
-	_ = w.base.StatusSetter.SetStatus(status.Started, "", nil)
+	_ = w.base.StatusSetter.SetStatus(ctx, status.Started, "", nil)
 	w.base.UpgradeCompleteLock.Unlock()
 	return nil
 }

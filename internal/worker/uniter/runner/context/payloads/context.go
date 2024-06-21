@@ -4,6 +4,7 @@
 package payloads
 
 import (
+	"context"
 	"sort"
 
 	"github.com/juju/errors"
@@ -17,13 +18,13 @@ var logger = internallogger.GetLogger("juju.payload.context")
 // PayloadAPIClient represents the API needs of a PayloadContext.
 type PayloadAPIClient interface {
 	// List requests the payload info for the given IDs.
-	List(fullIDs ...string) ([]corepayloads.Result, error)
+	List(ctx context.Context, fullIDs ...string) ([]corepayloads.Result, error)
 	// Track sends a request to update state with the provided payloads.
-	Track(payloads ...corepayloads.Payload) ([]corepayloads.Result, error)
+	Track(ctx context.Context, payloads ...corepayloads.Payload) ([]corepayloads.Result, error)
 	// Untrack removes the payloads from our list track.
-	Untrack(fullIDs ...string) ([]corepayloads.Result, error)
+	Untrack(ctx context.Context, fullIDs ...string) ([]corepayloads.Result, error)
 	// SetStatus sets the status for the given IDs.
-	SetStatus(status string, fullIDs ...string) ([]corepayloads.Result, error)
+	SetStatus(ctx context.Context, status string, fullIDs ...string) ([]corepayloads.Result, error)
 }
 
 // PayloadsHookContext is the implementation of runner.ContextPayloads.
@@ -36,12 +37,12 @@ type PayloadsHookContext struct {
 }
 
 // NewContext returns a new hooks.PayloadsHookContext for payloads.
-func NewContext(client PayloadAPIClient) (*PayloadsHookContext, error) {
-	results, err := client.List()
+func NewContext(ctx context.Context, client PayloadAPIClient) (*PayloadsHookContext, error) {
+	results, err := client.List(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting unit payloads")
 	}
-	ctx := &PayloadsHookContext{
+	c := &PayloadsHookContext{
 		client:   client,
 		payloads: make(map[string]corepayloads.Payload),
 		updates:  make(map[string]corepayloads.Payload),
@@ -49,9 +50,9 @@ func NewContext(client PayloadAPIClient) (*PayloadsHookContext, error) {
 	for _, result := range results {
 		pl := result.Payload
 		// TODO(ericsnow) Use id instead of pl.FullID().
-		ctx.payloads[pl.FullID()] = pl.Payload
+		c.payloads[pl.FullID()] = pl.Payload
 	}
-	return ctx, nil
+	return c, nil
 }
 
 // Payloads returns the payloads known to the context.
@@ -133,11 +134,11 @@ func (c *PayloadsHookContext) TrackPayload(pl corepayloads.Payload) error {
 }
 
 // UntrackPayload tells juju to stop tracking this payload.
-func (c *PayloadsHookContext) UntrackPayload(class, id string) error {
+func (c *PayloadsHookContext) UntrackPayload(ctx context.Context, class, id string) error {
 	fullID := corepayloads.BuildID(class, id)
 	logger.Tracef("Calling untrack on payload context %q", fullID)
 
-	res, err := c.client.Untrack(fullID)
+	res, err := c.client.Untrack(ctx, fullID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -151,11 +152,11 @@ func (c *PayloadsHookContext) UntrackPayload(class, id string) error {
 }
 
 // SetPayloadStatus sets the identified payload's status.
-func (c *PayloadsHookContext) SetPayloadStatus(class, id, status string) error {
+func (c *PayloadsHookContext) SetPayloadStatus(ctx context.Context, class, id, status string) error {
 	fullID := corepayloads.BuildID(class, id)
 	logger.Tracef("Calling status-set on payload context %q", fullID)
 
-	res, err := c.client.SetStatus(status, fullID)
+	res, err := c.client.SetStatus(ctx, status, fullID)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -180,7 +181,7 @@ func (c *PayloadsHookContext) SetPayloadStatus(class, id, status string) error {
 // FlushPayloads implements context.ContextPayloads. In this case that means all
 // added and updated payloads.Payload in the hook context are pushed to
 // Juju state via the API.
-func (c *PayloadsHookContext) FlushPayloads() error {
+func (c *PayloadsHookContext) FlushPayloads(ctx context.Context) error {
 	logger.Tracef("flushing from hook context to state")
 	// TODO(natefinch): make this a noop and move this code into set.
 
@@ -190,7 +191,7 @@ func (c *PayloadsHookContext) FlushPayloads() error {
 			updates = append(updates, pl)
 		}
 
-		res, err := c.client.Track(updates...)
+		res, err := c.client.Track(ctx, updates...)
 		if err != nil {
 			return errors.Trace(err)
 		}

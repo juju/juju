@@ -4,6 +4,7 @@
 package ssh
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"strings"
@@ -149,7 +150,7 @@ func (c *debugHooksCommand) closeAPIs() {
 	}
 }
 
-func (c *debugHooksCommand) validateHooksOrActions() error {
+func (c *debugHooksCommand) validateHooksOrActions(ctx context.Context) error {
 	if len(c.hooks) == 0 {
 		return nil
 	}
@@ -177,7 +178,7 @@ func (c *debugHooksCommand) validateHooksOrActions() error {
 		return err
 	}
 
-	charmInfo, err := c.charmAPI.CharmInfo(curl.String())
+	charmInfo, err := c.charmAPI.CharmInfo(ctx, curl.String())
 	if err != nil {
 		return err
 	}
@@ -241,7 +242,7 @@ func (c *debugHooksCommand) commonRun(
 	hooks []string,
 	debugAt string,
 ) (err error) {
-	err = c.validateHooksOrActions()
+	err = c.validateHooksOrActions(ctx)
 	if err != nil {
 		return err
 	}

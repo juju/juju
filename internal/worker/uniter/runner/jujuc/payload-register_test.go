@@ -55,7 +55,7 @@ func (s *registerSuite) TestRun(c *gc.C) {
 		Unit:   "a-application/0",
 	}
 	hctx.EXPECT().TrackPayload(payload).Return(nil)
-	hctx.EXPECT().FlushPayloads()
+	hctx.EXPECT().FlushPayloads(gomock.Any())
 
 	com, err := jujuc.NewCommand(hctx, "payload-register")
 	c.Assert(err, jc.ErrorIsNil)

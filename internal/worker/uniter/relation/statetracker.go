@@ -59,7 +59,7 @@ type relationStateTracker struct {
 
 // NewRelationStateTracker returns a new RelationStateTracker instance.
 func NewRelationStateTracker(ctx stdcontext.Context, cfg RelationStateTrackerConfig) (RelationStateTracker, error) {
-	principalName, subordinate, err := cfg.Unit.PrincipalName()
+	principalName, subordinate, err := cfg.Unit.PrincipalName(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -92,7 +92,7 @@ func NewRelationStateTracker(ctx stdcontext.Context, cfg RelationStateTrackerCon
 // loadInitialState reconciles the local state with the remote
 // state of the corresponding relations.
 func (r *relationStateTracker) loadInitialState(ctx stdcontext.Context) error {
-	relationStatus, err := r.unit.RelationsStatus()
+	relationStatus, err := r.unit.RelationsStatus(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -306,13 +306,13 @@ func (r *relationStateTracker) SynchronizeScopes(ctx stdcontext.Context, remote 
 	}
 
 	if r.subordinate {
-		return r.maybeSetSubordinateDying()
+		return r.maybeSetSubordinateDying(ctx)
 	}
 
 	return nil
 }
 
-func (r *relationStateTracker) maybeSetSubordinateDying() error {
+func (r *relationStateTracker) maybeSetSubordinateDying(ctx stdcontext.Context) error {
 	// If no Alive relations remain between a subordinate unit's application
 	// and its principal's application, the subordinate must become Dying.
 	principalApp, err := names.UnitApplication(r.principalName)
@@ -329,7 +329,7 @@ func (r *relationStateTracker) maybeSetSubordinateDying() error {
 			return nil
 		}
 	}
-	return r.unit.Destroy()
+	return r.unit.Destroy(ctx)
 }
 
 // setDying notifies the relationer identified by the supplied id that the

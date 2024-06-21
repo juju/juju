@@ -2384,7 +2384,7 @@ func (m charmInterfaceMatcher) String() string {
 }
 
 func (s *BundleDeployRepositorySuite) expectCharmInfo(name string, info *apicharms.CharmInfo) {
-	s.deployerAPI.EXPECT().CharmInfo(name).Return(info, nil)
+	s.deployerAPI.EXPECT().CharmInfo(gomock.Any(), name).Return(info, nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeploy() {

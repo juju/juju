@@ -21,15 +21,15 @@ const maxRetryDelay = 30 * time.Minute
 // calculating the current time once, we guarantee
 // that operations with the same delay will be
 // batched together.
-func scheduleOperations(ctx *context, ops ...scheduleOp) {
+func scheduleOperations(deps *dependencies, ops ...scheduleOp) {
 	if len(ops) == 0 {
 		return
 	}
-	now := ctx.config.Clock.Now()
+	now := deps.config.Clock.Now()
 	for _, op := range ops {
 		k := op.key()
 		d := op.delay()
-		ctx.schedule.Add(k, op, now.Add(d))
+		deps.schedule.Add(k, op, now.Add(d))
 	}
 }
 

@@ -71,7 +71,7 @@ func (d *deployCharm) deploy(
 	deployAPI DeployerAPI,
 ) (rErr error) {
 	id := d.id
-	charmInfo, err := deployAPI.CharmInfo(id.URL)
+	charmInfo, err := deployAPI.CharmInfo(ctx, id.URL)
 	if err != nil {
 		return err
 	}

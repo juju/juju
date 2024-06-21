@@ -4,6 +4,7 @@
 package proxyupdater_test
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -67,11 +68,11 @@ func NewFakeAPI() *fakeAPI {
 	return f
 }
 
-func (api fakeAPI) ProxyConfig() (proxyupdaterapi.ProxyConfiguration, error) {
+func (api fakeAPI) ProxyConfig(context.Context) (proxyupdaterapi.ProxyConfiguration, error) {
 	return api.proxies, api.Err
 }
 
-func (api *fakeAPI) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error) {
+func (api *fakeAPI) WatchForProxyConfigAndAPIHostPortChanges(context.Context) (watcher.NotifyWatcher, error) {
 	if api.Watcher == nil {
 		w := newNotAWatcher()
 		api.Watcher = &w

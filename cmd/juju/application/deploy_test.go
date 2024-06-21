@@ -1285,7 +1285,7 @@ func (f *fakeDeployAPI) AddCharmWithAuthorization(
 	return results[0].(commoncharm.Origin), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) CharmInfo(url string) (*apicommoncharms.CharmInfo, error) {
+func (f *fakeDeployAPI) CharmInfo(ctx context.Context, url string) (*apicommoncharms.CharmInfo, error) {
 	results := f.MethodCall(f, "CharmInfo", url)
 	return results[0].(*apicommoncharms.CharmInfo), jujutesting.TypeAssertError(results[1])
 }

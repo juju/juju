@@ -39,10 +39,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	return manifold
 }
 
-func (mc ManifoldConfig) start(_ context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
+func (mc ManifoldConfig) start(ctx context.Context, a agent.Agent, apiCaller base.APICaller) (worker.Worker, error) {
 	agentTag := a.CurrentConfig().Tag()
 	retryStrategyFacade := mc.NewFacade(apiCaller)
-	initialRetryStrategy, err := retryStrategyFacade.RetryStrategy(agentTag)
+	initialRetryStrategy, err := retryStrategyFacade.RetryStrategy(ctx, agentTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

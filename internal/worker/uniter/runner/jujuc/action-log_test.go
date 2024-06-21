@@ -4,6 +4,7 @@
 package jujuc_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/cmd/v4"
@@ -23,7 +24,7 @@ type actionLogContext struct {
 	logMessage string
 }
 
-func (ctx *actionLogContext) LogActionMessage(message string) error {
+func (ctx *actionLogContext) LogActionMessage(_ context.Context, message string) error {
 	ctx.logMessage = message
 	return nil
 }
@@ -32,7 +33,7 @@ type nonActionLogContext struct {
 	jujuc.Context
 }
 
-func (ctx *nonActionLogContext) LogActionMessage(message string) error {
+func (ctx *nonActionLogContext) LogActionMessage(_ context.Context, message string) error {
 	return fmt.Errorf("not running an action")
 }
 

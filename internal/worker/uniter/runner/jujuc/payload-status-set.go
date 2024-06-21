@@ -58,7 +58,7 @@ func (c *PayloadStatusSetCmd) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if err := c.ctx.SetPayloadStatus(c.class, c.id, c.status); err != nil {
+	if err := c.ctx.SetPayloadStatus(ctx, c.class, c.id, c.status); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -66,7 +66,7 @@ func (c *PayloadStatusSetCmd) Run(ctx *cmd.Context) error {
 
 	// We flush to state immediately so that status reflects the
 	// payload correctly.
-	if err := c.ctx.FlushPayloads(); err != nil {
+	if err := c.ctx.FlushPayloads(ctx); err != nil {
 		return errors.Trace(err)
 	}
 

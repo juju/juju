@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -178,7 +179,7 @@ func claimLoop(holderTag names.UnitTag, claimer coreleadership.Claimer, claimDur
 		select {
 		case <-next:
 			start := time.Now()
-			err := claimer.ClaimLeadership(leaseName, holderTag.Id(), claimDuration)
+			err := claimer.ClaimLeadership(context.Background(), leaseName, holderTag.Id(), claimDuration)
 			now := time.Now()
 			sinceStart := now.Sub(agentStart).Round(time.Millisecond).Seconds()
 			reqDuration := now.Sub(start).Round(time.Millisecond)
@@ -226,7 +227,7 @@ func claimLoop(holderTag names.UnitTag, claimer coreleadership.Claimer, claimDur
 					isLeaderTime = time.Time{}
 					// Note: the 'cancel' channel does nothing
 					start := now
-					err := claimer.BlockUntilLeadershipReleased(leaseName, nil)
+					err := claimer.BlockUntilLeadershipReleased(context.Background(), leaseName, nil)
 					now = time.Now()
 					sinceStart = now.Sub(agentStart).Round(time.Millisecond).Seconds()
 					reqDuration := now.Sub(start).Round(time.Millisecond)

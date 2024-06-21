@@ -1330,18 +1330,18 @@ func (m *MockCharmAPI) EXPECT() *MockCharmAPIMockRecorder {
 }
 
 // CharmInfo mocks base method.
-func (m *MockCharmAPI) CharmInfo(arg0 string) (*charms.CharmInfo, error) {
+func (m *MockCharmAPI) CharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmInfo", arg0)
+	ret := m.ctrl.Call(m, "CharmInfo", arg0, arg1)
 	ret0, _ := ret[0].(*charms.CharmInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CharmInfo indicates an expected call of CharmInfo.
-func (mr *MockCharmAPIMockRecorder) CharmInfo(arg0 any) *MockCharmAPICharmInfoCall {
+func (mr *MockCharmAPIMockRecorder) CharmInfo(arg0, arg1 any) *MockCharmAPICharmInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockCharmAPI)(nil).CharmInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockCharmAPI)(nil).CharmInfo), arg0, arg1)
 	return &MockCharmAPICharmInfoCall{Call: call}
 }
 
@@ -1357,13 +1357,13 @@ func (c *MockCharmAPICharmInfoCall) Return(arg0 *charms.CharmInfo, arg1 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmAPICharmInfoCall) Do(f func(string) (*charms.CharmInfo, error)) *MockCharmAPICharmInfoCall {
+func (c *MockCharmAPICharmInfoCall) Do(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCharmAPICharmInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmAPICharmInfoCall) DoAndReturn(f func(string) (*charms.CharmInfo, error)) *MockCharmAPICharmInfoCall {
+func (c *MockCharmAPICharmInfoCall) DoAndReturn(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCharmAPICharmInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -500,6 +500,6 @@ const (
 
 type noopStatusSetter struct{}
 
-func (noopStatusSetter) SetStatus(setableStatus status.Status, info string, data map[string]any) error {
+func (noopStatusSetter) SetStatus(ctx context.Context, setableStatus status.Status, info string, data map[string]any) error {
 	return nil
 }

@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func fakeCallback(_ status.Status, _ string, _ map[string]interface{}) error {
+func fakeCallback(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
 	return nil
 }
 

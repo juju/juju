@@ -57,7 +57,7 @@ func (c *StorageListCommand) Init(args []string) (err error) {
 }
 
 func (c *StorageListCommand) Run(ctx *cmd.Context) error {
-	tags, err := c.ctx.StorageTags()
+	tags, err := c.ctx.StorageTags(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

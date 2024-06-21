@@ -74,7 +74,7 @@ func (s *ContextSuite) AddContextRelation(c *gc.C, ctrl *gomock.Controller, name
 	relUnit := uniterapi.NewMockRelationUnit(ctrl)
 	relUnit.EXPECT().Relation().Return(rel).AnyTimes()
 	relUnit.EXPECT().Endpoint().Return(apiuniter.Endpoint{Relation: charm.Relation{Name: "db"}}).AnyTimes()
-	relUnit.EXPECT().Settings().Return(
+	relUnit.EXPECT().Settings(gomock.Any()).Return(
 		apiuniter.NewSettings(rel.Tag().String(), names.NewUnitTag("u/0").String(), params.Settings{}), nil,
 	).AnyTimes()
 
@@ -86,12 +86,12 @@ func (s *ContextSuite) setupUnit(ctrl *gomock.Controller) names.MachineTag {
 	s.unit = uniterapi.NewMockUnit(ctrl)
 	s.unit.EXPECT().Tag().Return(unitTag).AnyTimes()
 	s.unit.EXPECT().Name().Return(unitTag.Id()).AnyTimes()
-	s.unit.EXPECT().PublicAddress().Return("u-0.testing.invalid", nil).AnyTimes()
-	s.unit.EXPECT().PrivateAddress().Return("u-0.testing.invalid", nil).AnyTimes()
-	s.unit.EXPECT().AvailabilityZone().Return("a-zone", nil).AnyTimes()
+	s.unit.EXPECT().PublicAddress(gomock.Any()).Return("u-0.testing.invalid", nil).AnyTimes()
+	s.unit.EXPECT().PrivateAddress(gomock.Any()).Return("u-0.testing.invalid", nil).AnyTimes()
+	s.unit.EXPECT().AvailabilityZone(gomock.Any()).Return("a-zone", nil).AnyTimes()
 
 	machineTag := names.NewMachineTag("0")
-	s.unit.EXPECT().AssignedMachine().Return(machineTag, nil).AnyTimes()
+	s.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes()
 	return machineTag
 }
 
@@ -108,7 +108,7 @@ func (s *ContextSuite) setupUniter(ctrl *gomock.Controller) names.MachineTag {
 func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 	s.setupUniter(ctrl)
 
-	s.unit.EXPECT().PrincipalName().Return("", false, nil).AnyTimes()
+	s.unit.EXPECT().PrincipalName(gomock.Any()).Return("", false, nil).AnyTimes()
 	s.uniter.EXPECT().Model(stdcontext.Background()).Return(&types.Model{
 		Name:      "test-model",
 		UUID:      coretesting.ModelTag.Id(),
@@ -122,7 +122,7 @@ func (s *ContextSuite) setupFactory(c *gc.C, ctrl *gomock.Controller) {
 	s.uniter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
 	s.payloads = mocks.NewMockPayloadAPIClient(ctrl)
-	s.payloads.EXPECT().List().Return(nil, nil).AnyTimes()
+	s.payloads.EXPECT().List(gomock.Any()).Return(nil, nil).AnyTimes()
 
 	contextFactory, err := context.NewContextFactory(stdcontext.Background(), context.FactoryConfig{
 		Uniter:           s.uniter,
@@ -266,11 +266,11 @@ type stubLeadershipSettingsAccessor struct {
 	results map[string]string
 }
 
-func (s *stubLeadershipSettingsAccessor) Read(_ string) (result map[string]string, _ error) {
+func (s *stubLeadershipSettingsAccessor) Read(_ stdcontext.Context, _ string) (result map[string]string, _ error) {
 	return result, nil
 }
 
-func (s *stubLeadershipSettingsAccessor) Merge(_, _ string, settings map[string]string) error {
+func (s *stubLeadershipSettingsAccessor) Merge(_ stdcontext.Context, _, _ string, settings map[string]string) error {
 	if s.results == nil {
 		s.results = make(map[string]string)
 	}

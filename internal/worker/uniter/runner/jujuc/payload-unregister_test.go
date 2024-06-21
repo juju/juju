@@ -25,8 +25,8 @@ func (s *PayloadUnregisterSuite) TestRun(c *gc.C) {
 	defer ctrl.Finish()
 
 	hctx := mocks.NewMockContext(ctrl)
-	hctx.EXPECT().UntrackPayload("class", "id").Return(nil)
-	hctx.EXPECT().FlushPayloads()
+	hctx.EXPECT().UntrackPayload(gomock.Any(), "class", "id").Return(nil)
+	hctx.EXPECT().FlushPayloads(gomock.Any())
 
 	com, err := jujuc.NewCommand(hctx, "payload-unregister")
 	c.Assert(err, jc.ErrorIsNil)

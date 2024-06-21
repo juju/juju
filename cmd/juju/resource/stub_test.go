@@ -21,7 +21,7 @@ type stubCharmStore struct {
 	ReturnListResources [][]charmresource.Resource
 }
 
-func (s *stubCharmStore) ListResources(charms []jujuresource.CharmID) ([][]charmresource.Resource, error) {
+func (s *stubCharmStore) ListResources(ctx context.Context, charms []jujuresource.CharmID) ([][]charmresource.Resource, error) {
 	s.stub.AddCall("ListResources", charms)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

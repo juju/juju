@@ -239,7 +239,7 @@ type sshProvider interface {
 	cleanupRun()
 	setLeaderAPI(leaderAPI LeaderAPI)
 	setHostChecker(checker jujussh.ReachableChecker)
-	resolveTarget(string) (*resolvedTarget, error)
+	resolveTarget(context.Context, string) (*resolvedTarget, error)
 	maybePopulateTargetViaField(*resolvedTarget, func(*client.StatusArgs) (*params.FullStatus, error)) error
 	maybeResolveLeaderUnit(string) (string, error)
 	ssh(ctx Context, enablePty bool, target *resolvedTarget) error
@@ -263,7 +263,7 @@ func (c *sshCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.provider.cleanupRun()
 
-	target, err := c.provider.resolveTarget(c.provider.getTarget())
+	target, err := c.provider.resolveTarget(ctx, c.provider.getTarget())
 	if err != nil {
 		return err
 	}

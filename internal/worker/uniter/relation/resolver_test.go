@@ -1163,7 +1163,7 @@ func (s *relationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *gc.C) 
 	}
 
 	destroyer := mocks.NewMockSubordinateDestroyer(ctrl)
-	destroyer.EXPECT().DestroyAllSubordinates().Return(nil)
+	destroyer.EXPECT().DestroyAllSubordinates(gomock.Any()).Return(nil)
 	relationResolver := s.newRelationResolver(c, r, destroyer)
 	_, err := relationResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1632,7 +1632,7 @@ func (s *mockRelationResolverSuite) TestPrincipalDyingDestroysSubordinates(c *gc
 	s.expectStateFound(1)
 	s.expectRemoteApplication(1, "")
 	destroyer := mocks.NewMockSubordinateDestroyer(ctrl)
-	destroyer.EXPECT().DestroyAllSubordinates().Return(nil)
+	destroyer.EXPECT().DestroyAllSubordinates(gomock.Any()).Return(nil)
 
 	relationsResolver := s.newRelationResolver(c, s.mockRelStTracker, destroyer)
 	op, err := relationsResolver.NextOp(stdcontext.Background(), localState, remoteState, &mockOperations{})

@@ -137,17 +137,17 @@ func NewContextFactory(ctx context.Context, config FactoryConfig) (ContextFactor
 		zone       string
 	)
 	if m.ModelType == types.IAAS {
-		machineTag, err = config.Unit.AssignedMachine()
+		machineTag, err = config.Unit.AssignedMachine(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		zone, err = config.Unit.AvailabilityZone()
+		zone, err = config.Unit.AvailabilityZone(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	principal, ok, err := config.Unit.PrincipalName()
+	principal, ok, err := config.Unit.PrincipalName(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if !ok {
@@ -215,7 +215,7 @@ func (f *contextFactory) coreContext(stdCtx context.Context) (*HookContext, erro
 		},
 		storageAttachmentCache: make(map[names.StorageTag]jujuc.ContextStorageAttachment),
 	}
-	payloadCtx, err := payloads.NewContext(f.payloads)
+	payloadCtx, err := payloads.NewContext(stdCtx, f.payloads)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +274,7 @@ func (f *contextFactory) HookContext(stdCtx context.Context, hookInfo hook.Info)
 		}
 		hookName = fmt.Sprintf("%s-%s", storageName, hookName)
 		// Cache the storage this hook context is for.
-		_, err = ctx.Storage(ctx.storageTag)
+		_, err = ctx.Storage(stdCtx, ctx.storageTag)
 		if err != nil && !errors.Is(err, errors.NotProvisioned) {
 			return nil, errors.Annotatef(err, "could not retrieve storage for id: %v", hookInfo.StorageId)
 		}
@@ -384,7 +384,7 @@ func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext)
 
 	// TODO(fwereade) 23-10-2014 bug 1384572
 	// Nothing here should ever be getting the environ config directly.
-	modelConfig, err := f.client.ModelConfig(context.TODO())
+	modelConfig, err := f.client.ModelConfig(stdCtx)
 	if err != nil {
 		return err
 	}
@@ -399,7 +399,7 @@ func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext)
 			return errors.Trace(err)
 		}
 
-		ctx.privateAddress, err = f.unit.PrivateAddress()
+		ctx.privateAddress, err = f.unit.PrivateAddress(stdCtx)
 		if err != nil && !params.IsCodeNoAddressSet(err) {
 			f.logger.Warningf("cannot get legacy private address for %v: %v", f.unit.Name(), err)
 		}
@@ -411,7 +411,7 @@ func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext)
 
 	ctx.portRangeChanges = newPortRangeChangeRecorder(ctx.logger, f.unit.Tag(), f.modelType, machPortRanges, appPortRanges)
 	ctx.secretChanges = newSecretsChangeRecorder(ctx.logger)
-	info, err := ctx.secretsClient.SecretMetadata()
+	info, err := ctx.secretsClient.SecretMetadata(stdCtx)
 	if err != nil {
 		return err
 	}

@@ -20,7 +20,7 @@ type dummyStorageAccessor struct {
 	api.StorageAccessor
 }
 
-func (*dummyStorageAccessor) UnitStorageAttachments(_ names.UnitTag) ([]params.StorageAttachmentId, error) {
+func (*dummyStorageAccessor) UnitStorageAttachments(ctx context.Context, _ names.UnitTag) ([]params.StorageAttachmentId, error) {
 	return nil, nil
 }
 
@@ -28,11 +28,11 @@ type dummySecretsAccessor struct {
 	api.SecretsClient
 }
 
-func (a *dummySecretsAccessor) SecretMetadata() ([]secrets.SecretOwnerMetadata, error) {
+func (a *dummySecretsAccessor) SecretMetadata(context.Context) ([]secrets.SecretOwnerMetadata, error) {
 	return nil, nil
 }
 
-func (*dummySecretsAccessor) GetConsumerSecretsRevisionInfo(string, []string) (map[string]secrets.SecretRevisionInfo, error) {
+func (*dummySecretsAccessor) GetConsumerSecretsRevisionInfo(context.Context, string, []string) (map[string]secrets.SecretRevisionInfo, error) {
 	return nil, nil
 }
 

@@ -4,7 +4,7 @@
 package api
 
 import (
-	stdcontext "context"
+	context "context"
 
 	"github.com/juju/names/v5"
 
@@ -25,7 +25,7 @@ import (
 // ProviderIDGetter defines the API to get provider ID.
 type ProviderIDGetter interface {
 	ProviderID() string
-	Refresh(ctx stdcontext.Context) error
+	Refresh(ctx context.Context) error
 	Name() string
 }
 
@@ -33,129 +33,129 @@ type ProviderIDGetter interface {
 type Unit interface {
 	ProviderIDGetter
 	Life() life.Value
-	Refresh(stdcontext.Context) error
+	Refresh(context.Context) error
 	ApplicationTag() names.ApplicationTag
-	EnsureDead() error
-	ClearResolved() error
-	DestroyAllSubordinates() error
-	HasSubordinates() (bool, error)
-	LXDProfileName() (string, error)
-	CanApplyLXDProfile() (bool, error)
-	CharmURL() (string, error)
-	Watch(stdcontext.Context) (watcher.NotifyWatcher, error)
+	EnsureDead(context.Context) error
+	ClearResolved(context.Context) error
+	DestroyAllSubordinates(context.Context) error
+	HasSubordinates(context.Context) (bool, error)
+	LXDProfileName(context.Context) (string, error)
+	CanApplyLXDProfile(context.Context) (bool, error)
+	CharmURL(context.Context) (string, error)
+	Watch(context.Context) (watcher.NotifyWatcher, error)
 
 	// Used by runner.context.
 
 	ApplicationName() string
-	ConfigSettings() (charm.Settings, error)
-	LogActionMessage(names.ActionTag, string) error
+	ConfigSettings(context.Context) (charm.Settings, error)
+	LogActionMessage(context.Context, names.ActionTag, string) error
 	Name() string
-	NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
-	RequestReboot() error
-	SetUnitStatus(ctx stdcontext.Context, unitStatus status.Status, info string, data map[string]interface{}) error
-	SetAgentStatus(agentStatus status.Status, info string, data map[string]interface{}) error
-	State(ctx stdcontext.Context) (params.UnitStateResult, error)
-	SetState(ctx stdcontext.Context, unitState params.SetUnitStateArg) error
+	NetworkInfo(ctx context.Context, bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
+	RequestReboot(context.Context) error
+	SetUnitStatus(ctx context.Context, unitStatus status.Status, info string, data map[string]interface{}) error
+	SetAgentStatus(ctx context.Context, agentStatus status.Status, info string, data map[string]interface{}) error
+	State(ctx context.Context) (params.UnitStateResult, error)
+	SetState(ctx context.Context, unitState params.SetUnitStateArg) error
 	Tag() names.UnitTag
-	UnitStatus(stdcontext.Context) (params.StatusResult, error)
-	CommitHookChanges(params.CommitHookChangesArgs) error
-	PublicAddress() (string, error)
-	PrincipalName() (string, bool, error)
-	AssignedMachine() (names.MachineTag, error)
-	AvailabilityZone() (string, error)
-	PrivateAddress() (string, error)
+	UnitStatus(context.Context) (params.StatusResult, error)
+	CommitHookChanges(context.Context, params.CommitHookChangesArgs) error
+	PublicAddress(context.Context) (string, error)
+	PrincipalName(context.Context) (string, bool, error)
+	AssignedMachine(context.Context) (names.MachineTag, error)
+	AvailabilityZone(context.Context) (string, error)
+	PrivateAddress(context.Context) (string, error)
 	Resolved() params.ResolvedMode
 
 	// Used by remotestate watcher.
 
-	WatchConfigSettingsHash() (watcher.StringsWatcher, error)
-	WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error)
-	WatchRelations() (watcher.StringsWatcher, error)
-	WatchAddressesHash() (watcher.StringsWatcher, error)
-	WatchActionNotifications() (watcher.StringsWatcher, error)
-	WatchStorage() (watcher.StringsWatcher, error)
-	WatchInstanceData() (watcher.NotifyWatcher, error)
+	WatchConfigSettingsHash(context.Context) (watcher.StringsWatcher, error)
+	WatchTrustConfigSettingsHash(context.Context) (watcher.StringsWatcher, error)
+	WatchRelations(context.Context) (watcher.StringsWatcher, error)
+	WatchAddressesHash(context.Context) (watcher.StringsWatcher, error)
+	WatchActionNotifications(context.Context) (watcher.StringsWatcher, error)
+	WatchStorage(context.Context) (watcher.StringsWatcher, error)
+	WatchInstanceData(context.Context) (watcher.NotifyWatcher, error)
 
 	// Used by relationer.
 
-	Application(stdcontext.Context) (Application, error)
-	RelationsStatus() ([]uniter.RelationStatus, error)
-	Destroy() error
+	Application(context.Context) (Application, error)
+	RelationsStatus(context.Context) ([]uniter.RelationStatus, error)
+	Destroy(context.Context) error
 
 	// Used by operation.Callbacks.
 
-	SetCharmURL(curl string) error
+	SetCharmURL(ctx context.Context, curl string) error
 }
 
 // Application defines the methods on uniter.api.Application.
 type Application interface {
 	Life() life.Value
 	Tag() names.ApplicationTag
-	Status(unitName string) (params.ApplicationStatusResult, error)
-	SetStatus(unitName string, appStatus status.Status, info string, data map[string]interface{}) error
-	CharmModifiedVersion() (int, error)
-	CharmURL() (string, bool, error)
+	Status(ctx context.Context, unitName string) (params.ApplicationStatusResult, error)
+	SetStatus(ctx context.Context, unitName string, appStatus status.Status, info string, data map[string]interface{}) error
+	CharmModifiedVersion(context.Context) (int, error)
+	CharmURL(context.Context) (string, bool, error)
 
 	// Used by remotestate watcher.
 
-	WatchLeadershipSettings() (watcher.NotifyWatcher, error)
-	Watch(ctx stdcontext.Context) (watcher.NotifyWatcher, error)
-	Refresh(stdcontext.Context) error
+	WatchLeadershipSettings(context.Context) (watcher.NotifyWatcher, error)
+	Watch(context.Context) (watcher.NotifyWatcher, error)
+	Refresh(context.Context) error
 }
 
 // Relation defines the methods on uniter.api.Relation.
 type Relation interface {
-	Endpoint(stdcontext.Context) (*uniter.Endpoint, error)
+	Endpoint(context.Context) (*uniter.Endpoint, error)
 	Id() int
 	Life() life.Value
 	OtherApplication() string
-	Refresh(stdcontext.Context) error
-	SetStatus(ctx stdcontext.Context, status2 relation.Status) error
+	Refresh(context.Context) error
+	SetStatus(ctx context.Context, status2 relation.Status) error
 	String() string
 	Suspended() bool
 	Tag() names.RelationTag
-	Unit(stdcontext.Context, names.UnitTag) (RelationUnit, error)
+	Unit(context.Context, names.UnitTag) (RelationUnit, error)
 	UpdateSuspended(bool)
 }
 
 // RelationUnit defines the methods on uniter.api.RelationUnit.
 type RelationUnit interface {
-	ApplicationSettings() (*uniter.Settings, error)
+	ApplicationSettings(context.Context) (*uniter.Settings, error)
 	Endpoint() uniter.Endpoint
-	EnterScope() error
-	LeaveScope() error
+	EnterScope(context.Context) error
+	LeaveScope(context.Context) error
 	Relation() Relation
-	ReadSettings(name string) (params.Settings, error)
-	Settings() (*uniter.Settings, error)
+	ReadSettings(ctx context.Context, name string) (params.Settings, error)
+	Settings(context.Context) (*uniter.Settings, error)
 }
 
 // Charm defines the methods on uniter.api.Charm.
 type Charm interface {
 	URL() string
-	LXDProfileRequired() (bool, error)
-	ArchiveSha256() (string, error)
+	LXDProfileRequired(context.Context) (bool, error)
+	ArchiveSha256(context.Context) (string, error)
 }
 
 // SecretsAccessor is used by the hook context to access the secrets backend.
 type SecretsAccessor interface {
-	CreateSecretURIs(int) ([]*secrets.URI, error)
-	SecretMetadata() ([]secrets.SecretOwnerMetadata, error)
-	SecretRotated(uri string, oldRevision int) error
+	CreateSecretURIs(context.Context, int) ([]*secrets.URI, error)
+	SecretMetadata(context.Context) ([]secrets.SecretOwnerMetadata, error)
+	SecretRotated(ctx context.Context, uri string, oldRevision int) error
 }
 
 // SecretsWatcher is used by the remote state watcher.
 type SecretsWatcher interface {
-	WatchConsumedSecretsChanges(unitName string) (watcher.StringsWatcher, error)
-	GetConsumerSecretsRevisionInfo(string, []string) (map[string]secrets.SecretRevisionInfo, error)
-	WatchObsolete(ownerTags ...names.Tag) (watcher.StringsWatcher, error)
+	WatchConsumedSecretsChanges(ctx context.Context, unitName string) (watcher.StringsWatcher, error)
+	GetConsumerSecretsRevisionInfo(context.Context, string, []string) (map[string]secrets.SecretRevisionInfo, error)
+	WatchObsolete(ctx context.Context, ownerTags ...names.Tag) (watcher.StringsWatcher, error)
 }
 
 // SecretsBackend provides access to a secrets backend.
 type SecretsBackend interface {
-	GetContent(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error)
-	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error)
-	DeleteContent(uri *secrets.URI, revision int) error
-	DeleteExternalContent(ref secrets.ValueRef) error
+	GetContent(ctx context.Context, uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error)
+	SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error)
+	DeleteContent(ctx context.Context, uri *secrets.URI, revision int) error
+	DeleteExternalContent(ctx context.Context, ref secrets.ValueRef) error
 }
 
 // SecretsClient provides access to the secrets manager facade.
@@ -167,8 +167,8 @@ type SecretsClient interface {
 // StorageAccessor is an interface for accessing information about
 // storage attachments.
 type StorageAccessor interface {
-	StorageAttachment(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
-	UnitStorageAttachments(names.UnitTag) ([]params.StorageAttachmentId, error)
-	DestroyUnitStorageAttachments(names.UnitTag) error
-	RemoveStorageAttachment(names.StorageTag, names.UnitTag) error
+	StorageAttachment(context.Context, names.StorageTag, names.UnitTag) (params.StorageAttachment, error)
+	UnitStorageAttachments(context.Context, names.UnitTag) ([]params.StorageAttachmentId, error)
+	DestroyUnitStorageAttachments(context.Context, names.UnitTag) error
+	RemoveStorageAttachment(context.Context, names.StorageTag, names.UnitTag) error
 }

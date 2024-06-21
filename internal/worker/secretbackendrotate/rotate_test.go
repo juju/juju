@@ -33,14 +33,6 @@ type workerSuite struct {
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
-func (s *workerSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-}
-
 func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 

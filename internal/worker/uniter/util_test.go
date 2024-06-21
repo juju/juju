@@ -255,16 +255,16 @@ func (ctx *testContext) sendRelationUnitChange(c *gc.C, msg string, ruc watcher.
 }
 
 func (ctx *testContext) expectHookContext(c *gc.C) {
-	ctx.payloads.EXPECT().List().Return(nil, nil).AnyTimes()
+	ctx.payloads.EXPECT().List(gomock.Any()).Return(nil, nil).AnyTimes()
 	ctx.api.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.6.6.6"}, nil).AnyTimes()
 	ctx.api.EXPECT().CloudAPIVersion(gomock.Any()).Return("6.6.6", nil).AnyTimes()
 
 	cfg := coretesting.ModelConfig(c)
 	ctx.api.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
-	m, err := ctx.unit.AssignedMachine()
+	m, err := ctx.unit.AssignedMachine(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.api.EXPECT().OpenedMachinePortRangesByEndpoint(gomock.Any(), m).Return(nil, nil).AnyTimes()
-	ctx.secretsClient.EXPECT().SecretMetadata().Return(nil, nil).AnyTimes()
+	ctx.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(nil, nil).AnyTimes()
 }
 
 func (ctx *testContext) matchHooks(c *gc.C) (match, cannotMatch, overshoot bool) {
@@ -385,9 +385,9 @@ func (s addCharm) step(c *gc.C, ctx *testContext) {
 	ctx.charms[storagePath] = body
 	ctx.charm = uniterapi.NewMockCharm(ctx.ctrl)
 	ctx.charm.EXPECT().URL().Return(s.curl).AnyTimes()
-	ctx.charm.EXPECT().ArchiveSha256().Return(hash, nil).AnyTimes()
+	ctx.charm.EXPECT().ArchiveSha256(gomock.Any()).Return(hash, nil).AnyTimes()
 	ctx.api.EXPECT().Charm(s.curl).Return(ctx.charm, nil).AnyTimes()
-	ctx.charm.EXPECT().LXDProfileRequired().Return(s.dir.LXDProfile() != nil, nil).AnyTimes()
+	ctx.charm.EXPECT().LXDProfileRequired(gomock.Any()).Return(s.dir.LXDProfile() != nil, nil).AnyTimes()
 }
 
 type serveCharm struct{}
@@ -438,10 +438,10 @@ func (csau createApplicationAndUnit) step(c *gc.C, ctx *testContext) {
 	// Assign the unit to a provisioned machine to match expected state.
 	if csau.container {
 		machineTag := names.NewMachineTag("0/lxd/0")
-		ctx.unit.EXPECT().AssignedMachine().Return(machineTag, nil).AnyTimes()
+		ctx.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes()
 	} else {
 		machineTag := names.NewMachineTag("0")
-		ctx.unit.EXPECT().AssignedMachine().Return(machineTag, nil).AnyTimes()
+		ctx.unit.EXPECT().AssignedMachine(gomock.Any()).Return(machineTag, nil).AnyTimes()
 	}
 	ctx.sendNotify(c, ctx.applicationCh, "application created event")
 }
@@ -485,11 +485,11 @@ func (waitAddresses) step(c *gc.C, ctx *testContext) {
 		case <-timeout:
 			c.Fatalf("timed out waiting for unit addresses")
 		case <-time.After(coretesting.ShortWait):
-			private, _ := ctx.unit.PrivateAddress()
+			private, _ := ctx.unit.PrivateAddress(context.Background())
 			if private != dummyPrivateAddress.Value {
 				continue
 			}
-			public, _ := ctx.unit.PublicAddress()
+			public, _ := ctx.unit.PublicAddress(context.Background())
 			if public != dummyPublicAddress.Value {
 				continue
 			}
@@ -694,13 +694,13 @@ func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 		return w, nil
 	}).AnyTimes()
 
-	ctx.app.EXPECT().WatchLeadershipSettings().DoAndReturn(func() (watcher.NotifyWatcher, error) {
+	ctx.app.EXPECT().WatchLeadershipSettings(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		ctx.sendNotify(c, ctx.leadershipSettingsCh, "initial leadership settings event")
 		w := watchertest.NewMockNotifyWatcher(ctx.leadershipSettingsCh)
 		return w, nil
 	}).AnyTimes()
 
-	ctx.unit.EXPECT().WatchInstanceData().DoAndReturn(func() (watcher.NotifyWatcher, error) {
+	ctx.unit.EXPECT().WatchInstanceData(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		ch := make(chan struct{}, 1)
 		ch <- struct{}{}
 		w := watchertest.NewMockNotifyWatcher(ch)
@@ -714,27 +714,27 @@ func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 		return w, nil
 	}).AnyTimes()
 
-	ctx.unit.EXPECT().WatchConfigSettingsHash().DoAndReturn(func() (watcher.StringsWatcher, error) {
+	ctx.unit.EXPECT().WatchConfigSettingsHash(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		ctx.sendStrings(c, ctx.configCh, "initial config event", ctx.app.configHash(nil))
 		w := watchertest.NewMockStringsWatcher(ctx.configCh)
 		return w, nil
 	}).AnyTimes()
 
-	ctx.unit.EXPECT().WatchTrustConfigSettingsHash().DoAndReturn(func() (watcher.StringsWatcher, error) {
+	ctx.unit.EXPECT().WatchTrustConfigSettingsHash(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		ch := make(chan []string, 1)
 		ch <- []string{"trust-hash"}
 		w := watchertest.NewMockStringsWatcher(ch)
 		return w, nil
 	}).AnyTimes()
 
-	ctx.unit.EXPECT().WatchAddressesHash().DoAndReturn(func() (watcher.StringsWatcher, error) {
+	ctx.unit.EXPECT().WatchAddressesHash(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		ch := make(chan []string, 1)
 		ch <- []string{"address-hash"}
 		w := watchertest.NewMockStringsWatcher(ch)
 		return w, nil
 	}).AnyTimes()
 
-	ctx.unit.EXPECT().WatchRelations().DoAndReturn(func() (watcher.StringsWatcher, error) {
+	ctx.unit.EXPECT().WatchRelations(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		var relations []string
 		if ctx.relation != nil {
 			relations = []string{ctx.relation.Tag().Id()}
@@ -744,14 +744,14 @@ func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 		return w, nil
 	}).AnyTimes()
 
-	ctx.unit.EXPECT().WatchStorage().DoAndReturn(func() (watcher.StringsWatcher, error) {
+	ctx.unit.EXPECT().WatchStorage(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		var storages []string
 		for si, attachment := range ctx.storage {
 			tag := names.NewStorageTag(si)
 			storages = append(storages, tag.Id())
 			storageW := watchertest.NewMockNotifyWatcher(attachment.eventCh)
-			ctx.api.EXPECT().WatchStorageAttachment(tag, ctx.unit.Tag()).Return(storageW, nil)
-			ctx.api.EXPECT().StorageAttachment(tag, ctx.unit.Tag()).DoAndReturn(func(_ names.StorageTag, _ names.UnitTag) (params.StorageAttachment, error) {
+			ctx.api.EXPECT().WatchStorageAttachment(gomock.Any(), tag, ctx.unit.Tag()).Return(storageW, nil)
+			ctx.api.EXPECT().StorageAttachment(gomock.Any(), tag, ctx.unit.Tag()).DoAndReturn(func(_ context.Context, _ names.StorageTag, _ names.UnitTag) (params.StorageAttachment, error) {
 				ctx.stateMu.Lock()
 				defer ctx.stateMu.Unlock()
 				if attachment, ok := ctx.storage[tag.Id()]; !attachment.attached || !ok {
@@ -774,7 +774,7 @@ func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 		return w, nil
 	}).AnyTimes()
 
-	ctx.unit.EXPECT().WatchActionNotifications().DoAndReturn(func() (watcher.StringsWatcher, error) {
+	ctx.unit.EXPECT().WatchActionNotifications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		var actions []string
 		for _, a := range ctx.pendingActions {
 			actions = append(actions, a.ID())
@@ -784,13 +784,13 @@ func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 		return w, nil
 	}).AnyTimes()
 
-	ctx.secretsClient.EXPECT().WatchConsumedSecretsChanges(ctx.unit.Name()).DoAndReturn(func(_ string) (watcher.StringsWatcher, error) {
+	ctx.secretsClient.EXPECT().WatchConsumedSecretsChanges(gomock.Any(), ctx.unit.Name()).DoAndReturn(func(context.Context, string) (watcher.StringsWatcher, error) {
 		ctx.sendStrings(c, ctx.consumedSecretsCh, "initial consumed secrets event")
 		w := watchertest.NewMockStringsWatcher(ctx.consumedSecretsCh)
 		return w, nil
 	}).AnyTimes()
 
-	ctx.secretsClient.EXPECT().WatchObsolete(gomock.Any()).DoAndReturn(func(owners ...names.Tag) (watcher.StringsWatcher, error) {
+	ctx.secretsClient.EXPECT().WatchObsolete(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, owners ...names.Tag) (watcher.StringsWatcher, error) {
 		ownerNames := set.NewStrings()
 		for _, o := range owners {
 			ownerNames.Add(o.Id())
@@ -808,7 +808,7 @@ func (s *startUniter) expectRemoteStateWatchers(c *gc.C, ctx *testContext) {
 }
 
 func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
-	ctx.api.EXPECT().StorageAttachmentLife(gomock.Any()).DoAndReturn(func(ids []params.StorageAttachmentId) ([]params.LifeResult, error) {
+	ctx.api.EXPECT().StorageAttachmentLife(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, ids []params.StorageAttachmentId) ([]params.LifeResult, error) {
 		ctx.stateMu.Lock()
 		defer ctx.stateMu.Unlock()
 		result := make([]params.LifeResult, len(ids))
@@ -834,7 +834,7 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	}).AnyTimes()
 
 	// Consumed secrets initial event.
-	ctx.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(ctx.unit.Name(), []string(nil)).Return(nil, nil).AnyTimes()
+	ctx.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(gomock.Any(), ctx.unit.Name(), []string(nil)).Return(nil, nil).AnyTimes()
 
 	ctx.api.EXPECT().UpdateStatusHookInterval(gomock.Any()).Return(time.Minute, nil).AnyTimes()
 	ctx.api.EXPECT().LeadershipSettings().Return(&stubLeadershipSettingsAccessor{}).AnyTimes()
@@ -853,7 +853,7 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	}
 	ctx.stateMu.Unlock()
 	tag := names.NewUnitTag(s.unit)
-	ctx.api.EXPECT().UnitStorageAttachments(tag).Return(attachments, nil).AnyTimes()
+	ctx.api.EXPECT().UnitStorageAttachments(gomock.Any(), tag).Return(attachments, nil).AnyTimes()
 	ctx.api.EXPECT().Unit(gomock.Any(), tag).DoAndReturn(func(_ context.Context, tag names.UnitTag) (uniterapi.Unit, error) {
 		if tag.Id() != ctx.unit.Tag().Id() {
 			return nil, errors.New("permission denied")
@@ -862,8 +862,8 @@ func (s startUniter) setupUniter(c *gc.C, ctx *testContext) {
 	}).AnyTimes()
 
 	// Secrets init.
-	ctx.secretsClient.EXPECT().SecretMetadata().Return(nil, nil).AnyTimes()
-	ctx.secretsClient.EXPECT().SecretRotated(gomock.Any(), gomock.Any()).DoAndReturn(func(uri string, rev int) error {
+	ctx.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(nil, nil).AnyTimes()
+	ctx.secretsClient.EXPECT().SecretRotated(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, uri string, rev int) error {
 		ctx.stateMu.Lock()
 		ctx.secretRevisions[uri] = rev + 1
 		ctx.stateMu.Unlock()
@@ -1840,12 +1840,12 @@ var unitDying = custom{func(c *gc.C, ctx *testContext) {
 	ctx.unit.mu.Lock()
 	ctx.unit.life = life.Dying
 	ctx.unit.mu.Unlock()
-	ctx.api.EXPECT().DestroyUnitStorageAttachments(ctx.unit.Tag()).Return(nil)
+	ctx.api.EXPECT().DestroyUnitStorageAttachments(gomock.Any(), ctx.unit.Tag()).Return(nil)
 
 	ctx.stateMu.Lock()
 	for id := range ctx.storage {
 		// Could be twice due to short circuit.
-		ctx.api.EXPECT().RemoveStorageAttachment(names.NewStorageTag(id), ctx.unit.Tag()).DoAndReturn(func(tag names.StorageTag, _ names.UnitTag) error {
+		ctx.api.EXPECT().RemoveStorageAttachment(gomock.Any(), names.NewStorageTag(id), ctx.unit.Tag()).DoAndReturn(func(_ context.Context, tag names.StorageTag, _ names.UnitTag) error {
 			ctx.stateMu.Lock()
 			delete(ctx.storage, id)
 			ctx.stateMu.Unlock()
@@ -2108,7 +2108,7 @@ func (s createSecret) step(c *gc.C, ctx *testContext) {
 	}
 
 	uri := secrets.NewURI()
-	ctx.secretBackends.EXPECT().GetContent(uri, "foorbar", false, false).Return(
+	ctx.secretBackends.EXPECT().GetContent(gomock.Any(), uri, "foorbar", false, false).Return(
 		secrets.NewSecretValue(map[string]string{"foo": "bar"}), nil).AnyTimes()
 	ctx.createdSecretURI = uri
 }
@@ -2117,6 +2117,7 @@ type changeSecret struct{}
 
 func (s changeSecret) step(c *gc.C, ctx *testContext) {
 	ctx.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(
+		gomock.Any(),
 		ctx.unit.Name(), []string{ctx.createdSecretURI.String()},
 	).Return(map[string]secrets.SecretRevisionInfo{
 		ctx.createdSecretURI.String(): {LatestRevision: 666},
@@ -2141,7 +2142,7 @@ func (s changeSecret) step(c *gc.C, ctx *testContext) {
 type getSecret struct{}
 
 func (s getSecret) step(c *gc.C, ctx *testContext) {
-	val, err := ctx.secretBackends.GetContent(ctx.createdSecretURI, "foorbar", false, false)
+	val, err := ctx.secretBackends.GetContent(context.Background(), ctx.createdSecretURI, "foorbar", false, false)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar"})
 }

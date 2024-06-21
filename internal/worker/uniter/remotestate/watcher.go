@@ -384,7 +384,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenConfigChange bool
-	charmConfigw, err := w.unit.WatchConfigSettingsHash()
+	charmConfigw, err := w.unit.WatchConfigSettingsHash(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -395,7 +395,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenTrustConfigChange bool
-	trustConfigw, err := w.unit.WatchTrustConfigSettingsHash()
+	trustConfigw, err := w.unit.WatchTrustConfigSettingsHash(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -405,7 +405,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenRelationsChange bool
-	relationsw, err := w.unit.WatchRelations()
+	relationsw, err := w.unit.WatchRelations(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -415,7 +415,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenAddressesChange bool
-	addressesw, err := w.unit.WatchAddressesHash()
+	addressesw, err := w.unit.WatchAddressesHash(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -426,7 +426,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenSecretsChange bool
-	secretsw, err := w.secretsClient.WatchConsumedSecretsChanges(w.unit.Tag().Id())
+	secretsw, err := w.secretsClient.WatchConsumedSecretsChanges(ctx, w.unit.Tag().Id())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -453,7 +453,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 	if w.canApplyCharmProfile {
 		// Note: canApplyCharmProfile will be false for a CAAS model.
-		instanceDataW, err := w.unit.WatchInstanceData()
+		instanceDataW, err := w.unit.WatchInstanceData(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -465,7 +465,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 
 	var seenStorageChange bool
-	storagew, err := w.unit.WatchStorage()
+	storagew, err := w.unit.WatchStorage(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -475,7 +475,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenLeaderSettingsChange bool
-	leaderSettingsw, err := w.application.WatchLeadershipSettings()
+	leaderSettingsw, err := w.application.WatchLeadershipSettings(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -485,7 +485,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var seenActionsChange bool
-	actionsw, err := w.unit.WatchActionNotifications()
+	actionsw, err := w.unit.WatchActionNotifications(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -538,7 +538,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		return w.catacomb.ErrDying()
 	case <-claimLeader.Ready():
 		isLeader := claimLeader.Wait()
-		if err := w.leadershipChanged(isLeader); err != nil {
+		if err := w.leadershipChanged(ctx, isLeader); err != nil {
 			return errors.Trace(err)
 		}
 		if isLeader {
@@ -585,7 +585,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("secrets watcher closed")
 			}
-			if err := w.secretsChanged(secrets); err != nil {
+			if err := w.secretsChanged(ctx, secrets); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenSecretsChange)
@@ -595,7 +595,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("instance data watcher closed")
 			}
-			if err := w.instanceDataChanged(); err != nil {
+			if err := w.instanceDataChanged(ctx); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenInstanceDataChange)
@@ -689,7 +689,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			if !ok {
 				return errors.New("storage watcher closed")
 			}
-			if err := w.storageChanged(keys); err != nil {
+			if err := w.storageChanged(ctx, keys); err != nil {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenStorageChange)
@@ -717,7 +717,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 		case <-waitMinion:
 			w.logger.Debugf("got leadership change for %v: minion", unitTag.Id())
-			if err := w.leadershipChanged(false); err != nil {
+			if err := w.leadershipChanged(ctx, false); err != nil {
 				return errors.Trace(err)
 			}
 			waitMinion = nil
@@ -725,7 +725,7 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 
 		case <-waitLeader:
 			w.logger.Debugf("got leadership change for %v: leader", unitTag.Id())
-			if err := w.leadershipChanged(true); err != nil {
+			if err := w.leadershipChanged(ctx, true); err != nil {
 				return errors.Trace(err)
 			}
 			waitLeader = nil
@@ -858,7 +858,7 @@ func (w *RemoteStateWatcher) applicationChanged(ctx context.Context) error {
 	if err := w.application.Refresh(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	url, force, err := w.application.CharmURL()
+	url, force, err := w.application.CharmURL(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -868,12 +868,12 @@ func (w *RemoteStateWatcher) applicationChanged(ctx context.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		required, err = ch.LXDProfileRequired()
+		required, err = ch.LXDProfileRequired(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
 	}
-	ver, err := w.application.CharmModifiedVersion()
+	ver, err := w.application.CharmModifiedVersion(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -892,10 +892,10 @@ func (w *RemoteStateWatcher) applicationChanged(ctx context.Context) error {
 }
 
 // secretsChanged responds to changes in secrets.
-func (w *RemoteStateWatcher) secretsChanged(secretURIs []string) error {
+func (w *RemoteStateWatcher) secretsChanged(ctx context.Context, secretURIs []string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	info, err := w.secretsClient.GetConsumerSecretsRevisionInfo(w.unit.Tag().Id(), secretURIs)
+	info, err := w.secretsClient.GetConsumerSecretsRevisionInfo(ctx, w.unit.Tag().Id(), secretURIs)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -940,8 +940,8 @@ func (w *RemoteStateWatcher) secretObsoleteRevisionsChanged(secretRevisions []st
 	return nil
 }
 
-func (w *RemoteStateWatcher) instanceDataChanged() error {
-	name, err := w.unit.LXDProfileName()
+func (w *RemoteStateWatcher) instanceDataChanged(ctx context.Context) error {
+	name, err := w.unit.LXDProfileName(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -977,7 +977,7 @@ func (w *RemoteStateWatcher) leaderSettingsChanged() error {
 	return nil
 }
 
-func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
+func (w *RemoteStateWatcher) leadershipChanged(ctx context.Context, isLeader bool) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -1037,7 +1037,7 @@ func (w *RemoteStateWatcher) leadershipChanged(isLeader bool) error {
 		appName, _ := names.UnitApplication(w.unit.Tag().Id())
 		owners = append(owners, names.NewApplicationTag(appName))
 	}
-	obsoleteRevisionsWatcher, err := w.secretsClient.WatchObsolete(owners...)
+	obsoleteRevisionsWatcher, err := w.secretsClient.WatchObsolete(ctx, owners...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1245,7 +1245,7 @@ func (w *RemoteStateWatcher) containerRunningStatus(runningStatus ContainerRunni
 }
 
 // storageChanged responds to unit storage changes.
-func (w *RemoteStateWatcher) storageChanged(keys []string) error {
+func (w *RemoteStateWatcher) storageChanged(ctx context.Context, keys []string) error {
 	tags := make([]names.StorageTag, len(keys))
 	for i, key := range keys {
 		tags[i] = names.NewStorageTag(key)
@@ -1257,7 +1257,7 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 			UnitTag:    w.unit.Tag().String(),
 		}
 	}
-	results, err := w.client.StorageAttachmentLife(ids)
+	results, err := w.client.StorageAttachmentLife(ctx, ids)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1279,14 +1279,14 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 			// We haven't seen this storage attachment before, so start
 			// a watcher now; add it to our catacomb in case of mishap;
 			// and wait for the initial event.
-			saw, err := w.client.WatchStorageAttachment(tag, w.unit.Tag())
+			saw, err := w.client.WatchStorageAttachment(ctx, tag, w.unit.Tag())
 			if err != nil {
 				return errors.Annotate(err, "watching storage attachment")
 			}
 			if err := w.catacomb.Add(saw); err != nil {
 				return errors.Trace(err)
 			}
-			if err := w.watchStorageAttachment(tag, result.Life, saw); err != nil {
+			if err := w.watchStorageAttachment(ctx, tag, result.Life, saw); err != nil {
 				return errors.Trace(err)
 			}
 		} else if params.IsCodeNotFound(result.Error) {
@@ -1310,6 +1310,7 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 // the specified storage tag, waits for its first event, and records
 // the information in the current snapshot.
 func (w *RemoteStateWatcher) watchStorageAttachment(
+	ctx context.Context,
 	tag names.StorageTag,
 	life life.Value,
 	saw watcher.NotifyWatcher,
@@ -1323,7 +1324,7 @@ func (w *RemoteStateWatcher) watchStorageAttachment(
 			return errors.Errorf("storage attachment watcher closed for %s", w.unit.Tag().Id())
 		}
 		var err error
-		storageSnapshot, err = getStorageSnapshot(w.client, tag, w.unit.Tag())
+		storageSnapshot, err = getStorageSnapshot(ctx, w.client, tag, w.unit.Tag())
 		if errors.Is(err, errors.NotProvisioned) {
 			// If the storage is unprovisioned, we still want to
 			// record the attachment, but we'll mark it as

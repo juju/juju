@@ -398,17 +398,17 @@ func (c *MockUniterClientCloudSpecCall) DoAndReturn(f func(context.Context) (*pa
 }
 
 // DestroyUnitStorageAttachments mocks base method.
-func (m *MockUniterClient) DestroyUnitStorageAttachments(arg0 names.UnitTag) error {
+func (m *MockUniterClient) DestroyUnitStorageAttachments(arg0 context.Context, arg1 names.UnitTag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyUnitStorageAttachments", arg0)
+	ret := m.ctrl.Call(m, "DestroyUnitStorageAttachments", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DestroyUnitStorageAttachments indicates an expected call of DestroyUnitStorageAttachments.
-func (mr *MockUniterClientMockRecorder) DestroyUnitStorageAttachments(arg0 any) *MockUniterClientDestroyUnitStorageAttachmentsCall {
+func (mr *MockUniterClientMockRecorder) DestroyUnitStorageAttachments(arg0, arg1 any) *MockUniterClientDestroyUnitStorageAttachmentsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnitStorageAttachments", reflect.TypeOf((*MockUniterClient)(nil).DestroyUnitStorageAttachments), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyUnitStorageAttachments", reflect.TypeOf((*MockUniterClient)(nil).DestroyUnitStorageAttachments), arg0, arg1)
 	return &MockUniterClientDestroyUnitStorageAttachmentsCall{Call: call}
 }
 
@@ -424,13 +424,13 @@ func (c *MockUniterClientDestroyUnitStorageAttachmentsCall) Return(arg0 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUniterClientDestroyUnitStorageAttachmentsCall) Do(f func(names.UnitTag) error) *MockUniterClientDestroyUnitStorageAttachmentsCall {
+func (c *MockUniterClientDestroyUnitStorageAttachmentsCall) Do(f func(context.Context, names.UnitTag) error) *MockUniterClientDestroyUnitStorageAttachmentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUniterClientDestroyUnitStorageAttachmentsCall) DoAndReturn(f func(names.UnitTag) error) *MockUniterClientDestroyUnitStorageAttachmentsCall {
+func (c *MockUniterClientDestroyUnitStorageAttachmentsCall) DoAndReturn(f func(context.Context, names.UnitTag) error) *MockUniterClientDestroyUnitStorageAttachmentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -747,17 +747,17 @@ func (c *MockUniterClientRelationByIdCall) DoAndReturn(f func(context.Context, i
 }
 
 // RemoveStorageAttachment mocks base method.
-func (m *MockUniterClient) RemoveStorageAttachment(arg0 names.StorageTag, arg1 names.UnitTag) error {
+func (m *MockUniterClient) RemoveStorageAttachment(arg0 context.Context, arg1 names.StorageTag, arg2 names.UnitTag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveStorageAttachment", arg0, arg1)
+	ret := m.ctrl.Call(m, "RemoveStorageAttachment", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveStorageAttachment indicates an expected call of RemoveStorageAttachment.
-func (mr *MockUniterClientMockRecorder) RemoveStorageAttachment(arg0, arg1 any) *MockUniterClientRemoveStorageAttachmentCall {
+func (mr *MockUniterClientMockRecorder) RemoveStorageAttachment(arg0, arg1, arg2 any) *MockUniterClientRemoveStorageAttachmentCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveStorageAttachment", reflect.TypeOf((*MockUniterClient)(nil).RemoveStorageAttachment), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveStorageAttachment", reflect.TypeOf((*MockUniterClient)(nil).RemoveStorageAttachment), arg0, arg1, arg2)
 	return &MockUniterClientRemoveStorageAttachmentCall{Call: call}
 }
 
@@ -773,13 +773,13 @@ func (c *MockUniterClientRemoveStorageAttachmentCall) Return(arg0 error) *MockUn
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUniterClientRemoveStorageAttachmentCall) Do(f func(names.StorageTag, names.UnitTag) error) *MockUniterClientRemoveStorageAttachmentCall {
+func (c *MockUniterClientRemoveStorageAttachmentCall) Do(f func(context.Context, names.StorageTag, names.UnitTag) error) *MockUniterClientRemoveStorageAttachmentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUniterClientRemoveStorageAttachmentCall) DoAndReturn(f func(names.StorageTag, names.UnitTag) error) *MockUniterClientRemoveStorageAttachmentCall {
+func (c *MockUniterClientRemoveStorageAttachmentCall) DoAndReturn(f func(context.Context, names.StorageTag, names.UnitTag) error) *MockUniterClientRemoveStorageAttachmentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -823,18 +823,18 @@ func (c *MockUniterClientSetUnitWorkloadVersionCall) DoAndReturn(f func(context.
 }
 
 // StorageAttachment mocks base method.
-func (m *MockUniterClient) StorageAttachment(arg0 names.StorageTag, arg1 names.UnitTag) (params.StorageAttachment, error) {
+func (m *MockUniterClient) StorageAttachment(arg0 context.Context, arg1 names.StorageTag, arg2 names.UnitTag) (params.StorageAttachment, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StorageAttachment", arg0, arg1)
+	ret := m.ctrl.Call(m, "StorageAttachment", arg0, arg1, arg2)
 	ret0, _ := ret[0].(params.StorageAttachment)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // StorageAttachment indicates an expected call of StorageAttachment.
-func (mr *MockUniterClientMockRecorder) StorageAttachment(arg0, arg1 any) *MockUniterClientStorageAttachmentCall {
+func (mr *MockUniterClientMockRecorder) StorageAttachment(arg0, arg1, arg2 any) *MockUniterClientStorageAttachmentCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageAttachment", reflect.TypeOf((*MockUniterClient)(nil).StorageAttachment), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageAttachment", reflect.TypeOf((*MockUniterClient)(nil).StorageAttachment), arg0, arg1, arg2)
 	return &MockUniterClientStorageAttachmentCall{Call: call}
 }
 
@@ -850,30 +850,30 @@ func (c *MockUniterClientStorageAttachmentCall) Return(arg0 params.StorageAttach
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUniterClientStorageAttachmentCall) Do(f func(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)) *MockUniterClientStorageAttachmentCall {
+func (c *MockUniterClientStorageAttachmentCall) Do(f func(context.Context, names.StorageTag, names.UnitTag) (params.StorageAttachment, error)) *MockUniterClientStorageAttachmentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUniterClientStorageAttachmentCall) DoAndReturn(f func(names.StorageTag, names.UnitTag) (params.StorageAttachment, error)) *MockUniterClientStorageAttachmentCall {
+func (c *MockUniterClientStorageAttachmentCall) DoAndReturn(f func(context.Context, names.StorageTag, names.UnitTag) (params.StorageAttachment, error)) *MockUniterClientStorageAttachmentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // StorageAttachmentLife mocks base method.
-func (m *MockUniterClient) StorageAttachmentLife(arg0 []params.StorageAttachmentId) ([]params.LifeResult, error) {
+func (m *MockUniterClient) StorageAttachmentLife(arg0 context.Context, arg1 []params.StorageAttachmentId) ([]params.LifeResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StorageAttachmentLife", arg0)
+	ret := m.ctrl.Call(m, "StorageAttachmentLife", arg0, arg1)
 	ret0, _ := ret[0].([]params.LifeResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // StorageAttachmentLife indicates an expected call of StorageAttachmentLife.
-func (mr *MockUniterClientMockRecorder) StorageAttachmentLife(arg0 any) *MockUniterClientStorageAttachmentLifeCall {
+func (mr *MockUniterClientMockRecorder) StorageAttachmentLife(arg0, arg1 any) *MockUniterClientStorageAttachmentLifeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageAttachmentLife", reflect.TypeOf((*MockUniterClient)(nil).StorageAttachmentLife), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageAttachmentLife", reflect.TypeOf((*MockUniterClient)(nil).StorageAttachmentLife), arg0, arg1)
 	return &MockUniterClientStorageAttachmentLifeCall{Call: call}
 }
 
@@ -889,13 +889,13 @@ func (c *MockUniterClientStorageAttachmentLifeCall) Return(arg0 []params.LifeRes
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUniterClientStorageAttachmentLifeCall) Do(f func([]params.StorageAttachmentId) ([]params.LifeResult, error)) *MockUniterClientStorageAttachmentLifeCall {
+func (c *MockUniterClientStorageAttachmentLifeCall) Do(f func(context.Context, []params.StorageAttachmentId) ([]params.LifeResult, error)) *MockUniterClientStorageAttachmentLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUniterClientStorageAttachmentLifeCall) DoAndReturn(f func([]params.StorageAttachmentId) ([]params.LifeResult, error)) *MockUniterClientStorageAttachmentLifeCall {
+func (c *MockUniterClientStorageAttachmentLifeCall) DoAndReturn(f func(context.Context, []params.StorageAttachmentId) ([]params.LifeResult, error)) *MockUniterClientStorageAttachmentLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -940,18 +940,18 @@ func (c *MockUniterClientUnitCall) DoAndReturn(f func(context.Context, names.Uni
 }
 
 // UnitStorageAttachments mocks base method.
-func (m *MockUniterClient) UnitStorageAttachments(arg0 names.UnitTag) ([]params.StorageAttachmentId, error) {
+func (m *MockUniterClient) UnitStorageAttachments(arg0 context.Context, arg1 names.UnitTag) ([]params.StorageAttachmentId, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitStorageAttachments", arg0)
+	ret := m.ctrl.Call(m, "UnitStorageAttachments", arg0, arg1)
 	ret0, _ := ret[0].([]params.StorageAttachmentId)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UnitStorageAttachments indicates an expected call of UnitStorageAttachments.
-func (mr *MockUniterClientMockRecorder) UnitStorageAttachments(arg0 any) *MockUniterClientUnitStorageAttachmentsCall {
+func (mr *MockUniterClientMockRecorder) UnitStorageAttachments(arg0, arg1 any) *MockUniterClientUnitStorageAttachmentsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitStorageAttachments", reflect.TypeOf((*MockUniterClient)(nil).UnitStorageAttachments), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitStorageAttachments", reflect.TypeOf((*MockUniterClient)(nil).UnitStorageAttachments), arg0, arg1)
 	return &MockUniterClientUnitStorageAttachmentsCall{Call: call}
 }
 
@@ -967,13 +967,13 @@ func (c *MockUniterClientUnitStorageAttachmentsCall) Return(arg0 []params.Storag
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUniterClientUnitStorageAttachmentsCall) Do(f func(names.UnitTag) ([]params.StorageAttachmentId, error)) *MockUniterClientUnitStorageAttachmentsCall {
+func (c *MockUniterClientUnitStorageAttachmentsCall) Do(f func(context.Context, names.UnitTag) ([]params.StorageAttachmentId, error)) *MockUniterClientUnitStorageAttachmentsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUniterClientUnitStorageAttachmentsCall) DoAndReturn(f func(names.UnitTag) ([]params.StorageAttachmentId, error)) *MockUniterClientUnitStorageAttachmentsCall {
+func (c *MockUniterClientUnitStorageAttachmentsCall) DoAndReturn(f func(context.Context, names.UnitTag) ([]params.StorageAttachmentId, error)) *MockUniterClientUnitStorageAttachmentsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1096,18 +1096,18 @@ func (c *MockUniterClientWatchRelationUnitsCall) DoAndReturn(f func(context.Cont
 }
 
 // WatchStorageAttachment mocks base method.
-func (m *MockUniterClient) WatchStorageAttachment(arg0 names.StorageTag, arg1 names.UnitTag) (watcher.NotifyWatcher, error) {
+func (m *MockUniterClient) WatchStorageAttachment(arg0 context.Context, arg1 names.StorageTag, arg2 names.UnitTag) (watcher.NotifyWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchStorageAttachment", arg0, arg1)
+	ret := m.ctrl.Call(m, "WatchStorageAttachment", arg0, arg1, arg2)
 	ret0, _ := ret[0].(watcher.NotifyWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchStorageAttachment indicates an expected call of WatchStorageAttachment.
-func (mr *MockUniterClientMockRecorder) WatchStorageAttachment(arg0, arg1 any) *MockUniterClientWatchStorageAttachmentCall {
+func (mr *MockUniterClientMockRecorder) WatchStorageAttachment(arg0, arg1, arg2 any) *MockUniterClientWatchStorageAttachmentCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchStorageAttachment", reflect.TypeOf((*MockUniterClient)(nil).WatchStorageAttachment), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchStorageAttachment", reflect.TypeOf((*MockUniterClient)(nil).WatchStorageAttachment), arg0, arg1, arg2)
 	return &MockUniterClientWatchStorageAttachmentCall{Call: call}
 }
 
@@ -1123,13 +1123,13 @@ func (c *MockUniterClientWatchStorageAttachmentCall) Return(arg0 watcher.NotifyW
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUniterClientWatchStorageAttachmentCall) Do(f func(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)) *MockUniterClientWatchStorageAttachmentCall {
+func (c *MockUniterClientWatchStorageAttachmentCall) Do(f func(context.Context, names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)) *MockUniterClientWatchStorageAttachmentCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUniterClientWatchStorageAttachmentCall) DoAndReturn(f func(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)) *MockUniterClientWatchStorageAttachmentCall {
+func (c *MockUniterClientWatchStorageAttachmentCall) DoAndReturn(f func(context.Context, names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)) *MockUniterClientWatchStorageAttachmentCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

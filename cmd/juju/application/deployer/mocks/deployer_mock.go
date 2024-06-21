@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	httpbakery "github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -402,18 +403,18 @@ func (m *MockCharmDeployAPI) EXPECT() *MockCharmDeployAPIMockRecorder {
 }
 
 // CharmInfo mocks base method.
-func (m *MockCharmDeployAPI) CharmInfo(arg0 string) (*charms.CharmInfo, error) {
+func (m *MockCharmDeployAPI) CharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmInfo", arg0)
+	ret := m.ctrl.Call(m, "CharmInfo", arg0, arg1)
 	ret0, _ := ret[0].(*charms.CharmInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CharmInfo indicates an expected call of CharmInfo.
-func (mr *MockCharmDeployAPIMockRecorder) CharmInfo(arg0 any) *MockCharmDeployAPICharmInfoCall {
+func (mr *MockCharmDeployAPIMockRecorder) CharmInfo(arg0, arg1 any) *MockCharmDeployAPICharmInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockCharmDeployAPI)(nil).CharmInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockCharmDeployAPI)(nil).CharmInfo), arg0, arg1)
 	return &MockCharmDeployAPICharmInfoCall{Call: call}
 }
 
@@ -429,13 +430,13 @@ func (c *MockCharmDeployAPICharmInfoCall) Return(arg0 *charms.CharmInfo, arg1 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmDeployAPICharmInfoCall) Do(f func(string) (*charms.CharmInfo, error)) *MockCharmDeployAPICharmInfoCall {
+func (c *MockCharmDeployAPICharmInfoCall) Do(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCharmDeployAPICharmInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmDeployAPICharmInfoCall) DoAndReturn(f func(string) (*charms.CharmInfo, error)) *MockCharmDeployAPICharmInfoCall {
+func (c *MockCharmDeployAPICharmInfoCall) DoAndReturn(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCharmDeployAPICharmInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

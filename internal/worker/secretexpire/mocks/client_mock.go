@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	watcher "github.com/juju/juju/core/watcher"
@@ -41,9 +42,9 @@ func (m *MockSecretManagerFacade) EXPECT() *MockSecretManagerFacadeMockRecorder 
 }
 
 // WatchSecretRevisionsExpiryChanges mocks base method.
-func (m *MockSecretManagerFacade) WatchSecretRevisionsExpiryChanges(ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error) {
+func (m *MockSecretManagerFacade) WatchSecretRevisionsExpiryChanges(ctx context.Context, ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{}
+	varargs := []any{ctx}
 	for _, a := range ownerTags {
 		varargs = append(varargs, a)
 	}
@@ -54,9 +55,10 @@ func (m *MockSecretManagerFacade) WatchSecretRevisionsExpiryChanges(ownerTags ..
 }
 
 // WatchSecretRevisionsExpiryChanges indicates an expected call of WatchSecretRevisionsExpiryChanges.
-func (mr *MockSecretManagerFacadeMockRecorder) WatchSecretRevisionsExpiryChanges(ownerTags ...any) *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall {
+func (mr *MockSecretManagerFacadeMockRecorder) WatchSecretRevisionsExpiryChanges(ctx any, ownerTags ...any) *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretRevisionsExpiryChanges", reflect.TypeOf((*MockSecretManagerFacade)(nil).WatchSecretRevisionsExpiryChanges), ownerTags...)
+	varargs := append([]any{ctx}, ownerTags...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretRevisionsExpiryChanges", reflect.TypeOf((*MockSecretManagerFacade)(nil).WatchSecretRevisionsExpiryChanges), varargs...)
 	return &MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall{Call: call}
 }
 
@@ -72,13 +74,13 @@ func (c *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall) Return(ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall) Do(f func(...names.Tag) (watcher.SecretTriggerWatcher, error)) *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall {
+func (c *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall) Do(f func(context.Context, ...names.Tag) (watcher.SecretTriggerWatcher, error)) *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall) DoAndReturn(f func(...names.Tag) (watcher.SecretTriggerWatcher, error)) *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall {
+func (c *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall) DoAndReturn(f func(context.Context, ...names.Tag) (watcher.SecretTriggerWatcher, error)) *MockSecretManagerFacadeWatchSecretRevisionsExpiryChangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
