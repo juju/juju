@@ -62,6 +62,14 @@ type State interface {
 	// GetCharmManifest returns the manifest for the charm using the charm ID.
 	// If the charm does not exist, a NotFound error is returned.
 	GetCharmManifest(ctx context.Context, charmID corecharm.ID) (charm.Manifest, error)
+
+	// GetCharmActions returns the actions for the charm using the charm ID.
+	// If the charm does not exist, a NotFound error is returned.
+	GetCharmActions(ctx context.Context, charmID corecharm.ID) (charm.Actions, error)
+
+	// GetCharmConfig returns the config for the charm using the charm ID.
+	// If the charm does not exist, a NotFound error is returned.
+	GetCharmConfig(ctx context.Context, charmID corecharm.ID) (charm.Config, error)
 }
 
 // Service provides the API for working with charms.
@@ -163,6 +171,36 @@ func (s *Service) GetCharmManifest(ctx context.Context, id corecharm.ID) (intern
 	}
 
 	return convertManifest(manifest)
+}
+
+// GetCharmActions returns the actions for the charm using the charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *Service) GetCharmActions(ctx context.Context, id corecharm.ID) (internalcharm.Actions, error) {
+	if err := id.Validate(); err != nil {
+		return internalcharm.Actions{}, fmt.Errorf("charm id: %w", err)
+	}
+
+	actions, err := s.st.GetCharmActions(ctx, id)
+	if err != nil {
+		return internalcharm.Actions{}, errors.Trace(err)
+	}
+
+	return convertActions(actions)
+}
+
+// GetCharmConfig returns the config for the charm using the charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *Service) GetCharmConfig(ctx context.Context, id corecharm.ID) (internalcharm.Config, error) {
+	if err := id.Validate(); err != nil {
+		return internalcharm.Config{}, fmt.Errorf("charm id: %w", err)
+	}
+
+	config, err := s.st.GetCharmConfig(ctx, id)
+	if err != nil {
+		return internalcharm.Config{}, errors.Trace(err)
+	}
+
+	return convertConfig(config)
 }
 
 // WatchableService provides the API for working with charms and the

@@ -29,7 +29,7 @@ var manifestTestCases = [...]struct {
 		output: internalcharm.Manifest{},
 	},
 	{
-		name: "empty",
+		name: "full bases",
 		input: charm.Manifest{
 			Bases: []charm.Base{
 				{

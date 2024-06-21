@@ -26,6 +26,7 @@ CREATE TABLE charm (
     -- blob without constraining the expression to a specific set of rules.
     assumes TEXT,
     lxd_profile TEXT,
+    ignore_file TEXT,
     CONSTRAINT fk_charm_run_as_kind_charm
     FOREIGN KEY (run_as_id)
     REFERENCES charm_run_as_kind (id)

@@ -275,3 +275,41 @@ const (
 	RiskBeta      ChannelRisk = "beta"
 	RiskEdge      ChannelRisk = "edge"
 )
+
+// Actions defines the available actions for the charm. Additional params
+// may be added as metadata at a future time (e.g. version.)
+type Actions struct {
+	Actions map[string]Action
+}
+
+// Action is a definition of the parameters and traits of an Action.
+type Action struct {
+	Description    string
+	Parallel       bool
+	ExecutionGroup string
+	Params         []byte
+}
+
+// Config represents the supported configuration options for a charm,
+// as declared in its config.yaml file.
+type Config struct {
+	Options map[string]Option
+}
+
+// OptionType defines the type of a charm config option.
+type OptionType string
+
+const (
+	OptionString OptionType = "string"
+	OptionInt    OptionType = "int"
+	OptionFloat  OptionType = "float"
+	OptionBool   OptionType = "boolean"
+	OptionSecret OptionType = "secret"
+)
+
+// Option represents a single charm config option.
+type Option struct {
+	Type        OptionType
+	Description string
+	Default     any
+}
