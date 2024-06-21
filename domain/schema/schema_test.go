@@ -181,6 +181,9 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 		"secret_backend_rotation",
 		"secret_backend_type",
 		"model_secret_backend",
+
+		// macaroon bakery
+		"bakery_config",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
