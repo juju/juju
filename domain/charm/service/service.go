@@ -160,7 +160,7 @@ func (s *Service) GetCharmMetadata(ctx context.Context, id corecharm.ID) (intern
 		return internalcharm.Meta{}, errors.Trace(err)
 	}
 
-	return convertMetadata(metadata)
+	return decodeMetadata(metadata)
 }
 
 // GetCharmManifest returns the manifest for the charm using the charm ID.
@@ -175,7 +175,7 @@ func (s *Service) GetCharmManifest(ctx context.Context, id corecharm.ID) (intern
 		return internalcharm.Manifest{}, errors.Trace(err)
 	}
 
-	return convertManifest(manifest)
+	return decodeManifest(manifest)
 }
 
 // GetCharmActions returns the actions for the charm using the charm ID.
@@ -190,7 +190,7 @@ func (s *Service) GetCharmActions(ctx context.Context, id corecharm.ID) (interna
 		return internalcharm.Actions{}, errors.Trace(err)
 	}
 
-	return convertActions(actions)
+	return decodeActions(actions)
 }
 
 // GetCharmConfig returns the config for the charm using the charm ID.
@@ -205,7 +205,7 @@ func (s *Service) GetCharmConfig(ctx context.Context, id corecharm.ID) (internal
 		return internalcharm.Config{}, errors.Trace(err)
 	}
 
-	return convertConfig(config)
+	return decodeConfig(config)
 }
 
 // GetCharmLXDProfile returns the LXD profile for the charm using the charm ID.
@@ -220,7 +220,7 @@ func (s *Service) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (inte
 		return internalcharm.LXDProfile{}, errors.Trace(err)
 	}
 
-	return convertLXDProfile(profile)
+	return decodeLXDProfile(profile)
 }
 
 // WatchableService provides the API for working with charms and the

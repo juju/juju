@@ -95,7 +95,7 @@ func (s *metadataSuite) TestConvertConfig(c *gc.C) {
 	for _, tc := range configTestCases {
 		c.Logf("Running test case %q", tc.name)
 
-		result, err := convertConfig(tc.input)
+		result, err := decodeConfig(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
 	}

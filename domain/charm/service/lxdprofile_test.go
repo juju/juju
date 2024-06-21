@@ -60,7 +60,7 @@ func (s *metadataSuite) TestConvertLXDProfile(c *gc.C) {
 	for _, tc := range lxdProfileTestCases {
 		c.Logf("Running test case %q", tc.name)
 
-		result, err := convertLXDProfile(tc.input)
+		result, err := decodeLXDProfile(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
 	}

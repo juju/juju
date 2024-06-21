@@ -10,16 +10,16 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
-func convertConfig(options charm.Config) (internalcharm.Config, error) {
+func decodeConfig(options charm.Config) (internalcharm.Config, error) {
 	if len(options.Options) == 0 {
 		return internalcharm.Config{}, nil
 	}
 
 	result := make(map[string]internalcharm.Option)
 	for name, option := range options.Options {
-		opt, err := convertConfigOption(option)
+		opt, err := decodeConfigOption(option)
 		if err != nil {
-			return internalcharm.Config{}, fmt.Errorf("convert config option: %w", err)
+			return internalcharm.Config{}, fmt.Errorf("decode config option: %w", err)
 		}
 
 		result[name] = opt
@@ -29,10 +29,10 @@ func convertConfig(options charm.Config) (internalcharm.Config, error) {
 	}, nil
 }
 
-func convertConfigOption(option charm.Option) (internalcharm.Option, error) {
-	t, err := convertOptionType(option.Type)
+func decodeConfigOption(option charm.Option) (internalcharm.Option, error) {
+	t, err := decodeOptionType(option.Type)
 	if err != nil {
-		return internalcharm.Option{}, fmt.Errorf("convert option type: %w", err)
+		return internalcharm.Option{}, fmt.Errorf("decode option type: %w", err)
 	}
 
 	return internalcharm.Option{
@@ -42,7 +42,7 @@ func convertConfigOption(option charm.Option) (internalcharm.Option, error) {
 	}, nil
 }
 
-func convertOptionType(t charm.OptionType) (string, error) {
+func decodeOptionType(t charm.OptionType) (string, error) {
 	switch t {
 	case charm.OptionString:
 		return "string", nil

@@ -15,60 +15,60 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 )
 
-// Conversion code is used to convert charm.Metadata code to non-domain
+// Conversion code is used to decode charm.Metadata code to non-domain
 // charm.Metadata code. The domain charm.Metadata code is used as the
 // normalisation layer for charm metadata. The persistence layer will ensure
 // that the charm metadata is stored in the correct format.
 
-func convertMetadata(metadata charm.Metadata) (internalcharm.Meta, error) {
-	provides, err := convertMetadataRelation(metadata.Provides)
+func decodeMetadata(metadata charm.Metadata) (internalcharm.Meta, error) {
+	provides, err := decodeMetadataRelation(metadata.Provides)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("convert provides relation: %w", err)
+		return internalcharm.Meta{}, fmt.Errorf("decode provides relation: %w", err)
 	}
 
-	requires, err := convertMetadataRelation(metadata.Requires)
+	requires, err := decodeMetadataRelation(metadata.Requires)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("convert requires relation: %w", err)
+		return internalcharm.Meta{}, fmt.Errorf("decode requires relation: %w", err)
 	}
 
-	peers, err := convertMetadataRelation(metadata.Peers)
+	peers, err := decodeMetadataRelation(metadata.Peers)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("convert peers relation: %w", err)
+		return internalcharm.Meta{}, fmt.Errorf("decode peers relation: %w", err)
 	}
 
-	storage, err := convertMetadataStorage(metadata.Storage)
+	storage, err := decodeMetadataStorage(metadata.Storage)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("convert storage: %w", err)
+		return internalcharm.Meta{}, fmt.Errorf("decode storage: %w", err)
 	}
 
-	devices, err := convertMetadataDevices(metadata.Devices)
+	devices, err := decodeMetadataDevices(metadata.Devices)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("convert devices: %w", err)
+		return internalcharm.Meta{}, fmt.Errorf("decode devices: %w", err)
 	}
 
-	payloadClasses, err := convertMetadataPayloadClasses(metadata.PayloadClasses)
+	payloadClasses, err := decodeMetadataPayloadClasses(metadata.PayloadClasses)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("convert payload classes: %w", err)
+		return internalcharm.Meta{}, fmt.Errorf("decode payload classes: %w", err)
 	}
 
-	resources, err := convertMetadataResources(metadata.Resources)
+	resources, err := decodeMetadataResources(metadata.Resources)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("convert resources: %w", err)
+		return internalcharm.Meta{}, fmt.Errorf("decode resources: %w", err)
 	}
 
-	containers, err := convertMetadataContainers(metadata.Containers)
+	containers, err := decodeMetadataContainers(metadata.Containers)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("convert containers: %w", err)
+		return internalcharm.Meta{}, fmt.Errorf("decode containers: %w", err)
 	}
 
-	assumes, err := convertMetadataAssumes(metadata.Assumes)
+	assumes, err := decodeMetadataAssumes(metadata.Assumes)
 	if err != nil {
 		return internalcharm.Meta{}, fmt.Errorf("parse assumes: %w", err)
 	}
 
-	charmUser, err := convertMetadataRunAs(metadata.RunAs)
+	charmUser, err := decodeMetadataRunAs(metadata.RunAs)
 	if err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("convert charm user: %w", err)
+		return internalcharm.Meta{}, fmt.Errorf("decode charm user: %w", err)
 	}
 
 	return internalcharm.Meta{
@@ -83,7 +83,7 @@ func convertMetadata(metadata charm.Metadata) (internalcharm.Meta, error) {
 		Provides:       provides,
 		Requires:       requires,
 		Peers:          peers,
-		ExtraBindings:  convertMetadataExtraBindings(metadata.ExtraBindings),
+		ExtraBindings:  decodeMetadataExtraBindings(metadata.ExtraBindings),
 		Storage:        storage,
 		Devices:        devices,
 		PayloadClasses: payloadClasses,
@@ -94,21 +94,21 @@ func convertMetadata(metadata charm.Metadata) (internalcharm.Meta, error) {
 	}, nil
 }
 
-func convertMetadataRelation(relations map[string]charm.Relation) (map[string]internalcharm.Relation, error) {
+func decodeMetadataRelation(relations map[string]charm.Relation) (map[string]internalcharm.Relation, error) {
 	if len(relations) == 0 {
 		return nil, nil
 	}
 
 	result := make(map[string]internalcharm.Relation, len(relations))
 	for k, v := range relations {
-		role, err := convertMetadataRole(v.Role)
+		role, err := decodeMetadataRole(v.Role)
 		if err != nil {
-			return nil, fmt.Errorf("convert role: %w", err)
+			return nil, fmt.Errorf("decode role: %w", err)
 		}
 
-		scope, err := convertMetadataScope(v.Scope)
+		scope, err := decodeMetadataScope(v.Scope)
 		if err != nil {
-			return nil, fmt.Errorf("convert scope: %w", err)
+			return nil, fmt.Errorf("decode scope: %w", err)
 		}
 
 		result[k] = internalcharm.Relation{
@@ -123,7 +123,7 @@ func convertMetadataRelation(relations map[string]charm.Relation) (map[string]in
 	return result, nil
 }
 
-func convertMetadataRole(role charm.RelationRole) (internalcharm.RelationRole, error) {
+func decodeMetadataRole(role charm.RelationRole) (internalcharm.RelationRole, error) {
 	switch role {
 	case charm.RoleProvider:
 		return internalcharm.RoleProvider, nil
@@ -136,7 +136,7 @@ func convertMetadataRole(role charm.RelationRole) (internalcharm.RelationRole, e
 	}
 }
 
-func convertMetadataScope(scope charm.RelationScope) (internalcharm.RelationScope, error) {
+func decodeMetadataScope(scope charm.RelationScope) (internalcharm.RelationScope, error) {
 	switch scope {
 	case charm.ScopeGlobal:
 		return internalcharm.ScopeGlobal, nil
@@ -147,7 +147,7 @@ func convertMetadataScope(scope charm.RelationScope) (internalcharm.RelationScop
 	}
 }
 
-func convertMetadataExtraBindings(bindings map[string]charm.ExtraBinding) map[string]internalcharm.ExtraBinding {
+func decodeMetadataExtraBindings(bindings map[string]charm.ExtraBinding) map[string]internalcharm.ExtraBinding {
 	if len(bindings) == 0 {
 		return nil
 	}
@@ -161,16 +161,16 @@ func convertMetadataExtraBindings(bindings map[string]charm.ExtraBinding) map[st
 	return result
 }
 
-func convertMetadataStorage(storage map[string]charm.Storage) (map[string]internalcharm.Storage, error) {
+func decodeMetadataStorage(storage map[string]charm.Storage) (map[string]internalcharm.Storage, error) {
 	if len(storage) == 0 {
 		return nil, nil
 	}
 
 	result := make(map[string]internalcharm.Storage, len(storage))
 	for k, v := range storage {
-		storeType, err := convertMetadataStorageType(v.Type)
+		storeType, err := decodeMetadataStorageType(v.Type)
 		if err != nil {
-			return nil, fmt.Errorf("convert storage type: %w", err)
+			return nil, fmt.Errorf("decode storage type: %w", err)
 		}
 
 		result[k] = internalcharm.Storage{
@@ -189,7 +189,7 @@ func convertMetadataStorage(storage map[string]charm.Storage) (map[string]intern
 	return result, nil
 }
 
-func convertMetadataStorageType(storeType charm.StorageType) (internalcharm.StorageType, error) {
+func decodeMetadataStorageType(storeType charm.StorageType) (internalcharm.StorageType, error) {
 	switch storeType {
 	case charm.StorageBlock:
 		return internalcharm.StorageBlock, nil
@@ -200,7 +200,7 @@ func convertMetadataStorageType(storeType charm.StorageType) (internalcharm.Stor
 	}
 }
 
-func convertMetadataDevices(devices map[string]charm.Device) (map[string]internalcharm.Device, error) {
+func decodeMetadataDevices(devices map[string]charm.Device) (map[string]internalcharm.Device, error) {
 	if len(devices) == 0 {
 		return nil, nil
 	}
@@ -218,7 +218,7 @@ func convertMetadataDevices(devices map[string]charm.Device) (map[string]interna
 	return result, nil
 }
 
-func convertMetadataPayloadClasses(payloadClasses map[string]charm.PayloadClass) (map[string]internalcharm.PayloadClass, error) {
+func decodeMetadataPayloadClasses(payloadClasses map[string]charm.PayloadClass) (map[string]internalcharm.PayloadClass, error) {
 	if len(payloadClasses) == 0 {
 		return nil, nil
 	}
@@ -233,16 +233,16 @@ func convertMetadataPayloadClasses(payloadClasses map[string]charm.PayloadClass)
 	return result, nil
 }
 
-func convertMetadataResources(resources map[string]charm.Resource) (map[string]resource.Meta, error) {
+func decodeMetadataResources(resources map[string]charm.Resource) (map[string]resource.Meta, error) {
 	if len(resources) == 0 {
 		return nil, nil
 	}
 
 	result := make(map[string]resource.Meta, len(resources))
 	for k, v := range resources {
-		resourceType, err := convertMetadataResourceType(v.Type)
+		resourceType, err := decodeMetadataResourceType(v.Type)
 		if err != nil {
-			return nil, fmt.Errorf("convert resource type: %w", err)
+			return nil, fmt.Errorf("decode resource type: %w", err)
 		}
 
 		result[k] = resource.Meta{
@@ -256,7 +256,7 @@ func convertMetadataResources(resources map[string]charm.Resource) (map[string]r
 	return result, nil
 }
 
-func convertMetadataResourceType(resourceType charm.ResourceType) (resource.Type, error) {
+func decodeMetadataResourceType(resourceType charm.ResourceType) (resource.Type, error) {
 	switch resourceType {
 	case charm.ResourceTypeFile:
 		return resource.TypeFile, nil
@@ -268,16 +268,16 @@ func convertMetadataResourceType(resourceType charm.ResourceType) (resource.Type
 	}
 }
 
-func convertMetadataContainers(containers map[string]charm.Container) (map[string]internalcharm.Container, error) {
+func decodeMetadataContainers(containers map[string]charm.Container) (map[string]internalcharm.Container, error) {
 	if len(containers) == 0 {
 		return nil, nil
 	}
 
 	result := make(map[string]internalcharm.Container, len(containers))
 	for k, v := range containers {
-		mounts, err := convertMetadataMounts(v.Mounts)
+		mounts, err := decodeMetadataMounts(v.Mounts)
 		if err != nil {
-			return nil, fmt.Errorf("convert mounts: %w", err)
+			return nil, fmt.Errorf("decode mounts: %w", err)
 		}
 
 		result[k] = internalcharm.Container{
@@ -290,7 +290,7 @@ func convertMetadataContainers(containers map[string]charm.Container) (map[strin
 	return result, nil
 }
 
-func convertMetadataMounts(mounts []charm.Mount) ([]internalcharm.Mount, error) {
+func decodeMetadataMounts(mounts []charm.Mount) ([]internalcharm.Mount, error) {
 	if len(mounts) == 0 {
 		return nil, nil
 	}
@@ -305,8 +305,8 @@ func convertMetadataMounts(mounts []charm.Mount) ([]internalcharm.Mount, error) 
 	return result, nil
 }
 
-func convertMetadataRunAs(charmUser charm.RunAs) (internalcharm.RunAs, error) {
-	// RunAsDefault is different from the wire protocol. Ensure we convert it
+func decodeMetadataRunAs(charmUser charm.RunAs) (internalcharm.RunAs, error) {
+	// RunAsDefault is different from the wire protocol. Ensure we decode it
 	// correctly.
 	switch charmUser {
 	case charm.RunAsDefault:
@@ -322,7 +322,7 @@ func convertMetadataRunAs(charmUser charm.RunAs) (internalcharm.RunAs, error) {
 	}
 }
 
-func convertMetadataAssumes(bytes []byte) (*assumes.ExpressionTree, error) {
+func decodeMetadataAssumes(bytes []byte) (*assumes.ExpressionTree, error) {
 	if len(bytes) == 0 {
 		return nil, nil
 	}

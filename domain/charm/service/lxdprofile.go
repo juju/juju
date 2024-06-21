@@ -10,7 +10,7 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
-func convertLXDProfile(profile []byte) (internalcharm.LXDProfile, error) {
+func decodeLXDProfile(profile []byte) (internalcharm.LXDProfile, error) {
 	if len(profile) == 0 {
 		return internalcharm.LXDProfile{}, nil
 	}

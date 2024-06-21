@@ -11,16 +11,16 @@ import (
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
-func convertActions(actions charm.Actions) (internalcharm.Actions, error) {
+func decodeActions(actions charm.Actions) (internalcharm.Actions, error) {
 	if len(actions.Actions) == 0 {
 		return internalcharm.Actions{}, nil
 	}
 
 	result := make(map[string]internalcharm.ActionSpec)
 	for name, action := range actions.Actions {
-		params, err := convertActionParams(action.Params)
+		params, err := decodeActionParams(action.Params)
 		if err != nil {
-			return internalcharm.Actions{}, fmt.Errorf("convert action params: %w", err)
+			return internalcharm.Actions{}, fmt.Errorf("decode action params: %w", err)
 		}
 
 		result[name] = internalcharm.ActionSpec{
@@ -35,7 +35,7 @@ func convertActions(actions charm.Actions) (internalcharm.Actions, error) {
 	}, nil
 }
 
-func convertActionParams(params []byte) (map[string]any, error) {
+func decodeActionParams(params []byte) (map[string]any, error) {
 	if len(params) == 0 {
 		return nil, nil
 	}

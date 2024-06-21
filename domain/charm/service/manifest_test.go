@@ -63,7 +63,7 @@ func (s *metadataSuite) TestConvertManifest(c *gc.C) {
 	for _, tc := range manifestTestCases {
 		c.Logf("Running test case %q", tc.name)
 
-		result, err := convertManifest(tc.input)
+		result, err := decodeManifest(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
 	}

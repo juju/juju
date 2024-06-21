@@ -100,7 +100,7 @@ func (s *metadataSuite) TestConvertActions(c *gc.C) {
 	for _, tc := range actionsTestCases {
 		c.Logf("Running test case %q", tc.name)
 
-		result, err := convertActions(tc.input)
+		result, err := decodeActions(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
 	}

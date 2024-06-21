@@ -363,7 +363,7 @@ func (s *metadataSuite) TestConvertMetadata(c *gc.C) {
 	for _, tc := range metadataTestCases {
 		c.Logf("Running test case %q", tc.name)
 
-		result, err := convertMetadata(tc.input)
+		result, err := decodeMetadata(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
 	}
