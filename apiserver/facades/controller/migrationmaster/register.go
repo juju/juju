@@ -60,6 +60,9 @@ func newMigrationMasterFacade(ctx facade.ModelContext) (*API, error) {
 		leadership,
 		credentialService,
 		serviceFactory.ControllerConfig(),
+		serviceFactory.Config(),
+		serviceFactory.ModelInfo(),
+		serviceFactory.Model(),
 		serviceFactory.Upgrade(),
 	)
 }

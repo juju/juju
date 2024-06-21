@@ -4,12 +4,8 @@
 package migrationmaster
 
 import (
-	"context"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
-	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/state"
 )
@@ -22,42 +18,6 @@ type backend struct {
 
 func newBacked(st *state.State) Backend {
 	return &backend{State: st}
-}
-
-// ModelName implements Backend.
-func (s *backend) ModelName() (string, error) {
-	model, err := s.Model()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return model.Name(), nil
-}
-
-// ModelOwner implements Backend.
-func (s *backend) ModelOwner() (names.UserTag, error) {
-	model, err := s.Model()
-	if err != nil {
-		return names.UserTag{}, errors.Trace(err)
-	}
-	return model.Owner(), nil
-}
-
-// AgentVersion implements Backend.
-func (s *backend) AgentVersion(ctx context.Context) (version.Number, error) {
-	m, err := s.Model()
-	if err != nil {
-		return version.Zero, errors.Trace(err)
-	}
-
-	cfg, err := m.ModelConfig(ctx)
-	if err != nil {
-		return version.Zero, errors.Trace(err)
-	}
-	vers, ok := cfg.AgentVersion()
-	if !ok {
-		return version.Zero, errors.New("no agent version")
-	}
-	return vers, nil
 }
 
 // AllLocalRelatedModels returns all models on this controller to which

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
@@ -37,17 +36,6 @@ type ModelExporter interface {
 	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
 }
 
-// UpgradeService provides a subset of the upgrade domain service methods.
-type UpgradeService interface {
-	// IsUpgrading returns whether the controller is currently upgrading.
-	IsUpgrading(context.Context) (bool, error)
-}
-
-// ControllerConfigService provides access to the controller configuration.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
 // API implements the API required for the model migration
 // master worker.
 type API struct {
@@ -64,6 +52,9 @@ type API struct {
 	credentialService       common.CredentialService
 	upgradeService          UpgradeService
 	controllerConfigService ControllerConfigService
+	modelConfigService      ModelConfigService
+	modelInfoService        ModelInfoService
+	modelService            ModelService
 	store                   objectstore.ObjectStore
 }
 
@@ -83,6 +74,9 @@ func NewAPI(
 	leadership leadership.Reader,
 	credentialService common.CredentialService,
 	controllerConfigService ControllerConfigService,
+	modelConfigService ModelConfigService,
+	modelInfoService ModelInfoService,
+	modelService ModelService,
 	upgradeService UpgradeService,
 ) (*API, error) {
 	if !authorizer.AuthController() {
@@ -103,6 +97,9 @@ func NewAPI(
 		leadership:              leadership,
 		credentialService:       credentialService,
 		controllerConfigService: controllerConfigService,
+		modelConfigService:      modelConfigService,
+		modelInfoService:        modelInfoService,
+		modelService:            modelService,
 		upgradeService:          upgradeService,
 	}, nil
 }
@@ -166,25 +163,24 @@ func (api *API) MigrationStatus(ctx context.Context) (params.MasterMigrationStat
 func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error) {
 	empty := params.MigrationModelInfo{}
 
-	name, err := api.backend.ModelName()
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
-		return empty, errors.Annotate(err, "retrieving model name")
+		return empty, errors.Annotate(err, "retrieving model info")
 	}
 
-	owner, err := api.backend.ModelOwner()
+	modelConfig, err := api.modelConfigService.ModelConfig(ctx)
 	if err != nil {
-		return empty, errors.Annotate(err, "retrieving model owner")
+		return empty, errors.Annotate(err, "retrieving model config")
 	}
-
-	vers, err := api.backend.AgentVersion(ctx)
-	if err != nil {
-		return empty, errors.Annotate(err, "retrieving agent version")
+	vers, ok := modelConfig.AgentVersion()
+	if !ok {
+		return empty, errors.New("no agent version")
 	}
 
 	return params.MigrationModelInfo{
-		UUID:         api.backend.ModelUUID(),
-		Name:         name,
-		OwnerTag:     owner.String(),
+		UUID:         modelInfo.UUID.String(),
+		Name:         modelInfo.Name,
+		OwnerTag:     names.NewUserTag(modelInfo.CredentialOwner).String(),
 		AgentVersion: vers,
 	}, nil
 }
@@ -246,23 +242,19 @@ func (api *API) SetPhase(ctx context.Context, args params.SetMigrationPhaseArgs)
 // Prechecks performs pre-migration checks on the model and
 // (source) controller.
 func (api *API) Prechecks(ctx context.Context, arg params.PrechecksArgs) error {
-	model, err := api.precheckBackend.Model()
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
 	if err != nil {
-		return errors.Annotate(err, "retrieving model")
+		return errors.Annotate(err, "retrieving model info")
 	}
-	backend, err := api.precheckBackend.ControllerBackend()
+	controllerModel, err := api.modelService.ControllerModel(ctx)
 	if err != nil {
-		return errors.Trace(err)
-	}
-	controllerModel, err := backend.Model()
-	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "retrieving controller model")
 	}
 	return migration.SourcePrecheck(
 		ctx,
 		api.precheckBackend,
-		api.presence.ModelPresence(model.UUID()),
-		api.presence.ModelPresence(controllerModel.UUID()),
+		api.presence.ModelPresence(modelInfo.UUID.String()),
+		api.presence.ModelPresence(controllerModel.UUID.String()),
 		api.environscloudspecGetter,
 		api.credentialService,
 		api.upgradeService,
