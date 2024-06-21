@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -38,6 +39,8 @@ func (st *State) Controller(
 		return nil, errors.Trace(err)
 	}
 
+	controller := Controller{ID: controllerUUID}
+
 	q := `
 SELECT (ctrl.uuid,
        alias,
@@ -49,15 +52,15 @@ FROM   external_controller AS ctrl
        ON        ctrl.uuid = model.controller_uuid
        LEFT JOIN external_controller_address AS addrs
        ON        ctrl.uuid = addrs.controller_uuid
-WHERE  ctrl.uuid = $M.id`
-	s, err := st.Prepare(q, Controller{}, sqlair.M{})
+WHERE  ctrl.uuid = $Controller.uuid`
+	s, err := st.Prepare(q, controller)
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
 
 	var rows Controllers
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, s, sqlair.M{"id": controllerUUID}).GetAll(&rows))
+		return errors.Trace(tx.Query(ctx, s, controller).GetAll(&rows))
 	}); errors.Is(err, sqlair.ErrNoRows) || len(rows) == 0 {
 		return nil, errors.NotFoundf("external controller %q", controllerUUID)
 	} else if err != nil {
@@ -75,10 +78,7 @@ func (st *State) ControllersForModels(ctx context.Context, modelUUIDs ...string)
 		return nil, errors.Trace(err)
 	}
 
-	// TODO(nvinuesa): We should use an `IN` statement query here, instead
-	// of looping over the list of models and performing N queries, but
-	// they are not yet supported on sqlair:
-	// https://github.com/canonical/sqlair/pull/76
+	dbModelUUIDs := ModelUUIDs(modelUUIDs)
 	q := `
 SELECT (ctrl.uuid,  
        ctrl.alias,
@@ -90,28 +90,23 @@ FROM   external_controller AS ctrl
        ON        ctrl.uuid = model.controller_uuid
        LEFT JOIN external_controller_address AS addrs
        ON        ctrl.uuid = addrs.controller_uuid
-WHERE  ctrl.uuid = (
+WHERE  ctrl.uuid IN (
     SELECT controller_uuid
     FROM   external_model AS model
-    WHERE  model.uuid = $M.model
+    WHERE  model.uuid IN ($ModelUUIDs[:])
 )`
 
-	s, err := st.Prepare(q, Controller{}, sqlair.M{})
+	stmt, err := st.Prepare(q, Controller{}, dbModelUUIDs)
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
 
 	var resultControllerInfos Controllers
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		for _, modelUUID := range modelUUIDs {
-			var rows Controllers
-			err := tx.Query(ctx, s, sqlair.M{"model": modelUUID}).GetAll(&rows)
-			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Trace(domain.CoerceError(err))
-			}
-			resultControllerInfos = append(resultControllerInfos, rows...)
+		err := tx.Query(ctx, stmt, dbModelUUIDs).GetAll(&resultControllerInfos)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Trace(domain.CoerceError(err))
 		}
-
 		return nil
 	}); err != nil {
 		return nil, errors.Annotate(err, "querying external controller")
@@ -130,13 +125,8 @@ func (st *State) UpdateExternalController(
 		return errors.Trace(err)
 	}
 
-	stmts, err := NewUpdateStatements()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.updateExternalControllerTx(ctx, tx, stmts, ci)
+		return st.updateExternalControllerTx(ctx, tx, ci)
 	})
 
 	return errors.Trace(err)
@@ -150,17 +140,11 @@ func (st *State) ImportExternalControllers(ctx context.Context, infos []crossmod
 		return errors.Trace(err)
 	}
 
-	stmts, err := NewUpdateStatements()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for _, ci := range infos {
 			err := st.updateExternalControllerTx(
 				ctx,
 				tx,
-				stmts,
 				ci,
 			)
 			if err != nil {
@@ -176,7 +160,6 @@ func (st *State) ImportExternalControllers(ctx context.Context, infos []crossmod
 func (st *State) updateExternalControllerTx(
 	ctx context.Context,
 	tx *sqlair.TX,
-	stmts *updateStatements,
 	ci crossmodel.ControllerInfo,
 ) error {
 	cID := ci.ControllerTag.Id()
@@ -185,33 +168,89 @@ func (st *State) updateExternalControllerTx(
 		Alias:  sql.NullString{String: ci.Alias, Valid: true},
 		CACert: ci.CACert,
 	}
-	if err := tx.Query(ctx, stmts.upsertController, externalController).Run(); err != nil {
+
+	upsertControllerQuery := `
+INSERT INTO external_controller (uuid, alias, ca_cert)
+VALUES ($Controller.*)
+  ON CONFLICT(uuid) DO UPDATE SET alias=excluded.alias, ca_cert=excluded.ca_cert
+`
+	upsertControllerStmt, err := st.Prepare(upsertControllerQuery, externalController)
+	if err != nil {
+		return errors.Annotatef(err, "preparing %q:", upsertControllerQuery)
+	}
+
+	if err := tx.Query(ctx, upsertControllerStmt, externalController).Run(); err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
 
-	cIDs := uuids(ci.Addrs)
-	if len(cIDs) == 0 {
-		cIDs = uuids{}
+	cIDs := ControllerUUIDs(ci.Addrs)
+
+	deleteUnusedAddressesQuery := `
+DELETE FROM external_controller_address
+WHERE  controller_uuid = $Controller.uuid
+AND    address NOT IN ($ControllerUUIDs[:])
+`
+	deleteUnusedAddressesStmt, err := st.Prepare(deleteUnusedAddressesQuery, externalController, cIDs)
+	if err != nil {
+		return errors.Annotatef(err, "preparing %q:", deleteUnusedAddressesQuery)
 	}
-	if err := tx.Query(ctx, stmts.deleteUnusedAddresses, externalController, cIDs).Run(); err != nil {
+
+	if err := tx.Query(ctx, deleteUnusedAddressesStmt, externalController, cIDs).Run(); err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
 
-	for _, addr := range ci.Addrs {
-		uuid, err := uuid.NewUUID()
-		if err != nil {
-			return errors.Trace(err)
+	if len(ci.Addrs) > 0 {
+		var externContAddrs []Address
+		for _, addr := range ci.Addrs {
+			uuid, err := uuid.NewUUID()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			externContAddrs = append(externContAddrs, Address{
+				ID:             uuid.String(),
+				ControllerUUID: cID,
+				Addr:           addr,
+			})
 		}
 
-		externContAddr := Address{ID: uuid.String(), ControllerUUID: cID, Addr: addr}
-		if err := tx.Query(ctx, stmts.insertNewAddresses, externContAddr).Run(); err != nil {
+		insertNewAddressesQuery := `
+INSERT INTO external_controller_address (uuid, controller_uuid, address)
+VALUES ($Address.*)
+  ON CONFLICT(controller_uuid, address) DO NOTHING
+`
+		insertNewAddressesStmt, err := st.Prepare(insertNewAddressesQuery, Address{})
+		if err != nil {
+			return errors.Annotatef(err, "preparing %q:", insertNewAddressesQuery)
+		}
+
+		if err := tx.Query(ctx, insertNewAddressesStmt, externContAddrs).Run(); err != nil {
 			return errors.Trace(domain.CoerceError(err))
 		}
 	}
 
-	for _, modelUUID := range ci.ModelUUIDs {
-		externalModel := Model{ID: modelUUID, ControllerUUID: cID}
-		if err := tx.Query(ctx, stmts.upsertModel, externalModel).Run(); err != nil {
+	if len(ci.ModelUUIDs) > 0 {
+		var externModels []Model
+		for _, modelUUID := range ci.ModelUUIDs {
+			externModels = append(externModels, Model{
+				ID:             modelUUID,
+				ControllerUUID: cID,
+			})
+		}
+
+		// TODO (manadart 2023-05-13): Check current implementation and see if
+		// we need to delete models as we do for addresses, or whether this
+		// (additive) approach is what we have now.
+		upsertModelQuery := `
+INSERT INTO external_model (uuid, controller_uuid)
+VALUES ($Model.*)
+  ON CONFLICT(uuid) DO UPDATE SET controller_uuid=excluded.controller_uuid
+`
+		upsertModelStmt, err := st.Prepare(upsertModelQuery, Model{})
+		if err != nil {
+			return errors.Annotatef(err, "preparing %q:", upsertModelQuery)
+		}
+
+		if err := tx.Query(ctx, upsertModelStmt, externModels).Run(); err != nil {
 			return errors.Trace(domain.CoerceError(err))
 		}
 	}
@@ -230,29 +269,31 @@ func (st *State) ModelsForController(
 		return nil, errors.Trace(err)
 	}
 
-	q := `
-SELECT uuid 
-FROM   external_model 
-WHERE  controller_uuid = ?`
+	controller := Controller{
+		ID: controllerUUID,
+	}
 
-	var modelUUIDs []string
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, q, controllerUUID)
+	stmt, err := st.Prepare(`
+SELECT &Model.uuid 
+FROM   external_model 
+WHERE  controller_uuid = $Controller.uuid`, controller, Model{})
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing select models for controller")
+	}
+
+	var models []Model
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, controller).GetAll(&models)
 		if err != nil {
 			return errors.Trace(domain.CoerceError(err))
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var modelUUID string
-			if err := rows.Scan(&modelUUID); err != nil {
-				return errors.Trace(err)
-			}
-			modelUUIDs = append(modelUUIDs, modelUUID)
 		}
 
 		return nil
 	})
 
+	modelUUIDs := transform.Slice[Model, string](
+		models,
+		func(m Model) string { return m.ID },
+	)
 	return modelUUIDs, err
 }
