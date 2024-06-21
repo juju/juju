@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -21,31 +20,15 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// ControllerConfigService is an interface that provides access to the
-// controller configuration.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-}
-
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
 	*common.LifeGetter
-	*common.MongoModelWatcher
 	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.StatusGetter
 
 	st                      StateInterface
 	networkService          NetworkService
-	resources               facade.Resources
-	authorizer              facade.Authorizer
 	accessMachine           common.GetAuthFunc
 	controllerConfigService ControllerConfigService
 	clock                   clock.Clock
@@ -77,12 +60,6 @@ func NewInstancePollerAPI(
 		sti,
 		accessMachine,
 	)
-	// ModelConfig() and WatchForModelConfigChanges() are allowed
-	// with unrestricted access.
-	modelWatcher := common.NewMongoModelWatcher(
-		sti,
-		resources,
-	)
 	// WatchModelMachines() is allowed with unrestricted access.
 	machinesWatcher := common.NewModelMachinesWatcher(
 		sti,
@@ -102,14 +79,11 @@ func NewInstancePollerAPI(
 
 	return &InstancePollerAPI{
 		LifeGetter:              lifeGetter,
-		MongoModelWatcher:       modelWatcher,
 		ModelMachinesWatcher:    machinesWatcher,
 		InstanceIdGetter:        instanceIdGetter,
 		StatusGetter:            statusGetter,
 		networkService:          networkService,
 		st:                      sti,
-		resources:               resources,
-		authorizer:              authorizer,
 		accessMachine:           accessMachine,
 		controllerConfigService: controllerConfigService,
 		clock:                   clock,
@@ -297,80 +271,6 @@ func spaceInfoForAddress(
 		return spaceInfos.InferSpaceFromCIDRAndSubnetID(cidr, providerSubnetID)
 	}
 	return spaceInfos.InferSpaceFromAddress(addr)
-}
-
-// ProviderAddresses returns the list of all known provider addresses
-// for each given entity. Only machine tags are accepted.
-func (a *InstancePollerAPI) ProviderAddresses(ctx context.Context, args params.Entities) (params.MachineAddressesResults, error) {
-	result := params.MachineAddressesResults{
-		Results: make([]params.MachineAddressesResult, len(args.Entities)),
-	}
-	canAccess, err := a.accessMachine()
-	if err != nil {
-		return result, err
-	}
-	allSpaces, err := a.networkService.GetAllSpaces(ctx)
-	if err != nil {
-		return result, apiservererrors.ServerError(err)
-	}
-	for i, arg := range args.Entities {
-		machine, err := a.getOneMachine(arg.Tag, canAccess)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		sas := machine.ProviderAddresses()
-		addrs, err := sas.ToProviderAddresses(allSpaces)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		result.Results[i].Addresses = params.FromProviderAddresses(addrs...)
-
-	}
-	return result, nil
-}
-
-// SetProviderAddresses updates the list of known provider addresses
-// for each given entity. Only machine tags are accepted.
-func (a *InstancePollerAPI) SetProviderAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.MachineAddresses)),
-	}
-	canAccess, err := a.accessMachine()
-	if err != nil {
-		return result, err
-	}
-
-	controllerConfig, err := a.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, err
-	}
-
-	allSpaces, err := a.networkService.GetAllSpaces(ctx)
-	if err != nil {
-		return result, apiservererrors.ServerError(err)
-	}
-	for i, arg := range args.MachineAddresses {
-		machine, err := a.getOneMachine(arg.Tag, canAccess)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-
-		pas := params.ToProviderAddresses(arg.Addresses...)
-		addrsToSet, err := pas.ToSpaceAddresses(allSpaces)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if err := machine.SetProviderAddresses(controllerConfig, addrsToSet...); err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-		}
-	}
-	return result, nil
 }
 
 // InstanceStatus returns the instance status for each given entity.

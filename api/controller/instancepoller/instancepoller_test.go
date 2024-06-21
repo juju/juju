@@ -107,54 +107,6 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesServerError(c *gc.C
 	c.Assert(w, gc.IsNil)
 }
 
-func (s *InstancePollerSuite) TestWatchForModelConfigChangesClientError(c *gc.C) {
-	// We're not testing the success case as we're not patching the
-	// NewNotifyWatcher call the embedded ModelWatcher is calling.
-	apiCaller := clientErrorAPICaller(c, "WatchForModelConfigChanges", nil)
-
-	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchForModelConfigChanges(context.Background())
-	c.Assert(err, gc.ErrorMatches, "client error!")
-	c.Assert(apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(w, gc.IsNil)
-}
-
-func (s *InstancePollerSuite) TestModelConfigSuccess(c *gc.C) {
-	expectedConfig := coretesting.ModelConfig(c)
-	expectedResults := params.ModelConfigResult{
-		Config: params.ModelConfig(expectedConfig.AllAttrs()),
-	}
-	apiCaller := successAPICaller(c, "ModelConfig", nil, expectedResults)
-
-	api := instancepoller.NewAPI(apiCaller)
-	cfg, err := api.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(cfg, jc.DeepEquals, expectedConfig)
-}
-
-func (s *InstancePollerSuite) TestModelConfigClientError(c *gc.C) {
-	apiCaller := clientErrorAPICaller(c, "ModelConfig", nil)
-	api := instancepoller.NewAPI(apiCaller)
-	cfg, err := api.ModelConfig(context.Background())
-	c.Assert(err, gc.ErrorMatches, "client error!")
-	c.Assert(cfg, gc.IsNil)
-	c.Assert(apiCaller.CallCount, gc.Equals, 1)
-}
-
-func (s *InstancePollerSuite) TestModelConfigServerError(c *gc.C) {
-	expectResults := params.ModelConfigResult{
-		Config: params.ModelConfig{"type": "foo"},
-	}
-	apiCaller := successAPICaller(c, "ModelConfig", nil, expectResults)
-
-	api := instancepoller.NewAPI(apiCaller)
-	cfg, err := api.ModelConfig(context.Background())
-	c.Assert(err, gc.NotNil) // the actual error doesn't matter
-	c.Assert(apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(cfg, gc.IsNil)
-}
-
 func clientErrorAPICaller(c *gc.C, method string, expectArgs interface{}) *apitesting.CallChecker {
 	return apitesting.APICallChecker(c, apitesting.APICall{
 		Facade:        "InstancePoller",
