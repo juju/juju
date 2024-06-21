@@ -3476,6 +3476,14 @@ GROUP BY sro.secret_id`
 	return result, nil
 }
 
+// ChangeSecretBackend changes the secret backend for the specified secret.
+func (st State) ChangeSecretBackend(
+	ctx context.Context, uri *coresecrets.URI, revision int,
+	valueRef *coresecrets.ValueRef, data coresecrets.SecretData,
+) error {
+	return nil
+}
+
 // InitialWatchStatementForSecretsRotationChanges returns the initial watch statement
 // and the table name for watching rotations.
 func (st State) InitialWatchStatementForSecretsRotationChanges(

@@ -66,6 +66,7 @@ type State interface {
 	SecretRotated(ctx context.Context, uri *secrets.URI, next time.Time) error
 	GetRotatePolicy(ctx context.Context, uri *secrets.URI) (secrets.RotatePolicy, error)
 	GetRotationExpiryInfo(ctx context.Context, uri *secrets.URI) (*domainsecret.RotationExpiryInfo, error)
+	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, valueRef *secrets.ValueRef, data secrets.SecretData) error
 
 	// For watching obsolete secret revision changes.
 	InitialWatchStatementForObsoleteRevision(
@@ -663,12 +664,6 @@ func (s *SecretService) getAppOwnedOrUnitOwnedSecretMetadata(ctx context.Context
 	return nil, notFoundErr
 }
 
-// GetSecretBackendID returns the current backend for the model.
-func (s *WatchableService) GetSecretBackendID(ctx context.Context) (string, error) {
-	//TODO(secrets)
-	return "", nil
-}
-
 // ChangeSecretBackend sets the secret backend where the specified secret revision is stored.
 // It returns [secreterrors.SecretNotFound] is there's no such secret.
 // It returns [secreterrors.PermissionDenied] if the secret cannot be managed by the accessor.
@@ -676,9 +671,7 @@ func (s *SecretService) ChangeSecretBackend(ctx context.Context, uri *secrets.UR
 	if err := s.canManage(ctx, uri, params.Accessor, params.LeaderToken); err != nil {
 		return errors.Trace(err)
 	}
-
-	// TODO(secrets)
-	return nil
+	return s.st.ChangeSecretBackend(ctx, uri, revision, params.ValueRef, params.Data)
 }
 
 // SecretRotated rotates the secret with the specified URI.
