@@ -126,8 +126,8 @@ func (s BaseSelector) validate(supportedCharmBases, supportedJujuBases []base.Ba
 // Order of preference is:
 //   - user requested with --base or defined by bundle when deploying
 //   - model default, if set, acts like --base
-//   - juju default ubuntu LTS from charm manifest
-//   - first base listed in the charm manifest
+//   - juju's default supported Ubuntu LTS (if compatible with valid charm bases)
+//   - the first supported base in the charm manifest
 //   - in the case of local charms with no manifest nor base in metadata,
 //     base must be provided by the user.
 func (s BaseSelector) CharmBase() (selectedBase base.Base, err error) {

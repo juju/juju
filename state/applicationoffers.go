@@ -683,7 +683,7 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 			// case. This prevents users from accidentally breaking saas
 			// consumers.
 			goneEndpoints := existingEndpoints.Difference(updatedEndpoints)
-			if err := s.ensureEndpointsNotInUse(curOfferDoc.ApplicationName, curOfferDoc.OfferUUID, goneEndpoints); err != nil {
+			if err := s.ensureEndpointsNotInUse(curOfferDoc.ApplicationName, curOfferDoc.OfferUUID, goneEndpoints, updatedEndpoints); err != nil {
 				return nil, err
 			}
 		}
@@ -705,8 +705,8 @@ func (s *applicationOffers) UpdateOffer(offerArgs crossmodel.AddApplicationOffer
 	return s.makeApplicationOffer(doc)
 }
 
-func (s *applicationOffers) ensureEndpointsNotInUse(appName, offerUUID string, endpoints set.Strings) error {
-	if len(endpoints) == 0 {
+func (s *applicationOffers) ensureEndpointsNotInUse(appName, offerUUID string, removedEndpoints, updatedEndpoints set.Strings) error {
+	if len(removedEndpoints) == 0 {
 		return nil
 	}
 
@@ -723,7 +723,7 @@ func (s *applicationOffers) ensureEndpointsNotInUse(appName, offerUUID string, e
 				return errors.New("malformed relation key")
 			}
 
-			if tokens[0] == appName && endpoints.Contains(tokens[1]) {
+			if tokens[0] == appName && removedEndpoints.Contains(tokens[1]) {
 				inUse.Add(tokens[1])
 			}
 		}
@@ -733,9 +733,9 @@ func (s *applicationOffers) ensureEndpointsNotInUse(appName, offerUUID string, e
 	case 0:
 		return nil
 	case 1:
-		return errors.Errorf("application endpoint %q has active consumers", inUse.Values()[0])
+		return errors.Errorf("updating offer %s:%s would remove endpoint %q which has active consumers", appName, strings.Join(updatedEndpoints.SortedValues(), ", "), inUse.Values()[0])
 	default:
-		return errors.Errorf("application endpoints %q have active consumers", strings.Join(inUse.SortedValues(), ", "))
+		return errors.Errorf("updating offer %s:%s would remove endpoints %q which have active consumers", appName, strings.Join(updatedEndpoints.SortedValues(), ", "), strings.Join(inUse.SortedValues(), ", "))
 	}
 }
 

@@ -28,6 +28,7 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/migrationminion"
+	"github.com/juju/juju/rpc"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -367,6 +368,73 @@ func (s *Suite) TestSUCCESS(c *gc.C) {
 	s.stub.CheckCall(c, 2, "Report", "id", migration.SUCCESS, true)
 }
 
+func (s *Suite) TestSUCCESSCantConnectNotReportForTryAgainError(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId: "id",
+		Phase:       migration.SUCCESS,
+	}
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+	s.config.APIOpen = func(*api.Info, api.DialOpts) (api.Connection, error) {
+		s.stub.AddCall("API open")
+		return nil, apiservererrors.ErrTryAgain
+	}
+	s.stub.SetErrors(rpc.ErrShutdown)
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.DirtyKill(c, w)
+
+	// Advance time enough for all of the retries to be exhausted.
+	sleepTime := 100 * time.Millisecond
+	for i := 0; i < 9; i++ {
+		err := s.clock.WaitAdvance(sleepTime, coretesting.ShortWait, 1)
+		c.Assert(err, jc.ErrorIsNil)
+		sleepTime = sleepTime * 2
+	}
+
+	s.waitForStubCalls(c, []string{
+		"Watch",
+		"Lockdown",
+		"Report",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+		"API open",
+	})
+}
+
+func (s *Suite) TestSUCCESSRetryReport(c *gc.C) {
+	s.client.watcher.changes <- watcher.MigrationStatus{
+		MigrationId: "id",
+		Phase:       migration.SUCCESS,
+	}
+	s.agent.conf.tag = names.NewUnitTag("app/0")
+	s.agent.conf.dir = "/var/lib/juju/agents/unit-app-0"
+	s.config.NewFacade = func(a base.APICaller) (migrationminion.Facade, error) {
+		return s.config.Facade, nil
+	}
+
+	s.stub.SetErrors(rpc.ErrShutdown)
+	w, err := migrationminion.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	s.waitForStubCalls(c, []string{
+		"Watch",
+		"Lockdown",
+		"Report",
+		"API open",
+		"Report",
+		"API close",
+	})
+}
+
 func (s *Suite) waitForStubCalls(c *gc.C, expectedCallNames []string) {
 	waitForStubCalls(c, s.stub, expectedCallNames...)
 }
@@ -434,7 +502,7 @@ func (c *stubMinionClient) Watch() (watcher.MigrationStatusWatcher, error) {
 
 func (c *stubMinionClient) Report(id string, phase migration.Phase, success bool) error {
 	c.stub.MethodCall(c, "Report", id, phase, success)
-	return nil
+	return c.stub.NextErr()
 }
 
 func newStubWatcher() *stubWatcher {
@@ -477,6 +545,9 @@ func (ma *stubAgent) ChangeConfig(f agent.ConfigMutator) error {
 type stubAgentConfig struct {
 	agent.ConfigSetter
 
+	tag names.Tag
+	dir string
+
 	mu     sync.Mutex
 	addrs  []string
 	caCert string
@@ -510,6 +581,14 @@ func (mc *stubAgentConfig) APIInfo() (*api.Info, bool) {
 		Tag:      agentTag,
 		Password: agentPassword,
 	}, true
+}
+
+func (mc *stubAgentConfig) Tag() names.Tag {
+	return mc.tag
+}
+
+func (mc *stubAgentConfig) Dir() string {
+	return mc.dir
 }
 
 type stubConnection struct {

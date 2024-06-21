@@ -5,10 +5,12 @@ package migrationminion
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	jujuretry "github.com/juju/retry"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 	"gopkg.in/retry.v1"
@@ -22,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/worker/fortress"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -54,6 +57,7 @@ type Config struct {
 	Clock             clock.Clock
 	APIOpen           func(*api.Info, api.DialOpts) (api.Connection, error)
 	ValidateMigration func(context.Context, base.APICaller) error
+	NewFacade         func(base.APICaller) (Facade, error)
 	Logger            logger.Logger
 }
 
@@ -134,6 +138,7 @@ func (w *Worker) loop() error {
 				return errors.New("watcher channel closed")
 			}
 			if err := w.handle(context.TODO(), status); err != nil {
+				w.config.Logger.Errorf("handling migration phase %s failed: %v", status.Phase, err)
 				return errors.Trace(err)
 			}
 		}
@@ -193,7 +198,7 @@ func (w *Worker) doVALIDATION(ctx context.Context, status watcher.MigrationStatu
 			break
 		}
 		if attempt.More() {
-			w.config.Logger.Debugf("validation failed (retrying): %v", err)
+			w.config.Logger.Warningf("validation failed (retrying): %v", err)
 		}
 	}
 	if errors.Is(err, apiservererrors.ErrTryAgain) || params.IsCodeTryAgain(err) {
@@ -237,7 +242,15 @@ func (w *Worker) validate(ctx context.Context, status watcher.MigrationStatus) e
 	return errors.Trace(err)
 }
 
-func (w *Worker) doSUCCESS(status watcher.MigrationStatus) error {
+func (w *Worker) doSUCCESS(status watcher.MigrationStatus) (err error) {
+	defer func() {
+		if err != nil {
+			cfg := w.config.Agent.CurrentConfig()
+			w.config.Logger.Criticalf("migration failed for %v: %s/agent.conf left unchanged and pointing to source controller: %v",
+				cfg.Tag(), cfg.Dir(), err,
+			)
+		}
+	}()
 	hps, err := network.ParseProviderHostPorts(status.TargetAPIAddrs...)
 	if err != nil {
 		return errors.Annotate(err, "converting API addresses")
@@ -245,8 +258,9 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) error {
 
 	// Report first because the config update that's about to happen
 	// will cause the API connection to drop. The SUCCESS phase is the
-	// point of no return anyway.
-	if err := w.report(status, true); err != nil {
+	// point of no return anyway, so we must retry this step even if
+	// the api connection dies.
+	if err := w.robustReport(status, true); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -262,7 +276,57 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) error {
 }
 
 func (w *Worker) report(status watcher.MigrationStatus, success bool) error {
-	w.config.Logger.Debugf("reporting back for phase %s: %v", status.Phase, success)
+	w.config.Logger.Infof("reporting back for phase %s: %v", status.Phase, success)
 	err := w.config.Facade.Report(status.MigrationId, status.Phase, success)
 	return errors.Annotate(err, "failed to report phase progress")
+}
+
+func (w *Worker) robustReport(status watcher.MigrationStatus, success bool) error {
+	err := w.report(status, success)
+	if err != nil && !rpc.IsShutdownErr(err) {
+		return fmt.Errorf("cannot report migration status %v success=%v: %w", status, success, err)
+	} else if err == nil {
+		return nil
+	}
+	w.config.Logger.Warningf("report migration status failed: %v", err)
+
+	apiInfo, ok := w.config.Agent.CurrentConfig().APIInfo()
+	if !ok {
+		return fmt.Errorf("cannot report migration status %v success=%v: no API connection details", status, success)
+	}
+	apiInfo.Addrs = status.SourceAPIAddrs
+	apiInfo.CACert = status.SourceCACert
+
+	err = jujuretry.Call(jujuretry.CallArgs{
+		Func: func() error {
+			w.config.Logger.Infof("reporting back for phase %s: %v", status.Phase, success)
+
+			conn, err := w.config.APIOpen(apiInfo, api.DialOpts{})
+			if err != nil {
+				return fmt.Errorf("cannot dial source controller: %w", err)
+			}
+			defer func() { _ = conn.Close() }()
+
+			facade, err := w.config.NewFacade(conn)
+			if err != nil {
+				return err
+			}
+
+			return facade.Report(status.MigrationId, status.Phase, success)
+		},
+		IsFatalError: func(err error) bool {
+			return false
+		},
+		NotifyFunc: func(lastError error, attempt int) {
+			w.config.Logger.Warningf("report migration status failed (attempt %d): %v", attempt, lastError)
+		},
+		Clock:       w.config.Clock,
+		Delay:       initialRetryDelay,
+		Attempts:    maxRetries,
+		BackoffFunc: jujuretry.DoubleDelay,
+	})
+	if err != nil {
+		return fmt.Errorf("cannot report migration status %v success=%v: %w", status, success, err)
+	}
+	return nil
 }
