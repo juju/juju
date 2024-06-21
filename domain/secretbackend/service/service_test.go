@@ -962,7 +962,7 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 		c.Assert(selectAll, gc.Equals, "SELECT * FROM table")
 		return nil
 	})
-	s.mockState.EXPECT().InitialWatchStatement().Return("table", "SELECT * FROM table")
+	s.mockState.EXPECT().InitialWatchStatementForSecretBackendRotationChanges().Return("table", "SELECT * FROM table")
 	s.mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.All, gomock.Any()).Return(s.mockStringWatcher, nil)
 	s.mockState.EXPECT().GetSecretBackendRotateChanges(gomock.Any(), backendID1, backendID2).Return([]watcher.SecretBackendRotateChange{
 		{
@@ -1003,6 +1003,44 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 		},
 	)
 	wC.AssertNoChange()
+}
+
+func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	svc := newWatchableService(
+		s.mockState, s.logger, s.mockWatcherFactory, s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+	modelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
+	ch := make(chan struct{}, 1)
+	mockNotifyWatcher := NewMockNotifyWatcher(ctrl)
+	mockNotifyWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	mockNotifyWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	mockNotifyWatcher.EXPECT().Kill().AnyTimes()
+
+	s.mockWatcherFactory.EXPECT().NewValueWatcher("model_secret_backend", modelUUID.String(), changestream.Update).Return(mockNotifyWatcher, nil)
+
+	w, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+
+	wc := watchertest.NewNotifyWatcherC(c, w)
+
+	select {
+	case ch <- struct{}{}:
+	case <-time.After(jujutesting.ShortWait):
+		c.Fatalf("timed out waiting for the initial changes")
+	}
+
+	wc.AssertOneChange()
+	wc.AssertNoChange()
 }
 
 func (s *serviceSuite) assertGetSecretsToDrain(c *gc.C, backendID string, expectedRevisions ...RevisionInfo) {
@@ -1109,6 +1147,30 @@ func (s *serviceSuite) TestGetRevisionsToDrainExternal(c *gc.C) {
 			},
 		},
 	)
+}
+
+func (s *serviceSuite) TestGetModelSecretBackendID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := newService(
+		s.mockState, s.logger, s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			if backendType != vault.BackendType {
+				return s.mockRegistry, nil
+			}
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), coremodel.UUID(jujutesting.ModelTag.Id())).Return(
+		secretbackend.ModelSecretBackend{
+			SecretBackendID: "backend-id",
+		}, nil)
+	result, err := svc.GetModelSecretBackendID(context.Background(), coremodel.UUID(jujutesting.ModelTag.Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, "backend-id")
+
 }
 
 func (s *serviceSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
