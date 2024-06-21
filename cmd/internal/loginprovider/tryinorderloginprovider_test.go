@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api_test
+package loginprovider_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/cmd/internal/loginprovider"
 )
 
 type tryInOrderLoginProviderSuite struct{}
@@ -23,11 +24,11 @@ func (s *tryInOrderLoginProviderSuite) Test(c *gc.C) {
 	p2 := &mockLoginProvider{err: errors.New("provider 2 error")}
 	p3 := &mockLoginProvider{}
 
-	lp := api.NewTryInOrderLoginProvider(p1, p2)
+	lp := loginprovider.NewTryInOrderLoginProvider(p1, p2)
 	_, err := lp.Login(context.Background(), nil)
 	c.Assert(err, gc.ErrorMatches, "provider 2 error")
 
-	lp = api.NewTryInOrderLoginProvider(p1, p2, p3)
+	lp = loginprovider.NewTryInOrderLoginProvider(p1, p2, p3)
 	_, err = lp.Login(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

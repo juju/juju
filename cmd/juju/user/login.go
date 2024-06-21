@@ -27,6 +27,7 @@ import (
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelmanager"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -381,8 +382,8 @@ func (c *loginCommand) publicControllerLogin(
 		sessionToken = currentAccountDetails.SessionToken
 	}
 
-	dialOpts.LoginProvider = api.NewTryInOrderLoginProvider(
-		api.NewSessionTokenLoginProvider(
+	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
+		loginprovider.NewSessionTokenLoginProvider(
 			sessionToken,
 			func(format string, params ...any) error {
 				_, err := fmt.Fprintf(ctx.Stderr, format, params...)

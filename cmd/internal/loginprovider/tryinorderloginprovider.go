@@ -1,13 +1,14 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package loginprovider
 
 import (
 	"context"
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 )
 
@@ -16,18 +17,18 @@ import (
 // of the first on that succeeds will be returned.
 // This login provider should only be used when connecting to a controller
 // for the first time when we still don't know which login method.
-func NewTryInOrderLoginProvider(providers ...LoginProvider) LoginProvider {
+func NewTryInOrderLoginProvider(providers ...api.LoginProvider) api.LoginProvider {
 	return &tryInOrderLoginProviders{
 		providers: providers,
 	}
 }
 
 type tryInOrderLoginProviders struct {
-	providers []LoginProvider
+	providers []api.LoginProvider
 }
 
 // Login implements the LoginProvider.Login method.
-func (p *tryInOrderLoginProviders) Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
+func (p *tryInOrderLoginProviders) Login(ctx context.Context, caller base.APICaller) (*api.LoginResultParams, error) {
 	var lastError error
 	for _, provider := range p.providers {
 		result, err := provider.Login(ctx, caller)

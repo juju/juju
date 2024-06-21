@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/api/client/modelmanager"
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -598,7 +599,7 @@ func newAPIConnectionParams(
 	dialOpts.BakeryClient = bakery
 
 	if accountDetails.Type == jujuclient.OAuth2DeviceFlowAccountDetailsType {
-		dialOpts.LoginProvider = api.NewSessionTokenLoginProvider(
+		dialOpts.LoginProvider = loginprovider.NewSessionTokenLoginProvider(
 			accountDetails.SessionToken,
 			printOutput,
 			func(sessionToken string) error {
