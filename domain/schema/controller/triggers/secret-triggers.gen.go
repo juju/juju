@@ -9,6 +9,39 @@ import (
 )
 
 
+// ChangeLogTriggersForModelSecretBackend generates the triggers for the 
+// model_secret_backend table.
+func ChangeLogTriggersForModelSecretBackend(columnName string, namespaceID int) func() schema.Patch {
+	return func() schema.Patch {
+		return schema.MakePatch(fmt.Sprintf(`
+-- insert trigger for ModelSecretBackend
+CREATE TRIGGER trg_log_model_secret_backend_insert
+AFTER INSERT ON model_secret_backend FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (1, %[2]d, NEW.%[1]s, DATETIME('now'));
+END;
+
+-- update trigger for ModelSecretBackend
+CREATE TRIGGER trg_log_model_secret_backend_update
+AFTER UPDATE ON model_secret_backend FOR EACH ROW
+WHEN 
+	NEW.secret_backend_uuid != OLD.secret_backend_uuid 
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;
+
+-- delete trigger for ModelSecretBackend
+CREATE TRIGGER trg_log_model_secret_backend_delete
+AFTER DELETE ON model_secret_backend FOR EACH ROW
+BEGIN
+    INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
+    VALUES (4, %[2]d, OLD.%[1]s, DATETIME('now'));
+END;`, columnName, namespaceID))
+	}
+}
+
 // ChangeLogTriggersForSecretBackendRotation generates the triggers for the 
 // secret_backend_rotation table.
 func ChangeLogTriggersForSecretBackendRotation(columnName string, namespaceID int) func() schema.Patch {

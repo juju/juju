@@ -497,6 +497,10 @@ func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
 		"trg_log_secret_backend_rotation_update",
 		"trg_log_secret_backend_rotation_delete",
 
+		"trg_log_model_secret_backend_insert",
+		"trg_log_model_secret_backend_update",
+		"trg_log_model_secret_backend_delete",
+
 		"trg_log_model_insert",
 		"trg_log_model_update",
 		"trg_log_model_delete",
