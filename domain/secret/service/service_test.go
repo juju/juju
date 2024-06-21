@@ -1538,7 +1538,7 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	defer workertest.CleanKill(c, w)
-	wc := watchertest.NewStringsWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 
 	select {
 	case ch1 <- []string{"revision-uuid-1"}:
@@ -1551,11 +1551,7 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 		c.Fatalf("timed out waiting for the initial changes")
 	}
 
-	wc.AssertChange(
-		uri1.ID+"/1",
-		uri2.ID+"/1",
-	)
-	wc.AssertNoChange()
+	wc.AssertAtLeastOneChange()
 }
 
 func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {

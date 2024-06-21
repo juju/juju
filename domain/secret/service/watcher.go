@@ -188,7 +188,7 @@ func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owne
 }
 
 // WatchObsoleteUserSecretsToPrune returns a watcher that notifies when a user secret revision is obsolete and ready to be pruned.
-func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) (watcher.NotifyWatcher, error) {
 	table, initialQuery := s.st.InitialWatchStatementForObsoleteUserSecretRevision()
 	wObsolete, err := s.watcherFactory.NewNamespaceWatcher(
 		table, changestream.Create, initialQuery,
@@ -212,7 +212,11 @@ func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return eventsource.NewMultiStringsWatcher(ctx, sWObsolete, sWAutoPrune)
+	w, err := eventsource.NewMultiStringsWatcher(ctx, sWObsolete, sWAutoPrune)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return watcher.Normalise(w)
 }
 
 // WatchSecretBackendChanged notifies when the model secret backend has changed.

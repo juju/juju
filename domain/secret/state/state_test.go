@@ -2892,7 +2892,7 @@ func revID(uri *coresecrets.URI, rev int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, rev)
 }
 
-func (s *stateSuite) TestDeleteObsoleteUserSecrets(c *gc.C) {
+func (s *stateSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
 	s.setupUnits(c, "mysql")
 	st := newSecretState(c, s.TxnRunnerFactory())
 
@@ -2932,13 +2932,7 @@ func (s *stateSuite) TestDeleteObsoleteUserSecrets(c *gc.C) {
 	err = st.UpdateSecret(context.Background(), uriCharm, sp)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.DeleteObsoleteUserSecrets(ctx, uriUser1, []int{1, 2})
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.DeleteObsoleteUserSecrets(ctx, uriUser2, []int{1, 2})
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.DeleteObsoleteUserSecrets(ctx, uriUser3, []int{1, 2})
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.DeleteObsoleteUserSecrets(ctx, uriCharm, []int{1, 2})
+	err = st.DeleteObsoleteUserSecretRevisions(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertRevision(c, s.DB(), uriUser1, 1, true)

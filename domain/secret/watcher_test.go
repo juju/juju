@@ -303,7 +303,7 @@ func (s *watcherSuite) TestWatchObsoleteForUserSecrets(c *gc.C) {
 	c.Assert(w, gc.NotNil)
 	defer workertest.CleanKill(c, w)
 
-	wc := watchertest.NewStringsWatcherC(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
 
 	// Wait for the initial changes.
 	wc.AssertOneChange()
@@ -312,29 +312,22 @@ func (s *watcherSuite) TestWatchObsoleteForUserSecrets(c *gc.C) {
 	createNewRevision(c, st, uri1)
 	wc.AssertNoChange()
 	createNewRevision(c, st, uri2)
-	wc.AssertChange(uri2.ID + "/1")
+	wc.AssertAtLeastOneChange()
 
 	err = st.UpdateSecret(context.Background(), uri1, secret.UpsertSecretParams{
 		AutoPrune: ptr(true),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	wc.AssertChange(
-		uri1.ID+"/1",
-		uri2.ID+"/1",
-	)
-	wc.AssertNoChange()
+	wc.AssertAtLeastOneChange()
 
 	// Pretend that the agent restarted and the watcher is re-created.
 	w1, err := svc.WatchObsoleteUserSecretsToPrune(ctx)
 	c.Assert(err, gc.IsNil)
 	c.Assert(w1, gc.NotNil)
 	defer workertest.CleanKill(c, w1)
-	wc1 := watchertest.NewStringsWatcherC(c, w1)
-	wc1.AssertChange(
-		uri1.ID+"/1",
-		uri2.ID+"/1",
-	)
+	wc1 := watchertest.NewNotifyWatcherC(c, w1)
+	wc1.AssertAtLeastOneChange()
 }
 
 func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {

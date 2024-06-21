@@ -46,15 +46,12 @@ func (s *serviceSuite) TestDeleteSecretInternal(c *gc.C) {
 
 // TODO(secrets) - add tests for backend when properly implemented
 
-func (s *serviceSuite) TestDeleteObsoleteUserSecrets(c *gc.C) {
+func (s *serviceSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	uri := coresecrets.NewURI()
-
 	s.state = NewMockState(ctrl)
-	s.state.EXPECT().DeleteObsoleteUserSecrets(gomock.Any(), uri, []int{1, 2}).Return(nil)
-
-	err := s.service(c).DeleteObsoleteUserSecrets(context.Background(), uri, []int{1, 2})
+	s.state.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).Return(nil)
+	err := s.service(c).DeleteObsoleteUserSecretRevisions(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }

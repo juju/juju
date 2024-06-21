@@ -33,7 +33,7 @@ type State interface {
 	CreateCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams) error
 	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) error
-	DeleteObsoleteUserSecrets(ctx context.Context, uri *secrets.URI, revs []int) error
+	DeleteObsoleteUserSecretRevisions(ctx context.Context) error
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	ListExternalSecretRevisions(ctx context.Context, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)

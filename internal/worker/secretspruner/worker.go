@@ -4,23 +4,20 @@
 package secretspruner
 
 import (
-	"strconv"
-	"strings"
+	"context"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 )
 
 // SecretsFacade instances provide a set of API for the worker to deal with secret prune.
 type SecretsFacade interface {
-	WatchRevisionsToPrune() (watcher.StringsWatcher, error)
-	DeleteObsoleteUserSecrets(uri *secrets.URI, revisions ...int) error
+	WatchRevisionsToPrune() (watcher.NotifyWatcher, error)
+	DeleteObsoleteUserSecretRevisions(context.Context) error
 }
 
 // Config defines the operation of the Worker.
@@ -70,6 +67,12 @@ func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+func (w *Worker) processChanges() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return w.config.SecretsFacade.DeleteObsoleteUserSecretRevisions(ctx)
+}
+
 func (w *Worker) loop() (err error) {
 	watcher, err := w.config.SecretsFacade.WatchRevisionsToPrune()
 	if err != nil {
@@ -83,54 +86,16 @@ func (w *Worker) loop() (err error) {
 		select {
 		case <-w.catacomb.Dying():
 			return errors.Trace(w.catacomb.ErrDying())
-		case changes, ok := <-watcher.Changes():
+		// TODO: watch for secret's auto-prune config changes.
+		// then delete any obsolete revisions.
+		case _, ok := <-watcher.Changes():
 			if !ok {
 				return errors.New("secret prune changed watch closed")
 			}
-			w.config.Logger.Debugf("got user supplied secret revisions to prune")
-
-			if len(changes) == 0 {
-				w.config.Logger.Debugf("no secret revisions to prune")
-				continue
-			}
-			revisions, err := w.processChanges(changes...)
-			if err != nil {
+			w.config.Logger.Debugf("maybe have user secret revisions to prune")
+			if err := w.processChanges(); err != nil {
 				return errors.Trace(err)
 			}
-			for uriStr, revs := range revisions {
-				w.config.Logger.Debugf("pruning secret revisions %q: %v", uriStr, revs.SortedValues())
-				uri, err := secrets.ParseURI(uriStr)
-				if err != nil {
-					return errors.Trace(err)
-				}
-				if err := w.config.SecretsFacade.DeleteObsoleteUserSecrets(uri, revs.SortedValues()...); err != nil {
-					return errors.Trace(err)
-				}
-			}
 		}
 	}
-}
-
-func (w *Worker) processChanges(changes ...string) (map[string]set.Ints, error) {
-	out := make(map[string]set.Ints)
-	for _, revInfo := range changes {
-		w.config.Logger.Warningf("revInfo %q, out %#v", revInfo, out)
-		parts := strings.Split(revInfo, "/")
-		uri := parts[0]
-		if len(parts) < 2 {
-			// This should never happen.
-			w.config.Logger.Debugf("secret %q has been removed, no need to prune", revInfo)
-			continue
-		}
-		rev, err := strconv.Atoi(parts[1])
-		if err != nil {
-			// This should never happen.
-			return nil, errors.NotValidf("secret revision %q for %q", parts[1], uri)
-		}
-		if _, ok := out[uri]; !ok {
-			out[uri] = set.NewInts()
-		}
-		out[uri].Add(rev)
-	}
-	return out, nil
 }

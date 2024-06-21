@@ -14,12 +14,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
-	coresecrets "github.com/juju/juju/core/secrets"
+	coretesting "github.com/juju/juju/core/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/secretspruner"
 	"github.com/juju/juju/internal/worker/secretspruner/mocks"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type workerSuite struct {
@@ -29,19 +28,19 @@ type workerSuite struct {
 	facade *mocks.MockSecretsFacade
 
 	done      chan struct{}
-	changedCh chan []string
+	changedCh chan struct{}
 }
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) getWorkerNewer(c *gc.C) (func(string), *gomock.Controller) {
+func (s *workerSuite) getWorkerNewer(c *gc.C, calls ...*gomock.Call) (func(string), *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 	s.logger = loggertesting.WrapCheckLog(c)
 	s.facade = mocks.NewMockSecretsFacade(ctrl)
 
-	s.changedCh = make(chan []string, 1)
+	s.changedCh = make(chan struct{}, 1)
 	s.done = make(chan struct{})
-	s.facade.EXPECT().WatchRevisionsToPrune().Return(watchertest.NewMockStringsWatcher(s.changedCh), nil)
+	s.facade.EXPECT().WatchRevisionsToPrune().Return(watchertest.NewMockNotifyWatcher(s.changedCh), nil)
 
 	start := func(expectedErr string) {
 		w, err := secretspruner.NewWorker(secretspruner.Config{
@@ -67,7 +66,7 @@ func (s *workerSuite) getWorkerNewer(c *gc.C) (func(string), *gomock.Controller)
 func (s *workerSuite) waitDone(c *gc.C) {
 	select {
 	case <-s.done:
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Errorf("timed out waiting for worker")
 	}
 }
@@ -76,35 +75,17 @@ func (s *workerSuite) TestPrune(c *gc.C) {
 	start, ctrl := s.getWorkerNewer(c)
 	defer ctrl.Finish()
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
-	uri3 := coresecrets.NewURI()
-	var revisions []string
-	revisions = append(revisions, uri1.String()+"/1")
-	revisions = append(revisions, uri2.String()+"/1")
-	revisions = append(revisions, uri2.String()+"/2")
-	revisions = append(revisions, uri3.String()+"/1")
-	revisions = append(revisions, uri3.String()+"/2")
-	revisions = append(revisions, uri3.String()+"/3")
-	s.changedCh <- revisions
+	s.changedCh <- struct{}{}
 
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(1)
 
 	go func() {
 		wg.Wait()
 		close(s.done)
 	}()
 
-	s.facade.EXPECT().DeleteObsoleteUserSecrets(uri1, 1).DoAndReturn(func(*coresecrets.URI, ...int) error {
-		wg.Done()
-		return nil
-	})
-	s.facade.EXPECT().DeleteObsoleteUserSecrets(uri2, 1, 2).DoAndReturn(func(*coresecrets.URI, ...int) error {
-		wg.Done()
-		return nil
-	})
-	s.facade.EXPECT().DeleteObsoleteUserSecrets(uri3, 1, 2, 3).DoAndReturn(func(*coresecrets.URI, ...int) error {
+	s.facade.EXPECT().DeleteObsoleteUserSecrets().DoAndReturn(func() error {
 		wg.Done()
 		return nil
 	})

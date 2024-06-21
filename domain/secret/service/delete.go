@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/internal/secrets/provider"
 )
 
-// DeleteObsoleteUserSecrets deletes any obsolete user secret revisions that are marked as auto-prune.
-func (s *SecretService) DeleteObsoleteUserSecrets(ctx context.Context, uri *secrets.URI, revs []int) error {
-	return s.st.DeleteObsoleteUserSecrets(ctx, uri, revs)
+// DeleteObsoleteUserSecretRevisions deletes any obsolete user secret revisions that are marked as auto-prune.
+func (s *SecretService) DeleteObsoleteUserSecretRevisions(ctx context.Context) error {
+	return s.st.DeleteObsoleteUserSecretRevisions(ctx)
 }
 
 // DeleteSecret removes the specified secret.
