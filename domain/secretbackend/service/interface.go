@@ -31,7 +31,7 @@ type State interface {
 	SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, secretBackendName string) error
 	GetModelSecretBackendDetails(ctx context.Context, modelUUID coremodel.UUID) (secretbackend.ModelSecretBackend, error)
 
-	InitialWatchStatement() (string, string)
+	InitialWatchStatementForSecretBackendRotationChanges() (string, string)
 	GetSecretBackendRotateChanges(ctx context.Context, backendIDs ...string) ([]watcher.SecretBackendRotateChange, error)
 }
 
@@ -40,4 +40,8 @@ type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
 	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
+
+	// NewValueWatcher returns a watcher for a particular change
+	// value in a namespace, based on the input change mask.
+	NewValueWatcher(namespace, changeValue string, changeMask changestream.ChangeType) (watcher.NotifyWatcher, error)
 }

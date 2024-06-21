@@ -731,6 +731,15 @@ func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.U
 	return result, nil
 }
 
+// GetSecretBackendID returns the secret backend ID for the given model.
+func (s *Service) GetModelSecretBackendID(ctx context.Context, modelUUID coremodel.UUID) (string, error) {
+	detail, err := s.st.GetModelSecretBackendDetails(ctx, modelUUID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return detail.SecretBackendID, nil
+}
+
 // WatchableService defines a service that can be watched for changes.
 type WatchableService struct {
 	Service
@@ -769,10 +778,19 @@ var InitialNamespaceChanges = eventsource.InitialNamespaceChanges
 
 // WatchSecretBackendRotationChanges returns a watcher for secret backend rotation changes.
 func (s *WatchableService) WatchSecretBackendRotationChanges() (watcher.SecretBackendRotateWatcher, error) {
-	tableName, initialQ := s.st.InitialWatchStatement()
+	tableName, initialQ := s.st.InitialWatchStatementForSecretBackendRotationChanges()
 	w, err := s.watcherFactory.NewNamespaceWatcher(tableName, changestream.All, InitialNamespaceChanges(initialQ))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return newSecretBackendRotateWatcher(w, s.logger, s.st.GetSecretBackendRotateChanges)
+}
+
+// WatchSecretBackendChanged notifies when the model secret backend has changed.
+func (s *WatchableService) WatchModelSecretBackendChanged(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error) {
+	w, err := s.watcherFactory.NewValueWatcher("model_secret_backend", modelUUID.String(), changestream.Update)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return w, nil
 }
