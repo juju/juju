@@ -401,7 +401,7 @@ func (c *bootstrapCommand) Init(args []string) (err error) {
 			}
 			ch, err := charm.ReadCharm(c.ControllerCharmPath)
 			if err != nil {
-				return errors.Errorf("--controller-charm-path %q is not a valid charm", c.ControllerCharmPath)
+				return errors.Annotatef(err, "--controller-charm-path %q is not a valid charm", c.ControllerCharmPath)
 			}
 			if ch.Meta().Name != bootstrap.ControllerCharmName {
 				return errors.Errorf("--controller-charm-path %q is not a %q charm", c.ControllerCharmPath,
