@@ -30,9 +30,9 @@ func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
 	}
 }
 
-// UpsertMachine creates or updates the specified machine.
+// CreateMachine creates or updates the specified machine.
 // TODO - this just creates a minimal row for now.
-func (st *State) UpsertMachine(ctx context.Context, machineId, nodeUUID, machineUUID string) error {
+func (st *State) CreateMachine(ctx context.Context, machineId, nodeUUID, machineUUID string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)

@@ -35,9 +35,9 @@ func NewWatchableService(st State, watcherFactory WatcherFactory) *WatchableServ
 	}
 }
 
-// WatchModelMachines returns a StringsWatcher that is subscribed to the changes
+// WatchMachines returns a StringsWatcher that is subscribed to the changes
 // in the machines table in the model.
-func (s *WatchableService) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error) {
+func (s *WatchableService) WatchMachines(ctx context.Context) (watcher.StringsWatcher, error) {
 	return s.watcherFactory.NewUUIDsWatcher(
 		"machine",
 		changestream.All,

@@ -13,8 +13,8 @@ import (
 
 // State describes retrieval and persistence methods for machines.
 type State interface {
-	// UpsertMachine persists the input machine entity.
-	UpsertMachine(context.Context, string, string, string) error
+	// CreateMachine persists the input machine entity.
+	CreateMachine(context.Context, string, string, string) error
 
 	// DeleteMachine deletes the input machine entity.
 	DeleteMachine(context.Context, string) error
@@ -46,7 +46,7 @@ func (s *Service) CreateMachine(ctx context.Context, machineId string) (string, 
 		return "", errors.Annotatef(err, "creating machine %q", machineId)
 	}
 
-	err = s.st.UpsertMachine(ctx, machineId, nodeUUID.String(), machineUUID.String())
+	err = s.st.CreateMachine(ctx, machineId, nodeUUID.String(), machineUUID.String())
 
 	return machineUUID.String(), errors.Annotatef(err, "creating machine %q", machineId)
 }

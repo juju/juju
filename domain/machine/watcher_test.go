@@ -66,7 +66,7 @@ func (s *watcherSuite) machineServiceAndWatcher(c *gc.C) (*service.WatchableServ
 		domain.NewWatcherFactory(factory, loggertesting.WrapCheckLog(c)),
 	)
 
-	watcher, err := machineService.WatchModelMachines(context.Background())
+	watcher, err := machineService.WatchMachines(context.Background())
 	c.Assert(err, gc.IsNil)
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
 	return machineService, watcherC
