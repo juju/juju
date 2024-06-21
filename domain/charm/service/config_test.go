@@ -4,11 +4,12 @@
 package service
 
 import (
-	"github.com/juju/juju/domain/charm"
-	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/domain/charm"
+	internalcharm "github.com/juju/juju/internal/charm"
 )
 
 type configSuite struct {

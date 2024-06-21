@@ -70,6 +70,11 @@ type State interface {
 	// GetCharmConfig returns the config for the charm using the charm ID.
 	// If the charm does not exist, a NotFound error is returned.
 	GetCharmConfig(ctx context.Context, charmID corecharm.ID) (charm.Config, error)
+
+	// GetCharmLXDProfile returns the LXD profile for the charm using the
+	// charm ID.
+	// If the charm does not exist, a NotFound error is returned.
+	GetCharmLXDProfile(ctx context.Context, charmID corecharm.ID) ([]byte, error)
 }
 
 // Service provides the API for working with charms.
@@ -201,6 +206,21 @@ func (s *Service) GetCharmConfig(ctx context.Context, id corecharm.ID) (internal
 	}
 
 	return convertConfig(config)
+}
+
+// GetCharmLXDProfile returns the LXD profile for the charm using the charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *Service) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (internalcharm.LXDProfile, error) {
+	if err := id.Validate(); err != nil {
+		return internalcharm.LXDProfile{}, fmt.Errorf("charm id: %w", err)
+	}
+
+	profile, err := s.st.GetCharmLXDProfile(ctx, id)
+	if err != nil {
+		return internalcharm.LXDProfile{}, errors.Trace(err)
+	}
+
+	return convertLXDProfile(profile)
 }
 
 // WatchableService provides the API for working with charms and the

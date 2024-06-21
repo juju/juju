@@ -160,6 +160,45 @@ func (c *MockStateGetCharmIDCall) DoAndReturn(f func(context.Context, string) (c
 	return c
 }
 
+// GetCharmLXDProfile mocks base method.
+func (m *MockState) GetCharmLXDProfile(arg0 context.Context, arg1 charm.ID) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmLXDProfile", arg0, arg1)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmLXDProfile indicates an expected call of GetCharmLXDProfile.
+func (mr *MockStateMockRecorder) GetCharmLXDProfile(arg0, arg1 any) *MockStateGetCharmLXDProfileCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmLXDProfile", reflect.TypeOf((*MockState)(nil).GetCharmLXDProfile), arg0, arg1)
+	return &MockStateGetCharmLXDProfileCall{Call: call}
+}
+
+// MockStateGetCharmLXDProfileCall wrap *gomock.Call
+type MockStateGetCharmLXDProfileCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetCharmLXDProfileCall) Return(arg0 []byte, arg1 error) *MockStateGetCharmLXDProfileCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetCharmLXDProfileCall) Do(f func(context.Context, charm.ID) ([]byte, error)) *MockStateGetCharmLXDProfileCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetCharmLXDProfileCall) DoAndReturn(f func(context.Context, charm.ID) ([]byte, error)) *MockStateGetCharmLXDProfileCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetCharmManifest mocks base method.
 func (m *MockState) GetCharmManifest(arg0 context.Context, arg1 charm.ID) (charm0.Manifest, error) {
 	m.ctrl.T.Helper()
