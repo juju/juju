@@ -237,7 +237,6 @@ func (cfg *ubuntuCloudConfig) getCommandsForAddingPackages() ([]string, error) {
 func (cfg *ubuntuCloudConfig) addRequiredPackages() {
 	packages := []string{
 		"curl",
-		"cpu-checker",
 		"tmux",
 	}
 	for _, pack := range packages {

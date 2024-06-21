@@ -16,9 +16,9 @@ import (
 )
 
 var (
-	NewNICDevice        = newNICDevice
-	BaseRemoteAliases   = baseRemoteAliases
-	ErrIPV6NotSupported = errIPV6NotSupported
+	NewNICDevice             = newNICDevice
+	ConstructBaseRemoteAlias = constructBaseRemoteAlias
+	ErrIPV6NotSupported      = errIPV6NotSupported
 )
 
 type patcher interface {
