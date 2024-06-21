@@ -7,6 +7,19 @@ import (
 	"github.com/juju/version/v2"
 )
 
+// GetCharmArgs holds the arguments for the GetCharmID method.
+// Name is the name of the charm to get the ID for. This is required.
+// Revision allows the selection of a specific revision of the charm. If
+// revision is not provided, the latest revision is returned.
+type GetCharmArgs struct {
+	// Name is the name of the charm to get the ID for.
+	Name string
+
+	// Revision allows the selection of a specific revision of the charm.
+	// Otherwise, the latest revision is returned.
+	Revision *int
+}
+
 // Metadata represents the metadata of a charm from the perspective of the
 // service. This is the golden source of charm metadata. If the charm changes
 // at the wire format level, we should be able to map it to this struct.

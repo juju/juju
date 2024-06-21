@@ -35,9 +35,15 @@ type WatcherFactory interface {
 
 // State describes retrieval and persistence methods for charms.
 type State interface {
-	// GetCharmID returns the charm ID by the natural key.
+	// GetCharmIDByRevision returns the charm ID by the natural key, for a
+	// specific revision.
 	// If the charm does not exist, a NotFound error is returned.
-	GetCharmID(ctx context.Context, name string) (corecharm.ID, error)
+	GetCharmIDByRevision(ctx context.Context, name string, revision int) (corecharm.ID, error)
+
+	// GetCharmIDByLatestRevision returns the charm ID by the natural key, for
+	// the latest revision.
+	// If the charm does not exist, a NotFound error is returned.
+	GetCharmIDByLatestRevision(ctx context.Context, name string) (corecharm.ID, error)
 
 	// IsControllerCharm returns whether the charm is a controller charm.
 	// If the charm does not exist, a NotFound error is returned.
@@ -46,10 +52,6 @@ type State interface {
 	// IsSubordinateCharm returns whether the charm is a subordinate charm.
 	// If the charm does not exist, a NotFound error is returned.
 	IsSubordinateCharm(ctx context.Context, charmID corecharm.ID) (bool, error)
-
-	// IsCharmAvailable returns whether the charm is available for use.
-	// If the charm does not exist, a NotFound error is returned.
-	IsCharmAvailable(ctx context.Context, charmID corecharm.ID) (bool, error)
 
 	// SupportsContainers returns whether the charm supports containers.
 	// If the charm does not exist, a NotFound error is returned.
@@ -75,6 +77,19 @@ type State interface {
 	// charm ID.
 	// If the charm does not exist, a NotFound error is returned.
 	GetCharmLXDProfile(ctx context.Context, charmID corecharm.ID) ([]byte, error)
+
+	// IsCharmAvailable returns whether the charm is available for use.
+	// If the charm does not exist, a NotFound error is returned.
+	IsCharmAvailable(ctx context.Context, charmID corecharm.ID) (bool, error)
+
+	// SetCharmAvailable sets the charm as available for use.
+	// If the charm does not exist, a NotFound error is returned.
+	SetCharmAvailable(ctx context.Context, charmID corecharm.ID) error
+
+	// ReserveCharmRevision defines a placeholder for a new charm revision.
+	// The original charm will need to exist, the returning charm ID will be
+	// the new charm ID for the revision.
+	ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error)
 }
 
 // Service provides the API for working with charms.
@@ -95,23 +110,16 @@ func NewService(st State, logger logger.Logger) *Service {
 // can not be found by the name.
 // This can also be used as a cheap way to see if a charm exists without
 // needing to load the charm metadata.
-func (s *Service) GetCharmID(ctx context.Context, name string) (corecharm.ID, error) {
-	if !charmNameRegExp.MatchString(name) {
+func (s *Service) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (corecharm.ID, error) {
+	if !charmNameRegExp.MatchString(args.Name) {
 		return "", charmerrors.NameNotValid
 	}
 
-	return s.st.GetCharmID(ctx, name)
-}
-
-// IsCharmAvailable returns whether the charm is available for use. This
-// indicates if the charm has been uploaded to the controller.
-// This will return true if the charm is available, and false otherwise.
-// If the charm does not exist, a NotFound error is returned.
-func (s *Service) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error) {
-	if err := id.Validate(); err != nil {
-		return false, fmt.Errorf("charm id: %w", err)
+	if rev := args.Revision; rev != nil && *rev >= 0 {
+		return s.st.GetCharmIDByRevision(ctx, args.Name, *rev)
 	}
-	return s.st.IsCharmAvailable(ctx, id)
+
+	return s.st.GetCharmIDByLatestRevision(ctx, args.Name)
 }
 
 // IsControllerCharm returns whether the charm is a controller charm.
@@ -221,6 +229,45 @@ func (s *Service) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (inte
 	}
 
 	return decodeLXDProfile(profile)
+}
+
+// IsCharmAvailable returns whether the charm is available for use. This
+// indicates if the charm has been uploaded to the controller.
+// This will return true if the charm is available, and false otherwise.
+// If the charm does not exist, a NotFound error is returned.
+func (s *Service) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error) {
+	if err := id.Validate(); err != nil {
+		return false, fmt.Errorf("charm id: %w", err)
+	}
+	return s.st.IsCharmAvailable(ctx, id)
+}
+
+// SetCharmAvailable sets the charm as available for use.
+// If the charm does not exist, a NotFound error is returned.
+func (s *Service) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
+	if err := id.Validate(); err != nil {
+		return fmt.Errorf("charm id: %w", err)
+	}
+
+	return s.st.SetCharmAvailable(ctx, id)
+}
+
+// ReserveCharmRevision defines a placeholder for a new charm revision. The
+// original charm will need to exist, the returning charm ID will be the new
+// charm ID for the revision.
+// This is useful for when a new charm revision becomes available. The essential
+// charm documents might be available, but the blob or associated non-essential
+// documents will not be.
+// If the charm does not exist, then a NotFound error is returned.
+func (s *Service) ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error) {
+	if err := id.Validate(); err != nil {
+		return "", fmt.Errorf("charm id: %w", err)
+	}
+	if revision < 0 {
+		return "", charmerrors.RevisionNotValid
+	}
+
+	return s.st.ReserveCharmRevision(ctx, id, revision)
 }
 
 // WatchableService provides the API for working with charms and the

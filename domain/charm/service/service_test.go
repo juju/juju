@@ -37,9 +37,11 @@ func (s *serviceSuite) TestGetCharmID(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmID(gomock.Any(), "foo").Return(id, nil)
+	s.state.EXPECT().GetCharmIDByLatestRevision(gomock.Any(), "foo").Return(id, nil)
 
-	result, err := s.service.GetCharmID(context.Background(), "foo")
+	result, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+		Name: "foo",
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.Equals, id)
 }
@@ -47,16 +49,37 @@ func (s *serviceSuite) TestGetCharmID(c *gc.C) {
 func (s *serviceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmID(context.Background(), "Foo")
+	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+		Name: "Foo",
+	})
 	c.Assert(err, jc.ErrorIs, charmerrors.NameNotValid)
+}
+
+func (s *serviceSuite) TestGetCharmIDWithRevision(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	rev := 42
+
+	s.state.EXPECT().GetCharmIDByRevision(gomock.Any(), "foo", rev).Return(id, nil)
+
+	result, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+		Name:     "foo",
+		Revision: &rev,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.Equals, id)
 }
 
 func (s *serviceSuite) TestGetCharmIDErrorNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetCharmID(gomock.Any(), "foo").Return("", charmerrors.NotFound)
+	s.state.EXPECT().GetCharmIDByLatestRevision(gomock.Any(), "foo").Return("", charmerrors.NotFound)
 
-	_, err := s.service.GetCharmID(context.Background(), "foo")
+	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+		Name: "foo",
+	})
 	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
 }
 
@@ -190,6 +213,76 @@ func (s *serviceSuite) TestGetCharmMetadataInvalidUUID(c *gc.C) {
 
 	_, err := s.service.GetCharmMetadata(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *serviceSuite) TestSetCharmAvailable(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().SetCharmAvailable(gomock.Any(), id).Return(nil)
+
+	err := s.service.SetCharmAvailable(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetCharmAvailableNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().SetCharmAvailable(gomock.Any(), id).Return(charmerrors.NotFound)
+
+	err := s.service.SetCharmAvailable(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *serviceSuite) TestSetCharmAvailableInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	err := s.service.SetCharmAvailable(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *serviceSuite) TestReserveCharmRevision(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id1 := charmtesting.GenCharmID(c)
+	id2 := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().ReserveCharmRevision(gomock.Any(), id1, 21).Return(id2, nil)
+
+	result, err := s.service.ReserveCharmRevision(context.Background(), id1, 21)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.Equals, id2)
+}
+
+func (s *serviceSuite) TestReserveCharmRevisionNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id1 := charmtesting.GenCharmID(c)
+	id2 := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().ReserveCharmRevision(gomock.Any(), id1, 21).Return(id2, charmerrors.NotFound)
+
+	_, err := s.service.ReserveCharmRevision(context.Background(), id1, 21)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *serviceSuite) TestReserveCharmRevisionInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.ReserveCharmRevision(context.Background(), "", 21)
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
+func (s *serviceSuite) TestReserveCharmRevisionInvalidRevision(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	_, err := s.service.ReserveCharmRevision(context.Background(), id, -1)
+	c.Assert(err, jc.ErrorIs, charmerrors.RevisionNotValid)
 }
 
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {

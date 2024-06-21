@@ -18,4 +18,8 @@ const (
 	// AlreadyExists describes an error that occurs when a charm already
 	// exists for the given natural key.
 	AlreadyExists = errors.ConstError("charm already exists")
+
+	// RevisionNotValid describes an error that occurs when attempting to get
+	// a charm using an invalid revision.
+	RevisionNotValid = errors.ConstError("charm revision not valid")
 )
