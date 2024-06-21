@@ -4,6 +4,7 @@
 package caasapplicationprovisioner_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -162,7 +163,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
 
-		ops.EXPECT().CheckCharmFormat("test", gomock.Any(), gomock.Any()).Return(true, nil),
+		ops.EXPECT().CheckCharmFormat(gomock.Any(), "test", gomock.Any(), gomock.Any()).Return(true, nil),
 
 		facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
 
@@ -174,7 +175,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
 		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
 		facade.EXPECT().WatchProvisioningInfo("test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
-		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).Return(nil),
+		ops.EXPECT().AppAlive(gomock.Any(), "test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).Return(nil),
 		app.EXPECT().Watch(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
 			scaleChan <- struct{}{}
@@ -217,7 +218,7 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 
 		// provisioningInfoChan fired
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
-		ops.EXPECT().AppAlive("test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).DoAndReturn(func(s1 string, _ caas.Application, s2 string, ac *caas.ApplicationConfig, _ caasapplicationprovisioner.CAASProvisionerFacade, c clock.Clock, _ logger.Logger) error {
+		ops.EXPECT().AppAlive(gomock.Any(), "test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).DoAndReturn(func(_ context.Context, s1 string, _ caas.Application, s2 string, ac *caas.ApplicationConfig, _ caasapplicationprovisioner.CAASProvisionerFacade, c clock.Clock, _ logger.Logger) error {
 			provisioningInfoChan <- struct{}{}
 			return nil
 		}),
@@ -265,7 +266,7 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
 		facade.EXPECT().Life("test").Return(life.Alive, nil),
 
-		ops.EXPECT().CheckCharmFormat("test", gomock.Any(), gomock.Any()).Return(true, nil),
+		ops.EXPECT().CheckCharmFormat(gomock.Any(), "test", gomock.Any(), gomock.Any()).Return(true, nil),
 
 		unitFacade.EXPECT().WatchApplicationScale("test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
 		unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),

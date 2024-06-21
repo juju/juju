@@ -5,6 +5,8 @@
 package machineactions_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -71,7 +73,7 @@ func defaultConfig(stub *testing.Stub, facade machineactions.Facade, lock machin
 func (s *WorkerSuite) TestRunningActionsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.facade.EXPECT().RunningActions(fakeTag).Return(nil, errors.New("splash"))
+	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return(nil, errors.New("splash"))
 
 	stub := &testing.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
@@ -88,8 +90,8 @@ func (s *WorkerSuite) TestInvalidActionId(c *gc.C) {
 	changes := make(chan []string, 1)
 	changes <- []string{"invalid-action-id"}
 
-	s.facade.EXPECT().RunningActions(fakeTag).Return([]params.ActionResult{}, nil)
-	s.facade.EXPECT().WatchActionNotifications(fakeTag).Return(&stubWatcher{
+	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return([]params.ActionResult{}, nil)
+	s.facade.EXPECT().WatchActionNotifications(gomock.Any(), fakeTag).Return(&stubWatcher{
 		Worker:  workertest.NewErrorWorker(nil),
 		changes: changes}, nil)
 
@@ -105,9 +107,9 @@ func (s *WorkerSuite) TestInvalidActionId(c *gc.C) {
 func (s *WorkerSuite) TestWatchErrorNonEmptyRunningActions(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.facade.EXPECT().RunningActions(fakeTag).Return(fakeRunningActions, nil)
-	s.facade.EXPECT().ActionFinish(names.NewActionTag("3"), params.ActionFailed, nil, "action cancelled").Return(nil)
-	s.facade.EXPECT().WatchActionNotifications(fakeTag).Return(nil, errors.New("kuso"))
+	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return(fakeRunningActions, nil)
+	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("3"), params.ActionFailed, nil, "action cancelled").Return(nil)
+	s.facade.EXPECT().WatchActionNotifications(gomock.Any(), fakeTag).Return(nil, errors.New("kuso"))
 
 	stub := &testing.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
@@ -120,17 +122,17 @@ func (s *WorkerSuite) TestWatchErrorNonEmptyRunningActions(c *gc.C) {
 func (s *WorkerSuite) TestCannotRetrieveAction(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.facade.EXPECT().RunningActions(fakeTag).Return([]params.ActionResult{}, nil)
-	s.facade.EXPECT().WatchActionNotifications(fakeTag).Return(newStubWatcher(false), nil)
-	s.facade.EXPECT().Action(names.NewActionTag("1")).Times(1).Return(firstAction, nil)
-	s.facade.EXPECT().Action(names.NewActionTag("2")).Times(1).Return(nil, errors.New("zbosh"))
-	s.facade.EXPECT().Action(names.NewActionTag("3")).Times(1).Return(thirdAction, nil)
+	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return([]params.ActionResult{}, nil)
+	s.facade.EXPECT().WatchActionNotifications(gomock.Any(), fakeTag).Return(newStubWatcher(false), nil)
+	s.facade.EXPECT().Action(gomock.Any(), names.NewActionTag("1")).Times(1).Return(firstAction, nil)
+	s.facade.EXPECT().Action(gomock.Any(), names.NewActionTag("2")).Times(1).Return(nil, errors.New("zbosh"))
+	s.facade.EXPECT().Action(gomock.Any(), names.NewActionTag("3")).Times(1).Return(thirdAction, nil)
 
-	s.facade.EXPECT().ActionBegin(names.NewActionTag("1")).Return(nil)
-	s.facade.EXPECT().ActionFinish(names.NewActionTag("1"), params.ActionCompleted, nil, "").Return(nil)
+	s.facade.EXPECT().ActionBegin(gomock.Any(), names.NewActionTag("1")).Return(nil)
+	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("1"), params.ActionCompleted, nil, "").Return(nil)
 
-	s.facade.EXPECT().ActionBegin(names.NewActionTag("3")).Return(nil)
-	s.facade.EXPECT().ActionFinish(names.NewActionTag("3"), params.ActionCompleted, nil, "").Return(nil)
+	s.facade.EXPECT().ActionBegin(gomock.Any(), names.NewActionTag("3")).Return(nil)
+	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("3"), params.ActionCompleted, nil, "").Return(nil)
 
 	stub := &testing.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
@@ -157,24 +159,24 @@ func (s *WorkerSuite) TestRunActions(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	released := false
-	s.facade.EXPECT().RunningActions(fakeTag).Return([]params.ActionResult{}, nil)
-	s.facade.EXPECT().WatchActionNotifications(fakeTag).Return(newStubWatcher(true), nil)
-	s.facade.EXPECT().Action(names.NewActionTag("1")).Times(1).Return(firstAction, nil)
-	s.facade.EXPECT().Action(names.NewActionTag("2")).Times(1).Return(secondAction, nil)
-	s.facade.EXPECT().Action(names.NewActionTag("3")).Times(1).Return(thirdAction, nil)
+	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return([]params.ActionResult{}, nil)
+	s.facade.EXPECT().WatchActionNotifications(gomock.Any(), fakeTag).Return(newStubWatcher(true), nil)
+	s.facade.EXPECT().Action(gomock.Any(), names.NewActionTag("1")).Times(1).Return(firstAction, nil)
+	s.facade.EXPECT().Action(gomock.Any(), names.NewActionTag("2")).Times(1).Return(secondAction, nil)
+	s.facade.EXPECT().Action(gomock.Any(), names.NewActionTag("3")).Times(1).Return(thirdAction, nil)
 
 	// Action 1 cannot start.
-	begin1 := s.facade.EXPECT().ActionBegin(names.NewActionTag("1")).Times(1).Return(errors.New("kermack"))
-	s.facade.EXPECT().ActionFinish(names.NewActionTag("1"), params.ActionFailed, nil, "could not begin action foo: kermack").After(begin1).Return(nil)
+	begin1 := s.facade.EXPECT().ActionBegin(gomock.Any(), names.NewActionTag("1")).Times(1).Return(errors.New("kermack"))
+	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("1"), params.ActionFailed, nil, "could not begin action foo: kermack").After(begin1).Return(nil)
 
 	// Action 2 does not run in parallel, so needs the lock.
 	acquire2 := s.lock.EXPECT().Acquire(gomock.Any()).Times(1).Return(func() {
 		released = true
 	}, nil)
-	begin2 := s.facade.EXPECT().ActionBegin(names.NewActionTag("2")).After(acquire2).Return(nil)
-	s.facade.EXPECT().ActionFinish(names.NewActionTag("2"), params.ActionCompleted, nil, "").After(begin2).Return(nil)
-	begin3 := s.facade.EXPECT().ActionBegin(names.NewActionTag("3")).Times(1).Return(nil)
-	s.facade.EXPECT().ActionFinish(names.NewActionTag("3"), params.ActionCompleted, nil, "").After(begin3).Return(nil)
+	begin2 := s.facade.EXPECT().ActionBegin(gomock.Any(), names.NewActionTag("2")).After(acquire2).Return(nil)
+	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("2"), params.ActionCompleted, nil, "").After(begin2).Return(nil)
+	begin3 := s.facade.EXPECT().ActionBegin(gomock.Any(), names.NewActionTag("3")).Times(1).Return(nil)
+	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("3"), params.ActionCompleted, nil, "").After(begin3).Return(nil)
 
 	stub := &testing.Stub{}
 	worker, err := machineactions.NewMachineActionsWorker(defaultConfig(stub, s.facade, s.lock))
@@ -194,17 +196,17 @@ func (s *WorkerSuite) TestRunActions(c *gc.C) {
 func (s *WorkerSuite) TestActionHandleError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.facade.EXPECT().RunningActions(fakeTag).Return([]params.ActionResult{}, nil)
-	s.facade.EXPECT().WatchActionNotifications(fakeTag).Return(newStubWatcher(false), nil)
-	s.facade.EXPECT().Action(names.NewActionTag("1")).Times(1).Return(firstAction, nil)
-	s.facade.EXPECT().Action(names.NewActionTag("2")).Times(1).Return(nil, errors.New("boom"))
-	s.facade.EXPECT().Action(names.NewActionTag("3")).Times(1).Return(thirdAction, nil)
+	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return([]params.ActionResult{}, nil)
+	s.facade.EXPECT().WatchActionNotifications(gomock.Any(), fakeTag).Return(newStubWatcher(false), nil)
+	s.facade.EXPECT().Action(gomock.Any(), names.NewActionTag("1")).Times(1).Return(firstAction, nil)
+	s.facade.EXPECT().Action(gomock.Any(), names.NewActionTag("2")).Times(1).Return(nil, errors.New("boom"))
+	s.facade.EXPECT().Action(gomock.Any(), names.NewActionTag("3")).Times(1).Return(thirdAction, nil)
 
-	s.facade.EXPECT().ActionBegin(names.NewActionTag("1")).Times(1).Return(nil)
-	s.facade.EXPECT().ActionBegin(names.NewActionTag("3")).Times(1).Return(nil)
+	s.facade.EXPECT().ActionBegin(gomock.Any(), names.NewActionTag("1")).Times(1).Return(nil)
+	s.facade.EXPECT().ActionBegin(gomock.Any(), names.NewActionTag("3")).Times(1).Return(nil)
 
 	// To deal with the race because of the goroutines, we will use assertions based on the message.
-	assertFinish := func(tag names.ActionTag, status string, results map[string]interface{}, message string) error {
+	assertFinish := func(_ context.Context, tag names.ActionTag, status string, results map[string]interface{}, message string) error {
 		if message == "slob" {
 			c.Assert(status, gc.Equals, params.ActionFailed)
 			return nil
@@ -212,8 +214,8 @@ func (s *WorkerSuite) TestActionHandleError(c *gc.C) {
 		c.Assert(status, gc.Equals, params.ActionCompleted)
 		return nil
 	}
-	s.facade.EXPECT().ActionFinish(names.NewActionTag("1"), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(assertFinish)
-	s.facade.EXPECT().ActionFinish(names.NewActionTag("3"), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(assertFinish)
+	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("1"), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(assertFinish)
+	s.facade.EXPECT().ActionFinish(gomock.Any(), names.NewActionTag("3"), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(assertFinish)
 
 	stub := &testing.Stub{}
 	stub.SetErrors(errors.New("slob"))
@@ -240,8 +242,8 @@ func (s *WorkerSuite) TestActionHandleError(c *gc.C) {
 func (s *WorkerSuite) TestWorkerNoError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.facade.EXPECT().RunningActions(fakeTag).Return([]params.ActionResult{}, nil)
-	s.facade.EXPECT().WatchActionNotifications(fakeTag).Return(&stubWatcher{
+	s.facade.EXPECT().RunningActions(gomock.Any(), fakeTag).Return([]params.ActionResult{}, nil)
+	s.facade.EXPECT().WatchActionNotifications(gomock.Any(), fakeTag).Return(&stubWatcher{
 		Worker: workertest.NewErrorWorker(nil),
 	}, nil)
 

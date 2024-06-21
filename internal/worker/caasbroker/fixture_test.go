@@ -145,7 +145,7 @@ func (context *runContext) WatchForModelConfigChanges(_ context.Context) (watche
 	return context.watcher, nil
 }
 
-func (context *runContext) WatchCloudSpecChanges() (watcher.NotifyWatcher, error) {
+func (context *runContext) WatchCloudSpecChanges(_ context.Context) (watcher.NotifyWatcher, error) {
 	context.mu.Lock()
 	defer context.mu.Unlock()
 	context.stub.AddCall("WatchCloudSpecChanges")

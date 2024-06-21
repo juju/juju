@@ -86,12 +86,12 @@ func (st *Client) machineLife(ctx context.Context, tag names.MachineTag) (life.V
 }
 
 // ProvisioningInfo implements MachineProvisioner.ProvisioningInfo.
-func (st *Client) ProvisioningInfo(machineTags []names.MachineTag) (params.ProvisioningInfoResults, error) {
+func (st *Client) ProvisioningInfo(ctx context.Context, machineTags []names.MachineTag) (params.ProvisioningInfoResults, error) {
 	var results params.ProvisioningInfoResults
 	args := params.Entities{Entities: transform.Slice(machineTags, func(t names.MachineTag) params.Entity {
 		return params.Entity{Tag: t.String()}
 	})}
-	err := st.facade.FacadeCall(context.TODO(), "ProvisioningInfo", args, &results)
+	err := st.facade.FacadeCall(ctx, "ProvisioningInfo", args, &results)
 	return results, err
 }
 
@@ -125,9 +125,9 @@ func (st *Client) Machines(ctx context.Context, tags ...names.MachineTag) ([]Mac
 // WatchModelMachines returns a StringsWatcher that notifies of
 // changes to the lifecycles of the machines (but not containers) in
 // the current model.
-func (st *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
+func (st *Client) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := st.facade.FacadeCall(context.TODO(), "WatchModelMachines", nil, &result)
+	err := st.facade.FacadeCall(ctx, "WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -138,9 +138,9 @@ func (st *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-func (st *Client) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
+func (st *Client) WatchMachineErrorRetry(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := st.facade.FacadeCall(context.TODO(), "WatchMachineErrorRetry", nil, &result)
+	err := st.facade.FacadeCall(ctx, "WatchMachineErrorRetry", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -153,23 +153,23 @@ func (st *Client) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
 
 // ContainerManagerConfig returns information from the model config that is
 // needed for configuring the container manager.
-func (st *Client) ContainerManagerConfig(args params.ContainerManagerConfigParams) (result params.ContainerManagerConfig, err error) {
-	err = st.facade.FacadeCall(context.TODO(), "ContainerManagerConfig", args, &result)
+func (st *Client) ContainerManagerConfig(ctx context.Context, args params.ContainerManagerConfigParams) (result params.ContainerManagerConfig, err error) {
+	err = st.facade.FacadeCall(ctx, "ContainerManagerConfig", args, &result)
 	return result, err
 }
 
 // ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
-func (st *Client) ContainerConfig() (result params.ContainerConfig, err error) {
-	err = st.facade.FacadeCall(context.TODO(), "ContainerConfig", nil, &result)
+func (st *Client) ContainerConfig(ctx context.Context) (result params.ContainerConfig, err error) {
+	err = st.facade.FacadeCall(ctx, "ContainerConfig", nil, &result)
 	return result, err
 }
 
 // MachinesWithTransientErrors returns a slice of machines and corresponding status information
 // for those machines which have transient provisioning errors.
-func (st *Client) MachinesWithTransientErrors() ([]MachineStatusResult, error) {
+func (st *Client) MachinesWithTransientErrors(ctx context.Context) ([]MachineStatusResult, error) {
 	var results params.StatusResults
-	err := st.facade.FacadeCall(context.TODO(), "MachinesWithTransientErrors", nil, &results)
+	err := st.facade.FacadeCall(ctx, "MachinesWithTransientErrors", nil, &results)
 	if err != nil {
 		return []MachineStatusResult{}, err
 	}
@@ -190,7 +190,7 @@ func (st *Client) MachinesWithTransientErrors() ([]MachineStatusResult, error) {
 
 // FindTools returns al ist of tools matching the specified version number and
 // series, and, arch. If arch is blank, a default will be used.
-func (st *Client) FindTools(v version.Number, os string, arch string) (tools.List, error) {
+func (st *Client) FindTools(ctx context.Context, v version.Number, os string, arch string) (tools.List, error) {
 	args := params.FindToolsParams{
 		Number: v,
 		OSType: os,
@@ -199,7 +199,7 @@ func (st *Client) FindTools(v version.Number, os string, arch string) (tools.Lis
 		args.Arch = arch
 	}
 	var result params.FindToolsResult
-	if err := st.facade.FacadeCall(context.TODO(), "FindTools", args, &result); err != nil {
+	if err := st.facade.FacadeCall(ctx, "FindTools", args, &result); err != nil {
 		return nil, err
 	}
 	if result.Error != nil {
@@ -210,13 +210,13 @@ func (st *Client) FindTools(v version.Number, os string, arch string) (tools.Lis
 
 // ReleaseContainerAddresses releases a static IP address allocated to a
 // container.
-func (st *Client) ReleaseContainerAddresses(containerTag names.MachineTag) (err error) {
+func (st *Client) ReleaseContainerAddresses(ctx context.Context, containerTag names.MachineTag) (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot release static addresses for %q", containerTag.Id())
 	var result params.ErrorResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
 	}
-	if err := st.facade.FacadeCall(context.TODO(), "ReleaseContainerAddresses", args, &result); err != nil {
+	if err := st.facade.FacadeCall(ctx, "ReleaseContainerAddresses", args, &result); err != nil {
 		return err
 	}
 	return result.OneError()
@@ -224,13 +224,13 @@ func (st *Client) ReleaseContainerAddresses(containerTag names.MachineTag) (err 
 
 // PrepareContainerInterfaceInfo allocates an address and returns information to
 // configure networking for a container. It accepts container tags as arguments.
-func (st *Client) PrepareContainerInterfaceInfo(containerTag names.MachineTag) (corenetwork.InterfaceInfos, error) {
+func (st *Client) PrepareContainerInterfaceInfo(ctx context.Context, containerTag names.MachineTag) (corenetwork.InterfaceInfos, error) {
 	var result params.MachineNetworkConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
 	}
 
-	if err := st.facade.FacadeCall(context.TODO(), "PrepareContainerInterfaceInfo", args, &result); err != nil {
+	if err := st.facade.FacadeCall(ctx, "PrepareContainerInterfaceInfo", args, &result); err != nil {
 		return nil, err
 	}
 	if len(result.Results) != 1 {
@@ -245,24 +245,24 @@ func (st *Client) PrepareContainerInterfaceInfo(containerTag names.MachineTag) (
 
 // SetHostMachineNetworkConfig sets the network configuration of the
 // machine with netConfig
-func (st *Client) SetHostMachineNetworkConfig(hostMachineTag names.MachineTag, netConfig []params.NetworkConfig) error {
+func (st *Client) SetHostMachineNetworkConfig(ctx context.Context, hostMachineTag names.MachineTag, netConfig []params.NetworkConfig) error {
 	args := params.SetMachineNetworkConfig{
 		Tag:    hostMachineTag.String(),
 		Config: netConfig,
 	}
-	err := st.facade.FacadeCall(context.TODO(), "SetHostMachineNetworkConfig", args, nil)
+	err := st.facade.FacadeCall(ctx, "SetHostMachineNetworkConfig", args, nil)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (st *Client) HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, int, error) {
+func (st *Client) HostChangesForContainer(ctx context.Context, containerTag names.MachineTag) ([]network.DeviceToBridge, int, error) {
 	var result params.HostNetworkChangeResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
 	}
-	if err := st.facade.FacadeCall(context.TODO(), "HostChangesForContainers", args, &result); err != nil {
+	if err := st.facade.FacadeCall(ctx, "HostChangesForContainers", args, &result); err != nil {
 		return nil, 0, err
 	}
 	if len(result.Results) != 1 {
@@ -285,13 +285,13 @@ func (st *Client) HostChangesForContainer(containerTag names.MachineTag) ([]netw
 // that belong to the same distribution group as the given
 // Machine. The provisioner may use this information
 // to distribute instances for high availability.
-func (st *Client) DistributionGroupByMachineId(tags ...names.MachineTag) ([]DistributionGroupResult, error) {
+func (st *Client) DistributionGroupByMachineId(ctx context.Context, tags ...names.MachineTag) ([]DistributionGroupResult, error) {
 	var stringResults params.StringsResults
 	entities := make([]params.Entity, len(tags))
 	for i, t := range tags {
 		entities[i] = params.Entity{Tag: t.String()}
 	}
-	err := st.facade.FacadeCall(context.TODO(), "DistributionGroupByMachineId", params.Entities{Entities: entities}, &stringResults)
+	err := st.facade.FacadeCall(ctx, "DistributionGroupByMachineId", params.Entities{Entities: entities}, &stringResults)
 	if err != nil {
 		return []DistributionGroupResult{}, err
 	}
@@ -303,9 +303,9 @@ func (st *Client) DistributionGroupByMachineId(tags ...names.MachineTag) ([]Dist
 }
 
 // CACert returns the certificate used to validate the API and state connections.
-func (st *Client) CACert() (string, error) {
+func (st *Client) CACert(ctx context.Context) (string, error) {
 	var result params.BytesResult
-	err := st.facade.FacadeCall(context.TODO(), "CACert", nil, &result)
+	err := st.facade.FacadeCall(ctx, "CACert", nil, &result)
 	if err != nil {
 		return "", err
 	}
@@ -314,12 +314,12 @@ func (st *Client) CACert() (string, error) {
 
 // GetContainerProfileInfo returns a slice of ContainerLXDProfile, 1 for each unit's charm
 // which contains an lxd-profile.yaml.
-func (st *Client) GetContainerProfileInfo(containerTag names.MachineTag) ([]*LXDProfileResult, error) {
+func (st *Client) GetContainerProfileInfo(ctx context.Context, containerTag names.MachineTag) ([]*LXDProfileResult, error) {
 	var result params.ContainerProfileResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
 	}
-	if err := st.facade.FacadeCall(context.TODO(), "GetContainerProfileInfo", args, &result); err != nil {
+	if err := st.facade.FacadeCall(ctx, "GetContainerProfileInfo", args, &result); err != nil {
 		return nil, err
 	}
 	if len(result.Results) != 1 {
@@ -346,9 +346,9 @@ func (st *Client) GetContainerProfileInfo(containerTag names.MachineTag) ([]*LXD
 
 // ModelUUID returns the model UUID to connect to the model
 // that the current connection is for.
-func (st *Client) ModelUUID() (string, error) {
+func (st *Client) ModelUUID(ctx context.Context) (string, error) {
 	var result params.StringResult
-	err := st.facade.FacadeCall(context.TODO(), "ModelUUID", nil, &result)
+	err := st.facade.FacadeCall(ctx, "ModelUUID", nil, &result)
 	if err != nil {
 		return "", err
 	}

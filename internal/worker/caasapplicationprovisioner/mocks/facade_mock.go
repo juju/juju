@@ -47,18 +47,18 @@ func (m *MockCAASProvisionerFacade) EXPECT() *MockCAASProvisionerFacadeMockRecor
 }
 
 // ApplicationCharmInfo mocks base method.
-func (m *MockCAASProvisionerFacade) ApplicationCharmInfo(arg0 string) (*charms.CharmInfo, error) {
+func (m *MockCAASProvisionerFacade) ApplicationCharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationCharmInfo", arg0)
+	ret := m.ctrl.Call(m, "ApplicationCharmInfo", arg0, arg1)
 	ret0, _ := ret[0].(*charms.CharmInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ApplicationCharmInfo indicates an expected call of ApplicationCharmInfo.
-func (mr *MockCAASProvisionerFacadeMockRecorder) ApplicationCharmInfo(arg0 any) *MockCAASProvisionerFacadeApplicationCharmInfoCall {
+func (mr *MockCAASProvisionerFacadeMockRecorder) ApplicationCharmInfo(arg0, arg1 any) *MockCAASProvisionerFacadeApplicationCharmInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ApplicationCharmInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationCharmInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).ApplicationCharmInfo), arg0, arg1)
 	return &MockCAASProvisionerFacadeApplicationCharmInfoCall{Call: call}
 }
 
@@ -74,13 +74,13 @@ func (c *MockCAASProvisionerFacadeApplicationCharmInfoCall) Return(arg0 *charms.
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCAASProvisionerFacadeApplicationCharmInfoCall) Do(f func(string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeApplicationCharmInfoCall {
+func (c *MockCAASProvisionerFacadeApplicationCharmInfoCall) Do(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeApplicationCharmInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASProvisionerFacadeApplicationCharmInfoCall) DoAndReturn(f func(string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeApplicationCharmInfoCall {
+func (c *MockCAASProvisionerFacadeApplicationCharmInfoCall) DoAndReturn(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeApplicationCharmInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -125,18 +125,18 @@ func (c *MockCAASProvisionerFacadeApplicationOCIResourcesCall) DoAndReturn(f fun
 }
 
 // CharmInfo mocks base method.
-func (m *MockCAASProvisionerFacade) CharmInfo(arg0 string) (*charms.CharmInfo, error) {
+func (m *MockCAASProvisionerFacade) CharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmInfo", arg0)
+	ret := m.ctrl.Call(m, "CharmInfo", arg0, arg1)
 	ret0, _ := ret[0].(*charms.CharmInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CharmInfo indicates an expected call of CharmInfo.
-func (mr *MockCAASProvisionerFacadeMockRecorder) CharmInfo(arg0 any) *MockCAASProvisionerFacadeCharmInfoCall {
+func (mr *MockCAASProvisionerFacadeMockRecorder) CharmInfo(arg0, arg1 any) *MockCAASProvisionerFacadeCharmInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).CharmInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockCAASProvisionerFacade)(nil).CharmInfo), arg0, arg1)
 	return &MockCAASProvisionerFacadeCharmInfoCall{Call: call}
 }
 
@@ -152,13 +152,13 @@ func (c *MockCAASProvisionerFacadeCharmInfoCall) Return(arg0 *charms.CharmInfo, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCAASProvisionerFacadeCharmInfoCall) Do(f func(string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeCharmInfoCall {
+func (c *MockCAASProvisionerFacadeCharmInfoCall) Do(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeCharmInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCAASProvisionerFacadeCharmInfoCall) DoAndReturn(f func(string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeCharmInfoCall {
+func (c *MockCAASProvisionerFacadeCharmInfoCall) DoAndReturn(f func(context.Context, string) (*charms.CharmInfo, error)) *MockCAASProvisionerFacadeCharmInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

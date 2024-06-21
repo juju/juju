@@ -98,7 +98,7 @@ func (s *workerSuite) TestLockNotFoundNoAction(c *gc.C) {
 func (s *workerSuite) expectLockNotFoundNoAction() {
 	// If the lock is not found, no further processing occurs.
 	// This is the only call we expect to see.
-	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
+	s.facade.EXPECT().MachineStatus(gomock.Any()).Return(model.UpgradeSeriesStatus(""), errors.NewNotFound(nil, "nope"))
 }
 
 func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
@@ -106,7 +106,7 @@ func (s *workerSuite) TestCompleteNoAction(c *gc.C) {
 
 	// If the workflow is completed, no further processing occurs.
 	s.expectUnitDiscovery()
-	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareCompleted, nil)
+	s.facade.EXPECT().MachineStatus(gomock.Any()).Return(model.UpgradeSeriesPrepareCompleted, nil)
 	s.notify(1)
 	w := s.newWorker(c)
 
@@ -142,13 +142,13 @@ func (s *workerSuite) expectUnitDiscovery() {
 }
 
 func (s *workerSuite) expectMachineValidateUnitsNotPrepareCompleteNoAction() {
-	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesValidate, nil)
+	s.facade.EXPECT().MachineStatus(gomock.Any()).Return(model.UpgradeSeriesValidate, nil)
 
 	s.expectSetInstanceStatus(model.UpgradeSeriesValidate, "validating units")
 }
 
 func (s *workerSuite) expectMachinePrepareStartedUnitsNotPrepareCompleteNoAction() {
-	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
+	s.facade.EXPECT().MachineStatus(gomock.Any()).Return(model.UpgradeSeriesPrepareStarted, nil)
 	s.expectPinLeadership()
 
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "preparing units")
@@ -177,14 +177,14 @@ func (s *workerSuite) TestMachinePrepareStartedUnitFilesWrittenProgressPrepareCo
 func (s *workerSuite) expectMachinePrepareStartedUnitFilesWrittenProgressPrepareComplete() {
 	exp := s.facade.EXPECT()
 
-	exp.MachineStatus().Return(model.UpgradeSeriesPrepareStarted, nil)
+	exp.MachineStatus(gomock.Any()).Return(model.UpgradeSeriesPrepareStarted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "preparing units")
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
 
 	s.upgrader.EXPECT().PerformUpgrade().Return(nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareStarted, "completing preparation")
 
-	exp.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, gomock.Any()).Return(nil)
+	exp.SetMachineStatus(gomock.Any(), model.UpgradeSeriesPrepareCompleted, gomock.Any()).Return(nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesPrepareCompleted, "waiting for completion command")
 }
 
@@ -205,10 +205,10 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsPrepareCompleteUnitsStarted
 }
 
 func (s *workerSuite) expectMachineCompleteStartedUnitsPrepareCompleteUnitsStarted() {
-	s.facade.EXPECT().MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	s.facade.EXPECT().MachineStatus(gomock.Any()).Return(model.UpgradeSeriesCompleteStarted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for units")
 	s.expectUnitsPrepared("wordpress/0", "mysql/0")
-	s.facade.EXPECT().StartUnitCompletion(gomock.Any()).Return(nil)
+	s.facade.EXPECT().StartUnitCompletion(gomock.Any(), gomock.Any()).Return(nil)
 }
 
 func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C) {
@@ -218,15 +218,15 @@ func (s *workerSuite) TestMachineCompleteStartedNoUnitsProgressComplete(c *gc.C)
 	s.unitDiscovery.EXPECT().Units().Return(nil, nil)
 
 	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	exp.MachineStatus(gomock.Any()).Return(model.UpgradeSeriesCompleteStarted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for units")
 
 	// Machine with no units - API calls return none, no services discovered.
-	exp.UnitsPrepared().Return(nil, nil)
-	exp.UnitsCompleted().Return(nil, nil)
+	exp.UnitsPrepared(gomock.Any()).Return(nil, nil)
+	exp.UnitsCompleted(gomock.Any()).Return(nil, nil)
 
 	// Progress directly to completed.
-	exp.SetMachineStatus(model.UpgradeSeriesCompleted, gomock.Any()).Return(nil)
+	exp.SetMachineStatus(gomock.Any(), model.UpgradeSeriesCompleted, gomock.Any()).Return(nil)
 
 	s.notify(1)
 	w := s.newWorker(c)
@@ -256,17 +256,17 @@ func (s *workerSuite) TestMachineCompleteStartedUnitsCompleteProgressComplete(c 
 func (s *workerSuite) expectMachineCompleteStartedUnitsCompleteProgressComplete() {
 	exp := s.facade.EXPECT()
 
-	exp.MachineStatus().Return(model.UpgradeSeriesCompleteStarted, nil)
+	exp.MachineStatus(gomock.Any()).Return(model.UpgradeSeriesCompleteStarted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for units")
 
 	// No units are in the prepare-complete state.
 	// They have completed their workflow.
 	s.expectUnitsPrepared()
-	s.facade.EXPECT().UnitsCompleted().Return([]names.UnitTag{
+	s.facade.EXPECT().UnitsCompleted(gomock.Any()).Return([]names.UnitTag{
 		names.NewUnitTag("wordpress/0"),
 		names.NewUnitTag("mysql/0"),
 	}, nil)
-	exp.SetMachineStatus(model.UpgradeSeriesCompleted, gomock.Any()).Return(nil)
+	exp.SetMachineStatus(gomock.Any(), model.UpgradeSeriesCompleted, gomock.Any()).Return(nil)
 }
 
 func (s *workerSuite) TestMachineCompletedFinishUpgradeSeries(c *gc.C) {
@@ -289,9 +289,9 @@ func (s *workerSuite) expectMachineCompletedFinishUpgradeSeries() {
 	s.patchHost(b)
 
 	exp := s.facade.EXPECT()
-	exp.MachineStatus().Return(model.UpgradeSeriesCompleted, nil)
+	exp.MachineStatus(gomock.Any()).Return(model.UpgradeSeriesCompleted, nil)
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleted, "finalising upgrade")
-	exp.FinishUpgradeSeries(b).Return(nil)
+	exp.FinishUpgradeSeries(gomock.Any(), b).Return(nil)
 
 	s.expectSetInstanceStatus(model.UpgradeSeriesCompleted, "success")
 	exp.UnpinMachineApplications(gomock.Any()).Return(map[string]error{
@@ -334,7 +334,7 @@ func (s *workerSuite) expectUnitsPrepared(units ...string) {
 	for i, u := range units {
 		tags[i] = names.NewUnitTag(u)
 	}
-	s.facade.EXPECT().UnitsPrepared().Return(tags, nil)
+	s.facade.EXPECT().UnitsPrepared(gomock.Any()).Return(tags, nil)
 }
 
 // For individual tests that use a status of UpgradeSeriesPrepare started,
@@ -350,7 +350,7 @@ func (s *workerSuite) expectPinLeadership() {
 }
 
 func (s *workerSuite) expectSetInstanceStatus(sts model.UpgradeSeriesStatus, msg string) {
-	s.facade.EXPECT().SetInstanceStatus(sts, msg).Return(nil)
+	s.facade.EXPECT().SetInstanceStatus(gomock.Any(), sts, msg).Return(nil)
 }
 
 // cleanKill waits for notifications to be processed, then waits for the input

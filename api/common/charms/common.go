@@ -28,10 +28,10 @@ func NewCharmInfoClient(facade base.FacadeCaller) *CharmInfoClient {
 }
 
 // CharmInfo returns information about the requested charm.
-func (c *CharmInfoClient) CharmInfo(charmURL string) (*CharmInfo, error) {
+func (c *CharmInfoClient) CharmInfo(ctx context.Context, charmURL string) (*CharmInfo, error) {
 	args := params.CharmURL{URL: charmURL}
 	var info params.Charm
-	if err := c.facade.FacadeCall(context.TODO(), "CharmInfo", args, &info); err != nil {
+	if err := c.facade.FacadeCall(ctx, "CharmInfo", args, &info); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return convertCharm(&info)
@@ -49,10 +49,10 @@ func NewApplicationCharmInfoClient(facade base.FacadeCaller) *ApplicationCharmIn
 }
 
 // ApplicationCharmInfo returns information about an application's charm.
-func (c *ApplicationCharmInfoClient) ApplicationCharmInfo(appName string) (*CharmInfo, error) {
+func (c *ApplicationCharmInfoClient) ApplicationCharmInfo(ctx context.Context, appName string) (*CharmInfo, error) {
 	args := params.Entity{Tag: names.NewApplicationTag(appName).String()}
 	var info params.Charm
-	if err := c.facade.FacadeCall(context.TODO(), "ApplicationCharmInfo", args, &info); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ApplicationCharmInfo", args, &info); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return convertCharm(&info)
@@ -261,7 +261,7 @@ func convertCharmExtraBindingMap(bindings map[string]string) map[string]charm.Ex
 	}
 	result := make(map[string]charm.ExtraBinding)
 	for key, value := range bindings {
-		result[key] = charm.ExtraBinding{value}
+		result[key] = charm.ExtraBinding{Name: value}
 	}
 	return result
 }

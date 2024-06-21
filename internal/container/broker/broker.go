@@ -4,6 +4,7 @@
 package broker
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -28,12 +29,12 @@ var logger = internallogger.GetLogger("juju.container.broker")
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/internal/container/broker APICalls
 type APICalls interface {
-	ContainerConfig() (params.ContainerConfig, error)
-	PrepareContainerInterfaceInfo(names.MachineTag) (corenetwork.InterfaceInfos, error)
-	GetContainerProfileInfo(names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error)
-	ReleaseContainerAddresses(names.MachineTag) error
-	SetHostMachineNetworkConfig(names.MachineTag, []params.NetworkConfig) error
-	HostChangesForContainer(containerTag names.MachineTag) ([]network.DeviceToBridge, int, error)
+	ContainerConfig(context.Context) (params.ContainerConfig, error)
+	PrepareContainerInterfaceInfo(context.Context, names.MachineTag) (corenetwork.InterfaceInfos, error)
+	GetContainerProfileInfo(context.Context, names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error)
+	ReleaseContainerAddresses(context.Context, names.MachineTag) error
+	SetHostMachineNetworkConfig(context.Context, names.MachineTag, []params.NetworkConfig) error
+	HostChangesForContainer(context.Context, names.MachineTag) ([]network.DeviceToBridge, int, error)
 }
 
 // resolvConf contains the full path to common resolv.conf files on the local
@@ -41,12 +42,13 @@ type APICalls interface {
 var resolvConfFiles = []string{"/etc/resolv.conf", "/etc/systemd/resolved.conf", "/run/systemd/resolve/resolv.conf"}
 
 func prepareContainerInterfaceInfo(
+	ctx context.Context,
 	api APICalls, machineID string, log corelogger.Logger,
 ) (corenetwork.InterfaceInfos, error) {
 	log.Debugf("using multi-bridge networking for container %q", machineID)
 
 	containerTag := names.NewMachineTag(machineID)
-	preparedInfo, err := api.PrepareContainerInterfaceInfo(containerTag)
+	preparedInfo, err := api.PrepareContainerInterfaceInfo(ctx, containerTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -131,6 +133,7 @@ func findDNSServerConfig() (*corenetwork.DNSConfig, error) {
 }
 
 func releaseContainerAddresses(
+	ctx context.Context,
 	api APICalls,
 	instanceID instance.Id,
 	namespace instance.Namespace,
@@ -142,7 +145,7 @@ func releaseContainerAddresses(
 		log.Warningf("unexpected container tag %q: %v", instanceID, err)
 		return
 	}
-	err = api.ReleaseContainerAddresses(containerTag)
+	err = api.ReleaseContainerAddresses(ctx, containerTag)
 	switch {
 	case err == nil:
 		log.Infof("released all addresses for container %q", containerTag.Id())

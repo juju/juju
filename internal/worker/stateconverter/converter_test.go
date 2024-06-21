@@ -64,7 +64,7 @@ func (s *converterSuite) TestHandle(c *gc.C) {
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil)
 	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil)
 	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits, model.JobManageModel}}
-	s.machine.EXPECT().Jobs().Return(&jobs, nil)
+	s.machine.EXPECT().Jobs(gomock.Any()).Return(&jobs, nil)
 
 	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
@@ -80,7 +80,7 @@ func (s *converterSuite) TestHandleNotController(c *gc.C) {
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil)
 	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil)
 	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits}}
-	s.machine.EXPECT().Jobs().Return(&jobs, nil)
+	s.machine.EXPECT().Jobs(gomock.Any()).Return(&jobs, nil)
 
 	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
@@ -94,9 +94,9 @@ func (s *converterSuite) TestHandleJobsError(c *gc.C) {
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil).AnyTimes()
 	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil).AnyTimes()
 	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits, model.JobManageModel}}
-	s.machine.EXPECT().Jobs().Return(&jobs, nil)
+	s.machine.EXPECT().Jobs(gomock.Any()).Return(&jobs, nil)
 	expectedError := errors.New("foo")
-	s.machine.EXPECT().Jobs().Return(nil, expectedError)
+	s.machine.EXPECT().Jobs(gomock.Any()).Return(nil, expectedError)
 
 	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())

@@ -53,13 +53,13 @@ func NewClient(caller base.APICaller, authTag names.Tag, options ...Option) *Cli
 }
 
 // MachineStatus status retrieves the machine status from remote state.
-func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
+func (s *Client) MachineStatus(ctx context.Context) (model.UpgradeSeriesStatus, error) {
 	var results params.UpgradeSeriesStatusResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
 	}
 
-	err := s.facade.FacadeCall(context.TODO(), "MachineStatus", args, &results)
+	err := s.facade.FacadeCall(ctx, "MachineStatus", args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -81,25 +81,25 @@ func (s *Client) MachineStatus() (model.UpgradeSeriesStatus, error) {
 // UnitsPrepared returns the units running on this machine that have
 // completed their upgrade-machine preparation, and are ready to be stopped and
 // have their unit agent services converted for the target series.
-func (s *Client) UnitsPrepared() ([]names.UnitTag, error) {
-	units, err := s.unitsInState("UnitsPrepared")
+func (s *Client) UnitsPrepared(ctx context.Context) ([]names.UnitTag, error) {
+	units, err := s.unitsInState(ctx, "UnitsPrepared")
 	return units, errors.Trace(err)
 }
 
 // UnitsCompleted returns the units running on this machine that have completed
 // the upgrade-machine workflow and are in their normal running state.
-func (s *Client) UnitsCompleted() ([]names.UnitTag, error) {
-	units, err := s.unitsInState("UnitsCompleted")
+func (s *Client) UnitsCompleted(ctx context.Context) ([]names.UnitTag, error) {
+	units, err := s.unitsInState(ctx, "UnitsCompleted")
 	return units, errors.Trace(err)
 }
 
-func (s *Client) unitsInState(facadeMethod string) ([]names.UnitTag, error) {
+func (s *Client) unitsInState(ctx context.Context, facadeMethod string) ([]names.UnitTag, error) {
 	var results params.EntitiesResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
 	}
 
-	err := s.facade.FacadeCall(context.TODO(), facadeMethod, args, &results)
+	err := s.facade.FacadeCall(ctx, facadeMethod, args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -127,7 +127,7 @@ func (s *Client) unitsInState(facadeMethod string) ([]names.UnitTag, error) {
 }
 
 // SetMachineStatus sets the series upgrade status in remote state.
-func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus, reason string) error {
+func (s *Client) SetMachineStatus(ctx context.Context, status model.UpgradeSeriesStatus, reason string) error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStatusParams{
 		Params: []params.UpgradeSeriesStatusParam{{
@@ -137,7 +137,7 @@ func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus, reason strin
 		}},
 	}
 
-	err := s.facade.FacadeCall(context.TODO(), "SetMachineStatus", args, &results)
+	err := s.facade.FacadeCall(ctx, "SetMachineStatus", args, &results)
 	if err != nil {
 		return err
 	}
@@ -153,14 +153,14 @@ func (s *Client) SetMachineStatus(status model.UpgradeSeriesStatus, reason strin
 }
 
 // StartUnitCompletion starts the complete phase for all subordinate units.
-func (s *Client) StartUnitCompletion(reason string) error {
+func (s *Client) StartUnitCompletion(ctx context.Context, reason string) error {
 	var results params.ErrorResults
 	args := params.UpgradeSeriesStartUnitCompletionParam{
 		Entities: []params.Entity{{Tag: s.authTag.String()}},
 		Message:  reason,
 	}
 
-	err := s.facade.FacadeCall(context.TODO(), "StartUnitCompletion", args, &results)
+	err := s.facade.FacadeCall(ctx, "StartUnitCompletion", args, &results)
 	if err != nil {
 		return err
 	}
@@ -179,14 +179,14 @@ func (s *Client) StartUnitCompletion(reason string) error {
 // completely finished, passing the current host OS series.
 // We use the name "Finish" to distinguish this method from the various
 // "Complete" phases.
-func (s *Client) FinishUpgradeSeries(hostBase corebase.Base) error {
+func (s *Client) FinishUpgradeSeries(ctx context.Context, hostBase corebase.Base) error {
 	var results params.ErrorResults
 	args := params.UpdateChannelArgs{Args: []params.UpdateChannelArg{{
 		Entity:  params.Entity{Tag: s.authTag.String()},
 		Channel: hostBase.Channel.Track,
 	}}}
 
-	err := s.facade.FacadeCall(context.TODO(), "FinishUpgradeSeries", args, &results)
+	err := s.facade.FacadeCall(ctx, "FinishUpgradeSeries", args, &results)
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func (s *Client) FinishUpgradeSeries(hostBase corebase.Base) error {
 }
 
 // SetInstanceStatus sets the machine status in remote state.
-func (s *Client) SetInstanceStatus(sts model.UpgradeSeriesStatus, msg string) error {
+func (s *Client) SetInstanceStatus(ctx context.Context, sts model.UpgradeSeriesStatus, msg string) error {
 	var results params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{{
@@ -212,7 +212,7 @@ func (s *Client) SetInstanceStatus(sts model.UpgradeSeriesStatus, msg string) er
 		}},
 	}
 
-	err := s.facade.FacadeCall(context.TODO(), "SetInstanceStatus", args, &results)
+	err := s.facade.FacadeCall(ctx, "SetInstanceStatus", args, &results)
 	if err != nil {
 		return err
 	}

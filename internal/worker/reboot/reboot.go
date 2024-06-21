@@ -47,13 +47,13 @@ func NewReboot(client reboot.Client, agentTag names.Tag, machineLock machinelock
 	return w, errors.Trace(err)
 }
 
-func (r *Reboot) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
-	watcher, err := r.client.WatchForRebootEvent()
+func (r *Reboot) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
+	watcher, err := r.client.WatchForRebootEvent(ctx)
 	return watcher, errors.Trace(err)
 }
 
-func (r *Reboot) Handle(_ context.Context) error {
-	rAction, err := r.client.GetRebootAction()
+func (r *Reboot) Handle(ctx context.Context) error {
+	rAction, err := r.client.GetRebootAction(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -90,7 +90,7 @@ func (r *Reboot) Handle(_ context.Context) error {
 		// that the machine agent is also a controller, and the apiserver has been
 		// shut down. It is better to clear the flag and not reboot on a weird
 		// error rather than get into a reboot loop because we can't shutdown.
-		if err := r.client.ClearReboot(); err != nil {
+		if err := r.client.ClearReboot(ctx); err != nil {
 			logger.Infof("unable to clear reboot flag: %v", err)
 		}
 	}

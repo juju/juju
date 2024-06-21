@@ -4,6 +4,8 @@
 package proxyupdater_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
@@ -71,7 +73,7 @@ func (s *ProxyUpdaterSuite) TestWatchForProxyConfigAndAPIHostPortChanges(c *gc.C
 		Results: res,
 	})
 
-	watcher, err := api.WatchForProxyConfigAndAPIHostPortChanges()
+	watcher, err := api.WatchForProxyConfigAndAPIHostPortChanges(context.Background())
 	c.Check(*called, jc.GreaterThan, 0)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(watcher, gc.Equals, fake)
@@ -111,7 +113,7 @@ func (s *ProxyUpdaterSuite) TestProxyConfig(c *gc.C) {
 		},
 	})
 
-	config, err := api.ProxyConfig()
+	config, err := api.ProxyConfig(context.Background())
 	c.Assert(*called, gc.Equals, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(config.LegacyProxy, jc.DeepEquals, proxy.Settings{

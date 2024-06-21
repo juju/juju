@@ -32,10 +32,10 @@ func NewCloudSpecAPI(facade base.FacadeCaller, modelTag names.ModelTag) *CloudSp
 
 // WatchCloudSpecChanges returns a NotifyWatcher waiting for the
 // model's cloud to change.
-func (api *CloudSpecAPI) WatchCloudSpecChanges() (watcher.NotifyWatcher, error) {
+func (api *CloudSpecAPI) WatchCloudSpecChanges(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
-	args := params.Entities{Entities: []params.Entity{{api.modelTag.String()}}}
-	err := api.facade.FacadeCall(context.TODO(), "WatchCloudSpecsChanges", args, &results)
+	args := params.Entities{Entities: []params.Entity{{Tag: api.modelTag.String()}}}
+	err := api.facade.FacadeCall(ctx, "WatchCloudSpecsChanges", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -53,8 +53,8 @@ func (api *CloudSpecAPI) WatchCloudSpecChanges() (watcher.NotifyWatcher, error) 
 // with the API facade.
 func (api *CloudSpecAPI) CloudSpec(ctx context.Context) (environscloudspec.CloudSpec, error) {
 	var results params.CloudSpecResults
-	args := params.Entities{Entities: []params.Entity{{api.modelTag.String()}}}
-	err := api.facade.FacadeCall(context.TODO(), "CloudSpec", args, &results)
+	args := params.Entities{Entities: []params.Entity{{Tag: api.modelTag.String()}}}
+	err := api.facade.FacadeCall(ctx, "CloudSpec", args, &results)
 	if err != nil {
 		return environscloudspec.CloudSpec{}, err
 	}

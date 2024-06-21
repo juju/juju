@@ -27,16 +27,18 @@ import (
 // ApplicationOps defines all the operations the application worker can perform.
 // This is exported for testing only.
 type ApplicationOps interface {
-	AppAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
+	AppAlive(ctx context.Context, appName string, app caas.Application,
+		password string, lastApplied *caas.ApplicationConfig,
 		facade CAASProvisionerFacade, clk clock.Clock, logger logger.Logger) error
 
 	AppDying(appName string, app caas.Application, appLife life.Value,
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger logger.Logger) error
 
 	AppDead(appName string, app caas.Application,
-		broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, clk clock.Clock, logger logger.Logger) error
+		broker CAASBroker, facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade,
+		clk clock.Clock, logger logger.Logger) error
 
-	CheckCharmFormat(appName string,
+	CheckCharmFormat(ctx context.Context, appName string,
 		facade CAASProvisionerFacade, logger logger.Logger) (isOk bool, err error)
 
 	EnsureTrust(appName string, app caas.Application,
@@ -58,12 +60,12 @@ type ApplicationOps interface {
 		facade CAASProvisionerFacade, unitFacade CAASUnitProvisionerFacade, logger logger.Logger) error
 }
 
-type applicationOps struct {
-}
+type applicationOps struct{}
 
-func (applicationOps) AppAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
-	facade CAASProvisionerFacade, clk clock.Clock, logger logger.Logger) error {
-	return appAlive(appName, app, password, lastApplied, facade, clk, logger)
+func (applicationOps) AppAlive(ctx context.Context, appName string, app caas.Application, password string,
+	lastApplied *caas.ApplicationConfig, facade CAASProvisionerFacade,
+	clk clock.Clock, logger logger.Logger) error {
+	return appAlive(ctx, appName, app, password, lastApplied, facade, clk, logger)
 }
 
 func (applicationOps) AppDying(appName string, app caas.Application, appLife life.Value,
@@ -76,9 +78,9 @@ func (applicationOps) AppDead(appName string, app caas.Application,
 	return appDead(appName, app, broker, facade, unitFacade, clk, logger)
 }
 
-func (applicationOps) CheckCharmFormat(appName string,
+func (applicationOps) CheckCharmFormat(ctx context.Context, appName string,
 	facade CAASProvisionerFacade, logger logger.Logger) (isOk bool, err error) {
-	return checkCharmFormat(appName, facade, logger)
+	return checkCharmFormat(ctx, appName, facade, logger)
 }
 
 func (applicationOps) EnsureTrust(appName string, app caas.Application,
@@ -118,7 +120,8 @@ type Tomb interface {
 
 // appAlive handles the life.Alive state for the CAAS application. It handles invoking the
 // CAAS broker to create the resources in the k8s cluster for this application.
-func appAlive(appName string, app caas.Application, password string, lastApplied *caas.ApplicationConfig,
+func appAlive(ctx context.Context, appName string, app caas.Application,
+	password string, lastApplied *caas.ApplicationConfig,
 	facade CAASProvisionerFacade, clk clock.Clock, logger logger.Logger) error {
 	logger.Debugf("ensuring application %q exists", appName)
 
@@ -130,7 +133,7 @@ func appAlive(appName string, app caas.Application, password string, lastApplied
 		return errors.Errorf("missing charm url in provision info")
 	}
 
-	charmInfo, err := facade.CharmInfo(provisionInfo.CharmURL.String())
+	charmInfo, err := facade.CharmInfo(ctx, provisionInfo.CharmURL.String())
 	if err != nil {
 		return errors.Annotatef(err, "retrieving charm deployment info for %q", appName)
 	}
@@ -280,9 +283,13 @@ func appDead(appName string, app caas.Application,
 }
 
 // checkCharmFormat checks that the charm is a v2 charm.
-func checkCharmFormat(appName string,
-	facade CAASProvisionerFacade, logger logger.Logger) (isOk bool, err error) {
-	charmInfo, err := facade.ApplicationCharmInfo(appName)
+func checkCharmFormat(
+	ctx context.Context,
+	appName string,
+	facade CAASProvisionerFacade,
+	logger logger.Logger,
+) (isOk bool, err error) {
+	charmInfo, err := facade.ApplicationCharmInfo(ctx, appName)
 	if errors.Is(err, errors.NotFound) {
 		logger.Debugf("application %q no longer exists", appName)
 		return false, nil

@@ -4,6 +4,7 @@
 package unitassigner
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/names/v5"
@@ -27,12 +28,12 @@ func newHandler(c *gc.C, api UnitAssigner) unitAssignerHandler {
 func (testsuite) TestSetup(c *gc.C) {
 	f := &fakeAPI{}
 	ua := newHandler(c, f)
-	_, err := ua.SetUp()
+	_, err := ua.SetUp(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.calledWatch, jc.IsTrue)
 
 	f.err = errors.New("boo")
-	_, err = ua.SetUp()
+	_, err = ua.SetUp(context.Background())
 	c.Assert(err, gc.Equals, f.err)
 }
 
@@ -81,17 +82,17 @@ type fakeAPI struct {
 	assignErrs  []error
 }
 
-func (f *fakeAPI) AssignUnits(tags []names.UnitTag) ([]error, error) {
+func (f *fakeAPI) AssignUnits(ctx context.Context, tags []names.UnitTag) ([]error, error) {
 	f.assignTags = tags
 	return f.assignErrs, f.err
 }
 
-func (f *fakeAPI) WatchUnitAssignments() (watcher.StringsWatcher, error) {
+func (f *fakeAPI) WatchUnitAssignments(ctx context.Context) (watcher.StringsWatcher, error) {
 	f.calledWatch = true
 	return nil, f.err
 }
 
-func (f *fakeAPI) SetAgentStatus(args params.SetStatus) error {
+func (f *fakeAPI) SetAgentStatus(ctx context.Context, args params.SetStatus) error {
 	f.status = args
 	return f.err
 }

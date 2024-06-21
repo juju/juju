@@ -104,7 +104,7 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 	s.expectCall(caller, "MachinesWithTransientErrors", nil, results)
 
 	client := provisioner.NewClient(caller)
-	result, err := client.MachinesWithTransientErrors()
+	result, err := client.MachinesWithTransientErrors(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	machine := result[0].Machine
 	c.Assert(machine, gc.FitsTypeOf, &provisioner.Machine{})
@@ -137,7 +137,7 @@ func (s *provisionerSuite) TestDistributionGroupByMachineId(c *gc.C) {
 	s.expectCall(caller, "DistributionGroupByMachineId", args, results)
 
 	client := provisioner.NewClient(caller)
-	result, err := client.DistributionGroupByMachineId(names.NewMachineTag("666"))
+	result, err := client.DistributionGroupByMachineId(context.Background(), names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []provisioner.DistributionGroupResult{{
 		MachineIds: []string{"id-1", "id-2"},
@@ -161,7 +161,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	s.expectCall(caller, "ProvisioningInfo", args, results)
 
 	client := provisioner.NewClient(caller)
-	result, err := client.ProvisioningInfo([]names.MachineTag{names.NewMachineTag("666")})
+	result, err := client.ProvisioningInfo(context.Background(), []names.MachineTag{names.NewMachineTag("666")})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, results)
 }
@@ -188,7 +188,7 @@ func (s *provisionerSuite) TestHostChangesForContainer(c *gc.C) {
 	s.expectCall(caller, "HostChangesForContainers", args, results)
 
 	client := provisioner.NewClient(caller)
-	result, delay, err := client.HostChangesForContainer(names.NewMachineTag("666"))
+	result, delay, err := client.HostChangesForContainer(context.Background(), names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []network.DeviceToBridge{{
 		DeviceName: "host",
@@ -213,7 +213,7 @@ func (s *provisionerSuite) TestContainerManagerConfig(c *gc.C) {
 	s.expectCall(caller, "ContainerManagerConfig", args, results)
 
 	client := provisioner.NewClient(caller)
-	result, err := client.ContainerManagerConfig(args)
+	result, err := client.ContainerManagerConfig(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, results)
 }
@@ -242,7 +242,7 @@ func (s *provisionerSuite) TestFindTools(c *gc.C) {
 	s.expectCall(caller, "FindTools", args, results)
 
 	client := provisioner.NewClient(caller)
-	result, err := client.FindTools(vers, "ubuntu", "arm64")
+	result, err := client.FindTools(context.Background(), vers, "ubuntu", "arm64")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, tools.List{{
 		Version: version.MustParseBinary("6.6.6-ubuntu-arm64"),
@@ -264,7 +264,7 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	s.expectCall(caller, "ContainerConfig", nil, cfg)
 
 	client := provisioner.NewClient(caller)
-	result, err := client.ContainerConfig()
+	result, err := client.ContainerConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, cfg)
 }
@@ -281,7 +281,7 @@ func (s *provisionerSuite) TestWatchModelMachines(c *gc.C) {
 	s.expectCall(caller, "WatchModelMachines", nil, results)
 
 	client := provisioner.NewClient(caller)
-	_, err := client.WatchModelMachines()
+	_, err := client.WatchModelMachines(context.Background())
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -321,7 +321,7 @@ func (s *provisionerSuite) TestSetStatus(c *gc.C) {
 	}
 	s.expectCall(caller, "SetStatus", args, results)
 
-	err := machine.SetStatus(status.Error, "failed", map[string]interface{}{"foo": "bar"})
+	err := machine.SetStatus(context.Background(), status.Error, "failed", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -343,7 +343,7 @@ func (s *provisionerSuite) TestStatus(c *gc.C) {
 
 	s.expectCall(caller, "Status", args, results)
 
-	st, info, err := machine.Status()
+	st, info, err := machine.Status(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, status.Error)
 	c.Assert(info, gc.Equals, "failed")
@@ -368,7 +368,7 @@ func (s *provisionerSuite) TestSetInstanceStatus(c *gc.C) {
 	}
 	s.expectCall(caller, "SetInstanceStatus", args, results)
 
-	err := machine.SetInstanceStatus(status.Error, "failed", map[string]interface{}{"foo": "bar"})
+	err := machine.SetInstanceStatus(context.Background(), status.Error, "failed", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -390,7 +390,7 @@ func (s *provisionerSuite) TestInstanceStatus(c *gc.C) {
 
 	s.expectCall(caller, "InstanceStatus", args, results)
 
-	st, info, err := machine.InstanceStatus()
+	st, info, err := machine.InstanceStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(st, gc.Equals, status.Error)
 	c.Assert(info, gc.Equals, "failed")
@@ -411,7 +411,7 @@ func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 
 	s.expectCall(caller, "EnsureDead", args, results)
 
-	err := machine.EnsureDead()
+	err := machine.EnsureDead(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -430,7 +430,7 @@ func (s *provisionerSuite) TestRemove(c *gc.C) {
 
 	s.expectCall(caller, "Remove", args, results)
 
-	err := machine.Remove()
+	err := machine.Remove(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -449,7 +449,7 @@ func (s *provisionerSuite) TestMarkForRemoval(c *gc.C) {
 
 	s.expectCall(caller, "MarkMachinesForRemoval", args, results)
 
-	err := machine.MarkForRemoval()
+	err := machine.MarkForRemoval(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -488,7 +488,7 @@ func (s *provisionerSuite) TestInstanceId(c *gc.C) {
 
 	s.expectCall(caller, "InstanceId", args, results)
 
-	id, err := machine.InstanceId()
+	id, err := machine.InstanceId(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(id, gc.Equals, instance.Id("id-666"))
 }
@@ -533,6 +533,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	s.expectCall(caller, "SetInstanceInfo", args, results)
 
 	err := machine.SetInstanceInfo(
+		context.Background(),
 		"i-will", "my machine", "fake_nonce", &hwChars, nil, volumes, volumeAttachments, []string{"profile1"},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -555,7 +556,7 @@ func (s *provisionerSuite) TestAvailabilityZone(c *gc.C) {
 
 	s.expectCall(caller, "AvailabilityZone", args, results)
 
-	zone, err := machine.AvailabilityZone()
+	zone, err := machine.AvailabilityZone(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(zone, gc.Equals, "az-666")
 }
@@ -578,7 +579,7 @@ func (s *provisionerSuite) TestSetCharmProfiles(c *gc.C) {
 
 	s.expectCall(caller, "SetCharmProfiles", args, results)
 
-	err := machine.SetCharmProfiles([]string{"profile"})
+	err := machine.SetCharmProfiles(context.Background(), []string{"profile"})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -597,7 +598,7 @@ func (s *provisionerSuite) TestKeepInstance(c *gc.C) {
 
 	s.expectCall(caller, "KeepInstance", args, results)
 
-	result, err := machine.KeepInstance()
+	result, err := machine.KeepInstance(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsTrue)
 }
@@ -617,7 +618,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 
 	s.expectCall(caller, "DistributionGroup", args, results)
 
-	result, err := machine.DistributionGroup()
+	result, err := machine.DistributionGroup(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.SameContents, []instance.Id{"id-1", "id-2"})
 }
@@ -642,7 +643,7 @@ func (s *provisionerSuite) TestWatchContainers(c *gc.C) {
 
 	s.expectCall(caller, "WatchContainers", args, results)
 
-	_, err := machine.WatchContainers(instance.LXD)
+	_, err := machine.WatchContainers(context.Background(), instance.LXD)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -652,7 +653,7 @@ func (s *provisionerSuite) TestWatchContainersUnSupportedContainers(c *gc.C) {
 
 	_, machine := s.setupMachines(c, ctrl)
 
-	_, err := machine.WatchContainers("foo")
+	_, err := machine.WatchContainers(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, `unsupported container type "foo"`)
 }
 
@@ -673,7 +674,7 @@ func (s *provisionerSuite) TestSetSupportedContainers(c *gc.C) {
 	}
 	s.expectCall(caller, "SetSupportedContainers", args, results)
 
-	err := machine.SetSupportedContainers([]instance.ContainerType{"lxd"}...)
+	err := machine.SetSupportedContainers(context.Background(), []instance.ContainerType{"lxd"}...)
 	c.Assert(err, jc.ErrorIsNil)
 
 }
@@ -693,7 +694,7 @@ func (s *provisionerSuite) TestSupportedContainers(c *gc.C) {
 
 	s.expectCall(caller, "SupportedContainers", args, results)
 
-	result, determined, err := machine.SupportedContainers()
+	result, determined, err := machine.SupportedContainers(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.SameContents, []instance.ContainerType{"lxd"})
 	c.Assert(determined, jc.IsTrue)
@@ -735,7 +736,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c 
 	s.expectCall(caller, "PrepareContainerInterfaceInfo", args, results)
 	provisionerApi := provisioner.NewClient(caller)
 
-	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(s.containerTag)
+	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(context.Background(), s.containerTag)
 	c.Assert(err, gc.IsNil)
 	c.Check(networkInfo, jc.DeepEquals, corenetwork.InterfaceInfos{})
 }
@@ -784,7 +785,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 	s.expectCall(caller, "PrepareContainerInterfaceInfo", args, results)
 	provisionerApi := provisioner.NewClient(caller)
 
-	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(s.containerTag)
+	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(context.Background(), s.containerTag)
 	c.Assert(err, gc.IsNil)
 	c.Check(networkInfo, jc.DeepEquals, corenetwork.InterfaceInfos{{
 		DeviceIndex:         1,
@@ -855,7 +856,7 @@ func (s *provisionerContainerSuite) TestGetContainerProfileInfo(c *gc.C) {
 	s.expectCall(caller, "GetContainerProfileInfo", args, results)
 	provisionerApi := provisioner.NewClient(caller)
 
-	obtainedResults, err := provisionerApi.GetContainerProfileInfo(s.containerTag)
+	obtainedResults, err := provisionerApi.GetContainerProfileInfo(context.Background(), s.containerTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedResults, gc.DeepEquals, []*provisioner.LXDProfileResult{
 		{

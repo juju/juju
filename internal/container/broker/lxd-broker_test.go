@@ -211,8 +211,8 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 	containerTag := names.NewMachineTag("1-lxd-0")
 
 	mockApi := mocks.NewMockAPICalls(ctrl)
-	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return(corenetwork.InterfaceInfos{fakeInterfaceInfo}, nil)
-	mockApi.EXPECT().ContainerConfig().Return(fakeContainerConfig(), nil)
+	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Any(), gomock.Eq(containerTag)).Return(corenetwork.InterfaceInfos{fakeInterfaceInfo}, nil)
+	mockApi.EXPECT().ContainerConfig(gomock.Any()).Return(fakeContainerConfig(), nil)
 
 	put := lxdprofile.Profile{
 		Config: map[string]string{
@@ -230,7 +230,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 		Devices: put.Devices,
 		Name:    "juju-test-profile",
 	}
-	mockApi.EXPECT().GetContainerProfileInfo(gomock.Eq(containerTag)).Return([]*apiprovisioner.LXDProfileResult{result}, nil)
+	mockApi.EXPECT().GetContainerProfileInfo(gomock.Any(), gomock.Eq(containerTag)).Return([]*apiprovisioner.LXDProfileResult{result}, nil)
 
 	mockManager := testing.NewMockTestLXDManager(ctrl)
 	mockManager.EXPECT().MaybeWriteLXDProfile("juju-test-profile", put).Return(nil)
@@ -243,7 +243,9 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 	).Return(&inst, &hw, nil)
 
 	broker, err := broker.NewLXDBroker(
-		func(containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error { return nil },
+		func(ctx context.Context, containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error {
+			return nil
+		},
 		mockApi, mockManager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -258,8 +260,8 @@ func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *gc.C) {
 	containerTag := names.NewMachineTag("1-lxd-0")
 
 	mockApi := mocks.NewMockAPICalls(ctrl)
-	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return(corenetwork.InterfaceInfos{fakeInterfaceInfo}, nil)
-	mockApi.EXPECT().ContainerConfig().Return(fakeContainerConfig(), nil)
+	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Any(), gomock.Eq(containerTag)).Return(corenetwork.InterfaceInfos{fakeInterfaceInfo}, nil)
+	mockApi.EXPECT().ContainerConfig(gomock.Any()).Return(fakeContainerConfig(), nil)
 
 	put := &charm.LXDProfile{
 		Config: map[string]string{
@@ -270,12 +272,14 @@ func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *gc.C) {
 		Config: put.Config,
 		Name:   "",
 	}
-	mockApi.EXPECT().GetContainerProfileInfo(gomock.Eq(containerTag)).Return([]*apiprovisioner.LXDProfileResult{result}, nil)
+	mockApi.EXPECT().GetContainerProfileInfo(gomock.Any(), gomock.Eq(containerTag)).Return([]*apiprovisioner.LXDProfileResult{result}, nil)
 
 	mockManager := testing.NewMockTestLXDManager(ctrl)
 
 	broker, err := broker.NewLXDBroker(
-		func(containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error { return nil },
+		func(ctx context.Context, containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error {
+			return nil
+		},
 		mockApi, mockManager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -296,7 +300,9 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfileReturnsLXDProfileNames(c
 	}, nil)
 
 	broker, err := broker.NewLXDBroker(
-		func(containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error { return nil },
+		func(ctx context.Context, containerTag names.MachineTag, log corelogger.Logger, abort <-chan struct{}) error {
+			return nil
+		},
 		mockApi, mockManager, s.agentConfig)
 	c.Assert(err, jc.ErrorIsNil)
 

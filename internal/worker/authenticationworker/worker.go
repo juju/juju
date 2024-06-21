@@ -26,8 +26,8 @@ var logger = internallogger.GetLogger("juju.worker.authenticationworker")
 
 // Client provides the key updater api client.
 type Client interface {
-	AuthorisedKeys(tag names.MachineTag) ([]string, error)
-	WatchAuthorisedKeys(tag names.MachineTag) (watcher.NotifyWatcher, error)
+	AuthorisedKeys(ctx context.Context, tag names.MachineTag) ([]string, error)
+	WatchAuthorisedKeys(ctx context.Context, tag names.MachineTag) (watcher.NotifyWatcher, error)
 }
 
 type keyupdaterWorker struct {
@@ -61,9 +61,9 @@ func NewWorker(client Client, agentConfig agent.Config) (worker.Worker, error) {
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.
-func (kw *keyupdaterWorker) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
+func (kw *keyupdaterWorker) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 	// Record the keys Juju knows about.
-	jujuKeys, err := kw.client.AuthorisedKeys(kw.tag)
+	jujuKeys, err := kw.client.AuthorisedKeys(ctx, kw.tag)
 	if err != nil {
 		err = errors.Annotatef(err, "reading Juju ssh keys for %q", kw.tag)
 		logger.Infof(err.Error())
@@ -93,7 +93,7 @@ func (kw *keyupdaterWorker) SetUp(_ context.Context) (watcher.NotifyWatcher, err
 		return nil, err
 	}
 
-	w, err := kw.client.WatchAuthorisedKeys(kw.tag)
+	w, err := kw.client.WatchAuthorisedKeys(ctx, kw.tag)
 	if err != nil {
 		err = errors.Annotate(err, "starting key updater worker")
 		logger.Infof(err.Error())
@@ -116,9 +116,9 @@ func (kw *keyupdaterWorker) writeSSHKeys(jujuKeys []string) error {
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.
-func (kw *keyupdaterWorker) Handle(_ context.Context) error {
+func (kw *keyupdaterWorker) Handle(ctx context.Context) error {
 	// Read the keys that Juju has.
-	newKeys, err := kw.client.AuthorisedKeys(kw.tag)
+	newKeys, err := kw.client.AuthorisedKeys(ctx, kw.tag)
 	if err != nil {
 		err = errors.Annotatef(err, "reading Juju ssh keys for %q", kw.tag)
 		logger.Infof(err.Error())

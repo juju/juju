@@ -5,6 +5,7 @@
 package retrystrategy_test
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/names/v5"
@@ -50,7 +51,7 @@ func (s *retryStrategySuite) TestRetryStrategyOk(c *gc.C) {
 	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	retryStrategy, err := client.RetryStrategy(tag)
+	retryStrategy, err := client.RetryStrategy(context.Background(), tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(retryStrategy, jc.DeepEquals, expectedRetryStrategy)
@@ -83,7 +84,7 @@ func (s *retryStrategySuite) TestRetryStrategyResultError(c *gc.C) {
 	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	retryStrategy, err := client.RetryStrategy(tag)
+	retryStrategy, err := client.RetryStrategy(context.Background(), tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "splat")
 	c.Assert(retryStrategy, jc.DeepEquals, params.RetryStrategy{})
@@ -111,7 +112,7 @@ func (s *retryStrategySuite) TestRetryStrategyMoreResults(c *gc.C) {
 	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	retryStrategy, err := client.RetryStrategy(tag)
+	retryStrategy, err := client.RetryStrategy(context.Background(), tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 	c.Assert(retryStrategy, jc.DeepEquals, params.RetryStrategy{})
@@ -137,7 +138,7 @@ func (s *retryStrategySuite) TestRetryStrategyError(c *gc.C) {
 	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	retryStrategy, err := client.RetryStrategy(tag)
+	retryStrategy, err := client.RetryStrategy(context.Background(), tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "impossibru")
 	c.Assert(retryStrategy, jc.DeepEquals, params.RetryStrategy{})
@@ -165,7 +166,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyError(c *gc.C) {
 	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	w, err := client.WatchRetryStrategy(tag)
+	w, err := client.WatchRetryStrategy(context.Background(), tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "sosorry")
 	c.Assert(w, gc.IsNil)
@@ -198,7 +199,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyResultError(c *gc.C) {
 	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	w, err := client.WatchRetryStrategy(tag)
+	w, err := client.WatchRetryStrategy(context.Background(), tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "rigged")
 	c.Assert(w, gc.IsNil)
@@ -226,7 +227,7 @@ func (s *retryStrategySuite) TestWatchRetryStrategyMoreResults(c *gc.C) {
 	client := retrystrategy.NewClient(apiCaller)
 	c.Assert(client, gc.NotNil)
 
-	w, err := client.WatchRetryStrategy(tag)
+	w, err := client.WatchRetryStrategy(context.Background(), tag)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 	c.Assert(w, gc.IsNil)

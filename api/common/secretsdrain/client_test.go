@@ -4,6 +4,8 @@
 package secretsdrain_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -55,7 +57,7 @@ func (s *secretsDrainSuite) TestGetSecretsToDrain(c *gc.C) {
 	).Return(nil)
 
 	client := secretsdrain.NewClient(apiCaller)
-	result, err := client.GetSecretsToDrain()
+	result, err := client.GetSecretsToDrain(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
 	for _, info := range result {
@@ -102,7 +104,7 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 		gomock.Any(),
 	).SetArg(
 		3, params.ErrorResults{
-			[]params.ErrorResult{
+			Results: []params.ErrorResult{
 				{Error: nil},
 			},
 		},
@@ -110,6 +112,7 @@ func (s *secretsDrainSuite) TestChangeSecretBackend(c *gc.C) {
 
 	client := secretsdrain.NewClient(apiCaller)
 	result, err := client.ChangeSecretBackend(
+		context.Background(),
 		[]secretsdrain.ChangeSecretBackendArg{
 			{
 				URI:      uri,
@@ -139,6 +142,6 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
 	).Return(nil)
 
 	client := secretsdrain.NewClient(apiCaller)
-	_, err := client.WatchSecretBackendChanged()
+	_, err := client.WatchSecretBackendChanged(context.Background())
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

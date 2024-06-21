@@ -37,7 +37,7 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 // SetVersion sets the tools version associated with the entity with
 // the given tag, which must be the tag of the entity that the
 // upgrader is running on behalf of.
-func (st *Client) SetVersion(tag string, v version.Binary) error {
+func (st *Client) SetVersion(ctx context.Context, tag string, v version.Binary) error {
 	var results params.ErrorResults
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
@@ -45,19 +45,19 @@ func (st *Client) SetVersion(tag string, v version.Binary) error {
 			Tools: &params.Version{Version: v},
 		}},
 	}
-	err := st.facade.FacadeCall(context.TODO(), "SetTools", args, &results)
+	err := st.facade.FacadeCall(ctx, "SetTools", args, &results)
 	if err != nil {
 		return err
 	}
 	return results.OneError()
 }
 
-func (st *Client) DesiredVersion(tag string) (version.Number, error) {
+func (st *Client) DesiredVersion(ctx context.Context, tag string) (version.Number, error) {
 	var results params.VersionResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.facade.FacadeCall(context.TODO(), "DesiredVersion", args, &results)
+	err := st.facade.FacadeCall(ctx, "DesiredVersion", args, &results)
 	if err != nil {
 		return version.Number{}, err
 	}
@@ -76,12 +76,12 @@ func (st *Client) DesiredVersion(tag string) (version.Number, error) {
 
 // Tools returns the agent tools that should run on the given entity,
 // along with a flag whether to disable SSL hostname verification.
-func (st *Client) Tools(tag string) (tools.List, error) {
+func (st *Client) Tools(ctx context.Context, tag string) (tools.List, error) {
 	var results params.ToolsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.facade.FacadeCall(context.TODO(), "Tools", args, &results)
+	err := st.facade.FacadeCall(ctx, "Tools", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -95,12 +95,12 @@ func (st *Client) Tools(tag string) (tools.List, error) {
 	return result.ToolsList, nil
 }
 
-func (st *Client) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {
+func (st *Client) WatchAPIVersion(ctx context.Context, agentTag string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := st.facade.FacadeCall(context.TODO(), "WatchAPIVersion", args, &results)
+	err := st.facade.FacadeCall(ctx, "WatchAPIVersion", args, &results)
 	if err != nil {
 		return nil, err
 	}

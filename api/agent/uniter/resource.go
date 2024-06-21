@@ -70,7 +70,7 @@ func (c *ResourcesFacadeClient) GetResource(ctx context.Context, resourceName st
 	}
 
 	// HACK(katco): Combine this into one request?
-	resourceInfo, err := c.getResourceInfo(resourceName)
+	resourceInfo, err := c.getResourceInfo(ctx, resourceName)
 	if err != nil {
 		return resources.Resource{}, nil, errors.Trace(err)
 	}
@@ -80,13 +80,13 @@ func (c *ResourcesFacadeClient) GetResource(ctx context.Context, resourceName st
 	return resourceInfo, response.Body, nil
 }
 
-func (c *ResourcesFacadeClient) getResourceInfo(resourceName string) (resources.Resource, error) {
+func (c *ResourcesFacadeClient) getResourceInfo(ctx context.Context, resourceName string) (resources.Resource, error) {
 	var response params.UnitResourcesResult
 
 	args := params.ListUnitResourcesArgs{
 		ResourceNames: []string{resourceName},
 	}
-	if err := c.FacadeCall(context.TODO(), "GetResourceInfo", &args, &response); err != nil {
+	if err := c.FacadeCall(ctx, "GetResourceInfo", &args, &response); err != nil {
 		return resources.Resource{}, errors.Annotate(err, "could not get resource info")
 	}
 	if response.Error != nil {

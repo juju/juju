@@ -28,16 +28,16 @@ var WithTracer = base.WithTracer
 type Client interface {
 	// WatchForRebootEvent returns a watcher.NotifyWatcher that
 	// reacts to reboot flag changes.
-	WatchForRebootEvent() (watcher.NotifyWatcher, error)
+	WatchForRebootEvent(context.Context) (watcher.NotifyWatcher, error)
 
 	// RequestReboot sets the reboot flag for the calling machine.
-	RequestReboot() error
+	RequestReboot(context.Context) error
 
 	// ClearReboot clears the reboot flag for the calling machine.
-	ClearReboot() error
+	ClearReboot(context.Context) error
 
 	// GetRebootAction returns the reboot action for the calling machine.
-	GetRebootAction() (params.RebootAction, error)
+	GetRebootAction(context.Context) (params.RebootAction, error)
 }
 
 var _ Client = (*client)(nil)
@@ -68,10 +68,10 @@ func NewFromConnection(c api.Connection) (Client, error) {
 }
 
 // WatchForRebootEvent implements Client.WatchForRebootEvent
-func (c *client) WatchForRebootEvent() (watcher.NotifyWatcher, error) {
+func (c *client) WatchForRebootEvent(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 
-	if err := c.facade.FacadeCall(context.TODO(), "WatchForRebootEvent", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchForRebootEvent", nil, &result); err != nil {
 		return nil, err
 	}
 	if result.Error != nil {
@@ -83,13 +83,13 @@ func (c *client) WatchForRebootEvent() (watcher.NotifyWatcher, error) {
 }
 
 // RequestReboot implements Client.RequestReboot
-func (c *client) RequestReboot() error {
+func (c *client) RequestReboot(ctx context.Context) error {
 	var results params.ErrorResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := c.facade.FacadeCall(context.TODO(), "RequestReboot", args, &results)
+	err := c.facade.FacadeCall(ctx, "RequestReboot", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -104,13 +104,13 @@ func (c *client) RequestReboot() error {
 }
 
 // ClearReboot implements Client.ClearReboot
-func (c *client) ClearReboot() error {
+func (c *client) ClearReboot(ctx context.Context) error {
 	var results params.ErrorResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := c.facade.FacadeCall(context.TODO(), "ClearReboot", args, &results)
+	err := c.facade.FacadeCall(ctx, "ClearReboot", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -127,13 +127,13 @@ func (c *client) ClearReboot() error {
 }
 
 // GetRebootAction implements Client.GetRebootAction
-func (c *client) GetRebootAction() (params.RebootAction, error) {
+func (c *client) GetRebootAction(ctx context.Context) (params.RebootAction, error) {
 	var results params.RebootActionResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: c.machineTag.String()}},
 	}
 
-	err := c.facade.FacadeCall(context.TODO(), "GetRebootAction", args, &results)
+	err := c.facade.FacadeCall(ctx, "GetRebootAction", args, &results)
 	if err != nil {
 		return params.ShouldDoNothing, err
 	}

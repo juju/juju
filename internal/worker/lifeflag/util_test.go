@@ -4,6 +4,8 @@
 package lifeflag_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	"github.com/juju/worker/v4"
@@ -25,7 +27,7 @@ type mockFacade struct {
 	lifeResults []life.Value
 }
 
-func (mock *mockFacade) Life(entity names.Tag) (life.Value, error) {
+func (mock *mockFacade) Life(_ context.Context, entity names.Tag) (life.Value, error) {
 	mock.stub.AddCall("Life", entity)
 	if err := mock.stub.NextErr(); err != nil {
 		return "", err
@@ -39,7 +41,7 @@ func (mock *mockFacade) nextLife() life.Value {
 	return result
 }
 
-func (mock *mockFacade) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {
+func (mock *mockFacade) Watch(_ context.Context, entity names.Tag) (watcher.NotifyWatcher, error) {
 	mock.stub.AddCall("Watch", entity)
 	if err := mock.stub.NextErr(); err != nil {
 		return nil, err

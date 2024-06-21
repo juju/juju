@@ -4,6 +4,8 @@
 package secretbackends_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -65,7 +67,7 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 	).Return(nil)
 
 	client := secretbackends.NewClient(apiCaller)
-	result, err := client.GetSecretBackendConfig(ptr("active-id"))
+	result, err := client.GetSecretBackendConfig(context.Background(), ptr("active-id"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, &provider.ModelBackendConfigInfo{
 		ActiveID: "active-id",
@@ -112,7 +114,7 @@ func (s *SecretsSuite) TestGetBackendConfigForDraing(c *gc.C) {
 	).Return(nil)
 
 	client := secretbackends.NewClient(apiCaller)
-	result, activeID, err := client.GetBackendConfigForDrain(ptr("active-id"))
+	result, activeID, err := client.GetBackendConfigForDrain(context.Background(), ptr("active-id"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, &provider.ModelBackendConfig{
 		ControllerUUID: coretesting.ControllerTag.Id(),
@@ -154,7 +156,7 @@ func (s *SecretsSuite) TestGetContentInfo(c *gc.C) {
 	).Return(nil)
 
 	client := secretbackends.NewClient(apiCaller)
-	content, backendConfig, draining, err := client.GetContentInfo(uri, "label", true, true)
+	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), uri, "label", true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
@@ -203,7 +205,7 @@ func (s *SecretsSuite) TestGetContentInfoExternal(c *gc.C) {
 	).Return(nil)
 
 	client := secretbackends.NewClient(apiCaller)
-	content, backendConfig, draining, err := client.GetContentInfo(uri, "label", true, true)
+	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), uri, "label", true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
 		BackendID:  "backend-id",
@@ -247,7 +249,7 @@ func (s *SecretsSuite) TestGetContentInfoLabelArgOnly(c *gc.C) {
 	).Return(nil)
 
 	client := secretbackends.NewClient(apiCaller)
-	content, backendConfig, draining, err := client.GetContentInfo(nil, "label", true, true)
+	content, backendConfig, draining, err := client.GetContentInfo(context.Background(), nil, "label", true, true)
 	c.Assert(err, jc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
@@ -282,7 +284,7 @@ func (s *SecretsSuite) TestGetContentInfoError(c *gc.C) {
 	).Return(nil)
 
 	client := secretbackends.NewClient(apiCaller)
-	content, backendConfig, _, err := client.GetContentInfo(uri, "", true, true)
+	content, backendConfig, _, err := client.GetContentInfo(context.Background(), uri, "", true, true)
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(content, gc.IsNil)
 	c.Assert(backendConfig, gc.IsNil)
@@ -313,7 +315,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfo(c *gc.C) {
 	).Return(nil)
 
 	client := secretbackends.NewClient(apiCaller)
-	content, backendConfig, draining, err := client.GetRevisionContentInfo(uri, 666, true)
+	content, backendConfig, draining, err := client.GetRevisionContentInfo(context.Background(), uri, 666, true)
 	c.Assert(err, jc.ErrorIsNil)
 	value := coresecrets.NewSecretValue(map[string]string{"foo": "bar"})
 	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{SecretValue: value})
@@ -359,7 +361,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoExternal(c *gc.C) {
 	).Return(nil)
 
 	client := secretbackends.NewClient(apiCaller)
-	content, backendConfig, draining, err := client.GetRevisionContentInfo(uri, 666, true)
+	content, backendConfig, draining, err := client.GetRevisionContentInfo(context.Background(), uri, 666, true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(content, jc.DeepEquals, &secrets.ContentParams{ValueRef: &coresecrets.ValueRef{
 		BackendID:  "backend-id",
@@ -402,7 +404,7 @@ func (s *SecretsSuite) TestGetRevisionContentInfoError(c *gc.C) {
 	).Return(nil)
 
 	client := secretbackends.NewClient(apiCaller)
-	config, backendConfig, _, err := client.GetRevisionContentInfo(uri, 666, true)
+	config, backendConfig, _, err := client.GetRevisionContentInfo(context.Background(), uri, 666, true)
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(config, gc.IsNil)
 	c.Assert(backendConfig, gc.IsNil)

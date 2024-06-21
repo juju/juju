@@ -24,11 +24,11 @@ type MachineAccessor interface {
 type Machine interface {
 	Refresh(context.Context) error
 	Life() life.Value
-	EnsureDead() error
-	SetMachineAddresses(addresses []network.MachineAddress) error
-	SetStatus(machineStatus status.Status, info string, data map[string]interface{}) error
+	EnsureDead(context.Context) error
+	SetMachineAddresses(ctx context.Context, addresses []network.MachineAddress) error
+	SetStatus(ctx context.Context, machineStatus status.Status, info string, data map[string]interface{}) error
 	Watch(context.Context) (watcher.NotifyWatcher, error)
-	SetObservedNetworkConfig(netConfig []params.NetworkConfig) error
+	SetObservedNetworkConfig(ctx context.Context, netConfig []params.NetworkConfig) error
 }
 
 type APIMachineAccessor struct {

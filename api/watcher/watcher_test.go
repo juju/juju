@@ -287,7 +287,7 @@ func (s *watcherSuite) TestWatchMachineStorage(c *gc.C) {
 
 	client, err := storageprovisioner.NewClient(caller)
 	c.Assert(err, jc.ErrorIsNil)
-	w, err := client.WatchVolumeAttachments(names.NewMachineTag("666"))
+	w, err := client.WatchVolumeAttachments(context.Background(), names.NewMachineTag("666"))
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -497,7 +497,7 @@ func (s *watcherSuite) TestOfferStatusWatcher(c *gc.C) {
 	assertChange(status.Active, "finished")
 }
 
-func (s *watcherSuite) assertSecretsTriggerWatcher(c *gc.C, caller *apimocks.MockAPICaller, apiName string, watchFunc func(ownerTags ...names.Tag) (corewatcher.SecretTriggerWatcher, error)) {
+func (s *watcherSuite) assertSecretsTriggerWatcher(c *gc.C, caller *apimocks.MockAPICaller, apiName string, watchFunc func(ctx context.Context, ownerTags ...names.Tag) (corewatcher.SecretTriggerWatcher, error)) {
 	watcherID, eventCh := setupWatcher[*params.SecretTriggerWatchResult](c, caller, "SecretsTriggerWatcher")
 
 	args := params.Entities{
@@ -515,7 +515,7 @@ func (s *watcherSuite) assertSecretsTriggerWatcher(c *gc.C, caller *apimocks.Moc
 	}
 	caller.EXPECT().APICall(gomock.Any(), "SecretsManager", 666, "", apiName, args, gomock.Any()).SetArg(6, initialResults).Return(nil)
 
-	w, err := watchFunc(names.NewApplicationTag("mysql"))
+	w, err := watchFunc(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)
 
@@ -667,7 +667,7 @@ func (s *migrationSuite) TestMigrationStatusWatcher(c *gc.C) {
 	caller.EXPECT().APICall(gomock.Any(), "MigrationMinion", 666, "", "Watch", nil, gomock.Any()).SetArg(6, initialResult).Return(nil)
 
 	client := migrationminion.NewClient(caller)
-	w, err := client.Watch()
+	w, err := client.Watch(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)

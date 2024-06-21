@@ -19,17 +19,17 @@ import (
 type Facade interface {
 	// Getters
 	WatchUpgradeSeriesNotifications(context.Context) (watcher.NotifyWatcher, error)
-	MachineStatus() (model.UpgradeSeriesStatus, error)
-	UnitsPrepared() ([]names.UnitTag, error)
-	UnitsCompleted() ([]names.UnitTag, error)
+	MachineStatus(context.Context) (model.UpgradeSeriesStatus, error)
+	UnitsPrepared(context.Context) ([]names.UnitTag, error)
+	UnitsCompleted(context.Context) ([]names.UnitTag, error)
 
 	// Setters
-	StartUnitCompletion(reason string) error
-	SetMachineStatus(status model.UpgradeSeriesStatus, reason string) error
-	FinishUpgradeSeries(corebase.Base) error
+	StartUnitCompletion(ctx context.Context, reason string) error
+	SetMachineStatus(ctx context.Context, status model.UpgradeSeriesStatus, reason string) error
+	FinishUpgradeSeries(context.Context, corebase.Base) error
 	PinMachineApplications(context.Context) (map[string]error, error)
 	UnpinMachineApplications(context.Context) (map[string]error, error)
-	SetInstanceStatus(model.UpgradeSeriesStatus, string) error
+	SetInstanceStatus(context.Context, model.UpgradeSeriesStatus, string) error
 }
 
 // NewFacade creates a new upgrade-series client and returns its

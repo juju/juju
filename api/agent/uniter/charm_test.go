@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -60,7 +62,7 @@ func (s *charmSuite) TestArchiveSha256(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	ch, err := client.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	sha, err := ch.ArchiveSha256()
+	sha, err := ch.ArchiveSha256(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sha, gc.Equals, "deadbeef")
 }
@@ -85,7 +87,7 @@ func (s *charmSuite) TestLXDProfileRequired(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	ch, err := client.Charm(curl)
 	c.Assert(err, jc.ErrorIsNil)
-	required, err := ch.LXDProfileRequired()
+	required, err := ch.LXDProfileRequired(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(required, jc.IsTrue)
 }

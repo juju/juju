@@ -29,11 +29,11 @@ func NewPayloadFacadeClient(caller base.APICaller) *PayloadFacadeClient {
 }
 
 // Track calls the Track API server method.
-func (c PayloadFacadeClient) Track(payloads ...payloads.Payload) ([]payloads.Result, error) {
+func (c PayloadFacadeClient) Track(ctx context.Context, payloads ...payloads.Payload) ([]payloads.Result, error) {
 	args := payloads2TrackArgs(payloads)
 
 	var rs params.PayloadResults
-	if err := c.FacadeCall(context.TODO(), "Track", &args, &rs); err != nil {
+	if err := c.FacadeCall(ctx, "Track", &args, &rs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -41,10 +41,10 @@ func (c PayloadFacadeClient) Track(payloads ...payloads.Payload) ([]payloads.Res
 }
 
 // List calls the List API server method.
-func (c PayloadFacadeClient) List(fullIDs ...string) ([]payloads.Result, error) {
+func (c PayloadFacadeClient) List(ctx context.Context, fullIDs ...string) ([]payloads.Result, error) {
 	var ids []string
 	if len(fullIDs) > 0 {
-		actual, err := c.lookUp(fullIDs)
+		actual, err := c.lookUp(ctx, fullIDs)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -53,7 +53,7 @@ func (c PayloadFacadeClient) List(fullIDs ...string) ([]payloads.Result, error) 
 	args := ids2Args(ids)
 
 	var rs params.PayloadResults
-	if err := c.FacadeCall(context.TODO(), "List", &args, &rs); err != nil {
+	if err := c.FacadeCall(ctx, "List", &args, &rs); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -61,7 +61,7 @@ func (c PayloadFacadeClient) List(fullIDs ...string) ([]payloads.Result, error) 
 }
 
 // LookUp calls the LookUp API server method.
-func (c PayloadFacadeClient) LookUp(fullIDs ...string) ([]payloads.Result, error) {
+func (c PayloadFacadeClient) LookUp(ctx context.Context, fullIDs ...string) ([]payloads.Result, error) {
 	if len(fullIDs) == 0 {
 		// Unlike List(), LookUp doesn't fall back to looking up all IDs.
 		return nil, nil
@@ -69,7 +69,7 @@ func (c PayloadFacadeClient) LookUp(fullIDs ...string) ([]payloads.Result, error
 	args := fullIDs2LookUpArgs(fullIDs)
 
 	var rs params.PayloadResults
-	if err := c.FacadeCall(context.TODO(), "LookUp", &args, &rs); err != nil {
+	if err := c.FacadeCall(ctx, "LookUp", &args, &rs); err != nil {
 		return nil, err
 	}
 
@@ -77,15 +77,15 @@ func (c PayloadFacadeClient) LookUp(fullIDs ...string) ([]payloads.Result, error
 }
 
 // SetStatus calls the SetStatus API server method.
-func (c PayloadFacadeClient) SetStatus(status string, fullIDs ...string) ([]payloads.Result, error) {
-	ids, err := c.lookUp(fullIDs)
+func (c PayloadFacadeClient) SetStatus(ctx context.Context, status string, fullIDs ...string) ([]payloads.Result, error) {
+	ids, err := c.lookUp(ctx, fullIDs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	args := ids2SetStatusArgs(ids, status)
 
 	var rs params.PayloadResults
-	if err := c.FacadeCall(context.TODO(), "SetStatus", &args, &rs); err != nil {
+	if err := c.FacadeCall(ctx, "SetStatus", &args, &rs); err != nil {
 		return nil, err
 	}
 
@@ -93,23 +93,23 @@ func (c PayloadFacadeClient) SetStatus(status string, fullIDs ...string) ([]payl
 }
 
 // Untrack calls the Untrack API server method.
-func (c PayloadFacadeClient) Untrack(fullIDs ...string) ([]payloads.Result, error) {
-	ids, err := c.lookUp(fullIDs)
+func (c PayloadFacadeClient) Untrack(ctx context.Context, fullIDs ...string) ([]payloads.Result, error) {
+	ids, err := c.lookUp(ctx, fullIDs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	args := ids2Args(ids)
 
 	var rs params.PayloadResults
-	if err := c.FacadeCall(context.TODO(), "Untrack", &args, &rs); err != nil {
+	if err := c.FacadeCall(ctx, "Untrack", &args, &rs); err != nil {
 		return nil, err
 	}
 
 	return api2results(rs)
 }
 
-func (c PayloadFacadeClient) lookUp(fullIDs []string) ([]string, error) {
-	results, err := c.LookUp(fullIDs...)
+func (c PayloadFacadeClient) lookUp(ctx context.Context, fullIDs []string) ([]string, error) {
+	results, err := c.LookUp(ctx, fullIDs...)
 	if err != nil {
 		return nil, errors.Annotate(err, "while looking up IDs")
 	}

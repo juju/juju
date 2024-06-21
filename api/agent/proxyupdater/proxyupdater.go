@@ -50,12 +50,12 @@ func NewAPI(caller base.APICaller, tag names.Tag, options ...Option) (*API, erro
 
 // WatchForProxyConfigAndAPIHostPortChanges returns a NotifyWatcher waiting for
 // changes in the proxy configuration or API host ports
-func (api *API) WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error) {
+func (api *API) WatchForProxyConfigAndAPIHostPortChanges(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: api.tag.String()}},
 	}
-	err := api.facade.FacadeCall(context.TODO(), "WatchForProxyConfigAndAPIHostPortChanges", args, &results)
+	err := api.facade.FacadeCall(ctx, "WatchForProxyConfigAndAPIHostPortChanges", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -96,14 +96,14 @@ type ProxyConfiguration struct {
 }
 
 // ProxyConfig returns the proxy settings for the current model.
-func (api *API) ProxyConfig() (ProxyConfiguration, error) {
+func (api *API) ProxyConfig(ctx context.Context) (ProxyConfiguration, error) {
 	var empty ProxyConfiguration
 
 	var results params.ProxyConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: api.tag.String()}},
 	}
-	err := api.facade.FacadeCall(context.TODO(), "ProxyConfig", args, &results)
+	err := api.facade.FacadeCall(ctx, "ProxyConfig", args, &results)
 	if err != nil {
 		return empty, err
 	}

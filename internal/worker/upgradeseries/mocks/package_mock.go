@@ -44,17 +44,17 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 }
 
 // FinishUpgradeSeries mocks base method.
-func (m *MockFacade) FinishUpgradeSeries(arg0 base.Base) error {
+func (m *MockFacade) FinishUpgradeSeries(arg0 context.Context, arg1 base.Base) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FinishUpgradeSeries", arg0)
+	ret := m.ctrl.Call(m, "FinishUpgradeSeries", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // FinishUpgradeSeries indicates an expected call of FinishUpgradeSeries.
-func (mr *MockFacadeMockRecorder) FinishUpgradeSeries(arg0 any) *MockFacadeFinishUpgradeSeriesCall {
+func (mr *MockFacadeMockRecorder) FinishUpgradeSeries(arg0, arg1 any) *MockFacadeFinishUpgradeSeriesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinishUpgradeSeries", reflect.TypeOf((*MockFacade)(nil).FinishUpgradeSeries), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinishUpgradeSeries", reflect.TypeOf((*MockFacade)(nil).FinishUpgradeSeries), arg0, arg1)
 	return &MockFacadeFinishUpgradeSeriesCall{Call: call}
 }
 
@@ -70,30 +70,30 @@ func (c *MockFacadeFinishUpgradeSeriesCall) Return(arg0 error) *MockFacadeFinish
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeFinishUpgradeSeriesCall) Do(f func(base.Base) error) *MockFacadeFinishUpgradeSeriesCall {
+func (c *MockFacadeFinishUpgradeSeriesCall) Do(f func(context.Context, base.Base) error) *MockFacadeFinishUpgradeSeriesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeFinishUpgradeSeriesCall) DoAndReturn(f func(base.Base) error) *MockFacadeFinishUpgradeSeriesCall {
+func (c *MockFacadeFinishUpgradeSeriesCall) DoAndReturn(f func(context.Context, base.Base) error) *MockFacadeFinishUpgradeSeriesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // MachineStatus mocks base method.
-func (m *MockFacade) MachineStatus() (model.UpgradeSeriesStatus, error) {
+func (m *MockFacade) MachineStatus(arg0 context.Context) (model.UpgradeSeriesStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MachineStatus")
+	ret := m.ctrl.Call(m, "MachineStatus", arg0)
 	ret0, _ := ret[0].(model.UpgradeSeriesStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MachineStatus indicates an expected call of MachineStatus.
-func (mr *MockFacadeMockRecorder) MachineStatus() *MockFacadeMachineStatusCall {
+func (mr *MockFacadeMockRecorder) MachineStatus(arg0 any) *MockFacadeMachineStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineStatus", reflect.TypeOf((*MockFacade)(nil).MachineStatus))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineStatus", reflect.TypeOf((*MockFacade)(nil).MachineStatus), arg0)
 	return &MockFacadeMachineStatusCall{Call: call}
 }
 
@@ -109,13 +109,13 @@ func (c *MockFacadeMachineStatusCall) Return(arg0 model.UpgradeSeriesStatus, arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeMachineStatusCall) Do(f func() (model.UpgradeSeriesStatus, error)) *MockFacadeMachineStatusCall {
+func (c *MockFacadeMachineStatusCall) Do(f func(context.Context) (model.UpgradeSeriesStatus, error)) *MockFacadeMachineStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeMachineStatusCall) DoAndReturn(f func() (model.UpgradeSeriesStatus, error)) *MockFacadeMachineStatusCall {
+func (c *MockFacadeMachineStatusCall) DoAndReturn(f func(context.Context) (model.UpgradeSeriesStatus, error)) *MockFacadeMachineStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -160,17 +160,17 @@ func (c *MockFacadePinMachineApplicationsCall) DoAndReturn(f func(context.Contex
 }
 
 // SetInstanceStatus mocks base method.
-func (m *MockFacade) SetInstanceStatus(arg0 model.UpgradeSeriesStatus, arg1 string) error {
+func (m *MockFacade) SetInstanceStatus(arg0 context.Context, arg1 model.UpgradeSeriesStatus, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetInstanceStatus", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetInstanceStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetInstanceStatus indicates an expected call of SetInstanceStatus.
-func (mr *MockFacadeMockRecorder) SetInstanceStatus(arg0, arg1 any) *MockFacadeSetInstanceStatusCall {
+func (mr *MockFacadeMockRecorder) SetInstanceStatus(arg0, arg1, arg2 any) *MockFacadeSetInstanceStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceStatus", reflect.TypeOf((*MockFacade)(nil).SetInstanceStatus), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceStatus", reflect.TypeOf((*MockFacade)(nil).SetInstanceStatus), arg0, arg1, arg2)
 	return &MockFacadeSetInstanceStatusCall{Call: call}
 }
 
@@ -186,29 +186,29 @@ func (c *MockFacadeSetInstanceStatusCall) Return(arg0 error) *MockFacadeSetInsta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeSetInstanceStatusCall) Do(f func(model.UpgradeSeriesStatus, string) error) *MockFacadeSetInstanceStatusCall {
+func (c *MockFacadeSetInstanceStatusCall) Do(f func(context.Context, model.UpgradeSeriesStatus, string) error) *MockFacadeSetInstanceStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeSetInstanceStatusCall) DoAndReturn(f func(model.UpgradeSeriesStatus, string) error) *MockFacadeSetInstanceStatusCall {
+func (c *MockFacadeSetInstanceStatusCall) DoAndReturn(f func(context.Context, model.UpgradeSeriesStatus, string) error) *MockFacadeSetInstanceStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetMachineStatus mocks base method.
-func (m *MockFacade) SetMachineStatus(arg0 model.UpgradeSeriesStatus, arg1 string) error {
+func (m *MockFacade) SetMachineStatus(arg0 context.Context, arg1 model.UpgradeSeriesStatus, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetMachineStatus", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetMachineStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetMachineStatus indicates an expected call of SetMachineStatus.
-func (mr *MockFacadeMockRecorder) SetMachineStatus(arg0, arg1 any) *MockFacadeSetMachineStatusCall {
+func (mr *MockFacadeMockRecorder) SetMachineStatus(arg0, arg1, arg2 any) *MockFacadeSetMachineStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineStatus", reflect.TypeOf((*MockFacade)(nil).SetMachineStatus), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineStatus", reflect.TypeOf((*MockFacade)(nil).SetMachineStatus), arg0, arg1, arg2)
 	return &MockFacadeSetMachineStatusCall{Call: call}
 }
 
@@ -224,29 +224,29 @@ func (c *MockFacadeSetMachineStatusCall) Return(arg0 error) *MockFacadeSetMachin
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeSetMachineStatusCall) Do(f func(model.UpgradeSeriesStatus, string) error) *MockFacadeSetMachineStatusCall {
+func (c *MockFacadeSetMachineStatusCall) Do(f func(context.Context, model.UpgradeSeriesStatus, string) error) *MockFacadeSetMachineStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeSetMachineStatusCall) DoAndReturn(f func(model.UpgradeSeriesStatus, string) error) *MockFacadeSetMachineStatusCall {
+func (c *MockFacadeSetMachineStatusCall) DoAndReturn(f func(context.Context, model.UpgradeSeriesStatus, string) error) *MockFacadeSetMachineStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // StartUnitCompletion mocks base method.
-func (m *MockFacade) StartUnitCompletion(arg0 string) error {
+func (m *MockFacade) StartUnitCompletion(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StartUnitCompletion", arg0)
+	ret := m.ctrl.Call(m, "StartUnitCompletion", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // StartUnitCompletion indicates an expected call of StartUnitCompletion.
-func (mr *MockFacadeMockRecorder) StartUnitCompletion(arg0 any) *MockFacadeStartUnitCompletionCall {
+func (mr *MockFacadeMockRecorder) StartUnitCompletion(arg0, arg1 any) *MockFacadeStartUnitCompletionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitCompletion", reflect.TypeOf((*MockFacade)(nil).StartUnitCompletion), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartUnitCompletion", reflect.TypeOf((*MockFacade)(nil).StartUnitCompletion), arg0, arg1)
 	return &MockFacadeStartUnitCompletionCall{Call: call}
 }
 
@@ -262,30 +262,30 @@ func (c *MockFacadeStartUnitCompletionCall) Return(arg0 error) *MockFacadeStartU
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeStartUnitCompletionCall) Do(f func(string) error) *MockFacadeStartUnitCompletionCall {
+func (c *MockFacadeStartUnitCompletionCall) Do(f func(context.Context, string) error) *MockFacadeStartUnitCompletionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeStartUnitCompletionCall) DoAndReturn(f func(string) error) *MockFacadeStartUnitCompletionCall {
+func (c *MockFacadeStartUnitCompletionCall) DoAndReturn(f func(context.Context, string) error) *MockFacadeStartUnitCompletionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UnitsCompleted mocks base method.
-func (m *MockFacade) UnitsCompleted() ([]names.UnitTag, error) {
+func (m *MockFacade) UnitsCompleted(arg0 context.Context) ([]names.UnitTag, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitsCompleted")
+	ret := m.ctrl.Call(m, "UnitsCompleted", arg0)
 	ret0, _ := ret[0].([]names.UnitTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UnitsCompleted indicates an expected call of UnitsCompleted.
-func (mr *MockFacadeMockRecorder) UnitsCompleted() *MockFacadeUnitsCompletedCall {
+func (mr *MockFacadeMockRecorder) UnitsCompleted(arg0 any) *MockFacadeUnitsCompletedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsCompleted", reflect.TypeOf((*MockFacade)(nil).UnitsCompleted))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsCompleted", reflect.TypeOf((*MockFacade)(nil).UnitsCompleted), arg0)
 	return &MockFacadeUnitsCompletedCall{Call: call}
 }
 
@@ -301,30 +301,30 @@ func (c *MockFacadeUnitsCompletedCall) Return(arg0 []names.UnitTag, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeUnitsCompletedCall) Do(f func() ([]names.UnitTag, error)) *MockFacadeUnitsCompletedCall {
+func (c *MockFacadeUnitsCompletedCall) Do(f func(context.Context) ([]names.UnitTag, error)) *MockFacadeUnitsCompletedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeUnitsCompletedCall) DoAndReturn(f func() ([]names.UnitTag, error)) *MockFacadeUnitsCompletedCall {
+func (c *MockFacadeUnitsCompletedCall) DoAndReturn(f func(context.Context) ([]names.UnitTag, error)) *MockFacadeUnitsCompletedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UnitsPrepared mocks base method.
-func (m *MockFacade) UnitsPrepared() ([]names.UnitTag, error) {
+func (m *MockFacade) UnitsPrepared(arg0 context.Context) ([]names.UnitTag, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UnitsPrepared")
+	ret := m.ctrl.Call(m, "UnitsPrepared", arg0)
 	ret0, _ := ret[0].([]names.UnitTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UnitsPrepared indicates an expected call of UnitsPrepared.
-func (mr *MockFacadeMockRecorder) UnitsPrepared() *MockFacadeUnitsPreparedCall {
+func (mr *MockFacadeMockRecorder) UnitsPrepared(arg0 any) *MockFacadeUnitsPreparedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsPrepared", reflect.TypeOf((*MockFacade)(nil).UnitsPrepared))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitsPrepared", reflect.TypeOf((*MockFacade)(nil).UnitsPrepared), arg0)
 	return &MockFacadeUnitsPreparedCall{Call: call}
 }
 
@@ -340,13 +340,13 @@ func (c *MockFacadeUnitsPreparedCall) Return(arg0 []names.UnitTag, arg1 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeUnitsPreparedCall) Do(f func() ([]names.UnitTag, error)) *MockFacadeUnitsPreparedCall {
+func (c *MockFacadeUnitsPreparedCall) Do(f func(context.Context) ([]names.UnitTag, error)) *MockFacadeUnitsPreparedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeUnitsPreparedCall) DoAndReturn(f func() ([]names.UnitTag, error)) *MockFacadeUnitsPreparedCall {
+func (c *MockFacadeUnitsPreparedCall) DoAndReturn(f func(context.Context) ([]names.UnitTag, error)) *MockFacadeUnitsPreparedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

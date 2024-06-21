@@ -4,6 +4,8 @@
 package lifeflag_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -50,7 +52,7 @@ func checkInvalid(c *gc.C, config lifeflag.Config, message string) {
 	err := config.Validate()
 	check(err)
 
-	worker, err := lifeflag.New(config)
+	worker, err := lifeflag.New(context.Background(), config)
 	c.Check(worker, gc.IsNil)
 	check(err)
 }

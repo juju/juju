@@ -4,6 +4,8 @@
 package lifeflag
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
@@ -28,8 +30,8 @@ const (
 
 // Client is the client used for connecting to the life flag facade.
 type Client interface {
-	Life(names.Tag) (life.Value, error)
-	Watch(names.Tag) (watcher.NotifyWatcher, error)
+	Life(context.Context, names.Tag) (life.Value, error)
+	Watch(context.Context, names.Tag) (watcher.NotifyWatcher, error)
 }
 
 // NewClient creates a new life flag client.

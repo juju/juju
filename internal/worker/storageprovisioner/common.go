@@ -4,6 +4,7 @@
 package storageprovisioner
 
 import (
+	"context"
 	"path/filepath"
 
 	"github.com/juju/errors"
@@ -18,8 +19,8 @@ import (
 // storageEntityLife queries the lifecycle state of each specified
 // storage entity (volume or filesystem), and then partitions the
 // tags by them.
-func storageEntityLife(ctx *context, tags []names.Tag) (alive, dying, dead []names.Tag, _ error) {
-	lifeResults, err := ctx.config.Life.Life(tags)
+func storageEntityLife(ctx context.Context, deps *dependencies, tags []names.Tag) (alive, dying, dead []names.Tag, _ error) {
+	lifeResults, err := deps.config.Life.Life(ctx, tags)
 	if err != nil {
 		return nil, nil, nil, errors.Annotate(err, "getting storage entity life")
 	}
@@ -48,10 +49,10 @@ func storageEntityLife(ctx *context, tags []names.Tag) (alive, dying, dead []nam
 
 // attachmentLife queries the lifecycle state of each specified
 // attachment, and then partitions the IDs by them.
-func attachmentLife(ctx *context, ids []params.MachineStorageId) (
+func attachmentLife(ctx context.Context, deps *dependencies, ids []params.MachineStorageId) (
 	alive, dying, dead, gone []params.MachineStorageId, _ error,
 ) {
-	lifeResults, err := ctx.config.Life.AttachmentLife(ids)
+	lifeResults, err := deps.config.Life.AttachmentLife(ctx, ids)
 	if err != nil {
 		return nil, nil, nil, nil, errors.Annotate(err, "getting machine attachment life")
 	}
@@ -80,12 +81,12 @@ func attachmentLife(ctx *context, ids []params.MachineStorageId) (
 }
 
 // removeEntities removes each specified Dead entity from state.
-func removeEntities(ctx *context, tags []names.Tag) error {
+func removeEntities(ctx context.Context, deps *dependencies, tags []names.Tag) error {
 	if len(tags) == 0 {
 		return nil
 	}
-	ctx.config.Logger.Debugf("removing entities: %v", tags)
-	errorResults, err := ctx.config.Life.Remove(tags)
+	deps.config.Logger.Debugf("removing entities: %v", tags)
+	errorResults, err := deps.config.Life.Remove(ctx, tags)
 	if err != nil {
 		return errors.Annotate(err, "removing storage entities")
 	}
@@ -98,11 +99,11 @@ func removeEntities(ctx *context, tags []names.Tag) error {
 }
 
 // removeAttachments removes each specified attachment from state.
-func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
+func removeAttachments(ctx context.Context, deps *dependencies, ids []params.MachineStorageId) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	errorResults, err := ctx.config.Life.RemoveAttachments(ids)
+	errorResults, err := deps.config.Life.RemoveAttachments(ctx, ids)
 	if err != nil {
 		return errors.Annotate(err, "removing attachments")
 	}
@@ -120,10 +121,10 @@ func removeAttachments(ctx *context, ids []params.MachineStorageId) error {
 
 // setStatus sets the given entity statuses, if any. If setting
 // the status fails the error is logged but otherwise ignored.
-func setStatus(ctx *context, statuses []params.EntityStatusArgs) {
+func setStatus(ctx context.Context, deps *dependencies, statuses []params.EntityStatusArgs) {
 	if len(statuses) > 0 {
-		if err := ctx.config.Status.SetStatus(statuses); err != nil {
-			ctx.config.Logger.Errorf("failed to set status: %v", err)
+		if err := deps.config.Status.SetStatus(ctx, statuses); err != nil {
+			deps.config.Logger.Errorf("failed to set status: %v", err)
 		}
 	}
 }

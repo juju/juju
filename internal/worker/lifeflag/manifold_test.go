@@ -95,7 +95,7 @@ func (*ManifoldSuite) TestNewWorkerError(c *gc.C) {
 		NewFacade: func(_ base.APICaller) (lifeflag.Facade, error) {
 			return expectFacade, nil
 		},
-		NewWorker: func(config lifeflag.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, config lifeflag.Config) (worker.Worker, error) {
 			c.Check(config.Facade, gc.Equals, expectFacade)
 			c.Check(config.Entity, gc.Equals, expectEntity)
 			c.Check(config.Result, gc.NotNil) // uncomparable
@@ -118,7 +118,7 @@ func (*ManifoldSuite) TestNewWorkerSuccess(c *gc.C) {
 		NewFacade: func(_ base.APICaller) (lifeflag.Facade, error) {
 			return struct{ lifeflag.Facade }{}, nil
 		},
-		NewWorker: func(_ lifeflag.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, _ lifeflag.Config) (worker.Worker, error) {
 			return expectWorker, nil
 		},
 	})
@@ -140,7 +140,7 @@ func (*ManifoldSuite) TestNewWorkerSuccessWithAgentName(c *gc.C) {
 		NewFacade: func(_ base.APICaller) (lifeflag.Facade, error) {
 			return struct{ lifeflag.Facade }{}, nil
 		},
-		NewWorker: func(config lifeflag.Config) (worker.Worker, error) {
+		NewWorker: func(_ context.Context, config lifeflag.Config) (worker.Worker, error) {
 			c.Check(config.Entity, gc.Equals, names.NewUnitTag("ubuntu/0"))
 			return expectWorker, nil
 		},

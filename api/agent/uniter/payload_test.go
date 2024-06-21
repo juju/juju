@@ -69,7 +69,7 @@ func (s *clientSuite) TestTrack(c *gc.C) {
 
 	pl, err := api.API2Payload(s.payload)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := pclient.Track(pl.Payload)
+	results, err := pclient.Track(context.Background(), pl.Payload)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(numStubCalls, gc.Equals, 1)
@@ -109,7 +109,7 @@ func (s *clientSuite) TestList(c *gc.C) {
 
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
 
-	results, err := pclient.List("idfoo/bar")
+	results, err := pclient.List(context.Background(), "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected, err := api.API2Payload(s.payload)
@@ -159,7 +159,7 @@ func (s *clientSuite) TestLookUpOkay(c *gc.C) {
 	s.facade.responses = append(s.facade.responses, response)
 
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
-	results, err := pclient.LookUp("idfoo/bar")
+	results, err := pclient.LookUp(context.Background(), "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, []payloads.Result{{
@@ -212,7 +212,7 @@ func (s *clientSuite) TestLookUpMulti(c *gc.C) {
 	s.facade.responses = append(s.facade.responses, response)
 
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
-	results, err := pclient.LookUp("idfoo/bar", "idbaz/bam", "spam/eggs")
+	results, err := pclient.LookUp(context.Background(), "idfoo/bar", "idbaz/bam", "spam/eggs")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(results, gc.HasLen, 3)
@@ -281,7 +281,7 @@ func (s *clientSuite) TestSetStatus(c *gc.C) {
 	s.facade.responses = append(s.facade.responses, responses...)
 
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
-	results, err := pclient.SetStatus(payloads.StateRunning, "idfoo/bar")
+	results, err := pclient.SetStatus(context.Background(), payloads.StateRunning, "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, []payloads.Result{{
@@ -344,7 +344,7 @@ func (s *clientSuite) TestUntrack(c *gc.C) {
 	s.facade.responses = append(s.facade.responses, responses...)
 
 	pclient := uniter.NewPayloadFacadeClient(s.facade)
-	results, err := pclient.Untrack("idfoo/bar")
+	results, err := pclient.Untrack(context.Background(), "idfoo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(results, jc.DeepEquals, []payloads.Result{{

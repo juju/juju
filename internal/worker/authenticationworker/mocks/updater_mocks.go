@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	watcher "github.com/juju/juju/core/watcher"
@@ -41,18 +42,18 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // AuthorisedKeys mocks base method.
-func (m *MockClient) AuthorisedKeys(arg0 names.MachineTag) ([]string, error) {
+func (m *MockClient) AuthorisedKeys(arg0 context.Context, arg1 names.MachineTag) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AuthorisedKeys", arg0)
+	ret := m.ctrl.Call(m, "AuthorisedKeys", arg0, arg1)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AuthorisedKeys indicates an expected call of AuthorisedKeys.
-func (mr *MockClientMockRecorder) AuthorisedKeys(arg0 any) *MockClientAuthorisedKeysCall {
+func (mr *MockClientMockRecorder) AuthorisedKeys(arg0, arg1 any) *MockClientAuthorisedKeysCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorisedKeys", reflect.TypeOf((*MockClient)(nil).AuthorisedKeys), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorisedKeys", reflect.TypeOf((*MockClient)(nil).AuthorisedKeys), arg0, arg1)
 	return &MockClientAuthorisedKeysCall{Call: call}
 }
 
@@ -68,30 +69,30 @@ func (c *MockClientAuthorisedKeysCall) Return(arg0 []string, arg1 error) *MockCl
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockClientAuthorisedKeysCall) Do(f func(names.MachineTag) ([]string, error)) *MockClientAuthorisedKeysCall {
+func (c *MockClientAuthorisedKeysCall) Do(f func(context.Context, names.MachineTag) ([]string, error)) *MockClientAuthorisedKeysCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClientAuthorisedKeysCall) DoAndReturn(f func(names.MachineTag) ([]string, error)) *MockClientAuthorisedKeysCall {
+func (c *MockClientAuthorisedKeysCall) DoAndReturn(f func(context.Context, names.MachineTag) ([]string, error)) *MockClientAuthorisedKeysCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchAuthorisedKeys mocks base method.
-func (m *MockClient) WatchAuthorisedKeys(arg0 names.MachineTag) (watcher.Watcher[struct{}], error) {
+func (m *MockClient) WatchAuthorisedKeys(arg0 context.Context, arg1 names.MachineTag) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchAuthorisedKeys", arg0)
+	ret := m.ctrl.Call(m, "WatchAuthorisedKeys", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchAuthorisedKeys indicates an expected call of WatchAuthorisedKeys.
-func (mr *MockClientMockRecorder) WatchAuthorisedKeys(arg0 any) *MockClientWatchAuthorisedKeysCall {
+func (mr *MockClientMockRecorder) WatchAuthorisedKeys(arg0, arg1 any) *MockClientWatchAuthorisedKeysCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchAuthorisedKeys", reflect.TypeOf((*MockClient)(nil).WatchAuthorisedKeys), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchAuthorisedKeys", reflect.TypeOf((*MockClient)(nil).WatchAuthorisedKeys), arg0, arg1)
 	return &MockClientWatchAuthorisedKeysCall{Call: call}
 }
 
@@ -107,13 +108,13 @@ func (c *MockClientWatchAuthorisedKeysCall) Return(arg0 watcher.Watcher[struct{}
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockClientWatchAuthorisedKeysCall) Do(f func(names.MachineTag) (watcher.Watcher[struct{}], error)) *MockClientWatchAuthorisedKeysCall {
+func (c *MockClientWatchAuthorisedKeysCall) Do(f func(context.Context, names.MachineTag) (watcher.Watcher[struct{}], error)) *MockClientWatchAuthorisedKeysCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClientWatchAuthorisedKeysCall) DoAndReturn(f func(names.MachineTag) (watcher.Watcher[struct{}], error)) *MockClientWatchAuthorisedKeysCall {
+func (c *MockClientWatchAuthorisedKeysCall) DoAndReturn(f func(context.Context, names.MachineTag) (watcher.Watcher[struct{}], error)) *MockClientWatchAuthorisedKeysCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

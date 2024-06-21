@@ -4,6 +4,7 @@
 package storageprovisioner_test
 
 import (
+	"context"
 	"errors"
 
 	"github.com/juju/names/v5"
@@ -39,7 +40,7 @@ func (s *provisionerSuite) TestWatchApplications(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	watcher, err := st.WatchApplications()
+	watcher, err := st.WatchApplications(context.Background())
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
@@ -66,7 +67,7 @@ func (s *provisionerSuite) TestWatchVolumes(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.WatchVolumes(names.NewMachineTag("123"))
+	_, err = st.WatchVolumes(context.Background(), names.NewMachineTag("123"))
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -93,7 +94,7 @@ func (s *provisionerSuite) TestWatchFilesystems(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.WatchFilesystems(names.NewMachineTag("123"))
+	_, err = st.WatchFilesystems(context.Background(), names.NewMachineTag("123"))
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -120,7 +121,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachments(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.WatchVolumeAttachments(names.NewMachineTag("123"))
+	_, err = st.WatchVolumeAttachments(context.Background(), names.NewMachineTag("123"))
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -147,7 +148,7 @@ func (s *provisionerSuite) TestWatchVolumeAttachmentPlans(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.WatchVolumeAttachmentPlans(names.NewMachineTag("123"))
+	_, err = st.WatchVolumeAttachmentPlans(context.Background(), names.NewMachineTag("123"))
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -174,7 +175,7 @@ func (s *provisionerSuite) TestWatchFilesystemAttachments(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.WatchFilesystemAttachments(names.NewMachineTag("123"))
+	_, err = st.WatchFilesystemAttachments(context.Background(), names.NewMachineTag("123"))
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -199,7 +200,7 @@ func (s *provisionerSuite) TestWatchBlockDevices(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.WatchBlockDevices(names.NewMachineTag("123"))
+	_, err = st.WatchBlockDevices(context.Background(), names.NewMachineTag("123"))
 	c.Check(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -230,7 +231,7 @@ func (s *provisionerSuite) TestVolumes(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	volumes, err := st.Volumes([]names.VolumeTag{names.NewVolumeTag("100")})
+	volumes, err := st.Volumes(context.Background(), []names.VolumeTag{names.NewVolumeTag("100")})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(volumes, jc.DeepEquals, []params.VolumeResult{{
@@ -271,7 +272,7 @@ func (s *provisionerSuite) TestFilesystems(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	filesystems, err := st.Filesystems([]names.FilesystemTag{names.NewFilesystemTag("100")})
+	filesystems, err := st.Filesystems(context.Background(), []names.FilesystemTag{names.NewFilesystemTag("100")})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(filesystems, jc.DeepEquals, []params.FilesystemResult{{
@@ -317,7 +318,7 @@ func (s *provisionerSuite) TestVolumeAttachments(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	volumes, err := st.VolumeAttachments([]params.MachineStorageId{{
+	volumes, err := st.VolumeAttachments(context.Background(), []params.MachineStorageId{{
 		MachineTag: "machine-100", AttachmentTag: "volume-100",
 	}})
 	c.Check(err, jc.ErrorIsNil)
@@ -367,7 +368,7 @@ func (s *provisionerSuite) TestVolumeAttachmentPlans(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	volumes, err := st.VolumeAttachmentPlans([]params.MachineStorageId{{
+	volumes, err := st.VolumeAttachmentPlans(context.Background(), []params.MachineStorageId{{
 		MachineTag: "machine-100", AttachmentTag: "volume-100",
 	}})
 	c.Check(err, jc.ErrorIsNil)
@@ -403,7 +404,7 @@ func (s *provisionerSuite) TestVolumeBlockDevices(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	volumes, err := st.VolumeBlockDevices([]params.MachineStorageId{{
+	volumes, err := st.VolumeBlockDevices(context.Background(), []params.MachineStorageId{{
 		MachineTag: "machine-100", AttachmentTag: "volume-100",
 	}})
 	c.Check(err, jc.ErrorIsNil)
@@ -442,7 +443,7 @@ func (s *provisionerSuite) TestFilesystemAttachments(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	filesystems, err := st.FilesystemAttachments([]params.MachineStorageId{{
+	filesystems, err := st.FilesystemAttachments(context.Background(), []params.MachineStorageId{{
 		MachineTag: "machine-100", AttachmentTag: "filesystem-100",
 	}})
 	c.Check(err, jc.ErrorIsNil)
@@ -474,7 +475,7 @@ func (s *provisionerSuite) TestVolumeParams(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeParams, err := st.VolumeParams([]names.VolumeTag{names.NewVolumeTag("100")})
+	volumeParams, err := st.VolumeParams(context.Background(), []names.VolumeTag{names.NewVolumeTag("100")})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(volumeParams, jc.DeepEquals, []params.VolumeParamsResult{{
@@ -506,7 +507,7 @@ func (s *provisionerSuite) TestRemoveVolumeParams(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeParams, err := st.RemoveVolumeParams([]names.VolumeTag{names.NewVolumeTag("100")})
+	volumeParams, err := st.RemoveVolumeParams(context.Background(), []names.VolumeTag{names.NewVolumeTag("100")})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(volumeParams, jc.DeepEquals, []params.RemoveVolumeParamsResult{{
 		Result: params.RemoveVolumeParams{
@@ -541,7 +542,7 @@ func (s *provisionerSuite) TestFilesystemParams(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	filesystemParams, err := st.FilesystemParams([]names.FilesystemTag{names.NewFilesystemTag("100")})
+	filesystemParams, err := st.FilesystemParams(context.Background(), []names.FilesystemTag{names.NewFilesystemTag("100")})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(filesystemParams, jc.DeepEquals, []params.FilesystemParamsResult{{
@@ -573,7 +574,7 @@ func (s *provisionerSuite) TestRemoveFilesystemParams(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	filesystemParams, err := st.RemoveFilesystemParams([]names.FilesystemTag{names.NewFilesystemTag("100")})
+	filesystemParams, err := st.RemoveFilesystemParams(context.Background(), []names.FilesystemTag{names.NewFilesystemTag("100")})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(filesystemParams, jc.DeepEquals, []params.RemoveFilesystemParamsResult{{
 		Result: params.RemoveFilesystemParams{
@@ -615,7 +616,7 @@ func (s *provisionerSuite) TestVolumeAttachmentParams(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	volumeParams, err := st.VolumeAttachmentParams([]params.MachineStorageId{{
+	volumeParams, err := st.VolumeAttachmentParams(context.Background(), []params.MachineStorageId{{
 		MachineTag: "machine-100", AttachmentTag: "volume-100",
 	}})
 	c.Check(err, jc.ErrorIsNil)
@@ -655,7 +656,7 @@ func (s *provisionerSuite) TestFilesystemAttachmentParams(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	filesystemParams, err := st.FilesystemAttachmentParams([]params.MachineStorageId{{
+	filesystemParams, err := st.FilesystemAttachmentParams(context.Background(), []params.MachineStorageId{{
 		MachineTag: "machine-100", AttachmentTag: "filesystem-100",
 	}})
 	c.Check(err, jc.ErrorIsNil)
@@ -697,7 +698,7 @@ func (s *provisionerSuite) TestSetVolumeInfo(c *gc.C) {
 			VolumeId: "123", HardwareId: "abc", Size: 1024, Persistent: true,
 		},
 	}}
-	errorResults, err := st.SetVolumeInfo(volumes)
+	errorResults, err := st.SetVolumeInfo(context.Background(), volumes)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(errorResults, gc.HasLen, 1)
@@ -763,7 +764,7 @@ func (s *provisionerSuite) TestCreateVolumeAttachmentPlan(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	errorResults, err := st.CreateVolumeAttachmentPlans(attachmentPlan)
+	errorResults, err := st.CreateVolumeAttachmentPlans(context.Background(), attachmentPlan)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(errorResults, gc.HasLen, 1)
@@ -829,7 +830,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentPlanBlockInfo(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	errorResults, err := st.SetVolumeAttachmentPlanBlockInfo(attachmentPlan)
+	errorResults, err := st.SetVolumeAttachmentPlanBlockInfo(context.Background(), attachmentPlan)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(errorResults, gc.HasLen, 1)
@@ -858,7 +859,7 @@ func (s *provisionerSuite) TestRemoveVolumeAttachmentPlan(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	errorResults, err := st.RemoveVolumeAttachmentPlan([]params.MachineStorageId{{
+	errorResults, err := st.RemoveVolumeAttachmentPlan(context.Background(), []params.MachineStorageId{{
 		MachineTag: "machine-100", AttachmentTag: "volume-100",
 	}})
 	c.Check(err, jc.ErrorIsNil)
@@ -900,7 +901,7 @@ func (s *provisionerSuite) TestSetFilesystemInfo(c *gc.C) {
 			Size:         1024,
 		},
 	}}
-	errorResults, err := st.SetFilesystemInfo(filesystems)
+	errorResults, err := st.SetFilesystemInfo(context.Background(), filesystems)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(errorResults, gc.HasLen, 1)
@@ -933,7 +934,7 @@ func (s *provisionerSuite) TestSetVolumeAttachmentInfo(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	errorResults, err := st.SetVolumeAttachmentInfo(volumeAttachments)
+	errorResults, err := st.SetVolumeAttachmentInfo(context.Background(), volumeAttachments)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(errorResults, gc.HasLen, 1)
@@ -966,7 +967,7 @@ func (s *provisionerSuite) TestSetFilesystemAttachmentInfo(c *gc.C) {
 
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	errorResults, err := st.SetFilesystemAttachmentInfo(filesystemAttachments)
+	errorResults, err := st.SetFilesystemAttachmentInfo(context.Background(), filesystemAttachments)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(errorResults, gc.HasLen, 1)
@@ -1002,13 +1003,13 @@ func (s *provisionerSuite) testOpWithTags(
 
 func (s *provisionerSuite) TestRemove(c *gc.C) {
 	s.testOpWithTags(c, "Remove", func(st *storageprovisioner.Client, tags []names.Tag) ([]params.ErrorResult, error) {
-		return st.Remove(tags)
+		return st.Remove(context.Background(), tags)
 	})
 }
 
 func (s *provisionerSuite) TestEnsureDead(c *gc.C) {
 	s.testOpWithTags(c, "EnsureDead", func(st *storageprovisioner.Client, tags []names.Tag) ([]params.ErrorResult, error) {
-		return st.EnsureDead(tags)
+		return st.EnsureDead(context.Background(), tags)
 	})
 }
 
@@ -1031,7 +1032,7 @@ func (s *provisionerSuite) TestLife(c *gc.C) {
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
 	volumes := []names.Tag{names.NewVolumeTag("100")}
-	lifeResults, err := st.Life(volumes)
+	lifeResults, err := st.Life(context.Background(), volumes)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(lifeResults, jc.DeepEquals, []params.LifeResult{{Life: life.Alive}})
@@ -1049,84 +1050,84 @@ func (s *provisionerSuite) testClientError(c *gc.C, apiCall func(*storageprovisi
 
 func (s *provisionerSuite) TestWatchVolumesClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.WatchVolumes(names.NewMachineTag("123"))
+		_, err := st.WatchVolumes(context.Background(), names.NewMachineTag("123"))
 		return err
 	})
 }
 
 func (s *provisionerSuite) TestVolumesClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.Volumes(nil)
+		_, err := st.Volumes(context.Background(), nil)
 		return err
 	})
 }
 
 func (s *provisionerSuite) TestVolumeParamsClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.VolumeParams(nil)
+		_, err := st.VolumeParams(context.Background(), nil)
 		return err
 	})
 }
 
 func (s *provisionerSuite) TestRemoveVolumeParamsClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.RemoveVolumeParams(nil)
+		_, err := st.RemoveVolumeParams(context.Background(), nil)
 		return err
 	})
 }
 
 func (s *provisionerSuite) TestFilesystemParamsClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.FilesystemParams(nil)
+		_, err := st.FilesystemParams(context.Background(), nil)
 		return err
 	})
 }
 
 func (s *provisionerSuite) TestRemoveFilesystemParamsClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.RemoveFilesystemParams(nil)
+		_, err := st.RemoveFilesystemParams(context.Background(), nil)
 		return err
 	})
 }
 
 func (s *provisionerSuite) TestRemoveClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.Remove(nil)
+		_, err := st.Remove(context.Background(), nil)
 		return err
 	})
 }
 
 func (s *provisionerSuite) TestRemoveAttachmentsClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.RemoveAttachments(nil)
+		_, err := st.RemoveAttachments(context.Background(), nil)
 		return err
 	})
 }
 
 func (s *provisionerSuite) TestSetVolumeInfoClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.SetVolumeInfo(nil)
+		_, err := st.SetVolumeInfo(context.Background(), nil)
 		return err
 	})
 }
 
 func (s *provisionerSuite) TestEnsureDeadClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.EnsureDead(nil)
+		_, err := st.EnsureDead(context.Background(), nil)
 		return err
 	})
 }
 
 func (s *provisionerSuite) TestLifeClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.Life(nil)
+		_, err := st.Life(context.Background(), nil)
 		return err
 	})
 }
 
 func (s *provisionerSuite) TestAttachmentLifeClientError(c *gc.C) {
 	s.testClientError(c, func(st *storageprovisioner.Client) error {
-		_, err := st.AttachmentLife(nil)
+		_, err := st.AttachmentLife(context.Background(), nil)
 		return err
 	})
 }
@@ -1142,7 +1143,7 @@ func (s *provisionerSuite) TestWatchVolumesServerError(c *gc.C) {
 	})
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.WatchVolumes(names.NewMachineTag("123"))
+	_, err = st.WatchVolumes(context.Background(), names.NewMachineTag("123"))
 	c.Check(err, gc.ErrorMatches, "MSG")
 }
 
@@ -1157,7 +1158,7 @@ func (s *provisionerSuite) TestVolumesServerError(c *gc.C) {
 	})
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := st.Volumes([]names.VolumeTag{names.NewVolumeTag("100")})
+	results, err := st.Volumes(context.Background(), []names.VolumeTag{names.NewVolumeTag("100")})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Check(results[0].Error, gc.ErrorMatches, "MSG")
@@ -1174,7 +1175,7 @@ func (s *provisionerSuite) TestVolumeParamsServerError(c *gc.C) {
 	})
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := st.VolumeParams([]names.VolumeTag{names.NewVolumeTag("100")})
+	results, err := st.VolumeParams(context.Background(), []names.VolumeTag{names.NewVolumeTag("100")})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Check(results[0].Error, gc.ErrorMatches, "MSG")
@@ -1191,7 +1192,7 @@ func (s *provisionerSuite) TestRemoveVolumeParamsServerError(c *gc.C) {
 	})
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := st.RemoveVolumeParams([]names.VolumeTag{names.NewVolumeTag("100")})
+	results, err := st.RemoveVolumeParams(context.Background(), []names.VolumeTag{names.NewVolumeTag("100")})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Check(results[0].Error, gc.ErrorMatches, "MSG")
@@ -1208,7 +1209,7 @@ func (s *provisionerSuite) TestFilesystemParamsServerError(c *gc.C) {
 	})
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := st.FilesystemParams([]names.FilesystemTag{names.NewFilesystemTag("100")})
+	results, err := st.FilesystemParams(context.Background(), []names.FilesystemTag{names.NewFilesystemTag("100")})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Check(results[0].Error, gc.ErrorMatches, "MSG")
@@ -1225,7 +1226,7 @@ func (s *provisionerSuite) TestRemoveFilesystemParamsServerError(c *gc.C) {
 	})
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := st.RemoveFilesystemParams([]names.FilesystemTag{names.NewFilesystemTag("100")})
+	results, err := st.RemoveFilesystemParams(context.Background(), []names.FilesystemTag{names.NewFilesystemTag("100")})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Check(results[0].Error, gc.ErrorMatches, "MSG")
@@ -1242,7 +1243,7 @@ func (s *provisionerSuite) TestSetVolumeInfoServerError(c *gc.C) {
 	})
 	st, err := storageprovisioner.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	results, err := st.SetVolumeInfo([]params.Volume{{
+	results, err := st.SetVolumeInfo(context.Background(), []params.Volume{{
 		VolumeTag: names.NewVolumeTag("100").String(),
 	}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1272,13 +1273,13 @@ func (s *provisionerSuite) testServerError(c *gc.C, apiCall func(*storageprovisi
 
 func (s *provisionerSuite) TestRemoveServerError(c *gc.C) {
 	s.testServerError(c, func(st *storageprovisioner.Client, tags []names.Tag) ([]params.ErrorResult, error) {
-		return st.Remove(tags)
+		return st.Remove(context.Background(), tags)
 	})
 }
 
 func (s *provisionerSuite) TestEnsureDeadServerError(c *gc.C) {
 	s.testServerError(c, func(st *storageprovisioner.Client, tags []names.Tag) ([]params.ErrorResult, error) {
-		return st.EnsureDead(tags)
+		return st.EnsureDead(context.Background(), tags)
 	})
 }
 
@@ -1296,7 +1297,7 @@ func (s *provisionerSuite) TestLifeServerError(c *gc.C) {
 	tags := []names.Tag{
 		names.NewVolumeTag("100"),
 	}
-	results, err := st.Life(tags)
+	results, err := st.Life(context.Background(), tags)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.HasLen, 1)
 	c.Check(results[0].Error, gc.ErrorMatches, "MSG")

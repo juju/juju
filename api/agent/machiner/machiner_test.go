@@ -91,7 +91,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	client := machiner.NewClient(apiCaller)
 	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetStatus(status.Error, "failed", data)
+	err = m.SetStatus(context.Background(), status.Error, "failed", data)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(calls, gc.Equals, 2)
 }
@@ -125,7 +125,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	client := machiner.NewClient(apiCaller)
 	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.EnsureDead()
+	err = m.EnsureDead(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -202,7 +202,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	client := machiner.NewClient(apiCaller)
 	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.SetMachineAddresses([]network.MachineAddress{{
+	err = m.SetMachineAddresses(context.Background(), []network.MachineAddress{{
 		Value:       "10.0.0.1",
 		Type:        network.IPv6Address,
 		Scope:       network.ScopeCloudLocal,
@@ -284,6 +284,6 @@ func (s *machinerSuite) TestRecordAgentStartInformation(c *gc.C) {
 	client := machiner.NewClient(apiCaller)
 	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m.RecordAgentStartInformation("hostname")
+	err = m.RecordAgentStartInformation(context.Background(), "hostname")
 	c.Assert(err, jc.ErrorIsNil)
 }

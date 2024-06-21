@@ -4,6 +4,8 @@
 package upgradesteps_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -41,7 +43,7 @@ func (s *upgradeStepsSuite) TestWriteAgentState(c *gc.C) {
 	s.expectWriteAgentStateSuccess(c, args)
 
 	client := upgradesteps.NewClientFromFacade(s.fCaller)
-	err := client.WriteAgentState([]params.SetUnitStateArg{
+	err := client.WriteAgentState(context.Background(), []params.SetUnitStateArg{
 		{Tag: uTag0.String(), UniterState: &str0},
 		{Tag: uTag1.String(), UniterState: &str1},
 	})
@@ -59,7 +61,7 @@ func (s *upgradeStepsSuite) TestWriteAgentStateError(c *gc.C) {
 	s.expectWriteAgentStateError(c, args)
 
 	client := upgradesteps.NewClientFromFacade(s.fCaller)
-	err := client.WriteAgentState([]params.SetUnitStateArg{
+	err := client.WriteAgentState(context.Background(), []params.SetUnitStateArg{
 		{Tag: uTag0.String(), UniterState: &str0},
 	})
 	c.Assert(err, gc.ErrorMatches, "did not find")

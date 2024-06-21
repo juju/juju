@@ -4,6 +4,8 @@
 package storageprovisioner
 
 import (
+	"context"
+	stdcontext "context"
 	"time"
 
 	"github.com/juju/errors"
@@ -33,56 +35,56 @@ var newManagedFilesystemSource = provider.NewManagedFilesystemSource
 type VolumeAccessor interface {
 	// WatchBlockDevices watches for changes to the block devices of the
 	// specified machine.
-	WatchBlockDevices(names.MachineTag) (watcher.NotifyWatcher, error)
+	WatchBlockDevices(stdcontext.Context, names.MachineTag) (watcher.NotifyWatcher, error)
 
 	// WatchVolumes watches for changes to volumes that this storage
 	// provisioner is responsible for.
-	WatchVolumes(scope names.Tag) (watcher.StringsWatcher, error)
+	WatchVolumes(ctx stdcontext.Context, scope names.Tag) (watcher.StringsWatcher, error)
 
 	// WatchVolumeAttachments watches for changes to volume attachments
 	// that this storage provisioner is responsible for.
-	WatchVolumeAttachments(scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
+	WatchVolumeAttachments(ctx stdcontext.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
 
 	// WatchVolumeAttachmentPlans watches for changes to volume attachments
 	// destined for this machine. It allows the machine agent to do any extra
 	// initialization of the attachment, such as logging into the iSCSI target
-	WatchVolumeAttachmentPlans(scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
+	WatchVolumeAttachmentPlans(ctx stdcontext.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
 
 	// Volumes returns details of volumes with the specified tags.
-	Volumes([]names.VolumeTag) ([]params.VolumeResult, error)
+	Volumes(stdcontext.Context, []names.VolumeTag) ([]params.VolumeResult, error)
 
 	// VolumeBlockDevices returns details of block devices corresponding to
 	// the specified volume attachment IDs.
-	VolumeBlockDevices([]params.MachineStorageId) ([]params.BlockDeviceResult, error)
+	VolumeBlockDevices(stdcontext.Context, []params.MachineStorageId) ([]params.BlockDeviceResult, error)
 
 	// VolumeAttachments returns details of volume attachments with
 	// the specified tags.
-	VolumeAttachments([]params.MachineStorageId) ([]params.VolumeAttachmentResult, error)
+	VolumeAttachments(stdcontext.Context, []params.MachineStorageId) ([]params.VolumeAttachmentResult, error)
 
-	VolumeAttachmentPlans([]params.MachineStorageId) ([]params.VolumeAttachmentPlanResult, error)
+	VolumeAttachmentPlans(stdcontext.Context, []params.MachineStorageId) ([]params.VolumeAttachmentPlanResult, error)
 
 	// VolumeParams returns the parameters for creating the volumes
 	// with the specified tags.
-	VolumeParams([]names.VolumeTag) ([]params.VolumeParamsResult, error)
+	VolumeParams(stdcontext.Context, []names.VolumeTag) ([]params.VolumeParamsResult, error)
 
 	// RemoveVolumeParams returns the parameters for destroying or
 	// releasing the volumes with the specified tags.
-	RemoveVolumeParams([]names.VolumeTag) ([]params.RemoveVolumeParamsResult, error)
+	RemoveVolumeParams(stdcontext.Context, []names.VolumeTag) ([]params.RemoveVolumeParamsResult, error)
 
 	// VolumeAttachmentParams returns the parameters for creating the
 	// volume attachments with the specified tags.
-	VolumeAttachmentParams([]params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error)
+	VolumeAttachmentParams(stdcontext.Context, []params.MachineStorageId) ([]params.VolumeAttachmentParamsResult, error)
 
 	// SetVolumeInfo records the details of newly provisioned volumes.
-	SetVolumeInfo([]params.Volume) ([]params.ErrorResult, error)
+	SetVolumeInfo(stdcontext.Context, []params.Volume) ([]params.ErrorResult, error)
 
 	// SetVolumeAttachmentInfo records the details of newly provisioned
 	// volume attachments.
-	SetVolumeAttachmentInfo([]params.VolumeAttachment) ([]params.ErrorResult, error)
+	SetVolumeAttachmentInfo(stdcontext.Context, []params.VolumeAttachment) ([]params.ErrorResult, error)
 
-	CreateVolumeAttachmentPlans(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error)
-	RemoveVolumeAttachmentPlan([]params.MachineStorageId) ([]params.ErrorResult, error)
-	SetVolumeAttachmentPlanBlockInfo(volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error)
+	CreateVolumeAttachmentPlans(ctx stdcontext.Context, volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error)
+	RemoveVolumeAttachmentPlan(stdcontext.Context, []params.MachineStorageId) ([]params.ErrorResult, error)
+	SetVolumeAttachmentPlanBlockInfo(ctx stdcontext.Context, volumeAttachmentPlans []params.VolumeAttachmentPlan) ([]params.ErrorResult, error)
 }
 
 // FilesystemAccessor defines an interface used to allow a storage provisioner
@@ -90,47 +92,47 @@ type VolumeAccessor interface {
 type FilesystemAccessor interface {
 	// WatchFilesystems watches for changes to filesystems that this
 	// storage provisioner is responsible for.
-	WatchFilesystems(scope names.Tag) (watcher.StringsWatcher, error)
+	WatchFilesystems(ctx stdcontext.Context, scope names.Tag) (watcher.StringsWatcher, error)
 
 	// WatchFilesystemAttachments watches for changes to filesystem attachments
 	// that this storage provisioner is responsible for.
-	WatchFilesystemAttachments(scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
+	WatchFilesystemAttachments(ctx stdcontext.Context, scope names.Tag) (watcher.MachineStorageIDsWatcher, error)
 
 	// Filesystems returns details of filesystems with the specified tags.
-	Filesystems([]names.FilesystemTag) ([]params.FilesystemResult, error)
+	Filesystems(stdcontext.Context, []names.FilesystemTag) ([]params.FilesystemResult, error)
 
 	// FilesystemAttachments returns details of filesystem attachments with
 	// the specified tags.
-	FilesystemAttachments([]params.MachineStorageId) ([]params.FilesystemAttachmentResult, error)
+	FilesystemAttachments(stdcontext.Context, []params.MachineStorageId) ([]params.FilesystemAttachmentResult, error)
 
 	// FilesystemParams returns the parameters for creating the filesystems
 	// with the specified tags.
-	FilesystemParams([]names.FilesystemTag) ([]params.FilesystemParamsResult, error)
+	FilesystemParams(stdcontext.Context, []names.FilesystemTag) ([]params.FilesystemParamsResult, error)
 
 	// RemoveFilesystemParams returns the parameters for destroying or
 	// releasing the filesystems with the specified tags.
-	RemoveFilesystemParams([]names.FilesystemTag) ([]params.RemoveFilesystemParamsResult, error)
+	RemoveFilesystemParams(stdcontext.Context, []names.FilesystemTag) ([]params.RemoveFilesystemParamsResult, error)
 
 	// FilesystemAttachmentParams returns the parameters for creating the
 	// filesystem attachments with the specified tags.
-	FilesystemAttachmentParams([]params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error)
+	FilesystemAttachmentParams(stdcontext.Context, []params.MachineStorageId) ([]params.FilesystemAttachmentParamsResult, error)
 
 	// SetFilesystemInfo records the details of newly provisioned filesystems.
-	SetFilesystemInfo([]params.Filesystem) ([]params.ErrorResult, error)
+	SetFilesystemInfo(stdcontext.Context, []params.Filesystem) ([]params.ErrorResult, error)
 
 	// SetFilesystemAttachmentInfo records the details of newly provisioned
 	// filesystem attachments.
-	SetFilesystemAttachmentInfo([]params.FilesystemAttachment) ([]params.ErrorResult, error)
+	SetFilesystemAttachmentInfo(stdcontext.Context, []params.FilesystemAttachment) ([]params.ErrorResult, error)
 }
 
 // MachineAccessor defines an interface used to allow a storage provisioner
 // worker to perform machine related operations.
 type MachineAccessor interface {
 	// WatchMachine watches for changes to the specified machine.
-	WatchMachine(names.MachineTag) (watcher.NotifyWatcher, error)
+	WatchMachine(stdcontext.Context, names.MachineTag) (watcher.NotifyWatcher, error)
 
 	// InstanceIds returns the instance IDs of each machine.
-	InstanceIds([]names.MachineTag) ([]params.StringResult, error)
+	InstanceIds(stdcontext.Context, []names.MachineTag) ([]params.StringResult, error)
 }
 
 // LifecycleManager defines an interface used to enable a storage provisioner
@@ -138,23 +140,23 @@ type MachineAccessor interface {
 // attachments.
 type LifecycleManager interface {
 	// Life returns the lifecycle state of the specified entities.
-	Life([]names.Tag) ([]params.LifeResult, error)
+	Life(stdcontext.Context, []names.Tag) ([]params.LifeResult, error)
 
 	// Remove removes the specified entities from state.
-	Remove([]names.Tag) ([]params.ErrorResult, error)
+	Remove(stdcontext.Context, []names.Tag) ([]params.ErrorResult, error)
 
 	// AttachmentLife returns the lifecycle state of the specified
 	// machine/entity attachments.
-	AttachmentLife([]params.MachineStorageId) ([]params.LifeResult, error)
+	AttachmentLife(stdcontext.Context, []params.MachineStorageId) ([]params.LifeResult, error)
 
 	// RemoveAttachments removes the specified machine/entity attachments
 	// from state.
-	RemoveAttachments([]params.MachineStorageId) ([]params.ErrorResult, error)
+	RemoveAttachments(stdcontext.Context, []params.MachineStorageId) ([]params.ErrorResult, error)
 }
 
 // StatusSetter defines an interface used to set the status of entities.
 type StatusSetter interface {
-	SetStatus([]params.EntityStatusArgs) error
+	SetStatus(stdcontext.Context, []params.EntityStatusArgs) error
 }
 
 // NewStorageProvisioner returns a Worker which manages
@@ -199,6 +201,9 @@ func (w *storageProvisioner) Wait() error {
 }
 
 func (w *storageProvisioner) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	var (
 		volumesChanges               watcher.StringsChannel
 		filesystemsChanges           watcher.StringsChannel
@@ -212,7 +217,7 @@ func (w *storageProvisioner) loop() error {
 	// Machine-scoped provisioners need to watch block devices, to create
 	// volume-backed filesystems.
 	if machineTag, ok := w.config.Scope.(names.MachineTag); ok {
-		machineBlockDevicesWatcher, err := w.config.Volumes.WatchBlockDevices(machineTag)
+		machineBlockDevicesWatcher, err := w.config.Volumes.WatchBlockDevices(ctx, machineTag)
 		if err != nil {
 			return errors.Annotate(err, "watching block devices")
 		}
@@ -221,7 +226,7 @@ func (w *storageProvisioner) loop() error {
 		}
 		machineBlockDevicesChanges = machineBlockDevicesWatcher.Changes()
 
-		volumeAttachmentPlansWatcher, err := w.config.Volumes.WatchVolumeAttachmentPlans(machineTag)
+		volumeAttachmentPlansWatcher, err := w.config.Volumes.WatchVolumeAttachmentPlans(ctx, machineTag)
 		if err != nil {
 			return errors.Annotate(err, "watching volume attachment plans")
 		}
@@ -232,7 +237,7 @@ func (w *storageProvisioner) loop() error {
 		volumeAttachmentPlansChanges = volumeAttachmentPlansWatcher.Changes()
 	}
 
-	ctx := context{
+	deps := dependencies{
 		kill:                                 w.catacomb.Kill,
 		addWorker:                            w.catacomb.Add,
 		config:                               w.config,
@@ -250,18 +255,18 @@ func (w *storageProvisioner) loop() error {
 		incompleteFilesystemAttachmentParams: make(map[params.MachineStorageId]storage.FilesystemAttachmentParams),
 		pendingVolumeBlockDevices:            names.NewSet(),
 	}
-	ctx.managedFilesystemSource = newManagedFilesystemSource(
-		ctx.volumeBlockDevices, ctx.filesystems,
+	deps.managedFilesystemSource = newManagedFilesystemSource(
+		deps.volumeBlockDevices, deps.filesystems,
 	)
 	// Units don't use managed volume backed filesystems.
-	if ctx.isApplicationKind() {
-		ctx.managedFilesystemSource = &noopFilesystemSource{}
+	if deps.isApplicationKind() {
+		deps.managedFilesystemSource = &noopFilesystemSource{}
 	}
 
 	// Units don't have unit-scoped volumes - all volumes are
 	// associated with the model (namespace).
-	if !ctx.isApplicationKind() {
-		volumesWatcher, err := w.config.Volumes.WatchVolumes(w.config.Scope)
+	if !deps.isApplicationKind() {
+		volumesWatcher, err := w.config.Volumes.WatchVolumes(ctx, w.config.Scope)
 		if err != nil {
 			return errors.Annotate(err, "watching volumes")
 		}
@@ -271,7 +276,7 @@ func (w *storageProvisioner) loop() error {
 		volumesChanges = volumesWatcher.Changes()
 	}
 
-	filesystemsWatcher, err := w.config.Filesystems.WatchFilesystems(w.config.Scope)
+	filesystemsWatcher, err := w.config.Filesystems.WatchFilesystems(ctx, w.config.Scope)
 	if err != nil {
 		return errors.Annotate(err, "watching filesystems")
 	}
@@ -280,7 +285,7 @@ func (w *storageProvisioner) loop() error {
 	}
 	filesystemsChanges = filesystemsWatcher.Changes()
 
-	volumeAttachmentsWatcher, err := w.config.Volumes.WatchVolumeAttachments(w.config.Scope)
+	volumeAttachmentsWatcher, err := w.config.Volumes.WatchVolumeAttachments(ctx, w.config.Scope)
 	if err != nil {
 		return errors.Annotate(err, "watching volume attachments")
 	}
@@ -289,7 +294,7 @@ func (w *storageProvisioner) loop() error {
 	}
 	volumeAttachmentsChanges = volumeAttachmentsWatcher.Changes()
 
-	filesystemAttachmentsWatcher, err := w.config.Filesystems.WatchFilesystemAttachments(w.config.Scope)
+	filesystemAttachmentsWatcher, err := w.config.Filesystems.WatchFilesystemAttachments(ctx, w.config.Scope)
 	if err != nil {
 		return errors.Annotate(err, "watching filesystem attachments")
 	}
@@ -301,7 +306,7 @@ func (w *storageProvisioner) loop() error {
 	for {
 
 		// Check if block devices need to be refreshed.
-		if err := processPendingVolumeBlockDevices(&ctx); err != nil {
+		if err := processPendingVolumeBlockDevices(ctx, &deps); err != nil {
 			return errors.Annotate(err, "processing pending block devices")
 		}
 
@@ -312,7 +317,7 @@ func (w *storageProvisioner) loop() error {
 			if !ok {
 				return errors.New("volumes watcher closed")
 			}
-			if err := volumesChanged(&ctx, changes); err != nil {
+			if err := volumesChanged(ctx, &deps, changes); err != nil {
 				return errors.Trace(err)
 			}
 		case changes, ok := <-volumeAttachmentsChanges:
@@ -324,24 +329,24 @@ func (w *storageProvisioner) loop() error {
 			// volumes, and reveals itself during a reboot of a machine. All
 			// the watcher changes come at once, but the order of the select
 			// case statements is not guaranteed.
-			if err := w.processDependentChanges(&ctx, volumesChanges, volumesChanged); err != nil {
+			if err := w.processDependentChanges(ctx, &deps, volumesChanges, volumesChanged); err != nil {
 				return errors.Trace(err)
 			}
-			if err := volumeAttachmentsChanged(&ctx, changes); err != nil {
+			if err := volumeAttachmentsChanged(ctx, &deps, changes); err != nil {
 				return errors.Trace(err)
 			}
 		case changes, ok := <-volumeAttachmentPlansChanges:
 			if !ok {
 				return errors.New("volume attachment plans watcher closed")
 			}
-			if err := volumeAttachmentPlansChanged(&ctx, changes); err != nil {
+			if err := volumeAttachmentPlansChanged(ctx, &deps, changes); err != nil {
 				return errors.Trace(err)
 			}
 		case changes, ok := <-filesystemsChanges:
 			if !ok {
 				return errors.New("filesystems watcher closed")
 			}
-			if err := filesystemsChanged(&ctx, changes); err != nil {
+			if err := filesystemsChanged(ctx, &deps, changes); err != nil {
 				return errors.Trace(err)
 			}
 		case changes, ok := <-filesystemAttachmentsChanges:
@@ -353,26 +358,26 @@ func (w *storageProvisioner) loop() error {
 			// filesystems, and reveals itself during a reboot of a machine. All
 			// the watcher changes come at once, but the order of the select
 			// case statements is not guaranteed.
-			if err := w.processDependentChanges(&ctx, filesystemsChanges, filesystemsChanged); err != nil {
+			if err := w.processDependentChanges(ctx, &deps, filesystemsChanges, filesystemsChanged); err != nil {
 				return errors.Trace(err)
 			}
-			if err := filesystemAttachmentsChanged(&ctx, changes); err != nil {
+			if err := filesystemAttachmentsChanged(ctx, &deps, changes); err != nil {
 				return errors.Trace(err)
 			}
 		case _, ok := <-machineBlockDevicesChanges:
 			if !ok {
 				return errors.New("machine block devices watcher closed")
 			}
-			if err := machineBlockDevicesChanged(&ctx); err != nil {
+			if err := machineBlockDevicesChanged(ctx, &deps); err != nil {
 				return errors.Trace(err)
 			}
 		case machineTag := <-machineChanges:
-			if err := refreshMachine(&ctx, machineTag); err != nil {
+			if err := refreshMachine(ctx, &deps, machineTag); err != nil {
 				return errors.Trace(err)
 			}
-		case <-ctx.schedule.Next():
+		case <-deps.schedule.Next():
 			// Ready to pick something(s) off the pending queue.
-			if err := processSchedule(&ctx); err != nil {
+			if err := processSchedule(ctx, &deps); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -383,7 +388,7 @@ func (w *storageProvisioner) loop() error {
 // there are any changes, it calls the given function, repeating until there are
 // no more changes.
 // If there are no changes, it returns with no error.
-func (w *storageProvisioner) processDependentChanges(ctx *context, source watcher.StringsChannel, fn func(*context, []string) error) error {
+func (w *storageProvisioner) processDependentChanges(ctx context.Context, deps *dependencies, source watcher.StringsChannel, fn func(context.Context, *dependencies, []string) error) error {
 	for {
 		select {
 		case <-w.catacomb.Dying():
@@ -392,7 +397,7 @@ func (w *storageProvisioner) processDependentChanges(ctx *context, source watche
 			if !ok {
 				return errors.New("watcher closed")
 			}
-			if err := fn(ctx, changes); err != nil {
+			if err := fn(ctx, deps, changes); err != nil {
 				return errors.Trace(err)
 			}
 		case <-time.After(defaultDependentChangesTimeout):
@@ -402,9 +407,13 @@ func (w *storageProvisioner) processDependentChanges(ctx *context, source watche
 	}
 }
 
+func (w *storageProvisioner) scopedContext() (stdcontext.Context, stdcontext.CancelFunc) {
+	return stdcontext.WithCancel(w.catacomb.Context(stdcontext.Background()))
+}
+
 // processSchedule executes scheduled operations.
-func processSchedule(ctx *context) error {
-	ready := ctx.schedule.Ready(ctx.config.Clock.Now())
+func processSchedule(ctx context.Context, deps *dependencies) error {
+	ready := deps.schedule.Ready(deps.config.Clock.Now())
 	createVolumeOps := make(map[names.VolumeTag]*createVolumeOp)
 	removeVolumeOps := make(map[names.VolumeTag]*removeVolumeOp)
 	attachVolumeOps := make(map[params.MachineStorageId]*attachVolumeOp)
@@ -436,49 +445,49 @@ func processSchedule(ctx *context) error {
 		}
 	}
 	if len(removeVolumeOps) > 0 {
-		if err := removeVolumes(ctx, removeVolumeOps); err != nil {
+		if err := removeVolumes(ctx, deps, removeVolumeOps); err != nil {
 			return errors.Annotate(err, "removing volumes")
 		}
 	}
 	if len(createVolumeOps) > 0 {
-		if err := createVolumes(ctx, createVolumeOps); err != nil {
+		if err := createVolumes(ctx, deps, createVolumeOps); err != nil {
 			return errors.Annotate(err, "creating volumes")
 		}
 	}
 	if len(detachVolumeOps) > 0 {
-		if err := detachVolumes(ctx, detachVolumeOps); err != nil {
+		if err := detachVolumes(ctx, deps, detachVolumeOps); err != nil {
 			return errors.Annotate(err, "detaching volumes")
 		}
 	}
 	if len(attachVolumeOps) > 0 {
-		if err := attachVolumes(ctx, attachVolumeOps); err != nil {
+		if err := attachVolumes(ctx, deps, attachVolumeOps); err != nil {
 			return errors.Annotate(err, "attaching volumes")
 		}
 	}
 	if len(removeFilesystemOps) > 0 {
-		if err := removeFilesystems(ctx, removeFilesystemOps); err != nil {
+		if err := removeFilesystems(ctx, deps, removeFilesystemOps); err != nil {
 			return errors.Annotate(err, "removing filesystems")
 		}
 	}
 	if len(createFilesystemOps) > 0 {
-		if err := createFilesystems(ctx, createFilesystemOps); err != nil {
+		if err := createFilesystems(ctx, deps, createFilesystemOps); err != nil {
 			return errors.Annotate(err, "creating filesystems")
 		}
 	}
 	if len(detachFilesystemOps) > 0 {
-		if err := detachFilesystems(ctx, detachFilesystemOps); err != nil {
+		if err := detachFilesystems(ctx, deps, detachFilesystemOps); err != nil {
 			return errors.Annotate(err, "detaching filesystems")
 		}
 	}
 	if len(attachFilesystemOps) > 0 {
-		if err := attachFilesystems(ctx, attachFilesystemOps); err != nil {
+		if err := attachFilesystems(ctx, deps, attachFilesystemOps); err != nil {
 			return errors.Annotate(err, "attaching filesystems")
 		}
 	}
 	return nil
 }
 
-type context struct {
+type dependencies struct {
 	kill      func(error)
 	addWorker func(worker.Worker) error
 	config    Config
@@ -555,6 +564,6 @@ type context struct {
 	managedFilesystemSource storage.FilesystemSource
 }
 
-func (c *context) isApplicationKind() bool {
+func (c *dependencies) isApplicationKind() bool {
 	return c.config.Scope.Kind() == names.ApplicationTagKind
 }

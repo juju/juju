@@ -4,12 +4,14 @@
 package lifeflag
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 )
 
-func NewWorker(config Config) (worker.Worker, error) {
-	worker, err := New(config)
+func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
+	worker, err := New(ctx, config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

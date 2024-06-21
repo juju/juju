@@ -27,7 +27,7 @@ type ManifoldConfig struct {
 	Check         Predicate
 
 	NewFacade func(base.APICaller) (Facade, error)
-	NewWorker func(Config) (worker.Worker, error)
+	NewWorker func(context.Context, Config) (worker.Worker, error)
 }
 
 // validate is called by start to check for bad configuration.
@@ -64,7 +64,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	if !ok {
 		return nil, errors.New("API connection is controller-only (should never happen)")
 	}
-	worker, err := config.NewWorker(Config{
+	worker, err := config.NewWorker(context, Config{
 		Facade: facade,
 		Model:  modelTag.Id(),
 		Check:  config.Check,

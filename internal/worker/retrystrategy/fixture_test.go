@@ -5,6 +5,7 @@
 package retrystrategy_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/names/v5"
@@ -82,7 +83,7 @@ func newStubFacade(c *gc.C, stub *testing.Stub, initialStrategy params.RetryStra
 }
 
 // WatchRetryStrategy is part of the retrystrategy Facade
-func (f *stubFacade) WatchRetryStrategy(agentTag names.Tag) (watcher.NotifyWatcher, error) {
+func (f *stubFacade) WatchRetryStrategy(ctx context.Context, agentTag names.Tag) (watcher.NotifyWatcher, error) {
 	f.c.Assert(agentTag, gc.Equals, f.stubTag)
 	f.stub.AddCall("WatchRetryStrategy", agentTag)
 	err := f.stub.NextErr()
@@ -93,7 +94,7 @@ func (f *stubFacade) WatchRetryStrategy(agentTag names.Tag) (watcher.NotifyWatch
 }
 
 // RetryStrategy is part of the retrystrategy Facade
-func (f *stubFacade) RetryStrategy(agentTag names.Tag) (params.RetryStrategy, error) {
+func (f *stubFacade) RetryStrategy(ctx context.Context, agentTag names.Tag) (params.RetryStrategy, error) {
 	f.c.Assert(agentTag, gc.Equals, f.stubTag)
 	f.stub.AddCall("RetryStrategy", agentTag)
 	f.count = f.count + 1

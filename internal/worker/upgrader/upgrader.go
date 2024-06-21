@@ -46,10 +46,10 @@ const (
 
 // UpgraderClient provides the facade methods used by the worker.
 type UpgraderClient interface {
-	DesiredVersion(tag string) (version.Number, error)
-	SetVersion(tag string, v version.Binary) error
-	WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
-	Tools(tag string) (coretools.List, error)
+	DesiredVersion(ctx context.Context, tag string) (version.Number, error)
+	SetVersion(ctx context.Context, tag string, v version.Binary) error
+	WatchAPIVersion(ctx context.Context, agentTag string) (watcher.NotifyWatcher, error)
+	Tools(ctx context.Context, tag string) (coretools.List, error)
 }
 
 // Upgrader represents a worker that watches the state for upgrade
@@ -122,11 +122,14 @@ func AllowedTargetVersion(
 }
 
 func (u *Upgrader) loop() error {
+	ctx, cancel := u.scopedContext()
+	defer cancel()
+
 	logger := u.config.Logger
 	// Start by reporting current tools (which includes arch/os type, and is
 	// used by the controller in communicating the desired version below).
 	hostOSType := coreos.HostOSTypeName()
-	if err := u.client.SetVersion(u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
+	if err := u.client.SetVersion(ctx, u.tag.String(), toBinaryVersion(jujuversion.Current, hostOSType)); err != nil {
 		return errors.Annotatef(err, "setting agent version for %q", u.tag.String())
 	}
 
@@ -146,7 +149,7 @@ func (u *Upgrader) loop() error {
 		return nil
 	}
 
-	versionWatcher, err := u.client.WatchAPIVersion(u.tag.String())
+	versionWatcher, err := u.client.WatchAPIVersion(ctx, u.tag.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -163,7 +166,7 @@ func (u *Upgrader) loop() error {
 			}
 		}
 
-		wantVersion, err := u.client.DesiredVersion(u.tag.String())
+		wantVersion, err := u.client.DesiredVersion(ctx, u.tag.String())
 		if err != nil {
 			return err
 		}
@@ -199,7 +202,7 @@ func (u *Upgrader) loop() error {
 		}
 
 		// Check if tools are available for download.
-		wantToolsList, err := u.client.Tools(u.tag.String())
+		wantToolsList, err := u.client.Tools(ctx, u.tag.String())
 		if err != nil {
 			// Not being able to lookup Tools is considered fatal
 			return err
@@ -281,4 +284,8 @@ func (u *Upgrader) checkForSpace() error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+func (u *Upgrader) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(u.catacomb.Context(context.Background()))
 }

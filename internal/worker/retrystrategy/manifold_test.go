@@ -223,11 +223,11 @@ type fakeFacade struct {
 	retrystrategy.Facade
 }
 
-func (mock *fakeFacade) RetryStrategy(agentTag names.Tag) (params.RetryStrategy, error) {
+func (mock *fakeFacade) RetryStrategy(ctx context.Context, agentTag names.Tag) (params.RetryStrategy, error) {
 	return fakeStrategy, nil
 }
 
-func (mock *fakeFacade) WatchRetryStrategy(agentTag names.Tag) (watcher.NotifyWatcher, error) {
+func (mock *fakeFacade) WatchRetryStrategy(ctx context.Context, agentTag names.Tag) (watcher.NotifyWatcher, error) {
 	return newStubWatcher(), nil
 }
 
@@ -236,7 +236,7 @@ type fakeFacadeErr struct {
 	err error
 }
 
-func (mock *fakeFacadeErr) RetryStrategy(agentTag names.Tag) (params.RetryStrategy, error) {
+func (mock *fakeFacadeErr) RetryStrategy(ctx context.Context, agentTag names.Tag) (params.RetryStrategy, error) {
 	return params.RetryStrategy{}, mock.err
 }
 
