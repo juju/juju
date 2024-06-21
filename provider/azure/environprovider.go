@@ -14,6 +14,7 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/loggo"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -175,7 +176,7 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := spec.Credential.AuthType(); authType != clientCredentialsAuthType {
+	if authType := spec.Credential.AuthType(); authType != clientCredentialsAuthType && authType != cloud.InstanceRoleAuthType {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil

@@ -17,6 +17,7 @@ func (env *azureEnviron) createDeployment(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
 	deploymentName string,
+	params any,
 	t armtemplates.Template,
 ) error {
 	deploy, err := env.deployClient()
@@ -29,8 +30,9 @@ func (env *azureEnviron) createDeployment(
 	}
 	deployment := armresources.Deployment{
 		Properties: &armresources.DeploymentProperties{
-			Template: &templateMap,
-			Mode:     to.Ptr(armresources.DeploymentModeIncremental),
+			Parameters: params,
+			Template:   &templateMap,
+			Mode:       to.Ptr(armresources.DeploymentModeIncremental),
 		},
 	}
 	poller, err := deploy.BeginCreateOrUpdate(
