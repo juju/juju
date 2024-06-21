@@ -849,7 +849,7 @@ func (s *localServerSuite) TestStartInstanceWaitForActiveDetails(c *gc.C) {
 	c.Assert(insts, gc.HasLen, 0, gc.Commentf("expected launched instance to be terminated if stuck in BUILD state"))
 }
 
-func (s *localServerSuite) TestStartInstanceDeletesSecurityGroupsOnInstanceCreateFailure(c *gc.C) {
+func (s *localServerSuite) TestStartInstanceDeletesMachineSecurityGroupOnInstanceCreateFailure(c *gc.C) {
 	env := s.openEnviron(c, coretesting.Attrs{"firewall-mode": config.FwInstance})
 
 	// Force an error in waitForActiveServerDetails
@@ -864,7 +864,10 @@ func (s *localServerSuite) TestStartInstanceDeletesSecurityGroupsOnInstanceCreat
 	c.Check(inst, gc.IsNil)
 	c.Assert(err, gc.NotNil)
 
-	assertSecurityGroups(c, env, []string{"default"})
+	assertSecurityGroups(c, env, []string{
+		fmt.Sprintf("juju-%s-%s", coretesting.ControllerTag.Id(), coretesting.ModelTag.Id()),
+		"default",
+	})
 }
 
 func (s *localServerSuite) TestStartInstanceDeletesSecurityGroupsOnFailure(c *gc.C) {
@@ -881,7 +884,10 @@ func (s *localServerSuite) TestStartInstanceDeletesSecurityGroupsOnFailure(c *gc
 	_, _, _, err := testing.StartInstance(env, s.callCtx, s.ControllerUUID, "100")
 	c.Assert(err, gc.NotNil)
 
-	assertSecurityGroups(c, env, []string{"default"})
+	assertSecurityGroups(c, env, []string{
+		fmt.Sprintf("juju-%s-%s", coretesting.ControllerTag.Id(), coretesting.ModelTag.Id()),
+		"default",
+	})
 }
 
 func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
@@ -3062,8 +3068,8 @@ func (s *localServerSuite) TestUpdateGroupController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	groupNamesBefore := set.NewStrings(groupNames...)
 	c.Assert(groupNamesBefore, gc.DeepEquals, set.NewStrings(
-		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"juju-deadbeef-1bad-500d-9000-4b1d0d06f00d-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
+		fmt.Sprintf("juju-%s-%s", coretesting.ControllerTag.Id(), coretesting.ModelTag.Id()),
+		fmt.Sprintf("juju-%s-%s-0", coretesting.ControllerTag.Id(), coretesting.ModelTag.Id()),
 	))
 
 	firewaller := openstack.GetFirewaller(s.env)
@@ -3074,8 +3080,8 @@ func (s *localServerSuite) TestUpdateGroupController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	groupNamesAfter := set.NewStrings(groupNames...)
 	c.Assert(groupNamesAfter, gc.DeepEquals, set.NewStrings(
-		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d",
-		"juju-aabbccdd-eeee-ffff-0000-0123456789ab-deadbeef-0bad-400d-8000-4b1d0d06f00d-0",
+		fmt.Sprintf("juju-aabbccdd-eeee-ffff-0000-0123456789ab-%s", coretesting.ModelTag.Id()),
+		fmt.Sprintf("juju-aabbccdd-eeee-ffff-0000-0123456789ab-%s-0", coretesting.ModelTag.Id()),
 	))
 }
 
