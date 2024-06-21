@@ -1549,6 +1549,10 @@ func (h *bundleHandler) resolveMachine(placeholder string) (string, error) {
 				return errors.Annotate(err, "cannot get model status")
 			}
 
+			if status == nil {
+				return errors.NotFoundf("unit %s", machineOrUnit)
+			}
+
 			for _, appData := range status.Applications {
 				for unit, unitData := range appData.Units {
 					if unit == machineOrUnit {

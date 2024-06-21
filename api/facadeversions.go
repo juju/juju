@@ -26,8 +26,6 @@ var facadeVersions = facades.FacadeVersions{
 	"Agent":                        {3},
 	"AgentLifeFlag":                {1},
 	"AgentTools":                   {1},
-	"AllModelWatcher":              {4},
-	"AllWatcher":                   {3},
 	"Annotations":                  {2},
 	"Application":                  {19, 20},
 	"ApplicationOffers":            {5},

@@ -1237,6 +1237,33 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c 
 	s.expectDeploy()
 	s.expectAddOneUnit("django", "0", "0")
 	s.expectAddOneUnit("django", "1", "1")
+	s.expectStatus(params.FullStatus{
+		Applications: map[string]params.ApplicationStatus{
+			"wordpress": {
+				Units: map[string]params.UnitStatus{
+					"wordpress/0": {
+						Machine: "0",
+					},
+					"wordpress/1": {
+						Machine: "1",
+					},
+					"wordpress/2": {
+						Machine: "2",
+					},
+				},
+			},
+			"django": {
+				Units: map[string]params.UnitStatus{
+					"django/0": {
+						Machine: "0",
+					},
+					"django/1": {
+						Machine: "1",
+					},
+				},
+			},
+		},
+	})
 
 	s.runDeploy(c, `
        applications:
@@ -2033,8 +2060,9 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpecWithConstraints(cons const
 	return bundleDeploySpec{
 		deployAPI: s.deployerAPI,
 		ctx: &cmd.Context{
-			Stderr: s.stdErr,
-			Stdout: s.stdOut,
+			Stderr:  s.stdErr,
+			Stdout:  s.stdOut,
+			Context: context.Background(),
 		},
 		bundleResolver:   s.bundleResolver,
 		deployResources:  deployResourcesFunc,
@@ -2435,6 +2463,10 @@ func (s *BundleDeployRepositorySuite) expectSetConstraints(name string, cons str
 
 func (s *BundleDeployRepositorySuite) expectSetCharm(c *gc.C, name string) {
 	s.deployerAPI.EXPECT().SetCharm(model.GenerationMaster, setCharmConfigMatcher{name: name, c: c})
+}
+
+func (s *BundleDeployRepositorySuite) expectStatus(status params.FullStatus) {
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(&status, nil).AnyTimes()
 }
 
 type setCharmConfigMatcher struct {
