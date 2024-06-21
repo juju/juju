@@ -18,7 +18,7 @@ type CharmSuite struct {
 
 var _ = gc.Suite(&CharmSuite{})
 
-func (*CharmSuite) TestUUIDValidate(c *gc.C) {
+func (*CharmSuite) TestIDValidate(c *gc.C) {
 	tests := []struct {
 		uuid string
 		err  error
@@ -38,7 +38,7 @@ func (*CharmSuite) TestUUIDValidate(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %q", i, test.uuid)
-		err := UUID(test.uuid).Validate()
+		err := ID(test.uuid).Validate()
 
 		if test.err == nil {
 			c.Check(err, gc.IsNil)

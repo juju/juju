@@ -32,42 +32,42 @@ type serviceSuite struct {
 
 var _ = gc.Suite(&serviceSuite{})
 
-func (s *serviceSuite) TestGetCharmUUID(c *gc.C) {
+func (s *serviceSuite) TestGetCharmID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := charmtesting.GenCharmUUID(c)
+	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmUUID(gomock.Any(), "foo").Return(uuid, nil)
+	s.state.EXPECT().GetCharmID(gomock.Any(), "foo").Return(id, nil)
 
-	result, err := s.service.GetCharmUUID(context.Background(), "foo")
+	result, err := s.service.GetCharmID(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.Equals, uuid)
+	c.Check(result, gc.Equals, id)
 }
 
-func (s *serviceSuite) TestGetCharmUUIDInvalidName(c *gc.C) {
+func (s *serviceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	_, err := s.service.GetCharmUUID(context.Background(), "Foo")
+	_, err := s.service.GetCharmID(context.Background(), "Foo")
 	c.Assert(err, jc.ErrorIs, charmerrors.NameNotValid)
 }
 
-func (s *serviceSuite) TestGetCharmUUIDErrorNotFound(c *gc.C) {
+func (s *serviceSuite) TestGetCharmIDErrorNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetCharmUUID(gomock.Any(), "foo").Return("", charmerrors.NotFound)
+	s.state.EXPECT().GetCharmID(gomock.Any(), "foo").Return("", charmerrors.NotFound)
 
-	_, err := s.service.GetCharmUUID(context.Background(), "foo")
+	_, err := s.service.GetCharmID(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
 }
 
 func (s *serviceSuite) TestIsControllerCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := charmtesting.GenCharmUUID(c)
+	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().IsControllerCharm(gomock.Any(), uuid).Return(true, nil)
+	s.state.EXPECT().IsControllerCharm(gomock.Any(), id).Return(true, nil)
 
-	result, err := s.service.IsControllerCharm(context.Background(), uuid)
+	result, err := s.service.IsControllerCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.IsTrue)
 }
@@ -75,11 +75,11 @@ func (s *serviceSuite) TestIsControllerCharm(c *gc.C) {
 func (s *serviceSuite) TestIsControllerCharmNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := charmtesting.GenCharmUUID(c)
+	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().IsControllerCharm(gomock.Any(), uuid).Return(false, charmerrors.NotFound)
+	s.state.EXPECT().IsControllerCharm(gomock.Any(), id).Return(false, charmerrors.NotFound)
 
-	_, err := s.service.IsControllerCharm(context.Background(), uuid)
+	_, err := s.service.IsControllerCharm(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
 }
 
@@ -90,14 +90,44 @@ func (s *serviceSuite) TestIsControllerCharmInvalidUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
+func (s *serviceSuite) TestIsCharmAvailable(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(true, nil)
+
+	result, err := s.service.IsCharmAvailable(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, jc.IsTrue)
+}
+
+func (s *serviceSuite) TestIsCharmAvailableNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(false, charmerrors.NotFound)
+
+	_, err := s.service.IsCharmAvailable(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *serviceSuite) TestIsCharmAvailableInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.IsCharmAvailable(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
 func (s *serviceSuite) TestSupportsContainers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := charmtesting.GenCharmUUID(c)
+	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().SupportsContainers(gomock.Any(), uuid).Return(true, nil)
+	s.state.EXPECT().SupportsContainers(gomock.Any(), id).Return(true, nil)
 
-	result, err := s.service.SupportsContainers(context.Background(), uuid)
+	result, err := s.service.SupportsContainers(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.IsTrue)
 }
@@ -105,11 +135,11 @@ func (s *serviceSuite) TestSupportsContainers(c *gc.C) {
 func (s *serviceSuite) TestSupportsContainersNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := charmtesting.GenCharmUUID(c)
+	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().SupportsContainers(gomock.Any(), uuid).Return(false, charmerrors.NotFound)
+	s.state.EXPECT().SupportsContainers(gomock.Any(), id).Return(false, charmerrors.NotFound)
 
-	_, err := s.service.SupportsContainers(context.Background(), uuid)
+	_, err := s.service.SupportsContainers(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
 }
 
@@ -125,9 +155,9 @@ func (s *serviceSuite) TestGetCharmMetadata(c *gc.C) {
 
 	// Conversion of the metadata tests is done in the types package.
 
-	uuid := charmtesting.GenCharmUUID(c)
+	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmMetadata(gomock.Any(), uuid).Return(domaincharm.Metadata{
+	s.state.EXPECT().GetCharmMetadata(gomock.Any(), id).Return(domaincharm.Metadata{
 		Name: "foo",
 
 		// RunAs becomes mandatory when being persisted. Empty string is not
@@ -135,7 +165,7 @@ func (s *serviceSuite) TestGetCharmMetadata(c *gc.C) {
 		RunAs: "default",
 	}, nil)
 
-	metadata, err := s.service.GetCharmMetadata(context.Background(), uuid)
+	metadata, err := s.service.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(metadata, gc.DeepEquals, internalcharm.Meta{
 		Name: "foo",
@@ -147,11 +177,11 @@ func (s *serviceSuite) TestGetCharmMetadata(c *gc.C) {
 func (s *serviceSuite) TestGetCharmMetadataNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	uuid := charmtesting.GenCharmUUID(c)
+	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmMetadata(gomock.Any(), uuid).Return(domaincharm.Metadata{}, charmerrors.NotFound)
+	s.state.EXPECT().GetCharmMetadata(gomock.Any(), id).Return(domaincharm.Metadata{}, charmerrors.NotFound)
 
-	_, err := s.service.GetCharmMetadata(context.Background(), uuid)
+	_, err := s.service.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
 }
 

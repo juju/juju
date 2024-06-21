@@ -43,8 +43,86 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// GetCharmID mocks base method.
+func (m *MockState) GetCharmID(arg0 context.Context, arg1 string) (charm.ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmID", arg0, arg1)
+	ret0, _ := ret[0].(charm.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmID indicates an expected call of GetCharmID.
+func (mr *MockStateMockRecorder) GetCharmID(arg0, arg1 any) *MockStateGetCharmIDCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmID", reflect.TypeOf((*MockState)(nil).GetCharmID), arg0, arg1)
+	return &MockStateGetCharmIDCall{Call: call}
+}
+
+// MockStateGetCharmIDCall wrap *gomock.Call
+type MockStateGetCharmIDCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetCharmIDCall) Return(arg0 charm.ID, arg1 error) *MockStateGetCharmIDCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetCharmIDCall) Do(f func(context.Context, string) (charm.ID, error)) *MockStateGetCharmIDCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetCharmIDCall) DoAndReturn(f func(context.Context, string) (charm.ID, error)) *MockStateGetCharmIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetCharmManifest mocks base method.
+func (m *MockState) GetCharmManifest(arg0 context.Context, arg1 charm.ID) (charm0.Manifest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCharmManifest", arg0, arg1)
+	ret0, _ := ret[0].(charm0.Manifest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCharmManifest indicates an expected call of GetCharmManifest.
+func (mr *MockStateMockRecorder) GetCharmManifest(arg0, arg1 any) *MockStateGetCharmManifestCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmManifest", reflect.TypeOf((*MockState)(nil).GetCharmManifest), arg0, arg1)
+	return &MockStateGetCharmManifestCall{Call: call}
+}
+
+// MockStateGetCharmManifestCall wrap *gomock.Call
+type MockStateGetCharmManifestCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetCharmManifestCall) Return(arg0 charm0.Manifest, arg1 error) *MockStateGetCharmManifestCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetCharmManifestCall) Do(f func(context.Context, charm.ID) (charm0.Manifest, error)) *MockStateGetCharmManifestCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetCharmManifestCall) DoAndReturn(f func(context.Context, charm.ID) (charm0.Manifest, error)) *MockStateGetCharmManifestCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetCharmMetadata mocks base method.
-func (m *MockState) GetCharmMetadata(arg0 context.Context, arg1 charm.UUID) (charm0.Metadata, error) {
+func (m *MockState) GetCharmMetadata(arg0 context.Context, arg1 charm.ID) (charm0.Metadata, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCharmMetadata", arg0, arg1)
 	ret0, _ := ret[0].(charm0.Metadata)
@@ -71,58 +149,58 @@ func (c *MockStateGetCharmMetadataCall) Return(arg0 charm0.Metadata, arg1 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetCharmMetadataCall) Do(f func(context.Context, charm.UUID) (charm0.Metadata, error)) *MockStateGetCharmMetadataCall {
+func (c *MockStateGetCharmMetadataCall) Do(f func(context.Context, charm.ID) (charm0.Metadata, error)) *MockStateGetCharmMetadataCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetCharmMetadataCall) DoAndReturn(f func(context.Context, charm.UUID) (charm0.Metadata, error)) *MockStateGetCharmMetadataCall {
+func (c *MockStateGetCharmMetadataCall) DoAndReturn(f func(context.Context, charm.ID) (charm0.Metadata, error)) *MockStateGetCharmMetadataCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
-// GetCharmUUID mocks base method.
-func (m *MockState) GetCharmUUID(arg0 context.Context, arg1 string) (charm.UUID, error) {
+// IsCharmAvailable mocks base method.
+func (m *MockState) IsCharmAvailable(arg0 context.Context, arg1 charm.ID) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCharmUUID", arg0, arg1)
-	ret0, _ := ret[0].(charm.UUID)
+	ret := m.ctrl.Call(m, "IsCharmAvailable", arg0, arg1)
+	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetCharmUUID indicates an expected call of GetCharmUUID.
-func (mr *MockStateMockRecorder) GetCharmUUID(arg0, arg1 any) *MockStateGetCharmUUIDCall {
+// IsCharmAvailable indicates an expected call of IsCharmAvailable.
+func (mr *MockStateMockRecorder) IsCharmAvailable(arg0, arg1 any) *MockStateIsCharmAvailableCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCharmUUID", reflect.TypeOf((*MockState)(nil).GetCharmUUID), arg0, arg1)
-	return &MockStateGetCharmUUIDCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsCharmAvailable", reflect.TypeOf((*MockState)(nil).IsCharmAvailable), arg0, arg1)
+	return &MockStateIsCharmAvailableCall{Call: call}
 }
 
-// MockStateGetCharmUUIDCall wrap *gomock.Call
-type MockStateGetCharmUUIDCall struct {
+// MockStateIsCharmAvailableCall wrap *gomock.Call
+type MockStateIsCharmAvailableCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetCharmUUIDCall) Return(arg0 charm.UUID, arg1 error) *MockStateGetCharmUUIDCall {
+func (c *MockStateIsCharmAvailableCall) Return(arg0 bool, arg1 error) *MockStateIsCharmAvailableCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetCharmUUIDCall) Do(f func(context.Context, string) (charm.UUID, error)) *MockStateGetCharmUUIDCall {
+func (c *MockStateIsCharmAvailableCall) Do(f func(context.Context, charm.ID) (bool, error)) *MockStateIsCharmAvailableCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetCharmUUIDCall) DoAndReturn(f func(context.Context, string) (charm.UUID, error)) *MockStateGetCharmUUIDCall {
+func (c *MockStateIsCharmAvailableCall) DoAndReturn(f func(context.Context, charm.ID) (bool, error)) *MockStateIsCharmAvailableCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // IsControllerCharm mocks base method.
-func (m *MockState) IsControllerCharm(arg0 context.Context, arg1 charm.UUID) (bool, error) {
+func (m *MockState) IsControllerCharm(arg0 context.Context, arg1 charm.ID) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsControllerCharm", arg0, arg1)
 	ret0, _ := ret[0].(bool)
@@ -149,19 +227,19 @@ func (c *MockStateIsControllerCharmCall) Return(arg0 bool, arg1 error) *MockStat
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateIsControllerCharmCall) Do(f func(context.Context, charm.UUID) (bool, error)) *MockStateIsControllerCharmCall {
+func (c *MockStateIsControllerCharmCall) Do(f func(context.Context, charm.ID) (bool, error)) *MockStateIsControllerCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateIsControllerCharmCall) DoAndReturn(f func(context.Context, charm.UUID) (bool, error)) *MockStateIsControllerCharmCall {
+func (c *MockStateIsControllerCharmCall) DoAndReturn(f func(context.Context, charm.ID) (bool, error)) *MockStateIsControllerCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // IsSubordinateCharm mocks base method.
-func (m *MockState) IsSubordinateCharm(arg0 context.Context, arg1 charm.UUID) (bool, error) {
+func (m *MockState) IsSubordinateCharm(arg0 context.Context, arg1 charm.ID) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsSubordinateCharm", arg0, arg1)
 	ret0, _ := ret[0].(bool)
@@ -188,19 +266,19 @@ func (c *MockStateIsSubordinateCharmCall) Return(arg0 bool, arg1 error) *MockSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateIsSubordinateCharmCall) Do(f func(context.Context, charm.UUID) (bool, error)) *MockStateIsSubordinateCharmCall {
+func (c *MockStateIsSubordinateCharmCall) Do(f func(context.Context, charm.ID) (bool, error)) *MockStateIsSubordinateCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateIsSubordinateCharmCall) DoAndReturn(f func(context.Context, charm.UUID) (bool, error)) *MockStateIsSubordinateCharmCall {
+func (c *MockStateIsSubordinateCharmCall) DoAndReturn(f func(context.Context, charm.ID) (bool, error)) *MockStateIsSubordinateCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SupportsContainers mocks base method.
-func (m *MockState) SupportsContainers(arg0 context.Context, arg1 charm.UUID) (bool, error) {
+func (m *MockState) SupportsContainers(arg0 context.Context, arg1 charm.ID) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SupportsContainers", arg0, arg1)
 	ret0, _ := ret[0].(bool)
@@ -227,13 +305,13 @@ func (c *MockStateSupportsContainersCall) Return(arg0 bool, arg1 error) *MockSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSupportsContainersCall) Do(f func(context.Context, charm.UUID) (bool, error)) *MockStateSupportsContainersCall {
+func (c *MockStateSupportsContainersCall) Do(f func(context.Context, charm.ID) (bool, error)) *MockStateSupportsContainersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSupportsContainersCall) DoAndReturn(f func(context.Context, charm.UUID) (bool, error)) *MockStateSupportsContainersCall {
+func (c *MockStateSupportsContainersCall) DoAndReturn(f func(context.Context, charm.ID) (bool, error)) *MockStateSupportsContainersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

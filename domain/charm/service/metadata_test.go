@@ -21,7 +21,7 @@ type metadataSuite struct {
 
 var _ = gc.Suite(&metadataSuite{})
 
-var testCases = [...]struct {
+var metadataTestCases = [...]struct {
 	name   string
 	input  charm.Metadata
 	output internalcharm.Meta
@@ -360,7 +360,7 @@ var testCases = [...]struct {
 }
 
 func (s *metadataSuite) TestConvertMetadata(c *gc.C) {
-	for _, tc := range testCases {
+	for _, tc := range metadataTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		result, err := convertMetadata(tc.input)

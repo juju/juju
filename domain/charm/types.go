@@ -216,8 +216,6 @@ type Resource struct {
 	// Type identifies the type of resource (e.g. "file").
 	Type ResourceType
 
-	// TODO(ericsnow) Rename Path to Filename?
-
 	// Path is the relative path of the file or directory where the
 	// resource will be stored under the unit's data directory. The path
 	// is resolved against a subdirectory assigned to the resource. For
@@ -245,3 +243,35 @@ type Mount struct {
 	Storage  string
 	Location string
 }
+
+// Manifest represents the manifest of a charm from the perspective of the
+// service. This is the golden source of charm manifest. If the charm changes
+// at the wire format level, we should be able to map it to this struct.
+type Manifest struct {
+	Bases []Base
+}
+
+// Base represents an OS/Channel and architecture combination that a charm
+// supports.
+type Base struct {
+	Name          string
+	Channel       Channel
+	Architectures []string
+}
+
+// Channel represents the channel of a charm.
+type Channel struct {
+	Track  string
+	Risk   ChannelRisk
+	Branch string
+}
+
+// ChannelRisk describes the type of risk in a current channel.
+type ChannelRisk string
+
+const (
+	RiskStable    ChannelRisk = "stable"
+	RiskCandidate ChannelRisk = "candidate"
+	RiskBeta      ChannelRisk = "beta"
+	RiskEdge      ChannelRisk = "edge"
+)

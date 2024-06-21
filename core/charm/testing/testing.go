@@ -10,10 +10,10 @@ import (
 	corecharm "github.com/juju/juju/core/charm"
 )
 
-// GenCharmUUID can be used in testing for generating a charm uuid that is
+// GenCharmID can be used in testing for generating a charm ID that is
 // checked for subsequent errors using the test suits go check instance.
-func GenCharmUUID(c *gc.C) corecharm.UUID {
-	uuid, err := corecharm.NewUUID()
+func GenCharmID(c *gc.C) corecharm.ID {
+	id, err := corecharm.NewID()
 	c.Assert(err, jc.ErrorIsNil)
-	return uuid
+	return id
 }

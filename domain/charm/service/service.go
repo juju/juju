@@ -35,25 +35,33 @@ type WatcherFactory interface {
 
 // State describes retrieval and persistence methods for charms.
 type State interface {
-	// GetCharmUUID returns the charm UUID by the natural key.
+	// GetCharmID returns the charm ID by the natural key.
 	// If the charm does not exist, a NotFound error is returned.
-	GetCharmUUID(ctx context.Context, name string) (corecharm.UUID, error)
+	GetCharmID(ctx context.Context, name string) (corecharm.ID, error)
 
 	// IsControllerCharm returns whether the charm is a controller charm.
 	// If the charm does not exist, a NotFound error is returned.
-	IsControllerCharm(ctx context.Context, uuid corecharm.UUID) (bool, error)
+	IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error)
 
 	// IsSubordinateCharm returns whether the charm is a subordinate charm.
 	// If the charm does not exist, a NotFound error is returned.
-	IsSubordinateCharm(ctx context.Context, charmUUID corecharm.UUID) (bool, error)
+	IsSubordinateCharm(ctx context.Context, charmID corecharm.ID) (bool, error)
+
+	// IsCharmAvailable returns whether the charm is available for use.
+	// If the charm does not exist, a NotFound error is returned.
+	IsCharmAvailable(ctx context.Context, charmID corecharm.ID) (bool, error)
 
 	// SupportsContainers returns whether the charm supports containers.
 	// If the charm does not exist, a NotFound error is returned.
-	SupportsContainers(ctx context.Context, charmUUID corecharm.UUID) (bool, error)
+	SupportsContainers(ctx context.Context, charmID corecharm.ID) (bool, error)
 
-	// GetCharmMetadata returns the metadata for the charm using the charm UUID.
+	// GetCharmMetadata returns the metadata for the charm using the charm ID.
 	// If the charm does not exist, a NotFound error is returned.
-	GetCharmMetadata(ctx context.Context, charmUUID corecharm.UUID) (charm.Metadata, error)
+	GetCharmMetadata(ctx context.Context, charmID corecharm.ID) (charm.Metadata, error)
+
+	// GetCharmManifest returns the manifest for the charm using the charm ID.
+	// If the charm does not exist, a NotFound error is returned.
+	GetCharmManifest(ctx context.Context, charmID corecharm.ID) (charm.Manifest, error)
 }
 
 // Service provides the API for working with charms.
@@ -70,27 +78,38 @@ func NewService(st State, logger logger.Logger) *Service {
 	}
 }
 
-// GetCharmUUID returns a charm UUID by name. It returns an error if the charm
+// GetCharmID returns a charm ID by name. It returns an error if the charm
 // can not be found by the name.
 // This can also be used as a cheap way to see if a charm exists without
 // needing to load the charm metadata.
-func (s *Service) GetCharmUUID(ctx context.Context, name string) (corecharm.UUID, error) {
+func (s *Service) GetCharmID(ctx context.Context, name string) (corecharm.ID, error) {
 	if !charmNameRegExp.MatchString(name) {
 		return "", charmerrors.NameNotValid
 	}
 
-	return s.st.GetCharmUUID(ctx, name)
+	return s.st.GetCharmID(ctx, name)
+}
+
+// IsCharmAvailable returns whether the charm is available for use. This
+// indicates if the charm has been uploaded to the controller.
+// This will return true if the charm is available, and false otherwise.
+// If the charm does not exist, a NotFound error is returned.
+func (s *Service) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error) {
+	if err := id.Validate(); err != nil {
+		return false, fmt.Errorf("charm id: %w", err)
+	}
+	return s.st.IsCharmAvailable(ctx, id)
 }
 
 // IsControllerCharm returns whether the charm is a controller charm.
 // This will return true if the charm is a controller charm, and false
 // otherwise.
 // If the charm does not exist, a NotFound error is returned.
-func (s *Service) IsControllerCharm(ctx context.Context, uuid corecharm.UUID) (bool, error) {
-	if err := uuid.Validate(); err != nil {
-		return false, fmt.Errorf("charm uuid: %w", err)
+func (s *Service) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error) {
+	if err := id.Validate(); err != nil {
+		return false, fmt.Errorf("charm id: %w", err)
 	}
-	return s.st.IsControllerCharm(ctx, uuid)
+	return s.st.IsControllerCharm(ctx, id)
 }
 
 // SupportsContainers returns whether the charm supports containers. This
@@ -98,37 +117,52 @@ func (s *Service) IsControllerCharm(ctx context.Context, uuid corecharm.UUID) (b
 // This will return true if the charm is a controller charm, and false
 // otherwise.
 // If the charm does not exist, a NotFound error is returned.
-func (s *Service) SupportsContainers(ctx context.Context, uuid corecharm.UUID) (bool, error) {
-	if err := uuid.Validate(); err != nil {
-		return false, fmt.Errorf("charm uuid: %w", err)
+func (s *Service) SupportsContainers(ctx context.Context, id corecharm.ID) (bool, error) {
+	if err := id.Validate(); err != nil {
+		return false, fmt.Errorf("charm id: %w", err)
 	}
-	return s.st.SupportsContainers(ctx, uuid)
+	return s.st.SupportsContainers(ctx, id)
 }
 
 // IsSubordinateCharm returns whether the charm is a subordinate charm.
 // This will return true if the charm is a subordinate charm, and false
 // otherwise.
 // If the charm does not exist, a NotFound error is returned.
-func (s *Service) IsSubordinateCharm(ctx context.Context, uuid corecharm.UUID) (bool, error) {
-	if err := uuid.Validate(); err != nil {
-		return false, fmt.Errorf("charm uuid: %w", err)
+func (s *Service) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool, error) {
+	if err := id.Validate(); err != nil {
+		return false, fmt.Errorf("charm id: %w", err)
 	}
-	return s.st.IsSubordinateCharm(ctx, uuid)
+	return s.st.IsSubordinateCharm(ctx, id)
 }
 
-// GetCharmMetadata returns the metadata for the charm using the charm UUID.
+// GetCharmMetadata returns the metadata for the charm using the charm ID.
 // If the charm does not exist, a NotFound error is returned.
-func (s *Service) GetCharmMetadata(ctx context.Context, uuid corecharm.UUID) (internalcharm.Meta, error) {
-	if err := uuid.Validate(); err != nil {
-		return internalcharm.Meta{}, fmt.Errorf("charm uuid: %w", err)
+func (s *Service) GetCharmMetadata(ctx context.Context, id corecharm.ID) (internalcharm.Meta, error) {
+	if err := id.Validate(); err != nil {
+		return internalcharm.Meta{}, fmt.Errorf("charm id: %w", err)
 	}
 
-	metadata, err := s.st.GetCharmMetadata(ctx, uuid)
+	metadata, err := s.st.GetCharmMetadata(ctx, id)
 	if err != nil {
 		return internalcharm.Meta{}, errors.Trace(err)
 	}
 
 	return convertMetadata(metadata)
+}
+
+// GetCharmManifest returns the manifest for the charm using the charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *Service) GetCharmManifest(ctx context.Context, id corecharm.ID) (internalcharm.Manifest, error) {
+	if err := id.Validate(); err != nil {
+		return internalcharm.Manifest{}, fmt.Errorf("charm id: %w", err)
+	}
+
+	manifest, err := s.st.GetCharmManifest(ctx, id)
+	if err != nil {
+		return internalcharm.Manifest{}, errors.Trace(err)
+	}
+
+	return convertManifest(manifest)
 }
 
 // WatchableService provides the API for working with charms and the
