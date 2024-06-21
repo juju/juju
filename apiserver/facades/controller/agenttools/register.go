@@ -5,6 +5,7 @@ package agenttools
 
 import (
 	"context"
+	"github.com/juju/juju/environs/tools"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -32,5 +33,14 @@ func newFacade(ctx facade.ModelContext) (*AgentToolsAPI, error) {
 		newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 		return newEnviron(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
 	}
-	return NewAgentToolsAPI(st, newEnviron, findTools, envVersionUpdate, ctx.Auth(), ctx.Logger().Child("model"))
+	return NewAgentToolsAPI(
+		st,
+		newEnviron,
+		tools.FindTools,
+		envVersionUpdate,
+		ctx.Auth(),
+		ctx.Logger().Child("model"),
+		ctx.ServiceFactory().Config(),
+		ctx.ServiceFactory().Agent(),
+	)
 }
