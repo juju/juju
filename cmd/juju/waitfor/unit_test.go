@@ -97,11 +97,26 @@ func (s *unitScopeSuite) TestGetIdentValue(c *gc.C) {
 }
 
 func (s *unitScopeSuite) TestGetIdentValueError(c *gc.C) {
-	scope := UnitScope{
-		ctx:      MakeScopeContext(),
+	tests := []struct {
+		Field    string
+		UnitInfo *params.UnitInfo
+		Err      string
+	}{{
+		Field:    "bad",
 		UnitInfo: &params.UnitInfo{},
+		Err:      `"bad" on UnitInfo.*`,
+	}, {
+		Field:    "application",
+		UnitInfo: nil,
+		Err:      "internal error: UnitInfo is missing",
+	}}
+	for _, test := range tests {
+		scope := UnitScope{
+			ctx:      MakeScopeContext(),
+			UnitInfo: test.UnitInfo,
+		}
+		result, err := scope.GetIdentValue(test.Field)
+		c.Assert(err, gc.ErrorMatches, test.Err)
+		c.Assert(result, gc.IsNil)
 	}
-	result, err := scope.GetIdentValue("bad")
-	c.Assert(err, gc.ErrorMatches, `"bad" on UnitInfo.*`)
-	c.Assert(result, gc.IsNil)
 }
