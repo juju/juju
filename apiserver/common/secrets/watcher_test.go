@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common/secrets"
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -49,18 +50,19 @@ func (s *watcherSuite) TestSecretBackendModelConfigWatcher(c *gc.C) {
 	}()
 	receiverReady <- struct{}{}
 
+	modelUUID := coremodel.UUID(coretesting.ModelTag.Id())
 	gomock.InOrder(
 		// Initial call to get the current secret backend.
-		backendGetter.EXPECT().GetSecretBackendID(gomock.Any()).Return("backend-id", nil),
+		backendGetter.EXPECT().GetModelSecretBackendID(gomock.Any(), modelUUID).Return("backend-id", nil),
 		// Call to get the current secret backend after the first change(no change, but we always send the initial event).
-		backendGetter.EXPECT().GetSecretBackendID(gomock.Any()).Return("backend-id", nil),
+		backendGetter.EXPECT().GetModelSecretBackendID(gomock.Any(), modelUUID).Return("backend-id", nil),
 		// Call to get the current secret backend after the first change(no change, we won't send the event).
-		backendGetter.EXPECT().GetSecretBackendID(gomock.Any()).Return("backend-id", nil),
+		backendGetter.EXPECT().GetModelSecretBackendID(gomock.Any(), modelUUID).Return("backend-id", nil),
 		// Call to get the current secret backend after the second change - backend changed.
-		backendGetter.EXPECT().GetSecretBackendID(gomock.Any()).Return("a-different-backend-id", nil),
+		backendGetter.EXPECT().GetModelSecretBackendID(gomock.Any(), modelUUID).Return("a-different-backend-id", nil),
 	)
 
-	w, err := secrets.NewSecretBackendModelConfigWatcher(context.Background(), backendGetter, backendWatcher, loggertesting.WrapCheckLog(c))
+	w, err := secrets.NewSecretBackendModelConfigWatcher(context.Background(), loggertesting.WrapCheckLog(c), modelUUID, backendGetter, backendWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.DirtyKill(c, w) })
 
