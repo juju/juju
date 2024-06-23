@@ -148,3 +148,9 @@ DELETE FROM net_node WHERE uuid IN
 	})
 	return errors.Annotatef(err, "deleting machine %q", machineId)
 }
+
+// InitialWatchStatement returns the table and the initial watch statement
+// for the machines.
+func (s *State) InitialWatchStatement() (string, string) {
+	return "machine", "SELECT machine_id FROM machine"
+}

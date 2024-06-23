@@ -91,7 +91,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForSecretRevision("uuid", tableSecretRevision),
 		triggers.ChangeLogTriggersForSecretReference("secret_id", tableSecretReference),
 		triggers.ChangeLogTriggersForSubnet("uuid", tableSubnet),
-		triggers.ChangeLogTriggersForMachine("uuid", tableMachine),
+		triggers.ChangeLogTriggersForMachine("machine_id", tableMachine),
 	)
 
 	// Generic triggers.
