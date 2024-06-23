@@ -161,3 +161,10 @@ jobs:
 
     - name: Lint SQL
       run: "sqlfluff lint --config .github/.sqlfluff domain/schema/**/sql/*.sql"
+
+  conventional-commits:
+    name: Check conventional commits
+    runs-on: ubuntu-latest
+    steps:
+        - uses: actions/checkout@v4
+        - uses: wagoid/commitlint-github-action@v6

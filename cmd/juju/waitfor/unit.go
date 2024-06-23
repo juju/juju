@@ -230,6 +230,11 @@ func (m UnitScope) GetIdents() []string {
 func (m UnitScope) GetIdentValue(name string) (query.Box, error) {
 	m.ctx.RecordIdent(name)
 
+	// UnitInfo could be nil - handle it here to avoid nil pointer dereference
+	if m.UnitInfo == nil {
+		return nil, errors.New("internal error: UnitInfo is missing")
+	}
+
 	switch name {
 	case "name":
 		return query.NewString(m.UnitInfo.Name), nil
