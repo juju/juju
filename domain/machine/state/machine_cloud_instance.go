@@ -188,3 +188,12 @@ WHERE m.machine_id = $M.machine_id;
 	}
 	return instanceId, nil
 }
+
+// InstanceStatus returns the provider specific instance status for this
+// machine.
+// If the machine is not provisioned, it returns a NotProvisionedError.
+func (st *State) InstanceStatus(ctx context.Context, machineId string) (string, error) {
+	// TODO(cderici): Implementation for this is deferred until the design for
+	// the domain entity statuses on dqlite is finalized.
+	return "", nil
+}
