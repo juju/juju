@@ -38,7 +38,7 @@ func (*machineSuite) TestIdValidate(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %q", i, test.id)
-		err := Id(test.id).Validate()
+		err := ID(test.id).Validate()
 
 		if test.err == nil {
 			c.Check(err, gc.IsNil)

@@ -11,22 +11,22 @@ import (
 	"github.com/juju/juju/internal/uuid"
 )
 
-// Id is a unqiue identifier for a machine.
-type Id string
+// ID is a unique identifier for a machine.
+type ID string
 
-// NewId makes and returns a new machine [Id].
-func NewId() (Id, error) {
+// NewId makes and returns a new machine [ID].
+func NewId() (ID, error) {
 	uuid, err := uuid.NewUUID()
 	if err != nil {
 		return "", fmt.Errorf("generating new machine id: %w", err)
 	}
 
-	return Id(uuid.String()), nil
+	return ID(uuid.String()), nil
 }
 
-// Validate returns an error if the [Id] is invalid. The error returned
+// Validate returns an error if the [ID] is invalid. The error returned
 // satisfies [errors.NotValid].
-func (i Id) Validate() error {
+func (i ID) Validate() error {
 	if i == "" {
 		return fmt.Errorf("empty machine id%w", errors.Hide(errors.NotValid))
 	}
@@ -36,7 +36,7 @@ func (i Id) Validate() error {
 	return nil
 }
 
-// String returns the [Id] as a string.
-func (i Id) String() string {
+// String returns the [ID] as a string.
+func (i ID) String() string {
 	return string(i)
 }
