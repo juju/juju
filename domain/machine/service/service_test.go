@@ -11,6 +11,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/domain/life"
 )
 
 type serviceSuite struct {
@@ -64,4 +66,27 @@ func (s *serviceSuite) TestDeleteMachineError(c *gc.C) {
 	err := NewService(s.state).DeleteMachine(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `deleting machine "666": boom`)
+}
+
+func (s *serviceSuite) TestGetLifeSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	life := life.Alive
+	s.state.EXPECT().GetLife(gomock.Any(), "666").Return(&life, nil)
+
+	l, err := NewService(s.state).GetLife(context.Background(), "666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(l, gc.Equals, &life)
+}
+
+func (s *serviceSuite) TestGetLifeError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().GetLife(gomock.Any(), "666").Return(nil, rErr)
+
+	l, err := NewService(s.state).GetLife(context.Background(), "666")
+	c.Check(l, gc.IsNil)
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Assert(err, gc.ErrorMatches, `getting life status for machine "666": boom`)
 }

@@ -154,3 +154,32 @@ DELETE FROM net_node WHERE uuid IN
 func (s *State) InitialWatchStatement() (string, string) {
 	return "machine", "SELECT machine_id FROM machine"
 }
+
+// GetLife returns the life status of the specified machine.
+func (st *State) GetLife(ctx context.Context, machineId string) (*life.Life, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	queryForLife := `SELECT &M.life_id FROM machine WHERE machine_id = $M.machine_id`
+	lifeStmt, err := st.Prepare(queryForLife, sqlair.M{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var lifeResult life.Life
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result := sqlair.M{}
+		err := tx.Query(ctx, lifeStmt, sqlair.M{"machine_id": machineId}).Get(&result)
+		if err != nil {
+			return errors.Annotatef(err, "looking up life for machine %q", machineId)
+		}
+
+		machineLife := result["life_id"].(int64)
+		lifeResult = life.Life(machineLife)
+
+		return nil
+	})
+	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", machineId)
+}

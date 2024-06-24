@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -123,4 +124,14 @@ VALUES (?, ?)
 		c.Assert(err, jc.ErrorIsNil)
 	}
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) TestGetLife(c *gc.C) {
+	err := s.state.UpsertMachine(context.Background(), "666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedLife, err := s.state.GetLife(context.Background(), "666")
+	expectedLife := life.Alive
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*obtainedLife, gc.Equals, expectedLife)
 }

@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	life "github.com/juju/juju/domain/life"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -111,6 +112,45 @@ func (c *MockStateDeleteMachineCall) Do(f func(context.Context, string) error) *
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateDeleteMachineCall) DoAndReturn(f func(context.Context, string) error) *MockStateDeleteMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetLife mocks base method.
+func (m *MockState) GetLife(arg0 context.Context, arg1 string) (*life.Life, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLife", arg0, arg1)
+	ret0, _ := ret[0].(*life.Life)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLife indicates an expected call of GetLife.
+func (mr *MockStateMockRecorder) GetLife(arg0, arg1 any) *MockStateGetLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLife", reflect.TypeOf((*MockState)(nil).GetLife), arg0, arg1)
+	return &MockStateGetLifeCall{Call: call}
+}
+
+// MockStateGetLifeCall wrap *gomock.Call
+type MockStateGetLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetLifeCall) Return(arg0 *life.Life, arg1 error) *MockStateGetLifeCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetLifeCall) Do(f func(context.Context, string) (*life.Life, error)) *MockStateGetLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetLifeCall) DoAndReturn(f func(context.Context, string) (*life.Life, error)) *MockStateGetLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
