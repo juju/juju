@@ -337,6 +337,14 @@ func (s *stateSuite) TestModelsForController(c *gc.C) {
 	c.Assert(models, jc.SameContents, []string{"model1"})
 }
 
+func (s *stateSuite) TestModelsForControllerNoRows(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	models, err := st.ModelsForController(ctx.Background(), "ctrl1")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(models, gc.HasLen, 0)
+}
+
 func (s *stateSuite) TestControllersForModels(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	db := s.DB()
