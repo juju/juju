@@ -24,6 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	corebase "github.com/juju/juju/core/base"
+	coremodelconfig "github.com/juju/juju/core/modelconfig"
 	"github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/tags"
@@ -194,9 +195,9 @@ const (
 	// the network for containers.
 	NetBondReconfigureDelayKey = "net-bond-reconfigure-delay"
 
-	// ContainerNetworkingMethod is the key for setting up
-	// networking method for containers.
-	ContainerNetworkingMethod = "container-networking-method"
+	// ContainerNetworkingMethodKey is the key for setting up networking method
+	// for containers.
+	ContainerNetworkingMethodKey = "container-networking-method"
 
 	// StorageDefaultBlockSourceKey is the key for the default block storage source.
 	StorageDefaultBlockSourceKey = "storage-default-block-source"
@@ -211,6 +212,21 @@ const (
 	// AutomaticallyRetryHooks determines whether the uniter will
 	// automatically retry a hook that has failed
 	AutomaticallyRetryHooks = "automatically-retry-hooks"
+
+	// EnableOSRefreshUpdateKey determines whether newly provisioned instances
+	// should run their respective OS's update capability.
+	EnableOSRefreshUpdateKey = "enable-os-refresh-update"
+
+	// EnableOSUpgradeKey determines whether newly provisioned instances
+	// should run their respective OS's upgrade capability.
+	EnableOSUpgradeKey = "enable-os-upgrade"
+
+	// DevelopmentKey determines whether the model is in development mode.
+	DevelopmentKey = "development"
+
+	// SSLHostnameVerificationKey determines whether the environment has
+	// SSL hostname verification enabled.
+	SSLHostnameVerificationKey = "ssl-hostname-verification"
 
 	// TransmitVendorMetricsKey is the key for whether the controller sends
 	// metrics collected in this model for anonymized aggregate analytics.
@@ -519,7 +535,7 @@ var defaultConfigValues = map[string]any{
 	"firewall-mode":              FwInstance,
 	"disable-network-management": false,
 	IgnoreMachineAddresses:       false,
-	"ssl-hostname-verification":  true,
+	SSLHostnameVerificationKey:   true,
 	"proxy-ssh":                  false,
 	DefaultSpaceKey:              "",
 	// Why is net-bond-reconfigure-delay set to 17 seconds?
@@ -539,8 +555,8 @@ var defaultConfigValues = map[string]any{
 	// This value can be further tweaked via:
 	//
 	// $ juju model-config net-bond-reconfigure-delay=30
-	NetBondReconfigureDelayKey: 17,
-	ContainerNetworkingMethod:  "",
+	NetBondReconfigureDelayKey:   17,
+	ContainerNetworkingMethodKey: "",
 
 	DefaultBaseKey: "",
 
@@ -550,9 +566,9 @@ var defaultConfigValues = map[string]any{
 	ResourceTagsKey:                 "",
 	LoggingConfigKey:                "",
 	AutomaticallyRetryHooks:         true,
-	"enable-os-refresh-update":      true,
-	"enable-os-upgrade":             true,
-	"development":                   false,
+	EnableOSRefreshUpdateKey:        true,
+	EnableOSUpgradeKey:              true,
+	DevelopmentKey:                  false,
 	TestModeKey:                     false,
 	ModeKey:                         RequiresPromptsMode,
 	DisableTelemetryKey:             false,
@@ -764,16 +780,6 @@ func Validate(_ctx context.Context, cfg, old *Config) error {
 		_, err := network.ParseFanConfig(v)
 		if err != nil {
 			return err
-		}
-	}
-
-	if v, ok := cfg.defined[ContainerNetworkingMethod].(string); ok {
-		switch v {
-		case "provider": // TODO(wpk) FIXME we should check that the provider supports this setting!
-		case "local":
-		case "": // We'll try to autoconfigure it
-		default:
-			return fmt.Errorf("Invalid value for container-networking-method - %v", v)
 		}
 	}
 
@@ -1046,8 +1052,8 @@ func (c *Config) NetBondReconfigureDelay() int {
 
 // ContainerNetworkingMethod returns the method with which
 // containers network should be set up.
-func (c *Config) ContainerNetworkingMethod() string {
-	return c.asString(ContainerNetworkingMethod)
+func (c *Config) ContainerNetworkingMethod() coremodelconfig.ContainerNetworkingMethod {
+	return coremodelconfig.ContainerNetworkingMethod(c.asString(ContainerNetworkingMethodKey))
 }
 
 // LegacyProxySettings returns all four proxy settings; http, https, ftp, and no
@@ -1302,14 +1308,14 @@ func (c *Config) ContainerImageMetadataDefaultsDisabled() bool {
 
 // Development returns whether the environment is in development mode.
 func (c *Config) Development() bool {
-	value, _ := c.defined["development"].(bool)
+	value, _ := c.defined[DevelopmentKey].(bool)
 	return value
 }
 
 // EnableOSRefreshUpdate returns whether or not newly provisioned
 // instances should run their respective OS's update capability.
 func (c *Config) EnableOSRefreshUpdate() bool {
-	val, ok := c.defined["enable-os-refresh-update"].(bool)
+	val, ok := c.defined[EnableOSRefreshUpdateKey].(bool)
 	if !ok {
 		return true
 	}
@@ -1319,17 +1325,17 @@ func (c *Config) EnableOSRefreshUpdate() bool {
 // EnableOSUpgrade returns whether or not newly provisioned instances
 // should run their respective OS's upgrade capability.
 func (c *Config) EnableOSUpgrade() bool {
-	val, ok := c.defined["enable-os-upgrade"].(bool)
+	val, ok := c.defined[EnableOSUpgradeKey].(bool)
 	if !ok {
 		return true
 	}
 	return val
 }
 
-// SSLHostnameVerification returns weather the environment has requested
+// SSLHostnameVerification returns whether the environment has requested
 // SSL hostname verification to be enabled.
 func (c *Config) SSLHostnameVerification() bool {
-	return c.defined["ssl-hostname-verification"].(bool)
+	return c.defined[SSLHostnameVerificationKey].(bool)
 }
 
 // LoggingConfig returns the configuration string for the loggers.
@@ -1797,11 +1803,11 @@ var alwaysOptional = schema.Defaults{
 	AgentStreamKey:                  schema.Omit,
 	ResourceTagsKey:                 schema.Omit,
 	"cloudimg-base-url":             schema.Omit,
-	"enable-os-refresh-update":      schema.Omit,
-	"enable-os-upgrade":             schema.Omit,
+	EnableOSRefreshUpdateKey:        schema.Omit,
+	EnableOSUpgradeKey:              schema.Omit,
 	DefaultBaseKey:                  schema.Omit,
-	"development":                   schema.Omit,
-	"ssl-hostname-verification":     schema.Omit,
+	DevelopmentKey:                  schema.Omit,
+	SSLHostnameVerificationKey:      schema.Omit,
 	"proxy-ssh":                     schema.Omit,
 	"disable-network-management":    schema.Omit,
 	IgnoreMachineAddresses:          schema.Omit,
@@ -1811,7 +1817,7 @@ var alwaysOptional = schema.Defaults{
 	ModeKey:                         schema.Omit,
 	TransmitVendorMetricsKey:        schema.Omit,
 	NetBondReconfigureDelayKey:      schema.Omit,
-	ContainerNetworkingMethod:       schema.Omit,
+	ContainerNetworkingMethodKey:    schema.Omit,
 	MaxStatusHistoryAge:             schema.Omit,
 	MaxStatusHistorySize:            schema.Omit,
 	MaxActionResultsAge:             schema.Omit,

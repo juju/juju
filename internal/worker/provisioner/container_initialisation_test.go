@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/agent"
 	apiprovisioner "github.com/juju/juju/api/agent/provisioner"
 	provisionermocks "github.com/juju/juju/api/agent/provisioner/mocks"
+	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/network"
@@ -141,7 +142,7 @@ func (s *containerSetupSuite) patch(c *gc.C) *gomock.Controller {
 
 	s.machine.EXPECT().MachineTag().Return(names.NewMachineTag("0")).AnyTimes()
 
-	s.PatchValue(GetContainerInitialiser, func(instance.ContainerType, map[string]string, string) (container.Initialiser, error) {
+	s.PatchValue(GetContainerInitialiser, func(instance.ContainerType, map[string]string, containermanager.NetworkingMethod) (container.Initialiser, error) {
 		return s.initialiser, nil
 	})
 

@@ -9,12 +9,16 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain"
+	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
+	agentprovisionerstate "github.com/juju/juju/domain/agentprovisioner/state"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	annotationState "github.com/juju/juju/domain/annotation/state"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	applicationstate "github.com/juju/juju/domain/application/state"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
+	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
+	keyupdaterstate "github.com/juju/juju/domain/keyupdater/state"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	machinestate "github.com/juju/juju/domain/machine/state"
 	modelservice "github.com/juju/juju/domain/model/service"
@@ -66,6 +70,16 @@ func NewModelFactory(
 		modelDB:         modelDB,
 		providerFactory: providerFactory,
 	}
+}
+
+// AgentProvisioner returns the agent provisioner service.
+func (s *ModelFactory) AgentProvisioner() *agentprovisionerservice.Service {
+	return agentprovisionerservice.NewService(
+		agentprovisionerstate.NewState(
+			changestream.NewTxnRunnerFactory(s.modelDB),
+		),
+		providertracker.ProviderRunner[agentprovisionerservice.Provider](s.providerFactory, s.modelUUID.String()),
+	)
 }
 
 // Config returns the model's configuration service.
@@ -197,5 +211,17 @@ func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
 		s.modelUUID,
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
+// KeyUpdater returns the key updater service.
+func (s *ModelFactory) KeyUpdater() *keyupdaterservice.Service {
+	return keyupdaterservice.NewService(
+		keyupdaterservice.NewControllerKeyService(
+			keyupdaterstate.NewControllerKeyState(
+				changestream.NewTxnRunnerFactory(s.controllerDB),
+			),
+		),
+		keyupdaterstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }

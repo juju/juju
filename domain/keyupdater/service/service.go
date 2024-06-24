@@ -60,6 +60,8 @@ type State interface {
 	// [github.com/juju/juju/domain/machine/errors.NotFound] error will be
 	// returned.
 	AuthorisedKeysForMachine(context.Context, coremachine.Name) ([]string, error)
+	// AllAuthorisedKeys returns all authorised keys for the model.
+	AllAuthorisedKeys(context.Context) ([]string, error)
 }
 
 // WatchableState provides the access layer the [WatchableService] needs for
@@ -153,4 +155,14 @@ func (s *WatchableService) WatchAuthorisedKeysForMachine(
 		changestream.All,
 		eventsource.InitialNamespaceChanges(s.st.AllPublicKeysQuery()),
 	)
+}
+
+// GetInitialAuthorisedKeysForContainer returns the authorised keys to be used
+// when provisioning a new container.
+func (s *Service) GetInitialAuthorisedKeysForContainer(ctx context.Context) ([]string, error) {
+	keys, err := s.st.AllAuthorisedKeys(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getting initial authorised keys for container: %w", err)
+	}
+	return keys, nil
 }

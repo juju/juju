@@ -7,8 +7,9 @@ import (
 	"context"
 	"slices"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	coremachine "github.com/juju/juju/core/machine"
@@ -101,4 +102,29 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNotFound(c *gc.C) {
 		coremachine.Name("0"),
 	)
 	c.Check(err, jc.ErrorIs, machineerrors.NotFound)
+}
+
+// TestGetInitialAuthorisedKeysForContainerSuccess tests the happy path for
+// Service.GetInitialAuthorisedKeysForContainer.
+func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().AllAuthorisedKeys(gomock.Any()).Return(controllerKeys, nil)
+
+	keys, err := NewService(s.controllerKeyProvider, s.state).
+		GetInitialAuthorisedKeysForContainer(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(keys, jc.DeepEquals, controllerKeys)
+}
+
+// TestGetInitialAuthorisedKeysForContainerSuccess checks that
+// Service.GetInitialAuthorisedKeysForContainer surfaces errors from state.
+func (s *serviceSuite) TestGetInitialAuthorisedKeysForContainerFailure(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().AllAuthorisedKeys(gomock.Any()).Return(nil, errors.New("foo"))
+
+	_, err := NewService(s.controllerKeyProvider, s.state).
+		GetInitialAuthorisedKeysForContainer(context.Background())
+	c.Check(err, gc.ErrorMatches, ".*foo")
 }

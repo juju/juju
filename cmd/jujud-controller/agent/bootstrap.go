@@ -429,19 +429,6 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// Set up default container networking mode
-	model, err := st.Model()
-	if err != nil {
-		return err
-	}
-	if err = model.AutoConfigureContainerNetworking(env, configSchemaSource); err != nil {
-		if errors.Is(err, errors.NotSupported) {
-			logger.Debugf("Not performing container networking auto-configuration on a non-networking environment")
-		} else {
-			return err
-		}
-	}
-
 	if !isCAAS {
 		// Add custom image metadata to environment storage.
 		if len(args.CustomImageMetadata) > 0 {

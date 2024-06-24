@@ -6,6 +6,7 @@ package servicefactory
 import (
 	"github.com/juju/juju/core/model"
 	accessservice "github.com/juju/juju/domain/access/service"
+	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
@@ -16,6 +17,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	flagservice "github.com/juju/juju/domain/flag/service"
+	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	modelservice "github.com/juju/juju/domain/model/service"
@@ -71,7 +73,9 @@ type ControllerServiceFactory interface {
 // ModelServiceFactory provides access to the services required by the
 // apiserver for a given model.
 type ModelServiceFactory interface {
-	// Config returns the modelconfig service.
+	// AgentProvisioner returns the agent provisioner service.
+	AgentProvisioner() *agentprovisionerservice.Service
+	// Config returns the model config service.
 	Config() *modelconfigservice.WatchableService
 	// ObjectStore returns the object store service.
 	ObjectStore() *objectstoreservice.WatchableService
@@ -99,6 +103,8 @@ type ModelServiceFactory interface {
 	// the model service. As this is only for read-only model information, we
 	// can rename it to the more obscure version.
 	ModelInfo() *modelservice.ModelService
+	// KeyUpdater returns the key updater service.
+	KeyUpdater() *keyupdaterservice.Service
 	// ModelSecretBackend returns the model secret backend service.
 	ModelSecretBackend() *secretbackendservice.ModelSecretBackendService
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/juju/proxy"
 
 	corebase "github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/containermanager"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/internal/container"
 	"github.com/juju/juju/internal/packaging"
@@ -25,7 +26,7 @@ import (
 var hostBase = coreos.HostBase
 
 type containerInitialiser struct {
-	containerNetworkingMethod string
+	containerNetworkingMethod containermanager.NetworkingMethod
 	getExecCommand            func(string, ...string) *exec.Cmd
 	configureLxdProxies       func(_ proxy.Settings, isRunningLocally func() (bool, error), newLocalServer func() (*Server, error)) error
 	isRunningLocally          func() (bool, error)
@@ -54,7 +55,10 @@ var _ container.Initialiser = (*containerInitialiser)(nil)
 
 // NewContainerInitialiser returns an instance used to perform the steps
 // required to allow a host machine to run a LXC container.
-func NewContainerInitialiser(lxdSnapChannel, containerNetworkingMethod string) container.Initialiser {
+func NewContainerInitialiser(
+	lxdSnapChannel string,
+	containerNetworkingMethod containermanager.NetworkingMethod,
+) container.Initialiser {
 	ci := &containerInitialiser{
 		containerNetworkingMethod: containerNetworkingMethod,
 		getExecCommand:            exec.Command,
@@ -87,7 +91,7 @@ func (ci *containerInitialiser) Initialise() (err error) {
 	}()
 
 	var output []byte
-	if ci.containerNetworkingMethod == "local" {
+	if ci.containerNetworkingMethod == containermanager.NetworkingMethodLocal {
 		output, err = ci.getExecCommand(
 			"lxd",
 			"init",
