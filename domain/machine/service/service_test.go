@@ -111,3 +111,24 @@ func (s *serviceSuite) TestListAllMachinesError(c *gc.C) {
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(machines, gc.IsNil)
 }
+
+func (s *serviceSuite) TestInstanceIdSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().InstanceId(gomock.Any(), "666").Return("123", nil)
+
+	instanceId, err := NewService(s.state).InstanceId(context.Background(), "666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(instanceId, gc.Equals, "123")
+}
+
+func (s *serviceSuite) TestInstanceIdError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().InstanceId(gomock.Any(), "666").Return("", rErr)
+
+	instanceId, err := NewService(s.state).InstanceId(context.Background(), "666")
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Assert(instanceId, gc.Equals, "")
+}

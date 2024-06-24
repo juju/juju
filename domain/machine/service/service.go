@@ -32,6 +32,10 @@ type State interface {
 	// If there's no machine, it returns an empty slice.
 	AllMachines(context.Context) ([]string, error)
 
+	// InstanceId returns the provider specific instance id for this machine.
+	// If the machine is not provisioned, it returns a NotProvisionedError.
+	InstanceId(context.Context, string) (string, error)
+
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
 	HardwareCharacteristics(context.Context, string) (*instance.HardwareCharacteristics, error)
@@ -95,4 +99,14 @@ func (s *Service) ListAllMachines(ctx context.Context) ([]string, error) {
 		return nil, errors.Annotate(err, "retrieving all machines")
 	}
 	return machines, nil
+}
+
+// InstanceId returns the provider specific instance id for this machine.
+// If the machine is not provisioned, it returns a NotProvisionedError.
+func (s *Service) InstanceId(ctx context.Context, machineId string) (string, error) {
+	instanceId, err := s.st.InstanceId(ctx, machineId)
+	if err != nil {
+		return "", errors.Annotatef(err, "retrieving cloud instance id for machine %q", machineId)
+	}
+	return instanceId, nil
 }

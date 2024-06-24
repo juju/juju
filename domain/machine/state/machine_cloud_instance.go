@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/domain"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
 // HardwareCharacteristics returns the hardware characteristics struct with
@@ -147,4 +148,43 @@ WHERE machine_uuid=$instanceTag.machine_uuid
 		}
 		return nil
 	})
+}
+
+// InstanceId returns the provider specific instance id for this machine.
+// If the machine is not provisioned, it returns a NotProvisionedError.
+func (st *State) InstanceId(ctx context.Context, machineId string) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	machineIDParam := sqlair.M{"machine_id": machineId}
+	query := `
+SELECT &M.instance_id
+FROM machine AS m
+		JOIN machine_cloud_instance AS mci ON m.uuid = mci.machine_uuid
+WHERE m.machine_id = $M.machine_id;
+`
+	queryStmt, err := st.Prepare(query, sqlair.M{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	var instanceId string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result := sqlair.M{}
+		err := tx.Query(ctx, queryStmt, machineIDParam).Get(result)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(err, "querying instance id for machine %q", machineId)
+		}
+		if len(result) == 0 {
+			return errors.Annotatef(machineerrors.NotProvisioned, "machine id: %q", machineId)
+		}
+		instanceId = result["instance_id"].(string)
+		return nil
+	})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return instanceId, nil
 }
