@@ -90,3 +90,24 @@ func (s *serviceSuite) TestGetLifeError(c *gc.C) {
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `getting life status for machine "666": boom`)
 }
+
+func (s *serviceSuite) TestListAllMachinesSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().AllMachines(gomock.Any()).Return([]string{"666"}, nil)
+
+	machines, err := NewService(s.state).ListAllMachines(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.DeepEquals, []string{"666"})
+}
+
+func (s *serviceSuite) TestListAllMachinesError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().AllMachines(gomock.Any()).Return(nil, rErr)
+
+	machines, err := NewService(s.state).ListAllMachines(context.Background())
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Assert(machines, gc.IsNil)
+}

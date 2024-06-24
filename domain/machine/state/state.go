@@ -185,3 +185,34 @@ func (st *State) GetMachineLife(ctx context.Context, machineId string) (*life.Li
 	})
 	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", machineId)
 }
+
+// AllMachines retrieves the ids of all machines in the model.
+func (st *State) AllMachines(ctx context.Context) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := `SELECT &M.machine_id FROM machine`
+	queryStmt, err := st.Prepare(query, sqlair.M{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var machineIds []string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		results := []sqlair.M{}
+		err := tx.Query(ctx, queryStmt).GetAll(&results)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotate(err, "querying all machines")
+		}
+		for _, result := range results {
+			machineIds = append(machineIds, result["machine_id"].(string))
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return machineIds, nil
+}

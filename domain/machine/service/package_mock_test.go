@@ -41,6 +41,45 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// AllMachines mocks base method.
+func (m *MockState) AllMachines(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllMachines", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllMachines indicates an expected call of AllMachines.
+func (mr *MockStateMockRecorder) AllMachines(arg0 any) *MockStateAllMachinesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllMachines", reflect.TypeOf((*MockState)(nil).AllMachines), arg0)
+	return &MockStateAllMachinesCall{Call: call}
+}
+
+// MockStateAllMachinesCall wrap *gomock.Call
+type MockStateAllMachinesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAllMachinesCall) Return(arg0 []string, arg1 error) *MockStateAllMachinesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAllMachinesCall) Do(f func(context.Context) ([]string, error)) *MockStateAllMachinesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAllMachinesCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockStateAllMachinesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateMachine mocks base method.
 func (m *MockState) CreateMachine(arg0 context.Context, arg1, arg2, arg3 string) error {
 	m.ctrl.T.Helper()

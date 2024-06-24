@@ -28,6 +28,10 @@ type State interface {
 	// GetMachineLife returns the life status of the specified machine.
 	GetMachineLife(context.Context, string) (*life.Life, error)
 
+	// AllMachines retrieves the ids of all machines in the model.
+	// If there's no machine, it returns an empty slice.
+	AllMachines(context.Context) ([]string, error)
+
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
 	HardwareCharacteristics(context.Context, string) (*instance.HardwareCharacteristics, error)
@@ -82,4 +86,13 @@ func (s *Service) DeleteMachine(ctx context.Context, machineId string) error {
 func (s *Service) GetMachineLife(ctx context.Context, machineId string) (*life.Life, error) {
 	life, err := s.st.GetMachineLife(ctx, machineId)
 	return life, errors.Annotatef(err, "getting life status for machine %q", machineId)
+}
+
+// ListAllMachines returns the ids of all machines in the model.
+func (s *Service) ListAllMachines(ctx context.Context) ([]string, error) {
+	machines, err := s.st.AllMachines(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving all machines")
+	}
+	return machines, nil
 }
