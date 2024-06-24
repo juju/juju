@@ -306,3 +306,5 @@ require (
 )
 
 replace gopkg.in/yaml.v2 => github.com/juju/yaml/v2 v2.0.0
+
+replace github.com/canonical/pebble => github.com/benhoyt/pebble v0.0.0-20240621044326-c0cbd52b2b02
