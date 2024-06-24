@@ -86,6 +86,7 @@ type ProvisionerAPI struct {
 	st                          *state.State
 	m                           *state.Model
 	controllerConfigService     ControllerConfigService
+	agentProvisionerService     AgentProvisionerService
 	resources                   facade.Resources
 	authorizer                  facade.Authorizer
 	storageProviderRegistry     storage.ProviderRegistry
@@ -211,6 +212,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 		st:                          st,
 		m:                           model,
 		controllerConfigService:     serviceFactory.ControllerConfig(),
+		agentProvisionerService:     serviceFactory.AgentProvisioner(),
 		resources:                   resources,
 		authorizer:                  authorizer,
 		configGetter:                configGetter,
@@ -375,30 +377,28 @@ func (api *ProvisionerAPI) SupportedContainers(ctx stdcontext.Context, args para
 // needed for configuring the container manager.
 func (api *ProvisionerAPI) ContainerManagerConfig(ctx stdcontext.Context, args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
-	cfg := make(map[string]string)
-	cfg[container.ConfigModelUUID] = api.st.ModelUUID()
 
-	mConfig, err := api.m.ModelConfig(ctx)
+	cfg, err := api.agentProvisionerService.ContainerManagerConfigForType(ctx, args.Type)
 	if err != nil {
+		// TODO handle this error better
 		return result, err
 	}
 
-	switch args.Type {
-	case instance.LXD:
-		cfg[config.LXDSnapChannel] = mConfig.LXDSnapChannel()
-		// TODO(jam): DefaultMTU needs to be handled here
+	result.ManagerConfig = make(map[string]string)
+	result.ManagerConfig[container.ConfigModelUUID] = cfg.ModelID.String()
+	// Can we set this value even if the type isn't lxd ?
+	result.ManagerConfig[config.LXDSnapChannel] = cfg.LXDSnapChannel
+
+	if cfg.ImageMetadataURL != "" {
+		result.ManagerConfig[config.ContainerImageMetadataURLKey] = cfg.ImageMetadataURL
+	}
+	if cfg.MetadataDefaultsDisabled {
+		result.ManagerConfig[config.ContainerImageMetadataDefaultsDisabledKey] = "true"
 	}
 
-	if url, set := mConfig.ContainerImageMetadataURL(); set {
-		cfg[config.ContainerImageMetadataURLKey] = url
-	}
-	if mConfig.ContainerImageMetadataDefaultsDisabled() {
-		cfg[config.ContainerImageMetadataDefaultsDisabledKey] = "true"
-	}
-	cfg[config.ContainerImageStreamKey] = mConfig.ContainerImageStream()
-	cfg[config.ContainerNetworkingMethod] = mConfig.ContainerNetworkingMethod()
+	result.ManagerConfig[config.ContainerImageStreamKey] = cfg.ImageStream
+	result.ManagerConfig[config.ContainerNetworkingMethod] = cfg.NetworkingMethod.String()
 
-	result.ManagerConfig = cfg
 	return result, nil
 }
 

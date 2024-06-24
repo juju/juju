@@ -9,6 +9,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/domain"
+	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
+	agentprovisionerstate "github.com/juju/juju/domain/agentprovisioner/state"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	annotationState "github.com/juju/juju/domain/annotation/state"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -62,6 +64,14 @@ func NewModelFactory(
 		modelDB:         modelDB,
 		providerFactory: providerFactory,
 	}
+}
+
+func (s *ModelFactory) AgentProvisioner() *agentprovisionerservice.Service {
+	return agentprovisionerservice.NewService(
+		s.modelUUID,
+		agentprovisionerstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		providertracker.ProviderRunner[agentprovisionerservice.Provider](s.providerFactory, s.modelUUID.String()),
+	)
 }
 
 // Config returns the model's configuration service.

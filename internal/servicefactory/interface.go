@@ -5,6 +5,7 @@ package servicefactory
 
 import (
 	accessservice "github.com/juju/juju/domain/access/service"
+	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
@@ -66,6 +67,7 @@ type ControllerServiceFactory interface {
 // ModelServiceFactory provides access to the services required by the
 // apiserver for a given model.
 type ModelServiceFactory interface {
+	AgentProvisioner() *agentprovisionerservice.Service
 	// Config returns the modelconfig service.
 	Config() *modelconfigservice.WatchableService
 	// ObjectStore returns the object store service.
