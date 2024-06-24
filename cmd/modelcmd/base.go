@@ -335,23 +335,17 @@ func (c *CommandBase) NewAPIConnectionParams(
 		return juju.NewAPIConnectionParams{}, errors.Trace(err)
 	}
 	var getPassword func(username string) (string, error)
-	var printOutput func(format string, a ...any) error
+	var cmdOut io.Writer
 	if c.cmdContext != nil {
 		getPassword = func(username string) (string, error) {
 			fmt.Fprintf(c.cmdContext.Stderr, "please enter password for %s on %s: ", username, controllerName)
 			defer fmt.Fprintln(c.cmdContext.Stderr)
 			return readPassword(c.cmdContext.Stdin)
 		}
-		printOutput = func(format string, a ...any) error {
-			_, err := fmt.Fprintf(c.cmdContext.Stderr, format, a...)
-			return err
-		}
+		cmdOut = c.cmdContext.Stderr
 	} else {
 		getPassword = func(username string) (string, error) {
 			return "", errors.New("no context to prompt for password")
-		}
-		printOutput = func(_ string, _ ...any) error {
-			return errors.New("no context to print output")
 		}
 	}
 
@@ -362,7 +356,7 @@ func (c *CommandBase) NewAPIConnectionParams(
 		bakeryClient,
 		c.apiOpen,
 		getPassword,
-		printOutput,
+		cmdOut,
 	)
 }
 
@@ -582,7 +576,7 @@ func newAPIConnectionParams(
 	bakery *httpbakery.Client,
 	apiOpen api.OpenFunc,
 	getPassword func(string) (string, error),
-	printOutput func(string, ...any) error,
+	cmdOut io.Writer,
 ) (juju.NewAPIConnectionParams, error) {
 	if controllerName == "" {
 		return juju.NewAPIConnectionParams{}, errors.Trace(errNoNameSpecified)
@@ -601,7 +595,7 @@ func newAPIConnectionParams(
 	if accountDetails.Type == jujuclient.OAuth2DeviceFlowAccountDetailsType {
 		dialOpts.LoginProvider = loginprovider.NewSessionTokenLoginProvider(
 			accountDetails.SessionToken,
-			printOutput,
+			cmdOut,
 			func(sessionToken string) error {
 				accountDetails.Type = jujuclient.OAuth2DeviceFlowAccountDetailsType
 				accountDetails.SessionToken = sessionToken

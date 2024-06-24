@@ -385,10 +385,7 @@ func (c *loginCommand) publicControllerLogin(
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
 		loginprovider.NewSessionTokenLoginProvider(
 			sessionToken,
-			func(format string, params ...any) error {
-				_, err := fmt.Fprintf(ctx.Stderr, format, params...)
-				return err
-			},
+			ctx.Stderr,
 			func(sessionToken string) error {
 				return c.ClientStore().UpdateAccount(controllerName, jujuclient.AccountDetails{
 					Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,

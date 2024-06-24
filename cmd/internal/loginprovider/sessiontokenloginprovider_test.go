@@ -4,8 +4,8 @@
 package loginprovider_test
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -32,7 +32,6 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 	userCode := "1234567"
 	verificationURI := "http://localhost:8080/test-verification"
 
-	var loginDetails string
 	var obtainedSessionToken string
 
 	s.PatchValue(loginprovider.LoginDeviceAPICall, func(_ base.APICaller, request interface{}, response interface{}) error {
@@ -103,6 +102,7 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 		return nil
 	})
 
+	var output bytes.Buffer
 	apiState, err := api.Open(&api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
@@ -110,10 +110,7 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 	}, api.DialOpts{
 		LoginProvider: loginprovider.NewSessionTokenLoginProvider(
 			"expired-token",
-			func(s string, a ...any) error {
-				loginDetails = fmt.Sprintf(s, a...)
-				return nil
-			},
+			&output,
 			func(sessionToken string) error {
 				obtainedSessionToken = sessionToken
 				return nil
@@ -122,7 +119,7 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(loginDetails, gc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.")
+	c.Assert(output.String(), gc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
 	c.Assert(obtainedSessionToken, gc.Equals, sessionToken)
 	defer func() { _ = apiState.Close() }()
 }

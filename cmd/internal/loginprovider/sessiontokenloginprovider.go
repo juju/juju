@@ -9,6 +9,8 @@ package loginprovider
 
 import (
 	"context"
+	"fmt"
+	"io"
 
 	"github.com/juju/errors"
 
@@ -33,21 +35,21 @@ var (
 // authenticates the entity with the session token.
 func NewSessionTokenLoginProvider(
 	token string,
-	printOutputFunc func(string, ...any) error,
+	output io.Writer,
 	updateAccountDetailsFunc func(string) error,
 ) *sessionTokenLoginProvider {
 	return &sessionTokenLoginProvider{
 		sessionToken:             token,
-		printOutputFunc:          printOutputFunc,
+		output:                   output,
 		updateAccountDetailsFunc: updateAccountDetailsFunc,
 	}
 }
 
 type sessionTokenLoginProvider struct {
 	sessionToken string
-	// printOutpuFunc is used by the login provider to print the user code
+	// output is used by the login provider to print the user code
 	// and verification URL.
-	printOutputFunc func(string, ...any) error
+	output io.Writer
 	// updateAccountDetailsFunc function is used to update the session
 	// token for the account details.
 	updateAccountDetailsFunc func(string) error
@@ -76,11 +78,19 @@ func (p *sessionTokenLoginProvider) Login(ctx context.Context, caller base.APICa
 	return nil, errors.Trace(err)
 }
 
-func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, caller base.APICaller) error {
-	if p.printOutputFunc == nil {
+func (p *sessionTokenLoginProvider) printOutput(format string, params ...any) error {
+	if p.output == nil {
 		return errors.New("cannot present login details")
 	}
+	message := fmt.Sprintf(format, params...)
+	if len(message) > 0 && message[len(message)-1] != '\n' {
+		message += "\n"
+	}
+	_, err := fmt.Fprint(p.output, message)
+	return err
+}
 
+func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, caller base.APICaller) error {
 	type loginRequest struct{}
 
 	var deviceResult struct {
@@ -98,7 +108,7 @@ func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, cal
 	}
 
 	// We print the verification URL and the user code.
-	err = p.printOutputFunc("Please visit %s and enter code %s to log in.", deviceResult.VerificationURI, deviceResult.UserCode)
+	err = p.printOutput("Please visit %s and enter code %s to log in.", deviceResult.VerificationURI, deviceResult.UserCode)
 	if err != nil {
 		return errors.Trace(err)
 	}
