@@ -76,6 +76,7 @@ var (
 	containerAgentPebbleVersion = version.MustParse("2.9.37")
 	profileDirVersion           = version.MustParse("3.5-beta1")
 	pebbleCopyOnceVersion       = version.MustParse("3.5-beta1")
+	pebbleIdentitiesVersion     = version.MustParse("3.6-beta2")
 )
 
 type app struct {
@@ -1484,6 +1485,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			},
 		}, charmContainerExtraVolumeMounts...),
 	}
+	pebbleIdentitiesEnabled := false
 	if requireSecurityContext {
 		switch config.CharmUser {
 		case caas.RunAsRoot:
@@ -1496,12 +1498,16 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				RunAsUser:  pointer.Int64(constants.JujuSudoUserID),
 				RunAsGroup: pointer.Int64(constants.JujuSudoGroupID),
 			}
+			pebbleIdentitiesEnabled = true
 		case caas.RunAsNonRoot:
 			charmContainer.SecurityContext = &corev1.SecurityContext{
 				RunAsUser:  pointer.Int64(constants.JujuUserID),
 				RunAsGroup: pointer.Int64(constants.JujuGroupID),
 			}
+			pebbleIdentitiesEnabled = true
 		}
+		pebbleIdentitiesEnabled = pebbleIdentitiesEnabled &&
+			agentVersionNoBuild.Compare(pebbleIdentitiesVersion) >= 0
 	} else {
 		// Pre-3.5 logic.
 		charmContainer.SecurityContext = &corev1.SecurityContext{
@@ -1524,6 +1530,11 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 		})
 	}
 
+	containerExtraArgs := []string{}
+	if pebbleIdentitiesEnabled {
+		containerExtraArgs = append(containerExtraArgs, "--identities", "/charm/etc/pebble/identities.yaml")
+	}
+
 	containerSpecs := []corev1.Container{charmContainer}
 	for i, v := range containers {
 		container := corev1.Container{
@@ -1531,13 +1542,13 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Image:           v.Image.RegistryPath,
 			Command:         []string{"/charm/bin/pebble"},
-			Args: []string{
+			Args: append([]string{
 				"run",
 				"--create-dirs",
 				"--hold",
 				"--http", fmt.Sprintf(":%s", pebble.WorkloadHealthCheckPort(i)),
 				"--verbose",
-			},
+			}, containerExtraArgs...),
 			Env: append([]corev1.EnvVar{{
 				Name:  "JUJU_CONTAINER_NAME",
 				Value: v.Name,
@@ -1587,6 +1598,14 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 				RunAsGroup: pointer.Int64(0),
 			}
 		}
+		if pebbleIdentitiesEnabled {
+			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+				Name:      constants.CharmVolumeName,
+				MountPath: "/charm/etc/pebble/identities.yaml",
+				SubPath:   "charm/etc/pebble/identities.yaml",
+				ReadOnly:  true,
+			})
+		}
 		if v.Image.Password != "" {
 			imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: a.imagePullSecretName(v.Name)})
 		}
@@ -1609,7 +1628,7 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 	}
 	// (tlm) lp1997253. If the agent version is less then containerAgentPebbleVersion
 	// we need to keep still using the old args supported by the init command
-	if config.AgentVersion.Compare(containerAgentPebbleVersion) < 0 {
+	if agentVersionNoBuild.Compare(containerAgentPebbleVersion) < 0 {
 		charmInitAdditionalMounts = []corev1.VolumeMount{}
 		containerAgentArgs = []string{
 			"init",
@@ -1625,6 +1644,23 @@ func (a *app) ApplicationPodSpec(config caas.ApplicationConfig) (*corev1.PodSpec
 			MountPath: "/containeragent/etc/profile.d",
 			SubPath:   "containeragent/etc/profile.d",
 		})
+	}
+
+	if pebbleIdentitiesEnabled {
+		containerAgentArgs = append(containerAgentArgs, "--pebble-identities-file", "/charm/etc/pebble/identities.yaml")
+		charmInitAdditionalMounts = append(charmInitAdditionalMounts, corev1.VolumeMount{
+			Name:      constants.CharmVolumeName,
+			MountPath: "/charm/etc/pebble/",
+			SubPath:   "charm/etc/pebble/",
+		})
+		uid := 0
+		switch config.CharmUser {
+		case caas.RunAsSudoer:
+			uid = constants.JujuSudoUserID
+		case caas.RunAsNonRoot:
+			uid = constants.JujuUserID
+		}
+		containerAgentArgs = append(containerAgentArgs, "--pebble-charm-identity", strconv.Itoa(uid))
 	}
 
 	appSecret := a.secretName()
