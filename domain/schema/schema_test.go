@@ -424,6 +424,8 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 	expected := set.NewStrings(
 		"v_charm_url",
 		"v_secret_permission",
+		"v_space",
+		"v_subnet",
 	)
 	c.Assert(readEntityNames(c, s.DB(), "view"), jc.SameContents, expected.SortedValues())
 }

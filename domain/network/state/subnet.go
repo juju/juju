@@ -292,33 +292,6 @@ func (st *State) AddSubnet(
 	)
 }
 
-const retrieveSubnetsStmt = `
-SELECT     
-    subnet.uuid                          AS &SpaceSubnetRow.subnet_uuid,
-    subnet.cidr                          AS &SpaceSubnetRow.subnet_cidr,
-    subnet.vlan_tag                      AS &SpaceSubnetRow.subnet_vlan_tag,
-    subnet.space_uuid                    AS &SpaceSubnetRow.subnet_space_uuid,
-    space.name                           AS &SpaceSubnetRow.subnet_space_name,
-    provider_subnet.provider_id          AS &SpaceSubnetRow.subnet_provider_id,
-    provider_network.provider_network_id AS &SpaceSubnetRow.subnet_provider_network_id,
-    availability_zone.name               AS &SpaceSubnetRow.subnet_az,
-    provider_space.provider_id           AS &SpaceSubnetRow.subnet_provider_space_uuid
-FROM subnet 
-    LEFT JOIN space
-    ON subnet.space_uuid = space.uuid
-    JOIN provider_subnet
-    ON subnet.uuid = provider_subnet.subnet_uuid
-    JOIN provider_network_subnet
-    ON subnet.uuid = provider_network_subnet.subnet_uuid
-    JOIN provider_network
-    ON provider_network_subnet.provider_network_uuid = provider_network.uuid
-    LEFT JOIN availability_zone_subnet
-    ON availability_zone_subnet.subnet_uuid = subnet.uuid
-    LEFT JOIN availability_zone
-    ON availability_zone_subnet.availability_zone_uuid = availability_zone.uuid
-    LEFT JOIN provider_space
-    ON subnet.space_uuid = provider_space.space_uuid`
-
 // GetAllSubnets returns all known subnets in the model.
 func (st *State) GetAllSubnets(
 	ctx context.Context,
@@ -329,14 +302,17 @@ func (st *State) GetAllSubnets(
 	}
 
 	// Append the space uuid condition to the query only if it's passed to the function.
-	q := retrieveSubnetsStmt + ";"
+	q := `
+SELECT &SubnetRow.*
+FROM   v_subnet
+`
 
-	s, err := st.Prepare(q, SpaceSubnetRow{})
+	s, err := st.Prepare(q, SubnetRow{})
 	if err != nil {
 		return nil, errors.Annotatef(domain.CoerceError(err), "preparing %q", q)
 	}
 
-	var rows SpaceSubnetRows
+	var rows SubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, s).GetAll(&rows))
 	}); errors.Is(err, sqlair.ErrNoRows) {
@@ -360,14 +336,17 @@ func (st *State) GetSubnet(
 	}
 
 	// Append the space uuid condition to the query only if it's passed to the function.
-	q := retrieveSubnetsStmt + " WHERE subnet.uuid = $M.id;"
+	q := `
+SELECT &SubnetRow.*
+FROM   v_subnet
+WHERE  subnet_uuid = $M.id;`
 
-	stmt, err := st.Prepare(q, SpaceSubnetRow{}, sqlair.M{})
+	stmt, err := st.Prepare(q, SubnetRow{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(domain.CoerceError(err), "preparing %q", q)
 	}
 
-	var rows SpaceSubnetRows
+	var rows SubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, stmt, sqlair.M{"id": uuid}).GetAll(&rows))
 	}); errors.Is(err, sqlair.ErrNoRows) {
@@ -393,17 +372,20 @@ func (st *State) GetSubnetsByCIDR(
 	}
 
 	// Append the where clause to the query.
-	q := retrieveSubnetsStmt + " WHERE subnet.cidr = $M.cidr;"
+	q := `
+SELECT &SubnetRow.*
+FROM   v_subnet
+WHERE  subnet_cidr = $M.cidr`
 
-	s, err := st.Prepare(q, SpaceSubnetRow{}, sqlair.M{})
+	s, err := st.Prepare(q, SubnetRow{}, sqlair.M{})
 	if err != nil {
 		return nil, errors.Annotatef(domain.CoerceError(err), "preparing %q", q)
 	}
 
-	var resultSubnets SpaceSubnetRows
+	var resultSubnets SubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		for _, cidr := range cidrs {
-			var rows SpaceSubnetRows
+			var rows SubnetRows
 			if err := tx.Query(ctx, s, sqlair.M{"cidr": cidr}).GetAll(&rows); err != nil {
 				return errors.Trace(domain.CoerceError(err))
 			}
