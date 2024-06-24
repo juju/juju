@@ -284,7 +284,7 @@ WHERE  controller_uuid = $Controller.uuid`, controller, Model{})
 	var models []Model
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, controller).GetAll(&models)
-		if err != nil {
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Trace(domain.CoerceError(err))
 		}
 
