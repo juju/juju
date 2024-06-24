@@ -274,3 +274,11 @@ func (s *stateSuite) TestListMetadata(c *gc.C) {
 
 	c.Check(metadatas[0], gc.DeepEquals, metadata)
 }
+
+func (s *stateSuite) TestListMetadataNoRows(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	metadatas, err := st.ListMetadata(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(metadatas, gc.HasLen, 0)
+}
