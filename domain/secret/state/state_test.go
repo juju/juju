@@ -3730,7 +3730,7 @@ func (s *stateSuite) TestInitialWatchStatementForUserSecretsToPrune(c *gc.C) {
 	ctx := context.Background()
 
 	_, uriUser2, _, _ := s.prepareWatchForUserSecretsToPrune(c, ctx, st)
-	tableName, f := st.InitialWatchStatementForUserSecretsToPrune()
+	tableName, f := st.InitialWatchStatementForUserSecretRevisionsToPrune()
 	c.Assert(tableName, gc.Equals, "secret_metadata")
 	result, err := f(ctx, s.TxnRunner())
 	c.Assert(err, jc.ErrorIsNil)

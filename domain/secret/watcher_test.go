@@ -308,9 +308,11 @@ func (s *watcherSuite) TestWatchObsoleteForUserSecrets(c *gc.C) {
 	// Wait for the initial changes.
 	wc.AssertOneChange()
 
-	// create revision 2, and obsolete revision 1.
+	// create revision 2, no event is fired because the auto prune is not turned on for uri1.
 	createNewRevision(c, st, uri1)
 	wc.AssertNoChange()
+
+	// create revision 2, and obsolete revision 1. An event is fired because the auto prune is turned on for uri2.
 	createNewRevision(c, st, uri2)
 	wc.AssertAtLeastOneChange()
 

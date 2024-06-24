@@ -1367,41 +1367,41 @@ func (c *MockStateInitialWatchStatementForSecretsRotationChangesCall) DoAndRetur
 	return c
 }
 
-// InitialWatchStatementForUserSecretsToPrune mocks base method.
-func (m *MockState) InitialWatchStatementForUserSecretsToPrune() (string, eventsource.NamespaceQuery) {
+// InitialWatchStatementForUserSecretRevisionsToPrune mocks base method.
+func (m *MockState) InitialWatchStatementForUserSecretRevisionsToPrune() (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitialWatchStatementForUserSecretsToPrune")
+	ret := m.ctrl.Call(m, "InitialWatchStatementForUserSecretRevisionsToPrune")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(eventsource.NamespaceQuery)
 	return ret0, ret1
 }
 
-// InitialWatchStatementForUserSecretsToPrune indicates an expected call of InitialWatchStatementForUserSecretsToPrune.
-func (mr *MockStateMockRecorder) InitialWatchStatementForUserSecretsToPrune() *MockStateInitialWatchStatementForUserSecretsToPruneCall {
+// InitialWatchStatementForUserSecretRevisionsToPrune indicates an expected call of InitialWatchStatementForUserSecretRevisionsToPrune.
+func (mr *MockStateMockRecorder) InitialWatchStatementForUserSecretRevisionsToPrune() *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForUserSecretsToPrune", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForUserSecretsToPrune))
-	return &MockStateInitialWatchStatementForUserSecretsToPruneCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForUserSecretRevisionsToPrune", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForUserSecretRevisionsToPrune))
+	return &MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall{Call: call}
 }
 
-// MockStateInitialWatchStatementForUserSecretsToPruneCall wrap *gomock.Call
-type MockStateInitialWatchStatementForUserSecretsToPruneCall struct {
+// MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall wrap *gomock.Call
+type MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateInitialWatchStatementForUserSecretsToPruneCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementForUserSecretsToPruneCall {
+func (c *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementForUserSecretsToPruneCall) Do(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForUserSecretsToPruneCall {
+func (c *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall) Do(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementForUserSecretsToPruneCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForUserSecretsToPruneCall {
+func (c *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

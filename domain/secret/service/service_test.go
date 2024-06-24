@@ -1527,7 +1527,7 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 		return nil, nil
 	}
 	s.state.EXPECT().InitialWatchStatementForObsoleteUserSecretRevision().Return("secret_revision_obsolete", namespaceQuery)
-	s.state.EXPECT().InitialWatchStatementForUserSecretsToPrune().Return("secret_metadata", namespaceQuery)
+	s.state.EXPECT().InitialWatchStatementForUserSecretRevisionsToPrune().Return("secret_metadata", namespaceQuery)
 	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision_obsolete", changestream.Create, gomock.Any()).Return(mockObsoleteWatcher, nil)
 	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_metadata", changestream.Update, gomock.Any()).Return(mockAutoPruneWatcher, nil)
 	s.state.EXPECT().GetObsoleteUserSecretRevisionsReadyToPrune(gomock.Any(), "revision-uuid-1").Return([]string{uri1.ID + "/1"}, nil)
@@ -1543,12 +1543,12 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	select {
 	case ch1 <- []string{"revision-uuid-1"}:
 	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending the secret revision changes")
 	}
 	select {
 	case ch2 <- []string{uri2.ID}:
 	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending the secret URI changes")
 	}
 
 	wc.AssertAtLeastOneChange()

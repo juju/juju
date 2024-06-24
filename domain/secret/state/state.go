@@ -3156,7 +3156,7 @@ func (st State) DeleteSecret(ctx context.Context, uri *coresecrets.URI, revs []i
 		return errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.deleteSecretWithRevisions(ctx, tx, uri, revs)
+		return st.deleteSecretRevisions(ctx, tx, uri, revs)
 	})
 	return errors.Trace(domain.CoerceError(err))
 }
@@ -3203,7 +3203,7 @@ WHERE  sm.auto_prune = true AND sro.obsolete = true`
 			for i, r := range toDelete.Revisions {
 				revs[i] = r.Revision
 			}
-			if err := st.deleteSecretWithRevisions(ctx, tx, toDelete.URI, revs); err != nil {
+			if err := st.deleteSecretRevisions(ctx, tx, toDelete.URI, revs); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -3212,7 +3212,9 @@ WHERE  sm.auto_prune = true AND sro.obsolete = true`
 	return errors.Trace(domain.CoerceError(err))
 }
 
-func (st State) deleteSecretWithRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revs []int) error {
+// deleteSecretRevisions deletes the specified secret revisions, or all if revs is nil.
+// If the last remaining revisions are removed, the secret is deleted.
+func (st State) deleteSecretRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revs []int) error {
 	// First delete the specified revisions.
 	selectRevisionParams := []any{secretID{
 		ID: uri.ID,
@@ -3635,6 +3637,7 @@ func (st State) GetSecretsRevisionExpiryChanges(
 
 // InitialWatchStatementForObsoleteUserSecretRevision returns the initial watch statement and the table name
 // for watching obsolete user secret revisions.
+// The ChangeLog watcher is triggered when a user secret revision is marked as obsolete and ready to be pruned.
 func (st State) InitialWatchStatementForObsoleteUserSecretRevision() (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		q := `
@@ -3706,8 +3709,10 @@ WHERE  sm.auto_prune = true AND sro.obsolete = true`
 	return result.toRevIDs(), nil
 }
 
-// InitialWatchStatementForUserSecretsToPrune returns the initial watch statement and the table name for watching user secrets with auto prune turned on.
-func (st State) InitialWatchStatementForUserSecretsToPrune() (string, eventsource.NamespaceQuery) {
+// InitialWatchStatementForUserSecretRevisionsToPrune returns the initial watch statement and the table name for watching user
+// secrets with auto prune turned on.
+// The ChangeLog watcher is triggered when a user secret's auto prune config is being turned on.
+func (st State) InitialWatchStatementForUserSecretRevisionsToPrune() (string, eventsource.NamespaceQuery) {
 	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
 		result, err := st.getUserSecretRevisionsToPrune(ctx, runner)
 		if err != nil {

@@ -80,7 +80,7 @@ type State interface {
 	GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context, revisionIDs ...string) ([]string, error)
 
 	// For watching user secrets for auto prune.
-	InitialWatchStatementForUserSecretsToPrune() (string, eventsource.NamespaceQuery)
+	InitialWatchStatementForUserSecretRevisionsToPrune() (string, eventsource.NamespaceQuery)
 	GetUserSecretRevisionsToPrune(ctx context.Context, secretIDs ...string) ([]string, error)
 
 	// For watching consumed local secret changes.
@@ -117,13 +117,6 @@ type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
 	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
-
-	// NewNamespaceMapperWatcher returns a new namespace watcher
-	// for events based on the input change mask and mapper.
-	NewNamespaceMapperWatcher(
-		namespace string, changeMask changestream.ChangeType,
-		initialStateQuery eventsource.NamespaceQuery, mapper eventsource.Mapper,
-	) (watcher.StringsWatcher, error)
 }
 
 // NewSecretService returns a new secret service wrapping the specified state.
