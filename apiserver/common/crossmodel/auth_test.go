@@ -328,7 +328,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	clock := testclock.NewClock(time.Now().Add(-10 * time.Minute))
 	authContext.SetClock(clock)
-	authContext, err = authContext.WithDischargeURL("http://thirdparty")
+	authContext, err = authContext.WithDischargeURL(context.Background(), "http://thirdparty")
 	c.Assert(err, jc.ErrorIsNil)
 	offer := &params.ApplicationOfferDetailsV5{
 		SourceModelTag: coretesting.ModelTag.String(),
@@ -433,7 +433,7 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	clock := testclock.NewClock(time.Now().Add(-10 * time.Minute))
 	authContext.SetClock(clock)
-	authContext, err = authContext.WithDischargeURL("http://thirdparty")
+	authContext, err = authContext.WithDischargeURL(context.Background(), "http://thirdparty")
 	c.Assert(err, jc.ErrorIsNil)
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := authContext.CreateRemoteRelationMacaroon(

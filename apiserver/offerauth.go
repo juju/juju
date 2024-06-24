@@ -75,7 +75,7 @@ func newOfferAuthContext(ctx context.Context, pool *state.StatePool, controllerC
 	loginTokenRefreshURL := controllerConfig.LoginTokenRefreshURL()
 	if loginTokenRefreshURL != "" {
 		offerBakery, err := crossmodel.NewJaaSOfferBakery(
-			loginTokenRefreshURL, location, bakeryConfigService, store, checker,
+			ctx, loginTokenRefreshURL, location, bakeryConfigService, store, checker,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)

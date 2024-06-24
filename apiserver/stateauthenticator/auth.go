@@ -69,6 +69,7 @@ type BakeryConfigService interface {
 
 // NewAuthenticator returns a new Authenticator using the given StatePool.
 func NewAuthenticator(
+	ctx context.Context,
 	statePool *state.StatePool,
 	systemState *state.State,
 	controllerConfigService ControllerConfigService,
@@ -77,7 +78,7 @@ func NewAuthenticator(
 	agentAuthFactory AgentAuthenticatorFactory,
 	clock clock.Clock,
 ) (*Authenticator, error) {
-	authContext, err := newAuthContext(systemState, controllerConfigService, userService, bakeryConfigService, agentAuthFactory, clock)
+	authContext, err := newAuthContext(ctx, systemState, controllerConfigService, userService, bakeryConfigService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

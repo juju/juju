@@ -61,7 +61,7 @@ type argsWorker struct {
 	managedServices *managedServices
 }
 
-func newWorker(cfg workerConfig) (worker.Worker, error) {
+func newWorker(ctx context.Context, cfg workerConfig) (worker.Worker, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -85,6 +85,7 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 	}
 
 	authenticator, err := w.cfg.newStateAuthenticatorFn(
+		ctx,
 		w.cfg.statePool,
 		w.managedServices,
 		w.managedServices,

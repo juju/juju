@@ -87,9 +87,9 @@ func NewAuthContext(
 
 // WithDischargeURL create an auth context based on this context and used
 // to perform third party discharges at the specified URL.
-func (a *AuthContext) WithDischargeURL(offerAccessEndpoint string) (*AuthContext, error) {
+func (a *AuthContext) WithDischargeURL(ctx context.Context, offerAccessEndpoint string) (*AuthContext, error) {
 	ctxtCopy := *a
-	newEndpoint, err := ctxtCopy.offerBakery.RefreshDischargeURL(offerAccessEndpoint)
+	newEndpoint, err := ctxtCopy.offerBakery.RefreshDischargeURL(ctx, offerAccessEndpoint)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

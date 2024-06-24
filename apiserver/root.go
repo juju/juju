@@ -128,6 +128,7 @@ var (
 
 // newAPIHandler returns a new apiHandler.
 func newAPIHandler(
+	ctx context.Context,
 	srv *Server,
 	st *state.State,
 	rpcConn *rpc.Conn,
@@ -188,7 +189,7 @@ func newAPIHandler(
 	}
 
 	contollerConfigService := serviceFactory.ControllerConfig()
-	controllerConfig, err := contollerConfigService.ControllerConfig(context.TODO())
+	controllerConfig, err := contollerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
@@ -199,7 +200,7 @@ func newAPIHandler(
 			return nil, errors.Trace(err)
 		}
 	}
-	offerAuthCtxt, err := srv.offerAuthCtxt.WithDischargeURL(offerAccessEndpoint.String())
+	offerAuthCtxt, err := srv.offerAuthCtxt.WithDischargeURL(ctx, offerAccessEndpoint.String())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

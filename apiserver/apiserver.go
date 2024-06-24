@@ -1175,6 +1175,7 @@ func (srv *Server) serveConn(
 	if err == nil {
 		defer st.Release()
 		handler, err = newAPIHandler(
+			ctx,
 			srv,
 			st.State,
 			conn,

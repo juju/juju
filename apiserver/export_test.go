@@ -115,7 +115,7 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 // anything real. It's enough to let test some basic functionality though.
 func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servicefactory.ServiceFactory) (*apiHandler, *common.Resources) {
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(st, loggertesting.WrapCheckLog(c))
-	authenticator, err := stateauthenticator.NewAuthenticator(pool, st, sf.ControllerConfig(), sf.Access(), sf.Macaroon(), agentAuthFactory, clock.WallClock)
+	authenticator, err := stateauthenticator.NewAuthenticator(context.Background(), pool, st, sf.ControllerConfig(), sf.Access(), sf.Macaroon(), agentAuthFactory, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	offerAuthCtxt, err := newOfferAuthContext(context.Background(), pool, sf.ControllerConfig(), sf.Macaroon())
 	c.Assert(err, jc.ErrorIsNil)
@@ -129,7 +129,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 		},
 		tag: names.NewMachineTag("0"),
 	}
-	h, err := newAPIHandler(srv, st, nil, sf, nil, coretrace.NoopTracer{}, nil, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
+	h, err := newAPIHandler(context.Background(), srv, st, nil, sf, nil, coretrace.NoopTracer{}, nil, nil, nil, st.ModelUUID(), 6543, "testing.invalid:1234")
 	c.Assert(err, jc.ErrorIsNil)
 	return h, h.Resources()
 }

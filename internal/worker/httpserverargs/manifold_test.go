@@ -76,6 +76,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 }
 
 func (s *ManifoldSuite) newStateAuthenticator(
+	ctx context.Context,
 	statePool *state.StatePool,
 	controllerConfig httpserverargs.ControllerConfigService,
 	userService httpserverargs.UserService,
@@ -84,7 +85,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	clock clock.Clock,
 	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	s.stub.MethodCall(s, "NewStateAuthenticator", statePool, controllerConfig, userService, mux, clock, abort)
+	s.stub.MethodCall(s, "NewStateAuthenticator", ctx, statePool, controllerConfig, userService, mux, clock, abort)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -152,8 +153,8 @@ func (s *ManifoldSuite) TestStoppingWorkerClosesAuthenticator(c *gc.C) {
 	w := s.startWorkerClean(c)
 	s.stub.CheckCallNames(c, "NewStateAuthenticator")
 	authArgs := s.stub.Calls()[0].Args
-	c.Assert(authArgs, gc.HasLen, 6)
-	abort := authArgs[5].(<-chan struct{})
+	c.Assert(authArgs, gc.HasLen, 7)
+	abort := authArgs[6].(<-chan struct{})
 
 	// abort should still be open at this point.
 	select {

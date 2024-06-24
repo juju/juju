@@ -48,6 +48,7 @@ type BakeryConfigService interface {
 // NewStateAuthenticatorFunc is a function type satisfied by
 // NewStateAuthenticator.
 type NewStateAuthenticatorFunc func(
+	ctx context.Context,
 	statePool *state.StatePool,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
@@ -62,6 +63,7 @@ type NewStateAuthenticatorFunc func(
 // authenticator will register handlers into the mux for dealing with
 // local macaroon logins.
 func NewStateAuthenticator(
+	ctx context.Context,
 	statePool *state.StatePool,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
@@ -75,7 +77,7 @@ func NewStateAuthenticator(
 		return nil, errors.Trace(err)
 	}
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
-	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, systemState, controllerConfigService, userService, bakeryConfigService, agentAuthFactory, clock)
+	stateAuthenticator, err := stateauthenticator.NewAuthenticator(ctx, statePool, systemState, controllerConfigService, userService, bakeryConfigService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
