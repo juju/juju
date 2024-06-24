@@ -3481,7 +3481,68 @@ func (st State) ChangeSecretBackend(
 	ctx context.Context, uri *coresecrets.URI, revision int,
 	valueRef *coresecrets.ValueRef, data coresecrets.SecretData,
 ) error {
-	return nil
+	if valueRef != nil && len(data) > 0 {
+		return errors.New("both valueRef and data cannot be set")
+	}
+	if valueRef == nil && len(data) == 0 {
+		return errors.New("either valueRef or data must be set")
+	}
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	revSelectInput := secretRevision{
+		SecretID: uri.ID,
+		Revision: revision,
+	}
+	revSelectResult := revisionUUID{}
+	revSelectQ, err := st.Prepare(`
+SELECT uuid AS &revisionUUID.uuid
+FROM   secret_revision
+WHERE  secret_id = $secretRevision.secret_id
+       AND revision = $secretRevision.revision`, revSelectInput, revSelectResult)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deleteValueRefQ, err := st.Prepare(`
+DELETE FROM secret_value_ref
+WHERE revision_uuid = $secretValueRef.revision_uuid`, secretValueRef{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	deleteDataQ, err := st.Prepare(`
+DELETE FROM secret_content
+WHERE revision_uuid = $secretContent.revision_uuid`, secretContent{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, revSelectQ, revSelectInput).Get(&revSelectResult); err != nil {
+			return errors.Trace(err)
+		}
+		if valueRef != nil {
+			if err := st.upsertSecretValueRef(ctx, tx, revSelectResult.UUID, valueRef); err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			if err = tx.Query(ctx, deleteValueRefQ, secretValueRef{RevisionUUID: revSelectResult.UUID}).Run(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		if len(data) > 0 {
+			if err := st.updateSecretContent(ctx, tx, revSelectResult.UUID, data); err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			if err = tx.Query(ctx, deleteDataQ, secretContent{RevisionUUID: revSelectResult.UUID}).Run(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return errors.Trace(err)
+	})
+	return errors.Trace(domain.CoerceError(err))
 }
 
 // InitialWatchStatementForSecretsRotationChanges returns the initial watch statement
