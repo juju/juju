@@ -37,6 +37,7 @@ type macaroonCommonSuite struct {
 	clock                   *testclock.Clock
 	controllerConfigService *MockControllerConfigService
 	userService             *MockUserService
+	bakeryConfigService     *MockBakeryConfigService
 }
 
 func (s *macaroonCommonSuite) SetUpTest(c *gc.C) {
@@ -57,9 +58,14 @@ func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
 
+	s.bakeryConfigService = NewMockBakeryConfigService(ctrl)
+	s.bakeryConfigService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).AnyTimes()
+	s.bakeryConfigService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).AnyTimes()
+	s.bakeryConfigService.EXPECT().GetExternalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).AnyTimes()
+
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(s.State, loggertesting.WrapCheckLog(c))
 
-	authenticator, err := NewAuthenticator(s.StatePool, s.State, s.controllerConfigService, s.userService, agentAuthFactory, s.clock)
+	authenticator, err := NewAuthenticator(s.StatePool, s.State, s.controllerConfigService, s.userService, s.bakeryConfigService, agentAuthFactory, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 

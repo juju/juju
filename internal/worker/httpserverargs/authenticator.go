@@ -6,6 +6,7 @@ package httpserverargs
 import (
 	"context"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
@@ -38,12 +39,19 @@ type UserService interface {
 	UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error
 }
 
+type BakeryConfigService interface {
+	GetLocalUsersKey(context.Context) (*bakery.KeyPair, error)
+	GetLocalUsersThirdPartyKey(context.Context) (*bakery.KeyPair, error)
+	GetExternalUsersThirdPartyKey(context.Context) (*bakery.KeyPair, error)
+}
+
 // NewStateAuthenticatorFunc is a function type satisfied by
 // NewStateAuthenticator.
 type NewStateAuthenticatorFunc func(
 	statePool *state.StatePool,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
+	bakeryConfigService BakeryConfigService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
@@ -57,6 +65,7 @@ func NewStateAuthenticator(
 	statePool *state.StatePool,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
+	bakeryConfigService BakeryConfigService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
@@ -66,7 +75,7 @@ func NewStateAuthenticator(
 		return nil, errors.Trace(err)
 	}
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
-	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, systemState, controllerConfigService, userService, agentAuthFactory, clock)
+	stateAuthenticator, err := stateauthenticator.NewAuthenticator(statePool, systemState, controllerConfigService, userService, bakeryConfigService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

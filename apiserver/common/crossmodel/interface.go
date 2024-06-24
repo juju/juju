@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
@@ -19,6 +20,10 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
+
+type BakeryConfigService interface {
+	GetExternalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error)
+}
 
 type Backend interface {
 	// ModelUUID returns the model UUID for the model

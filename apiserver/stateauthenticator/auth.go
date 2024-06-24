@@ -61,16 +61,23 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+type BakeryConfigService interface {
+	GetLocalUsersKey(context.Context) (*bakery.KeyPair, error)
+	GetLocalUsersThirdPartyKey(context.Context) (*bakery.KeyPair, error)
+	GetExternalUsersThirdPartyKey(context.Context) (*bakery.KeyPair, error)
+}
+
 // NewAuthenticator returns a new Authenticator using the given StatePool.
 func NewAuthenticator(
 	statePool *state.StatePool,
 	systemState *state.State,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
+	bakeryConfigService BakeryConfigService,
 	agentAuthFactory AgentAuthenticatorFactory,
 	clock clock.Clock,
 ) (*Authenticator, error) {
-	authContext, err := newAuthContext(systemState, controllerConfigService, userService, agentAuthFactory, clock)
+	authContext, err := newAuthContext(systemState, controllerConfigService, userService, bakeryConfigService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -115,9 +115,9 @@ func TestingAPIRoot(facades *facade.Registry) rpc.Root {
 // anything real. It's enough to let test some basic functionality though.
 func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servicefactory.ServiceFactory) (*apiHandler, *common.Resources) {
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(st, loggertesting.WrapCheckLog(c))
-	authenticator, err := stateauthenticator.NewAuthenticator(pool, st, sf.ControllerConfig(), sf.Access(), agentAuthFactory, clock.WallClock)
+	authenticator, err := stateauthenticator.NewAuthenticator(pool, st, sf.ControllerConfig(), sf.Access(), sf.Macaroon(), agentAuthFactory, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
-	offerAuthCtxt, err := newOfferAuthContext(context.Background(), pool, sf.ControllerConfig())
+	offerAuthCtxt, err := newOfferAuthContext(context.Background(), pool, sf.ControllerConfig(), sf.Macaroon())
 	c.Assert(err, jc.ErrorIsNil)
 	srv := &Server{
 		httpAuthenticators:  []authentication.HTTPAuthenticator{authenticator},

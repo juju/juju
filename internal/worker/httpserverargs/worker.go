@@ -6,6 +6,7 @@ package httpserverargs
 import (
 	"context"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -25,6 +26,7 @@ type workerConfig struct {
 	statePool               *state.StatePool
 	controllerConfigService ControllerConfigService
 	userService             UserService
+	bakeryConfigService     BakeryConfigService
 	mux                     *apiserverhttp.Mux
 	clock                   clock.Clock
 	newStateAuthenticatorFn NewStateAuthenticatorFunc
@@ -68,6 +70,7 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 		managedServices: newManagedServices(
 			cfg.controllerConfigService,
 			cfg.userService,
+			cfg.bakeryConfigService,
 		),
 	}
 
@@ -83,6 +86,7 @@ func newWorker(cfg workerConfig) (worker.Worker, error) {
 
 	authenticator, err := w.cfg.newStateAuthenticatorFn(
 		w.cfg.statePool,
+		w.managedServices,
 		w.managedServices,
 		w.managedServices,
 		w.cfg.mux,
@@ -121,15 +125,18 @@ type managedServices struct {
 	tomb                    tomb.Tomb
 	controllerConfigService ControllerConfigService
 	userService             UserService
+	bakeryConfigService     BakeryConfigService
 }
 
 func newManagedServices(
 	controllerConfigService ControllerConfigService,
 	userService UserService,
+	bakeryConfigService BakeryConfigService,
 ) *managedServices {
 	w := &managedServices{
 		controllerConfigService: controllerConfigService,
 		userService:             userService,
+		bakeryConfigService:     bakeryConfigService,
 	}
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -157,6 +164,18 @@ func (b *managedServices) GetUserByName(ctx context.Context, name string) (coreu
 // given name.
 func (b *managedServices) UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error {
 	return b.userService.UpdateLastModelLogin(b.tomb.Context(ctx), name, modelUUID)
+}
+
+func (b *managedServices) GetLocalUsersKey(ctx context.Context) (*bakery.KeyPair, error) {
+	return b.bakeryConfigService.GetLocalUsersKey(ctx)
+}
+
+func (b *managedServices) GetLocalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
+	return b.bakeryConfigService.GetLocalUsersThirdPartyKey(ctx)
+}
+
+func (b *managedServices) GetExternalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
+	return b.bakeryConfigService.GetExternalUsersThirdPartyKey(ctx)
 }
 
 // Kill is part of the worker.Worker interface.

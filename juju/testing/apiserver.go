@@ -325,7 +325,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 
 	// Seed the test database with the controller cloud and credential etc.
 	s.AdminUserUUID = s.ServiceFactorySuite.AdminUserUUID
-	SeedDatabase(c, s.TxnRunner(), controllerCfg)
+	SeedDatabase(c, s.TxnRunner(), serviceFactory, controllerCfg)
 }
 
 func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config) {
@@ -376,7 +376,7 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 	c.Assert(err, jc.ErrorIsNil)
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
 
-	authenticator, err := stateauthenticator.NewAuthenticator(cfg.StatePool, systemState, factory.ControllerConfig(), factory.Access(), agentAuthFactory, cfg.Clock)
+	authenticator, err := stateauthenticator.NewAuthenticator(context.Background(), cfg.StatePool, systemState, factory.ControllerConfig(), factory.Access(), factory.Macaroon(), agentAuthFactory, cfg.Clock)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg.LocalMacaroonAuthenticator = authenticator
 	err = authenticator.AddHandlers(s.mux)
@@ -655,9 +655,13 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
-func SeedDatabase(c *gc.C, controller database.TxnRunner, controllerConfig controller.Config) {
+func SeedDatabase(c *gc.C, controller database.TxnRunner, serviceFactory servicefactory.ServiceFactory, controllerConfig controller.Config) {
 	ctx := context.Background()
 	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(ctx, controller, noopTxnRunner{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	bakeryConfigService := serviceFactory.Macaroon()
+	err = bakeryConfigService.InitialiseBakeryConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

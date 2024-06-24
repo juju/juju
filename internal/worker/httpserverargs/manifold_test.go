@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	accessservice "github.com/juju/juju/domain/access/service"
+	bakerystorage "github.com/juju/juju/domain/bakerystorage/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/httpserverargs"
@@ -78,6 +79,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	statePool *state.StatePool,
 	controllerConfig httpserverargs.ControllerConfigService,
 	userService httpserverargs.UserService,
+	bakerystorage httpserverargs.BakeryConfigService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
@@ -237,5 +239,10 @@ func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.Watchab
 
 func (s *stubServiceFactory) Access() *accessservice.Service {
 	s.MethodCall(s, "Access")
+	return nil
+}
+
+func (s *stubServiceFactory) Macaroon() *bakerystorage.Service {
+	s.MethodCall(s, "Macaroon")
 	return nil
 }

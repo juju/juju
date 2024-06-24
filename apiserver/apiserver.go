@@ -428,8 +428,10 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		return nil, errors.Trace(err)
 	}
 
+	bakeryConfigService := controllerServiceFactory.Macaroon()
+
 	// The auth context for authenticating access to application offers.
-	srv.offerAuthCtxt, err = newOfferAuthContext(ctx, cfg.StatePool, controllerConfigService)
+	srv.offerAuthCtxt, err = newOfferAuthContext(ctx, cfg.StatePool, controllerConfigService, bakeryConfigService)
 	if err != nil {
 		unsubscribeControllerConfig()
 		return nil, errors.Trace(err)

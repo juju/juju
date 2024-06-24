@@ -91,7 +91,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.ControllerConfig = controllerCfg
 	s.StateSuite.SetUpTest(c)
 	s.ServiceFactorySuite.SetUpTest(c)
-	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), controllerCfg)
+	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), s.ServiceFactoryGetter(c)(s.ControllerModelUUID.String()), controllerCfg)
 
 	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
 	c.Assert(err, jc.ErrorIsNil)
