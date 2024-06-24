@@ -86,18 +86,9 @@ var _ = gc.Suite(&toolsWithMacaroonsIntegrationSuite{})
 func (s *toolsWithMacaroonsIntegrationSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
 
-	userService := s.ControllerServiceFactory(c).Access()
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
-		Name:        "bob@authhttpsuite",
-		DisplayName: "Bob Brown",
-		CreatorUUID: s.AdminUserUUID,
-		Password:    ptr(auth.NewPassword("password")),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
 	s.userTag = names.NewUserTag("bob@authhttpsuite")
 	s.AddModelUser(c, s.userTag.Id())
+	s.AddControllerUser(c, s.userTag.Id(), permission.LoginAccess)
 
 	apiInfo := s.APIInfo(c)
 	baseURL, err := url.Parse(fmt.Sprintf("https://%s/", apiInfo.Addrs[0]))
@@ -140,9 +131,9 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *gc.C) 
 	// Create a new local user that we can log in as
 	// using macaroon authentication.
 	password := "hunter2"
-	userService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerServiceFactory(c).Access()
 	userTag := names.NewUserTag("bobbrown")
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
