@@ -12,6 +12,8 @@ import (
 	accessstate "github.com/juju/juju/domain/access/state"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	autocertcachestate "github.com/juju/juju/domain/autocert/state"
+	bakerystorageservice "github.com/juju/juju/domain/bakerystorage/service"
+	bakerystoragestate "github.com/juju/juju/domain/bakerystorage/state"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
@@ -183,5 +185,11 @@ func (s *ControllerFactory) SecretBackend() *secretbackendservice.WatchableServi
 			s.controllerDB,
 			s.logger.Child("watcherfactory"),
 		),
+	)
+}
+
+func (s *ControllerFactory) Macaroon() *bakerystorageservice.Service {
+	return bakerystorageservice.NewService(
+		bakerystoragestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }

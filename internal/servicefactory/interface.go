@@ -8,6 +8,7 @@ import (
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
+	bakerystorageservice "github.com/juju/juju/domain/bakerystorage/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
@@ -61,6 +62,8 @@ type ControllerServiceFactory interface {
 	Access() *accessservice.Service
 	// SecretBackend returns the secret backend service.
 	SecretBackend() *secretbackendservice.WatchableService
+	// Macaroon returns the macaroon bakery backend service
+	Macaroon() *bakerystorageservice.Service
 }
 
 // ModelServiceFactory provides access to the services required by the
