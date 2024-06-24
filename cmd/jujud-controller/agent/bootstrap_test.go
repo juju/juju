@@ -423,10 +423,6 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 		c.Assert(args.MongoDialOpts.Direct, jc.IsTrue)
 		c.Assert(args.MongoDialOpts.Timeout, gc.Equals, 30*time.Second)
 		c.Assert(args.MongoDialOpts.SocketTimeout, gc.Equals, 123*time.Second)
-		c.Assert(args.StateInitializationParams.InitialModelConfig, jc.DeepEquals, map[string]interface{}{
-			"name": "my-model",
-			"uuid": s.initialModelUUID,
-		})
 		return nil, errors.New("failed to initialize state")
 	}
 
@@ -567,10 +563,6 @@ func (s *BootstrapSuite) makeTestModel(c *gc.C) {
 	args.ControllerModelConfig = env.Config()
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
 	args.BootstrapMachineHardwareCharacteristics = &hw
-	args.InitialModelConfig = map[string]interface{}{
-		"name": "my-model",
-		"uuid": s.initialModelUUID,
-	}
 	args.ControllerCloud = cloud.Cloud{
 		Name:      "dummy",
 		Type:      "dummy",

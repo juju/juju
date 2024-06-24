@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/charmhub"
@@ -36,7 +35,6 @@ import (
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
-	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -124,11 +122,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := testing.FakeControllerConfig()
 
-	initialModelUUID := uuid.MustNewUUID().String()
-	initialModelConfigAttrs := map[string]interface{}{
-		"name": "hosted",
-		"uuid": initialModelUUID,
-	}
 	controllerInheritedConfig := map[string]interface{}{
 		"apt-mirror": "http://mirror",
 		"no-proxy":   "value",
@@ -158,7 +151,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		ControllerModelEnvironVersion: 666,
 		ModelConstraints:              expectModelConstraints,
 		ControllerInheritedConfig:     controllerInheritedConfig,
-		InitialModelConfig:            initialModelConfigAttrs,
 		StoragePools: map[string]storage.Attrs{
 			"spool": {
 				"type": "loop",
@@ -236,28 +228,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
 
-	// Check that the hosted model has been added, model constraints
-	// set, and its config contains the same authorized-keys as the
-	// controller model.
-	initialModelSt, err := ctlr.StatePool().Get(initialModelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	defer initialModelSt.Release()
-	gotModelConstraints, err = initialModelSt.ModelConstraints()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(gotModelConstraints, gc.DeepEquals, expectModelConstraints)
-
-	initialModel, err := initialModelSt.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(initialModel.Name(), gc.Equals, "hosted")
-	c.Check(initialModel.CloudRegion(), gc.Equals, "dummy-region")
-	c.Check(initialModel.EnvironVersion(), gc.Equals, 123)
-
-	hostedCfg, err := initialModel.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	_, hasUnexpected := hostedCfg.AllAttrs()["not-for-hosted"]
-	c.Check(hasUnexpected, jc.IsFalse)
-	c.Check(hostedCfg.AuthorizedKeys(), gc.Equals, newModelCfg.AuthorizedKeys())
-
 	// Check that the bootstrap machine looks correct.
 	m, err := st.Machine("0")
 	c.Assert(err, jc.ErrorIsNil)
@@ -304,33 +274,6 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	session, err := mongo.DialWithInfo(*info, mongotest.DialOpts())
 	c.Assert(err, jc.ErrorIsNil)
 	session.Close()
-
-	// Make sure that the hosted model Environ's Create method is called.
-	envProvider.CheckCallNames(c,
-		"PrepareConfig",
-		"Validate",
-		"Open",
-		"Create",
-		"Version",
-	)
-	// Those attributes are configured during initialization, after "Open".
-	expectedCalledCfg, err := hostedCfg.Apply(map[string]interface{}{"container-networking-method": ""})
-	c.Assert(err, jc.ErrorIsNil)
-	envProvider.CheckCall(c, 2, "Open", environs.OpenParams{
-		ControllerUUID: controllerCfg.ControllerUUID(),
-		Cloud: environscloudspec.CloudSpec{
-			Type:              "dummy",
-			Name:              "dummy",
-			Region:            "dummy-region",
-			IsControllerCloud: true,
-		},
-		Config: expectedCalledCfg,
-	})
-	envProvider.CheckCall(c, 3, "Create",
-		envProvider.environ.callCtxUsed,
-		environs.CreateParams{
-			ControllerUUID: controllerCfg.ControllerUUID(),
-		})
 }
 
 func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
@@ -407,11 +350,6 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	modelCfg, err := config.New(config.NoDefaults, modelAttrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	initialModelConfigAttrs := map[string]interface{}{
-		"name": "hosted",
-		"uuid": uuid.MustNewUUID().String(),
-	}
-
 	args := instancecfg.StateInitializationParams{
 		BootstrapMachineInstanceId:  "i-bootstrap",
 		BootstrapMachineDisplayName: "test-display-name",
@@ -423,7 +361,6 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		},
 		ControllerConfig:      testing.FakeControllerConfig(),
 		ControllerModelConfig: modelCfg,
-		InitialModelConfig:    initialModelConfigAttrs,
 	}
 
 	adminUser := names.NewLocalUserTag("agent-admin")

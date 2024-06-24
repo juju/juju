@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/caas"
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller/modelmanager"
 	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
@@ -39,7 +38,6 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/database"
@@ -392,9 +390,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	}
 	b.agentConfig.SetPassword(newPassword)
 
-	if err := b.ensureInitialModel(ctx, cloudSpec, provider, st, ctrl, cloudCredTag); err != nil {
-		return nil, errors.Annotate(err, "ensuring initial model")
-	}
 	return ctrl, nil
 }
 
@@ -416,82 +411,6 @@ func (b *AgentBootstrap) getCloudCredential() (cloud.Credential, names.CloudCred
 		return *stateParams.ControllerCloudCredential, cloudCredentialTag, nil
 	}
 	return cloud.Credential{}, cloudCredentialTag, nil
-}
-
-// ensureInitialModel ensures the initial model.
-func (b *AgentBootstrap) ensureInitialModel(
-	ctx stdcontext.Context,
-	cloudSpec environscloudspec.CloudSpec,
-	provider environs.EnvironProvider,
-	st *state.State,
-	ctrl *state.Controller,
-	cloudCredentialTag names.CloudCredentialTag,
-) error {
-	stateParams := b.stateInitializationParams
-	if len(stateParams.InitialModelConfig) == 0 {
-		b.logger.Debugf("no initial model configured")
-		return nil
-	}
-
-	// Create the initial hosted model, with the model config passed to
-	// bootstrap, which contains the UUID, name for the model,
-	// and any user supplied config. We also copy the authorized-keys
-	// from the controller model.
-	attrs := make(map[string]any)
-	for k, v := range stateParams.InitialModelConfig {
-		attrs[k] = v
-	}
-	attrs[config.AuthorizedKeysKey] = stateParams.ControllerModelConfig.AuthorizedKeys()
-
-	creator := modelmanager.ModelConfigCreator{Provider: b.provider}
-	initialModelConfig, err := creator.NewModelConfig(
-		ctx, cloudSpec, stateParams.ControllerModelConfig, attrs,
-	)
-	if err != nil {
-		return errors.Annotate(err, "creating initial model config")
-	}
-	controllerUUID := stateParams.ControllerConfig.ControllerUUID()
-
-	initialModelEnv, err := b.getEnviron(ctx, controllerUUID, cloudSpec, initialModelConfig, provider)
-	if err != nil {
-		return errors.Annotate(err, "opening initial model environment")
-	}
-
-	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
-	if err := initialModelEnv.Create(
-		callCtx,
-		environs.CreateParams{
-			ControllerUUID: controllerUUID,
-		}); err != nil {
-		return errors.Annotate(err, "creating initial model environment")
-	}
-
-	ctrlModel, err := st.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	model, initialModelState, err := ctrl.NewModel(b.configSchemaSourceGetter, state.ModelArgs{
-		Type:                    ctrlModel.Type(),
-		Owner:                   b.adminUser,
-		Config:                  initialModelConfig,
-		Constraints:             stateParams.ModelConstraints,
-		CloudName:               stateParams.ControllerCloud.Name,
-		CloudRegion:             stateParams.ControllerCloudRegion,
-		CloudCredential:         cloudCredentialTag,
-		StorageProviderRegistry: b.storageProviderRegistry,
-		EnvironVersion:          provider.Version(),
-	})
-	if err != nil {
-		return errors.Annotate(err, "creating initial model")
-	}
-	defer func() { _ = initialModelState.Close() }()
-
-	if err := model.AutoConfigureContainerNetworking(initialModelEnv, b.configSchemaSourceGetter); err != nil {
-		return errors.Annotate(err, "autoconfiguring container networking")
-	}
-
-	return nil
 }
 
 func (b *AgentBootstrap) getEnviron(

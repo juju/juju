@@ -97,9 +97,6 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	}
 	pcfg.Bootstrap.ControllerModelConfig = s.cfg
 	pcfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"
-	pcfg.Bootstrap.InitialModelConfig = map[string]interface{}{
-		"name": "my-model",
-	}
 	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		Cert:         coretesting.ServerCert,
 		PrivateKey:   coretesting.ServerKey,

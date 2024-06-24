@@ -456,10 +456,6 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--config", "controller-name=test"},
 	err:  `controller name cannot be set via config, please use cmd args`,
 }, {
-	info: "resource-group-name does not support add-model",
-	args: []string{"--config", "resource-group-name=foo", "--add-model", "foo"},
-	err:  `if using resource-group-name "foo" then a workload model cannot be specified as well`,
-}, {
 	info: "missing storage pool name",
 	args: []string{"--storage-pool", "type=ebs"},
 	err:  `storage pool requires a name`,
@@ -545,52 +541,6 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *gc.C) {
 	c.Assert(currentController, gc.Equals, "no-cloud-regions")
 }
 
-func (s *BootstrapSuite) TestBootstrapSetsCurrentModelWithCaps(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.8.3", "jammy")
-
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "DevController", "--auto-upgrade", "--add-model", "workload")
-	c.Assert(err, jc.ErrorIsNil)
-	currentController := s.store.CurrentControllerName
-	c.Assert(currentController, gc.Equals, "devcontroller")
-	modelName, err := s.store.CurrentModel(currentController)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelName, gc.Equals, "admin/workload")
-	m, err := s.store.ModelByName(currentController, modelName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.ModelType, gc.Equals, model.IAAS)
-}
-
-func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.8.3", "jammy")
-
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade", "--add-model", "workload")
-	c.Assert(err, jc.ErrorIsNil)
-	currentController := s.store.CurrentControllerName
-	c.Assert(currentController, gc.Equals, "devcontroller")
-	modelName, err := s.store.CurrentModel(currentController)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelName, gc.Equals, "admin/workload")
-	m, err := s.store.ModelByName(currentController, modelName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.ModelType, gc.Equals, model.IAAS)
-}
-
-func (s *BootstrapSuite) TestBootstrapWorkloadModelFromEnv(c *gc.C) {
-	s.setupAutoUploadTest(c, "1.8.3", "jammy")
-
-	s.PatchEnvironment("JUJU_BOOTSTRAP_MODEL", "workload")
-	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "devcontroller", "--auto-upgrade")
-	c.Assert(err, jc.ErrorIsNil)
-	currentController := s.store.CurrentControllerName
-	c.Assert(currentController, gc.Equals, "devcontroller")
-	modelName, err := s.store.CurrentModel(currentController)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelName, gc.Equals, "admin/workload")
-	m, err := s.store.ModelByName(currentController, modelName)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m.ModelType, gc.Equals, model.IAAS)
-}
-
 func (s *BootstrapSuite) TestBootstrapNoCurrentModel(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "jammy")
 
@@ -625,26 +575,6 @@ func (s *BootstrapSuite) TestBootstrapSetsControllerDetails(c *gc.C) {
 	c.Assert(details.AgentVersion, gc.Equals, jujuversion.Current.String())
 }
 
-func (s *BootstrapSuite) TestBootstrapWithWorkloadModel(c *gc.C) {
-	s.patchVersion(c)
-
-	var bootstrapFuncs fakeBootstrapFuncs
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return &bootstrapFuncs
-	})
-
-	cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
-		"dummy", "devcontroller",
-		"--auto-upgrade",
-		"--add-model", "mymodel",
-		"--config", "foo=bar",
-	)
-	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
-	c.Assert(bootstrapFuncs.args.InitialModelConfig["name"], gc.Equals, "mymodel")
-	c.Assert(bootstrapFuncs.args.InitialModelConfig["foo"], gc.Equals, "bar")
-}
-
 func (s *BootstrapSuite) TestBootstrapNoWorkloadModel(c *gc.C) {
 	s.patchVersion(c)
 
@@ -660,7 +590,6 @@ func (s *BootstrapSuite) TestBootstrapNoWorkloadModel(c *gc.C) {
 		"--config", "foo=bar",
 	)
 	c.Assert(utils.IsValidUUIDString(bootstrapFuncs.args.ControllerConfig.ControllerUUID()), jc.IsTrue)
-	c.Assert(bootstrapFuncs.args.InitialModelConfig, gc.HasLen, 0)
 }
 
 func (s *BootstrapSuite) TestBootstrapTimeout(c *gc.C) {
@@ -708,75 +637,6 @@ func (s *BootstrapSuite) TestBootstrapAllConstraintsMerged(c *gc.C) {
 
 	bootstrapCons := constraints.MustParse("mem=4G spaces=ha-space,management-space,random-space")
 	c.Assert(bootstrapFuncs.args.BootstrapConstraints, gc.DeepEquals, bootstrapCons)
-}
-
-func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsProcessedAttributes(c *gc.C) {
-	s.patchVersion(c)
-
-	var bootstrapFuncs fakeBootstrapFuncs
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return &bootstrapFuncs
-	})
-
-	fakeSSHFile := filepath.Join(c.MkDir(), "ssh")
-	err := os.WriteFile(fakeSSHFile, []byte("ssh-key"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
-	cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
-		"dummy", "devcontroller",
-		"--auto-upgrade",
-		"--config", "authorized-keys-path="+fakeSSHFile,
-	)
-	_, ok := bootstrapFuncs.args.InitialModelConfig["authorized-keys-path"]
-	c.Assert(ok, jc.IsFalse)
-}
-
-func (s *BootstrapSuite) TestBootstrapModelDefaultConfig(c *gc.C) {
-	s.patchVersion(c)
-
-	var bootstrapFuncs fakeBootstrapFuncs
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return &bootstrapFuncs
-	})
-
-	cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
-		"dummy", "devcontroller",
-		"--add-model", "workload",
-		"--model-default", "network=foo",
-		"--model-default", "ftp-proxy=model-proxy",
-		"--config", "ftp-proxy=controller-proxy",
-	)
-
-	c.Check(bootstrapFuncs.args.InitialModelConfig["network"], gc.Equals, "foo")
-	c.Check(bootstrapFuncs.args.ControllerInheritedConfig["network"], gc.Equals, "foo")
-
-	c.Check(bootstrapFuncs.args.InitialModelConfig["ftp-proxy"], gc.Equals, "controller-proxy")
-	c.Check(bootstrapFuncs.args.ControllerInheritedConfig["ftp-proxy"], gc.Equals, "model-proxy")
-}
-
-func (s *BootstrapSuite) TestBootstrapDefaultConfigStripsInheritedAttributes(c *gc.C) {
-	s.patchVersion(c)
-
-	var bootstrapFuncs fakeBootstrapFuncs
-	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
-		return &bootstrapFuncs
-	})
-
-	fakeSSHFile := filepath.Join(c.MkDir(), "ssh")
-	err := os.WriteFile(fakeSSHFile, []byte("ssh-key"), 0600)
-	c.Assert(err, jc.ErrorIsNil)
-	cmdtesting.RunCommand(
-		c, s.newBootstrapCommand(),
-		"dummy", "devcontroller",
-		"--auto-upgrade",
-		"--config", "authorized-keys=ssh-key",
-		"--config", "agent-version=1.19.0",
-	)
-	_, ok := bootstrapFuncs.args.InitialModelConfig["authorized-keys"]
-	c.Assert(ok, jc.IsFalse)
-	_, ok = bootstrapFuncs.args.InitialModelConfig["agent-version"]
-	c.Assert(ok, jc.IsFalse)
 }
 
 // checkConfigs runs bootstrapCmd.getBootstrapConfigs and checks the returned configs match
