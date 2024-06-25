@@ -22,12 +22,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/password"
 )
-
-var logger = internallogger.GetLogger("juju.cloudconfig.podcfg")
 
 // ControllerPodConfig represents initialization information for a new juju caas controller pod.
 type ControllerPodConfig struct {
@@ -241,17 +238,6 @@ See juju help add-k8s for more information.
 // GetPodName returns pod name.
 func (cfg *ControllerPodConfig) GetPodName() string {
 	return "controller-" + cfg.ControllerId
-}
-
-// GetInitialModel checks if hosted model was requested to create.
-func (cfg *ControllerPodConfig) GetInitialModel() (string, bool) {
-	hasInitialModel := len(cfg.Bootstrap.InitialModelConfig) > 0
-	if hasInitialModel {
-		modelName := cfg.Bootstrap.InitialModelConfig[config.NameKey].(string)
-		logger.Debugf("configured initial model %q for bootstrapping", modelName)
-		return modelName, true
-	}
-	return "", false
 }
 
 // VerifyConfig verifies that the BootstrapConfig is valid.

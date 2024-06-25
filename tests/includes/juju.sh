@@ -267,10 +267,13 @@ juju_bootstrap() {
 
 	pre_bootstrap
 
-	command="juju bootstrap ${base} ${cloud_region} ${name} --add-model ${model} --model-default mode= ${BOOTSTRAP_ADDITIONAL_ARGS}"
+	command="juju bootstrap ${base} ${cloud_region} ${name} --model-default mode= ${BOOTSTRAP_ADDITIONAL_ARGS}"
 	# keep $@ here, otherwise hit SC2124
 	${command} "$@" 2>&1 | OUTPUT "${output}"
 	echo "${name}" >>"${TEST_DIR}/jujus"
+
+	# Adding the initial model.
+	juju add-model --show-log "${model}" 2>&1
 
 	post_bootstrap "${name}" "${model}"
 }
