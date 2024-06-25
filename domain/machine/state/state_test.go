@@ -126,7 +126,7 @@ VALUES (?, ?)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestGetLife(c *gc.C) {
+func (s *stateSuite) TestGetMachineLifeSuccess(c *gc.C) {
 	err := s.state.UpsertMachine(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -134,4 +134,9 @@ func (s *stateSuite) TestGetLife(c *gc.C) {
 	expectedLife := life.Alive
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*obtainedLife, gc.Equals, expectedLife)
+}
+
+func (s *stateSuite) TestGetMachineLifeNotFound(c *gc.C) {
+	_, err := s.state.GetMachineLife(context.Background(), "666")
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }

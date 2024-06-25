@@ -172,6 +172,9 @@ func (st *State) GetMachineLife(ctx context.Context, machineId string) (*life.Li
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		result := sqlair.M{}
 		err := tx.Query(ctx, lifeStmt, sqlair.M{"machine_id": machineId}).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.NotFoundf("machine %q", machineId)
+		}
 		if err != nil {
 			return errors.Annotatef(err, "looking up life for machine %q", machineId)
 		}
