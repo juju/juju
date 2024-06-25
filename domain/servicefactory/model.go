@@ -69,7 +69,10 @@ func NewModelFactory(
 func (s *ModelFactory) AgentProvisioner() *agentprovisionerservice.Service {
 	return agentprovisionerservice.NewService(
 		s.modelUUID,
-		agentprovisionerstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+		agentprovisionerstate.NewState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+			changestream.NewTxnRunnerFactory(s.modelDB),
+		),
 		providertracker.ProviderRunner[agentprovisionerservice.Provider](s.providerFactory, s.modelUUID.String()),
 	)
 }

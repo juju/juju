@@ -12,12 +12,13 @@ import (
 )
 
 type State struct {
-	*domain.StateBase
+	controller, model *domain.StateBase
 }
 
-func NewState(factory database.TxnRunnerFactory) *State {
+func NewState(controllerFactory, modelFactory database.TxnRunnerFactory) *State {
 	return &State{
-		StateBase: domain.NewStateBase(factory),
+		controller: domain.NewStateBase(controllerFactory),
+		model:      domain.NewStateBase(modelFactory),
 	}
 }
 
@@ -29,12 +30,12 @@ func (s *State) GetModelConfigKeyValues(
 		return map[string]string{}, nil
 	}
 
-	db, err := s.DB()
+	db, err := s.model.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	stmt, err := s.Prepare(`
+	stmt, err := s.model.Prepare(`
 SELECT (key, value) AS &M.*
 FROM model_config
 WHERE key in ($S[:])
@@ -79,12 +80,12 @@ func (s *State) GetControllerConfigKeyValues(
 		return map[string]string{}, nil
 	}
 
-	db, err := s.DB()
+	db, err := s.controller.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	stmt, err := s.Prepare(`
+	stmt, err := s.controller.Prepare(`
 SELECT (key, value) AS &M.*
 FROM controller_config
 WHERE key in ($S[:])
