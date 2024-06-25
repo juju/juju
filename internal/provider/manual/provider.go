@@ -186,8 +186,8 @@ func (p ManualProvider) validate(ctx context.Context, cfg, old *config.Config) (
 
 	// If the user hasn't specified a value, refresh the
 	// available updates, but don't upgrade.
-	defineIfNot("enable-os-refresh-update", true)
-	defineIfNot("enable-os-upgrade", false)
+	defineIfNot(config.EnableOSRefreshUpdateKey, true)
+	defineIfNot(config.EnableOSUpgradeKey, false)
 
 	return envConfig, nil
 }

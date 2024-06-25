@@ -11,7 +11,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
-	"github.com/juju/utils/v4/ssh"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/credentialcommon"
@@ -386,16 +385,13 @@ func (api *ProvisionerAPI) ContainerManagerConfig(ctx stdcontext.Context, args p
 
 	result.ManagerConfig = make(map[string]string)
 	result.ManagerConfig[container.ConfigModelUUID] = cfg.ModelID.String()
-	// Can we set this value even if the type isn't lxd ?
 	result.ManagerConfig[config.LXDSnapChannel] = cfg.LXDSnapChannel
-
 	if cfg.ImageMetadataURL != "" {
 		result.ManagerConfig[config.ContainerImageMetadataURLKey] = cfg.ImageMetadataURL
 	}
 	if cfg.MetadataDefaultsDisabled {
 		result.ManagerConfig[config.ContainerImageMetadataDefaultsDisabledKey] = "true"
 	}
-
 	result.ManagerConfig[config.ContainerImageStreamKey] = cfg.ImageStream
 	result.ManagerConfig[config.ContainerNetworkingMethod] = cfg.NetworkingMethod.String()
 
@@ -405,37 +401,7 @@ func (api *ProvisionerAPI) ContainerManagerConfig(ctx stdcontext.Context, args p
 // ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
 func (api *ProvisionerAPI) ContainerConfig(ctx stdcontext.Context) (params.ContainerConfig, error) {
-	result := params.ContainerConfig{}
-	cfg, err := api.m.ModelConfig(ctx)
-	if err != nil {
-		return result, err
-	}
-	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return result, err
-	}
-
-	authorizedKeys := ssh.ConcatAuthorisedKeys(
-		cfg.AuthorizedKeys(), controllerConfig.SystemSSHKeys())
-
-	result.UpdateBehavior = &params.UpdateBehavior{
-		EnableOSRefreshUpdate: cfg.EnableOSRefreshUpdate(),
-		EnableOSUpgrade:       cfg.EnableOSUpgrade(),
-	}
-	result.ProviderType = cfg.Type()
-	result.AuthorizedKeys = authorizedKeys
-	result.SSLHostnameVerification = cfg.SSLHostnameVerification()
-	result.LegacyProxy = cfg.LegacyProxySettings()
-	result.JujuProxy = cfg.JujuProxySettings()
-	result.AptProxy = cfg.AptProxySettings()
-	result.AptMirror = cfg.AptMirror()
-	result.SnapProxy = cfg.SnapProxySettings()
-	result.SnapStoreAssertions = cfg.SnapStoreAssertions()
-	result.SnapStoreProxyID = cfg.SnapStoreProxy()
-	result.SnapStoreProxyURL = cfg.SnapStoreProxyURL()
-	result.CloudInitUserData = cfg.CloudInitUserData()
-	result.ContainerInheritProperties = cfg.ContainerInheritProperties()
-	return result, nil
+	return api.agentProvisionerService.ContainerConfig(ctx)
 }
 
 // MachinesWithTransientErrors returns status data for machines with provisioning

@@ -6,10 +6,11 @@ package service
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/v4/ssh"
 
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
+	"github.com/juju/juju/rpc/params"
 )
 
 type Provider interface {
@@ -30,8 +32,12 @@ type Service struct {
 }
 
 type State interface {
-	// GetModelConfigKeyValues
-	GetModelConfigKeyValues(context.Context, []string) (map[string]string, error)
+	// GetModelConfigKeyValues returns a model config object populated with
+	// values for the provided keys.
+	GetModelConfigKeyValues(context.Context, []string) (*config.Config, error)
+	// GetControllerConfigKeyValues returns a controller config object
+	// populated with values for the provided keys.
+	GetControllerConfigKeyValues(context.Context, []string) (*controller.Config, error)
 }
 
 func NewService(
@@ -65,12 +71,12 @@ func (s *Service) ContainerManagerConfigForType(
 	}
 
 	if containerType == instance.LXD {
-		rval.LXDSnapChannel = cfg[config.LXDSnapChannel]
+		rval.LXDSnapChannel = cfg.LXDSnapChannel()
 	}
 
-	rval.ImageMetadataURL = cfg[config.ContainerImageMetadataURLKey]
-	rval.MetadataDefaultsDisabled, _ = strconv.ParseBool(cfg[config.ContainerImageMetadataDefaultsDisabledKey])
-	rval.ImageStream = cfg[config.ContainerImageStreamKey]
+	rval.ImageMetadataURL, _ = cfg.ContainerImageMetadataURL()
+	rval.MetadataDefaultsDisabled = cfg.ContainerImageMetadataDefaultsDisabled()
+	rval.ImageStream = cfg.ContainerImageStream()
 
 	provider, err := s.providerGetter(ctx)
 	if err != nil && !errors.Is(err, errors.NotSupported) {
@@ -95,4 +101,63 @@ func (s *Service) ContainerManagerConfigForType(
 	}
 
 	return rval, nil
+}
+
+func (s *Service) ContainerConfig(ctx context.Context) (params.ContainerConfig, error) {
+	result := params.ContainerConfig{}
+
+	cfg, err := s.st.GetModelConfigKeyValues(ctx, []string{
+		config.AuthorizedKeysKey,
+		config.EnableOSRefreshUpdateKey,
+		config.EnableOSUpgradeKey,
+		config.TypeKey,
+		config.SSLHostnameVerificationKey,
+		config.HTTPProxyKey, config.HTTPSProxyKey, config.FTPProxyKey, config.NoProxyKey,
+		config.JujuHTTPProxyKey, config.JujuHTTPSProxyKey, config.JujuFTPProxyKey, config.JujuNoProxyKey,
+		config.AptHTTPProxyKey, config.AptHTTPSProxyKey, config.AptFTPProxyKey, config.AptNoProxyKey,
+		config.AptMirrorKey,
+		config.SnapHTTPProxyKey, config.SnapHTTPSProxyKey,
+		config.SnapStoreAssertionsKey,
+		config.SnapStoreProxyKey, config.SnapStoreProxyURLKey,
+		config.CloudInitUserDataKey,
+		config.ContainerInheritPropertiesKey,
+	})
+	if err != nil {
+		return result, fmt.Errorf(
+			"cannot get model config keys when calculating container config: %w",
+			err,
+		)
+	}
+
+	controllerConfig, err := s.st.GetControllerConfigKeyValues(ctx, []string{
+		controller.SystemSSHKeys,
+	})
+	if err != nil {
+		return result, fmt.Errorf(
+			"cannot get controller config keys when calculating container config: %w",
+			err,
+		)
+	}
+
+	authorizedKeys := ssh.ConcatAuthorisedKeys(
+		cfg.AuthorizedKeys(), controllerConfig.SystemSSHKeys())
+
+	result.UpdateBehavior = &params.UpdateBehavior{
+		EnableOSRefreshUpdate: cfg.EnableOSRefreshUpdate(),
+		EnableOSUpgrade:       cfg.EnableOSUpgrade(),
+	}
+	result.ProviderType = cfg.Type()
+	result.AuthorizedKeys = authorizedKeys
+	result.SSLHostnameVerification = cfg.SSLHostnameVerification()
+	result.LegacyProxy = cfg.LegacyProxySettings()
+	result.JujuProxy = cfg.JujuProxySettings()
+	result.AptProxy = cfg.AptProxySettings()
+	result.AptMirror = cfg.AptMirror()
+	result.SnapProxy = cfg.SnapProxySettings()
+	result.SnapStoreAssertions = cfg.SnapStoreAssertions()
+	result.SnapStoreProxyID = cfg.SnapStoreProxy()
+	result.SnapStoreProxyURL = cfg.SnapStoreProxyURL()
+	result.CloudInitUserData = cfg.CloudInitUserData()
+	result.ContainerInheritProperties = cfg.ContainerInheritProperties()
+	return result, nil
 }

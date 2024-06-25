@@ -6,10 +6,12 @@ package provisioner
 import (
 	"context"
 
+	"github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
 )
 
 type AgentProvisionerService interface {
 	ContainerManagerConfigForType(context.Context, instance.ContainerType) (containermanager.Config, error)
+	ContainerConfig(ctx context.Context) (container.Config, error)
 }
