@@ -62,6 +62,23 @@ type ProviderSpace struct {
 	ProviderID network.Id `db:"provider_id"`
 }
 
+// AvailabilityZone represents a row from the availability_zone table.
+type AvailabilityZone struct {
+	// Name is the name of the availability zone.
+	Name string `db:"name"`
+	// UUID is the unique ID of the availability zone.
+	UUID string `db:"uuid"`
+}
+
+// AvailabilityZoneSubnet represents a row from the availability_zone_subnet
+// table.
+type AvailabilityZoneSubnet struct {
+	// UUID is the unique ID of the availability zone.
+	AZUUID string `db:"availability_zone_uuid"`
+	// SubnetUUID is the unique ID of the Subnet.
+	SubnetUUID string `db:"subnet_uuid"`
+}
+
 // SubnetRow represents the subnet fields of a single row from the
 // v_space_subnets view.
 type SubnetRow struct {

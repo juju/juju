@@ -5,11 +5,11 @@ package state
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/google/uuid"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
@@ -19,28 +19,27 @@ import (
 )
 
 // AllSubnetsQuery returns the SQL query that finds all subnet UUIDs from the
-// subnet table, needed for the subnets watcher.
+// subnet table, needed for the subnets' watcher.
 func (st *State) AllSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error) {
-	var subnetUUIDs []string
+	var subnets []Subnet
+	stmt, err := st.Prepare(`
+SELECT &Subnet.uuid 
+FROM   subnet`, Subnet{})
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing select subnet statement")
+	}
 
-	return subnetUUIDs, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "SELECT uuid FROM subnet"
-		rows, err := tx.QueryContext(ctx, stmt)
-		if err != nil {
-			return errors.Trace(domain.CoerceError(err))
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, stmt).GetAll(&subnets)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
 		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var subnetUUID string
-			if err := rows.Scan(&subnetUUID); err != nil {
-				return errors.Trace(domain.CoerceError(err))
-			}
-			subnetUUIDs = append(subnetUUIDs, subnetUUID)
-		}
-
-		return nil
+		return errors.Trace(domain.CoerceError(err))
 	})
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+	return transform.Slice(subnets, func(s Subnet) string { return s.UUID }), nil
 }
 
 // UpsertSubnets updates or adds each one of the provided subnets in one
@@ -56,18 +55,19 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 			err := st.updateSubnetSpaceID(
 				ctx,
 				tx,
-				string(subnet.ID),
-				subnet.SpaceID,
+				Subnet{
+					UUID:      string(subnet.ID),
+					SpaceUUID: subnet.SpaceID,
+				},
 			)
 			if err != nil && !errors.Is(err, errors.NotFound) {
 				return errors.Trace(domain.CoerceError(err))
 			}
-			// If the subnet doesn't exist yet we need to create it.
+			// If the subnet does not yet exist then we need to create it.
 			if errors.Is(err, errors.NotFound) {
 				if err := st.addSubnet(
 					ctx,
 					tx,
-					subnet.ID.String(),
 					subnet,
 				); err != nil {
 					return errors.Trace(domain.CoerceError(err))
@@ -78,108 +78,105 @@ func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo
 	})
 }
 
-func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnetInfo network.SubnetInfo) error {
+func (st *State) addSubnet(ctx context.Context, tx *sqlair.TX, subnetInfo network.SubnetInfo) error {
 	spaceUUIDValue := subnetInfo.SpaceID
 	if subnetInfo.SpaceID == "" {
 		spaceUUIDValue = network.AlphaSpaceId
 	}
+	subnetUUID := subnetInfo.ID.String()
+
+	subnet := Subnet{
+		UUID:      subnetUUID,
+		CIDR:      subnetInfo.CIDR,
+		VLANtag:   subnetInfo.VLANTag,
+		SpaceUUID: spaceUUIDValue,
+	}
+	providerSubnet := ProviderSubnet{
+		SubnetUUID: subnetUUID,
+		ProviderID: subnetInfo.ProviderId,
+	}
+	providerNetwork := ProviderNetwork{
+		ProviderNetworkID: subnetInfo.ProviderNetworkId,
+	}
+	providerNetworkSubnet := ProviderNetworkSubnet{
+		SubnetUUID: subnetUUID,
+	}
 
 	insertSubnetStmt, err := st.Prepare(`
-INSERT INTO subnet (uuid, cidr, vlan_tag, space_uuid)
-VALUES ($Subnet.uuid, $Subnet.cidr, $Subnet.vlan_tag, $Subnet.space_uuid)`, Subnet{})
+INSERT INTO subnet (*) 
+VALUES ($Subnet.*)`, subnet)
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
 	insertSubnetProviderIDStmt, err := st.Prepare(`
-INSERT INTO provider_subnet (provider_id, subnet_uuid)
-VALUES ($ProviderSubnet.provider_id, $ProviderSubnet.subnet_uuid)`, ProviderSubnet{})
+INSERT INTO provider_subnet (*)
+VALUES ($ProviderSubnet.*)`, providerSubnet)
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
 	retrieveProviderNetworkUUIDStmt, err := st.Prepare(`
-SELECT &ProviderNetwork.uuid
+SELECT uuid AS &ProviderNetworkSubnet.provider_network_uuid
 FROM   provider_network
-WHERE  provider_network_id = $ProviderNetwork.provider_network_id`, ProviderNetwork{})
+WHERE  provider_network_id = $ProviderNetwork.provider_network_id`, providerNetwork, providerNetworkSubnet)
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
 	insertSubnetProviderNetworkIDStmt, err := st.Prepare(`
-INSERT INTO provider_network (uuid, provider_network_id)
-VALUES ($ProviderNetwork.uuid, $ProviderNetwork.provider_network_id)`, ProviderNetwork{})
+INSERT INTO provider_network (*)
+VALUES ($ProviderNetwork.*)`, providerNetwork)
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
 	insertSubnetProviderNetworkSubnetStmt, err := st.Prepare(`
-INSERT INTO provider_network_subnet (provider_network_uuid, subnet_uuid)
-VALUES ($ProviderNetworkSubnet.provider_network_uuid, $ProviderNetworkSubnet.subnet_uuid)`, ProviderNetworkSubnet{})
+INSERT INTO provider_network_subnet (*)
+VALUES ($ProviderNetworkSubnet.*)`, providerNetworkSubnet)
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
 	// Add the subnet entity.
-	if err := tx.Query(
-		ctx,
-		insertSubnetStmt,
-		Subnet{
-			UUID:      subnetUUID,
-			CIDR:      subnetInfo.CIDR,
-			VLANtag:   subnetInfo.VLANTag,
-			SpaceUUID: spaceUUIDValue,
-		},
-	).Run(); err != nil {
+	if err := tx.Query(ctx, insertSubnetStmt, subnet).Run(); err != nil {
 		st.logger.Errorf("inserting subnet %q, %v", subnetInfo.CIDR, err)
 		return errors.Trace(domain.CoerceError(err))
 	}
 
 	// Add the subnet uuid to the provider ids table.
-	if err := tx.Query(
-		ctx,
-		insertSubnetProviderIDStmt,
-		ProviderSubnet{SubnetUUID: subnetUUID, ProviderID: subnetInfo.ProviderId},
-	).Run(); err != nil {
+	if err := tx.Query(ctx, insertSubnetProviderIDStmt, providerSubnet).Run(); err != nil {
 		if internaldatabase.IsErrConstraintPrimaryKey(err) || internaldatabase.IsErrConstraintUnique(err) {
 			st.logger.Debugf("inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
 			return errors.AlreadyExistsf("provider id %q for subnet %q", subnetInfo.ProviderId, subnetUUID)
-
 		}
 		st.logger.Errorf("inserting provider id %q for subnet %q, %v", subnetInfo.ProviderId, subnetUUID, err)
 		return errors.Annotatef(domain.CoerceError(err), "inserting provider id %q for subnet %q", subnetInfo.ProviderId, subnetUUID)
 	}
 
 	var pnUUIDStr string
-	var providerNetwork ProviderNetwork
-	err = tx.Query(ctx, retrieveProviderNetworkUUIDStmt, ProviderNetwork{ProviderNetworkID: subnetInfo.ProviderNetworkId}).Get(&providerNetwork)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	err = tx.Query(ctx, retrieveProviderNetworkUUIDStmt, providerNetwork).Get(&providerNetworkSubnet)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		st.logger.Errorf("retrieving provider network ID %q for subnet %q, %v", subnetInfo.ProviderNetworkId, subnetUUID, err)
 		return errors.Annotatef(domain.CoerceError(err), "retrieving provider network ID %q for subnet %q", subnetInfo.ProviderNetworkId, subnetUUID)
-	} else if errors.Is(err, sql.ErrNoRows) {
+	} else if errors.Is(err, sqlair.ErrNoRows) {
 		// If the provider network doesn't exist, insert it.
 		pnUUID, err := uuid.NewV7()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		pnUUIDStr = pnUUID.String()
 
+		// Record the new UUID in provider network and the provider network
+		// subnet.
+		pnUUIDStr := pnUUID.String()
+		providerNetwork.ProviderNetworkUUID = pnUUIDStr
+		providerNetworkSubnet.ProviderNetworkUUID = pnUUIDStr
 		// Add the provider network id and its uuid to the
 		// provider_network table.
-		if err := tx.Query(
-			ctx,
-			insertSubnetProviderNetworkIDStmt,
-			ProviderNetwork{ProviderNetworkUUID: pnUUIDStr, ProviderNetworkID: subnetInfo.ProviderNetworkId},
-		).Run(); err != nil {
+		if err := tx.Query(ctx, insertSubnetProviderNetworkIDStmt, providerNetwork).Run(); err != nil {
 			st.logger.Errorf("inserting provider network id %q for subnet %q, %v", subnetInfo.ProviderNetworkId, subnetUUID, err)
 			return errors.Annotatef(domain.CoerceError(err), "inserting provider network id %q for subnet %q", subnetInfo.ProviderNetworkId, subnetUUID)
 		}
-	} else {
-		pnUUIDStr = providerNetwork.ProviderNetworkUUID
 	}
 
 	// Insert the providerNetworkUUID into provider network to
 	// subnets mapping table.
-	if err := tx.Query(
-		ctx,
-		insertSubnetProviderNetworkSubnetStmt,
-		ProviderNetworkSubnet{SubnetUUID: subnetUUID, ProviderNetworkUUID: pnUUIDStr},
-	).Run(); err != nil {
+	if err := tx.Query(ctx, insertSubnetProviderNetworkSubnetStmt, providerNetworkSubnet).Run(); err != nil {
 		st.logger.Errorf("inserting association between provider network id %q and subnet %q, %v", subnetInfo.ProviderNetworkId, subnetUUID, err)
 		return errors.Annotatef(domain.CoerceError(err), "inserting association between provider network id (%q) %q and subnet %q", pnUUIDStr, subnetInfo.ProviderNetworkId, subnetUUID)
 	}
@@ -188,61 +185,58 @@ VALUES ($ProviderNetworkSubnet.provider_network_uuid, $ProviderNetworkSubnet.sub
 }
 
 // addAvailabilityZones adds the availability zones of a subnet if they don't exist, and
-// update the availability_zone_subnet table with the subnet's id.
+// update the availability_zone_subnet table with the subnets' id.
 func (st *State) addAvailabilityZones(ctx context.Context, tx *sqlair.TX, subnetUUID string, subnet network.SubnetInfo) error {
+	availabilityZone := AvailabilityZone{}
+	availabilityZoneSubnet := AvailabilityZoneSubnet{
+		SubnetUUID: subnetUUID,
+	}
 	retrieveAvailabilityZoneStmt, err := st.Prepare(`
-SELECT &M.uuid
+SELECT &AvailabilityZone.uuid
 FROM   availability_zone
-WHERE  name = $M.name`, sqlair.M{})
+WHERE  name = $AvailabilityZone.name`, availabilityZone)
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
 	insertAvailabilityZoneStmt, err := st.Prepare(`
-INSERT INTO availability_zone (uuid, name)
-VALUES ($M.uuid, $M.name)`, sqlair.M{})
+INSERT INTO availability_zone (*)
+VALUES ($AvailabilityZone.*)`, availabilityZone)
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
 	insertAvailabilityZoneSubnetStmt, err := st.Prepare(`
-INSERT INTO availability_zone_subnet (availability_zone_uuid, subnet_uuid)
-VALUES ($M.availability_zone_uuid, $M.subnet_uuid)`, sqlair.M{})
+INSERT INTO availability_zone_subnet (*)
+VALUES ($AvailabilityZoneSubnet.*)`, availabilityZoneSubnet)
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
 
 	for _, az := range subnet.AvailabilityZones {
+		availabilityZone.Name = az
+		availabilityZone.UUID = ""
 		// Retrieve the availability zone.
-		m := sqlair.M{}
-		err := tx.Query(ctx, retrieveAvailabilityZoneStmt, sqlair.M{"name": az}).Get(m)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		err := tx.Query(ctx, retrieveAvailabilityZoneStmt, availabilityZone).Get(&availabilityZone)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			st.logger.Errorf("retrieving availability zone %q for subnet %q, %v", az, subnetUUID, err)
 			return errors.Annotatef(domain.CoerceError(err), "retrieving availability zone %q for subnet %q", az, subnetUUID)
 		}
-		azUUIDStr, _ := m["uuid"]
 
 		// If it doesn't exist, add the availability zone.
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sqlair.ErrNoRows) {
 			azUUID, err := uuid.NewV7()
 			if err != nil {
 				return errors.Annotatef(err, "generating UUID for availability zone %q for subnet %q", az, subnetUUID)
 			}
-			azUUIDStr = azUUID.String()
-			if err := tx.Query(
-				ctx,
-				insertAvailabilityZoneStmt,
-				sqlair.M{"uuid": azUUIDStr, "name": az},
-			).Run(); err != nil {
+			availabilityZone.UUID = azUUID.String()
+			if err := tx.Query(ctx, insertAvailabilityZoneStmt, availabilityZone).Run(); err != nil {
 				st.logger.Errorf("inserting availability zone %q for subnet %q, %v", az, subnetUUID, err)
 				return errors.Annotatef(domain.CoerceError(err), "inserting availability zone %q for subnet %q", az, subnetUUID)
 			}
 		}
-		// Add the subnet id along with the az uuid into the
+		availabilityZoneSubnet.AZUUID = availabilityZone.UUID
+		// Add the subnet id along with the availability zone uuid into the
 		// availability_zone_subnet mapping table.
-		if err := tx.Query(
-			ctx,
-			insertAvailabilityZoneSubnetStmt,
-			sqlair.M{"availability_zone_uuid": azUUIDStr, "subnet_uuid": subnetUUID},
-		).Run(); err != nil {
+		if err := tx.Query(ctx, insertAvailabilityZoneSubnetStmt, availabilityZoneSubnet).Run(); err != nil {
 			st.logger.Errorf("inserting availability zone %q association with subnet %q, %v", az, subnetUUID, err)
 			return errors.Annotatef(domain.CoerceError(err), "inserting availability zone %q association with subnet %q", az, subnetUUID)
 		}
@@ -262,7 +256,7 @@ func (st *State) AddSubnet(
 
 	return errors.Trace(
 		db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			return st.addSubnet(ctx, tx, subnet.ID.String(), subnet)
+			return st.addSubnet(ctx, tx, subnet)
 		}),
 	)
 }
@@ -375,24 +369,26 @@ WHERE  subnet_cidr = $M.cidr`
 	return resultSubnets.ToSubnetInfos(), nil
 }
 
+// updateSubnetSpaceID updates the space id of the subnet in the subnet table.
+// The subnet passed as an argument should have the UUID and SpaceUUID set to the
+// desired values.
 func (st *State) updateSubnetSpaceID(
 	ctx context.Context,
 	tx *sqlair.TX,
-	uuid string,
-	spaceID string,
+	subnet Subnet,
 ) error {
 	updateSubnetSpaceIDStmt, err := st.Prepare(`
 UPDATE subnet
-SET    space_uuid = $M.space_uuid
-WHERE  uuid = $M.uuid;`, sqlair.M{})
+SET    space_uuid = $Subnet.space_uuid
+WHERE  uuid = $Subnet.uuid;`, subnet)
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
 
 	var outcome sqlair.Outcome
 
-	if err = tx.Query(ctx, updateSubnetSpaceIDStmt, sqlair.M{"space_uuid": spaceID, "uuid": uuid}).Get(&outcome); err != nil {
-		st.logger.Errorf("updating subnet %q space ID %v, %v", uuid, spaceID, err)
+	if err = tx.Query(ctx, updateSubnetSpaceIDStmt, subnet).Get(&outcome); err != nil {
+		st.logger.Errorf("updating subnet %q space ID %v, %v", subnet.UUID, subnet.SpaceUUID, err)
 		return errors.Trace(domain.CoerceError(err))
 	}
 	affected, err := outcome.Result().RowsAffected()
@@ -400,7 +396,7 @@ WHERE  uuid = $M.uuid;`, sqlair.M{})
 		return errors.Trace(domain.CoerceError(err))
 	}
 	if affected != 1 {
-		return errors.NotFoundf("subnet %q", uuid)
+		return errors.NotFoundf("subnet %q", subnet.UUID)
 	}
 
 	return nil
@@ -416,9 +412,10 @@ func (st *State) UpdateSubnet(
 	if err != nil {
 		return errors.Trace(domain.CoerceError(err))
 	}
+	subnet := Subnet{SpaceUUID: spaceID, UUID: uuid}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return st.updateSubnetSpaceID(ctx, tx, uuid, spaceID)
+		return st.updateSubnetSpaceID(ctx, tx, subnet)
 	})
 }
 
@@ -432,66 +429,94 @@ func (st *State) DeleteSubnet(
 		return errors.Trace(domain.CoerceError(err))
 	}
 
-	deleteSubnetStmt := "DELETE FROM subnet WHERE uuid = ?;"
-	selectProviderNetworkStmt := "SELECT provider_network_uuid FROM provider_network_subnet WHERE subnet_uuid = ?;"
-	deleteProviderNetworkStmt := "DELETE FROM provider_network WHERE uuid = ?;"
-	deleteProviderNetworkSubnetStmt := "DELETE FROM provider_network_subnet WHERE subnet_uuid = ?;"
-	deleteProviderSubnetStmt := "DELETE FROM provider_subnet WHERE subnet_uuid = ?;"
-	deleteAvailabilityZoneSubnetStmt := "DELETE FROM availability_zone_subnet WHERE subnet_uuid = ?;"
+	subnet := Subnet{UUID: uuid}
+	providerNetworkSubnet := ProviderNetworkSubnet{}
 
-	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, selectProviderNetworkStmt, uuid)
-		var providerNetworkUUID string
-		err = row.Scan(&providerNetworkUUID)
+	deleteSubnetStmt, err := st.Prepare(`
+DELETE FROM subnet WHERE uuid = $Subnet.uuid;`, subnet)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete subnet statement")
+	}
+	selectProviderNetworkStmt, err := st.Prepare(`
+SELECT &ProviderNetworkSubnet.provider_network_uuid 
+FROM   provider_network_subnet 
+WHERE  subnet_uuid = $Subnet.uuid;`, subnet, providerNetworkSubnet)
+	if err != nil {
+		return errors.Annotate(err, "preparing select provider network statement")
+	}
+	deleteProviderNetworkStmt, err := st.Prepare(`
+DELETE FROM provider_network WHERE uuid = $ProviderNetworkSubnet.provider_network_uuid;`, providerNetworkSubnet)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete provider network statement")
+	}
+	deleteProviderNetworkSubnetStmt, err := st.Prepare(`
+DELETE FROM provider_network_subnet WHERE subnet_uuid = $Subnet.uuid;`, subnet)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete provider network subnet statement")
+	}
+	deleteProviderSubnetStmt, err := st.Prepare(`
+DELETE FROM provider_subnet WHERE subnet_uuid = $Subnet.uuid;`, subnet)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete provider subnet statement")
+	}
+	deleteAvailabilityZoneSubnetStmt, err := st.Prepare(`
+DELETE FROM availability_zone_subnet WHERE subnet_uuid = $Subnet.uuid;`, subnet)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete availability zone subnet statement")
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, selectProviderNetworkStmt, subnet).Get(&providerNetworkSubnet)
 		if err != nil {
 			st.logger.Errorf("retrieving provider network corresponding to subnet %q, %v", uuid, err)
 			return errors.Trace(domain.CoerceError(err))
 		}
 
-		delProviderNetworkSubnetResult, err := tx.ExecContext(ctx, deleteProviderNetworkSubnetStmt, uuid)
+		var outcome sqlair.Outcome
+		err = tx.Query(ctx, deleteProviderNetworkSubnetStmt, subnet).Get(&outcome)
 		if err != nil {
 			st.logger.Errorf("removing the provider network entry for subnet %q, %v", uuid, err)
 			return errors.Trace(domain.CoerceError(err))
 		}
-		if delProviderNetworkSubnetAffected, err := delProviderNetworkSubnetResult.RowsAffected(); err != nil {
+		if delProviderNetworkSubnetAffected, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Trace(domain.CoerceError(err))
 		} else if delProviderNetworkSubnetAffected != 1 {
 			return fmt.Errorf("provider network subnets for subnet %s not found", uuid)
 		}
 
-		delProviderNetworkResult, err := tx.ExecContext(ctx, deleteProviderNetworkStmt, providerNetworkUUID)
+		err = tx.Query(ctx, deleteProviderNetworkStmt, providerNetworkSubnet).Get(&outcome)
 		if err != nil {
-			st.logger.Errorf("removing the provider network entry %q, %v", providerNetworkUUID, err)
+			st.logger.Errorf("removing the provider network entry %q, %v", providerNetworkSubnet.ProviderNetworkUUID, err)
 			return errors.Trace(domain.CoerceError(err))
 		}
-		if delProviderNetworkAffected, err := delProviderNetworkResult.RowsAffected(); err != nil {
+		if delProviderNetworkAffected, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Trace(domain.CoerceError(err))
 		} else if delProviderNetworkAffected != 1 {
 			return fmt.Errorf("provider network for subnet %s not found", uuid)
 		}
 
-		if _, err := tx.ExecContext(ctx, deleteAvailabilityZoneSubnetStmt, uuid); err != nil {
+		if err := tx.Query(ctx, deleteAvailabilityZoneSubnetStmt, subnet).Run(); err != nil {
 			st.logger.Errorf("removing the availability zone entry for subnet %q, %v", uuid, err)
 			return errors.Trace(domain.CoerceError(err))
 		}
 
-		delProviderSubnetResult, err := tx.ExecContext(ctx, deleteProviderSubnetStmt, uuid)
+		err = tx.Query(ctx, deleteProviderSubnetStmt, subnet).Get(&outcome)
 		st.logger.Errorf("removing the provider subnet entry for subnet %q, %v", uuid, err)
 		if err != nil {
 			return errors.Trace(domain.CoerceError(err))
 		}
-		if delProviderSubnetAffected, err := delProviderSubnetResult.RowsAffected(); err != nil {
+		if delProviderSubnetAffected, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Trace(domain.CoerceError(err))
 		} else if delProviderSubnetAffected != 1 {
 			return fmt.Errorf("provider subnet for subnet %s not found", uuid)
 		}
 
-		delSubnetResult, err := tx.ExecContext(ctx, deleteSubnetStmt, uuid)
+		err = tx.Query(ctx, deleteSubnetStmt, subnet).Get(&outcome)
 		if err != nil {
 			st.logger.Errorf("removing subnet %q, %v", uuid, err)
 			return errors.Trace(domain.CoerceError(err))
 		}
-		if delSubnetAffected, err := delSubnetResult.RowsAffected(); err != nil {
+		if delSubnetAffected, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Trace(domain.CoerceError(err))
 		} else if delSubnetAffected != 1 {
 			return fmt.Errorf("subnet %s not found", uuid)

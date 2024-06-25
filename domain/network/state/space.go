@@ -76,7 +76,13 @@ VALUES ($ProviderSpace.*)`, providerSpace)
 		// Update all subnets (including their fan overlays) to include
 		// the space uuid.
 		for _, subnetID := range subnetIDs {
-			if err := st.updateSubnetSpaceID(ctx, tx, subnetID, uuid); err != nil {
+			if err := st.updateSubnetSpaceID(
+				ctx,
+				tx,
+				Subnet{
+					UUID:      subnetID,
+					SpaceUUID: uuid,
+				}); err != nil {
 				return errors.Annotatef(err, "updating subnet %q using space uuid %q", subnetID, uuid)
 			}
 		}
