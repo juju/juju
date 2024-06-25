@@ -7,10 +7,8 @@ import (
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/environs/config"
 )
 
 type State struct {
@@ -26,9 +24,9 @@ func NewState(factory database.TxnRunnerFactory) *State {
 func (s *State) GetModelConfigKeyValues(
 	ctx context.Context,
 	keys []string,
-) (*config.Config, error) {
+) (map[string]string, error) {
 	if len(keys) == 0 {
-		return &config.Config{}, nil
+		return map[string]string{}, nil
 	}
 
 	db, err := s.DB()
@@ -65,15 +63,20 @@ WHERE key in ($S[:])
 		)
 	}
 
-	return config.New(false, result)
+	rval := make(map[string]string, len(result))
+	for k, v := range result {
+		rval[k] = v.(string)
+	}
+
+	return rval, nil
 }
 
 func (s *State) GetControllerConfigKeyValues(
 	ctx context.Context,
 	keys []string,
-) (*controller.Config, error) {
+) (map[string]string, error) {
 	if len(keys) == 0 {
-		return &controller.Config{}, nil
+		return map[string]string{}, nil
 	}
 
 	db, err := s.DB()
@@ -89,7 +92,7 @@ WHERE key in ($S[:])
 
 	if err != nil {
 		return nil, fmt.Errorf(
-			"preparing get model config key values: %w", domain.CoerceError(err),
+			"preparing get controller config key values: %w", domain.CoerceError(err),
 		)
 	}
 
@@ -110,6 +113,10 @@ WHERE key in ($S[:])
 		)
 	}
 
-	cfg, err := controller.NewConfig("", "", result)
-	return &cfg, err
+	rval := make(map[string]string, len(result))
+	for k, v := range result {
+		rval[k] = v.(string)
+	}
+
+	return rval, nil
 }

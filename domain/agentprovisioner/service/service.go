@@ -6,9 +6,14 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/proxy"
+	"github.com/juju/utils/v4"
 	"github.com/juju/utils/v4/ssh"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/containermanager"
@@ -34,10 +39,10 @@ type Service struct {
 type State interface {
 	// GetModelConfigKeyValues returns a model config object populated with
 	// values for the provided keys.
-	GetModelConfigKeyValues(context.Context, []string) (*config.Config, error)
+	GetModelConfigKeyValues(context.Context, []string) (map[string]string, error)
 	// GetControllerConfigKeyValues returns a controller config object
 	// populated with values for the provided keys.
-	GetControllerConfigKeyValues(context.Context, []string) (*controller.Config, error)
+	GetControllerConfigKeyValues(context.Context, []string) (map[string]string, error)
 }
 
 func NewService(
@@ -71,12 +76,12 @@ func (s *Service) ContainerManagerConfigForType(
 	}
 
 	if containerType == instance.LXD {
-		rval.LXDSnapChannel = cfg.LXDSnapChannel()
+		rval.LXDSnapChannel = cfg[config.LXDSnapChannel]
 	}
 
-	rval.ImageMetadataURL, _ = cfg.ContainerImageMetadataURL()
-	rval.MetadataDefaultsDisabled = cfg.ContainerImageMetadataDefaultsDisabled()
-	rval.ImageStream = cfg.ContainerImageStream()
+	rval.ImageMetadataURL = cfg[config.ContainerImageMetadataURLKey]
+	rval.MetadataDefaultsDisabled, _ = strconv.ParseBool(cfg[config.ContainerImageMetadataDefaultsDisabledKey])
+	rval.ImageStream = cfg[config.ContainerImageStreamKey]
 
 	provider, err := s.providerGetter(ctx)
 	if err != nil && !errors.Is(err, errors.NotSupported) {
@@ -106,7 +111,7 @@ func (s *Service) ContainerManagerConfigForType(
 func (s *Service) ContainerConfig(ctx context.Context) (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
 
-	cfg, err := s.st.GetModelConfigKeyValues(ctx, []string{
+	modelConfig, err := s.st.GetModelConfigKeyValues(ctx, []string{
 		config.AuthorizedKeysKey,
 		config.EnableOSRefreshUpdateKey,
 		config.EnableOSUpgradeKey,
@@ -139,25 +144,105 @@ func (s *Service) ContainerConfig(ctx context.Context) (params.ContainerConfig, 
 		)
 	}
 
-	authorizedKeys := ssh.ConcatAuthorisedKeys(
-		cfg.AuthorizedKeys(), controllerConfig.SystemSSHKeys())
+	result.AuthorizedKeys = ssh.ConcatAuthorisedKeys(
+		modelConfig[config.AuthorizedKeysKey],
+		controllerConfig[controller.SystemSSHKeys],
+	)
 
+	enableOSRefreshUpdate, _ := strconv.ParseBool(modelConfig[config.EnableOSRefreshUpdateKey])
+	enableOSUpgrade, _ := strconv.ParseBool(modelConfig[config.EnableOSUpgradeKey])
 	result.UpdateBehavior = &params.UpdateBehavior{
-		EnableOSRefreshUpdate: cfg.EnableOSRefreshUpdate(),
-		EnableOSUpgrade:       cfg.EnableOSUpgrade(),
+		EnableOSRefreshUpdate: enableOSRefreshUpdate,
+		EnableOSUpgrade:       enableOSUpgrade,
 	}
-	result.ProviderType = cfg.Type()
-	result.AuthorizedKeys = authorizedKeys
-	result.SSLHostnameVerification = cfg.SSLHostnameVerification()
-	result.LegacyProxy = cfg.LegacyProxySettings()
-	result.JujuProxy = cfg.JujuProxySettings()
-	result.AptProxy = cfg.AptProxySettings()
-	result.AptMirror = cfg.AptMirror()
-	result.SnapProxy = cfg.SnapProxySettings()
-	result.SnapStoreAssertions = cfg.SnapStoreAssertions()
-	result.SnapStoreProxyID = cfg.SnapStoreProxy()
-	result.SnapStoreProxyURL = cfg.SnapStoreProxyURL()
-	result.CloudInitUserData = cfg.CloudInitUserData()
-	result.ContainerInheritProperties = cfg.ContainerInheritProperties()
+	result.ProviderType = modelConfig[config.TypeKey]
+	result.SSLHostnameVerification, _ = strconv.ParseBool(modelConfig[config.SSLHostnameVerificationKey])
+	result.LegacyProxy = proxy.Settings{
+		Http:    modelConfig[config.HTTPProxyKey],
+		Https:   modelConfig[config.HTTPSProxyKey],
+		Ftp:     modelConfig[config.FTPProxyKey],
+		NoProxy: modelConfig[config.NoProxyKey],
+	}
+	result.JujuProxy = proxy.Settings{
+		Http:    modelConfig[config.JujuHTTPProxyKey],
+		Https:   modelConfig[config.JujuHTTPSProxyKey],
+		Ftp:     modelConfig[config.JujuFTPProxyKey],
+		NoProxy: modelConfig[config.JujuNoProxyKey],
+	}
+	result.AptProxy = proxy.Settings{
+		Http:    addSchemeIfMissing("http", getWithFallback(modelConfig, config.AptHTTPProxyKey, config.JujuHTTPProxyKey, config.HTTPProxyKey)),
+		Https:   addSchemeIfMissing("https", getWithFallback(modelConfig, config.AptHTTPSProxyKey, config.JujuHTTPSProxyKey, config.HTTPSProxyKey)),
+		Ftp:     addSchemeIfMissing("ftp", getWithFallback(modelConfig, config.AptFTPProxyKey, config.JujuFTPProxyKey, config.FTPProxyKey)),
+		NoProxy: aptNoProxy(modelConfig),
+	}
+	result.AptMirror = modelConfig[config.AptMirrorKey]
+	result.SnapProxy = proxy.Settings{
+		Http:  modelConfig[config.SnapHTTPProxyKey],
+		Https: modelConfig[config.SnapHTTPSProxyKey],
+	}
+	result.SnapStoreAssertions = modelConfig[config.SnapStoreAssertionsKey]
+	result.SnapStoreProxyID = modelConfig[config.SnapStoreProxyKey]
+	result.SnapStoreProxyURL = modelConfig[config.SnapStoreProxyURLKey]
+	result.CloudInitUserData, _ = ensureStringMaps(modelConfig[config.CloudInitUserDataKey])
+	result.ContainerInheritProperties = modelConfig[config.ContainerInheritPropertiesKey]
 	return result, nil
+}
+
+// addSchemeIfMissing adds a scheme to a URL if it is missing
+// Copied from github.com/juju/juju/environs/config
+func addSchemeIfMissing(defaultScheme string, url string) string {
+	if url != "" && !strings.Contains(url, "://") {
+		url = defaultScheme + "://" + url
+	}
+	return url
+}
+
+// Copied from github.com/juju/juju/environs/config
+func getWithFallback(c map[string]string, key, fallback1, fallback2 string) string {
+	value := c[key]
+	if value == "" {
+		value = c[fallback1]
+	}
+	if value == "" {
+		value = c[fallback2]
+	}
+	return value
+}
+
+// AptNoProxy returns the 'apt-no-proxy' for the model.
+// Copied from github.com/juju/juju/environs/config
+func aptNoProxy(c map[string]string) string {
+	value := c[config.AptNoProxyKey]
+	if value == "" {
+		if hasLegacyProxy(c) {
+			value = c[config.NoProxyKey]
+		} else {
+			value = c[config.JujuNoProxyKey]
+		}
+	}
+	return value
+}
+
+// HasLegacyProxy returns true if there is any proxy set using the old legacy proxy keys.
+// Copied from github.com/juju/juju/environs/config
+func hasLegacyProxy(c map[string]string) bool {
+	// We exclude the no proxy value as it has default value.
+	return c[config.HTTPProxyKey] != "" ||
+		c[config.HTTPSProxyKey] != "" ||
+		c[config.FTPProxyKey] != ""
+}
+
+// ensureStringMaps takes in a string and returns YAML in a map
+// where all keys of any nested maps are strings.
+// Copied from github.com/juju/juju/environs/config
+func ensureStringMaps(in string) (map[string]any, error) {
+	userDataMap := make(map[string]any)
+	if err := yaml.Unmarshal([]byte(in), &userDataMap); err != nil {
+		return nil, errors.Annotate(err, "must be valid YAML")
+	}
+	out, err := utils.ConformYAML(userDataMap)
+	if err != nil {
+		return nil, err
+	}
+	return out.(map[string]any), nil
 }
