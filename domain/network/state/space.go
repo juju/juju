@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -138,6 +137,9 @@ func (st *State) GetSpaceByName(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	space := Space{
+		Name: name,
+	}
 
 	// Append the space.name condition to the query.
 	q := `
@@ -151,17 +153,17 @@ SELECT (uuid,
        subnet_provider_network_id,
        subnet_az) AS (&SpaceSubnetRow.*)
 FROM   v_space
-WHERE  name = $M.name;`
+WHERE  name = $Space.name;`
 
-	s, err := st.Prepare(q, SpaceSubnetRow{}, sqlair.M{})
+	s, err := st.Prepare(q, SpaceSubnetRow{}, space)
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing %q", q)
 	}
 
 	var rows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, s, sqlair.M{"name": name}).GetAll(&rows))
-	}); errors.Is(err, sqlair.ErrNoRows) || len(rows) == 0 {
+		return errors.Trace(tx.Query(ctx, s, space).GetAll(&rows))
+	}); errors.Is(err, sqlair.ErrNoRows) {
 		return nil, fmt.Errorf("space not found with %s: %w", name, networkerrors.ErrSpaceNotFound)
 	} else if err != nil {
 		return nil, errors.Annotate(domain.CoerceError(err), "querying spaces by name")
@@ -180,7 +182,7 @@ func (st *State) GetAllSpaces(
 		return nil, errors.Trace(err)
 	}
 
-	s, err := sqlair.Prepare(`
+	s, err := st.Prepare(`
 SELECT (uuid,
        name,
        provider_id,
@@ -199,7 +201,7 @@ FROM   v_space
 	var rows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, s).GetAll(&rows))
-	}); errors.Is(err, sqlair.ErrNoRows) || len(rows) == 0 {
+	}); errors.Is(err, sqlair.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		st.logger.Errorf("querying all spaces, %v", err)
@@ -220,16 +222,21 @@ func (st *State) UpdateSpace(
 		return errors.Trace(domain.CoerceError(err))
 	}
 
-	q := `
+	space := Space{
+		UUID: uuid,
+		Name: name,
+	}
+	stmt, err := st.Prepare(`
 UPDATE space
-SET    name = ?
-WHERE  uuid = ?;`
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		res, err := tx.ExecContext(ctx, q, name, uuid)
+SET    name = $Space.name
+WHERE  uuid = $Space.uuid;`, space)
+	var outcome sqlair.Outcome
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, space).Get(&outcome)
 		if err != nil {
 			return errors.Annotatef(err, "updating space %q with name %q", uuid, name)
 		}
-		affected, err := res.RowsAffected()
+		affected, err := outcome.Result().RowsAffected()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -251,24 +258,43 @@ func (st *State) DeleteSpace(
 		return errors.Trace(err)
 	}
 
-	deleteSpaceStmt := "DELETE FROM space WHERE uuid = ?;"
-	deleteProviderSpaceStmt := "DELETE FROM provider_space WHERE space_uuid = ?;"
-	updateSubnetSpaceUUIDStmt := "UPDATE subnet SET space_uuid = ? WHERE space_uuid = ?;"
+	space := Space{UUID: uuid}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, deleteProviderSpaceStmt, uuid); err != nil {
+	deleteSpaceStmt, err := st.Prepare(`
+DELETE FROM space 
+WHERE       uuid = $Space.uuid;`, space)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete space statement")
+	}
+	deleteProviderSpaceStmt, err := st.Prepare(`
+DELETE FROM provider_space 
+WHERE       space_uuid = $Space.uuid;`, space)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete provider space statement")
+	}
+	updateSubnetSpaceUUIDStmt, err := st.Prepare(`
+UPDATE subnet 
+SET    space_uuid = (SELECT uuid FROM space WHERE name = 'alpha') 
+WHERE  space_uuid = $Space.uuid;`, space)
+	if err != nil {
+		return errors.Annotate(err, "preparing update subnet statement")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, deleteProviderSpaceStmt, space).Run(); err != nil {
 			return errors.Annotatef(err, "removing space %q from the provider_space table", uuid)
 		}
 
-		if _, err := tx.ExecContext(ctx, updateSubnetSpaceUUIDStmt, network.AlphaSpaceId, uuid); err != nil {
+		if err := tx.Query(ctx, updateSubnetSpaceUUIDStmt, space).Run(); err != nil {
 			return errors.Annotatef(err, "updating subnet table by removing the space %q", uuid)
 		}
 
-		delSpaceResult, err := tx.ExecContext(ctx, deleteSpaceStmt, uuid)
+		var outcome sqlair.Outcome
+		err := tx.Query(ctx, deleteSpaceStmt, space).Get(&outcome)
 		if err != nil {
 			return errors.Annotatef(err, "removing space %q", uuid)
 		}
-		delSpaceAffected, err := delSpaceResult.RowsAffected()
+		delSpaceAffected, err := outcome.Result().RowsAffected()
 		if err != nil {
 			return errors.Trace(err)
 		}

@@ -95,6 +95,10 @@ type SubnetRow struct {
 
 // SpaceSubnetRow represents a single row from the v_space_subnets view.
 type SpaceSubnetRow struct {
+	// SubnetRow is embedded by SpaceSubnetRow since every row corresponds to a
+	// subnet of the space. This allows SubnetRow to be
+	SubnetRow
+
 	// UUID is the space UUID.
 	SpaceUUID string `db:"uuid"`
 
@@ -103,14 +107,12 @@ type SpaceSubnetRow struct {
 
 	// ProviderID is the space provider id.
 	SpaceProviderID sql.NullString `db:"provider_id"`
-
-	SubnetRow
 }
 
-// Alias type to a slice of Space and Subnet rows.
+// SpaceSubnetRows is a slice of SpaceSubnet rows.
 type SpaceSubnetRows []SpaceSubnetRow
 
-// Alias type to a slice of Subnet rows.
+// SubnetRows is a slice of Subnet rows.
 type SubnetRows []SubnetRow
 
 // ToSpaceInfos converts Spaces to a slice of network.SpaceInfo structs.
