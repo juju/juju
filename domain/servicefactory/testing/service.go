@@ -8,6 +8,7 @@ import (
 	annotationservice "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
+	bakerystorageservice "github.com/juju/juju/domain/bakerystorage/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
@@ -138,6 +139,11 @@ func (s *TestingServiceFactory) Storage(storage.ProviderRegistry) *storageservic
 
 // Secret returns the secret service.
 func (s *TestingServiceFactory) Secret(secretservice.BackendAdminConfigGetter) *secretservice.WatchableService {
+	return nil
+}
+
+// Macaroon returns the macaroon bakery service
+func (s *TestingServiceFactory) Macaroon() *bakerystorageservice.Service {
 	return nil
 }
 

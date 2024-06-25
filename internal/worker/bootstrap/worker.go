@@ -66,6 +66,7 @@ type WorkerConfig struct {
 	ApplicationService      ApplicationService
 	FlagService             FlagService
 	NetworkService          NetworkService
+	BakeryConfigService     BakeryConfigService
 	BootstrapUnlocker       gate.Unlocker
 	AgentBinaryUploader     AgentBinaryBootstrapFunc
 	ControllerCharmDeployer ControllerCharmDeployerFunc
@@ -118,6 +119,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.NetworkService == nil {
 		return errors.NotValidf("nil NetworkService")
+	}
+	if c.BakeryConfigService == nil {
+		return errors.NotValidf("nil BakeryConfigService")
 	}
 	if c.ControllerCharmDeployer == nil {
 		return errors.NotValidf("nil ControllerCharmDeployer")
@@ -190,6 +194,10 @@ func (w *bootstrapWorker) loop() error {
 
 	ctx, cancel := w.scopedContext()
 	defer cancel()
+
+	if err := w.seedMacaroonConfig(ctx); err != nil {
+		return errors.Annotatef(err, "initialising macaroon bakery config")
+	}
 
 	// Insert all the initial users into the state.
 	if err := w.seedInitialUsers(ctx); err != nil {
@@ -268,6 +276,10 @@ func (w *bootstrapWorker) loop() error {
 
 	w.cfg.BootstrapUnlocker.Unlock()
 	return nil
+}
+
+func (w *bootstrapWorker) seedMacaroonConfig(ctx context.Context) error {
+	return w.cfg.BakeryConfigService.InitialiseBakeryConfig(ctx)
 }
 
 func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {

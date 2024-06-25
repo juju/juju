@@ -81,6 +81,12 @@ type NetworkService interface {
 	ReloadSpaces(ctx context.Context) error
 }
 
+// BakeryConfigService describes the service used to initialise the
+// maccaroon bakery config
+type BakeryConfigService interface {
+	InitialiseBakeryConfig(context.Context) error
+}
+
 // FlagService is the interface that is used to set the value of a
 // flag.
 type FlagService interface {
@@ -355,6 +361,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				ApplicationService:      modelServiceFactory.Application(registry),
 				FlagService:             flagService,
 				NetworkService:          modelServiceFactory.Network(),
+				BakeryConfigService:     controllerServiceFactory.Macaroon(),
 				SystemState: &stateShim{
 					State:      systemState,
 					prechecker: prechecker,

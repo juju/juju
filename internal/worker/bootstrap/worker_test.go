@@ -59,6 +59,7 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.expectSetAPIHostPorts()
 	s.expectStateServingInfo()
 	s.expectReloadSpaces()
+	s.expectInitialiseBakeryConfig()
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -260,6 +261,7 @@ func (s *workerSuite) newWorker(c *gc.C) worker.Worker {
 		ProviderRegistry:        provider.CommonStorageProviders(),
 		CloudService:            s.cloudService,
 		NetworkService:          s.networkService,
+		BakeryConfigService:     s.bakeryConfigService,
 		FlagService:             s.flagService,
 		PopulateControllerCharm: func(context.Context, bootstrap.ControllerCharmDeployer) error {
 			return nil
@@ -334,6 +336,10 @@ func (s *workerSuite) expectStateServingInfo() {
 
 func (s *workerSuite) expectReloadSpaces() {
 	s.networkService.EXPECT().ReloadSpaces(gomock.Any())
+}
+
+func (s *workerSuite) expectInitialiseBakeryConfig() {
+	s.bakeryConfigService.EXPECT().InitialiseBakeryConfig(gomock.Any())
 }
 
 func (s *workerSuite) expectObjectStoreGetter(num int) {
