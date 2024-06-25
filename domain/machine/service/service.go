@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -22,6 +23,9 @@ type State interface {
 	// InitialWatchStatement returns the table and the initial watch statement
 	// for the machines.
 	InitialWatchStatement() (string, string)
+
+	// GetMachineLife returns the life status of the specified machine.
+	GetMachineLife(context.Context, string) (*life.Life, error)
 }
 
 // Service provides the API for working with machines.
@@ -59,4 +63,10 @@ func (s *Service) CreateMachine(ctx context.Context, machineId string) (string, 
 func (s *Service) DeleteMachine(ctx context.Context, machineId string) error {
 	err := s.st.DeleteMachine(ctx, machineId)
 	return errors.Annotatef(err, "deleting machine %q", machineId)
+}
+
+// GetLife returns the GetMachineLife status of the specified machine.
+func (s *Service) GetMachineLife(ctx context.Context, machineId string) (*life.Life, error) {
+	life, err := s.st.GetMachineLife(ctx, machineId)
+	return life, errors.Annotatef(err, "getting life status for machine %q", machineId)
 }

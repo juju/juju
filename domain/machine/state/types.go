@@ -3,7 +3,10 @@
 
 package state
 
-import "github.com/juju/juju/core/instance"
+import (
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/domain/life"
+)
 
 // instanceData represents the struct to be inserted into the instance_data
 // table.
@@ -49,4 +52,10 @@ func (d *instanceData) toHardwareCharacteristics() *instance.HardwareCharacteris
 		AvailabilityZone: d.AvailabilityZoneUUID,
 		VirtType:         d.VirtType,
 	}
+}
+
+// machineLife represents the struct to be used for the life_id column within
+// the sqlair statements in the machine domain.
+type machineLife struct {
+	ID life.Life `db:"life_id"`
 }
