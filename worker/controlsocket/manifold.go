@@ -8,7 +8,6 @@ import (
 	"github.com/juju/worker/v3"
 	"github.com/juju/worker/v3/dependency"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
 )
@@ -49,41 +48,34 @@ func (cfg ManifoldConfig) Validate() error {
 }
 
 // start is a StartFunc for a Worker manifold.
-func (cfg ManifoldConfig) start(context dependency.Context) (_ worker.Worker, err error) {
-	if err = cfg.Validate(); err != nil {
+func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
+	if err := cfg.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var stTracker workerstate.StateTracker
-	if err = context.Get(cfg.StateName, &stTracker); err != nil {
+	if err := context.Get(cfg.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var statePool *state.StatePool
-	statePool, err = stTracker.Use()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	// Make sure we clean up state objects if an error occurs.
-	defer func() {
-		if err != nil {
-			_ = stTracker.Done()
-		}
-	}()
-
-	var st *state.State
-	st, err = statePool.SystemState()
+	statePool, err := stTracker.Use()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var w worker.Worker
-	w, err = cfg.NewWorker(Config{
+	st, err := statePool.SystemState()
+	if err != nil {
+		_ = stTracker.Done()
+		return nil, errors.Trace(err)
+	}
+
+	w, err := cfg.NewWorker(Config{
 		State:      stateShim{st},
 		Logger:     cfg.Logger,
 		SocketName: cfg.SocketName,
 	})
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
