@@ -82,7 +82,13 @@ func allCollections() CollectionSchema {
 
 		// This collection holds model information; in particular its
 		// Life and its UUID.
-		modelsC: {global: true},
+		modelsC: {
+			global: true,
+			indexes: []mgo.Index{{
+				Key:    []string{"name", "owner"},
+				Unique: true,
+			}},
+		},
 
 		// This collection holds references to entities owned by a
 		// model. We use this to determine whether or not we can safely
