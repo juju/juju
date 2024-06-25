@@ -19,8 +19,10 @@ type Config struct {
 type NetworkingMethod string
 
 const (
-	NetworkingMethodProvider = NetworkingMethod("provider")
-	NetworkingMethodLocal    = NetworkingMethod("local")
+	NetworkingMethodProvider  = NetworkingMethod("provider")
+	NetworkingMethodLocal     = NetworkingMethod("local")
+	NetworkingMethodAuto      = NetworkingMethod("auto")
+	NetworkingMethodUndefined = NetworkingMethod("")
 )
 
 func (n NetworkingMethod) String() string {

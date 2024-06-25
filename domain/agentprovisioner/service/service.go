@@ -91,18 +91,26 @@ func (s *Service) ContainerManagerConfigForType(
 		)
 	}
 
-	rval.NetworkingMethod = containermanager.NetworkingMethodLocal
-	if provider != nil {
-		supports, err := provider.SupportsContainerAddresses(envcontext.WithoutCredentialInvalidator(ctx))
-		if err != nil {
-			return containermanager.Config{}, fmt.Errorf(
-				"cannot determine if provider supports container addresses when calculating container manager config: %w",
-				err,
-			)
+	userDefinedNetworkingMethod := containermanager.NetworkingMethod(cfg[config.ContainerNetworkingMethod])
+	if userDefinedNetworkingMethod == containermanager.NetworkingMethodUndefined ||
+		userDefinedNetworkingMethod == containermanager.NetworkingMethodAuto {
+		// Auto-configure container networking method
+		rval.NetworkingMethod = containermanager.NetworkingMethodLocal
+		if provider != nil {
+			supports, err := provider.SupportsContainerAddresses(envcontext.WithoutCredentialInvalidator(ctx))
+			if err != nil {
+				return containermanager.Config{}, fmt.Errorf(
+					"calculating container manager config: cannot determine if provider supports container addresses: %w",
+					err,
+				)
+			}
+			if supports {
+				rval.NetworkingMethod = containermanager.NetworkingMethodProvider
+			}
 		}
-		if supports {
-			rval.NetworkingMethod = containermanager.NetworkingMethodProvider
-		}
+	} else {
+		// User specified a container networking method - use that
+		rval.NetworkingMethod = userDefinedNetworkingMethod
 	}
 
 	return rval, nil
