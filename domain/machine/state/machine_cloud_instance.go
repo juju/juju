@@ -160,27 +160,28 @@ func (st *State) InstanceId(ctx context.Context, machineId string) (string, erro
 
 	machineIDParam := sqlair.M{"machine_id": machineId}
 	query := `
-SELECT &M.instance_id
+SELECT instance_id AS &instanceID.*
 FROM machine AS m
 		JOIN machine_cloud_instance AS mci ON m.uuid = mci.machine_uuid
 WHERE m.machine_id = $M.machine_id;
 `
-	queryStmt, err := st.Prepare(query, sqlair.M{})
+	queryStmt, err := st.Prepare(query, sqlair.M{}, instanceID{})
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 
 	var instanceId string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result := sqlair.M{}
-		err := tx.Query(ctx, queryStmt, machineIDParam).Get(result)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "querying instance id for machine %q", machineId)
-		}
-		if len(result) == 0 {
+		result := instanceID{}
+		err := tx.Query(ctx, queryStmt, machineIDParam).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(machineerrors.NotProvisioned, "machine id: %q", machineId)
 		}
-		instanceId = result["instance_id"].(string)
+		if err != nil {
+			return errors.Annotatef(err, "querying instance id for machine %q", machineId)
+		}
+
+		instanceId = result.ID
 		return nil
 	})
 	if err != nil {
