@@ -19,6 +19,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"gopkg.in/httprequest.v1"
 
@@ -383,6 +384,7 @@ func (c *loginCommand) publicControllerLogin(
 	}
 
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
+		loggo.GetLogger("juju.cmd.loginprovider"),
 		loginprovider.NewSessionTokenLoginProvider(
 			sessionToken,
 			ctx.Stderr,

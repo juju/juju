@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -24,11 +25,12 @@ func (s *tryInOrderLoginProviderSuite) Test(c *gc.C) {
 	p2 := &mockLoginProvider{err: errors.New("provider 2 error")}
 	p3 := &mockLoginProvider{}
 
-	lp := loginprovider.NewTryInOrderLoginProvider(p1, p2)
+	logger := loggo.GetLogger("juju.cmd.loginprovider")
+	lp := loginprovider.NewTryInOrderLoginProvider(logger, p1, p2)
 	_, err := lp.Login(context.Background(), nil)
 	c.Assert(err, gc.ErrorMatches, "provider 2 error")
 
-	lp = loginprovider.NewTryInOrderLoginProvider(p1, p2, p3)
+	lp = loginprovider.NewTryInOrderLoginProvider(logger, p1, p2, p3)
 	_, err = lp.Login(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
