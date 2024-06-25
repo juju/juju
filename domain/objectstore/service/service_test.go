@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/core/changestream"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher/watchertest"
-	"github.com/juju/juju/domain/objectstore"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -39,7 +38,7 @@ func (s *serviceSuite) TestGetMetadata(c *gc.C) {
 		Size: 666,
 	}
 
-	s.state.EXPECT().GetMetadata(gomock.Any(), path).Return(objectstore.Metadata{
+	s.state.EXPECT().GetMetadata(gomock.Any(), path).Return(coreobjectstore.Metadata{
 		Path: metadata.Path,
 		Size: metadata.Size,
 		Hash: metadata.Hash,
@@ -61,7 +60,7 @@ func (s *serviceSuite) TestListMetadata(c *gc.C) {
 		Size: 666,
 	}
 
-	s.state.EXPECT().ListMetadata(gomock.Any()).Return([]objectstore.Metadata{{
+	s.state.EXPECT().ListMetadata(gomock.Any()).Return([]coreobjectstore.Metadata{{
 		Path: metadata.Path,
 		Hash: metadata.Hash,
 		Size: metadata.Size,
@@ -86,7 +85,7 @@ func (s *serviceSuite) TestPutMetadata(c *gc.C) {
 		Size: 666,
 	}
 
-	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.AssignableToTypeOf(objectstore.Metadata{})).DoAndReturn(func(ctx context.Context, data objectstore.Metadata) error {
+	s.state.EXPECT().PutMetadata(gomock.Any(), gomock.AssignableToTypeOf(coreobjectstore.Metadata{})).DoAndReturn(func(ctx context.Context, data coreobjectstore.Metadata) error {
 		c.Check(data.Path, gc.Equals, metadata.Path)
 		c.Check(data.Size, gc.Equals, metadata.Size)
 		c.Check(data.Hash, gc.Equals, metadata.Hash)

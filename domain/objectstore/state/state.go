@@ -5,16 +5,18 @@ package state
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
+	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
+	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/objectstore"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/internal/database"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // State implements the domain objectstore state.
@@ -30,110 +32,137 @@ func NewState(factory coredatabase.TxnRunnerFactory) *State {
 }
 
 // GetMetadata returns the persistence metadata for the specified path.
-func (s *State) GetMetadata(ctx context.Context, path string) (objectstore.Metadata, error) {
+func (s *State) GetMetadata(ctx context.Context, path string) (coreobjectstore.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
-		return objectstore.Metadata{}, errors.Trace(err)
+		return coreobjectstore.Metadata{}, errors.Trace(err)
 	}
 
-	query := `
-SELECT p.path, p.metadata_uuid, m.size, m.hash
+	metadata := dbMetadata{Path: path}
+
+	stmt, err := s.Prepare(`
+SELECT (p.path, m.uuid, m.size, m.hash) AS (&dbMetadata.*)
 FROM object_store_metadata_path p
 LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid
-WHERE path = ?`
+WHERE path = $dbMetadata.path`, metadata)
+	if err != nil {
+		return coreobjectstore.Metadata{}, errors.Annotate(err, "preparing select metadata statement")
+	}
 
-	var metadata objectstore.Metadata
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, query, path)
-		return row.Scan(&metadata.Path, &metadata.UUID, &metadata.Size, &metadata.Hash)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, metadata).Get(&metadata)
 	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return objectstore.Metadata{}, objectstoreerrors.ErrNotFound
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return coreobjectstore.Metadata{}, objectstoreerrors.ErrNotFound
 		}
-		return objectstore.Metadata{}, errors.Annotatef(domain.CoerceError(err), "retrieving metadata %s", path)
+		return coreobjectstore.Metadata{}, errors.Annotatef(domain.CoerceError(err), "retrieving metadata %s", path)
 	}
-	return metadata, nil
+	return metadata.ToCoreObjectStoreMetadata(), nil
 }
 
 // ListMetadata returns the persistence metadata.
-func (s *State) ListMetadata(ctx context.Context) ([]objectstore.Metadata, error) {
+func (s *State) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, err
 	}
 
-	query := `
-SELECT p.path, p.metadata_uuid, m.size, m.hash
+	stmt, err := s.Prepare(`
+SELECT (p.path, m.uuid, m.size, m.hash) AS (&dbMetadata.*)
 FROM object_store_metadata_path p
-LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid`
+LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid`, dbMetadata{})
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing select metadata statement")
+	}
 
-	var metadata []objectstore.Metadata
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, query)
-		if err != nil {
-			return fmt.Errorf("retrieving metadata: %w", err)
+	var metadata []dbMetadata
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&metadata)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotate(domain.CoerceError(err), "retrieving metadata")
 		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var m objectstore.Metadata
-			if err := rows.Scan(&m.Path, &m.UUID, &m.Size, &m.Hash); err != nil {
-				return fmt.Errorf("retrieving metadata: %w", err)
-			}
-			metadata = append(metadata, m)
-		}
-
-		return rows.Err()
+		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("retrieving metadata: %w", err)
+		return nil, errors.Trace(err)
 	}
-	return metadata, nil
+	return transform.Slice(metadata, (dbMetadata).ToCoreObjectStoreMetadata), nil
 }
 
 // PutMetadata adds a new specified path for the persistence metadata.
-func (s *State) PutMetadata(ctx context.Context, metadata objectstore.Metadata) error {
+func (s *State) PutMetadata(ctx context.Context, metadata coreobjectstore.Metadata) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	matadataQuery := `
-INSERT INTO object_store_metadata (uuid, hash_type_id, hash, size)
-VALUES (?, ?, ?, ?) ON CONFLICT (hash) DO NOTHING`
-	pathQuery := `
-INSERT INTO object_store_metadata_path (path, metadata_uuid)
-VALUES (?, ?)`
-	metadataLookupQuery := `
-SELECT uuid FROM object_store_metadata WHERE hash = ? AND size = ?`
+	uuid, err := uuid.NewUUID()
+	if err != nil {
+		return err
+	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		result, err := tx.ExecContext(ctx, matadataQuery, metadata.UUID, 1, metadata.Hash, metadata.Size)
+	dbMetadata := dbMetadata{
+		UUID:       uuid.String(),
+		Hash:       metadata.Hash,
+		HashTypeID: 1,
+		Size:       metadata.Size,
+	}
+
+	dbMetadataPath := dbMetadataPath{
+		UUID: uuid.String(),
+		Path: metadata.Path,
+	}
+
+	metadataStmt, err := s.Prepare(`
+INSERT INTO object_store_metadata (uuid, hash_type_id, hash, size)
+VALUES ($dbMetadata.*) ON CONFLICT (hash) DO NOTHING`, dbMetadata)
+	if err != nil {
+		return errors.Annotate(err, "preparing insert metadata statement")
+	}
+
+	pathStmt, err := s.Prepare(`
+INSERT INTO object_store_metadata_path (path, metadata_uuid)
+VALUES ($dbMetadataPath.*)`, dbMetadataPath)
+	if err != nil {
+		return errors.Annotate(err, "preparing insert metadata path statement")
+	}
+
+	metadataLookupStmt, err := s.Prepare(`
+SELECT uuid AS &dbMetadataPath.metadata_uuid
+FROM   object_store_metadata 
+WHERE  hash = $dbMetadata.hash 
+AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
+	if err != nil {
+		return errors.Annotate(err, "preparing select metadata statement")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+		err := tx.Query(ctx, metadataStmt, dbMetadata).Get(&outcome)
 		if err != nil {
 			return errors.Annotatef(err, "inserting metadata")
 		}
 
-		if rows, err := result.RowsAffected(); err != nil {
+		if rows, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Annotatef(err, "inserting metadata")
 		} else if rows != 1 {
 			// If the rows affected is 0, then the metadata already exists.
 			// We need to get the uuid for the metadata, so that we can insert
 			// the path based on that uuid.
-			row := tx.QueryRowContext(ctx, metadataLookupQuery, metadata.Hash, metadata.Size)
-			if err := row.Scan(&metadata.UUID); err != nil {
-				if errors.Is(err, sql.ErrNoRows) {
-					return objectstoreerrors.ErrHashAndSizeAlreadyExists
-				}
+			err := tx.Query(ctx, metadataLookupStmt, dbMetadata).Get(&dbMetadataPath)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return objectstoreerrors.ErrHashAndSizeAlreadyExists
+			} else if err != nil {
 				return errors.Annotatef(err, "inserting metadata")
 			}
 		}
 
-		result, err = tx.ExecContext(ctx, pathQuery, metadata.Path, metadata.UUID)
+		err = tx.Query(ctx, pathStmt, dbMetadataPath).Get(&outcome)
 		if err != nil {
 			return errors.Annotatef(err, "inserting metadata path")
 		}
-		if rows, err := result.RowsAffected(); err != nil {
+		if rows, err := outcome.Result().RowsAffected(); err != nil {
 			return errors.Annotatef(err, "inserting metadata path")
 		} else if rows != 1 {
 			return fmt.Errorf("metadata path not inserted")
@@ -155,28 +184,53 @@ func (s *State) RemoveMetadata(ctx context.Context, path string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	metadataUUIDQuery := `SELECT metadata_uuid FROM object_store_metadata_path WHERE path = ?`
-	pathQuery := `DELETE FROM object_store_metadata_path WHERE path = ?`
-	metadataQuery := `DELETE FROM object_store_metadata WHERE uuid = ? AND NOT EXISTS (SELECT 1 FROM object_store_metadata_path WHERE metadata_uuid = object_store_metadata.uuid)`
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	dbMetadataPath := dbMetadataPath{
+		Path: path,
+	}
+
+	metadataUUIDStmt, err := s.Prepare(`
+SELECT &dbMetadataPath.metadata_uuid 
+FROM object_store_metadata_path 
+WHERE path = $dbMetadataPath.path`, dbMetadataPath)
+	if err != nil {
+		return errors.Annotate(err, "preparing select metadata statement")
+	}
+	pathStmt, err := s.Prepare(`
+DELETE FROM object_store_metadata_path 
+WHERE path = $dbMetadataPath.path`, dbMetadataPath)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete metadata path statement")
+	}
+
+	metadataStmt, err := s.Prepare(`
+DELETE FROM object_store_metadata 
+WHERE uuid = $dbMetadataPath.metadata_uuid 
+AND NOT EXISTS (
+  SELECT 1 
+  FROM   object_store_metadata_path 
+  WHERE  metadata_uuid = object_store_metadata.uuid
+)`, dbMetadataPath)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete metadata statement")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get the metadata uuid, so we can delete the metadata if there
 		// are no more paths associated with it.
-		var metadataUUID string
-		row := tx.QueryRowContext(ctx, metadataUUIDQuery, path)
-		if err := row.Scan(&metadataUUID); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return objectstoreerrors.ErrNotFound
-			}
-			return err
+		err := tx.Query(ctx, metadataUUIDStmt, dbMetadataPath).Get(&dbMetadataPath)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return objectstoreerrors.ErrNotFound
+		} else if err != nil {
+			return errors.Trace(err)
 		}
 
-		if _, err := tx.ExecContext(ctx, pathQuery, path); err != nil {
-			return err
+		if err := tx.Query(ctx, pathStmt, dbMetadataPath).Run(); err != nil {
+			return errors.Trace(err)
 		}
 
-		if _, err := tx.ExecContext(ctx, metadataQuery, metadataUUID); err != nil {
-			return err
+		if err := tx.Query(ctx, metadataStmt, dbMetadataPath).Run(); err != nil {
+			return errors.Trace(err)
 		}
 
 		return nil
