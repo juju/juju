@@ -43,31 +43,6 @@ func (st *State) AllSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]
 	})
 }
 
-// AllAssociatedSubnetsQuery returns the SQL query that finds all associated
-// subnet UUIDs from the subnet_association table, needed for the subnets watcher.
-func (st *State) AllAssociatedSubnetsQuery(ctx context.Context, db database.TxnRunner) ([]string, error) {
-	var associatedSubnetUUIDs []string
-
-	return associatedSubnetUUIDs, db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		stmt := "SELECT associated_subnet_uuid FROM subnet_association"
-		rows, err := tx.QueryContext(ctx, stmt)
-		if err != nil {
-			return errors.Trace(domain.CoerceError(err))
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var associatedSubnetUUID string
-			if err := rows.Scan(&associatedSubnetUUID); err != nil {
-				return errors.Trace(domain.CoerceError(err))
-			}
-			associatedSubnetUUIDs = append(associatedSubnetUUIDs, associatedSubnetUUID)
-		}
-
-		return nil
-	})
-}
-
 // UpsertSubnets updates or adds each one of the provided subnets in one
 // transaction.
 func (st *State) UpsertSubnets(ctx context.Context, subnets []network.SubnetInfo) error {
