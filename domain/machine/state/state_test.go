@@ -130,7 +130,7 @@ func (s *stateSuite) TestGetLife(c *gc.C) {
 	err := s.state.UpsertMachine(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 
-	obtainedLife, err := s.state.GetLife(context.Background(), "666")
+	obtainedLife, err := s.state.GetMachineLife(context.Background(), "666")
 	expectedLife := life.Alive
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*obtainedLife, gc.Equals, expectedLife)

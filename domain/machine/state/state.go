@@ -155,8 +155,8 @@ func (s *State) InitialWatchStatement() (string, string) {
 	return "machine", "SELECT machine_id FROM machine"
 }
 
-// GetLife returns the life status of the specified machine.
-func (st *State) GetLife(ctx context.Context, machineId string) (*life.Life, error) {
+// GetMachineLife returns the life status of the specified machine.
+func (st *State) GetMachineLife(ctx context.Context, machineId string) (*life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)

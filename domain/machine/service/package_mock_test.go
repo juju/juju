@@ -116,41 +116,41 @@ func (c *MockStateDeleteMachineCall) DoAndReturn(f func(context.Context, string)
 	return c
 }
 
-// GetLife mocks base method.
-func (m *MockState) GetLife(arg0 context.Context, arg1 string) (*life.Life, error) {
+// GetMachineLife mocks base method.
+func (m *MockState) GetMachineLife(arg0 context.Context, arg1 string) (*life.Life, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetLife", arg0, arg1)
+	ret := m.ctrl.Call(m, "GetMachineLife", arg0, arg1)
 	ret0, _ := ret[0].(*life.Life)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetLife indicates an expected call of GetLife.
-func (mr *MockStateMockRecorder) GetLife(arg0, arg1 any) *MockStateGetLifeCall {
+// GetMachineLife indicates an expected call of GetMachineLife.
+func (mr *MockStateMockRecorder) GetMachineLife(arg0, arg1 any) *MockStateGetMachineLifeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLife", reflect.TypeOf((*MockState)(nil).GetLife), arg0, arg1)
-	return &MockStateGetLifeCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMachineLife", reflect.TypeOf((*MockState)(nil).GetMachineLife), arg0, arg1)
+	return &MockStateGetMachineLifeCall{Call: call}
 }
 
-// MockStateGetLifeCall wrap *gomock.Call
-type MockStateGetLifeCall struct {
+// MockStateGetMachineLifeCall wrap *gomock.Call
+type MockStateGetMachineLifeCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetLifeCall) Return(arg0 *life.Life, arg1 error) *MockStateGetLifeCall {
+func (c *MockStateGetMachineLifeCall) Return(arg0 *life.Life, arg1 error) *MockStateGetMachineLifeCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetLifeCall) Do(f func(context.Context, string) (*life.Life, error)) *MockStateGetLifeCall {
+func (c *MockStateGetMachineLifeCall) Do(f func(context.Context, string) (*life.Life, error)) *MockStateGetMachineLifeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetLifeCall) DoAndReturn(f func(context.Context, string) (*life.Life, error)) *MockStateGetLifeCall {
+func (c *MockStateGetMachineLifeCall) DoAndReturn(f func(context.Context, string) (*life.Life, error)) *MockStateGetMachineLifeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
