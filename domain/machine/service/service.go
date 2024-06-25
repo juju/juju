@@ -28,9 +28,9 @@ type State interface {
 	// GetMachineLife returns the life status of the specified machine.
 	GetMachineLife(context.Context, string) (*life.Life, error)
 
-	// AllMachines retrieves the ids of all machines in the model.
+	// ListAllMachines retrieves the ids of all machines in the model.
 	// If there's no machine, it returns an empty slice.
-	AllMachines(context.Context) ([]string, error)
+	ListAllMachines(context.Context) ([]string, error)
 
 	// InstanceId returns the provider specific instance id for this machine.
 	// If the machine is not provisioned, it returns a NotProvisionedError.
@@ -99,7 +99,7 @@ func (s *Service) GetMachineLife(ctx context.Context, machineId string) (*life.L
 
 // ListAllMachines returns the ids of all machines in the model.
 func (s *Service) ListAllMachines(ctx context.Context) ([]string, error) {
-	machines, err := s.st.AllMachines(ctx)
+	machines, err := s.st.ListAllMachines(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving all machines")
 	}

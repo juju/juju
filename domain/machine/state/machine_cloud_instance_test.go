@@ -118,6 +118,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	c.Check(*instanceData.VirtType, gc.Equals, "virtual-machine")
 
 	rows, err := db.QueryContext(context.Background(), "SELECT tag FROM instance_tag WHERE machine_uuid='"+machineUUID+"'")
+	c.Assert(err, jc.ErrorIsNil)
 	defer rows.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	var instanceTags []string
@@ -170,11 +171,13 @@ func (s *stateSuite) TestDeleteInstanceData(c *gc.C) {
 
 	// Check that all rows've been deleted.
 	rows, err := db.QueryContext(context.Background(), "SELECT * FROM machine_cloud_instance WHERE instance_id='1'")
+	c.Assert(err, jc.ErrorIsNil)
 	defer rows.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rows.Err(), jc.ErrorIsNil)
 	c.Check(rows.Next(), jc.IsFalse)
 	rows, err = db.QueryContext(context.Background(), "SELECT * FROM instance_tag WHERE machine_uuid='"+machineUUID+"'")
+	c.Assert(err, jc.ErrorIsNil)
 	defer rows.Close()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rows.Err(), jc.ErrorIsNil)

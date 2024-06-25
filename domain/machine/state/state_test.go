@@ -148,13 +148,13 @@ func (s *stateSuite) TestListAllMachines(c *gc.C) {
 	err = s.state.UpsertMachine(context.Background(), "667")
 	c.Assert(err, jc.ErrorIsNil)
 
-	machines, err := s.state.AllMachines(context.Background())
+	machines, err := s.state.ListAllMachines(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.DeepEquals, []string{"666", "667"})
 }
 
 func (s *stateSuite) TestListAllMachinesEmpty(c *gc.C) {
-	machines, err := s.state.AllMachines(context.Background())
+	machines, err := s.state.ListAllMachines(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 0)
 }

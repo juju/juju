@@ -186,8 +186,8 @@ func (st *State) GetMachineLife(ctx context.Context, machineId string) (*life.Li
 	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", machineId)
 }
 
-// AllMachines retrieves the ids of all machines in the model.
-func (st *State) AllMachines(ctx context.Context) ([]string, error) {
+// ListAllMachines retrieves the ids of all machines in the model.
+func (st *State) ListAllMachines(ctx context.Context) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
