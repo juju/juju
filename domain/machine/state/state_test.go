@@ -142,10 +142,10 @@ func (s *stateSuite) TestGetMachineLifeNotFound(c *gc.C) {
 }
 
 func (s *stateSuite) TestListAllMachines(c *gc.C) {
-	err := s.state.UpsertMachine(context.Background(), "666")
+	err := s.state.CreateMachine(context.Background(), "666", "3", "1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.UpsertMachine(context.Background(), "667")
+	err = s.state.CreateMachine(context.Background(), "667", "4", "2")
 	c.Assert(err, jc.ErrorIsNil)
 
 	machines, err := s.state.ListAllMachines(context.Background())

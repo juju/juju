@@ -200,7 +200,7 @@ func (s *stateSuite) TestInstanceIdSuccess(c *gc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
-	err := s.state.UpsertMachine(context.Background(), "666")
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
 	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id='666'")
@@ -235,7 +235,7 @@ func (s *stateSuite) TestInstanceIdSuccess(c *gc.C) {
 }
 
 func (s *stateSuite) TestInstanceIdError(c *gc.C) {
-	err := s.state.UpsertMachine(context.Background(), "666")
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = s.state.InstanceId(context.Background(), "666")
