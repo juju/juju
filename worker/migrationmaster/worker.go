@@ -595,6 +595,8 @@ func (w *Worker) transferLogs(targetInfo coremigration.TargetInfo, modelUUID str
 	if err != nil {
 		return errors.Annotate(err, "connecting to target API")
 	}
+	defer conn.Close()
+
 	targetClient := migrationtarget.NewClient(conn)
 	latestLogTime, err := targetClient.LatestLogTime(modelUUID)
 	if err != nil {
