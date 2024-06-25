@@ -39,6 +39,44 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// CreateMachine mocks base method.
+func (m *MockState) CreateMachine(arg0 context.Context, arg1, arg2, arg3 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateMachine indicates an expected call of CreateMachine.
+func (mr *MockStateMockRecorder) CreateMachine(arg0, arg1, arg2, arg3 any) *MockStateCreateMachineCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateMachine", reflect.TypeOf((*MockState)(nil).CreateMachine), arg0, arg1, arg2, arg3)
+	return &MockStateCreateMachineCall{Call: call}
+}
+
+// MockStateCreateMachineCall wrap *gomock.Call
+type MockStateCreateMachineCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateCreateMachineCall) Return(arg0 error) *MockStateCreateMachineCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateCreateMachineCall) Do(f func(context.Context, string, string, string) error) *MockStateCreateMachineCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateCreateMachineCall) DoAndReturn(f func(context.Context, string, string, string) error) *MockStateCreateMachineCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteMachine mocks base method.
 func (m *MockState) DeleteMachine(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -77,40 +115,41 @@ func (c *MockStateDeleteMachineCall) DoAndReturn(f func(context.Context, string)
 	return c
 }
 
-// UpsertMachine mocks base method.
-func (m *MockState) UpsertMachine(arg0 context.Context, arg1 string) error {
+// InitialWatchStatement mocks base method.
+func (m *MockState) InitialWatchStatement() (string, string) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpsertMachine", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "InitialWatchStatement")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	return ret0, ret1
 }
 
-// UpsertMachine indicates an expected call of UpsertMachine.
-func (mr *MockStateMockRecorder) UpsertMachine(arg0, arg1 any) *MockStateUpsertMachineCall {
+// InitialWatchStatement indicates an expected call of InitialWatchStatement.
+func (mr *MockStateMockRecorder) InitialWatchStatement() *MockStateInitialWatchStatementCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertMachine", reflect.TypeOf((*MockState)(nil).UpsertMachine), arg0, arg1)
-	return &MockStateUpsertMachineCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatement", reflect.TypeOf((*MockState)(nil).InitialWatchStatement))
+	return &MockStateInitialWatchStatementCall{Call: call}
 }
 
-// MockStateUpsertMachineCall wrap *gomock.Call
-type MockStateUpsertMachineCall struct {
+// MockStateInitialWatchStatementCall wrap *gomock.Call
+type MockStateInitialWatchStatementCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateUpsertMachineCall) Return(arg0 error) *MockStateUpsertMachineCall {
-	c.Call = c.Call.Return(arg0)
+func (c *MockStateInitialWatchStatementCall) Return(arg0, arg1 string) *MockStateInitialWatchStatementCall {
+	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpsertMachineCall) Do(f func(context.Context, string) error) *MockStateUpsertMachineCall {
+func (c *MockStateInitialWatchStatementCall) Do(f func() (string, string)) *MockStateInitialWatchStatementCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpsertMachineCall) DoAndReturn(f func(context.Context, string) error) *MockStateUpsertMachineCall {
+func (c *MockStateInitialWatchStatementCall) DoAndReturn(f func() (string, string)) *MockStateInitialWatchStatementCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

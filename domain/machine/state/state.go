@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/domain"
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/life"
-	"github.com/juju/juju/internal/uuid"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -31,9 +30,9 @@ func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
 	}
 }
 
-// UpsertMachine creates or updates the specified machine.
+// CreateMachine creates or updates the specified machine.
 // TODO - this just creates a minimal row for now.
-func (st *State) UpsertMachine(ctx context.Context, machineId string) error {
+func (st *State) CreateMachine(ctx context.Context, machineId, nodeUUID, machineUUID string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -73,17 +72,10 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 		if err == nil {
 			return nil
 		}
-		nodeUUID, err := uuid.NewUUID()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		machineUUID, err := uuid.NewUUID()
-		if err != nil {
-			return errors.Trace(err)
-		}
+
 		createParams := sqlair.M{
-			"machine_uuid":  machineUUID.String(),
-			"net_node_uuid": nodeUUID.String(),
+			"machine_uuid":  machineUUID,
+			"net_node_uuid": nodeUUID,
 			"machine_id":    machineId,
 			"life_id":       life.Alive,
 		}
@@ -155,4 +147,10 @@ DELETE FROM net_node WHERE uuid IN
 		return nil
 	})
 	return errors.Annotatef(err, "deleting machine %q", machineId)
+}
+
+// InitialWatchStatement returns the table and the initial watch statement
+// for the machines.
+func (s *State) InitialWatchStatement() (string, string) {
+	return "machine", "SELECT machine_id FROM machine"
 }

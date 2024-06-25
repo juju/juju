@@ -29,9 +29,9 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *serviceSuite) TestUpdateSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().UpsertMachine(gomock.Any(), "666").Return(nil)
+	s.state.EXPECT().CreateMachine(gomock.Any(), "666", gomock.Any(), gomock.Any()).Return(nil)
 
-	err := NewService(s.state).CreateMachine(context.Background(), "666")
+	_, err := NewService(s.state).CreateMachine(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -39,9 +39,9 @@ func (s *serviceSuite) TestUpdateError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().UpsertMachine(gomock.Any(), "666").Return(rErr)
+	s.state.EXPECT().CreateMachine(gomock.Any(), "666", gomock.Any(), gomock.Any()).Return(rErr)
 
-	err := NewService(s.state).CreateMachine(context.Background(), "666")
+	_, err := NewService(s.state).CreateMachine(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `creating machine "666": boom`)
 }

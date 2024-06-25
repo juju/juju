@@ -32,7 +32,7 @@ type CleanerSuite struct {
 	coretesting.BaseSuite
 
 	st                 *mockState
-	machineService     *machineservice.Service
+	machineService     *machineservice.WatchableService
 	applicationService *applicationservice.Service
 	unitService        *unitservice.Service
 	api                *cleaner.CleanerAPI
@@ -51,14 +51,14 @@ func (s *CleanerSuite) SetUpTest(c *gc.C) {
 	cleaner.PatchState(s, s.st)
 	var err error
 	res := common.NewResources()
-	s.machineService = machineservice.NewService(nil)
+	s.machineService = machineservice.NewWatchableService(nil, nil)
 	s.applicationService = applicationservice.NewService(nil, loggertesting.WrapCheckLog(c), storage.NotImplementedProviderRegistry{})
 	s.unitService = unitservice.NewService(nil)
 	s.api, err = cleaner.NewCleanerAPI(facadetest.ModelContext{
 		Resources_: res,
 		Auth_:      s.authoriser,
 		ServiceFactory_: servicefactorytesting.NewTestingServiceFactory().
-			WithMachineService(func() *machineservice.Service {
+			WithMachineService(func() *machineservice.WatchableService {
 				return s.machineService
 			}).
 			WithApplicationService(func() *applicationservice.Service {
