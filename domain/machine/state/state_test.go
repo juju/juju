@@ -127,7 +127,7 @@ VALUES (?, ?)
 }
 
 func (s *stateSuite) TestGetMachineLifeSuccess(c *gc.C) {
-	err := s.state.UpsertMachine(context.Background(), "666")
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedLife, err := s.state.GetMachineLife(context.Background(), "666")
