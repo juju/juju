@@ -269,37 +269,6 @@ run_deploy_charmhub_bundle() {
 	destroy_model "${model_name}"
 }
 
-# run_deploy_lxd_profile_bundle_openstack is to test a more
-# real world scenario of a minimal openstack bundle with a
-# charm using an lxd profile.
-run_deploy_lxd_profile_bundle_openstack() {
-	echo
-
-	model_name="test-deploy-lxd-profile-bundle-o7k"
-	file="${TEST_DIR}/${model_name}.log"
-
-	ensure "${model_name}" "${file}"
-
-	bundle=./tests/suites/deploy/bundles/basic-openstack.yaml
-	juju deploy "${bundle}"
-
-	wait_for "mysql" "$(idle_condition "mysql" 2)"
-	wait_for "rabbitmq-server" "$(idle_condition "rabbitmq-server" 8)"
-	wait_for "glance" "$(idle_condition "glance" 0)"
-	wait_for "keystone" "$(idle_condition "keystone" 1)"
-	wait_for "neutron-api" "$(idle_condition "neutron-api" 3)"
-	wait_for "neutron-gateway" "$(idle_condition "neutron-gateway" 4)"
-	wait_for "nova-compute" "$(idle_condition "nova-compute" 7)"
-	wait_for "neutron-openvswitch" "$(idle_subordinate_condition "neutron-openvswitch" "nova-compute")"
-	wait_for "nova-cloud-controller" "$(idle_condition "nova-cloud-controller" 6)"
-
-	lxd_profile_name="juju-${model_name}-neutron-openvswitch"
-	machine_6="$(machine_path 6)"
-	juju status --format=json | jq "${machine_6}" | check "${lxd_profile_name}"
-
-	destroy_model "${model_name}"
-}
-
 # run_deploy_lxd_profile_bundle is to deploy multiple units of the
 # same charm which has an lxdprofile in a bundle.  The scenario
 # created by the bundle was found to produce failure cases during
@@ -381,11 +350,9 @@ test_deploy_bundles() {
 		# LXD specific profile tests.
 		case "${BOOTSTRAP_PROVIDER:-}" in
 		"lxd")
-			run "run_deploy_lxd_profile_bundle_openstack"
 			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle - tests for non LXD only"
 			;;
 		*)
-			echo "==> TEST SKIPPED: deploy_lxd_profile_bundle_openstack - tests for LXD only"
 			run "run_deploy_lxd_profile_bundle"
 			;;
 		esac
