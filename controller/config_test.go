@@ -373,6 +373,18 @@ var newConfigTests = []struct {
 		controller.QueryTracingThreshold: "-1s",
 	},
 	expectError: `query-tracing-threshold value "-1s" must be a positive duration`,
+}, {
+	about: "empty controller name",
+	config: controller.Config{
+		controller.ControllerName: "",
+	},
+	expectError: `controller-name: expected non-empty controller-name.*`,
+}, {
+	about: "invalid controller name",
+	config: controller.Config{
+		controller.ControllerName: "is_invalid",
+	},
+	expectError: `controller-name value must be a valid controller name.*`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
