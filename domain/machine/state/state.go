@@ -162,15 +162,15 @@ func (st *State) GetMachineLife(ctx context.Context, machineId string) (*life.Li
 		return nil, errors.Trace(err)
 	}
 
-	queryForLife := `SELECT &M.life_id FROM machine WHERE machine_id = $M.machine_id`
-	lifeStmt, err := st.Prepare(queryForLife, sqlair.M{})
+	queryForLife := `SELECT life_id as &machineLife.life_id FROM machine WHERE machine_id = $M.machine_id`
+	lifeStmt, err := st.Prepare(queryForLife, sqlair.M{}, machineLife{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var lifeResult life.Life
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result := sqlair.M{}
+		result := machineLife{}
 		err := tx.Query(ctx, lifeStmt, sqlair.M{"machine_id": machineId}).Get(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.NotFoundf("machine %q", machineId)
@@ -179,8 +179,7 @@ func (st *State) GetMachineLife(ctx context.Context, machineId string) (*life.Li
 			return errors.Annotatef(err, "looking up life for machine %q", machineId)
 		}
 
-		machineLife := result["life_id"].(int64)
-		lifeResult = life.Life(machineLife)
+		lifeResult = result.ID
 
 		return nil
 	})
