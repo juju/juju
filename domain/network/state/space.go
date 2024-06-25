@@ -236,6 +236,9 @@ func (st *State) UpdateSpace(
 UPDATE space
 SET    name = $Space.name
 WHERE  uuid = $Space.uuid;`, space)
+	if err != nil {
+		return errors.Annotate(err, "preparing update space statement")
+	}
 	var outcome sqlair.Outcome
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, space).Get(&outcome)
