@@ -289,6 +289,7 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 
 			// REAP
@@ -354,6 +355,7 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},
 			{"facade.SetPhase", []interface{}{coremigration.DONE}},
@@ -745,6 +747,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *gc.C) {
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},
 			{"facade.SetPhase", []interface{}{coremigration.DONE}},
@@ -777,6 +780,7 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *gc.C) {
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},
 			{"facade.SetPhase", []interface{}{coremigration.DONE}},
@@ -819,6 +823,7 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},
 			{"facade.SetPhase", []interface{}{coremigration.DONE}},
@@ -929,6 +934,7 @@ func (s *Suite) TestLogTransferErrorGettingStartTime(c *gc.C) {
 			{"facade.MinionReportTimeout", nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
+			apiCloseCall,
 		},
 	))
 }
@@ -945,6 +951,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogSource(c *gc.C) {
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
+			apiCloseCall,
 		},
 	))
 }
@@ -962,6 +969,7 @@ func (s *Suite) TestLogTransferErrorOpeningLogDest(c *gc.C) {
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
+			apiCloseCall,
 		},
 	))
 }
@@ -981,6 +989,7 @@ func (s *Suite) TestLogTransferErrorWriting(c *gc.C) {
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
+			apiCloseCall,
 		},
 	))
 	c.Assert(s.connection.logStream.closeCount, gc.Equals, 1)
@@ -1017,6 +1026,7 @@ func (s *Suite) TestLogTransferSendsRecords(c *gc.C) {
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{time.Time{}}},
 			openDestLogStreamCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},
 			{"facade.SetPhase", []interface{}{coremigration.DONE}},
@@ -1070,7 +1080,7 @@ func (s *Suite) TestLogTransferReportsProgress(c *gc.C) {
 	})
 }
 
-func (s *Suite) TestLogTransfer_ChecksLatestTime(c *gc.C) {
+func (s *Suite) TestLogTransferChecksLatestTime(c *gc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.LOGTRANSFER))
 	t := time.Date(2016, 12, 2, 10, 39, 10, 20, time.UTC)
 	s.connection.latestLogTime = t
@@ -1084,6 +1094,7 @@ func (s *Suite) TestLogTransfer_ChecksLatestTime(c *gc.C) {
 			latestLogTimeCall,
 			{"StreamModelLog", []interface{}{t}},
 			openDestLogStreamCall,
+			apiCloseCall,
 			{"facade.SetPhase", []interface{}{coremigration.REAP}},
 			{"facade.Reap", nil},
 			{"facade.SetPhase", []interface{}{coremigration.DONE}},

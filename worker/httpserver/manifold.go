@@ -122,7 +122,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // start is a method on ManifoldConfig because it's more readable than a closure.
-func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker, err error) {
+func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -156,14 +156,10 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer func() {
-		if err != nil {
-			_ = stTracker.Done()
-		}
-	}()
 
 	systemState, err := statePool.SystemState()
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	tlsConfig, err := config.NewTLSConfig(
@@ -171,10 +167,12 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		pkitls.AuthoritySNITLSGetter(authority, config.Logger),
 		config.Logger)
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	controllerConfig, err := config.GetControllerConfig(systemState)
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
 
@@ -193,6 +191,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 		ControllerAPIPort:    controllerConfig.ControllerAPIPort(),
 	})
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil

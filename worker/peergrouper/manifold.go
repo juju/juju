@@ -100,6 +100,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	st, err := statePool.SystemState()
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	mongoSession := st.MongoSession()
