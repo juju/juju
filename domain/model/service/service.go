@@ -147,15 +147,14 @@ func NewService(
 }
 
 // DefaultAgentBinaryFinder is a transition implementation of the agent binary
-// finder that will false for any version that is not the current controller
-// version.
+// finder that will true for any version.
 // This will be removed and replaced soon.
 func DefaultAgentBinaryFinder() AgentBinaryFinder {
 	return agentBinaryFinderFn(func(v version.Number) (bool, error) {
-		if v.Compare(jujuversion.Current) == 0 {
-			return true, nil
-		}
-		return false, nil
+		// This is a temporary implementation that will be replaced. We need
+		// to ensure that we always return true for now, so that we can be
+		// sure that the 3.6 LTS release will work with the controller.
+		return true, nil
 	})
 }
 
