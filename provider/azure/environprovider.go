@@ -93,6 +93,7 @@ func (cfg ProviderConfig) Validate() error {
 }
 
 type azureEnvironProvider struct {
+	environProviderCloud
 	environProviderCredentials
 
 	config ProviderConfig

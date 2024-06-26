@@ -35,6 +35,9 @@ func (s *environSuite) TestCreateAutoInstanceRole(c *gc.C) {
 		},
 	}}
 	s.sender = append(s.sender,
+		// Managed identity.
+		makeSender("/deployments", armresources.DeploymentListResult{Value: deployments}),
+		// Role assignment.
 		makeSender("/deployments", armresources.DeploymentListResult{Value: deployments}),
 	)
 	p := environs.BootstrapParams{
