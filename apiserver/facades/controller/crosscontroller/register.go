@@ -8,8 +8,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -26,7 +27,7 @@ func newStateCrossControllerAPI(ctx facade.Context) (*CrossControllerAPI, error)
 	return NewCrossControllerAPI(
 		ctx.Resources(),
 		func() ([]string, string, error) {
-			return common.StateControllerInfo(st)
+			return controllerInfo(st)
 		},
 		func() (string, error) {
 			config, err := st.ControllerConfig()
@@ -37,4 +38,29 @@ func newStateCrossControllerAPI(ctx facade.Context) (*CrossControllerAPI, error)
 		},
 		st.WatchAPIHostPortsForClients,
 	)
+}
+
+func controllerInfo(st *state.State) ([]string, string, error) {
+	apiHostPorts, err := st.APIHostPortsForClients()
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+
+	var addrs []string
+	for _, hostPorts := range apiHostPorts {
+		ordered := hostPorts.HostPorts().PrioritizedForScope(network.ScopeMatchPublic)
+		for _, addr := range ordered {
+			if addr != "" {
+				addrs = append(addrs, addr)
+			}
+		}
+	}
+
+	controllerConfig, err := st.ControllerConfig()
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+
+	caCert, _ := controllerConfig.CACert()
+	return addrs, caCert, nil
 }
