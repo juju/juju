@@ -6,6 +6,7 @@ package crosscontroller_test
 import (
 	"errors"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -13,13 +14,12 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&CrossControllerSuite{})
 
 type CrossControllerSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 
 	resources                *common.Resources
 	watcher                  *mockNotifyWatcher
@@ -31,7 +31,7 @@ type CrossControllerSuite struct {
 }
 
 func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 	s.localControllerInfo = func() ([]string, string, error) {
@@ -49,14 +49,14 @@ func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	s.watcher = newMockNotifyWatcher()
-	s.AddCleanup(func(*gc.C) { s.watcher.Stop() })
+	s.AddCleanup(func(*gc.C) { _ = s.watcher.Stop() })
 }
 
 func (s *CrossControllerSuite) TestControllerInfo(c *gc.C) {
 	results, err := s.api.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
-		[]params.ControllerAPIInfoResult{{
+		Results: []params.ControllerAPIInfoResult{{
 			Addresses: []string{"addr1", "addr2"},
 			CACert:    "ca-cert",
 		}},
@@ -68,7 +68,7 @@ func (s *CrossControllerSuite) TestControllerInfoWithDNSAddress(c *gc.C) {
 	results, err := s.api.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
-		[]params.ControllerAPIInfoResult{{
+		Results: []params.ControllerAPIInfoResult{{
 			Addresses: []string{"publicDNSaddr", "addr1", "addr2"},
 			CACert:    "ca-cert",
 		}},
@@ -82,7 +82,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *gc.C) {
 	results, err := s.api.ControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ControllerAPIInfoResults{
-		[]params.ControllerAPIInfoResult{{
+		Results: []params.ControllerAPIInfoResult{{
 			Error: &params.Error{Message: "nope"},
 		}},
 	})
@@ -93,7 +93,7 @@ func (s *CrossControllerSuite) TestWatchControllerInfo(c *gc.C) {
 	results, err := s.api.WatchControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
-		[]params.NotifyWatchResult{{
+		Results: []params.NotifyWatchResult{{
 			NotifyWatcherId: "1",
 		}},
 	})
@@ -107,7 +107,7 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *gc.C) {
 	results, err := s.api.WatchControllerInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.NotifyWatchResults{
-		[]params.NotifyWatchResult{{
+		Results: []params.NotifyWatchResult{{
 			Error: &params.Error{Message: "nope"},
 		}},
 	})
