@@ -11,6 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -111,4 +113,46 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *gc.C) {
 		}},
 	})
 	c.Assert(s.resources.Get("1"), gc.IsNil)
+}
+
+type stubControllerInfoGetter struct{}
+
+func (stubControllerInfoGetter) APIHostPortsForClients() ([]network.SpaceHostPorts, error) {
+	return []network.SpaceHostPorts{{
+		network.SpaceHostPort{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.1.2.3",
+					Scope: network.ScopeCloudLocal,
+				},
+				SpaceID: "0",
+			},
+			NetPort: 50000,
+		},
+		network.SpaceHostPort{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "host-name",
+					Scope: network.ScopePublic,
+				},
+				SpaceID: "0",
+			},
+			NetPort: 50000,
+		},
+	}}, nil
+}
+
+func (stubControllerInfoGetter) ControllerConfig() (controller.Config, error) {
+	return map[string]interface{}{
+		"ca-cert": "ca-cert",
+	}, nil
+}
+
+func (s *CrossControllerSuite) TestGetControllerInfo(c *gc.C) {
+	addrs, cert, err := controllerInfo(stubControllerInfoGetter{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Public address is sorted first.
+	c.Check(addrs, jc.DeepEquals, []string{"host-name:50000", "10.1.2.3:50000"})
+	c.Check(cert, gc.Equals, "ca-cert")
 }

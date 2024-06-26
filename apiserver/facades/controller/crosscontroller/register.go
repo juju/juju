@@ -9,8 +9,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/state"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -40,7 +40,16 @@ func newStateCrossControllerAPI(ctx facade.Context) (*CrossControllerAPI, error)
 	)
 }
 
-func controllerInfo(st *state.State) ([]string, string, error) {
+// controllerInfoGetter indirects state for retrieving information
+// required for cross-controller communication.
+type controllerInfoGetter interface {
+	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
+	ControllerConfig() (controller.Config, error)
+}
+
+// controllerInfo retrieves information required to communicate
+// with this controller - API addresses and the CA cert.
+func controllerInfo(st controllerInfoGetter) ([]string, string, error) {
 	apiHostPorts, err := st.APIHostPortsForClients()
 	if err != nil {
 		return nil, "", errors.Trace(err)
