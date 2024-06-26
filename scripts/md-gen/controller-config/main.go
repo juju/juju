@@ -376,7 +376,7 @@ func ensureDefined(data map[string]*keyInfo, key string) {
 	}
 }
 
-// check panics if the provided error is nil.
+// check panics if the provided error is not nil.
 func check(err error) {
 	if err != nil {
 		panic(err)
