@@ -4,6 +4,8 @@
 package azure_test
 
 import (
+	"fmt"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	jc "github.com/juju/testing/checkers"
@@ -42,5 +44,5 @@ func (s *environSuite) TestCreateAutoInstanceRole(c *gc.C) {
 	}
 	res, err := env.CreateAutoInstanceRole(s.callCtx, p)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.Equals, "juju-controller-"+testing.ControllerTag.Id())
+	c.Assert(res, gc.Equals, fmt.Sprintf("%s/%s", resourceGroupName, "juju-controller-"+testing.ControllerTag.Id()))
 }

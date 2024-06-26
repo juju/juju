@@ -314,7 +314,7 @@ func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, cont
 		if region := toValue(g.Location); region != env.location {
 			return errors.Errorf("cannot use resource group in region %q when operating in region %q", region, env.location)
 		}
-		if err := env.checkResourceGroup(ctx, g.ResourceGroup, modelTag); err != nil {
+		if err := env.checkResourceGroup(g.ResourceGroup, modelTag); err != nil {
 			return errorutils.HandleCredentialError(errors.Annotate(err, "validating resource group"), ctx)
 		}
 	} else {
@@ -2154,7 +2154,7 @@ func (env *azureEnviron) resourceGroupName(ctx stdcontext.Context, modelTag name
 }
 
 // checkResourceGroup ensures the resource group is not tagged for a different model.
-func (env *azureEnviron) checkResourceGroup(ctx stdcontext.Context, g armresources.ResourceGroup, modelTag names.ModelTag) error {
+func (env *azureEnviron) checkResourceGroup(g armresources.ResourceGroup, modelTag names.ModelTag) error {
 	mTag, ok := g.Tags[tags.JujuModel]
 	tagValue := toValue(mTag)
 	if ok && tagValue != "" && tagValue != modelTag.Id() {

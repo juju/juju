@@ -45,7 +45,7 @@ func (env *azureEnviron) CreateAutoInstanceRole(
 	if err != nil {
 		return "", errors.Annotate(err, "creating managed identity")
 	}
-	return *instProfileName, nil
+	return fmt.Sprintf("%s/%s", env.resourceGroup, *instProfileName), nil
 }
 
 func (env *azureEnviron) ensureControllerManagedIdentity(
