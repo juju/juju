@@ -30,9 +30,18 @@ var MigrationInProgressError = errors.New(CodeMigrationInProgress)
 
 // Error is the type of error returned by any call to the state API.
 type Error struct {
-	Message string                 `json:"message"`
-	Code    string                 `json:"code"`
-	Info    map[string]interface{} `json:"info,omitempty"`
+	Message string         `json:"message"`
+	Code    string         `json:"code"`
+	Info    map[string]any `json:"info,omitempty"`
+}
+
+// WithInfo is responsible for setting the [Error.Info] information
+func (e Error) WithInfo(info map[string]any) *Error {
+	return &Error{
+		Code:    e.Code,
+		Message: e.Message,
+		Info:    info,
+	}
 }
 
 func (e Error) Error() string {
@@ -206,6 +215,30 @@ const (
 	CodeSecretBackendNotValid      = "secret backend not valid"
 	CodeAccessRequired             = "access required"
 	CodeAppShouldNotHaveUnits      = "application should not have units"
+
+	//
+	// Tag based error
+	//
+
+	// CodeTagInvalid represents an error code when the tag supplied by the
+	// caller is not parsable.
+	CodeTagInvalid = "invalid tag"
+
+	// CodeTagKindNotSupport represents an error code when a tag has been
+	// provided to a facade call and the tags kind is unsupported by the facade.
+	CodeTagKindNotSupported = "tag kind not supported"
+
+	//
+	// Machine base errors
+	//
+
+	// CodeMachineInvalidID represents an error code that indicates a supplied
+	// machine id is invalid.
+	CodeMachineInvalidID = "invalid machine id"
+
+	// CodeMachineNotFound represents an error code that indicates the machine
+	// requested does not exist.
+	CodeMachineNotFound = "machine not found"
 )
 
 // TranslateWellKnownError translates well known wire error codes into a github.com/juju/errors error

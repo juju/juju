@@ -1,185 +1,274 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package keyupdater_test
+package keyupdater
 
 import (
 	"context"
+	"sync"
+	"time"
 
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4/workertest"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/agent/keyupdater"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/controller"
-	jujutesting "github.com/juju/juju/juju/testing"
+	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 )
 
 type authorisedKeysSuite struct {
-	jujutesting.ApiServerSuite
-
-	// These are raw State objects. Use them for setup and assertions, but
-	// should never be touched by the API calls themselves
-	controllerConfig controller.Config
-	rawMachine       *state.Machine
-	unrelatedMachine *state.Machine
-	keyupdater       *keyupdater.KeyUpdaterAPI
-	resources        *common.Resources
-	authorizer       apiservertesting.FakeAuthorizer
+	authorizer        apiservertesting.FakeAuthorizer
+	keyUpdaterService *MockKeyUpdaterService
+	machineTag        names.MachineTag
+	watcherRegistry   *facademocks.MockWatcherRegistry
 }
 
 var _ = gc.Suite(&authorisedKeysSuite{})
 
-func (s *authorisedKeysSuite) ControllerConfig(_ context.Context) (controller.Config, error) {
-	return s.controllerConfig, nil
+func (s *authorisedKeysSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.keyUpdaterService = NewMockKeyUpdaterService(ctrl)
+	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
+	return ctrl
 }
 
 func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
-	s.ApiServerSuite.SetUpTest(c)
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
-
-	st := s.ControllerModel(c).State()
-	// Create machines to work with
-	var err error
-	s.rawMachine, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	s.unrelatedMachine, err = st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
+	s.machineTag = names.NewMachineTag("0")
 
 	// The default auth is as a controller
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: s.rawMachine.Tag(),
+		Tag: s.machineTag,
 	}
-	s.keyupdater, err = keyupdater.NewKeyUpdaterAPI(
-		s.authorizer, s.resources, st, s,
-	)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIAcceptsController(c *gc.C) {
-	endPoint, err := keyupdater.NewKeyUpdaterAPI(
-		s.authorizer, s.resources, s.ControllerModel(c).State(), s,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(endPoint, gc.NotNil)
-}
-
+// TestNewKeyUpdaterAPIRefusesNonMachineAgent is checking that if we try and
+// setup the facade with a non machine entity the facade fails to construct with
+// [apiservererrors.ErrPerm] error.
 func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIRefusesNonMachineAgent(c *gc.C) {
 	anAuthoriser := s.authorizer
 	anAuthoriser.Tag = names.NewUnitTag("ubuntu/1")
-	endPoint, err := keyupdater.NewKeyUpdaterAPI(
-		anAuthoriser, s.resources, s.ControllerModel(c).State(), s,
+	endPoint, err := newKeyUpdaterAPI(
+		anAuthoriser, s.keyUpdaterService, s.watcherRegistry,
 	)
-	c.Assert(endPoint, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Check(endPoint, gc.IsNil)
+	c.Check(err, gc.ErrorMatches, "permission denied")
+	c.Check(err, jc.ErrorIs, apiservererrors.ErrPerm)
 }
 
+// TestWatchAuthorisedKeysNothing is asserting that it is not an error to watch
+// authorised keys for zero entities.
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
+	endPoint, err := newKeyUpdaterAPI(
+		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 	// Not an error to watch nothing
-	results, err := s.keyupdater.WatchAuthorisedKeys(context.Background(), params.Entities{})
+	results, err := endPoint.WatchAuthorisedKeys(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
-func (s *authorisedKeysSuite) setAuthorizedKeys(c *gc.C, keys string) {
-	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{"authorized-keys": keys}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	modelConfig, err := s.ControllerModel(c).ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(modelConfig.AuthorizedKeys(), gc.Equals, keys)
-}
-
+// TestWatchAuthorisedKeys is asserting that for machines the caller is allowed
+// to watch we get back a valid watcher id. For machines that cannot be watched
+// by the caller an unathorised error is returned.
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	endPoint, err := newKeyUpdaterAPI(
+		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	args := params.Entities{
 		Entities: []params.Entity{
-			{Tag: s.rawMachine.Tag().String()},
-			{Tag: s.unrelatedMachine.Tag().String()},
+			{Tag: s.machineTag.String()},
+			{Tag: "machine-40"},
 			{Tag: "machine-42"},
 		},
 	}
-	results, err := s.keyupdater.WatchAuthorisedKeys(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
+
+	done := make(chan struct{})
+	defer close(done)
+	wg := sync.WaitGroup{}
+	defer wg.Wait()
+	ch := make(chan []string)
+	w := watchertest.NewMockStringsWatcher(ch)
+
+	s.keyUpdaterService.EXPECT().WatchAuthorisedKeysForMachine(
+		gomock.Any(),
+		coremachine.ID("0"),
+	).DoAndReturn(func(_ context.Context, _ coremachine.ID) (watcher.Watcher[[]string], error) {
+		wg.Add(1)
+		time.AfterFunc(testing.ShortWait, func() {
+			defer wg.Done()
+			// Send initial event.
+			select {
+			case ch <- []string{}:
+			case <-done:
+				c.ExpectFailure("watcher did not fire")
+			}
+		})
+		return w, nil
+	})
+	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+
+	result, err := endPoint.WatchAuthorisedKeys(context.Background(), args)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{
+				Code:    params.CodeUnauthorized,
+				Message: "does not have permission to read authorised keys for \"machine-40\"",
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeUnauthorized,
+				Message: "does not have permission to read authorised keys for \"machine-42\"",
+			}},
 		},
 	})
-	c.Assert(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
-	c.Assert(resource, gc.NotNil)
-
-	w := resource.(state.NotifyWatcher)
-	wc := statetesting.NewNotifyWatcherC(c, w)
-	wc.AssertNoChange()
-
-	s.setAuthorizedKeys(c, "key1\nkey2")
-
-	wc.AssertOneChange()
-	workertest.CleanKill(c, w)
-	wc.AssertClosed()
 }
 
+// TestAuthorisedKeysForNoone is asserting that if we ask for authorised keys
+// for zero machines we back an empty result with no errors.
 func (s *authorisedKeysSuite) TestAuthorisedKeysForNoone(c *gc.C) {
-	// Not an error to request nothing, dumb, but not an error.
-	results, err := s.keyupdater.AuthorisedKeys(context.Background(), params.Entities{})
+	endPoint, err := newKeyUpdaterAPI(
+		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	// Not an error to watch nothing
+	results, err := endPoint.AuthorisedKeys(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
 }
 
+// TestAuthorisedKeys is asserting that the caller can get back authorised keys
+// for the authenticated machine. For any other machines that the caller is not
+// authenticated for we back unathorised errors.
 func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
-	s.setAuthorizedKeys(c, "key1\nkey2")
+	defer s.setupMocks(c).Finish()
+	endPoint, err := newKeyUpdaterAPI(
+		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			{Tag: s.rawMachine.Tag().String()},
-			{Tag: s.unrelatedMachine.Tag().String()},
+			{Tag: s.machineTag.String()},
+			{Tag: "machine-40"},
 			{Tag: "machine-42"},
 		},
 	}
-	results, err := s.keyupdater.AuthorisedKeys(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.StringsResults{
+
+	s.keyUpdaterService.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.ID("0")).
+		Return([]string{"key1", "key2"}, nil)
+
+	result, err := endPoint.AuthorisedKeys(context.Background(), args)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
 			{Result: []string{"key1", "key2"}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{
+				Code:    params.CodeUnauthorized,
+				Message: "does not have permission to read authorised keys for \"machine-40\"",
+			}},
+			{Error: &params.Error{
+				Code:    params.CodeUnauthorized,
+				Message: "does not have permission to read authorised keys for \"machine-42\"",
+			}},
 		},
 	})
 }
 
-// TestAuthorisedKeysWithControllerConfig is looking to see that when we set a
-// system wide key in controller config this is aggregated with the per model
-// config.
-func (s *authorisedKeysSuite) TestAuthorisedKeysWithControllerConfig(c *gc.C) {
-	s.setAuthorizedKeys(c, "key1\nkey2")
-	s.controllerConfig = controller.Config{
-		controller.SystemSSHKeys: "controller-key",
-	}
+// TestAuthorisedKeysForNonMachineEntity is asserting that if we try and get
+// authorised keys for a non machine enitity we get back a
+// [params.CodeTagKindNotSupported] error.
+func (s *authorisedKeysSuite) TestAuthorisedKeysForNonMachineEntity(c *gc.C) {
+	endPoint, err := newKeyUpdaterAPI(
+		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			{Tag: s.rawMachine.Tag().String()},
-			{Tag: s.unrelatedMachine.Tag().String()},
-			{Tag: "machine-42"},
+			{Tag: names.NewUnitTag("ubuntu/1").String()},
 		},
 	}
-	results, err := s.keyupdater.AuthorisedKeys(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.StringsResults{
+
+	result, err := endPoint.AuthorisedKeys(context.Background(), args)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
-			{Result: []string{"key1", "key2", "controller-key"}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{
+				Code:    params.CodeTagKindNotSupported,
+				Message: "tag \"unit-ubuntu-1\" unsupported, can only accept tags of kind \"machine\"",
+			}},
+		},
+	})
+}
+
+// TestWatchAuthorisedKeysForNonMachineEntity is asserting that if we try and
+// watch  authorised keys for a non machine enitity we get back a
+// [params.CodeTagKindNotSupported] error.
+func (s *authorisedKeysSuite) TestWatchAuthorisedKeysForNonMachineEntity(c *gc.C) {
+	endPoint, err := newKeyUpdaterAPI(
+		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewUnitTag("ubuntu/1").String()},
+		},
+	}
+
+	result, err := endPoint.WatchAuthorisedKeys(context.Background(), args)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: &params.Error{
+				Code:    params.CodeTagKindNotSupported,
+				Message: "tag \"unit-ubuntu-1\" unsupported, can only accept tags of kind \"machine\"",
+			}},
+		},
+	})
+}
+
+// TestAuthorisedKeysForNonMachineEntity is asserting that if we try and get
+// authorised keys for a machine that doesn't exist
+func (s *authorisedKeysSuite) TestAuthorisedKeysForNotFoundMachine(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	endPoint, err := newKeyUpdaterAPI(
+		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: s.machineTag.String()},
+		},
+	}
+
+	s.keyUpdaterService.EXPECT().AuthorisedKeysForMachine(
+		gomock.Any(), coremachine.ID("0"),
+	).Return(nil, machineerrors.NotFound)
+
+	result, err := endPoint.AuthorisedKeys(context.Background(), args)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			{Error: &params.Error{
+				Code:    params.CodeMachineNotFound,
+				Message: "machine \"0\" does not exist",
+			}},
 		},
 	})
 }

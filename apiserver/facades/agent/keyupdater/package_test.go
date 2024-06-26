@@ -1,14 +1,16 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package keyupdater_test
+package keyupdater
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	"github.com/juju/juju/internal/testing"
+	gc "gopkg.in/check.v1"
 )
 
-func TestAll(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+//go:generate go run go.uber.org/mock/mockgen -typed -package keyupdater -destination service_mock_test.go github.com/juju/juju/apiserver/facades/agent/keyupdater KeyUpdaterService
+
+func TestPackage(t *testing.T) {
+	gc.TestingT(t)
 }
