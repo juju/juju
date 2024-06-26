@@ -11,8 +11,9 @@ check_managed_identity_controller() {
 	fi
 
 	juju bootstrap "${cloud_region}" "${name}" \
-		--debug \
+		--show-log \
 		--constraints="instance-role=${identity_name}" 2>&1 | OUTPUT "${file}"
+	echo "${name}" >>"${TEST_DIR}/jujus"
 
 	cred_name=${AZURE_CREDENTIAL_NAME:-credentials}
 	cred=$(juju show-credential --controller "${name}" azure "${cred_name}" 2>&1 || true)
@@ -26,10 +27,6 @@ check_managed_identity_controller() {
 	juju add-model test
 	juju deploy jameinel-ubuntu-lite
 	wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
-
-	# Takes too long to tear down, so forcibly destroy it
-	export KILL_CONTROLLER=true
-	destroy_controller "${name}"
 
 }
 
@@ -55,6 +52,7 @@ run_custom_managed_identity() {
 	echo "${group}" >>"${TEST_DIR}/azure-groups"
 	az identity create --resource-group "${group}" --name jmid
 	mid=$(az identity show --resource-group "${group}" --name jmid --query principalId --output tsv)
+	echo "${mid}" >>"${TEST_DIR}/azure-managed-identities"
 	az role assignment create --assignee-object-id "${mid}" --assignee-principal-type "ServicePrincipal" --role "JujuRoles" --scope "/subscriptions/${subscription}"
 
 	name="azure-custom-managed-identity"
@@ -65,14 +63,22 @@ run_custom_managed_identity() {
 
 run_cleanup_azure() {
 	set +e
-	echo "==> Removing resource groups"
 
+	echo "==> Removing resource groups"
 	if [[ -f "${TEST_DIR}/azure-groups" ]]; then
 		while read -r group; do
 			az group delete -y --resource-group "${group}" >>"${TEST_DIR}/azure_cleanup"
 		done <"${TEST_DIR}/azure-groups"
 	fi
 	echo "==> Removed resource groups"
+
+	echo "==> Removing role assignments"
+	if [[ -f "${TEST_DIR}/azure-managed-identities" ]]; then
+		while read -r assignee; do
+			az role assignment delete --assignee "${assignee}" >>"${TEST_DIR}/azure_cleanup"
+		done <"${TEST_DIR}/azure-managed-identities"
+	fi
+	echo "==> Removed role assignments"
 }
 
 test_managed_identity() {

@@ -17,22 +17,21 @@ func (env *azureEnviron) createDeployment(
 	ctx context.ProviderCallContext,
 	resourceGroup string,
 	deploymentName string,
-	params any,
 	t armtemplates.Template,
 ) error {
 	deploy, err := env.deployClient()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	t.Schema = armtemplates.Schema
 	templateMap, err := t.Map()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	deployment := armresources.Deployment{
 		Properties: &armresources.DeploymentProperties{
-			Parameters: params,
-			Template:   &templateMap,
-			Mode:       to.Ptr(armresources.DeploymentModeIncremental),
+			Template: &templateMap,
+			Mode:     to.Ptr(armresources.DeploymentModeIncremental),
 		},
 	}
 	poller, err := deploy.BeginCreateOrUpdate(
@@ -52,4 +51,44 @@ func (env *azureEnviron) createDeployment(
 		}
 	}
 	return errorutils.HandleCredentialError(errors.Annotatef(err, "creating Azure deployment %q", deploymentName), ctx)
+}
+
+func (env *azureEnviron) createSubscriptionDeployment(
+	ctx context.ProviderCallContext,
+	location string,
+	deploymentName string,
+	params any,
+	t armtemplates.Template,
+) error {
+	deploy, err := env.deployClient()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	t.Schema = armtemplates.SubscriptionSchema
+	templateMap, err := t.Map()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	deployment := armresources.Deployment{
+		Location: to.Ptr(location),
+		Properties: &armresources.DeploymentProperties{
+			Parameters: params,
+			Template:   &templateMap,
+			Mode:       to.Ptr(armresources.DeploymentModeIncremental),
+		},
+	}
+	poller, err := deploy.BeginCreateOrUpdateAtSubscriptionScope(
+		ctx,
+		deploymentName,
+		deployment,
+		nil,
+	)
+	var result armresources.DeploymentsClientCreateOrUpdateAtSubscriptionScopeResponse
+	if err == nil {
+		result, err = poller.PollUntilDone(ctx, nil)
+		if err == nil && result.Properties != nil && result.Properties.Error != nil {
+			err = errors.New(toValue(result.Properties.Error.Message))
+		}
+	}
+	return errorutils.HandleCredentialError(errors.Annotatef(err, "creating Azure subscription deployment %q", deploymentName), ctx)
 }

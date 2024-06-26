@@ -363,7 +363,6 @@ func (env *azureEnviron) createCommonResourceDeployment(
 		ctx,
 		env.resourceGroup,
 		commonDeployment,
-		nil, // params
 		template,
 	); err != nil {
 		return errors.Trace(err)
@@ -925,7 +924,6 @@ func (env *azureEnviron) createVirtualMachine(
 		ctx,
 		env.resourceGroup,
 		vmName, // deployment name
-		nil,    // params
 		template,
 	); err != nil {
 		return errors.Trace(err)

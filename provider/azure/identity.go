@@ -72,13 +72,38 @@ func (env *azureEnviron) ensureControllerManagedIdentity(
 		"roleGuid": map[string]string{
 			"value": roleGUID,
 		},
+		"resourceGroup": map[string]string{
+			"value": env.resourceGroup,
+		},
+		"identityAPIVersion": map[string]string{
+			"value": identityAPIVersion,
+		},
+	}
+
+	// This is the arm resource template to create the managed identity.
+	// It needs to be done in the controller resource group.
+	res := []armtemplates.Resource{{
+		APIVersion: identityAPIVersion,
+		Type:       "Microsoft.ManagedIdentity/userAssignedIdentities",
+		Name:       identityName,
+		Location:   env.location,
+		Tags:       envTags,
+	}}
+	template := armtemplates.Template{Resources: res}
+	if err := env.createDeployment(
+		callCtx,
+		env.resourceGroup,
+		identityName,
+		template,
+	); err != nil {
+		return nil, errors.Annotatef(err, "creating managed identity %q", identityName)
 	}
 
 	// This is the arm resource template to create:
-	// - managed identity
 	// - role definition
 	// - assignment of role to identity
-	res := []armtemplates.Resource{{
+	// It needs to be done in the subscription.
+	res = []armtemplates.Resource{{
 		APIVersion: roleAPIVersion,
 		Type:       "Microsoft.Authorization/roleDefinitions",
 		Name:       "[parameters('roleGuid')]",
@@ -99,33 +124,27 @@ func (env *azureEnviron) ensureControllerManagedIdentity(
 				},
 			}},
 			"assignableScopes": []string{
-				"[concat('/subscriptions/', subscription().subscriptionId)]",
-				"[resourceGroup().id]",
+				"[subscription().id]",
 			},
 		},
-	}, {
-		APIVersion: identityAPIVersion,
-		Type:       "Microsoft.ManagedIdentity/userAssignedIdentities",
-		Name:       identityName,
-		Location:   env.location,
-		Tags:       envTags,
 	}, {
 		Type:       "Microsoft.Authorization/roleAssignments",
 		APIVersion: roleAPIVersion,
 		Name:       roleAssignmentGUID,
+		Location:   env.location,
 		Tags:       envTags,
 		DependsOn: []string{
-			"[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('identityName'))]",
-			"[resourceId('Microsoft.Authorization/roleDefinitions', parameters('roleGuid'))]",
+			"[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleGuid'))]",
 		},
 		Properties: map[string]any{
-			"roleDefinitionId": "[concat(resourceGroup().id, '/providers/Microsoft.Authorization/roleDefinitions/', parameters('roleGuid'))]",
+			"roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleGuid'))]",
 			"principalType":    "ServicePrincipal",
-			"principalId":      "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('identityName'))).principalId]",
+			"principalId":      "[reference(resourceId(subscription().subscriptionId, parameters('resourceGroup'), 'Microsoft.ManagedIdentity/userAssignedIdentities', parameters('identityName')), parameters('identityAPIVersion')).principalId]",
 		},
 	}}
 
-	template := armtemplates.Template{
+	template = armtemplates.Template{
+		Schema: armtemplates.SubscriptionSchema,
 		Parameters: map[string]any{
 			"roleName": map[string]string{
 				"type": "string",
@@ -136,14 +155,20 @@ func (env *azureEnviron) ensureControllerManagedIdentity(
 			"identityName": map[string]string{
 				"type": "string",
 			},
+			"resourceGroup": map[string]string{
+				"type": "string",
+			},
+			"identityAPIVersion": map[string]string{
+				"type": "string",
+			},
 		},
 		Resources: res,
 	}
 
-	logger.Debugf("running deployment to create managed identity %s", identityName)
-	if err := env.createDeployment(
+	logger.Debugf("running deployment to create managed identity role assignment %s", identityName)
+	if err := env.createSubscriptionDeployment(
 		callCtx,
-		env.resourceGroup,
+		env.location,
 		identityName, // deployment name
 		params,
 		template,

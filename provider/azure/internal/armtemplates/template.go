@@ -6,13 +6,19 @@ package armtemplates
 import "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 
 const (
-	schema         = "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#"
+	// Schema defines a resource group schema.
+	Schema = "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#"
+	// SubscriptionSchema defines a subscription schema.
+	SubscriptionSchema = "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#"
+
 	contentVersion = "1.0.0.0"
 )
 
 // Template represents an Azure Resource Manager (ARM) Template.
 // See: https://azure.microsoft.com/en-us/documentation/articles/resource-group-authoring-templates/
 type Template struct {
+	// Schema defines a subscription schema or resource group schema.
+	Schema string
 	// Resources contains the definitions of resources that will
 	// be created by the template.
 	Resources []Resource `json:"resources"`
@@ -24,6 +30,10 @@ type Template struct {
 // Map returns the template as a map, suitable for use in
 // azure-sdk-for-go/arm/resources/resources/DeploymentProperties.Template.
 func (t *Template) Map() (map[string]any, error) {
+	schema := t.Schema
+	if schema == "" {
+		schema = Schema
+	}
 	m := map[string]any{
 		"$schema":        schema,
 		"contentVersion": contentVersion,
