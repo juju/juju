@@ -1,7 +1,7 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package crosscontroller_test
+package crosscontroller
 
 import (
 	"errors"
@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -25,7 +24,7 @@ type CrossControllerSuite struct {
 	watcher                  *mockNotifyWatcher
 	localControllerInfo      func() ([]string, string, error)
 	watchLocalControllerInfo func() state.NotifyWatcher
-	api                      *crosscontroller.CrossControllerAPI
+	api                      *CrossControllerAPI
 
 	publicDnsAddress string
 }
@@ -40,7 +39,7 @@ func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
 	s.watchLocalControllerInfo = func() state.NotifyWatcher {
 		return s.watcher
 	}
-	api, err := crosscontroller.NewCrossControllerAPI(
+	api, err := NewCrossControllerAPI(
 		s.resources,
 		func() ([]string, string, error) { return s.localControllerInfo() },
 		func() (string, error) { return s.publicDnsAddress, nil },
