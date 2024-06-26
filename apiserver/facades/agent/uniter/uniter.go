@@ -22,57 +22,18 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statewatcher "github.com/juju/juju/state/watcher"
 )
-
-// ControllerConfigService is an interface that provides the controller
-// configuration for the model.
-type ControllerConfigService interface {
-	ControllerConfig(context.Context) (controller.Config, error)
-}
-
-// CloudService provides access to clouds.
-type CloudService interface {
-	Cloud(ctx context.Context, name string) (*cloud.Cloud, error)
-	WatchCloud(ctx context.Context, name string) (watcher.NotifyWatcher, error)
-}
-
-// CredentialService provides access to credentials.
-type CredentialService interface {
-	CloudCredential(ctx context.Context, key credential.Key) (cloud.Credential, error)
-	WatchCredential(ctx context.Context, key credential.Key) (watcher.NotifyWatcher, error)
-}
-
-// UnitRemover deletes a unit from the dqlite database.
-// This allows us to initially weave some dqlite support into the cleanup workflow.
-type UnitRemover interface {
-	DeleteUnit(context.Context, string) error
-}
-
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// SpaceByName returns a space from state that matches the input name.
-	// An error is returned that satisfied errors.NotFound if the space was not found
-	// or an error static any problems fetching the given space.
-	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
-	// GetAllSubnets returns all the subnets for the model.
-	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
-}
 
 // UniterAPI implements the latest version (v18) of the Uniter API.
 type UniterAPI struct {
@@ -93,6 +54,8 @@ type UniterAPI struct {
 	cloudService            CloudService
 	credentialService       CredentialService
 	controllerConfigService ControllerConfigService
+	modelConfigService      ModelConfigService
+	modelInfoService        ModelInfoService
 	secretService           SecretService
 	networkService          NetworkService
 	unitRemover             UnitRemover
@@ -1115,11 +1078,11 @@ func (u *UniterAPI) getProviderID(unit *state.Unit) (string, error) {
 // CurrentModel returns the name and UUID for the current juju model.
 func (u *UniterAPI) CurrentModel(ctx context.Context) (params.ModelResult, error) {
 	result := params.ModelResult{}
-	model, err := u.st.Model()
+	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
 	if err == nil {
-		result.Name = model.Name()
-		result.UUID = model.UUID()
-		result.Type = string(model.Type())
+		result.Name = modelInfo.Name
+		result.UUID = modelInfo.UUID.String()
+		result.Type = modelInfo.Type.String()
 	}
 	return result, err
 }
@@ -1132,9 +1095,9 @@ func (u *UniterAPI) CurrentModel(ctx context.Context) (params.ModelResult, error
 // addresses, this might be completely unnecessary though.
 func (u *UniterAPI) ProviderType(ctx context.Context) (params.StringResult, error) {
 	result := params.StringResult{}
-	cfg, err := u.m.ModelConfig(ctx)
+	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
 	if err == nil {
-		result.Result = cfg.Type()
+		result.Result = modelInfo.CloudType
 	}
 	return result, err
 }
@@ -1171,7 +1134,7 @@ func (u *UniterAPI) EnterScope(ctx context.Context, args params.RelationUnits) (
 			return nil
 		}
 
-		netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, unitTag, u.logger)
+		netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, u.modelConfigService, unitTag, u.logger)
 		if err != nil {
 			return err
 		}
@@ -1933,7 +1896,7 @@ func (u *UniterAPI) NetworkInfo(ctx context.Context, args params.NetworkInfoPara
 		return params.NetworkInfoResults{}, apiservererrors.ErrPerm
 	}
 
-	netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, unitTag, u.logger)
+	netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, u.modelConfigService, unitTag, u.logger)
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
@@ -2039,7 +2002,12 @@ func (u *UniterAPI) CloudSpec(ctx context.Context) (params.CloudSpecResult, erro
 		return params.CloudSpecResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
-	return u.cloudSpecer.GetCloudSpec(ctx, u.m.Tag().(names.ModelTag)), nil
+	modelInfo, err := u.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return params.CloudSpecResult{}, err
+	}
+	modelTag := names.NewModelTag(modelInfo.UUID.String())
+	return u.cloudSpecer.GetCloudSpec(ctx, modelTag), nil
 }
 
 // GoalStates returns information of charm units and relations.
@@ -2402,7 +2370,7 @@ func (u *UniterAPI) updateUnitNetworkInfoOperation(ctx context.Context, unitTag 
 			return nil, errors.Trace(err)
 		}
 
-		netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, unitTag, u.logger)
+		netInfo, err := NewNetworkInfo(ctx, u.st, u.networkService, u.modelConfigService, unitTag, u.logger)
 		if err != nil {
 			return nil, err
 		}

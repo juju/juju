@@ -466,7 +466,7 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	err = s.ControllerServiceFactory(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.NetworkInfoParams{
@@ -1833,12 +1833,12 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 }
 
 func (s *uniterSuite) TestProviderType(c *gc.C) {
-	cfg, err := s.ControllerModel(c).ModelConfig(context.Background())
+	modelInfo, err := s.ControllerServiceFactory(c).ModelInfo().GetModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.uniter.ProviderType(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResult{Result: cfg.Type()})
+	c.Assert(result, gc.DeepEquals, params.StringResult{Result: modelInfo.CloudType})
 }
 
 func (s *uniterSuite) TestEnterScope(c *gc.C) {
@@ -3225,7 +3225,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
 	// Check model attributes are overridden by setting up a value.
-	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	egress := state.NewRelationEgressNetworks(s.ControllerModel(c).State())
@@ -3257,7 +3257,7 @@ func (s *uniterSuite) TestRelationEgressSubnets(c *gc.C) {
 func (s *uniterSuite) TestModelEgressSubnets(c *gc.C) {
 	relTag, relUnit := s.setupRemoteRelationScenario(c)
 
-	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
+	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{"egress-subnets": "192.168.0.0/16"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	thisUniter := s.makeMysqlUniter(c)

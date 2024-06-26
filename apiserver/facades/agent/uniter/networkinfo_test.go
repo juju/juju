@@ -368,8 +368,9 @@ func (s *networkInfoSuite) TestAPIRequestForRelationCAASHostNameNoIngress(c *gc.
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
+	modelConfigService := s.ControllerServiceFactory(c).Config()
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, u.UnitTag(), nil, lookup, loggertesting.WrapCheckLog(c))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, u.UnitTag(), nil, lookup, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := netInfo.ProcessAPIRequest(params.NetworkInfoParams{
@@ -637,8 +638,9 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	prr := newProReqRelationForApps(c, st, mysql, gitlab)
 
+	modelConfigService := s.ControllerServiceFactory(c).Config()
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// First no address.
@@ -658,7 +660,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 
 	// We need a new instance here, because unit addresses
 	// are populated in the constructor.
-	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
+	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -689,8 +691,9 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelInvalidBinding(c *gc.
 
 	prr := newProReqRelationForApps(c, st, mySql, gitLab)
 
+	modelConfigService := s.ControllerServiceFactory(c).Config()
 	// We need to instantiate this with the new CAAS model state.
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.pu0.UnitTag(), nil, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, _, err = netInfo.NetworksForRelation("unknown", prr.rel)
@@ -762,7 +765,8 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 		}
 	}
 
-	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.ru0.UnitTag(), retryFactory, nil, loggertesting.WrapCheckLog(c))
+	modelConfigService := s.ControllerServiceFactory(c).Config()
+	netInfo, err := uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.ru0.UnitTag(), retryFactory, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 
 	// At this point we only have a container (local-machine) address.
@@ -783,7 +787,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModelCrossModelNoPrivate(c
 
 	// We need a new instance here, because unit addresses
 	// are populated in the constructor.
-	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, prr.ru0.UnitTag(), retryFactory, nil, loggertesting.WrapCheckLog(c))
+	netInfo, err = uniter.NewNetworkInfoForStrategy(context.Background(), st, s.networkService, modelConfigService, prr.ru0.UnitTag(), retryFactory, nil, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1007,7 +1011,8 @@ func (s *networkInfoSuite) newNetworkInfo(
 		}
 	}
 
-	ni, err := uniter.NewNetworkInfoForStrategy(context.Background(), s.ControllerModel(c).State(), s.networkService, tag, retryFactory, lookupHost, loggertesting.WrapCheckLog(c))
+	modelConfigService := s.ControllerServiceFactory(c).Config()
+	ni, err := uniter.NewNetworkInfoForStrategy(context.Background(), s.ControllerModel(c).State(), s.networkService, modelConfigService, tag, retryFactory, lookupHost, loggertesting.WrapCheckLog(c))
 	c.Assert(err, jc.ErrorIsNil)
 	return ni
 }

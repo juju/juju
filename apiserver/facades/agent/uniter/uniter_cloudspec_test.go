@@ -40,9 +40,17 @@ func (s *cloudSpecUniterSuite) TestGetCloudSpecReturnsSpecWhenTrusted(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	facadeContext := s.facadeContext(c)
-	uniterAPI, err := uniter.NewUniterAPIWithServices(facadeContext, serviceFactory.ControllerConfig(),
-		serviceFactory.Secret(secretservice.NotImplementedBackendConfigGetter), serviceFactory.Cloud(),
-		serviceFactory.Credential(), serviceFactory.Unit())
+	uniterAPI, err := uniter.NewUniterAPIWithServices(
+		context.Background(), facadeContext,
+		serviceFactory.ControllerConfig(),
+		serviceFactory.Config(),
+		serviceFactory.ModelInfo(),
+		serviceFactory.Secret(secretservice.NotImplementedBackendConfigGetter),
+		serviceFactory.Network(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
+		serviceFactory.Unit(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := uniterAPI.CloudSpec(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -64,9 +72,17 @@ func (s *cloudSpecUniterSuite) TestCloudAPIVersion(c *gc.C) {
 
 	serviceFactory := facadeContext.ServiceFactory()
 
-	uniterAPI, err := uniter.NewUniterAPIWithServices(facadeContext, serviceFactory.ControllerConfig(),
-		serviceFactory.Secret(secretservice.NotImplementedBackendConfigGetter), serviceFactory.Cloud(),
-		serviceFactory.Credential(), serviceFactory.Unit())
+	uniterAPI, err := uniter.NewUniterAPIWithServices(
+		context.Background(), facadeContext,
+		serviceFactory.ControllerConfig(),
+		serviceFactory.Config(),
+		serviceFactory.ModelInfo(),
+		serviceFactory.Secret(secretservice.NotImplementedBackendConfigGetter),
+		serviceFactory.Network(),
+		serviceFactory.Cloud(),
+		serviceFactory.Credential(),
+		serviceFactory.Unit(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	uniter.SetNewContainerBrokerFunc(uniterAPI, func(context.Context, environs.OpenParams) (caas.Broker, error) {
 		return &fakeBroker{}, nil

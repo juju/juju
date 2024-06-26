@@ -538,7 +538,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBin
 	s.assertInScope(c, mysqlRelUnit, true)
 
 	// Relation specific egress subnets override model config.
-	err = s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	err = s.ControllerServiceFactory(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	relEgress := state.NewRelationEgressNetworks(s.st)
 	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})
@@ -607,7 +607,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 	s.assertInScope(c, mysqlRelUnit, true)
 
 	// Relation specific egress subnets override model config.
-	err = s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
+	err = s.ControllerServiceFactory(c).Config().UpdateModelConfig(context.Background(), map[string]interface{}{config.EgressSubnets: "10.0.0.0/8"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	relEgress := state.NewRelationEgressNetworks(s.st)
 	_, err = relEgress.Save(rel.Tag().Id(), false, []string{"192.168.1.0/24"})
