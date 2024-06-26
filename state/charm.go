@@ -1115,7 +1115,14 @@ func (st *State) AddCharmMetadata(info CharmInfo) (*Charm, error) {
 		// Check if the charm doc already exists.
 		ch, err := st.findCharm(curl)
 		if errors.Is(err, errors.NotFound) {
-			return insertCharmOps(st, info)
+			ops, err := insertCharmOps(st, info)
+			if errors.Is(err, errors.AlreadyExists) {
+				// There is a race condition where the charm has been added
+				// between the call to findCharm and insertCharmOps. If the
+				// charm already exists, then retry the transaction.
+				return nil, jujutxn.ErrTransientFailure
+			}
+			return ops, errors.Trace(err)
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
