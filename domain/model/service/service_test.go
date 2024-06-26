@@ -514,10 +514,8 @@ func (s *serviceSuite) TestAgentVersionUnsupportedGreater(c *gc.C) {
 	c.Assert(exists, jc.IsFalse)
 }
 
-// TestAgentVersionUnsupportedGreater is asserting that if we try and create a
-// model with an agent version that is less then that of the controller the
-// operation fails with a [modelerrors.AgentVersionNotSupported] error. This
-// fails because find tools will report [errors.NotFound].
+// TestAgentVersionUnsupportedLess is asserting that if we try and create a
+// model with an agent version that is less then that of the controller.
 func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 	cred := credential.Key{
 		Cloud: "aws",
@@ -544,7 +542,8 @@ func (s *serviceSuite) TestAgentVersionUnsupportedLess(c *gc.C) {
 		Name:         "my-awesome-model",
 	})
 
-	c.Assert(err, jc.ErrorIs, modelerrors.AgentVersionNotSupported)
+	// This is temporary until we implement tools metadata for the controller.
+	c.Assert(err, jc.ErrorIsNil)
 
 	_, exists := s.state.models[id]
 	c.Assert(exists, jc.IsFalse)
