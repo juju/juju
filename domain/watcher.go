@@ -72,6 +72,32 @@ func (f *WatcherFactory) NewNamespaceMapperWatcher(
 	), nil
 }
 
+// NewNamespaceNotifyWatcher returns a new namespace notify watcher
+// for events based on the input change mask.
+func (f *WatcherFactory) NewNamespaceNotifyWatcher(
+	namespace string, changeMask changestream.ChangeType,
+) (watcher.NotifyWatcher, error) {
+	base, err := f.newBaseWatcher()
+	if err != nil {
+		return nil, errors.Annotate(err, "creating base watcher")
+	}
+
+	return eventsource.NewNamespaceNotifyWatcher(base, namespace, changeMask), nil
+}
+
+// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
+// for events based on the input change mask and mapper.
+func (f *WatcherFactory) NewNamespaceNotifyMapperWatcher(
+	namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
+) (watcher.NotifyWatcher, error) {
+	base, err := f.newBaseWatcher()
+	if err != nil {
+		return nil, errors.Annotate(err, "creating base watcher")
+	}
+
+	return eventsource.NewNamespaceNotifyMapperWatcher(base, namespace, changeMask, mapper), nil
+}
+
 // NewValueWatcher returns a watcher for a particular change value
 // in a namespace, based on the input change mask.
 func (f *WatcherFactory) NewValueWatcher(
