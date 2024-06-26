@@ -41,6 +41,7 @@ import_subdir_files includes
 # Please keep these in alphabetic order.
 TEST_NAMES="agents \
             appdata \
+            azure_cloud \
             backup \
             bootstrap \
             branches \
