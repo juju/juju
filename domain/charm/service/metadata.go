@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/domain/charm"
+	charmerrors "github.com/juju/juju/domain/charm/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
@@ -337,4 +338,320 @@ func decodeMetadataAssumes(bytes []byte) (*assumes.ExpressionTree, error) {
 		return nil, errors.Annotate(err, "unmarshal assumes")
 	}
 	return dst.Assumes, nil
+}
+
+func encodeMetadata(metadata *internalcharm.Meta) (charm.Metadata, error) {
+	if metadata == nil {
+		return charm.Metadata{}, charmerrors.MetadataNotValid
+	}
+
+	provides, err := encodeMetadataRelation(metadata.Provides)
+	if err != nil {
+		return charm.Metadata{}, fmt.Errorf("encode provides relation: %w", err)
+	}
+
+	requires, err := encodeMetadataRelation(metadata.Requires)
+	if err != nil {
+		return charm.Metadata{}, fmt.Errorf("encode requires relation: %w", err)
+	}
+
+	peers, err := encodeMetadataRelation(metadata.Peers)
+	if err != nil {
+		return charm.Metadata{}, fmt.Errorf("encode peers relation: %w", err)
+	}
+
+	storage, err := encodeMetadataStorage(metadata.Storage)
+	if err != nil {
+		return charm.Metadata{}, fmt.Errorf("encode storage: %w", err)
+	}
+
+	devices, err := encodeMetadataDevices(metadata.Devices)
+	if err != nil {
+		return charm.Metadata{}, fmt.Errorf("encode devices: %w", err)
+	}
+
+	payloadClasses, err := encodeMetadataPayloadClasses(metadata.PayloadClasses)
+	if err != nil {
+		return charm.Metadata{}, fmt.Errorf("encode payload classes: %w", err)
+	}
+
+	resources, err := encodeMetadataResources(metadata.Resources)
+	if err != nil {
+		return charm.Metadata{}, fmt.Errorf("encode resources: %w", err)
+	}
+
+	containers, err := encodeMetadataContainers(metadata.Containers)
+	if err != nil {
+		return charm.Metadata{}, fmt.Errorf("encode containers: %w", err)
+	}
+
+	assumes, err := encodeMetadataAssumes(metadata.Assumes)
+	if err != nil {
+		return charm.Metadata{}, fmt.Errorf("encode assumes: %w", err)
+	}
+
+	charmUser, err := encodeMetadataRunAs(metadata.CharmUser)
+	if err != nil {
+		return charm.Metadata{}, fmt.Errorf("encode charm user: %w", err)
+	}
+
+	return charm.Metadata{
+		Name:           metadata.Name,
+		Summary:        metadata.Summary,
+		Description:    metadata.Description,
+		Subordinate:    metadata.Subordinate,
+		Categories:     metadata.Categories,
+		Tags:           metadata.Tags,
+		MinJujuVersion: metadata.MinJujuVersion,
+		Terms:          metadata.Terms,
+		Provides:       provides,
+		Requires:       requires,
+		Peers:          peers,
+		ExtraBindings:  encodeMetadataExtraBindings(metadata.ExtraBindings),
+		Storage:        storage,
+		Devices:        devices,
+		PayloadClasses: payloadClasses,
+		Resources:      resources,
+		Containers:     containers,
+		Assumes:        assumes,
+		RunAs:          charmUser,
+	}, nil
+}
+
+func encodeMetadataRelation(relations map[string]internalcharm.Relation) (map[string]charm.Relation, error) {
+	if len(relations) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string]charm.Relation, len(relations))
+	for k, v := range relations {
+		role, err := encodeMetadataRole(v.Role)
+		if err != nil {
+			return nil, fmt.Errorf("encode role: %w", err)
+		}
+
+		scope, err := encodeMetadataScope(v.Scope)
+		if err != nil {
+			return nil, fmt.Errorf("encode scope: %w", err)
+		}
+
+		result[k] = charm.Relation{
+			Name:      v.Name,
+			Role:      role,
+			Scope:     scope,
+			Interface: v.Interface,
+			Optional:  v.Optional,
+			Limit:     v.Limit,
+		}
+	}
+	return result, nil
+}
+
+func encodeMetadataRole(role internalcharm.RelationRole) (charm.RelationRole, error) {
+	switch role {
+	case internalcharm.RoleProvider:
+		return charm.RoleProvider, nil
+	case internalcharm.RoleRequirer:
+		return charm.RoleRequirer, nil
+	case internalcharm.RolePeer:
+		return charm.RolePeer, nil
+	default:
+		return "", errors.Errorf("unknown role %q", role)
+	}
+}
+
+func encodeMetadataScope(scope internalcharm.RelationScope) (charm.RelationScope, error) {
+	switch scope {
+	case internalcharm.ScopeGlobal:
+		return charm.ScopeGlobal, nil
+	case internalcharm.ScopeContainer:
+		return charm.ScopeContainer, nil
+	default:
+		return "", errors.Errorf("unknown scope %q", scope)
+	}
+}
+
+func encodeMetadataStorage(storage map[string]internalcharm.Storage) (map[string]charm.Storage, error) {
+	if len(storage) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string]charm.Storage, len(storage))
+	for k, v := range storage {
+		storeType, err := encodeMetadataStorageType(v.Type)
+		if err != nil {
+			return nil, fmt.Errorf("encode storage type: %w", err)
+		}
+
+		result[k] = charm.Storage{
+			Name:        v.Name,
+			Description: v.Description,
+			Type:        storeType,
+			Shared:      v.Shared,
+			ReadOnly:    v.ReadOnly,
+			CountMin:    v.CountMin,
+			CountMax:    v.CountMax,
+			MinimumSize: v.MinimumSize,
+			Location:    v.Location,
+			Properties:  v.Properties,
+		}
+	}
+	return result, nil
+}
+
+func encodeMetadataStorageType(storeType internalcharm.StorageType) (charm.StorageType, error) {
+	switch storeType {
+	case internalcharm.StorageBlock:
+		return charm.StorageBlock, nil
+	case internalcharm.StorageFilesystem:
+		return charm.StorageFilesystem, nil
+	default:
+		return "", errors.Errorf("unknown storage type %q", storeType)
+	}
+}
+
+func encodeMetadataDevices(devices map[string]internalcharm.Device) (map[string]charm.Device, error) {
+	if len(devices) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string]charm.Device, len(devices))
+	for k, v := range devices {
+		result[k] = charm.Device{
+			Name:        v.Name,
+			Description: v.Description,
+			Type:        charm.DeviceType(v.Type),
+			CountMin:    v.CountMin,
+			CountMax:    v.CountMax,
+		}
+	}
+	return result, nil
+}
+
+func encodeMetadataPayloadClasses(payloadClasses map[string]internalcharm.PayloadClass) (map[string]charm.PayloadClass, error) {
+	if len(payloadClasses) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string]charm.PayloadClass, len(payloadClasses))
+	for k, v := range payloadClasses {
+		result[k] = charm.PayloadClass{
+			Name: v.Name,
+			Type: v.Type,
+		}
+	}
+	return result, nil
+}
+
+func encodeMetadataResources(resources map[string]resource.Meta) (map[string]charm.Resource, error) {
+	if len(resources) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string]charm.Resource, len(resources))
+	for k, v := range resources {
+		resourceType, err := encodeMetadataResourceType(v.Type)
+		if err != nil {
+			return nil, fmt.Errorf("encode resource type: %w", err)
+		}
+
+		result[k] = charm.Resource{
+			Name:        v.Name,
+			Description: v.Description,
+			Path:        v.Path,
+			Type:        resourceType,
+		}
+	}
+
+	return result, nil
+}
+
+func encodeMetadataResourceType(resourceType resource.Type) (charm.ResourceType, error) {
+	switch resourceType {
+	case resource.TypeFile:
+		return charm.ResourceTypeFile, nil
+	case resource.TypeContainerImage:
+		return charm.ResourceTypeContainerImage, nil
+	default:
+		return "", errors.Errorf("unknown resource type %q", resourceType)
+	}
+}
+
+func encodeMetadataContainers(containers map[string]internalcharm.Container) (map[string]charm.Container, error) {
+	if len(containers) == 0 {
+		return nil, nil
+	}
+
+	result := make(map[string]charm.Container, len(containers))
+	for k, v := range containers {
+		mounts, err := encodeMetadataMounts(v.Mounts)
+		if err != nil {
+			return nil, fmt.Errorf("encode mounts: %w", err)
+		}
+
+		result[k] = charm.Container{
+			Resource: v.Resource,
+			Mounts:   mounts,
+			Uid:      v.Uid,
+			Gid:      v.Gid,
+		}
+	}
+	return result, nil
+}
+
+func encodeMetadataMounts(mounts []internalcharm.Mount) ([]charm.Mount, error) {
+	if len(mounts) == 0 {
+		return nil, nil
+	}
+
+	result := make([]charm.Mount, len(mounts))
+	for i, v := range mounts {
+		result[i] = charm.Mount{
+			Storage:  v.Storage,
+			Location: v.Location,
+		}
+	}
+	return result, nil
+}
+
+func encodeMetadataAssumes(expr *assumes.ExpressionTree) ([]byte, error) {
+	if expr == nil {
+		return nil, nil
+	}
+
+	// All assumes expressions will be stored as a JSON blob. If we ever need
+	// to access the assume expressions in the future, we can utilise SQLite
+	// JSONB functions.
+	return json.Marshal(struct {
+		Assumes *assumes.ExpressionTree `json:"assumes"`
+	}{Assumes: expr})
+}
+
+func encodeMetadataRunAs(charmUser internalcharm.RunAs) (charm.RunAs, error) {
+	switch charmUser {
+	case internalcharm.RunAsDefault:
+		return charm.RunAsDefault, nil
+	case internalcharm.RunAsRoot:
+		return charm.RunAsRoot, nil
+	case internalcharm.RunAsSudoer:
+		return charm.RunAsSudoer, nil
+	case internalcharm.RunAsNonRoot:
+		return charm.RunAsNonRoot, nil
+	default:
+		return "", errors.Errorf("unknown charm user %q", charmUser)
+	}
+}
+
+func encodeMetadataExtraBindings(bindings map[string]internalcharm.ExtraBinding) map[string]charm.ExtraBinding {
+	if len(bindings) == 0 {
+		return nil
+	}
+
+	result := make(map[string]charm.ExtraBinding, len(bindings))
+	for k, v := range bindings {
+		result[k] = charm.ExtraBinding{
+			Name: v.Name,
+		}
+	}
+	return result
 }

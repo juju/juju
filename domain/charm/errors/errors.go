@@ -22,4 +22,12 @@ const (
 	// RevisionNotValid describes an error that occurs when attempting to get
 	// a charm using an invalid revision.
 	RevisionNotValid = errors.ConstError("charm revision not valid")
+
+	// MetadataNotValid describes an error that occurs when the charm metadata
+	// is not valid.
+	MetadataNotValid = errors.ConstError("charm metadata not valid")
+
+	// ManifestNotValid describes an error that occurs when the charm manifest
+	// is not valid.
+	ManifestNotValid = errors.ConstError("charm manifest not valid")
 )

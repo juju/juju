@@ -366,5 +366,10 @@ func (s *metadataSuite) TestConvertMetadata(c *gc.C) {
 		result, err := decodeMetadata(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
+
+		// Ensure that the conversion is idempotent.
+		converted, err := encodeMetadata(&result)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(converted, jc.DeepEquals, tc.input)
 	}
 }

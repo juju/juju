@@ -90,6 +90,10 @@ type State interface {
 	// The original charm will need to exist, the returning charm ID will be
 	// the new charm ID for the revision.
 	ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error)
+
+	// SetCharm persists the charm metadata, actions, config and manifest to
+	// state.
+	SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error)
 }
 
 // Service provides the API for working with charms.
@@ -308,6 +312,23 @@ func (s *Service) ReserveCharmRevision(ctx context.Context, id corecharm.ID, rev
 		return "", errors.Trace(err)
 	}
 	return newID, nil
+}
+
+// SetCharm persists the charm metadata, actions, config and manifest to
+// state.
+func (s *Service) SetCharm(ctx context.Context, charm internalcharm.Charm) (corecharm.ID, error) {
+	ch, err := encodeCharm(charm)
+	if err != nil {
+		return "", fmt.Errorf("encode charm: %w", err)
+	}
+
+	charmID, err := s.st.SetCharm(ctx, ch)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	return charmID, nil
+
 }
 
 // WatchableService provides the API for working with charms and the

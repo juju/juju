@@ -46,3 +46,40 @@ func decodeActionParams(params []byte) (map[string]any, error) {
 	}
 	return result, nil
 }
+
+func encodeActions(actions *internalcharm.Actions) (charm.Actions, error) {
+	if actions == nil || len(actions.ActionSpecs) == 0 {
+		return charm.Actions{}, nil
+	}
+
+	result := make(map[string]charm.Action)
+	for name, action := range actions.ActionSpecs {
+		params, err := encodeActionParams(action.Params)
+		if err != nil {
+			return charm.Actions{}, fmt.Errorf("encode action params: %w", err)
+		}
+
+		result[name] = charm.Action{
+			Description:    action.Description,
+			Parallel:       action.Parallel,
+			ExecutionGroup: action.ExecutionGroup,
+			Params:         params,
+		}
+	}
+	return charm.Actions{
+		Actions: result,
+	}, nil
+}
+
+func encodeActionParams(params map[string]any) ([]byte, error) {
+	if len(params) == 0 {
+		return nil, nil
+	}
+
+	result, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %w", err)
+	}
+
+	return result, nil
+}

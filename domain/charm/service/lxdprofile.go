@@ -15,10 +15,37 @@ func decodeLXDProfile(profile []byte) (internalcharm.LXDProfile, error) {
 		return internalcharm.LXDProfile{}, nil
 	}
 
-	var result internalcharm.LXDProfile
+	var result lxdProfile
 	if err := json.Unmarshal(profile, &result); err != nil {
-		return result, fmt.Errorf("unmarshal lxd profile: %w", err)
+		return internalcharm.LXDProfile{}, fmt.Errorf("unmarshal lxd profile: %w", err)
+	}
+
+	return internalcharm.LXDProfile{
+		Config:      result.Config,
+		Description: result.Description,
+		Devices:     result.Devices,
+	}, nil
+}
+
+func encodeLXDProfile(profile *internalcharm.LXDProfile) ([]byte, error) {
+	if profile.Empty() && profile.Description == "" {
+		return nil, nil
+	}
+
+	result, err := json.Marshal(lxdProfile{
+		Config:      profile.Config,
+		Description: profile.Description,
+		Devices:     profile.Devices,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal lxd profile: %w", err)
 	}
 
 	return result, nil
+}
+
+type lxdProfile struct {
+	Config      map[string]string            `json:"config,omitempty"`
+	Description string                       `json:"description,omitempty"`
+	Devices     map[string]map[string]string `json:"devices,omitempty"`
 }

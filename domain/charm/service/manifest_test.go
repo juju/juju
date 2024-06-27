@@ -66,5 +66,10 @@ func (s *metadataSuite) TestConvertManifest(c *gc.C) {
 		result, err := decodeManifest(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
+
+		// Ensure that the conversion is idempotent.
+		converted, err := encodeManifest(&result)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(converted, jc.DeepEquals, tc.input)
 	}
 }
