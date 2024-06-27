@@ -4,11 +4,8 @@
 package machine
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/internal/uuid"
 )
 
 type machineSuite struct {
@@ -16,29 +13,19 @@ type machineSuite struct {
 
 var _ = gc.Suite(&machineSuite{})
 
-// TestIdValidate is testing several good and not so good machine id's to check
-// that the validate method produces the correct result.
+// TestNameValidate is testing machine names to see that they pass or don't pass
+// validation.
 func (*machineSuite) TestIdValidate(c *gc.C) {
+	// Left empty for the moment till we define rules around the naming of
+	// machines.
 	tests := []struct {
-		id  string
-		err error
-	}{
-		{
-			id:  "",
-			err: errors.NotValid,
-		},
-		{
-			id:  "invalid",
-			err: errors.NotValid,
-		},
-		{
-			id: uuid.MustNewUUID().String(),
-		},
-	}
+		name string
+		err  error
+	}{}
 
 	for i, test := range tests {
-		c.Logf("test %d: %q", i, test.id)
-		err := ID(test.id).Validate()
+		c.Logf("test %d: %q", i, test.name)
+		err := Name(test.name).Validate()
 
 		if test.err == nil {
 			c.Check(err, gc.IsNil)
