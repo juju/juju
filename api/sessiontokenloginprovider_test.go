@@ -102,24 +102,25 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *gc.C) 
 	})
 
 	var output bytes.Buffer
+	lp := api.NewSessionTokenLoginProvider(
+		"expired-token",
+		&output,
+		func(sessionToken string) error {
+			obtainedSessionToken = sessionToken
+			return nil
+		})
 	apiState, err := api.Open(&api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,
 	}, api.DialOpts{
-		LoginProvider: api.NewSessionTokenLoginProvider(
-			"expired-token",
-			&output,
-			func(sessionToken string) error {
-				obtainedSessionToken = sessionToken
-				return nil
-			},
-		),
+		LoginProvider: lp,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(output.String(), gc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
 	c.Assert(obtainedSessionToken, gc.Equals, sessionToken)
+	c.Assert(lp.Token(), gc.Equals, sessionToken)
 	defer func() { _ = apiState.Close() }()
 }
 

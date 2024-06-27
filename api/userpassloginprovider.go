@@ -57,6 +57,11 @@ type userpassLoginProvider struct {
 	cookieURL    *url.URL
 }
 
+// Token implements the LoginProvider.Token method.
+func (p *userpassLoginProvider) Token() string {
+	return p.password
+}
+
 // Login implements the LoginProvider.Login method.
 //
 // It authenticates as the entity with the given name and password

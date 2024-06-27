@@ -54,6 +54,11 @@ type sessionTokenLoginProvider struct {
 	updateAccountDetailsFunc func(string) error
 }
 
+// Token implements the LoginProvider.Token method.
+func (p *sessionTokenLoginProvider) Token() string {
+	return p.sessionToken
+}
+
 // Login implements the LoginProvider.Login method.
 //
 // It authenticates as the entity using the specified session token.

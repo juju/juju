@@ -32,6 +32,11 @@ type clientCredentialsLoginProvider struct {
 	clientSecret string
 }
 
+// Token implements LoginProvider.Token
+func (p *clientCredentialsLoginProvider) Token() string {
+	return p.clientSecret
+}
+
 // Login implements the LoginProvider.Login method.
 //
 // It authenticates as the entity using client credentials.

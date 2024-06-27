@@ -27,8 +27,14 @@ func NewTryInOrderLoginProvider(logger loggo.Logger, providers ...api.LoginProvi
 }
 
 type tryInOrderLoginProviders struct {
-	providers []api.LoginProvider
-	logger    loggo.Logger
+	providers  []api.LoginProvider
+	logger     loggo.Logger
+	loginToken string
+}
+
+// Token implements the LoginProvider.Token method.
+func (p *tryInOrderLoginProviders) Token() string {
+	return p.loginToken
 }
 
 // Login implements the LoginProvider.Login method.
@@ -40,6 +46,7 @@ func (p *tryInOrderLoginProviders) Login(ctx context.Context, caller base.APICal
 			p.logger.Debugf("login error using provider %d - %s", i, err.Error())
 		} else {
 			p.logger.Debugf("successful login using provider %d", i)
+			p.loginToken = provider.Token()
 			return result, nil
 		}
 		lastError = err

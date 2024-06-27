@@ -180,14 +180,15 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 		// login because, when doing HTTP requests, we'll want
 		// to use the same username and password for authenticating
 		// those. If login fails, we discard the connection.
-		tag:          tagToString(info.Tag),
-		password:     info.Password,
-		macaroons:    info.Macaroons,
-		nonce:        info.Nonce,
-		tlsConfig:    dialResult.tlsConfig,
-		bakeryClient: bakeryClient,
-		modelTag:     info.ModelTag,
-		proxier:      dialResult.proxier,
+		tag:           tagToString(info.Tag),
+		password:      info.Password,
+		loginProvider: loginProvider,
+		macaroons:     info.Macaroons,
+		nonce:         info.Nonce,
+		tlsConfig:     dialResult.tlsConfig,
+		bakeryClient:  bakeryClient,
+		modelTag:      info.ModelTag,
+		proxier:       dialResult.proxier,
 	}
 	if !info.SkipLogin {
 		if err := loginWithContext(dialCtx, st, loginProvider); err != nil {
@@ -367,8 +368,8 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 		TLSClientConfig: st.tlsConfig,
 	}
 	var requestHeader http.Header
-	if st.tag != "" {
-		requestHeader = jujuhttp.BasicAuthHeader(st.tag, st.password)
+	if st.tag != "" || st.LoginToken() != "" {
+		requestHeader = jujuhttp.BasicAuthHeader(st.tag, st.LoginToken())
 	} else {
 		requestHeader = make(http.Header)
 	}
