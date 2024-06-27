@@ -17,11 +17,8 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/objectstore-triggers.gen.go -package=triggers -tables=object_store_metadata_path
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/secret-triggers.gen.go -package=triggers -tables=secret_metadata,secret_rotation,secret_revision,secret_revision_expire,secret_revision_obsolete,secret_revision,secret_reference
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/network-triggers.gen.go -package=triggers -tables=subnet
-<<<<<<< HEAD
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine
-=======
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/user-public-ssh-key.gen.go -package=triggers -tables=user_public_ssh_key
->>>>>>> 5e8972342f (feat: Introduces service layer for key updater.)
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
