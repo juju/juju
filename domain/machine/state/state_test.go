@@ -153,9 +153,13 @@ func (s *stateSuite) TestListAllMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedMachines := []string{"666", "667"}
-	sort.Strings(machines)
+	ms := []string{}
+	for _, m := range machines {
+		ms = append(ms, m.String())
+	}
+	sort.Strings(ms)
 	sort.Strings(expectedMachines)
-	c.Assert(machines, gc.DeepEquals, expectedMachines)
+	c.Assert(ms, gc.DeepEquals, expectedMachines)
 }
 
 func (s *stateSuite) TestListAllMachinesEmpty(c *gc.C) {

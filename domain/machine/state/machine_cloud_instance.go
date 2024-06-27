@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
@@ -152,7 +153,7 @@ WHERE machine_uuid=$instanceTag.machine_uuid
 
 // InstanceId returns the cloud specific instance id for this machine.
 // If the machine is not provisioned, it returns a NotProvisionedError.
-func (st *State) InstanceId(ctx context.Context, machineId string) (string, error) {
+func (st *State) InstanceId(ctx context.Context, machineId coremachine.ID) (string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -193,7 +194,7 @@ WHERE m.machine_id = $M.machine_id;
 // InstanceStatus returns the cloud specific instance status for this
 // machine.
 // If the machine is not provisioned, it returns a NotProvisionedError.
-func (st *State) InstanceStatus(ctx context.Context, machineId string) (string, error) {
+func (st *State) InstanceStatus(ctx context.Context, machineId coremachine.ID) (string, error) {
 	// TODO(cderici): Implementation for this is deferred until the design for
 	// the domain entity statuses on dqlite is finalized.
 	return "", errors.NotImplemented

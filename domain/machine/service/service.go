@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -16,30 +17,30 @@ import (
 // State describes retrieval and persistence methods for machines.
 type State interface {
 	// CreateMachine persists the input machine entity.
-	CreateMachine(context.Context, string, string, string) error
+	CreateMachine(context.Context, coremachine.ID, string, string) error
 
 	// DeleteMachine deletes the input machine entity.
-	DeleteMachine(context.Context, string) error
+	DeleteMachine(context.Context, coremachine.ID) error
 
 	// InitialWatchStatement returns the table and the initial watch statement
 	// for the machines.
 	InitialWatchStatement() (string, string)
 
 	// GetMachineLife returns the life status of the specified machine.
-	GetMachineLife(context.Context, string) (*life.Life, error)
+	GetMachineLife(context.Context, coremachine.ID) (*life.Life, error)
 
 	// ListAllMachines retrieves the ids of all machines in the model.
 	// If there's no machine, it returns an empty slice.
-	ListAllMachines(context.Context) ([]string, error)
+	ListAllMachines(context.Context) ([]coremachine.ID, error)
 
 	// InstanceId returns the cloud specific instance id for this machine.
 	// If the machine is not provisioned, it returns a NotProvisionedError.
-	InstanceId(context.Context, string) (string, error)
+	InstanceId(context.Context, coremachine.ID) (string, error)
 
 	// InstanceStatus returns the cloud specific instance status for this
 	// machine.
 	// If the machine is not provisioned, it returns a NotProvisionedError.
-	InstanceStatus(context.Context, string) (string, error)
+	InstanceStatus(context.Context, coremachine.ID) (string, error)
 
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
@@ -67,7 +68,7 @@ func NewService(st State) *Service {
 }
 
 // CreateMachine creates the specified machine.
-func (s *Service) CreateMachine(ctx context.Context, machineId string) (string, error) {
+func (s *Service) CreateMachine(ctx context.Context, machineId coremachine.ID) (string, error) {
 	// Make a new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
 	// the state layer we don't keep regenerating.
@@ -86,19 +87,19 @@ func (s *Service) CreateMachine(ctx context.Context, machineId string) (string, 
 }
 
 // DeleteMachine deletes the specified machine.
-func (s *Service) DeleteMachine(ctx context.Context, machineId string) error {
+func (s *Service) DeleteMachine(ctx context.Context, machineId coremachine.ID) error {
 	err := s.st.DeleteMachine(ctx, machineId)
 	return errors.Annotatef(err, "deleting machine %q", machineId)
 }
 
 // GetLife returns the GetMachineLife status of the specified machine.
-func (s *Service) GetMachineLife(ctx context.Context, machineId string) (*life.Life, error) {
+func (s *Service) GetMachineLife(ctx context.Context, machineId coremachine.ID) (*life.Life, error) {
 	life, err := s.st.GetMachineLife(ctx, machineId)
 	return life, errors.Annotatef(err, "getting life status for machine %q", machineId)
 }
 
 // ListAllMachines returns the ids of all machines in the model.
-func (s *Service) ListAllMachines(ctx context.Context) ([]string, error) {
+func (s *Service) ListAllMachines(ctx context.Context) ([]coremachine.ID, error) {
 	machines, err := s.st.ListAllMachines(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving all machines")
@@ -108,7 +109,7 @@ func (s *Service) ListAllMachines(ctx context.Context) ([]string, error) {
 
 // InstanceId returns the cloud specific instance id for this machine.
 // If the machine is not provisioned, it returns a NotProvisionedError.
-func (s *Service) InstanceId(ctx context.Context, machineId string) (string, error) {
+func (s *Service) InstanceId(ctx context.Context, machineId coremachine.ID) (string, error) {
 	instanceId, err := s.st.InstanceId(ctx, machineId)
 	if err != nil {
 		return "", errors.Annotatef(err, "retrieving cloud instance id for machine %q", machineId)
@@ -119,7 +120,7 @@ func (s *Service) InstanceId(ctx context.Context, machineId string) (string, err
 // InstanceStatus returns the cloud specific instance status for this
 // machine.
 // If the machine is not provisioned, it returns a NotProvisionedError.
-func (s *Service) InstanceStatus(ctx context.Context, machineId string) (string, error) {
+func (s *Service) InstanceStatus(ctx context.Context, machineId coremachine.ID) (string, error) {
 	instanceStatus, err := s.st.InstanceStatus(ctx, machineId)
 	if err != nil {
 		return "", errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineId)
