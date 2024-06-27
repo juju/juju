@@ -77,13 +77,13 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 			continue
 		}
 
-		machineId := coremachine.ID(tag.Id())
+		machineId := coremachine.Name(tag.Id())
 		keysWatcher, err := api.keyUpdaterService.WatchAuthorisedKeysForMachine(ctx, machineId)
 		switch {
 		case errors.Is(err, errors.NotValid):
 			results[i].Error = apiservererrors.ParamsError(
 				params.CodeMachineInvalidID,
-				"invalid machine id %q",
+				"invalid machine name %q",
 				machineId,
 			)
 			continue
@@ -175,22 +175,22 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 			continue
 		}
 
-		machineId := coremachine.ID(tag.Id())
-		keys, err := api.keyUpdaterService.AuthorisedKeysForMachine(ctx, machineId)
+		machineName := coremachine.Name(tag.Id())
+		keys, err := api.keyUpdaterService.AuthorisedKeysForMachine(ctx, machineName)
 
 		switch {
 		case errors.Is(err, errors.NotValid):
 			results[i].Error = apiservererrors.ParamsError(
 				params.CodeMachineInvalidID,
-				"invalid machine id %q",
-				machineId,
+				"invalid machine name %q",
+				machineName,
 			)
 			continue
 		case errors.Is(err, machineerrors.NotFound):
 			results[i].Error = apiservererrors.ParamsError(
 				params.CodeMachineNotFound,
 				"machine %q does not exist",
-				machineId,
+				machineName,
 			)
 			continue
 		case err != nil:
@@ -198,7 +198,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 			// internal server error and bail out of the call completely.
 			return params.StringsResults{}, fmt.Errorf(
 				"cannot get authorised keys for machine %q: %w",
-				machineId, err,
+				machineName, err,
 			)
 		}
 
