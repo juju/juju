@@ -699,11 +699,6 @@ type AllWatcherId struct {
 	AllWatcherId string `json:"watcher-id"`
 }
 
-// AllWatcherNextResults holds deltas returned from calling AllWatcher.Next().
-type AllWatcherNextResults struct {
-	Deltas []Delta `json:"deltas"`
-}
-
 // ListSSHKeys stores parameters used for a KeyManager.ListKeys call.
 type ListSSHKeys struct {
 	Entities `json:"entities"`

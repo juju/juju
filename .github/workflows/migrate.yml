@@ -82,7 +82,20 @@ jobs:
           juju version
           juju bootstrap lxd target-controller --constraints "arch=$(go env GOARCH)"
           juju switch controller
-          juju wait-for application controller
+
+          attempt=0
+          until [[ $(juju status controller) ]]; do
+            echo "controller not found, waiting..."
+            juju status controller
+
+            if [[ ${attempt} -eq 10 ]]; then
+              juju status controller
+              exit 1
+            fi
+
+            sleep 1;
+            attempt=$((attempt+1))
+          done
 
       - name: Migrate model to target controller
         run: |
@@ -93,11 +106,6 @@ jobs:
           fi
 
           $JUJU switch source-controller
-
-          # Ensure application is fully deployed
-          # We have to use the old client to speak to the new controller, as
-          # this is blocked otherwise.
-          $JUJU wait-for application ubuntu
 
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
@@ -142,7 +150,34 @@ jobs:
           juju status -m target-controller:test-migrate
 
           juju switch test-migrate
-          juju wait-for application ubuntu
+          
+          attempt=0
+          until [[ $(juju status ubuntu) ]]; do
+            echo "ubuntu not found, waiting..."
+            juju status ubuntu
+
+            if [[ ${attempt} -eq 10 ]]; then
+              juju status ubuntu
+              exit 1
+            fi
+
+            sleep 1;
+            attempt=$((attempt+1))
+          done
 
           juju deploy ubuntu yet-another-ubuntu
-          juju wait-for application yet-another-ubuntu
+
+          attempt=0
+          until [[ $(juju status yet-another-ubuntu) ]]; do
+            echo "yet-another-ubuntu not found, waiting..."
+            juju status yet-another-ubuntu
+
+            if [[ ${attempt} -eq 10 ]]; then
+              juju status yet-another-ubuntu
+              exit 1
+            fi
+
+            sleep 1;
+            attempt=$((attempt+1))
+          done
+

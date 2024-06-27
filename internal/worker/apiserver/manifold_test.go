@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	corelogger "github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/servicefactory"
@@ -55,7 +54,6 @@ type ManifoldSuite struct {
 	hub                     pubsub.StructuredHub
 	leaseManager            *lease.Manager
 	metricsCollector        *coreapiserver.Collector
-	multiwatcherFactory     multiwatcher.Factory
 	mux                     *apiserverhttp.Mux
 	prometheusRegisterer    stubPrometheusRegisterer
 	state                   stubStateTracker
@@ -87,7 +85,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.upgradeGate = stubGateWaiter{}
 	s.auditConfig = stubAuditConfig{}
-	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.leaseManager = &lease.Manager{}
 	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
@@ -102,7 +99,6 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		AuthenticatorName:                 "authenticator",
 		ClockName:                         "clock",
 		MuxName:                           "mux",
-		MultiwatcherName:                  "multiwatcher",
 		StateName:                         "state",
 		UpgradeGateName:                   "upgrade",
 		AuditConfigUpdaterName:            "auditconfig-updater",
@@ -132,7 +128,6 @@ func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 		"authenticator":        s.authenticator,
 		"clock":                s.clock,
 		"mux":                  s.mux,
-		"multiwatcher":         s.multiwatcherFactory,
 		"state":                &s.state,
 		"upgrade":              &s.upgradeGate,
 		"auditconfig-updater":  s.auditConfig.get,
@@ -172,7 +167,7 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 }
 
 var expectedInputs = []string{
-	"agent", "authenticator", "clock", "multiwatcher", "mux",
+	"agent", "authenticator", "clock", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
 	"charmhub-http-client", "change-stream", "service-factory",
 	"trace", "object-store", "log-sink", "db-accessor",
@@ -236,7 +231,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		LocalMacaroonAuthenticator: s.authenticator,
 		Clock:                      s.clock,
 		Mux:                        s.mux,
-		MultiwatcherFactory:        s.multiwatcherFactory,
 		StatePool:                  &s.state.pool,
 		LeaseManager:               s.leaseManager,
 		MetricsCollector:           s.metricsCollector,
@@ -393,10 +387,6 @@ func (c *stubAuditConfig) get() auditlog.Config {
 
 type mockAuthenticator struct {
 	macaroon.LocalMacaroonAuthenticator
-}
-
-type fakeMultiwatcherFactory struct {
-	multiwatcher.Factory
 }
 
 type stubWatchableDBGetter struct{}

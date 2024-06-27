@@ -26,8 +26,6 @@ func (s *restrictControllerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *restrictControllerSuite) TestAllowed(c *gc.C) {
-	s.assertMethod(c, "AllModelWatcher", 4, "Next")
-	s.assertMethod(c, "AllModelWatcher", 4, "Stop")
 	s.assertMethod(c, "ModelManager", modelManagerFacadeVersion, "CreateModel")
 	s.assertMethod(c, "ModelManager", modelManagerFacadeVersion, "ListModels")
 	s.assertMethod(c, "Pinger", pingerFacadeVersion, "Ping")

@@ -30,7 +30,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -92,8 +91,7 @@ type ControllerAPI struct {
 	controllerConfigService ControllerConfigService
 	accessService           ControllerAccessService
 
-	multiwatcherFactory multiwatcher.Factory
-	logger              corelogger.Logger
+	logger corelogger.Logger
 
 	controllerTag names.ControllerTag
 }
@@ -112,7 +110,6 @@ func NewControllerAPI(
 	resources facade.Resources,
 	presence facade.Presence,
 	hub facade.Hub,
-	factory multiwatcher.Factory,
 	logger corelogger.Logger,
 	controllerConfigService ControllerConfigService,
 	externalControllerService common.ExternalControllerService,
@@ -159,7 +156,6 @@ func NewControllerAPI(
 		resources:               resources,
 		presence:                presence,
 		hub:                     hub,
-		multiwatcherFactory:     factory,
 		logger:                  logger,
 		controllerConfigService: controllerConfigService,
 		credentialService:       credentialService,
@@ -582,10 +578,7 @@ func (c *ControllerAPI) WatchAllModels(ctx context.Context) (params.AllWatcherId
 	if err := c.checkIsSuperUser(); err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
-	w := c.multiwatcherFactory.WatchController()
-	return params.AllWatcherId{
-		AllWatcherId: c.resources.Register(w),
-	}, nil
+	return params.AllWatcherId{}, errors.NotImplementedf("WatchAllModels")
 }
 
 // WatchAllModelSummaries starts watching the summary updates from the cache.

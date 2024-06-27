@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/client/application"
+	apiclient "github.com/juju/juju/api/client/client"
 	commoncharm "github.com/juju/juju/api/common/charm"
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/cmd/juju/application/deployer"
@@ -48,7 +49,6 @@ func (s *BundleDeploySuite) SetUpTest(c *gc.C) {
 	s.fakeAPI = vanillaFakeModelAPI(cfg)
 	s.fakeAPI.deployerFactoryFunc = deployer.NewDeployerFactory
 	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
-	withAllWatcher(s.fakeAPI)
 }
 
 // DeployBundleYAML uses the given bundle content to create a bundle in the
@@ -201,6 +201,9 @@ func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidBaseWithForce(c *g
 		charmDir.Meta(), charmDir.Manifest(), force,
 	)
 
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
+
 	path := filepath.Join(dir, "mybundle")
 	data := `
         default-base: ubuntu@12.10
@@ -211,11 +214,11 @@ func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidBaseWithForce(c *g
     `
 	err := os.WriteFile(path, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
-	args := []string{path}
+	deployArgs := []string{path}
 	if force {
-		args = append(args, "--force")
+		deployArgs = append(deployArgs, "--force")
 	}
-	err = s.runDeploy(c, args...)
+	err = s.runDeploy(c, deployArgs...)
 	c.Assert(err, gc.ErrorMatches, "cannot deploy bundle: base: ubuntu@12.10/stable not supported")
 }
 
@@ -229,6 +232,9 @@ func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidJujuBase(c *gc.C) {
 		s.fakeAPI, curl, base.MustParseBaseFromString("ubuntu@20.04"),
 		charmDir.Meta(), charmDir.Manifest(), false,
 	)
+
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
 
 	path := filepath.Join(dir, "mybundle")
 	data := `
@@ -320,6 +326,10 @@ negative number of units specified on application "mysql"`,
 func (s *BundleDeploySuite) TestDeployBundleErrors(c *gc.C) {
 	for i, test := range deployBundleErrorsTests {
 		c.Logf("test %d: %s", i, test.about)
+
+		var args *apiclient.StatusArgs
+		s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
+
 		err := s.DeployBundleYAML(c, test.content)
 		pass := c.Check(err, gc.ErrorMatches, "cannot deploy bundle: "+test.err)
 		if !pass {
@@ -359,6 +369,9 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
 		charmDir.Meta(), charmDir.Manifest(), false,
 	)
 
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
+
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
        default-base: ubuntu@20.04
        applications:
@@ -381,6 +394,9 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadLXDProfile(c *gc.C
 		false, 0, nil, nil,
 	)
 
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
+
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
        default-base: ubuntu@22.04
        applications:
@@ -401,6 +417,9 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadLXDProfileWithForc
 		s.fakeAPI, curl, base.MustParseBaseFromString("ubuntu@20.04"),
 		charmDir.Meta(), charmDir.Manifest(), true,
 	)
+
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
 
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
        default-base: ubuntu@20.04
@@ -463,6 +482,9 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *
 		error(nil),
 	)
 
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
+
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
        default-base: ubuntu@22.04
        applications:
@@ -494,6 +516,9 @@ applications:
 	c.Assert(
 		os.WriteFile(bundleFile, []byte(bundleContent), 0644),
 		jc.ErrorIsNil)
+
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
 
 	curl := charm.MustParseURL("local:dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
@@ -546,6 +571,9 @@ func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *gc.C) {
 		&params.AddRelationResults{},
 		error(nil),
 	)
+
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
 
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
       default-base: ubuntu@22.04
@@ -601,8 +629,6 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 }
 
 func (s *BundleDeploySuite) TestDeployBundleWithChannel(c *gc.C) {
-	withAllWatcher(s.fakeAPI)
-
 	// The second charm from the bundle does not require trust so no
 	// additional configuration should be injected
 	ubURL := charm.MustParseURL("ch:ubuntu")
@@ -621,14 +647,15 @@ func (s *BundleDeploySuite) TestDeployBundleWithChannel(c *gc.C) {
 
 	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
 
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
+
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "basic")
 	err := s.runDeploy(c, bundlePath, "--channel", "edge")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
-	withAllWatcher(s.fakeAPI)
-
 	inURL := charm.MustParseURL("ch:aws-integrator")
 	withCharmRepoResolvable(s.fakeAPI, inURL, base.MustParseBaseFromString("ubuntu@22.04"))
 	withCharmRepoResolvable(s.fakeAPI, inURL, base.Base{})
@@ -688,14 +715,15 @@ func (s *BundleDeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		NumUnits:        1,
 	}).Returns([]string{"ubuntu/0"}, error(nil))
 
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
+
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "aws-integrator-trust-single")
 	err := s.runDeploy(c, bundlePath, "--trust")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *BundleDeploySuite) TestDeployBundleWithOffers(c *gc.C) {
-	withAllWatcher(s.fakeAPI)
-
 	inURL := charm.MustParseURL("ch:apache2")
 	withCharmRepoResolvable(s.fakeAPI, inURL, base.MustParseBaseFromString("ubuntu@22.04"))
 	withCharmRepoResolvable(s.fakeAPI, inURL, base.Base{})
@@ -742,6 +770,9 @@ func (s *BundleDeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 
 	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
 
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
+
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "apache2-with-offers-legacy")
 	err := s.runDeploy(c, bundlePath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -761,8 +792,6 @@ func (s *BundleDeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 }
 
 func (s *BundleDeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
-	withAllWatcher(s.fakeAPI)
-
 	inURL := charm.MustParseURL("ch:wordpress")
 	withCharmRepoResolvable(s.fakeAPI, inURL, base.MustParseBaseFromString("ubuntu@22.04"))
 	withCharmRepoResolvable(s.fakeAPI, inURL, base.Base{})
@@ -822,6 +851,9 @@ func (s *BundleDeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 	)
 
 	s.fakeAPI.Call("ListSpaces").Returns([]params.Space{{Name: "alpha", Id: "0"}}, error(nil))
+
+	var args *apiclient.StatusArgs
+	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
 
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "wordpress-with-saas")
 	err = s.runDeploy(c, bundlePath)

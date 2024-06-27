@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/leadership"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/multiwatcher"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -45,8 +43,6 @@ type API struct {
 	auth                    facade.Authorizer
 	resources               facade.Resources
 	presence                facade.Presence
-
-	multiwatcherFactory multiwatcher.Factory
 
 	toolsFinder      common.ToolsFinder
 	leadershipReader leadership.Reader
@@ -122,7 +118,6 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
 	presence := ctx.Presence()
-	factory := ctx.MultiwatcherFactory()
 
 	model, err := st.Model()
 	if err != nil {
@@ -179,7 +174,6 @@ func NewFacade(ctx facade.ModelContext) (*Client, error) {
 		newEnviron,
 		blockChecker,
 		leadershipReader,
-		factory,
 		ctx.ServiceFactory().Network(),
 		registry.New,
 	)
@@ -201,7 +195,6 @@ func NewClient(
 	newEnviron common.NewEnvironFunc,
 	blockChecker *common.BlockChecker,
 	leadershipReader leadership.Reader,
-	factory multiwatcher.Factory,
 	networkService NetworkService,
 	registryAPIFunc func(docker.ImageRepoDetails) (registry.Registry, error),
 ) (*Client, error) {
@@ -220,7 +213,6 @@ func NewClient(
 			presence:                presence,
 			toolsFinder:             toolsFinder,
 			leadershipReader:        leadershipReader,
-			multiwatcherFactory:     factory,
 			networkService:          networkService,
 		},
 		modelInfoService: modelInfoService,
@@ -233,47 +225,7 @@ func NewClient(
 
 // WatchAll initiates a watcher for entities in the connected model.
 func (c *Client) WatchAll(ctx context.Context) (params.AllWatcherId, error) {
-	if err := c.checkCanRead(); err != nil {
-		return params.AllWatcherId{}, err
-	}
-	isAdmin, err := common.HasModelAdmin(c.api.auth, c.api.stateAccessor.ControllerTag(), names.NewModelTag(c.api.state().ModelUUID()))
-	if err != nil {
-		return params.AllWatcherId{}, errors.Trace(err)
-	}
-	modelUUID := c.api.stateAccessor.ModelUUID()
-	w := c.api.multiwatcherFactory.WatchModel(modelUUID)
-	if !isAdmin {
-		w = &stripApplicationOffers{Watcher: w}
-	}
-	return params.AllWatcherId{
-		AllWatcherId: c.api.resources.Register(w),
-	}, nil
-}
-
-type stripApplicationOffers struct {
-	multiwatcher.Watcher
-}
-
-func (s *stripApplicationOffers) Next(ctx context.Context) ([]multiwatcher.Delta, error) {
-	var result []multiwatcher.Delta
-	// We don't want to return a list on nothing. Next normally blocks until there
-	// is something to return.
-	for len(result) == 0 {
-		deltas, err := s.Watcher.Next(ctx)
-		if err != nil {
-			return nil, err
-		}
-		result = make([]multiwatcher.Delta, 0, len(deltas))
-		for _, d := range deltas {
-			switch d.Entity.EntityID().Kind {
-			case multiwatcher.ApplicationOfferKind:
-				// skip it
-			default:
-				result = append(result, d)
-			}
-		}
-	}
-	return result, nil
+	return params.AllWatcherId{}, errors.NotImplementedf("WatchAll")
 }
 
 // FindTools returns a List containing all tools matching the given parameters.

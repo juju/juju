@@ -169,16 +169,6 @@ func (c *Client) StatusHistory(kind status.HistoryKind, tag names.Tag, filter st
 	return history, nil
 }
 
-// WatchAll returns an AllWatcher, from which you can request the Next
-// collection of Deltas.
-func (c *Client) WatchAll() (*api.AllWatcher, error) {
-	var info params.AllWatcherId
-	if err := c.facade.FacadeCall(context.TODO(), "WatchAll", nil, &info); err != nil {
-		return nil, err
-	}
-	return api.NewAllWatcher(c.conn, &info.AllWatcherId), nil
-}
-
 // Close closes the Client's underlying State connection
 // Client is unique among the api.State facades in closing its own State
 // connection, but it is conventional to use a Client object without any access

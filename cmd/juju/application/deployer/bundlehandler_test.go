@@ -46,7 +46,6 @@ import (
 type BundleDeployRepositorySuite struct {
 	testing.IsolationSuite
 
-	allWatcher     *mocks.MockAllWatch
 	bundleResolver *mocks.MockResolver
 	charmReader    *mocks.MockCharmReader
 	deployerAPI    *mocks.MockDeployerAPI
@@ -99,7 +98,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNotFoundCharmHub(c *gc.C) 
 func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	mysqlCurl := charm.MustParseURL("ch:mysql")
 	wordpressCurl := charm.MustParseURL("ch:wordpress")
@@ -144,7 +142,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSuccess(c *gc.C) {
 func (s *BundleDeployRepositorySuite) TestDeployBundleSuccessWithModelConstraints(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	mysqlCurl, err := charm.ParseURL("mysql")
 	c.Assert(err, jc.ErrorIsNil)
@@ -241,7 +238,6 @@ applications:
 func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasBase(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	fullGatewayURL := s.expectK8sCharmByRevision(charm.MustParseURL("ch:istio-gateway"), 74)
 	fullTrainingURL := s.expectK8sCharm(charm.MustParseURL("ch:training-operator"), 12)
@@ -261,7 +257,6 @@ func (s *BundleDeployRepositorySuite) TestDeployAddCharmHasBase(c *gc.C) {
 func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	mariadbCurl := charm.MustParseURL("ch:mariadb-k8s")
 	gitlabCurl := charm.MustParseURL("ch:gitlab-k8s")
@@ -321,7 +316,6 @@ relations:
 func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithCharmhub(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	fullGitlabCurl := s.expectK8sCharm(charm.MustParseURL("gitlab-k8s"), 4)
 	fullMariadbCurl := s.expectK8sCharm(charm.MustParseURL("mariadb-k8s"), 7)
@@ -429,7 +423,6 @@ relations:
 func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundleSuccessWithRevisionCharmhub(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	fullGitlabCurl := s.expectK8sCharmByRevision(charm.MustParseURL("gitlab-k8s"), 7)
 	fullMariadbCurl := s.expectK8sCharmByRevision(charm.MustParseURL("mariadb-k8s"), 4)
@@ -501,7 +494,6 @@ func (s *BundleDeployRepositorySuite) expectK8sCharmByRevision(curl *charm.URL, 
 func (s *BundleDeployRepositorySuite) TestDeployBundleStorage(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	mysqlCurl := charm.MustParseURL("ch:mysql")
 	wordpressCurl := charm.MustParseURL("ch:wordpress")
@@ -573,7 +565,6 @@ relations:
 func (s *BundleDeployRepositorySuite) TestDeployBundleDevices(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	bitcoinCurl := s.expectCharmhubK8sCharm(charm.MustParseURL("ch:bitcoin-miner"))
 	dashboardCurl := s.expectCharmhubK8sCharm(charm.MustParseURL("ch:dashboard4miner"))
@@ -664,7 +655,6 @@ relations:
 func (s *BundleDeployRepositorySuite) TestDeployKubernetesBundle(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	bitcoinCurl := charm.MustParseURL("ch:bitcoin-miner")
 	dashboardCurl := charm.MustParseURL("ch:dashboard4miner")
@@ -725,7 +715,6 @@ func (s *BundleDeployRepositorySuite) TestDryRunExistingModel(c *gc.C) {
 func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	mysqlCurl := charm.MustParseURL("ch:mysql")
 	wordpressCurl := charm.MustParseURL("ch:wordpress")
@@ -800,7 +789,6 @@ func (s *BundleDeployRepositorySuite) testExistingModel(c *gc.C, dryRun bool) {
 	s.expectDeployerAPIStatusWordpressBundle()
 	s.expectEmptyModelRepresentation()
 	s.expectDeployerAPIModelGet(c)
-	s.expectWatchAll()
 
 	if dryRun {
 		changeOutput = dryRunOutput
@@ -822,7 +810,6 @@ applications:
 func (s *BundleDeployRepositorySuite) TestDeployBundleResources(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
@@ -875,7 +862,6 @@ applications:
 func (s *BundleDeployRepositorySuite) TestDeployBundleSpecifyResources(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
@@ -952,7 +938,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleApplicationUpgrade(c *gc.C
 	s.expectDeployerAPIStatusWordpressBundle()
 	s.expectEmptyModelRepresentation()
 	s.expectDeployerAPIModelGet(c)
-	s.expectWatchAll()
 	s.expectResolveCharm(nil)
 	s.expectResolveCharm(nil)
 
@@ -1027,7 +1012,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleNewRelations(c *gc.C) {
 	s.expectDeployerAPIStatusWordpressBundle()
 	s.expectEmptyModelRepresentation()
 	s.expectDeployerAPIModelGet(c)
-	s.expectWatchAll()
 	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
 	s.expectAddCharm(false)
@@ -1090,7 +1074,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachinesUnitsPlacement(c *
 	c.Skip("Won't work until LP:1940558 is fixed.")
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	s.expectAddMachine("0", "16.04")
 	s.expectAddMachine("1", "16.04")
@@ -1147,7 +1130,6 @@ machines:
 func (s *BundleDeployRepositorySuite) TestDeployBundleMachineAttributes(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
@@ -1182,7 +1164,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleMachineAttributes(c *gc.C)
 func (s *BundleDeployRepositorySuite) TestDeployBundleTwiceScaleUp(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 	s.expectResolveCharm(nil)
 
 	djangoCurl := charm.MustParseURL("ch:django")
@@ -1212,7 +1193,6 @@ applications:
 	s.expectDeployerAPIStatusDjango2Units()
 	s.expectEmptyModelRepresentation()
 	s.expectDeployerAPIModelGet(c)
-	s.expectWatchAll()
 	s.expectAddOneUnit("django", "", "2")
 	s.expectAddOneUnit("django", "", "3")
 	s.expectAddOneUnit("django", "", "4")
@@ -1229,7 +1209,6 @@ applications:
 func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 	s.expectResolveCharm(nil)
 
 	wordpressCurl := charm.MustParseURL("ch:wordpress")
@@ -1246,11 +1225,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c 
 	s.expectAddOneUnit("wordpress", "", "1")
 	s.expectAddOneUnit("wordpress", "", "2")
 
-	s.allWatcher.EXPECT().Next().Return([]params.Delta{
-		{Entity: &params.UnitInfo{Name: "wordpress/0", MachineId: "0"}},
-		{Entity: &params.UnitInfo{Name: "wordpress/1", MachineId: "1"}},
-	}, nil)
-
 	djangoCurl := charm.MustParseURL("ch:django")
 	s.expectResolveCharm(nil)
 	charmInfo2 := &apicharms.CharmInfo{
@@ -1263,6 +1237,33 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedInApplication(c 
 	s.expectDeploy()
 	s.expectAddOneUnit("django", "0", "0")
 	s.expectAddOneUnit("django", "1", "1")
+	s.expectStatus(params.FullStatus{
+		Applications: map[string]params.ApplicationStatus{
+			"wordpress": {
+				Units: map[string]params.UnitStatus{
+					"wordpress/0": {
+						Machine: "0",
+					},
+					"wordpress/1": {
+						Machine: "1",
+					},
+					"wordpress/2": {
+						Machine: "2",
+					},
+				},
+			},
+			"django": {
+				Units: map[string]params.UnitStatus{
+					"django/0": {
+						Machine: "0",
+					},
+					"django/1": {
+						Machine: "1",
+					},
+				},
+			},
+		},
+	})
 
 	s.runDeploy(c, `
        applications:
@@ -1291,7 +1292,6 @@ const peerContainerBundle = `
 func (s *BundleDeployRepositorySuite) TestDeployBundlePeerContainer(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	// Order is important here, to ensure containers get the correct machineID.
 	s.expectAddContainer("", "0/lxd/0", "", "lxd")
@@ -1364,7 +1364,6 @@ const unitColocationWithUnitBundle = `
 func (s *BundleDeployRepositorySuite) TestDeployBundleUnitColocationWithUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	// Setup Machines and Containers
 	s.expectAddMachine("0", "20.04")
@@ -1443,7 +1442,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleSwitch(c *gc.C) {
 	s.expectDeployerAPIStatusDjangoMemBundle()
 	s.expectEmptyModelRepresentationNotAnnotations()
 	s.expectDeployerAPIModelGet(c)
-	s.expectWatchAll()
 
 	s.expectGetAnnotationsEmpty()
 
@@ -1499,7 +1497,6 @@ machines:
 func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotations(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	djangoCurl := charm.MustParseURL("ch:django")
 	memCurl := charm.MustParseURL("ch:mem")
@@ -1551,7 +1548,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleAnnotationsChanges(c *gc.C
 
 	s.expectEmptyModelRepresentationNotAnnotations()
 	s.expectDeployerAPIModelGet(c)
-	s.expectWatchAll()
 	s.expectResolveCharmWithBases([]string{"ubuntu@18.04", "ubuntu@22.04", "ubuntu@16.04"}, nil)
 	s.expectAddCharm(false)
 	s.expectCharmInfo("ch:django", &apicharms.CharmInfo{
@@ -1592,7 +1588,6 @@ func (s *BundleDeployRepositorySuite) expectGetAnnotationsEmpty() {
 func (s *BundleDeployRepositorySuite) TestDeployBundleInvalidMachineContainerType(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	s.expectAddCharm(false)
@@ -1634,7 +1629,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleUnitPlacedToMachinesDebug(
 func (s *BundleDeployRepositorySuite) testDeployBundleUnitPlacedToMachines(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	s.expectAddCharm(false)
@@ -1707,7 +1701,6 @@ machines:
 func (s *BundleDeployRepositorySuite) TestDeployBundleExpose(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	chUnits := []charmUnit{
@@ -1742,7 +1735,6 @@ applications:
 func (s *BundleDeployRepositorySuite) TestDeployBundleMultipleRelations(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	wordpressCurl := charm.MustParseURL("ch:wordpress")
 	mysqlCurl := charm.MustParseURL("ch:mysql")
@@ -1820,7 +1812,6 @@ relations:
 func (s *BundleDeployRepositorySuite) TestDeployBundleLocalDeployment(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	mysqlCurl := charm.MustParseURL("local:mysql-1")
 	wordpressCurl := charm.MustParseURL("local:wordpress-3")
@@ -1892,7 +1883,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleLocalPathInvalidSeriesWith
 
 func (s *BundleDeployRepositorySuite) assertDeployBundleLocalPathInvalidSeriesWithForce(c *gc.C, force bool) {
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	mysqlCurl := charm.MustParseURL("local:mysql-1")
 	wordpressCurl := charm.MustParseURL("local:wordpress-3")
@@ -1998,7 +1988,6 @@ func (s *BundleDeployRepositorySuite) TestApplicationsForMachineChange(c *gc.C) 
 func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	grafanaCurl, err := charm.ParseURL("ch:grafana")
 	c.Assert(err, jc.ErrorIsNil)
@@ -2021,7 +2010,6 @@ func (s *BundleDeployRepositorySuite) TestDeployBundleWithEndpointBindings(c *gc
 func (s *BundleDeployRepositorySuite) TestDeployBundleWithInvalidEndpointBindings(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectEmptyModelToStart(c)
-	s.expectWatchAll()
 
 	s.expectResolveCharm(nil)
 	s.expectAddCharm(false)
@@ -2072,8 +2060,9 @@ func (s *BundleDeployRepositorySuite) bundleDeploySpecWithConstraints(cons const
 	return bundleDeploySpec{
 		deployAPI: s.deployerAPI,
 		ctx: &cmd.Context{
-			Stderr: s.stdErr,
-			Stdout: s.stdOut,
+			Stderr:  s.stdErr,
+			Stdout:  s.stdOut,
+			Context: context.Background(),
 		},
 		bundleResolver:   s.bundleResolver,
 		deployResources:  deployResourcesFunc,
@@ -2162,7 +2151,6 @@ func (s *BundleDeployRepositorySuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.deployerAPI.EXPECT().HTTPClient().Return(&httprequest.Client{}, nil).AnyTimes()
 	s.bundleResolver = mocks.NewMockResolver(ctrl)
 	s.charmReader = mocks.NewMockCharmReader(ctrl)
-	s.allWatcher = mocks.NewMockAllWatch(ctrl)
 	s.stdOut = mocks.NewMockWriter(ctrl)
 	s.stdErr = mocks.NewMockWriter(ctrl)
 	logOutput := func(p []byte) {
@@ -2207,11 +2195,6 @@ func (s *BundleDeployRepositorySuite) expectEmptyModelRepresentationNotAnnotatio
 	s.deployerAPI.EXPECT().GetConstraints(gomock.Any()).Return(nil, nil)
 	s.deployerAPI.EXPECT().GetConfig(gomock.Any(), gomock.Any()).Return(nil, nil)
 	s.deployerAPI.EXPECT().Sequences().Return(nil, errors.NotSupportedf("sequences for test"))
-}
-
-func (s *BundleDeployRepositorySuite) expectWatchAll() {
-	s.deployerAPI.EXPECT().WatchAll().Return(s.allWatcher, nil)
-	s.allWatcher.EXPECT().Stop().Return(nil)
 }
 
 func (s *BundleDeployRepositorySuite) expectDeployerAPIEmptyStatus() {
@@ -2480,6 +2463,10 @@ func (s *BundleDeployRepositorySuite) expectSetConstraints(name string, cons str
 
 func (s *BundleDeployRepositorySuite) expectSetCharm(c *gc.C, name string) {
 	s.deployerAPI.EXPECT().SetCharm(model.GenerationMaster, setCharmConfigMatcher{name: name, c: c})
+}
+
+func (s *BundleDeployRepositorySuite) expectStatus(status params.FullStatus) {
+	s.deployerAPI.EXPECT().Status(gomock.Any()).Return(&status, nil).AnyTimes()
 }
 
 type setCharmConfigMatcher struct {

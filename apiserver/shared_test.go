@@ -11,8 +11,6 @@ import (
 	"github.com/juju/names/v5"
 	"github.com/juju/pubsub/v2"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/worker/v4/workertest"
-	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 
 	corecontroller "github.com/juju/juju/controller"
@@ -20,8 +18,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/controller"
 	"github.com/juju/juju/internal/worker/lease"
-	"github.com/juju/juju/internal/worker/multiwatcher"
-	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 )
@@ -38,25 +34,12 @@ var _ = gc.Suite(&sharedServerContextSuite{})
 func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
-	allWatcherBacking, err := state.NewAllWatcherBacking(s.StatePool)
-	c.Assert(err, jc.ErrorIsNil)
-	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
-		Clock:                clock.WallClock,
-		Logger:               loggertesting.WrapCheckLog(c),
-		Backing:              allWatcherBacking,
-		PrometheusRegisterer: noopRegisterer{},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	// The worker itself is a coremultiwatcher.Factory.
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
-
 	s.hub = pubsub.NewStructuredHub(nil)
 
 	controllerConfig := testing.FakeControllerConfig()
 
 	s.config = sharedServerConfig{
 		statePool:            s.StatePool,
-		multiwatcherFactory:  multiWatcherWorker,
 		centralHub:           s.hub,
 		presence:             presence.New(clock.WallClock),
 		leaseManager:         &lease.Manager{},
@@ -78,13 +61,6 @@ func (s *sharedServerContextSuite) TestConfigNoStatePool(c *gc.C) {
 	err := s.config.validate()
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
-}
-
-func (s *sharedServerContextSuite) TestConfigNoMultiwatcherFactory(c *gc.C) {
-	s.config.multiwatcherFactory = nil
-	err := s.config.validate()
-	c.Check(err, jc.ErrorIs, errors.NotValid)
-	c.Check(err, gc.ErrorMatches, "nil multiwatcherFactory not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoHub(c *gc.C) {
@@ -173,16 +149,4 @@ func (s *sharedServerContextSuite) TestControllerConfigChanged(c *gc.C) {
 	c.Check(ctx.featureEnabled("bar"), jc.IsTrue)
 	c.Check(ctx.featureEnabled("baz"), jc.IsFalse)
 	c.Check(stub.published, gc.HasLen, 0)
-}
-
-type noopRegisterer struct {
-	prometheus.Registerer
-}
-
-func (noopRegisterer) Register(prometheus.Collector) error {
-	return nil
-}
-
-func (noopRegisterer) Unregister(prometheus.Collector) bool {
-	return true
 }

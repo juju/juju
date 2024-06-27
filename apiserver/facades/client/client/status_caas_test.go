@@ -131,7 +131,6 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 }
 
 func (s *CAASStatusSuite) TestStatusWorkloadVersionSetByCharm(c *gc.C) {
-	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 	conn := s.OpenModelAPI(c, s.model.UUID())
 	client := apiclient.NewClient(conn, loggertesting.WrapCheckLog(c))
 	err := s.app.SetOperatorStatus(status.StatusInfo{Status: status.Active})

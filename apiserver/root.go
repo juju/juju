@@ -26,7 +26,6 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/modelmigration"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/trace"
@@ -776,11 +775,6 @@ func (ctx *facadeContext) State() *state.State {
 // StatePool is part of the facade.ModelContext interface.
 func (ctx *facadeContext) StatePool() *state.StatePool {
 	return ctx.r.shared.statePool
-}
-
-// MultiwatcherFactory is part of the facade.ModelContext interface.
-func (ctx *facadeContext) MultiwatcherFactory() multiwatcher.Factory {
-	return ctx.r.shared.multiwatcherFactory
 }
 
 // ID is part of the facade.ModelContext interface.
