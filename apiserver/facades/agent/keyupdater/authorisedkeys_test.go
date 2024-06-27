@@ -104,8 +104,8 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 
 	s.keyUpdaterService.EXPECT().WatchAuthorisedKeysForMachine(
 		gomock.Any(),
-		coremachine.ID("0"),
-	).DoAndReturn(func(_ context.Context, _ coremachine.ID) (watcher.Watcher[[]string], error) {
+		coremachine.Name("0"),
+	).DoAndReturn(func(_ context.Context, _ coremachine.Name) (watcher.Watcher[[]string], error) {
 		wg.Add(1)
 		time.AfterFunc(testing.ShortWait, func() {
 			defer wg.Done()
@@ -168,7 +168,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 		},
 	}
 
-	s.keyUpdaterService.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.ID("0")).
+	s.keyUpdaterService.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).
 		Return([]string{"key1", "key2"}, nil)
 
 	result, err := endPoint.AuthorisedKeys(context.Background(), args)
@@ -258,7 +258,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNotFoundMachine(c *gc.C) {
 	}
 
 	s.keyUpdaterService.EXPECT().AuthorisedKeysForMachine(
-		gomock.Any(), coremachine.ID("0"),
+		gomock.Any(), coremachine.Name("0"),
 	).Return(nil, machineerrors.NotFound)
 
 	result, err := endPoint.AuthorisedKeys(context.Background(), args)
