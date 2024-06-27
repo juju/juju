@@ -185,6 +185,11 @@ func NewLoginResultParams(result params.LoginResult) (*LoginResultParams, error)
 type LoginProvider interface {
 	// Login performs log in when connecting to the controller.
 	Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error)
+	// Token returns the string used for authentication. Some providers may only obtain
+	// a token after login has completed.
+	// This is normally used as part of basic authentication in scenarios where a client
+	// makes use of a StreamConnector like when fetching logs using `juju debug-log`.
+	Token() string
 }
 
 // DialOpts holds configuration parameters that control the

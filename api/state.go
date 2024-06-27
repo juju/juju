@@ -98,6 +98,9 @@ type state struct {
 	macaroons []macaroon.Slice
 	nonce     string
 
+	// loginProvider holds the provider used for login.
+	loginProvider LoginProvider
+
 	// serverRootAddress holds the cached API server address and port used
 	// to login.
 	serverRootAddress string
@@ -191,6 +194,12 @@ func (st *state) setLoginResult(p *LoginResultParams) error {
 // AuthTag returns the tag of the authorized user of the state API connection.
 func (st *state) AuthTag() names.Tag {
 	return st.authTag
+}
+
+// LoginToken returns a token appropriate for basic auth as determined by the
+// underlying login provider.
+func (st *state) LoginToken() string {
+	return st.loginProvider.Token()
 }
 
 // ControllerAccess returns the access level of authorized user to the model.

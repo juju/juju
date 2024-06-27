@@ -66,14 +66,16 @@ func (s *clientCredentialsLoginProviderProviderSuite) Test(c *gc.C) {
 		return nil
 	})
 
+	lp := api.NewClientCredentialsLoginProvider(clientID, clientSecret)
 	apiState, err := api.Open(&api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,
 	}, api.DialOpts{
-		LoginProvider: api.NewClientCredentialsLoginProvider(clientID, clientSecret),
+		LoginProvider: lp,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lp.Token(), gc.Equals, clientSecret)
 
 	defer func() { _ = apiState.Close() }()
 }
