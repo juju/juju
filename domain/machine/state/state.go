@@ -172,9 +172,6 @@ func (st *State) GetMachineLife(ctx context.Context, machineId string) (*life.Li
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		result := machineLife{}
 		err := tx.Query(ctx, lifeStmt, sqlair.M{"machine_id": machineId}).Get(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.NotFoundf("machine %q", machineId)
-		}
 		if err != nil {
 			return errors.Annotatef(err, "looking up life for machine %q", machineId)
 		}
@@ -183,6 +180,11 @@ func (st *State) GetMachineLife(ctx context.Context, machineId string) (*life.Li
 
 		return nil
 	})
+
+	if err != nil && errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.NotFoundf("machine %q", machineId)
+	}
+
 	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", machineId)
 }
 
@@ -193,26 +195,23 @@ func (st *State) ListAllMachines(ctx context.Context) ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	query := `SELECT &M.machine_id FROM machine`
-	queryStmt, err := st.Prepare(query, sqlair.M{})
+	query := `SELECT machine_id AS &machineID.* FROM machine`
+	queryStmt, err := st.Prepare(query, machineID{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var machineIds []string
+	var results []machineID
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		results := []sqlair.M{}
-		err := tx.Query(ctx, queryStmt).GetAll(&results)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotate(err, "querying all machines")
-		}
-		for _, result := range results {
-			machineIds = append(machineIds, result["machine_id"].(string))
-		}
-		return nil
+		return tx.Query(ctx, queryStmt).GetAll(&results)
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, errors.Annotate(err, "querying all machines")
+	}
+
+	var machineIds []string
+	for _, result := range results {
+		machineIds = append(machineIds, result.ID)
 	}
 	return machineIds, nil
 }

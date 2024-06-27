@@ -174,9 +174,6 @@ WHERE m.machine_id = $M.machine_id;
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		result := instanceID{}
 		err := tx.Query(ctx, queryStmt, machineIDParam).Get(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(machineerrors.NotProvisioned, "machine id: %q", machineId)
-		}
 		if err != nil {
 			return errors.Annotatef(err, "querying instance id for machine %q", machineId)
 		}
@@ -185,6 +182,9 @@ WHERE m.machine_id = $M.machine_id;
 		return nil
 	})
 	if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return "", errors.Annotatef(machineerrors.NotProvisioned, "machine id: %q", machineId)
+		}
 		return "", errors.Trace(err)
 	}
 	return instanceId, nil
