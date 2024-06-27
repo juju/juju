@@ -149,7 +149,7 @@ func (s *stateSuite) TestListAllMachines(c *gc.C) {
 	err = s.state.CreateMachine(context.Background(), "667", "4", "2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	machines, err := s.state.ListAllMachines(context.Background())
+	machines, err := s.state.AllMachineNames(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedMachines := []string{"666", "667"}
@@ -163,7 +163,7 @@ func (s *stateSuite) TestListAllMachines(c *gc.C) {
 }
 
 func (s *stateSuite) TestListAllMachinesEmpty(c *gc.C) {
-	machines, err := s.state.ListAllMachines(context.Background())
+	machines, err := s.state.AllMachineNames(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 0)
 }

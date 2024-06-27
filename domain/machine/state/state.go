@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	coredb "github.com/juju/juju/core/database"
@@ -189,8 +190,8 @@ func (st *State) GetMachineLife(ctx context.Context, machineId machine.ID) (*lif
 	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", machineId)
 }
 
-// ListAllMachines retrieves the ids of all machines in the model.
-func (st *State) ListAllMachines(ctx context.Context) ([]machine.ID, error) {
+// AllMachineNames retrieves the ids of all machines in the model.
+func (st *State) AllMachineNames(ctx context.Context) ([]machine.ID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -210,9 +211,8 @@ func (st *State) ListAllMachines(ctx context.Context) ([]machine.ID, error) {
 		return nil, errors.Annotate(err, "querying all machines")
 	}
 
-	var machineIds []machine.ID
-	for _, result := range results {
-		machineIds = append(machineIds, machine.ID(result.ID))
-	}
+	// Transform the results ([]machineID) into a slice of machine.ID.
+	machineIds := transform.Slice[machineID, machine.ID](results, func(r machineID) machine.ID { return machine.ID(r.ID) })
+
 	return machineIds, nil
 }

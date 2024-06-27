@@ -114,7 +114,7 @@ func (s *serviceSuite) TestGetLifeNotFoundError(c *gc.C) {
 func (s *serviceSuite) TestListAllMachinesSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ListAllMachines(gomock.Any()).Return([]cmachine.ID{cmachine.ID("666")}, nil)
+	s.state.EXPECT().AllMachineNames(gomock.Any()).Return([]cmachine.ID{cmachine.ID("666")}, nil)
 
 	machines, err := NewService(s.state).ListAllMachines(context.Background())
 	c.Check(err, jc.ErrorIsNil)
@@ -127,7 +127,7 @@ func (s *serviceSuite) TestListAllMachinesError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().ListAllMachines(gomock.Any()).Return(nil, rErr)
+	s.state.EXPECT().AllMachineNames(gomock.Any()).Return(nil, rErr)
 
 	machines, err := NewService(s.state).ListAllMachines(context.Background())
 	c.Check(err, jc.ErrorIs, rErr)
