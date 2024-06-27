@@ -19,6 +19,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"gopkg.in/httprequest.v1"
 
@@ -27,6 +28,7 @@ import (
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelmanager"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -381,13 +383,11 @@ func (c *loginCommand) publicControllerLogin(
 		sessionToken = currentAccountDetails.SessionToken
 	}
 
-	dialOpts.LoginProvider = api.NewTryInOrderLoginProvider(
-		api.NewSessionTokenLoginProvider(
+	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
+		loggo.GetLogger("juju.cmd.loginprovider"),
+		loginprovider.NewSessionTokenLoginProvider(
 			sessionToken,
-			func(format string, params ...any) error {
-				_, err := fmt.Fprintf(ctx.Stderr, format, params...)
-				return err
-			},
+			ctx.Stderr,
 			func(sessionToken string) error {
 				return c.ClientStore().UpdateAccount(controllerName, jujuclient.AccountDetails{
 					Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,
