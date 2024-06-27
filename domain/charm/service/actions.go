@@ -42,7 +42,7 @@ func decodeActionParams(params []byte) (map[string]any, error) {
 
 	var result map[string]any
 	if err := json.Unmarshal(params, &result); err != nil {
-		return nil, fmt.Errorf("unmarshal action params: %w", err)
+		return nil, fmt.Errorf("unmarshal: %w", err)
 	}
 	return result, nil
 }

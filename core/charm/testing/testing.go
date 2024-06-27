@@ -11,7 +11,7 @@ import (
 )
 
 // GenCharmID can be used in testing for generating a charm ID that is
-// checked for subsequent errors using the test suits go check instance.
+// checked for subsequent errors using the test suit's go check instance.
 func GenCharmID(c *gc.C) corecharm.ID {
 	id, err := corecharm.NewID()
 	c.Assert(err, jc.ErrorIsNil)

@@ -130,7 +130,11 @@ func (s *Service) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool,
 	if err := id.Validate(); err != nil {
 		return false, fmt.Errorf("charm id: %w", err)
 	}
-	return s.st.IsControllerCharm(ctx, id)
+	b, err := s.st.IsControllerCharm(ctx, id)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return b, nil
 }
 
 // SupportsContainers returns whether the charm supports containers. This
@@ -142,7 +146,11 @@ func (s *Service) SupportsContainers(ctx context.Context, id corecharm.ID) (bool
 	if err := id.Validate(); err != nil {
 		return false, fmt.Errorf("charm id: %w", err)
 	}
-	return s.st.SupportsContainers(ctx, id)
+	b, err := s.st.SupportsContainers(ctx, id)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return b, nil
 }
 
 // IsSubordinateCharm returns whether the charm is a subordinate charm.
@@ -153,7 +161,11 @@ func (s *Service) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool
 	if err := id.Validate(); err != nil {
 		return false, fmt.Errorf("charm id: %w", err)
 	}
-	return s.st.IsSubordinateCharm(ctx, id)
+	b, err := s.st.IsSubordinateCharm(ctx, id)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return b, nil
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.
@@ -168,7 +180,11 @@ func (s *Service) GetCharmMetadata(ctx context.Context, id corecharm.ID) (intern
 		return internalcharm.Meta{}, errors.Trace(err)
 	}
 
-	return decodeMetadata(metadata)
+	decoded, err := decodeMetadata(metadata)
+	if err != nil {
+		return internalcharm.Meta{}, errors.Trace(err)
+	}
+	return decoded, nil
 }
 
 // GetCharmManifest returns the manifest for the charm using the charm ID.
@@ -183,7 +199,11 @@ func (s *Service) GetCharmManifest(ctx context.Context, id corecharm.ID) (intern
 		return internalcharm.Manifest{}, errors.Trace(err)
 	}
 
-	return decodeManifest(manifest)
+	decoded, err := decodeManifest(manifest)
+	if err != nil {
+		return internalcharm.Manifest{}, errors.Trace(err)
+	}
+	return decoded, nil
 }
 
 // GetCharmActions returns the actions for the charm using the charm ID.
@@ -198,7 +218,11 @@ func (s *Service) GetCharmActions(ctx context.Context, id corecharm.ID) (interna
 		return internalcharm.Actions{}, errors.Trace(err)
 	}
 
-	return decodeActions(actions)
+	decoded, err := decodeActions(actions)
+	if err != nil {
+		return internalcharm.Actions{}, errors.Trace(err)
+	}
+	return decoded, nil
 }
 
 // GetCharmConfig returns the config for the charm using the charm ID.
@@ -213,7 +237,11 @@ func (s *Service) GetCharmConfig(ctx context.Context, id corecharm.ID) (internal
 		return internalcharm.Config{}, errors.Trace(err)
 	}
 
-	return decodeConfig(config)
+	decoded, err := decodeConfig(config)
+	if err != nil {
+		return internalcharm.Config{}, errors.Trace(err)
+	}
+	return decoded, nil
 }
 
 // GetCharmLXDProfile returns the LXD profile for the charm using the charm ID.
@@ -228,7 +256,11 @@ func (s *Service) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (inte
 		return internalcharm.LXDProfile{}, errors.Trace(err)
 	}
 
-	return decodeLXDProfile(profile)
+	decoded, err := decodeLXDProfile(profile)
+	if err != nil {
+		return internalcharm.LXDProfile{}, errors.Trace(err)
+	}
+	return decoded, nil
 }
 
 // IsCharmAvailable returns whether the charm is available for use. This
@@ -239,7 +271,11 @@ func (s *Service) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, 
 	if err := id.Validate(); err != nil {
 		return false, fmt.Errorf("charm id: %w", err)
 	}
-	return s.st.IsCharmAvailable(ctx, id)
+	b, err := s.st.IsCharmAvailable(ctx, id)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return b, nil
 }
 
 // SetCharmAvailable sets the charm as available for use.
@@ -249,7 +285,7 @@ func (s *Service) SetCharmAvailable(ctx context.Context, id corecharm.ID) error 
 		return fmt.Errorf("charm id: %w", err)
 	}
 
-	return s.st.SetCharmAvailable(ctx, id)
+	return errors.Trace(s.st.SetCharmAvailable(ctx, id))
 }
 
 // ReserveCharmRevision defines a placeholder for a new charm revision. The
@@ -267,7 +303,11 @@ func (s *Service) ReserveCharmRevision(ctx context.Context, id corecharm.ID, rev
 		return "", charmerrors.RevisionNotValid
 	}
 
-	return s.st.ReserveCharmRevision(ctx, id, revision)
+	newID, err := s.st.ReserveCharmRevision(ctx, id, revision)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return newID, nil
 }
 
 // WatchableService provides the API for working with charms and the
