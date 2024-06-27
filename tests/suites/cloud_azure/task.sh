@@ -1,5 +1,5 @@
-test_azure_cloud() {
-	if [ "$(skip 'test_azure_cloud')" ]; then
+test_cloud_azure() {
+	if [ "$(skip 'test_cloud_azure')" ]; then
 		echo "==> TEST SKIPPED: azure cloud"
 		return
 	fi

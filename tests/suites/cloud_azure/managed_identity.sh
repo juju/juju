@@ -53,7 +53,7 @@ run_custom_managed_identity() {
 	az identity create --resource-group "${group}" --name jmid
 	mid=$(az identity show --resource-group "${group}" --name jmid --query principalId --output tsv)
 	rid=$(az role assignment create --assignee-object-id "${mid}" --assignee-principal-type "ServicePrincipal" --role "JujuRoles" --scope "/subscriptions/${subscription}" | jq -r .id)
-	if [[ -n "${rid}" ]]; then
+	if [[ -n ${rid} ]]; then
 		echo "${rid}" >>"${TEST_DIR}/azure-role-assignments"
 	fi
 

@@ -41,13 +41,13 @@ import_subdir_files includes
 # Please keep these in alphabetic order.
 TEST_NAMES="agents \
             appdata \
-            azure_cloud \
             backup \
             bootstrap \
             branches \
             caasadmission \
             charmhub \
             cli \
+            cloud_azure \
             constraints \
             controller \
             coslite \
