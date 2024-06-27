@@ -5,15 +5,13 @@ package state
 
 import (
 	"context"
-	"database/sql"
-	"fmt"
-	"math"
 
+	"github.com/canonical/sqlair"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
-	coreDB "github.com/juju/juju/core/database"
-	"github.com/juju/juju/core/lease"
+	coredatabase "github.com/juju/juju/core/database"
+	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/internal/database"
@@ -28,7 +26,7 @@ type State struct {
 }
 
 // NewState returns a new state reference.
-func NewState(factory coreDB.TxnRunnerFactory, logger logger.Logger) *State {
+func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *State {
 	return &State{
 		StateBase: domain.NewStateBase(factory),
 		logger:    logger,
@@ -37,7 +35,7 @@ func NewState(factory coreDB.TxnRunnerFactory, logger logger.Logger) *State {
 
 // Leases (lease.Store) returns all leases in the database,
 // optionally filtering using the input keys.
-func (s *State) Leases(ctx context.Context, keys ...lease.Key) (map[lease.Key]lease.Info, error) {
+func (s *State) Leases(ctx context.Context, keys ...corelease.Key) (map[corelease.Key]corelease.Info, error) {
 	// TODO (manadart 2022-11-30): We expect the variadic `keys` argument to be
 	// length 0 or 1. It was a work-around for design constraints at the time.
 	// Either filter the result here for len(keys) > 1, or fix the design.
@@ -53,187 +51,283 @@ func (s *State) Leases(ctx context.Context, keys ...lease.Key) (map[lease.Key]le
 	}
 
 	q := `
-SELECT t.type, l.model_uuid, l.name, l.holder, l.expiry
-FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id`[1:]
+SELECT (t.type, l.model_uuid, l.name, l.holder, l.expiry) AS (&Lease.*)
+FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id`
 
 	var args []any
 
+	var stmt *sqlair.Statement
 	if len(keys) == 1 {
-		q += `
-WHERE  t.type = ?
-AND    l.model_uuid = ?
-AND    l.name = ?`
-
 		key := keys[0]
-		args = []any{key.Namespace, key.ModelUUID, key.Lease}
+		lease := Lease{
+			Type:      key.Namespace,
+			ModelUUID: key.ModelUUID,
+			Name:      key.Lease,
+		}
+
+		stmt, err = s.Prepare(q+`
+WHERE  t.type = $Lease.type
+AND    l.model_uuid = $Lease.model_uuid
+AND    l.name = $Lease.name`, lease)
+		if err != nil {
+			return nil, errors.Annotate(err, "preparing select lease with keys statement")
+		}
+
+		args = []any{lease}
+	} else {
+		stmt, err = s.Prepare(q, Lease{})
+		if err != nil {
+			return nil, errors.Annotate(err, "preparing select lease statement")
+		}
 	}
 
-	var result map[lease.Key]lease.Info
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, q, args...)
-		if err != nil {
+	var result map[corelease.Key]corelease.Info
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var leases []Lease
+		err := tx.Query(ctx, stmt, args...).GetAll(&leases)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 
-		result, err = leasesFromRows(rows)
-		return errors.Trace(err)
+		result = map[corelease.Key]corelease.Info{}
+		for _, lease := range leases {
+			result[corelease.Key{
+				Namespace: lease.Type,
+				ModelUUID: lease.ModelUUID,
+				Lease:     lease.Name,
+			}] = corelease.Info{
+				Holder: lease.Holder,
+				Expiry: lease.Expiry,
+			}
+		}
+		return nil
 	})
-	return result, errors.Trace(err)
+	return result, errors.Trace(domain.CoerceError(err))
 }
 
 // ClaimLease (lease.Store) claims the lease indicated by the input key,
 // for the holder and duration indicated by the input request.
 // The lease must not already be held, otherwise an error is returned.
-func (s *State) ClaimLease(ctx context.Context, uuid uuid.UUID, key lease.Key, req lease.Request) error {
+func (s *State) ClaimLease(ctx context.Context, uuid uuid.UUID, key corelease.Key, req corelease.Request) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	q := `
+	lease := Lease{
+		UUID:      uuid.String(),
+		ModelUUID: key.ModelUUID,
+		Type:      key.Namespace,
+		Name:      key.Lease,
+		Holder:    req.Holder,
+		Duration:  LeaseDuration(req.Duration),
+	}
+
+	stmt, err := s.Prepare(`
 INSERT INTO lease (uuid, lease_type_id, model_uuid, name, holder, start, expiry)
-SELECT ?, id, ?, ?, ?, datetime('now'), datetime('now', ?) 
+SELECT $Lease.uuid, id, $Lease.model_uuid, $Lease.name, $Lease.holder, datetime('now'), datetime('now', $Lease.duration) 
 FROM   lease_type
-WHERE  type = ?;`[1:]
+WHERE  type = $Lease.type;`, lease)
+	if err != nil {
+		return errors.Annotate(err, "preparing insert lease statement")
+	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
-
-		_, err := tx.ExecContext(ctx, q, uuid.String(), key.ModelUUID, key.Lease, req.Holder, d, key.Namespace)
-		return errors.Trace(err)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, lease).Run()
 	})
 	if database.IsErrConstraintUnique(err) {
-		return lease.ErrHeld
+		return corelease.ErrHeld
 	}
-	return errors.Trace(err)
+	return errors.Trace(domain.CoerceError(err))
 }
 
 // ExtendLease (lease.Store) ensures the input lease will be held for at least
 // the requested duration starting from now.
 // If the input holder does not currently hold the lease, an error is returned.
-func (s *State) ExtendLease(ctx context.Context, key lease.Key, req lease.Request) error {
+func (s *State) ExtendLease(ctx context.Context, key corelease.Key, req corelease.Request) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	q := `
+	lease := Lease{
+		Duration:  LeaseDuration(req.Duration),
+		ModelUUID: key.ModelUUID,
+		Type:      key.Namespace,
+		Name:      key.Lease,
+		Holder:    req.Holder,
+	}
+
+	stmt, err := s.Prepare(`
 UPDATE lease
-SET    expiry = datetime('now', ?)
+SET    expiry = datetime('now', $Lease.duration)
 WHERE  uuid = (
     SELECT l.uuid
     FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
-    WHERE  t.type = ?
-    AND    l.model_uuid = ?
-    AND    l.name = ?
-    AND    l.holder = ?
-)`[1:]
+    WHERE  t.type = $Lease.type
+    AND    l.model_uuid = $Lease.model_uuid
+    AND    l.name = $Lease.name
+    AND    l.holder = $Lease.holder
+)`, lease)
+	if err != nil {
+		return errors.Annotate(err, "preparing update lease statement")
+	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		d := fmt.Sprintf("+%d seconds", int64(math.Ceil(req.Duration.Seconds())))
-		result, err := tx.ExecContext(ctx, q, d, key.Namespace, key.ModelUUID, key.Lease, req.Holder)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+		err := tx.Query(ctx, stmt, lease).Get(&outcome)
 
 		// If no rows were affected, then either this key does not exist or
 		// it is not held by the input holder, constituting an invalid request.
 		if err == nil {
 			var affected int64
-			affected, err = result.RowsAffected()
+			affected, err = outcome.Result().RowsAffected()
 			if affected == 0 && err == nil {
-				err = lease.ErrInvalid
+				err = corelease.ErrInvalid
 			}
 		}
 		return errors.Trace(err)
 	})
-	return errors.Trace(err)
+	return errors.Trace(domain.CoerceError(err))
 }
 
 // RevokeLease (lease.Store) deletes the lease from the store,
 // provided it exists and is held by the input holder.
 // If either of these conditions is false, an error is returned.
-func (s *State) RevokeLease(ctx context.Context, key lease.Key, holder string) error {
+func (s *State) RevokeLease(ctx context.Context, key corelease.Key, holder string) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	q := `
+	lease := Lease{
+		ModelUUID: key.ModelUUID,
+		Name:      key.Lease,
+		Holder:    holder,
+		Type:      key.Namespace,
+	}
+
+	stmt, err := s.Prepare(`
 DELETE FROM lease
 WHERE  uuid = (
     SELECT l.uuid
     FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
-    WHERE  t.type = ?
-    AND    l.model_uuid = ?
-    AND    l.name = ?
-    AND    l.holder = ?
-);`[1:]
+    WHERE  t.type = $Lease.type
+    AND    l.model_uuid = $Lease.model_uuid
+    AND    l.name = $Lease.name
+    AND    l.holder = $Lease.holder
+)`, lease)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete lease statement")
+	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-
-		result, err := tx.ExecContext(ctx, q, key.Namespace, key.ModelUUID, key.Lease, holder)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var outcome sqlair.Outcome
+		err := tx.Query(ctx, stmt, lease).Get(&outcome)
 		if err == nil {
 			var affected int64
-			affected, err = result.RowsAffected()
+			affected, err = outcome.Result().RowsAffected()
 			if affected == 0 && err == nil {
-				err = lease.ErrInvalid
+				err = corelease.ErrInvalid
 			}
 		}
 		return errors.Trace(err)
 	})
-	return errors.Trace(err)
+	return errors.Trace(domain.CoerceError(err))
 }
 
 // LeaseGroup (lease.Store) returns all leases
 // for the input namespace and model.
-func (s *State) LeaseGroup(ctx context.Context, namespace, modelUUID string) (map[lease.Key]lease.Info, error) {
+func (s *State) LeaseGroup(ctx context.Context, namespace, modelUUID string) (map[corelease.Key]corelease.Info, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	q := `
-SELECT t.type, l.model_uuid, l.name, l.holder, l.expiry
-FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
-WHERE  t.type = ?
-AND    l.model_uuid = ?;`[1:]
+	lease := Lease{
+		ModelUUID: modelUUID,
+		Type:      namespace,
+	}
 
-	var result map[lease.Key]lease.Info
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, q, namespace, modelUUID)
-		if err != nil {
+	stmt, err := s.Prepare(`
+SELECT (t.type, l.model_uuid, l.name, l.holder, l.expiry) AS (&Lease.*)
+FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
+WHERE  t.type = $Lease.type
+AND    l.model_uuid = $Lease.model_uuid;`, lease)
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing delete lease statement")
+	}
+
+	var result map[corelease.Key]corelease.Info
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var leases []Lease
+		err := tx.Query(ctx, stmt, lease).GetAll(&leases)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 
-		result, err = leasesFromRows(rows)
-		return errors.Trace(err)
+		result = map[corelease.Key]corelease.Info{}
+		for _, lease := range leases {
+			result[corelease.Key{
+				Namespace: lease.Type,
+				ModelUUID: lease.ModelUUID,
+				Lease:     lease.Name,
+			}] = corelease.Info{
+				Holder: lease.Holder,
+				Expiry: lease.Expiry,
+			}
+		}
+		return nil
 	})
-	return result, errors.Trace(err)
+	return result, errors.Trace(domain.CoerceError(err))
 }
 
 // PinLease (lease.Store) adds the input entity into the lease_pin table
 // to indicate that the lease indicated by the input key must not expire,
 // and that this entity requires such behaviour.
-func (s *State) PinLease(ctx context.Context, key lease.Key, entity string) error {
+func (s *State) PinLease(ctx context.Context, key corelease.Key, entity string) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	q := `
-INSERT INTO lease_pin (uuid, lease_uuid, entity_id)
-SELECT ?, l.uuid, ?
-FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
-WHERE  t.type = ?
-AND    l.model_uuid = ?
-AND    l.name = ?;`[1:]
-
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, uuid.MustNewUUID().String(), entity, key.Namespace, key.ModelUUID, key.Lease)
+	uuid, err := uuid.NewUUID()
+	if err != nil {
 		return errors.Trace(err)
+	}
+
+	leasePin := LeasePin{
+		UUID:     uuid.String(),
+		EntityID: entity,
+	}
+	lease := Lease{
+		Type:      key.Namespace,
+		ModelUUID: key.ModelUUID,
+		Name:      key.Lease,
+	}
+
+	stmt, err := s.Prepare(`
+INSERT INTO lease_pin (uuid, lease_uuid, entity_id)
+SELECT $LeasePin.uuid, l.uuid, $LeasePin.entity_id
+FROM   lease l JOIN lease_type t ON l.lease_type_id = t.id
+WHERE  t.type = $Lease.type
+AND    l.model_uuid = $Lease.model_uuid
+AND    l.name = $Lease.name;`, leasePin, lease)
+	if err != nil {
+		return errors.Annotate(err, "preparing insert lease pin statement")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Trace(tx.Query(ctx, stmt, leasePin, lease).Run())
 	})
 	if database.IsErrConstraintUnique(err) {
 		return nil
 	}
-	return errors.Trace(err)
+	return errors.Trace(domain.CoerceError(err))
 }
 
 // UnpinLease (lease.Store) removes the record indicated by the input
@@ -241,76 +335,93 @@ AND    l.name = ?;`[1:]
 // no longer requires the lease to be pinned.
 // When there are no entities associated with a particular lease,
 // it is determined not to be pinned, and can expire normally.
-func (s *State) UnpinLease(ctx context.Context, key lease.Key, entity string) error {
+func (s *State) UnpinLease(ctx context.Context, key corelease.Key, entity string) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	q := `
+	leasePin := LeasePin{
+		EntityID: entity,
+	}
+	lease := Lease{
+		Type:      key.Namespace,
+		ModelUUID: key.ModelUUID,
+		Name:      key.Lease,
+	}
+
+	stmt, err := s.Prepare(`
 DELETE FROM lease_pin
 WHERE  uuid = (
     SELECT p.uuid
     FROM   lease_pin p
            JOIN lease l ON l.uuid = p.lease_uuid
            JOIN lease_type t ON l.lease_type_id = t.id
-    WHERE  t.type = ?
-    AND    l.model_uuid = ?
-    AND    l.name = ?
-    AND    p.entity_id = ?   
-);`[1:]
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, q, key.Namespace, key.ModelUUID, key.Lease, entity)
-		return errors.Trace(err)
+    WHERE  t.type = $Lease.type
+    AND    l.model_uuid = $Lease.model_uuid
+    AND    l.name = $Lease.name
+    AND    p.entity_id = $LeasePin.entity_id)`, lease, leasePin)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete lease pin statement")
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return errors.Trace(tx.Query(ctx, stmt, lease, leasePin).Run())
 	})
-	return errors.Trace(err)
+	return errors.Trace(domain.CoerceError(err))
 }
 
 // Pinned (lease.Store) returns all leases that are currently pinned,
 // and the entities requiring such behaviour for them.
-func (s *State) Pinned(ctx context.Context) (map[lease.Key][]string, error) {
+func (s *State) Pinned(ctx context.Context) (map[corelease.Key][]string, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	q := `
-SELECT   l.uuid, t.type, l.model_uuid, l.name, p.entity_id
+	stmt, err := s.Prepare(`
+SELECT   (l.uuid, t.type, l.model_uuid, l.name) AS (&Lease.*),
+         (p.entity_id) AS (&LeasePin.*)
 FROM     lease l 
          JOIN lease_type t ON l.lease_type_id = t.id
 		 JOIN lease_pin p on l.uuid = p.lease_uuid
-ORDER BY l.uuid;`[1:]
+ORDER BY l.uuid;`, Lease{}, LeasePin{})
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing select pinned lease statement")
+	}
 
-	var result map[lease.Key][]string
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		rows, err := tx.QueryContext(ctx, q)
-		if err != nil {
+	var result map[corelease.Key][]string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var leases []Lease
+		var leasePins []LeasePin
+		err := tx.Query(ctx, stmt).GetAll(&leases, &leasePins)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
 			return errors.Trace(err)
 		}
-		defer rows.Close()
 
 		seen := set.NewStrings()
 
-		result = make(map[lease.Key][]string)
-		for rows.Next() {
-			var leaseUUID string
-			var key lease.Key
-			var entity string
-
-			if err := rows.Scan(&leaseUUID, &key.Namespace, &key.ModelUUID, &key.Lease, &entity); err != nil {
-				return errors.Trace(err)
+		result = make(map[corelease.Key][]string)
+		for i, lease := range leases {
+			key := corelease.Key{
+				Namespace: lease.Type,
+				ModelUUID: lease.ModelUUID,
+				Lease:     lease.Name,
 			}
+			entity := leasePins[i].EntityID
 
-			if !seen.Contains(leaseUUID) {
+			if !seen.Contains(lease.UUID) {
 				result[key] = []string{entity}
-				seen.Add(leaseUUID)
+				seen.Add(lease.UUID)
 			} else {
 				result[key] = append(result[key], entity)
 			}
 		}
-		return errors.Trace(rows.Err())
+		return nil
 	})
-	return result, errors.Trace(err)
+	return result, errors.Trace(domain.CoerceError(err))
 }
 
 // ExpireLeases (lease.Store) deletes all leases that have expired, from the
@@ -324,34 +435,40 @@ func (s *State) ExpireLeases(ctx context.Context) error {
 	// This is split into two queries to avoid a write transaction preventing
 	// other writers from writing to the db, even if there is no writes
 	// occurring.
-	countQuery := `
-SELECT COUNT(*) FROM lease WHERE expiry < datetime('now');
-`
+	count := Count{}
+	countStmt, err := s.Prepare(`
+SELECT COUNT(*) AS &Count.num FROM lease WHERE expiry < datetime('now');
+`, count)
+	if err != nil {
+		return errors.Annotate(err, "preparing select expired count statement")
+	}
 
-	deleteQuery := `
+	deleteStmt, err := s.Prepare(`
 DELETE FROM lease WHERE uuid in (
 	SELECT l.uuid 
 	FROM   lease l LEFT JOIN lease_pin p ON l.uuid = p.lease_uuid
 	WHERE  p.uuid IS NULL
 	AND    l.expiry < datetime('now')
-);`
+);`)
+	if err != nil {
+		return errors.Annotate(err, "preparing delete lease statement")
+	}
 
-	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		var count int64
-		row := tx.QueryRowContext(ctx, countQuery)
-		if err := row.Scan(&count); err != nil {
-			if txn.IsErrRetryable(err) {
-				return nil
-			}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, countStmt).Get(&count)
+		if txn.IsErrRetryable(err) {
+			return nil
+		} else if err != nil {
 			return errors.Trace(err)
 		}
 
 		// Nothing to do here, so return early.
-		if count == 0 {
+		if count.Num == 0 {
 			return nil
 		}
 
-		res, err := tx.ExecContext(ctx, deleteQuery)
+		var outcome sqlair.Outcome
+		err = tx.Query(ctx, deleteStmt).Get(&outcome)
 		if err != nil {
 			// TODO (manadart 2022-12-15): This incarnation of the worker runs on
 			// all controller nodes. Retryable errors are those that occur due to
@@ -365,7 +482,7 @@ DELETE FROM lease WHERE uuid in (
 			return errors.Trace(err)
 		}
 
-		expired, err := res.RowsAffected()
+		expired, err := outcome.Result().RowsAffected()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -376,23 +493,5 @@ DELETE FROM lease WHERE uuid in (
 
 		return nil
 	})
-	return errors.Trace(err)
-}
-
-// leasesFromRows returns lease info from rows returned from the backing DB.
-func leasesFromRows(rows *sql.Rows) (map[lease.Key]lease.Info, error) {
-	result := map[lease.Key]lease.Info{}
-
-	for rows.Next() {
-		var key lease.Key
-		var info lease.Info
-
-		if err := rows.Scan(&key.Namespace, &key.ModelUUID, &key.Lease, &info.Holder, &info.Expiry); err != nil {
-			_ = rows.Close()
-			return nil, errors.Trace(err)
-		}
-		result[key] = info
-	}
-
-	return result, errors.Trace(rows.Err())
+	return errors.Trace(domain.CoerceError(err))
 }
