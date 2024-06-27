@@ -15,7 +15,7 @@ import (
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 
-	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -165,7 +165,7 @@ func (st *State) NeedsCleanup() (bool, error) {
 // MachineRemover deletes a machine from the dqlite database.
 // This allows us to initially weave some dqlite support into the cleanup workflow.
 type MachineRemover interface {
-	DeleteMachine(context.Context, coremachine.ID) error
+	DeleteMachine(context.Context, machine.ID) error
 }
 
 // UnitRemover deletes a unit from the dqlite database.
@@ -1462,19 +1462,19 @@ func (st *State) cleanupForceRemoveMachine(ctx context.Context, store objectstor
 		}
 	}
 
-	machine, err := st.Machine(machineId)
+	machineToRemove, err := st.Machine(machineId)
 	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	if err := machine.advanceLifecycle(Dead, true, false, maxWait); err != nil {
+	if err := machineToRemove.advanceLifecycle(Dead, true, false, maxWait); err != nil {
 		return errors.Trace(err)
 	}
-	if err := machine.Remove(store); err != nil {
+	if err := machineToRemove.Remove(store); err != nil {
 		return errors.Trace(err)
 	}
-	return machineRemover.DeleteMachine(ctx, coremachine.ID(machineId))
+	return machineRemover.DeleteMachine(ctx, machine.ID(machineId))
 }
 
 // cleanupEvacuateMachine is initiated by machine.Destroy() to gracefully remove units
@@ -1535,8 +1535,8 @@ func (st *State) cleanupEvacuateMachine(store objectstore.ObjectStore, machineId
 
 // cleanupContainers recursively calls cleanupForceDestroyedMachine on the supplied
 // machine's containers, and removes them from state entirely.
-func (st *State) cleanupContainers(ctx context.Context, store objectstore.ObjectStore, unitRemover UnitRemover, machineRemover MachineRemover, machine *Machine, maxWait time.Duration) error {
-	containerIds, err := machine.Containers()
+func (st *State) cleanupContainers(ctx context.Context, store objectstore.ObjectStore, unitRemover UnitRemover, machineRemover MachineRemover, hostMachine *Machine, maxWait time.Duration) error {
+	containerIds, err := hostMachine.Containers()
 	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
@@ -1555,7 +1555,7 @@ func (st *State) cleanupContainers(ctx context.Context, store objectstore.Object
 		if err := container.Remove(store); err != nil {
 			return err
 		}
-		if err = machineRemover.DeleteMachine(ctx, coremachine.ID(containerId)); err != nil {
+		if err = machineRemover.DeleteMachine(ctx, machine.ID(containerId)); err != nil {
 			return err
 		}
 	}

@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
-	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/machine"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
@@ -1783,7 +1783,7 @@ func assertUnitInScope(c *gc.C, unit *state.Unit, rel *state.Relation, expected 
 
 type fakeMachineRemover struct{}
 
-func (fakeMachineRemover) DeleteMachine(context.Context, coremachine.ID) error { return nil }
+func (fakeMachineRemover) DeleteMachine(context.Context, machine.ID) error { return nil }
 
 type fakeUnitRemover struct{}
 

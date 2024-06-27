@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
-	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -40,7 +40,7 @@ type NodeService interface {
 
 // MachineService instances save a machine to dqlite state.
 type MachineService interface {
-	CreateMachine(context.Context, coremachine.ID) (string, error)
+	CreateMachine(context.Context, machine.ID) (string, error)
 }
 
 // ApplicationService instances add units to an application in dqlite state.
@@ -176,7 +176,7 @@ func (api *HighAvailabilityAPI) enableHASingle(ctx context.Context, spec params.
 
 	// Add the dqlite records for new machines.
 	for _, m := range changes.Added {
-		if _, err := api.machineService.CreateMachine(ctx, coremachine.ID(m)); err != nil {
+		if _, err := api.machineService.CreateMachine(ctx, machine.ID(m)); err != nil {
 			return params.ControllersChanges{}, err
 		}
 	}

@@ -11,7 +11,7 @@ import (
 
 	coredb "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
-	coremachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/life"
@@ -33,7 +33,7 @@ func NewState(factory coredb.TxnRunnerFactory, logger logger.Logger) *State {
 
 // CreateMachine creates or updates the specified machine.
 // TODO - this just creates a minimal row for now.
-func (st *State) CreateMachine(ctx context.Context, machineId coremachine.ID, nodeUUID, machineUUID string) error {
+func (st *State) CreateMachine(ctx context.Context, machineId machine.ID, nodeUUID, machineUUID string) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -93,7 +93,7 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_id, $M.life_id)
 
 // DeleteMachine deletes the specified machine and any dependent child records.
 // TODO - this just deals with child block devices for now.
-func (st *State) DeleteMachine(ctx context.Context, machineId coremachine.ID) error {
+func (st *State) DeleteMachine(ctx context.Context, machineId machine.ID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -157,7 +157,7 @@ func (s *State) InitialWatchStatement() (string, string) {
 }
 
 // GetMachineLife returns the life status of the specified machine.
-func (st *State) GetMachineLife(ctx context.Context, machineId coremachine.ID) (*life.Life, error) {
+func (st *State) GetMachineLife(ctx context.Context, machineId machine.ID) (*life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -190,7 +190,7 @@ func (st *State) GetMachineLife(ctx context.Context, machineId coremachine.ID) (
 }
 
 // ListAllMachines retrieves the ids of all machines in the model.
-func (st *State) ListAllMachines(ctx context.Context) ([]coremachine.ID, error) {
+func (st *State) ListAllMachines(ctx context.Context) ([]machine.ID, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -210,9 +210,9 @@ func (st *State) ListAllMachines(ctx context.Context) ([]coremachine.ID, error) 
 		return nil, errors.Annotate(err, "querying all machines")
 	}
 
-	var machineIds []coremachine.ID
+	var machineIds []machine.ID
 	for _, result := range results {
-		machineIds = append(machineIds, coremachine.ID(result.ID))
+		machineIds = append(machineIds, machine.ID(result.ID))
 	}
 	return machineIds, nil
 }
