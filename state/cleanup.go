@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
 
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 	stateerrors "github.com/juju/juju/state/errors"
@@ -164,7 +165,7 @@ func (st *State) NeedsCleanup() (bool, error) {
 // MachineRemover deletes a machine from the dqlite database.
 // This allows us to initially weave some dqlite support into the cleanup workflow.
 type MachineRemover interface {
-	DeleteMachine(context.Context, string) error
+	DeleteMachine(context.Context, coremachine.ID) error
 }
 
 // UnitRemover deletes a unit from the dqlite database.
@@ -1473,7 +1474,7 @@ func (st *State) cleanupForceRemoveMachine(ctx context.Context, store objectstor
 	if err := machine.Remove(store); err != nil {
 		return errors.Trace(err)
 	}
-	return machineRemover.DeleteMachine(ctx, machineId)
+	return machineRemover.DeleteMachine(ctx, coremachine.ID(machineId))
 }
 
 // cleanupEvacuateMachine is initiated by machine.Destroy() to gracefully remove units
@@ -1554,7 +1555,7 @@ func (st *State) cleanupContainers(ctx context.Context, store objectstore.Object
 		if err := container.Remove(store); err != nil {
 			return err
 		}
-		if err = machineRemover.DeleteMachine(ctx, containerId); err != nil {
+		if err = machineRemover.DeleteMachine(ctx, coremachine.ID(containerId)); err != nil {
 			return err
 		}
 	}

@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/watcher"
@@ -26,7 +27,7 @@ type API struct {
 }
 
 type machineRemover interface {
-	DeleteMachine(context.Context, string) error
+	DeleteMachine(context.Context, coremachine.ID) error
 }
 
 // NewAPI implements the API used by the machine undertaker worker to
@@ -134,7 +135,7 @@ func (m *API) CompleteMachineRemovals(ctx context.Context, machines params.Entit
 
 	// Remove the machines from dqlite.
 	for _, id := range machineIDs {
-		if err := m.machineRemover.DeleteMachine(ctx, id); err != nil {
+		if err := m.machineRemover.DeleteMachine(ctx, coremachine.ID(id)); err != nil {
 			return errors.Annotatef(err, "removing machine %q", id)
 		}
 	}

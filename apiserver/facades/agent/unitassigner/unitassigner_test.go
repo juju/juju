@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -34,7 +35,7 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	c.Assert(res.Results, gc.HasLen, 2)
 	c.Assert(res.Results[0].Error, gc.IsNil)
 	c.Assert(res.Results[1].Error, gc.ErrorMatches, `unit "unit-bar-1" not found`)
-	c.Assert(a.machineIds, jc.SameContents, []string{"1", "1/lxd/2"})
+	c.Assert(a.machineIds, jc.SameContents, []coremachine.ID{coremachine.ID("1"), coremachine.ID("1/lxd/2")})
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {
@@ -63,10 +64,10 @@ func (testsuite) TestSetStatus(c *gc.C) {
 }
 
 type fakeMachineService struct {
-	machineIds []string
+	machineIds []coremachine.ID
 }
 
-func (f *fakeMachineService) CreateMachine(_ context.Context, machineId string) (string, error) {
+func (f *fakeMachineService) CreateMachine(_ context.Context, machineId coremachine.ID) (string, error) {
 	f.machineIds = append(f.machineIds, machineId)
 	return "", nil
 }
