@@ -3,40 +3,19 @@
 
 package machine
 
-import (
-	"fmt"
+// Name is a unique name given to a machine within a Juju controller.
+type Name string
 
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/internal/uuid"
-)
-
-// ID is a unique identifier for a machine.
-type ID string
-
-// NewId makes and returns a new machine [ID].
-func NewId() (ID, error) {
-	uuid, err := uuid.NewUUID()
-	if err != nil {
-		return "", fmt.Errorf("generating new machine id: %w", err)
-	}
-
-	return ID(uuid.String()), nil
-}
-
-// Validate returns an error if the [ID] is invalid. The error returned
+// Validate returns an error if the [Name] is invalid. The error returned
 // satisfies [errors.NotValid].
-func (i ID) Validate() error {
-	if i == "" {
-		return fmt.Errorf("empty machine id%w", errors.Hide(errors.NotValid))
-	}
-	if !uuid.IsValidUUIDString(string(i)) {
-		return fmt.Errorf("invalid machine id: %q%w", i, errors.Hide(errors.NotValid))
-	}
+//
+// Currently no validation for name is performed. This allows us to add
+// validation in future versions.
+func (i Name) Validate() error {
 	return nil
 }
 
-// String returns the [ID] as a string.
-func (i ID) String() string {
+// String returns the [Name] as a string.
+func (i Name) String() string {
 	return string(i)
 }
