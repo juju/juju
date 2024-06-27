@@ -47,6 +47,7 @@ TEST_NAMES="agents \
             caasadmission \
             charmhub \
             cli \
+            cloud_azure \
             constraints \
             controller \
             coslite \

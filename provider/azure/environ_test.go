@@ -265,7 +265,6 @@ func openEnviron(
 	*sender = azuretesting.Senders{
 		discoverAuthSender(),
 		makeResourceGroupNotFoundSender(fmt.Sprintf(".*/resourcegroups/juju-%s-model-deadbeef-.*", cfg.Name())),
-		makeSender(fmt.Sprintf(".*/resourcegroups/juju-%s-.*", cfg.Name()), makeResourceGroupResult()),
 	}
 	env, err := environs.Open(stdcontext.TODO(), provider, environs.OpenParams{
 		Cloud:  fakeCloudSpec(),
@@ -1006,6 +1005,7 @@ type assertStartInstanceRequestsParams struct {
 	withQuotaRetry      bool
 	withConflictRetry   bool
 	hasSpaceConstraints bool
+	managedIdentity     string
 }
 
 func (s *environSuite) assertStartInstanceRequests(
@@ -1279,7 +1279,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		})
 	}
 	templateResources = append(templateResources, nicResources...)
-	templateResources = append(templateResources, []armtemplates.Resource{{
+	vmTemplate := armtemplates.Resource{
 		APIVersion: azure.ComputeAPIVersion,
 		Type:       "Microsoft.Compute/virtualMachines",
 		Name:       "juju-06f00d-0",
@@ -1300,7 +1300,18 @@ func (s *environSuite) assertStartInstanceRequests(
 			AvailabilitySet: availabilitySetSubResource,
 		},
 		DependsOn: vmDependsOn,
-	}}...)
+	}
+	if args.managedIdentity != "" {
+		vmTemplate.Identity = &armcompute.VirtualMachineIdentity{
+			Type: to.Ptr(armcompute.ResourceIdentityTypeUserAssigned),
+			UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
+				fmt.Sprintf(
+					"/subscriptions/%s/resourcegroups/%s/providers/Microsoft.ManagedIdentity/userAssignedIdentities/%s",
+					fakeManagedSubscriptionId, resourceGroupName, args.managedIdentity): nil,
+			},
+		}
+	}
+	templateResources = append(templateResources, vmTemplate)
 	if args.vmExtension != nil {
 		templateResources = append(templateResources, armtemplates.Resource{
 			APIVersion: azure.ComputeAPIVersion,
@@ -1313,7 +1324,7 @@ func (s *environSuite) assertStartInstanceRequests(
 		})
 	}
 	templateMap := map[string]interface{}{
-		"$schema":        "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+		"$schema":        "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
 		"contentVersion": "1.0.0.0",
 		"resources":      templateResources,
 	}
@@ -1423,6 +1434,18 @@ func (s *environSuite) assertStartInstanceRequests(
 	vmResourceProperties := vmResource["properties"].(map[string]interface{})
 	osProfile := vmResourceProperties["osProfile"].(map[string]interface{})
 	osProfile["customData"] = "<juju-goes-here>"
+
+	// Fix the round tripping of the vm identities.
+	resources, ok = expected.Properties.Template.(map[string]interface{})["resources"].([]interface{})
+	c.Assert(ok, jc.IsTrue)
+	identity, _ := resources[vmResourceIndex].(map[string]interface{})["identity"]
+	if identity != nil {
+		userAssignedIdentities, _ := identity.(map[string]interface{})["userAssignedIdentities"].(map[string]interface{})
+		for k := range userAssignedIdentities {
+			userAssignedIdentities[k] = map[string]interface{}{}
+		}
+	}
+
 	c.Assert(actual, jc.DeepEquals, expected)
 
 	return startInstanceRequests
@@ -1538,6 +1561,42 @@ func (s *environSuite) TestBootstrapCustomNetwork(c *gc.C) {
 		instanceType:        "Standard_D1",
 		publicIP:            true,
 		existingNetwork:     "mynetwork",
+	})
+}
+
+func (s *environSuite) TestBootstrapUserSpecifiedManagedIdentity(c *gc.C) {
+	defer envtesting.DisableFinishBootstrap()()
+
+	ctx := envtesting.BootstrapTODOContext(c)
+	env := prepareForBootstrap(c, ctx, s.provider, &s.sender)
+
+	s.sender = s.initResourceGroupSenders(resourceGroupName)
+	s.sender = append(s.sender, s.startInstanceSenders(
+		startInstanceSenderParams{bootstrap: true})...)
+	s.requests = nil
+	result, err := env.Bootstrap(
+		ctx, s.callCtx, environs.BootstrapParams{
+			ControllerConfig:        testing.FakeControllerConfig(),
+			AvailableTools:          makeToolsList("ubuntu"),
+			BootstrapBase:           corebase.MustParseBaseFromString("ubuntu@22.04"),
+			BootstrapConstraints:    constraints.MustParse("mem=3.5G instance-role=myidentity"),
+			SupportedBootstrapBases: testing.FakeSupportedJujuBases,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Arch, gc.Equals, "amd64")
+	c.Assert(result.Base.DisplayString(), gc.Equals, "ubuntu@22.04")
+
+	c.Assert(len(s.requests), gc.Equals, numExpectedBootstrapStartInstanceRequests)
+	s.vmTags[tags.JujuIsController] = "true"
+	s.assertStartInstanceRequests(c, s.requests[1:], assertStartInstanceRequestsParams{
+		availabilitySetName: "juju-controller",
+		imageReference:      &jammyImageReference,
+		diskSizeGB:          32,
+		osProfile:           &s.linuxOsProfile,
+		instanceType:        "Standard_D1",
+		publicIP:            true,
+		managedIdentity:     "myidentity",
 	})
 }
 

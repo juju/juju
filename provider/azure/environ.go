@@ -17,6 +17,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
@@ -27,6 +28,7 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/arch"
@@ -74,8 +76,10 @@ const (
 	// commonDeployment is used to create resources common to all models.
 	commonDeployment = "common"
 
-	computeAPIVersion = "2021-11-01"
-	networkAPIVersion = "2018-08-01"
+	computeAPIVersion  = "2021-11-01"
+	networkAPIVersion  = "2018-08-01"
+	identityAPIVersion = "2023-07-31-preview"
+	roleAPIVersion     = "2022-04-01"
 )
 
 type azureEnviron struct {
@@ -124,8 +128,8 @@ type azureEnviron struct {
 var _ environs.Environ = (*azureEnviron)(nil)
 
 // SetCloudSpec is specified in the environs.Environ interface.
-func (env *azureEnviron) SetCloudSpec(ctx stdcontext.Context, cloud environscloudspec.CloudSpec) error {
-	if err := validateCloudSpec(cloud); err != nil {
+func (env *azureEnviron) SetCloudSpec(ctx stdcontext.Context, cloudSpec environscloudspec.CloudSpec) error {
+	if err := validateCloudSpec(cloudSpec); err != nil {
 		return errors.Annotate(err, "validating cloud spec")
 	}
 
@@ -133,23 +137,29 @@ func (env *azureEnviron) SetCloudSpec(ctx stdcontext.Context, cloud environsclou
 	defer env.mu.Unlock()
 
 	// The Azure storage code wants the endpoint host only, not the URL.
-	storageEndpointURL, err := url.Parse(cloud.StorageEndpoint)
+	storageEndpointURL, err := url.Parse(cloudSpec.StorageEndpoint)
 	if err != nil {
 		return errors.Annotate(err, "parsing storage endpoint URL")
 	}
-	env.cloud = cloud
-	env.location = canonicalLocation(cloud.Region)
+	env.cloud = cloudSpec
+	env.location = canonicalLocation(cloudSpec.Region)
 	env.storageEndpoint = storageEndpointURL.Host
+
+	cfg := env.config
+	env.resourceGroup = cfg.resourceGroupName
+	// If using a managed identity, the resource group can (and needs to) be set
+	// without any further checks since those were done at bootstrap.
+	if env.resourceGroup == "" && env.cloud.Credential.AuthType() == cloud.InstanceRoleAuthType {
+		modelTag := names.NewModelTag(cfg.UUID())
+		env.resourceGroup = resourceGroupName(modelTag, cfg.Name())
+	}
 
 	if err := env.initEnviron(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
-	cfg := env.config
-	if env.resourceGroup == "" {
-		env.resourceGroup = cfg.resourceGroupName
-	}
 	// If no user specified resource group, make one from the model UUID.
+	// This is only done at bootstrap.
 	if env.resourceGroup == "" {
 		modelTag := names.NewModelTag(cfg.UUID())
 		if env.resourceGroup, err = env.resourceGroupName(ctx, modelTag, cfg.Name()); err != nil {
@@ -193,11 +203,24 @@ func (env *azureEnviron) initEnviron(ctx stdcontext.Context) error {
 	logger.Debugf("discovered tenant id: %s", tenantID)
 	env.tenantId = tenantID
 
-	appId := credAttrs[credAttrAppId]
-	appPassword := credAttrs[credAttrAppPassword]
-	env.credential, err = env.provider.config.CreateTokenCredential(appId, appPassword, tenantID, env.clientOptions)
-	if err != nil {
-		return errors.Annotate(err, "set up credential")
+	if env.cloud.Credential.AuthType() == cloud.InstanceRoleAuthType {
+		managedIdentity := env.cloud.Credential.Attributes()[credManagedIdentity]
+		managedIdentityId := env.managedIdentityResourceId(managedIdentity)
+		logger.Debugf("using managed identity id: %s", managedIdentityId)
+		env.credential, err = azidentity.NewManagedIdentityCredential(&azidentity.ManagedIdentityCredentialOptions{
+			ClientOptions: env.clientOptions,
+			ID:            azidentity.ResourceID(managedIdentityId),
+		})
+		if err != nil {
+			return errors.Annotate(err, "set up managed identity credential")
+		}
+	} else {
+		appId := credAttrs[credAttrAppId]
+		appPassword := credAttrs[credAttrAppPassword]
+		env.credential, err = env.provider.config.CreateTokenCredential(appId, appPassword, tenantID, env.clientOptions)
+		if err != nil {
+			return errors.Annotate(err, "set up credential")
+		}
 	}
 	return nil
 }
@@ -230,7 +253,11 @@ func (env *azureEnviron) Bootstrap(
 	callCtx context.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
-	if err := env.initResourceGroup(callCtx, args.ControllerConfig.ControllerUUID(), env.config.resourceGroupName != "", true); err != nil {
+	existingResourceGroup := env.config.resourceGroupName != ""
+	if !existingResourceGroup && args.BootstrapConstraints.HasInstanceRole() {
+		existingResourceGroup = env.managedIdentityGroup(*args.BootstrapConstraints.InstanceRole) == env.resourceGroup
+	}
+	if err := env.initResourceGroup(callCtx, args.ControllerConfig.ControllerUUID(), existingResourceGroup, true); err != nil {
 		return nil, errors.Annotate(err, "creating controller resource group")
 	}
 	result, err := common.Bootstrap(ctx, env, callCtx, args)
@@ -266,8 +293,9 @@ func (env *azureEnviron) Bootstrap(
 // initResourceGroup creates a resource group for this environment.
 func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, controllerUUID string, existingResourceGroup, controller bool) error {
 	env.mu.Lock()
+	modelTag := names.NewModelTag(env.config.Config.UUID())
 	resourceTags := tags.ResourceTags(
-		names.NewModelTag(env.config.Config.UUID()),
+		modelTag,
 		names.NewControllerTag(controllerUUID),
 		env.config,
 	)
@@ -285,6 +313,9 @@ func (env *azureEnviron) initResourceGroup(ctx context.ProviderCallContext, cont
 		}
 		if region := toValue(g.Location); region != env.location {
 			return errors.Errorf("cannot use resource group in region %q when operating in region %q", region, env.location)
+		}
+		if err := env.checkResourceGroup(g.ResourceGroup, modelTag); err != nil {
+			return errorutils.HandleCredentialError(errors.Annotate(err, "validating resource group"), ctx)
 		}
 	} else {
 		logger.Debugf("creating resource group %q for model %q", env.resourceGroup, env.modelName)
@@ -822,7 +853,7 @@ func (env *azureEnviron) createVirtualMachine(
 		})
 	}
 
-	res = append(res, armtemplates.Resource{
+	vmTemplate := armtemplates.Resource{
 		APIVersion: computeAPIVersion,
 		Type:       "Microsoft.Compute/virtualMachines",
 		Name:       vmName,
@@ -842,7 +873,30 @@ func (env *azureEnviron) createVirtualMachine(
 			AvailabilitySet: availabilitySetSubResource,
 		},
 		DependsOn: vmDependsOn,
-	})
+	}
+	// For controllers, check to see if we need to assign a managed identity resource to the vm.
+	if instanceConfig.IsController() {
+		var managedIdentity string
+		if env.cloud.Credential.AuthType() == cloud.InstanceRoleAuthType {
+			// Add a new controller after bootstrap (enable-ha).
+			managedIdentity = env.cloud.Credential.Attributes()[credManagedIdentity]
+		} else if instanceConfig.Bootstrap.BootstrapMachineConstraints.HasInstanceRole() {
+			// Bootstrap.
+			managedIdentity = *instanceConfig.Bootstrap.BootstrapMachineConstraints.InstanceRole
+		}
+		if managedIdentity != "" {
+			managedIdentityId := env.managedIdentityResourceId(managedIdentity)
+			logger.Debugf("creating instance using managed identity id: %s", managedIdentityId)
+			vmTemplate.Identity = &armcompute.VirtualMachineIdentity{
+				Type: to.Ptr(armcompute.ResourceIdentityTypeUserAssigned),
+				UserAssignedIdentities: map[string]*armcompute.UserAssignedIdentitiesValue{
+					managedIdentityId: {},
+				},
+			}
+		}
+	}
+
+	res = append(res, vmTemplate)
 
 	// On CentOS, we must add the CustomScript VM extension to run the
 	// CustomData script.
@@ -2083,7 +2137,7 @@ func (env *azureEnviron) resourceGroupName(ctx stdcontext.Context, modelTag name
 	}
 	// First look for a resource group name with the full model UUID.
 	legacyName := legacyResourceGroupName(modelTag, modelName)
-	g, err := resourceGroups.Get(ctx, legacyName, nil)
+	_, err = resourceGroups.Get(ctx, legacyName, nil)
 	if err == nil {
 		logger.Debugf("using existing legacy resource group %q for model %q", legacyName, modelName)
 		return legacyName, nil
@@ -2094,20 +2148,19 @@ func (env *azureEnviron) resourceGroupName(ctx stdcontext.Context, modelTag name
 
 	logger.Debugf("legacy resource group name doesn't exist, using short name")
 	resourceGroup := resourceGroupName(modelTag, modelName)
-	g, err = resourceGroups.Get(ctx, resourceGroup, nil)
-	if err == nil {
-		mTag, ok := g.Tags[tags.JujuModel]
-		if !ok || toValue(mTag) != modelTag.Id() {
-			// This should never happen in practice - combination of model name and first 8
-			// digits of UUID should be unique.
-			return "", errors.Errorf("unexpected model UUID on resource group %q; expected %q, got %q", resourceGroup, modelTag.Id(), toValue(mTag))
-		}
-		return resourceGroup, nil
+	return resourceGroup, nil
+}
+
+// checkResourceGroup ensures the resource group is not tagged for a different model.
+func (env *azureEnviron) checkResourceGroup(g armresources.ResourceGroup, modelTag names.ModelTag) error {
+	mTag, ok := g.Tags[tags.JujuModel]
+	tagValue := toValue(mTag)
+	if ok && tagValue != "" && tagValue != modelTag.Id() {
+		// This should never happen in practice - combination of model name and first 8
+		// digits of UUID should be unique.
+		return errors.Errorf("unexpected model UUID on resource group %q; expected %q, got %q", env.resourceGroup, modelTag.Id(), tagValue)
 	}
-	if errorutils.IsNotFoundError(err) {
-		return resourceGroup, nil
-	}
-	return "", errors.Trace(err)
+	return nil
 }
 
 // resourceGroupName returns the name of the environment's resource group.
