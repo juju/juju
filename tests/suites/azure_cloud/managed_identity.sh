@@ -52,8 +52,10 @@ run_custom_managed_identity() {
 	echo "${group}" >>"${TEST_DIR}/azure-groups"
 	az identity create --resource-group "${group}" --name jmid
 	mid=$(az identity show --resource-group "${group}" --name jmid --query principalId --output tsv)
-	echo "${mid}" >>"${TEST_DIR}/azure-managed-identities"
-	az role assignment create --assignee-object-id "${mid}" --assignee-principal-type "ServicePrincipal" --role "JujuRoles" --scope "/subscriptions/${subscription}"
+	rid=$(az role assignment create --assignee-object-id "${mid}" --assignee-principal-type "ServicePrincipal" --role "JujuRoles" --scope "/subscriptions/${subscription}" | jq -r .id)
+	if [[ -n "${rid}" ]]; then
+		echo "${rid}" >>"${TEST_DIR}/azure-role-assignments"
+	fi
 
 	name="azure-custom-managed-identity"
 	file="${TEST_DIR}/test-custom-managed-identity.log"
@@ -73,10 +75,10 @@ run_cleanup_azure() {
 	echo "==> Removed resource groups"
 
 	echo "==> Removing role assignments"
-	if [[ -f "${TEST_DIR}/azure-managed-identities" ]]; then
-		while read -r assignee; do
-			az role assignment delete --assignee "${assignee}" >>"${TEST_DIR}/azure_cleanup"
-		done <"${TEST_DIR}/azure-managed-identities"
+	if [[ -f "${TEST_DIR}/azure-role-assignments" ]]; then
+		while read -r id; do
+			az role assignment delete --ids "${id}" >>"${TEST_DIR}/azure_cleanup"
+		done <"${TEST_DIR}/azure-role-assignments"
 	fi
 	echo "==> Removed role assignments"
 }
