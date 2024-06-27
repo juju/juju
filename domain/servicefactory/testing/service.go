@@ -18,6 +18,7 @@ import (
 	flagservice "github.com/juju/juju/domain/flag/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	modelservice "github.com/juju/juju/domain/model/service"
+	modelagentservice "github.com/juju/juju/domain/modelagent/service"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	networkservice "github.com/juju/juju/domain/network/service"
@@ -139,6 +140,11 @@ func (s *TestingServiceFactory) Storage(storage.ProviderRegistry) *storageservic
 
 // Secret returns the secret service.
 func (s *TestingServiceFactory) Secret(secretservice.BackendAdminConfigGetter) *secretservice.WatchableService {
+	return nil
+}
+
+// Agent returns the modelagent service.
+func (s *TestingServiceFactory) Agent() *modelagentservice.ModelService {
 	return nil
 }
 

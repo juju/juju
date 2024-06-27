@@ -19,6 +19,8 @@ import (
 	machinestate "github.com/juju/juju/domain/machine/state"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
+	modelagentservice "github.com/juju/juju/domain/modelagent/service"
+	modelagentstate "github.com/juju/juju/domain/modelagent/state"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
@@ -167,6 +169,15 @@ func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfig
 	)
 }
 
+// Agent returns the model's agent service.
+func (s *ModelFactory) Agent() *modelagentservice.ModelService {
+	return modelagentservice.NewModelService(
+		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		s.modelUUID,
+	)
+}
+
+// ModelInfo returns the model info service.
 func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
 	return modelservice.NewModelService(
 		s.modelUUID,
