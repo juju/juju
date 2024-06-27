@@ -39,20 +39,18 @@ func (s *bakerySuite) getLocalOfferBakery(c *gc.C) (*crossmodel.OfferBakery, *go
 
 	mockRoundTripper := mocks.NewMockRoundTripper(ctrl)
 	s.PatchValue(&crossmodel.DefaultTransport, mockRoundTripper)
-	mockBakeryConfig := mocks.NewMockBakeryConfig(ctrl)
 	mockExpirableStorage := mocks.NewMockExpirableStorage(ctrl)
 	mockFirstPartyCaveatChecker := mocks.NewMockFirstPartyCaveatChecker(ctrl)
 	s.mockExpirableStorageBakery = mocks.NewMockExpirableStorageBakery(ctrl)
 
 	key, err := bakery.GenerateKey()
 	c.Assert(err, gc.IsNil)
-	mockBakeryConfig.EXPECT().GetOffersThirdPartyKey().Return(key, nil)
 	mockFirstPartyCaveatChecker.EXPECT().Namespace().Return(nil)
 
-	b, err := crossmodel.NewLocalOfferBakery("", mockBakeryConfig, mockExpirableStorage, mockFirstPartyCaveatChecker)
+	b, err := crossmodel.NewLocalOfferBakery("", key, mockExpirableStorage, mockFirstPartyCaveatChecker)
 	c.Assert(err, gc.IsNil)
 	c.Assert(b, gc.NotNil)
-	url, err := b.RefreshDischargeURL("https://example.com/offeraccess")
+	url, err := b.RefreshDischargeURL(context.Background(), "https://example.com/offeraccess")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.Equals, "https://example.com/offeraccess")
 	return b, ctrl
@@ -63,13 +61,13 @@ func (s *bakerySuite) getJaaSOfferBakery(c *gc.C) (*crossmodel.JaaSOfferBakery, 
 
 	s.mockRoundTripper = mocks.NewMockRoundTripper(ctrl)
 	s.PatchValue(&crossmodel.DefaultTransport, s.mockRoundTripper)
-	mockBakeryConfig := mocks.NewMockBakeryConfig(ctrl)
+	mockBakeryConfig := mocks.NewMockBakeryConfigService(ctrl)
 	mockExpirableStorage := mocks.NewMockExpirableStorage(ctrl)
 	mockFirstPartyCaveatChecker := mocks.NewMockFirstPartyCaveatChecker(ctrl)
 
 	key, err := bakery.GenerateKey()
 	c.Assert(err, gc.IsNil)
-	mockBakeryConfig.EXPECT().GetExternalUsersThirdPartyKey().Return(key, nil).AnyTimes()
+	mockBakeryConfig.EXPECT().GetExternalUsersThirdPartyKey(gomock.Any()).Return(key, nil).AnyTimes()
 	mockFirstPartyCaveatChecker.EXPECT().Namespace().Return(nil).AnyTimes()
 	s.mockRoundTripper.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(
 		func(req *http.Request) (*http.Response, error) {
@@ -90,6 +88,7 @@ func (s *bakerySuite) getJaaSOfferBakery(c *gc.C) (*crossmodel.JaaSOfferBakery, 
 	)
 
 	b, err := crossmodel.NewJaaSOfferBakery(
+		context.Background(),
 		"https://example.com/.well-known/jwks.json", "",
 		mockBakeryConfig, mockExpirableStorage, mockFirstPartyCaveatChecker,
 	)
@@ -102,7 +101,7 @@ func (s *bakerySuite) TestRefreshDischargeURL(c *gc.C) {
 	offerBakery, ctrl := s.getLocalOfferBakery(c)
 	defer ctrl.Finish()
 
-	result, err := offerBakery.RefreshDischargeURL("https://example-1.com/offeraccess")
+	result, err := offerBakery.RefreshDischargeURL(context.Background(), "https://example-1.com/offeraccess")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, "https://example-1.com/offeraccess")
 }
@@ -129,7 +128,7 @@ func (s *bakerySuite) TestRefreshDischargeURLJaaS(c *gc.C) {
 		},
 	)
 
-	result, err := offerBakery.RefreshDischargeURL("https://example-1.com/.well-known/jwks.json")
+	result, err := offerBakery.RefreshDischargeURL(context.Background(), "https://example-1.com/.well-known/jwks.json")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, "https://example-1.com/macaroons")
 }

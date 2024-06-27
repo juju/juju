@@ -67,6 +67,7 @@ type AgentAuthenticatorFactory interface {
 type authContext struct {
 	st                      *state.State
 	controllerConfigService ControllerConfigService
+	bakeryConfigService     BakeryConfigService
 	userService             UserService
 
 	clock            clock.Clock
@@ -109,9 +110,11 @@ func (OpenLoginAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery
 
 // newAuthContext creates a new authentication context for st.
 func newAuthContext(
+	ctx context.Context,
 	st *state.State,
 	controllerConfigService ControllerConfigService,
 	userService UserService,
+	bakeryConfigService BakeryConfigService,
 	agentAuthFactory AgentAuthenticatorFactory,
 	clock clock.Clock,
 ) (*authContext, error) {
@@ -120,6 +123,7 @@ func newAuthContext(
 		clock:                   clock,
 		controllerConfigService: controllerConfigService,
 		userService:             userService,
+		bakeryConfigService:     bakeryConfigService,
 		localUserInteractions:   authentication.NewInteractions(),
 		agentAuthFactory:        agentAuthFactory,
 	}
@@ -135,10 +139,9 @@ func newAuthContext(
 		func(ctx context.Context, cond, arg string) error { return nil },
 	)
 
-	bakeryConfig := st.NewBakeryConfig()
 	location := "juju model " + st.ModelUUID()
 	var err error
-	ctxt.localUserThirdPartyBakeryKey, err = bakeryConfig.GetLocalUsersThirdPartyKey()
+	ctxt.localUserThirdPartyBakeryKey, err = bakeryConfigService.GetLocalUsersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "generating key for local user third party bakery key")
 	}
@@ -159,7 +162,7 @@ func newAuthContext(
 	locator := bakeryutil.BakeryThirdPartyLocator{
 		PublicKey: ctxt.localUserThirdPartyBakeryKey.Public,
 	}
-	localUserBakeryKey, err := bakeryConfig.GetLocalUsersKey()
+	localUserBakeryKey, err := bakeryConfigService.GetLocalUsersKey(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "generating key for local user bakery key")
 	}
@@ -308,7 +311,14 @@ func (a authenticator) localUserAuth() *authentication.LocalUserAuthenticator {
 // logins for external users. If it fails once, it will always fail.
 func (ctxt *authContext) externalMacaroonAuth(ctx context.Context, identClient identchecker.IdentityClient) (authentication.EntityAuthenticator, error) {
 	ctxt.macaroonAuthOnce.Do(func() {
-		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctx, ctxt.st, ctxt.controllerConfigService, ctxt.clock, externalLoginExpiryTime, identClient)
+		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctx, externalMacaroonAuthenticatorConfig{
+			st:                      ctxt.st,
+			controllerConfigService: ctxt.controllerConfigService,
+			bakeryConfigService:     ctxt.bakeryConfigService,
+			clock:                   ctxt.clock,
+			expiryTime:              externalLoginExpiryTime,
+			identClient:             identClient,
+		})
 	})
 	if ctxt._macaroonAuth == nil {
 		return nil, errors.Trace(ctxt._macaroonAuthError)
@@ -316,11 +326,20 @@ func (ctxt *authContext) externalMacaroonAuth(ctx context.Context, identClient i
 	return ctxt._macaroonAuth, nil
 }
 
+type externalMacaroonAuthenticatorConfig struct {
+	st                      *state.State
+	controllerConfigService ControllerConfigService
+	bakeryConfigService     BakeryConfigService
+	clock                   clock.Clock
+	expiryTime              time.Duration
+	identClient             identchecker.IdentityClient
+}
+
 // newExternalMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins for external users. This is just a helper function
 // for authCtxt.externalMacaroonAuth.
-func newExternalMacaroonAuth(ctx context.Context, st *state.State, controllerConfigService ControllerConfigService, clock clock.Clock, expiryTime time.Duration, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
-	controllerCfg, err := controllerConfigService.ControllerConfig(ctx)
+func newExternalMacaroonAuth(ctx context.Context, cfg externalMacaroonAuthenticatorConfig) (*authentication.ExternalMacaroonAuthenticator, error) {
+	controllerCfg, err := cfg.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get controller config")
 	}
@@ -329,8 +348,7 @@ func newExternalMacaroonAuth(ctx context.Context, st *state.State, controllerCon
 		return nil, errMacaroonAuthNotConfigured
 	}
 	idPK := controllerCfg.IdentityPublicKey()
-	bakeryConfig := st.NewBakeryConfig()
-	key, err := bakeryConfig.GetExternalUsersThirdPartyKey()
+	key, err := cfg.bakeryConfigService.GetExternalUsersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -345,23 +363,23 @@ func newExternalMacaroonAuth(ctx context.Context, st *state.State, controllerCon
 	}
 
 	auth := authentication.ExternalMacaroonAuthenticator{
-		Clock:            clock,
+		Clock:            cfg.clock,
 		IdentityLocation: idURL,
 	}
 
-	store, err := st.NewBakeryStorage()
+	store, err := cfg.st.NewBakeryStorage()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	store = store.ExpireAfter(expiryTime)
-	if identClient == nil {
-		identClient = &auth
+	store = store.ExpireAfter(cfg.expiryTime)
+	if cfg.identClient == nil {
+		cfg.identClient = &auth
 	}
 	identBakery := identchecker.NewBakery(identchecker.BakeryParams{
 		Checker:        httpbakery.NewChecker(),
 		Locator:        pkLocator,
 		Key:            key,
-		IdentityClient: identClient,
+		IdentityClient: cfg.identClient,
 		RootKeyStore:   store,
 		Authorizer: identchecker.ACLAuthorizer{
 			GetACL: func(ctx context.Context, op bakery.Op) ([]string, bool, error) {

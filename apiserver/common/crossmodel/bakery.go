@@ -39,7 +39,7 @@ type OfferBakeryInterface interface {
 	setClock(clock.Clock)
 	getBakery() authentication.ExpirableStorageBakery
 
-	RefreshDischargeURL(string) (string, error)
+	RefreshDischargeURL(context.Context, string) (string, error)
 	GetConsumeOfferCaveats(offerUUID, sourceModelUUID, username string) []checkers.Caveat
 	InferDeclaredFromMacaroon(macaroon.Slice, map[string]string) map[string]string
 	CreateDischargeMacaroon(
@@ -60,7 +60,7 @@ func (o *OfferBakery) getBakery() authentication.ExpirableStorageBakery {
 }
 
 // RefreshDischargeURL updates the discharge URL for the bakery service.
-func (o *OfferBakery) RefreshDischargeURL(accessEndpoint string) (string, error) {
+func (o *OfferBakery) RefreshDischargeURL(_ context.Context, accessEndpoint string) (string, error) {
 	return accessEndpoint, nil
 }
 
@@ -72,21 +72,17 @@ func NewOfferBakeryForTest(bakery authentication.ExpirableStorageBakery, clk clo
 // NewLocalOfferBakery creates a new bakery service for local offer access.
 func NewLocalOfferBakery(
 	location string,
-	bakeryConfig bakerystorage.BakeryConfig,
+	offersThirdPartyKey *bakery.KeyPair,
 	store bakerystorage.ExpirableStorage,
 	checker bakery.FirstPartyCaveatChecker,
 ) (*OfferBakery, error) {
-	key, err := bakeryConfig.GetOffersThirdPartyKey()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: key.Public}
+	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: offersThirdPartyKey.Public}
 	localOfferBakery := bakery.New(
 		bakery.BakeryParams{
 			Checker:       checker,
 			RootKeyStore:  store,
 			Locator:       locator,
-			Key:           key,
+			Key:           offersThirdPartyKey,
 			OpsAuthorizer: CrossModelAuthorizer{},
 			Location:      location,
 		},
@@ -94,7 +90,7 @@ func NewLocalOfferBakery(
 	bakery := &bakeryutil.ExpirableStorageBakery{
 		Bakery:   localOfferBakery,
 		Location: location,
-		Key:      key,
+		Key:      offersThirdPartyKey,
 		Store:    store,
 		Locator:  locator,
 	}
@@ -107,13 +103,13 @@ type JaaSOfferBakery struct {
 
 	location               string
 	currrentAccessEndpoint string
-	bakeryConfig           bakerystorage.BakeryConfig
+	bakeryConfigService    BakeryConfigService
 	store                  bakerystorage.ExpirableStorage
 	checker                bakery.FirstPartyCaveatChecker
 }
 
 // RefreshDischargeURL updates the discharge URL for the bakery service.
-func (o *JaaSOfferBakery) RefreshDischargeURL(accessEndpoint string) (string, error) {
+func (o *JaaSOfferBakery) RefreshDischargeURL(ctx context.Context, accessEndpoint string) (string, error) {
 	accessEndpoint, err := o.cleanDischargeURL(accessEndpoint)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -122,7 +118,7 @@ func (o *JaaSOfferBakery) RefreshDischargeURL(accessEndpoint string) (string, er
 		return accessEndpoint, nil
 	}
 	o.currrentAccessEndpoint = accessEndpoint
-	return accessEndpoint, errors.Trace(o.refreshBakery(accessEndpoint))
+	return accessEndpoint, errors.Trace(o.refreshBakery(ctx, accessEndpoint))
 }
 
 func (o *JaaSOfferBakery) cleanDischargeURL(addr string) (string, error) {
@@ -134,15 +130,15 @@ func (o *JaaSOfferBakery) cleanDischargeURL(addr string) (string, error) {
 	return refreshURL.String(), nil
 }
 
-func (o *JaaSOfferBakery) refreshBakery(accessEndpoint string) (err error) {
+func (o *JaaSOfferBakery) refreshBakery(ctx context.Context, accessEndpoint string) (err error) {
 	thirdPartyInfo, err := httpbakery.ThirdPartyInfoForLocation(
-		context.TODO(), &http.Client{Transport: DefaultTransport}, accessEndpoint,
+		ctx, &http.Client{Transport: DefaultTransport}, accessEndpoint,
 	)
 	logger.Tracef("got third party info %#v from %q", thirdPartyInfo, accessEndpoint)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	key, err := o.bakeryConfig.GetExternalUsersThirdPartyKey()
+	key, err := o.bakeryConfigService.GetExternalUsersThirdPartyKey(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -177,19 +173,20 @@ var (
 
 // NewJaaSOfferBakery creates a new bakery service for JaaS offer access.
 func NewJaaSOfferBakery(
+	ctx context.Context,
 	loginTokenRefreshURL, location string,
-	bakeryConfig bakerystorage.BakeryConfig,
+	bakeryConfigService BakeryConfigService,
 	store bakerystorage.ExpirableStorage,
 	checker bakery.FirstPartyCaveatChecker,
 ) (*JaaSOfferBakery, error) {
 	offerBakery := &JaaSOfferBakery{
-		location:     location,
-		bakeryConfig: bakeryConfig,
-		store:        store,
-		checker:      checker,
-		OfferBakery:  &OfferBakery{clock: clock.WallClock},
+		location:            location,
+		bakeryConfigService: bakeryConfigService,
+		store:               store,
+		checker:             checker,
+		OfferBakery:         &OfferBakery{clock: clock.WallClock},
 	}
-	if _, err := offerBakery.RefreshDischargeURL(loginTokenRefreshURL); err != nil {
+	if _, err := offerBakery.RefreshDischargeURL(ctx, loginTokenRefreshURL); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return offerBakery, nil

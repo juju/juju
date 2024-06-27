@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	accessservice "github.com/juju/juju/domain/access/service"
+	bakerystorage "github.com/juju/juju/domain/bakerystorage/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/httpserverargs"
@@ -75,14 +76,16 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 }
 
 func (s *ManifoldSuite) newStateAuthenticator(
+	ctx context.Context,
 	statePool *state.StatePool,
 	controllerConfig httpserverargs.ControllerConfigService,
 	userService httpserverargs.UserService,
+	bakerystorage httpserverargs.BakeryConfigService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	s.stub.MethodCall(s, "NewStateAuthenticator", statePool, controllerConfig, userService, mux, clock, abort)
+	s.stub.MethodCall(s, "NewStateAuthenticator", ctx, statePool, controllerConfig, userService, mux, clock, abort)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}
@@ -150,8 +153,8 @@ func (s *ManifoldSuite) TestStoppingWorkerClosesAuthenticator(c *gc.C) {
 	w := s.startWorkerClean(c)
 	s.stub.CheckCallNames(c, "NewStateAuthenticator")
 	authArgs := s.stub.Calls()[0].Args
-	c.Assert(authArgs, gc.HasLen, 6)
-	abort := authArgs[5].(<-chan struct{})
+	c.Assert(authArgs, gc.HasLen, 7)
+	abort := authArgs[6].(<-chan struct{})
 
 	// abort should still be open at this point.
 	select {
@@ -237,5 +240,10 @@ func (s *stubServiceFactory) ControllerConfig() *controllerconfigservice.Watchab
 
 func (s *stubServiceFactory) Access() *accessservice.Service {
 	s.MethodCall(s, "Access")
+	return nil
+}
+
+func (s *stubServiceFactory) Macaroon() *bakerystorage.Service {
+	s.MethodCall(s, "Macaroon")
 	return nil
 }

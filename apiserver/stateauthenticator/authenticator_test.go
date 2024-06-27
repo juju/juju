@@ -6,6 +6,7 @@ package stateauthenticator
 import (
 	"context"
 
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -29,6 +30,7 @@ type agentAuthenticatorSuite struct {
 	agentAuthenticatorFactory *MockAgentAuthenticatorFactory
 	controllerConfigService   *MockControllerConfigService
 	userService               *MockUserService
+	bakeryConfigService       *MockBakeryConfigService
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
@@ -133,7 +135,11 @@ func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.userService = NewMockUserService(ctrl)
 
-	authenticator, err := NewAuthenticator(s.StatePool, s.State, s.controllerConfigService, s.userService, s.agentAuthenticatorFactory, clock.WallClock)
+	s.bakeryConfigService = NewMockBakeryConfigService(ctrl)
+	s.bakeryConfigService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
+	s.bakeryConfigService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
+
+	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, s.State, s.controllerConfigService, s.userService, s.bakeryConfigService, s.agentAuthenticatorFactory, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 

@@ -28,11 +28,3 @@ func (st *State) NewBakeryStorage() (bakerystorage.ExpirableStorage, error) {
 		},
 	})
 }
-
-// NewBakeryConfig returns a new bakerystorage.BakeryConfig instance.
-func (st *State) NewBakeryConfig() bakerystorage.BakeryConfig {
-	collectionGetter := func(collection string) (mongo.Collection, func()) {
-		return st.db().GetCollection(collection)
-	}
-	return bakerystorage.NewBakeryConfig(controllersC, collectionGetter)
-}

@@ -26,6 +26,11 @@ type localOfferAuthHandler struct {
 	authCtx *crossmodel.AuthContext
 }
 
+type BakeryConfigService interface {
+	GetOffersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error)
+	GetExternalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error)
+}
+
 func addOfferAuthHandlers(offerAuthCtxt *crossmodel.AuthContext, mux *apiserverhttp.Mux) {
 	appOfferHandler := &localOfferAuthHandler{authCtx: offerAuthCtxt}
 	appOfferDischargeMux := http.NewServeMux()
@@ -41,7 +46,7 @@ func addOfferAuthHandlers(offerAuthCtxt *crossmodel.AuthContext, mux *apiserverh
 	_ = mux.AddHandler("GET", localOfferAccessLocationPath+"/publickey", appOfferDischargeMux)
 }
 
-func newOfferAuthContext(ctx context.Context, pool *state.StatePool, controllerConfigService ControllerConfigService) (*crossmodel.AuthContext, error) {
+func newOfferAuthContext(ctx context.Context, pool *state.StatePool, controllerConfigService ControllerConfigService, bakeryConfigService BakeryConfigService) (*crossmodel.AuthContext, error) {
 	// Create a bakery service for discharging third-party caveats for
 	// local offer access authentication. This service does not persist keys;
 	// its macaroons should be very short-lived.
@@ -58,8 +63,7 @@ func newOfferAuthContext(ctx context.Context, pool *state.StatePool, controllerC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bakeryConfig := st.NewBakeryConfig()
-	key, err := bakeryConfig.GetOffersThirdPartyKey()
+	key, err := bakeryConfigService.GetOffersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -71,14 +75,14 @@ func newOfferAuthContext(ctx context.Context, pool *state.StatePool, controllerC
 	loginTokenRefreshURL := controllerConfig.LoginTokenRefreshURL()
 	if loginTokenRefreshURL != "" {
 		offerBakery, err := crossmodel.NewJaaSOfferBakery(
-			loginTokenRefreshURL, location, bakeryConfig, store, checker,
+			ctx, loginTokenRefreshURL, location, bakeryConfigService, store, checker,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return crossmodel.NewAuthContext(crossmodel.GetBackend(st), key, offerBakery)
 	}
-	offerBakery, err := crossmodel.NewLocalOfferBakery(location, bakeryConfig, store, checker)
+	offerBakery, err := crossmodel.NewLocalOfferBakery(location, key, store, checker)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
