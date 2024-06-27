@@ -49,7 +49,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker, err error) {
+func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -67,16 +67,12 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	defer func() {
-		if err != nil {
-			_ = stTracker.Done()
-		}
-	}()
 
 	logDir := agent.CurrentConfig().LogDir()
 
 	st, err := statePool.SystemState()
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 
@@ -85,6 +81,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 	}
 	auditConfig, err := initialConfig(st)
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	if auditConfig.Enabled {
@@ -93,6 +90,7 @@ func (config ManifoldConfig) start(context dependency.Context) (_ worker.Worker,
 
 	w, err := config.NewWorker(st, auditConfig, logFactory)
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil

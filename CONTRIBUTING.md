@@ -5,6 +5,8 @@ great.
 - Bug reports should be filed on [Launchpad](https://bugs.launchpad.net/juju/+bugs),
   not GitHub. Please check that your bug has not already been reported.
 - When opening a pull request:
+  - Check that all your [commits are signed](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits).
+  - Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commit messages.
   - Check that your patch is [targeting the correct branch](#branches) -
     if not, please rebase it.
   - Please [sign the CLA](#contributor-licence-agreement) if you haven't already.
@@ -44,29 +46,23 @@ Building Juju
 `juju` is written in [Go](https://go.dev/), a modern, compiled, statically typed,
 concurrent language.
 
-Generally, Juju is built against the most recent version of Go, with the caveat
-that Go versions are not incremented during a release cycle. This means that
-`main` will typically be using the latest version of Go, but any given release
-branch may lag by one version or so.  Check the `go.mod` file at the root of
-the project for the targeted version of Go, as this is authoritative.
+Generally, Juju is built against a recent version of Go, with the caveat
+that Go versions are not incremented during a release cycle. Check the `go.mod`
+file at the root of the project for the targeted version of Go, as this is
+authoritative.
 
 For example, the following indicates that Go 1.21 is targeted:
 
 ```
 module github.com/juju/juju
 
-go 1.21
+go 1.21.3
 ```
 
 ### Official distribution
 
-Go can be [installed](https://golang.org/doc/install#install) from the official distribution.
-
-### via snap
-
-[Snap](https://snapcraft.io/go) may also be used to install Go on Linux.
-
-    snap install go --channel=1.21/stable --classic
+Go can be [installed](https://golang.org/doc/install#install) from the official
+distribution.
 
 ## Build Juju and its dependencies
 
@@ -76,14 +72,11 @@ The easiest way to get the Juju source code is to clone the GitHub repository:
 
 To build/install from source, `cd` into the root directory of the cloned repo,
 and use `make`.
-- `make go-build` will build the Juju binaries and put them in a
+- `make build` will build the Juju binaries and put them in a
   `_build` subdirectory.
-- `make go-install` will build the Juju binaries and install them in your
+- `make install` will build the Juju binaries and install them in your
   [$GOBIN directory](https://pkg.go.dev/cmd/go#hdr-Compile_and_install_packages_and_dependencies)
   (which defaults to `$GOPATH/bin` or `~/go/bin`).
-- `make build` and `make install` are as above, but they will also regenerate
-  the facade schema. An up-to-date schema is always checked into the Juju repo,
-  so you shouldn't need to do this unless you make facade changes.
 
 Getting started
 ===============
@@ -125,37 +118,6 @@ that your fork is not automatically kept in sync with the official Juju repo
 Note that Juju has dependencies hosted elsewhere with other version control
 tools.
 
-Local clone
------------
-
-To contribute to Juju you will also need a local clone of your GitHub fork.
-The earlier `go get` command will have already cloned the Juju repo for you.
-However, that local copy is still set to pull from and push to the upstream
-Juju github account. Here is how to fix that (replace <USERNAME> with your
-github account name):
-
-```bash
-cd juju
-git remote set-url origin git@github.com:<USERNAME>/juju.git
-```
-
-To simplify staying in sync with upstream, give it a "remote" name:
-
-```bash
-git remote add upstream https://github.com/juju/juju.git
-```
-
-Add the check script as a git hook:
-
-```bash
-cd juju
-ln -s scripts/pre-push.bash .git/hooks/pre-push
-```
-
-This will ensure that any changes you commit locally pass a basic sanity
-check.  Using pre-push requires git 1.8.2 or later, though alternatively
-running the check as a pre-commit hook also works.
-
 Staying in sync
 ---------------
 
@@ -169,30 +131,28 @@ git pull upstream
 Dependency management
 =====================
 
-In the top-level directory of the Juju repo, there is a file,
-[go.mod](go.mod), that holds the versions of all the external
-Go modules that Juju depends on. That file is used to freeze the code in
-external repositories so that Juju is insulated from changes to those repos.
-
 go mod
 ------
 
-Juju uses Go modules to manage dependencies. Your Go installation will ensure
-you are building with the correct version - you don't need to do anything. 
+Juju uses Go modules to manage dependencies.
 
 Updating dependencies
 ---------------------
 
-To update a dependency, use
+To update a dependency, use the following, ensuring that the dependency is
+using a version where possible, or a commit hash if not available:
+
+
 ```
-go get -u github.com/the/dependency
+go get -u github.com/the/dependency@v1.2.3
 go mod tidy
 ```
 
 Code formatting
 ===============
 
-Go provides a tool, `go fmt`, which facilitates a standardized format to go source code.  The Juju project has one additional policy:
+Go provides a tool, `go fmt`, which facilitates a standardized format to go
+source code.  The Juju project has one additional policy:
 
 Imports
 -------
@@ -214,9 +174,6 @@ group is alphabetically sorted. eg:
         "github.com/juju/worker/v3"
     )
 ```
-
-Because "gopkg.in/check.v1" will be referenced frequently in test suites, its
-name gets a default short name of just "gc".
 
 Workflow
 ========
@@ -242,7 +199,7 @@ and so we keep a separate Git branch for each version. When submitting a
 patch, please make sure your changes are targeted to the correct branch.
 
 We keep a branch for each minor version of Juju in active development (e.g.
-`2.9`, `3.1`) - bug fixes should go into the relevant branch. We also keep a
+`3.4`, `3.5`) - bug fixes should go into the relevant branch. We also keep a
 `main` branch, which will become the next minor version of Juju. All new
 features should go into `main`.
 
@@ -256,6 +213,7 @@ Creating a new branch
 All development should be done on a new branch, based on the correct branch
 determined above. Pull the latest version of this branch, then create and
 checkout a new branch for your changes - e.g. for a patch targeting `main`:
+
 ```
 git pull upstream main
 git checkout -b new_feature main
@@ -318,10 +276,18 @@ Testing and MongoDB
 -------------------
 
 Many tests use a standalone instance of `mongod` as part of their setup. The
-`mongod` binary found in `$PATH` is executed by these suites.  If you don't already have MongoDB installed, or have difficulty using your installed version to run Juju tests, you may want to install the [`juju-db` snap](https://snapcraft.io/juju-db), which is guaranteed to work with Juju.
+`mongod` binary found in `$PATH` is executed by these suites.  If you don't
+already have MongoDB installed, or have difficulty using your installed version
+to run Juju tests, you may want to install the [`juju-db` snap](https://snapcraft.io/juju-db), which is guaranteed to work with Juju.
 
 ```bash
 sudo snap install juju-db --channel 4.4/stable
+```
+
+Optionally, you can create aliases for `mongod` and `mongo` to make it easier to
+use the snap version:
+
+```bash
 sudo snap alias juju-db.mongod mongod
 sudo snap alias juju-db.mongo mongo
 ```
@@ -442,12 +408,7 @@ Required dependencies for full static analysis are:
  - shellcheck
  - python3
  - go
- - golint
- - goimports
- - deadcode
- - misspell
- - unconvert
- - ineffassign
+ - golangci-lint
 
 Community
 =========

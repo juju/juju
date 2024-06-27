@@ -379,6 +379,18 @@ var newConfigTests = []struct {
 		controller.JujudControllerSnapSource: "latest/stable",
 	},
 	expectError: `jujud-controller-snap-source value "latest/stable" must be one of legacy, snapstore, local or local-dangerous.`,
+}, {
+	about: "empty controller name",
+	config: controller.Config{
+		controller.ControllerName: "",
+	},
+	expectError: `controller-name: expected non-empty controller-name.*`,
+}, {
+	about: "invalid controller name",
+	config: controller.Config{
+		controller.ControllerName: "is_invalid",
+	},
+	expectError: `controller-name value must be a valid controller name.*`,
 }}
 
 func (s *ConfigSuite) TestNewConfig(c *gc.C) {
