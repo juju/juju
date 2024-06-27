@@ -22,14 +22,21 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/addons"
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	agenterrors "github.com/juju/juju/cmd/jujud/agent/errors"
 	"github.com/juju/juju/cmd/jujud/agent/mocks"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo/mongometrics"
+	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -45,6 +52,11 @@ const (
 	initialMachinePassword = "machine-password-1234567890"
 )
 
+var fastDialOpts = api.DialOpts{
+	Timeout:    coretesting.LongWait,
+	RetryDelay: coretesting.ShortWait,
+}
+
 type commonMachineSuite struct {
 	fakeEnsureMongo *agenttest.FakeEnsureMongo
 	AgentSuite
@@ -55,6 +67,7 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.AgentSuite.SetUpSuite(c)
 	s.PatchValue(&jujuversion.Current, coretesting.FakeVersionNumber)
+	s.PatchValue(&stateWorkerDialOpts, mongotest.DialOpts())
 }
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
@@ -179,6 +192,8 @@ func NewTestMachineAgentFactory(
 			loopDeviceManager:           &mockLoopDeviceManager{},
 			newIntrospectionSocketName:  addons.DefaultIntrospectionSocketName,
 			prometheusRegistry:          prometheusRegistry,
+			mongoTxnCollector:           mongometrics.NewTxnCollector(),
+			mongoDialCollector:          mongometrics.NewDialCollector(),
 			preUpgradeSteps:             preUpgradeSteps,
 			isCaasAgent:                 isCAAS,
 			cmdRunner:                   cmdRunner,
@@ -336,3 +351,43 @@ func (FakeAgentConfig) ChangeConfig(mutate agent.ConfigMutator) error {
 }
 
 func (FakeAgentConfig) CheckArgs([]string) error { return nil }
+
+// minModelWorkersEnviron implements just enough of environs.Environ
+// to allow model workers to run.
+type minModelWorkersEnviron struct {
+	environs.Environ
+	environs.LXDProfiler
+}
+
+func (e *minModelWorkersEnviron) Config() *config.Config {
+	attrs := coretesting.FakeConfig()
+	cfg, err := config.New(config.UseDefaults, attrs)
+	if err != nil {
+		panic(err)
+	}
+	return cfg
+}
+
+func (e *minModelWorkersEnviron) SetConfig(*config.Config) error {
+	return nil
+}
+
+func (e *minModelWorkersEnviron) AllRunningInstances(context.ProviderCallContext) ([]instances.Instance, error) {
+	return nil, nil
+}
+
+func (e *minModelWorkersEnviron) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+	return nil, environs.ErrNoInstances
+}
+
+func (*minModelWorkersEnviron) MaybeWriteLXDProfile(pName string, put lxdprofile.Profile) error {
+	return nil
+}
+
+func (*minModelWorkersEnviron) LXDProfileNames(containerName string) ([]string, error) {
+	return nil, nil
+}
+
+func (*minModelWorkersEnviron) AssignLXDProfiles(instId string, profilesNames []string, profilePosts []lxdprofile.ProfilePost) (current []string, err error) {
+	return profilesNames, nil
+}

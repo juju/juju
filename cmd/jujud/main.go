@@ -29,6 +29,7 @@ import (
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	jujudagentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/cmd/jujud/agent/config"
@@ -255,8 +256,9 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		return &jujudWriter{target: target}
 	}
 
-	jujud.Register(agentcmd.NewCAASUnitInitCommand())
-	jujud.Register(agentcmd.NewModelCommand(bufferedLogger))
+	jujud.Register(agentcmd.NewBootstrapCommand())
+	jujud.Register(jujudagentcmd.NewCAASUnitInitCommand())
+	jujud.Register(jujudagentcmd.NewModelCommand(bufferedLogger))
 
 	// TODO(katco-): AgentConf type is doing too much. The
 	// MachineAgent type has called out the separate concerns; the
@@ -271,7 +273,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	)
 	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
 
-	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger, func(mc *caasoperator.ManifoldsConfig) error {
+	caasOperatorAgent, err := jujudagentcmd.NewCaasOperatorAgent(ctx, bufferedLogger, func(mc *caasoperator.ManifoldsConfig) error {
 		mc.NewExecClient = k8sexec.NewInCluster
 		return nil
 	})
@@ -280,7 +282,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 	jujud.Register(caasOperatorAgent)
 
-	jujud.Register(agentcmd.NewCheckConnectionCommand(agentConf, agentcmd.ConnectAsAgent))
+	jujud.Register(jujudagentcmd.NewCheckConnectionCommand(agentConf, jujudagentcmd.ConnectAsAgent))
 
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
