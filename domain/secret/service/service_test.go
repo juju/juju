@@ -1507,31 +1507,26 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	s.state = NewMockState(ctrl)
 	mockWatcherFactory := NewMockWatcherFactory(ctrl)
 
-	uri1 := coresecrets.NewURI()
-	uri2 := coresecrets.NewURI()
+	ch1 := make(chan struct{}, 1)
+	ch2 := make(chan struct{}, 1)
 
-	ch1 := make(chan []string)
-	ch2 := make(chan []string)
+	go func() {
+		ch1 <- struct{}{}
+		ch2 <- struct{}{}
+	}()
 
-	mockObsoleteWatcher := NewMockStringsWatcher(ctrl)
+	mockObsoleteWatcher := NewMockNotifyWatcher(ctrl)
 	mockObsoleteWatcher.EXPECT().Changes().Return(ch1).AnyTimes()
 	mockObsoleteWatcher.EXPECT().Wait().Return(nil).AnyTimes()
 	mockObsoleteWatcher.EXPECT().Kill().AnyTimes()
 
-	mockAutoPruneWatcher := NewMockStringsWatcher(ctrl)
+	mockAutoPruneWatcher := NewMockNotifyWatcher(ctrl)
 	mockAutoPruneWatcher.EXPECT().Changes().Return(ch2).AnyTimes()
 	mockAutoPruneWatcher.EXPECT().Wait().Return(nil).AnyTimes()
 	mockAutoPruneWatcher.EXPECT().Kill().AnyTimes()
 
-	var namespaceQuery eventsource.NamespaceQuery = func(context.Context, database.TxnRunner) ([]string, error) {
-		return nil, nil
-	}
-	s.state.EXPECT().InitialWatchStatementForObsoleteUserSecretRevision().Return("secret_revision_obsolete", namespaceQuery)
-	s.state.EXPECT().InitialWatchStatementForUserSecretRevisionsToPrune().Return("secret_metadata", namespaceQuery)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_revision_obsolete", changestream.Create, gomock.Any()).Return(mockObsoleteWatcher, nil)
-	mockWatcherFactory.EXPECT().NewNamespaceWatcher("secret_metadata", changestream.Update, gomock.Any()).Return(mockAutoPruneWatcher, nil)
-	s.state.EXPECT().GetObsoleteUserSecretRevisionsReadyToPrune(gomock.Any(), "revision-uuid-1").Return([]string{uri1.ID + "/1"}, nil)
-	s.state.EXPECT().GetUserSecretRevisionsToPrune(gomock.Any(), uri2.ID).Return([]string{uri2.ID + "/1"}, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_revision_obsolete", changestream.Create, gomock.Any()).Return(mockObsoleteWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_metadata", changestream.Update, gomock.Any()).Return(mockAutoPruneWatcher, nil)
 
 	svc := NewWatchableService(s.state, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
 	w, err := svc.WatchObsoleteUserSecretsToPrune(context.Background())
@@ -1539,14 +1534,16 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	c.Assert(w, gc.NotNil)
 	defer workertest.CleanKill(c, w)
 	wc := watchertest.NewNotifyWatcherC(c, w)
+	// initial change.
+	wc.AssertOneChange()
 
 	select {
-	case ch1 <- []string{"revision-uuid-1"}:
+	case ch1 <- struct{}{}:
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for sending the secret revision changes")
 	}
 	select {
-	case ch2 <- []string{uri2.ID}:
+	case ch2 <- struct{}{}:
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for sending the secret URI changes")
 	}

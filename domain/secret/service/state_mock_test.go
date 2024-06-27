@@ -361,23 +361,18 @@ func (c *MockStateGetModelUUIDCall) DoAndReturn(f func(context.Context) (string,
 }
 
 // GetObsoleteUserSecretRevisionsReadyToPrune mocks base method.
-func (m *MockState) GetObsoleteUserSecretRevisionsReadyToPrune(arg0 context.Context, arg1 ...string) ([]string, error) {
+func (m *MockState) GetObsoleteUserSecretRevisionsReadyToPrune(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "GetObsoleteUserSecretRevisionsReadyToPrune", varargs...)
+	ret := m.ctrl.Call(m, "GetObsoleteUserSecretRevisionsReadyToPrune", arg0)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetObsoleteUserSecretRevisionsReadyToPrune indicates an expected call of GetObsoleteUserSecretRevisionsReadyToPrune.
-func (mr *MockStateMockRecorder) GetObsoleteUserSecretRevisionsReadyToPrune(arg0 any, arg1 ...any) *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall {
+func (mr *MockStateMockRecorder) GetObsoleteUserSecretRevisionsReadyToPrune(arg0 any) *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObsoleteUserSecretRevisionsReadyToPrune", reflect.TypeOf((*MockState)(nil).GetObsoleteUserSecretRevisionsReadyToPrune), varargs...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObsoleteUserSecretRevisionsReadyToPrune", reflect.TypeOf((*MockState)(nil).GetObsoleteUserSecretRevisionsReadyToPrune), arg0)
 	return &MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall{Call: call}
 }
 
@@ -393,13 +388,13 @@ func (c *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall) Return(arg0 []
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall) Do(f func(context.Context, ...string) ([]string, error)) *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall {
+func (c *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall) Do(f func(context.Context) ([]string, error)) *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall) DoAndReturn(f func(context.Context, ...string) ([]string, error)) *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall {
+func (c *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -973,50 +968,6 @@ func (c *MockStateGetURIByConsumerLabelCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
-// GetUserSecretRevisionsToPrune mocks base method.
-func (m *MockState) GetUserSecretRevisionsToPrune(arg0 context.Context, arg1 ...string) ([]string, error) {
-	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "GetUserSecretRevisionsToPrune", varargs...)
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetUserSecretRevisionsToPrune indicates an expected call of GetUserSecretRevisionsToPrune.
-func (mr *MockStateMockRecorder) GetUserSecretRevisionsToPrune(arg0 any, arg1 ...any) *MockStateGetUserSecretRevisionsToPruneCall {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUserSecretRevisionsToPrune", reflect.TypeOf((*MockState)(nil).GetUserSecretRevisionsToPrune), varargs...)
-	return &MockStateGetUserSecretRevisionsToPruneCall{Call: call}
-}
-
-// MockStateGetUserSecretRevisionsToPruneCall wrap *gomock.Call
-type MockStateGetUserSecretRevisionsToPruneCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateGetUserSecretRevisionsToPruneCall) Return(arg0 []string, arg1 error) *MockStateGetUserSecretRevisionsToPruneCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateGetUserSecretRevisionsToPruneCall) Do(f func(context.Context, ...string) ([]string, error)) *MockStateGetUserSecretRevisionsToPruneCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUserSecretRevisionsToPruneCall) DoAndReturn(f func(context.Context, ...string) ([]string, error)) *MockStateGetUserSecretRevisionsToPruneCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // GetUserSecretURIByLabel mocks base method.
 func (m *MockState) GetUserSecretURIByLabel(arg0 context.Context, arg1 string) (*secrets.URI, error) {
 	m.ctrl.T.Helper()
@@ -1211,45 +1162,6 @@ func (c *MockStateInitialWatchStatementForObsoleteRevisionCall) DoAndReturn(f fu
 	return c
 }
 
-// InitialWatchStatementForObsoleteUserSecretRevision mocks base method.
-func (m *MockState) InitialWatchStatementForObsoleteUserSecretRevision() (string, eventsource.NamespaceQuery) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitialWatchStatementForObsoleteUserSecretRevision")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(eventsource.NamespaceQuery)
-	return ret0, ret1
-}
-
-// InitialWatchStatementForObsoleteUserSecretRevision indicates an expected call of InitialWatchStatementForObsoleteUserSecretRevision.
-func (mr *MockStateMockRecorder) InitialWatchStatementForObsoleteUserSecretRevision() *MockStateInitialWatchStatementForObsoleteUserSecretRevisionCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForObsoleteUserSecretRevision", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForObsoleteUserSecretRevision))
-	return &MockStateInitialWatchStatementForObsoleteUserSecretRevisionCall{Call: call}
-}
-
-// MockStateInitialWatchStatementForObsoleteUserSecretRevisionCall wrap *gomock.Call
-type MockStateInitialWatchStatementForObsoleteUserSecretRevisionCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateInitialWatchStatementForObsoleteUserSecretRevisionCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementForObsoleteUserSecretRevisionCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementForObsoleteUserSecretRevisionCall) Do(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForObsoleteUserSecretRevisionCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementForObsoleteUserSecretRevisionCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForObsoleteUserSecretRevisionCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide mocks base method.
 func (m *MockState) InitialWatchStatementForRemoteConsumedSecretsChangesFromOfferingSide(arg0 string) (string, eventsource.NamespaceQuery) {
 	m.ctrl.T.Helper()
@@ -1363,45 +1275,6 @@ func (c *MockStateInitialWatchStatementForSecretsRotationChangesCall) Do(f func(
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateInitialWatchStatementForSecretsRotationChangesCall) DoAndReturn(f func(secret.ApplicationOwners, secret.UnitOwners) (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForSecretsRotationChangesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// InitialWatchStatementForUserSecretRevisionsToPrune mocks base method.
-func (m *MockState) InitialWatchStatementForUserSecretRevisionsToPrune() (string, eventsource.NamespaceQuery) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InitialWatchStatementForUserSecretRevisionsToPrune")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(eventsource.NamespaceQuery)
-	return ret0, ret1
-}
-
-// InitialWatchStatementForUserSecretRevisionsToPrune indicates an expected call of InitialWatchStatementForUserSecretRevisionsToPrune.
-func (mr *MockStateMockRecorder) InitialWatchStatementForUserSecretRevisionsToPrune() *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchStatementForUserSecretRevisionsToPrune", reflect.TypeOf((*MockState)(nil).InitialWatchStatementForUserSecretRevisionsToPrune))
-	return &MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall{Call: call}
-}
-
-// MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall wrap *gomock.Call
-type MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall) Return(arg0 string, arg1 eventsource.NamespaceQuery) *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall) Do(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall) DoAndReturn(f func() (string, eventsource.NamespaceQuery)) *MockStateInitialWatchStatementForUserSecretRevisionsToPruneCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

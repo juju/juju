@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -189,34 +190,36 @@ func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owne
 
 // WatchObsoleteUserSecretsToPrune returns a watcher that notifies when a user secret revision is obsolete and ready to be pruned.
 func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) (watcher.NotifyWatcher, error) {
-	table, initialQuery := s.st.InitialWatchStatementForObsoleteUserSecretRevision()
-	wObsolete, err := s.watcherFactory.NewNamespaceWatcher(
-		table, changestream.Create, initialQuery,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
+	mapper := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		if len(changes) == 0 {
+			return nil, nil
+		}
+		obsoleteRevs, err := s.st.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(obsoleteRevs) == 0 {
+			return nil, nil
+		}
+		// We merge the changes to one event to avoid multiple events.
+		// Because the prune worker will prune all obsolete revisions once.
+		return changes[:1], nil
 	}
-	sWObsolete, err := newSecretStringWatcher(wObsolete, s.logger, s.st.GetObsoleteUserSecretRevisionsReadyToPrune)
+
+	wObsolete, err := s.watcherFactory.NewNamespaceNotifyMapperWatcher(
+		"secret_revision_obsolete", changestream.Create, mapper,
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	table, initialQuery = s.st.InitialWatchStatementForUserSecretRevisionsToPrune()
-	wAutoPrune, err := s.watcherFactory.NewNamespaceWatcher(
-		table, changestream.Update, initialQuery,
+	wAutoPrune, err := s.watcherFactory.NewNamespaceNotifyMapperWatcher(
+		"secret_metadata", changestream.Update, mapper,
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	sWAutoPrune, err := newSecretStringWatcher(wAutoPrune, s.logger, s.st.GetUserSecretRevisionsToPrune)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	w, err := eventsource.NewMultiNotifyWatcher(ctx, sWObsolete, sWAutoPrune)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return watcher.Normalise(w)
+	return eventsource.NewMultiNotifyWatcher(ctx, wObsolete, wAutoPrune)
 }
 
 // WatchSecretBackendChanged notifies when the model secret backend has changed.

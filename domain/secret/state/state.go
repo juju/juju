@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/canonical/sqlair"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
 	coredatabase "github.com/juju/juju/core/database"
@@ -3635,45 +3634,8 @@ func (st State) GetSecretsRevisionExpiryChanges(
 	return st.getSecretsRevisionExpiryChanges(ctx, db, appOwners, unitOwners, revisionUUIDs...)
 }
 
-// InitialWatchStatementForObsoleteUserSecretRevision returns the initial watch statement and the table name
-// for watching obsolete user secret revisions.
-// The ChangeLog watcher is triggered when a user secret revision is marked as obsolete and ready to be pruned.
-func (st State) InitialWatchStatementForObsoleteUserSecretRevision() (string, eventsource.NamespaceQuery) {
-	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
-		q := `
-SELECT sr.uuid AS &secretExternalRevision.revision_id
-FROM   secret_model_owner smo
-       JOIN secret_metadata sm ON sm.secret_id = smo.secret_id
-       JOIN secret_revision sr ON sr.secret_id = smo.secret_id
-       LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
-WHERE  sm.auto_prune = true AND sro.obsolete = true`
-		stmt, err := st.Prepare(q, secretExternalRevision{})
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		var result secretExternalRevisions
-		err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			err := tx.Query(ctx, stmt).GetAll(&result)
-			if errors.Is(err, sqlair.ErrNoRows) {
-				// It's ok, the revision probably has already been pruned.
-				return nil
-			}
-			return errors.Trace(err)
-		})
-		if err != nil {
-			return nil, errors.Trace(domain.CoerceError(err))
-		}
-		revisionUUIDs := make([]string, len(result))
-		for i, d := range result {
-			revisionUUIDs[i] = d.RevisionID
-		}
-		return revisionUUIDs, nil
-	}
-	return "secret_revision_obsolete", queryFunc
-}
-
 // GetObsoleteUserSecretRevisionReadyToPrune returns the specified user secret revision with secret ID if it is ready to prune.
-func (st State) GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context, revisionIDs ...string) ([]string, error) {
+func (st State) GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context) ([]string, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -3685,18 +3647,13 @@ FROM   secret_model_owner smo
        JOIN secret_revision sr ON sr.secret_id = smo.secret_id
        LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
 WHERE  sm.auto_prune = true AND sro.obsolete = true`
-	var input []any
-	if len(revisionIDs) > 0 {
-		input = append(input, revisionUUIDs(revisionIDs))
-		q += " AND sr.uuid IN ($revisionUUIDs[:])"
-	}
-	stmt, err := st.Prepare(q, append(input, obsoleteRevisionRow{})...)
+	stmt, err := st.Prepare(q, obsoleteRevisionRow{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	var result obsoleteRevisionRows
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, input...).GetAll(&result)
+		err := tx.Query(ctx, stmt).GetAll(&result)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// It's ok, the revision probably has already been pruned.
 			return nil
@@ -3707,68 +3664,4 @@ WHERE  sm.auto_prune = true AND sro.obsolete = true`
 		return nil, errors.Trace(domain.CoerceError(err))
 	}
 	return result.toRevIDs(), nil
-}
-
-// InitialWatchStatementForUserSecretRevisionsToPrune returns the initial watch statement and the table name for watching user
-// secrets with auto prune turned on.
-// The ChangeLog watcher is triggered when a user secret's auto prune config is being turned on.
-func (st State) InitialWatchStatementForUserSecretRevisionsToPrune() (string, eventsource.NamespaceQuery) {
-	queryFunc := func(ctx context.Context, runner coredatabase.TxnRunner) ([]string, error) {
-		result, err := st.getUserSecretRevisionsToPrune(ctx, runner)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		secretIDs := set.NewStrings()
-		for _, d := range result {
-			secretIDs.Add(d.SecretID)
-		}
-		return secretIDs.SortedValues(), nil
-	}
-	return "secret_metadata", queryFunc
-}
-
-// GetUserSecretRevisionsToPrune returns the user secret revisions that are ready to be pruned.
-func (st State) GetUserSecretRevisionsToPrune(ctx context.Context, secretIDs ...string) ([]string, error) {
-	db, err := st.DB()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	result, err := st.getUserSecretRevisionsToPrune(ctx, db, secretIDs...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return result.toRevIDs(), nil
-}
-
-func (st State) getUserSecretRevisionsToPrune(ctx context.Context, runner coredatabase.TxnRunner, secretIDs ...string) (obsoleteRevisionRows, error) {
-	q := `
-SELECT (sr.revision, sr.secret_id) AS (&obsoleteRevisionRow.*)
-FROM  secret_model_owner smo
-      JOIN secret_metadata sm ON sm.secret_id = smo.secret_id
-      JOIN secret_revision sr ON sr.secret_id = smo.secret_id
-      LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
-WHERE sm.auto_prune = true AND sro.obsolete = true`
-	var input []any
-	if len(secretIDs) > 0 {
-		input = append(input, dbSecretIDs(secretIDs))
-		q += " AND sr.secret_id IN ($dbSecretIDs[:])"
-	}
-	stmt, err := st.Prepare(q, append([]any{obsoleteRevisionRow{}}, input...)...)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	result := obsoleteRevisionRows{}
-	err = runner.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, stmt, input...).GetAll(&result)
-		if errors.Is(err, sqlair.ErrNoRows) {
-			// Nothing to prune.
-			return nil
-		}
-		return errors.Trace(err)
-	})
-	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
-	}
-	return result, nil
 }

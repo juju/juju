@@ -75,13 +75,8 @@ type State interface {
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
 	) ([]string, error)
 
-	// For watching obsolete user secret revision changes.
-	InitialWatchStatementForObsoleteUserSecretRevision() (string, eventsource.NamespaceQuery)
-	GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context, revisionIDs ...string) ([]string, error)
-
-	// For watching user secrets for auto prune.
-	InitialWatchStatementForUserSecretRevisionsToPrune() (string, eventsource.NamespaceQuery)
-	GetUserSecretRevisionsToPrune(ctx context.Context, secretIDs ...string) ([]string, error)
+	// For watching obsolete user secret revisions to prune.
+	GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context) ([]string, error)
 
 	// For watching consumed local secret changes.
 	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
@@ -117,6 +112,12 @@ type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
 	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
+
+	// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
+	// for events based on the input change mask and mapper.
+	NewNamespaceNotifyMapperWatcher(
+		namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
+	) (watcher.NotifyWatcher, error)
 }
 
 // NewSecretService returns a new secret service wrapping the specified state.
