@@ -139,7 +139,7 @@ func (s *stateSuite) TestGetMachineLifeSuccess(c *gc.C) {
 
 func (s *stateSuite) TestGetMachineLifeNotFound(c *gc.C) {
 	_, err := s.state.GetMachineLife(context.Background(), "666")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *stateSuite) TestListAllMachines(c *gc.C) {

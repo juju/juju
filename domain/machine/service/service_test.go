@@ -98,6 +98,19 @@ func (s *serviceSuite) TestGetLifeError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `getting life status for machine "666": boom`)
 }
 
+// TestGetLifeNotFoundError asserts that the state layer returns a NotFound
+// Error if a machine is not found with the given machineId, and that error is
+// preserved and passed on to the service layer to be handled there.
+func (s *serviceSuite) TestGetLifeNotFoundError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetMachineLife(gomock.Any(), cmachine.ID("666")).Return(nil, errors.NotFound)
+
+	l, err := NewService(s.state).GetMachineLife(context.Background(), cmachine.ID("666"))
+	c.Check(l, gc.IsNil)
+	c.Check(err, jc.ErrorIs, errors.NotFound)
+}
+
 func (s *serviceSuite) TestListAllMachinesSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -141,6 +154,20 @@ func (s *serviceSuite) TestInstanceIdError(c *gc.C) {
 
 	instanceId, err := NewService(s.state).InstanceId(context.Background(), cmachine.ID("666"))
 	c.Check(err, jc.ErrorIs, rErr)
+	c.Check(instanceId, gc.Equals, "")
+}
+
+// TestInstanceIdNotProvisionedError asserts that the state layer returns a
+// NotProvisioned Error if an instanceId is not found for the given machineId,
+// and that error is preserved and passed on to the service layer to be handled
+// there.
+func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().InstanceId(gomock.Any(), cmachine.ID("666")).Return("", errors.NotProvisioned)
+
+	instanceId, err := NewService(s.state).InstanceId(context.Background(), cmachine.ID("666"))
+	c.Check(err, jc.ErrorIs, errors.NotProvisioned)
 	c.Check(instanceId, gc.Equals, "")
 }
 
