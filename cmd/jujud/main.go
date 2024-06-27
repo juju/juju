@@ -28,7 +28,7 @@ import (
 	"github.com/juju/juju/agent/addons"
 	k8sexec "github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
-	agentcmd "github.com/juju/juju/cmd/jujud-controller/agent"
+	agentcmd "github.com/juju/juju/cmd/jujud/agent"
 	jujudagentcmd "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
@@ -288,75 +288,6 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	return code, nil
 }
 
-// Main registers subcommands for the jujud-controller executable, and hands over control
-// to the cmd package.
-func jujuControllerMain(args []string, ctx *cmd.Context) (code int, err error) {
-	// Assuming an average of 200 bytes per log message, use up to
-	// 200MB for the log buffer.
-	defer logger.Debugf("jujud-controller complete, code %d, err %v", code, err)
-	bufferedLogger, err := logsender.InstallBufferedLogWriter(loggo.DefaultContext(), 1048576)
-	if err != nil {
-		return 1, errors.Trace(err)
-	}
-
-	// Set the default transport to use the in-process proxy
-	// configuration.
-	if err := proxy.DefaultConfig.Set(proxyutils.DetectProxies()); err != nil {
-		return 1, errors.Trace(err)
-	}
-	if err := proxy.DefaultConfig.InstallInDefaultTransport(); err != nil {
-		return 1, errors.Trace(err)
-	}
-
-	current := version.Binary{
-		Number:  jujuversion.Current,
-		Arch:    arch.HostArch(),
-		Release: coreos.HostOSTypeName(),
-	}
-	detail := versionDetail{
-		Version:      current.String(),
-		GitCommit:    jujuversion.GitCommit,
-		GitTreeState: jujuversion.GitTreeState,
-		Compiler:     jujuversion.Compiler,
-		GoBuildTags:  jujuversion.GoBuildTags,
-	}
-
-	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name: "jujud-controller",
-		Doc:  jujudDoc,
-		Log:  jujucmd.DefaultLog,
-		// p.Version should be a version.Binary, but juju/cmd does not
-		// import juju/juju/version so this cannot happen. We have
-		// tests to assert that this string value is correct.
-		Version:       detail.Version,
-		VersionDetail: detail,
-	})
-
-	jujud.Log.NewWriter = func(target io.Writer) loggo.Writer {
-		return &jujudWriter{target: target}
-	}
-
-	jujud.Register(agentcmd.NewBootstrapCommand())
-
-	// TODO(katco-): AgentConf type is doing too much. The
-	// MachineAgent type has called out the separate concerns; the
-	// AgentConf should be split up to follow suit.
-	agentConf := agentconf.NewAgentConf("")
-	machineAgentFactory := agentcmd.MachineAgentFactoryFn(
-		agentConf,
-		bufferedLogger,
-		addons.DefaultIntrospectionSocketName,
-		upgrades.PreUpgradeSteps,
-		"",
-	)
-	jujud.Register(agentcmd.NewMachineAgentCmd(ctx, machineAgentFactory, agentConf, agentConf))
-
-	jujud.Register(jujudagentcmd.NewCheckConnectionCommand(agentConf, jujudagentcmd.ConnectAsAgent))
-
-	code = cmd.Main(jujud, ctx, args[1:])
-	return code, nil
-}
-
 // MainWrapper exists to preserve test functionality.
 func MainWrapper(args []string) {
 	os.Exit(Main(args))
@@ -389,8 +320,6 @@ func Main(args []string) int {
 	switch commandName {
 	case jujunames.Jujud:
 		code, err = jujuDMain(args, ctx)
-	case jujunames.JujudController:
-		code, err = jujuControllerMain(args, ctx)
 	case jujunames.JujuExec:
 		lock, err := machinelock.New(machinelock.Config{
 			AgentName:   "juju-exec",
