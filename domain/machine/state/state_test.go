@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -46,7 +47,7 @@ func (s *stateSuite) TestCreateMachine(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machineID, gc.Equals, "666")
 }
 
@@ -64,7 +65,7 @@ func (s *stateSuite) TestUpdateMachine(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machineID, gc.Equals, "666")
 }
 
@@ -89,7 +90,7 @@ func (s *stateSuite) TestDeleteMachine(c *gc.C) {
 	s.insertBlockDevice(c, bd, bdUUID, "666")
 
 	err = s.state.DeleteMachine(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	var machineCount int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
@@ -99,7 +100,7 @@ func (s *stateSuite) TestDeleteMachine(c *gc.C) {
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machineCount, gc.Equals, 0)
 }
 
@@ -132,7 +133,7 @@ func (s *stateSuite) TestGetMachineLifeSuccess(c *gc.C) {
 
 	obtainedLife, err := s.state.GetMachineLife(context.Background(), "666")
 	expectedLife := life.Alive
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(*obtainedLife, gc.Equals, expectedLife)
 }
 
@@ -150,11 +151,15 @@ func (s *stateSuite) TestListAllMachines(c *gc.C) {
 
 	machines, err := s.state.ListAllMachines(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machines, gc.DeepEquals, []string{"666", "667"})
+
+	expectedMachines := []string{"666", "667"}
+	sort.Strings(machines)
+	sort.Strings(expectedMachines)
+	c.Assert(machines, gc.DeepEquals, expectedMachines)
 }
 
 func (s *stateSuite) TestListAllMachinesEmpty(c *gc.C) {
 	machines, err := s.state.ListAllMachines(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 0)
 }

@@ -150,7 +150,7 @@ WHERE machine_uuid=$instanceTag.machine_uuid
 	})
 }
 
-// InstanceId returns the provider specific instance id for this machine.
+// InstanceId returns the cloud specific instance id for this machine.
 // If the machine is not provisioned, it returns a NotProvisionedError.
 func (st *State) InstanceId(ctx context.Context, machineId string) (string, error) {
 	db, err := st.DB()
@@ -162,7 +162,7 @@ func (st *State) InstanceId(ctx context.Context, machineId string) (string, erro
 	query := `
 SELECT instance_id AS &instanceID.*
 FROM machine AS m
-		JOIN machine_cloud_instance AS mci ON m.uuid = mci.machine_uuid
+         JOIN machine_cloud_instance AS mci ON m.uuid = mci.machine_uuid
 WHERE m.machine_id = $M.machine_id;
 `
 	queryStmt, err := st.Prepare(query, sqlair.M{}, instanceID{})
@@ -190,11 +190,11 @@ WHERE m.machine_id = $M.machine_id;
 	return instanceId, nil
 }
 
-// InstanceStatus returns the provider specific instance status for this
+// InstanceStatus returns the cloud specific instance status for this
 // machine.
 // If the machine is not provisioned, it returns a NotProvisionedError.
 func (st *State) InstanceStatus(ctx context.Context, machineId string) (string, error) {
 	// TODO(cderici): Implementation for this is deferred until the design for
 	// the domain entity statuses on dqlite is finalized.
-	return "", nil
+	return "", errors.NotImplemented
 }

@@ -28,7 +28,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
-func (s *serviceSuite) TestUpdateSuccess(c *gc.C) {
+func (s *serviceSuite) TestCreateMachineSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().CreateMachine(gomock.Any(), "666", gomock.Any(), gomock.Any()).Return(nil)
@@ -37,7 +37,9 @@ func (s *serviceSuite) TestUpdateSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestUpdateError(c *gc.C) {
+// TestCreateError asserts that an error coming from the state layer is
+// preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestCreateMachineError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
@@ -57,6 +59,8 @@ func (s *serviceSuite) TestDeleteMachineSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestDeleteMachineError asserts that an error coming from the state layer is
+// preserved, passed over to the service layer to be maintained there.
 func (s *serviceSuite) TestDeleteMachineError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -79,6 +83,8 @@ func (s *serviceSuite) TestGetLifeSuccess(c *gc.C) {
 	c.Assert(l, gc.Equals, &life)
 }
 
+// TestGetLifeError asserts that an error coming from the state layer is
+// preserved, passed over to the service layer to be maintained there.
 func (s *serviceSuite) TestGetLifeError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -97,10 +103,12 @@ func (s *serviceSuite) TestListAllMachinesSuccess(c *gc.C) {
 	s.state.EXPECT().ListAllMachines(gomock.Any()).Return([]string{"666"}, nil)
 
 	machines, err := NewService(s.state).ListAllMachines(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.DeepEquals, []string{"666"})
 }
 
+// TestListAllMachinesError asserts that an error coming from the state layer is
+// preserved, passed over to the service layer to be maintained there.
 func (s *serviceSuite) TestListAllMachinesError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -109,7 +117,7 @@ func (s *serviceSuite) TestListAllMachinesError(c *gc.C) {
 
 	machines, err := NewService(s.state).ListAllMachines(context.Background())
 	c.Check(err, jc.ErrorIs, rErr)
-	c.Assert(machines, gc.IsNil)
+	c.Check(machines, gc.IsNil)
 }
 
 func (s *serviceSuite) TestInstanceIdSuccess(c *gc.C) {
@@ -118,10 +126,12 @@ func (s *serviceSuite) TestInstanceIdSuccess(c *gc.C) {
 	s.state.EXPECT().InstanceId(gomock.Any(), "666").Return("123", nil)
 
 	instanceId, err := NewService(s.state).InstanceId(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(instanceId, gc.Equals, "123")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(instanceId, gc.Equals, "123")
 }
 
+// TestInstanceIdError asserts that an error coming from the state layer is
+// preserved, passed over to the service layer to be maintained there.
 func (s *serviceSuite) TestInstanceIdError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -130,7 +140,7 @@ func (s *serviceSuite) TestInstanceIdError(c *gc.C) {
 
 	instanceId, err := NewService(s.state).InstanceId(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, rErr)
-	c.Assert(instanceId, gc.Equals, "")
+	c.Check(instanceId, gc.Equals, "")
 }
 
 func (s *serviceSuite) TestInstanceStatusSuccess(c *gc.C) {
@@ -139,10 +149,12 @@ func (s *serviceSuite) TestInstanceStatusSuccess(c *gc.C) {
 	s.state.EXPECT().InstanceStatus(gomock.Any(), "666").Return("running", nil)
 
 	instanceStatus, err := NewService(s.state).InstanceStatus(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(instanceStatus, gc.Equals, "running")
 }
 
+// TestInstanceStatusError asserts that an error coming from the state layer is
+// preserved, passed over to the service layer to be maintained there.
 func (s *serviceSuite) TestInstanceStatusError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -151,5 +163,5 @@ func (s *serviceSuite) TestInstanceStatusError(c *gc.C) {
 
 	instanceStatus, err := NewService(s.state).InstanceStatus(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, rErr)
-	c.Assert(instanceStatus, gc.Equals, "")
+	c.Check(instanceStatus, gc.Equals, "")
 }

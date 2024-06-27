@@ -32,11 +32,11 @@ type State interface {
 	// If there's no machine, it returns an empty slice.
 	ListAllMachines(context.Context) ([]string, error)
 
-	// InstanceId returns the provider specific instance id for this machine.
+	// InstanceId returns the cloud specific instance id for this machine.
 	// If the machine is not provisioned, it returns a NotProvisionedError.
 	InstanceId(context.Context, string) (string, error)
 
-	// InstanceStatus returns the provider specific instance status for this
+	// InstanceStatus returns the cloud specific instance status for this
 	// machine.
 	// If the machine is not provisioned, it returns a NotProvisionedError.
 	InstanceStatus(context.Context, string) (string, error)
@@ -106,7 +106,7 @@ func (s *Service) ListAllMachines(ctx context.Context) ([]string, error) {
 	return machines, nil
 }
 
-// InstanceId returns the provider specific instance id for this machine.
+// InstanceId returns the cloud specific instance id for this machine.
 // If the machine is not provisioned, it returns a NotProvisionedError.
 func (s *Service) InstanceId(ctx context.Context, machineId string) (string, error) {
 	instanceId, err := s.st.InstanceId(ctx, machineId)
@@ -116,7 +116,7 @@ func (s *Service) InstanceId(ctx context.Context, machineId string) (string, err
 	return instanceId, nil
 }
 
-// InstanceStatus returns the provider specific instance status for this
+// InstanceStatus returns the cloud specific instance status for this
 // machine.
 // If the machine is not provisioned, it returns a NotProvisionedError.
 func (s *Service) InstanceStatus(ctx context.Context, machineId string) (string, error) {
