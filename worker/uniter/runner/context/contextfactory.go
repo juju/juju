@@ -385,8 +385,10 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 		return err
 	}
 
+	// SLA level is removed in 4.0, so the facade is not available.
+	// Setting the SLA level to empty string is a valid SLA level (slaNone).
 	sla, err := f.state.SLALevel()
-	if err != nil {
+	if err != nil && !errors.Is(err, errors.NotImplemented) {
 		return errors.Annotate(err, "could not retrieve the SLA level")
 	}
 	ctx.slaLevel = sla
@@ -406,8 +408,11 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 	ctx.legacyProxySettings = modelConfig.LegacyProxySettings()
 	ctx.jujuProxySettings = modelConfig.JujuProxySettings()
 
+	// MeterStatus is removed in 4.0, so the facade is not available.
+	// Setting meter status code and info to be empty string should be
+	// valid.
 	statusCode, statusInfo, err := f.unit.MeterStatus()
-	if err != nil {
+	if err != nil && !errors.Is(err, errors.NotImplemented) {
 		return errors.Annotate(err, "could not retrieve meter status for unit")
 	}
 	ctx.meterStatus = &meterStatus{

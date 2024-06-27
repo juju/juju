@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -47,7 +48,7 @@ func (c *Client) MeterStatus() (statusCode, statusInfo string, rErr error) {
 	}
 	err := c.facade.FacadeCall("GetMeterStatus", args, &results)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -67,7 +68,7 @@ func (c *Client) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 	}
 	err := c.facade.FacadeCall("WatchMeterStatus", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))

@@ -79,5 +79,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			return spool.NewPeriodicWorker(s.Do, period, jworker.NewTimer, s.stop), nil
 		},
+		Filter: func(err error) error {
+			if errors.Is(err, errors.NotImplemented) {
+				logger.Infof("metrics sender is deprecated and is no longer required")
+				return nil
+			}
+			return errors.Trace(err)
+		},
 	}
 }

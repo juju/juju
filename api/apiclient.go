@@ -1170,12 +1170,17 @@ func isX509Error(err error) bool {
 // object id, and the specific RPC method. It marshalls the Arguments, and will
 // unmarshall the result into the response object that is supplied.
 func (s *state) APICall(facade string, vers int, id, method string, args, response interface{}) error {
-	return s.client.Call(rpc.Request{
+	err := s.client.Call(rpc.Request{
 		Type:    facade,
 		Version: vers,
 		Id:      id,
 		Action:  method,
 	}, args, response)
+
+	if code := params.ErrCode(err); code == params.CodeNotImplemented {
+		return errors.NewNotImplemented(fmt.Errorf("%w\nre-install your juju client to match the version running on the controller", err), "\njuju client not compatible with server")
+	}
+	return errors.Trace(err)
 }
 
 func (s *state) Close() error {

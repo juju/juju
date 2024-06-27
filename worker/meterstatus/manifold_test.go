@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -54,6 +56,8 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 		NewConnectedStatusWorker: meterstatus.NewConnectedStatusWorker,
 		NewIsolatedStatusWorker:  meterstatus.NewIsolatedStatusWorker,
+
+		Logger: loggo.GetLogger("meterstatus"),
 	}
 	s.manifold = meterstatus.Manifold(s.manifoldConfig)
 	s.dataDir = c.MkDir()
@@ -88,6 +92,37 @@ func (s *ManifoldSuite) TestStartMissingDeps(c *gc.C) {
 		worker, err := s.manifold.Start(testResources.Context())
 		c.Check(worker, gc.IsNil)
 		c.Check(err, gc.Equals, dependency.ErrMissing)
+	}
+}
+
+// TestErrorFilterNotImplemented ensures that the manifold correctly handles
+// not implemented api calls.
+func (s *ManifoldSuite) TestErrorFilterNotImplemented(c *gc.C) {
+	testCases := []struct {
+		name     string
+		err      error
+		expected error
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: nil,
+		},
+		{
+			name:     "not implemented error",
+			err:      errors.NotImplementedf("not implemented"),
+			expected: nil,
+		},
+		{
+			name:     "any error",
+			err:      errors.NotFound,
+			expected: errors.NotFound,
+		},
+	}
+	for i, test := range testCases {
+		c.Logf("test %d: %s", i, test.name)
+		result := s.manifold.Filter(test.err)
+		c.Check(errors.Cause(result), gc.Equals, test.expected)
 	}
 }
 

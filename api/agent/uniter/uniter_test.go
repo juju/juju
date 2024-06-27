@@ -52,17 +52,17 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 						"unit-mysql-0": {
 							{
 								Endpoint:   "",
-								PortRanges: []params.PortRange{{100, 200, "tcp"}},
+								PortRanges: []params.PortRange{{FromPort: 100, ToPort: 200, Protocol: "tcp"}},
 							},
 							{
 								Endpoint:   "server",
-								PortRanges: []params.PortRange{{3306, 3306, "tcp"}},
+								PortRanges: []params.PortRange{{FromPort: 3306, ToPort: 3306, Protocol: "tcp"}},
 							},
 						},
 						"unit-wordpress-0": {
 							{
 								Endpoint:   "monitoring-port",
-								PortRanges: []params.PortRange{{1337, 1337, "udp"}},
+								PortRanges: []params.PortRange{{FromPort: 1337, ToPort: 1337, Protocol: "udp"}},
 							},
 						},
 					},
@@ -71,7 +71,7 @@ func (s *uniterSuite) TestOpenedMachinePortRangesByEndpoint(c *gc.C) {
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 17}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 17}
 	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 
 	portRangesMap, err := client.OpenedMachinePortRangesByEndpoint(names.NewMachineTag("42"))
@@ -100,17 +100,17 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 						"unit-mysql-0": {
 							{
 								Endpoint:   "",
-								PortRanges: []params.PortRange{{100, 200, "tcp"}},
+								PortRanges: []params.PortRange{{FromPort: 100, ToPort: 200, Protocol: "tcp"}},
 							},
 							{
 								Endpoint:   "server",
-								PortRanges: []params.PortRange{{3306, 3306, "tcp"}},
+								PortRanges: []params.PortRange{{FromPort: 3306, ToPort: 3306, Protocol: "tcp"}},
 							},
 						},
 						"unit-wordpress-0": {
 							{
 								Endpoint:   "monitoring-port",
-								PortRanges: []params.PortRange{{1337, 1337, "udp"}},
+								PortRanges: []params.PortRange{{FromPort: 1337, ToPort: 1337, Protocol: "udp"}},
 							},
 						},
 					},
@@ -119,7 +119,7 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 18}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 18}
 	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
 
 	result, err := client.OpenedPortRangesByEndpoint()
@@ -142,7 +142,7 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpointOldAPINotSupported(c *gc.C) 
 		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-gitlab-0"}}})
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 17}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 17}
 	client := uniter.NewState(caller, names.NewUnitTag("gitlab/0"))
 
 	_, err := client.OpenedPortRangesByEndpoint()
@@ -160,7 +160,7 @@ func (s *uniterSuite) TestUnitWorkloadVersion(c *gc.C) {
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 17}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 17}
 	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 
 	workloadVersion, err := client.UnitWorkloadVersion(names.NewUnitTag("mysql/0"))
@@ -179,7 +179,7 @@ func (s *uniterSuite) TestSetUnitWorkloadVersion(c *gc.C) {
 		}
 		return nil
 	})
-	caller := testing.BestVersionCaller{apiCaller, 17}
+	caller := testing.BestVersionCaller{APICallerFunc: apiCaller, BestVersion: 17}
 	client := uniter.NewState(caller, names.NewUnitTag("mysql/0"))
 
 	err := client.SetUnitWorkloadVersion(names.NewUnitTag("mysql/0"), "mysql-1.2.3")
