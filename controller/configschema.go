@@ -22,7 +22,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	APIPort:                          schema.ForceInt(),
 	APIPortOpenDelay:                 schema.TimeDuration(),
 	ControllerAPIPort:                schema.ForceInt(),
-	ControllerName:                   schema.String(),
+	ControllerName:                   schema.NonEmptyString(ControllerName),
 	StatePort:                        schema.ForceInt(),
 	LoginTokenRefreshURL:             schema.String(),
 	IdentityURL:                      schema.String(),
@@ -166,6 +166,10 @@ that have a very heavy load. If this port is set, this port is used by
 the controllers to talk to each other - used for the local API connection
 as well as the pubsub forwarders, and the raft workers. If this value is
 set, the api-port isn't opened until the controllers have started properly.`,
+	},
+	ControllerName: {
+		Type:        environschema.Tstring,
+		Description: `The canonical name of the controller`,
 	},
 	StatePort: {
 		Type:        environschema.Tint,

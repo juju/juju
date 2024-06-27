@@ -48,11 +48,18 @@ and where to provision it from. <storage-directive> takes the following form:
 <storage-name> is defined in the charm's metadata.yaml file.   
 
 <storage-constraint> is a description of how Juju should provision storage 
-instances for the unit. The following three forms are accepted:
+instances for the unit. They are made up of up to three parts: <storage-pool>,
+<count>, and <size>. They can be provided in any order, but we recommend the
+following:
 
-    <storage-pool>[,<count>][,<size>]
-    <count>[,<size>]
-    <size>
+    <storage-pool>,<count>,<size>
+
+Each parameter is optional, so long as at least one is present. So the following
+storage constraints are also valid:
+
+   <storage-pool>,<size>
+   <count>,<size>
+   <size>
 
 <storage-pool> is the storage pool to provision storage instances from. Must 
 be a name from 'juju storage-pools'.  The default pool is available via 
