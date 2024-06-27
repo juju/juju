@@ -20,7 +20,6 @@ var _ = gc.Suite(&tagsSuite{})
 
 func (*tagsSuite) TestResourceTagsUUID(c *gc.C) {
 	testResourceTags(c, testing.ControllerTag, names.NewModelTag(""), nil, map[string]string{
-		"juju-model-uuid":      "",
 		"juju-controller-uuid": testing.ControllerTag.Id(),
 	})
 	testResourceTags(c, names.NewControllerTag(""), testing.ModelTag, nil, map[string]string{
