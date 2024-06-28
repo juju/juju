@@ -191,11 +191,6 @@ func (s *WatchableService) WatchObsoleteUserSecrets(ctx context.Context) (watche
 	return watcher.TODO[struct{}](), nil
 }
 
-// WatchSecretBackendChanged notifies when the model secret backend has changed.
-func (s *WatchableService) WatchSecretBackendChanged(ctx context.Context) (watcher.NotifyWatcher, error) {
-	return watcher.TODO[struct{}](), nil
-}
-
 // secretWatcher is a watcher that watches for secret changes to a set of strings.
 type secretWatcher[T any] struct {
 	catacomb catacomb.Catacomb

@@ -11,4 +11,5 @@ INSERT INTO change_log_namespace VALUES
 (9, 'upgrade_info_controller_node', 'upgrade info controller node changes based on the upgrade info UUID'),
 (10, 'object_store_metadata_path', 'object store metadata path changes based on the path'),
 (11, 'secret_backend_rotation', 'secret backend rotation changes based on the backend UUID and next rotation time'),
-(12, 'model', 'model changes based on the model UUID');
+(12, 'model_secret_backend', 'model secret backend changes based on the model UUID'),
+(13, 'model', 'model changes based on the model UUID');
