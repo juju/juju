@@ -26,6 +26,7 @@ const (
 	credAttrSubscriptionId        = "subscription-id"
 	credAttrManagedSubscriptionId = "managed-subscription-id"
 	credAttrAppPassword           = "application-password"
+	credManagedIdentity           = "managed-identity"
 
 	// clientCredentialsAuthType is the auth-type for the
 	// "client credentials" OAuth flow, which requires a
@@ -99,6 +100,19 @@ func (c environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud
 					Description: "Azure Active Directory application password",
 					Hidden:      true,
 				},
+			},
+		},
+		// InstanceRoleAuthType is an authentication type used by sourcing
+		// credentials from within the machine's context in a given cloud provider.
+		// You only get these credentials by running within that machine.
+		cloud.InstanceRoleAuthType: {
+			{
+				credManagedIdentity,
+				cloud.CredentialAttr{
+					Description: "The Azure Managed Identity ID",
+				},
+			}, {
+				credAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"},
 			},
 		},
 	}

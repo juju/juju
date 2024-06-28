@@ -5,7 +5,6 @@ package azure
 
 import (
 	"context"
-	stdcontext "context"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	azurecloud "github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
@@ -14,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/jsonschema"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -93,6 +93,7 @@ func (cfg ProviderConfig) Validate() error {
 }
 
 type azureEnvironProvider struct {
+	environProviderCloud
 	environProviderCredentials
 
 	config ProviderConfig
@@ -119,7 +120,7 @@ func (prov *azureEnvironProvider) Version() int {
 }
 
 // Open is part of the EnvironProvider interface.
-func (prov *azureEnvironProvider) Open(ctx stdcontext.Context, args environs.OpenParams) (environs.Environ, error) {
+func (prov *azureEnvironProvider) Open(ctx context.Context, args environs.OpenParams) (environs.Environ, error) {
 	logger.Debugf("opening model %q", args.Config.Name())
 
 	namespace, err := instance.NewNamespace(args.Config.UUID())
@@ -176,7 +177,7 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := spec.Credential.AuthType(); authType != clientCredentialsAuthType {
+	if authType := spec.Credential.AuthType(); authType != clientCredentialsAuthType && authType != cloud.InstanceRoleAuthType {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil

@@ -47,6 +47,7 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 	envtesting.AssertProviderAuthTypes(c, s.provider,
 		"interactive",
 		"service-principal-secret",
+		"instance-role",
 	)
 }
 
@@ -56,6 +57,13 @@ func (s *credentialsSuite) TestServicePrincipalSecretCredentialsValid(c *gc.C) {
 		"application-password":    "password",
 		"subscription-id":         "subscription",
 		"managed-subscription-id": "managed-subscription",
+	})
+}
+
+func (s *credentialsSuite) TestManagedIdentityCredentialsValid(c *gc.C) {
+	envtesting.AssertProviderCredentialsValid(c, s.provider, "instance-role", map[string]string{
+		"managed-identity": "some-identity",
+		"subscription-id":  "subscription",
 	})
 }
 

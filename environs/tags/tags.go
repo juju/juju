@@ -63,7 +63,10 @@ func ResourceTags(modelTag names.ModelTag, controllerTag names.ControllerTag, ta
 			allTags[k] = v
 		}
 	}
-	allTags[JujuModel] = modelTag.Id()
+	// Some resources might only be for the controller.
+	if modelTag.Id() != "" {
+		allTags[JujuModel] = modelTag.Id()
+	}
 	allTags[JujuController] = controllerTag.Id()
 	return allTags
 }
