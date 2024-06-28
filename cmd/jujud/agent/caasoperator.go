@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -161,6 +162,23 @@ func (op *CaasOperatorAgent) maybeCopyAgentConfig() error {
 		return errors.Trace(err)
 	}
 	return op.ReadConfig(op.Tag().String())
+}
+
+func copyFile(dest, source string) error {
+	df, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0660)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer df.Close()
+
+	f, err := os.Open(source)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+
+	_, err = io.Copy(df, f)
+	return errors.Trace(err)
 }
 
 // Run implements Command.

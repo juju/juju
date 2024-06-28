@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/cmd/jujud/agent/machine"
+	"github.com/juju/juju/cmd/jujud-controller/agent/machine"
 	"github.com/juju/juju/testing"
 )
 

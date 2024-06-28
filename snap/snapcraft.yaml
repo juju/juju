@@ -396,7 +396,7 @@ parts:
     go-channel: 1.20/stable
     source: .
     go-packages:
-      - github.com/juju/juju/cmd/jujud
+      - github.com/juju/juju/cmd/jujud-controller
     go-external-strings:
       github.com/juju/juju/version.GitCommit: ""
       github.com/juju/juju/version.GitTreeState: ""
@@ -411,7 +411,7 @@ parts:
     go-cgo-ldflags-allow: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
     override-build: |
       snapcraftctl build
-      mv ${SNAPCRAFT_PART_INSTALL}/bin/jujud ${SNAPCRAFT_PART_INSTALL}/bin/jujud
+      mv ${SNAPCRAFT_PART_INSTALL}/bin/jujud-controller ${SNAPCRAFT_PART_INSTALL}/bin/jujud
 
   juju:
     after:
