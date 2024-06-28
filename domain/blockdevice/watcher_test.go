@@ -39,7 +39,7 @@ func (s *watcherSuite) createMachine(c *gc.C, name string) string {
 INSERT INTO net_node (uuid) VALUES (?)
 `
 	queryMachine := `
-INSERT INTO machine (uuid, life_id, machine_id, net_node_uuid)
+INSERT INTO machine (uuid, life_id, machine_name, net_node_uuid)
 VALUES (?, ?, ?, ?)
 	`
 
