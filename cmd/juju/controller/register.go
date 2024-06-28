@@ -280,7 +280,7 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	// user-pass or macaroons.
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
 		loggo.GetLogger("juju.cmd.loginprovider"),
-		loginprovider.NewSessionTokenLoginProvider(
+		api.NewSessionTokenLoginProvider(
 			"",
 			ctx.Stderr,
 			func(sessionToken string) error {
