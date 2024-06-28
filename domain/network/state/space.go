@@ -112,7 +112,7 @@ SELECT (uuid,
        subnet_provider_id,
        subnet_provider_network_id,
        subnet_az) AS (&SpaceSubnetRow.*)
-FROM   v_space
+FROM   v_space_subnet
 WHERE  uuid = $Space.uuid;`, SpaceSubnetRow{}, space)
 	if err != nil {
 		return nil, errors.Annotate(err, "preparing select space statement")
@@ -158,7 +158,7 @@ SELECT (uuid,
        subnet_provider_id,
        subnet_provider_network_id,
        subnet_az) AS (&SpaceSubnetRow.*)
-FROM   v_space
+FROM   v_space_subnet
 WHERE  name = $Space.name;`
 
 	s, err := st.Prepare(q, SpaceSubnetRow{}, space)
@@ -198,7 +198,7 @@ SELECT (uuid,
        subnet_provider_id,
        subnet_provider_network_id,
        subnet_az) AS (&SpaceSubnetRow.*)
-FROM   v_space
+FROM   v_space_subnet
 `, SpaceSubnetRow{})
 	if err != nil {
 		return nil, errors.Annotatef(err, "preparing select all spaces statement")

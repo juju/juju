@@ -20,7 +20,7 @@ ON provider_space (space_uuid);
 INSERT INTO space VALUES
 (0, 'alpha');
 
-CREATE VIEW v_space AS
+CREATE VIEW v_space_subnet AS
 SELECT
     space.uuid,
     space.name,
@@ -28,9 +28,12 @@ SELECT
     subnet.uuid AS subnet_uuid,
     subnet.cidr AS subnet_cidr,
     subnet.vlan_tag AS subnet_vlan_tag,
+    subnet.space_uuid AS subnet_space_uuid,
+    space.name AS subnet_space_name,
     provider_subnet.provider_id AS subnet_provider_id,
     provider_network.provider_network_id AS subnet_provider_network_id,
-    availability_zone.name AS subnet_az
+    availability_zone.name AS subnet_az,
+    provider_space.provider_id AS subnet_provider_space_uuid
 FROM space
 LEFT JOIN provider_space
     ON space.uuid = provider_space.space_uuid

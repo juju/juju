@@ -57,30 +57,3 @@ CREATE TABLE availability_zone_subnet (
     FOREIGN KEY (subnet_uuid)
     REFERENCES subnet (uuid)
 );
-
-CREATE VIEW v_subnet AS
-SELECT
-    subnet.uuid AS subnet_uuid,
-    subnet.cidr AS subnet_cidr,
-    subnet.vlan_tag AS subnet_vlan_tag,
-    subnet.space_uuid AS subnet_space_uuid,
-    space.name AS subnet_space_name,
-    provider_subnet.provider_id AS subnet_provider_id,
-    provider_network.provider_network_id AS subnet_provider_network_id,
-    availability_zone.name AS subnet_az,
-    provider_space.provider_id AS subnet_provider_space_uuid
-FROM subnet
-LEFT JOIN space
-    ON subnet.space_uuid = space.uuid
-INNER JOIN provider_subnet
-    ON subnet.uuid = provider_subnet.subnet_uuid
-INNER JOIN provider_network_subnet
-    ON subnet.uuid = provider_network_subnet.subnet_uuid
-INNER JOIN provider_network
-    ON provider_network_subnet.provider_network_uuid = provider_network.uuid
-LEFT JOIN availability_zone_subnet
-    ON subnet.uuid = availability_zone_subnet.subnet_uuid
-LEFT JOIN availability_zone
-    ON availability_zone_subnet.availability_zone_uuid = availability_zone.uuid
-LEFT JOIN provider_space
-    ON subnet.space_uuid = provider_space.space_uuid;

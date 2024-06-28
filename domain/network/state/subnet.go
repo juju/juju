@@ -273,7 +273,7 @@ func (st *State) GetAllSubnets(
 	// Append the space uuid condition to the query only if it's passed to the function.
 	q := `
 SELECT &SubnetRow.*
-FROM   v_subnet
+FROM   v_space_subnet
 `
 
 	s, err := st.Prepare(q, SubnetRow{})
@@ -307,7 +307,7 @@ func (st *State) GetSubnet(
 	// Append the space uuid condition to the query only if it's passed to the function.
 	q := `
 SELECT &SubnetRow.*
-FROM   v_subnet
+FROM   v_space_subnet
 WHERE  subnet_uuid = $M.id;`
 
 	stmt, err := st.Prepare(q, SubnetRow{}, sqlair.M{})
@@ -343,7 +343,7 @@ func (st *State) GetSubnetsByCIDR(
 	// Append the where clause to the query.
 	q := `
 SELECT &SubnetRow.*
-FROM   v_subnet
+FROM   v_space_subnet
 WHERE  subnet_cidr = $M.cidr`
 
 	s, err := st.Prepare(q, SubnetRow{}, sqlair.M{})
