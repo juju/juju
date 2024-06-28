@@ -1,6 +1,6 @@
 CREATE TABLE machine (
     uuid TEXT NOT NULL PRIMARY KEY,
-    machine_id TEXT NOT NULL,
+    machine_name TEXT NOT NULL,
     net_node_uuid TEXT NOT NULL,
     life_id INT NOT NULL,
     base TEXT,
@@ -21,8 +21,8 @@ CREATE TABLE machine (
     REFERENCES life (id)
 );
 
-CREATE UNIQUE INDEX idx_machine_id
-ON machine (machine_id);
+CREATE UNIQUE INDEX idx_machine_name
+ON machine (machine_name);
 
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);

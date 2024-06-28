@@ -27,7 +27,7 @@ type API struct {
 }
 
 type machineRemover interface {
-	DeleteMachine(context.Context, machine.ID) error
+	DeleteMachine(context.Context, machine.Name) error
 }
 
 // NewAPI implements the API used by the machine undertaker worker to
@@ -135,7 +135,7 @@ func (m *API) CompleteMachineRemovals(ctx context.Context, machines params.Entit
 
 	// Remove the machines from dqlite.
 	for _, id := range machineIDs {
-		if err := m.machineRemover.DeleteMachine(ctx, machine.ID(id)); err != nil {
+		if err := m.machineRemover.DeleteMachine(ctx, machine.Name(id)); err != nil {
 			return errors.Annotatef(err, "removing machine %q", id)
 		}
 	}

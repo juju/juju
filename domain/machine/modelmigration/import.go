@@ -39,7 +39,7 @@ type importOperation struct {
 // ImportService defines the machine service used to import machines from
 // another controller model to this controller.
 type ImportService interface {
-	CreateMachine(context.Context, machine.ID) (string, error)
+	CreateMachine(context.Context, machine.Name) (string, error)
 }
 
 // Name returns the name of this operation.
@@ -55,7 +55,7 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	for _, m := range model.Machines() {
 		// We need skeleton machines in dqlite.
-		if _, err := i.service.CreateMachine(ctx, machine.ID(m.Id())); err != nil {
+		if _, err := i.service.CreateMachine(ctx, machine.Name(m.Id())); err != nil {
 			return fmt.Errorf("importing machine %q: %w", m.Id(), err)
 		}
 	}

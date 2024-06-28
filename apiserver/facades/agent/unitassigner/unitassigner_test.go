@@ -35,7 +35,7 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 	c.Assert(res.Results, gc.HasLen, 2)
 	c.Assert(res.Results[0].Error, gc.IsNil)
 	c.Assert(res.Results[1].Error, gc.ErrorMatches, `unit "unit-bar-1" not found`)
-	c.Assert(a.machineIds, jc.SameContents, []machine.ID{machine.ID("1"), machine.ID("1/lxd/2")})
+	c.Assert(a.machineIds, jc.SameContents, []machine.Name{machine.Name("1"), machine.Name("1/lxd/2")})
 }
 
 func (testsuite) TestWatchUnitAssignment(c *gc.C) {
@@ -64,10 +64,10 @@ func (testsuite) TestSetStatus(c *gc.C) {
 }
 
 type fakeMachineService struct {
-	machineIds []machine.ID
+	machineIds []machine.Name
 }
 
-func (f *fakeMachineService) CreateMachine(_ context.Context, machineId machine.ID) (string, error) {
+func (f *fakeMachineService) CreateMachine(_ context.Context, machineId machine.Name) (string, error) {
 	f.machineIds = append(f.machineIds, machineId)
 	return "", nil
 }

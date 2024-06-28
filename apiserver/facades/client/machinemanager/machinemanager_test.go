@@ -27,6 +27,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -195,9 +196,9 @@ func (s *AddMachineManagerSuite) TestAddMachines(c *gc.C) {
 			},
 		},
 	}).Return(m1, nil)
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), "666")
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), "667/lxd/1")
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), "667")
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), machine.Name("666"))
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), machine.Name("667/lxd/1"))
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), machine.Name("667"))
 	s.st.EXPECT().AddOneMachine(state.MachineTemplate{
 		Base: state.UbuntuBase("22.04"),
 		Jobs: []state.MachineJob{state.JobHostUnits},

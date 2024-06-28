@@ -1783,7 +1783,7 @@ func assertUnitInScope(c *gc.C, unit *state.Unit, rel *state.Relation, expected 
 
 type fakeMachineRemover struct{}
 
-func (fakeMachineRemover) DeleteMachine(context.Context, machine.ID) error { return nil }
+func (fakeMachineRemover) DeleteMachine(context.Context, machine.Name) error { return nil }
 
 type fakeUnitRemover struct{}
 

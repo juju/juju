@@ -3457,7 +3457,7 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 }
 
 // CreateMachine mocks base method.
-func (m *MockMachineService) CreateMachine(arg0 context.Context, arg1 machine.ID) (string, error) {
+func (m *MockMachineService) CreateMachine(arg0 context.Context, arg1 machine.Name) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1)
 	ret0, _ := ret[0].(string)
@@ -3484,19 +3484,19 @@ func (c *MockMachineServiceCreateMachineCall) Return(arg0 string, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceCreateMachineCall) Do(f func(context.Context, machine.ID) (string, error)) *MockMachineServiceCreateMachineCall {
+func (c *MockMachineServiceCreateMachineCall) Do(f func(context.Context, machine.Name) (string, error)) *MockMachineServiceCreateMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceCreateMachineCall) DoAndReturn(f func(context.Context, machine.ID) (string, error)) *MockMachineServiceCreateMachineCall {
+func (c *MockMachineServiceCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockMachineServiceCreateMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DeleteMachine mocks base method.
-func (m *MockMachineService) DeleteMachine(arg0 context.Context, arg1 machine.ID) error {
+func (m *MockMachineService) DeleteMachine(arg0 context.Context, arg1 machine.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteMachine", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -3522,13 +3522,13 @@ func (c *MockMachineServiceDeleteMachineCall) Return(arg0 error) *MockMachineSer
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceDeleteMachineCall) Do(f func(context.Context, machine.ID) error) *MockMachineServiceDeleteMachineCall {
+func (c *MockMachineServiceDeleteMachineCall) Do(f func(context.Context, machine.Name) error) *MockMachineServiceDeleteMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceDeleteMachineCall) DoAndReturn(f func(context.Context, machine.ID) error) *MockMachineServiceDeleteMachineCall {
+func (c *MockMachineServiceDeleteMachineCall) DoAndReturn(f func(context.Context, machine.Name) error) *MockMachineServiceDeleteMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

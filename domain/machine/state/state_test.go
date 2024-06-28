@@ -41,7 +41,7 @@ func (s *stateSuite) TestCreateMachine(c *gc.C) {
 		machineID string
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT machine_id FROM machine").Scan(&machineID)
+		err := tx.QueryRowContext(ctx, "SELECT machine_name FROM machine").Scan(&machineID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -59,7 +59,7 @@ func (s *stateSuite) TestUpdateMachine(c *gc.C) {
 
 	var machineID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT machine_id FROM machine").Scan(&machineID)
+		err := tx.QueryRowContext(ctx, "SELECT machine_name FROM machine").Scan(&machineID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -94,7 +94,7 @@ func (s *stateSuite) TestDeleteMachine(c *gc.C) {
 
 	var machineCount int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine WHERE machine_id=?", "666").Scan(&machineCount)
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine WHERE machine_name=?", "666").Scan(&machineCount)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -113,7 +113,7 @@ func (s *stateSuite) insertBlockDevice(c *gc.C, bd blockdevice.BlockDevice, bloc
 	}
 	_, err := db.ExecContext(context.Background(), `
 INSERT INTO block_device (uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type_id, Size_mib, in_use, machine_uuid)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, (SELECT uuid FROM machine WHERE machine_id=?))
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, (SELECT uuid FROM machine WHERE machine_name=?))
 `, blockDeviceUUID, bd.DeviceName, bd.Label, bd.UUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.SizeMiB, inUse, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 

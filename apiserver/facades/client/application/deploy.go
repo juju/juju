@@ -72,7 +72,7 @@ type UnitAdder interface {
 
 // MachineService instances save a machine to dqlite state.
 type MachineService interface {
-	CreateMachine(context.Context, machine.ID) (string, error)
+	CreateMachine(context.Context, machine.Name) (string, error)
 }
 
 // ApplicationService instances save an application to dqlite state.
@@ -234,7 +234,7 @@ func (api *APIBase) addUnits(
 func saveMachineInfo(ctx context.Context, machineService MachineService, machineId string) error {
 	// This is temporary - just insert the machine id all al the parent ones.
 	for machineId != "" {
-		if _, err := machineService.CreateMachine(ctx, machine.ID(machineId)); err != nil {
+		if _, err := machineService.CreateMachine(ctx, machine.Name(machineId)); err != nil {
 			return errors.Annotatef(err, "saving info for machine %q", machineId)
 		}
 		parent := names.NewMachineTag(machineId).Parent()

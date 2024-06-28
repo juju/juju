@@ -165,7 +165,7 @@ func (st *State) NeedsCleanup() (bool, error) {
 // MachineRemover deletes a machine from the dqlite database.
 // This allows us to initially weave some dqlite support into the cleanup workflow.
 type MachineRemover interface {
-	DeleteMachine(context.Context, machine.ID) error
+	DeleteMachine(context.Context, machine.Name) error
 }
 
 // UnitRemover deletes a unit from the dqlite database.
@@ -1474,7 +1474,7 @@ func (st *State) cleanupForceRemoveMachine(ctx context.Context, store objectstor
 	if err := machineToRemove.Remove(store); err != nil {
 		return errors.Trace(err)
 	}
-	return machineRemover.DeleteMachine(ctx, machine.ID(machineId))
+	return machineRemover.DeleteMachine(ctx, machine.Name(machineId))
 }
 
 // cleanupEvacuateMachine is initiated by machine.Destroy() to gracefully remove units
@@ -1555,7 +1555,7 @@ func (st *State) cleanupContainers(ctx context.Context, store objectstore.Object
 		if err := container.Remove(store); err != nil {
 			return err
 		}
-		if err = machineRemover.DeleteMachine(ctx, machine.ID(containerId)); err != nil {
+		if err = machineRemover.DeleteMachine(ctx, machine.Name(containerId)); err != nil {
 			return err
 		}
 	}

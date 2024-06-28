@@ -193,8 +193,8 @@ func (*undertakerSuite) TestCompleteMachineRemovals(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(values, gc.DeepEquals, []string{"2", "52"})
 	remover.stub.CheckCalls(c, []testing.StubCall{
-		{"Delete", []any{machine.ID("2")}},
-		{"Delete", []any{machine.ID("52")}},
+		{"Delete", []any{machine.Name("2")}},
+		{"Delete", []any{machine.Name("52")}},
 	})
 }
 
@@ -331,7 +331,7 @@ type mockMachineRemover struct {
 	stub *testing.Stub
 }
 
-func (m *mockMachineRemover) DeleteMachine(_ context.Context, machineId machine.ID) error {
+func (m *mockMachineRemover) DeleteMachine(_ context.Context, machineId machine.Name) error {
 	m.stub.AddCall("Delete", machineId)
 	return nil
 }

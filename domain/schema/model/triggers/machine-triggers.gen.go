@@ -26,7 +26,7 @@ END;
 CREATE TRIGGER trg_log_machine_update
 AFTER UPDATE ON machine FOR EACH ROW
 WHEN 
-	NEW.machine_id != OLD.machine_id OR
+	NEW.machine_name != OLD.machine_name OR
 	NEW.net_node_uuid != OLD.net_node_uuid OR
 	NEW.life_id != OLD.life_id OR
 	(NEW.base != OLD.base OR (NEW.base IS NOT NULL AND OLD.base IS NULL) OR (NEW.base IS NULL AND OLD.base IS NOT NULL)) OR
