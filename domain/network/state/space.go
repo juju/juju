@@ -103,15 +103,7 @@ func (st *State) GetSpace(
 
 	space := Space{UUID: uuid}
 	spacesStmt, err := st.Prepare(`
-SELECT (uuid,
-       name,
-       provider_id,
-       subnet_uuid,
-       subnet_cidr,
-       subnet_vlan_tag,
-       subnet_provider_id,
-       subnet_provider_network_id,
-       subnet_az) AS (&SpaceSubnetRow.*)
+SELECT &SpaceSubnetRow.*
 FROM   v_space_subnet
 WHERE  uuid = $Space.uuid;`, SpaceSubnetRow{}, space)
 	if err != nil {
@@ -149,15 +141,7 @@ func (st *State) GetSpaceByName(
 
 	// Append the space.name condition to the query.
 	q := `
-SELECT (uuid,
-       name,
-       provider_id,
-       subnet_uuid,
-       subnet_cidr,
-       subnet_vlan_tag,
-       subnet_provider_id,
-       subnet_provider_network_id,
-       subnet_az) AS (&SpaceSubnetRow.*)
+SELECT &SpaceSubnetRow.*
 FROM   v_space_subnet
 WHERE  name = $Space.name;`
 
@@ -189,15 +173,7 @@ func (st *State) GetAllSpaces(
 	}
 
 	s, err := st.Prepare(`
-SELECT (uuid,
-       name,
-       provider_id,
-       subnet_uuid,
-       subnet_cidr,
-       subnet_vlan_tag,
-       subnet_provider_id,
-       subnet_provider_network_id,
-       subnet_az) AS (&SpaceSubnetRow.*)
+SELECT &SpaceSubnetRow.*
 FROM   v_space_subnet
 `, SpaceSubnetRow{})
 	if err != nil {

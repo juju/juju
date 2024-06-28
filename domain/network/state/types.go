@@ -161,12 +161,6 @@ func (sp SpaceSubnetRows) ToSpaceInfos() network.SpaceInfos {
 				uniqueSubnets[spaceSubnet.SpaceUUID] = make(map[string]network.SubnetInfo)
 			}
 
-			snInfo.SpaceID = spaceSubnet.SpaceUUID
-			snInfo.SpaceName = spaceSubnet.SpaceName
-
-			if spaceSubnet.SpaceProviderID.Valid {
-				snInfo.ProviderSpaceId = network.Id(spaceSubnet.SpaceProviderID.String)
-			}
 			uniqueSubnets[spaceSubnet.SpaceUUID][spaceSubnet.UUID] = *snInfo
 
 			if _, ok := uniqueAZs[spaceSubnet.SpaceUUID]; !ok {
