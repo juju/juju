@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type introspectionSuite struct {
@@ -39,9 +38,11 @@ func (s *introspectionSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *introspectionSuite) TestAccess(c *gc.C) {
-	userService := s.ControllerServiceFactory(c).Access()
+	s.testAccess(c, testing.AdminUser.String(), testing.AdminSecret)
+
+	accessService := s.ControllerServiceFactory(c).Access()
 	userTag := names.NewUserTag("bobbrown")
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -50,24 +51,25 @@ func (s *introspectionSuite) TestAccess(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.testAccess(c, testing.AdminUser.String(), testing.AdminSecret)
-
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeUser(c, &factory.UserParams{
-		Name:   userTag.Name(),
-		Access: permission.ReadAccess,
+	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        s.ControllerModelUUID(),
+			},
+			Access: permission.ReadAccess,
+		},
+		User: userTag.Name(),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	s.testAccess(c, "user-bobbrown", "hunter2")
 }
 
 func (s *introspectionSuite) TestAccessDenied(c *gc.C) {
-	userService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerServiceFactory(c).Access()
 	userTag := names.NewUserTag("bobbrown")
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -79,11 +81,11 @@ func (s *introspectionSuite) TestAccessDenied(c *gc.C) {
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{
 		Method:   "GET",
 		URL:      s.url,
-		Tag:      "user-bobbrown",
+		Tag:      userTag.String(),
 		Password: "hunter2",
 	})
 	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusUnauthorized)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusForbidden)
 }
 
 func (s *introspectionSuite) testAccess(c *gc.C, tag, password string) {

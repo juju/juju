@@ -123,10 +123,12 @@ func (a *Authenticator) Authenticate(req *http.Request) (authentication.AuthInfo
 	if modelUUID == "" {
 		return authentication.AuthInfo{}, errors.New("model UUID not found")
 	}
+
 	loginRequest, err := LoginRequest(req)
 	if err != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
+
 	authParams := authentication.AuthParams{
 		Credentials:   loginRequest.Credentials,
 		Nonce:         loginRequest.Nonce,
@@ -139,7 +141,9 @@ func (a *Authenticator) Authenticate(req *http.Request) (authentication.AuthInfo
 			return authentication.AuthInfo{}, errors.Trace(err)
 		}
 	}
-	return a.AuthenticateLoginRequest(req.Context(), req.Host, modelUUID, authParams)
+
+	info, err := a.AuthenticateLoginRequest(req.Context(), req.Host, modelUUID, authParams)
+	return info, errors.Trace(err)
 }
 
 // AuthenticateLoginRequest authenticates a LoginRequest.

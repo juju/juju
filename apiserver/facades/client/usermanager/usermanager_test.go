@@ -40,7 +40,7 @@ type userManagerSuite struct {
 	apiUser    coreuser.User
 	resources  *common.Resources
 
-	userService *MockUserService
+	accessService *MockAccessService
 }
 
 var _ = gc.Suite(&userManagerSuite{})
@@ -59,7 +59,7 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	pass := auth.NewPassword("password")
-	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
+	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        "foobar",
 		DisplayName: "Foo Bar",
 		Password:    &pass,
@@ -80,17 +80,17 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 		}}}
 
 	result, err := s.api.AddUser(context.Background(), args)
-	// Check that the call is successful
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
+
 	foobarTag := names.NewLocalUserTag("foobar")
-	c.Assert(result.Results[0], gc.DeepEquals, params.AddUserResult{Tag: foobarTag.String()})
+	c.Check(result.Results[0], gc.DeepEquals, params.AddUserResult{Tag: foobarTag.String()})
 }
 
 func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
+	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        "foobar",
 		DisplayName: "Foo Bar",
 		CreatorUUID: s.apiUser.UUID,
@@ -150,7 +150,7 @@ func (s *userManagerSuite) TestAddUserAsNormalUser(c *gc.C) {
 func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	exp := s.userService.EXPECT()
+	exp := s.accessService.EXPECT()
 	exp.DisableUserAuthentication(gomock.Any(), "alex").Return(nil)
 	exp.DisableUserAuthentication(gomock.Any(), "barb").Return(nil)
 	exp.DisableUserAuthentication(gomock.Any(), "ellie").Return(errors.NotFound)
@@ -202,7 +202,7 @@ func (s *userManagerSuite) TestBlockDisableUser(c *gc.C) {
 func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	exp := s.userService.EXPECT()
+	exp := s.accessService.EXPECT()
 	exp.EnableUserAuthentication(gomock.Any(), "alex").Return(nil)
 	exp.EnableUserAuthentication(gomock.Any(), "barb").Return(nil)
 	exp.EnableUserAuthentication(gomock.Any(), "ellie").Return(errors.NotFound)
@@ -301,7 +301,7 @@ func (s *userManagerSuite) TestEnableUserAsNormalUser(c *gc.C) {
 func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	exp := s.userService.EXPECT()
+	exp := s.accessService.EXPECT()
 	a := gomock.Any()
 	exp.GetUserByName(a, "foobar").Return(coreuser.User{
 		UUID:     newUserUUID(c),
@@ -334,12 +334,18 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	res := results.Results
 	c.Assert(res, gc.HasLen, 4)
 
-	c.Check(res[0].Result.Username, gc.Equals, "foobar")
-	c.Check(res[0].Result.Disabled, gc.Equals, false)
+	c.Assert(res[0].Error, gc.IsNil)
+	r0 := res[0].Result
+	c.Assert(r0, gc.NotNil)
+	c.Check(r0.Username, gc.Equals, "foobar")
+	c.Check(r0.Disabled, gc.Equals, false)
 	//c.Check(res[0].Result.Access, gc.Equals, string(permission.LoginAccess))
 
-	c.Check(res[1].Result.Username, gc.Equals, "barfoo")
-	c.Check(res[1].Result.Disabled, gc.Equals, true)
+	c.Assert(res[1].Error, gc.IsNil)
+	r1 := res[1].Result
+	c.Assert(r1, gc.NotNil)
+	c.Check(r1.Username, gc.Equals, "barfoo")
+	c.Check(r1.Disabled, gc.Equals, true)
 	//c.Check(res[1].Result.Access, gc.Equals, string(permission.NoAccess))
 
 	c.Check(res[2].Error.Code, gc.Equals, params.CodeUserNotFound)
@@ -367,8 +373,8 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	// factor the `IncludeDisabled` argument.
 
 	gomock.InOrder(
-		s.userService.EXPECT().GetAllUsers(gomock.Any()).Return(users, nil),
-		s.userService.EXPECT().GetAllUsers(gomock.Any()).Return(users, nil),
+		s.accessService.EXPECT().GetAllUsers(gomock.Any()).Return(users, nil),
+		s.accessService.EXPECT().GetAllUsers(gomock.Any()).Return(users, nil),
 	)
 
 	args := params.UserInfoRequest{IncludeDisabled: true}
@@ -406,7 +412,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 	// LastLogin 2 mins ago
 	fakeLastLogin := time.Now().Add(-2 * time.Minute)
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), gomock.Any()).Return(coreuser.User{
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), gomock.Any()).Return(coreuser.User{
 		UUID:        fakeUUID,
 		Name:        "aardvark",
 		DisplayName: "Aard Vark",
@@ -415,6 +421,11 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 		CreatedAt:   fakeCreatedAt,
 		LastLogin:   fakeLastLogin,
 	}, nil)
+
+	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "aardvark", permission.ID{
+		ObjectType: permission.Controller,
+		Key:        "controller",
+	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -451,6 +462,21 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 
 func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
+
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), gomock.Any()).Return(coreuser.User{
+		UUID:        fakeUUID,
+		Name:        "aardvark",
+		DisplayName: "Aard Vark",
+		CreatorUUID: fakeCreatorUUID,
+		CreatorName: fakeCreator.Name,
+		CreatedAt:   fakeCreatedAt,
+		LastLogin:   fakeLastLogin,
+	}, nil)
+
+	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "aardvark", permission.ID{
+		ObjectType: permission.Controller,
+		Key:        "controller",
+	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil)
 
 	st := s.ControllerModel(c).State()
 	_, err := st.AddControllerUser(state.UserAccessSpec{
@@ -592,7 +618,7 @@ func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Res
 func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	s.userService.EXPECT().SetPassword(gomock.Any(), "alex", gomock.Any())
+	s.accessService.EXPECT().SetPassword(gomock.Any(), "alex", gomock.Any())
 
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
@@ -632,8 +658,8 @@ func (s *userManagerSuite) TestBlockSetPassword(c *gc.C) {
 func (s *userManagerSuite) TestSetPasswordForSelf(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), gomock.Any()).Return(coreuser.User{}, nil).AnyTimes()
-	s.userService.EXPECT().SetPassword(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	s.accessService.EXPECT().GetUserByName(gomock.Any(), gomock.Any()).Return(coreuser.User{}, nil).AnyTimes()
+	s.accessService.EXPECT().SetPassword(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -698,7 +724,7 @@ func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	tag := "user-harvey"
-	s.userService.EXPECT().RemoveUser(gomock.Any(), "harvey").Return(errors.NotFound)
+	s.accessService.EXPECT().RemoveUser(gomock.Any(), "harvey").Return(errors.NotFound)
 
 	got, err := s.api.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: tag}}})
@@ -713,7 +739,7 @@ func (s *userManagerSuite) TestRemoveUserNonExistent(c *gc.C) {
 func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	s.userService.EXPECT().RemoveUser(gomock.Any(), "jimmyjam").Return(nil)
+	s.accessService.EXPECT().RemoveUser(gomock.Any(), "jimmyjam").Return(nil)
 
 	got, err := s.api.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "user-jimmyjam"}}})
@@ -778,8 +804,8 @@ func (s *userManagerSuite) TestRemoveUserAsSelfAdmin(c *gc.C) {
 func (s *userManagerSuite) TestRemoveUserBulk(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	s.userService.EXPECT().RemoveUser(gomock.Any(), "jimmyjam").Return(nil)
-	s.userService.EXPECT().RemoveUser(gomock.Any(), "alice").Return(nil)
+	s.accessService.EXPECT().RemoveUser(gomock.Any(), "jimmyjam").Return(nil)
+	s.accessService.EXPECT().RemoveUser(gomock.Any(), "alice").Return(nil)
 
 	got, err := s.api.RemoveUser(context.Background(), params.Entities{
 		Entities: []params.Entity{
@@ -797,7 +823,7 @@ func (s *userManagerSuite) TestRemoveUserBulk(c *gc.C) {
 func (s *userManagerSuite) TestResetPassword(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	s.userService.EXPECT().ResetPassword(gomock.Any(), "alex").Return([]byte("secret-key"), nil)
+	s.accessService.EXPECT().ResetPassword(gomock.Any(), "alex").Return([]byte("secret-key"), nil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
@@ -817,8 +843,8 @@ func (s *userManagerSuite) TestResetPasswordMultiple(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
 	gomock.InOrder(
-		s.userService.EXPECT().ResetPassword(gomock.Any(), "alex"),
-		s.userService.EXPECT().ResetPassword(gomock.Any(), "barb"),
+		s.accessService.EXPECT().ResetPassword(gomock.Any(), "alex"),
+		s.accessService.EXPECT().ResetPassword(gomock.Any(), "barb"),
 	)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -929,8 +955,8 @@ func (s *userManagerSuite) TestResetPasswordNotControllerAdmin(c *gc.C) {
 func (s *userManagerSuite) TestResetPasswordMixedResult(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	s.userService.EXPECT().ResetPassword(gomock.Any(), "alex").Return([]byte("secret-key"), nil)
-	s.userService.EXPECT().ResetPassword(gomock.Any(), "invalid").Return(nil, errors.NotFound)
+	s.accessService.EXPECT().ResetPassword(gomock.Any(), "alex").Return([]byte("secret-key"), nil)
+	s.accessService.EXPECT().ResetPassword(gomock.Any(), "invalid").Return(nil, errors.NotFound)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "user-invalid"},
@@ -979,7 +1005,7 @@ func (s *userManagerSuite) setAPIUserAndAuth(c *gc.C, name string) {
 func (s *userManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.userService = NewMockUserService(ctrl)
+	s.accessService = NewMockAccessService(ctrl)
 
 	ctx := facadetest.ModelContext{
 		StatePool_: s.StatePool(),
@@ -991,7 +1017,7 @@ func (s *userManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 	var err error
 	s.api, err = usermanager.NewAPI(
 		ctx.State(),
-		s.userService,
+		s.accessService,
 		ctx.StatePool(),
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),

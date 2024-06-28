@@ -15,7 +15,7 @@ import (
 	internallogger "github.com/juju/juju/internal/logger"
 )
 
-// StrategicAuthenticator is responsible for trying multiple Authenticators
+// HTTPStrategicAuthenticator is responsible for trying multiple Authenticators
 // until one succeeds or an error is returned that is not equal to NotFound.
 type HTTPStrategicAuthenticator []authentication.HTTPAuthenticator
 
@@ -67,6 +67,7 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 	}
+
 	ctx := context.WithValue(req.Context(), authInfoKey{}, authInfo)
 	req = req.WithContext(ctx)
 	h.NextHandler.ServeHTTP(w, req)

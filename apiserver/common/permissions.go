@@ -24,8 +24,7 @@ type UserAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
 // HasPermission returns true if the specified user has the specified
 // permission on target.
 func HasPermission(
-	accessGetter UserAccessFunc, utag names.Tag,
-	requestedPermission permission.Access, target names.Tag,
+	accessGetter UserAccessFunc, utag names.Tag, requestedPermission permission.Access, target names.Tag,
 ) (bool, error) {
 	var validate func(permission.Access) error
 	switch target.Kind() {
@@ -84,7 +83,9 @@ func GetPermission(accessGetter UserAccessFunc, userTag names.UserTag, target na
 		// when groups are implemented.
 		everyoneTag := names.NewUserTag(EveryoneTagName)
 		everyoneAccess, err := accessGetter(everyoneTag, target)
-		if err != nil && !errors.Is(err, accesserrors.PermissionNotFound) && !errors.Is(err, accesserrors.UserNotFound) {
+		if err != nil &&
+			!errors.Is(err, accesserrors.PermissionNotFound) &&
+			!errors.Is(err, accesserrors.UserNotFound) {
 			return permission.NoAccess, errors.Trace(err)
 		}
 		if userAccess == permission.NoAccess && everyoneAccess != permission.NoAccess {
