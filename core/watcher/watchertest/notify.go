@@ -115,6 +115,34 @@ func (c NotifyWatcherC) AssertChanges(duration time.Duration) {
 	}
 }
 
+// AssertNChanges fails if it does not receive n changes before a long time has passed.
+func (c NotifyWatcherC) AssertNChanges(n int) {
+	if n <= 1 {
+		c.Fatalf("n must be greater than 1")
+	}
+	received := 0
+	for {
+		select {
+		case _, ok := <-c.Watcher.Changes():
+			c.Check(ok, jc.IsTrue)
+			received++
+
+			if received < n {
+				continue
+			}
+			// Ensure we have no more changes.
+			c.AssertNoChange()
+			return
+		case <-time.After(testing.LongWait):
+			if received == 0 {
+				c.Fatalf("watcher did not send any changes")
+			} else {
+				c.Fatalf("watcher received %d changes, expected %d", received, n)
+			}
+		}
+	}
+}
+
 // AssertNoChange fails if it manages to read a value from Changes before a
 // short time has passed.
 func (c NotifyWatcherC) AssertNoChange() {

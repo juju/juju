@@ -1511,6 +1511,7 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	ch2 := make(chan struct{}, 1)
 
 	go func() {
+		// send the initial change.
 		ch1 <- struct{}{}
 		ch2 <- struct{}{}
 	}()
@@ -1548,7 +1549,7 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 		c.Fatalf("timed out waiting for sending the secret URI changes")
 	}
 
-	wc.AssertAtLeastOneChange()
+	wc.AssertNChanges(2)
 }
 
 func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {

@@ -321,7 +321,7 @@ func (s *watcherSuite) TestWatchObsoleteForUserSecrets(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	wc.AssertAtLeastOneChange()
+	wc.AssertNChanges(2)
 
 	// Pretend that the agent restarted and the watcher is re-created.
 	w1, err := svc.WatchObsoleteUserSecretsToPrune(ctx)
@@ -329,7 +329,7 @@ func (s *watcherSuite) TestWatchObsoleteForUserSecrets(c *gc.C) {
 	c.Assert(w1, gc.NotNil)
 	defer workertest.CleanKill(c, w1)
 	wc1 := watchertest.NewNotifyWatcherC(c, w1)
-	wc1.AssertAtLeastOneChange()
+	wc1.AssertOneChange()
 }
 
 func (s *watcherSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
