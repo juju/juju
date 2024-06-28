@@ -41,7 +41,7 @@ const (
 	tableSecretReference
 	tableSubnet
 	tableMachine
-	tableUserPublicSSHKeys
+	tableUserPublicSSHKey
 )
 
 // ModelDDL is used to create model databases.
@@ -94,7 +94,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForSecretReference("secret_id", tableSecretReference),
 		triggers.ChangeLogTriggersForSubnet("uuid", tableSubnet),
 		triggers.ChangeLogTriggersForMachine("machine_id", tableMachine),
-		triggers.ChangeLogTriggersForUserPublicSshKey("id", tableUserPublicSSHKeys),
+		triggers.ChangeLogTriggersForUserPublicSshKey("id", tableUserPublicSSHKey),
 	)
 
 	// Generic triggers.
