@@ -7,10 +7,9 @@ import (
 	"context"
 	"slices"
 
+	jc "github.com/juju/testing/checkers"
 	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
-
-	jc "github.com/juju/testing/checkers"
 
 	coremachine "github.com/juju/juju/core/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
