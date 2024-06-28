@@ -31,9 +31,11 @@ func NewControllerKeyService(st ControllerKeyState) *ControllerKeyService {
 	}
 }
 
-// ControllerKeys returns the juju controllers ssh public keys. If no keys are
-// defined for the controller a zero length slice is returned.
-func (s *ControllerKeyService) ControllerKeys(ctx context.Context) ([]string, error) {
+// ControllerAuthorisedKeys returns the juju controllers ssh public keys. If no
+// keys are defined for the controller a zero length slice is returned.
+func (s *ControllerKeyService) ControllerAuthorisedKeys(
+	ctx context.Context,
+) ([]string, error) {
 	ctrlConfig, err := s.st.GetControllerConfigKeys(ctx, []string{controller.SystemSSHKeys})
 	if err != nil {
 		return nil, fmt.Errorf("cannot get juju controller public ssh keys: %w", err)

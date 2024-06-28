@@ -42,7 +42,7 @@ func (s *controllerKeySuite) TestNoControllerKeys(c *gc.C) {
 		gomock.Any(), []string{controller.SystemSSHKeys},
 	).Return(map[string]string{}, nil)
 
-	keys, err := NewControllerKeyService(s.state).ControllerKeys(context.Background())
+	keys, err := NewControllerKeyService(s.state).ControllerAuthorisedKeys(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(keys, gc.NotNil)
 	c.Check(len(keys), gc.Equals, 0)
@@ -63,7 +63,7 @@ func (s *controllerKeySuite) TestControllerKeys(c *gc.C) {
 		"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIN8h8XBpjS9aBUG5cdoSWubs7wT2Lc/BEZIUQCqoaOZR juju@example.com",
 	}
 
-	keys, err := NewControllerKeyService(s.state).ControllerKeys(context.Background())
+	keys, err := NewControllerKeyService(s.state).ControllerAuthorisedKeys(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 
 	// Sort expected v actual so we not hardcoded onto implementation anymore

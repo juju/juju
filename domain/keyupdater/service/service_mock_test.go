@@ -40,41 +40,41 @@ func (m *MockControllerKeyProvider) EXPECT() *MockControllerKeyProviderMockRecor
 	return m.recorder
 }
 
-// ControllerKeys mocks base method.
-func (m *MockControllerKeyProvider) ControllerKeys(arg0 context.Context) ([]string, error) {
+// ControllerAuthorisedKeys mocks base method.
+func (m *MockControllerKeyProvider) ControllerAuthorisedKeys(arg0 context.Context) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerKeys", arg0)
+	ret := m.ctrl.Call(m, "ControllerAuthorisedKeys", arg0)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ControllerKeys indicates an expected call of ControllerKeys.
-func (mr *MockControllerKeyProviderMockRecorder) ControllerKeys(arg0 any) *MockControllerKeyProviderControllerKeysCall {
+// ControllerAuthorisedKeys indicates an expected call of ControllerAuthorisedKeys.
+func (mr *MockControllerKeyProviderMockRecorder) ControllerAuthorisedKeys(arg0 any) *MockControllerKeyProviderControllerAuthorisedKeysCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerKeys", reflect.TypeOf((*MockControllerKeyProvider)(nil).ControllerKeys), arg0)
-	return &MockControllerKeyProviderControllerKeysCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerAuthorisedKeys", reflect.TypeOf((*MockControllerKeyProvider)(nil).ControllerAuthorisedKeys), arg0)
+	return &MockControllerKeyProviderControllerAuthorisedKeysCall{Call: call}
 }
 
-// MockControllerKeyProviderControllerKeysCall wrap *gomock.Call
-type MockControllerKeyProviderControllerKeysCall struct {
+// MockControllerKeyProviderControllerAuthorisedKeysCall wrap *gomock.Call
+type MockControllerKeyProviderControllerAuthorisedKeysCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockControllerKeyProviderControllerKeysCall) Return(arg0 []string, arg1 error) *MockControllerKeyProviderControllerKeysCall {
+func (c *MockControllerKeyProviderControllerAuthorisedKeysCall) Return(arg0 []string, arg1 error) *MockControllerKeyProviderControllerAuthorisedKeysCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockControllerKeyProviderControllerKeysCall) Do(f func(context.Context) ([]string, error)) *MockControllerKeyProviderControllerKeysCall {
+func (c *MockControllerKeyProviderControllerAuthorisedKeysCall) Do(f func(context.Context) ([]string, error)) *MockControllerKeyProviderControllerAuthorisedKeysCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockControllerKeyProviderControllerKeysCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockControllerKeyProviderControllerKeysCall {
+func (c *MockControllerKeyProviderControllerAuthorisedKeysCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockControllerKeyProviderControllerAuthorisedKeysCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -103,7 +103,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AuthorisedKeysForMachine mocks base method.
-func (m *MockState) AuthorisedKeysForMachine(arg0 context.Context, arg1 machine.ID) ([]string, error) {
+func (m *MockState) AuthorisedKeysForMachine(arg0 context.Context, arg1 machine.Name) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AuthorisedKeysForMachine", arg0, arg1)
 	ret0, _ := ret[0].([]string)
@@ -130,13 +130,13 @@ func (c *MockStateAuthorisedKeysForMachineCall) Return(arg0 []string, arg1 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAuthorisedKeysForMachineCall) Do(f func(context.Context, machine.ID) ([]string, error)) *MockStateAuthorisedKeysForMachineCall {
+func (c *MockStateAuthorisedKeysForMachineCall) Do(f func(context.Context, machine.Name) ([]string, error)) *MockStateAuthorisedKeysForMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAuthorisedKeysForMachineCall) DoAndReturn(f func(context.Context, machine.ID) ([]string, error)) *MockStateAuthorisedKeysForMachineCall {
+func (c *MockStateAuthorisedKeysForMachineCall) DoAndReturn(f func(context.Context, machine.Name) ([]string, error)) *MockStateAuthorisedKeysForMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -203,7 +203,7 @@ func (c *MockWatchableStateAllPublicKeysQueryCall) DoAndReturn(f func() string) 
 }
 
 // AuthorisedKeysForMachine mocks base method.
-func (m *MockWatchableState) AuthorisedKeysForMachine(arg0 context.Context, arg1 machine.ID) ([]string, error) {
+func (m *MockWatchableState) AuthorisedKeysForMachine(arg0 context.Context, arg1 machine.Name) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AuthorisedKeysForMachine", arg0, arg1)
 	ret0, _ := ret[0].([]string)
@@ -230,13 +230,13 @@ func (c *MockWatchableStateAuthorisedKeysForMachineCall) Return(arg0 []string, a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockWatchableStateAuthorisedKeysForMachineCall) Do(f func(context.Context, machine.ID) ([]string, error)) *MockWatchableStateAuthorisedKeysForMachineCall {
+func (c *MockWatchableStateAuthorisedKeysForMachineCall) Do(f func(context.Context, machine.Name) ([]string, error)) *MockWatchableStateAuthorisedKeysForMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockWatchableStateAuthorisedKeysForMachineCall) DoAndReturn(f func(context.Context, machine.ID) ([]string, error)) *MockWatchableStateAuthorisedKeysForMachineCall {
+func (c *MockWatchableStateAuthorisedKeysForMachineCall) DoAndReturn(f func(context.Context, machine.Name) ([]string, error)) *MockWatchableStateAuthorisedKeysForMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

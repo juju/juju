@@ -49,14 +49,14 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 func (s *serviceSuite) TestAuthorisedKeysForMachine(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerKeyProvider.EXPECT().ControllerKeys(gomock.Any()).Return(controllerKeys, nil)
+	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(controllerKeys, nil)
 	s.state.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).Return(machineKeys, nil)
 
 	expected := make([]string, 0, len(controllerKeys)+len(machineKeys))
 	expected = append(expected, controllerKeys...)
 	expected = append(expected, machineKeys...)
 
-	keys, err := NewService(s.controllerKeyProvider, s.state).AuthorisedKeysForMachine(
+	keys, err := NewService(s.controllerKeyProvider, s.state).GetAuthorisedKeysForMachine(
 		context.Background(),
 		coremachine.Name("0"),
 	)
@@ -72,13 +72,13 @@ func (s *serviceSuite) TestAuthorisedKeysForMachine(c *gc.C) {
 func (s *serviceSuite) TestAuthorisedKeysForMachineNoControllerKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.controllerKeyProvider.EXPECT().ControllerKeys(gomock.Any()).Return(nil, nil)
+	s.controllerKeyProvider.EXPECT().ControllerAuthorisedKeys(gomock.Any()).Return(nil, nil)
 	s.state.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).Return(machineKeys, nil)
 
 	expected := make([]string, 0, len(machineKeys))
 	expected = append(expected, machineKeys...)
 
-	keys, err := NewService(s.controllerKeyProvider, s.state).AuthorisedKeysForMachine(
+	keys, err := NewService(s.controllerKeyProvider, s.state).GetAuthorisedKeysForMachine(
 		context.Background(),
 		coremachine.Name("0"),
 	)
@@ -97,7 +97,7 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNotFound(c *gc.C) {
 
 	s.state.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).Return(nil, machineerrors.NotFound)
 
-	_, err := NewService(s.controllerKeyProvider, s.state).AuthorisedKeysForMachine(
+	_, err := NewService(s.controllerKeyProvider, s.state).GetAuthorisedKeysForMachine(
 		context.Background(),
 		coremachine.Name("0"),
 	)

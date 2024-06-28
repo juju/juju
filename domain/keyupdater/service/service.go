@@ -16,8 +16,8 @@ import (
 // ControllerKeyProvider is responsible for providing controller wide authorised
 // keys that should be included as part of every machine.
 type ControllerKeyProvider interface {
-	// ControllerKeys returns controller wide authorised keys.
-	ControllerKeys(context.Context) ([]string, error)
+	// ControllerAuthorisedKeys returns controller wide authorised keys.
+	ControllerAuthorisedKeys(context.Context) ([]string, error)
 }
 
 // Service provides the means for interacting with the authorised keys in a
@@ -100,12 +100,12 @@ func NewWatchableService(
 	}
 }
 
-// AuthorisedKeysForMachine is responsible for fetching the authorised keys that
-// should be available on a machine. The following errors can be expected:
+// GetAuthorisedKeysForMachine is responsible for fetching the authorised keys
+// that should be available on a machine. The following errors can be expected:
 // - [github.com/juju/errors.NotValid] if the machine id is not valid.
 // - [github.com/juju/juju/domain/machine/errors.NotFound] if the machine does
 // not exist.
-func (s *Service) AuthorisedKeysForMachine(
+func (s *Service) GetAuthorisedKeysForMachine(
 	ctx context.Context,
 	machineName coremachine.Name,
 ) ([]string, error) {
@@ -124,7 +124,7 @@ func (s *Service) AuthorisedKeysForMachine(
 		)
 	}
 
-	controllerKeys, err := s.controllerKeyProvider.ControllerKeys(ctx)
+	controllerKeys, err := s.controllerKeyProvider.ControllerAuthorisedKeys(ctx)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"getting controller authorised keys for machine %q: %w",
