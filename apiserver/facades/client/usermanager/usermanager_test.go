@@ -315,6 +315,23 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	}, nil)
 	exp.GetUserByName(a, "ellie").Return(coreuser.User{}, usererrors.UserNotFound)
 
+	exp.ReadUserAccessForTarget(gomock.Any(), "foobar", permission.ID{
+		ObjectType: permission.Controller,
+		Key:        "controller",
+	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil)
+
+	// No access granted directly to the external user.
+	exp.ReadUserAccessForTarget(gomock.Any(), "mary@external", permission.ID{
+		ObjectType: permission.Controller,
+		Key:        "controller",
+	}).Return(permission.UserAccess{Access: permission.NoAccess}, nil)
+
+	// But the special everyone group does have access.
+	exp.ReadUserAccessForTarget(gomock.Any(), "everyone@external", permission.ID{
+		ObjectType: permission.Controller,
+		Key:        "controller",
+	}).Return(permission.UserAccess{Access: permission.SuperuserAccess}, nil)
+
 	args := params.UserInfoRequest{
 		Entities: []params.Entity{
 			{
@@ -322,9 +339,11 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 			}, {
 				Tag: "user-barfoo",
 			}, {
-				Tag: names.NewLocalUserTag("ellie").String(),
+				Tag: "user-ellie",
 			}, {
 				Tag: "not-a-tag",
+			}, {
+				Tag: "user-mary@external",
 			},
 		}}
 
@@ -332,24 +351,30 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	res := results.Results
-	c.Assert(res, gc.HasLen, 4)
+	c.Assert(res, gc.HasLen, 5)
 
 	c.Assert(res[0].Error, gc.IsNil)
 	r0 := res[0].Result
 	c.Assert(r0, gc.NotNil)
 	c.Check(r0.Username, gc.Equals, "foobar")
 	c.Check(r0.Disabled, gc.Equals, false)
-	//c.Check(res[0].Result.Access, gc.Equals, string(permission.LoginAccess))
+	c.Check(r0.Access, gc.Equals, string(permission.LoginAccess))
 
 	c.Assert(res[1].Error, gc.IsNil)
 	r1 := res[1].Result
 	c.Assert(r1, gc.NotNil)
 	c.Check(r1.Username, gc.Equals, "barfoo")
 	c.Check(r1.Disabled, gc.Equals, true)
-	//c.Check(res[1].Result.Access, gc.Equals, string(permission.NoAccess))
+	c.Check(r1.Access, gc.Equals, string(permission.NoAccess))
 
 	c.Check(res[2].Error.Code, gc.Equals, params.CodeUserNotFound)
 	c.Check(res[3].Error.Message, gc.Equals, `"not-a-tag" is not a valid tag`)
+
+	c.Assert(res[4].Error, gc.IsNil)
+	r4 := res[4].Result
+	c.Assert(r4, gc.NotNil)
+	c.Check(r4.Username, gc.Equals, "mary@external")
+	c.Check(r4.Access, gc.Equals, string(permission.SuperuserAccess))
 }
 
 func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
@@ -372,10 +397,17 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	// The service is not correctly implemented as it does not
 	// factor the `IncludeDisabled` argument.
 
-	gomock.InOrder(
-		s.accessService.EXPECT().GetAllUsers(gomock.Any()).Return(users, nil),
-		s.accessService.EXPECT().GetAllUsers(gomock.Any()).Return(users, nil),
-	)
+	s.accessService.EXPECT().GetAllUsers(gomock.Any()).Return(users, nil).Times(2)
+
+	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "fred", permission.ID{
+		ObjectType: permission.Controller,
+		Key:        "controller",
+	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil).Times(2)
+
+	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "nancy", permission.ID{
+		ObjectType: permission.Controller,
+		Key:        "controller",
+	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil).Times(2)
 
 	args := params.UserInfoRequest{IncludeDisabled: true}
 	_, err := s.api.UserInfo(context.Background(), args)
@@ -463,36 +495,20 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
 	defer s.setUpAPI(c).Finish()
 
-	s.accessService.EXPECT().GetUserByName(gomock.Any(), gomock.Any()).Return(coreuser.User{
-		UUID:        fakeUUID,
-		Name:        "aardvark",
-		DisplayName: "Aard Vark",
-		CreatorUUID: fakeCreatorUUID,
-		CreatorName: fakeCreator.Name,
-		CreatedAt:   fakeCreatedAt,
-		LastLogin:   fakeLastLogin,
-	}, nil)
-
-	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "aardvark", permission.ID{
+	// No access granted directly to the user.
+	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "aardvark@external", permission.ID{
 		ObjectType: permission.Controller,
 		Key:        "controller",
-	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil)
+	}).Return(permission.UserAccess{Access: permission.NoAccess}, nil)
 
-	st := s.ControllerModel(c).State()
-	_, err := st.AddControllerUser(state.UserAccessSpec{
-		User:      names.NewUserTag("everyone@external"),
-		Access:    permission.SuperuserAccess,
-		CreatedBy: jujutesting.AdminUser,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.AddControllerUser(state.UserAccessSpec{
-		User:      names.NewUserTag("aardvark@external"),
-		Access:    permission.LoginAccess,
-		CreatedBy: jujutesting.AdminUser,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	// But the special everyone group does have access.
+	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "everyone@external", permission.ID{
+		ObjectType: permission.Controller,
+		Key:        "controller",
+	}).Return(permission.UserAccess{Access: permission.SuperuserAccess}, nil)
 
 	args := params.UserInfoRequest{Entities: []params.Entity{{Tag: names.NewUserTag("aardvark@external").String()}}}
+
 	results, err := s.api.UserInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	// Non admin users can only see themselves.

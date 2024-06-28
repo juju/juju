@@ -270,16 +270,20 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 	}
 
 	var accessForUser = func(userTag names.UserTag, result *params.UserInfoResult) {
-		// Lookup the access the specified user has to the controller.
-		access, err := api.accessService.ReadUserAccessForTarget(ctx, userTag.Id(), permission.ID{
-			ObjectType: permission.Controller,
-			Key:        "controller",
-		})
+		userPermission := func(subject names.UserTag, target names.Tag) (permission.Access, error) {
+			access, err := api.accessService.ReadUserAccessForTarget(ctx, subject.Id(), permission.ID{
+				ObjectType: permission.Controller,
+				Key:        "controller",
+			})
+			return access.Access, errors.Trace(err)
+		}
+
+		access, err := common.GetPermission(userPermission, userTag, api.state.ControllerTag())
 		if err != nil {
 			result.Result = nil
 			result.Error = apiservererrors.ServerError(err)
 		} else {
-			result.Result.Access = string(access.Access)
+			result.Result.Access = string(access)
 		}
 	}
 
