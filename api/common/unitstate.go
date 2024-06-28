@@ -8,6 +8,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -33,7 +34,7 @@ func (u *UnitStateAPI) State() (params.UnitStateResult, error) {
 	}
 	err := u.facade.FacadeCall("State", args, &results)
 	if err != nil {
-		return params.UnitStateResult{}, err
+		return params.UnitStateResult{}, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return params.UnitStateResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -55,7 +56,7 @@ func (u *UnitStateAPI) SetState(unitState params.SetUnitStateArg) error {
 	}
 	err := u.facade.FacadeCall("SetState", args, &results)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	// Make sure we correctly decode quota-related errors.
 	return maybeRestoreQuotaLimitError(results.OneError())

@@ -6,12 +6,14 @@ package meterstatus_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/agent/meterstatus"
 	"github.com/juju/juju/api/base/testing"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/rpc/params"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -54,6 +56,19 @@ func (s *meterStatusSuite) TestGetMeterStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusCode, gc.Equals, "GREEN")
 	c.Assert(statusInfo, gc.Equals, "All ok.")
+}
+
+func (s *meterStatusSuite) TestGetMeterStatusNotImplemented(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
+	})
+
+	tag := names.NewUnitTag("wp/1")
+	status := meterstatus.NewClient(apiCaller, tag)
+	c.Assert(status, gc.NotNil)
+
+	_, _, err := status.MeterStatus()
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *meterStatusSuite) TestGetMeterStatusResultError(c *gc.C) {
@@ -162,6 +177,19 @@ func (s *meterStatusSuite) TestWatchMeterStatusError(c *gc.C) {
 	c.Assert(called, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "could not retrieve meter status watcher")
 	c.Assert(w, gc.IsNil)
+}
+
+func (s *meterStatusSuite) TestWatchMeterStatusNotImplemented(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
+	})
+
+	tag := names.NewUnitTag("wp/1")
+	status := meterstatus.NewClient(apiCaller, tag)
+	c.Assert(status, gc.NotNil)
+
+	_, err := status.WatchMeterStatus()
+	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *meterStatusSuite) TestWatchMeterStatusMoreResults(c *gc.C) {

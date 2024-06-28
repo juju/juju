@@ -69,6 +69,37 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	}
 }
 
+// TestErrorFilterNotImplemented ensures that the manifold correctly handles
+// not implemented api calls.
+func (s *ManifoldSuite) TestErrorFilterNotImplemented(c *gc.C) {
+	testCases := []struct {
+		name     string
+		err      error
+		expected error
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: nil,
+		},
+		{
+			name:     "not implemented error",
+			err:      errors.NotImplementedf("not implemented"),
+			expected: nil,
+		},
+		{
+			name:     "any error",
+			err:      errors.NotFound,
+			expected: errors.NotFound,
+		},
+	}
+	for i, test := range testCases {
+		c.Logf("test %d: %s", i, test.name)
+		result := s.manifold.Filter(test.err)
+		c.Check(errors.Cause(result), gc.Equals, test.expected)
+	}
+}
+
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Check(s.manifold.Inputs, jc.DeepEquals, []string{"agent", "api-caller", "metric-spool"})
 }

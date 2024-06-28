@@ -107,7 +107,7 @@ func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult
 	}
 	err := st.facade.FacadeCall("Relation", args, &result)
 	if err != nil {
-		return nothing, err
+		return nothing, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(result.Results) != 1 {
 		return nothing, fmt.Errorf("expected 1 result, got %d", len(result.Results))
@@ -128,7 +128,7 @@ func (st *State) setRelationStatus(id int, status relation.Status) error {
 	}
 	var results params.ErrorResults
 	if err := st.facade.FacadeCall("SetRelationStatus", args, &results); err != nil {
-		return errors.Trace(err)
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return results.OneError()
 }
@@ -146,7 +146,7 @@ func (st *State) getOneAction(tag *names.ActionTag) (params.ActionResult, error)
 	var results params.ActionResults
 	err := st.facade.FacadeCall("Actions", args, &results)
 	if err != nil {
-		return nothing, err
+		return nothing, errors.Trace(apiservererrors.RestoreError(err))
 	}
 
 	if len(results.Results) > 1 {
@@ -173,7 +173,7 @@ func (st *State) ActionStatus(tag names.ActionTag) (string, error) {
 	var results params.StringResults
 	err := st.facade.FacadeCall("ActionStatus", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 
 	if len(results.Results) > 1 {
@@ -223,7 +223,7 @@ func (st *State) ProviderType() (string, error) {
 	var result params.StringResult
 	err := st.facade.FacadeCall("ProviderType", nil, &result)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if err := result.Error; err != nil {
 		return "", err
@@ -290,7 +290,7 @@ func (st *State) ActionBegin(tag names.ActionTag) error {
 
 	err := st.facade.FacadeCall("BeginActions", args, &outcome)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(outcome.Results) != 1 {
 		return fmt.Errorf("expected 1 result, got %d", len(outcome.Results))
@@ -319,7 +319,7 @@ func (st *State) ActionFinish(tag names.ActionTag, status string, results map[st
 
 	err := st.facade.FacadeCall("FinishActions", args, &outcome)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(outcome.Results) != 1 {
 		return fmt.Errorf("expected 1 result, got %d", len(outcome.Results))
@@ -340,7 +340,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 
 	err := st.facade.FacadeCall("RelationById", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
@@ -365,7 +365,7 @@ func (st *State) Model() (*model.Model, error) {
 	var result params.ModelResult
 	err := st.facade.FacadeCall("CurrentModel", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if err := result.Error; err != nil {
 		return nil, err
@@ -395,7 +395,7 @@ func processOpenPortRangesByEndpointResults(results params.OpenPortRangesByEndpo
 	for unitTagStr, unitPortRanges := range result.UnitPortRanges {
 		unitTag, err := names.ParseUnitTag(unitTagStr)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Trace(apiservererrors.RestoreError(err))
 		}
 		portRangeMap[unitTag] = make(network.GroupedPortRanges)
 		for _, group := range unitPortRanges {
@@ -416,7 +416,7 @@ func (st *State) OpenedMachinePortRangesByEndpoint(machineTag names.MachineTag) 
 	}
 	err := st.facade.FacadeCall("OpenedMachinePortRangesByEndpoint", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return processOpenPortRangesByEndpointResults(results, machineTag)
 }
@@ -429,7 +429,7 @@ func (st *State) OpenedPortRangesByEndpoint() (map[names.UnitTag]network.Grouped
 	}
 	var results params.OpenPortRangesByEndpointResults
 	if err := st.facade.FacadeCall("OpenedPortRangesByEndpoint", nil, &results); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return processOpenPortRangesByEndpointResults(results, st.unitTag)
 }
@@ -449,7 +449,7 @@ func (st *State) WatchRelationUnits(
 	}
 	err := st.facade.FacadeCall("WatchRelationUnits", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
@@ -467,7 +467,7 @@ func (st *State) SLALevel() (string, error) {
 	var result params.StringResult
 	err := st.facade.FacadeCall("SLALevel", nil, &result)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if err := result.Error; err != nil {
 		return "", errors.Trace(err)
@@ -480,7 +480,7 @@ func (st *State) CloudAPIVersion() (string, error) {
 	var result params.StringResult
 	err := st.facade.FacadeCall("CloudAPIVersion", nil, &result)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if err := result.Error; err != nil {
 		return "", errors.Trace(err)
@@ -503,7 +503,7 @@ func (st *State) GoalState() (application.GoalState, error) {
 
 	err := st.facade.FacadeCall("GoalStates", args, &result)
 	if err != nil {
-		return gs, err
+		return gs, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(result.Results) != 1 {
 		return gs, errors.Errorf("expected 1 result, got %d", len(result.Results))
@@ -554,7 +554,7 @@ func (st *State) GetPodSpec(appName string) (string, error) {
 		}},
 	}
 	if err := st.facade.FacadeCall("GetPodSpec", args, &result); err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(result.Results) != 1 {
 		return "", fmt.Errorf("expected 1 result, got %d", len(result.Results))
@@ -581,7 +581,7 @@ func (st *State) GetRawK8sSpec(appName string) (string, error) {
 		}},
 	}
 	if err := st.facade.FacadeCall("GetRawK8sSpec", args, &result); err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(result.Results) != 1 {
 		return "", fmt.Errorf("expected 1 result, got %d", len(result.Results))
@@ -604,7 +604,7 @@ func (st *State) CloudSpec() (*params.CloudSpec, error) {
 
 	err := st.facade.FacadeCall("CloudSpec", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if err := result.Error; err != nil {
 		return nil, err
@@ -621,7 +621,7 @@ func (st *State) UnitWorkloadVersion(tag names.UnitTag) (string, error) {
 	}
 	err := st.facade.FacadeCall("WorkloadVersion", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
@@ -644,7 +644,7 @@ func (st *State) SetUnitWorkloadVersion(tag names.UnitTag, version string) error
 	}
 	err := st.facade.FacadeCall("SetWorkloadVersion", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }

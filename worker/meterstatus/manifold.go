@@ -76,6 +76,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			return newStatusWorker(config, context)
 		},
+		Filter: func(err error) error {
+			if errors.Is(err, errors.NotImplemented) {
+				config.Logger.Infof("meter status worker is deprecated and is no longer required")
+				return nil
+			}
+			return errors.Trace(err)
+		},
 	}
 }
 

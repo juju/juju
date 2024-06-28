@@ -71,7 +71,7 @@ func (u *Unit) Refresh() error {
 	}
 	err := u.st.facade.FacadeCall("Refresh", args, &results)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -102,7 +102,7 @@ func (u *Unit) SetUnitStatus(unitStatus status.Status, info string, data map[str
 	}
 	err := u.st.facade.FacadeCall("SetUnitStatus", args, &result)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -117,7 +117,7 @@ func (u *Unit) UnitStatus() (params.StatusResult, error) {
 	}
 	err := u.st.facade.FacadeCall("UnitStatus", args, &results)
 	if err != nil {
-		return params.StatusResult{}, errors.Trace(err)
+		return params.StatusResult{}, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return params.StatusResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -139,7 +139,7 @@ func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[s
 	}
 	err := u.st.facade.FacadeCall("SetAgentStatus", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -155,7 +155,7 @@ func (u *Unit) AddMetrics(metrics []params.Metric) error {
 	}
 	err := u.st.facade.FacadeCall("AddMetrics", args, &result)
 	if err != nil {
-		return errors.Annotate(err, "unable to add metric")
+		return errors.Annotate(errors.Trace(apiservererrors.RestoreError(err)), "unable to add metric")
 	}
 	return result.OneError()
 }
@@ -177,7 +177,7 @@ func (u *Unit) AddMetricBatches(batches []params.MetricBatch) (map[string]error,
 	results := new(params.ErrorResults)
 	err := u.st.facade.FacadeCall("AddMetricBatches", p, results)
 	if err != nil {
-		return nil, errors.Annotate(err, "failed to send metric batches")
+		return nil, errors.Annotate(errors.Trace(apiservererrors.RestoreError(err)), "failed to send metric batches")
 	}
 	for i, result := range results.Results {
 		batchResults[batches[i].UUID] = result.Error
@@ -194,7 +194,7 @@ func (u *Unit) EnsureDead() error {
 	}
 	err := u.st.facade.FacadeCall("EnsureDead", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -213,7 +213,7 @@ func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
 	}
 	err := u.st.facade.FacadeCall("WatchUnitRelations", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -252,7 +252,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	}
 	err := u.st.facade.FacadeCall("ConfigSettings", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -290,7 +290,7 @@ func (u *Unit) Destroy() error {
 	}
 	err := u.st.facade.FacadeCall("Destroy", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -303,7 +303,7 @@ func (u *Unit) DestroyAllSubordinates() error {
 	}
 	err := u.st.facade.FacadeCall("DestroyAllSubordinates", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -319,7 +319,7 @@ func (u *Unit) AssignedMachine() (names.MachineTag, error) {
 	}
 	err := u.st.facade.FacadeCall("AssignedMachine", args, &results)
 	if err != nil {
-		return invalidTag, err
+		return invalidTag, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return invalidTag, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -343,7 +343,7 @@ func (u *Unit) PrincipalName() (string, bool, error) {
 	}
 	err := u.st.facade.FacadeCall("GetPrincipal", args, &results)
 	if err != nil {
-		return "", false, err
+		return "", false, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", false, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -371,7 +371,7 @@ func (u *Unit) HasSubordinates() (bool, error) {
 	}
 	err := u.st.facade.FacadeCall("HasSubordinates", args, &results)
 	if err != nil {
-		return false, err
+		return false, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return false, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -398,7 +398,7 @@ func (u *Unit) PublicAddress() (string, error) {
 	}
 	err := u.st.facade.FacadeCall("PublicAddress", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -425,7 +425,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 	}
 	err := u.st.facade.FacadeCall("PrivateAddress", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -444,7 +444,7 @@ func (u *Unit) AvailabilityZone() (string, error) {
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	if err := u.st.facade.FacadeCall("AvailabilityZone", args, &results); err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -466,7 +466,7 @@ func (u *Unit) CharmURL() (string, error) {
 	}
 	err := u.st.facade.FacadeCall("CharmURL", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -495,7 +495,7 @@ func (u *Unit) SetCharmURL(curl string) error {
 	}
 	err := u.st.facade.FacadeCall("SetCharmURL", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -508,7 +508,7 @@ func (u *Unit) ClearResolved() error {
 	}
 	err := u.st.facade.FacadeCall("ClearResolved", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -538,7 +538,7 @@ func getHashWatcher(u *Unit, methodName string) (watcher.StringsWatcher, error) 
 	}
 	err := u.st.facade.FacadeCall(methodName, args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -572,7 +572,7 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	}
 	err := u.st.facade.FacadeCall("WatchActionNotifications", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -599,7 +599,7 @@ func (u *Unit) LogActionMessage(tag names.ActionTag, message string) error {
 	}
 	err := u.st.facade.FacadeCall("LogActionsMessages", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -626,7 +626,7 @@ func (u *Unit) RequestReboot() error {
 	}
 	err = u.st.facade.FacadeCall("RequestReboot", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -652,7 +652,7 @@ func (u *Unit) RelationsStatus() ([]RelationStatus, error) {
 	var results params.RelationUnitStatusResults
 	err := u.st.facade.FacadeCall("RelationsStatus", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -684,7 +684,7 @@ func (u *Unit) MeterStatus() (statusCode, statusInfo string, rErr error) {
 	}
 	err := u.st.facade.FacadeCall("GetMeterStatus", args, &results)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -705,7 +705,7 @@ func (u *Unit) WatchMeterStatus() (watcher.NotifyWatcher, error) {
 	}
 	err := u.st.facade.FacadeCall("WatchMeterStatus", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -734,7 +734,7 @@ func (u *Unit) WatchInstanceData() (watcher.NotifyWatcher, error) {
 	}
 	err := u.st.facade.FacadeCall("WatchInstanceData", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -756,7 +756,7 @@ func (u *Unit) LXDProfileName() (string, error) {
 	}
 	err := u.st.facade.FacadeCall("LXDProfileName", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -777,7 +777,7 @@ func (u *Unit) CanApplyLXDProfile() (bool, error) {
 	}
 	err := u.st.facade.FacadeCall("CanApplyLXDProfile", args, &results)
 	if err != nil {
-		return false, err
+		return false, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return false, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -800,7 +800,7 @@ func (u *Unit) NetworkInfo(bindings []string, relationId *int) (map[string]param
 
 	err := u.st.facade.FacadeCall("NetworkInfo", args, &results)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 
 	return results.Results, nil
@@ -825,7 +825,7 @@ func (u *Unit) CommitHookChanges(req params.CommitHookChangesArgs) error {
 	var results params.ErrorResults
 	err := u.st.facade.FacadeCall("CommitHookChanges", req, &results)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return apiservererrors.RestoreError(results.OneError())
 }

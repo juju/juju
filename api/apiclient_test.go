@@ -36,6 +36,7 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/api/common"
 	apitesting "github.com/juju/juju/api/testing"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
@@ -1121,7 +1122,7 @@ func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
 	c.Check(clock.waits, gc.HasLen, 0)
 }
 
-func (s *apiclientSuite) TestAPICallError(c *gc.C) {
+func (s *apiclientSuite) TestAPICallErrorBadRequest(c *gc.C) {
 	clock := &fakeClock{}
 	conn := api.NewTestingState(api.TestingStateParams{
 		RPCConnection: newRPCConnection(errors.BadRequestf("boom")),
@@ -1130,7 +1131,19 @@ func (s *apiclientSuite) TestAPICallError(c *gc.C) {
 
 	err := conn.APICall("facade", 1, "id", "method", nil, nil)
 	c.Check(err.Error(), gc.Equals, "boom")
-	c.Check(err, jc.Satisfies, errors.IsBadRequest)
+	c.Check(err, jc.ErrorIs, errors.BadRequest)
+	c.Check(clock.waits, gc.HasLen, 0)
+}
+
+func (s *apiclientSuite) TestAPICallErrorNotImplemented(c *gc.C) {
+	clock := &fakeClock{}
+	conn := api.NewTestingState(api.TestingStateParams{
+		RPCConnection: newRPCConnection(apiservererrors.ServerError(errors.NotImplementedf("boom"))),
+		Clock:         clock,
+	})
+
+	err := conn.APICall("facade", 1, "id", "method", nil, nil)
+	c.Check(err, jc.ErrorIs, errors.NotImplemented)
 	c.Check(clock.waits, gc.HasLen, 0)
 }
 

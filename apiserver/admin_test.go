@@ -144,10 +144,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			st := s.openAPIWithoutLogin(c, info)
 
 			_, err := apimachiner.NewState(st).Machine(names.NewMachineTag("0"))
-			c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-				Message: `unknown object type "Machiner"`,
-				Code:    "not implemented",
-			})
+			c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotImplemented)
 
 			// Since these are user login tests, the nonce is empty.
 			err = st.Login(t.tag, t.password, "", nil)
@@ -155,10 +152,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
 			_, err = apimachiner.NewState(st).Machine(names.NewMachineTag("0"))
-			c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-				Message: `unknown object type "Machiner"`,
-				Code:    "not implemented",
-			})
+			c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotImplemented)
 		}()
 	}
 }
@@ -171,10 +165,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password, Disabled: true})
 
 	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `unknown object type "Client"`,
-		Code:    "not implemented",
-	})
+	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotImplemented)
 
 	// Since these are user login tests, the nonce is empty.
 	err = st.Login(u.Tag(), password, "", nil)
@@ -184,10 +175,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	})
 
 	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `unknown object type "Client"`,
-		Code:    "not implemented",
-	})
+	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
@@ -198,10 +186,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	u := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
 
 	_, err := apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `unknown object type "Client"`,
-		Code:    "not implemented",
-	})
+	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotImplemented)
 
 	err = s.State.RemoveUser(u.UserTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -214,10 +199,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	})
 
 	_, err = apiclient.NewClient(st, coretesting.NoopLogger{}).Status(nil)
-	c.Assert(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-		Message: `unknown object type "Client"`,
-		Code:    "not implemented",
-	})
+	c.Assert(errors.Cause(err), jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *loginSuite) setupManagementSpace(c *gc.C) *state.Space {
