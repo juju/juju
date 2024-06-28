@@ -41,9 +41,9 @@ func ParsePublicKey(key string) (PublicKey, error) {
 	}, nil
 }
 
-// SplitAuthorisedKeys extracts a key slice from the specified key data,
+// SplitAuthorizedKeys extracts a key slice from the specified key data,
 // by splitting the key data into lines and ignoring comments and blank lines.
-func SplitAuthorisedKeys(keyData string) []string {
+func SplitAuthorizedKeys(keyData string) []string {
 	keys := []string{}
 	for _, key := range strings.Split(keyData, "\n") {
 		key = strings.Trim(key, " \r")
