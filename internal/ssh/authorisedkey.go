@@ -45,7 +45,7 @@ func ParsePublicKey(key string) (PublicKey, error) {
 // by splitting the key data into lines and ignoring comments and blank lines.
 func SplitAuthorisedKeys(keyData string) []string {
 	keys := []string{}
-	for _, key := range strings.Split(string(keyData), "\n") {
+	for _, key := range strings.Split(keyData, "\n") {
 		key = strings.Trim(key, " \r")
 		if len(key) == 0 {
 			continue
