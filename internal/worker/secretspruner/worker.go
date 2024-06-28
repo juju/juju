@@ -4,6 +4,8 @@
 package secretspruner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -15,7 +17,7 @@ import (
 // SecretsFacade instances provide a set of API for the worker to deal with secret prune.
 type SecretsFacade interface {
 	WatchRevisionsToPrune() (watcher.NotifyWatcher, error)
-	DeleteObsoleteUserSecrets() error
+	DeleteObsoleteUserSecretRevisions(context.Context) error
 }
 
 // Config defines the operation of the Worker.
@@ -65,6 +67,12 @@ func (w *Worker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+func (w *Worker) processChanges() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	return w.config.SecretsFacade.DeleteObsoleteUserSecretRevisions(ctx)
+}
+
 func (w *Worker) loop() (err error) {
 	watcher, err := w.config.SecretsFacade.WatchRevisionsToPrune()
 	if err != nil {
@@ -85,7 +93,7 @@ func (w *Worker) loop() (err error) {
 				return errors.New("secret prune changed watch closed")
 			}
 			w.config.Logger.Debugf("maybe have user secret revisions to prune")
-			if err := w.config.SecretsFacade.DeleteObsoleteUserSecrets(); err != nil {
+			if err := w.processChanges(); err != nil {
 				return errors.Trace(err)
 			}
 		}

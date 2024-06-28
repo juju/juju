@@ -39,8 +39,7 @@ func NewUserSecretsManager(ctx facade.ModelContext) (*UserSecretsManager, error)
 	}
 
 	return &UserSecretsManager{
-		authorizer:    ctx.Auth(),
-		resources:     ctx.Resources(),
-		secretService: serviceFactory.Secret(backendConfigGetter),
+		watcherRegistry: ctx.WatcherRegistry(),
+		secretService:   serviceFactory.Secret(backendConfigGetter),
 	}, nil
 }

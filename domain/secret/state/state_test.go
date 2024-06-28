@@ -2892,6 +2892,73 @@ func revID(uri *coresecrets.URI, rev int) string {
 	return fmt.Sprintf("%s/%d", uri.ID, rev)
 }
 
+func (s *stateSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
+	s.setupUnits(c, "mysql")
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	uriUser1 := coresecrets.NewURI()
+	uriUser2 := coresecrets.NewURI()
+	uriUser3 := coresecrets.NewURI()
+	uriCharm := coresecrets.NewURI()
+	ctx := context.Background()
+	data := coresecrets.SecretData{"foo": "bar", "hello": "world"}
+
+	err := st.CreateUserSecret(ctx, 1, uriUser1, domainsecret.UpsertSecretParams{
+		Data: data,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateUserSecret(ctx, 1, uriUser2, domainsecret.UpsertSecretParams{
+		Data:      data,
+		AutoPrune: ptr(true),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateUserSecret(ctx, 1, uriUser3, domainsecret.UpsertSecretParams{
+		Data:      data,
+		AutoPrune: ptr(true),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uriCharm, "mysql", domainsecret.UpsertSecretParams{
+		Data: data,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo-new": "bar-new"},
+	}
+	err = st.UpdateSecret(context.Background(), uriUser1, sp)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.UpdateSecret(context.Background(), uriUser2, sp)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.UpdateSecret(context.Background(), uriCharm, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = st.DeleteObsoleteUserSecretRevisions(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertRevision(c, s.DB(), uriUser1, 1, true)
+	assertRevision(c, s.DB(), uriUser1, 2, true)
+	assertRevision(c, s.DB(), uriUser2, 1, false)
+	assertRevision(c, s.DB(), uriUser2, 2, true)
+	assertRevision(c, s.DB(), uriUser3, 1, true)
+	assertRevision(c, s.DB(), uriCharm, 1, true)
+	assertRevision(c, s.DB(), uriCharm, 2, true)
+}
+
+func assertRevision(c *gc.C, db *sql.DB, uri *coresecrets.URI, rev int, exist bool) {
+	var uuid string
+	row := db.QueryRowContext(context.Background(), `
+SELECT uuid
+FROM secret_revision
+WHERE secret_id = ? AND revision = ?
+`, uri.ID, rev)
+	err := row.Scan(&uuid)
+	if exist {
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		c.Assert(err, jc.ErrorIs, sql.ErrNoRows)
+	}
+}
+
 func (s *stateSuite) TestDeleteSomeRevisions(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
@@ -3537,4 +3604,42 @@ WHERE secret_id = ?`, uri.ID)
 	err = row.Scan(&nextRotationTime)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(nextRotationTime.Equal(next), jc.IsTrue)
+}
+
+func (s *stateSuite) TestGetObsoleteUserSecretRevisionsReadyToPrune(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	ctx := context.Background()
+	uri := coresecrets.NewURI()
+
+	err := st.CreateUserSecret(ctx, 1, uri, domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar", "hello": "world"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The secret is not obsolete yet.
+	result, err := st.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 0)
+
+	// create revision 2 for user secret.
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo-new": "bar-new"},
+	}
+	err = st.UpdateSecret(context.Background(), uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err = st.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 0)
+
+	sp = domainsecret.UpsertSecretParams{
+		AutoPrune: ptr(true),
+	}
+	err = st.UpdateSecret(context.Background(), uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err = st.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.SameContents, []string{uri.ID + "/1"})
 }

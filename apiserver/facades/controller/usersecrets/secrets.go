@@ -8,16 +8,16 @@ import (
 
 	"github.com/juju/errors"
 
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/apiserver/internal"
 	"github.com/juju/juju/rpc/params"
 )
 
 // UserSecretsManager is the implementation for the usersecrets facade.
 type UserSecretsManager struct {
-	authorizer facade.Authorizer
-	resources  facade.Resources
-
-	secretService SecretService
+	watcherRegistry facade.WatcherRegistry
+	secretService   SecretService
 }
 
 // WatchRevisionsToPrune returns a watcher for notifying when:
@@ -25,17 +25,16 @@ type UserSecretsManager struct {
 //     has any consumers and should be pruned.
 func (s *UserSecretsManager) WatchRevisionsToPrune(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	w, err := s.secretService.WatchObsoleteUserSecrets(ctx)
+	w, err := s.secretService.WatchObsoleteUserSecretsToPrune(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if _, ok := <-w.Changes(); ok {
-		result.NotifyWatcherId = s.resources.Register(w)
-	}
+	result.NotifyWatcherId, _, err = internal.EnsureRegisterWatcher(ctx, s.watcherRegistry, w)
+	result.Error = apiservererrors.ServerError(err)
 	return result, nil
 }
 
-// DeleteObsoleteUserSecrets deletes any obsolete user secret revisions.
-func (s *UserSecretsManager) DeleteObsoleteUserSecrets(ctx context.Context) error {
-	return s.secretService.DeleteObsoleteUserSecrets(ctx)
+// DeleteObsoleteUserSecretRevisions deletes any obsolete user secret revisions.
+func (s *UserSecretsManager) DeleteObsoleteUserSecretRevisions(ctx context.Context) error {
+	return s.secretService.DeleteObsoleteUserSecretRevisions(ctx)
 }

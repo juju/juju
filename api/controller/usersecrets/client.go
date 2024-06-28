@@ -47,6 +47,6 @@ func (c *Client) WatchRevisionsToPrune() (watcher.NotifyWatcher, error) {
 }
 
 // DeleteObsoleteUserSecrets deletes any obsolete user secret revisions.
-func (c *Client) DeleteObsoleteUserSecrets() error {
-	return c.facade.FacadeCall(context.TODO(), "DeleteObsoleteUserSecrets", nil, nil)
+func (c *Client) DeleteObsoleteUserSecretRevisions(ctx context.Context) error {
+	return c.facade.FacadeCall(ctx, "DeleteObsoleteUserSecretRevisions", nil, nil)
 }

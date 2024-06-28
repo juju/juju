@@ -4,6 +4,8 @@
 package usersecrets_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 
@@ -45,17 +47,17 @@ func (s *secretSuite) TestWatchRevisionsToPrune(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
-func (s *secretSuite) TestDeleteObsoleteUserSecrets(c *gc.C) {
+func (s *secretSuite) TestDeleteObsoleteUserSecretRevisions(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "UserSecretsManager")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "DeleteObsoleteUserSecrets")
+		c.Check(request, gc.Equals, "DeleteObsoleteUserSecretRevisions")
 		c.Check(arg, gc.IsNil)
 		c.Assert(result, gc.IsNil)
 		return errors.New("boom")
 	})
 	client := usersecrets.NewClient(apiCaller)
-	err := client.DeleteObsoleteUserSecrets()
+	err := client.DeleteObsoleteUserSecretRevisions(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

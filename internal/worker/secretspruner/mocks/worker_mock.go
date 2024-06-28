@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	watcher "github.com/juju/juju/core/watcher"
@@ -39,40 +40,40 @@ func (m *MockSecretsFacade) EXPECT() *MockSecretsFacadeMockRecorder {
 	return m.recorder
 }
 
-// DeleteObsoleteUserSecrets mocks base method.
-func (m *MockSecretsFacade) DeleteObsoleteUserSecrets() error {
+// DeleteObsoleteUserSecretRevisions mocks base method.
+func (m *MockSecretsFacade) DeleteObsoleteUserSecretRevisions(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteObsoleteUserSecrets")
+	ret := m.ctrl.Call(m, "DeleteObsoleteUserSecretRevisions", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteObsoleteUserSecrets indicates an expected call of DeleteObsoleteUserSecrets.
-func (mr *MockSecretsFacadeMockRecorder) DeleteObsoleteUserSecrets() *MockSecretsFacadeDeleteObsoleteUserSecretsCall {
+// DeleteObsoleteUserSecretRevisions indicates an expected call of DeleteObsoleteUserSecretRevisions.
+func (mr *MockSecretsFacadeMockRecorder) DeleteObsoleteUserSecretRevisions(arg0 any) *MockSecretsFacadeDeleteObsoleteUserSecretRevisionsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteObsoleteUserSecrets", reflect.TypeOf((*MockSecretsFacade)(nil).DeleteObsoleteUserSecrets))
-	return &MockSecretsFacadeDeleteObsoleteUserSecretsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteObsoleteUserSecretRevisions", reflect.TypeOf((*MockSecretsFacade)(nil).DeleteObsoleteUserSecretRevisions), arg0)
+	return &MockSecretsFacadeDeleteObsoleteUserSecretRevisionsCall{Call: call}
 }
 
-// MockSecretsFacadeDeleteObsoleteUserSecretsCall wrap *gomock.Call
-type MockSecretsFacadeDeleteObsoleteUserSecretsCall struct {
+// MockSecretsFacadeDeleteObsoleteUserSecretRevisionsCall wrap *gomock.Call
+type MockSecretsFacadeDeleteObsoleteUserSecretRevisionsCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockSecretsFacadeDeleteObsoleteUserSecretsCall) Return(arg0 error) *MockSecretsFacadeDeleteObsoleteUserSecretsCall {
+func (c *MockSecretsFacadeDeleteObsoleteUserSecretRevisionsCall) Return(arg0 error) *MockSecretsFacadeDeleteObsoleteUserSecretRevisionsCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretsFacadeDeleteObsoleteUserSecretsCall) Do(f func() error) *MockSecretsFacadeDeleteObsoleteUserSecretsCall {
+func (c *MockSecretsFacadeDeleteObsoleteUserSecretRevisionsCall) Do(f func(context.Context) error) *MockSecretsFacadeDeleteObsoleteUserSecretRevisionsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretsFacadeDeleteObsoleteUserSecretsCall) DoAndReturn(f func() error) *MockSecretsFacadeDeleteObsoleteUserSecretsCall {
+func (c *MockSecretsFacadeDeleteObsoleteUserSecretRevisionsCall) DoAndReturn(f func(context.Context) error) *MockSecretsFacadeDeleteObsoleteUserSecretRevisionsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

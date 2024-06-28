@@ -45413,9 +45413,9 @@
         "Schema": {
             "type": "object",
             "properties": {
-                "DeleteObsoleteUserSecrets": {
+                "DeleteObsoleteUserSecretRevisions": {
                     "type": "object",
-                    "description": "DeleteObsoleteUserSecrets deletes any obsolete user secret revisions."
+                    "description": "DeleteObsoleteUserSecretRevisions deletes any obsolete user secret revisions."
                 },
                 "WatchRevisionsToPrune": {
                     "type": "object",

@@ -33,6 +33,7 @@ type State interface {
 	CreateCharmUnitSecret(ctx context.Context, version int, uri *secrets.URI, unitName string, secret domainsecret.UpsertSecretParams) error
 	UpdateSecret(ctx context.Context, uri *secrets.URI, secret domainsecret.UpsertSecretParams) error
 	DeleteSecret(ctx context.Context, uri *secrets.URI, revs []int) error
+	DeleteObsoleteUserSecretRevisions(ctx context.Context) error
 	GetSecret(ctx context.Context, uri *secrets.URI) (*secrets.SecretMetadata, error)
 	ListExternalSecretRevisions(ctx context.Context, uri *secrets.URI, revisions ...int) ([]secrets.ValueRef, error)
 	GetSecretValue(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretData, *secrets.ValueRef, error)
@@ -74,6 +75,9 @@ type State interface {
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
 	) ([]string, error)
 
+	// For watching obsolete user secret revisions to prune.
+	GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context) ([]string, error)
+
 	// For watching consumed local secret changes.
 	InitialWatchStatementForConsumedSecretsChange(unitName string) (string, eventsource.NamespaceQuery)
 	GetConsumedSecretURIsWithChanges(ctx context.Context, unitName string, revisionIDs ...string) ([]string, error)
@@ -108,6 +112,12 @@ type WatcherFactory interface {
 	// NewNamespaceWatcher returns a new namespace watcher
 	// for events based on the input change mask.
 	NewNamespaceWatcher(string, changestream.ChangeType, eventsource.NamespaceQuery) (watcher.StringsWatcher, error)
+
+	// NewNamespaceNotifyMapperWatcher returns a new namespace notify watcher
+	// for events based on the input change mask and mapper.
+	NewNamespaceNotifyMapperWatcher(
+		namespace string, changeMask changestream.ChangeType, mapper eventsource.Mapper,
+	) (watcher.NotifyWatcher, error)
 }
 
 // NewSecretService returns a new secret service wrapping the specified state.

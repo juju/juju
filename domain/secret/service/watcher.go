@@ -14,6 +14,7 @@ import (
 	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/core/changestream"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -57,7 +58,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	processLocalChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
 		return s.st.GetConsumedSecretURIsWithChanges(ctx, unitName, revisionUUIDs...)
 	}
-	sWLocal, err := newSecretWatcher(wLocal, s.logger, processLocalChanges)
+	sWLocal, err := newSecretStringWatcher(wLocal, s.logger, processLocalChanges)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -73,7 +74,7 @@ func (s *WatchableService) WatchConsumedSecretsChanges(ctx context.Context, unit
 	processRemoteChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
 		return s.st.GetConsumedRemoteSecretURIsWithChanges(ctx, unitName, secretIDs...)
 	}
-	sWRemote, err := newSecretWatcher(wRemote, s.logger, processRemoteChanges)
+	sWRemote, err := newSecretStringWatcher(wRemote, s.logger, processRemoteChanges)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -94,7 +95,7 @@ func (s *WatchableService) WatchRemoteConsumedSecretsChanges(ctx context.Context
 	processChanges := func(ctx context.Context, secretIDs ...string) ([]string, error) {
 		return s.st.GetRemoteConsumedSecretURIsWithChangesFromOfferingSide(ctx, appName, secretIDs...)
 	}
-	return newSecretWatcher(w, s.logger, processChanges)
+	return newSecretStringWatcher(w, s.logger, processChanges)
 }
 
 // WatchObsolete returns a watcher for notifying when:
@@ -120,7 +121,7 @@ func (s *WatchableService) WatchObsolete(ctx context.Context, owners ...CharmSec
 	processChanges := func(ctx context.Context, revisionUUIDs ...string) ([]string, error) {
 		return s.st.GetRevisionIDsForObsolete(ctx, appOwners, unitOwners, revisionUUIDs...)
 	}
-	return newSecretWatcher(w, s.logger, processChanges)
+	return newSecretStringWatcher(w, s.logger, processChanges)
 }
 
 // WatchSecretRevisionsExpiryChanges returns a watcher that notifies when the expiry time of a secret revision changes.
@@ -152,7 +153,7 @@ func (s *WatchableService) WatchSecretRevisionsExpiryChanges(ctx context.Context
 		}
 		return changes, nil
 	}
-	return newSecretWatcher(w, s.logger, processChanges)
+	return newSecretStringWatcher(w, s.logger, processChanges)
 }
 
 // WatchSecretsRotationChanges returns a watcher that notifies when the rotation time of a secret changes.
@@ -184,11 +185,41 @@ func (s *WatchableService) WatchSecretsRotationChanges(ctx context.Context, owne
 		}
 		return changes, nil
 	}
-	return newSecretWatcher(w, s.logger, processChanges)
+	return newSecretStringWatcher(w, s.logger, processChanges)
 }
 
-func (s *WatchableService) WatchObsoleteUserSecrets(ctx context.Context) (watcher.NotifyWatcher, error) {
-	return watcher.TODO[struct{}](), nil
+// WatchObsoleteUserSecretsToPrune returns a watcher that notifies when a user secret revision is obsolete and ready to be pruned.
+func (s *WatchableService) WatchObsoleteUserSecretsToPrune(ctx context.Context) (watcher.NotifyWatcher, error) {
+	mapper := func(ctx context.Context, db coredatabase.TxnRunner, changes []changestream.ChangeEvent) ([]changestream.ChangeEvent, error) {
+		if len(changes) == 0 {
+			return nil, nil
+		}
+		obsoleteRevs, err := s.st.GetObsoleteUserSecretRevisionsReadyToPrune(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(obsoleteRevs) == 0 {
+			return nil, nil
+		}
+		// We merge the changes to one event to avoid multiple events.
+		// Because the prune worker will prune all obsolete revisions once.
+		return changes[:1], nil
+	}
+
+	wObsolete, err := s.watcherFactory.NewNamespaceNotifyMapperWatcher(
+		"secret_revision_obsolete", changestream.Create, mapper,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	wAutoPrune, err := s.watcherFactory.NewNamespaceNotifyMapperWatcher(
+		"secret_metadata", changestream.Update, mapper,
+	)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return eventsource.NewMultiNotifyWatcher(ctx, wObsolete, wAutoPrune)
 }
 
 // WatchSecretBackendChanged notifies when the model secret backend has changed.
@@ -207,7 +238,7 @@ type secretWatcher[T any] struct {
 	out chan []T
 }
 
-func newSecretWatcher[T any](
+func newSecretStringWatcher[T any](
 	sourceWatcher watcher.StringsWatcher, logger logger.Logger,
 	handle func(ctx context.Context, events ...string) ([]T, error),
 ) (*secretWatcher[T], error) {

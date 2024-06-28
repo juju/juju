@@ -1500,6 +1500,58 @@ func (s *serviceSuite) TestWatchObsolete(c *gc.C) {
 	wC.AssertNoChange()
 }
 
+func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	s.state = NewMockState(ctrl)
+	mockWatcherFactory := NewMockWatcherFactory(ctrl)
+
+	ch1 := make(chan struct{}, 1)
+	ch2 := make(chan struct{}, 1)
+
+	go func() {
+		// send the initial change.
+		ch1 <- struct{}{}
+		ch2 <- struct{}{}
+	}()
+
+	mockObsoleteWatcher := NewMockNotifyWatcher(ctrl)
+	mockObsoleteWatcher.EXPECT().Changes().Return(ch1).AnyTimes()
+	mockObsoleteWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	mockObsoleteWatcher.EXPECT().Kill().AnyTimes()
+
+	mockAutoPruneWatcher := NewMockNotifyWatcher(ctrl)
+	mockAutoPruneWatcher.EXPECT().Changes().Return(ch2).AnyTimes()
+	mockAutoPruneWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	mockAutoPruneWatcher.EXPECT().Kill().AnyTimes()
+
+	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_revision_obsolete", changestream.Create, gomock.Any()).Return(mockObsoleteWatcher, nil)
+	mockWatcherFactory.EXPECT().NewNamespaceNotifyMapperWatcher("secret_metadata", changestream.Update, gomock.Any()).Return(mockAutoPruneWatcher, nil)
+
+	svc := NewWatchableService(s.state, loggertesting.WrapCheckLog(c), mockWatcherFactory, nil)
+	w, err := svc.WatchObsoleteUserSecretsToPrune(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+	wc := watchertest.NewNotifyWatcherC(c, w)
+	// initial change.
+	wc.AssertOneChange()
+
+	select {
+	case ch1 <- struct{}{}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for sending the secret revision changes")
+	}
+	select {
+	case ch2 <- struct{}{}:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatalf("timed out waiting for sending the secret URI changes")
+	}
+
+	wc.AssertNChanges(2)
+}
+
 func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -1542,7 +1594,7 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	defer workertest.CleanKill(c, w)
-	wC := watchertest.NewStringsWatcherC(c, w)
+	wc := watchertest.NewStringsWatcherC(c, w)
 
 	select {
 	case ch <- []string{"revision-uuid-1"}:
@@ -1555,11 +1607,11 @@ func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
 		c.Fatalf("timed out waiting for the initial changes")
 	}
 
-	wC.AssertChange(
+	wc.AssertChange(
 		uri1.String(),
 		uri2.String(),
 	)
-	wC.AssertNoChange()
+	wc.AssertNoChange()
 }
 
 func (s *serviceSuite) TestWatchRemoteConsumedSecretsChanges(c *gc.C) {

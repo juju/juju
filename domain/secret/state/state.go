@@ -3154,9 +3154,67 @@ func (st State) DeleteSecret(ctx context.Context, uri *coresecrets.URI, revs []i
 	if err != nil {
 		return errors.Trace(err)
 	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return st.deleteSecretRevisions(ctx, tx, uri, revs)
+	})
+	return errors.Trace(domain.CoerceError(err))
+}
 
+// DeleteObsoleteUserSecretRevisions deletes the obsolete user secret revisions.
+func (st State) DeleteObsoleteUserSecretRevisions(ctx context.Context) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	q := `
+SELECT smo.secret_id AS &secretID.id,
+       sr.revision AS &secretExternalRevision.revision
+FROM   secret_model_owner smo
+       JOIN secret_metadata sm ON sm.secret_id = smo.secret_id
+       JOIN secret_revision sr ON sr.secret_id = smo.secret_id
+       LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
+WHERE  sm.auto_prune = true AND sro.obsolete = true`
+
+	stmt, err := st.Prepare(q, secretID{}, secretExternalRevision{}, revisions{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		var (
+			dbSecrets    secretIDs
+			dbsecretRevs secretExternalRevisions
+		)
+		err = tx.Query(ctx, stmt).GetAll(&dbSecrets, &dbsecretRevs)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// Nothing to delete.
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		itemsToDelete, err := dbSecrets.toSecretMetadataForDrain(dbsecretRevs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, toDelete := range itemsToDelete {
+			revs := make([]int, len(toDelete.Revisions))
+			for i, r := range toDelete.Revisions {
+				revs[i] = r.Revision
+			}
+			if err := st.deleteSecretRevisions(ctx, tx, toDelete.URI, revs); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return nil
+	})
+	return errors.Trace(domain.CoerceError(err))
+}
+
+// deleteSecretRevisions deletes the specified secret revisions, or all if revs is nil.
+// If the last remaining revisions are removed, the secret is deleted.
+func (st State) deleteSecretRevisions(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI, revs []int) error {
 	// First delete the specified revisions.
-
 	selectRevisionParams := []any{secretID{
 		ID: uri.ID,
 	}}
@@ -3214,44 +3272,41 @@ DELETE FROM secret_revision WHERE uuid IN ($revisionUUIDs[:])`
 		}
 	}
 
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
-			return errors.Trace(err)
-		} else if !isLocal {
-			// Should never happen.
-			return secreterrors.SecretIsNotLocal
-		}
+	if isLocal, err := st.checkExistsIfLocal(ctx, tx, uri); err != nil {
+		return errors.Trace(err)
+	} else if !isLocal {
+		// Should never happen.
+		return secreterrors.SecretIsNotLocal
+	}
 
-		result := []revisionUUID{}
-		err := tx.Query(ctx, selectRevisionStmt, selectRevisionParams...).GetAll(&result)
-		if err != nil {
-			return errors.Annotatef(err, "selecting revision UUIDs to delete for secret %q", uri)
-		}
+	result := []revisionUUID{}
+	err = tx.Query(ctx, selectRevisionStmt, selectRevisionParams...).GetAll(&result)
+	if err != nil {
+		return errors.Annotatef(err, "selecting revision UUIDs to delete for secret %q", uri)
+	}
 
-		toDelete := make(revisionUUIDs, len(result))
-		for i, r := range result {
-			toDelete[i] = r.UUID
+	toDelete := make(revisionUUIDs, len(result))
+	for i, r := range result {
+		toDelete[i] = r.UUID
+	}
+	for _, stmt := range deleteRevisionStmts {
+		err = tx.Query(ctx, stmt, toDelete).Run()
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(err, "deleting revision info for secret %q", uri)
 		}
-		for _, stmt := range deleteRevisionStmts {
-			err = tx.Query(ctx, stmt, toDelete).Run()
-			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(err, "deleting revision info for secret %q", uri)
-			}
-		}
+	}
 
-		countResult := sqlair.M{}
-		err = tx.Query(ctx, countRevisionsStmt, selectRevisionParams[0]).Get(&countResult)
-		if err != nil {
-			return errors.Annotatef(err, "counting remaining revisions for secret %q", uri)
-		}
-		count, _ := strconv.Atoi(fmt.Sprint(countResult["count"]))
-		if count > 0 {
-			return nil
-		}
-		// No revisions left so delete the secret.
-		return st.deleteSecret(ctx, tx, uri)
-	})
-	return errors.Trace(domain.CoerceError(err))
+	countResult := sqlair.M{}
+	err = tx.Query(ctx, countRevisionsStmt, selectRevisionParams[0]).Get(&countResult)
+	if err != nil {
+		return errors.Annotatef(err, "counting remaining revisions for secret %q", uri)
+	}
+	count, _ := strconv.Atoi(fmt.Sprint(countResult["count"]))
+	if count > 0 {
+		return nil
+	}
+	// No revisions left so delete the secret.
+	return st.deleteSecret(ctx, tx, uri)
 }
 
 func (st State) deleteSecret(ctx context.Context, tx *sqlair.TX, uri *coresecrets.URI) error {
@@ -3577,4 +3632,36 @@ func (st State) GetSecretsRevisionExpiryChanges(
 		return nil, errors.Trace(err)
 	}
 	return st.getSecretsRevisionExpiryChanges(ctx, db, appOwners, unitOwners, revisionUUIDs...)
+}
+
+// GetObsoleteUserSecretRevisionReadyToPrune returns the specified user secret revision with secret ID if it is ready to prune.
+func (st State) GetObsoleteUserSecretRevisionsReadyToPrune(ctx context.Context) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	q := `
+SELECT (sr.revision, sr.secret_id) AS (&obsoleteRevisionRow.*)
+FROM   secret_model_owner smo
+       JOIN secret_metadata sm ON sm.secret_id = smo.secret_id
+       JOIN secret_revision sr ON sr.secret_id = smo.secret_id
+       LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
+WHERE  sm.auto_prune = true AND sro.obsolete = true`
+	stmt, err := st.Prepare(q, obsoleteRevisionRow{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var result obsoleteRevisionRows
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// It's ok, the revision probably has already been pruned.
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Trace(domain.CoerceError(err))
+	}
+	return result.toRevIDs(), nil
 }

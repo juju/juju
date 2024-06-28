@@ -4,6 +4,7 @@
 package secretspruner_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -85,7 +86,7 @@ func (s *workerSuite) TestPrune(c *gc.C) {
 		close(s.done)
 	}()
 
-	s.facade.EXPECT().DeleteObsoleteUserSecrets().DoAndReturn(func() error {
+	s.facade.EXPECT().DeleteObsoleteUserSecretRevisions(gomock.Any()).DoAndReturn(func(context.Context) error {
 		wg.Done()
 		return nil
 	})

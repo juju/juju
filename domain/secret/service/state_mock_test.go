@@ -157,6 +157,44 @@ func (c *MockStateCreateUserSecretCall) DoAndReturn(f func(context.Context, int,
 	return c
 }
 
+// DeleteObsoleteUserSecretRevisions mocks base method.
+func (m *MockState) DeleteObsoleteUserSecretRevisions(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteObsoleteUserSecretRevisions", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteObsoleteUserSecretRevisions indicates an expected call of DeleteObsoleteUserSecretRevisions.
+func (mr *MockStateMockRecorder) DeleteObsoleteUserSecretRevisions(arg0 any) *MockStateDeleteObsoleteUserSecretRevisionsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteObsoleteUserSecretRevisions", reflect.TypeOf((*MockState)(nil).DeleteObsoleteUserSecretRevisions), arg0)
+	return &MockStateDeleteObsoleteUserSecretRevisionsCall{Call: call}
+}
+
+// MockStateDeleteObsoleteUserSecretRevisionsCall wrap *gomock.Call
+type MockStateDeleteObsoleteUserSecretRevisionsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteObsoleteUserSecretRevisionsCall) Return(arg0 error) *MockStateDeleteObsoleteUserSecretRevisionsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteObsoleteUserSecretRevisionsCall) Do(f func(context.Context) error) *MockStateDeleteObsoleteUserSecretRevisionsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteObsoleteUserSecretRevisionsCall) DoAndReturn(f func(context.Context) error) *MockStateDeleteObsoleteUserSecretRevisionsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // DeleteSecret mocks base method.
 func (m *MockState) DeleteSecret(arg0 context.Context, arg1 *secrets.URI, arg2 []int) error {
 	m.ctrl.T.Helper()
@@ -318,6 +356,45 @@ func (c *MockStateGetModelUUIDCall) Do(f func(context.Context) (string, error)) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetModelUUIDCall) DoAndReturn(f func(context.Context) (string, error)) *MockStateGetModelUUIDCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetObsoleteUserSecretRevisionsReadyToPrune mocks base method.
+func (m *MockState) GetObsoleteUserSecretRevisionsReadyToPrune(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetObsoleteUserSecretRevisionsReadyToPrune", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetObsoleteUserSecretRevisionsReadyToPrune indicates an expected call of GetObsoleteUserSecretRevisionsReadyToPrune.
+func (mr *MockStateMockRecorder) GetObsoleteUserSecretRevisionsReadyToPrune(arg0 any) *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetObsoleteUserSecretRevisionsReadyToPrune", reflect.TypeOf((*MockState)(nil).GetObsoleteUserSecretRevisionsReadyToPrune), arg0)
+	return &MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall{Call: call}
+}
+
+// MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall wrap *gomock.Call
+type MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall) Return(arg0 []string, arg1 error) *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall) Do(f func(context.Context) ([]string, error)) *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockStateGetObsoleteUserSecretRevisionsReadyToPruneCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
