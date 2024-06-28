@@ -71,3 +71,9 @@ type instanceID struct {
 type machineName struct {
 	Name string `db:"machine_name"`
 }
+
+// machineUUID represents the struct to be used for the machine_uuid column
+// within the sqlair statements in the machine domain.
+type machineUUID struct {
+	UUID string `db:"uuid"`
+}
