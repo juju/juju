@@ -151,7 +151,7 @@ exit 0
 
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	s.PatchValue(&sshprovisioner.DetectBaseAndHardwareCharacteristics,
-		func(string) (instance.HardwareCharacteristics, base.Base, error) {
+		func(string, string) (instance.HardwareCharacteristics, base.Base, error) {
 			amd64 := "amd64"
 			return instance.HardwareCharacteristics{
 				Arch: &amd64,

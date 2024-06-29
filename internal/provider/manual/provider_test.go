@@ -31,8 +31,8 @@ var _ = gc.Suite(&providerSuite{})
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 	s.Stub.ResetCalls()
-	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys string, privateKey string, stdin io.Reader, stdout io.Writer) error {
-		s.AddCall("InitUbuntuUser", host, user, keys, privateKey, stdin, stdout)
+	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys string, privateKey string, knownHostsFile string, stdin io.Reader, stdout io.Writer) error {
+		s.AddCall("InitUbuntuUser", host, user, keys, privateKey, knownHostsFile, stdin, stdout)
 		return s.NextErr()
 	})
 }
@@ -40,13 +40,13 @@ func (s *providerSuite) SetUpTest(c *gc.C) {
 func (s *providerSuite) TestPrepareForBootstrapCloudEndpointAndRegion(c *gc.C) {
 	ctx, err := s.testPrepareForBootstrap(c, "endpoint", "region")
 	c.Assert(err, jc.ErrorIsNil)
-	s.CheckCall(c, 0, "InitUbuntuUser", "endpoint", "", "", "", ctx.GetStdin(), ctx.GetStdout())
+	s.CheckCall(c, 0, "InitUbuntuUser", "endpoint", "", "", "", "", ctx.GetStdin(), ctx.GetStdout())
 }
 
 func (s *providerSuite) TestPrepareForBootstrapUserHost(c *gc.C) {
 	ctx, err := s.testPrepareForBootstrap(c, "user@host", "")
 	c.Assert(err, jc.ErrorIsNil)
-	s.CheckCall(c, 0, "InitUbuntuUser", "host", "user", "", "", ctx.GetStdin(), ctx.GetStdout())
+	s.CheckCall(c, 0, "InitUbuntuUser", "host", "user", "", "", "", ctx.GetStdin(), ctx.GetStdout())
 }
 
 func (s *providerSuite) TestPrepareForBootstrapNoCloudEndpoint(c *gc.C) {

@@ -53,6 +53,11 @@ type ProvisionMachineArgs struct {
 	// machine.
 	PrivateKey string
 
+	// KnownHostsFile contains the path of an SSH known hosts file to be used during
+	// the ssh connection. if KnownHosts is a zero value string then default file
+	// in ~/.ssh should be used instead.
+	KnownHostsFile string
+
 	*params.UpdateBehavior
 }
 
