@@ -5,6 +5,7 @@ package ssh
 
 import (
 	"fmt"
+	"strings"
 
 	"golang.org/x/crypto/ssh"
 )
@@ -38,4 +39,21 @@ func ParsePublicKey(key string) (PublicKey, error) {
 		Key:     parsedKey,
 		Comment: comment,
 	}, nil
+}
+
+// SplitAuthorizedKeys extracts a key slice from the specified key data,
+// by splitting the key data into lines and ignoring comments and blank lines.
+func SplitAuthorizedKeys(keyData string) []string {
+	keys := []string{}
+	for _, key := range strings.Split(keyData, "\n") {
+		key = strings.Trim(key, " \r")
+		if len(key) == 0 {
+			continue
+		}
+		if key[0] == '#' {
+			continue
+		}
+		keys = append(keys, key)
+	}
+	return keys
 }

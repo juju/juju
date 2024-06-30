@@ -17,4 +17,5 @@ INSERT INTO change_log_namespace VALUES
 (13, 'secret_revision', 'Secret revision changes based on UUID'),
 (14, 'secret_reference', 'Secret reference changes based on UUID'),
 (15, 'subnet', 'Subnet changes based on UUID'),
-(16, 'machine', 'Machine changes based on UUID');
+(16, 'machine', 'Machine changes based on UUID'),
+(17, 'user_public_ssh_key', 'User public ssh key changes based on id');

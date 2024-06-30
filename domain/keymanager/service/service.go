@@ -76,7 +76,7 @@ var (
 	)
 )
 
-// NewService constructs a new [Service] for interfacting with a users
+// NewService constructs a new [Service] for interacting with a users
 // public keys.
 func NewService(keyImporter PublicKeyImporter, state State) *Service {
 	return &Service{
