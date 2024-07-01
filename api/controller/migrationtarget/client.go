@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
@@ -57,6 +58,14 @@ func (c *Client) BestFacadeVersion() int {
 // Prechecks checks that the target controller is able to accept the
 // model being migrated.
 func (c *Client) Prechecks(model coremigration.ModelInfo) error {
+	// The model description is marshalled into YAML (description package does
+	// not support JSON) to prevent potential issues with
+	// marshalling/unmarshalling on the target API controller.
+	serialised, err := description.Serialize(model.ModelDescription)
+	if err != nil {
+		return errors.Annotate(err, "failed to marshal model description")
+	}
+
 	// Pass all the known facade versions to the controller so that it
 	// can check that the target controller supports them. Passing all of them
 	// ensures that we don't have to update this code when new facades are
@@ -74,6 +83,7 @@ func (c *Client) Prechecks(model coremigration.ModelInfo) error {
 		AgentVersion:           model.AgentVersion,
 		ControllerAgentVersion: model.ControllerAgentVersion,
 		FacadeVersions:         versions,
+		ModelDescription:       serialised,
 	}
 	return errors.Trace(c.caller.FacadeCall(context.TODO(), "Prechecks", args, nil))
 }
