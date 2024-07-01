@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/state"
 )
@@ -32,9 +31,6 @@ type Backend interface {
 
 	// ModelTag the tag of the model on which we are operating.
 	ModelTag() names.ModelTag
-
-	// ModelConfig returns the complete config for the model
-	ModelConfig(context.Context) (*config.Config, error)
 
 	// AllModelUUIDs returns the UUIDs of all models in the controller.
 	AllModelUUIDs() ([]string, error)

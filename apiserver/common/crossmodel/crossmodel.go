@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/network"
@@ -435,8 +436,15 @@ func RelationUnitSettings(backend Backend, ru params.RelationUnit) (params.Setti
 }
 
 // PublishIngressNetworkChange saves the specified ingress networks for a relation.
-func PublishIngressNetworkChange(ctx context.Context, backend Backend, relationTag names.Tag, change params.IngressNetworksChangeEvent) error {
-	logger.Debugf("publish into model %v network change for %v: %#v", backend.ModelUUID(), relationTag, &change)
+func PublishIngressNetworkChange(
+	ctx context.Context,
+	modelID model.UUID,
+	backend Backend,
+	modelConfigService ModelConfigService,
+	relationTag names.Tag,
+	change params.IngressNetworksChangeEvent,
+) error {
+	logger.Debugf("publish into model %v network change for %v: %#v", modelID, relationTag, &change)
 
 	// Ensure the relation exists.
 	rel, err := backend.KeyRelation(relationTag.Id())
@@ -448,7 +456,7 @@ func PublishIngressNetworkChange(ctx context.Context, backend Backend, relationT
 	}
 
 	logger.Debugf("relation %v requires ingress networks %v", rel, change.Networks)
-	if err := validateIngressNetworks(ctx, backend, change.Networks); err != nil {
+	if err := validateIngressNetworks(ctx, modelConfigService, change.Networks); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -456,13 +464,13 @@ func PublishIngressNetworkChange(ctx context.Context, backend Backend, relationT
 	return err
 }
 
-func validateIngressNetworks(ctx context.Context, backend Backend, networks []string) error {
+func validateIngressNetworks(ctx context.Context, modelConfigService ModelConfigService, networks []string) error {
 	if len(networks) == 0 {
 		return nil
 	}
 
 	// Check that the required ingress is allowed.
-	cfg, err := backend.ModelConfig(ctx)
+	cfg, err := modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

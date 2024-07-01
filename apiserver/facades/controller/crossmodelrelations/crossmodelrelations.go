@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	coremacaroon "github.com/juju/juju/core/macaroon"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -58,6 +59,7 @@ type CrossModelRelationsAPIv3 struct {
 	offerStatusWatcher     offerStatusWatcherFunc
 	consumedSecretsWatcher consumedSecretsWatcherFunc
 	logger                 corelogger.Logger
+	modelID                model.UUID
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
@@ -74,6 +76,7 @@ func NewCrossModelRelationsAPI(
 	offerStatusWatcher offerStatusWatcherFunc,
 	consumedSecretsWatcher consumedSecretsWatcherFunc,
 	logger corelogger.Logger,
+	modelID model.UUID,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
 		st:                     st,
@@ -89,6 +92,7 @@ func NewCrossModelRelationsAPI(
 		consumedSecretsWatcher: consumedSecretsWatcher,
 		relationToOffer:        make(map[string]string),
 		logger:                 logger,
+		modelID:                modelID,
 	}, nil
 }
 
@@ -669,7 +673,7 @@ func (api *CrossModelRelationsAPIv3) PublishIngressNetworkChanges(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := commoncrossmodel.PublishIngressNetworkChange(ctx, api.st, relationTag, change); err != nil {
+		if err := commoncrossmodel.PublishIngressNetworkChange(ctx, api.modelID, api.st, api.modelConfigService, relationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

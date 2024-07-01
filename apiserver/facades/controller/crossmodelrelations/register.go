@@ -5,6 +5,7 @@ package crossmodelrelations
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/common"
@@ -18,18 +19,23 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("CrossModelRelations", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newStateCrossModelRelationsAPI(ctx) // Removes remote spaces
+		return newStateCrossModelRelationsAPI(stdCtx, ctx) // Removes remote spaces
 	}, reflect.TypeOf((*CrossModelRelationsAPIv3)(nil)))
 }
 
 // newStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
-func newStateCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelationsAPIv3, error) {
+func newStateCrossModelRelationsAPI(stdCtx context.Context, ctx facade.ModelContext) (*CrossModelRelationsAPIv3, error) {
 	authCtxt := ctx.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 	st := ctx.State()
 	m, err := st.Model()
 	if err != nil {
 		return nil, err
+	}
+
+	modelInfo, err := ctx.ServiceFactory().ModelInfo().GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving model info: %w", err)
 	}
 
 	return NewCrossModelRelationsAPI(
@@ -47,5 +53,6 @@ func newStateCrossModelRelationsAPI(ctx facade.ModelContext) (*CrossModelRelatio
 		watchOfferStatus,
 		watchConsumedSecrets,
 		ctx.Logger().Child("crossmodelrelations", corelogger.CMR),
+		modelInfo.UUID,
 	)
 }
