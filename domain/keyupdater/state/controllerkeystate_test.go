@@ -7,9 +7,8 @@ import (
 	"context"
 	"database/sql"
 
-	gc "gopkg.in/check.v1"
-
 	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
 	schematesting "github.com/juju/juju/domain/schema/testing"
