@@ -36,8 +36,8 @@ func NewUserService(st UserState) *UserService {
 // GetAllUsers will retrieve all users with authentication information
 // (last login, disabled) from the database. If no users exist an empty slice
 // will be returned.
-func (s *UserService) GetAllUsers(ctx context.Context) ([]user.User, error) {
-	usrs, err := s.st.GetAllUsers(ctx)
+func (s *UserService) GetAllUsers(ctx context.Context, includeDisabled bool) ([]user.User, error) {
+	usrs, err := s.st.GetAllUsers(ctx, includeDisabled)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting all users with auth info")
 	}

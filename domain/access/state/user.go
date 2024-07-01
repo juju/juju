@@ -113,15 +113,13 @@ func (st *UserState) AddUserWithActivationKey(
 // GetAllUsers will retrieve all users with authentication information
 // (last login, disabled) from the database. If no users exist an empty slice
 // will be returned.
-func (st *UserState) GetAllUsers(ctx context.Context) ([]user.User, error) {
+func (st *UserState) GetAllUsers(ctx context.Context, includeDisabled bool) ([]user.User, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting DB access")
 	}
 
-	var usrs []user.User
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		getAllUsersQuery := `
+	selectGetAllUsersStmt, err := st.Prepare(`
 SELECT (u.uuid, u.name, u.display_name, u.created_by_uuid, u.created_at, u.disabled, ull.last_login) AS (&dbUser.*),
        creator.name AS &dbUser.created_by_name
 FROM   v_user_auth u
@@ -130,27 +128,28 @@ FROM   v_user_auth u
        LEFT JOIN v_user_last_login AS ull 
        ON        u.uuid = ull.user_uuid
 WHERE  u.removed = false 
-`
+`, dbUser{})
+	if err != nil {
+		return nil, errors.Annotate(err, "preparing select getAllUsers query")
+	}
 
-		selectGetAllUsersStmt, err := st.Prepare(getAllUsersQuery, dbUser{}, sqlair.M{})
-		if err != nil {
-			return errors.Annotate(err, "preparing select getAllUsers query")
-		}
-
-		var results []dbUser
+	var results []dbUser
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, selectGetAllUsersStmt).GetAll(&results)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotate(err, "getting query results")
 		}
-
-		for _, result := range results {
-			usrs = append(usrs, result.toCoreUser())
-		}
-
 		return nil
 	})
 	if err != nil {
 		return nil, errors.Annotate(err, "getting all users")
+	}
+
+	var usrs []user.User
+	for _, result := range results {
+		if !result.Disabled || includeDisabled {
+			usrs = append(usrs, result.toCoreUser())
+		}
 	}
 
 	return usrs, nil

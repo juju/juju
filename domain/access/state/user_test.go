@@ -752,8 +752,8 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 	err = st.DisableUserAuthentication(context.Background(), "admin2")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Get all users with auth info.
-	users, err := st.GetAllUsers(context.Background())
+	// Get all users with auth info, including disabled users.
+	users, err := st.GetAllUsers(context.Background(), true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(users, gc.HasLen, 2)
@@ -773,6 +773,20 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 	c.Check(users[1].CreatedAt, gc.NotNil)
 	c.Check(users[1].LastLogin, gc.NotNil)
 	c.Check(users[1].Disabled, gc.Equals, true)
+
+	// Get all users with auth info, excluding disabled users
+	users, err = st.GetAllUsers(context.Background(), false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(users, gc.HasLen, 1)
+
+	c.Check(users[0].Name, gc.Equals, "admin1")
+	c.Check(users[0].DisplayName, gc.Equals, "admin1")
+	c.Check(users[0].CreatorUUID, gc.Equals, admin1UUID)
+	c.Check(users[0].CreatorName, gc.Equals, "admin1")
+	c.Check(users[0].CreatedAt, gc.NotNil)
+	c.Check(users[0].LastLogin, gc.NotNil)
+	c.Check(users[0].Disabled, gc.Equals, false)
 }
 
 // TestUserWithAuthInfo asserts that we can get a user with auth info from the

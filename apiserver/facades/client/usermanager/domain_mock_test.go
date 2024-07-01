@@ -160,18 +160,18 @@ func (c *MockAccessServiceEnableUserAuthenticationCall) DoAndReturn(f func(conte
 }
 
 // GetAllUsers mocks base method.
-func (m *MockAccessService) GetAllUsers(arg0 context.Context) ([]user.User, error) {
+func (m *MockAccessService) GetAllUsers(arg0 context.Context, arg1 bool) ([]user.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllUsers", arg0)
+	ret := m.ctrl.Call(m, "GetAllUsers", arg0, arg1)
 	ret0, _ := ret[0].([]user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAllUsers indicates an expected call of GetAllUsers.
-func (mr *MockAccessServiceMockRecorder) GetAllUsers(arg0 any) *MockAccessServiceGetAllUsersCall {
+func (mr *MockAccessServiceMockRecorder) GetAllUsers(arg0, arg1 any) *MockAccessServiceGetAllUsersCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsers", reflect.TypeOf((*MockAccessService)(nil).GetAllUsers), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsers", reflect.TypeOf((*MockAccessService)(nil).GetAllUsers), arg0, arg1)
 	return &MockAccessServiceGetAllUsersCall{Call: call}
 }
 
@@ -187,13 +187,13 @@ func (c *MockAccessServiceGetAllUsersCall) Return(arg0 []user.User, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAccessServiceGetAllUsersCall) Do(f func(context.Context) ([]user.User, error)) *MockAccessServiceGetAllUsersCall {
+func (c *MockAccessServiceGetAllUsersCall) Do(f func(context.Context, bool) ([]user.User, error)) *MockAccessServiceGetAllUsersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAccessServiceGetAllUsersCall) DoAndReturn(f func(context.Context) ([]user.User, error)) *MockAccessServiceGetAllUsersCall {
+func (c *MockAccessServiceGetAllUsersCall) DoAndReturn(f func(context.Context, bool) ([]user.User, error)) *MockAccessServiceGetAllUsersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
