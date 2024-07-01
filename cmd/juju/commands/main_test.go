@@ -408,6 +408,7 @@ var commandNames = []string{
 	"model-constraints",
 	"model-default",
 	"model-defaults",
+	"model-secret-backend",
 	"models",
 	"move-to-space",
 	"offer",
