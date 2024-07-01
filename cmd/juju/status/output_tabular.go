@@ -468,12 +468,16 @@ func printRemoteApplications(tw *ansiterm.TabWriter, remoteApplications map[stri
 }
 
 func printRelations(tw *ansiterm.TabWriter, relations []relationStatus) {
+	// Sort relations by type, then by provider, then by requirer.
 	sort.Slice(relations, func(i, j int) bool {
 		a, b := relations[i], relations[j]
-		if a.Provider == b.Provider {
-			return a.Requirer < b.Requirer
+		if a.Type != b.Type {
+			return a.Type > b.Type
 		}
-		return a.Provider < b.Provider
+		if a.Provider != b.Provider {
+			return a.Provider < b.Provider
+		}
+		return a.Requirer < b.Requirer
 	})
 
 	w := startSection(tw, false, "Integration provider", "Requirer", "Interface", "Type", "Message")
