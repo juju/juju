@@ -1,3 +1,17 @@
+---
+name: 🐞 Bug
+about: File a bug/issue
+title: '[BUG] <title>'
+labels: Bug, Needs Triage
+assignees: ''
+
+---
+
+
+
+<!-- Please ensure all commits in this PR comply with our conventional commits specification -
+https://docs.google.com/document/d/1SYUo9G7qZ_jdoVXpUVamS5VCgHmtZ0QA-wZxKoMS-C0 -->
+
 <!-- Why this change is needed and what it does. -->
 
 ## Checklist
