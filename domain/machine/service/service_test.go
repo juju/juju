@@ -116,7 +116,7 @@ func (s *serviceSuite) TestListAllMachinesSuccess(c *gc.C) {
 
 	s.state.EXPECT().AllMachineNames(gomock.Any()).Return([]cmachine.Name{cmachine.Name("666")}, nil)
 
-	machines, err := NewService(s.state).ListAllMachines(context.Background())
+	machines, err := NewService(s.state).AllMachineNames(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.DeepEquals, []cmachine.Name{cmachine.Name("666")})
 }
@@ -129,7 +129,7 @@ func (s *serviceSuite) TestListAllMachinesError(c *gc.C) {
 	rErr := errors.New("boom")
 	s.state.EXPECT().AllMachineNames(gomock.Any()).Return(nil, rErr)
 
-	machines, err := NewService(s.state).ListAllMachines(context.Background())
+	machines, err := NewService(s.state).AllMachineNames(context.Background())
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Check(machines, gc.IsNil)
 }

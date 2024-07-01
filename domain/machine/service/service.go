@@ -98,8 +98,8 @@ func (s *Service) GetMachineLife(ctx context.Context, machineName machine.Name) 
 	return life, errors.Annotatef(err, "getting life status for machine %q", machineName)
 }
 
-// ListAllMachines returns the names of all machines in the model.
-func (s *Service) ListAllMachines(ctx context.Context) ([]machine.Name, error) {
+// AllMachineNames returns the names of all machines in the model.
+func (s *Service) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 	machines, err := s.st.AllMachineNames(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving all machines")
