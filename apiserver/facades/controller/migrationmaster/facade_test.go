@@ -162,19 +162,26 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 func (s *Suite) TestModelInfo(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	modelDescription := description.NewModel(description.ModelArgs{})
+
 	exp := s.backend.EXPECT()
 	exp.ModelUUID().Return("model-uuid")
 	exp.ModelName().Return("model-name", nil)
 	exp.ModelOwner().Return(names.NewUserTag("owner"), nil)
 	exp.AgentVersion().Return(version.MustParse("1.2.3"), nil)
+	exp.Export(gomock.Any()).Return(modelDescription, nil)
 
 	mod, err := s.mustMakeAPI(c).ModelInfo()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(mod.UUID, gc.Equals, "model-uuid")
-	c.Assert(mod.Name, gc.Equals, "model-name")
-	c.Assert(mod.OwnerTag, gc.Equals, names.NewUserTag("owner").String())
-	c.Assert(mod.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
+	c.Check(mod.UUID, gc.Equals, "model-uuid")
+	c.Check(mod.Name, gc.Equals, "model-name")
+	c.Check(mod.OwnerTag, gc.Equals, names.NewUserTag("owner").String())
+	c.Check(mod.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
+
+	bytes, err := description.Serialize(modelDescription)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod.ModelDescription, gc.DeepEquals, bytes)
 }
 
 func (s *Suite) TestSourceControllerInfo(c *gc.C) {

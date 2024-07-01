@@ -142,11 +142,27 @@ func (api *API) ModelInfo() (params.MigrationModelInfo, error) {
 		return empty, errors.Annotate(err, "retrieving agent version")
 	}
 
+	leaders, err := api.leadership.Leaders()
+	if err != nil {
+		return empty, errors.Annotatef(err, "retrieving leaders")
+	}
+
+	model, err := api.backend.Export(leaders)
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving model")
+	}
+
+	modelDescription, err := description.Serialize(model)
+	if err != nil {
+		return empty, errors.Annotate(err, "serializing model")
+	}
+
 	return params.MigrationModelInfo{
-		UUID:         api.backend.ModelUUID(),
-		Name:         name,
-		OwnerTag:     owner.String(),
-		AgentVersion: vers,
+		UUID:             api.backend.ModelUUID(),
+		Name:             name,
+		OwnerTag:         owner.String(),
+		AgentVersion:     vers,
+		ModelDescription: modelDescription,
 	}, nil
 }
 

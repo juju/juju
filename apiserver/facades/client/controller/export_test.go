@@ -13,8 +13,8 @@ type patcher interface {
 	PatchValue(destination, source interface{})
 }
 
-func SetPrecheckResult(p patcher, err error) {
-	p.PatchValue(&runMigrationPrechecks, func(*state.State, *state.State, *migration.TargetInfo, facade.Presence) error {
+func SetPreCheckResult(p patcher, err error) {
+	p.PatchValue(&runMigrationPreChecks, func(*state.State, *state.State, *migration.TargetInfo, facade.Presence, map[string]string) error {
 		return err
 	})
 }
