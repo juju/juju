@@ -69,14 +69,22 @@ func ParseDirective(s string) (Directive, error) {
 			if err != nil {
 				return directive, errors.Annotate(err, "cannot parse count")
 			}
-			directive.Count = count
+			if directive.Count != 0 {
+				return directive, errors.NotValidf("storage instance count is already set to %d, new value %d", directive.Count, count)
+			} else {
+				directive.Count = count
+			}
 			continue
 		}
 		if size, ok, err := parseSize(field); ok {
 			if err != nil {
 				return directive, errors.Annotate(err, "cannot parse size")
 			}
-			directive.Size = size
+			if directive.Size != 0 {
+				return directive, errors.NotValidf("storage size is already set to %d, new value %d", directive.Size, size)
+			} else {
+				directive.Size = size
+			}
 			continue
 		}
 		return directive, errors.NotValidf("unrecognized storage directive %q", field)

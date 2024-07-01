@@ -61,7 +61,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 	}
 }
 
-func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (_ worker.Worker, err error) {
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}

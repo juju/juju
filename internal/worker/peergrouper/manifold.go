@@ -104,6 +104,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	}
 	_, st, err := stTracker.Use()
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 

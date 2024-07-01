@@ -7,10 +7,12 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
+	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 )
@@ -23,7 +25,7 @@ func Watch(ctx context.Context, facade base.FacadeCaller, method string, tag nam
 	}
 	err := facade.FacadeCall(ctx, method, args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))

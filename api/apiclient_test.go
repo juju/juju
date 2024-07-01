@@ -1170,7 +1170,7 @@ func (s *apiclientSuite) TestAPICallNoError(c *gc.C) {
 	c.Check(clock.waits, gc.HasLen, 0)
 }
 
-func (s *apiclientSuite) TestAPICallError(c *gc.C) {
+func (s *apiclientSuite) TestAPICallErrorBadRequest(c *gc.C) {
 	clock := &fakeClock{}
 	conn := api.NewTestingConnection(api.TestingConnectionParams{
 		RPCConnection: newRPCConnection(errors.BadRequestf("boom")),
@@ -1180,6 +1180,18 @@ func (s *apiclientSuite) TestAPICallError(c *gc.C) {
 	err := conn.APICall(context.Background(), "facade", 1, "id", "method", nil, nil)
 	c.Check(err.Error(), gc.Equals, "boom")
 	c.Check(err, jc.ErrorIs, errors.BadRequest)
+	c.Check(clock.waits, gc.HasLen, 0)
+}
+
+func (s *apiclientSuite) TestAPICallErrorNotImplemented(c *gc.C) {
+	clock := &fakeClock{}
+	conn := api.NewTestingConnection(api.TestingConnectionParams{
+		RPCConnection: newRPCConnection(apiservererrors.ServerError(errors.NotImplementedf("boom"))),
+		Clock:         clock,
+	})
+
+	err := conn.APICall(context.Background(), "facade", 1, "id", "method", nil, nil)
+	c.Check(err, jc.ErrorIs, errors.NotImplemented)
 	c.Check(clock.waits, gc.HasLen, 0)
 }
 

@@ -1170,9 +1170,6 @@ func (c *conn) APICall(ctx context.Context, facade string, vers int, id, method 
 		Id:      id,
 		Action:  method,
 	}, args, response)
-	if err == nil {
-		return nil
-	}
 
 	if code := params.ErrCode(err); code == params.CodeNotImplemented {
 		return errors.NewNotImplemented(fmt.Errorf("%w\nre-install your juju client to match the version running on the controller", err), "\njuju client not compatible with server")

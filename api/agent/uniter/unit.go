@@ -72,7 +72,7 @@ func (u *Unit) Refresh(ctx context.Context) error {
 	}
 	err := u.client.facade.FacadeCall(ctx, "Refresh", args, &results)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -103,7 +103,7 @@ func (u *Unit) SetUnitStatus(ctx context.Context, unitStatus status.Status, info
 	}
 	err := u.client.facade.FacadeCall(ctx, "SetUnitStatus", args, &result)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -118,7 +118,7 @@ func (u *Unit) UnitStatus(ctx context.Context) (params.StatusResult, error) {
 	}
 	err := u.client.facade.FacadeCall(ctx, "UnitStatus", args, &results)
 	if err != nil {
-		return params.StatusResult{}, errors.Trace(err)
+		return params.StatusResult{}, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return params.StatusResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -140,7 +140,7 @@ func (u *Unit) SetAgentStatus(agentStatus status.Status, info string, data map[s
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "SetAgentStatus", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -154,7 +154,7 @@ func (u *Unit) EnsureDead() error {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "EnsureDead", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -173,7 +173,7 @@ func (u *Unit) WatchRelations() (watcher.StringsWatcher, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "WatchUnitRelations", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -212,7 +212,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "ConfigSettings", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -250,7 +250,7 @@ func (u *Unit) Destroy() error {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "Destroy", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -263,7 +263,7 @@ func (u *Unit) DestroyAllSubordinates() error {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "DestroyAllSubordinates", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -279,7 +279,7 @@ func (u *Unit) AssignedMachine() (names.MachineTag, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "AssignedMachine", args, &results)
 	if err != nil {
-		return invalidTag, err
+		return invalidTag, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return invalidTag, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -303,7 +303,7 @@ func (u *Unit) PrincipalName() (string, bool, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "GetPrincipal", args, &results)
 	if err != nil {
-		return "", false, err
+		return "", false, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", false, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -331,7 +331,7 @@ func (u *Unit) HasSubordinates() (bool, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "HasSubordinates", args, &results)
 	if err != nil {
-		return false, err
+		return false, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return false, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -358,7 +358,7 @@ func (u *Unit) PublicAddress() (string, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "PublicAddress", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -385,7 +385,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "PrivateAddress", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -404,7 +404,7 @@ func (u *Unit) AvailabilityZone() (string, error) {
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	if err := u.client.facade.FacadeCall(context.TODO(), "AvailabilityZone", args, &results); err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -426,7 +426,7 @@ func (u *Unit) CharmURL() (string, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "CharmURL", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -455,7 +455,7 @@ func (u *Unit) SetCharmURL(curl string) error {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "SetCharmURL", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -468,7 +468,7 @@ func (u *Unit) ClearResolved() error {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "ClearResolved", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -498,7 +498,7 @@ func getHashWatcher(u *Unit, methodName string) (watcher.StringsWatcher, error) 
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), methodName, args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -532,7 +532,7 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "WatchActionNotifications", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -559,7 +559,7 @@ func (u *Unit) LogActionMessage(tag names.ActionTag, message string) error {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "LogActionsMessages", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -586,7 +586,7 @@ func (u *Unit) RequestReboot() error {
 	}
 	err = u.client.facade.FacadeCall(context.TODO(), "RequestReboot", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }
@@ -612,7 +612,7 @@ func (u *Unit) RelationsStatus() ([]RelationStatus, error) {
 	var results params.RelationUnitStatusResults
 	err := u.client.facade.FacadeCall(context.TODO(), "RelationsStatus", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -652,7 +652,7 @@ func (u *Unit) WatchInstanceData() (watcher.NotifyWatcher, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "WatchInstanceData", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -674,7 +674,7 @@ func (u *Unit) LXDProfileName() (string, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "LXDProfileName", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -695,7 +695,7 @@ func (u *Unit) CanApplyLXDProfile() (bool, error) {
 	}
 	err := u.client.facade.FacadeCall(context.TODO(), "CanApplyLXDProfile", args, &results)
 	if err != nil {
-		return false, err
+		return false, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return false, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -718,7 +718,7 @@ func (u *Unit) NetworkInfo(bindings []string, relationId *int) (map[string]param
 
 	err := u.client.facade.FacadeCall(context.TODO(), "NetworkInfo", args, &results)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 
 	return results.Results, nil
@@ -743,7 +743,7 @@ func (u *Unit) CommitHookChanges(req params.CommitHookChangesArgs) error {
 	var results params.ErrorResults
 	err := u.client.facade.FacadeCall(context.TODO(), "CommitHookChanges", req, &results)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return apiservererrors.RestoreError(results.OneError())
 }

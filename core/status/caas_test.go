@@ -269,6 +269,18 @@ func (s *UnitCloudStatusSuite) TestApplicatoinOpeartorStatusChoice(c *gc.C) {
 			expectWorkload: false,
 			messageCheck:   "operator",
 		},
+		{
+			operatorStatus: status.StatusInfo{
+				Status:  status.Waiting,
+				Message: "operator",
+			},
+			appStatus: status.StatusInfo{
+				Status:  status.Maintenance,
+				Message: "unit",
+			},
+			expectWorkload: true,
+			messageCheck:   "unit",
+		},
 	}
 
 	for i, check := range checks {

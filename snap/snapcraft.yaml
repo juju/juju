@@ -493,7 +493,7 @@ plugs:
     interface: content
     content: microk8s
     target: $SNAP_DATA/microk8s
-  
+
   jaas-plugin:
     interface: content
     content: jaas-plugin
