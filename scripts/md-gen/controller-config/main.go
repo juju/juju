@@ -223,11 +223,12 @@ func fillFromConfigCheckerAST(data map[string]*keyInfo, configChecker *ast.GenDe
 // get type from configChecker expressions
 func typeForExpr(expr ast.Expr) string {
 	niceNames := map[string]string{
-		"Bool":         "boolean",
-		"ForceInt":     "integer",
-		"List":         "list",
-		"String":       "string",
-		"TimeDuration": "duration",
+		"Bool":           "boolean",
+		"ForceInt":       "integer",
+		"List":           "list",
+		"String":         "string",
+		"TimeDuration":   "duration",
+		"NonEmptyString": "non-empty string",
 	}
 	niceNameFor := func(rawType string) string {
 		if nn, ok := niceNames[rawType]; ok {
@@ -240,7 +241,8 @@ func typeForExpr(expr ast.Expr) string {
 	rawType := callExpr.Fun.(*ast.SelectorExpr).Sel.Name
 	dataType := niceNameFor(rawType)
 
-	if len(callExpr.Args) > 0 {
+	// Don't recurse for schema.NonEmptyString
+	if rawType != "NonEmptyString" && len(callExpr.Args) > 0 {
 		// add parameter types
 		dataType += "["
 		for i, arg := range callExpr.Args {
