@@ -28,7 +28,8 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/constants"
 	"github.com/juju/juju/cmd/containeragent/utils"
-	"github.com/juju/juju/service/pebble/plan"
+	pebbleidentity "github.com/juju/juju/service/pebble/identity"
+	pebbleplan "github.com/juju/juju/service/pebble/plan"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/introspection"
 )
@@ -51,6 +52,13 @@ type initCommand struct {
 	// containerAgentPebbleDir holds the path to the pebble config dir used on
 	// the container agent.
 	containerAgentPebbleDir string
+
+	// pebbleIdentitiesFile holds the path to the pebble identities for the
+	// workload sidecar containers so that the charm can connect to them.
+	pebbleIdentitiesFile string
+
+	// pebbleCharmIdentity holds the user id for the charm identity.
+	pebbleCharmIdentity int
 
 	dataDir      string
 	binDir       string
@@ -82,6 +90,8 @@ func (c *initCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.dataDir, "data-dir", "", "directory for juju data")
 	f.StringVar(&c.binDir, "bin-dir", "", "copy juju binaries to this directory")
 	f.StringVar(&c.profileDir, "profile-dir", "", "install introspection functions to this directory")
+	f.StringVar(&c.pebbleIdentitiesFile, "pebble-identities-file", "", "pebble identities file for configuring workload pebbles to auth with the charm")
+	f.IntVar(&c.pebbleCharmIdentity, "pebble-charm-identity", -1, "charm identity user-id to add to the --pebble-identities-file")
 	f.BoolVar(&c.isController, "controller", false, "set when the charm is colocated with the controller")
 }
 
@@ -230,53 +240,53 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 		extraArgs = append(extraArgs, "--controller")
 	}
 
-	onCheckFailureAction := plan.ActionShutdown
+	onCheckFailureAction := pebbleplan.ActionShutdown
 	if c.isController {
-		onCheckFailureAction = plan.ActionRestart
+		onCheckFailureAction = pebbleplan.ActionRestart
 	}
 
-	containerAgentLayer := plan.Layer{
+	containerAgentLayer := pebbleplan.Layer{
 		Summary: "Juju container agent service",
-		Services: map[string]*plan.Service{
+		Services: map[string]*pebbleplan.Service{
 			"container-agent": {
 				Summary:  "Juju container agent",
-				Override: plan.ReplaceOverride,
+				Override: pebbleplan.ReplaceOverride,
 				Command: fmt.Sprintf("%s unit --data-dir %s --append-env \"PATH=$PATH:%s\" --show-log %s",
 					path.Join(c.binDir, "containeragent"),
 					c.dataDir,
 					c.binDir,
 					strings.Join(extraArgs, " ")),
-				KillDelay: plan.OptionalDuration{Value: 30 * time.Minute, IsSet: true},
-				Startup:   plan.StartupEnabled,
-				OnSuccess: plan.ActionIgnore,
+				KillDelay: pebbleplan.OptionalDuration{Value: 30 * time.Minute, IsSet: true},
+				Startup:   pebbleplan.StartupEnabled,
+				OnSuccess: pebbleplan.ActionIgnore,
 				OnFailure: onCheckFailureAction,
-				OnCheckFailure: map[string]plan.ServiceAction{
-					"liveness":  plan.ActionIgnore,
-					"readiness": plan.ActionIgnore,
+				OnCheckFailure: map[string]pebbleplan.ServiceAction{
+					"liveness":  pebbleplan.ActionIgnore,
+					"readiness": pebbleplan.ActionIgnore,
 				},
 				Environment: map[string]string{
 					constants.EnvHTTPProbePort: constants.DefaultHTTPProbePort,
 				},
 			},
 		},
-		Checks: map[string]*plan.Check{
+		Checks: map[string]*pebbleplan.Check{
 			"readiness": {
-				Override:  plan.ReplaceOverride,
-				Level:     plan.ReadyLevel,
-				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
-				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
+				Override:  pebbleplan.ReplaceOverride,
+				Level:     pebbleplan.ReadyLevel,
+				Period:    pebbleplan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
+				Timeout:   pebbleplan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
 				Threshold: 3,
-				HTTP: &plan.HTTPCheck{
+				HTTP: &pebbleplan.HTTPCheck{
 					URL: fmt.Sprintf("http://localhost:%s/readiness", constants.DefaultHTTPProbePort),
 				},
 			},
 			"liveness": {
-				Override:  plan.ReplaceOverride,
-				Level:     plan.AliveLevel,
-				Period:    plan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
-				Timeout:   plan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
+				Override:  pebbleplan.ReplaceOverride,
+				Level:     pebbleplan.AliveLevel,
+				Period:    pebbleplan.OptionalDuration{Value: 10 * time.Second, IsSet: true},
+				Timeout:   pebbleplan.OptionalDuration{Value: 3 * time.Second, IsSet: true},
 				Threshold: 3,
-				HTTP: &plan.HTTPCheck{
+				HTTP: &pebbleplan.HTTPCheck{
 					URL: fmt.Sprintf("http://localhost:%s/liveness", constants.DefaultHTTPProbePort),
 				},
 			},
@@ -298,6 +308,29 @@ func (c *initCommand) writeContainerAgentPebbleConfig() error {
 	if err := c.fileReaderWriter.WriteFile(p, rawConfig, 0664); err != nil {
 		return fmt.Errorf("writing container agent pebble configuration to %q: %w", p, err)
 	}
+
+	if c.pebbleIdentitiesFile != "" {
+		idFile := pebbleidentity.IdentitiesFile{}
+		if c.pebbleCharmIdentity >= 0 {
+			uid := uint32(c.pebbleCharmIdentity)
+			idFile.Identities = map[string]*pebbleidentity.Identity{
+				"charm": {
+					Access: pebbleidentity.AdminAccess,
+					Local: &pebbleidentity.LocalIdentity{
+						UserID: &uid,
+					},
+				},
+			}
+		}
+		rawIDFile, err := yaml.Marshal(&idFile)
+		if err != nil {
+			return fmt.Errorf("cannot format pebble identities file: %w", err)
+		}
+		if err := c.fileReaderWriter.WriteFile(c.pebbleIdentitiesFile, rawIDFile, 0664); err != nil {
+			return fmt.Errorf("writing pebble identities file to %q: %w", c.pebbleIdentitiesFile, err)
+		}
+	}
+
 	return nil
 }
 
