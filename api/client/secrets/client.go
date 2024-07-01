@@ -307,3 +307,39 @@ func (c *Client) RevokeSecret(uri *secrets.URI, name string, apps []string) ([]e
 	}
 	return processErrors(results), nil
 }
+
+// GetModelSecretBackend returns the secret backend name for the specified model.
+func (api *Client) GetModelSecretBackend(ctx context.Context) (string, error) {
+	if api.BestAPIVersion() < 3 {
+		return "", errors.NotSupportedf("getting model secret backend")
+	}
+
+	var result params.StringResult
+	err := api.facade.FacadeCall(ctx, "GetModelSecretBackend", nil, &result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return result.Result, nil
+}
+
+// SetModelSecretBackend sets the secret backend config for the specified model.
+func (api *Client) SetModelSecretBackend(ctx context.Context, secretBackendName string) error {
+	if secretBackendName == "" {
+		return errors.New("secret backend name cannot be empty")
+	}
+	if api.BestAPIVersion() < 3 {
+		return errors.NotSupportedf("setting model secret backend")
+	}
+
+	var result params.ErrorResult
+	err := api.facade.FacadeCall(ctx, "SetModelSecretBackend", params.SetModelSecretBackendArg{
+		SecretBackendName: secretBackendName,
+	}, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if result.Error != nil {
+		return params.TranslateWellKnownError(result.Error)
+	}
+	return nil
+}

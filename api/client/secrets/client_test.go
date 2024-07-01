@@ -4,6 +4,7 @@
 package secrets_test
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -450,4 +451,65 @@ func (s *SecretsSuite) TestRevokeSecretByName(c *gc.C) {
 	result, err := client.RevokeSecret(nil, "my-secret", []string{"gitlab"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, []error{nil})
+}
+
+func (s *SecretsSuite) TestGetModelSecretBackendNotSupported(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	client := apisecrets.NewClient(caller)
+	_, err := client.GetModelSecretBackend(context.Background())
+	c.Assert(err, gc.ErrorMatches, "getting model secret backend not supported")
+}
+
+func (s *SecretsSuite) TestGetModelSecretBackend(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Secrets")
+		c.Assert(request, gc.Equals, "GetModelSecretBackend")
+		*(result.(*params.StringResult)) = params.StringResult{
+			Result: "backend-id",
+		}
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 3}
+	client := apisecrets.NewClient(caller)
+	result, err := client.GetModelSecretBackend(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, "backend-id")
+}
+
+func (s *SecretsSuite) TestSetModelSecretBackendNotSupported(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	client := apisecrets.NewClient(caller)
+	err := client.SetModelSecretBackend(context.Background(), "backend-id")
+	c.Assert(err, gc.ErrorMatches, "setting model secret backend not supported")
+}
+
+func (s *SecretsSuite) TestSetModelSecretBackendEmptyArg(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 2}
+	client := apisecrets.NewClient(caller)
+	err := client.SetModelSecretBackend(context.Background(), "")
+	c.Assert(err, gc.ErrorMatches, "secret backend name cannot be empty")
+}
+
+func (s *SecretsSuite) TestSetModelSecretBackend(c *gc.C) {
+	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Assert(objType, gc.Equals, "Secrets")
+		c.Assert(request, gc.Equals, "SetModelSecretBackend")
+		c.Assert(arg, gc.DeepEquals, params.SetModelSecretBackendArg{
+			SecretBackendName: "backend-id",
+		})
+		return nil
+	})
+	caller := testing.BestVersionCaller{apiCaller, 3}
+	client := apisecrets.NewClient(caller)
+	err := client.SetModelSecretBackend(context.Background(), "backend-id")
+	c.Assert(err, jc.ErrorIsNil)
 }

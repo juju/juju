@@ -459,6 +459,45 @@ func (m *MockSecretBackendService) EXPECT() *MockSecretBackendServiceMockRecorde
 	return m.recorder
 }
 
+// GetModelSecretBackend mocks base method.
+func (m *MockSecretBackendService) GetModelSecretBackend(arg0 context.Context, arg1 model.UUID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelSecretBackend", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelSecretBackend indicates an expected call of GetModelSecretBackend.
+func (mr *MockSecretBackendServiceMockRecorder) GetModelSecretBackend(arg0, arg1 any) *MockSecretBackendServiceGetModelSecretBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelSecretBackend", reflect.TypeOf((*MockSecretBackendService)(nil).GetModelSecretBackend), arg0, arg1)
+	return &MockSecretBackendServiceGetModelSecretBackendCall{Call: call}
+}
+
+// MockSecretBackendServiceGetModelSecretBackendCall wrap *gomock.Call
+type MockSecretBackendServiceGetModelSecretBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretBackendServiceGetModelSecretBackendCall) Return(arg0 string, arg1 error) *MockSecretBackendServiceGetModelSecretBackendCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretBackendServiceGetModelSecretBackendCall) Do(f func(context.Context, model.UUID) (string, error)) *MockSecretBackendServiceGetModelSecretBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretBackendServiceGetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID) (string, error)) *MockSecretBackendServiceGetModelSecretBackendCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetSecretBackendConfigForAdmin mocks base method.
 func (m *MockSecretBackendService) GetSecretBackendConfigForAdmin(arg0 context.Context, arg1 model.UUID) (*provider.ModelBackendConfigInfo, error) {
 	m.ctrl.T.Helper()
@@ -494,6 +533,44 @@ func (c *MockSecretBackendServiceGetSecretBackendConfigForAdminCall) Do(f func(c
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockSecretBackendServiceGetSecretBackendConfigForAdminCall) DoAndReturn(f func(context.Context, model.UUID) (*provider.ModelBackendConfigInfo, error)) *MockSecretBackendServiceGetSecretBackendConfigForAdminCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// SetModelSecretBackend mocks base method.
+func (m *MockSecretBackendService) SetModelSecretBackend(arg0 context.Context, arg1 model.UUID, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetModelSecretBackend", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModelSecretBackend indicates an expected call of SetModelSecretBackend.
+func (mr *MockSecretBackendServiceMockRecorder) SetModelSecretBackend(arg0, arg1, arg2 any) *MockSecretBackendServiceSetModelSecretBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelSecretBackend", reflect.TypeOf((*MockSecretBackendService)(nil).SetModelSecretBackend), arg0, arg1, arg2)
+	return &MockSecretBackendServiceSetModelSecretBackendCall{Call: call}
+}
+
+// MockSecretBackendServiceSetModelSecretBackendCall wrap *gomock.Call
+type MockSecretBackendServiceSetModelSecretBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretBackendServiceSetModelSecretBackendCall) Return(arg0 error) *MockSecretBackendServiceSetModelSecretBackendCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretBackendServiceSetModelSecretBackendCall) Do(f func(context.Context, model.UUID, string) error) *MockSecretBackendServiceSetModelSecretBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretBackendServiceSetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID, string) error) *MockSecretBackendServiceSetModelSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

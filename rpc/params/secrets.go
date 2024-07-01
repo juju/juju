@@ -431,6 +431,12 @@ type ListSecretBackendsArgs struct {
 	Reveal bool     `json:"reveal"`
 }
 
+// SetModelSecretBackendArg holds the arg for setting the model secret backend.
+type SetModelSecretBackendArg struct {
+	// SecretBackendName is the name of the secret backend.
+	SecretBackendName string `json:"secret-backend-name"`
+}
+
 // SecretBackend holds secret backend details.
 type SecretBackend struct {
 	// Name is the name of the backend.
