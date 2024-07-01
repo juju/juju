@@ -39,7 +39,7 @@ func (u *UpgradeSeriesAPI) WatchUpgradeSeriesNotifications(ctx context.Context) 
 	}
 	err := u.facade.FacadeCall(ctx, "WatchUpgradeSeriesNotifications", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -62,7 +62,7 @@ func (u *UpgradeSeriesAPI) UpgradeSeriesUnitStatus(ctx context.Context) (model.U
 
 	err := u.facade.FacadeCall(ctx, "UpgradeSeriesUnitStatus", args, &results)
 	if err != nil {
-		return "", "", err
+		return "", "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -96,7 +96,7 @@ func (u *UpgradeSeriesAPI) SetUpgradeSeriesUnitStatus(ctx context.Context, statu
 	}
 	err := u.facade.FacadeCall(ctx, "SetUpgradeSeriesUnitStatus", args, &results)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return errors.Errorf("expected 1 result, got %d", len(results.Results))

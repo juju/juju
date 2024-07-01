@@ -33,26 +33,28 @@ const (
 	addCommandDoc = `
 Add storage to a pre-existing unit within a model. Storage is allocated from 
 a storage pool, using parameters provided within a "storage directive". (Use 
-'juju deploy --storage=<storage-directive>' to provision storage during the 
+'juju deploy --storage=<storage-name>=<storage-directive>' to provision storage during the 
 deployment process).
 
-	juju add-storage <unit> <storage-directive>
+	juju add-storage <unit> <storage-name>=<storage-directive>
 
 <unit> is the ID of a unit that is already in the model. 
-
-<storage-directive> describes to the charm how to refer to the storage, 
-and where to provision it from. <storage-directive> takes the following form:
-	
-    <storage-name>[=<storage-directive>]
 
 <storage-name> is defined in the charm's metadata.yaml file.   
 
 <storage-directive> is a description of how Juju should provision storage 
-instances for the unit. The following three forms are accepted:
+instances for the unit. They are made up of up to three parts: <storage-pool>,
+<count>, and <size>. They can be provided in any order, but we recommend the
+following:
 
-    <storage-pool>[,<count>][,<size>]
-    <count>[,<size>]
-    <size>
+    <storage-pool>,<count>,<size>
+
+Each parameter is optional, so long as at least one is present. So the following
+storage directives are also valid:
+
+   <storage-pool>,<size>
+   <count>,<size>
+   <size>
 
 <storage-pool> is the storage pool to provision storage instances from. Must 
 be a name from 'juju storage-pools'.  The default pool is available via 

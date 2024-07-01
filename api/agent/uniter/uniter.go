@@ -96,11 +96,6 @@ func (client *Client) BestAPIVersion() int {
 	return client.facade.BestAPIVersion()
 }
 
-// Facade returns the current facade.
-func (client *Client) Facade() base.FacadeCaller {
-	return client.facade
-}
-
 // life requests the lifecycle of the given entity from the server.
 func (client *Client) life(ctx context.Context, tag names.Tag) (life.Value, error) {
 	return common.OneLife(ctx, client.facade, tag)
@@ -117,7 +112,7 @@ func (client *Client) relation(ctx context.Context, relationTag, unitTag names.T
 	}
 	err := client.facade.FacadeCall(ctx, "Relation", args, &result)
 	if err != nil {
-		return nothing, err
+		return nothing, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(result.Results) != 1 {
 		return nothing, fmt.Errorf("expected 1 result, got %d", len(result.Results))
@@ -138,7 +133,7 @@ func (client *Client) setRelationStatus(ctx context.Context, id int, status rela
 	}
 	var results params.ErrorResults
 	if err := client.facade.FacadeCall(ctx, "SetRelationStatus", args, &results); err != nil {
-		return errors.Trace(err)
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return results.OneError()
 }
@@ -156,7 +151,7 @@ func (client *Client) getOneAction(ctx context.Context, tag *names.ActionTag) (p
 	var results params.ActionResults
 	err := client.facade.FacadeCall(ctx, "Actions", args, &results)
 	if err != nil {
-		return nothing, err
+		return nothing, errors.Trace(apiservererrors.RestoreError(err))
 	}
 
 	if len(results.Results) > 1 {
@@ -196,7 +191,7 @@ func (client *Client) ActionStatus(ctx context.Context, tag names.ActionTag) (st
 	var results params.StringResults
 	err := client.facade.FacadeCall(ctx, "ActionStatus", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 
 	if len(results.Results) > 1 {
@@ -246,7 +241,7 @@ func (client *Client) ProviderType(ctx context.Context) (string, error) {
 	var result params.StringResult
 	err := client.facade.FacadeCall(ctx, "ProviderType", nil, &result)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if err := result.Error; err != nil {
 		return "", err
@@ -313,7 +308,7 @@ func (client *Client) ActionBegin(ctx context.Context, tag names.ActionTag) erro
 
 	err := client.facade.FacadeCall(ctx, "BeginActions", args, &outcome)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(outcome.Results) != 1 {
 		return fmt.Errorf("expected 1 result, got %d", len(outcome.Results))
@@ -342,7 +337,7 @@ func (client *Client) ActionFinish(ctx context.Context, tag names.ActionTag, sta
 
 	err := client.facade.FacadeCall(ctx, "FinishActions", args, &outcome)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(outcome.Results) != 1 {
 		return fmt.Errorf("expected 1 result, got %d", len(outcome.Results))
@@ -363,7 +358,7 @@ func (client *Client) RelationById(ctx context.Context, id int) (*Relation, erro
 
 	err := client.facade.FacadeCall(ctx, "RelationById", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
@@ -388,7 +383,7 @@ func (client *Client) Model(ctx context.Context) (*types.Model, error) {
 	var result params.ModelResult
 	err := client.facade.FacadeCall(ctx, "CurrentModel", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if err := result.Error; err != nil {
 		return nil, err
@@ -418,7 +413,7 @@ func processOpenPortRangesByEndpointResults(results params.OpenPortRangesByEndpo
 	for unitTagStr, unitPortRanges := range result.UnitPortRanges {
 		unitTag, err := names.ParseUnitTag(unitTagStr)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return nil, errors.Trace(apiservererrors.RestoreError(err))
 		}
 		portRangeMap[unitTag] = make(network.GroupedPortRanges)
 		for _, group := range unitPortRanges {
@@ -439,7 +434,7 @@ func (client *Client) OpenedMachinePortRangesByEndpoint(ctx context.Context, mac
 	}
 	err := client.facade.FacadeCall(ctx, "OpenedMachinePortRangesByEndpoint", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return processOpenPortRangesByEndpointResults(results, machineTag)
 }
@@ -452,7 +447,7 @@ func (client *Client) OpenedPortRangesByEndpoint(ctx context.Context) (map[names
 	}
 	var results params.OpenPortRangesByEndpointResults
 	if err := client.facade.FacadeCall(ctx, "OpenedPortRangesByEndpoint", nil, &results); err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return processOpenPortRangesByEndpointResults(results, client.unitTag)
 }
@@ -473,7 +468,7 @@ func (client *Client) WatchRelationUnits(
 	}
 	err := client.facade.FacadeCall(ctx, "WatchRelationUnits", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
@@ -491,7 +486,7 @@ func (client *Client) CloudAPIVersion(ctx context.Context) (string, error) {
 	var result params.StringResult
 	err := client.facade.FacadeCall(ctx, "CloudAPIVersion", nil, &result)
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if err := result.Error; err != nil {
 		return "", errors.Trace(err)
@@ -514,7 +509,7 @@ func (client *Client) GoalState(ctx context.Context) (application.GoalState, err
 
 	err := client.facade.FacadeCall(ctx, "GoalStates", args, &result)
 	if err != nil {
-		return gs, err
+		return gs, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(result.Results) != 1 {
 		return gs, errors.Errorf("expected 1 result, got %d", len(result.Results))
@@ -561,7 +556,7 @@ func (client *Client) CloudSpec(ctx context.Context) (*params.CloudSpec, error) 
 
 	err := client.facade.FacadeCall(ctx, "CloudSpec", nil, &result)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if err := result.Error; err != nil {
 		return nil, err
@@ -578,7 +573,7 @@ func (client *Client) UnitWorkloadVersion(ctx context.Context, tag names.UnitTag
 	}
 	err := client.facade.FacadeCall(ctx, "WorkloadVersion", args, &results)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
@@ -601,7 +596,7 @@ func (client *Client) SetUnitWorkloadVersion(ctx context.Context, tag names.Unit
 	}
 	err := client.facade.FacadeCall(ctx, "SetWorkloadVersion", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
 }

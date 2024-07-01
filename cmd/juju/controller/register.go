@@ -25,6 +25,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/loggo"
 	"github.com/juju/names/v5"
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
@@ -34,6 +35,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/client/modelmanager"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	corelogger "github.com/juju/juju/core/logger"
@@ -276,13 +278,11 @@ func (c *registerCommand) publicControllerDetails(ctx *cmd.Context, host, contro
 	// we set up a login provider that will first try to log in using
 	// oauth device flow, failing that it will try to log in using
 	// user-pass or macaroons.
-	dialOpts.LoginProvider = api.NewTryInOrderLoginProvider(
-		api.NewSessionTokenLoginProvider(
+	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
+		loggo.GetLogger("juju.cmd.loginprovider"),
+		loginprovider.NewSessionTokenLoginProvider(
 			"",
-			func(format string, params ...any) error {
-				_, err := fmt.Fprintf(ctx.Stderr, format, params...)
-				return err
-			},
+			ctx.Stderr,
 			func(sessionToken string) error {
 				return c.store.UpdateAccount(controllerName, jujuclient.AccountDetails{
 					Type:         jujuclient.OAuth2DeviceFlowAccountDetailsType,

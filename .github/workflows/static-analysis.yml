@@ -168,3 +168,41 @@ jobs:
     steps:
         - uses: actions/checkout@v4
         - uses: wagoid/commitlint-github-action@v6
+
+  go-version:
+    name: Go Version
+    runs-on: [self-hosted, linux, arm64, aws, large]
+    if: github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+      matrix:
+        binary: ["jujud", "juju"]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version-file: 'go.mod'
+        cache: true
+
+    - name: Get go.mod version
+      id: go_mod_version
+      shell: bash
+      run: echo "GO_MOD_VERSION=$(go mod edit -json | jq -r .Go | awk 'BEGIN{FS="."} {print $1"."$2}')" >> $GITHUB_ENV
+
+    - name: Get binary snapcraft.yaml
+      id: get_binary_snapcraft
+      uses: mikefarah/yq@master
+      with:
+        cmd: yq -r '.parts | .["${{ matrix.binary }}"] | .["go-channel"]' snap/snapcraft.yaml
+
+    - name: Ensure go version
+      shell: bash
+      run: |
+        echo ${{ steps.get_binary_snapcraft.outputs.result }} | grep -q "$GO_MOD_VERSION"
+        if [ $? -ne 0 ]; then
+          echo "Go version in go.mod ($mod_version) does not match snapcraft.yaml ($snap_version)"
+          exit 1
+        fi

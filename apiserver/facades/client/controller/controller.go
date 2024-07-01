@@ -327,10 +327,11 @@ func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.Das
 				continue
 			}
 
-			model, _, err := c.statePool.GetModel(rel.ModelUUID())
+			model, ph, err := c.statePool.GetModel(rel.ModelUUID())
 			if err != nil {
 				return rval, errors.Trace(err)
 			}
+			defer ph.Release()
 
 			relatedEps, err := rel.RelatedEndpoints(controllerApp.Name())
 			if err != nil {
