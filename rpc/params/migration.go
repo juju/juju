@@ -169,6 +169,7 @@ type MigrationModelInfo struct {
 	AgentVersion           version.Number   `json:"agent-version"`
 	ControllerAgentVersion version.Number   `json:"controller-agent-version"`
 	FacadeVersions         map[string][]int `json:"facade-versions,omitempty"`
+	ModelDescription       []byte           `json:"model-description,omitempty"`
 }
 
 // MigrationStatus reports the current status of a model migration.

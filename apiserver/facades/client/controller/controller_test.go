@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/leadership"
 	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
@@ -51,11 +52,12 @@ import (
 type controllerSuite struct {
 	statetesting.StateSuite
 
-	controller *controller.ControllerAPI
-	resources  *common.Resources
-	authorizer apiservertesting.FakeAuthorizer
-	hub        *pubsub.StructuredHub
-	context    facadetest.Context
+	controller       *controller.ControllerAPI
+	resources        *common.Resources
+	authorizer       apiservertesting.FakeAuthorizer
+	hub              *pubsub.StructuredHub
+	context          facadetest.Context
+	leadershipReader leadership.Reader
 }
 
 var _ = gc.Suite(&controllerSuite{})
@@ -112,6 +114,8 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
+	s.leadershipReader = noopLeadershipReader{}
+
 	s.context = facadetest.Context{
 		State_:               s.State,
 		StatePool_:           s.StatePool,
@@ -120,6 +124,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Controller_:          cacheController,
 		Hub_:                 s.hub,
 		MultiwatcherFactory_: multiWatcherWorker,
+		LeadershipReader_:    s.leadershipReader,
 	}
 	controller, err := controller.LatestAPI(s.context)
 	c.Assert(err, jc.ErrorIsNil)
@@ -490,7 +495,7 @@ func (s *controllerSuite) TestInitiateMigration(c *gc.C) {
 	macsJSON, err := json.Marshal([]macaroon.Slice{{mac}})
 	c.Assert(err, jc.ErrorIsNil)
 
-	controller.SetPrecheckResult(s, nil)
+	controller.SetPreCheckResult(s, nil)
 
 	// Kick off migrations
 	args := params.InitiateMigrationArgs{
@@ -584,7 +589,7 @@ func (s *controllerSuite) TestInitiateMigrationSpecError(c *gc.C) {
 func (s *controllerSuite) TestInitiateMigrationPartialFailure(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
-	controller.SetPrecheckResult(s, nil)
+	controller.SetPreCheckResult(s, nil)
 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -649,7 +654,7 @@ func (s *controllerSuite) TestInitiateMigrationPrecheckFail(c *gc.C) {
 	st := s.Factory.MakeModel(c, nil)
 	defer st.Close()
 
-	controller.SetPrecheckResult(s, errors.New("boom"))
+	controller.SetPreCheckResult(s, errors.New("boom"))
 
 	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
@@ -932,7 +937,7 @@ func (s *controllerSuite) TestGetControllerAccessPermissions(c *gc.C) {
 
 func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	// Check that we don't err out immediately if a model errs.
-	results, err := s.controller.ModelStatus(params.Entities{[]params.Entity{{
+	results, err := s.controller.ModelStatus(params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
 	}, {
 		Tag: s.Model.ModelTag().String(),
@@ -942,7 +947,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we don't err out if a model errs even if some firsts in collection pass.
-	results, err = s.controller.ModelStatus(params.Entities{[]params.Entity{{
+	results, err = s.controller.ModelStatus(params.Entities{Entities: []params.Entity{{
 		Tag: s.Model.ModelTag().String(),
 	}, {
 		Tag: "bad-tag",
@@ -952,7 +957,7 @@ func (s *controllerSuite) TestModelStatus(c *gc.C) {
 	c.Assert(results.Results[1].Error, gc.ErrorMatches, `"bad-tag" is not a valid tag`)
 
 	// Check that we return successfully if no errors.
-	results, err = s.controller.ModelStatus(params.Entities{[]params.Entity{{
+	results, err = s.controller.ModelStatus(params.Entities{Entities: []params.Entity{{
 		Tag: s.Model.ModelTag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
@@ -1227,4 +1232,12 @@ func (noopRegisterer) Register(prometheus.Collector) error {
 
 func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
+}
+
+type noopLeadershipReader struct {
+	leadership.Reader
+}
+
+func (noopLeadershipReader) Leaders() (map[string]string, error) {
+	return make(map[string]string), nil
 }

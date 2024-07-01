@@ -30270,6 +30270,12 @@
                                 }
                             }
                         },
+                        "model-description": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
                         "name": {
                             "type": "string"
                         },
@@ -31045,6 +31051,12 @@
                                         "type": "integer"
                                     }
                                 }
+                            }
+                        },
+                        "model-description": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
                             }
                         },
                         "name": {
