@@ -201,6 +201,45 @@ func (c *MockStateGetModelCloudAndCredentialCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// GetModelSecretBackend mocks base method.
+func (m *MockState) GetModelSecretBackend(arg0 context.Context, arg1 model.UUID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelSecretBackend", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelSecretBackend indicates an expected call of GetModelSecretBackend.
+func (mr *MockStateMockRecorder) GetModelSecretBackend(arg0, arg1 any) *MockStateGetModelSecretBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelSecretBackend", reflect.TypeOf((*MockState)(nil).GetModelSecretBackend), arg0, arg1)
+	return &MockStateGetModelSecretBackendCall{Call: call}
+}
+
+// MockStateGetModelSecretBackendCall wrap *gomock.Call
+type MockStateGetModelSecretBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetModelSecretBackendCall) Return(arg0 string, arg1 error) *MockStateGetModelSecretBackendCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetModelSecretBackendCall) Do(f func(context.Context, model.UUID) (string, error)) *MockStateGetModelSecretBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID) (string, error)) *MockStateGetModelSecretBackendCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetModelSecretBackendDetails mocks base method.
 func (m *MockState) GetModelSecretBackendDetails(arg0 context.Context, arg1 model.UUID) (secretbackend.ModelSecretBackend, error) {
 	m.ctrl.T.Helper()
@@ -479,17 +518,17 @@ func (c *MockStateSecretBackendRotatedCall) DoAndReturn(f func(context.Context, 
 }
 
 // SetModelSecretBackend mocks base method.
-func (m *MockState) SetModelSecretBackend(arg0 context.Context, arg1 model.UUID, arg2 string) error {
+func (m *MockState) SetModelSecretBackend(arg0 context.Context, arg1 model.UUID, arg2 string, arg3 func(secretbackend.SecretBackend) error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetModelSecretBackend", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetModelSecretBackend", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetModelSecretBackend indicates an expected call of SetModelSecretBackend.
-func (mr *MockStateMockRecorder) SetModelSecretBackend(arg0, arg1, arg2 any) *MockStateSetModelSecretBackendCall {
+func (mr *MockStateMockRecorder) SetModelSecretBackend(arg0, arg1, arg2, arg3 any) *MockStateSetModelSecretBackendCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelSecretBackend", reflect.TypeOf((*MockState)(nil).SetModelSecretBackend), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelSecretBackend", reflect.TypeOf((*MockState)(nil).SetModelSecretBackend), arg0, arg1, arg2, arg3)
 	return &MockStateSetModelSecretBackendCall{Call: call}
 }
 
@@ -505,13 +544,13 @@ func (c *MockStateSetModelSecretBackendCall) Return(arg0 error) *MockStateSetMod
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetModelSecretBackendCall) Do(f func(context.Context, model.UUID, string) error) *MockStateSetModelSecretBackendCall {
+func (c *MockStateSetModelSecretBackendCall) Do(f func(context.Context, model.UUID, string, func(secretbackend.SecretBackend) error) error) *MockStateSetModelSecretBackendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID, string) error) *MockStateSetModelSecretBackendCall {
+func (c *MockStateSetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID, string, func(secretbackend.SecretBackend) error) error) *MockStateSetModelSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

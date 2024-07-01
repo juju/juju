@@ -1111,6 +1111,62 @@ func (s *serviceSuite) TestGetRevisionsToDrainExternal(c *gc.C) {
 	)
 }
 
+func (s *serviceSuite) TestGetModelSecretBackend(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := newService(
+		s.mockState, s.logger, s.clock, nil,
+	)
+
+	modelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
+	s.mockState.EXPECT().GetModelSecretBackend(gomock.Any(), modelUUID).Return("backend-id", nil)
+
+	backendID, err := svc.GetModelSecretBackend(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendID, gc.Equals, "backend-id")
+}
+
+func (s *serviceSuite) TestSetModelSecretBackend(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := newService(
+		s.mockState, s.logger, s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			c.Assert(backendType, gc.Equals, "vault")
+			return s.mockRegistry, nil
+		},
+	)
+
+	modelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
+	sb := secretbackend.SecretBackend{
+		ID:          vaultBackendID,
+		Name:        "myvault",
+		BackendType: vault.BackendType,
+		Config: map[string]string{
+			"endpoint": "http://vault",
+			"token":    "deadbeef",
+		},
+	}
+	s.mockRegistry.EXPECT().Type().Return(vault.BackendType).AnyTimes()
+	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-id", gomock.Any()).DoAndReturn(
+		func(ctx context.Context, modelUUID coremodel.UUID, backendID string, validator func(sb secretbackend.SecretBackend) error) error {
+			return validator(sb)
+		},
+	)
+	s.mockRegistry.EXPECT().NewBackend(&provider.ModelBackendConfig{
+		BackendConfig: provider.BackendConfig{
+			BackendType: vault.BackendType,
+			Config: provider.ConfigAttrs{
+				"endpoint": "http://vault",
+				"token":    "deadbeef",
+			},
+		},
+	}).DoAndReturn(func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+		s.mockSecretProvider.EXPECT().Ping().Return(nil).Times(1)
+		return s.mockSecretProvider, nil
+	})
+	err := svc.SetModelSecretBackend(context.Background(), modelUUID, "backend-id")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *serviceSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
 	s.assertBackendConfigInfoLeaderUnit(c, []string{"backend-id"})
 }
