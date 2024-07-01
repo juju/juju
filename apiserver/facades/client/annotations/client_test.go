@@ -317,7 +317,7 @@ func (s *annotationSuite) ensureMachine(c *gc.C, id, uuid string) {
 	s.ensureNetNode(c, "node2")
 	err := s.ModelTxnRunner(c, s.ControllerModelUUID()).StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO machine (uuid, net_node_uuid, machine_name, life_id)
+		INSERT INTO machine (uuid, net_node_uuid, name, life_id)
 		VALUES (?, "node2", ?, "0")`, uuid, id)
 		return err
 	})
