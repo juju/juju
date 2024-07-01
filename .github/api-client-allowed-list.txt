@@ -1,7 +1,7 @@
 archive
 bufio
 bytes
-compress
+cmp
 compress
 container
 context
@@ -55,6 +55,7 @@ path
 reflect
 regexp
 runtime
+slices
 sort
 strconv
 strings
