@@ -138,7 +138,7 @@ func (i ID) ValidateAccess(access Access) error {
 }
 
 // ParseTagForID returns an ID of a permission object and must
-// conform to the know object types.
+// conform to the known object types.
 func ParseTagForID(tag names.Tag) (ID, error) {
 	if tag == nil {
 		return ID{}, errors.NotValidf("nil tag")

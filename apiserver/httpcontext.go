@@ -258,12 +258,12 @@ func (a controllerAdminAuthorizer) Authorize(authInfo authentication.AuthInfo) e
 	}
 
 	has, err := common.HasPermission(
-		common.UserAccessFunc(func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
+		func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
 			if entity.String() != userTag.String() {
 				return permission.NoAccess, fmt.Errorf("expected entity %q got %q", userTag.String(), entity.String())
 			}
 			return authInfo.SubjectPermissions(subject)
-		}),
+		},
 		userTag, permission.SuperuserAccess, a.controllerTag,
 	)
 	if err != nil {

@@ -84,11 +84,11 @@ func setDefaultStatus(c *gc.C, entity setStatuser) {
 func (s *baseSuite) openAs(c *gc.C, tag names.Tag) api.Connection {
 	info := s.ControllerModelApiInfo()
 	info.Tag = tag
-	// Must match defaultPassword()
-	info.Password = fmt.Sprintf("%s password-1234567890", tag)
+	info.Password = defaultPassword(tag)
 	// Set this always, so that the login attempts as a machine will
 	// not fail with ErrNotProvisioned; it's not used otherwise.
 	info.Nonce = "fake_nonce"
+
 	c.Logf("opening state; entity %q; password %q", info.Tag, info.Password)
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -399,7 +399,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
 	defer release()
 
-	userService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerServiceFactory(c).Access()
 
 	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
@@ -407,7 +407,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 
 	// Add the admin user.
 	adminPassword := defaultPassword(testing.AdminUser)
-	err := userService.SetPassword(context.Background(), testing.AdminUser.Name(), auth.NewPassword(adminPassword))
+	err := accessService.SetPassword(context.Background(), testing.AdminUser.Name(), auth.NewPassword(adminPassword))
 	c.Assert(err, jc.ErrorIsNil)
 	add(taggedUser{tag: testing.AdminUser})
 
@@ -421,7 +421,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	// Add another user.
 	userTag := names.NewUserTag("other")
 	userPassword := defaultPassword(userTag)
-	_, _, err = userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err = accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -430,9 +430,18 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	f.MakeUser(c, &factory.UserParams{Name: userTag.Name()})
+	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        s.ControllerModelUUID(),
+			},
+			Access: permission.AdminAccess,
+		},
+		User: userTag.Name(),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	add(taggedUser{tag: userTag})
 
 	m, err := st.AddMachine(s.InstancePrechecker(c, st), state.UbuntuBase("12.10"), state.JobManageModel)

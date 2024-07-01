@@ -15,6 +15,7 @@ import (
 
 	controller "github.com/juju/juju/controller"
 	model "github.com/juju/juju/core/model"
+	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
 	auth "github.com/juju/juju/internal/auth"
 	gomock "go.uber.org/mock/gomock"
@@ -179,6 +180,45 @@ func (c *MockUserServiceGetUserByNameCall) Do(f func(context.Context, string) (u
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockUserServiceGetUserByNameCall) DoAndReturn(f func(context.Context, string) (user.User, error)) *MockUserServiceGetUserByNameCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// ReadUserAccessForTarget mocks base method.
+func (m *MockUserService) ReadUserAccessForTarget(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.UserAccess, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadUserAccessForTarget", arg0, arg1, arg2)
+	ret0, _ := ret[0].(permission.UserAccess)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadUserAccessForTarget indicates an expected call of ReadUserAccessForTarget.
+func (mr *MockUserServiceMockRecorder) ReadUserAccessForTarget(arg0, arg1, arg2 any) *MockUserServiceReadUserAccessForTargetCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadUserAccessForTarget", reflect.TypeOf((*MockUserService)(nil).ReadUserAccessForTarget), arg0, arg1, arg2)
+	return &MockUserServiceReadUserAccessForTargetCall{Call: call}
+}
+
+// MockUserServiceReadUserAccessForTargetCall wrap *gomock.Call
+type MockUserServiceReadUserAccessForTargetCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockUserServiceReadUserAccessForTargetCall) Return(arg0 permission.UserAccess, arg1 error) *MockUserServiceReadUserAccessForTargetCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockUserServiceReadUserAccessForTargetCall) Do(f func(context.Context, string, permission.ID) (permission.UserAccess, error)) *MockUserServiceReadUserAccessForTargetCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockUserServiceReadUserAccessForTargetCall) DoAndReturn(f func(context.Context, string, permission.ID) (permission.UserAccess, error)) *MockUserServiceReadUserAccessForTargetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

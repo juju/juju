@@ -81,7 +81,7 @@ func (e *DischargeRequiredError) Unwrap() error {
 
 func (e *DischargeRequiredError) SendError(w http.ResponseWriter) error {
 	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)
-	return SendError(w, e)
+	return sendError(w, e)
 }
 
 // UpgradeSeriesValidationError is the error returns when an upgrade-machine

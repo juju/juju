@@ -43,18 +43,16 @@ func newUserManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*UserMa
 	}
 	isAdmin := err == nil
 
-	// Get UserService
-	userService := ctx.ServiceFactory().Access()
+	accessService := ctx.ServiceFactory().Access()
 
-	// Get apiUserTag UUID
-	apiUser, err := userService.GetUserByName(stdCtx, apiUserTag.Id())
+	apiUser, err := accessService.GetUserByName(stdCtx, apiUserTag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	return NewAPI(
 		st,
-		userService,
+		accessService,
 		ctx.StatePool(),
 		authorizer,
 		common.NewBlockChecker(st),

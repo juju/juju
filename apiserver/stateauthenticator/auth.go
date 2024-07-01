@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -48,11 +47,6 @@ type Authenticator struct {
 	statePool               *state.StatePool
 	controllerConfigService ControllerConfigService
 	authContext             *authContext
-}
-
-// PermissionDelegator implements authentication.PermissionDelegator
-type PermissionDelegator struct {
-	State *state.State
 }
 
 // ControllerConfigService is an interface that can be implemented by
@@ -129,10 +123,12 @@ func (a *Authenticator) Authenticate(req *http.Request) (authentication.AuthInfo
 	if modelUUID == "" {
 		return authentication.AuthInfo{}, errors.New("model UUID not found")
 	}
+
 	loginRequest, err := LoginRequest(req)
 	if err != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
+
 	authParams := authentication.AuthParams{
 		Credentials:   loginRequest.Credentials,
 		Nonce:         loginRequest.Nonce,
@@ -145,7 +141,9 @@ func (a *Authenticator) Authenticate(req *http.Request) (authentication.AuthInfo
 			return authentication.AuthInfo{}, errors.Trace(err)
 		}
 	}
-	return a.AuthenticateLoginRequest(req.Context(), req.Host, modelUUID, authParams)
+
+	info, err := a.AuthenticateLoginRequest(req.Context(), req.Host, modelUUID, authParams)
+	return info, errors.Trace(err)
 }
 
 // AuthenticateLoginRequest authenticates a LoginRequest.
@@ -168,19 +166,13 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	defer st.Release()
 
 	authenticator := a.authContext.authenticatorForState(serverHost, st.State)
-	authInfo, err := a.checkCreds(ctx, st.State, authParams, authenticator)
+	authInfo, err := a.checkCreds(ctx, authParams, authenticator)
 	if err == nil {
 		return authInfo, nil
 	}
 
 	var dischargeRequired *apiservererrors.DischargeRequiredError
 	if errors.As(err, &dischargeRequired) || errors.Is(err, errors.NotProvisioned) {
-		// TODO(axw) move out of common?
-		return authentication.AuthInfo{}, errors.Trace(err)
-	}
-
-	systemState, errS := a.statePool.SystemState()
-	if errS != nil {
 		return authentication.AuthInfo{}, errors.Trace(err)
 	}
 
@@ -190,11 +182,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		// Controller agents are allowed to log into any model.
 		authenticator := a.authContext.authenticator(serverHost)
 		var err2 error
-		authInfo, err2 = a.checkCreds(
-			ctx,
-			systemState,
-			authParams, authenticator,
-		)
+		authInfo, err2 = a.checkCreds(ctx, authParams, authenticator)
 		if err2 == nil && authInfo.Controller {
 			err = nil
 		}
@@ -203,33 +191,12 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		return authentication.AuthInfo{}, errors.NewUnauthorized(err, "")
 	}
 
-	authInfo.Delegator = &PermissionDelegator{State: systemState}
+	authInfo.Delegator = &PermissionDelegator{a.authContext.userService}
 	return authInfo, nil
-}
-
-// SubjectPermissions implements PermissionDelegator
-func (p *PermissionDelegator) SubjectPermissions(
-	e authentication.Entity,
-	s names.Tag,
-) (permission.Access, error) {
-	userTag, ok := e.Tag().(names.UserTag)
-	if !ok {
-		return permission.NoAccess, errors.Errorf("%s is not a user", names.ReadableString(e.Tag()))
-	}
-
-	return p.State.UserPermission(userTag, s)
-}
-
-func (p *PermissionDelegator) PermissionError(
-	_ names.Tag,
-	_ permission.Access,
-) error {
-	return apiservererrors.ErrPerm
 }
 
 func (a *Authenticator) checkCreds(
 	ctx context.Context,
-	st *state.State,
 	authParams authentication.AuthParams,
 	authenticator authentication.EntityAuthenticator,
 ) (authentication.AuthInfo, error) {
@@ -239,7 +206,7 @@ func (a *Authenticator) checkCreds(
 	}
 
 	authInfo := authentication.AuthInfo{
-		Delegator: &PermissionDelegator{State: st},
+		Delegator: &PermissionDelegator{a.authContext.userService},
 		Entity:    entity,
 	}
 
@@ -255,19 +222,10 @@ func (a *Authenticator) checkCreds(
 		if err != nil {
 			return authentication.AuthInfo{}, errors.Trace(err)
 		}
-		modelAccess, err := st.UserAccess(userTag, model.ModelTag())
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return authentication.AuthInfo{}, errors.Trace(err)
-		}
 
-		// This is permission checking at the wrong level, but we can keep it
-		// here for now.
-		if err := a.checkPerms(ctx, modelAccess, userTag); err != nil {
-			return authentication.AuthInfo{}, errors.Trace(err)
-		}
-
-		if err := a.updateUserLastLogin(ctx, modelAccess, userTag, model); err != nil {
-			return authentication.AuthInfo{}, errors.Trace(err)
+		err = a.authContext.userService.UpdateLastModelLogin(ctx, userTag.Name(), coremodel.UUID(model.UUID()))
+		if err != nil {
+			logger.Warningf("updating last login time for %v, %v", userTag, err)
 		}
 
 	case names.MachineTagKind, names.ControllerAgentTagKind:
@@ -277,59 +235,6 @@ func (a *Authenticator) checkCreds(
 	}
 
 	return authInfo, nil
-}
-
-func (a *Authenticator) checkPerms(ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag) error {
-	// If the user tag is not local, we don't need to check for the model user
-	// permissions. This is generally the case for macaroon-based logins.
-	if !userTag.IsLocal() {
-		return nil
-	}
-
-	// No model user found, so see if the user has been granted
-	// access to the controller.
-	if permission.IsEmptyUserAccess(modelAccess) {
-		st := a.authContext.st
-		controllerAccess, err := state.ControllerAccess(st, userTag)
-		if err != nil && !errors.Is(err, errors.NotFound) {
-			return errors.Trace(err)
-		}
-		// TODO(perrito666) remove the following section about everyone group
-		// when groups are implemented, this accounts only for the lack of a local
-		// ControllerUser when logging in from an external user that has not been granted
-		// permissions on the controller but there are permissions for the special
-		// everyone group.
-		if permission.IsEmptyUserAccess(controllerAccess) && !userTag.IsLocal() {
-			everyoneTag := names.NewUserTag(common.EveryoneTagName)
-			controllerAccess, err = st.UserAccess(everyoneTag, st.ControllerTag())
-			if err != nil && !errors.Is(err, errors.NotFound) {
-				return errors.Annotatef(err, "obtaining ControllerUser for everyone group")
-			}
-		}
-		if permission.IsEmptyUserAccess(controllerAccess) {
-			return errors.NotFoundf("model or controller user")
-		}
-	}
-	return nil
-}
-
-func (a *Authenticator) updateUserLastLogin(ctx context.Context, modelAccess permission.UserAccess, userTag names.UserTag, model *state.Model) error {
-	if !permission.IsEmptyUserAccess(modelAccess) && modelAccess.Object.Kind() != names.ModelTagKind {
-		return errors.NotValidf("%s as model user", modelAccess.Object.Kind())
-	}
-
-	// If the user is not local, we don't update the last login time.
-	if !userTag.IsLocal() {
-		return nil
-	}
-
-	// Update the last login time for the user.
-	err := a.authContext.userService.UpdateLastModelLogin(ctx, userTag.Name(), coremodel.UUID(model.UUID()))
-	if err != nil {
-		logger.Warningf("updating last login time for %v, %v", userTag, err)
-	}
-
-	return nil
 }
 
 func (a *Authenticator) isManager(entity state.Entity) bool {

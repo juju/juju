@@ -583,10 +583,12 @@ type LoginRequest struct {
 	Nonce         string           `json:"nonce"`
 	Macaroons     []macaroon.Slice `json:"macaroons"`
 	BakeryVersion bakery.Version   `json:"bakery-version,omitempty"`
-	Token         string           `json:"token,omitempty"`
-	CLIArgs       string           `json:"cli-args,omitempty"`
-	UserData      string           `json:"user-data"`
-	ClientVersion string           `json:"client-version,omitempty"`
+
+	// Token represents a JSON Web Token (JWT).
+	Token         string `json:"token,omitempty"`
+	CLIArgs       string `json:"cli-args,omitempty"`
+	UserData      string `json:"user-data"`
+	ClientVersion string `json:"client-version,omitempty"`
 }
 
 // LoginRequestCompat holds credentials for identifying an entity to the Login v1

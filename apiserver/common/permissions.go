@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 )
 
 // EveryoneTagName represents a special group that encompasses
@@ -23,8 +24,7 @@ type UserAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
 // HasPermission returns true if the specified user has the specified
 // permission on target.
 func HasPermission(
-	accessGetter UserAccessFunc, utag names.Tag,
-	requestedPermission permission.Access, target names.Tag,
+	accessGetter UserAccessFunc, utag names.Tag, requestedPermission permission.Access, target names.Tag,
 ) (bool, error) {
 	var validate func(permission.Access) error
 	switch target.Kind() {
@@ -45,16 +45,15 @@ func HasPermission(
 
 	userTag, ok := utag.(names.UserTag)
 	if !ok {
-		// lets not reveal more than is strictly necessary
+		// Reveal no more than is strictly necessary.
 		return false, nil
 	}
 
 	userAccess, err := GetPermission(accessGetter, userTag, target)
-	if err != nil && !errors.Is(err, errors.NotFound) {
+	if err != nil {
 		return false, errors.Annotatef(err, "while obtaining %s user", target.Kind())
 	}
-	// returning this kind of information would be too much information to reveal too.
-	if errors.Is(err, errors.NotFound) || userAccess == permission.NoAccess {
+	if userAccess == permission.NoAccess {
 		return false, nil
 	}
 
@@ -71,16 +70,22 @@ func HasPermission(
 // GetPermission returns the permission a user has on the specified target.
 func GetPermission(accessGetter UserAccessFunc, userTag names.UserTag, target names.Tag) (permission.Access, error) {
 	userAccess, err := accessGetter(userTag, target)
-	if err != nil && !errors.Is(err, errors.NotFound) {
-		return permission.NoAccess, errors.Annotatef(err, "while obtaining %s user", target.Kind())
+	if err != nil {
+		if errors.Is(err, accesserrors.PermissionNotFound) || errors.Is(err, accesserrors.UserNotFound) {
+			return permission.NoAccess, nil
+		}
+		return permission.NoAccess, errors.Trace(err)
 	}
-	// there is a special case for external users, a group called everyone@external
+
+	// There is a special case for external users, a group called everyone@external.
 	if !userTag.IsLocal() {
 		// TODO(perrito666) remove the following section about everyone group
 		// when groups are implemented.
 		everyoneTag := names.NewUserTag(EveryoneTagName)
 		everyoneAccess, err := accessGetter(everyoneTag, target)
-		if err != nil && !errors.Is(err, errors.NotFound) {
+		if err != nil &&
+			!errors.Is(err, accesserrors.PermissionNotFound) &&
+			!errors.Is(err, accesserrors.UserNotFound) {
 			return permission.NoAccess, errors.Trace(err)
 		}
 		if userAccess == permission.NoAccess && everyoneAccess != permission.NoAccess {
@@ -93,10 +98,9 @@ func GetPermission(accessGetter UserAccessFunc, userTag names.UserTag, target na
 	return userAccess, nil
 }
 
-// HasModelAdmin reports whether or not a user has admin access to the
-// specified model. A user has model access if they are a controller
-// superuser, or if they have been explicitly granted admin access to the
-// model.
+// HasModelAdmin reports whether a user has admin access to the input model.
+// A user has model access if they are a controller superuser,
+// or if they have been explicitly granted admin access to the model.
 func HasModelAdmin(
 	authorizer facade.Authorizer,
 	controllerTag names.ControllerTag,

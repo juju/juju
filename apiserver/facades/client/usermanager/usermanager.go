@@ -23,8 +23,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// UserService defines the methods to operate with the database.
-type UserService interface {
+// AccessService defines the methods to operate with the database.
+type AccessService interface {
 	GetAllUsers(ctx context.Context) ([]coreuser.User, error)
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
 	AddUser(ctx context.Context, arg service.AddUserArg) (coreuser.UUID, []byte, error)
@@ -33,26 +33,30 @@ type UserService interface {
 	SetPassword(ctx context.Context, name string, password auth.Password) error
 	ResetPassword(ctx context.Context, name string) ([]byte, error)
 	RemoveUser(ctx context.Context, name string) error
+
+	// ReadUserAccessForTarget returns the access level that the
+	// input user has been on the input target entity.
+	ReadUserAccessForTarget(ctx context.Context, subject string, target permission.ID) (permission.UserAccess, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
-	state       *state.State
-	userService UserService
-	pool        *state.StatePool
-	authorizer  facade.Authorizer
-	check       *common.BlockChecker
-	apiUserTag  names.UserTag
-	apiUser     coreuser.User
-	isAdmin     bool
-	logger      corelogger.Logger
+	state         *state.State
+	accessService AccessService
+	pool          *state.StatePool
+	authorizer    facade.Authorizer
+	check         *common.BlockChecker
+	apiUserTag    names.UserTag
+	apiUser       coreuser.User
+	isAdmin       bool
+	logger        corelogger.Logger
 }
 
 // NewAPI creates a new API endpoint for calling user manager functions.
 func NewAPI(
 	state *state.State,
-	userService UserService,
+	accessService AccessService,
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	check *common.BlockChecker,
@@ -62,15 +66,15 @@ func NewAPI(
 	logger corelogger.Logger,
 ) (*UserManagerAPI, error) {
 	return &UserManagerAPI{
-		state:       state,
-		userService: userService,
-		pool:        pool,
-		authorizer:  authorizer,
-		check:       check,
-		apiUserTag:  apiUserTag,
-		apiUser:     apiUser,
-		isAdmin:     isAdmin,
-		logger:      logger,
+		state:         state,
+		accessService: accessService,
+		pool:          pool,
+		authorizer:    authorizer,
+		check:         check,
+		apiUserTag:    apiUserTag,
+		apiUser:       apiUser,
+		isAdmin:       isAdmin,
+		logger:        logger,
 	}, nil
 }
 
@@ -119,9 +123,6 @@ func (api *UserManagerAPI) addOneUser(ctx context.Context, arg params.AddUser) p
 			return params.AddUserResult{Error: apiservererrors.ServerError(errors.Annotate(err, "creating user"))}
 		}
 	}
-	if err != nil {
-		return params.AddUserResult{Error: apiservererrors.ServerError(errors.Annotate(err, "creating user"))}
-	}
 	// End legacy block.
 
 	addUserArg := service.AddUserArg{
@@ -136,7 +137,7 @@ func (api *UserManagerAPI) addOneUser(ctx context.Context, arg params.AddUser) p
 		addUserArg.Password = &pass
 	}
 
-	if _, activationKey, err = api.userService.AddUser(ctx, addUserArg); err != nil {
+	if _, activationKey, err = api.accessService.AddUser(ctx, addUserArg); err != nil {
 		return params.AddUserResult{Error: apiservererrors.ServerError(errors.Annotate(err, "creating user"))}
 	}
 
@@ -188,7 +189,7 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 			continue
 		}
 
-		err = api.userService.RemoveUser(ctx, userTag.Name())
+		err = api.accessService.RemoveUser(ctx, userTag.Name())
 		if err != nil {
 			deletions.Results[i].Error = apiservererrors.ServerError(
 				errors.Annotatef(err, "failed to delete user %q", userTag.Name()))
@@ -248,9 +249,9 @@ func (api *UserManagerAPI) enableUser(ctx context.Context, args params.Entities,
 		}
 
 		if action == "enable" {
-			err = api.userService.EnableUserAuthentication(ctx, userTag.Name())
+			err = api.accessService.EnableUserAuthentication(ctx, userTag.Name())
 		} else {
-			err = api.userService.DisableUserAuthentication(ctx, userTag.Name())
+			err = api.accessService.DisableUserAuthentication(ctx, userTag.Name())
 		}
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s user: %s", action, err))
@@ -269,13 +270,20 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 	}
 
 	var accessForUser = func(userTag names.UserTag, result *params.UserInfoResult) {
-		// Lookup the access the specified user has to the controller.
-		access, err := common.GetPermission(api.state.UserPermission, userTag, api.state.ControllerTag())
-		if err == nil {
-			result.Result.Access = string(access)
-		} else if err != nil && !errors.Is(err, errors.NotFound) {
+		userPermission := func(subject names.UserTag, target names.Tag) (permission.Access, error) {
+			access, err := api.accessService.ReadUserAccessForTarget(ctx, subject.Id(), permission.ID{
+				ObjectType: permission.Controller,
+				Key:        "controller",
+			})
+			return access.Access, errors.Trace(err)
+		}
+
+		access, err := common.GetPermission(userPermission, userTag, api.state.ControllerTag())
+		if err != nil {
 			result.Result = nil
 			result.Error = apiservererrors.ServerError(err)
+		} else {
+			result.Result.Access = string(access)
 		}
 	}
 
@@ -304,7 +312,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 
 		if isAdmin {
 			// Get all users if isAdmin
-			users, err := api.userService.GetAllUsers(ctx)
+			users, err := api.accessService.GetAllUsers(ctx)
 			if err != nil {
 				return results, errors.Trace(err)
 			}
@@ -324,7 +332,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 		}
 
 		// Get users filtered by the apiUser name as a creator
-		user, err := api.userService.GetUserByName(ctx, tag.Id())
+		user, err := api.accessService.GetUserByName(ctx, tag.Id())
 		if err != nil {
 			return results, errors.Trace(err)
 		}
@@ -466,7 +474,7 @@ func (api *UserManagerAPI) setPassword(ctx context.Context, arg params.EntityPas
 	pass := auth.NewPassword(arg.Password)
 	defer pass.Destroy()
 
-	if err := api.userService.SetPassword(ctx, userTag.Name(), pass); err != nil {
+	if err := api.accessService.SetPassword(ctx, userTag.Name(), pass); err != nil {
 		return errors.Annotate(err, "failed to set password")
 	}
 
@@ -504,7 +512,7 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		}
 
 		if isSuperUser && api.apiUserTag != userTag {
-			key, err := api.userService.ResetPassword(ctx, userTag.Name())
+			key, err := api.accessService.ResetPassword(ctx, userTag.Name())
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
@@ -527,5 +535,5 @@ func (api *UserManagerAPI) getLocalUserByTag(ctx context.Context, tag string) (c
 	if !userTag.IsLocal() {
 		return coreuser.User{}, errors.Errorf("%q is not a local user", userTag)
 	}
-	return api.userService.GetUserByName(ctx, userTag.Name())
+	return api.accessService.GetUserByName(ctx, userTag.Name())
 }

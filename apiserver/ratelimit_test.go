@@ -106,9 +106,10 @@ func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info, name string) *a
 	// Make a copy
 	newInfo := *info
 
-	userService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerServiceFactory(c).Access()
+
 	userTag := names.NewUserTag(name)
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("hunter2")),
@@ -116,13 +117,17 @@ func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info, name string) *a
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	// TODO (stickupkid): Permissions: This is only required to insert admin
-	// permissions into the state, remove when permissions are written to state.
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	f.MakeUser(c, &factory.UserParams{
-		Name: userTag.Name(),
+	_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Model,
+				Key:        s.ControllerModelUUID(),
+			},
+			Access: permission.AdminAccess,
+		},
+		User: userTag.Name(),
 	})
+	c.Assert(err, jc.ErrorIsNil)
 
 	newInfo.Tag = userTag
 	newInfo.Password = "hunter2"

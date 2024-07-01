@@ -85,11 +85,15 @@ var _ = gc.Suite(&toolsWithMacaroonsIntegrationSuite{})
 
 func (s *toolsWithMacaroonsIntegrationSuite) SetUpTest(c *gc.C) {
 	s.MacaroonSuite.SetUpTest(c)
+
 	s.userTag = names.NewUserTag("bob@authhttpsuite")
 	s.AddModelUser(c, s.userTag.Id())
+	s.AddControllerUser(c, s.userTag.Id(), permission.LoginAccess)
+
 	apiInfo := s.APIInfo(c)
 	baseURL, err := url.Parse(fmt.Sprintf("https://%s/", apiInfo.Addrs[0]))
 	c.Assert(err, jc.ErrorIsNil)
+
 	s.baseURL = baseURL
 	s.modelUUID = s.ControllerModelUUID()
 }
@@ -127,9 +131,9 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *gc.C) 
 	// Create a new local user that we can log in as
 	// using macaroon authentication.
 	password := "hunter2"
-	userService := s.ControllerServiceFactory(c).Access()
+	accessService := s.ControllerServiceFactory(c).Access()
 	userTag := names.NewUserTag("bobbrown")
-	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
+	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
@@ -198,7 +202,7 @@ func bakeryDo(client *http.Client, getBakeryError func(*http.Response) error) fu
 	if client != nil {
 		bclient.Client = client
 	} else {
-		// Configure the default client to skip verification/
+		// Configure the default client to skip verification.
 		tlsConfig := jujuhttp.SecureTLSConfig()
 		tlsConfig.InsecureSkipVerify = true
 		bclient.Client.Transport = jujuhttp.NewHTTPTLSTransport(jujuhttp.TransportConfig{
@@ -223,7 +227,7 @@ func bakeryGetError(resp *http.Response) error {
 	}
 	var errResp params.ErrorResult
 	if err := json.Unmarshal(data, &errResp); err != nil {
-		return errors.Annotatef(err, "cannot unmarshal body")
+		return errors.Annotatef(err, "cannot unmarshal body %q", string(data))
 	}
 	if errResp.Error == nil {
 		return errors.New("no error found in error response body")

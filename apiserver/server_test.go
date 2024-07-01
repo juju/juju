@@ -21,11 +21,15 @@ import (
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/apiserver"
+	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/jwt"
 	"github.com/juju/juju/apiserver/errors"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/access"
+	"github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/internal/auth"
 	jujuhttp "github.com/juju/juju/internal/http"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
@@ -254,17 +258,26 @@ func (r *fakeResource) Wait() error {
 	return nil
 }
 
-func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (*state.User, names.ControllerTag) {
-	st := s.ControllerModel(c).State()
-	u, err := st.AddUser("foobar", "Foo Bar", "password", "read")
-	c.Assert(err, jc.ErrorIsNil)
-	user := u.UserTag()
+func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (state.Entity, names.ControllerTag) {
+	uTag := names.NewUserTag("foobar")
 
-	ctag := names.NewControllerTag(st.ControllerUUID())
-	access, err := st.UserPermission(user, ctag)
+	accessService := s.ControllerServiceFactory(c).Access()
+	userUUID, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
+		Name:        uTag.Id(),
+		DisplayName: "Foo Bar",
+		CreatorUUID: s.AdminUserUUID,
+		Password:    ptr(auth.NewPassword("password")),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, permission.LoginAccess)
-	return u, ctag
+
+	user, err := accessService.GetUser(context.Background(), userUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := s.ControllerModel(c).State()
+	cTag := names.NewControllerTag(st.ControllerUUID())
+
+	return authentication.TaggedUser(user, uTag), cTag
 }
 
 func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
@@ -278,21 +291,23 @@ func (s *serverSuite) TestAPIHandlerHasPermissionLogin(c *gc.C) {
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, false)
+
 }
 
 func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	u, ctag := s.bootstrapHasPermissionTest(c)
-	user := u.UserTag()
-
 	serviceFactory := s.ControllerServiceFactory(c)
 
-	st := s.ControllerModel(c).State()
-	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), st, serviceFactory, u)
+	handler, _ := apiserver.TestingAPIHandlerWithEntity(c, s.StatePool(), s.ControllerModel(c).State(), serviceFactory, u)
 	defer handler.Kill()
 
-	ua, err := st.SetUserAccess(user, ctag, permission.SuperuserAccess)
+	err := serviceFactory.Access().UpdatePermission(context.Background(), access.UpdatePermissionArgs{
+		AccessSpec: permission.ControllerForAccess(permission.SuperuserAccess),
+		ApiUser:    "admin",
+		Change:     permission.Grant,
+		Subject:    u.Tag().Id(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ua.Access, gc.Equals, permission.SuperuserAccess)
 
 	apiserver.AssertHasPermission(c, handler, permission.LoginAccess, ctag, true)
 	apiserver.AssertHasPermission(c, handler, permission.SuperuserAccess, ctag, true)

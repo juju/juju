@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/state"
@@ -32,11 +33,17 @@ type ControllerConfigService interface {
 type UserService interface {
 	// GetUserByAuth returns the user with the given name and password.
 	GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error)
+
 	// GetUserByName returns the user with the given name.
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+
 	// UpdateLastModelLogin updates the last login time for the user with the
 	// given name on the given model.
 	UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error
+
+	// ReadUserAccessForTarget returns the access that
+	// the input user subject has for the input target.
+	ReadUserAccessForTarget(ctx context.Context, subject string, target permission.ID) (permission.UserAccess, error)
 }
 
 type BakeryConfigService interface {

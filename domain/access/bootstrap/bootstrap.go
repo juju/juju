@@ -9,11 +9,12 @@ import (
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	domainuser "github.com/juju/juju/domain/access"
+	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/state"
 	"github.com/juju/juju/internal/auth"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -28,14 +29,13 @@ import (
 // If the username passed to this function is invalid an error satisfying
 // [github.com/juju/juju/domain/access/errors.UsernameNotValid] is returned.
 func AddUser(name string, access permission.AccessSpec) (user.UUID, internaldatabase.BootstrapOpt) {
-	if err := domainuser.ValidateUserName(name); err != nil {
-		return user.UUID(""), bootstrapErr(
-			fmt.Errorf("validating bootstrap add user %q: %w", name, err))
+	if !names.IsValidUser(name) {
+		return "", bootstrapErr(errors.Annotatef(usererrors.UserNameNotValid, "%q", name))
 	}
 
 	uuid, err := user.NewUUID()
 	if err != nil {
-		return user.UUID(""), bootstrapErr(
+		return "", bootstrapErr(
 			fmt.Errorf("generating bootstrap user %q uuid: %w", name, err))
 	}
 
@@ -60,10 +60,8 @@ func AddUser(name string, access permission.AccessSpec) (user.UUID, internaldata
 func AddUserWithPassword(name string, password auth.Password, access permission.AccessSpec) (user.UUID, internaldatabase.BootstrapOpt) {
 	defer password.Destroy()
 
-	if err := domainuser.ValidateUserName(name); err != nil {
-		return user.UUID(""), bootstrapErr(
-			fmt.Errorf("validating bootstrap add user %q with password: %w",
-				name, err))
+	if !names.IsValidUser(name) {
+		return "", bootstrapErr(errors.Annotatef(usererrors.UserNameNotValid, "%q", name))
 	}
 
 	uuid, err := user.NewUUID()

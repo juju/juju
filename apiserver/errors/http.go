@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/rpc/params"
 )
 
-// sendError sends a JSON-encoded error response  for errors encountered during
+// sendError sends a JSON-encoded error response for errors encountered during
 // processing.
-func SendError(w http.ResponseWriter, errToSend error) error {
+func sendError(w http.ResponseWriter, errToSend error) error {
 	paramsErr, statusCode := ServerErrorAndStatus(errToSend)
 	logger.Debugf("sending error: %d %v", statusCode, paramsErr)
 	return errors.Trace(SendStatusAndJSON(w, statusCode, &params.ErrorResult{

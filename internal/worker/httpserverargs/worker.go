@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/state"
@@ -151,7 +152,7 @@ func (b *managedServices) ControllerConfig(ctx context.Context) (controller.Conf
 	return b.controllerConfigService.ControllerConfig(b.tomb.Context(ctx))
 }
 
-// GetUserByName is part of the UserService interface.
+// GetUserByAuth is part of the UserService interface.
 func (b *managedServices) GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error) {
 	return b.userService.GetUserByAuth(b.tomb.Context(ctx), name, password)
 }
@@ -159,6 +160,14 @@ func (b *managedServices) GetUserByAuth(ctx context.Context, name string, passwo
 // GetUserByName is part of the UserService interface.
 func (b *managedServices) GetUserByName(ctx context.Context, name string) (coreuser.User, error) {
 	return b.userService.GetUserByName(b.tomb.Context(ctx), name)
+}
+
+// ReadUserAccessForTarget returns the access that
+// the input user subject has for the input target.
+func (b *managedServices) ReadUserAccessForTarget(
+	ctx context.Context, subject string, target permission.ID,
+) (permission.UserAccess, error) {
+	return b.userService.ReadUserAccessForTarget(b.tomb.Context(ctx), subject, target)
 }
 
 // UpdateLastModelLogin updates the last login time for the user with the

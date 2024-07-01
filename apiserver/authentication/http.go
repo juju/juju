@@ -30,5 +30,5 @@ func (s HTTPStrategicAuthenticator) Authenticate(req *http.Request) (AuthInfo, e
 		return authInfo, nil
 	}
 
-	return AuthInfo{}, fmt.Errorf("authenticatio %w", errors.NotFound)
+	return AuthInfo{}, fmt.Errorf("authentication %w", errors.NotFound)
 }
