@@ -77,6 +77,22 @@ func AuthorizedKeysChange() config.ValidatorFunc {
 	}
 }
 
+// ContainerNetworkingMethodChange checks to see if there has been any change
+// to a model config's container networking method.
+func ContainerNetworkingMethodChange() config.ValidatorFunc {
+	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
+		if cfg.ContainerNetworkingMethod() == old.ContainerNetworkingMethod() {
+			// No change. Nothing more todo.
+			return cfg, nil
+		}
+
+		return cfg, &config.ValidationError{
+			InvalidAttrs: []string{config.ContainerNetworkingMethod},
+			Reason:       "container-networking-method cannot be changed",
+		}
+	}
+}
+
 // SpaceProvider is responsible for checking if a given space exists.
 type SpaceProvider interface {
 	// HasSpace checks if the supplied space exists within the controller. If
