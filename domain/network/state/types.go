@@ -62,55 +62,75 @@ type ProviderSpace struct {
 	ProviderID network.Id `db:"provider_id"`
 }
 
-// SpaceSubnetRow represents a single row from the database when
-// space is joined with provider_space, subnet, subnet_type,
-// subnet_association, subject_subnet_type_uuid, subnet_association_type,
-// provider_subnet, provider_network, provider_network_subnet,
-// availability_zone and availability_zone_subnet.
-// This type is also used for deserializing only subnets, which has the same
-// fields except UUID, Name and ProviderID.
-type SpaceSubnetRow struct {
-	// UUID is the space UUID.
-	UUID string `db:"uuid"`
-
-	// Name is the space name.
+// AvailabilityZone represents a row from the availability_zone table.
+type AvailabilityZone struct {
+	// Name is the name of the availability zone.
 	Name string `db:"name"`
-
-	// ProviderID is the space provider id.
-	ProviderID sql.NullString `db:"provider_id"`
-
-	// Subnet fields
-
-	// SubnetUUID is the subnet SubnetUUID.
-	SubnetUUID string `db:"subnet_uuid"`
-
-	// SubnetCIDR is the one of the subnet's cidr.
-	SubnetCIDR string `db:"subnet_cidr"`
-
-	// SubnetVLANTag is the subnet's vlan tag.
-	SubnetVLANTag int `db:"subnet_vlan_tag"`
-
-	// SubnetProviderID is the subnet's provider id.
-	SubnetProviderID string `db:"subnet_provider_id"`
-
-	// SubnetProviderNetworkID is the subnet's provider network id.
-	SubnetProviderNetworkID string `db:"subnet_provider_network_id"`
-
-	// SubnetProviderSpaceUUID is the subnet's space uuid.
-	SubnetProviderSpaceUUID sql.NullString `db:"subnet_provider_space_uuid"`
-
-	// SubnetSpaceUUID is the space uuid.
-	SubnetSpaceUUID sql.NullString `db:"subnet_space_uuid"`
-
-	// SubnetSpaceName is the name of the space the subnet is associated with.
-	SubnetSpaceName sql.NullString `db:"subnet_space_name"`
-
-	// SubnetAZ is the availability zones on the subnet.
-	SubnetAZ string `db:"subnet_az"`
+	// UUID is the unique ID of the availability zone.
+	UUID string `db:"uuid"`
 }
 
-// Alias type to a slice of Space/Subnet rows.
+// AvailabilityZoneSubnet represents a row from the availability_zone_subnet
+// table.
+type AvailabilityZoneSubnet struct {
+	// UUID is the unique ID of the availability zone.
+	AZUUID string `db:"availability_zone_uuid"`
+	// SubnetUUID is the unique ID of the Subnet.
+	SubnetUUID string `db:"subnet_uuid"`
+}
+
+// SubnetRow represents the subnet fields of a single row from the
+// v_space_subnets view.
+type SubnetRow struct {
+	// UUID is the subnet UUID.
+	UUID string `db:"subnet_uuid"`
+
+	// CIDR is the one of the subnet's cidr.
+	CIDR string `db:"subnet_cidr"`
+
+	// VLANTag is the subnet's vlan tag.
+	VLANTag int `db:"subnet_vlan_tag"`
+
+	// ProviderID is the subnet's provider id.
+	ProviderID string `db:"subnet_provider_id"`
+
+	// ProviderNetworkID is the subnet's provider network id.
+	ProviderNetworkID string `db:"subnet_provider_network_id"`
+
+	// ProviderSpaceUUID is the subnet's space uuid.
+	ProviderSpaceUUID sql.NullString `db:"subnet_provider_space_uuid"`
+
+	// SpaceUUID is the space uuid.
+	SpaceUUID sql.NullString `db:"subnet_space_uuid"`
+
+	// SpaceName is the name of the space the subnet is associated with.
+	SpaceName sql.NullString `db:"subnet_space_name"`
+
+	// AZ is the availability zones on the subnet.
+	AZ string `db:"subnet_az"`
+}
+
+// SpaceSubnetRow represents a single row from the v_space_subnets view.
+type SpaceSubnetRow struct {
+	// SubnetRow is embedded by SpaceSubnetRow since every row corresponds to a
+	// subnet of the space. This allows SubnetRow to be
+	SubnetRow
+
+	// UUID is the space UUID.
+	SpaceUUID string `db:"uuid"`
+
+	// Name is the space name.
+	SpaceName string `db:"name"`
+
+	// ProviderID is the space provider id.
+	SpaceProviderID sql.NullString `db:"provider_id"`
+}
+
+// SpaceSubnetRows is a slice of SpaceSubnet rows.
 type SpaceSubnetRows []SpaceSubnetRow
+
+// SubnetRows is a slice of Subnet rows.
+type SubnetRows []SubnetRow
 
 // ToSpaceInfos converts Spaces to a slice of network.SpaceInfo structs.
 // This method makes sure only unique subnets are mapped and flattens them into
@@ -124,45 +144,38 @@ func (sp SpaceSubnetRows) ToSpaceInfos() network.SpaceInfos {
 	uniqueSubnets := make(map[string]map[string]network.SubnetInfo)
 	uniqueSpaces := make(map[string]network.SpaceInfo)
 
-	for _, space := range sp {
+	for _, spaceSubnet := range sp {
 		spInfo := network.SpaceInfo{
-			ID:   space.UUID,
-			Name: network.SpaceName(space.Name),
+			ID:   spaceSubnet.SpaceUUID,
+			Name: network.SpaceName(spaceSubnet.SpaceName),
 		}
 
-		if space.ProviderID.Valid {
-			spInfo.ProviderId = network.Id(space.ProviderID.String)
+		if spaceSubnet.SpaceProviderID.Valid {
+			spInfo.ProviderId = network.Id(spaceSubnet.SpaceProviderID.String)
 		}
-		uniqueSpaces[space.UUID] = spInfo
+		uniqueSpaces[spaceSubnet.SpaceUUID] = spInfo
 
-		snInfo := space.ToSubnetInfo()
+		snInfo := spaceSubnet.SubnetRow.ToSubnetInfo()
 		if snInfo != nil {
-			if _, ok := uniqueSubnets[space.UUID]; !ok {
-				uniqueSubnets[space.UUID] = make(map[string]network.SubnetInfo)
+			if _, ok := uniqueSubnets[spaceSubnet.SpaceUUID]; !ok {
+				uniqueSubnets[spaceSubnet.SpaceUUID] = make(map[string]network.SubnetInfo)
 			}
 
-			snInfo.SpaceID = space.UUID
-			snInfo.SpaceName = space.Name
+			uniqueSubnets[spaceSubnet.SpaceUUID][spaceSubnet.UUID] = *snInfo
 
-			if space.ProviderID.Valid {
-				snInfo.ProviderSpaceId = network.Id(space.ProviderID.String)
+			if _, ok := uniqueAZs[spaceSubnet.SpaceUUID]; !ok {
+				uniqueAZs[spaceSubnet.SpaceUUID] = make(map[string]map[string]string)
 			}
-			uniqueSubnets[space.UUID][space.SubnetUUID] = *snInfo
-
-			if _, ok := uniqueAZs[space.UUID]; !ok {
-				uniqueAZs[space.UUID] = make(map[string]map[string]string)
+			if _, ok := uniqueAZs[spaceSubnet.SpaceUUID][spaceSubnet.UUID]; !ok {
+				uniqueAZs[spaceSubnet.SpaceUUID][spaceSubnet.UUID] = make(map[string]string)
 			}
-			if _, ok := uniqueAZs[space.UUID][space.SubnetUUID]; !ok {
-				uniqueAZs[space.UUID][space.SubnetUUID] = make(map[string]string)
-			}
-			uniqueAZs[space.UUID][space.SubnetUUID][space.SubnetAZ] = space.SubnetAZ
+			uniqueAZs[spaceSubnet.SpaceUUID][spaceSubnet.UUID][spaceSubnet.AZ] = spaceSubnet.AZ
 		}
 	}
 
 	// Iterate through every space and flatten its subnets.
 	for spaceUUID, space := range uniqueSpaces {
 		space.Subnets = flattenAZs(uniqueSubnets[spaceUUID], uniqueAZs[spaceUUID])
-
 		res = append(res, space)
 	}
 
@@ -171,26 +184,26 @@ func (sp SpaceSubnetRows) ToSpaceInfos() network.SpaceInfos {
 
 // ToSubnetInfo deserializes a row containing subnet fields to a SubnetInfo
 // struct.
-func (s SpaceSubnetRow) ToSubnetInfo() *network.SubnetInfo {
+func (s SubnetRow) ToSubnetInfo() *network.SubnetInfo {
 	// Make sure we don't add empty rows as empty subnets.
-	if s.SubnetUUID == "" {
+	if s.UUID == "" {
 		return nil
 	}
 	sInfo := network.SubnetInfo{
-		ID:                network.Id(s.SubnetUUID),
-		CIDR:              s.SubnetCIDR,
-		VLANTag:           s.SubnetVLANTag,
-		ProviderId:        network.Id(s.SubnetProviderID),
-		ProviderNetworkId: network.Id(s.SubnetProviderNetworkID),
+		ID:                network.Id(s.UUID),
+		CIDR:              s.CIDR,
+		VLANTag:           s.VLANTag,
+		ProviderId:        network.Id(s.ProviderID),
+		ProviderNetworkId: network.Id(s.ProviderNetworkID),
 	}
-	if s.SubnetProviderSpaceUUID.Valid {
-		sInfo.ProviderSpaceId = network.Id(s.SubnetProviderSpaceUUID.String)
+	if s.ProviderSpaceUUID.Valid {
+		sInfo.ProviderSpaceId = network.Id(s.ProviderSpaceUUID.String)
 	}
-	if s.SubnetSpaceUUID.Valid {
-		sInfo.SpaceID = s.SubnetSpaceUUID.String
+	if s.SpaceUUID.Valid {
+		sInfo.SpaceID = s.SpaceUUID.String
 	}
-	if s.SubnetSpaceName.Valid {
-		sInfo.SpaceName = s.SubnetSpaceName.String
+	if s.SpaceName.Valid {
+		sInfo.SpaceName = s.SpaceName.String
 	}
 
 	return &sInfo
@@ -200,7 +213,7 @@ func (s SpaceSubnetRow) ToSubnetInfo() *network.SubnetInfo {
 // This method makes sure only unique AZs are mapped and flattens them into
 // each subnet.
 // No sorting is applied.
-func (sn SpaceSubnetRows) ToSubnetInfos() network.SubnetInfos {
+func (sn SubnetRows) ToSubnetInfos() network.SubnetInfos {
 	// Prepare structs for unique subnets.
 	uniqueAZs := make(map[string]map[string]string)
 	uniqueSubnets := make(map[string]network.SubnetInfo)
@@ -208,12 +221,12 @@ func (sn SpaceSubnetRows) ToSubnetInfos() network.SubnetInfos {
 	for _, subnet := range sn {
 		subnetInfo := subnet.ToSubnetInfo()
 		if subnetInfo != nil {
-			uniqueSubnets[subnet.SubnetUUID] = *subnetInfo
+			uniqueSubnets[subnet.UUID] = *subnetInfo
 
-			if _, ok := uniqueAZs[subnet.SubnetUUID]; !ok {
-				uniqueAZs[subnet.SubnetUUID] = make(map[string]string)
+			if _, ok := uniqueAZs[subnet.UUID]; !ok {
+				uniqueAZs[subnet.UUID] = make(map[string]string)
 			}
-			uniqueAZs[subnet.SubnetUUID][subnet.SubnetAZ] = subnet.SubnetAZ
+			uniqueAZs[subnet.UUID][subnet.AZ] = subnet.AZ
 		}
 	}
 
