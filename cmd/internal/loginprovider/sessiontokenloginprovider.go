@@ -1,15 +1,20 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+// loginprovider within the cmd/juju package provides interactive based methods
+// for login normally used by the CLI.
+// These are contrasted with login providers defined elsewhere which may not
+// require interactive login.
+package loginprovider
 
 import (
 	"context"
+	"fmt"
+	"io"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
-	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 )
@@ -30,21 +35,21 @@ var (
 // authenticates the entity with the session token.
 func NewSessionTokenLoginProvider(
 	token string,
-	printOutputFunc func(string, ...any) error,
+	output io.Writer,
 	updateAccountDetailsFunc func(string) error,
 ) *sessionTokenLoginProvider {
 	return &sessionTokenLoginProvider{
 		sessionToken:             token,
-		printOutputFunc:          printOutputFunc,
+		output:                   output,
 		updateAccountDetailsFunc: updateAccountDetailsFunc,
 	}
 }
 
 type sessionTokenLoginProvider struct {
 	sessionToken string
-	// printOutpuFunc is used by the login provider to print the user code
+	// output is used by the login provider to print the user code
 	// and verification URL.
-	printOutputFunc func(string, ...any) error
+	output io.Writer
 	// updateAccountDetailsFunc function is used to update the session
 	// token for the account details.
 	updateAccountDetailsFunc func(string) error
@@ -54,7 +59,7 @@ type sessionTokenLoginProvider struct {
 //
 // It authenticates as the entity using the specified session token.
 // Subsequent requests on the state will act as that entity.
-func (p *sessionTokenLoginProvider) Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
+func (p *sessionTokenLoginProvider) Login(ctx context.Context, caller base.APICaller) (*api.LoginResultParams, error) {
 	// First we try to log in using the session token we have.
 	result, err := p.login(ctx, caller)
 	if err == nil {
@@ -73,11 +78,19 @@ func (p *sessionTokenLoginProvider) Login(ctx context.Context, caller base.APICa
 	return nil, errors.Trace(err)
 }
 
-func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, caller base.APICaller) error {
-	if p.printOutputFunc == nil {
+func (p *sessionTokenLoginProvider) printOutput(format string, params ...any) error {
+	if p.output == nil {
 		return errors.New("cannot present login details")
 	}
+	message := fmt.Sprintf(format, params...)
+	if len(message) > 0 && message[len(message)-1] != '\n' {
+		message += "\n"
+	}
+	_, err := fmt.Fprint(p.output, message)
+	return err
+}
 
+func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, caller base.APICaller) error {
 	type loginRequest struct{}
 
 	var deviceResult struct {
@@ -95,7 +108,7 @@ func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, cal
 	}
 
 	// We print the verification URL and the user code.
-	err = p.printOutputFunc("Please visit %s and enter code %s to log in.", deviceResult.VerificationURI, deviceResult.UserCode)
+	err = p.printOutput("Please visit %s and enter code %s to log in.", deviceResult.VerificationURI, deviceResult.UserCode)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -115,7 +128,7 @@ func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, cal
 	return p.updateAccountDetailsFunc(sessionTokenResult.SessionToken)
 }
 
-func (p *sessionTokenLoginProvider) login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
+func (p *sessionTokenLoginProvider) login(ctx context.Context, caller base.APICaller) (*api.LoginResultParams, error) {
 	var result params.LoginResult
 	request := struct {
 		SessionToken string `json:"session-token"`
@@ -128,31 +141,5 @@ func (p *sessionTokenLoginProvider) login(ctx context.Context, caller base.APICa
 		return nil, errors.Trace(err)
 	}
 
-	var controllerAccess string
-	var modelAccess string
-	var tag names.Tag
-	if result.UserInfo != nil {
-		tag, err = names.ParseTag(result.UserInfo.Identity)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		controllerAccess = result.UserInfo.ControllerAccess
-		modelAccess = result.UserInfo.ModelAccess
-	}
-	servers := params.ToMachineHostsPorts(result.Servers)
-	serverVersion, err := version.Parse(result.ServerVersion)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &LoginResultParams{
-		tag:              tag,
-		modelTag:         result.ModelTag,
-		controllerTag:    result.ControllerTag,
-		servers:          servers,
-		publicDNSName:    result.PublicDNSName,
-		facades:          result.Facades,
-		modelAccess:      modelAccess,
-		controllerAccess: controllerAccess,
-		serverVersion:    serverVersion,
-	}, nil
+	return api.NewLoginResultParams(result)
 }

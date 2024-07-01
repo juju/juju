@@ -393,7 +393,7 @@ parts:
     after:
       - libdqlite
     plugin: juju-go
-    go-channel: 1.20/stable
+    go-channel: 1.21/stable
     source: .
     go-packages:
       - github.com/juju/juju/cmd/jujud
@@ -493,7 +493,7 @@ plugs:
     interface: content
     content: microk8s
     target: $SNAP_DATA/microk8s
-  
+
   jaas-plugin:
     interface: content
     content: jaas-plugin

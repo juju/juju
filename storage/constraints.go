@@ -61,14 +61,16 @@ func ParseConstraints(s string) (Constraints, error) {
 		if IsValidPoolName(field) {
 			if cons.Pool != "" {
 				return cons, errors.NotValidf("pool name is already set to %q, new value %q", cons.Pool, field)
-			} else {
-				cons.Pool = field
 			}
+			cons.Pool = field
 			continue
 		}
 		if count, ok, err := parseCount(field); ok {
 			if err != nil {
 				return cons, errors.Annotate(err, "cannot parse count")
+			}
+			if cons.Count != 0 {
+				return cons, errors.NotValidf("storage instance count is already set to %d, new value %d", cons.Count, count)
 			}
 			cons.Count = count
 			continue
@@ -76,6 +78,9 @@ func ParseConstraints(s string) (Constraints, error) {
 		if size, ok, err := parseSize(field); ok {
 			if err != nil {
 				return cons, errors.Annotate(err, "cannot parse size")
+			}
+			if cons.Size != 0 {
+				return cons, errors.NotValidf("storage size is already set to %d, new value %d", cons.Size, size)
 			}
 			cons.Size = size
 			continue

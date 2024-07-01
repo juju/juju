@@ -46,6 +46,12 @@ jobs:
         run: |
           go run ./scripts/md-gen/controller-config
 
+      - name: Add version notice to generated docs
+        env:
+          DOCS_DIR: ${{ steps.gen.outputs.dir }}
+        run: |
+          go run ./scripts/md-gen/version-notice
+
       - name: pip install requirements
         run: |
           python3 -m venv .venv

@@ -61,15 +61,30 @@ func UnitDisplayStatus(unitStatus, containerStatus StatusInfo, expectWorkload bo
 // ApplicationDisplayStatus determines which of the two statuses to use when
 // displaying application status in a CAAS model.
 func ApplicationDisplayStatus(applicationStatus, operatorStatus StatusInfo, expectWorkload bool) StatusInfo {
-	if applicationStatus.Status == Terminated {
-		return applicationStatus
-	}
-	// Only interested in the operator status if it's not running/active.
-	if operatorStatus.Status == Running || operatorStatus.Status == Active {
+	appStatus := applicationStatus.Status
+	opStatus := operatorStatus.Status
+
+	// We don't care about the operator status if;
+	// - the application is terminated, or
+	// - the operator is running/active
+	if appStatus == Terminated || opStatus == Running || opStatus == Active {
 		return applicationStatus
 	}
 
-	if operatorStatus.Status == Waiting && !expectWorkload {
+	// We want the operator status if it's terminated, allocating or unknown
+	if opStatus == Terminated || opStatus == Allocating || opStatus == Unknown {
+		return operatorStatus
+	}
+
+	// Check if the application status has been set to a higher severity status
+	// than the operator status (e.g. set to maintenance by the charm)
+	if statusSeverities[appStatus] > statusSeverities[opStatus] {
+		return applicationStatus
+	}
+
+	// If the operator is waiting and this is not a caas application, we must be
+	// installing the agent.
+	if opStatus == Waiting && !expectWorkload {
 		operatorStatus.Message = MessageInstallingAgent
 	}
 	return operatorStatus

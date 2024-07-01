@@ -2195,7 +2195,7 @@ func (s *BootstrapSuite) TestBootstrapWithLocalControllerCharm(c *gc.C) {
 			err:       `--controller-charm-path ".*mysql" is not a "juju-controller" charm`,
 		}, {
 			charmPath: c.MkDir(),
-			err:       `--controller-charm-path ".*" is not a valid charm`,
+			err:       `--controller-charm-path ".*" is not a valid charm: .*`,
 		}, {
 			charmPath: "/invalid/path",
 			err:       `problem with --controller-charm-path: .* /invalid/path: .*`,
