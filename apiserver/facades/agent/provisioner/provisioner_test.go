@@ -19,6 +19,7 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -113,13 +114,14 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 
 	// Create a provisioner API for the machine.
 	provisionerAPI, err := provisioner.NewProvisionerAPIV11(context.Background(), facadetest.ModelContext{
-		Auth_:           s.authorizer,
-		State_:          st,
-		StatePool_:      s.StatePool(),
-		Resources_:      s.resources,
-		ServiceFactory_: s.serviceFactory,
-		Logger_:         loggertesting.WrapCheckLog(c),
-		ControllerID_:   coretesting.ControllerTag.Id(),
+		Auth_:            s.authorizer,
+		State_:           st,
+		StatePool_:       s.StatePool(),
+		Resources_:       s.resources,
+		ServiceFactory_:  s.serviceFactory,
+		Logger_:          loggertesting.WrapCheckLog(c),
+		WatcherRegistry_: facademocks.NewMockWatcherRegistry(gomock.NewController(c)),
+		ControllerID_:    coretesting.ControllerTag.Id(),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.provisioner = provisionerAPI
