@@ -40,16 +40,16 @@ func (st *State) CreateMachine(ctx context.Context, machineName machine.Name, no
 		return errors.Trace(err)
 	}
 
-	machineNameParam := sqlair.M{"machine_name": machineName}
-	query := `SELECT &M.uuid FROM machine WHERE machine_name = $M.machine_name`
+	machineNameParam := sqlair.M{"name": machineName}
+	query := `SELECT &M.uuid FROM machine WHERE name = $M.name`
 	queryStmt, err := st.Prepare(query, machineNameParam)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	createMachine := `
-INSERT INTO machine (uuid, net_node_uuid, machine_name, life_id)
-VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_name, $M.life_id)
+INSERT INTO machine (uuid, net_node_uuid, name, life_id)
+VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 `
 	createMachineStmt, err := st.Prepare(createMachine, machineNameParam)
 	if err != nil {
@@ -65,7 +65,7 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_name, $M.life_id)
 	createParams := sqlair.M{
 		"machine_uuid":  machineUUID,
 		"net_node_uuid": nodeUUID,
-		"machine_name":  machineName,
+		"name":          machineName,
 		"life_id":       life.Alive,
 	}
 
@@ -101,15 +101,15 @@ func (st *State) DeleteMachine(ctx context.Context, machineName machine.Name) er
 		return errors.Trace(err)
 	}
 
-	machineNameParam := sqlair.M{"machine_name": machineName}
+	machineNameParam := sqlair.M{"name": machineName}
 
-	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE machine_name = $M.machine_name`
+	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $M.name`
 	queryMachineStmt, err := st.Prepare(queryMachine, machineNameParam, machineUUID{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	deleteMachine := `DELETE FROM machine WHERE machine_name = $M.machine_name`
+	deleteMachine := `DELETE FROM machine WHERE name = $M.name`
 	deleteMachineStmt, err := st.Prepare(deleteMachine, machineNameParam)
 	if err != nil {
 		return errors.Trace(err)
@@ -117,7 +117,7 @@ func (st *State) DeleteMachine(ctx context.Context, machineName machine.Name) er
 
 	deleteNode := `
 DELETE FROM net_node WHERE uuid IN
-(SELECT net_node_uuid FROM machine WHERE machine_name = $M.machine_name) 
+(SELECT net_node_uuid FROM machine WHERE name = $M.name) 
 `
 	deleteNodeStmt, err := st.Prepare(deleteNode, machineNameParam)
 	if err != nil {
@@ -156,7 +156,7 @@ DELETE FROM net_node WHERE uuid IN
 // InitialWatchStatement returns the table and the initial watch statement
 // for the machines.
 func (s *State) InitialWatchStatement() (string, string) {
-	return "machine", "SELECT machine_name FROM machine"
+	return "machine", "SELECT name FROM machine"
 }
 
 // GetMachineLife returns the life status of the specified machine.
@@ -166,8 +166,8 @@ func (st *State) GetMachineLife(ctx context.Context, machineName machine.Name) (
 		return nil, errors.Trace(err)
 	}
 
-	machineNameParam := sqlair.M{"machine_name": machineName}
-	queryForLife := `SELECT life_id as &machineLife.life_id FROM machine WHERE machine_name = $M.machine_name`
+	machineNameParam := sqlair.M{"name": machineName}
+	queryForLife := `SELECT life_id as &machineLife.life_id FROM machine WHERE name = $M.name`
 	lifeStmt, err := st.Prepare(queryForLife, machineNameParam, machineLife{})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -200,7 +200,7 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 		return nil, errors.Trace(err)
 	}
 
-	query := `SELECT machine_name AS &machineName.* FROM machine`
+	query := `SELECT name AS &machineName.* FROM machine`
 	queryStmt, err := st.Prepare(query, machineName{})
 	if err != nil {
 		return nil, errors.Trace(err)

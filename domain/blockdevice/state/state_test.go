@@ -40,7 +40,7 @@ func (s *stateSuite) createMachineWithLife(c *gc.C, name string, life life.Life)
 	c.Assert(err, jc.ErrorIsNil)
 	machineUUID := uuid.MustNewUUID().String()
 	_, err = db.ExecContext(context.Background(), `
-INSERT INTO machine (uuid, life_id, machine_name, net_node_uuid)
+INSERT INTO machine (uuid, life_id, name, net_node_uuid)
 VALUES (?, ?, ?, ?)
 `, machineUUID, life, name, netNodeUUID)
 	c.Assert(err, jc.ErrorIsNil)

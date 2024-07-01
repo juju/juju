@@ -21,8 +21,8 @@ func InsertMachine(machineId string) internaldatabase.BootstrapOpt {
 	return func(ctx context.Context, controller, model database.TxnRunner) error {
 
 		createMachine := `
-INSERT INTO machine (uuid, net_node_uuid, machine_name, life_id)
-VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_name, $M.life_id)
+INSERT INTO machine (uuid, net_node_uuid, name, life_id)
+VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 `
 		createMachineStmt, err := sqlair.Prepare(createMachine, sqlair.M{})
 		if err != nil {
@@ -48,7 +48,7 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.machine_name, $M.life_id)
 			createParams := sqlair.M{
 				"machine_uuid":  machineUUID.String(),
 				"net_node_uuid": nodeUUID.String(),
-				"machine_name":  machineId,
+				"name":          machineId,
 				"life_id":       life.Alive,
 			}
 			if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {

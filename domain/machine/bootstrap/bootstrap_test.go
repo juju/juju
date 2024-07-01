@@ -23,7 +23,7 @@ func (s *bootstrapSuite) TestInsertBootstrapMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var machineId string
-	row := s.DB().QueryRow("SELECT machine_name FROM machine")
+	row := s.DB().QueryRow("SELECT name FROM machine")
 	c.Assert(row.Scan(&machineId), jc.ErrorIsNil)
 	c.Assert(machineId, gc.Equals, "666")
 }

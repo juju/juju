@@ -70,7 +70,7 @@ WHERE uuid = $M.uuid`, kindName), nil
 
 // uuidQueryForID generates a query and parameters for getting the uuid for a given ID
 // We keep different fields to reference different IDs in separate tables, as follows:
-// machine: TABLE machine, reference field: machine_name
+// machine: TABLE machine, reference field: name
 // unit: TABLE unit, reference field: name
 // application: TABLE application, reference field: name
 // storage_instance: TABLE storage_instance, reference field: name
@@ -84,7 +84,7 @@ func uuidQueryForID(id annotations.ID) (string, sqlair.M, error) {
 	var selector string
 	switch id.Kind {
 	case annotations.KindMachine:
-		selector = "machine_name"
+		selector = "name"
 	case annotations.KindUnit:
 		selector = "name"
 	case annotations.KindApplication:

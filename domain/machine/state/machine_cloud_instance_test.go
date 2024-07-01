@@ -20,7 +20,7 @@ func (s *stateSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "42", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_name='42'")
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -65,7 +65,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "42", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_name='42'")
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -140,7 +140,7 @@ func (s *stateSuite) TestDeleteInstanceData(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "42", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_name='42'")
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -201,7 +201,7 @@ func (s *stateSuite) TestInstanceIdSuccess(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_name='666'")
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='666'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)

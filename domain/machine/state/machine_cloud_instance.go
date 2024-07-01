@@ -159,12 +159,12 @@ func (st *State) InstanceId(ctx context.Context, machineName machine.Name) (stri
 		return "", errors.Trace(err)
 	}
 
-	machineIDParam := sqlair.M{"machine_name": machineName}
+	machineIDParam := sqlair.M{"name": machineName}
 	query := `
 SELECT instance_id AS &instanceID.*
 FROM machine AS m
     JOIN machine_cloud_instance AS mci ON m.uuid = mci.machine_uuid
-WHERE m.machine_name = $M.machine_name;
+WHERE m.name = $M.name;
 `
 	queryStmt, err := st.Prepare(query, machineIDParam, instanceID{})
 	if err != nil {
