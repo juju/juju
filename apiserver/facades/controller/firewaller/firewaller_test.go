@@ -114,14 +114,6 @@ func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 	s.testInstanceId(c, s.firewaller)
 }
 
-func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-	s.setupAPI(c)
-
-	s.testWatchModelMachines(c, s.firewaller)
-}
-
 func (s *firewallerSuite) TestWatch(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
