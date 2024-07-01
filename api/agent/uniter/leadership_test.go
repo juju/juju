@@ -87,7 +87,7 @@ func (s *leadershipSuite) TestReadSuccess(c *gc.C) {
 				},
 			}}
 		})
-		settings, err := s.ls.Read("foobar")
+		settings, err := s.ls.Read(context.Background(), "foobar")
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(settings, jc.DeepEquals, map[string]string{
 			"foo": "bar",
@@ -105,7 +105,7 @@ func (s *leadershipSuite) TestReadFailure(c *gc.C) {
 				Error: &params.Error{Message: "pow"},
 			}}
 		})
-		settings, err := s.ls.Read("foobar")
+		settings, err := s.ls.Read(context.Background(), "foobar")
 		c.Check(err, gc.ErrorMatches, "failed to read leadership settings: pow")
 		c.Check(settings, gc.IsNil)
 	})
@@ -115,7 +115,7 @@ func (s *leadershipSuite) TestReadError(c *gc.C) {
 	s.CheckCalls(c, s.expectReadCalls(), func() {
 		s.addResponder(nil)
 		s.stub.SetErrors(errors.New("blart"))
-		settings, err := s.ls.Read("foobar")
+		settings, err := s.ls.Read(context.Background(), "foobar")
 		c.Check(err, gc.ErrorMatches, "failed to call leadership api: blart")
 		c.Check(settings, gc.IsNil)
 	})
@@ -124,7 +124,7 @@ func (s *leadershipSuite) TestReadError(c *gc.C) {
 func (s *leadershipSuite) TestReadNoResults(c *gc.C) {
 	s.CheckCalls(c, s.expectReadCalls(), func() {
 		s.addResponder(nil)
-		settings, err := s.ls.Read("foobar")
+		settings, err := s.ls.Read(context.Background(), "foobar")
 		c.Check(err, gc.ErrorMatches, "expected 1 result from leadership api, got 0")
 		c.Check(settings, gc.IsNil)
 	})
@@ -158,7 +158,7 @@ func (s *leadershipSuite) TestMergeSuccess(c *gc.C) {
 				Error: nil,
 			}}
 		})
-		err := s.ls.Merge("foobar", "foobar/0", map[string]string{
+		err := s.ls.Merge(context.Background(), "foobar", "foobar/0", map[string]string{
 			"foo": "bar",
 			"baz": "qux",
 		})
@@ -175,7 +175,7 @@ func (s *leadershipSuite) TestMergeFailure(c *gc.C) {
 				Error: &params.Error{Message: "zap"},
 			}}
 		})
-		err := s.ls.Merge("foobar", "foobar/0", map[string]string{
+		err := s.ls.Merge(context.Background(), "foobar", "foobar/0", map[string]string{
 			"foo": "bar",
 			"baz": "qux",
 		})
@@ -187,7 +187,7 @@ func (s *leadershipSuite) TestMergeError(c *gc.C) {
 	s.CheckCalls(c, s.expectMergeCalls(), func() {
 		s.addResponder(nil)
 		s.stub.SetErrors(errors.New("dink"))
-		err := s.ls.Merge("foobar", "foobar/0", map[string]string{
+		err := s.ls.Merge(context.Background(), "foobar", "foobar/0", map[string]string{
 			"foo": "bar",
 			"baz": "qux",
 		})
@@ -198,7 +198,7 @@ func (s *leadershipSuite) TestMergeError(c *gc.C) {
 func (s *leadershipSuite) TestMergeNoResults(c *gc.C) {
 	s.CheckCalls(c, s.expectMergeCalls(), func() {
 		s.addResponder(nil)
-		err := s.ls.Merge("foobar", "foobar/0", map[string]string{
+		err := s.ls.Merge(context.Background(), "foobar", "foobar/0", map[string]string{
 			"foo": "bar",
 			"baz": "qux",
 		})
@@ -235,7 +235,7 @@ func (s *leadershipSuite) TestWatchSuccess(c *gc.C) {
 				NotifyWatcherId: "123",
 			}}
 		})
-		watcher, err := s.ls.WatchLeadershipSettings("foobar")
+		watcher, err := s.ls.WatchLeadershipSettings(context.Background(), "foobar")
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(watcher, gc.Equals, mockWatcher)
 	})
@@ -250,7 +250,7 @@ func (s *leadershipSuite) TestWatchFailure(c *gc.C) {
 				Error: &params.Error{Message: "blah"},
 			}}
 		})
-		watcher, err := s.ls.WatchLeadershipSettings("foobar")
+		watcher, err := s.ls.WatchLeadershipSettings(context.Background(), "foobar")
 		c.Check(err, gc.ErrorMatches, "failed to watch leadership settings: blah")
 		c.Check(watcher, gc.IsNil)
 	})
@@ -260,7 +260,7 @@ func (s *leadershipSuite) TestWatchError(c *gc.C) {
 	s.CheckCalls(c, s.expectWatchCalls(), func() {
 		s.addResponder(nil)
 		s.stub.SetErrors(errors.New("snerk"))
-		watcher, err := s.ls.WatchLeadershipSettings("foobar")
+		watcher, err := s.ls.WatchLeadershipSettings(context.Background(), "foobar")
 		c.Check(err, gc.ErrorMatches, "failed to call leadership api: snerk")
 		c.Check(watcher, gc.IsNil)
 	})
@@ -269,7 +269,7 @@ func (s *leadershipSuite) TestWatchError(c *gc.C) {
 func (s *leadershipSuite) TestWatchNoResults(c *gc.C) {
 	s.CheckCalls(c, s.expectWatchCalls(), func() {
 		s.addResponder(nil)
-		watcher, err := s.ls.WatchLeadershipSettings("foobar")
+		watcher, err := s.ls.WatchLeadershipSettings(context.Background(), "foobar")
 		c.Check(err, gc.ErrorMatches, "expected 1 result from leadership api, got 0")
 		c.Check(watcher, gc.IsNil)
 	})

@@ -4,6 +4,8 @@
 package upgradeseries_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
@@ -52,7 +54,7 @@ func (s *upgradeSeriesSuite) TestMachineStatus(c *gc.C) {
 	fCaller.EXPECT().FacadeCall(gomock.Any(), "MachineStatus", s.args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	status, err := api.MachineStatus()
+	status, err := api.MachineStatus(context.Background())
 	c.Assert(err, gc.IsNil)
 	c.Check(status, gc.Equals, model.UpgradeSeriesPrepareStarted)
 }
@@ -74,7 +76,7 @@ func (s *upgradeSeriesSuite) TestMachineStatusNotFound(c *gc.C) {
 	fCaller.EXPECT().FacadeCall(gomock.Any(), "MachineStatus", s.args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	status, err := api.MachineStatus()
+	status, err := api.MachineStatus(context.Background())
 	c.Assert(err, gc.ErrorMatches, "did not find")
 	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(string(status), gc.Equals, "")
@@ -95,7 +97,7 @@ func (s *upgradeSeriesSuite) TestSetMachineStatus(c *gc.C) {
 	fCaller.EXPECT().FacadeCall(gomock.Any(), "SetMachineStatus", args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.SetMachineStatus(model.UpgradeSeriesCompleteStarted, "")
+	err := api.SetMachineStatus(context.Background(), model.UpgradeSeriesCompleteStarted, "")
 	c.Assert(err, gc.IsNil)
 }
 
@@ -117,7 +119,7 @@ func (s *upgradeSeriesSuite) TestUnitsPrepared(c *gc.C) {
 	fCaller.EXPECT().FacadeCall(gomock.Any(), "UnitsPrepared", s.args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	units, err := api.UnitsPrepared()
+	units, err := api.UnitsPrepared(context.Background())
 	c.Assert(err, gc.IsNil)
 
 	expected := []names.UnitTag{r0, r1}
@@ -144,7 +146,7 @@ func (s *upgradeSeriesSuite) TestUnitsCompleted(c *gc.C) {
 	fCaller.EXPECT().FacadeCall(gomock.Any(), "UnitsCompleted", s.args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	units, err := api.UnitsCompleted()
+	units, err := api.UnitsCompleted(context.Background())
 	c.Assert(err, gc.IsNil)
 
 	expected := []names.UnitTag{p0, p1, p2}
@@ -161,7 +163,7 @@ func (s *upgradeSeriesSuite) TestStartUnitCompletion(c *gc.C) {
 	fCaller.EXPECT().FacadeCall(gomock.Any(), "StartUnitCompletion", s.upgradeSeriesStartUnitCompletionArgs, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.StartUnitCompletion("")
+	err := api.StartUnitCompletion(context.Background(), "")
 	c.Assert(err, gc.IsNil)
 }
 
@@ -180,7 +182,7 @@ func (s *upgradeSeriesSuite) TestFinishUpgradeSeries(c *gc.C) {
 	fCaller.EXPECT().FacadeCall(gomock.Any(), "FinishUpgradeSeries", args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.FinishUpgradeSeries(corebase.MustParseBaseFromString("ubuntu@16.04"))
+	err := api.FinishUpgradeSeries(context.Background(), corebase.MustParseBaseFromString("ubuntu@16.04"))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -203,6 +205,6 @@ func (s *upgradeSeriesSuite) TestSetStatus(c *gc.C) {
 	fCaller.EXPECT().FacadeCall(gomock.Any(), "SetInstanceStatus", args, gomock.Any()).SetArg(3, resultSource)
 
 	api := upgradeseries.NewStateFromCaller(fCaller, s.tag)
-	err := api.SetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for something")
+	err := api.SetInstanceStatus(context.Background(), model.UpgradeSeriesCompleteStarted, "waiting for something")
 	c.Assert(err, gc.IsNil)
 }

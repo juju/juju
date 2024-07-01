@@ -48,22 +48,22 @@ func (m *mockMachine) Life() life.Value {
 	return m.life
 }
 
-func (m *mockMachine) EnsureDead() error {
+func (m *mockMachine) EnsureDead(context.Context) error {
 	m.MethodCall(m, "EnsureDead")
 	return m.NextErr()
 }
 
-func (m *mockMachine) SetMachineAddresses(addresses []network.MachineAddress) error {
+func (m *mockMachine) SetMachineAddresses(_ context.Context, addresses []network.MachineAddress) error {
 	m.MethodCall(m, "SetMachineAddresses", addresses)
 	return m.NextErr()
 }
 
-func (m *mockMachine) SetObservedNetworkConfig(netConfig []params.NetworkConfig) error {
+func (m *mockMachine) SetObservedNetworkConfig(_ context.Context, netConfig []params.NetworkConfig) error {
 	m.MethodCall(m, "SetObservedNetworkConfig", netConfig)
 	return m.NextErr()
 }
 
-func (m *mockMachine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
+func (m *mockMachine) SetStatus(_ context.Context, status status.Status, info string, data map[string]interface{}) error {
 	m.MethodCall(m, "SetStatus", status, info, data)
 	return m.NextErr()
 }

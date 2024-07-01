@@ -54,12 +54,12 @@ const ErrEntityNotFound = errors.ConstError("entity not found")
 // Watch returns a NotifyWatcher that sends a value whenever the
 // entity's life value may have changed; or ErrEntityNotFound; or some
 // other error.
-func (c *Client) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {
+func (c *Client) Watch(ctx context.Context, entity names.Tag) (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: entity.String()}},
 	}
 	var results params.NotifyWatchResults
-	err := c.caller.FacadeCall(context.TODO(), "Watch", args, &results)
+	err := c.caller.FacadeCall(ctx, "Watch", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -79,12 +79,12 @@ func (c *Client) Watch(entity names.Tag) (watcher.NotifyWatcher, error) {
 
 // Life returns the entity's life value; or ErrEntityNotFound; or some
 // other error.
-func (c *Client) Life(entity names.Tag) (life.Value, error) {
+func (c *Client) Life(ctx context.Context, entity names.Tag) (life.Value, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: entity.String()}},
 	}
 	var results params.LifeResults
-	err := c.caller.FacadeCall(context.TODO(), "Life", args, &results)
+	err := c.caller.FacadeCall(ctx, "Life", args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

@@ -17,8 +17,8 @@ import (
 
 // LoggerAPI represents the API calls the logger makes.
 type LoggerAPI interface {
-	LoggingConfig(agentTag names.Tag) (string, error)
-	WatchLoggingConfig(agentTag names.Tag) (watcher.NotifyWatcher, error)
+	LoggingConfig(ctx context.Context, agentTag names.Tag) (string, error)
+	WatchLoggingConfig(ctx context.Context, agentTag names.Tag) (watcher.NotifyWatcher, error)
 }
 
 // WorkerConfig contains the information required for the Logger worker
@@ -75,7 +75,7 @@ func NewLogger(config WorkerConfig) (worker.Worker, error) {
 	return w, nil
 }
 
-func (l *loggerWorker) setLogging() {
+func (l *loggerWorker) setLogging(ctx context.Context) {
 	loggingConfig := ""
 	logger := l.config.Logger
 
@@ -83,7 +83,7 @@ func (l *loggerWorker) setLogging() {
 		logger.Debugf("overriding logging config with override from agent.conf %q", override)
 		loggingConfig = override
 	} else {
-		modelLoggingConfig, err := l.config.API.LoggingConfig(l.config.Tag)
+		modelLoggingConfig, err := l.config.API.LoggingConfig(ctx, l.config.Tag)
 		if err != nil {
 			logger.Errorf("%v", err)
 			return
@@ -118,17 +118,17 @@ func (l *loggerWorker) setLogging() {
 // SetUp is called by the NotifyWorker when the worker starts, and it is
 // required to return a notify watcher that is used as the event source
 // for the Handle method.
-func (l *loggerWorker) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
+func (l *loggerWorker) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 	l.config.Logger.Infof("logger worker started")
 	// We need to set this up initially as the NotifyWorker sucks up the first
 	// event.
-	l.setLogging()
-	return l.config.API.WatchLoggingConfig(l.config.Tag)
+	l.setLogging(ctx)
+	return l.config.API.WatchLoggingConfig(ctx, l.config.Tag)
 }
 
 // Handle is called by the NotifyWorker whenever the notify event is fired.
-func (l *loggerWorker) Handle(_ context.Context) error {
-	l.setLogging()
+func (l *loggerWorker) Handle(ctx context.Context) error {
+	l.setLogging(ctx)
 	return nil
 }
 

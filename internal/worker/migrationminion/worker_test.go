@@ -492,7 +492,7 @@ type stubMinionClient struct {
 	watchErr error
 }
 
-func (c *stubMinionClient) Watch() (watcher.MigrationStatusWatcher, error) {
+func (c *stubMinionClient) Watch(ctx context.Context) (watcher.MigrationStatusWatcher, error) {
 	c.stub.MethodCall(c, "Watch")
 	if c.watchErr != nil {
 		return nil, c.watchErr
@@ -500,7 +500,7 @@ func (c *stubMinionClient) Watch() (watcher.MigrationStatusWatcher, error) {
 	return c.watcher, nil
 }
 
-func (c *stubMinionClient) Report(id string, phase migration.Phase, success bool) error {
+func (c *stubMinionClient) Report(ctx context.Context, id string, phase migration.Phase, success bool) error {
 	c.stub.MethodCall(c, "Report", id, phase, success)
 	return c.stub.NextErr()
 }

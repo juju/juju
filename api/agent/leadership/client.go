@@ -28,12 +28,12 @@ type client struct {
 
 // NewClient returns a new leadership.Claimer backed by the supplied api caller.
 func NewClient(caller base.APICaller, options ...Option) leadership.Claimer {
-	return &client{base.NewFacadeCaller(caller, "LeadershipService", options...)}
+	return &client{FacadeCaller: base.NewFacadeCaller(caller, "LeadershipService", options...)}
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.
-func (c *client) ClaimLeadership(appId, unitId string, duration time.Duration) error {
-	results, err := c.bulkClaimLeadership(c.prepareClaimLeadership(appId, unitId, duration))
+func (c *client) ClaimLeadership(ctx context.Context, appId, unitId string, duration time.Duration) error {
+	results, err := c.bulkClaimLeadership(ctx, c.prepareClaimLeadership(appId, unitId, duration))
 	if err != nil {
 		return err
 	}
@@ -51,13 +51,13 @@ func (c *client) ClaimLeadership(appId, unitId string, duration time.Duration) e
 }
 
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
-func (c *client) BlockUntilLeadershipReleased(appId string, cancel <-chan struct{}) error {
+func (c *client) BlockUntilLeadershipReleased(ctx context.Context, appId string, cancel <-chan struct{}) error {
 	const friendlyErrMsg = "error blocking on leadership release"
 	var result params.ErrorResult
 	// TODO(axw) make it possible to plumb a context.Context
 	// through the API/RPC client, so we can cancel or abandon
 	// requests.
-	err := c.FacadeCall(context.TODO(), "BlockUntilLeadershipReleased", names.NewApplicationTag(appId), &result)
+	err := c.FacadeCall(ctx, "BlockUntilLeadershipReleased", names.NewApplicationTag(appId), &result)
 	if err != nil {
 		return errors.Annotate(err, friendlyErrMsg)
 	} else if result.Error != nil {
@@ -74,9 +74,9 @@ func (c *client) BlockUntilLeadershipReleased(appId string, cancel <-chan struct
 // preparation for making a bulk call.
 func (c *client) prepareClaimLeadership(appId, unitId string, duration time.Duration) params.ClaimLeadershipParams {
 	return params.ClaimLeadershipParams{
-		names.NewApplicationTag(appId).String(),
-		names.NewUnitTag(unitId).String(),
-		duration.Seconds(),
+		ApplicationTag:  names.NewApplicationTag(appId).String(),
+		UnitTag:         names.NewUnitTag(unitId).String(),
+		DurationSeconds: duration.Seconds(),
 	}
 }
 
@@ -84,15 +84,15 @@ func (c *client) prepareClaimLeadership(appId, unitId string, duration time.Dura
 // Bulk calls.
 //
 
-func (c *client) bulkClaimLeadership(args ...params.ClaimLeadershipParams) (*params.ClaimLeadershipBulkResults, error) {
+func (c *client) bulkClaimLeadership(ctx context.Context, args ...params.ClaimLeadershipParams) (*params.ClaimLeadershipBulkResults, error) {
 	// Don't make the jump over the network if we don't have to.
 	if len(args) <= 0 {
 		return &params.ClaimLeadershipBulkResults{}, nil
 	}
 
-	bulkParams := params.ClaimLeadershipBulkParams{args}
+	bulkParams := params.ClaimLeadershipBulkParams{Params: args}
 	var results params.ClaimLeadershipBulkResults
-	if err := c.FacadeCall(context.TODO(), "ClaimLeadership", bulkParams, &results); err != nil {
+	if err := c.FacadeCall(ctx, "ClaimLeadership", bulkParams, &results); err != nil {
 		return nil, errors.Annotate(err, "error making a leadership claim")
 	}
 	return &results, nil

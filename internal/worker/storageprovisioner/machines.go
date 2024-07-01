@@ -4,6 +4,8 @@
 package storageprovisioner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
@@ -17,35 +19,35 @@ import (
 // watchMachine starts a machine watcher if there is not already one for the
 // specified tag. The watcher will notify the worker when the machine changes,
 // for example when it is provisioned.
-func watchMachine(ctx *context, tag names.MachineTag) {
-	_, ok := ctx.machines[tag]
+func watchMachine(deps *dependencies, tag names.MachineTag) {
+	_, ok := deps.machines[tag]
 	if ok {
 		return
 	}
-	w, err := newMachineWatcher(ctx.config.Machines, tag, ctx.machineChanges, ctx.config.Logger)
+	w, err := newMachineWatcher(deps.config.Machines, tag, deps.machineChanges, deps.config.Logger)
 	if err != nil {
-		ctx.kill(errors.Trace(err))
-	} else if err := ctx.addWorker(w); err != nil {
-		ctx.kill(errors.Trace(err))
+		deps.kill(errors.Trace(err))
+	} else if err := deps.addWorker(w); err != nil {
+		deps.kill(errors.Trace(err))
 	} else {
-		ctx.machines[tag] = w
+		deps.machines[tag] = w
 	}
 }
 
 // refreshMachine refreshes the specified machine's instance ID. If it is set,
 // then the machine watcher is stopped and pending entities' parameters are
 // updated. If the machine is not provisioned yet, this method is a no-op.
-func refreshMachine(ctx *context, tag names.MachineTag) error {
-	w, ok := ctx.machines[tag]
+func refreshMachine(ctx context.Context, deps *dependencies, tag names.MachineTag) error {
+	w, ok := deps.machines[tag]
 	if !ok {
 		return errors.Errorf("machine %s is not being watched", tag.Id())
 	}
 	stopAndRemove := func() error {
 		_ = worker.Stop(w)
-		delete(ctx.machines, tag)
+		delete(deps.machines, tag)
 		return nil
 	}
-	results, err := ctx.config.Machines.InstanceIds([]names.MachineTag{tag})
+	results, err := deps.config.Machines.InstanceIds(ctx, []names.MachineTag{tag})
 	if err != nil {
 		return errors.Annotate(err, "getting machine instance ID")
 	}
@@ -58,34 +60,34 @@ func refreshMachine(ctx *context, tag names.MachineTag) error {
 		}
 		return errors.Annotate(err, "getting machine instance ID")
 	}
-	machineProvisioned(ctx, tag, instance.Id(results[0].Result))
+	machineProvisioned(deps, tag, instance.Id(results[0].Result))
 	// machine provisioning is the only thing we care about;
 	// stop the watcher.
 	return stopAndRemove()
 }
 
 // machineProvisioned is called when a watched machine is provisioned.
-func machineProvisioned(ctx *context, tag names.MachineTag, instanceId instance.Id) {
-	for _, params := range ctx.incompleteVolumeParams {
+func machineProvisioned(deps *dependencies, tag names.MachineTag, instanceId instance.Id) {
+	for _, params := range deps.incompleteVolumeParams {
 		if params.Attachment.Machine != tag || params.Attachment.InstanceId != "" {
 			continue
 		}
 		params.Attachment.InstanceId = instanceId
-		updatePendingVolume(ctx, params)
+		updatePendingVolume(deps, params)
 	}
-	for id, params := range ctx.incompleteVolumeAttachmentParams {
+	for id, params := range deps.incompleteVolumeAttachmentParams {
 		if params.Machine != tag || params.InstanceId != "" {
 			continue
 		}
 		params.InstanceId = instanceId
-		updatePendingVolumeAttachment(ctx, id, params)
+		updatePendingVolumeAttachment(deps, id, params)
 	}
-	for id, params := range ctx.incompleteFilesystemAttachmentParams {
+	for id, params := range deps.incompleteFilesystemAttachmentParams {
 		if params.Machine != tag || params.InstanceId != "" {
 			continue
 		}
 		params.InstanceId = instanceId
-		updatePendingFilesystemAttachment(ctx, id, params)
+		updatePendingFilesystemAttachment(deps, id, params)
 	}
 }
 
@@ -120,7 +122,10 @@ func newMachineWatcher(
 }
 
 func (mw *machineWatcher) loop() error {
-	w, err := mw.accessor.WatchMachine(mw.tag)
+	ctx, cancel := mw.scopedContext()
+	defer cancel()
+
+	w, err := mw.accessor.WatchMachine(ctx, mw.tag)
 	if err != nil {
 		return errors.Annotate(err, "watching machine")
 	}
@@ -153,4 +158,8 @@ func (mw *machineWatcher) Kill() {
 // Wait is part of the worker.Worker interface.
 func (mw *machineWatcher) Wait() error {
 	return mw.catacomb.Wait()
+}
+
+func (mw *machineWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(mw.catacomb.Context(context.Background()))
 }

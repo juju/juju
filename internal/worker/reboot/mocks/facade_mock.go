@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	watcher "github.com/juju/juju/core/watcher"
@@ -41,17 +42,17 @@ func (m *MockClient) EXPECT() *MockClientMockRecorder {
 }
 
 // ClearReboot mocks base method.
-func (m *MockClient) ClearReboot() error {
+func (m *MockClient) ClearReboot(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClearReboot")
+	ret := m.ctrl.Call(m, "ClearReboot", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ClearReboot indicates an expected call of ClearReboot.
-func (mr *MockClientMockRecorder) ClearReboot() *MockClientClearRebootCall {
+func (mr *MockClientMockRecorder) ClearReboot(arg0 any) *MockClientClearRebootCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearReboot", reflect.TypeOf((*MockClient)(nil).ClearReboot))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearReboot", reflect.TypeOf((*MockClient)(nil).ClearReboot), arg0)
 	return &MockClientClearRebootCall{Call: call}
 }
 
@@ -67,30 +68,30 @@ func (c *MockClientClearRebootCall) Return(arg0 error) *MockClientClearRebootCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockClientClearRebootCall) Do(f func() error) *MockClientClearRebootCall {
+func (c *MockClientClearRebootCall) Do(f func(context.Context) error) *MockClientClearRebootCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClientClearRebootCall) DoAndReturn(f func() error) *MockClientClearRebootCall {
+func (c *MockClientClearRebootCall) DoAndReturn(f func(context.Context) error) *MockClientClearRebootCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetRebootAction mocks base method.
-func (m *MockClient) GetRebootAction() (params.RebootAction, error) {
+func (m *MockClient) GetRebootAction(arg0 context.Context) (params.RebootAction, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRebootAction")
+	ret := m.ctrl.Call(m, "GetRebootAction", arg0)
 	ret0, _ := ret[0].(params.RebootAction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetRebootAction indicates an expected call of GetRebootAction.
-func (mr *MockClientMockRecorder) GetRebootAction() *MockClientGetRebootActionCall {
+func (mr *MockClientMockRecorder) GetRebootAction(arg0 any) *MockClientGetRebootActionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRebootAction", reflect.TypeOf((*MockClient)(nil).GetRebootAction))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRebootAction", reflect.TypeOf((*MockClient)(nil).GetRebootAction), arg0)
 	return &MockClientGetRebootActionCall{Call: call}
 }
 
@@ -106,29 +107,29 @@ func (c *MockClientGetRebootActionCall) Return(arg0 params.RebootAction, arg1 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockClientGetRebootActionCall) Do(f func() (params.RebootAction, error)) *MockClientGetRebootActionCall {
+func (c *MockClientGetRebootActionCall) Do(f func(context.Context) (params.RebootAction, error)) *MockClientGetRebootActionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClientGetRebootActionCall) DoAndReturn(f func() (params.RebootAction, error)) *MockClientGetRebootActionCall {
+func (c *MockClientGetRebootActionCall) DoAndReturn(f func(context.Context) (params.RebootAction, error)) *MockClientGetRebootActionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RequestReboot mocks base method.
-func (m *MockClient) RequestReboot() error {
+func (m *MockClient) RequestReboot(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RequestReboot")
+	ret := m.ctrl.Call(m, "RequestReboot", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RequestReboot indicates an expected call of RequestReboot.
-func (mr *MockClientMockRecorder) RequestReboot() *MockClientRequestRebootCall {
+func (mr *MockClientMockRecorder) RequestReboot(arg0 any) *MockClientRequestRebootCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestReboot", reflect.TypeOf((*MockClient)(nil).RequestReboot))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestReboot", reflect.TypeOf((*MockClient)(nil).RequestReboot), arg0)
 	return &MockClientRequestRebootCall{Call: call}
 }
 
@@ -144,30 +145,30 @@ func (c *MockClientRequestRebootCall) Return(arg0 error) *MockClientRequestReboo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockClientRequestRebootCall) Do(f func() error) *MockClientRequestRebootCall {
+func (c *MockClientRequestRebootCall) Do(f func(context.Context) error) *MockClientRequestRebootCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClientRequestRebootCall) DoAndReturn(f func() error) *MockClientRequestRebootCall {
+func (c *MockClientRequestRebootCall) DoAndReturn(f func(context.Context) error) *MockClientRequestRebootCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchForRebootEvent mocks base method.
-func (m *MockClient) WatchForRebootEvent() (watcher.Watcher[struct{}], error) {
+func (m *MockClient) WatchForRebootEvent(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchForRebootEvent")
+	ret := m.ctrl.Call(m, "WatchForRebootEvent", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchForRebootEvent indicates an expected call of WatchForRebootEvent.
-func (mr *MockClientMockRecorder) WatchForRebootEvent() *MockClientWatchForRebootEventCall {
+func (mr *MockClientMockRecorder) WatchForRebootEvent(arg0 any) *MockClientWatchForRebootEventCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchForRebootEvent", reflect.TypeOf((*MockClient)(nil).WatchForRebootEvent))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchForRebootEvent", reflect.TypeOf((*MockClient)(nil).WatchForRebootEvent), arg0)
 	return &MockClientWatchForRebootEventCall{Call: call}
 }
 
@@ -183,13 +184,13 @@ func (c *MockClientWatchForRebootEventCall) Return(arg0 watcher.Watcher[struct{}
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockClientWatchForRebootEventCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockClientWatchForRebootEventCall {
+func (c *MockClientWatchForRebootEventCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockClientWatchForRebootEventCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClientWatchForRebootEventCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockClientWatchForRebootEventCall {
+func (c *MockClientWatchForRebootEventCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockClientWatchForRebootEventCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

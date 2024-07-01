@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	secretsdrain "github.com/juju/juju/api/common/secretsdrain"
@@ -42,18 +43,18 @@ func (m *MockSecretsDrainFacade) EXPECT() *MockSecretsDrainFacadeMockRecorder {
 }
 
 // ChangeSecretBackend mocks base method.
-func (m *MockSecretsDrainFacade) ChangeSecretBackend(arg0 []secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error) {
+func (m *MockSecretsDrainFacade) ChangeSecretBackend(arg0 context.Context, arg1 []secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChangeSecretBackend", arg0)
+	ret := m.ctrl.Call(m, "ChangeSecretBackend", arg0, arg1)
 	ret0, _ := ret[0].(secretsdrain.ChangeSecretBackendResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ChangeSecretBackend indicates an expected call of ChangeSecretBackend.
-func (mr *MockSecretsDrainFacadeMockRecorder) ChangeSecretBackend(arg0 any) *MockSecretsDrainFacadeChangeSecretBackendCall {
+func (mr *MockSecretsDrainFacadeMockRecorder) ChangeSecretBackend(arg0, arg1 any) *MockSecretsDrainFacadeChangeSecretBackendCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSecretBackend", reflect.TypeOf((*MockSecretsDrainFacade)(nil).ChangeSecretBackend), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSecretBackend", reflect.TypeOf((*MockSecretsDrainFacade)(nil).ChangeSecretBackend), arg0, arg1)
 	return &MockSecretsDrainFacadeChangeSecretBackendCall{Call: call}
 }
 
@@ -69,30 +70,30 @@ func (c *MockSecretsDrainFacadeChangeSecretBackendCall) Return(arg0 secretsdrain
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretsDrainFacadeChangeSecretBackendCall) Do(f func([]secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error)) *MockSecretsDrainFacadeChangeSecretBackendCall {
+func (c *MockSecretsDrainFacadeChangeSecretBackendCall) Do(f func(context.Context, []secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error)) *MockSecretsDrainFacadeChangeSecretBackendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretsDrainFacadeChangeSecretBackendCall) DoAndReturn(f func([]secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error)) *MockSecretsDrainFacadeChangeSecretBackendCall {
+func (c *MockSecretsDrainFacadeChangeSecretBackendCall) DoAndReturn(f func(context.Context, []secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error)) *MockSecretsDrainFacadeChangeSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetSecretsToDrain mocks base method.
-func (m *MockSecretsDrainFacade) GetSecretsToDrain() ([]secrets.SecretMetadataForDrain, error) {
+func (m *MockSecretsDrainFacade) GetSecretsToDrain(arg0 context.Context) ([]secrets.SecretMetadataForDrain, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretsToDrain")
+	ret := m.ctrl.Call(m, "GetSecretsToDrain", arg0)
 	ret0, _ := ret[0].([]secrets.SecretMetadataForDrain)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecretsToDrain indicates an expected call of GetSecretsToDrain.
-func (mr *MockSecretsDrainFacadeMockRecorder) GetSecretsToDrain() *MockSecretsDrainFacadeGetSecretsToDrainCall {
+func (mr *MockSecretsDrainFacadeMockRecorder) GetSecretsToDrain(arg0 any) *MockSecretsDrainFacadeGetSecretsToDrainCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretsToDrain", reflect.TypeOf((*MockSecretsDrainFacade)(nil).GetSecretsToDrain))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretsToDrain", reflect.TypeOf((*MockSecretsDrainFacade)(nil).GetSecretsToDrain), arg0)
 	return &MockSecretsDrainFacadeGetSecretsToDrainCall{Call: call}
 }
 
@@ -108,30 +109,30 @@ func (c *MockSecretsDrainFacadeGetSecretsToDrainCall) Return(arg0 []secrets.Secr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretsDrainFacadeGetSecretsToDrainCall) Do(f func() ([]secrets.SecretMetadataForDrain, error)) *MockSecretsDrainFacadeGetSecretsToDrainCall {
+func (c *MockSecretsDrainFacadeGetSecretsToDrainCall) Do(f func(context.Context) ([]secrets.SecretMetadataForDrain, error)) *MockSecretsDrainFacadeGetSecretsToDrainCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretsDrainFacadeGetSecretsToDrainCall) DoAndReturn(f func() ([]secrets.SecretMetadataForDrain, error)) *MockSecretsDrainFacadeGetSecretsToDrainCall {
+func (c *MockSecretsDrainFacadeGetSecretsToDrainCall) DoAndReturn(f func(context.Context) ([]secrets.SecretMetadataForDrain, error)) *MockSecretsDrainFacadeGetSecretsToDrainCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchSecretBackendChanged mocks base method.
-func (m *MockSecretsDrainFacade) WatchSecretBackendChanged() (watcher.Watcher[struct{}], error) {
+func (m *MockSecretsDrainFacade) WatchSecretBackendChanged(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchSecretBackendChanged")
+	ret := m.ctrl.Call(m, "WatchSecretBackendChanged", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchSecretBackendChanged indicates an expected call of WatchSecretBackendChanged.
-func (mr *MockSecretsDrainFacadeMockRecorder) WatchSecretBackendChanged() *MockSecretsDrainFacadeWatchSecretBackendChangedCall {
+func (mr *MockSecretsDrainFacadeMockRecorder) WatchSecretBackendChanged(arg0 any) *MockSecretsDrainFacadeWatchSecretBackendChangedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretBackendChanged", reflect.TypeOf((*MockSecretsDrainFacade)(nil).WatchSecretBackendChanged))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchSecretBackendChanged", reflect.TypeOf((*MockSecretsDrainFacade)(nil).WatchSecretBackendChanged), arg0)
 	return &MockSecretsDrainFacadeWatchSecretBackendChangedCall{Call: call}
 }
 
@@ -147,13 +148,13 @@ func (c *MockSecretsDrainFacadeWatchSecretBackendChangedCall) Return(arg0 watche
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretsDrainFacadeWatchSecretBackendChangedCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockSecretsDrainFacadeWatchSecretBackendChangedCall {
+func (c *MockSecretsDrainFacadeWatchSecretBackendChangedCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockSecretsDrainFacadeWatchSecretBackendChangedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretsDrainFacadeWatchSecretBackendChangedCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockSecretsDrainFacadeWatchSecretBackendChangedCall {
+func (c *MockSecretsDrainFacadeWatchSecretBackendChangedCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockSecretsDrainFacadeWatchSecretBackendChangedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

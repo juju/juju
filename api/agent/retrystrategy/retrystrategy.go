@@ -35,12 +35,12 @@ func NewClient(apiCaller base.APICaller, options ...Option) *Client {
 }
 
 // RetryStrategy returns the configuration for the agent specified by the agentTag.
-func (c *Client) RetryStrategy(agentTag names.Tag) (params.RetryStrategy, error) {
+func (c *Client) RetryStrategy(ctx context.Context, agentTag names.Tag) (params.RetryStrategy, error) {
 	var results params.RetryStrategyResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "RetryStrategy", args, &results)
+	err := c.facade.FacadeCall(ctx, "RetryStrategy", args, &results)
 	if err != nil {
 		return params.RetryStrategy{}, errors.Trace(err)
 	}
@@ -57,12 +57,12 @@ func (c *Client) RetryStrategy(agentTag names.Tag) (params.RetryStrategy, error)
 // WatchRetryStrategy returns a notify watcher that looks for changes in the
 // retry strategy config for the agent specified by agentTag
 // Right now only the boolean that decides whether we retry can be modified.
-func (c *Client) WatchRetryStrategy(agentTag names.Tag) (watcher.NotifyWatcher, error) {
+func (c *Client) WatchRetryStrategy(ctx context.Context, agentTag names.Tag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "WatchRetryStrategy", args, &results)
+	err := c.facade.FacadeCall(ctx, "WatchRetryStrategy", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

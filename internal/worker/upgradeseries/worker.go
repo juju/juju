@@ -149,7 +149,7 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange(ctx context.Context) err
 	defer w.mu.Unlock()
 
 	var err error
-	if w.machineStatus, err = w.MachineStatus(); err != nil {
+	if w.machineStatus, err = w.MachineStatus(ctx); err != nil {
 		if errors.Is(err, errors.NotFound) {
 			// No upgrade-series lock. This can happen when:
 			// - The first watch call is made.
@@ -175,17 +175,17 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange(ctx context.Context) err
 
 	switch w.machineStatus {
 	case model.UpgradeSeriesValidate:
-		err = w.handleValidate()
+		err = w.handleValidate(ctx)
 	case model.UpgradeSeriesPrepareStarted:
 		err = w.handlePrepareStarted(ctx)
 	case model.UpgradeSeriesCompleteStarted:
-		err = w.handleCompleteStarted()
+		err = w.handleCompleteStarted(ctx)
 	case model.UpgradeSeriesCompleted:
 		err = w.handleCompleted(ctx)
 	}
 
 	if err != nil {
-		if err := w.SetInstanceStatus(model.UpgradeSeriesError, err.Error()); err != nil {
+		if err := w.SetInstanceStatus(ctx, model.UpgradeSeriesError, err.Error()); err != nil {
 			w.logger.Errorf("failed to set series upgrade error status: %s", err.Error())
 		}
 	}
@@ -194,8 +194,8 @@ func (w *upgradeSeriesWorker) handleUpgradeSeriesChange(ctx context.Context) err
 
 // handleValidate handles the workflow for the machine with validating the
 // given set of machine applications and charms.
-func (w *upgradeSeriesWorker) handleValidate() error {
-	if err := w.SetInstanceStatus(model.UpgradeSeriesValidate, "validating units"); err != nil {
+func (w *upgradeSeriesWorker) handleValidate(ctx context.Context) error {
+	if err := w.SetInstanceStatus(ctx, model.UpgradeSeriesValidate, "validating units"); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -205,7 +205,7 @@ func (w *upgradeSeriesWorker) handleValidate() error {
 // lock status of "UpgradeSeriesPrepareStarted"
 func (w *upgradeSeriesWorker) handlePrepareStarted(ctx context.Context) error {
 	var err error
-	if err = w.SetInstanceStatus(model.UpgradeSeriesPrepareStarted, "preparing units"); err != nil {
+	if err = w.SetInstanceStatus(ctx, model.UpgradeSeriesPrepareStarted, "preparing units"); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -215,7 +215,7 @@ func (w *upgradeSeriesWorker) handlePrepareStarted(ctx context.Context) error {
 		}
 	}
 
-	if w.preparedUnits, err = w.UnitsPrepared(); err != nil {
+	if w.preparedUnits, err = w.UnitsPrepared(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -231,14 +231,14 @@ func (w *upgradeSeriesWorker) handlePrepareStarted(ctx context.Context) error {
 		return nil
 	}
 
-	return errors.Trace(w.transitionPrepareComplete())
+	return errors.Trace(w.transitionPrepareComplete(ctx))
 }
 
 // transitionPrepareComplete rewrites service unit files for unit agents running
 // on this machine so that they are compatible with the init system of the
 // series upgrade target.
-func (w *upgradeSeriesWorker) transitionPrepareComplete() error {
-	if err := w.SetInstanceStatus(model.UpgradeSeriesPrepareStarted, "completing preparation"); err != nil {
+func (w *upgradeSeriesWorker) transitionPrepareComplete(ctx context.Context) error {
+	if err := w.SetInstanceStatus(ctx, model.UpgradeSeriesPrepareStarted, "completing preparation"); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -251,32 +251,32 @@ func (w *upgradeSeriesWorker) transitionPrepareComplete() error {
 		return errors.Trace(err)
 	}
 
-	if err := w.SetMachineStatus(model.UpgradeSeriesPrepareCompleted, "binaries and service files written"); err != nil {
+	if err := w.SetMachineStatus(ctx, model.UpgradeSeriesPrepareCompleted, "binaries and service files written"); err != nil {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(w.SetInstanceStatus(model.UpgradeSeriesPrepareCompleted, "waiting for completion command"))
+	return errors.Trace(w.SetInstanceStatus(ctx, model.UpgradeSeriesPrepareCompleted, "waiting for completion command"))
 }
 
-func (w *upgradeSeriesWorker) handleCompleteStarted() error {
-	if err := w.SetInstanceStatus(model.UpgradeSeriesCompleteStarted, "waiting for units"); err != nil {
+func (w *upgradeSeriesWorker) handleCompleteStarted(ctx context.Context) error {
+	if err := w.SetInstanceStatus(ctx, model.UpgradeSeriesCompleteStarted, "waiting for units"); err != nil {
 		return errors.Trace(err)
 	}
 
 	var err error
-	if w.preparedUnits, err = w.UnitsPrepared(); err != nil {
+	if w.preparedUnits, err = w.UnitsPrepared(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
 	// If all the units are prepared, tell them to start.
 	prepared := names.NewSet(asGenericTags(w.preparedUnits)...)
 	if remaining := w.units.Difference(prepared); remaining.Size() == 0 && len(w.units) > 0 {
-		return errors.Trace(w.StartUnitCompletion("start units after series upgrade"))
+		return errors.Trace(w.StartUnitCompletion(ctx, "start units after series upgrade"))
 	}
 
 	// If the units have all completed their workflow, then we are done.
 	// Make the final update to the lock to say the machine is completed.
-	if w.completedUnits, err = w.UnitsCompleted(); err != nil {
+	if w.completedUnits, err = w.UnitsCompleted(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -293,13 +293,13 @@ func (w *upgradeSeriesWorker) handleCompleteStarted() error {
 	}
 
 	w.logger.Infof("series upgrade complete")
-	return errors.Trace(w.SetMachineStatus(model.UpgradeSeriesCompleted, "series upgrade complete"))
+	return errors.Trace(w.SetMachineStatus(ctx, model.UpgradeSeriesCompleted, "series upgrade complete"))
 }
 
 // handleCompleted notifies the server that it has completed the upgrade
 // workflow, then unpins leadership for applications running on the machine.
 func (w *upgradeSeriesWorker) handleCompleted(ctx context.Context) error {
-	if err := w.SetInstanceStatus(model.UpgradeSeriesCompleted, "finalising upgrade"); err != nil {
+	if err := w.SetInstanceStatus(ctx, model.UpgradeSeriesCompleted, "finalising upgrade"); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -307,14 +307,14 @@ func (w *upgradeSeriesWorker) handleCompleted(ctx context.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err = w.FinishUpgradeSeries(b); err != nil {
+	if err = w.FinishUpgradeSeries(ctx, b); err != nil {
 		return errors.Trace(err)
 	}
 	if err = w.unpinLeaders(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(w.SetInstanceStatus(model.UpgradeSeriesCompleted, "success"))
+	return errors.Trace(w.SetInstanceStatus(ctx, model.UpgradeSeriesCompleted, "success"))
 }
 
 // pinLeaders pins leadership for applications

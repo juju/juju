@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -77,20 +78,20 @@ func NewContainerSetup(params ContainerSetupParams) *ContainerSetup {
 	}
 }
 
-func (cs *ContainerSetup) initialiseContainers(abort <-chan struct{}) error {
+func (cs *ContainerSetup) initialiseContainers(ctx context.Context, abort <-chan struct{}) error {
 	cs.logger.Debugf("setup for %s containers", cs.containerType)
-	managerConfig, err := containerManagerConfig(cs.containerType, cs.provisioner)
+	managerConfig, err := containerManagerConfig(ctx, cs.containerType, cs.provisioner)
 	if err != nil {
 		return errors.Annotate(err, "generating container manager config")
 	}
 	cs.managerConfig = managerConfig
-	err = cs.initContainerDependencies(abort, managerConfig)
+	err = cs.initContainerDependencies(ctx, abort, managerConfig)
 	return errors.Annotate(err, "setting up container dependencies on host machine")
 }
 
 // initContainerDependencies ensures that the host machine is set-up to manage
 // containers of the input type.
-func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, managerCfg container.ManagerConfig) error {
+func (cs *ContainerSetup) initContainerDependencies(ctx context.Context, abort <-chan struct{}, managerCfg container.ManagerConfig) error {
 	snapChannels := map[string]string{
 		"lxd": managerCfg.PopValue(config.LXDSnapChannel),
 	}
@@ -123,7 +124,7 @@ func (cs *ContainerSetup) initContainerDependencies(abort <-chan struct{}, manag
 		machineTag := cs.mTag
 		cs.logger.Tracef("updating observed network config for %q %s containers to %#v",
 			machineTag, cs.containerType, observedConfig)
-		if err := cs.provisioner.SetHostMachineNetworkConfig(machineTag, observedConfig); err != nil {
+		if err := cs.provisioner.SetHostMachineNetworkConfig(ctx, machineTag, observedConfig); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -159,12 +160,12 @@ var getContainerInitialiser = func(
 	return lxd.NewContainerInitialiser(snapChannels["lxd"], containerNetworkingMethod), nil
 }
 
-func (cs *ContainerSetup) initialiseContainerProvisioner() (Provisioner, error) {
+func (cs *ContainerSetup) initialiseContainerProvisioner(ctx context.Context) (Provisioner, error) {
 	cs.logger.Debugf("setup provisioner for %s containers", cs.containerType)
 	if cs.managerConfig == nil {
 		return nil, errors.NotValidf("Programming error, manager config not setup")
 	}
-	managerConfigWithZones, err := broker.ConfigureAvailabilityZone(cs.managerConfig, cs.machineZone)
+	managerConfigWithZones, err := broker.ConfigureAvailabilityZone(ctx, cs.managerConfig, cs.machineZone)
 	if err != nil {
 		return nil, errors.Annotate(err, "configuring availability zones")
 	}
@@ -201,10 +202,12 @@ func (cs *ContainerSetup) initialiseContainerProvisioner() (Provisioner, error) 
 }
 
 func containerManagerConfig(
+	ctx context.Context,
 	containerType instance.ContainerType, configGetter ContainerManagerConfigGetter,
 ) (container.ManagerConfig, error) {
 	// Ask the configGetter for the container manager configuration.
 	managerConfigResult, err := configGetter.ContainerManagerConfig(
+		ctx,
 		params.ContainerManagerConfigParams{Type: containerType},
 	)
 	if err != nil {
@@ -215,5 +218,5 @@ func containerManagerConfig(
 }
 
 type ContainerManagerConfigGetter interface {
-	ContainerManagerConfig(params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)
+	ContainerManagerConfig(context.Context, params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)
 }

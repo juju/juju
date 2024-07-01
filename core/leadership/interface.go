@@ -4,6 +4,7 @@
 package leadership
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -61,12 +62,12 @@ type Claimer interface {
 	// ClaimLeadership claims leadership of the named application on behalf of the
 	// named unit. If no error is returned, leadership will be guaranteed for
 	// at least the supplied duration from the point when the call was made.
-	ClaimLeadership(applicationId, unitId string, duration time.Duration) error
+	ClaimLeadership(ctx context.Context, applicationId, unitId string, duration time.Duration) error
 
 	// BlockUntilLeadershipReleased blocks until the named application is known
 	// to have no leader, in which case it returns no error; or until the
 	// manager is stopped, in which case it will fail.
-	BlockUntilLeadershipReleased(applicationId string, cancel <-chan struct{}) (err error)
+	BlockUntilLeadershipReleased(ctx context.Context, applicationId string, cancel <-chan struct{}) (err error)
 }
 
 // Revoker exposes leadership revocation capabilities.

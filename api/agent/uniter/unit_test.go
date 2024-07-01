@@ -71,7 +71,7 @@ func (s *unitSuite) TestSetAgentStatus(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.SetAgentStatus(status.Idle, "blah", map[string]interface{}{"foo": "bar"})
+	err := unit.SetAgentStatus(context.Background(), status.Idle, "blah", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
@@ -145,7 +145,7 @@ func (s *unitSuite) TestEnsureDead(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.EnsureDead()
+	err := unit.EnsureDead(context.Background())
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
@@ -163,7 +163,7 @@ func (s *unitSuite) TestDestroy(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.Destroy()
+	err := unit.Destroy(context.Background())
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
@@ -181,7 +181,7 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.DestroyAllSubordinates()
+	err := unit.DestroyAllSubordinates(context.Background())
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
@@ -224,7 +224,7 @@ func (s *unitSuite) TestClearResolved(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.ClearResolved()
+	err := unit.ClearResolved(context.Background())
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
@@ -287,7 +287,7 @@ func (s *unitSuite) TestWatchRelations(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.WatchRelations()
+	w, err := unit.WatchRelations(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
@@ -312,7 +312,7 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	tag, err := unit.AssignedMachine()
+	tag, err := unit.AssignedMachine(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(tag, gc.Equals, names.NewMachineTag("666"))
 }
@@ -334,7 +334,7 @@ func (s *unitSuite) TestPrincipalName(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	name, ok, err := unit.PrincipalName()
+	name, ok, err := unit.PrincipalName(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "wordpress/0")
 	c.Assert(ok, jc.IsTrue)
@@ -356,7 +356,7 @@ func (s *unitSuite) TestHasSubordinates(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	ok, err := unit.HasSubordinates()
+	ok, err := unit.HasSubordinates(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ok, jc.IsTrue)
 }
@@ -377,7 +377,7 @@ func (s *unitSuite) TestPublicAddress(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	address, err := unit.PublicAddress()
+	address, err := unit.PublicAddress(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, gc.Equals, "1.1.1.1")
 }
@@ -398,7 +398,7 @@ func (s *unitSuite) TestPrivateAddress(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	address, err := unit.PrivateAddress()
+	address, err := unit.PrivateAddress(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, gc.Equals, "1.1.1.1")
 }
@@ -419,7 +419,7 @@ func (s *unitSuite) TestAvailabilityZone(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	address, err := unit.AvailabilityZone()
+	address, err := unit.AvailabilityZone(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(address, gc.Equals, "a-zone")
 }
@@ -440,7 +440,7 @@ func (s *unitSuite) TestCharmURL(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	curl, err := unit.CharmURL()
+	curl, err := unit.CharmURL(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.Equals, "ch:mysql")
 }
@@ -463,7 +463,7 @@ func (s *unitSuite) TestSetCharmURL(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.SetCharmURL("ch:mysql")
+	err := unit.SetCharmURL(context.Background(), "ch:mysql")
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
@@ -492,7 +492,7 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	result, err := unit.NetworkInfo([]string{"server"}, &relId)
+	result, err := unit.NetworkInfo(context.Background(), []string{"server"}, &relId)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result["db"].Error, gc.ErrorMatches, "FAIL")
 }
@@ -514,7 +514,7 @@ func (s *unitSuite) TestConfigSettings(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	settings, err := unit.ConfigSettings()
+	settings, err := unit.ConfigSettings(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"foo": "bar",
@@ -544,7 +544,7 @@ func (s *unitSuite) TestWatchConfigSettingsHash(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.WatchConfigSettingsHash()
+	w, err := unit.WatchConfigSettingsHash(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
@@ -576,7 +576,7 @@ func (s *unitSuite) TestWatchTrustConfigSettingsHash(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.WatchTrustConfigSettingsHash()
+	w, err := unit.WatchTrustConfigSettingsHash(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
@@ -608,7 +608,7 @@ func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.WatchAddressesHash()
+	w, err := unit.WatchAddressesHash(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
@@ -720,7 +720,7 @@ func (s *unitSuite) TestRelationStatus(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	relStatus, err := unit.RelationsStatus()
+	relStatus, err := unit.RelationsStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(relStatus, jc.DeepEquals, []uniter.RelationStatus{{
 		Tag:       names.NewRelationTag("wordpress:server mysql:db"),
@@ -802,7 +802,7 @@ func (s *unitSuite) TestWatchInstanceData(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.WatchInstanceData()
+	w, err := unit.WatchInstanceData(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewNotifyWatcherC(c, w)
 	defer wc.AssertStops()
@@ -831,7 +831,7 @@ func (s *unitSuite) TestLXDProfileName(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	profile, err := unit.LXDProfileName()
+	profile, err := unit.LXDProfileName(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(profile, gc.Equals, "juju-default-mysql-0")
 }
@@ -851,7 +851,7 @@ func (s *unitSuite) TestCanApplyLXDProfile(c *gc.C) {
 	})
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	canApply, err := unit.CanApplyLXDProfile()
+	canApply, err := unit.CanApplyLXDProfile(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(canApply, jc.IsTrue)
 }

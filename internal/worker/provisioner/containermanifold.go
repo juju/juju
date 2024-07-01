@@ -24,7 +24,7 @@ import (
 	workercommon "github.com/juju/juju/internal/worker/common"
 )
 
-type GetContainerWatcherFunc func() (watcher.StringsWatcher, error)
+type GetContainerWatcherFunc func(context.Context) (watcher.StringsWatcher, error)
 
 // ContainerProvisioningManifold creates a manifold that runs a
 // container provisioner.
@@ -119,18 +119,18 @@ func (cfg ContainerManifoldConfig) start(ctx context.Context, getter dependency.
 		GetNetConfig:  network.GetObservedNetworkConfig,
 	})
 
-	getContainerWatcherFunc := func() (watcher.StringsWatcher, error) {
-		return machine.WatchContainers(cfg.ContainerType)
+	getContainerWatcherFunc := func(ctx context.Context) (watcher.StringsWatcher, error) {
+		return machine.WatchContainers(ctx, cfg.ContainerType)
 	}
 
-	return NewContainerSetupAndProvisioner(cs, getContainerWatcherFunc)
+	return NewContainerSetupAndProvisioner(ctx, cs, getContainerWatcherFunc)
 }
 
 type ContainerMachine interface {
-	AvailabilityZone() (string, error)
+	AvailabilityZone(context.Context) (string, error)
 	Life() life.Value
-	SupportedContainers() ([]instance.ContainerType, bool, error)
-	WatchContainers(ctype instance.ContainerType) (watcher.StringsWatcher, error)
+	SupportedContainers(context.Context) ([]instance.ContainerType, bool, error)
+	WatchContainers(_ context.Context, ctype instance.ContainerType) (watcher.StringsWatcher, error)
 }
 
 type ContainerMachineGetter interface {
@@ -170,7 +170,7 @@ func (cfg ContainerManifoldConfig) machineSupportsContainers(ctx context.Context
 		return nil, dependency.ErrUninstall
 	}
 	machine := result[0].Machine
-	types, known, err := machine.SupportedContainers()
+	types, known, err := machine.SupportedContainers(ctx)
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrieving supported container types")
 	}

@@ -128,19 +128,19 @@ func (s *relationUnitSuite) TestEndpoint(c *gc.C) {
 
 func (s *relationUnitSuite) TestEnterScope(c *gc.C) {
 	relUnit := s.getRelationUnit(c)
-	err := relUnit.EnterScope()
+	err := relUnit.EnterScope(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
 func (s *relationUnitSuite) TestLeaveScope(c *gc.C) {
 	relUnit := s.getRelationUnit(c)
-	err := relUnit.LeaveScope()
+	err := relUnit.LeaveScope(context.Background())
 	c.Assert(err, gc.ErrorMatches, "bam")
 }
 
 func (s *relationUnitSuite) TestSettings(c *gc.C) {
 	relUnit := s.getRelationUnit(c)
-	gotSettings, err := relUnit.Settings()
+	gotSettings, err := relUnit.Settings(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
 		"some":  "settings",
@@ -150,7 +150,7 @@ func (s *relationUnitSuite) TestSettings(c *gc.C) {
 
 func (s *relationUnitSuite) TestApplicationSettings(c *gc.C) {
 	relUnit := s.getRelationUnit(c)
-	gotSettings, err := relUnit.ApplicationSettings()
+	gotSettings, err := relUnit.ApplicationSettings(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
 		"foo": "bar",

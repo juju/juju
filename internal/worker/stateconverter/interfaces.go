@@ -21,6 +21,6 @@ type Machiner interface {
 // Machine represents necessary methods for this worker from the
 // a machiner's machine.
 type Machine interface {
-	Jobs() (*params.JobsResult, error)
+	Jobs(context.Context) (*params.JobsResult, error)
 	Watch(context.Context) (watcher.NotifyWatcher, error)
 }

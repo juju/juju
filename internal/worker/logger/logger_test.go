@@ -4,6 +4,7 @@
 package logger_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -166,12 +167,12 @@ type mockAPI struct {
 	watchingTag names.Tag
 }
 
-func (m *mockAPI) LoggingConfig(agentTag names.Tag) (string, error) {
+func (m *mockAPI) LoggingConfig(_ context.Context, agentTag names.Tag) (string, error) {
 	m.loggingTag = agentTag
 	return m.config, nil
 }
 
-func (m *mockAPI) WatchLoggingConfig(agentTag names.Tag) (watcher.NotifyWatcher, error) {
+func (m *mockAPI) WatchLoggingConfig(_ context.Context, agentTag names.Tag) (watcher.NotifyWatcher, error) {
 	m.watchingTag = agentTag
 	return m.watcher, nil
 }

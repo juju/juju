@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	machineactions "github.com/juju/juju/api/agent/machineactions"
@@ -43,18 +44,18 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 }
 
 // Action mocks base method.
-func (m *MockFacade) Action(arg0 names.ActionTag) (*machineactions.Action, error) {
+func (m *MockFacade) Action(arg0 context.Context, arg1 names.ActionTag) (*machineactions.Action, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Action", arg0)
+	ret := m.ctrl.Call(m, "Action", arg0, arg1)
 	ret0, _ := ret[0].(*machineactions.Action)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Action indicates an expected call of Action.
-func (mr *MockFacadeMockRecorder) Action(arg0 any) *MockFacadeActionCall {
+func (mr *MockFacadeMockRecorder) Action(arg0, arg1 any) *MockFacadeActionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Action", reflect.TypeOf((*MockFacade)(nil).Action), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Action", reflect.TypeOf((*MockFacade)(nil).Action), arg0, arg1)
 	return &MockFacadeActionCall{Call: call}
 }
 
@@ -70,29 +71,29 @@ func (c *MockFacadeActionCall) Return(arg0 *machineactions.Action, arg1 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeActionCall) Do(f func(names.ActionTag) (*machineactions.Action, error)) *MockFacadeActionCall {
+func (c *MockFacadeActionCall) Do(f func(context.Context, names.ActionTag) (*machineactions.Action, error)) *MockFacadeActionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeActionCall) DoAndReturn(f func(names.ActionTag) (*machineactions.Action, error)) *MockFacadeActionCall {
+func (c *MockFacadeActionCall) DoAndReturn(f func(context.Context, names.ActionTag) (*machineactions.Action, error)) *MockFacadeActionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ActionBegin mocks base method.
-func (m *MockFacade) ActionBegin(arg0 names.ActionTag) error {
+func (m *MockFacade) ActionBegin(arg0 context.Context, arg1 names.ActionTag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActionBegin", arg0)
+	ret := m.ctrl.Call(m, "ActionBegin", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ActionBegin indicates an expected call of ActionBegin.
-func (mr *MockFacadeMockRecorder) ActionBegin(arg0 any) *MockFacadeActionBeginCall {
+func (mr *MockFacadeMockRecorder) ActionBegin(arg0, arg1 any) *MockFacadeActionBeginCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionBegin", reflect.TypeOf((*MockFacade)(nil).ActionBegin), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionBegin", reflect.TypeOf((*MockFacade)(nil).ActionBegin), arg0, arg1)
 	return &MockFacadeActionBeginCall{Call: call}
 }
 
@@ -108,29 +109,29 @@ func (c *MockFacadeActionBeginCall) Return(arg0 error) *MockFacadeActionBeginCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeActionBeginCall) Do(f func(names.ActionTag) error) *MockFacadeActionBeginCall {
+func (c *MockFacadeActionBeginCall) Do(f func(context.Context, names.ActionTag) error) *MockFacadeActionBeginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeActionBeginCall) DoAndReturn(f func(names.ActionTag) error) *MockFacadeActionBeginCall {
+func (c *MockFacadeActionBeginCall) DoAndReturn(f func(context.Context, names.ActionTag) error) *MockFacadeActionBeginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ActionFinish mocks base method.
-func (m *MockFacade) ActionFinish(arg0 names.ActionTag, arg1 string, arg2 map[string]any, arg3 string) error {
+func (m *MockFacade) ActionFinish(arg0 context.Context, arg1 names.ActionTag, arg2 string, arg3 map[string]any, arg4 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActionFinish", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "ActionFinish", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ActionFinish indicates an expected call of ActionFinish.
-func (mr *MockFacadeMockRecorder) ActionFinish(arg0, arg1, arg2, arg3 any) *MockFacadeActionFinishCall {
+func (mr *MockFacadeMockRecorder) ActionFinish(arg0, arg1, arg2, arg3, arg4 any) *MockFacadeActionFinishCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionFinish", reflect.TypeOf((*MockFacade)(nil).ActionFinish), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActionFinish", reflect.TypeOf((*MockFacade)(nil).ActionFinish), arg0, arg1, arg2, arg3, arg4)
 	return &MockFacadeActionFinishCall{Call: call}
 }
 
@@ -146,30 +147,30 @@ func (c *MockFacadeActionFinishCall) Return(arg0 error) *MockFacadeActionFinishC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeActionFinishCall) Do(f func(names.ActionTag, string, map[string]any, string) error) *MockFacadeActionFinishCall {
+func (c *MockFacadeActionFinishCall) Do(f func(context.Context, names.ActionTag, string, map[string]any, string) error) *MockFacadeActionFinishCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeActionFinishCall) DoAndReturn(f func(names.ActionTag, string, map[string]any, string) error) *MockFacadeActionFinishCall {
+func (c *MockFacadeActionFinishCall) DoAndReturn(f func(context.Context, names.ActionTag, string, map[string]any, string) error) *MockFacadeActionFinishCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RunningActions mocks base method.
-func (m *MockFacade) RunningActions(arg0 names.MachineTag) ([]params.ActionResult, error) {
+func (m *MockFacade) RunningActions(arg0 context.Context, arg1 names.MachineTag) ([]params.ActionResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunningActions", arg0)
+	ret := m.ctrl.Call(m, "RunningActions", arg0, arg1)
 	ret0, _ := ret[0].([]params.ActionResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RunningActions indicates an expected call of RunningActions.
-func (mr *MockFacadeMockRecorder) RunningActions(arg0 any) *MockFacadeRunningActionsCall {
+func (mr *MockFacadeMockRecorder) RunningActions(arg0, arg1 any) *MockFacadeRunningActionsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunningActions", reflect.TypeOf((*MockFacade)(nil).RunningActions), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunningActions", reflect.TypeOf((*MockFacade)(nil).RunningActions), arg0, arg1)
 	return &MockFacadeRunningActionsCall{Call: call}
 }
 
@@ -185,30 +186,30 @@ func (c *MockFacadeRunningActionsCall) Return(arg0 []params.ActionResult, arg1 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeRunningActionsCall) Do(f func(names.MachineTag) ([]params.ActionResult, error)) *MockFacadeRunningActionsCall {
+func (c *MockFacadeRunningActionsCall) Do(f func(context.Context, names.MachineTag) ([]params.ActionResult, error)) *MockFacadeRunningActionsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeRunningActionsCall) DoAndReturn(f func(names.MachineTag) ([]params.ActionResult, error)) *MockFacadeRunningActionsCall {
+func (c *MockFacadeRunningActionsCall) DoAndReturn(f func(context.Context, names.MachineTag) ([]params.ActionResult, error)) *MockFacadeRunningActionsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchActionNotifications mocks base method.
-func (m *MockFacade) WatchActionNotifications(arg0 names.MachineTag) (watcher.Watcher[[]string], error) {
+func (m *MockFacade) WatchActionNotifications(arg0 context.Context, arg1 names.MachineTag) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchActionNotifications", arg0)
+	ret := m.ctrl.Call(m, "WatchActionNotifications", arg0, arg1)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchActionNotifications indicates an expected call of WatchActionNotifications.
-func (mr *MockFacadeMockRecorder) WatchActionNotifications(arg0 any) *MockFacadeWatchActionNotificationsCall {
+func (mr *MockFacadeMockRecorder) WatchActionNotifications(arg0, arg1 any) *MockFacadeWatchActionNotificationsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchActionNotifications", reflect.TypeOf((*MockFacade)(nil).WatchActionNotifications), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchActionNotifications", reflect.TypeOf((*MockFacade)(nil).WatchActionNotifications), arg0, arg1)
 	return &MockFacadeWatchActionNotificationsCall{Call: call}
 }
 
@@ -224,13 +225,13 @@ func (c *MockFacadeWatchActionNotificationsCall) Return(arg0 watcher.Watcher[[]s
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeWatchActionNotificationsCall) Do(f func(names.MachineTag) (watcher.Watcher[[]string], error)) *MockFacadeWatchActionNotificationsCall {
+func (c *MockFacadeWatchActionNotificationsCall) Do(f func(context.Context, names.MachineTag) (watcher.Watcher[[]string], error)) *MockFacadeWatchActionNotificationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeWatchActionNotificationsCall) DoAndReturn(f func(names.MachineTag) (watcher.Watcher[[]string], error)) *MockFacadeWatchActionNotificationsCall {
+func (c *MockFacadeWatchActionNotificationsCall) DoAndReturn(f func(context.Context, names.MachineTag) (watcher.Watcher[[]string], error)) *MockFacadeWatchActionNotificationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

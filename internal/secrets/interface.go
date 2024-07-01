@@ -4,6 +4,8 @@
 package secrets
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -77,39 +79,39 @@ func (p *UpdateParams) Validate() error {
 type JujuAPIClient interface {
 	// GetContentInfo returns info about the content of a secret and the backend config
 	// needed to make a backend client if necessary.
-	GetContentInfo(uri *secrets.URI, label string, refresh, peek bool) (*ContentParams, *provider.ModelBackendConfig, bool, error)
+	GetContentInfo(ctx context.Context, uri *secrets.URI, label string, refresh, peek bool) (*ContentParams, *provider.ModelBackendConfig, bool, error)
 	// GetRevisionContentInfo returns info about the content of a secret revision and the backend config
 	// needed to make a backend client if necessary.
 	// If pendingDelete is true, the revision is marked for deletion.
-	GetRevisionContentInfo(uri *secrets.URI, revision int, pendingDelete bool) (*ContentParams, *provider.ModelBackendConfig, bool, error)
+	GetRevisionContentInfo(ctx context.Context, uri *secrets.URI, revision int, pendingDelete bool) (*ContentParams, *provider.ModelBackendConfig, bool, error)
 	// GetSecretBackendConfig fetches the config needed to make secret backend clients.
 	// If backendID is nil, return the current active backend (if any).
-	GetSecretBackendConfig(backendID *string) (*provider.ModelBackendConfigInfo, error)
+	GetSecretBackendConfig(ctx context.Context, backendID *string) (*provider.ModelBackendConfigInfo, error)
 
 	// GetBackendConfigForDrain fetches the config needed to make a secret backend client for the drain worker.
-	GetBackendConfigForDrain(backendID *string) (*provider.ModelBackendConfig, string, error)
+	GetBackendConfigForDrain(ctx context.Context, backendID *string) (*provider.ModelBackendConfig, string, error)
 }
 
 // BackendsClient provides access to a client which can access secret backends.
 type BackendsClient interface {
 	// GetContent returns the content of a secret, either from an external backend if
 	// one is configured, or from Juju.
-	GetContent(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error)
+	GetContent(ctx context.Context, uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error)
 
 	// GetRevisionContent returns the content of a secret revision, either from an external backend if
 	// one is configured, or from Juju.
-	GetRevisionContent(uri *secrets.URI, revision int) (secrets.SecretValue, error)
+	GetRevisionContent(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretValue, error)
 
 	// SaveContent saves the content of a secret to an external backend returning the backend id.
-	SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error)
+	SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error)
 
 	// DeleteContent deletes a secret from an external backend
 	// if it exists there.
-	DeleteContent(uri *secrets.URI, revision int) error
+	DeleteContent(ctx context.Context, uri *secrets.URI, revision int) error
 
 	// DeleteExternalContent deletes a secret from an external backend.
-	DeleteExternalContent(ref secrets.ValueRef) error
+	DeleteExternalContent(ctx context.Context, ref secrets.ValueRef) error
 
 	// GetBackend returns the secret client for the provided backend ID.
-	GetBackend(backendID *string, forDrain bool) (provider.SecretsBackend, string, error)
+	GetBackend(ctx context.Context, backendID *string, forDrain bool) (provider.SecretsBackend, string, error)
 }

@@ -158,7 +158,7 @@ func (s *applicationSuite) TestCharmURL(c *gc.C) {
 	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	curl, force, err := app.CharmURL()
+	curl, force, err := app.CharmURL(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(curl, gc.Equals, "ch:mysql")
 	c.Assert(force, jc.IsTrue)
@@ -169,7 +169,7 @@ func (s *applicationSuite) TestCharmModifiedVersion(c *gc.C) {
 	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	ver, err := app.CharmModifiedVersion()
+	ver, err := app.CharmModifiedVersion(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ver, gc.Equals, 1)
 }
@@ -179,7 +179,7 @@ func (s *applicationSuite) TestSetApplicationStatus(c *gc.C) {
 	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = app.SetStatus("mysql/0", status.Blocked, "app blocked", map[string]interface{}{"foo": "bar"})
+	err = app.SetStatus(context.Background(), "mysql/0", status.Blocked, "app blocked", map[string]interface{}{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.statusSet, jc.IsTrue)
 }
@@ -189,7 +189,7 @@ func (s *applicationSuite) TestApplicationStatus(c *gc.C) {
 	app, err := client.Application(context.Background(), names.NewApplicationTag("mysql"))
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, err := app.Status("mysql/0")
+	status, err := app.Status(context.Background(), "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(status, jc.DeepEquals, params.ApplicationStatusResult{
 		Application: params.StatusResult{Status: "alive"},

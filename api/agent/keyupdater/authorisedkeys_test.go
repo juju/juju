@@ -4,6 +4,8 @@
 package keyupdater_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -39,7 +41,7 @@ func (s *keyupdaterSuite) TestAuthorisedKeys(c *gc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := keyupdater.NewClient(apiCaller)
-	keys, err := client.AuthorisedKeys(tag)
+	keys, err := client.AuthorisedKeys(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(keys, gc.DeepEquals, []string{"key1", "key2"})
 }
@@ -62,6 +64,6 @@ func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	})
 	tag := names.NewMachineTag("666")
 	client := keyupdater.NewClient(apiCaller)
-	_, err := client.WatchAuthorisedKeys(tag)
+	_, err := client.WatchAuthorisedKeys(context.Background(), tag)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

@@ -4,6 +4,8 @@
 package caasapplicationprovisioner_test
 
 import (
+	"context"
+
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -59,12 +61,10 @@ func (s *OpsSuite) TestCheckCharmFormatV1(c *gc.C) {
 
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 
-	gomock.InOrder(
-		// Wait till charm is v2
-		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV1, nil),
-	)
+	// Wait till charm is v2
+	facade.EXPECT().ApplicationCharmInfo(gomock.Any(), "test").Return(charmInfoV1, nil)
 
-	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat("test", facade, s.logger)
+	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(context.Background(), "test", facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isOk, jc.IsFalse)
 }
@@ -80,12 +80,10 @@ func (s *OpsSuite) TestCheckCharmFormatV2(c *gc.C) {
 
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 
-	gomock.InOrder(
-		// Wait till charm is v2
-		facade.EXPECT().ApplicationCharmInfo("test").Return(charmInfoV2, nil),
-	)
+	// Wait till charm is v2
+	facade.EXPECT().ApplicationCharmInfo(gomock.Any(), "test").Return(charmInfoV2, nil)
 
-	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat("test", facade, s.logger)
+	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(context.Background(), "test", facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isOk, jc.IsTrue)
 }
@@ -96,13 +94,11 @@ func (s *OpsSuite) TestCheckCharmFormatNotFound(c *gc.C) {
 
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 
-	gomock.InOrder(
-		facade.EXPECT().ApplicationCharmInfo("test").DoAndReturn(func(appName string) (*charmscommon.CharmInfo, error) {
-			return nil, errors.NotFoundf("test charm")
-		}),
-	)
+	facade.EXPECT().ApplicationCharmInfo(gomock.Any(), "test").DoAndReturn(func(_ context.Context, appName string) (*charmscommon.CharmInfo, error) {
+		return nil, errors.NotFoundf("test charm")
+	})
 
-	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat("test", facade, s.logger)
+	isOk, err := caasapplicationprovisioner.AppOps.CheckCharmFormat(context.Background(), "test", facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isOk, jc.IsFalse)
 }
@@ -546,7 +542,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 	}
 	gomock.InOrder(
 		facade.EXPECT().ProvisioningInfo("test").Return(pi, nil),
-		facade.EXPECT().CharmInfo("ch:my-app").Return(&charmInfo, nil),
+		facade.EXPECT().CharmInfo(gomock.Any(), "ch:my-app").Return(&charmInfo, nil),
 		app.EXPECT().Exists().Return(ds, nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
 		facade.EXPECT().ApplicationOCIResources("test").Return(oci, nil),
@@ -556,7 +552,7 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		}),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppAlive("test", app, password, &lastApplied, facade, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppAlive(context.Background(), "test", app, password, &lastApplied, facade, clk, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

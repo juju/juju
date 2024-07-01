@@ -4,6 +4,8 @@
 package environs
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
@@ -19,7 +21,7 @@ import (
 )
 
 // StatusCallbackFunc represents a function that can be called to report a status.
-type StatusCallbackFunc func(settableStatus status.Status, info string, data map[string]interface{}) error
+type StatusCallbackFunc func(ctx context.Context, settableStatus status.Status, info string, data map[string]interface{}) error
 
 // StartInstanceParams holds parameters for the
 // InstanceBroker.StartInstance method.

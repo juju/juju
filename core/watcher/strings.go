@@ -4,6 +4,8 @@
 package watcher
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -26,7 +28,7 @@ type StringsHandler interface {
 	// SetUp is called once when creating a StringsWorker. It must return a
 	// StringsWatcher or an error. The StringsHandler takes responsibility for
 	// stopping any returned watcher and handling any errors.
-	SetUp() (StringsWatcher, error)
+	SetUp(ctx context.Context) (StringsWatcher, error)
 
 	// Handle is called with every value received from the StringsWatcher
 	// returned by SetUp. If it returns an error, the StringsWorker will be
@@ -35,7 +37,7 @@ type StringsHandler interface {
 	// If Handle runs any blocking operations it must pass through, or select
 	// on, the supplied abort channel; this channel will be closed when the
 	// StringsWorker is killed. An aborted Handle should not return an error.
-	Handle(abort <-chan struct{}, changes []string) error
+	Handle(ctx context.Context, changes []string) error
 
 	// TearDown is called once when stopping a StringsWorker, whether or not
 	// SetUp succeeded. It need not concern itself with the StringsWatcher, but
@@ -81,18 +83,21 @@ type StringsWorker struct {
 }
 
 func (sw *StringsWorker) loop() (err error) {
+	ctx, cancel := sw.scopedContext()
+	defer cancel()
+
 	changes := sw.setUp()
 	defer sw.tearDown(err)
-	abort := sw.catacomb.Dying()
+
 	for {
 		select {
-		case <-abort:
+		case <-sw.catacomb.Dying():
 			return sw.catacomb.ErrDying()
 		case strings, ok := <-changes:
 			if !ok {
 				return errors.New("change channel closed")
 			}
-			err = sw.config.Handler.Handle(abort, strings)
+			err = sw.config.Handler.Handle(ctx, strings)
 			if err != nil {
 				return err
 			}
@@ -104,7 +109,10 @@ func (sw *StringsWorker) loop() (err error) {
 // the worker's catacomb; and returns the watcher's changes channel. Any errors
 // encountered kill the worker and cause a nil channel to be returned.
 func (sw *StringsWorker) setUp() <-chan []string {
-	watcher, err := sw.config.Handler.SetUp()
+	ctx, cancel := sw.scopedContext()
+	defer cancel()
+
+	watcher, err := sw.config.Handler.SetUp(ctx)
 	if err != nil {
 		sw.catacomb.Kill(err)
 	}
@@ -144,4 +152,8 @@ func (sw *StringsWorker) Report() map[string]interface{} {
 		return r.Report()
 	}
 	return nil
+}
+
+func (sw *StringsWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(sw.catacomb.Context(context.Background()))
 }

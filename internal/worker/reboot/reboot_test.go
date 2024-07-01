@@ -33,7 +33,7 @@ func (s *rebootSuite) TestStartStop(c *gc.C) {
 	watch := watchertest.NewMockNotifyWatcher(ch)
 
 	client := mocks.NewMockClient(ctrl)
-	client.EXPECT().WatchForRebootEvent().Return(watch, nil)
+	client.EXPECT().WatchForRebootEvent(gomock.Any()).Return(watch, nil)
 	lock := mocks.NewMockLock(ctrl)
 
 	w, err := reboot.NewReboot(client, names.NewMachineTag("666"), lock)
@@ -53,9 +53,9 @@ func (s *rebootSuite) TestWorkerReboot(c *gc.C) {
 	ch <- struct{}{}
 
 	client := mocks.NewMockClient(ctrl)
-	client.EXPECT().WatchForRebootEvent().Return(watch, nil)
-	client.EXPECT().GetRebootAction().Return(params.ShouldReboot, nil)
-	client.EXPECT().ClearReboot().Return(nil)
+	client.EXPECT().WatchForRebootEvent(gomock.Any()).Return(watch, nil)
+	client.EXPECT().GetRebootAction(gomock.Any()).Return(params.ShouldReboot, nil)
+	client.EXPECT().ClearReboot(gomock.Any()).Return(nil)
 
 	lock := mocks.NewMockLock(ctrl)
 	lock.EXPECT().Acquire(machinelock.Spec{
@@ -79,9 +79,9 @@ func (s *rebootSuite) TestContainerShutdown(c *gc.C) {
 	ch <- struct{}{}
 
 	client := mocks.NewMockClient(ctrl)
-	client.EXPECT().WatchForRebootEvent().Return(watch, nil)
-	client.EXPECT().GetRebootAction().Return(params.ShouldShutdown, nil)
-	client.EXPECT().ClearReboot().Return(nil)
+	client.EXPECT().WatchForRebootEvent(gomock.Any()).Return(watch, nil)
+	client.EXPECT().GetRebootAction(gomock.Any()).Return(params.ShouldShutdown, nil)
+	client.EXPECT().ClearReboot(gomock.Any()).Return(nil)
 
 	lock := mocks.NewMockLock(ctrl)
 	lock.EXPECT().Acquire(machinelock.Spec{

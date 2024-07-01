@@ -4,6 +4,8 @@
 package upgrader_test
 
 import (
+	"context"
+
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -41,7 +43,7 @@ func (s *machineUpgraderSuite) TestSetVersion(c *gc.C) {
 
 	})
 	client := upgrader.NewClient(apiCaller)
-	err := client.SetVersion("machine-666", coretesting.CurrentVersion())
+	err := client.SetVersion(context.Background(), "machine-666", coretesting.CurrentVersion())
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -63,7 +65,7 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 
 	})
 	client := upgrader.NewClient(apiCaller)
-	t, err := client.Tools("machine-666")
+	t, err := client.Tools(context.Background(), "machine-666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(t, jc.DeepEquals, toolsResult)
 }
@@ -85,7 +87,7 @@ func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 
 	})
 	client := upgrader.NewClient(apiCaller)
-	_, err := client.WatchAPIVersion("machine-666")
+	_, err := client.WatchAPIVersion(context.Background(), "machine-666")
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -107,7 +109,7 @@ func (s *machineUpgraderSuite) TestDesiredVersion(c *gc.C) {
 
 	})
 	client := upgrader.NewClient(apiCaller)
-	v, err := client.DesiredVersion("machine-666")
+	v, err := client.DesiredVersion(context.Background(), "machine-666")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(v, jc.DeepEquals, versResult)
 }

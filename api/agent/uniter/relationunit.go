@@ -58,7 +58,7 @@ func (ru *RelationUnit) Endpoint() Endpoint {
 // NOTE: Unlike state.RelatioUnit.EnterScope(), this method does not take
 // settings, because uniter only uses this to supply the unit's private
 // address, but this is not done at the server-side by the API.
-func (ru *RelationUnit) EnterScope() error {
+func (ru *RelationUnit) EnterScope(ctx context.Context) error {
 	var result params.ErrorResults
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
@@ -66,7 +66,7 @@ func (ru *RelationUnit) EnterScope() error {
 			Unit:     ru.unitTag.String(),
 		}},
 	}
-	err := ru.client.facade.FacadeCall(context.TODO(), "EnterScope", args, &result)
+	err := ru.client.facade.FacadeCall(ctx, "EnterScope", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -78,7 +78,7 @@ func (ru *RelationUnit) EnterScope() error {
 // of the relation; if the relation is dying when its last member unit
 // leaves, it is removed immediately. It is not an error to leave a scope
 // that the unit is not, or never was, a member of.
-func (ru *RelationUnit) LeaveScope() error {
+func (ru *RelationUnit) LeaveScope(ctx context.Context) error {
 	var result params.ErrorResults
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
@@ -86,7 +86,7 @@ func (ru *RelationUnit) LeaveScope() error {
 			Unit:     ru.unitTag.String(),
 		}},
 	}
-	err := ru.client.facade.FacadeCall(context.TODO(), "LeaveScope", args, &result)
+	err := ru.client.facade.FacadeCall(ctx, "LeaveScope", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -95,7 +95,7 @@ func (ru *RelationUnit) LeaveScope() error {
 
 // Settings returns a Settings which allows access to the unit's settings
 // within the relation.
-func (ru *RelationUnit) Settings() (*Settings, error) {
+func (ru *RelationUnit) Settings(ctx context.Context) (*Settings, error) {
 	var results params.SettingsResults
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
@@ -103,7 +103,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 			Unit:     ru.unitTag.String(),
 		}},
 	}
-	err := ru.client.facade.FacadeCall(context.TODO(), "ReadSettings", args, &results)
+	err := ru.client.facade.FacadeCall(ctx, "ReadSettings", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -120,13 +120,13 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // ApplicationSettings returns a Settings which allows access to this unit's
 // application settings within the relation. This can only be used from the
 // leader unit. Calling it from a non-Leader generates a NotLeader error.
-func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
+func (ru *RelationUnit) ApplicationSettings(ctx context.Context) (*Settings, error) {
 	var result params.SettingsResult
 	arg := params.RelationUnit{
 		Relation: ru.relation.tag.String(),
 		Unit:     ru.unitTag.String(),
 	}
-	if err := ru.client.facade.FacadeCall(context.TODO(), "ReadLocalApplicationSettings", arg, &result); err != nil {
+	if err := ru.client.facade.FacadeCall(ctx, "ReadLocalApplicationSettings", arg, &result); err != nil {
 		return nil, errors.Trace(err)
 	} else if result.Error != nil {
 		return nil, errors.Trace(result.Error)
@@ -141,7 +141,7 @@ func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
 // unit is not grounds for an error, because the unit settings are
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
-func (ru *RelationUnit) ReadSettings(name string) (params.Settings, error) {
+func (ru *RelationUnit) ReadSettings(ctx context.Context, name string) (params.Settings, error) {
 	var tag names.Tag
 	if names.IsValidUnit(name) {
 		tag = names.NewUnitTag(name)
@@ -158,7 +158,7 @@ func (ru *RelationUnit) ReadSettings(name string) (params.Settings, error) {
 			RemoteUnit: tag.String(),
 		}},
 	}
-	err := ru.client.facade.FacadeCall(context.TODO(), "ReadRemoteSettings", args, &results)
+	err := ru.client.facade.FacadeCall(ctx, "ReadRemoteSettings", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -45,18 +45,18 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // ContainerConfig mocks base method.
-func (m *MockState) ContainerConfig() (params.ContainerConfig, error) {
+func (m *MockState) ContainerConfig(arg0 context.Context) (params.ContainerConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerConfig")
+	ret := m.ctrl.Call(m, "ContainerConfig", arg0)
 	ret0, _ := ret[0].(params.ContainerConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContainerConfig indicates an expected call of ContainerConfig.
-func (mr *MockStateMockRecorder) ContainerConfig() *MockStateContainerConfigCall {
+func (mr *MockStateMockRecorder) ContainerConfig(arg0 any) *MockStateContainerConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerConfig", reflect.TypeOf((*MockState)(nil).ContainerConfig))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerConfig", reflect.TypeOf((*MockState)(nil).ContainerConfig), arg0)
 	return &MockStateContainerConfigCall{Call: call}
 }
 
@@ -72,30 +72,30 @@ func (c *MockStateContainerConfigCall) Return(arg0 params.ContainerConfig, arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateContainerConfigCall) Do(f func() (params.ContainerConfig, error)) *MockStateContainerConfigCall {
+func (c *MockStateContainerConfigCall) Do(f func(context.Context) (params.ContainerConfig, error)) *MockStateContainerConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateContainerConfigCall) DoAndReturn(f func() (params.ContainerConfig, error)) *MockStateContainerConfigCall {
+func (c *MockStateContainerConfigCall) DoAndReturn(f func(context.Context) (params.ContainerConfig, error)) *MockStateContainerConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ContainerManagerConfig mocks base method.
-func (m *MockState) ContainerManagerConfig(arg0 params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
+func (m *MockState) ContainerManagerConfig(arg0 context.Context, arg1 params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainerManagerConfig", arg0)
+	ret := m.ctrl.Call(m, "ContainerManagerConfig", arg0, arg1)
 	ret0, _ := ret[0].(params.ContainerManagerConfig)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ContainerManagerConfig indicates an expected call of ContainerManagerConfig.
-func (mr *MockStateMockRecorder) ContainerManagerConfig(arg0 any) *MockStateContainerManagerConfigCall {
+func (mr *MockStateMockRecorder) ContainerManagerConfig(arg0, arg1 any) *MockStateContainerManagerConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerManagerConfig", reflect.TypeOf((*MockState)(nil).ContainerManagerConfig), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerManagerConfig", reflect.TypeOf((*MockState)(nil).ContainerManagerConfig), arg0, arg1)
 	return &MockStateContainerManagerConfigCall{Call: call}
 }
 
@@ -111,30 +111,30 @@ func (c *MockStateContainerManagerConfigCall) Return(arg0 params.ContainerManage
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateContainerManagerConfigCall) Do(f func(params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)) *MockStateContainerManagerConfigCall {
+func (c *MockStateContainerManagerConfigCall) Do(f func(context.Context, params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)) *MockStateContainerManagerConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateContainerManagerConfigCall) DoAndReturn(f func(params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)) *MockStateContainerManagerConfigCall {
+func (c *MockStateContainerManagerConfigCall) DoAndReturn(f func(context.Context, params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)) *MockStateContainerManagerConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetContainerProfileInfo mocks base method.
-func (m *MockState) GetContainerProfileInfo(arg0 names.MachineTag) ([]*provisioner.LXDProfileResult, error) {
+func (m *MockState) GetContainerProfileInfo(arg0 context.Context, arg1 names.MachineTag) ([]*provisioner.LXDProfileResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetContainerProfileInfo", arg0)
+	ret := m.ctrl.Call(m, "GetContainerProfileInfo", arg0, arg1)
 	ret0, _ := ret[0].([]*provisioner.LXDProfileResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetContainerProfileInfo indicates an expected call of GetContainerProfileInfo.
-func (mr *MockStateMockRecorder) GetContainerProfileInfo(arg0 any) *MockStateGetContainerProfileInfoCall {
+func (mr *MockStateMockRecorder) GetContainerProfileInfo(arg0, arg1 any) *MockStateGetContainerProfileInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerProfileInfo", reflect.TypeOf((*MockState)(nil).GetContainerProfileInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerProfileInfo", reflect.TypeOf((*MockState)(nil).GetContainerProfileInfo), arg0, arg1)
 	return &MockStateGetContainerProfileInfoCall{Call: call}
 }
 
@@ -150,21 +150,21 @@ func (c *MockStateGetContainerProfileInfoCall) Return(arg0 []*provisioner.LXDPro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetContainerProfileInfoCall) Do(f func(names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockStateGetContainerProfileInfoCall {
+func (c *MockStateGetContainerProfileInfoCall) Do(f func(context.Context, names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockStateGetContainerProfileInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetContainerProfileInfoCall) DoAndReturn(f func(names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockStateGetContainerProfileInfoCall {
+func (c *MockStateGetContainerProfileInfoCall) DoAndReturn(f func(context.Context, names.MachineTag) ([]*provisioner.LXDProfileResult, error)) *MockStateGetContainerProfileInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // HostChangesForContainer mocks base method.
-func (m *MockState) HostChangesForContainer(arg0 names.MachineTag) ([]network0.DeviceToBridge, int, error) {
+func (m *MockState) HostChangesForContainer(arg0 context.Context, arg1 names.MachineTag) ([]network0.DeviceToBridge, int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HostChangesForContainer", arg0)
+	ret := m.ctrl.Call(m, "HostChangesForContainer", arg0, arg1)
 	ret0, _ := ret[0].([]network0.DeviceToBridge)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
@@ -172,9 +172,9 @@ func (m *MockState) HostChangesForContainer(arg0 names.MachineTag) ([]network0.D
 }
 
 // HostChangesForContainer indicates an expected call of HostChangesForContainer.
-func (mr *MockStateMockRecorder) HostChangesForContainer(arg0 any) *MockStateHostChangesForContainerCall {
+func (mr *MockStateMockRecorder) HostChangesForContainer(arg0, arg1 any) *MockStateHostChangesForContainerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostChangesForContainer", reflect.TypeOf((*MockState)(nil).HostChangesForContainer), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostChangesForContainer", reflect.TypeOf((*MockState)(nil).HostChangesForContainer), arg0, arg1)
 	return &MockStateHostChangesForContainerCall{Call: call}
 }
 
@@ -190,13 +190,13 @@ func (c *MockStateHostChangesForContainerCall) Return(arg0 []network0.DeviceToBr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateHostChangesForContainerCall) Do(f func(names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockStateHostChangesForContainerCall {
+func (c *MockStateHostChangesForContainerCall) Do(f func(context.Context, names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockStateHostChangesForContainerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateHostChangesForContainerCall) DoAndReturn(f func(names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockStateHostChangesForContainerCall {
+func (c *MockStateHostChangesForContainerCall) DoAndReturn(f func(context.Context, names.MachineTag) ([]network0.DeviceToBridge, int, error)) *MockStateHostChangesForContainerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -246,18 +246,18 @@ func (c *MockStateMachinesCall) DoAndReturn(f func(context.Context, ...names.Mac
 }
 
 // PrepareContainerInterfaceInfo mocks base method.
-func (m *MockState) PrepareContainerInterfaceInfo(arg0 names.MachineTag) (network.InterfaceInfos, error) {
+func (m *MockState) PrepareContainerInterfaceInfo(arg0 context.Context, arg1 names.MachineTag) (network.InterfaceInfos, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareContainerInterfaceInfo", arg0)
+	ret := m.ctrl.Call(m, "PrepareContainerInterfaceInfo", arg0, arg1)
 	ret0, _ := ret[0].(network.InterfaceInfos)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrepareContainerInterfaceInfo indicates an expected call of PrepareContainerInterfaceInfo.
-func (mr *MockStateMockRecorder) PrepareContainerInterfaceInfo(arg0 any) *MockStatePrepareContainerInterfaceInfoCall {
+func (mr *MockStateMockRecorder) PrepareContainerInterfaceInfo(arg0, arg1 any) *MockStatePrepareContainerInterfaceInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContainerInterfaceInfo", reflect.TypeOf((*MockState)(nil).PrepareContainerInterfaceInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContainerInterfaceInfo", reflect.TypeOf((*MockState)(nil).PrepareContainerInterfaceInfo), arg0, arg1)
 	return &MockStatePrepareContainerInterfaceInfoCall{Call: call}
 }
 
@@ -273,29 +273,29 @@ func (c *MockStatePrepareContainerInterfaceInfoCall) Return(arg0 network.Interfa
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStatePrepareContainerInterfaceInfoCall) Do(f func(names.MachineTag) (network.InterfaceInfos, error)) *MockStatePrepareContainerInterfaceInfoCall {
+func (c *MockStatePrepareContainerInterfaceInfoCall) Do(f func(context.Context, names.MachineTag) (network.InterfaceInfos, error)) *MockStatePrepareContainerInterfaceInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStatePrepareContainerInterfaceInfoCall) DoAndReturn(f func(names.MachineTag) (network.InterfaceInfos, error)) *MockStatePrepareContainerInterfaceInfoCall {
+func (c *MockStatePrepareContainerInterfaceInfoCall) DoAndReturn(f func(context.Context, names.MachineTag) (network.InterfaceInfos, error)) *MockStatePrepareContainerInterfaceInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReleaseContainerAddresses mocks base method.
-func (m *MockState) ReleaseContainerAddresses(arg0 names.MachineTag) error {
+func (m *MockState) ReleaseContainerAddresses(arg0 context.Context, arg1 names.MachineTag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0)
+	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReleaseContainerAddresses indicates an expected call of ReleaseContainerAddresses.
-func (mr *MockStateMockRecorder) ReleaseContainerAddresses(arg0 any) *MockStateReleaseContainerAddressesCall {
+func (mr *MockStateMockRecorder) ReleaseContainerAddresses(arg0, arg1 any) *MockStateReleaseContainerAddressesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseContainerAddresses", reflect.TypeOf((*MockState)(nil).ReleaseContainerAddresses), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseContainerAddresses", reflect.TypeOf((*MockState)(nil).ReleaseContainerAddresses), arg0, arg1)
 	return &MockStateReleaseContainerAddressesCall{Call: call}
 }
 
@@ -311,29 +311,29 @@ func (c *MockStateReleaseContainerAddressesCall) Return(arg0 error) *MockStateRe
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateReleaseContainerAddressesCall) Do(f func(names.MachineTag) error) *MockStateReleaseContainerAddressesCall {
+func (c *MockStateReleaseContainerAddressesCall) Do(f func(context.Context, names.MachineTag) error) *MockStateReleaseContainerAddressesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateReleaseContainerAddressesCall) DoAndReturn(f func(names.MachineTag) error) *MockStateReleaseContainerAddressesCall {
+func (c *MockStateReleaseContainerAddressesCall) DoAndReturn(f func(context.Context, names.MachineTag) error) *MockStateReleaseContainerAddressesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetHostMachineNetworkConfig mocks base method.
-func (m *MockState) SetHostMachineNetworkConfig(arg0 names.MachineTag, arg1 []params.NetworkConfig) error {
+func (m *MockState) SetHostMachineNetworkConfig(arg0 context.Context, arg1 names.MachineTag, arg2 []params.NetworkConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetHostMachineNetworkConfig", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetHostMachineNetworkConfig", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetHostMachineNetworkConfig indicates an expected call of SetHostMachineNetworkConfig.
-func (mr *MockStateMockRecorder) SetHostMachineNetworkConfig(arg0, arg1 any) *MockStateSetHostMachineNetworkConfigCall {
+func (mr *MockStateMockRecorder) SetHostMachineNetworkConfig(arg0, arg1, arg2 any) *MockStateSetHostMachineNetworkConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostMachineNetworkConfig", reflect.TypeOf((*MockState)(nil).SetHostMachineNetworkConfig), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostMachineNetworkConfig", reflect.TypeOf((*MockState)(nil).SetHostMachineNetworkConfig), arg0, arg1, arg2)
 	return &MockStateSetHostMachineNetworkConfigCall{Call: call}
 }
 
@@ -349,13 +349,13 @@ func (c *MockStateSetHostMachineNetworkConfigCall) Return(arg0 error) *MockState
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetHostMachineNetworkConfigCall) Do(f func(names.MachineTag, []params.NetworkConfig) error) *MockStateSetHostMachineNetworkConfigCall {
+func (c *MockStateSetHostMachineNetworkConfigCall) Do(f func(context.Context, names.MachineTag, []params.NetworkConfig) error) *MockStateSetHostMachineNetworkConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetHostMachineNetworkConfigCall) DoAndReturn(f func(names.MachineTag, []params.NetworkConfig) error) *MockStateSetHostMachineNetworkConfigCall {
+func (c *MockStateSetHostMachineNetworkConfigCall) DoAndReturn(f func(context.Context, names.MachineTag, []params.NetworkConfig) error) *MockStateSetHostMachineNetworkConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

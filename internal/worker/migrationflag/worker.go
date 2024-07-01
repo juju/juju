@@ -4,6 +4,8 @@
 package migrationflag
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/utils/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -18,8 +20,8 @@ var ErrChanged = errors.New("migration flag value changed")
 
 // Facade exposes controller functionality required by a Worker.
 type Facade interface {
-	Watch(uuid string) (watcher.NotifyWatcher, error)
-	Phase(uuid string) (migration.Phase, error)
+	Watch(ctx context.Context, uuid string) (watcher.NotifyWatcher, error)
+	Phase(ctx context.Context, uuid string) (migration.Phase, error)
 }
 
 // Predicate defines a predicate.
@@ -55,11 +57,11 @@ func (config Config) Validate() error {
 
 // New returns a Worker that tracks the result of the configured
 // Check on the Model's migration phase, as exposed by the Facade.
-func New(config Config) (*Worker, error) {
+func New(ctx context.Context, config Config) (*Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	phase, err := config.Facade.Phase(config.Model)
+	phase, err := config.Facade.Phase(ctx, config.Model)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -103,9 +105,12 @@ func (w *Worker) Check() bool {
 }
 
 func (w *Worker) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	model := w.config.Model
 	facade := w.config.Facade
-	watcher, err := facade.Watch(model)
+	watcher, err := facade.Watch(ctx, model)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -117,7 +122,7 @@ func (w *Worker) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case <-watcher.Changes():
-			phase, err := facade.Phase(model)
+			phase, err := facade.Phase(ctx, model)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -126,4 +131,8 @@ func (w *Worker) loop() error {
 			}
 		}
 	}
+}
+
+func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

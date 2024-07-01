@@ -4,6 +4,7 @@
 package provisioner
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -16,8 +17,8 @@ import (
 )
 
 // NewContainerSetupAndProvisioner returns a ContainerSetupAndProvisioner.
-func NewContainerSetupAndProvisioner(cs *ContainerSetup, getContainerWatcherFunc GetContainerWatcherFunc) (worker.Worker, error) {
-	containerWatcher, err := getContainerWatcherFunc()
+func NewContainerSetupAndProvisioner(ctx context.Context, cs *ContainerSetup, getContainerWatcherFunc GetContainerWatcherFunc) (worker.Worker, error) {
+	containerWatcher, err := getContainerWatcherFunc(ctx)
 	if err != nil {
 		return nil, err
 	}

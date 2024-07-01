@@ -40,7 +40,7 @@ type mockFacade struct {
 }
 
 // Phase is part of the migrationflag.Facade interface.
-func (mock *mockFacade) Phase(uuid string) (migration.Phase, error) {
+func (mock *mockFacade) Phase(_ context.Context, uuid string) (migration.Phase, error) {
 	mock.stub.AddCall("Phase", uuid)
 	if err := mock.stub.NextErr(); err != nil {
 		return 0, err
@@ -56,7 +56,7 @@ func (mock *mockFacade) nextPhase() migration.Phase {
 }
 
 // Watch is part of the migrationflag.Facade interface.
-func (mock *mockFacade) Watch(uuid string) (watcher.NotifyWatcher, error) {
+func (mock *mockFacade) Watch(_ context.Context, uuid string) (watcher.NotifyWatcher, error) {
 	mock.stub.AddCall("Watch", uuid)
 	if err := mock.stub.NextErr(); err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func panicFacade(base.APICaller) (migrationflag.Facade, error) {
 }
 
 // panicWorker is a NewWorker that should not be called.
-func panicWorker(migrationflag.Config) (worker.Worker, error) {
+func panicWorker(context.Context, migrationflag.Config) (worker.Worker, error) {
 	panic("panicWorker")
 }
 
@@ -141,7 +141,7 @@ func checkNotValid(c *gc.C, config migrationflag.Config, expect string) {
 	err := config.Validate()
 	check(err)
 
-	worker, err := migrationflag.New(config)
+	worker, err := migrationflag.New(context.Background(), config)
 	c.Check(worker, gc.IsNil)
 	check(err)
 }

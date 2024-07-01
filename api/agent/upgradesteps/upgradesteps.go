@@ -41,10 +41,10 @@ func NewClientFromFacade(facadeCaller base.FacadeCaller) *Client {
 }
 
 // ResetKVMMachineModificationStatusIdle
-func (c *Client) ResetKVMMachineModificationStatusIdle(tag names.Tag) error {
+func (c *Client) ResetKVMMachineModificationStatusIdle(ctx context.Context, tag names.Tag) error {
 	var result params.ErrorResult
 	arg := params.Entity{tag.String()}
-	err := c.facade.FacadeCall(context.TODO(), "ResetKVMMachineModificationStatusIdle", arg, &result)
+	err := c.facade.FacadeCall(ctx, "ResetKVMMachineModificationStatusIdle", arg, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -56,10 +56,10 @@ func (c *Client) ResetKVMMachineModificationStatusIdle(tag names.Tag) error {
 
 // WriteAgentState writes the given internal agent state for the provided
 // units. Currently this call only handles the uniter's state.
-func (c *Client) WriteAgentState(args []params.SetUnitStateArg) error {
+func (c *Client) WriteAgentState(ctx context.Context, args []params.SetUnitStateArg) error {
 	var result params.ErrorResults
 	arg := params.SetUnitStateArgs{Args: args}
-	err := c.facade.FacadeCall(context.TODO(), "WriteAgentState", arg, &result)
+	err := c.facade.FacadeCall(ctx, "WriteAgentState", arg, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

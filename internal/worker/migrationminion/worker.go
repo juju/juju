@@ -45,8 +45,8 @@ const (
 
 // Facade exposes controller functionality to a Worker.
 type Facade interface {
-	Watch() (watcher.MigrationStatusWatcher, error)
-	Report(migrationId string, phase migration.Phase, success bool) error
+	Watch(context.Context) (watcher.MigrationStatusWatcher, error)
+	Report(ctx context.Context, migrationId string, phase migration.Phase, success bool) error
 }
 
 // Config defines the operation of a Worker.
@@ -121,7 +121,10 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() error {
-	watch, err := w.config.Facade.Watch()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	watch, err := w.config.Facade.Watch(ctx)
 	if err != nil {
 		return errors.Annotate(err, "setting up watcher")
 	}
@@ -163,11 +166,11 @@ func (w *Worker) handle(ctx context.Context, status watcher.MigrationStatus) err
 
 	switch status.Phase {
 	case migration.QUIESCE:
-		err = w.doQUIESCE(status)
+		err = w.doQUIESCE(ctx, status)
 	case migration.VALIDATION:
 		err = w.doVALIDATION(ctx, status)
 	case migration.SUCCESS:
-		err = w.doSUCCESS(status)
+		err = w.doSUCCESS(ctx, status)
 	default:
 		// The minion doesn't need to do anything for other
 		// migration phases.
@@ -175,10 +178,10 @@ func (w *Worker) handle(ctx context.Context, status watcher.MigrationStatus) err
 	return errors.Trace(err)
 }
 
-func (w *Worker) doQUIESCE(status watcher.MigrationStatus) error {
+func (w *Worker) doQUIESCE(ctx context.Context, status watcher.MigrationStatus) error {
 	// Report that the minion is ready and that all workers that
 	// should be shut down have done so.
-	return w.report(status, true)
+	return w.report(ctx, status, true)
 }
 
 func (w *Worker) doVALIDATION(ctx context.Context, status watcher.MigrationStatus) error {
@@ -212,7 +215,7 @@ func (w *Worker) doVALIDATION(ctx context.Context, status watcher.MigrationStatu
 		// migrationmaster that things didn't work out.
 		w.config.Logger.Errorf("validation failed: %v", err)
 	}
-	return w.report(status, err == nil)
+	return w.report(ctx, status, err == nil)
 }
 
 func (w *Worker) validate(ctx context.Context, status watcher.MigrationStatus) error {
@@ -242,7 +245,7 @@ func (w *Worker) validate(ctx context.Context, status watcher.MigrationStatus) e
 	return errors.Trace(err)
 }
 
-func (w *Worker) doSUCCESS(status watcher.MigrationStatus) (err error) {
+func (w *Worker) doSUCCESS(ctx context.Context, status watcher.MigrationStatus) (err error) {
 	defer func() {
 		if err != nil {
 			cfg := w.config.Agent.CurrentConfig()
@@ -260,7 +263,7 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) (err error) {
 	// will cause the API connection to drop. The SUCCESS phase is the
 	// point of no return anyway, so we must retry this step even if
 	// the api connection dies.
-	if err := w.robustReport(status, true); err != nil {
+	if err := w.robustReport(ctx, status, true); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -275,14 +278,14 @@ func (w *Worker) doSUCCESS(status watcher.MigrationStatus) (err error) {
 	return errors.Annotate(err, "setting agent config")
 }
 
-func (w *Worker) report(status watcher.MigrationStatus, success bool) error {
+func (w *Worker) report(ctx context.Context, status watcher.MigrationStatus, success bool) error {
 	w.config.Logger.Infof("reporting back for phase %s: %v", status.Phase, success)
-	err := w.config.Facade.Report(status.MigrationId, status.Phase, success)
+	err := w.config.Facade.Report(ctx, status.MigrationId, status.Phase, success)
 	return errors.Annotate(err, "failed to report phase progress")
 }
 
-func (w *Worker) robustReport(status watcher.MigrationStatus, success bool) error {
-	err := w.report(status, success)
+func (w *Worker) robustReport(ctx context.Context, status watcher.MigrationStatus, success bool) error {
+	err := w.report(ctx, status, success)
 	if err != nil && !rpc.IsShutdownErr(err) {
 		return fmt.Errorf("cannot report migration status %v success=%v: %w", status, success, err)
 	} else if err == nil {
@@ -312,7 +315,7 @@ func (w *Worker) robustReport(status watcher.MigrationStatus, success bool) erro
 				return err
 			}
 
-			return facade.Report(status.MigrationId, status.Phase, success)
+			return facade.Report(ctx, status.MigrationId, status.Phase, success)
 		},
 		IsFatalError: func(err error) bool {
 			return false
@@ -324,9 +327,14 @@ func (w *Worker) robustReport(status watcher.MigrationStatus, success bool) erro
 		Delay:       initialRetryDelay,
 		Attempts:    maxRetries,
 		BackoffFunc: jujuretry.DoubleDelay,
+		Stop:        ctx.Done(),
 	})
 	if err != nil {
 		return fmt.Errorf("cannot report migration status %v success=%v: %w", status, success, err)
 	}
 	return nil
+}
+
+func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

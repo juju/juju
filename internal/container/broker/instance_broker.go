@@ -4,6 +4,7 @@
 package broker
 
 import (
+	"context"
 	"io"
 	"os"
 	"time"
@@ -106,7 +107,7 @@ func New(config Config) (environs.InstanceBroker, error) {
 }
 
 func prepareHost(config Config) PrepareHostFunc {
-	return func(containerTag names.MachineTag, logger corelogger.Logger, abort <-chan struct{}) error {
+	return func(ctx context.Context, containerTag names.MachineTag, logger corelogger.Logger, abort <-chan struct{}) error {
 		preparer := NewHostPreparer(HostPreparerParams{
 			API:                config.APICaller,
 			ObserveNetworkFunc: observeNetwork(config),
@@ -116,7 +117,7 @@ func prepareHost(config Config) PrepareHostFunc {
 			MachineTag:         config.MachineTag,
 			Logger:             logger,
 		})
-		return errors.Trace(preparer.Prepare(containerTag))
+		return errors.Trace(preparer.Prepare(ctx, containerTag))
 	}
 }
 
@@ -177,13 +178,13 @@ func observeNetwork(config Config) func() ([]params.NetworkConfig, error) {
 }
 
 type AvailabilityZoner interface {
-	AvailabilityZone() (string, error)
+	AvailabilityZone(ctx context.Context) (string, error)
 }
 
 // ConfigureAvailabilityZone reads the availability zone from the machine and
 // adds the resulting information to the the manager config.
-func ConfigureAvailabilityZone(managerConfig container.ManagerConfig, machineZone AvailabilityZoner) (container.ManagerConfig, error) {
-	availabilityZone, err := machineZone.AvailabilityZone()
+func ConfigureAvailabilityZone(ctx context.Context, managerConfig container.ManagerConfig, machineZone AvailabilityZoner) (container.ManagerConfig, error) {
+	availabilityZone, err := machineZone.AvailabilityZone(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

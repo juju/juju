@@ -35,12 +35,12 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 
 // LoggingConfig returns the loggo configuration string for the agent
 // specified by agentTag.
-func (c *Client) LoggingConfig(agentTag names.Tag) (string, error) {
+func (c *Client) LoggingConfig(ctx context.Context, agentTag names.Tag) (string, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "LoggingConfig", args, &results)
+	err := c.facade.FacadeCall(ctx, "LoggingConfig", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return "", err
@@ -58,12 +58,12 @@ func (c *Client) LoggingConfig(agentTag names.Tag) (string, error) {
 
 // WatchLoggingConfig returns a notify watcher that looks for changes in the
 // logging-config for the agent specified by agentTag.
-func (c *Client) WatchLoggingConfig(agentTag names.Tag) (watcher.NotifyWatcher, error) {
+func (c *Client) WatchLoggingConfig(ctx context.Context, agentTag names.Tag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "WatchLoggingConfig", args, &results)
+	err := c.facade.FacadeCall(ctx, "WatchLoggingConfig", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err

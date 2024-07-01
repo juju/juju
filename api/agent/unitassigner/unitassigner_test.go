@@ -28,7 +28,7 @@ func (testsuite) TestAssignUnits(c *gc.C) {
 		}}}
 	api := New(f)
 	ids := []names.UnitTag{names.NewUnitTag("mysql/0"), names.NewUnitTag("mysql/1")}
-	errs, err := api.AssignUnits(ids)
+	errs, err := api.AssignUnits(context.Background(), ids)
 	c.Assert(f.request, gc.Equals, "AssignUnits")
 	c.Assert(f.params, gc.DeepEquals,
 		params.Entities{[]params.Entity{
@@ -47,7 +47,7 @@ func (testsuite) TestAssignUnitsNotFound(c *gc.C) {
 		}}}
 	api := New(f)
 	ids := []names.UnitTag{names.NewUnitTag("mysql/0")}
-	errs, err := api.AssignUnits(ids)
+	errs, err := api.AssignUnits(context.Background(), ids)
 	f.Lock()
 	c.Assert(f.request, gc.Equals, "AssignUnits")
 	c.Assert(f.params, gc.DeepEquals,
@@ -66,7 +66,7 @@ func (testsuite) TestWatchUnitAssignment(c *gc.C) {
 		response: params.StringsWatchResult{},
 	}
 	api := New(f)
-	w, err := api.WatchUnitAssignments()
+	w, err := api.WatchUnitAssignments(context.Background())
 	f.Lock()
 	c.Assert(f.request, gc.Equals, "WatchUnitAssignments")
 	c.Assert(f.params, gc.IsNil)

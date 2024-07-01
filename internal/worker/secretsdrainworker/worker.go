@@ -19,9 +19,9 @@ import (
 
 // SecretsDrainFacade instances provide a set of API for the worker to deal with secret drain process.
 type SecretsDrainFacade interface {
-	WatchSecretBackendChanged() (watcher.NotifyWatcher, error)
-	GetSecretsToDrain() ([]coresecrets.SecretMetadataForDrain, error)
-	ChangeSecretBackend([]secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error)
+	WatchSecretBackendChanged(context.Context) (watcher.NotifyWatcher, error)
+	GetSecretsToDrain(context.Context) ([]coresecrets.SecretMetadataForDrain, error)
+	ChangeSecretBackend(context.Context, []secretsdrain.ChangeSecretBackendArg) (secretsdrain.ChangeSecretBackendResult, error)
 }
 
 // Config defines the operation of the Worker.
@@ -79,7 +79,10 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	watcher, err := w.config.SecretsDrainFacade.WatchSecretBackendChanged()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	watcher, err := w.config.SecretsDrainFacade.WatchSecretBackendChanged(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -97,7 +100,7 @@ func (w *Worker) loop() (err error) {
 			}
 			w.config.Logger.Debugf("got new secret backend")
 
-			secrets, err := w.config.SecretsDrainFacade.GetSecretsToDrain()
+			secrets, err := w.config.SecretsDrainFacade.GetSecretsToDrain(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -111,7 +114,7 @@ func (w *Worker) loop() (err error) {
 				return errors.Trace(err)
 			}
 			for _, md := range secrets {
-				if err := w.drainSecret(md, backends); err != nil {
+				if err := w.drainSecret(ctx, md, backends); err != nil {
 					return errors.Trace(err)
 				}
 			}
@@ -119,14 +122,14 @@ func (w *Worker) loop() (err error) {
 	}
 }
 
-func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujusecrets.BackendsClient) (err error) {
+func (w *Worker) drainSecret(ctx context.Context, md coresecrets.SecretMetadataForDrain, client jujusecrets.BackendsClient) (err error) {
 	var args []secretsdrain.ChangeSecretBackendArg
 	var cleanUpInExternalBackendFuncs []func() error
 	for _, revisionMeta := range md.Revisions {
 		rev := revisionMeta
 		// We have to get the active backend for each drain operation because the active backend
 		// could be changed during the draining process.
-		activeBackend, activeBackendID, err := client.GetBackend(nil, true)
+		activeBackend, activeBackendID, err := client.GetBackend(ctx, nil, true)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -136,7 +139,7 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 		}
 		w.config.Logger.Debugf("draining %s/%d", md.URI.ID, rev.Revision)
 
-		secretVal, err := client.GetRevisionContent(md.URI, rev.Revision)
+		secretVal, err := client.GetRevisionContent(ctx, md.URI, rev.Revision)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -163,7 +166,7 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 			// The old backend is an external backend.
 			// Note: we have to get the old backend before we make ChangeSecretBackend facade call.
 			// Because the token policy(for the vault backend especially) will be changed after we changed the secret's backend.
-			oldBackend, _, err := client.GetBackend(&rev.ValueRef.BackendID, true)
+			oldBackend, _, err := client.GetBackend(ctx, &rev.ValueRef.BackendID, true)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -197,7 +200,7 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 	}
 
 	w.config.Logger.Debugf("content moved, updating backend info")
-	results, err := w.config.SecretsDrainFacade.ChangeSecretBackend(args)
+	results, err := w.config.SecretsDrainFacade.ChangeSecretBackend(ctx, args)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -221,4 +224,8 @@ func (w *Worker) drainSecret(md coresecrets.SecretMetadataForDrain, client jujus
 		return errors.Errorf("failed to drain secret revisions for %q to the active backend", md.URI)
 	}
 	return nil
+}
+
+func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

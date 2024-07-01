@@ -26,7 +26,7 @@ type ConfigAPI interface {
 	ModelConfig(context.Context) (*config.Config, error)
 	ControllerConfig(context.Context) (controller.Config, error)
 	WatchForModelConfigChanges(context.Context) (watcher.NotifyWatcher, error)
-	WatchCloudSpecChanges() (watcher.NotifyWatcher, error)
+	WatchCloudSpecChanges(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // Config describes the dependencies of a Tracker.
@@ -137,7 +137,7 @@ func (t *Tracker) loop() error {
 	if cloudSpecSetter, ok = t.broker.(environs.CloudSpecSetter); !ok {
 		logger.Warningf("cloud type %v doesn't support dynamic changing of cloud spec", t.broker.Config().Type())
 	} else {
-		cloudWatcher, err := t.config.ConfigAPI.WatchCloudSpecChanges()
+		cloudWatcher, err := t.config.ConfigAPI.WatchCloudSpecChanges(ctx)
 		if err != nil {
 			return errors.Annotate(err, "cannot watch environ cloud spec")
 		}
