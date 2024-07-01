@@ -409,9 +409,6 @@ parts:
     go-cgo-cflags: "-I/usr/local/musl/include"
     go-cgo-ldflags: "-luv -lraft -ldqlite -llz4 -lsqlite3"
     go-cgo-ldflags-allow: "(-Wl,-wrap,pthread_create)|(-Wl,-z,now)"
-    override-build: |
-      snapcraftctl build
-      mv ${SNAPCRAFT_PART_INSTALL}/bin/jujud ${SNAPCRAFT_PART_INSTALL}/bin/jujud
 
   juju:
     after:
