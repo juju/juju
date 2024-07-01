@@ -4,6 +4,7 @@
 package instancepoller
 
 import (
+	"context"
 	stdcontext "context"
 	"time"
 
@@ -63,6 +64,14 @@ type Machine interface {
 	IsManual() (bool, error)
 }
 
+// MachineService defines the methods that the worker assumes from the Machine
+// service.
+type MachineService interface {
+	// WatchMachines returns a StringsWatcher that notifies of the changes
+	// in the machines table for the model.
+	WatchMachines(context.Context) (watcher.StringsWatcher, error)
+}
+
 // FacadeAPI specifies the api-server methods needed by the instance
 // poller.
 type FacadeAPI interface {
@@ -78,7 +87,8 @@ type Config struct {
 	Environ Environ
 	Logger  logger.Logger
 
-	CredentialAPI common.CredentialAPI
+	CredentialAPI  common.CredentialAPI
+	MachineService MachineService
 }
 
 // Validate checks whether the worker configuration settings are valid.
@@ -142,6 +152,8 @@ type updaterWorker struct {
 	// Hook function which tests can use to be notified when the worker
 	// has processed a full loop iteration.
 	loopCompletedHook func()
+
+	machineService MachineService
 }
 
 // NewWorker returns a worker that keeps track of
@@ -159,6 +171,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		},
 		instanceIDToGroupEntry: make(map[instance.Id]*pollGroupEntry),
 		callContextFunc:        common.NewCloudCallContextFunc(config.CredentialAPI),
+		machineService:         config.MachineService,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -460,8 +473,7 @@ func (u *updaterWorker) resolveInstanceID(entry *pollGroupEntry) error {
 // addresses based on the information collected from the provider. It returns
 // the *instance* status and the number of provider addresses currently
 // known for the machine.
-func (u *updaterWorker) processProviderInfo(
-	entry *pollGroupEntry, info instances.Instance, providerInterfaces network.InterfaceInfos,
+func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instances.Instance, providerInterfaces network.InterfaceInfos,
 ) (status.Status, int, error) {
 	curStatus, err := entry.m.InstanceStatus()
 	if err != nil {

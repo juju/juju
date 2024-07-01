@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/instancepoller"
+	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
@@ -21,8 +22,12 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/common"
 )
+
+// GetMachineFunc is a helper function that gets a service from the manifold.
+type GetMachineServiceFunc func(getter dependency.Getter, name string) (MachineService, error)
 
 // facadeShim wraps an instancepoller API instance and allows us to provide
 // methods that return interfaces which we can easily mock in our tests.
@@ -56,12 +61,15 @@ func (e environWithoutNetworking) NetworkInterfaces(envcontext.ProviderCallConte
 
 // ManifoldConfig describes the resources used by the instancepoller worker.
 type ManifoldConfig struct {
-	APICallerName string
-	ClockName     string
-	EnvironName   string
-	Logger        logger.Logger
+	APICallerName      string
+	ClockName          string
+	EnvironName        string
+	Logger             logger.Logger
+	ServiceFactoryName string
 
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
+
+	GetMachineService GetMachineServiceFunc
 }
 
 func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
@@ -91,14 +99,20 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 
+	machineService, err := config.GetMachineService(getter, config.ServiceFactoryName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := NewWorker(Config{
 		Clock: clock,
 		Facade: facadeShim{
 			api: instancepoller.NewAPI(apiCaller),
 		},
-		Environ:       netEnv,
-		Logger:        config.Logger,
-		CredentialAPI: credentialAPI,
+		Environ:        netEnv,
+		Logger:         config.Logger,
+		CredentialAPI:  credentialAPI,
+		MachineService: machineService,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -116,4 +130,12 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 		},
 		Start: config.start,
 	}
+}
+
+// GetMachineService is a helper function that gets a service from the
+// manifold.
+func GetMachineService(getter dependency.Getter, name string) (MachineService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ModelServiceFactory) MachineService {
+		return factory.Machine()
+	})
 }

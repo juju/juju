@@ -14,26 +14,34 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/controller/remoterelations"
+	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/models"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/common"
 )
 
+// GetMachineFunc is a helper function that gets a service from the manifold.
+type GetMachineServiceFunc func(getter dependency.Getter, name string) (MachineService, error)
+
 // ManifoldConfig describes the resources used by the firewaller worker.
 type ManifoldConfig struct {
-	AgentName     string
-	APICallerName string
-	EnvironName   string
-	Logger        logger.Logger
+	AgentName          string
+	APICallerName      string
+	EnvironName        string
+	Logger             logger.Logger
+	ServiceFactoryName string
 
 	NewControllerConnection      apicaller.NewExternalControllerConnectionFunc
 	NewRemoteRelationsFacade     func(base.APICaller) *remoterelations.Client
 	NewFirewallerFacade          func(base.APICaller) (FirewallerAPI, error)
 	NewFirewallerWorker          func(Config) (worker.Worker, error)
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
+
+	GetMachineService GetMachineServiceFunc
 }
 
 // Manifold returns a Manifold that encapsulates the firewaller worker.
@@ -61,6 +69,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
+	}
+	if cfg.ServiceFactoryName == "" {
+		return errors.NotValidf("empty ServiceFactoryName")
 	}
 	if cfg.NewControllerConnection == nil {
 		return errors.NotValidf("nil NewControllerConnection")
@@ -138,6 +149,11 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		}
 	}
 
+	machineService, err := cfg.GetMachineService(getter, cfg.ServiceFactoryName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := cfg.NewFirewallerWorker(Config{
 		ModelUUID:               agent.CurrentConfig().Model().Id(),
 		RemoteRelationsApi:      cfg.NewRemoteRelationsFacade(apiConn),
@@ -150,9 +166,18 @@ func (cfg ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (
 		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
 		CredentialAPI:           credentialAPI,
 		Logger:                  cfg.Logger,
+		MachineService:          machineService,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return w, nil
+}
+
+// GetMachineService is a helper function that gets a service from the
+// manifold.
+func GetMachineService(getter dependency.Getter, name string) (MachineService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ModelServiceFactory) MachineService {
+		return factory.Machine()
+	})
 }

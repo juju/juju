@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
@@ -137,9 +138,12 @@ func (s *Service) DeleteMachine(ctx context.Context, machineName coremachine.Nam
 
 // GetLife returns the GetMachineLife status of the specified machine.
 // It returns a NotFound if the given machine doesn't exist.
-func (s *Service) GetMachineLife(ctx context.Context, machineName coremachine.Name) (*life.Life, error) {
+func (s *Service) GetMachineLife(ctx context.Context, machineName coremachine.Name) (corelife.Value, error) {
 	life, err := s.st.GetMachineLife(ctx, machineName)
-	return life, errors.Annotatef(err, "getting life status for machine %q", machineName)
+	if err != nil {
+		return "", errors.Annotatef(err, "getting life status for machine %q", machineName)
+	}
+	return life.ToCoreLife(), errors.Annotatef(err, "getting life status for machine %q", machineName)
 }
 
 // SetMachineLife sets the life status of the specified machine.

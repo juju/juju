@@ -56,6 +56,7 @@ type firewallerBaseSuite struct {
 	envFirewaller        *mocks.MockEnvironFirewaller
 	envModelFirewaller   *mocks.MockEnvironModelFirewaller
 	envInstances         *mocks.MockEnvironInstances
+	machineService       *mocks.MockMachineService
 
 	machinesCh     chan []string
 	applicationsCh chan struct{}
@@ -126,6 +127,7 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 	s.remoteRelations = mocks.NewMockRemoteRelationsAPI(ctrl)
 	s.credentialsFacade = mocks.NewMockCredentialAPI(ctrl)
 	s.crossmodelFirewaller = mocks.NewMockCrossModelFirewallerFacadeCloser(ctrl)
+	s.machineService = mocks.NewMockMachineService(ctrl)
 
 	s.machinesCh = make(chan []string, 5)
 	s.applicationsCh = make(chan struct{}, 5)
@@ -366,13 +368,15 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 		WatchMachineNotify: watchMachineNotify,
 		FlushModelNotify:   flushModelNotify,
 		FlushMachineNotify: flushMachineNotify,
+		MachineService:     s.machineService,
 	}
 	if s.withModelFirewaller {
 		cfg.EnvironModelFirewaller = s.envModelFirewaller
 	}
 
 	mWatcher := watchertest.NewMockStringsWatcher(s.machinesCh)
-	s.firewaller.EXPECT().WatchModelMachines().Return(mWatcher, nil)
+	// s.firewaller.EXPECT().WatchModelMachines().Return(mWatcher, nil)
+	s.machineService.EXPECT().WatchMachines(gomock.Any()).Return(mWatcher, nil)
 
 	opWatcher := watchertest.NewMockStringsWatcher(s.openedPortsCh)
 	s.firewaller.EXPECT().WatchOpenedPorts().Return(opWatcher, nil)
@@ -2286,9 +2290,10 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock:         s.clock,
-		Logger:        loggertesting.WrapCheckLog(c),
-		CredentialAPI: s.credentialsFacade,
+		Clock:          s.clock,
+		Logger:         loggertesting.WrapCheckLog(c),
+		CredentialAPI:  s.credentialsFacade,
+		MachineService: s.machineService,
 	}
 
 	fw, err := firewaller.NewFirewaller(cfg)

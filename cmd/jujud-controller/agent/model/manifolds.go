@@ -434,16 +434,18 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                    storageprovisioner.NewStorageProvisioner,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			EnvironName:   providerTrackerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.firewaller"),
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			EnvironName:        providerTrackerName,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.firewaller"),
+			ServiceFactoryName: serviceFactoryName,
 
 			NewControllerConnection:      apicaller.NewExternalControllerConnection,
 			NewFirewallerWorker:          firewaller.NewWorker,
 			NewFirewallerFacade:          firewaller.NewFirewallerFacade,
 			NewRemoteRelationsFacade:     firewaller.NewRemoteRelationsFacade,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			GetMachineService:            firewaller.GetMachineService,
 		})),
 		charmDownloaderName: ifNotMigrating(ifCredentialValid(charmdownloader.Manifold(charmdownloader.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -464,7 +466,9 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			EnvironName:                  providerTrackerName,
 			ClockName:                    clockName,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.instancepoller"),
+			ServiceFactoryName:           serviceFactoryName,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			GetMachineService:            instancepoller.GetMachineService,
 		})),
 		machineUndertakerName: ifNotMigrating(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName:                apiCallerName,

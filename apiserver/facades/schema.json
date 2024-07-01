@@ -18110,24 +18110,6 @@
                     },
                     "description": "WatchModelFirewallRules returns a NotifyWatcher that notifies of\npotential changes to a model's configured firewall rules"
                 },
-                "WatchModelMachineStartTimes": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringsWatchResult"
-                        }
-                    },
-                    "description": "WatchModelMachineStartTimes watches the non-container machines in the model\nfor changes to the Life or AgentStartTime fields and reports them as a batch."
-                },
-                "WatchModelMachines": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringsWatchResult"
-                        }
-                    },
-                    "description": "WatchModelMachines returns a StringsWatcher that notifies of\nchanges to the life cycles of the top level machines in the current\nmodel."
-                },
                 "WatchOpenedPorts": {
                     "type": "object",
                     "properties": {

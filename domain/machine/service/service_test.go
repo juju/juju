@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	corelife "github.com/juju/juju/core/life"
 	cmachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	corestatus "github.com/juju/juju/core/status"
@@ -86,7 +87,7 @@ func (s *serviceSuite) TestGetLifeSuccess(c *gc.C) {
 
 	l, err := NewService(s.state).GetMachineLife(context.Background(), cmachine.Name("666"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(l, gc.Equals, &life)
+	c.Assert(l, gc.Equals, corelife.Alive)
 }
 
 // TestGetLifeError asserts that an error coming from the state layer is
@@ -98,7 +99,7 @@ func (s *serviceSuite) TestGetLifeError(c *gc.C) {
 	s.state.EXPECT().GetMachineLife(gomock.Any(), cmachine.Name("666")).Return(nil, rErr)
 
 	l, err := NewService(s.state).GetMachineLife(context.Background(), cmachine.Name("666"))
-	c.Check(l, gc.IsNil)
+	c.Assert(l, gc.Equals, corelife.Value(""))
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `getting life status for machine "666": boom`)
 }
@@ -112,7 +113,7 @@ func (s *serviceSuite) TestGetLifeNotFoundError(c *gc.C) {
 	s.state.EXPECT().GetMachineLife(gomock.Any(), cmachine.Name("666")).Return(nil, errors.NotFound)
 
 	l, err := NewService(s.state).GetMachineLife(context.Background(), cmachine.Name("666"))
-	c.Check(l, gc.IsNil)
+	c.Assert(l, gc.Equals, corelife.Value(""))
 	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
