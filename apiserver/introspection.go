@@ -34,8 +34,6 @@ func (h introspectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	h.handler.ServeHTTP(w, r)
 }
 
-//UserPermission(subject names.UserTag, target names.Tag) (permission.Access, error)
-
 func (h introspectionHandler) checkAuth(r *http.Request) error {
 	st, entity, err := h.ctx.stateAndEntityForRequestAuthenticatedUser(r)
 	if err != nil {
