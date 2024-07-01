@@ -5,38 +5,52 @@ package state
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/juju/juju/core/upgrade"
-	domainupgrade "github.com/juju/juju/domain/upgrade"
 )
 
-// info holds the information about database upgrade
-type info struct {
+// Info holds the information about database upgrade
+type Info struct {
 	// UUID holds the upgrader's ID
-	UUID domainupgrade.UUID `db:"uuid"`
+	UUID string `db:"uuid"`
 	// PreviousVersion holds the previous version
 	PreviousVersion string `db:"previous_version"`
 	// TargetVersion holds the target version
 	TargetVersion string `db:"target_version"`
-	// State holds the current state of the upgrade.
-	State upgrade.State `db:"state"`
+	// StateIDType holds the type id of the current state of the upgrade.
+	StateIDType int `db:"state_type_id"`
 }
 
 // ToUpgradeInfo converts an info to an upgrade.Info.
-func (i info) ToUpgradeInfo() (upgrade.Info, error) {
+func (i Info) ToUpgradeInfo() (upgrade.Info, error) {
+	state := upgrade.State(i.StateIDType)
+	if _, ok := upgrade.States[state]; !ok {
+		return upgrade.Info{}, fmt.Errorf("unknown state id %q", i)
+	}
 	result := upgrade.Info{
-		UUID:            i.UUID.String(),
+		UUID:            i.UUID,
 		PreviousVersion: i.PreviousVersion,
 		TargetVersion:   i.TargetVersion,
-		State:           i.State,
+		State:           state,
 	}
 	return result, nil
 }
 
-// infoControllerNode holds the information about completeness of database upgrade process for a particular controller node
-type infoControllerNode struct {
+// ControllerNodeInfo holds the information about completeness of database
+// upgrade process for a particular controller node
+type ControllerNodeInfo struct {
+	// UUID holds the rows UUID.
+	UUID string `db:"uuid"`
+	// UpgradeInfoUUID holds the UUID of the associated upgrade info.
+	UpgradeInfoUUID string `db:"upgrade_info_uuid"`
 	// ControllerNodeID holds the controller node ID
 	ControllerNodeID string `db:"controller_node_id"`
 	// NodeUpgradeStartedAt holds the time the upgrade was started on the node
 	NodeUpgradeCompletedAt sql.NullString `db:"node_upgrade_completed_at"`
+}
+
+// Count is used to select counts from the database.
+type Count struct {
+	Num int `db:"num"`
 }

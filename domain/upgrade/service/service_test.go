@@ -5,12 +5,10 @@ package service
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
-	"github.com/mattn/go-sqlite3"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
@@ -53,11 +51,10 @@ func (s *serviceSuite) TestCreateUpgrade(c *gc.C) {
 func (s *serviceSuite) TestCreateUpgradeAlreadyExists(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	ucErr := sqlite3.Error{ExtendedCode: sqlite3.ErrConstraintUnique}
-	s.state.EXPECT().CreateUpgrade(gomock.Any(), version.MustParse("3.0.0"), version.MustParse("3.0.1")).Return(s.upgradeUUID, ucErr)
+	s.state.EXPECT().CreateUpgrade(gomock.Any(), version.MustParse("3.0.0"), version.MustParse("3.0.1")).Return(s.upgradeUUID, upgradeerrors.AlreadyExists)
 
 	_, err := s.service.CreateUpgrade(context.Background(), version.MustParse("3.0.0"), version.MustParse("3.0.1"))
-	c.Assert(err, jc.ErrorIs, upgradeerrors.ErrUpgradeAlreadyStarted)
+	c.Assert(err, jc.ErrorIs, upgradeerrors.AlreadyExists)
 }
 
 func (s *serviceSuite) TestCreateUpgradeInvalidVersions(c *gc.C) {
@@ -80,12 +77,11 @@ func (s *serviceSuite) TestSetControllerReady(c *gc.C) {
 func (s *serviceSuite) TestSetControllerReadyForeignKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	fkErr := sqlite3.Error{ExtendedCode: sqlite3.ErrConstraintForeignKey}
-	s.state.EXPECT().SetControllerReady(gomock.Any(), s.upgradeUUID, s.controllerUUID).Return(fkErr)
+	s.state.EXPECT().SetControllerReady(gomock.Any(), s.upgradeUUID, s.controllerUUID).Return(upgradeerrors.NotFound)
 
 	err := s.service.SetControllerReady(context.Background(), s.upgradeUUID, s.controllerUUID)
 	c.Log(err)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, upgradeerrors.NotFound)
 }
 
 func (s *serviceSuite) TestStartUpgrade(c *gc.C) {
@@ -100,10 +96,10 @@ func (s *serviceSuite) TestStartUpgrade(c *gc.C) {
 func (s *serviceSuite) TestStartUpgradeBeforeCreated(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().StartUpgrade(gomock.Any(), s.upgradeUUID).Return(sql.ErrNoRows)
+	s.state.EXPECT().StartUpgrade(gomock.Any(), s.upgradeUUID).Return(upgradeerrors.NotFound)
 
 	err := s.service.StartUpgrade(context.Background(), s.upgradeUUID)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, upgradeerrors.NotFound)
 }
 
 func (s *serviceSuite) TestActiveUpgrade(c *gc.C) {
@@ -119,10 +115,10 @@ func (s *serviceSuite) TestActiveUpgrade(c *gc.C) {
 func (s *serviceSuite) TestActiveUpgradeNoUpgrade(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.Trace(sql.ErrNoRows))
+	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.Trace(upgradeerrors.NotFound))
 
 	_, err := s.service.ActiveUpgrade(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, upgradeerrors.NotFound)
 }
 
 func (s *serviceSuite) TestSetDBUpgradeCompleted(c *gc.C) {
@@ -189,7 +185,7 @@ func (s *serviceSuite) TestIsUpgrade(c *gc.C) {
 func (s *serviceSuite) TestIsUpgradeNoUpgrade(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.Trace(sql.ErrNoRows))
+	s.state.EXPECT().ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.Trace(upgradeerrors.NotFound))
 
 	upgrading, err := s.service.IsUpgrading(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
