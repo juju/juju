@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -48,24 +49,30 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 			return nil, errors.NotFoundf("offer")
 		},
 	}
-	getApplicationOffers := func(interface{}) jujucrossmodel.ApplicationOffers {
-		return s.applicationOffers
-	}
 
-	getEnviron := func(ctx context.Context, modelUUID string) (environs.Environ, error) {
-		return s.env, nil
-	}
 	var err error
 	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(
-		s.mockState, thirdPartyKey,
+		s.mockState, testing.ModelTag, thirdPartyKey,
 		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// Creates the API to use in testing.
+// Call baseSuite.setupMocks before this.
+func (s *applicationOffersSuite) setupAPI(c *gc.C) {
+	getApplicationOffers := func(interface{}) jujucrossmodel.ApplicationOffers {
+		return s.applicationOffers
+	}
+	getEnviron := func(ctx context.Context, modelUUID string) (environs.Environ, error) {
+		return s.env, nil
+	}
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, s.authContext, apiservertesting.NoopModelCredentialInvalidatorGetter,
+		s.mockState, s.mockStatePool, s.mockModelService,
+		s.authorizer, s.authContext, apiservertesting.NoopModelCredentialInvalidatorGetter,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,6 +121,7 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 			}},
 		},
 	}
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -127,11 +135,17 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 }
 
 func (s *applicationOffersSuite) TestOffer(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.authorizer.Tag = names.NewUserTag("admin")
 	s.assertOffer(c, nil)
 }
 
 func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.authorizer.Tag = names.NewUserTag("admin")
 	applicationName := "test"
 	s.addApplication(c, applicationName)
@@ -161,6 +175,7 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
 	s.mockState.applications = map[string]crossmodel.Application{
 		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 	}
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(errs.Results, gc.HasLen, len(all.Offers))
@@ -169,11 +184,17 @@ func (s *applicationOffersSuite) TestAddOfferUpdatesExistingOffer(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestOfferPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.authorizer.Tag = names.NewUserTag("mary")
 	s.assertOffer(c, apiservererrors.ErrPerm)
 }
 
 func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.authorizer.Tag = names.NewUserTag("admin")
 	s.addApplication(c, "one")
 	s.addApplication(c, "two")
@@ -215,6 +236,7 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 		"two":        &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 		"paramsfail": &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 	}
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -227,6 +249,9 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.authorizer.Tag = names.NewUserTag("admin")
 	applicationName := "test"
 	s.addApplication(c, applicationName)
@@ -247,6 +272,7 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	s.mockState.applications = map[string]crossmodel.Application{
 		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
 	}
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	errs, err := s.api.Offer(context.Background(), all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -314,12 +340,18 @@ func (s *applicationOffersSuite) assertList(c *gc.C, offerUUID string, expectedE
 }
 
 func (s *applicationOffersSuite) TestList(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.authorizer.Tag = names.NewUserTag("admin")
 	offerUUID := s.setupOffers(c, "test", false)
 	s.assertList(c, offerUUID, nil, []string{"192.168.1.0/32", "10.0.0.0/8"})
 }
 
 func (s *applicationOffersSuite) TestListCAAS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.authorizer.Tag = names.NewUserTag("admin")
 	offerUUID := s.setupOffers(c, "test", false)
 	s.mockState.model.modelType = state.ModelTypeCAAS
@@ -327,6 +359,9 @@ func (s *applicationOffersSuite) TestListCAAS(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestListNoRelationNetworks(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.authorizer.Tag = names.NewUserTag("admin")
 	s.mockState.relationNetworks = nil
 	offerUUID := s.setupOffers(c, "test", false)
@@ -334,11 +369,17 @@ func (s *applicationOffersSuite) TestListNoRelationNetworks(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestListPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	offerUUID := s.setupOffers(c, "test", false)
 	s.assertList(c, offerUUID, apiservererrors.ErrPerm, nil)
 }
 
 func (s *applicationOffersSuite) TestListError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.setupOffers(c, "test", false)
 	s.authorizer.Tag = names.NewUserTag("admin")
 	filter := params.OfferFilters{
@@ -363,6 +404,9 @@ func (s *applicationOffersSuite) TestListError(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestListFilterRequiresModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.setupOffers(c, "test", false)
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -377,6 +421,9 @@ func (s *applicationOffersSuite) TestListFilterRequiresModel(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestListRequiresFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.setupOffers(c, "test", false)
 	_, err := s.api.ListApplicationOffers(context.Background(), params.OfferFilters{})
 	c.Assert(err, gc.ErrorMatches, "at least one offer filter is required")
@@ -410,6 +457,9 @@ func (s *applicationOffersSuite) assertShow(c *gc.C, url, offerUUID string, expe
 }
 
 func (s *applicationOffersSuite) TestShow(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	offerUUID := uuid.MustNewUUID().String()
 	expected := []params.ApplicationOfferResult{{
 		Result: &params.ApplicationOfferAdminDetailsV5{
@@ -448,6 +498,9 @@ func (s *applicationOffersSuite) TestShow(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	offerUUID := uuid.MustNewUUID().String()
 	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
@@ -463,6 +516,9 @@ func (s *applicationOffersSuite) TestShowNoPermission(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	offerUUID := uuid.MustNewUUID().String()
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
@@ -486,6 +542,9 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestShowError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	url := "fred@external/prod.hosted-db2"
 	filter := params.OfferURLs{[]string{url}, bakery.LatestVersion}
 	msg := "fail"
@@ -494,6 +553,7 @@ func (s *applicationOffersSuite) TestShowError(c *gc.C) {
 		return nil, errors.New(msg)
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	_, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
@@ -501,6 +561,9 @@ func (s *applicationOffersSuite) TestShowError(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestShowNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	urls := []string{"fred@external/prod.hosted-db2"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
 
@@ -508,6 +571,7 @@ func (s *applicationOffersSuite) TestShowNotFound(c *gc.C) {
 		return nil, nil
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -517,6 +581,9 @@ func (s *applicationOffersSuite) TestShowNotFound(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestShowRejectsEndpoints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	urls := []string{"fred@external/prod.hosted-db2:db"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
@@ -528,6 +595,9 @@ func (s *applicationOffersSuite) TestShowRejectsEndpoints(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	urls := []string{"fred@external/prod.hosted-mysql", "fred@external/test.hosted-db2"}
 	filter := params.OfferURLs{urls, bakery.LatestVersion}
 
@@ -541,6 +611,7 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 		model:     anotherModel,
 	}
 	s.mockState.allmodels = []applicationoffers.Model{s.mockState.model, anotherModel}
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()), "uuid2")
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -551,6 +622,9 @@ func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	name := "test"
 	url := "fred@external/prod.hosted-" + name
 	anOffer := jujucrossmodel.ApplicationOffer{
@@ -586,11 +660,11 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 			charm: ch, curl: "ch:db2-2", bindings: map[string]string{"db": "myspace"}},
 	}
 
-	model := &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
+	fakeModel := &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
 	anotherModel := &mockModel{uuid: "uuid2", name: "test", owner: "mary", modelType: state.ModelTypeIAAS}
 
-	s.mockState.model = model
-	s.mockState.allmodels = []applicationoffers.Model{model, anotherModel}
+	s.mockState.model = fakeModel
+	s.mockState.allmodels = []applicationoffers.Model{fakeModel, anotherModel}
 	s.mockState.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
@@ -637,6 +711,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	anotherState.users[user.Name()] = &mockUser{user.Name()}
 	_ = anotherState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-testagain-uuid"), user, permission.ConsumeAccess)
 	s.mockStatePool.st["uuid2"] = anotherState
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()), "uuid2")
 
 	found, err := s.api.ApplicationOffers(context.Background(), filter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -697,6 +772,9 @@ func (s *applicationOffersSuite) assertFind(c *gc.C, expected []params.Applicati
 }
 
 func (s *applicationOffersSuite) TestFind(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	offerUUID := s.setupOffers(c, "", true)
 	s.authorizer.Tag = names.NewUserTag("admin")
 	expected := []params.ApplicationOfferAdminDetailsV5{
@@ -721,10 +799,14 @@ func (s *applicationOffersSuite) TestFind(c *gc.C) {
 			}},
 		},
 	}
+	s.registerKnownModels("deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	s.assertFind(c, expected)
 }
 
 func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.mockState.users["someone"] = &mockUser{"someone"}
 	user := names.NewUserTag("someone")
 	offer := names.NewApplicationOfferTag(uuid.MustNewUUID().String())
@@ -737,6 +819,9 @@ func (s *applicationOffersSuite) TestFindNoPermission(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	offerUUID := s.setupOffers(c, "", true)
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
@@ -760,6 +845,9 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestFindFiltersRequireModel(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.setupOffers(c, "", true)
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -777,12 +865,18 @@ func (s *applicationOffersSuite) TestFindFiltersRequireModel(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestFindRequiresFilter(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.setupOffers(c, "", true)
 	_, err := s.api.FindApplicationOffers(context.Background(), params.OfferFilters{})
 	c.Assert(err, gc.ErrorMatches, "at least one offer filter is required")
 }
 
 func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	oneOfferUUID := uuid.MustNewUUID().String()
 	twoOfferUUID := uuid.MustNewUUID().String()
 	db2Offer := jujucrossmodel.ApplicationOffer{
@@ -934,6 +1028,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 		s.mockState.model,
 		anotherState.model,
 	}
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()), "uuid2")
 
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
@@ -1013,6 +1108,9 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestFindError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
@@ -1027,6 +1125,7 @@ func (s *applicationOffersSuite) TestFindError(c *gc.C) {
 		return nil, errors.New(msg)
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred@external", modelType: state.ModelTypeIAAS}
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	_, err := s.api.FindApplicationOffers(context.Background(), filter)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(".*%v.*", msg))
@@ -1034,6 +1133,9 @@ func (s *applicationOffersSuite) TestFindError(c *gc.C) {
 }
 
 func (s *applicationOffersSuite) TestFindMissingModelInMultipleFilters(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	filter := params.OfferFilters{
 		Filters: []params.OfferFilter{
 			{
@@ -1066,23 +1168,28 @@ var _ = gc.Suite(&consumeSuite{})
 func (s *consumeSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
 	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
-	getApplicationOffers := func(st interface{}) jujucrossmodel.ApplicationOffers {
-		return &mockApplicationOffers{st: st.(*mockState)}
-	}
-
-	getEnviron := func(ctx context.Context, modelUUID string) (environs.Environ, error) {
-		return s.env, nil
-	}
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(
-		s.mockState, thirdPartyKey,
+		s.mockState, testing.ModelTag, thirdPartyKey,
 		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+// Creates the API to use in testing.
+// Call baseSuite.setupMocks before this.
+func (s *consumeSuite) setupAPI(c *gc.C) {
+	getApplicationOffers := func(st interface{}) jujucrossmodel.ApplicationOffers {
+		return &mockApplicationOffers{st: st.(*mockState)}
+	}
+	getEnviron := func(ctx context.Context, modelUUID string) (environs.Environ, error) {
+		return s.env, nil
+	}
 	api, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
-		s.mockState, s.mockStatePool, s.authorizer, s.authContext,
+		s.mockState, s.mockStatePool, s.mockModelService,
+		s.authorizer, s.authContext,
 		apiservertesting.NoopModelCredentialInvalidatorGetter, c.MkDir(),
 		loggertesting.WrapCheckLog(c),
 	)
@@ -1091,6 +1198,9 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	results, err := s.api.GetConsumeDetails(
 		context.Background(),
 		params.ConsumeOfferDetailsArg{
@@ -1105,8 +1215,12 @@ func (s *consumeSuite) TestConsumeDetailsRejectsEndpoints(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	offerUUID := s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
 	offer := names.NewApplicationOfferTag(offerUUID)
@@ -1129,6 +1243,9 @@ func (s *consumeSuite) TestConsumeDetailsNoPermission(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.assertConsumeDetailsWithPermission(c,
 		func(authorizer *apiservertesting.FakeAuthorizer, apiUser names.UserTag) string {
 			authorizer.HasConsumeTag = apiUser
@@ -1139,6 +1256,9 @@ func (s *consumeSuite) TestConsumeDetailsWithPermission(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsSpecifiedUserHasPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.assertConsumeDetailsWithPermission(c,
 		func(authorizer *apiservertesting.FakeAuthorizer, apiUser names.UserTag) string {
 			authorizer.HasConsumeTag = apiUser
@@ -1150,6 +1270,9 @@ func (s *consumeSuite) TestConsumeDetailsSpecifiedUserHasPermission(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsSpecifiedUserHasNoPermissionButSuperUserLoggedIn(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.assertConsumeDetailsWithPermission(c,
 		func(authorizer *apiservertesting.FakeAuthorizer, apiUser names.UserTag) string {
 			controllerAdmin := names.NewUserTag("superuser-joe")
@@ -1164,6 +1287,7 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 ) {
 	offerUUID := s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
 	apiUser := names.NewUserTag("someone")
 
@@ -1210,6 +1334,9 @@ func (s *consumeSuite) assertConsumeDetailsWithPermission(
 }
 
 func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	offerUUID := s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["someone"] = &mockUser{"someone"}
@@ -1231,9 +1358,13 @@ func (s *consumeSuite) TestConsumeDetailsNonAdminSpecifiedUser(c *gc.C) {
 }
 
 func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	offerUUID := s.setupOffer()
 
 	st := s.mockStatePool.st[testing.ModelTag.Id()].(*mockState)
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	st.users["someone"] = &mockUser{"someone"}
 	delete(st.applications["mysql"].(*mockApplication).bindings, "database")
 
@@ -1333,6 +1464,9 @@ func (s *consumeSuite) setupOffer() string {
 }
 
 func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	offerUUID := s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
@@ -1343,6 +1477,7 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 	err := st.CreateOfferAccess(offer, user, permission.ConsumeAccess)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	s.authorizer.Tag = user
 	results, err := s.api.RemoteApplicationInfo(context.Background(), params.OfferURLs{
 		OfferURLs: []string{"fred@external/prod.hosted-mysql", "fred@external/prod.unknown"},
@@ -1368,6 +1503,9 @@ func (s *consumeSuite) TestRemoteApplicationInfo(c *gc.C) {
 }
 
 func (s *consumeSuite) TestDestroyOffersNoForceV2(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.assertDestroyOffersNoForce(c, s.api)
 }
 
@@ -1389,6 +1527,7 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 	}
 
 	s.authorizer.Tag = names.NewUserTag("admin")
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	results, err := s.api.DestroyOffers(context.Background(), params.DestroyApplicationOffers{
 		OfferURLs: []string{
 			"fred@external/prod.hosted-mysql"},
@@ -1410,8 +1549,12 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 }
 
 func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.setupOffer()
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
 	st.(*mockState).connections = []applicationoffers.OfferConnection{
 		&mockOfferConnection{
@@ -1451,10 +1594,14 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 }
 
 func (s *consumeSuite) TestDestroyOffersPermission(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.setupAPI(c)
+
 	s.setupOffer()
 	s.authorizer.Tag = names.NewUserTag("mary")
 	st := s.mockStatePool.st[testing.ModelTag.Id()]
 	st.(*mockState).users["foobar"] = &mockUser{"foobar"}
+	s.registerKnownModels(model.UUID(testing.ModelTag.Id()))
 
 	results, err := s.api.DestroyOffers(context.Background(), params.DestroyApplicationOffers{
 		OfferURLs: []string{"fred@external/prod.hosted-mysql"},

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
@@ -27,6 +28,7 @@ type BaseAPI struct {
 	GetApplicationOffers        func(interface{}) jujucrossmodel.ApplicationOffers
 	ControllerModel             Backend
 	StatePool                   StatePool
+	modelService                ModelService
 	getEnviron                  environFromModelFunc
 	getControllerInfo           func(context.Context) (apiAddrs []string, caCert string, _ error)
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
@@ -34,7 +36,7 @@ type BaseAPI struct {
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.
-func (api *BaseAPI) checkAdmin(user names.UserTag, backend Backend) error {
+func (api *BaseAPI) checkAdmin(user names.UserTag, modelID model.UUID, backend Backend) error {
 	err := api.Authorizer.EntityHasPermission(user, permission.SuperuserAccess, backend.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
@@ -42,7 +44,7 @@ func (api *BaseAPI) checkAdmin(user names.UserTag, backend Backend) error {
 		return nil
 	}
 
-	return api.Authorizer.EntityHasPermission(user, permission.AdminAccess, backend.ModelTag())
+	return api.Authorizer.EntityHasPermission(user, permission.AdminAccess, names.NewModelTag(modelID.String()))
 }
 
 // checkControllerAdmin ensures that the logged in user is a controller admin.
@@ -51,7 +53,7 @@ func (api *BaseAPI) checkControllerAdmin() error {
 }
 
 // modelForName looks up the model details for the named model and returns
-// the model (if found), the absolute model model path which was used in the lookup,
+// the model (if found), the absolute model path which was used in the lookup,
 // and a bool indicating if the model was found,
 func (api *BaseAPI) modelForName(modelName, ownerName string) (Model, string, bool, error) {
 	modelPath := fmt.Sprintf("%s/%s", ownerName, modelName)
@@ -100,10 +102,16 @@ func (api *BaseAPI) applicationOffersFromModel(
 	}
 	defer releaser()
 
+	// Get model information for the specified model
+	modelInfo, err := api.modelService.Model(ctx, model.UUID(modelUUID))
+	if err != nil {
+		return nil, fmt.Errorf("retrieving model info for ID %s: %w", modelUUID, err)
+	}
+
 	// If requireAdmin is true, the user must be a controller superuser
 	// or model admin to proceed.
 	var isAdmin bool
-	err = api.checkAdmin(user, backend)
+	err = api.checkAdmin(user, modelInfo.UUID, backend)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, err
 	}
@@ -136,7 +144,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 			}
 			isAdmin = userAccess == permission.AdminAccess
 		}
-		offerParams, app, err := api.makeOfferParams(ctx, backend, &appOffer)
+		offerParams, app, err := api.makeOfferParams(ctx, modelInfo.UUID, backend, &appOffer)
 		// Just because we can't compose the result for one offer, log
 		// that and move on to the next one.
 		if err != nil {
@@ -417,6 +425,7 @@ func makeOfferFilterFromParams(filter params.OfferFilter) (jujucrossmodel.Applic
 
 func (api *BaseAPI) makeOfferParams(
 	ctx context.Context,
+	modelID model.UUID,
 	backend Backend,
 	offer *jujucrossmodel.ApplicationOffer,
 ) (*params.ApplicationOfferDetailsV5, crossmodel.Application, error) {
@@ -426,7 +435,7 @@ func (api *BaseAPI) makeOfferParams(
 	}
 
 	result := params.ApplicationOfferDetailsV5{
-		SourceModelTag:         backend.ModelTag().String(),
+		SourceModelTag:         names.NewModelTag(modelID.String()).String(),
 		OfferName:              offer.OfferName,
 		OfferUUID:              offer.OfferUUID,
 		ApplicationDescription: offer.ApplicationDescription,

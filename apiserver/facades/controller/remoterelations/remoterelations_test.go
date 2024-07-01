@@ -19,6 +19,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -64,7 +65,9 @@ func (s *remoteRelationsSuite) setup(c *gc.C) *gomock.Controller {
 	s.cc = mocks.NewMockControllerConfigAPI(ctrl)
 	s.ecService = mocks.NewMockExternalControllerService(ctrl)
 	s.secretService = mocks.NewMockSecretService(ctrl)
+	modelID := modeltesting.GenModelUUID(c)
 	api, err := remoterelations.NewRemoteRelationsAPI(
+		modelID,
 		s.st, s.ecService, s.secretService, s.cc, s.resources, s.authorizer,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -416,7 +419,6 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 	s.st.EXPECT().GetRemoteEntity("rel-token").Return(names.NewRelationTag("db2:db django:db"), nil)
 	s.st.EXPECT().KeyRelation("db2:db django:db").Return(db2Relation, nil)
 	s.st.EXPECT().GetRemoteEntity("app-token").Return(names.NewApplicationTag("django"), nil)
-	s.st.EXPECT().ModelUUID().AnyTimes()
 
 	result, err := s.api.ConsumeRemoteRelationChanges(context.Background(), changes)
 	c.Assert(err, jc.ErrorIsNil)
@@ -455,9 +457,7 @@ func (s *remoteRelationsSuite) TestConsumeRelationResumePermission(c *gc.C) {
 	s.st.EXPECT().GetRemoteEntity("app-token").Return(names.NewApplicationTag("db2"), nil)
 	s.st.EXPECT().GetRemoteEntity("rel-token").Return(names.NewRelationTag(db2Relation.key), nil)
 	s.st.EXPECT().KeyRelation(db2Relation.key).Return(db2Relation, nil)
-	s.st.EXPECT().ModelUUID().AnyTimes()
 	s.st.EXPECT().ControllerTag().Return(coretesting.ControllerTag)
-	s.st.EXPECT().ModelTag().Return(coretesting.ModelTag)
 	s.st.EXPECT().OfferConnectionForRelation(db2Relation.key).Return(offerConn, nil)
 
 	result, err := s.api.ConsumeRemoteRelationChanges(context.Background(), changes)

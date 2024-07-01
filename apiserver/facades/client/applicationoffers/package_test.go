@@ -9,6 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+//go:generate go run go.uber.org/mock/mockgen -typed -package applicationoffers_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/applicationoffers ModelService
+
 func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }

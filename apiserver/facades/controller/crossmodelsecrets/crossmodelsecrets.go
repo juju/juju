@@ -36,7 +36,7 @@ type CrossModelSecretsAPI struct {
 	mu             sync.Mutex
 	authCtxt       *crossmodel.AuthContext
 	controllerUUID string
-	modelUUID      string
+	modelID        model.UUID
 
 	secretServiceGetter  secretServiceGetter
 	secretBackendService SecretBackendService
@@ -50,7 +50,7 @@ func NewCrossModelSecretsAPI(
 	resources facade.Resources,
 	authContext *crossmodel.AuthContext,
 	controllerUUID string,
-	modelUUID string,
+	modelID model.UUID,
 	secretServiceGetter secretServiceGetter,
 	secretBackendService SecretBackendService,
 	crossModelState CrossModelState,
@@ -61,7 +61,7 @@ func NewCrossModelSecretsAPI(
 		resources:            resources,
 		authCtxt:             authContext,
 		controllerUUID:       controllerUUID,
-		modelUUID:            modelUUID,
+		modelID:              modelID,
 		secretServiceGetter:  secretServiceGetter,
 		secretBackendService: secretBackendService,
 		crossModelState:      crossModelState,
@@ -141,7 +141,7 @@ func (s *CrossModelSecretsAPI) checkRelationMacaroons(ctx stdcontext.Context, co
 	// A cross model secret can only be accessed if the corresponding cross model relation
 	// it is scoped to is accessible by the supplied macaroon.
 	auth := s.authCtxt.Authenticator()
-	return auth.CheckRelationMacaroons(ctx, s.modelUUID, offerUUID, names.NewRelationTag(relKey), mac, version)
+	return auth.CheckRelationMacaroons(ctx, s.modelID, offerUUID, names.NewRelationTag(relKey), mac, version)
 }
 
 // GetSecretContentInfo returns the secret values for the specified secrets.

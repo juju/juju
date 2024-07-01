@@ -7,12 +7,14 @@ import (
 	"github.com/juju/names/v5"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -39,6 +41,7 @@ type baseSuite struct {
 	bakery            *mockBakeryService
 	authContext       *crossmodel.AuthContext
 	applicationOffers *stubApplicationOffers
+	mockModelService  *MockModelService
 }
 
 func (s *baseSuite) SetUpTest(c *gc.C) {
@@ -59,6 +62,19 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 		relationNetworks:  &mockRelationNetworks{},
 	}
 	s.mockStatePool = &mockStatePool{map[string]applicationoffers.Backend{s.mockState.modelUUID: s.mockState}}
+}
+
+func (s *baseSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockModelService = NewMockModelService(ctrl)
+	return ctrl
+}
+
+func (s *baseSuite) registerKnownModels(modelIDs ...model.UUID) {
+	for _, modelID := range modelIDs {
+		s.mockModelService.EXPECT().Model(gomock.Any(), modelID).AnyTimes().
+			Return(model.Model{UUID: modelID}, nil)
+	}
 }
 
 func (s *baseSuite) addApplication(c *gc.C, name string) jujucrossmodel.ApplicationOffer {
@@ -126,6 +142,7 @@ func (s *baseSuite) setupOffersForUUID(c *gc.C, offerUUID, filterAppName string,
 		owner:     "fred@external",
 		modelType: state.ModelTypeIAAS,
 	}
+	s.registerKnownModels(model.UUID(coretesting.ModelTag.Id()))
 	s.mockState.relations["hosted-db2:db wordpress:db"] = &mockRelation{
 		id: 1,
 		endpoint: state.Endpoint{
