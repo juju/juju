@@ -385,7 +385,7 @@ func (c *loginCommand) publicControllerLogin(
 
 	dialOpts.LoginProvider = loginprovider.NewTryInOrderLoginProvider(
 		loggo.GetLogger("juju.cmd.loginprovider"),
-		loginprovider.NewSessionTokenLoginProvider(
+		api.NewSessionTokenLoginProvider(
 			sessionToken,
 			ctx.Stderr,
 			func(sessionToken string) error {

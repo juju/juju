@@ -5,7 +5,7 @@
 // for login normally used by the CLI.
 // These are contrasted with login providers defined elsewhere which may not
 // require interactive login.
-package loginprovider
+package api
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
 )
@@ -59,7 +58,7 @@ type sessionTokenLoginProvider struct {
 //
 // It authenticates as the entity using the specified session token.
 // Subsequent requests on the state will act as that entity.
-func (p *sessionTokenLoginProvider) Login(ctx context.Context, caller base.APICaller) (*api.LoginResultParams, error) {
+func (p *sessionTokenLoginProvider) Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
 	// First we try to log in using the session token we have.
 	result, err := p.login(ctx, caller)
 	if err == nil {
@@ -128,7 +127,7 @@ func (p *sessionTokenLoginProvider) initiateDeviceLogin(ctx context.Context, cal
 	return p.updateAccountDetailsFunc(sessionTokenResult.SessionToken)
 }
 
-func (p *sessionTokenLoginProvider) login(ctx context.Context, caller base.APICaller) (*api.LoginResultParams, error) {
+func (p *sessionTokenLoginProvider) login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
 	var result params.LoginResult
 	request := struct {
 		SessionToken string `json:"session-token"`
@@ -141,5 +140,5 @@ func (p *sessionTokenLoginProvider) login(ctx context.Context, caller base.APICa
 		return nil, errors.Trace(err)
 	}
 
-	return api.NewLoginResultParams(result)
+	return NewLoginResultParams(result)
 }

@@ -23,6 +23,9 @@ var (
 	SlideAddressToFront = slideAddressToFront
 	FacadeVersions      = &facadeVersions
 
+	LoginDeviceAPICall                = &loginDeviceAPICall
+	GetDeviceSessionTokenAPICall      = &getDeviceSessionTokenAPICall
+	LoginWithSessionTokenAPICall      = &loginWithSessionTokenAPICall
 	LoginWithClientCredentialsAPICall = &loginWithClientCredentialsAPICall
 )
 
