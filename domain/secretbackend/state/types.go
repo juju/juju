@@ -31,6 +31,8 @@ type ModelSecretBackend struct {
 	Type coremodel.ModelType `db:"model_type"`
 	// SecretBackendID is the unique identifier for the secret backend configured for the model.
 	SecretBackendID string `db:"secret_backend_uuid"`
+	// SecretBackendName is the name of the secret backend configured for the model.
+	SecretBackendName string `db:"secret_backend_name"`
 }
 
 // modelDetails represents details about a model.

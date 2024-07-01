@@ -31,6 +31,7 @@ import (
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
@@ -194,7 +195,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 	err = modelSt.Activate(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
+	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	return modelUUID
 }
@@ -1286,8 +1287,16 @@ WHERE model_uuid = ?`
 		BackendType: "vault",
 	}, nil)
 
-	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "another-backend")
+	validatorCalled := false
+	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "another-backend", func(sb secretbackend.SecretBackend) error {
+		validatorCalled = true
+		c.Check(sb.ID, gc.Equals, anotherBackendID)
+		c.Check(sb.Name, gc.Equals, "another-backend")
+		c.Check(sb.BackendType, gc.Equals, "vault")
+		return nil
+	})
 	c.Assert(err, gc.IsNil)
+	c.Assert(validatorCalled, jc.IsTrue)
 
 	q = `
 SELECT secret_backend_uuid
@@ -1300,10 +1309,10 @@ WHERE model_uuid = ?`
 }
 
 func (s *stateSuite) TestSetModelSecretBackendBackendNotFound(c *gc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
+	modelUUID := s.createModel(c, coremodel.IAAS)
+	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, "non-existing-backen-id", nil)
 	c.Assert(err, jc.ErrorIs, backenderrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, `secret backend not found: "my-backend"`)
+	c.Assert(err, gc.ErrorMatches, `secret backend not found: "non-existing-backen-id"`)
 }
 
 func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
@@ -1324,9 +1333,47 @@ func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
 	}, nil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
+	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend", nil)
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: model %q`, modelUUID))
+}
+
+func (s *stateSuite) TestGetModelSecretBackendIaaSDefault(c *gc.C) {
+	modelUUID := s.createModel(c, coremodel.IAAS)
+
+	result, err := s.state.GetModelSecretBackend(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, `my-backend`)
+
+	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "auto", nil)
+	c.Assert(err, gc.IsNil)
+
+	detail, err := s.state.GetModelSecretBackendDetails(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(detail.SecretBackendName, gc.Equals, provider.Internal)
+
+	result, err = s.state.GetModelSecretBackend(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, provider.Auto)
+}
+
+func (s *stateSuite) TestGetModelSecretBackendCaaSDefault(c *gc.C) {
+	modelUUID := s.createModel(c, coremodel.CAAS)
+
+	result, err := s.state.GetModelSecretBackend(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, `my-backend`)
+
+	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "auto", nil)
+	c.Assert(err, gc.IsNil)
+
+	detail, err := s.state.GetModelSecretBackendDetails(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(detail.SecretBackendName, gc.Equals, kubernetes.BackendName)
+
+	result, err = s.state.GetModelSecretBackend(context.Background(), modelUUID)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, provider.Auto)
 }
 
 func (s *stateSuite) TestGetModelSecretBackendDetails(c *gc.C) {
@@ -1336,11 +1383,12 @@ func (s *stateSuite) TestGetModelSecretBackendDetails(c *gc.C) {
 	result, err := s.state.GetModelSecretBackendDetails(context.Background(), modelUUID)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, secretbackend.ModelSecretBackend{
-		ControllerUUID:  controllerUUID,
-		ID:              modelUUID,
-		Name:            "my-model",
-		Type:            "iaas",
-		SecretBackendID: s.vaultBackendID,
+		ControllerUUID:    controllerUUID,
+		ID:                modelUUID,
+		Name:              "my-model",
+		Type:              "iaas",
+		SecretBackendID:   s.vaultBackendID,
+		SecretBackendName: "my-backend",
 	})
 }
 
