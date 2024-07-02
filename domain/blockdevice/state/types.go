@@ -39,7 +39,7 @@ type DeviceLink struct {
 }
 
 type BlockDeviceMachine struct {
-	MachineId string `db:"machine_id"`
+	MachineId string `db:"name"`
 }
 
 type BlockDevices []BlockDevice

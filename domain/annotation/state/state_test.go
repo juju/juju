@@ -232,7 +232,7 @@ func (s *stateSuite) TestSetAnnotationsUnsetModel(c *gc.C) {
 func (s *stateSuite) TestUUIDQueryForID(c *gc.C) {
 	// machine
 	kindQuery, kindQueryParam, _ := uuidQueryForID(annotations.ID{Kind: annotations.KindMachine, Name: "my-machine"})
-	c.Check(kindQuery, gc.Equals, `SELECT &M.uuid FROM machine WHERE machine_id = $M.entity_id`)
+	c.Check(kindQuery, gc.Equals, `SELECT &M.uuid FROM machine WHERE name = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "my-machine"})
 
 	// application
@@ -311,7 +311,7 @@ func (s *stateSuite) ensureMachine(c *gc.C, id, uuid string) {
 	s.ensureNetNode(c, "node2")
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO machine (uuid, net_node_uuid, machine_id, life_id)
+		INSERT INTO machine (uuid, net_node_uuid, name, life_id)
 		VALUES (?, "node2", ?, "0")`, uuid, id)
 		return err
 	})

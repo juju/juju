@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	crossmodel "github.com/juju/juju/core/crossmodel"
+	machine "github.com/juju/juju/core/machine"
 	network "github.com/juju/juju/core/network"
 	service "github.com/juju/juju/domain/application/service"
 	storage "github.com/juju/juju/internal/storage"
@@ -44,7 +45,7 @@ func (m *MockMachineService) EXPECT() *MockMachineServiceMockRecorder {
 }
 
 // CreateMachine mocks base method.
-func (m *MockMachineService) CreateMachine(arg0 context.Context, arg1 string) (string, error) {
+func (m *MockMachineService) CreateMachine(arg0 context.Context, arg1 machine.Name) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateMachine", arg0, arg1)
 	ret0, _ := ret[0].(string)
@@ -71,13 +72,13 @@ func (c *MockMachineServiceCreateMachineCall) Return(arg0 string, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineServiceCreateMachineCall) Do(f func(context.Context, string) (string, error)) *MockMachineServiceCreateMachineCall {
+func (c *MockMachineServiceCreateMachineCall) Do(f func(context.Context, machine.Name) (string, error)) *MockMachineServiceCreateMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineServiceCreateMachineCall) DoAndReturn(f func(context.Context, string) (string, error)) *MockMachineServiceCreateMachineCall {
+func (c *MockMachineServiceCreateMachineCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockMachineServiceCreateMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

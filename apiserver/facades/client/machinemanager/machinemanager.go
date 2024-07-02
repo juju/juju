@@ -22,6 +22,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
@@ -71,8 +72,8 @@ type Authorizer interface {
 
 // MachineService manages machines.
 type MachineService interface {
-	CreateMachine(context.Context, string) (string, error)
-	DeleteMachine(context.Context, string) error
+	CreateMachine(context.Context, machine.Name) (string, error)
+	DeleteMachine(context.Context, machine.Name) error
 }
 
 // CharmhubClient represents a way for querying the charmhub api for information
@@ -392,18 +393,18 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
-func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineId string) error {
+func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineName string) error {
 	// This is temporary - just insert the machine id all al the parent ones.
 	var errs []error
-	for machineId != "" {
-		if _, err := mm.machineService.CreateMachine(ctx, machineId); err != nil {
-			errs = append(errs, errors.Annotatef(err, "saving info for machine %q", machineId))
+	for machineName != "" {
+		if _, err := mm.machineService.CreateMachine(ctx, machine.Name(machineName)); err != nil {
+			errs = append(errs, errors.Annotatef(err, "saving info for machine %q", machineName))
 		}
-		parent := names.NewMachineTag(machineId).Parent()
+		parent := names.NewMachineTag(machineName).Parent()
 		if parent == nil {
 			break
 		}
-		machineId = parent.Id()
+		machineName = parent.Id()
 	}
 	if len(errs) == 0 {
 		return nil

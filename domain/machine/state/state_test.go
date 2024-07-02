@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -40,13 +41,13 @@ func (s *stateSuite) TestCreateMachine(c *gc.C) {
 		machineID string
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT machine_id FROM machine").Scan(&machineID)
+		err := tx.QueryRowContext(ctx, "SELECT name FROM machine").Scan(&machineID)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machineID, gc.Equals, "666")
 }
 
@@ -58,13 +59,13 @@ func (s *stateSuite) TestUpdateMachine(c *gc.C) {
 
 	var machineID string
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT machine_id FROM machine").Scan(&machineID)
+		err := tx.QueryRowContext(ctx, "SELECT name FROM machine").Scan(&machineID)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machineID, gc.Equals, "666")
 }
 
@@ -89,17 +90,17 @@ func (s *stateSuite) TestDeleteMachine(c *gc.C) {
 	s.insertBlockDevice(c, bd, bdUUID, "666")
 
 	err = s.state.DeleteMachine(context.Background(), "666")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 
 	var machineCount int
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine WHERE machine_id=?", "666").Scan(&machineCount)
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine WHERE name=?", "666").Scan(&machineCount)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	})
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machineCount, gc.Equals, 0)
 }
 
@@ -112,7 +113,7 @@ func (s *stateSuite) insertBlockDevice(c *gc.C, bd blockdevice.BlockDevice, bloc
 	}
 	_, err := db.ExecContext(context.Background(), `
 INSERT INTO block_device (uuid, name, label, device_uuid, hardware_id, wwn, bus_address, serial_id, mount_point, filesystem_type_id, Size_mib, in_use, machine_uuid)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, (SELECT uuid FROM machine WHERE machine_id=?))
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 2, ?, ?, (SELECT uuid FROM machine WHERE name=?))
 `, blockDeviceUUID, bd.DeviceName, bd.Label, bd.UUID, bd.HardwareId, bd.WWN, bd.BusAddress, bd.SerialId, bd.MountPoint, bd.SizeMiB, inUse, machineId)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -132,11 +133,37 @@ func (s *stateSuite) TestGetMachineLifeSuccess(c *gc.C) {
 
 	obtainedLife, err := s.state.GetMachineLife(context.Background(), "666")
 	expectedLife := life.Alive
-	c.Assert(err, jc.ErrorIsNil)
+	c.Check(err, jc.ErrorIsNil)
 	c.Assert(*obtainedLife, gc.Equals, expectedLife)
 }
 
 func (s *stateSuite) TestGetMachineLifeNotFound(c *gc.C) {
 	_, err := s.state.GetMachineLife(context.Background(), "666")
-	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+func (s *stateSuite) TestListAllMachines(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "3", "1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.CreateMachine(context.Background(), "667", "4", "2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	machines, err := s.state.AllMachineNames(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedMachines := []string{"666", "667"}
+	ms := []string{}
+	for _, m := range machines {
+		ms = append(ms, m.String())
+	}
+	sort.Strings(ms)
+	sort.Strings(expectedMachines)
+	c.Assert(ms, gc.DeepEquals, expectedMachines)
+}
+
+func (s *stateSuite) TestListAllMachinesEmpty(c *gc.C) {
+	machines, err := s.state.AllMachineNames(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 0)
 }

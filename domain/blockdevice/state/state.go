@@ -61,7 +61,7 @@ FROM   block_device bd
        JOIN machine ON bd.machine_uuid = machine.uuid
        LEFT JOIN block_device_link_device bdl ON bd.uuid = bdl.block_device_uuid
        LEFT JOIN filesystem_type fs_type ON bd.filesystem_type_id = fs_type.id
-WHERE  machine.machine_id = $M.machine_id
+WHERE  machine.name = $M.name
 `
 
 	types := []any{
@@ -81,7 +81,7 @@ WHERE  machine.machine_id = $M.machine_id
 		dbDeviceLinks     []DeviceLink
 		dbFilesystemTypes []FilesystemType
 	)
-	machineParam := sqlair.M{"machine_id": machineId}
+	machineParam := sqlair.M{"name": machineId}
 	err = tx.Query(ctx, stmt, machineParam).GetAll(&dbRows, &dbDeviceLinks, &dbFilesystemTypes)
 	if err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
@@ -97,7 +97,7 @@ func (st *State) getMachineInfo(ctx context.Context, tx *sqlair.TX, machineId st
 	q := `
 SELECT machine.life_id AS &M.life_id, machine.uuid AS &M.machine_uuid
 FROM   machine
-WHERE  machine.machine_id = $M.machine_id
+WHERE  machine.name = $M.name
 `
 	stmt, err := st.Prepare(q, sqlair.M{})
 	if err != nil {
@@ -105,7 +105,7 @@ WHERE  machine.machine_id = $M.machine_id
 	}
 
 	result := sqlair.M{}
-	err = tx.Query(ctx, stmt, sqlair.M{"machine_id": machineId}).Get(result)
+	err = tx.Query(ctx, stmt, sqlair.M{"name": machineId}).Get(result)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 		return "", 0, errors.Annotatef(err, "looking up UUID for machine %q", machineId)
 	}
@@ -267,7 +267,7 @@ func (st *State) MachineBlockDevices(ctx context.Context) ([]blockdevice.Machine
 SELECT bd.* AS &BlockDevice.*,
        bdl.* AS &DeviceLink.*,
        fs_type.* AS &FilesystemType.*,
-       machine.machine_id AS &BlockDeviceMachine.*
+       machine.name AS &BlockDeviceMachine.*
 FROM   block_device bd
        JOIN machine ON bd.machine_uuid = machine.uuid
        LEFT JOIN block_device_link_device bdl ON bd.uuid = bdl.block_device_uuid

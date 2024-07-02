@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facades/controller/machineundertaker"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -192,8 +193,8 @@ func (*undertakerSuite) TestCompleteMachineRemovals(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(values, gc.DeepEquals, []string{"2", "52"})
 	remover.stub.CheckCalls(c, []testing.StubCall{
-		{"Delete", []any{"2"}},
-		{"Delete", []any{"52"}},
+		{"Delete", []any{machine.Name("2")}},
+		{"Delete", []any{machine.Name("52")}},
 	})
 }
 
@@ -330,7 +331,7 @@ type mockMachineRemover struct {
 	stub *testing.Stub
 }
 
-func (m *mockMachineRemover) DeleteMachine(_ context.Context, machineId string) error {
+func (m *mockMachineRemover) DeleteMachine(_ context.Context, machineId machine.Name) error {
 	m.stub.AddCall("Delete", machineId)
 	return nil
 }
