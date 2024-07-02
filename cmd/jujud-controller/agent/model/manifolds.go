@@ -434,16 +434,18 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                    storageprovisioner.NewStorageProvisioner,
 		})),
 		firewallerName: ifNotMigrating(firewaller.Manifold(firewaller.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			EnvironName:   providerTrackerName,
-			Logger:        config.LoggingContext.GetLogger("juju.worker.firewaller"),
+			AgentName:          agentName,
+			APICallerName:      apiCallerName,
+			EnvironName:        providerTrackerName,
+			Logger:             config.LoggingContext.GetLogger("juju.worker.firewaller"),
+			ServiceFactoryName: serviceFactoryName,
 
 			NewControllerConnection:      apicaller.NewExternalControllerConnection,
 			NewFirewallerWorker:          firewaller.NewWorker,
 			NewFirewallerFacade:          firewaller.NewFirewallerFacade,
 			NewRemoteRelationsFacade:     firewaller.NewRemoteRelationsFacade,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			GetServiceFactoryGetter:      firewaller.GetServiceFactoryGetter,
 		})),
 		charmDownloaderName: ifNotMigrating(ifCredentialValid(charmdownloader.Manifold(charmdownloader.ManifoldConfig{
 			APICallerName: apiCallerName,

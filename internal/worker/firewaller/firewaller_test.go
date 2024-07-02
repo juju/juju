@@ -56,6 +56,9 @@ type firewallerBaseSuite struct {
 	envFirewaller        *mocks.MockEnvironFirewaller
 	envModelFirewaller   *mocks.MockEnvironModelFirewaller
 	envInstances         *mocks.MockEnvironInstances
+	serviceFactoryGetter *mocks.MockServiceFactoryGetter
+	serviceFactory       *mocks.MockServiceFactory
+	machineService       *mocks.MockMachineService
 
 	machinesCh     chan []string
 	applicationsCh chan struct{}
@@ -126,6 +129,9 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 	s.remoteRelations = mocks.NewMockRemoteRelationsAPI(ctrl)
 	s.credentialsFacade = mocks.NewMockCredentialAPI(ctrl)
 	s.crossmodelFirewaller = mocks.NewMockCrossModelFirewallerFacadeCloser(ctrl)
+	s.serviceFactoryGetter = mocks.NewMockServiceFactoryGetter(ctrl)
+	s.serviceFactory = mocks.NewMockServiceFactory(ctrl)
+	s.machineService = mocks.NewMockMachineService(ctrl)
 
 	s.machinesCh = make(chan []string, 5)
 	s.applicationsCh = make(chan struct{}, 5)
@@ -167,6 +173,11 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 
 		s.modelFwRulesCh <- struct{}{}
 	}
+}
+
+func (s *firewallerBaseSuite) expectServiceFactory() {
+	s.serviceFactoryGetter.EXPECT().FactoryForModel(gomock.Any()).Return(s.serviceFactory)
+	s.serviceFactory.EXPECT().Machine().Return(s.machineService)
 }
 
 // assertIngressRules retrieves the ingress rules from the provided instance
@@ -334,6 +345,7 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *moc
 
 func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) worker.Worker {
 	s.ensureMocks(c, ctrl)
+	s.expectServiceFactory()
 
 	s.modelFlushed = make(chan bool, 5)
 	s.machineFlushed = make(chan string, 5)
@@ -360,19 +372,21 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock:              s.clock,
-		Logger:             loggertesting.WrapCheckLog(c),
-		CredentialAPI:      s.credentialsFacade,
-		WatchMachineNotify: watchMachineNotify,
-		FlushModelNotify:   flushModelNotify,
-		FlushMachineNotify: flushMachineNotify,
+		Clock:                s.clock,
+		Logger:               loggertesting.WrapCheckLog(c),
+		CredentialAPI:        s.credentialsFacade,
+		WatchMachineNotify:   watchMachineNotify,
+		FlushModelNotify:     flushModelNotify,
+		FlushMachineNotify:   flushMachineNotify,
+		ServiceFactoryGetter: s.serviceFactoryGetter,
 	}
 	if s.withModelFirewaller {
 		cfg.EnvironModelFirewaller = s.envModelFirewaller
 	}
 
 	mWatcher := watchertest.NewMockStringsWatcher(s.machinesCh)
-	s.firewaller.EXPECT().WatchModelMachines().Return(mWatcher, nil)
+	// s.firewaller.EXPECT().WatchModelMachines().Return(mWatcher, nil)
+	s.machineService.EXPECT().WatchMachines(gomock.Any()).Return(mWatcher, nil)
 
 	opWatcher := watchertest.NewMockStringsWatcher(s.openedPortsCh)
 	s.firewaller.EXPECT().WatchOpenedPorts().Return(opWatcher, nil)
@@ -2274,6 +2288,9 @@ var _ = gc.Suite(&NoneModeSuite{})
 func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
+	s.serviceFactoryGetter = mocks.NewMockServiceFactoryGetter(ctrl)
+	s.serviceFactory = mocks.NewMockServiceFactory(ctrl)
+	s.serviceFactoryGetter.EXPECT().FactoryForModel(gomock.Any()).Return(s.serviceFactory)
 
 	cfg := firewaller.Config{
 		ModelUUID:              coretesting.ModelTag.Id(),
@@ -2286,9 +2303,10 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 		NewCrossModelFacadeFunc: func(context.Context, *api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
-		Clock:         s.clock,
-		Logger:        loggertesting.WrapCheckLog(c),
-		CredentialAPI: s.credentialsFacade,
+		Clock:                s.clock,
+		Logger:               loggertesting.WrapCheckLog(c),
+		CredentialAPI:        s.credentialsFacade,
+		ServiceFactoryGetter: s.serviceFactoryGetter,
 	}
 
 	fw, err := firewaller.NewFirewaller(cfg)

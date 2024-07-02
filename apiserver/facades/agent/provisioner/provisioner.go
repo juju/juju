@@ -200,7 +200,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:         common.NewAPIAddresser(systemState, resources),
 		MongoModelWatcher:    common.NewMongoModelWatcher(model, resources),
-		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
+		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer, ctx.WatcherRegistry(), ctx.ServiceFactory().Machine()),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
 			serviceFactory.ControllerConfig(),
