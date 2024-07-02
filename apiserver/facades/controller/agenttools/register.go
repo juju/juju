@@ -5,13 +5,13 @@ package agenttools
 
 import (
 	"context"
-	"github.com/juju/juju/environs/tools"
 	"reflect"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
