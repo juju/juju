@@ -285,6 +285,9 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		if !c.noSwitch {
+			if err := store.SetCurrentController(controllerName); err != nil {
+				return errors.Trace(err)
+			}
 			if err := store.SetCurrentModel(controllerName, c.Name); err != nil {
 				return errors.Trace(err)
 			}

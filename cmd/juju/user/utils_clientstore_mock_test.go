@@ -239,6 +239,37 @@ func (mr *MockClientStoreMockRecorder) ModelByName(arg0, arg1 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelByName", reflect.TypeOf((*MockClientStore)(nil).ModelByName), arg0, arg1)
 }
 
+// PreviousController mocks base method.
+func (m *MockClientStore) PreviousController() (string, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PreviousController")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// PreviousController indicates an expected call of PreviousController.
+func (mr *MockClientStoreMockRecorder) PreviousController() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreviousController", reflect.TypeOf((*MockClientStore)(nil).PreviousController))
+}
+
+// PreviousModel mocks base method.
+func (m *MockClientStore) PreviousModel(arg0 string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PreviousModel", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PreviousModel indicates an expected call of PreviousModel.
+func (mr *MockClientStoreMockRecorder) PreviousModel(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreviousModel", reflect.TypeOf((*MockClientStore)(nil).PreviousModel), arg0)
+}
+
 // RemoveAccount mocks base method.
 func (m *MockClientStore) RemoveAccount(arg0 string) error {
 	m.ctrl.T.Helper()
