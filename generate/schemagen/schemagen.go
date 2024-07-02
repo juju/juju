@@ -222,6 +222,10 @@ func (c context) Auth() facade.Authorizer {
 	return c.auth
 }
 
+func (c context) ControllerUUID() string {
+	return ""
+}
+
 func (c context) ID() string {
 	return ""
 }

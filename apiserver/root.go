@@ -777,6 +777,11 @@ func (ctx *facadeContext) StatePool() *state.StatePool {
 	return ctx.r.shared.statePool
 }
 
+// ControllerUUID returns the controller unique identifier.
+func (ctx *facadeContext) ControllerUUID() string {
+	return ctx.r.shared.controllerUUID
+}
+
 // ID is part of the facade.ModelContext interface.
 func (ctx *facadeContext) ID() string {
 	return ctx.key.objId

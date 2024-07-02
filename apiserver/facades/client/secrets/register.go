@@ -55,7 +55,7 @@ func newSecretsAPI(context facade.ModelContext) (*SecretsAPI, error) {
 	return &SecretsAPI{
 		authorizer:           context.Auth(),
 		authTag:              context.Auth().GetAuthTag(),
-		controllerUUID:       context.State().ControllerUUID(),
+		controllerUUID:       context.ControllerUUID(),
 		modelUUID:            context.State().ModelUUID(),
 		modelName:            model.Name(),
 		secretService:        secretService,
