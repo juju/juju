@@ -32,8 +32,8 @@ var (
 )
 
 // PublishRelationChange applies the relation change event to the specified backend.
-func PublishRelationChange(auth authoriser, backend Backend, relationTag, applicationTag names.Tag, change params.RemoteRelationChangeEvent) error {
-	logger.Debugf("publish into model %v change for %v on %v: %#v", backend.ModelUUID(), relationTag, applicationTag, &change)
+func PublishRelationChange(auth authoriser, backend Backend, modelID model.UUID, relationTag, applicationTag names.Tag, change params.RemoteRelationChangeEvent) error {
+	logger.Debugf("publish into model %v change for %v on %v: %#v", modelID, relationTag, applicationTag, &change)
 
 	dyingOrDead := change.Life != "" && change.Life != life.Alive
 	// Ensure the relation exists.
@@ -47,7 +47,7 @@ func PublishRelationChange(auth authoriser, backend Backend, relationTag, applic
 		return errors.Trace(err)
 	}
 
-	if err := handleSuspendedRelation(auth, backend, change, rel, dyingOrDead); err != nil {
+	if err := handleSuspendedRelation(auth, backend, names.NewModelTag(modelID.String()), change, rel, dyingOrDead); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -88,7 +88,7 @@ func PublishRelationChange(auth authoriser, backend Backend, relationTag, applic
 		return nil
 	}
 	logger.Debugf("remote application for changed relation %v is %v in model %v",
-		relationTag.Id(), applicationTag.Id(), backend.ModelUUID())
+		relationTag.Id(), applicationTag.Id(), modelID)
 
 	// Allow sending an empty non-nil map to clear all the settings.
 	if change.ApplicationSettings != nil {
@@ -135,7 +135,14 @@ func CheckCanConsume(auth authoriser, backend offerBackend, controllerTag, model
 	return err == nil, err
 }
 
-func handleSuspendedRelation(auth authoriser, backend Backend, change params.RemoteRelationChangeEvent, rel Relation, dyingOrDead bool) error {
+func handleSuspendedRelation(
+	auth authoriser,
+	backend Backend,
+	modelTag names.Tag,
+	change params.RemoteRelationChangeEvent,
+	rel Relation,
+	dyingOrDead bool,
+) error {
 	// Update the relation suspended status.
 	currentStatus := rel.Suspended()
 	if !dyingOrDead && change.Suspended != nil && currentStatus != *change.Suspended {
@@ -155,7 +162,7 @@ func handleSuspendedRelation(auth authoriser, backend Backend, change params.Rem
 				return errors.Trace(err)
 			}
 			if err == nil {
-				ok, err := CheckCanConsume(auth, backend, backend.ControllerTag(), backend.ModelTag(), oc)
+				ok, err := CheckCanConsume(auth, backend, backend.ControllerTag(), modelTag, oc)
 				if err != nil {
 					return errors.Trace(err)
 				}

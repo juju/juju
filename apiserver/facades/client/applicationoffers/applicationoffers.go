@@ -213,7 +213,7 @@ func (api *OffersAPIv5) modifyOneOfferAccess(user names.UserTag, modelUUID strin
 
 	canModifyOffer := isControllerAdmin
 	if !canModifyOffer {
-		err = api.Authorizer.HasPermission(permission.AdminAccess, backend.ModelTag())
+		err = api.Authorizer.HasPermission(permission.AdminAccess, names.NewModelTag(modelUUID))
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return errors.Trace(err)
 		}

@@ -25,13 +25,6 @@ type BakeryConfigService interface {
 }
 
 type Backend interface {
-	// ModelUUID returns the model UUID for the model
-	// controlled by this state instance.
-	ModelUUID() string
-
-	// ModelTag the tag of the model on which we are operating.
-	ModelTag() names.ModelTag
-
 	// AllModelUUIDs returns the UUIDs of all models in the controller.
 	AllModelUUIDs() ([]string, error)
 
