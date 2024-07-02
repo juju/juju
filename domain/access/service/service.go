@@ -72,7 +72,7 @@ type UserState interface {
 	// GetAllUsers will retrieve all users with authentication information
 	// (last login, disabled) from the database. If no users exist an empty slice
 	// will be returned.
-	GetAllUsers(context.Context) ([]user.User, error)
+	GetAllUsers(ctx context.Context, includeDisabled bool) ([]user.User, error)
 
 	// GetUser will retrieve the user with authentication information (last login, disabled)
 	// specified by UUID from the database. If the user does not exist an error that satisfies

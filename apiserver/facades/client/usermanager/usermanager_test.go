@@ -386,42 +386,56 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 			Name:     "fred",
 			Disabled: false,
 		},
-		{
+	}
+	usersIncDisabled := append(users,
+		coreuser.User{
 			UUID:     newUserUUID(c),
 			Name:     "nancy",
-			Disabled: false,
+			Disabled: true,
 		},
+	)
+
+	expected := params.UserInfoResults{
+		Results: []params.UserInfoResult{{
+			Result: &params.UserInfo{
+				Username:       "fred",
+				Disabled:       false,
+				Access:         "login",
+				LastConnection: &time.Time{},
+			},
+		}}}
+	expectedIncDisabled := params.UserInfoResults{
+		Results: append(expected.Results, params.UserInfoResult{
+			Result: &params.UserInfo{
+				Username:       "nancy",
+				Disabled:       true,
+				Access:         "",
+				LastConnection: &time.Time{},
+			},
+		}),
 	}
 
-	// TODO (manadart 2024-02-14) This test is contrived to pass.
-	// The service is not correctly implemented as it does not
-	// factor the `IncludeDisabled` argument.
+	gomock.InOrder(
+		s.accessService.EXPECT().GetAllUsers(gomock.Any(), false).Return(users, nil),
+		s.accessService.EXPECT().GetAllUsers(gomock.Any(), true).Return(usersIncDisabled, nil),
+	)
 
-	s.accessService.EXPECT().GetAllUsers(gomock.Any()).Return(users, nil).Times(2)
-
+	// The access service is used only for none-deactivated users, deactivated
+	// users have NoPermissions.
 	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "fred", permission.ID{
 		ObjectType: permission.Controller,
 		Key:        "controller",
 	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil).Times(2)
 
-	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "nancy", permission.ID{
-		ObjectType: permission.Controller,
-		Key:        "controller",
-	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil).Times(2)
+	results, err := s.api.UserInfo(context.Background(), params.UserInfoRequest{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, jc.DeepEquals, expected)
 
 	args := params.UserInfoRequest{IncludeDisabled: true}
-	_, err := s.api.UserInfo(context.Background(), args)
+	results, err = s.api.UserInfo(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(results, jc.DeepEquals, expectedIncDisabled)
 
-	//var expected params.UserInfoResults
-	//c.Check(results, jc.DeepEquals, expected)
-
-	_, err = s.api.UserInfo(context.Background(), params.UserInfoRequest{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Same results as before, but without the deactivated user
-	//expected.Results = expected.Results[1:]
-	//c.Check(results, jc.DeepEquals, expected)
 }
 
 func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
