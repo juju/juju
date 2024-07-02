@@ -21,16 +21,27 @@ func Register(registry facade.FacadeRegistry) {
 		return newSecretsAPIV1(ctx)
 	}, reflect.TypeOf((*SecretsAPI)(nil)))
 	registry.MustRegister("Secrets", 2, func(stdCtx stdcontext.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newSecretsAPIV2(ctx)
+	}, reflect.TypeOf((*SecretsAPI)(nil)))
+	registry.MustRegister("Secrets", 3, func(stdCtx stdcontext.Context, ctx facade.ModelContext) (facade.Facade, error) {
 		return newSecretsAPI(ctx)
 	}, reflect.TypeOf((*SecretsAPI)(nil)))
 }
 
 func newSecretsAPIV1(context facade.ModelContext) (*SecretsAPIV1, error) {
+	v2, err := newSecretsAPIV2(context)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &SecretsAPIV1{SecretsAPIV2: v2}, nil
+}
+
+func newSecretsAPIV2(context facade.ModelContext) (*SecretsAPIV2, error) {
 	api, err := newSecretsAPI(context)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &SecretsAPIV1{SecretsAPI: api}, nil
+	return &SecretsAPIV2{SecretsAPI: api}, nil
 }
 
 // newSecretsAPI creates a SecretsAPI.

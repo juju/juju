@@ -33801,7 +33801,7 @@
     {
         "Name": "Secrets",
         "Description": "SecretsAPI is the backend for the Secrets facade.",
-        "Version": 2,
+        "Version": 3,
         "AvailableTo": [
             "model-user"
         ],
@@ -33819,6 +33819,15 @@
                         }
                     },
                     "description": "CreateSecrets creates new secrets."
+                },
+                "GetModelSecretBackend": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringResult"
+                        }
+                    },
+                    "description": "GetModelSecretBackend returns the secret backend for the model."
                 },
                 "GrantSecret": {
                     "type": "object",
@@ -33867,6 +33876,18 @@
                         }
                     },
                     "description": "RevokeSecret revokes access to a user secret."
+                },
+                "SetModelSecretBackend": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetModelSecretBackendArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResult"
+                        }
+                    },
+                    "description": "SetModelSecretBackend sets the secret backend name for the model."
                 },
                 "UpdateSecrets": {
                     "type": "object",
@@ -34265,6 +34286,18 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "SetModelSecretBackendArg": {
+                    "type": "object",
+                    "properties": {
+                        "secret-backend-name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "secret-backend-name"
+                    ]
                 },
                 "StringResult": {
                     "type": "object",

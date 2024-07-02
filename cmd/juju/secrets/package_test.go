@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secretsapi.go github.com/juju/juju/cmd/juju/secrets ListSecretsAPI,AddSecretsAPI,GrantRevokeSecretsAPI,UpdateSecretsAPI,RemoveSecretsAPI
+//go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/secretsapi.go github.com/juju/juju/cmd/juju/secrets ListSecretsAPI,AddSecretsAPI,GrantRevokeSecretsAPI,UpdateSecretsAPI,RemoveSecretsAPI,ModelSecretBackendAPI
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
@@ -75,6 +75,15 @@ func NewListCommandForTest(store jujuclient.ClientStore, listSecretsAPI ListSecr
 func NewShowCommandForTest(store jujuclient.ClientStore, listSecretsAPI ListSecretsAPI) *showSecretsCommand {
 	c := &showSecretsCommand{
 		listSecretsAPIFunc: func() (ListSecretsAPI, error) { return listSecretsAPI, nil },
+	}
+	c.SetClientStore(store)
+	return c
+}
+
+// NewModelCredentialCommandForTest returns a model secret backend command for testing.
+func NewModelCredentialCommandForTest(store jujuclient.ClientStore, api ModelSecretBackendAPI) *modelSecretBackendCommand {
+	c := &modelSecretBackendCommand{
+		getAPIFunc: func() (ModelSecretBackendAPI, error) { return api, nil },
 	}
 	c.SetClientStore(store)
 	return c

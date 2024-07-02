@@ -44,4 +44,7 @@ type SecretService interface {
 // SecretBackendService provides access to the secret backend service,
 type SecretBackendService interface {
 	GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID coremodel.UUID) (*provider.ModelBackendConfigInfo, error)
+
+	GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, error)
+	SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error
 }

@@ -19,6 +19,7 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apisecrets "github.com/juju/juju/apiserver/facades/client/secrets"
 	"github.com/juju/juju/apiserver/facades/client/secrets/mocks"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/domain/secret"
@@ -590,4 +591,98 @@ func (s *SecretsSuite) TestRevokeSecretPermissionDenied(c *gc.C) {
 
 	_, err = facade.RevokeSecret(context.Background(), params.GrantRevokeUserSecretArg{Label: "my-secret"})
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *SecretsSuite) TestGetModelSecretBackendPermissionDenied(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, coretesting.ModelTag).Return(
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission),
+	)
+
+	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = facade.GetModelSecretBackend(context.Background())
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *SecretsSuite) TestGetModelSecretBackendFailed(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, coretesting.ModelTag).Return(nil)
+	s.secretBackendService.EXPECT().GetModelSecretBackend(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return("", errors.New("boom"))
+
+	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := facade.GetModelSecretBackend(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.ErrorMatches, "boom")
+}
+
+func (s *SecretsSuite) TestGetModelSecretBackend(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, coretesting.ModelTag).Return(nil)
+	s.secretBackendService.EXPECT().GetModelSecretBackend(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id())).Return("myvault", nil)
+
+	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := facade.GetModelSecretBackend(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Result, gc.Equals, "myvault")
+}
+
+func (s *SecretsSuite) TestSetModelSecretBackendPermissionDenied(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(
+		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission),
+	)
+
+	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *SecretsSuite) TestSetModelSecretBackendFailed(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
+	s.secretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id()), "myvault").Return(errors.New("boom"))
+
+	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
+		SecretBackendName: "myvault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.ErrorMatches, "boom")
+}
+
+func (s *SecretsSuite) TestSetModelSecretBackend(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
+	s.secretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), coremodel.UUID(coretesting.ModelTag.Id()), "myvault").Return(nil)
+
+	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
+		SecretBackendName: "myvault",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Error, gc.IsNil)
 }

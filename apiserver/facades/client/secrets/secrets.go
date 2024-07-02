@@ -13,6 +13,7 @@ import (
 	commonsecrets "github.com/juju/juju/apiserver/common/secrets"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
@@ -38,6 +39,11 @@ type SecretsAPI struct {
 
 // SecretsAPIV1 is the backend for the Secrets facade v1.
 type SecretsAPIV1 struct {
+	*SecretsAPIV2
+}
+
+// SecretsAPIV2 is the backend for the Secrets facade v2.
+type SecretsAPIV2 struct {
 	*SecretsAPI
 }
 
@@ -422,4 +428,35 @@ func (s *SecretsAPI) secretsGrantRevoke(ctx context.Context, arg params.GrantRev
 		results.Results[i].Error = apiservererrors.ServerError(one(appName))
 	}
 	return results, nil
+}
+
+// GetModelSecretBackend isn't implemented in the SecretsAPIV2 facade.
+func (s *SecretsAPIV2) GetModelSecretBackend(context.Context) {}
+
+// GetModelSecretBackend returns the secret backend for the model.
+func (s *SecretsAPI) GetModelSecretBackend(ctx context.Context) (params.StringResult, error) {
+	result := params.StringResult{}
+	if err := s.authorizer.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelUUID)); err != nil {
+		return result, errors.Trace(err)
+	}
+
+	name, err := s.secretBackendService.GetModelSecretBackend(ctx, coremodel.UUID(s.modelUUID))
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+	} else {
+		result.Result = name
+	}
+	return result, nil
+}
+
+// SetModelSecretBackend isn't implemented in the SecretsAPIV2 facade.
+func (s *SecretsAPIV2) SetModelSecretBackend(_ context.Context, _ struct{}) {}
+
+// SetModelSecretBackend sets the secret backend name for the model.
+func (s *SecretsAPI) SetModelSecretBackend(ctx context.Context, arg params.SetModelSecretBackendArg) (params.ErrorResult, error) {
+	if err := s.authorizer.HasPermission(permission.WriteAccess, names.NewModelTag(s.modelUUID)); err != nil {
+		return params.ErrorResult{}, errors.Trace(err)
+	}
+	err := s.secretBackendService.SetModelSecretBackend(ctx, coremodel.UUID(s.modelUUID), arg.SecretBackendName)
+	return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 }
