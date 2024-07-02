@@ -1,0 +1,55 @@
+// Copyright 2024 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package provisioner
+
+import (
+	"context"
+
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/internal/storage"
+)
+
+// ControllerConfigService is the interface that the provisioner facade
+// uses to get the controller config.
+type ControllerConfigService interface {
+	// ControllerConfig returns this controller's config.
+	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+// ModelConfigService is the interface that the provisioner facade uses to get
+// the model config.
+type ModelConfigService interface {
+	// ModelConfig returns the current config for the model.
+	ModelConfig(context.Context) (*config.Config, error)
+}
+
+// ModelInfoService describe the service for interacting and reading the underlying
+// model information.
+type ModelInfoService interface {
+	// GetModelInfo returns the readonly model information for the model in
+	// question.
+	GetModelInfo(context.Context) (model.ReadOnlyModel, error)
+}
+
+// StoragePoolGetter instances get a storage pool by name.
+type StoragePoolGetter interface {
+	// GetStoragePoolByName returns the storage pool with the specified name.
+	GetStoragePoolByName(ctx context.Context, name string) (*storage.Config, error)
+}
+
+// NetworkService is the interface that is used to interact with the
+// network spaces/subnets.
+type NetworkService interface {
+	// GetAllSpaces returns all spaces for the model.
+	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
+	// SpaceByName returns a space from state that matches the input name.
+	// An error is returned that satisfied errors.NotFound if the space was not found
+	// or an error static any problems fetching the given space.
+	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
+	// GetAllSubnets returns all the subnets for the model.
+	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+}

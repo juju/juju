@@ -5,7 +5,6 @@ package provisioner
 
 import (
 	"context"
-	stdcontext "context"
 	"sync"
 
 	"github.com/juju/collections/set"
@@ -20,13 +19,13 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	corecontainer "github.com/juju/juju/core/container"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/lxdprofile"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -40,31 +39,6 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
-
-// ControllerConfigService is the interface that the provisioner facade
-// uses to get the controller config.
-type ControllerConfigService interface {
-	// ControllerConfig returns this controllers config.
-	ControllerConfig(stdcontext.Context) (controller.Config, error)
-}
-
-// StoragePoolGetter instances get a storage pool by name.
-type StoragePoolGetter interface {
-	GetStoragePoolByName(ctx stdcontext.Context, name string) (*storage.Config, error)
-}
-
-// NetworkService is the interface that is used to interact with the
-// network spaces/subnets.
-type NetworkService interface {
-	// GetAllSpaces returns all spaces for the model.
-	GetAllSpaces(ctx context.Context) (network.SpaceInfos, error)
-	// SpaceByName returns a space from state that matches the input name.
-	// An error is returned that satisfied errors.NotFound if the space was not found
-	// or an error static any problems fetching the given space.
-	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
-	// GetAllSubnets returns all the subnets for the model.
-	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
-}
 
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
@@ -84,8 +58,9 @@ type ProvisionerAPI struct {
 
 	networkService              NetworkService
 	st                          *state.State
-	m                           *state.Model
 	controllerConfigService     ControllerConfigService
+	modelConfigService          ModelConfigService
+	modelInfoService            ModelInfoService
 	resources                   facade.Resources
 	authorizer                  facade.Authorizer
 	storageProviderRegistry     storage.ProviderRegistry
@@ -106,7 +81,7 @@ type ProvisionerAPI struct {
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*ProvisionerAPI, error) {
+func NewProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*ProvisionerAPI, error) {
 	authorizer := ctx.Auth()
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
 		return nil, apiservererrors.ErrPerm
@@ -164,7 +139,13 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 		CloudService:      serviceFactory.Cloud(),
 		CredentialService: serviceFactory.Credential(),
 	}
-	isCaasModel := model.Type() == state.ModelTypeCAAS
+
+	modelInfoService := serviceFactory.ModelInfo()
+	modelInfo, err := modelInfoService.GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	isCaasModel := modelInfo.Type == coremodel.CAAS
 
 	var env storage.ProviderRegistry
 	if isCaasModel {
@@ -186,7 +167,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	urlGetter := common.NewToolsURLGetter(model.UUID(), systemState)
+	urlGetter := common.NewToolsURLGetter(string(modelInfo.UUID), systemState)
 
 	unitRemover := ctx.ServiceFactory().Unit()
 
@@ -209,8 +190,9 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 		NetworkConfigAPI:            netConfigAPI,
 		networkService:              ctx.ServiceFactory().Network(),
 		st:                          st,
-		m:                           model,
 		controllerConfigService:     serviceFactory.ControllerConfig(),
+		modelConfigService:          serviceFactory.Config(),
+		modelInfoService:            modelInfoService,
 		resources:                   resources,
 		authorizer:                  authorizer,
 		configGetter:                configGetter,
@@ -226,7 +208,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 		return api, nil
 	}
 
-	newEnviron := func(ctx stdcontext.Context) (environs.BootstrapEnviron, error) {
+	newEnviron := func(ctx context.Context) (environs.BootstrapEnviron, error) {
 		return environs.GetEnviron(ctx, configGetter, environs.New)
 	}
 
@@ -290,7 +272,7 @@ func (api *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) 
 
 // WatchContainers starts a StringsWatcher to watch containers deployed to
 // any machine passed in args.
-func (api *ProvisionerAPI) WatchContainers(ctx stdcontext.Context, args params.WatchContainers) (params.StringsWatchResults, error) {
+func (api *ProvisionerAPI) WatchContainers(ctx context.Context, args params.WatchContainers) (params.StringsWatchResults, error) {
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Params)),
 	}
@@ -304,12 +286,12 @@ func (api *ProvisionerAPI) WatchContainers(ctx stdcontext.Context, args params.W
 
 // WatchAllContainers starts a StringsWatcher to watch all containers deployed to
 // any machine passed in args.
-func (api *ProvisionerAPI) WatchAllContainers(ctx stdcontext.Context, args params.WatchContainers) (params.StringsWatchResults, error) {
+func (api *ProvisionerAPI) WatchAllContainers(ctx context.Context, args params.WatchContainers) (params.StringsWatchResults, error) {
 	return api.WatchContainers(ctx, args)
 }
 
 // SetSupportedContainers updates the list of containers supported by the machines passed in args.
-func (api *ProvisionerAPI) SetSupportedContainers(ctx stdcontext.Context, args params.MachineContainersParams) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetSupportedContainers(ctx context.Context, args params.MachineContainersParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
@@ -343,7 +325,7 @@ func (api *ProvisionerAPI) SetSupportedContainers(ctx stdcontext.Context, args p
 }
 
 // SupportedContainers returns the list of containers supported by the machines passed in args.
-func (api *ProvisionerAPI) SupportedContainers(ctx stdcontext.Context, args params.Entities) (params.MachineContainerResults, error) {
+func (api *ProvisionerAPI) SupportedContainers(ctx context.Context, args params.Entities) (params.MachineContainerResults, error) {
 	result := params.MachineContainerResults{
 		Results: make([]params.MachineContainerResult, len(args.Entities)),
 	}
@@ -373,12 +355,17 @@ func (api *ProvisionerAPI) SupportedContainers(ctx stdcontext.Context, args para
 
 // ContainerManagerConfig returns information from the model config that is
 // needed for configuring the container manager.
-func (api *ProvisionerAPI) ContainerManagerConfig(ctx stdcontext.Context, args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
+func (api *ProvisionerAPI) ContainerManagerConfig(ctx context.Context, args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
 	cfg := make(map[string]string)
-	cfg[container.ConfigModelUUID] = api.st.ModelUUID()
 
-	mConfig, err := api.m.ModelConfig(ctx)
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return result, err
+	}
+	cfg[container.ConfigModelUUID] = string(modelInfo.UUID)
+
+	mConfig, err := api.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -404,9 +391,9 @@ func (api *ProvisionerAPI) ContainerManagerConfig(ctx stdcontext.Context, args p
 
 // ContainerConfig returns information from the model config that is
 // needed for container cloud-init.
-func (api *ProvisionerAPI) ContainerConfig(ctx stdcontext.Context) (params.ContainerConfig, error) {
+func (api *ProvisionerAPI) ContainerConfig(ctx context.Context) (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
-	cfg, err := api.m.ModelConfig(ctx)
+	cfg, err := api.modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return result, err
 	}
@@ -440,7 +427,7 @@ func (api *ProvisionerAPI) ContainerConfig(ctx stdcontext.Context) (params.Conta
 
 // MachinesWithTransientErrors returns status data for machines with provisioning
 // errors which are transient.
-func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx stdcontext.Context) (params.StatusResults, error) {
+func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx context.Context) (params.StatusResults, error) {
 	var results params.StatusResults
 	canAccessFunc, err := api.getAuthFunc()
 	if err != nil {
@@ -483,7 +470,7 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors(ctx stdcontext.Context) (
 }
 
 // AvailabilityZone returns a provider-specific availability zone for each given machine entity
-func (api *ProvisionerAPI) AvailabilityZone(ctx stdcontext.Context, args params.Entities) (params.StringResults, error) {
+func (api *ProvisionerAPI) AvailabilityZone(ctx context.Context, args params.Entities) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
@@ -515,7 +502,7 @@ func (api *ProvisionerAPI) AvailabilityZone(ctx stdcontext.Context, args params.
 }
 
 // KeepInstance returns the keep-instance value for each given machine entity.
-func (api *ProvisionerAPI) KeepInstance(ctx stdcontext.Context, args params.Entities) (params.BoolResults, error) {
+func (api *ProvisionerAPI) KeepInstance(ctx context.Context, args params.Entities) (params.BoolResults, error) {
 	result := params.BoolResults{
 
 		Results: make([]params.BoolResult, len(args.Entities)),
@@ -545,7 +532,7 @@ func (api *ProvisionerAPI) KeepInstance(ctx stdcontext.Context, args params.Enti
 // a slice of instance.Ids that belong to the same distribution
 // group as that machine. This information may be used to
 // distribute instances for high availability.
-func (api *ProvisionerAPI) DistributionGroup(ctx stdcontext.Context, args params.Entities) (params.DistributionGroupResults, error) {
+func (api *ProvisionerAPI) DistributionGroup(ctx context.Context, args params.Entities) (params.DistributionGroupResults, error) {
 	result := params.DistributionGroupResults{
 		Results: make([]params.DistributionGroupResult, len(args.Entities)),
 	}
@@ -630,7 +617,7 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 // a slice of machine.Ids that belong to the same distribution
 // group as that machine. This information may be used to
 // distribute instances for high availability.
-func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx stdcontext.Context, args params.Entities) (params.StringsResults, error) {
+func (api *ProvisionerAPI) DistributionGroupByMachineId(ctx context.Context, args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
 	}
@@ -689,7 +676,7 @@ func commonApplicationMachineId(st *state.State, m *state.Machine) ([]string, er
 }
 
 // Constraints returns the constraints for each given machine entity.
-func (api *ProvisionerAPI) Constraints(ctx stdcontext.Context, args params.Entities) (params.ConstraintsResults, error) {
+func (api *ProvisionerAPI) Constraints(ctx context.Context, args params.Entities) (params.ConstraintsResults, error) {
 	result := params.ConstraintsResults{
 		Results: make([]params.ConstraintsResult, len(args.Entities)),
 	}
@@ -717,7 +704,7 @@ func (api *ProvisionerAPI) Constraints(ctx stdcontext.Context, args params.Entit
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
-func (api *ProvisionerAPI) FindTools(ctx stdcontext.Context, args params.FindToolsParams) (params.FindToolsResult, error) {
+func (api *ProvisionerAPI) FindTools(ctx context.Context, args params.FindToolsParams) (params.FindToolsResult, error) {
 	list, err := api.toolsFinder.FindAgents(ctx, common.FindAgentsParams{
 		Number:      args.Number,
 		Arch:        args.Arch,
@@ -733,7 +720,7 @@ func (api *ProvisionerAPI) FindTools(ctx stdcontext.Context, args params.FindToo
 // SetInstanceInfo sets the provider specific machine id, nonce,
 // metadata and network info for each given machine. Once set, the
 // instance id cannot be changed.
-func (api *ProvisionerAPI) SetInstanceInfo(ctx stdcontext.Context, args params.InstancesInfo) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetInstanceInfo(ctx context.Context, args params.InstancesInfo) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Machines)),
 	}
@@ -781,7 +768,7 @@ func (api *ProvisionerAPI) SetInstanceInfo(ctx stdcontext.Context, args params.I
 
 // WatchMachineErrorRetry returns a NotifyWatcher that notifies when
 // the provisioner should retry provisioning machines with transient errors.
-func (api *ProvisionerAPI) WatchMachineErrorRetry(ctx stdcontext.Context) (params.NotifyWatchResult, error) {
+func (api *ProvisionerAPI) WatchMachineErrorRetry(ctx context.Context) (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
 	if !api.authorizer.AuthController() {
 		return result, apiservererrors.ErrPerm
@@ -799,7 +786,7 @@ func (api *ProvisionerAPI) WatchMachineErrorRetry(ctx stdcontext.Context) (param
 // ReleaseContainerAddresses finds addresses allocated to a container and marks
 // them as Dead, to be released and removed. It accepts container tags as
 // arguments.
-func (api *ProvisionerAPI) ReleaseContainerAddresses(ctx stdcontext.Context, args params.Entities) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) ReleaseContainerAddresses(ctx context.Context, args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -847,7 +834,7 @@ func (api *ProvisionerAPI) ReleaseContainerAddresses(ctx stdcontext.Context, arg
 
 // PrepareContainerInterfaceInfo allocates an address and returns information to
 // configure networking for a container. It accepts container tags as arguments.
-func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(ctx stdcontext.Context, args params.Entities) (
+func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(ctx context.Context, args params.Entities) (
 	params.MachineNetworkConfigResults,
 	error,
 ) {
@@ -860,7 +847,7 @@ func (api *ProvisionerAPI) PrepareContainerInterfaceInfo(ctx stdcontext.Context,
 
 // GetContainerInterfaceInfo returns information to configure networking for a
 // container. It accepts container tags as arguments.
-func (api *ProvisionerAPI) GetContainerInterfaceInfo(ctx stdcontext.Context, args params.Entities) (
+func (api *ProvisionerAPI) GetContainerInterfaceInfo(ctx context.Context, args params.Entities) (
 	params.MachineNetworkConfigResults,
 	error,
 ) {
@@ -894,7 +881,7 @@ type perContainerHandler interface {
 	ConfigType() string
 }
 
-func (api *ProvisionerAPI) processEachContainer(ctx stdcontext.Context, args params.Entities, handler perContainerHandler) error {
+func (api *ProvisionerAPI) processEachContainer(ctx context.Context, args params.Entities, handler perContainerHandler) error {
 	env, hostMachine, canAccess, err := api.prepareContainerAccessEnvironment(ctx)
 	if err != nil {
 		// Overall error
@@ -1033,7 +1020,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 }
 
 func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
-	ctx stdcontext.Context,
+	ctx context.Context,
 	args params.Entities, maintain bool,
 ) (params.MachineNetworkConfigResults, error) {
 	c := &prepareOrGetContext{
@@ -1051,7 +1038,7 @@ func (api *ProvisionerAPI) prepareOrGetContainerInterfaceInfo(
 
 // prepareContainerAccessEnvironment retrieves the environment, host machine, and access
 // for working with containers.
-func (api *ProvisionerAPI) prepareContainerAccessEnvironment(ctx stdcontext.Context) (environs.Environ, *state.Machine, common.AuthFunc, error) {
+func (api *ProvisionerAPI) prepareContainerAccessEnvironment(ctx context.Context) (environs.Environ, *state.Machine, common.AuthFunc, error) {
 	env, err := environs.GetEnviron(ctx, api.configGetter, environs.New)
 	if err != nil {
 		return nil, nil, nil, errors.Trace(err)
@@ -1119,7 +1106,7 @@ func (ctx *hostChangesContext) ConfigType() string {
 // HostChangesForContainers returns the set of changes that need to be done
 // to the host machine to prepare it for the containers to be created.
 // Pass in a list of the containers that you want the changes for.
-func (api *ProvisionerAPI) HostChangesForContainers(ctx stdcontext.Context, args params.Entities) (params.HostNetworkChangeResults, error) {
+func (api *ProvisionerAPI) HostChangesForContainers(ctx context.Context, args params.Entities) (params.HostNetworkChangeResults, error) {
 	c := &hostChangesContext{
 		result: params.HostNetworkChangeResults{
 			Results: make([]params.HostNetworkChange, len(args.Entities)),
@@ -1190,13 +1177,19 @@ func (ctx *containerProfileContext) ConfigType() string {
 // container based on the charms deployed to the container. It accepts container
 // tags as arguments. Unlike machineLXDProfileNames which has the environ
 // write the lxd profiles and returns the names of profiles already written.
-func (api *ProvisionerAPI) GetContainerProfileInfo(ctx stdcontext.Context, args params.Entities) (params.ContainerProfileResults, error) {
+func (api *ProvisionerAPI) GetContainerProfileInfo(ctx context.Context, args params.Entities) (params.ContainerProfileResults, error) {
 	c := &containerProfileContext{
 		result: params.ContainerProfileResults{
 			Results: make([]params.ContainerProfileResult, len(args.Entities)),
 		},
-		modelName: api.m.Name(),
 	}
+
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return c.result, errors.Trace(err)
+	}
+	c.modelName = modelInfo.Name
+
 	if err := api.processEachContainer(ctx, args, c); err != nil {
 		return c.result, errors.Trace(err)
 	}
@@ -1205,7 +1198,7 @@ func (api *ProvisionerAPI) GetContainerProfileInfo(ctx stdcontext.Context, args 
 
 // InstanceStatus returns the instance status for each given entity.
 // Only machine tags are accepted.
-func (api *ProvisionerAPI) InstanceStatus(ctx stdcontext.Context, args params.Entities) (params.StatusResults, error) {
+func (api *ProvisionerAPI) InstanceStatus(ctx context.Context, args params.Entities) (params.StatusResults, error) {
 	result := params.StatusResults{
 		Results: make([]params.StatusResult, len(args.Entities)),
 	}
@@ -1276,7 +1269,7 @@ func (api *ProvisionerAPI) setOneInstanceStatus(canAccess common.AuthFunc, arg p
 
 // SetInstanceStatus updates the instance status for each given
 // entity. Only machine tags are accepted.
-func (api *ProvisionerAPI) SetInstanceStatus(ctx stdcontext.Context, args params.SetStatus) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetInstanceStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -1299,7 +1292,7 @@ func (api *ProvisionerAPI) SetInstanceStatus(ctx stdcontext.Context, args params
 // the instance to be placed into a error state. This modification status
 // serves the purpose of highlighting that to the operator.
 // Only machine tags are accepted.
-func (api *ProvisionerAPI) SetModificationStatus(ctx stdcontext.Context, args params.SetStatus) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetModificationStatus(ctx context.Context, args params.SetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -1348,7 +1341,7 @@ func (api *ProvisionerAPI) setOneModificationStatus(canAccess common.AuthFunc, a
 // MarkMachinesForRemoval indicates that the specified machines are
 // ready to have any provider-level resources cleaned up and then be
 // removed.
-func (api *ProvisionerAPI) MarkMachinesForRemoval(ctx stdcontext.Context, machines params.Entities) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) MarkMachinesForRemoval(ctx context.Context, machines params.Entities) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(machines.Entities))
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
@@ -1373,12 +1366,12 @@ func (api *ProvisionerAPI) markOneMachineForRemoval(machineTag string, canAccess
 	return machine.MarkForRemoval()
 }
 
-func (api *ProvisionerAPI) SetHostMachineNetworkConfig(ctx stdcontext.Context, args params.SetMachineNetworkConfig) error {
+func (api *ProvisionerAPI) SetHostMachineNetworkConfig(ctx context.Context, args params.SetMachineNetworkConfig) error {
 	return api.SetObservedNetworkConfig(ctx, args)
 }
 
 // CACert returns the certificate used to validate the state connection.
-func (api *ProvisionerAPI) CACert(ctx stdcontext.Context) (params.BytesResult, error) {
+func (api *ProvisionerAPI) CACert(ctx context.Context) (params.BytesResult, error) {
 	cfg, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return params.BytesResult{}, errors.Trace(err)
@@ -1388,7 +1381,7 @@ func (api *ProvisionerAPI) CACert(ctx stdcontext.Context) (params.BytesResult, e
 }
 
 // SetCharmProfiles records the given slice of charm profile names.
-func (api *ProvisionerAPI) SetCharmProfiles(ctx stdcontext.Context, args params.SetProfileArgs) (params.ErrorResults, error) {
+func (api *ProvisionerAPI) SetCharmProfiles(ctx context.Context, args params.SetProfileArgs) (params.ErrorResults, error) {
 	results := make([]params.ErrorResult, len(args.Args))
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
@@ -1414,12 +1407,16 @@ func (api *ProvisionerAPI) setOneMachineCharmProfiles(machineTag string, profile
 }
 
 // ModelUUID returns the model UUID that the current connection is for.
-func (api *ProvisionerAPI) ModelUUID(ctx stdcontext.Context) params.StringResult {
-	return params.StringResult{Result: api.st.ModelUUID()}
+func (api *ProvisionerAPI) ModelUUID(ctx context.Context) params.StringResult {
+	modelInfo, err := api.modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return params.StringResult{Error: apiservererrors.ServerError(err)}
+	}
+	return params.StringResult{Result: string(modelInfo.UUID)}
 }
 
 // APIHostPorts returns the API server addresses.
-func (api *ProvisionerAPI) APIHostPorts(ctx stdcontext.Context) (result params.APIHostPortsResult, err error) {
+func (api *ProvisionerAPI) APIHostPorts(ctx context.Context) (result params.APIHostPortsResult, err error) {
 	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)
@@ -1429,7 +1426,7 @@ func (api *ProvisionerAPI) APIHostPorts(ctx stdcontext.Context) (result params.A
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-func (api *ProvisionerAPI) APIAddresses(ctx stdcontext.Context) (result params.StringsResult, err error) {
+func (api *ProvisionerAPI) APIAddresses(ctx context.Context) (result params.StringsResult, err error) {
 	controllerConfig, err := api.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return result, errors.Trace(err)

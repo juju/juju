@@ -69,14 +69,20 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
-	if s.ApiServerSuite.ControllerModelConfigAttrs == nil {
-		s.ApiServerSuite.ControllerModelConfigAttrs = make(map[string]any)
-	}
+	// TODO: move this over to controller config service
 	s.ApiServerSuite.ControllerConfigAttrs = map[string]any{
 		controller.SystemSSHKeys: "testSystemSSH",
 	}
-	s.ApiServerSuite.ControllerModelConfigAttrs["image-stream"] = "daily"
 	s.ApiServerSuite.SetUpTest(c)
+
+	controllerServiceFactory := s.ControllerServiceFactory(c)
+	err := controllerServiceFactory.Config().UpdateModelConfig(context.Background(),
+		map[string]any{
+			"image-stream": "daily",
+		},
+		nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Reset previous machines (if any) and create 3 machines
 	// for the tests, plus an optional controller machine.
@@ -84,8 +90,6 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
 	st := s.ControllerModel(c).State()
-
-	controllerServiceFactory := s.ControllerServiceFactory(c)
 
 	if withController {
 		controllerConfigService := controllerServiceFactory.ControllerConfig()
@@ -110,7 +114,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	// Register, and to register the root for tools URLs.
 	s.resources = common.NewResources()
 
-	s.serviceFactory = s.ControllerServiceFactory(c)
+	s.serviceFactory = controllerServiceFactory
 	// Create a provisioner API for the machine.
 	provisionerAPI, err := provisioner.NewProvisionerAPIV11(context.Background(), facadetest.ModelContext{
 		Auth_:           s.authorizer,
@@ -1306,7 +1310,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	storageService := serviceFactoryGetter.FactoryForModel(st.ModelUUID()).Storage(registry)
 	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]any{
+	err = s.serviceFactory.Config().UpdateModelConfig(context.Background(), map[string]any{
 		"storage-default-block-source": "static-pool",
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1507,7 +1511,7 @@ func (s *withoutControllerSuite) TestContainerManagerConfigDefaultMetadataDisabl
 	attrs := map[string]interface{}{
 		"container-image-metadata-defaults-disabled": true,
 	}
-	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), attrs, nil)
+	err := s.serviceFactory.Config().UpdateModelConfig(context.Background(), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	cfg := s.getManagerConfig(c, instance.LXD)
 	c.Assert(cfg, jc.DeepEquals, map[string]string{
@@ -1605,7 +1609,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		"cloudinit-userdata":           validCloudInitUserData,
 		"container-inherit-properties": "ca-certs,apt-primary",
 	}
-	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), attrs, nil)
+	err := s.serviceFactory.Config().UpdateModelConfig(context.Background(), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAPTProxy := proxy.Settings{
 		Http:    "http://proxy.example.com:9000",
@@ -1622,7 +1626,7 @@ func (s *withoutControllerSuite) TestContainerConfig(c *gc.C) {
 		Https: "https://snap-proxy.example.com:9000",
 	}
 
-	cfg, err := s.ControllerModel(c).ModelConfig(context.Background())
+	cfg, err := s.serviceFactory.Config().ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.provisioner.ContainerConfig(context.Background())
 	c.Check(err, jc.ErrorIsNil)
@@ -1658,7 +1662,7 @@ func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
 		"cloudinit-userdata":           validCloudInitUserData,
 		"container-inherit-properties": "ca-certs,apt-primary",
 	}
-	err := s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), attrs, nil)
+	err := s.serviceFactory.Config().UpdateModelConfig(context.Background(), attrs, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedAPTProxy := proxy.Settings{
 		Http:    "http://proxy.example.com:9000",
@@ -1671,7 +1675,7 @@ func (s *withoutControllerSuite) TestContainerConfigLegacy(c *gc.C) {
 		NoProxy: "127.0.0.1,localhost,::1",
 	}
 
-	cfg, err := s.ControllerModel(c).ModelConfig(context.Background())
+	cfg, err := s.serviceFactory.Config().ModelConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.provisioner.ContainerConfig(context.Background())
 	c.Check(err, jc.ErrorIsNil)
@@ -1887,11 +1891,16 @@ type withImageMetadataSuite struct {
 var _ = gc.Suite(&withImageMetadataSuite{})
 
 func (s *withImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.ControllerModelConfigAttrs = map[string]any{
-		config.ContainerImageStreamKey:      "daily",
-		config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
-	}
 	s.setUpTest(c, false)
+
+	err := s.ControllerServiceFactory(c).Config().UpdateModelConfig(context.Background(),
+		map[string]any{
+			config.ContainerImageStreamKey:      "daily",
+			config.ContainerImageMetadataURLKey: "https://images.linuxcontainers.org/",
+		},
+		nil,
+	)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *withImageMetadataSuite) TestContainerManagerConfigImageMetadata(c *gc.C) {
