@@ -58,6 +58,11 @@ func (c *scaleApplicationCommand) Info() *cmd.Info {
 		Purpose:  "Set the desired number of k8s application units.",
 		Doc:      scaleApplicationDoc,
 		Examples: scaleApplicationExamples,
+		SeeAlso: []string{
+			"remove-application",
+			"add-unit",
+			"remove-unit",
+		},
 	})
 }
 

@@ -50,6 +50,12 @@ func NewListCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(c)
 }
 
+const listResourcesExamples = `
+	juju resources mysql
+	juju resources mysql/0
+	juju resources mysql/0 --details
+`
+
 // Info implements cmd.Command.Info.
 func (c *ListCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
@@ -66,6 +72,7 @@ This command shows the resources required by and those in use by an existing
 application or unit in your model.  When run for an application, it will also show any
 updates available for resources from a store.
 `,
+		Examples: listResourcesExamples,
 	})
 }
 

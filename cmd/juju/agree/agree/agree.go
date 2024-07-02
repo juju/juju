@@ -86,6 +86,9 @@ func (c *agreeCommand) Info() *cmd.Info {
 		Purpose:  "Agree to terms.",
 		Doc:      agreeDoc,
 		Examples: agreeExamples,
+		SeeAlso: []string{
+			"agreements",
+		},
 	})
 }
 

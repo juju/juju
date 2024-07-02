@@ -61,6 +61,9 @@ func (c *showModelCommand) Info() *cmd.Info {
 		Args:    "<model name>",
 		Purpose: "Shows information about the current or specified model.",
 		Doc:     showModelCommandDoc,
+		SeeAlso: []string{
+			"add-model",
+		},
 	})
 }
 
