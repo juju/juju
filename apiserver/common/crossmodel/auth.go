@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	coremacaroon "github.com/juju/juju/core/macaroon"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 )
@@ -64,6 +65,7 @@ func (CrossModelAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp baker
 type AuthContext struct {
 	offerBakery OfferBakeryInterface
 	systemState Backend
+	modelTag    names.ModelTag
 
 	offerThirdPartyKey *bakery.KeyPair
 
@@ -74,11 +76,13 @@ type AuthContext struct {
 // macaroons used with application offer requests.
 func NewAuthContext(
 	systemState Backend,
+	modelTag names.ModelTag,
 	offerThirdPartyKey *bakery.KeyPair,
 	offerBakery OfferBakeryInterface,
 ) (*AuthContext, error) {
 	ctxt := &AuthContext{
 		systemState:        systemState,
+		modelTag:           modelTag,
 		offerThirdPartyKey: offerThirdPartyKey,
 		offerBakery:        offerBakery,
 	}
@@ -173,7 +177,7 @@ func (a *AuthContext) checkOfferAccess(userAccess userAccessFunc, username, offe
 	if isAdmin {
 		return nil
 	}
-	isAdmin, err = hasAccess(userAccess, userTag, permission.AdminAccess, a.systemState.ModelTag())
+	isAdmin, err = hasAccess(userAccess, userTag, permission.AdminAccess, a.modelTag)
 	if is := errors.Is(err, authentication.ErrorEntityMissingPermission); err != nil && !is {
 		return apiservererrors.ErrPerm
 	}
@@ -222,7 +226,7 @@ func (a *AuthContext) CreateConsumeOfferMacaroon(
 
 // CreateRemoteRelationMacaroon creates a macaroon that authorises access to the specified relation.
 func (a *AuthContext) CreateRemoteRelationMacaroon(
-	ctx context.Context, sourceModelUUID, offerUUID, username string, rel names.Tag, version bakery.Version,
+	ctx context.Context, sourceModelUUID model.UUID, offerUUID, username string, rel names.Tag, version bakery.Version,
 ) (*bakery.Macaroon, error) {
 	expiryTime := a.offerBakery.getClock().Now().Add(offerPermissionExpiryTime)
 	bakery, err := a.offerBakery.getBakery().ExpireStorageAfter(offerPermissionExpiryTime)
@@ -235,7 +239,7 @@ func (a *AuthContext) CreateRemoteRelationMacaroon(
 		version,
 		[]checkers.Caveat{
 			checkers.TimeBeforeCaveat(expiryTime),
-			checkers.DeclaredCaveat(sourcemodelKey, sourceModelUUID),
+			checkers.DeclaredCaveat(sourcemodelKey, sourceModelUUID.String()),
 			checkers.DeclaredCaveat(offeruuidKey, offerUUID),
 			checkers.DeclaredCaveat(usernameKey, username),
 			checkers.DeclaredCaveat(relationKey, rel.Id()),
@@ -352,18 +356,18 @@ func (a *authenticator) checkMacaroons(
 }
 
 // CheckOfferMacaroons verifies that the specified macaroons allow access to the offer.
-func (a *authenticator) CheckOfferMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, mac macaroon.Slice, version bakery.Version) (map[string]string, error) {
+func (a *authenticator) CheckOfferMacaroons(ctx context.Context, sourceModelUUID model.UUID, offerUUID string, mac macaroon.Slice, version bakery.Version) (map[string]string, error) {
 	requiredValues := map[string]string{
-		sourcemodelKey: sourceModelUUID,
+		sourcemodelKey: sourceModelUUID.String(),
 		offeruuidKey:   offerUUID,
 	}
 	return a.checkMacaroons(ctx, mac, version, requiredValues, crossModelConsumeOp(offerUUID))
 }
 
 // CheckRelationMacaroons verifies that the specified macaroons allow access to the relation.
-func (a *authenticator) CheckRelationMacaroons(ctx context.Context, sourceModelUUID, offerUUID string, relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
+func (a *authenticator) CheckRelationMacaroons(ctx context.Context, sourceModelUUID model.UUID, offerUUID string, relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
 	requiredValues := map[string]string{
-		sourcemodelKey: sourceModelUUID,
+		sourcemodelKey: sourceModelUUID.String(),
 		offeruuidKey:   offerUUID,
 		relationKey:    relationTag.Id(),
 	}

@@ -42,7 +42,7 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(
-		s.mockState, thirdPartyKey,
+		s.mockState, names.NewModelTag("uuid"), thirdPartyKey,
 		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,6 +51,7 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 		getApplicationOffers, nil, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, s.authContext, apiservertesting.NoopModelCredentialInvalidatorGetter,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
+		"uuid",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

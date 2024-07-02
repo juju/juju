@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
 	coremacaroon "github.com/juju/juju/core/macaroon"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -58,6 +59,7 @@ type CrossModelRelationsAPIv3 struct {
 	offerStatusWatcher     offerStatusWatcherFunc
 	consumedSecretsWatcher consumedSecretsWatcherFunc
 	logger                 corelogger.Logger
+	modelID                model.UUID
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
@@ -74,6 +76,7 @@ func NewCrossModelRelationsAPI(
 	offerStatusWatcher offerStatusWatcherFunc,
 	consumedSecretsWatcher consumedSecretsWatcherFunc,
 	logger corelogger.Logger,
+	modelID model.UUID,
 ) (*CrossModelRelationsAPIv3, error) {
 	return &CrossModelRelationsAPIv3{
 		st:                     st,
@@ -89,6 +92,7 @@ func NewCrossModelRelationsAPI(
 		consumedSecretsWatcher: consumedSecretsWatcher,
 		relationToOffer:        make(map[string]string),
 		logger:                 logger,
+		modelID:                modelID,
 	}, nil
 }
 
@@ -105,7 +109,7 @@ func (api *CrossModelRelationsAPIv3) checkMacaroonsForRelation(ctx context.Conte
 		offerUUID = oc.OfferUUID()
 	}
 	auth := api.authCtxt.Authenticator()
-	return auth.CheckRelationMacaroons(ctx, api.st.ModelUUID(), offerUUID, relationTag, mac, version)
+	return auth.CheckRelationMacaroons(ctx, api.modelID, offerUUID, relationTag, mac, version)
 }
 
 // PublishRelationChanges publishes relation changes to the
@@ -122,7 +126,7 @@ func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 		relationTag, err := api.st.GetRemoteEntity(change.RelationToken)
 		if err != nil {
 			if errors.Is(err, errors.NotFound) {
-				api.logger.Debugf("no relation tag %+v in model %v, exit early", change.RelationToken, api.st.ModelUUID())
+				api.logger.Debugf("no relation tag %+v in model %v, exit early", change.RelationToken, api.modelID)
 				continue
 			}
 			results.Results[i].Error = apiservererrors.ServerError(err)
@@ -163,7 +167,7 @@ func (api *CrossModelRelationsAPIv3) PublishRelationChanges(
 				continue
 			}
 		}
-		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, applicationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, api.modelID, relationTag, applicationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -204,7 +208,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 
 	// Check that the supplied macaroon allows access.
 	auth := api.authCtxt.Authenticator()
-	attr, err := auth.CheckOfferMacaroons(ctx, api.st.ModelUUID(), appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
+	attr, err := auth.CheckOfferMacaroons(ctx, api.modelID, appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +305,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 		if err != nil && !errors.Is(err, errors.AlreadyExists) {
 			return nil, errors.Annotate(err, "adding remote relation")
 		} else if err == nil {
-			api.logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.st.ModelUUID())
+			api.logger.Debugf("added relation %v to model %v", localRel.Tag().Id(), api.modelID)
 		}
 	}
 	_, err = api.st.AddOfferConnection(state.AddOfferConnectionParams{
@@ -316,7 +320,7 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 	api.relationToOffer[localRel.Tag().Id()] = relation.OfferUUID
 
 	// Ensure we have references recorded.
-	api.logger.Debugf("importing remote relation into model %v", api.st.ModelUUID())
+	api.logger.Debugf("importing remote relation into model %v", api.modelID)
 	api.logger.Debugf("remote model is %v", sourceModelTag.Id())
 
 	err = api.st.ImportRemoteEntity(localRel.Tag(), relation.RelationToken)
@@ -332,11 +336,11 @@ func (api *CrossModelRelationsAPIv3) registerRemoteRelation(ctx context.Context,
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return nil, errors.Annotatef(err, "exporting local application offer %q", appOffer.OfferName)
 	}
-	api.logger.Debugf("local application offer %v from model %v exported with token %q ", appOffer.OfferName, api.st.ModelUUID(), token)
+	api.logger.Debugf("local application offer %v from model %v exported with token %q ", appOffer.OfferName, api.modelID, token)
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.authCtxt.CreateRemoteRelationMacaroon(
-		ctx, api.st.ModelUUID(), relation.OfferUUID, username, localRel.Tag(), relation.BakeryVersion)
+		ctx, api.modelID, relation.OfferUUID, username, localRel.Tag(), relation.BakeryVersion)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}
@@ -523,7 +527,7 @@ func (api *CrossModelRelationsAPIv3) WatchOfferStatus(
 	auth := api.authCtxt.Authenticator()
 	for i, arg := range offerArgs.Args {
 		// Ensure the supplied macaroon allows access.
-		_, err := auth.CheckOfferMacaroons(ctx, api.st.ModelUUID(), arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
+		_, err := auth.CheckOfferMacaroons(ctx, api.modelID, arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -575,7 +579,7 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(ctx context.Con
 		}
 
 		// Ensure the supplied macaroon allows access.
-		_, err = auth.CheckOfferMacaroons(ctx, api.st.ModelUUID(), offerUUID, arg.Macaroons, arg.BakeryVersion)
+		_, err = auth.CheckOfferMacaroons(ctx, api.modelID, offerUUID, arg.Macaroons, arg.BakeryVersion)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -669,7 +673,7 @@ func (api *CrossModelRelationsAPIv3) PublishIngressNetworkChanges(
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		if err := commoncrossmodel.PublishIngressNetworkChange(ctx, api.st, relationTag, change); err != nil {
+		if err := commoncrossmodel.PublishIngressNetworkChange(ctx, api.modelID, api.st, api.modelConfigService, relationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

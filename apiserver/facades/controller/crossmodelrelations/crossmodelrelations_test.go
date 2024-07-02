@@ -29,6 +29,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -127,7 +128,7 @@ func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
 	authContext, err := commoncrossmodel.NewAuthContext(
-		s.st, thirdPartyKey,
+		s.st, s.st.ModelTag(), thirdPartyKey,
 		commoncrossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,7 +137,7 @@ func (s *crossmodelRelationsSuite) setupAPI(c *gc.C) {
 		s.st, fw, s.resources, s.authorizer,
 		authContext, s.secretService, s.modelConfigService, egressAddressWatcher, relationStatusWatcher,
 		offerStatusWatcher, consumedSecretsWatcher,
-		loggertesting.WrapCheckLog(c),
+		loggertesting.WrapCheckLog(c), model.UUID(s.st.ModelUUID()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -395,6 +396,9 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
+	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
 	mac, err := s.bakery.NewMacaroon(
 		context.Background(),
 		bakery.LatestVersion,
@@ -439,9 +443,13 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
-	s.st.modelConfig = coretesting.Attrs{
-		config.SAASIngressAllowKey: "10.1.1.1/8",
-	}
+	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig().Merge(
+		coretesting.Attrs{
+			config.SAASIngressAllowKey: "10.1.1.1/8",
+		},
+	))
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
 	mac, err := s.bakery.NewMacaroon(
 		context.Background(),
 		bakery.LatestVersion,

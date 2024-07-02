@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	envcontext "github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/rpc/params"
@@ -31,6 +32,7 @@ type BaseAPI struct {
 	getControllerInfo           func(context.Context) (apiAddrs []string, caCert string, _ error)
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter
 	logger                      corelogger.Logger
+	modelID                     model.UUID
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.
@@ -42,7 +44,7 @@ func (api *BaseAPI) checkAdmin(user names.UserTag, backend Backend) error {
 		return nil
 	}
 
-	return api.Authorizer.EntityHasPermission(user, permission.AdminAccess, backend.ModelTag())
+	return api.Authorizer.EntityHasPermission(user, permission.AdminAccess, names.NewModelTag(api.modelID.String()))
 }
 
 // checkControllerAdmin ensures that the logged in user is a controller admin.
@@ -426,7 +428,7 @@ func (api *BaseAPI) makeOfferParams(
 	}
 
 	result := params.ApplicationOfferDetailsV5{
-		SourceModelTag:         backend.ModelTag().String(),
+		SourceModelTag:         names.NewModelTag(api.modelID.String()).String(),
 		OfferName:              offer.OfferName,
 		OfferUUID:              offer.OfferUUID,
 		ApplicationDescription: offer.ApplicationDescription,

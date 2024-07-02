@@ -20,7 +20,6 @@ import (
 	crossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	crossmodel0 "github.com/juju/juju/core/crossmodel"
 	permission "github.com/juju/juju/core/permission"
-	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
@@ -925,121 +924,6 @@ func (c *MockBackendKeyRelationCall) Do(f func(string) (crossmodel.Relation, err
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendKeyRelationCall) DoAndReturn(f func(string) (crossmodel.Relation, error)) *MockBackendKeyRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ModelConfig mocks base method.
-func (m *MockBackend) ModelConfig(arg0 context.Context) (*config.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig", arg0)
-	ret0, _ := ret[0].(*config.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockBackendMockRecorder) ModelConfig(arg0 any) *MockBackendModelConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockBackend)(nil).ModelConfig), arg0)
-	return &MockBackendModelConfigCall{Call: call}
-}
-
-// MockBackendModelConfigCall wrap *gomock.Call
-type MockBackendModelConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendModelConfigCall) Return(arg0 *config.Config, arg1 error) *MockBackendModelConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendModelConfigCall) Do(f func(context.Context) (*config.Config, error)) *MockBackendModelConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendModelConfigCall) DoAndReturn(f func(context.Context) (*config.Config, error)) *MockBackendModelConfigCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ModelTag mocks base method.
-func (m *MockBackend) ModelTag() names.ModelTag {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names.ModelTag)
-	return ret0
-}
-
-// ModelTag indicates an expected call of ModelTag.
-func (mr *MockBackendMockRecorder) ModelTag() *MockBackendModelTagCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockBackend)(nil).ModelTag))
-	return &MockBackendModelTagCall{Call: call}
-}
-
-// MockBackendModelTagCall wrap *gomock.Call
-type MockBackendModelTagCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendModelTagCall) Return(arg0 names.ModelTag) *MockBackendModelTagCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendModelTagCall) Do(f func() names.ModelTag) *MockBackendModelTagCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendModelTagCall) DoAndReturn(f func() names.ModelTag) *MockBackendModelTagCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ModelUUID mocks base method.
-func (m *MockBackend) ModelUUID() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelUUID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ModelUUID indicates an expected call of ModelUUID.
-func (mr *MockBackendMockRecorder) ModelUUID() *MockBackendModelUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockBackend)(nil).ModelUUID))
-	return &MockBackendModelUUIDCall{Call: call}
-}
-
-// MockBackendModelUUIDCall wrap *gomock.Call
-type MockBackendModelUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendModelUUIDCall) Return(arg0 string) *MockBackendModelUUIDCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendModelUUIDCall) Do(f func() string) *MockBackendModelUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendModelUUIDCall) DoAndReturn(f func() string) *MockBackendModelUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
