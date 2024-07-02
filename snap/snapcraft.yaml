@@ -393,7 +393,7 @@ parts:
     after:
       - libdqlite
     plugin: juju-go
-    go-channel: 1.21/stable
+    go-channel: 1.22/stable
     source: .
     go-packages:
       - github.com/juju/juju/cmd/jujud
@@ -414,7 +414,7 @@ parts:
     after:
       - jujud
     plugin: juju-go
-    go-channel: 1.21/stable
+    go-channel: 1.22/stable
     # The source can be your local tree or github
     # source: https://github.com/juju/juju.git
     # If you pull a remote, set source-depth to 1 to make the fetch shorter
