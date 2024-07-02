@@ -27,9 +27,11 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -84,6 +86,8 @@ type ControllerAPI struct {
 	apiUser                 names.UserTag
 	resources               facade.Resources
 	presence                facade.Presence
+	leadership              leadership.Reader
+	objectStore             objectstore.ObjectStore
 	hub                     facade.Hub
 	cloudService            common.CloudService
 	credentialService       common.CredentialService
@@ -117,6 +121,8 @@ func NewControllerAPI(
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
 	accessService ControllerAccessService,
+	leadership leadership.Reader,
+	objectStore objectstore.ObjectStore,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -163,6 +169,8 @@ func NewControllerAPI(
 		cloudService:            cloudService,
 		accessService:           accessService,
 		controllerTag:           st.ControllerTag(),
+		leadership:              leadership,
+		objectStore:             objectStore,
 	}, nil
 }
 
@@ -675,6 +683,11 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		return "", errors.Annotate(err, "model tag")
 	}
 
+	leaders, err := c.leadership.Leaders()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
 	// Ensure the model exists.
 	if modelExists, err := c.state.ModelExists(modelTag.Id()); err != nil {
 		return "", errors.Annotate(err, "reading model")
@@ -727,6 +740,8 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		c.cloudService,
 		c.credentialService,
 		c.upgradeService,
+		leaders,
+		c.objectStore,
 	); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -864,6 +879,8 @@ var runMigrationPrechecks = func(
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
+	leaders map[string]string,
+	objectStore objectstore.ObjectStore,
 ) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st, ctlrSt)
@@ -885,7 +902,7 @@ var runMigrationPrechecks = func(
 	}
 
 	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt, controllerConfigService)
+	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt, controllerConfigService, leaders, objectStore)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -914,7 +931,7 @@ var runMigrationPrechecks = func(
 		}
 	}
 	err = client.Prechecks(modelInfo)
-	return errors.Annotate(err, "target prechecks failed")
+	return errors.Annotate(err, "target prechecks failed 2")
 }
 
 // userList encapsulates information about the users who have been granted
@@ -984,11 +1001,22 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, controllerConfigService ControllerConfigService) (coremigration.ModelInfo, userList, error) {
+func makeModelInfo(
+	ctx context.Context,
+	st, ctlrSt *state.State,
+	controllerConfigService ControllerConfigService,
+	leaders map[string]string,
+	objectStore objectstore.ObjectStore,
+) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
 
 	model, err := st.Model()
+	if err != nil {
+		return empty, ul, errors.Trace(err)
+	}
+
+	description, err := st.Export(leaders, objectStore)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
@@ -1031,6 +1059,7 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, controllerConfi
 		Owner:                  model.Owner(),
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerVersion,
+		ModelDescription:       description,
 	}, ul, nil
 }
 

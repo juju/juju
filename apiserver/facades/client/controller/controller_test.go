@@ -30,6 +30,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/domain/access"
@@ -940,6 +941,8 @@ type accessSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 
 	accessService *mocks.MockControllerAccessService
+
+	leadershipReader leadership.Reader
 }
 
 var _ = gc.Suite(&accessSuite{})
@@ -966,6 +969,7 @@ func (s *accessSuite) SetUpTest(c *gc.C) {
 		AdminTag: s.Owner,
 	}
 
+	s.leadershipReader = noopLeadershipReader{}
 }
 
 func (s *accessSuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -994,6 +998,8 @@ func (s *accessSuite) controllerAPI(c *gc.C) *controller.ControllerAPI {
 		nil,
 		nil,
 		s.accessService,
+		s.leadershipReader,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1098,4 +1104,12 @@ func (s *accessSuite) checkModelMatches(c *gc.C, model params.Model, expected *s
 	c.Check(model.Name, gc.Equals, expected.Name())
 	c.Check(model.UUID, gc.Equals, expected.UUID())
 	c.Check(model.OwnerTag, gc.Equals, expected.Owner().String())
+}
+
+type noopLeadershipReader struct {
+	leadership.Reader
+}
+
+func (noopLeadershipReader) Leaders() (map[string]string, error) {
+	return make(map[string]string), nil
 }

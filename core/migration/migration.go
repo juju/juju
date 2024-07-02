@@ -6,6 +6,7 @@ package migration
 import (
 	"time"
 
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
@@ -68,6 +69,7 @@ type ModelInfo struct {
 	Name                   string
 	AgentVersion           version.Number
 	ControllerAgentVersion version.Number
+	ModelDescription       description.Model
 }
 
 // SourceControllerInfo holds the details required to connect

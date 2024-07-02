@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/vallerion/rscanner"
@@ -161,6 +162,15 @@ func checkAuth(authorizer facade.Authorizer, st *state.State) error {
 // Prechecks ensure that the target controller is ready to accept a
 // model migration.
 func (api *API) Prechecks(ctx context.Context, model params.MigrationModelInfo) error {
+	var modelDescription description.Model
+	if serialized := model.ModelDescription; len(serialized) > 0 {
+		var err error
+		modelDescription, err = description.Deserialize(model.ModelDescription)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	// If there are no required migration facade versions, then we
 	// don't need to check anything.
 	if len(api.requiredMigrationFacadeVersions) > 0 {
@@ -207,7 +217,7 @@ with an earlier version of the target controller and try again.
 	if err != nil {
 		return errors.Annotate(err, "creating backend")
 	}
-	return migration.TargetPrecheck(
+	if err := migration.TargetPrecheck(
 		ctx,
 		backend,
 		migration.PoolShim(api.pool),
@@ -217,10 +227,14 @@ with an earlier version of the target controller and try again.
 			Owner:                  ownerTag,
 			AgentVersion:           model.AgentVersion,
 			ControllerAgentVersion: model.ControllerAgentVersion,
+			ModelDescription:       modelDescription,
 		},
 		api.presence.ModelPresence(controllerState.ModelUUID()),
 		api.upgradeService,
-	)
+	); err != nil {
+		return errors.Annotate(err, "prechecks failed !!!!")
+	}
+	return nil
 }
 
 // Import takes a serialized Juju model, deserializes it, and

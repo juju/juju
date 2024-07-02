@@ -378,7 +378,7 @@ func (w *Worker) prechecks(status coremigration.MigrationStatus) error {
 		}
 	}
 	err = targetClient.Prechecks(model)
-	return errors.Annotate(err, "target prechecks failed")
+	return errors.Annotate(err, "target prechecks failed 1")
 }
 
 func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string) (coremigration.Phase, error) {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -19,6 +20,11 @@ func Register(registry facade.FacadeRegistry) {
 
 // newControllerAPIv11 creates a new ControllerAPIv11
 func newControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*ControllerAPI, error) {
+	leadership, err := ctx.LeadershipReader()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var (
 		st             = ctx.State()
 		authorizer     = ctx.Auth()
@@ -27,6 +33,7 @@ func newControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*Cont
 		presence       = ctx.Presence()
 		hub            = ctx.Hub()
 		serviceFactory = ctx.ServiceFactory()
+		objectStore    = ctx.ObjectStore()
 	)
 
 	return NewControllerAPI(
@@ -44,5 +51,7 @@ func newControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*Cont
 		serviceFactory.Credential(),
 		serviceFactory.Upgrade(),
 		serviceFactory.Access(),
+		leadership,
+		objectStore,
 	)
 }

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
@@ -149,12 +150,26 @@ func (c *Client) ModelInfo() (migration.ModelInfo, error) {
 	if err != nil {
 		return migration.ModelInfo{}, errors.Trace(err)
 	}
+
+	// The model description is marshalled into YAML (description package does
+	// not support JSON) to prevent potential issues with
+	// marshalling/unmarshalling on the target API controller.
+	var modelDescription description.Model
+	if bytes := info.ModelDescription; len(bytes) > 0 {
+		var err error
+		modelDescription, err = description.Deserialize(info.ModelDescription)
+		if err != nil {
+			return migration.ModelInfo{}, errors.Annotate(err, "failed to marshal model description")
+		}
+	}
+
 	return migration.ModelInfo{
 		UUID:                   info.UUID,
 		Name:                   info.Name,
 		Owner:                  owner,
 		AgentVersion:           info.AgentVersion,
 		ControllerAgentVersion: info.ControllerAgentVersion,
+		ModelDescription:       modelDescription,
 	}, nil
 }
 
