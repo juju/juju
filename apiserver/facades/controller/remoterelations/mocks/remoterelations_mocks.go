@@ -17,7 +17,6 @@ import (
 	crossmodel0 "github.com/juju/juju/core/crossmodel"
 	permission "github.com/juju/juju/core/permission"
 	secrets "github.com/juju/juju/core/secrets"
-	config "github.com/juju/juju/environs/config"
 	params "github.com/juju/juju/rpc/params"
 	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
@@ -634,45 +633,6 @@ func (c *MockRemoteRelationsStateKeyRelationCall) Do(f func(string) (crossmodel.
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockRemoteRelationsStateKeyRelationCall) DoAndReturn(f func(string) (crossmodel.Relation, error)) *MockRemoteRelationsStateKeyRelationCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ModelConfig mocks base method.
-func (m *MockRemoteRelationsState) ModelConfig(arg0 context.Context) (*config.Config, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelConfig", arg0)
-	ret0, _ := ret[0].(*config.Config)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelConfig indicates an expected call of ModelConfig.
-func (mr *MockRemoteRelationsStateMockRecorder) ModelConfig(arg0 any) *MockRemoteRelationsStateModelConfigCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelConfig", reflect.TypeOf((*MockRemoteRelationsState)(nil).ModelConfig), arg0)
-	return &MockRemoteRelationsStateModelConfigCall{Call: call}
-}
-
-// MockRemoteRelationsStateModelConfigCall wrap *gomock.Call
-type MockRemoteRelationsStateModelConfigCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockRemoteRelationsStateModelConfigCall) Return(arg0 *config.Config, arg1 error) *MockRemoteRelationsStateModelConfigCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockRemoteRelationsStateModelConfigCall) Do(f func(context.Context) (*config.Config, error)) *MockRemoteRelationsStateModelConfigCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRemoteRelationsStateModelConfigCall) DoAndReturn(f func(context.Context) (*config.Config, error)) *MockRemoteRelationsStateModelConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
