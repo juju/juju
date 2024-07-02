@@ -159,9 +159,12 @@ func (conn *Conn) handleResponse(hdr *Header) error {
 		err = conn.readBody(nil, false)
 
 		// If the request has been canceled just return.
+		conn.mutex.Lock()
 		if _, ok := conn.tombstones[reqId]; ok {
+			conn.mutex.Unlock()
 			return nil
 		}
+		conn.mutex.Unlock()
 	case hdr.Error != "":
 		// Report rpcreflect.NoSuchMethodError with CodeNotImplemented.
 		if strings.HasPrefix(hdr.Error, "no such request ") && hdr.ErrorCode == "" {
