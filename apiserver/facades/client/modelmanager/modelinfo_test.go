@@ -345,7 +345,6 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 		{"Name", nil},
 		{"Type", nil},
 		{"UUID", nil},
-		{"ControllerUUID", nil},
 		{"UUID", nil},
 		{"Owner", nil},
 		{"Life", nil},

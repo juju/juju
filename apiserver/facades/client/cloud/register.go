@@ -55,7 +55,7 @@ func newFacadeV7(context facade.ModelContext) (*CloudAPI, error) {
 		}
 
 		return service.CredentialValidationContext{
-			ControllerUUID: m.ControllerUUID(),
+			ControllerUUID: context.ControllerUUID(),
 			Config:         cfg,
 			MachineService: credentialcommon.NewMachineService(modelState.State),
 			ModelType:      coremodel.ModelType(m.Type()),

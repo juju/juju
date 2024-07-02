@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -75,7 +76,6 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 		backend,
 		storageBackend,
 		s.DefaultModelServiceFactory(c).BlockDevice(),
-		s.ControllerServiceFactory(c).ControllerConfig(),
 		s.ControllerServiceFactory(c).Config(),
 		s.resources,
 		s.authorizer,
@@ -83,6 +83,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 		storageService,
 		loggertesting.WrapCheckLog(c),
 		modelInfo.UUID,
+		coretesting.ControllerTag.Id(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

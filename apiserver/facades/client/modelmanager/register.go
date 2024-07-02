@@ -42,7 +42,7 @@ func newFacadeV10(ctx facade.MultiModelContext) (*ModelManagerAPI, error) {
 		return nil, apiservererrors.ErrPerm
 	}
 
-	controllerUUID, err := uuid.UUIDFromString(st.ControllerUUID())
+	controllerUUID, err := uuid.UUIDFromString(ctx.ControllerUUID())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

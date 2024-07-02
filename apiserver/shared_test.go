@@ -53,6 +53,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		machineTag:           names.NewMachineTag("0"),
 		dataDir:              c.MkDir(),
 		logDir:               c.MkDir(),
+		controllerUUID:       testing.ControllerTag.Id(),
 	}
 }
 

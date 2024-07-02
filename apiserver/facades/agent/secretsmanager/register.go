@@ -94,7 +94,7 @@ func NewSecretManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Secr
 		secretsTriggers:      secretService,
 		secretsConsumer:      secretService,
 		clock:                clock.WallClock,
-		controllerUUID:       ctx.State().ControllerUUID(),
+		controllerUUID:       ctx.ControllerUUID(),
 		modelUUID:            ctx.State().ModelUUID(),
 		remoteClientGetter:   remoteClientGetter,
 		crossModelState:      ctx.State().RemoteEntities(),

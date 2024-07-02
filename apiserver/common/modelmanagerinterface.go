@@ -72,7 +72,6 @@ type ModelManagerBackend interface {
 	AllApplications() (applications []Application, err error)
 	AllFilesystems() ([]state.Filesystem, error)
 	AllVolumes() ([]state.Volume, error)
-	ControllerUUID() string
 	ControllerTag() names.ControllerTag
 	Export(leaders map[string]string, store objectstore.ObjectStore) (description.Model, error)
 	ExportPartial(state.ExportConfig, objectstore.ObjectStore) (description.Model, error)
@@ -108,6 +107,9 @@ type Model interface {
 	MigrationMode() state.MigrationMode
 	Name() string
 	UUID() string
+	// TODO(aflynn): ControllerUUID is only here because the EnvironConfigGetter
+	// needs a Model with this model. Once this is gone ControllerUUID can be
+	// removed from this interface.
 	ControllerUUID() string
 	LastModelConnection(user names.UserTag) (time.Time, error)
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)

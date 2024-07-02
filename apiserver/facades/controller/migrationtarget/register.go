@@ -82,7 +82,7 @@ func newFacade(ctx facade.ModelContext, facadeVersions facades.FacadeVersions) (
 		}
 
 		return service.CredentialValidationContext{
-			ControllerUUID: m.ControllerUUID(),
+			ControllerUUID: ctx.ControllerUUID(),
 			Config:         cfg,
 			MachineService: credentialcommon.NewMachineService(modelState.State),
 			ModelType:      coremodel.ModelType(m.Type()),
