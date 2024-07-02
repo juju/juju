@@ -396,6 +396,9 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
+	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig())
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
 	mac, err := s.bakery.NewMacaroon(
 		context.Background(),
 		bakery.LatestVersion,
@@ -440,9 +443,13 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
-	s.st.modelConfig = coretesting.Attrs{
-		config.SAASIngressAllowKey: "10.1.1.1/8",
-	}
+	modelConfig, err := config.New(config.NoDefaults, coretesting.FakeConfig().Merge(
+		coretesting.Attrs{
+			config.SAASIngressAllowKey: "10.1.1.1/8",
+		},
+	))
+	c.Assert(err, jc.ErrorIsNil)
+	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(modelConfig, nil)
 	mac, err := s.bakery.NewMacaroon(
 		context.Background(),
 		bakery.LatestVersion,

@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -67,6 +68,7 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, s.authContext, apiservertesting.NoopModelCredentialInvalidatorGetter,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
+		model.UUID(testing.ModelTag.Id()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
@@ -660,7 +662,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 			},
 		}, {
 			ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-				SourceModelTag:         "model-uuid2",
+				SourceModelTag:         testing.ModelTag.String(),
 				ApplicationDescription: "description2",
 				OfferName:              "hosted-" + name2,
 				OfferUUID:              "hosted-" + name2 + "-uuid",
@@ -980,7 +982,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 			},
 			{
 				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-					SourceModelTag:         "model-uuid2",
+					SourceModelTag:         testing.ModelTag.String(),
 					ApplicationDescription: "mysql description",
 					OfferName:              "hosted-mysql",
 					OfferUUID:              twoOfferUUID,
@@ -995,7 +997,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 			},
 			{
 				ApplicationOfferDetailsV5: params.ApplicationOfferDetailsV5{
-					SourceModelTag:         "model-uuid2",
+					SourceModelTag:         testing.ModelTag.String(),
 					ApplicationDescription: "postgresql description",
 					OfferName:              "hosted-postgresql",
 					OfferUUID:              "hosted-postgresql-uuid",
@@ -1085,6 +1087,7 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 		s.mockState, s.mockStatePool, s.authorizer, s.authContext,
 		apiservertesting.NoopModelCredentialInvalidatorGetter, c.MkDir(),
 		loggertesting.WrapCheckLog(c),
+		model.UUID(testing.ModelTag.Id()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api

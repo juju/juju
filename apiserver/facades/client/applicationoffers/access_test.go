@@ -51,6 +51,7 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 		getApplicationOffers, nil, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, s.authContext, apiservertesting.NoopModelCredentialInvalidatorGetter,
 		c.MkDir(), loggertesting.WrapCheckLog(c),
+		"uuid",
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

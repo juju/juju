@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/envcontext"
@@ -46,6 +47,7 @@ func createOffersAPI(
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
 	dataDir string,
 	logger corelogger.Logger,
+	modelID model.UUID,
 ) (*OffersAPIv5, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
@@ -63,6 +65,7 @@ func createOffersAPI(
 			getEnviron:                  getEnviron,
 			getControllerInfo:           getControllerInfo,
 			logger:                      logger,
+			modelID:                     modelID,
 		},
 	}
 	return api, nil

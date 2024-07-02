@@ -5,6 +5,7 @@ package applicationoffers
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -20,12 +21,12 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ApplicationOffers", 5, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newOffersAPI(ctx)
+		return newOffersAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*OffersAPIv5)(nil)))
 }
 
 // newOffersAPI returns a new application offers OffersAPI facade.
-func newOffersAPI(facadeContext facade.ModelContext) (*OffersAPIv5, error) {
+func newOffersAPI(ctx context.Context, facadeContext facade.ModelContext) (*OffersAPIv5, error) {
 	serviceFactory := facadeContext.ServiceFactory()
 	environFromModel := func(ctx context.Context, modelUUID string) (environs.Environ, error) {
 		st, err := facadeContext.StatePool().Get(modelUUID)
@@ -51,6 +52,11 @@ func newOffersAPI(facadeContext facade.ModelContext) (*OffersAPIv5, error) {
 		return common.ControllerAPIInfo(ctx, st, serviceFactory.ControllerConfig())
 	}
 
+	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving model info: %w", err)
+	}
+
 	authContext := facadeContext.Resources().Get("offerAccessAuthContext").(*common.ValueResource).Value
 	return createOffersAPI(
 		GetApplicationOffers,
@@ -63,5 +69,6 @@ func newOffersAPI(facadeContext facade.ModelContext) (*OffersAPIv5, error) {
 		credentialcommon.CredentialInvalidatorGetter(facadeContext),
 		facadeContext.DataDir(),
 		facadeContext.Logger().Child("applicationoffers"),
+		modelInfo.UUID,
 	)
 }
