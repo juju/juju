@@ -16,9 +16,18 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// WatchMachines returns a StringsWatcher that notifies of the changes
+	// in the machines table for the model.
+	WatchMachines(context.Context) (watcher.StringsWatcher, error)
+}
 
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
@@ -43,6 +52,8 @@ func NewInstancePollerAPI(
 	m *state.Model,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	watcherRegistry facade.WatcherRegistry,
+	machineService MachineService,
 	controllerConfigService ControllerConfigService,
 	clock clock.Clock,
 	logger corelogger.Logger,
@@ -65,6 +76,8 @@ func NewInstancePollerAPI(
 		sti,
 		resources,
 		authorizer,
+		watcherRegistry,
+		machineService,
 	)
 	// InstanceId() is supported for machines.
 	instanceIdGetter := common.NewInstanceIdGetter(

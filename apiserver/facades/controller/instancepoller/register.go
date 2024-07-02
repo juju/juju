@@ -33,6 +33,8 @@ func newFacade(ctx facade.ModelContext) (*InstancePollerAPI, error) {
 		m,
 		ctx.Resources(),
 		ctx.Auth(),
+		ctx.WatcherRegistry(),
+		ctx.ServiceFactory().Machine(),
 		ctx.ServiceFactory().ControllerConfig(),
 		clock.WallClock,
 		ctx.Logger().Child("instancepoller"))
