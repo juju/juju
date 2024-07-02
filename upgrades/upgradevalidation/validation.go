@@ -362,3 +362,35 @@ func getCheckForLXDVersion(cloudspec environscloudspec.CloudSpec) Validator {
 		return nil, errors.Trace(err)
 	}
 }
+
+// checkFanNetworksAndContainers verifies that the container networking method
+// is other than `fan`, and if it is `fan` it makes sure there are no
+// containers running on the model. Otherwise a blocker is returned.
+func checkFanNetworksAndContainers(_ string, _ StatePool, st State, model Model) (*Blocker, error) {
+	modelConfig, err := model.Config()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// First check if the container networking method is other
+	// than fan.
+	if modelConfig.ContainerNetworkingMethod() != "fan" {
+		return nil, nil
+	}
+	// If it's fan, we need to verify that there are no containers
+	// deployed.
+	machines, err := st.AllMachines()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, machine := range machines {
+		containerIDs, err := machine.Containers()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if len(containerIDs) > 0 {
+			return NewBlocker("cannot migrate models with container-networking-method=fan and containers deployed"), nil
+		}
+	}
+
+	return nil, nil
+}

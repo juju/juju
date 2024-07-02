@@ -19,5 +19,6 @@ func ValidatorsForModelMigrationSource(
 		checkForDeprecatedUbuntuSeriesForModel,
 		getCheckForLXDVersion(cloudspec),
 		checkForCharmStoreCharms,
+		checkFanNetworksAndContainers,
 	}
 }

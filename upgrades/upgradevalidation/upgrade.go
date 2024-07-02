@@ -53,6 +53,7 @@ func ValidatorsForModelUpgrade(
 		checkNoWinMachinesForModel,
 		checkForDeprecatedUbuntuSeriesForModel,
 		getCheckForLXDVersion(cloudspec),
+		checkFanNetworksAndContainers,
 	}
 	if targetVersion.Major == 3 && targetVersion.Minor >= 1 {
 		validators = append(validators, checkForCharmStoreCharms)

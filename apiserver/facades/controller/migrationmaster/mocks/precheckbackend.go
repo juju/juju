@@ -14,6 +14,7 @@ import (
 
 	migration "github.com/juju/juju/migration"
 	state "github.com/juju/juju/state"
+	upgradevalidation "github.com/juju/juju/upgrades/upgradevalidation"
 	names "github.com/juju/names/v5"
 	replicaset "github.com/juju/replicaset/v3"
 	version "github.com/juju/version/v2"
@@ -89,10 +90,10 @@ func (mr *MockPrecheckBackendMockRecorder) AllCharmURLs() *gomock.Call {
 }
 
 // AllMachines mocks base method.
-func (m *MockPrecheckBackend) AllMachines() ([]migration.PrecheckMachine, error) {
+func (m *MockPrecheckBackend) AllMachines() ([]upgradevalidation.Machine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllMachines")
-	ret0, _ := ret[0].([]migration.PrecheckMachine)
+	ret0, _ := ret[0].([]upgradevalidation.Machine)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

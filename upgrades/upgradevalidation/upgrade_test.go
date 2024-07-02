@@ -13,8 +13,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/provider/lxd"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades/upgradevalidation"
 	"github.com/juju/juju/upgrades/upgradevalidation/mocks"
@@ -134,6 +136,14 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	// - check LXD version.
 	serverFactory.EXPECT().RemoteServer(cloudSpec).Return(server, nil)
 	server.EXPECT().ServerVersion().Return("5.2")
+	// - Check for fan networking and containers (here we have local
+	// networking method so no blocking).
+	modelAttrs := testing.FakeConfig().Merge(testing.Attrs{
+		config.ContainerNetworkingMethod: "local",
+	})
+	cfg, err := config.New(config.NoDefaults, modelAttrs)
+	c.Assert(err, jc.ErrorIsNil)
+	model.EXPECT().Config().Return(cfg, nil)
 
 	targetVersion := version.MustParse("3.0.0")
 	validators := upgradevalidation.ValidatorsForModelUpgrade(false, targetVersion, cloudSpec.CloudSpec)
