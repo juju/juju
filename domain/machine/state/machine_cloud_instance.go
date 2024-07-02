@@ -11,7 +11,9 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
 // HardwareCharacteristics returns the hardware characteristics struct with
@@ -147,4 +149,53 @@ WHERE machine_uuid=$instanceTag.machine_uuid
 		}
 		return nil
 	})
+}
+
+// InstanceId returns the cloud specific instance id for this machine.
+// If the machine is not provisioned, it returns a NotProvisionedError.
+func (st *State) InstanceId(ctx context.Context, machineName machine.Name) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	machineIDParam := sqlair.M{"name": machineName}
+	query := `
+SELECT instance_id AS &instanceID.*
+FROM machine AS m
+    JOIN machine_cloud_instance AS mci ON m.uuid = mci.machine_uuid
+WHERE m.name = $M.name;
+`
+	queryStmt, err := st.Prepare(query, machineIDParam, instanceID{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	var instanceId string
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result := instanceID{}
+		err := tx.Query(ctx, queryStmt, machineIDParam).Get(&result)
+		if err != nil {
+			return errors.Annotatef(err, "querying instance for machine %q", machineName)
+		}
+
+		instanceId = result.ID
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return "", errors.Annotatef(machineerrors.NotProvisioned, "machine: %q", machineName)
+		}
+		return "", errors.Trace(err)
+	}
+	return instanceId, nil
+}
+
+// InstanceStatus returns the cloud specific instance status for this
+// machine.
+// If the machine is not provisioned, it returns a NotProvisionedError.
+func (st *State) InstanceStatus(ctx context.Context, machineName machine.Name) (string, error) {
+	// TODO(cderici): Implementation for this is deferred until the design for
+	// the domain entity statuses on dqlite is finalized.
+	return "running", nil
 }

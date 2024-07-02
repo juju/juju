@@ -11,6 +11,7 @@ import (
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -30,7 +31,7 @@ type statusSetter interface {
 }
 
 type machineService interface {
-	CreateMachine(context.Context, string) (string, error)
+	CreateMachine(context.Context, machine.Name) (string, error)
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -110,17 +111,17 @@ func (a *API) AssignUnits(ctx context.Context, args params.Entities) (params.Err
 	return result, nil
 }
 
-func (a *API) saveMachineInfo(ctx context.Context, machineId string) error {
+func (a *API) saveMachineInfo(ctx context.Context, machineName string) error {
 	// This is temporary - just insert the machine id all al the parent ones.
-	for machineId != "" {
-		if _, err := a.machineService.CreateMachine(ctx, machineId); err != nil {
-			return errors.Annotatef(err, "saving info for machine %q", machineId)
+	for machineName != "" {
+		if _, err := a.machineService.CreateMachine(ctx, machine.Name(machineName)); err != nil {
+			return errors.Annotatef(err, "saving info for machine %q", machineName)
 		}
-		parent := names.NewMachineTag(machineId).Parent()
+		parent := names.NewMachineTag(machineName).Parent()
 		if parent == nil {
 			break
 		}
-		machineId = parent.Id()
+		machineName = parent.Id()
 	}
 	return nil
 }

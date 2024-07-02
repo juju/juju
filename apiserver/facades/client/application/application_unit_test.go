@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
@@ -2051,7 +2052,7 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), "99")
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), machine.Name("99"))
 	s.applicationService.EXPECT().AddUnits(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 
 	results, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{
@@ -2091,7 +2092,7 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	s.backend.EXPECT().Application("postgresql").AnyTimes().Return(app, nil)
 
 	s.networkService.EXPECT().GetAllSpaces(gomock.Any())
-	s.machineService.EXPECT().CreateMachine(gomock.Any(), "99")
+	s.machineService.EXPECT().CreateMachine(gomock.Any(), machine.Name("99"))
 	s.applicationService.EXPECT().AddUnits(gomock.Any(), "postgresql", applicationservice.AddUnitParams{UnitName: &unitName})
 
 	_, err := s.api.AddUnits(context.Background(), params.AddApplicationUnits{

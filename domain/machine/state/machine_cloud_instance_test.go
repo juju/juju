@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
 func (s *stateSuite) TestGetHardwareCharacteristics(c *gc.C) {
@@ -19,7 +20,7 @@ func (s *stateSuite) TestGetHardwareCharacteristics(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "42", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id='42'")
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -64,7 +65,7 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "42", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id='42'")
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,7 +140,7 @@ func (s *stateSuite) TestDeleteInstanceData(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "42", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE machine_id='42'")
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'")
 	c.Assert(row.Err(), jc.ErrorIsNil)
 	err = row.Scan(&machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -191,4 +192,50 @@ func uintptr(u uint64) *uint64 {
 
 func strsliceptr(s []string) *[]string {
 	return &s
+}
+
+func (s *stateSuite) TestInstanceIdSuccess(c *gc.C) {
+	db := s.DB()
+
+	// Create a reference machine.
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	var machineUUID string
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='666'")
+	c.Assert(row.Err(), jc.ErrorIsNil)
+	err = row.Scan(&machineUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	// Add a reference AZ.
+	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetMachineCloudInstance(
+		context.Background(),
+		machineUUID,
+		instance.Id("123"),
+		instance.HardwareCharacteristics{
+			Arch:             strptr("arm64"),
+			Mem:              uintptr(1024),
+			RootDisk:         uintptr(256),
+			RootDiskSource:   strptr("/test"),
+			CpuCores:         uintptr(4),
+			CpuPower:         uintptr(75),
+			Tags:             strsliceptr([]string{"tag1", "tag2"}),
+			AvailabilityZone: strptr("az-1"),
+			VirtType:         strptr("virtual-machine"),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	instanceId, err := s.state.InstanceId(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(instanceId, gc.Equals, "123")
+}
+
+func (s *stateSuite) TestInstanceIdError(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.InstanceId(context.Background(), "666")
+	c.Check(err, jc.ErrorIs, machineerrors.NotProvisioned)
 }
