@@ -23,6 +23,15 @@ func NewID() (ID, error) {
 	return ID(uuid.String()), nil
 }
 
+// ParseID returns a new ID from the given string. If the string is not a valid
+// uuid an error satisfying [errors.NotValid] will be returned.
+func ParseID(value string) (ID, error) {
+	if !uuid.IsValidUUIDString(value) {
+		return "", fmt.Errorf("id %q %w", value, errors.NotValid)
+	}
+	return ID(value), nil
+}
+
 // String implements the stringer interface for ID.
 func (u ID) String() string {
 	return string(u)
