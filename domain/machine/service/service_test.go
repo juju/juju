@@ -99,7 +99,7 @@ func (s *serviceSuite) TestGetLifeError(c *gc.C) {
 }
 
 // TestGetLifeNotFoundError asserts that the state layer returns a NotFound
-// Error if a machine is not found with the given machineId, and that error is
+// Error if a machine is not found with the given machineName, and that error is
 // preserved and passed on to the service layer to be handled there.
 func (s *serviceSuite) TestGetLifeNotFoundError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
@@ -158,7 +158,7 @@ func (s *serviceSuite) TestInstanceIdError(c *gc.C) {
 }
 
 // TestInstanceIdNotProvisionedError asserts that the state layer returns a
-// NotProvisioned Error if an instanceId is not found for the given machineId,
+// NotProvisioned Error if an instanceId is not found for the given machineName,
 // and that error is preserved and passed on to the service layer to be handled
 // there.
 func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *gc.C) {

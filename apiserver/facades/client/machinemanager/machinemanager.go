@@ -393,18 +393,18 @@ func (mm *MachineManagerAPI) addOneMachine(ctx context.Context, p params.AddMach
 	return mm.st.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
-func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineId string) error {
+func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineName string) error {
 	// This is temporary - just insert the machine id all al the parent ones.
 	var errs []error
-	for machineId != "" {
-		if _, err := mm.machineService.CreateMachine(ctx, machine.Name(machineId)); err != nil {
-			errs = append(errs, errors.Annotatef(err, "saving info for machine %q", machineId))
+	for machineName != "" {
+		if _, err := mm.machineService.CreateMachine(ctx, machine.Name(machineName)); err != nil {
+			errs = append(errs, errors.Annotatef(err, "saving info for machine %q", machineName))
 		}
-		parent := names.NewMachineTag(machineId).Parent()
+		parent := names.NewMachineTag(machineName).Parent()
 		if parent == nil {
 			break
 		}
-		machineId = parent.Id()
+		machineName = parent.Id()
 	}
 	if len(errs) == 0 {
 		return nil

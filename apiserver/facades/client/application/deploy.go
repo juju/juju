@@ -231,17 +231,17 @@ func (api *APIBase) addUnits(
 	return units, nil
 }
 
-func saveMachineInfo(ctx context.Context, machineService MachineService, machineId string) error {
+func saveMachineInfo(ctx context.Context, machineService MachineService, machineName string) error {
 	// This is temporary - just insert the machine id all al the parent ones.
-	for machineId != "" {
-		if _, err := machineService.CreateMachine(ctx, machine.Name(machineId)); err != nil {
-			return errors.Annotatef(err, "saving info for machine %q", machineId)
+	for machineName != "" {
+		if _, err := machineService.CreateMachine(ctx, machine.Name(machineName)); err != nil {
+			return errors.Annotatef(err, "saving info for machine %q", machineName)
 		}
-		parent := names.NewMachineTag(machineId).Parent()
+		parent := names.NewMachineTag(machineName).Parent()
 		if parent == nil {
 			break
 		}
-		machineId = parent.Id()
+		machineName = parent.Id()
 	}
 	return nil
 }
