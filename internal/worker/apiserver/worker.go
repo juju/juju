@@ -169,6 +169,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		Hub:                           config.Hub,
 		Presence:                      config.Presence,
 		Mux:                           config.Mux,
+		ControllerUUID:                controllerConfig.ControllerUUID(),
 		LocalMacaroonAuthenticator:    config.LocalMacaroonAuthenticator,
 		JWTAuthenticator:              jwtAuthenticator,
 		UpgradeComplete:               config.UpgradeComplete,

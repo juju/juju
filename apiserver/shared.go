@@ -67,7 +67,10 @@ type sharedServerContext struct {
 	// for the API server.
 	objectStoreGetter objectstore.ObjectStoreGetter
 
-	configMutex      sync.RWMutex
+	configMutex sync.RWMutex
+
+	// controllerUUID is the unique identifier of the controller.
+	controllerUUID   string
 	controllerConfig jujucontroller.Config
 	features         set.Strings
 
@@ -83,6 +86,7 @@ type sharedServerConfig struct {
 	centralHub           SharedHub
 	presence             presence.Recorder
 	leaseManager         lease.Manager
+	controllerUUID       string
 	controllerConfig     jujucontroller.Config
 	logger               corelogger.Logger
 	charmhubHTTPClient   facade.HTTPClient
@@ -108,6 +112,9 @@ func (c *sharedServerConfig) validate() error {
 	}
 	if c.leaseManager == nil {
 		return errors.NotValidf("nil leaseManager")
+	}
+	if c.controllerUUID == "" {
+		return errors.NotValidf("empty controllerUUID")
 	}
 	if c.controllerConfig == nil {
 		return errors.NotValidf("nil controllerConfig")
@@ -143,6 +150,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		presence:             config.presence,
 		leaseManager:         config.leaseManager,
 		logger:               config.logger,
+		controllerUUID:       config.controllerUUID,
 		controllerConfig:     config.controllerConfig,
 		charmhubHTTPClient:   config.charmhubHTTPClient,
 		dbGetter:             config.dbGetter,

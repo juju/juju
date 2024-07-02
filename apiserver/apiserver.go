@@ -161,6 +161,9 @@ type ServerConfig struct {
 	Presence  presence.Recorder
 	Mux       *apiserverhttp.Mux
 
+	// ControllerUUID is the controller unique identifier.
+	ControllerUUID string
+
 	// LocalMacaroonAuthenticator is the request authenticator used for verifying
 	// local user macaroons.
 	LocalMacaroonAuthenticator macaroon.LocalMacaroonAuthenticator
@@ -260,6 +263,9 @@ func (c ServerConfig) Validate() error {
 	if c.Mux == nil {
 		return errors.NotValidf("missing Mux")
 	}
+	if c.ControllerUUID == "" {
+		return errors.NotValidf("missing ControllerUUID")
+	}
 	if c.LocalMacaroonAuthenticator == nil {
 		return errors.NotValidf("missing local macaroon authenticator")
 	}
@@ -351,6 +357,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		centralHub:           cfg.Hub,
 		presence:             cfg.Presence,
 		leaseManager:         cfg.LeaseManager,
+		controllerUUID:       cfg.ControllerUUID,
 		controllerConfig:     controllerConfig,
 		logger:               internallogger.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:   cfg.CharmhubHTTPClient,

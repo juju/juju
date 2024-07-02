@@ -47,7 +47,7 @@ func newStateCrossModelSecretsAPI(stdCtx context.Context, ctx facade.MultiModelC
 	return NewCrossModelSecretsAPI(
 		ctx.Resources(),
 		authCtxt.(*crossmodel.AuthContext),
-		st.ControllerUUID(),
+		ctx.ControllerUUID(),
 		st.ModelUUID(),
 		secretInfoGetter,
 		backendService,
