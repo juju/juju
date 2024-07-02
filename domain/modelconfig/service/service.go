@@ -258,6 +258,7 @@ func (s *Service) SetModelConfig(
 // - The networking space chosen is valid and can be used.
 // - The secret backend is valid and can be used.
 // - Authorized keys are not changed.
+// - Container networking method is not being changed.
 func (s *Service) UpdateModelConfig(
 	ctx context.Context,
 	updateAttrs map[string]any,
@@ -332,6 +333,7 @@ func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (bool, 
 // - Network space exists.
 // - Secret backend exists.
 // - There is no changes to authorized keys.
+// - Container networking method is not being changed.
 func (s *Service) updateModelConfigValidator(
 	additional ...config.Validator,
 ) config.Validator {
@@ -344,6 +346,7 @@ func (s *Service) updateModelConfigValidator(
 			}),
 			validators.SecretBackendChecker(&dummySecretsBackendProvider{}),
 			validators.AuthorizedKeysChange(),
+			validators.ContainerNetworkingMethodChange(),
 			s.modelValidator,
 		},
 	}

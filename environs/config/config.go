@@ -212,6 +212,21 @@ const (
 	// automatically retry a hook that has failed
 	AutomaticallyRetryHooks = "automatically-retry-hooks"
 
+	// EnableOSRefreshUpdateKey determines whether newly provisioned instances
+	// should run their respective OS's update capability.
+	EnableOSRefreshUpdateKey = "enable-os-refresh-update"
+
+	// EnableOSUpgradeKey determines whether newly provisioned instances
+	// should run their respective OS's upgrade capability.
+	EnableOSUpgradeKey = "enable-os-upgrade"
+
+	// DevelopmentKey determines whether the model is in development mode.
+	DevelopmentKey = "development"
+
+	// SSLHostnameVerificationKey determines whether the environment has
+	// SSL hostname verification enabled.
+	SSLHostnameVerificationKey = "ssl-hostname-verification"
+
 	// TransmitVendorMetricsKey is the key for whether the controller sends
 	// metrics collected in this model for anonymized aggregate analytics.
 	TransmitVendorMetricsKey = "transmit-vendor-metrics"
@@ -522,7 +537,7 @@ var defaultConfigValues = map[string]any{
 	"firewall-mode":              FwInstance,
 	"disable-network-management": false,
 	IgnoreMachineAddresses:       false,
-	"ssl-hostname-verification":  true,
+	SSLHostnameVerificationKey:   true,
 	"proxy-ssh":                  false,
 	DefaultSpaceKey:              "",
 	// Why is net-bond-reconfigure-delay set to 17 seconds?
@@ -553,9 +568,9 @@ var defaultConfigValues = map[string]any{
 	ResourceTagsKey:                 "",
 	LoggingConfigKey:                "",
 	AutomaticallyRetryHooks:         true,
-	"enable-os-refresh-update":      true,
-	"enable-os-upgrade":             true,
-	"development":                   false,
+	EnableOSRefreshUpdateKey:        true,
+	EnableOSUpgradeKey:              true,
+	DevelopmentKey:                  false,
 	TestModeKey:                     false,
 	ModeKey:                         RequiresPromptsMode,
 	DisableTelemetryKey:             false,
@@ -1318,14 +1333,14 @@ func (c *Config) ContainerImageMetadataDefaultsDisabled() bool {
 
 // Development returns whether the environment is in development mode.
 func (c *Config) Development() bool {
-	value, _ := c.defined["development"].(bool)
+	value, _ := c.defined[DevelopmentKey].(bool)
 	return value
 }
 
 // EnableOSRefreshUpdate returns whether or not newly provisioned
 // instances should run their respective OS's update capability.
 func (c *Config) EnableOSRefreshUpdate() bool {
-	val, ok := c.defined["enable-os-refresh-update"].(bool)
+	val, ok := c.defined[EnableOSRefreshUpdateKey].(bool)
 	if !ok {
 		return true
 	}
@@ -1335,17 +1350,17 @@ func (c *Config) EnableOSRefreshUpdate() bool {
 // EnableOSUpgrade returns whether or not newly provisioned instances
 // should run their respective OS's upgrade capability.
 func (c *Config) EnableOSUpgrade() bool {
-	val, ok := c.defined["enable-os-upgrade"].(bool)
+	val, ok := c.defined[EnableOSUpgradeKey].(bool)
 	if !ok {
 		return true
 	}
 	return val
 }
 
-// SSLHostnameVerification returns weather the environment has requested
+// SSLHostnameVerification returns whether the environment has requested
 // SSL hostname verification to be enabled.
 func (c *Config) SSLHostnameVerification() bool {
-	return c.defined["ssl-hostname-verification"].(bool)
+	return c.defined[SSLHostnameVerificationKey].(bool)
 }
 
 // LoggingConfig returns the configuration string for the loggers.
@@ -1813,11 +1828,11 @@ var alwaysOptional = schema.Defaults{
 	AgentStreamKey:                  schema.Omit,
 	ResourceTagsKey:                 schema.Omit,
 	"cloudimg-base-url":             schema.Omit,
-	"enable-os-refresh-update":      schema.Omit,
-	"enable-os-upgrade":             schema.Omit,
+	EnableOSRefreshUpdateKey:        schema.Omit,
+	EnableOSUpgradeKey:              schema.Omit,
 	DefaultBaseKey:                  schema.Omit,
-	"development":                   schema.Omit,
-	"ssl-hostname-verification":     schema.Omit,
+	DevelopmentKey:                  schema.Omit,
+	SSLHostnameVerificationKey:      schema.Omit,
 	"proxy-ssh":                     schema.Omit,
 	"disable-network-management":    schema.Omit,
 	IgnoreMachineAddresses:          schema.Omit,

@@ -413,3 +413,53 @@ func (*validatorsSuite) TestAuthorizedKeysChangedNoChange(c *gc.C) {
 	_, err = AuthorizedKeysChange()(context.Background(), newCfg, oldCfg)
 	c.Check(err, jc.ErrorIsNil)
 }
+
+// TestContainerNetworkingMethodChanged asserts that if we change the
+// container networking method between two revisions of model config, we get a
+// [config.ValidationError].
+func (*validatorsSuite) TestContainerNetworkingMethodChanged(c *gc.C) {
+	oldCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":                           "wallyworld",
+		"uuid":                           testing.ModelTag.Id(),
+		"type":                           "sometype",
+		config.ContainerNetworkingMethod: "provider",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":                           "wallyworld",
+		"uuid":                           testing.ModelTag.Id(),
+		"type":                           "sometype",
+		config.ContainerNetworkingMethod: "local",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = ContainerNetworkingMethodChange()(context.Background(), newCfg, oldCfg)
+	var validationError *config.ValidationError
+	c.Assert(errors.As(err, &validationError), jc.IsTrue)
+	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"container-networking-method"})
+}
+
+// TestContainerNetworkingMethodNoChange asserts that if we don't change the
+// container networking method between model config revisions, no error is
+// produced.
+func (*validatorsSuite) TestContainerNetworkingMethodNoChange(c *gc.C) {
+	oldCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":                           "wallyworld",
+		"uuid":                           testing.ModelTag.Id(),
+		"type":                           "sometype",
+		config.ContainerNetworkingMethod: "provider",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	newCfg, err := config.New(config.NoDefaults, map[string]any{
+		"name":                           "wallyworld",
+		"uuid":                           testing.ModelTag.Id(),
+		"type":                           "sometype",
+		config.ContainerNetworkingMethod: "provider",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = ContainerNetworkingMethodChange()(context.Background(), newCfg, oldCfg)
+	c.Check(err, jc.ErrorIsNil)
+}
