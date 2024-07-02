@@ -303,7 +303,7 @@ nav, main, footer {
 	{{end}}
 </main>
 <footer class="page-footer docs-footer">
-© 2019 Canonical Ltd
+© Copyright © 2024 CC-BY-SA, Canonical Ltd
 </footer>
 </body>
 </html>
