@@ -23,7 +23,7 @@ var _ = gc.Suite(&tryInOrderLoginProviderSuite{})
 func (s *tryInOrderLoginProviderSuite) Test(c *gc.C) {
 	p1 := &mockLoginProvider{err: errors.New("provider 1 error")}
 	p2 := &mockLoginProvider{err: errors.New("provider 2 error")}
-	p3 := &mockLoginProvider{}
+	p3 := &mockLoginProvider{token: "successful-login-token"}
 
 	logger := loggo.GetLogger("juju.cmd.loginprovider")
 	lp := loginprovider.NewTryInOrderLoginProvider(logger, p1, p2)
@@ -31,12 +31,19 @@ func (s *tryInOrderLoginProviderSuite) Test(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "provider 2 error")
 
 	lp = loginprovider.NewTryInOrderLoginProvider(logger, p1, p2, p3)
+	c.Assert(lp.Token(), gc.Equals, "")
 	_, err = lp.Login(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(lp.Token(), gc.Equals, "successful-login-token")
 }
 
 type mockLoginProvider struct {
-	err error
+	err   error
+	token string
+}
+
+func (p *mockLoginProvider) Token() string {
+	return p.token
 }
 
 func (p *mockLoginProvider) Login(ctx context.Context, caller base.APICaller) (*api.LoginResultParams, error) {
