@@ -59,7 +59,7 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(
-		s.mockState, thirdPartyKey,
+		s.mockState, testing.ModelTag, thirdPartyKey,
 		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1076,7 +1076,7 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 	var err error
 	thirdPartyKey := bakery.MustGenerateKey()
 	s.authContext, err = crossmodel.NewAuthContext(
-		s.mockState, thirdPartyKey,
+		s.mockState, testing.ModelTag, thirdPartyKey,
 		crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
 	c.Assert(err, jc.ErrorIsNil)
