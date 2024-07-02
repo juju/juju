@@ -9,7 +9,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/auth"
@@ -17,9 +16,16 @@ import (
 
 type bootstrapSuite struct {
 	schematesting.ControllerSuite
+
+	controllerUUID string
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
+
+func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+	s.ControllerSuite.SetUpTest(c)
+	s.controllerUUID = s.SeedControllerUUID(c)
+}
 
 func (s *bootstrapSuite) TestAddUser(c *gc.C) {
 	ctx := context.Background()
@@ -27,7 +33,7 @@ func (s *bootstrapSuite) TestAddUser(c *gc.C) {
 		Access: permission.SuperuserAccess,
 		Target: permission.ID{
 			ObjectType: permission.Controller,
-			Key:        database.ControllerNS,
+			Key:        s.controllerUUID,
 		},
 	})
 	err := addAdminUser(ctx, s.TxnRunner(), s.NoopTxnRunner())
@@ -48,7 +54,7 @@ func (s *bootstrapSuite) TestAddUserWithPassword(c *gc.C) {
 		Access: permission.SuperuserAccess,
 		Target: permission.ID{
 			ObjectType: permission.Controller,
-			Key:        database.ControllerNS,
+			Key:        s.controllerUUID,
 		},
 	})
 	err := addAdminUser(ctx, s.TxnRunner(), s.NoopTxnRunner())

@@ -234,7 +234,7 @@ func (s *auditConfigSuite) createModelAdminUser(c *gc.C, userTag names.UserTag, 
 		DisplayName: userTag.Name(),
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(password)),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess, s.ControllerUUID),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

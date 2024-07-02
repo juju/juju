@@ -652,7 +652,7 @@ func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Enti
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		spec := permission.ControllerForAccess(permission.SuperuserAccess)
+		spec := permission.ControllerForAccess(permission.SuperuserAccess, c.controllerTag.Id())
 		accessLevel, err := c.accessService.ReadUserAccessLevelForTarget(ctx, userTag.Id(), spec.Target)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
@@ -798,7 +798,7 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 		}
 
 		updateArgs := access.UpdatePermissionArgs{
-			AccessSpec: permission.ControllerForAccess(permission.Access(arg.Access)),
+			AccessSpec: permission.ControllerForAccess(permission.Access(arg.Access), c.controllerTag.Id()),
 			AddUser:    true,
 			ApiUser:    c.apiUser.Id(),
 			Change:     permission.AccessChange(string(arg.Action)),

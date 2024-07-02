@@ -87,6 +87,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.ControllerConfig = controllerCfg
 	s.StateSuite.SetUpTest(c)
+	s.ServiceFactorySuite.ControllerConfig = controllerCfg
 	s.ServiceFactorySuite.SetUpTest(c)
 	jujujujutesting.SeedDatabase(c, s.ControllerSuite.TxnRunner(), s.ServiceFactoryGetter(c)(s.ControllerModelUUID), controllerCfg)
 
@@ -1012,7 +1013,7 @@ func (s *accessSuite) TestModifyControllerAccess(c *gc.C) {
 	userName := "test-user"
 
 	updateArgs := access.UpdatePermissionArgs{
-		AccessSpec: permission.ControllerForAccess(permission.SuperuserAccess),
+		AccessSpec: permission.ControllerForAccess(permission.SuperuserAccess, testing.ControllerTag.Id()),
 		AddUser:    true,
 		ApiUser:    "test-admin",
 		Change:     permission.Grant,
@@ -1038,7 +1039,7 @@ func (s *accessSuite) TestGetControllerAccessPermissions(c *gc.C) {
 	userTag := names.NewUserTag(userName)
 	differentUser := "different-test-user"
 
-	target := permission.ControllerForAccess(permission.SuperuserAccess)
+	target := permission.ControllerForAccess(permission.SuperuserAccess, testing.ControllerTag.Id())
 	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), userName, target.Target).Return(permission.SuperuserAccess, nil)
 
 	s.authorizer = apiservertesting.FakeAuthorizer{

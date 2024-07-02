@@ -348,7 +348,7 @@ func (s *toolsSuite) TestMigrateToolsForUser(c *gc.C) {
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("hunter2")),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess, s.ControllerUUID),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

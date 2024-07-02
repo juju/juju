@@ -107,7 +107,7 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 // a controller user with the specified access.
 func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, access permission.Access) {
 	accessService := s.ControllerServiceFactory(c).Access()
-	perm := permission.ControllerForAccess(access)
+	perm := permission.ControllerForAccess(access, s.ControllerUUID)
 
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        username,

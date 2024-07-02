@@ -54,7 +54,7 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 	s.userUUID, _, err = s.userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bob",
 		CreatorUUID: s.AdminUserUUID,
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess, s.ControllerUUID),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

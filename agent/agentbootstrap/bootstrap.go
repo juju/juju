@@ -211,14 +211,6 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		return nil, errors.Annotate(err, "getting cloud credentials from args")
 	}
 
-	// Add initial Admin user to the database. This will return Admin user UUID
-	// and a function to insert it into the database.
-	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(
-		b.adminUser.Name(),
-		auth.NewPassword(info.Password),
-		permission.ControllerForAccess(permission.SuperuserAccess),
-	)
-
 	controllerUUID, err := uuid.UUIDFromString(stateParams.ControllerConfig.ControllerUUID())
 	if err != nil {
 		return nil, fmt.Errorf("parsing controller uuid %q: %w", stateParams.ControllerConfig.ControllerUUID(), err)
@@ -226,6 +218,14 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 
 	controllerModelUUID := model.UUID(
 		stateParams.ControllerModelConfig.UUID(),
+	)
+
+	// Add initial Admin user to the database. This will return Admin user UUID
+	// and a function to insert it into the database.
+	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(
+		b.adminUser.Name(),
+		auth.NewPassword(info.Password),
+		permission.ControllerForAccess(permission.SuperuserAccess, controllerUUID.String()),
 	)
 
 	controllerModelArgs := modeldomain.ModelCreationArgs{
@@ -249,10 +249,12 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	}
 
 	databaseBootstrapOptions := []database.BootstrapOpt{
+		// The controller config needs to be inserted before the admin users
+		// because the admin users permissions require the controller UUID.
+		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
 		// The admin user needs to be added before everything else that
 		// requires being owned by a Juju user.
 		addAdminUser,
-		ccbootstrap.InsertInitialControllerConfig(stateParams.ControllerConfig),
 		cloudbootstrap.InsertCloud(b.adminUser.Name(), stateParams.ControllerCloud),
 		credbootstrap.InsertCredential(credential.KeyFromTag(cloudCredTag), cloudCred),
 		cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),

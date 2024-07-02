@@ -426,7 +426,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(userPassword)),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess, s.ControllerUUID),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

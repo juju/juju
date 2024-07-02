@@ -394,7 +394,6 @@ func (st *PermissionState) ReadAllAccessForUserAndObjectType(
 		return nil, errors.NotValidf("object type %q", objectType)
 	}
 	readQuery := fmt.Sprintf(`
-WITH    ctrl AS (SELECT 'controller' AS c)
 SELECT  (p.uuid, p.grant_on, p.grant_to, p.access_type, p.object_type) AS (&dbPermission.*),
         (u.uuid, u.name, u.display_name, u.created_at, u.disabled) AS (&dbPermissionUser.*),
         creator.name AS &dbPermissionUser.created_by_name
@@ -561,21 +560,22 @@ func targetExists(ctx context.Context, tx *sqlair.TX, target corepermission.ID) 
 	var targetExists string
 	switch target.ObjectType {
 	case coredatabase.ControllerNS:
-		if target.Key != coredatabase.ControllerNS {
-			return fmt.Errorf("%q %w", target, accesserrors.PermissionTargetInvalid)
-		}
-		return nil
+		targetExists = `
+SELECT  uuid AS &M.found
+FROM    controller
+WHERE   uuid = $M.grant_on
+`
 	case corepermission.Model:
 		targetExists = `
-SELECT  model.uuid AS &M.found
+SELECT  uuid AS &M.found
 FROM    model
-WHERE   model.uuid = $M.grant_on
+WHERE   uuid = $M.grant_on
 `
 	case corepermission.Cloud:
 		targetExists = `
-SELECT  cloud.name AS &M.found
+SELECT  name AS &M.found
 FROM    cloud
-WHERE   cloud.name = $M.grant_on
+WHERE   name = $M.grant_on
 `
 	case corepermission.Offer:
 		return errors.NotImplementedf("db permission support for offers")
@@ -722,13 +722,12 @@ func (st *PermissionState) upsertPermissionAuthorized(
 	// Does the apiUser have superuser access?
 	// Is permission the apiUser has on the target Admin?
 	authQuery := `
-WITH    ctrl AS (SELECT 'controller' AS c)
 SELECT  (p.grant_to, p.access_type) AS (&dbPermission.*)
 FROM    v_permission p
         JOIN v_user_auth u ON u.uuid = p.grant_to
-        LEFT JOIN ctrl ON p.grant_on = ctrl.c
+        LEFT JOIN controller c ON p.grant_on = c.uuid
 WHERE   u.name = $permInOut.name
-AND     (p.grant_on = $permInOut.grant_on OR p.grant_on = ctrl.c)
+AND     (p.grant_on = $permInOut.grant_on OR p.grant_on = c.uuid)
 AND     u.disabled = false
 AND     u.removed = false
 `

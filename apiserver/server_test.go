@@ -267,7 +267,7 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (state.Entity, names.C
 		DisplayName: "Foo Bar",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess, s.ControllerUUID),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -302,7 +302,7 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 	defer handler.Kill()
 
 	err := serviceFactory.Access().UpdatePermission(context.Background(), access.UpdatePermissionArgs{
-		AccessSpec: permission.ControllerForAccess(permission.SuperuserAccess),
+		AccessSpec: permission.ControllerForAccess(permission.SuperuserAccess, s.ControllerUUID),
 		ApiUser:    "admin",
 		Change:     permission.Grant,
 		Subject:    u.Tag().Id(),

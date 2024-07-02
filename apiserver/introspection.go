@@ -47,21 +47,13 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 	accessService := h.ctx.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctx.srv.shared.controllerModelID).Access()
 
 	userPermission := func(subject names.UserTag, target names.Tag) (permission.Access, error) {
-		var pID permission.ID
-		switch target.Kind() {
-		case names.ModelTagKind:
-			pID = permission.ID{
-				ObjectType: permission.Model,
-				Key:        target.Id(),
-			}
-		case names.ControllerTagKind:
-			pID = permission.ID{
-				ObjectType: permission.Model,
-				// TODO (manadart 2024-06-28): This needs to work on the controller UUID.
-				Key: "controller",
-			}
-		default:
+		if kind := target.Kind(); !(kind == names.ControllerTagKind || kind == names.ModelTagKind) {
 			return "", errors.NotValidf("%q as a target", target.Kind())
+		}
+
+		pID, err := permission.ParseTagForID(target)
+		if err != nil {
+			return "", errors.Trace(err)
 		}
 
 		access, err := accessService.ReadUserAccessForTarget(context.TODO(), subject.Id(), pID)

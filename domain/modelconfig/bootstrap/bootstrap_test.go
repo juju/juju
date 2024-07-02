@@ -48,7 +48,8 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 	s.ModelSuite.SetUpTest(c)
 
-	userID, fn := userbootstrap.AddUser(coreuser.AdminUserName, permission.ControllerForAccess(permission.SuperuserAccess))
+	controllerUUID := s.SeedControllerUUID(c)
+	userID, fn := userbootstrap.AddUser(coreuser.AdminUserName, permission.ControllerForAccess(permission.SuperuserAccess, controllerUUID))
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 

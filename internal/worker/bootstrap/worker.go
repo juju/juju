@@ -285,6 +285,13 @@ func (w *bootstrapWorker) seedMacaroonConfig(ctx context.Context) error {
 func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 	// Any failure should be retryable, so we can re-attempt to bootstrap.
 
+	controllerCfg, err := w.cfg.ControllerConfigService.ControllerConfig(ctx)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	controllerUUID := controllerCfg.ControllerUUID()
+
 	adminUser, err := w.cfg.UserService.GetUserByName(ctx, "admin")
 	if err != nil {
 		return errors.Annotatef(err, "getting admin user")
@@ -300,7 +307,7 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 		DisplayName: "Juju Metrics",
 		Password:    &password,
 		CreatorUUID: adminUser.UUID,
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess, controllerUUID),
 	})
 	// User already exists, we don't need to do anything in this scenario.
 	if errors.Is(err, usererrors.UserAlreadyExists) {

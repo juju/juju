@@ -6,8 +6,8 @@ package permission_test
 import (
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/testing"
 )
 
 type userSuite struct{}
@@ -15,8 +15,9 @@ type userSuite struct{}
 var _ = gc.Suite(&userSuite{})
 
 func (s *userSuite) TestControllerForAccess(c *gc.C) {
-	spec := permission.ControllerForAccess(permission.ReadAccess)
-	c.Assert(spec.Target.Key, gc.Equals, database.ControllerNS)
+	controllerUUID := testing.ControllerTag.Id()
+	spec := permission.ControllerForAccess(permission.ReadAccess, controllerUUID)
+	c.Assert(spec.Target.Key, gc.Equals, controllerUUID)
 }
 
 var validateRevokeAccessTest = []struct {

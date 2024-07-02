@@ -42,15 +42,16 @@ type AccessService interface {
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
-	state         *state.State
-	accessService AccessService
-	pool          *state.StatePool
-	authorizer    facade.Authorizer
-	check         *common.BlockChecker
-	apiUserTag    names.UserTag
-	apiUser       coreuser.User
-	isAdmin       bool
-	logger        corelogger.Logger
+	state          *state.State
+	accessService  AccessService
+	pool           *state.StatePool
+	authorizer     facade.Authorizer
+	check          *common.BlockChecker
+	apiUserTag     names.UserTag
+	apiUser        coreuser.User
+	isAdmin        bool
+	logger         corelogger.Logger
+	controllerUUID string
 }
 
 // NewAPI creates a new API endpoint for calling user manager functions.
@@ -64,17 +65,19 @@ func NewAPI(
 	apiUser coreuser.User,
 	isAdmin bool,
 	logger corelogger.Logger,
+	controllerUUID string,
 ) (*UserManagerAPI, error) {
 	return &UserManagerAPI{
-		state:         state,
-		accessService: accessService,
-		pool:          pool,
-		authorizer:    authorizer,
-		check:         check,
-		apiUserTag:    apiUserTag,
-		apiUser:       apiUser,
-		isAdmin:       isAdmin,
-		logger:        logger,
+		state:          state,
+		accessService:  accessService,
+		pool:           pool,
+		authorizer:     authorizer,
+		check:          check,
+		apiUserTag:     apiUserTag,
+		apiUser:        apiUser,
+		isAdmin:        isAdmin,
+		logger:         logger,
+		controllerUUID: controllerUUID,
 	}, nil
 }
 
@@ -129,7 +132,7 @@ func (api *UserManagerAPI) addOneUser(ctx context.Context, arg params.AddUser) p
 		Name:        arg.Username,
 		DisplayName: arg.DisplayName,
 		CreatorUUID: api.apiUser.UUID,
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission:  permission.ControllerForAccess(permission.LoginAccess, api.controllerUUID),
 	}
 	if arg.Password != "" {
 		pass := auth.NewPassword(arg.Password)
@@ -273,7 +276,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 		userPermission := func(subject names.UserTag, target names.Tag) (permission.Access, error) {
 			access, err := api.accessService.ReadUserAccessForTarget(ctx, subject.Id(), permission.ID{
 				ObjectType: permission.Controller,
-				Key:        "controller",
+				Key:        api.controllerUUID,
 			})
 			return access.Access, errors.Trace(err)
 		}

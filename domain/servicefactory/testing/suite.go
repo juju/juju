@@ -11,6 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
@@ -20,6 +21,7 @@ import (
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
+	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	modeldomain "github.com/juju/juju/domain/model"
 	modelbootstrap "github.com/juju/juju/domain/model/bootstrap"
@@ -57,6 +59,10 @@ type ServiceFactorySuite struct {
 	// will be set during test set up.
 	ControllerModelUUID coremodel.UUID
 
+	// ControllerConfig is the controller configuration, including its UUID. If
+	// not set will be set to the default testing value during test set up.
+	ControllerConfig controller.Config
+
 	// DefaultModelUUID is the unique id for the default model. If not set
 	// will be set during test set up.
 	DefaultModelUUID coremodel.UUID
@@ -85,12 +91,20 @@ func (s *ServiceFactorySuite) DefaultModelServiceFactory(c *gc.C) servicefactory
 	return s.ServiceFactoryGetter(c)(s.ControllerModelUUID)
 }
 
+func (s *ServiceFactorySuite) SeedControllerConfig(c *gc.C) {
+	fn := controllerconfigbootstrap.InsertInitialControllerConfig(
+		s.ControllerConfig,
+	)
+	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *ServiceFactorySuite) SeedAdminUser(c *gc.C) {
 	password := auth.NewPassword("dummy-secret")
 	uuid, fn := userbootstrap.AddUserWithPassword(
 		coreuser.AdminUserName,
 		password,
-		permission.ControllerForAccess(permission.SuperuserAccess),
+		permission.ControllerForAccess(permission.SuperuserAccess, jujutesting.ControllerTag.Id()),
 	)
 	s.AdminUserUUID = uuid
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
@@ -210,9 +224,13 @@ func (s *ServiceFactorySuite) SetUpTest(c *gc.C) {
 	if s.ControllerModelUUID == "" {
 		s.ControllerModelUUID = modeltesting.GenModelUUID(c)
 	}
+	if s.ControllerConfig == nil {
+		s.ControllerConfig = jujutesting.FakeControllerConfig()
+	}
 	if s.DefaultModelUUID == "" {
 		s.DefaultModelUUID = modeltesting.GenModelUUID(c)
 	}
+	s.SeedControllerConfig(c)
 	s.SeedAdminUser(c)
 	s.SeedCloudAndCredential(c)
 	s.SeedModelDatabases(c)

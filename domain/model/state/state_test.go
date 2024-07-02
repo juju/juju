@@ -44,6 +44,8 @@ import (
 type stateSuite struct {
 	schematesting.ControllerSuite
 
+	controllerUUID string
+
 	uuid     coremodel.UUID
 	userUUID user.UUID
 	userName string
@@ -60,6 +62,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	m.userUUID = userUUID
 	m.userName = "test-user"
 	c.Assert(err, jc.ErrorIsNil)
+	m.controllerUUID = m.SeedControllerUUID(c)
 	userState := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err = userState.AddUser(
 		context.Background(),
@@ -67,7 +70,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 		m.userName,
 		m.userName,
 		m.userUUID,
-		permission.ControllerForAccess(permission.SuperuserAccess),
+		permission.ControllerForAccess(permission.SuperuserAccess, m.controllerUUID),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -207,7 +210,7 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 		coremodel.ControllerModelOwnerUsername,
 		coremodel.ControllerModelOwnerUsername,
 		userUUID,
-		permission.ControllerForAccess(permission.SuperuserAccess),
+		permission.ControllerForAccess(permission.SuperuserAccess, m.controllerUUID),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
