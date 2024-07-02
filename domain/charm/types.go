@@ -20,6 +20,24 @@ type GetCharmArgs struct {
 	Revision *int
 }
 
+// Charm represents a charm from the perspective of the service. This is the
+// golden source of charm information. If the charm changes at the wire format
+// level, we should be able to map it to this struct.
+type Charm struct {
+	// Metadata holds the metadata of the charm.
+	Metadata Metadata
+	// Manifest holds the manifest of the charm. It defines the bases that
+	// the charm supports.
+	Manifest Manifest
+	// Actions holds the actions of the charm.
+	Actions Actions
+	// Config holds the configuration options of the charm.
+	Config Config
+	// LXDProfile holds the LXD profile of the charm. It allows the charm to
+	// specify the LXD profile that should be used when deploying the charm.
+	LXDProfile []byte
+}
+
 // Metadata represents the metadata of a charm from the perspective of the
 // service. This is the golden source of charm metadata. If the charm changes
 // at the wire format level, we should be able to map it to this struct.

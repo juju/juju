@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/domain/charm"
+	charmerrors "github.com/juju/juju/domain/charm/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
@@ -74,6 +75,74 @@ func decodeManifestRisk(risk charm.ChannelRisk) (internalcharm.Risk, error) {
 		return internalcharm.Beta, nil
 	case charm.RiskEdge:
 		return internalcharm.Edge, nil
+	default:
+		return "", fmt.Errorf("unknown risk: %q", risk)
+	}
+}
+
+func encodeManifest(manifest *internalcharm.Manifest) (charm.Manifest, error) {
+	if manifest == nil {
+		return charm.Manifest{}, charmerrors.ManifestNotValid
+	}
+
+	bases, err := encodeManifestBases(manifest.Bases)
+	if err != nil {
+		return charm.Manifest{}, fmt.Errorf("encode bases: %w", err)
+	}
+
+	return charm.Manifest{
+		Bases: bases,
+	}, nil
+}
+
+func encodeManifestBases(bases []internalcharm.Base) ([]charm.Base, error) {
+	var encoded []charm.Base
+	for _, base := range bases {
+		encodedBase, err := encodeManifestBase(base)
+		if err != nil {
+			return nil, fmt.Errorf("encode base: %w", err)
+		}
+		encoded = append(encoded, encodedBase)
+	}
+	return encoded, nil
+}
+
+func encodeManifestBase(base internalcharm.Base) (charm.Base, error) {
+	channel, err := encodeManifestChannel(base.Channel)
+	if err != nil {
+		return charm.Base{}, fmt.Errorf("encode channel: %w", err)
+	}
+
+	return charm.Base{
+		Name:          base.Name,
+		Channel:       channel,
+		Architectures: base.Architectures,
+	}, nil
+}
+
+func encodeManifestChannel(channel internalcharm.Channel) (charm.Channel, error) {
+	risk, err := encodeManifestRisk(channel.Risk)
+	if err != nil {
+		return charm.Channel{}, fmt.Errorf("encode risk: %w", err)
+	}
+
+	return charm.Channel{
+		Track:  channel.Track,
+		Risk:   risk,
+		Branch: channel.Branch,
+	}, nil
+}
+
+func encodeManifestRisk(risk internalcharm.Risk) (charm.ChannelRisk, error) {
+	switch risk {
+	case internalcharm.Stable:
+		return charm.RiskStable, nil
+	case internalcharm.Candidate:
+		return charm.RiskCandidate, nil
+	case internalcharm.Beta:
+		return charm.RiskBeta, nil
+	case internalcharm.Edge:
+		return charm.RiskEdge, nil
 	default:
 		return "", fmt.Errorf("unknown risk: %q", risk)
 	}

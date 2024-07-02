@@ -98,5 +98,10 @@ func (s *metadataSuite) TestConvertConfig(c *gc.C) {
 		result, err := decodeConfig(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
+
+		// Ensure that the conversion is idempotent.
+		converted, err := encodeConfig(&result)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(converted, jc.DeepEquals, tc.input)
 	}
 }

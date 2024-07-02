@@ -57,7 +57,7 @@ var actionsTestCases = [...]struct {
 					Description:    "description1",
 					Parallel:       true,
 					ExecutionGroup: "group1",
-					Params:         []byte(`{"remote-sync":{"description":"Sync a file to a remote host.","params":{"file":{"description":"The file to send out.","type":"string","format":"uri"},"remote-uri":{"description":"The host to sync to.","type":"string","format":"uri"},"util":{"description":"The util to perform the sync (rsync or scp.)","type":"string","enum":["rsync","scp"]}},"required":["file","remote-uri"]}}`),
+					Params:         []byte(`{"remote-sync":{"description":"Sync a file to a remote host.","params":{"file":{"description":"The file to send out.","format":"uri","type":"string"},"remote-uri":{"description":"The host to sync to.","format":"uri","type":"string"},"util":{"description":"The util to perform the sync (rsync or scp.)","enum":["rsync","scp"],"type":"string"}},"required":["file","remote-uri"]}}`),
 				},
 			},
 		},
@@ -103,5 +103,10 @@ func (s *metadataSuite) TestConvertActions(c *gc.C) {
 		result, err := decodeActions(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
+
+		// Ensure that the conversion is idempotent.
+		converted, err := encodeActions(&result)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(converted, jc.DeepEquals, tc.input)
 	}
 }

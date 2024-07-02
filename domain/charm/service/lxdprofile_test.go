@@ -27,7 +27,7 @@ var lxdProfileTestCases = [...]struct {
 	},
 	{
 		name:  "profile config",
-		input: []byte(`{"config": {"limits.cpu": "2", "limits.memory": "2GB"}}`),
+		input: []byte(`{"config":{"limits.cpu":"2","limits.memory":"2GB"}}`),
 		output: internalcharm.LXDProfile{
 			Config: map[string]string{
 				"limits.cpu":    "2",
@@ -37,14 +37,14 @@ var lxdProfileTestCases = [...]struct {
 	},
 	{
 		name:  "profile description",
-		input: []byte(`{"description": "description"}`),
+		input: []byte(`{"description":"description"}`),
 		output: internalcharm.LXDProfile{
 			Description: "description",
 		},
 	},
 	{
 		name:  "profile devices",
-		input: []byte(`{"devices": {"eth0": {"nictype": "bridged", "parent": "lxdbr0"}}}`),
+		input: []byte(`{"devices":{"eth0":{"nictype":"bridged","parent":"lxdbr0"}}}`),
 		output: internalcharm.LXDProfile{
 			Devices: map[string]map[string]string{
 				"eth0": {
@@ -63,5 +63,10 @@ func (s *metadataSuite) TestConvertLXDProfile(c *gc.C) {
 		result, err := decodeLXDProfile(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
+
+		// Ensure that the conversion is idempotent.
+		converted, err := encodeLXDProfile(&result)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(converted, jc.DeepEquals, tc.input)
 	}
 }

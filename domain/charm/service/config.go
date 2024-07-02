@@ -58,3 +58,52 @@ func decodeOptionType(t charm.OptionType) (string, error) {
 		return "", fmt.Errorf("unknown option type %q", t)
 	}
 }
+
+func encodeConfig(config *internalcharm.Config) (charm.Config, error) {
+	if len(config.Options) == 0 {
+		return charm.Config{}, nil
+	}
+
+	result := make(map[string]charm.Option)
+	for name, option := range config.Options {
+		opt, err := encodeConfigOption(option)
+		if err != nil {
+			return charm.Config{}, fmt.Errorf("encode config option: %w", err)
+		}
+
+		result[name] = opt
+	}
+	return charm.Config{
+		Options: result,
+	}, nil
+}
+
+func encodeConfigOption(option internalcharm.Option) (charm.Option, error) {
+	t, err := encodeOptionType(option.Type)
+	if err != nil {
+		return charm.Option{}, fmt.Errorf("encode option type: %w", err)
+	}
+
+	return charm.Option{
+		Type:        t,
+		Description: option.Description,
+		Default:     option.Default,
+	}, nil
+}
+
+func encodeOptionType(t string) (charm.OptionType, error) {
+	switch t {
+	case "string":
+		return charm.OptionString, nil
+	case "int":
+		return charm.OptionInt, nil
+	case "float":
+		return charm.OptionFloat, nil
+	case "boolean":
+		return charm.OptionBool, nil
+	case "secret":
+		return charm.OptionSecret, nil
+	default:
+		return "", fmt.Errorf("unknown option type %q", t)
+	}
+}
