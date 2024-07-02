@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -26,6 +27,18 @@ type State interface {
 
 	// GetMachineLife returns the life status of the specified machine.
 	GetMachineLife(context.Context, string) (*life.Life, error)
+
+	// HardwareCharacteristics returns the hardware characteristics struct with
+	// data retrieved from the machine cloud instance table.
+	HardwareCharacteristics(context.Context, string) (*instance.HardwareCharacteristics, error)
+
+	// SetMachineCloudInstance sets an entry in the machine cloud instance table
+	// along with the instance tags and the link to a lxd profile if any.
+	SetMachineCloudInstance(context.Context, string, instance.Id, instance.HardwareCharacteristics) error
+
+	// DeleteMachineCloudInstance removes an entry in the machine cloud instance table
+	// along with the instance tags and the link to a lxd profile if any.
+	DeleteMachineCloudInstance(context.Context, string) error
 }
 
 // Service provides the API for working with machines.
