@@ -85,7 +85,8 @@ SELECT
     m.name,
     m.owner_uuid,
     o.name AS owner_name,
-    l.value AS life
+    l.value AS life,
+    ma.target_version AS target_agent_version
 FROM model AS m
 INNER JOIN cloud AS c ON m.cloud_uuid = c.uuid
 INNER JOIN cloud_type AS ct ON c.cloud_type_id = ct.id
@@ -96,4 +97,5 @@ LEFT JOIN user AS cco ON cc.owner_uuid = cco.uuid
 INNER JOIN model_type AS mt ON m.model_type_id = mt.id
 INNER JOIN user AS o ON m.owner_uuid = o.uuid
 INNER JOIN life AS l ON m.life_id = l.id
+INNER JOIN model_agent AS ma ON m.uuid = ma.model_uuid
 WHERE m.activated = TRUE;

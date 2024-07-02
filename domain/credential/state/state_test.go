@@ -32,6 +32,7 @@ import (
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
+	"github.com/juju/juju/version"
 )
 
 type credentialSuite struct {
@@ -586,6 +587,14 @@ func (s *credentialSuite) TestModelsUsingCloudCredential(c *gc.C) {
 			return err
 		}
 		c.Assert(numRows, gc.Equals, int64(1))
+
+		// Need to update agent version table too
+		stmt := `
+INSERT INTO model_agent (model_uuid, previous_version, target_version)
+    VALUES (?, ?, ?)
+`
+		_, err = tx.ExecContext(ctx, stmt, modelUUID, version.Current.String(), version.Current.String())
+		c.Assert(err, jc.ErrorIsNil)
 		return nil
 	}
 

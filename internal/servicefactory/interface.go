@@ -18,6 +18,7 @@ import (
 	flagservice "github.com/juju/juju/domain/flag/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	modelservice "github.com/juju/juju/domain/model/service"
+	modelagentservice "github.com/juju/juju/domain/modelagent/service"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	networkservice "github.com/juju/juju/domain/network/service"
@@ -89,6 +90,8 @@ type ModelServiceFactory interface {
 	Storage(registry storage.ProviderRegistry) *storageservice.Service
 	// Secret returns the secret service.
 	Secret(secretservice.BackendAdminConfigGetter) *secretservice.WatchableService
+	// Agent returns the model's agent service.
+	Agent() *modelagentservice.ModelService
 	// ModelInfo returns the model service for the model. The model info
 	// contains read-only information about the model.
 	// Note: This should be called model, but we have naming conflicts with
