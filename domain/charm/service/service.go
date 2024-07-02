@@ -40,11 +40,6 @@ type State interface {
 	// If the charm does not exist, a NotFound error is returned.
 	GetCharmIDByRevision(ctx context.Context, name string, revision int) (corecharm.ID, error)
 
-	// GetCharmIDByLatestRevision returns the charm ID by the natural key, for
-	// the latest revision.
-	// If the charm does not exist, a NotFound error is returned.
-	GetCharmIDByLatestRevision(ctx context.Context, name string) (corecharm.ID, error)
-
 	// IsControllerCharm returns whether the charm is a controller charm.
 	// If the charm does not exist, a NotFound error is returned.
 	IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error)
@@ -123,7 +118,7 @@ func (s *Service) GetCharmID(ctx context.Context, args charm.GetCharmArgs) (core
 		return s.st.GetCharmIDByRevision(ctx, args.Name, *rev)
 	}
 
-	return s.st.GetCharmIDByLatestRevision(ctx, args.Name)
+	return "", charmerrors.NotFound
 }
 
 // IsControllerCharm returns whether the charm is a controller charm.

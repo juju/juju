@@ -42,9 +42,6 @@ CREATE TABLE charm_channel (
     PRIMARY KEY (charm_uuid)
 );
 
-CREATE UNIQUE INDEX idx_charm_name
-ON charm (name);
-
 -- The charm_state table exists to store the availability of a charm. The
 -- fact that the charm is in the database indicates that it's a placeholder.
 -- Updating the available flag to true indicates that the charm is now
