@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -32,5 +33,14 @@ func newFacade(ctx facade.ModelContext) (*AgentToolsAPI, error) {
 		newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
 		return newEnviron(model, ctx.ServiceFactory().Cloud(), ctx.ServiceFactory().Credential())
 	}
-	return NewAgentToolsAPI(st, newEnviron, findTools, envVersionUpdate, ctx.Auth(), ctx.Logger().Child("model"))
+	return NewAgentToolsAPI(
+		st,
+		newEnviron,
+		tools.FindTools,
+		envVersionUpdate,
+		ctx.Auth(),
+		ctx.Logger().Child("model"),
+		ctx.ServiceFactory().Config(),
+		ctx.ServiceFactory().Agent(),
+	)
 }
