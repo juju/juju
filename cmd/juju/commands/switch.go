@@ -108,12 +108,12 @@ func (c *switchCommand) Init(args []string) error {
 	if c.controllerName != "" {
 		err := cmd.CheckEmpty(args)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Trace(fmt.Errorf("no argument accepted when --controller flag  is specified"))
 		}
 	} else if c.modelName != "" {
 		err := cmd.CheckEmpty(args)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Trace(fmt.Errorf("no argument accepted when --model flag  is specified"))
 		}
 		// This means we can support arguments like `juju switch -m mycontroller:mymodel`
 		c.parseModelName(c.modelName)
@@ -135,7 +135,7 @@ func (c *switchCommand) Init(args []string) error {
 	if c.controllerName == "-" {
 		previous, _, err := c.Store.PreviousController()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, `interpreting "--controller -"`)
 		}
 		c.controllerName = previous
 	}
@@ -143,11 +143,11 @@ func (c *switchCommand) Init(args []string) error {
 	if c.modelName == "-" {
 		controller, err := c.Store.CurrentController()
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, `interpreting "--model -"`)
 		}
 		previous, err := c.Store.PreviousModel(controller)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, `interpreting "--model -"`)
 		}
 		c.modelName = previous
 	}
@@ -157,7 +157,7 @@ func (c *switchCommand) Init(args []string) error {
 
 		previousController, changedController, err := c.Store.PreviousController()
 		if err != nil && !errors.Is(err, errors.NotFound) {
-			return errors.Trace(err)
+			return errors.Annotatef(err, `interpreting "-" argument`)
 		}
 
 		// if the last switch was intra-controller (i.e. changedController is true), we need
@@ -168,11 +168,13 @@ func (c *switchCommand) Init(args []string) error {
 		} else {
 			c.controllerName, err = c.Store.CurrentController()
 			if err != nil {
-				return errors.Trace(err)
+				return errors.Annotatef(err, `interpreting "-" argument after a model switch`)
 			}
 			previousModel, err := c.Store.PreviousModel(c.controllerName)
-			if err != nil {
-				return errors.Trace(err)
+			if errors.Is(err, errors.NotFound) {
+				return errors.Errorf(`no previous model for this controller %s, use a qualified switch 'juju switch controller:model' or return to previous controller through 'juju switch -c -' `, c.controllerName)
+			} else if err != nil {
+				return errors.Annotatef(err, `interpreting "-" argument after a model switch`)
 			}
 			c.modelName = previousModel
 		}
@@ -249,18 +251,18 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		// Is it an existing controller ?
 		targetName, err = c.trySwitchToController(store, c.controllerOrModelName)
 		if err != nil && !errors.Is(err, errors.NotFound) {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "cannot determine if %q is a valid controller", c.controllerOrModelName)
 		}
 		if err == nil {
 			return // switch successful
 		}
 		// Is an existing model in current controller ?
 		if currentControllerName == "" {
-			return unknownSwitchTargetError(c.controllerOrModelName)
+			return errors.Trace(unknownSwitchTargetError(c.controllerOrModelName))
 		}
 		targetName, err = c.trySwitchToModel(store, currentControllerName, c.controllerOrModelName)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotatef(err, "cannot determine if %q is a valid model", c.controllerOrModelName)
 		}
 		return
 	}
@@ -269,20 +271,20 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if c.modelName == "" {
 		targetName, err = c.trySwitchToController(store, c.controllerName)
 		if err != nil {
-			return errors.Trace(err)
+			return errors.Annotate(err, "invalid target controller")
 		}
 		return
 	}
 
 	if c.controllerName == "" {
 		if currentControllerName == "" {
-			return unknownSwitchTargetError(c.modelName)
+			return errors.Trace(unknownSwitchTargetError(c.modelName))
 		}
 		c.controllerName = currentControllerName
 	}
 	targetName, err = c.trySwitchToModel(store, c.controllerName, c.modelName)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotate(err, "invalid target model")
 	}
 	return
 }

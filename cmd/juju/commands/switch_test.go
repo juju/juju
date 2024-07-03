@@ -72,7 +72,7 @@ func (s *SwitchSimpleSuite) TestUnknownControllerNameReturnsError(c *gc.C) {
 	s.addController(c, "a-controller")
 	s.store.CurrentControllerName = "a-controller"
 	_, err := s.run(c, "another-controller:modela")
-	c.Assert(err, gc.ErrorMatches, "controller another-controller not found")
+	c.Assert(err, gc.ErrorMatches, "invalid target model: controller another-controller not found")
 }
 
 func (s *SwitchSimpleSuite) TestNoArgsCurrentModel(c *gc.C) {
@@ -295,7 +295,7 @@ func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsStill
 	s.store.CurrentControllerName = "ctrl"
 	s.addController(c, "ctrl")
 	_, err := s.run(c, "unknown")
-	c.Assert(err, gc.ErrorMatches, `"ctrl:unknown" is not the name of a model or controller`)
+	c.Assert(err, gc.ErrorMatches, `cannot determine if "unknown" is a valid model: "ctrl:unknown" is not the name of a model or controller`)
 	s.CheckCallNames(c, "RefreshModels")
 }
 
@@ -304,7 +304,7 @@ func (s *SwitchSimpleSuite) TestSwitchUnknownCurrentControllerRefreshModelsFails
 	s.addController(c, "ctrl")
 	s.SetErrors(errors.New("not very refreshing"))
 	_, err := s.run(c, "unknown")
-	c.Assert(err, gc.ErrorMatches, "refreshing models cache: not very refreshing")
+	c.Assert(err, gc.ErrorMatches, "cannot determine if \"unknown\" is a valid model: refreshing models cache: not very refreshing")
 	s.CheckCallNames(c, "RefreshModels")
 }
 
@@ -362,7 +362,7 @@ func (s *SwitchSimpleSuite) TestSwitchCurrentModelNoLongerInStore(c *gc.C) {
 	s.addController(c, "same")
 	s.store.Models["same"] = &jujuclient.ControllerModels{CurrentModel: "admin/mymodel"}
 	_, err := s.run(c, "mymodel")
-	c.Assert(err, gc.ErrorMatches, `"same:mymodel" is not the name of a model or controller`)
+	c.Assert(err, gc.ErrorMatches, `cannot determine if "mymodel" is a valid model: "same:mymodel" is not the name of a model or controller`)
 }
 
 func (s *SwitchSimpleSuite) TestSwitchPreviousControllerAndModelThroughFlagsShouldFail(c *gc.C) {
@@ -398,7 +398,7 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousControllerWhichDoesntExists(c *gc.
 	// juju switch --controller - # previous controller may have been deleted, should do nothing
 	_, err := s.run(c, "--controller", "-")
 
-	c.Assert(err, gc.ErrorMatches, "controller noCtrl not found")
+	c.Assert(err, gc.ErrorMatches, "invalid target controller: controller noCtrl not found")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchPreviousControllerWhichIsEmpty(c *gc.C) {
@@ -408,7 +408,7 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousControllerWhichIsEmpty(c *gc.C) {
 	// juju switch -c - # no previous controller may have been deleted, should do nothing
 	_, err := s.run(c, "-c", "-")
 
-	c.Assert(err, gc.ErrorMatches, "previous controller not found")
+	c.Assert(err, gc.ErrorMatches, "interpreting \"--controller -\": previous controller not found")
 }
 
 func (s *SwitchSimpleSuite) TestSwitchPreviousModel(c *gc.C) {
@@ -442,7 +442,7 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousModelWhichDoesntExits(c *gc.C) {
 	// juju switch -m - # previous model may have been deleted, should do nothing
 	_, err := s.run(c, "-m", "-")
 
-	c.Assert(err, gc.ErrorMatches, `"ctrl:admin/previous-model" is not the name of a model or controller`)
+	c.Assert(err, gc.ErrorMatches, `invalid target model: "ctrl:admin/previous-model" is not the name of a model or controller`)
 }
 
 func (s *SwitchSimpleSuite) TestSwitchPreviousModelWhichIsEmpty(c *gc.C) {
@@ -456,7 +456,7 @@ func (s *SwitchSimpleSuite) TestSwitchPreviousModelWhichIsEmpty(c *gc.C) {
 	// juju switch -m - # previous model may have been deleted, should do nothing
 	_, err := s.run(c, "-m", "-")
 
-	c.Assert(err, gc.ErrorMatches, `previous model for controller ctrl not found`)
+	c.Assert(err, gc.ErrorMatches, `interpreting "--model -": previous model for controller ctrl not found`)
 }
 
 func (s *SwitchSimpleSuite) TestSwitchPreviousAcrossControllers(c *gc.C) {
