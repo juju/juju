@@ -75,7 +75,6 @@ func (s *clientCredentialsLoginProviderProviderSuite) Test(c *gc.C) {
 		LoginProvider: lp,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lp.Token(), gc.Equals, clientSecret)
-
 	defer func() { _ = apiState.Close() }()
+	c.Check(lp.Token(), gc.Equals, clientSecret)
 }

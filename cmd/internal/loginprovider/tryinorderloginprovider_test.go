@@ -20,7 +20,7 @@ type tryInOrderLoginProviderSuite struct{}
 
 var _ = gc.Suite(&tryInOrderLoginProviderSuite{})
 
-func (s *tryInOrderLoginProviderSuite) Test(c *gc.C) {
+func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *gc.C) {
 	p1 := &mockLoginProvider{err: errors.New("provider 1 error")}
 	p2 := &mockLoginProvider{err: errors.New("provider 2 error")}
 	p3 := &mockLoginProvider{token: "successful-login-token"}
@@ -34,7 +34,7 @@ func (s *tryInOrderLoginProviderSuite) Test(c *gc.C) {
 	c.Assert(lp.Token(), gc.Equals, "")
 	_, err = lp.Login(context.Background(), nil)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(lp.Token(), gc.Equals, "successful-login-token")
+	c.Check(lp.Token(), gc.Equals, "successful-login-token")
 }
 
 type mockLoginProvider struct {

@@ -18,7 +18,9 @@ type userPassLoginProviderSuite struct {
 
 var _ = gc.Suite(&userPassLoginProviderSuite{})
 
-func (s *userPassLoginProviderSuite) Test(c *gc.C) {
+// TestUserPassLogin verifies that the username and password login provider
+// works for login and returns the password as the token.
+func (s *userPassLoginProviderSuite) TestUserPassLogin(c *gc.C) {
 	info := s.APIInfo(c)
 
 	username := names.NewUserTag("admin")

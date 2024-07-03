@@ -33,6 +33,8 @@ type tryInOrderLoginProviders struct {
 }
 
 // Token implements the LoginProvider.Token method.
+// Returns the token obtained from the last successful login provider.
+// Returns an empty string if no session token was obtained.
 func (p *tryInOrderLoginProviders) Token() string {
 	return p.loginToken
 }
