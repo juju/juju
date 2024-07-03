@@ -622,12 +622,15 @@ type workerMocks struct {
 
 func (s *workerSuite) startWorker(c *gc.C, ctrl *gomock.Controller) (worker.Worker, workerMocks) {
 	workerMainLoopEnteredCh := make(chan struct{}, 1)
+	machineService := mocks.NewMockMachineService(ctrl)
 	mocked := workerMocks{
 		clock:          testclock.NewClock(time.Now()),
 		facadeAPI:      newMockFacadeAPI(ctrl, workerMainLoopEnteredCh),
 		environ:        mocks.NewMockEnviron(ctrl),
-		machineService: mocks.NewMockMachineService(ctrl),
+		machineService: machineService,
 	}
+
+	machineService.EXPECT().WatchMachines(gomock.Any()).Return(mocked.facadeAPI.sw, nil)
 
 	w, err := NewWorker(Config{
 		Clock:          mocked.clock,

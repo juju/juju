@@ -375,7 +375,6 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 	}
 
 	mWatcher := watchertest.NewMockStringsWatcher(s.machinesCh)
-	// s.firewaller.EXPECT().WatchModelMachines().Return(mWatcher, nil)
 	s.machineService.EXPECT().WatchMachines(gomock.Any()).Return(mWatcher, nil)
 
 	opWatcher := watchertest.NewMockStringsWatcher(s.openedPortsCh)

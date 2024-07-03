@@ -75,7 +75,6 @@ type MachineService interface {
 // FacadeAPI specifies the api-server methods needed by the instance
 // poller.
 type FacadeAPI interface {
-	WatchModelMachines() (watcher.StringsWatcher, error)
 	Machine(ctx stdcontext.Context, tag names.MachineTag) (Machine, error)
 }
 
@@ -194,7 +193,7 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() error {
-	watch, err := u.config.Facade.WatchModelMachines()
+	watch, err := u.machineService.WatchMachines(stdcontext.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}
