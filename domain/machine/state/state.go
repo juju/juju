@@ -248,7 +248,7 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 	}
 
 	// Transform the results ([]machineName) into a slice of machine.Name.
-	machineNames := transform.Slice[machineName, machine.Name](results, func(r machineName) machine.Name { return machine.Name(r.Name) })
+	machineNames := transform.Slice[machineName, machine.Name](results, func(r machineName) machine.Name { return r.Name })
 
 	return machineNames, nil
 }
