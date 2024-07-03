@@ -3,6 +3,8 @@
 
 package state
 
+import coremodel "github.com/juju/juju/core/model"
+
 // dbKey represents the key column from a model_config row.
 // Once SQLair supports scalar types the key can be selected directly into a
 // string and this struct will no longer be needed.
@@ -23,3 +25,32 @@ type dbKeyValue struct {
 
 // dbKeys represents a slice of keys from the model_config table.
 type dbKeys []string
+
+// ModelInfo holds model metadata.
+type ModelInfo struct {
+	UUID coremodel.UUID      `db:"uuid"`
+	Type coremodel.ModelType `db:"type"`
+}
+
+// SecretBackendInfo represents a secret backend.
+type SecretBackendInfo struct {
+	BackendUUID string `db:"uuid"`
+	Name        string `db:"name"`
+	ModelUUID   string `db:"model_uuid"`
+}
+
+// ModelSecretBackend represents a set of data about a model and its current secret backend config.
+type ModelSecretBackend struct {
+	// ControllerUUID is the UUID of the controller.
+	ControllerUUID string `db:"controller_uuid"`
+	// ID is the unique identifier for the model.
+	ID coremodel.UUID `db:"uuid"`
+	// Name is the name of the model.
+	Name string `db:"name"`
+	// Type is the type of the model.
+	Type coremodel.ModelType `db:"model_type"`
+	// SecretBackendID is the unique identifier for the secret backend configured for the model.
+	SecretBackendID string `db:"secret_backend_uuid"`
+	// SecretBackendName is the name of the secret backend configured for the model.
+	SecretBackendName string `db:"secret_backend_name"`
+}

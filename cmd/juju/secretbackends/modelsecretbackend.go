@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secrets
+package secretbackends
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 
-	api "github.com/juju/juju/api/client/secrets"
+	api "github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 )
@@ -38,7 +38,7 @@ func NewModelSecretBackendCommand() cmd.Command {
 }
 
 func (c *modelSecretBackendCommand) secretBackendAPI() (ModelSecretBackendAPI, error) {
-	root, err := c.NewAPIRoot()
+	root, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

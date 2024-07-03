@@ -9,11 +9,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -26,6 +28,8 @@ type ModelConfigAPI struct {
 	configService  ModelConfigService
 	auth           facade.Authorizer
 	check          *common.BlockChecker
+
+	modelUUID string
 }
 
 // ModelConfigAPIV3 is currently the latest.
@@ -35,22 +39,23 @@ type ModelConfigAPIV3 struct {
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
 func NewModelConfigAPI(
+	modelUUID string,
 	backend Backend,
 	backendService SecretBackendService,
 	configService ModelConfigService,
 	authorizer facade.Authorizer,
-) (*ModelConfigAPIV3, error) {
+) (*ModelConfigAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	client := &ModelConfigAPI{
+	return &ModelConfigAPI{
+		modelUUID:      modelUUID,
 		backend:        backend,
 		backendService: backendService,
 		configService:  configService,
 		auth:           authorizer,
 		check:          common.NewBlockChecker(backend),
-	}
-	return &ModelConfigAPIV3{client}, nil
+	}, nil
 }
 
 func (c *ModelConfigAPI) checkCanWrite() error {
@@ -284,4 +289,35 @@ func (c *ModelConfigAPI) Sequences(ctx context.Context) (params.ModelSequencesRe
 
 	result.Sequences = values
 	return result, nil
+}
+
+// GetModelSecretBackend isn't implemented in the ModelConfigAPIV3 facade.
+func (s *ModelConfigAPIV3) GetModelSecretBackend(context.Context) {}
+
+// GetModelSecretBackend returns the secret backend for the model.
+func (s *ModelConfigAPI) GetModelSecretBackend(ctx context.Context) (params.StringResult, error) {
+	result := params.StringResult{}
+	if err := s.auth.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelUUID)); err != nil {
+		return result, errors.Trace(err)
+	}
+
+	name, err := s.configService.GetModelSecretBackend(ctx, coremodel.UUID(s.modelUUID))
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+	} else {
+		result.Result = name
+	}
+	return result, nil
+}
+
+// SetModelSecretBackend isn't implemented in the ModelConfigAPIV3 facade.
+func (s *ModelConfigAPIV3) SetModelSecretBackend(_ context.Context, _ struct{}) {}
+
+// SetModelSecretBackend sets the secret backend name for the model.
+func (s *ModelConfigAPI) SetModelSecretBackend(ctx context.Context, arg params.SetModelSecretBackendArg) (params.ErrorResult, error) {
+	if err := s.auth.HasPermission(permission.WriteAccess, names.NewModelTag(s.modelUUID)); err != nil {
+		return params.ErrorResult{}, errors.Trace(err)
+	}
+	err := s.configService.SetModelSecretBackend(ctx, coremodel.UUID(s.modelUUID), arg.SecretBackendName)
+	return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 }

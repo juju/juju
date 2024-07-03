@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package secrets_test
+package secretbackends_test
 
 import (
 	"github.com/juju/cmd/v4/cmdtesting"
@@ -10,8 +10,8 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cmd/juju/secrets"
-	"github.com/juju/juju/cmd/juju/secrets/mocks"
+	"github.com/juju/juju/cmd/juju/secretbackends"
+	"github.com/juju/juju/cmd/juju/secretbackends/mocks"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -43,7 +43,7 @@ func (s *modelSecretBackendCommandSuite) TestGet(c *gc.C) {
 	s.secretsAPI.EXPECT().GetModelSecretBackend(gomock.Any()).Return("myVault", nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	ctx, err := cmdtesting.RunCommand(c, secrets.NewModelCredentialCommandForTest(s.store, s.secretsAPI))
+	ctx, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI))
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, "myVault"+"\n")
@@ -55,6 +55,6 @@ func (s *modelSecretBackendCommandSuite) TestSet(c *gc.C) {
 	s.secretsAPI.EXPECT().SetModelSecretBackend(gomock.Any(), "myVault").Return(nil)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	_, err := cmdtesting.RunCommand(c, secrets.NewModelCredentialCommandForTest(s.store, s.secretsAPI), "myVault")
+	_, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI), "myVault")
 	c.Assert(err, jc.ErrorIsNil)
 }

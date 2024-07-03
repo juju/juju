@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/changestream"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/domain/modelconfig/validators"
@@ -51,6 +52,12 @@ type State interface {
 	UpdateModelConfig(context.Context, map[string]string, []string) error
 }
 
+// ControllerState represents the state entity for interacting with the controller database.
+type ControllerState interface {
+	SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error
+	GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, error)
+}
+
 // SpaceValidatorState represents the state entity for validating space-related
 // model config.
 type SpaceValidatorState interface {
@@ -70,18 +77,21 @@ type Service struct {
 	defaultsProvider ModelDefaultsProvider
 	modelValidator   config.Validator
 	st               State
+	ctrlSt           ControllerState
 }
 
 // NewService creates a new ModelConfig service.
 func NewService(
 	defaultsProvider ModelDefaultsProvider,
 	modelValidator config.Validator,
+	ctrlSt ControllerState,
 	st State,
 ) *Service {
 	return &Service{
 		defaultsProvider: defaultsProvider,
 		modelValidator:   modelValidator,
 		st:               st,
+		ctrlSt:           ctrlSt,
 	}
 }
 
@@ -351,6 +361,16 @@ func (s *Service) updateModelConfigValidator(
 	return agg
 }
 
+// GetModelSecretBackend returns the secret backend name for the given model UUID.
+func (s *Service) GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, error) {
+	return s.ctrlSt.GetModelSecretBackend(ctx, modelUUID)
+}
+
+// SetModelSecretBackend sets the secret backend config for the given model UUID.
+func (s *Service) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
+	return s.ctrlSt.SetModelSecretBackend(ctx, modelUUID, backendName)
+}
+
 // WatchableService defines the service for interacting with ModelConfig
 // and the ability to create watchers.
 type WatchableService struct {
@@ -363,6 +383,7 @@ type WatchableService struct {
 func NewWatchableService(
 	defaultsProvider ModelDefaultsProvider,
 	modelValidator config.Validator,
+	ctrlSt ControllerState,
 	st State,
 	watcherFactory WatcherFactory,
 ) *WatchableService {
@@ -370,6 +391,7 @@ func NewWatchableService(
 		Service: Service{
 			defaultsProvider: defaultsProvider,
 			modelValidator:   modelValidator,
+			ctrlSt:           ctrlSt,
 			st:               st,
 		},
 		watcherFactory: watcherFactory,

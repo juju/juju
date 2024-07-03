@@ -4,6 +4,8 @@
 package modelconfig_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -143,5 +145,69 @@ func (s *modelconfigSuite) TestSetModelConstraints(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetModelConstraints", args, res).Return(nil)
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelConstraints(constraints.MustParse("arch=amd64"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *modelconfigSuite) TestGetModelSecretBackendNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(3)
+	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
+	_, err := client.GetModelSecretBackend(context.Background())
+	c.Assert(err, gc.ErrorMatches, "getting model secret backend not supported")
+}
+
+func (s *modelconfigSuite) TestGetModelSecretBackend(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(4)
+	results := params.StringResult{
+		Result: "backend-id",
+	}
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "GetModelSecretBackend", nil, gomock.Any()).SetArg(3, results).Return(nil)
+
+	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
+	result, err := client.GetModelSecretBackend(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, "backend-id")
+}
+
+func (s *modelconfigSuite) TestSetModelSecretBackendNotSupported(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(3)
+	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
+	err := client.SetModelSecretBackend(context.Background(), "backend-id")
+	c.Assert(err, gc.ErrorMatches, "setting model secret backend not supported")
+}
+
+func (s *modelconfigSuite) TestSetModelSecretBackendEmptyArg(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
+	err := client.SetModelSecretBackend(context.Background(), "")
+	c.Assert(err, gc.ErrorMatches, "secret backend name cannot be empty")
+}
+
+func (s *modelconfigSuite) TestSetModelSecretBackend(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(4)
+	results := params.ErrorResult{}
+	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "SetModelSecretBackend", params.SetModelSecretBackendArg{
+		SecretBackendName: "backend-id",
+	}, gomock.Any()).SetArg(3, results).Return(nil)
+	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
+	err := client.SetModelSecretBackend(context.Background(), "backend-id")
 	c.Assert(err, jc.ErrorIsNil)
 }

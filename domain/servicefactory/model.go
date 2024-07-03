@@ -70,10 +70,12 @@ func (s *ModelFactory) Config() *modelconfigservice.WatchableService {
 		modeldefaultsstate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 		)).ModelDefaultsProvider(s.modelUUID)
-
 	return modelconfigservice.NewWatchableService(
 		defaultsProvider,
 		config.ModelValidator(),
+		modelconfigstate.NewControllerState(
+			changestream.NewTxnRunnerFactory(s.controllerDB),
+		),
 		modelconfigstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 		domain.NewWatcherFactory(s.modelDB, s.logger.Child("modelconfig")),
 	)
