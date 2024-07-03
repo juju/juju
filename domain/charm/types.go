@@ -103,6 +103,7 @@ const (
 // Relation represents a single relation defined in the charm
 // metadata.yaml file.
 type Relation struct {
+	Key       string
 	Name      string
 	Role      RelationRole
 	Interface string
