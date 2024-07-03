@@ -96,6 +96,9 @@ func (cfg Config) Validate() error {
 	if cfg.CredentialAPI == nil {
 		return errors.NotValidf("nil Credential Facade")
 	}
+	if cfg.MachineService == nil {
+		return errors.NotValidf("nil MachineService")
+	}
 	return nil
 }
 

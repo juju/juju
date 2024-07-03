@@ -20177,24 +20177,6 @@
                         }
                     },
                     "description": "Status returns the status of each given entity."
-                },
-                "WatchModelMachineStartTimes": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringsWatchResult"
-                        }
-                    },
-                    "description": "WatchModelMachineStartTimes watches the non-container machines in the model\nfor changes to the Life or AgentStartTime fields and reports them as a batch."
-                },
-                "WatchModelMachines": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/StringsWatchResult"
-                        }
-                    },
-                    "description": "WatchModelMachines returns a StringsWatcher that notifies of\nchanges to the life cycles of the top level machines in the current\nmodel."
                 }
             },
             "definitions": {
@@ -20709,27 +20691,6 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
-                    ]
-                },
-                "StringsWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "changes": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "watcher-id": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "watcher-id"
                     ]
                 }
             }

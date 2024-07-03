@@ -29,3 +29,16 @@ func (l *Life) ToCoreLife() corelife.Value {
 	}
 	panic("unknown life value")
 }
+
+// FromCoreLife converts a core life value into a domain life value.
+func FromCoreLife(l corelife.Value) Life {
+	switch l {
+	case corelife.Alive:
+		return Alive
+	case corelife.Dying:
+		return Dying
+	case corelife.Dead:
+		return Dead
+	}
+	panic("unknown life value")
+}

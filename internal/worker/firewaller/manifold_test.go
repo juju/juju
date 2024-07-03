@@ -89,6 +89,7 @@ func validConfig(c *gc.C) firewaller.ManifoldConfig {
 		NewFirewallerWorker:          func(firewaller.Config) (worker.Worker, error) { return nil, nil },
 		NewRemoteRelationsFacade:     func(base.APICaller) *remoterelations.Client { return nil },
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) { return nil, nil },
+		GetMachineService:            func(dependency.Getter, string) (firewaller.MachineService, error) { return nil, nil },
 	}
 }
 
@@ -114,6 +115,16 @@ func (s *ManifoldConfigSuite) TestMissingEnvironName(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	s.checkNotValid(c, "nil Logger not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingServiceFactoryName(c *gc.C) {
+	s.config.ServiceFactoryName = ""
+	s.checkNotValid(c, "empty ServiceFactoryName not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingGetMachineService(c *gc.C) {
+	s.config.GetMachineService = nil
+	s.checkNotValid(c, "nil GetMachineService not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingNewFirewallerFacade(c *gc.C) {

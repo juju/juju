@@ -5,7 +5,6 @@ package instancepoller
 
 import (
 	"context"
-	stdcontext "context"
 	"time"
 
 	"github.com/juju/clock"
@@ -58,7 +57,7 @@ type Machine interface {
 	InstanceStatus() (params.StatusResult, error)
 	SetInstanceStatus(status.Status, string, map[string]interface{}) error
 	String() string
-	Refresh(ctx stdcontext.Context) error
+	Refresh(ctx context.Context) error
 	Status() (params.StatusResult, error)
 	Life() life.Value
 	IsManual() (bool, error)
@@ -75,7 +74,7 @@ type MachineService interface {
 // FacadeAPI specifies the api-server methods needed by the instance
 // poller.
 type FacadeAPI interface {
-	Machine(ctx stdcontext.Context, tag names.MachineTag) (Machine, error)
+	Machine(ctx context.Context, tag names.MachineTag) (Machine, error)
 }
 
 // Config encapsulates the configuration options for instantiating a new
@@ -106,6 +105,9 @@ func (config Config) Validate() error {
 	}
 	if config.CredentialAPI == nil {
 		return errors.NotValidf("nil CredentialAPI")
+	}
+	if config.MachineService == nil {
+		return errors.NotValidf("nil MachineService")
 	}
 	return nil
 }
@@ -193,7 +195,7 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() error {
-	watch, err := u.machineService.WatchMachines(stdcontext.Background())
+	watch, err := u.machineService.WatchMachines(context.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -219,7 +221,7 @@ func (u *updaterWorker) loop() error {
 
 			for i := range ids {
 				tag := names.NewMachineTag(ids[i])
-				if err := u.queueMachineForPolling(stdcontext.TODO(), tag); err != nil {
+				if err := u.queueMachineForPolling(context.TODO(), tag); err != nil {
 					return err
 				}
 			}
@@ -241,7 +243,7 @@ func (u *updaterWorker) loop() error {
 	}
 }
 
-func (u *updaterWorker) queueMachineForPolling(ctx stdcontext.Context, tag names.MachineTag) error {
+func (u *updaterWorker) queueMachineForPolling(ctx context.Context, tag names.MachineTag) error {
 	// If we are already polling this machine, check whether it is still alive
 	// and remove it from its poll group if it is now dead.
 	if entry, groupType := u.lookupPolledMachine(tag); entry != nil {
@@ -364,7 +366,7 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 		return nil
 	}
 
-	ctx := stdcontext.Background()
+	ctx := context.Background()
 	infoList, err := u.config.Environ.Instances(u.callContextFunc(ctx), instList)
 	if err != nil {
 		switch errors.Cause(err) {
@@ -486,7 +488,7 @@ func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instance
 	}
 
 	// Check for status changes
-	providerStatus := info.Status(u.callContextFunc(stdcontext.Background()))
+	providerStatus := info.Status(u.callContextFunc(context.Background()))
 	curInstStatus := instance.Status{
 		Status:  status.Status(curStatus.Status),
 		Message: curStatus.Info,

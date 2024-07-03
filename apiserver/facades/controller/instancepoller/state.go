@@ -31,7 +31,6 @@ type StateMachine interface {
 }
 
 type StateInterface interface {
-	state.ModelMachinesWatcher
 	state.EntityFinder
 
 	Machine(id string) (StateMachine, error)

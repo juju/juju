@@ -125,7 +125,7 @@ func (s *serviceSuite) TestSetMachineLifeSuccess(c *gc.C) {
 	life := life.Alive
 	s.state.EXPECT().SetMachineLife(gomock.Any(), cmachine.Name("666"), life).Return(nil)
 
-	err := NewService(s.state).SetMachineLife(context.Background(), cmachine.Name("666"), life)
+	err := NewService(s.state).SetMachineLife(context.Background(), cmachine.Name("666"), corelife.Alive)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -138,7 +138,7 @@ func (s *serviceSuite) TestSetMachineLifeError(c *gc.C) {
 	life := life.Alive
 	s.state.EXPECT().SetMachineLife(gomock.Any(), cmachine.Name("666"), life).Return(rErr)
 
-	err := NewService(s.state).SetMachineLife(context.Background(), cmachine.Name("666"), life)
+	err := NewService(s.state).SetMachineLife(context.Background(), cmachine.Name("666"), corelife.Alive)
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `setting life status for machine "666": boom`)
 }
@@ -151,7 +151,7 @@ func (s *serviceSuite) TestSetMachineLifeMachineDontExist(c *gc.C) {
 
 	s.state.EXPECT().SetMachineLife(gomock.Any(), cmachine.Name("nonexistent"), life.Alive).Return(errors.NotFound)
 
-	err := NewService(s.state).SetMachineLife(context.Background(), cmachine.Name("nonexistent"), life.Alive)
+	err := NewService(s.state).SetMachineLife(context.Background(), cmachine.Name("nonexistent"), corelife.Alive)
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 

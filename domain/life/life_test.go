@@ -52,3 +52,11 @@ func (s *lifeSuite) TestToCoreLife(c *gc.C) {
 	c.Check((&dy).ToCoreLife(), gc.Equals, corelife.Dying)
 	c.Check((&d).ToCoreLife(), gc.Equals, corelife.Dead)
 }
+
+// TestFromCoreLife ensures the correctness of the conversion from core life
+// into a domain life.
+func (s *lifeSuite) TestFromCoreLife(c *gc.C) {
+	c.Check(FromCoreLife(corelife.Alive), gc.Equals, Alive)
+	c.Check(FromCoreLife(corelife.Dying), gc.Equals, Dying)
+	c.Check(FromCoreLife(corelife.Dead), gc.Equals, Dead)
+}

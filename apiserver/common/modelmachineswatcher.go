@@ -11,7 +11,6 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
-	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -22,14 +21,6 @@ import (
 // for a particular model. For more information, see the WatchModelMachineStartTimes
 // method in state/watcher.go.
 const watchMachinesQuiesceInterval = 500 * time.Millisecond
-
-// MachineService defines the methods that the facade assumes from the Machine
-// service.
-type MachineService interface {
-	// WatchMachines returns a StringsWatcher that notifies of the changes
-	// in the machines table for the model.
-	WatchMachines(context.Context) (corewatcher.StringsWatcher, error)
-}
 
 // ModelMachinesWatcher implements a common WatchModelMachines
 // method for use by various facades.

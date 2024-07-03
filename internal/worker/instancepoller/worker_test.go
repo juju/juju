@@ -71,11 +71,12 @@ func (s *configSuite) TestConfigValidation(c *gc.C) {
 	defer ctrl.Finish()
 
 	origCfg := Config{
-		Clock:         testclock.NewClock(time.Now()),
-		Facade:        newMockFacadeAPI(ctrl, nil),
-		Environ:       mocks.NewMockEnviron(ctrl),
-		Logger:        loggertesting.WrapCheckLog(c),
-		CredentialAPI: mocks.NewMockCredentialAPI(ctrl),
+		Clock:          testclock.NewClock(time.Now()),
+		Facade:         newMockFacadeAPI(ctrl, nil),
+		Environ:        mocks.NewMockEnviron(ctrl),
+		Logger:         loggertesting.WrapCheckLog(c),
+		CredentialAPI:  mocks.NewMockCredentialAPI(ctrl),
+		MachineService: mocks.NewMockMachineService(ctrl),
 	}
 	c.Assert(origCfg.Validate(), jc.ErrorIsNil)
 
@@ -98,6 +99,10 @@ func (s *configSuite) TestConfigValidation(c *gc.C) {
 	testCfg = origCfg
 	testCfg.CredentialAPI = nil
 	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil CredentialAPI.*")
+
+	testCfg = origCfg
+	testCfg.MachineService = nil
+	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil MachineService.*")
 }
 
 type pollGroupEntrySuite struct{}
@@ -161,7 +166,6 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 	machineTag := names.NewMachineTag("0")
 	machine := mocks.NewMockMachine(ctrl)
 	machine.EXPECT().Refresh(gomock.Any()).Return(nil)
-	machine.EXPECT().Id().Return("0").AnyTimes()
 	machine.EXPECT().Life().Return(life.Alive)
 	machine.EXPECT().String().Return("machine-0").AnyTimes()
 	updWorker.appendToShortPollGroup(machineTag, machine)
@@ -200,7 +204,6 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *gc.C) {
 	// The machine is alive, has an instance status of "provisioning" and
 	// is aware of its network addresses.
 	machine.EXPECT().Id().Return("0").AnyTimes()
-	// machine.EXPECT().Life().Return(life.Alive)
 	machine.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Provisioning)}, nil)
 	machine.EXPECT().Life().Return(life.Alive)
 

@@ -127,6 +127,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 			config.EnvironName,
 			config.ClockName,
+			config.ServiceFactoryName,
 		},
 		Start: config.start,
 	}

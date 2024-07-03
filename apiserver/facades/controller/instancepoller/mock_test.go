@@ -7,9 +7,7 @@
 package instancepoller_test
 
 import (
-	"sort"
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/txn"
@@ -84,44 +82,6 @@ func (m *mockState) SetConfig(c *gc.C, newConfig *config.Config) {
 	for _, w := range m.configWatchers {
 		w.incoming <- struct{}{}
 	}
-}
-
-// WatchModelMachines implements StateInterface.
-func (m *mockState) WatchModelMachines() state.StringsWatcher {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.MethodCall(m, "WatchModelMachines")
-
-	ids := make([]string, 0, len(m.machines))
-	// Initial event - all machine ids, sorted.
-	for id := range m.machines {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-
-	w := NewMockMachinesWatcher(ids, m.NextErr())
-	m.machinesWatchers = append(m.machinesWatchers, w)
-	return w
-}
-
-// WatchModelMachineStartTimes implements StateInterface.
-func (m *mockState) WatchModelMachineStartTimes(_ time.Duration) state.StringsWatcher {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.MethodCall(m, "WatchModelMachineStartTimes")
-
-	ids := make([]string, 0, len(m.machines))
-	// Initial event - all machine ids, sorted.
-	for id := range m.machines {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-
-	w := NewMockMachinesWatcher(ids, m.NextErr())
-	m.machinesWatchers = append(m.machinesWatchers, w)
-	return w
 }
 
 // FindEntity implements StateInterface.

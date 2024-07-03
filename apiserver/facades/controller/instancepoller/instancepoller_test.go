@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/common/networkingcommon/mocks"
-	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/life"
@@ -34,15 +33,13 @@ import (
 type InstancePollerSuite struct {
 	testing.IsolationSuite
 
-	st              *mockState
-	api             *instancepoller.InstancePollerAPI
-	authoriser      apiservertesting.FakeAuthorizer
-	resources       *common.Resources
-	watcherRegistry *facademocks.MockWatcherRegistry
+	st         *mockState
+	api        *instancepoller.InstancePollerAPI
+	authoriser apiservertesting.FakeAuthorizer
+	resources  *common.Resources
 
 	controllerConfigService *MockControllerConfigService
 	networkService          *MockNetworkService
-	machineService          *MockMachineService
 
 	machineEntities     params.Entities
 	machineErrorResults params.ErrorResults
@@ -59,8 +56,6 @@ func (s *InstancePollerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.networkService = NewMockNetworkService(ctrl)
-	s.machineService = NewMockMachineService(ctrl)
-	s.watcherRegistry = facademocks.NewMockWatcherRegistry(ctrl)
 	return ctrl
 }
 
@@ -71,8 +66,6 @@ func (s *InstancePollerSuite) setupAPI(c *gc.C) (err error) {
 		nil,
 		s.resources,
 		s.authoriser,
-		s.watcherRegistry,
-		s.machineService,
 		s.controllerConfigService,
 		s.clock,
 		loggertesting.WrapCheckLog(c),
@@ -137,37 +130,6 @@ func (s *InstancePollerSuite) TestNewInstancePollerAPIRequiresController(c *gc.C
 	err := s.setupAPI(c)
 	c.Assert(s.api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-}
-
-func (s *InstancePollerSuite) TestWatchModelMachineStartTimesFailure(c *gc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertMachineWatcherFails(c, "WatchModelMachineStartTimes", s.api.WatchModelMachineStartTimes)
-}
-
-func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *gc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-	err := s.setupAPI(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertMachineWatcherFails(c, "WatchModelMachineStartTimes", s.api.WatchModelMachineStartTimes)
-}
-
-func (s *InstancePollerSuite) assertMachineWatcherFails(c *gc.C, watchFacadeName string, getWatcherFn func(context.Context) (params.StringsWatchResult, error)) {
-	// Force the Changes() method of the mock watcher to return a
-	// closed channel by setting an error.
-	s.st.SetErrors(errors.Errorf("boom"))
-
-	result, err := getWatcherFn(context.Background())
-	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines: boom")
-	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{})
-
-	c.Assert(s.resources.Count(), gc.Equals, 0) // no watcher registered
-	s.st.CheckCallNames(c, watchFacadeName)
 }
 
 func (s *InstancePollerSuite) TestLifeSuccess(c *gc.C) {

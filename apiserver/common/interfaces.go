@@ -4,12 +4,16 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/container"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 )
 
@@ -141,4 +145,16 @@ type ControllerConfigState interface {
 
 type controllerInfoState interface {
 	APIHostPortsForAgents(controller.Config) ([]network.SpaceHostPorts, error)
+}
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// WatchMachines returns a StringsWatcher that notifies of the changes
+	// in the machines table for the model.
+	WatchMachines(context.Context) (corewatcher.StringsWatcher, error)
+	// EnsureDeadMachine sets the provided machine's life status to Dead.
+	// No error is returned if the provided machine doesn't exist, just nothing
+	// gets updated.
+	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
 }

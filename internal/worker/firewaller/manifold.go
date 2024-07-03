@@ -51,6 +51,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			cfg.AgentName,
 			cfg.APICallerName,
 			cfg.EnvironName,
+			cfg.ServiceFactoryName,
 		},
 		Start: cfg.start,
 	}
@@ -72,6 +73,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.ServiceFactoryName == "" {
 		return errors.NotValidf("empty ServiceFactoryName")
+	}
+	if cfg.GetMachineService == nil {
+		return errors.NotValidf("nil GetMachineService")
 	}
 	if cfg.NewControllerConnection == nil {
 		return errors.NotValidf("nil NewControllerConnection")
