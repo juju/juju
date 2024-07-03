@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/leadership"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
@@ -56,6 +57,7 @@ type ControllerAPI struct {
 	apiUser    names.UserTag
 	resources  facade.Resources
 	presence   facade.Presence
+	leadership leadership.Reader
 	hub        facade.Hub
 	controller *cache.Controller
 
@@ -82,6 +84,7 @@ func NewControllerAPI(
 	hub facade.Hub,
 	factory multiwatcher.Factory,
 	controller *cache.Controller,
+	leadership leadership.Reader,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -123,6 +126,7 @@ func NewControllerAPI(
 		hub:                 hub,
 		multiwatcherFactory: factory,
 		controller:          controller,
+		leadership:          leadership,
 	}, nil
 }
 
@@ -666,9 +670,16 @@ func (c *ControllerAPI) initiateOneMigration(spec params.MigrationSpec) (string,
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	if err := runMigrationPrechecks(
+
+	leaders, err := c.leadership.Leaders()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	if err := runMigrationPreChecks(
 		hostedState.State, systemState,
 		&targetInfo, c.presence,
+		leaders,
 	); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -792,11 +803,12 @@ func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
 	return nil
 }
 
-// runMigrationPrechecks runs prechecks on the migration and updates
+// runMigrationPreChecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information
 // retrieved from the target controller.
-var runMigrationPrechecks = func(
-	st, ctlrSt *state.State, targetInfo *coremigration.TargetInfo, presence facade.Presence,
+var runMigrationPreChecks = func(
+	st, ctlrSt *state.State, targetInfo *coremigration.TargetInfo,
+	presence facade.Presence, leaders map[string]string,
 ) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st, ctlrSt)
@@ -815,7 +827,7 @@ var runMigrationPrechecks = func(
 	}
 
 	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(st, ctlrSt)
+	modelInfo, srcUserList, err := makeModelInfo(st, ctlrSt, leaders)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -914,11 +926,16 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(st, ctlrSt *state.State) (coremigration.ModelInfo, userList, error) {
+func makeModelInfo(st, ctlrSt *state.State, leaders map[string]string) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
 
 	model, err := st.Model()
+	if err != nil {
+		return empty, ul, errors.Trace(err)
+	}
+
+	description, err := st.Export(leaders)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
@@ -961,6 +978,7 @@ func makeModelInfo(st, ctlrSt *state.State) (coremigration.ModelInfo, userList, 
 		Owner:                  model.Owner(),
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerVersion,
+		ModelDescription:       description,
 	}, ul, nil
 }
 

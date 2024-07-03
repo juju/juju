@@ -12,6 +12,7 @@ import (
 	"time"
 
 	charmresource "github.com/juju/charm/v12/resource"
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
@@ -142,12 +143,23 @@ func (c *Client) ModelInfo() (migration.ModelInfo, error) {
 	if err != nil {
 		return migration.ModelInfo{}, errors.Trace(err)
 	}
+
+	var modelDescription description.Model
+	if bytes := info.ModelDescription; len(bytes) > 0 {
+		var err error
+		modelDescription, err = description.Deserialize(info.ModelDescription)
+		if err != nil {
+			return migration.ModelInfo{}, errors.Trace(err)
+		}
+	}
+
 	return migration.ModelInfo{
 		UUID:                   info.UUID,
 		Name:                   info.Name,
 		Owner:                  owner,
 		AgentVersion:           info.AgentVersion,
 		ControllerAgentVersion: info.ControllerAgentVersion,
+		ModelDescription:       modelDescription,
 	}, nil
 }
 

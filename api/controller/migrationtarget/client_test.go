@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/description/v5"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
@@ -56,13 +57,18 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	ownerTag := names.NewUserTag("owner")
 	vers := version.MustParse("1.2.3")
 	controllerVers := version.MustParse("1.2.5")
+	modelDescription := description.NewModel(description.ModelArgs{})
 
-	err := client.Prechecks(coremigration.ModelInfo{
+	bytes, err := description.Serialize(modelDescription)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = client.Prechecks(coremigration.ModelInfo{
 		UUID:                   "uuid",
 		Owner:                  ownerTag,
 		Name:                   "name",
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
+		ModelDescription:       modelDescription,
 	})
 	c.Assert(err, gc.ErrorMatches, "boom")
 
@@ -72,6 +78,7 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 		OwnerTag:               ownerTag.String(),
 		AgentVersion:           vers,
 		ControllerAgentVersion: controllerVers,
+		ModelDescription:       bytes,
 	}
 	stub.CheckCallNames(c, "MigrationTarget.Prechecks")
 

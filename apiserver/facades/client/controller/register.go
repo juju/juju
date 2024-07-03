@@ -6,6 +6,8 @@ package controller
 import (
 	"reflect"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -27,6 +29,11 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 	factory := ctx.MultiwatcherFactory()
 	controller := ctx.Controller()
 
+	leadership, err := ctx.LeadershipReader(st.ModelUUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewControllerAPI(
 		st,
 		pool,
@@ -36,5 +43,6 @@ func newControllerAPIv11(ctx facade.Context) (*ControllerAPI, error) {
 		hub,
 		factory,
 		controller,
+		leadership,
 	)
 }
