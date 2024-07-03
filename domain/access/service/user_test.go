@@ -308,7 +308,7 @@ func (s *userServiceSuite) TestGetUserByNameNotFound(c *gc.C) {
 func (s *userServiceSuite) TestGetAllUsers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetAllUsers(gomock.Any()).Return([]user.User{
+	s.state.EXPECT().GetAllUsers(gomock.Any(), true).Return([]user.User{
 		{
 			UUID: newUUID(c),
 			Name: "user0",
@@ -319,7 +319,7 @@ func (s *userServiceSuite) TestGetAllUsers(c *gc.C) {
 		},
 	}, nil)
 
-	users, err := s.service().GetAllUsers(context.Background())
+	users, err := s.service().GetAllUsers(context.Background(), true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(users, gc.HasLen, 2)
 	c.Check(users[0].Name, gc.Equals, "user0")

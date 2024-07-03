@@ -393,18 +393,18 @@ func (c *MockStateGetActivationKeyCall) DoAndReturn(f func(context.Context, stri
 }
 
 // GetAllUsers mocks base method.
-func (m *MockState) GetAllUsers(arg0 context.Context) ([]user.User, error) {
+func (m *MockState) GetAllUsers(arg0 context.Context, arg1 bool) ([]user.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllUsers", arg0)
+	ret := m.ctrl.Call(m, "GetAllUsers", arg0, arg1)
 	ret0, _ := ret[0].([]user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAllUsers indicates an expected call of GetAllUsers.
-func (mr *MockStateMockRecorder) GetAllUsers(arg0 any) *MockStateGetAllUsersCall {
+func (mr *MockStateMockRecorder) GetAllUsers(arg0, arg1 any) *MockStateGetAllUsersCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsers", reflect.TypeOf((*MockState)(nil).GetAllUsers), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsers", reflect.TypeOf((*MockState)(nil).GetAllUsers), arg0, arg1)
 	return &MockStateGetAllUsersCall{Call: call}
 }
 
@@ -420,13 +420,13 @@ func (c *MockStateGetAllUsersCall) Return(arg0 []user.User, arg1 error) *MockSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetAllUsersCall) Do(f func(context.Context) ([]user.User, error)) *MockStateGetAllUsersCall {
+func (c *MockStateGetAllUsersCall) Do(f func(context.Context, bool) ([]user.User, error)) *MockStateGetAllUsersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetAllUsersCall) DoAndReturn(f func(context.Context) ([]user.User, error)) *MockStateGetAllUsersCall {
+func (c *MockStateGetAllUsersCall) DoAndReturn(f func(context.Context, bool) ([]user.User, error)) *MockStateGetAllUsersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1225,18 +1225,18 @@ func (c *MockUserStateGetActivationKeyCall) DoAndReturn(f func(context.Context, 
 }
 
 // GetAllUsers mocks base method.
-func (m *MockUserState) GetAllUsers(arg0 context.Context) ([]user.User, error) {
+func (m *MockUserState) GetAllUsers(arg0 context.Context, arg1 bool) ([]user.User, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllUsers", arg0)
+	ret := m.ctrl.Call(m, "GetAllUsers", arg0, arg1)
 	ret0, _ := ret[0].([]user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAllUsers indicates an expected call of GetAllUsers.
-func (mr *MockUserStateMockRecorder) GetAllUsers(arg0 any) *MockUserStateGetAllUsersCall {
+func (mr *MockUserStateMockRecorder) GetAllUsers(arg0, arg1 any) *MockUserStateGetAllUsersCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsers", reflect.TypeOf((*MockUserState)(nil).GetAllUsers), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllUsers", reflect.TypeOf((*MockUserState)(nil).GetAllUsers), arg0, arg1)
 	return &MockUserStateGetAllUsersCall{Call: call}
 }
 
@@ -1252,13 +1252,13 @@ func (c *MockUserStateGetAllUsersCall) Return(arg0 []user.User, arg1 error) *Moc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUserStateGetAllUsersCall) Do(f func(context.Context) ([]user.User, error)) *MockUserStateGetAllUsersCall {
+func (c *MockUserStateGetAllUsersCall) Do(f func(context.Context, bool) ([]user.User, error)) *MockUserStateGetAllUsersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserStateGetAllUsersCall) DoAndReturn(f func(context.Context) ([]user.User, error)) *MockUserStateGetAllUsersCall {
+func (c *MockUserStateGetAllUsersCall) DoAndReturn(f func(context.Context, bool) ([]user.User, error)) *MockUserStateGetAllUsersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

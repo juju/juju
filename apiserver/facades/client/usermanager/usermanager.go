@@ -25,7 +25,7 @@ import (
 
 // AccessService defines the methods to operate with the database.
 type AccessService interface {
-	GetAllUsers(ctx context.Context) ([]coreuser.User, error)
+	GetAllUsers(ctx context.Context, includeDisabled bool) ([]coreuser.User, error)
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
 	AddUser(ctx context.Context, arg service.AddUserArg) (coreuser.UUID, []byte, error)
 	EnableUserAuthentication(ctx context.Context, name string) error
@@ -312,7 +312,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 
 		if isAdmin {
 			// Get all users if isAdmin
-			users, err := api.accessService.GetAllUsers(ctx)
+			users, err := api.accessService.GetAllUsers(ctx, request.IncludeDisabled)
 			if err != nil {
 				return results, errors.Trace(err)
 			}
