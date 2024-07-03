@@ -30,7 +30,7 @@ type ModelSecretBackendAPI interface {
 	Close() error
 }
 
-// NewmoMelSecretBackendCommand returns a command to get or set secret backend config for the model.
+// NewModelSecretBackendCommand returns a command to get or set secret backend config for the current model.
 func NewModelSecretBackendCommand() cmd.Command {
 	c := &modelSecretBackendCommand{}
 	c.getAPIFunc = c.secretBackendAPI
@@ -38,7 +38,7 @@ func NewModelSecretBackendCommand() cmd.Command {
 }
 
 func (c *modelSecretBackendCommand) secretBackendAPI() (ModelSecretBackendAPI, error) {
-	root, err := c.NewControllerAPIRoot()
+	root, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

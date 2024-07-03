@@ -52,18 +52,7 @@ func (s *State) GetModelSecretBackendDetails(ctx context.Context, uuid coremodel
 	if err != nil {
 		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
-	var result secretbackend.ModelSecretBackend
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result, err = s.getModelSecretBackendDetails(ctx, uuid, tx)
-		return errors.Trace(err)
-	})
-	if err != nil {
-		return secretbackend.ModelSecretBackend{}, domain.CoerceError(err)
-	}
-	return result, nil
-}
 
-func (s *State) getModelSecretBackendDetails(ctx context.Context, uuid coremodel.UUID, tx *sqlair.TX) (secretbackend.ModelSecretBackend, error) {
 	stmt, err := s.Prepare(`
 SELECT &ModelSecretBackend.*
 FROM   v_model_secret_backend
@@ -71,11 +60,15 @@ WHERE  uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
 	if err != nil {
 		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
+
 	var m ModelSecretBackend
-	err = tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
-	if errors.Is(err, sql.ErrNoRows) {
-		return secretbackend.ModelSecretBackend{}, fmt.Errorf("%w: %q", modelerrors.NotFound, uuid)
-	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w: %q", modelerrors.NotFound, uuid)
+		}
+		return errors.Trace(err)
+	})
 	if err != nil {
 		return secretbackend.ModelSecretBackend{}, errors.Trace(domain.CoerceError(err))
 	}
