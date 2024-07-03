@@ -24,6 +24,7 @@ type PebbleClient interface {
 	CloseIdleConnections()
 	SysInfo() (*client.SysInfo, error)
 	WaitNotices(ctx context.Context, serverTimeout time.Duration, opts *client.NoticesOptions) ([]*client.Notice, error)
+	Change(id string) (*client.Change, error)
 }
 
 // NewPebbleClientFunc is the function type used to create a PebbleClient.

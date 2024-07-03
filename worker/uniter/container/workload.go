@@ -32,6 +32,8 @@ const (
 	// ReadyEvent is triggered when the container/pebble starts up.
 	ReadyEvent WorkloadEventType = iota
 	CustomNoticeEvent
+	CheckFailedEvent
+	CheckRecoveredEvent
 )
 
 // WorkloadEvent contains information about the event type and data associated with
@@ -42,6 +44,7 @@ type WorkloadEvent struct {
 	NoticeID     string
 	NoticeType   string
 	NoticeKey    string
+	CheckName    string
 }
 
 // WorkloadEventCallback is the type used to callback when an event has been processed.
@@ -201,6 +204,23 @@ func (r *workloadHookResolver) NextOp(
 				op, err = opFactory.NewRunHook(hook.Info{
 					Kind:         hooks.PebbleReady,
 					WorkloadName: evt.WorkloadName,
+				})
+			// Although check-failed and check-recovered are triggered by Pebble
+			// notices, we consider that an implementation detail, and provide
+			// the check name as a key for the charm to collect live information
+			// about the check, rather than passing the notice type (always
+			// "change-update") and key (the change ID).
+			case CheckFailedEvent:
+				op, err = opFactory.NewRunHook(hook.Info{
+					Kind:         hooks.PebbleCheckFailed,
+					WorkloadName: evt.WorkloadName,
+					CheckName:    evt.CheckName,
+				})
+			case CheckRecoveredEvent:
+				op, err = opFactory.NewRunHook(hook.Info{
+					Kind:         hooks.PebbleCheckRecovered,
+					WorkloadName: evt.WorkloadName,
+					CheckName:    evt.CheckName,
 				})
 			default:
 				return nil, errors.NotValidf("workload event type %v", evt.Type)

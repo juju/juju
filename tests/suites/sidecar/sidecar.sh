@@ -89,3 +89,28 @@ test_pebble_notices() {
 	# Clean up model
 	destroy_model "${model_name}"
 }
+
+test_pebble_checks() {
+	echo
+
+	# Ensure that a valid Juju controller exists
+	model_name="controller-model-sidecar"
+	file="${TEST_DIR}/test-${model_name}.log"
+	ensure "${model_name}" "${file}"
+
+	# Deploy Pebble checks test application
+	juju deploy juju-qa-pebble-checks
+
+	# Check that the charm responds correctly when a check fails, which will be
+	# the initial state.
+	wait_for "maintenance" '.applications["juju-qa-pebble-checks"].units["juju-qa-pebble-checks/0"]["workload-status"].current'
+	wait_for "check failed: exec-check" '.applications["juju-qa-pebble-checks"].units["juju-qa-pebble-checks/0"]["workload-status"].message'
+
+	# Check that the charm responds correctly to the check recovering.
+	juju ssh --container ubuntu juju-qa-pebble-checks/0 mkdir /trigger/
+	wait_for "active" '.applications["juju-qa-pebble-checks"].units["juju-qa-pebble-checks/0"]["workload-status"].current'
+	wait_for "check recovered: exec-check" '.applications["juju-qa-pebble-checks"].units["juju-qa-pebble-checks/0"]["workload-status"].message'
+
+	# Clean up model
+	destroy_model "${model_name}"
+}

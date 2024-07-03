@@ -293,6 +293,8 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 			ctx.noticeID = hookInfo.NoticeID
 			ctx.noticeType = hookInfo.NoticeType
 			ctx.noticeKey = hookInfo.NoticeKey
+		case hooks.PebbleCheckFailed, hooks.PebbleCheckRecovered:
+			ctx.checkName = hookInfo.CheckName
 		}
 	}
 	if hookInfo.Kind == hooks.PreSeriesUpgrade {
