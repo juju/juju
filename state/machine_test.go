@@ -357,7 +357,7 @@ func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(m2)
 	c.Assert(err, jc.ErrorIsNil)
-	err = m2.Destroy()
+	err = m2.ForceDestroy(dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(m2.Life(), gc.Equals, state.Alive)
@@ -366,9 +366,7 @@ func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		needsCleanup, err := s.State.NeedsCleanup()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(needsCleanup, jc.IsTrue)
-		err = s.State.Cleanup()
-		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(needsCleanup, jc.IsFalse)
 	}
 	needsCleanup, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
