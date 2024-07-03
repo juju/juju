@@ -74,7 +74,7 @@ func (s *stateSuite) ensureMachine(c *gc.C, name coremachine.Name, uuid string) 
 	s.ensureNetNode(c, "node2")
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO machine (uuid, net_node_uuid, machine_id, life_id)
+		INSERT INTO machine (uuid, net_node_uuid, name, life_id)
 		VALUES (?, "node2", ?, "0")`, uuid, name)
 		return err
 	})

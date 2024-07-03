@@ -14,7 +14,7 @@ type keyValue struct {
 	Value string `db:"value"`
 }
 
-// machineID represents a single machine id
-type machineID struct {
-	MachineID string `db:"machine_id"`
+// machineName represents a single machine name
+type machineName struct {
+	Name string `db:"name"`
 }

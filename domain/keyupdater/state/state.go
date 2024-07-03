@@ -32,23 +32,23 @@ func (s *State) AllPublicKeysQuery() string {
 // satisfying [machineerrors.NotFound] will be returned.
 func (s *State) AuthorisedKeysForMachine(
 	ctx context.Context,
-	machineName coremachine.Name,
+	name coremachine.Name,
 ) ([]string, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	machineArg := machineID{machineName.String()}
+	machineArg := machineName{name.String()}
 	machineStmt, err := s.Prepare(`
-SELECT machine_id AS &machineID.*
+SELECT name AS &machineName.*
 FROM machine
-WHERE machine_id = $machineID.machine_id
+WHERE name = $machineName.name
 `, machineArg)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"preparing select statement for getting machine %q when determining authorised keys: %w",
-			machineName, err,
+			name, err,
 		)
 	}
 
@@ -59,7 +59,7 @@ FROM user_public_ssh_key
 	if err != nil {
 		return nil, fmt.Errorf(
 			"preparing select statement for getting machine %q authorised keys: %w",
-			machineName, err,
+			name, err,
 		)
 	}
 
@@ -71,12 +71,12 @@ FROM user_public_ssh_key
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf(
 				"cannot get authorised keys for machine %q: %w",
-				machineName, machineerrors.NotFound,
+				name, machineerrors.NotFound,
 			)
 		} else if err != nil {
 			return fmt.Errorf(
 				"cannot get authorised keys for machine %q: %w",
-				machineName, domain.CoerceError(err),
+				name, domain.CoerceError(err),
 			)
 		}
 
@@ -84,7 +84,7 @@ FROM user_public_ssh_key
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf(
 				"cannot get authorised keys for machine %q: %w",
-				machineName, domain.CoerceError(err),
+				name, domain.CoerceError(err),
 			)
 		}
 		return nil
