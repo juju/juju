@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/domain"
 )
 
-// ControllerKeyState provides a state access layer for accessing a controllers
+// ControllerKeyState provides a state access layer for accessing a controller's
 // ssh keys via controller config.
 type ControllerKeyState struct {
 	*domain.StateBase
