@@ -126,7 +126,8 @@ func (c *MemStore) SetCurrentController(name string) error {
 	if _, ok := c.Controllers[name]; !ok {
 		return errors.NotFoundf("controller %s", name)
 	}
-	if c.HasControllerChangedOnPreviousSwitch = c.CurrentControllerName != name; c.HasControllerChangedOnPreviousSwitch {
+	c.HasControllerChangedOnPreviousSwitch = c.CurrentControllerName != name
+	if c.HasControllerChangedOnPreviousSwitch {
 		c.PreviousControllerName = c.CurrentControllerName
 		c.CurrentControllerName = name
 	}

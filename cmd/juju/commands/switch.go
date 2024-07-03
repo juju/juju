@@ -32,10 +32,10 @@ type switchCommand struct {
 	modelcmd.CommandBase
 	RefreshModels func(jujuclient.ClientStore, string) error
 
-	Store          jujuclient.ClientStore
-	Target         string
-	modelName      string
-	controllerName string
+	Store                 jujuclient.ClientStore
+	controllerOrModelName string
+	modelName             string
+	controllerName        string
 }
 
 var usageSummary = `
@@ -101,25 +101,94 @@ func (c *switchCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *switchCommand) Init(args []string) error {
-	var err error
-	var target string
 	if c.modelName != "" && c.controllerName != "" {
 		return errors.Trace(fmt.Errorf("cannot specify both a --model and --controller"))
 	}
-	if c.modelName != "" || c.controllerName != "" {
-		// translate `-c ctrl` to `ctrl:` and `-m model` to `:model`
-		target = fmt.Sprintf("%s:%s", c.controllerName, c.modelName)
-		err = cmd.CheckEmpty(args)
+
+	if c.controllerName != "" {
+		err := cmd.CheckEmpty(args)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	} else if c.modelName != "" {
+		err := cmd.CheckEmpty(args)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// This means we can support arguments like `juju switch -m mycontroller:mymodel`
+		c.parseModelName(c.modelName)
 	} else {
-		target, err = cmd.ZeroOrOneArgs(args)
+		target, err := cmd.ZeroOrOneArgs(args)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// if the target does not contain a ":", it is an ambiguous target so
+		// we cannot parse it as a model name
+		if strings.Contains(target, ":") {
+			c.parseModelName(target)
+		} else {
+			c.controllerOrModelName = target
+		}
 	}
-	if err != nil {
-		return err
+
+	// expand "-" syntactic sugar where it's found
+	if c.controllerName == "-" {
+		previous, _, err := c.Store.PreviousController()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		c.controllerName = previous
 	}
-	// handling special arguments like -:, -, and :- is done as part of initialization to outline their
-	// "syntaxic sugar" kind
-	c.Target, err = c.resolvePreviousTarget(target)
-	return err
+
+	if c.modelName == "-" {
+		controller, err := c.Store.CurrentController()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		previous, err := c.Store.PreviousModel(controller)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		c.modelName = previous
+	}
+
+	if c.controllerOrModelName == "-" {
+		c.controllerOrModelName = ""
+
+		previousController, changedController, err := c.Store.PreviousController()
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return errors.Trace(err)
+		}
+
+		// if the last switch was intra-controller (i.e. changedController is true), we need
+		// to figure out from which model and switch back there. Otherwise (i.e. inter-controller),
+		// it is sufficient to switch to just the previous controller.
+		if changedController {
+			c.controllerName = previousController
+		} else {
+			c.controllerName, err = c.Store.CurrentController()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			previousModel, err := c.Store.PreviousModel(c.controllerName)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			c.modelName = previousModel
+		}
+	}
+
+	return nil
+}
+
+func (c *switchCommand) parseModelName(name string) {
+	parts := strings.SplitN(name, ":", 2)
+	if len(parts) == 1 {
+		c.modelName = parts[0]
+		return
+	}
+	c.controllerName = parts[0]
+	c.modelName = parts[1]
 }
 
 // SetClientStore implements Command.SetClientStore.
@@ -140,7 +209,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	if c.Target == "" {
+	if c.controllerOrModelName == "" && c.modelName == "" && c.controllerName == "" {
 		currentName, err := c.name(store, currentControllerName, true)
 		if err != nil {
 			return errors.Trace(err)
@@ -175,13 +244,10 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Errorf("cannot switch when JUJU_MODEL is overriding the model (set to %q)", model)
 	}
 
-	// targetElements will always have 1 or 2 values since empty target has already been handled.
-	targetElements := strings.SplitN(c.Target, ":", 2)
-
 	// juju switch something (ambiguous)
-	if len(targetElements) == 1 {
+	if c.controllerOrModelName != "" {
 		// Is it an existing controller ?
-		targetName, err = c.trySwitchToController(store, targetElements[0])
+		targetName, err = c.trySwitchToController(store, c.controllerOrModelName)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return errors.Trace(err)
 		}
@@ -190,9 +256,9 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 		// Is an existing model in current controller ?
 		if currentControllerName == "" {
-			return unknownSwitchTargetError(c.Target)
+			return unknownSwitchTargetError(c.controllerOrModelName)
 		}
-		targetName, err = c.trySwitchToModel(store, currentControllerName, targetElements[0])
+		targetName, err = c.trySwitchToModel(store, currentControllerName, c.controllerOrModelName)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -200,26 +266,21 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	// Juju switch non ambiguous
-	targetController := targetElements[0]
-	targetModel := targetElements[1]
-
-	if targetController == "" {
-		if currentControllerName == "" {
-			return unknownSwitchTargetError(c.Target)
-		}
-		targetController = currentControllerName
-	}
-
-	// Empty model
-	if targetModel == "" {
-		targetName, err = c.trySwitchToController(store, targetController)
+	if c.modelName == "" {
+		targetName, err = c.trySwitchToController(store, c.controllerName)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return
 	}
 
-	targetName, err = c.trySwitchToModel(store, targetController, targetModel)
+	if c.controllerName == "" {
+		if currentControllerName == "" {
+			return unknownSwitchTargetError(c.modelName)
+		}
+		c.controllerName = currentControllerName
+	}
+	targetName, err = c.trySwitchToModel(store, c.controllerName, c.modelName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -259,48 +320,6 @@ func (c *switchCommand) name(store jujuclient.ModelGetter, controllerName string
 	return fmt.Sprintf("%s (controller)", controllerName), nil
 }
 
-// resolvePreviousTarget resolves specific target with syntax sugar like `-`, `-:`, `:-`.
-//
-// If there is previous model/controller as required, it will return a disambiguated
-// target with the expected name, like `:mymodel`, `mycontroller:`
-//
-// If Target is not a known pattern, it will return it unmodified.
-func (c *switchCommand) resolvePreviousTarget(target string) (string, error) {
-	switch target {
-	case "-:": // Controller switching
-		previous, _, err := c.Store.PreviousController()
-		return previous + ":", errors.Trace(err)
-	case "-": // Ambiguous switching
-		current, err := c.Store.CurrentController()
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		previous, changed, err := c.Store.PreviousController()
-		if errors.Is(err, errors.NotFound) || !changed {
-			previous = current
-		} else if err != nil {
-			return "", errors.Trace(err)
-		}
-
-		if current != previous {
-			return previous + ":", errors.Trace(err)
-		}
-
-		// if current == previous, we switch model
-		fallthrough
-	case ":-": // Model switching
-		controller, err := c.Store.CurrentController()
-		if err != nil {
-			return "", errors.Trace(err)
-		}
-		previous, err := c.Store.PreviousModel(controller)
-		return ":" + previous, errors.Trace(err)
-
-	}
-
-	return target, nil
-}
-
 func (c *switchCommand) trySwitchToController(store jujuclient.ClientStore, controller string) (string, error) {
 	// Check that the controller actually exists
 	_, err := store.ControllerByName(controller)
@@ -332,7 +351,7 @@ func (c *switchCommand) trySwitchToModel(store modelcmd.QualifyingClientStore, c
 		}
 		err := store.SetCurrentModel(controller, modelName)
 		if errors.Is(err, errors.NotFound) {
-			return "", unknownSwitchTargetError(c.Target)
+			return "", unknownSwitchTargetError(controller + ":" + model)
 		} else if err != nil {
 			return "", errors.Trace(err)
 		}

@@ -285,7 +285,8 @@ func (s *store) SetCurrentController(name string) error {
 	if _, ok := controllers.Controllers[name]; !ok {
 		return errors.NotFoundf("controller %v", name)
 	}
-	if controllers.HasControllerChangedOnPreviousSwitch = controllers.CurrentController != name; controllers.HasControllerChangedOnPreviousSwitch {
+	controllers.HasControllerChangedOnPreviousSwitch = controllers.CurrentController != name
+	if controllers.HasControllerChangedOnPreviousSwitch {
 		controllers.PreviousController = controllers.CurrentController
 		controllers.CurrentController = name
 	}
