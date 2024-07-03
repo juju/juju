@@ -27,6 +27,7 @@ type State interface {
 	InitialWatchStatement() (string, string)
 
 	// GetMachineLife returns the life status of the specified machine.
+	// It returns a NotFound if the given machine doesn't exist.
 	GetMachineLife(context.Context, machine.Name) (*life.Life, error)
 
 	// AllMachineNames retrieves the names of all machines in the model.
@@ -50,9 +51,13 @@ type State interface {
 	// along with the instance tags and the link to a lxd profile if any.
 	SetMachineCloudInstance(context.Context, string, instance.Id, instance.HardwareCharacteristics) error
 
-	// DeleteMachineCloudInstance removes an entry in the machine cloud instance table
-	// along with the instance tags and the link to a lxd profile if any.
+	// DeleteMachineCloudInstance removes an entry in the machine cloud instance
+	// table along with the instance tags and the link to a lxd profile if any.
 	DeleteMachineCloudInstance(context.Context, string) error
+
+	// IsController returns whether the machine is a controller machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	IsController(context.Context, machine.Name) (bool, error)
 
 	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
 	RequireMachineReboot(ctx context.Context, uuid string) error
@@ -102,6 +107,7 @@ func (s *Service) DeleteMachine(ctx context.Context, machineName machine.Name) e
 }
 
 // GetLife returns the GetMachineLife status of the specified machine.
+// It returns a NotFound if the given machine doesn't exist.
 func (s *Service) GetMachineLife(ctx context.Context, machineName machine.Name) (*life.Life, error) {
 	life, err := s.st.GetMachineLife(ctx, machineName)
 	return life, errors.Annotatef(err, "getting life status for machine %q", machineName)
@@ -135,6 +141,16 @@ func (s *Service) InstanceStatus(ctx context.Context, machineName machine.Name) 
 		return "", errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineName)
 	}
 	return instanceStatus, nil
+}
+
+// IsController returns whether the machine is a controller machine.
+// It returns a NotFound if the given machine doesn't exist.
+func (s *Service) IsController(ctx context.Context, machineName machine.Name) (bool, error) {
+	isController, err := s.st.IsController(ctx, machineName)
+	if err != nil {
+		return false, errors.Annotatef(err, "checking if machine %q is a controller", machineName)
+	}
+	return isController, nil
 }
 
 // RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
