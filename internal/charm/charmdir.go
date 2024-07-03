@@ -446,7 +446,7 @@ func checkFileType(path string, mode os.FileMode) error {
 
 // MaybeGenerateVersionString generates charm version string.
 // We want to know whether parent folders use one of these vcs, that's why we
-// try to execute each one of them
+// try to execute each one of them.
 // The second return value is the detected vcs type.
 func (dir *CharmDir) MaybeGenerateVersionString(ctx context.Context, reader VersionReader) (string, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
@@ -469,6 +469,12 @@ const (
 type VersionReader interface {
 	ReadVersion(ctx context.Context, path string) (string, VersionType, error)
 }
+
+var (
+	// ErrVersionGenerationFailed is returned when the version string
+	// generation failed.
+	ErrVersionGenerationFailed = errors.ConstError("version string generation failed")
+)
 
 type versionsReader struct {
 	strategies [4]VersionReader
@@ -534,18 +540,18 @@ func (r gitVersionReader) ReadVersion(ctx context.Context, path string) (string,
 	if err != nil {
 		// We had an error but we still know that we use a vcs, hence we can
 		// stop here and handle it.
-		return "", versionTypeGit, errors.Errorf("git version string generation failed : "+
-			"%v\nThis means that the charm version won't show in juju status.", err)
+		return "", versionTypeGit, fmt.Errorf("git %w: "+
+			"%w\nThis means that the charm version won't show in juju status.", ErrVersionGenerationFailed, err)
 	}
 	output := strings.TrimSuffix(string(out), "\n")
 	return output, versionTypeGit, nil
 
 }
 
-// usesGit first check checks for the easy case of the current charmdir has a
+// usesGit first checks for the easy case of the current charmdir has a
 // git folder.
 // There can be cases when the charmdir actually uses git and is just a subdir,
-// hence the below check
+// hence the below check.
 func (r gitVersionReader) usesGit(ctx context.Context, charmPath string) bool {
 	if _, err := os.Stat(filepath.Join(charmPath, ".git")); err == nil {
 		return true
@@ -579,18 +585,16 @@ func (r hgVersionReader) ReadVersion(ctx context.Context, path string) (string, 
 	if err != nil {
 		// We had an error but we still know that we use a vcs, hence we can
 		// stop here and handle it.
-		return "", versionTypeHg, errors.Errorf("hg version string generation failed : "+
-			"%v\nThis means that the charm version won't show in juju status.", err)
+		return "", versionTypeHg, fmt.Errorf("hg %w: "+
+			"%w\nThis means that the charm version won't show in juju status.", ErrVersionGenerationFailed, err)
 	}
 	output := strings.TrimSuffix(string(out), "\n")
 	return output, versionTypeHg, nil
 
 }
 
-// usesHg first check checks for the easy case of the current charmdir has a
+// usesHg first checks for the easy case of the current charmdir has a
 // hg folder.
-// There can be cases when the charmdir actually uses hg and is just a subdir,
-// hence the below check
 func (r hgVersionReader) usesHg(charmPath string) bool {
 	if _, err := os.Stat(filepath.Join(charmPath, ".hg")); err == nil {
 		return true
@@ -616,18 +620,16 @@ func (r bzrVersionReader) ReadVersion(ctx context.Context, path string) (string,
 	if err != nil {
 		// We had an error but we still know that we use a vcs, hence we can
 		// stop here and handle it.
-		return "", versionTypeBzr, errors.Errorf("bzr version string generation failed : "+
-			"%v\nThis means that the charm version won't show in juju status.", err)
+		return "", versionTypeBzr, fmt.Errorf("bzr %w: "+
+			"%w\nThis means that the charm version won't show in juju status.", ErrVersionGenerationFailed, err)
 	}
 	output := strings.TrimSuffix(string(out), "\n")
 	return output, versionTypeBzr, nil
 
 }
 
-// usesBzr first check checks for the easy case of the current charmdir has a
-// hg folder.
-// There can be cases when the charmdir actually uses bzr and is just a subdir,
-// hence the below check
+// usesBzr first checks for the easy case of the current charmdir has a
+// bzr folder.
 func (r bzrVersionReader) usesBzr(charmPath string) bool {
 	if _, err := os.Stat(filepath.Join(charmPath, ".bzr")); err == nil {
 		return true

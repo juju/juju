@@ -322,7 +322,7 @@ func (s *CharmSuite) TestArchiveToWithVersionStringError(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer loggo.RemoveWriter("versionstring-test")
 
-	msg := fmt.Sprintf("failed reading version from %q: git version string generation failed : exit status 128\nThis means that the charm version won't show in juju status.", dir.Path)
+	msg := fmt.Sprintf("failed reading version from %q: git version string generation failed: exit status 128\nThis means that the charm version won't show in juju status.", dir.Path)
 
 	versionReader := charm.DefaultVersionReader(loggertesting.WrapCheckLog(c))
 	_, _, err = dir.MaybeGenerateVersionString(context.Background(), versionReader)
@@ -601,8 +601,7 @@ func (s *CharmSuite) TestMaybeGenerateVersionStringError(c *gc.C) {
 
 	versionReader := charm.DefaultVersionReader(loggertesting.WrapCheckLog(c))
 	version, vcsType, err := dir.MaybeGenerateVersionString(context.Background(), versionReader)
-	msg := fmt.Sprintf("failed reading version from %q: git version string generation failed : exit status 128\nThis means that the charm version won't show in juju status.", dir.Path)
-	c.Assert(err, gc.ErrorMatches, msg)
+	c.Assert(err, jc.ErrorIs, charm.ErrVersionGenerationFailed)
 	c.Assert(version, gc.Equals, "")
 	c.Assert(vcsType, gc.Equals, "git")
 }
