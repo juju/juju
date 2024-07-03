@@ -56,7 +56,7 @@ For example, the following indicates that Go 1.22 is targeted:
 ```
 module github.com/juju/juju
 
-go 1.22.2
+go 1.22
 ```
 
 ### Official distribution
