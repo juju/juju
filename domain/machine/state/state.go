@@ -161,6 +161,7 @@ func (s *State) InitialWatchStatement() (string, string) {
 }
 
 // GetMachineLife returns the life status of the specified machine.
+// It returns a NotFound if the given machine doesn't exist.
 func (st *State) GetMachineLife(ctx context.Context, machineName machine.Name) (*life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -192,6 +193,38 @@ func (st *State) GetMachineLife(ctx context.Context, machineName machine.Name) (
 	}
 
 	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", machineName)
+}
+
+// IsController returns whether the machine is a controller machine.
+// It returns a NotFound if the given machine doesn't exist.
+func (st *State) IsController(ctx context.Context, machineName machine.Name) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	machineNameParam := sqlair.M{"name": machineName}
+	query := `SELECT is_controller AS &machineIsController.is_controller FROM machine WHERE name = $M.name`
+	queryStmt, err := st.Prepare(query, machineNameParam, machineIsController{})
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	var isController bool
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		result := machineIsController{}
+		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
+		if err != nil {
+			return errors.Annotatef(err, "querying if machine %q is a controller", machineName)
+		}
+		isController = result.IsController
+		return nil
+	})
+	if err != nil && errors.Is(err, sqlair.ErrNoRows) {
+		return false, errors.NotFoundf("machine %q", machineName)
+	}
+
+	return isController, errors.Annotatef(err, "checking if machine %q is a controller", machineName)
 }
 
 // AllMachineNames retrieves the names of all machines in the model.

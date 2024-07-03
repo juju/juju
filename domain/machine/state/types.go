@@ -77,3 +77,8 @@ type machineName struct {
 type machineUUID struct {
 	UUID string `db:"uuid"`
 }
+
+// machineIsController represents the struct to be used for the is_controller column within the sqlair statements in the machine domain.
+type machineIsController struct {
+	IsController bool `db:"is_controller"`
+}
