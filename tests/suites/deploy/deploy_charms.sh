@@ -139,7 +139,7 @@ run_deploy_local_predeployed_charm() {
 	juju deploy ./testcharms/charms/lxd-profile --base ubuntu@22.04
 	wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
-	juju deploy local:jammy/lxd-profile-0 another-lxd-profile-app
+	juju deploy local:lxd-profile-0 another-lxd-profile-app
 	wait_for "another-lxd-profile-app" "$(idle_condition "another-lxd-profile-app")"
 	wait_for "active" '.applications["another-lxd-profile-app"] | ."application-status".current'
 
