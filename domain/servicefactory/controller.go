@@ -12,8 +12,6 @@ import (
 	accessstate "github.com/juju/juju/domain/access/state"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
 	autocertcachestate "github.com/juju/juju/domain/autocert/state"
-	bakerystorageservice "github.com/juju/juju/domain/bakerystorage/service"
-	bakerystoragestate "github.com/juju/juju/domain/bakerystorage/state"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
@@ -26,6 +24,8 @@ import (
 	externalcontrollerstate "github.com/juju/juju/domain/externalcontroller/state"
 	flagservice "github.com/juju/juju/domain/flag/service"
 	flagstate "github.com/juju/juju/domain/flag/state"
+	macaroonservice "github.com/juju/juju/domain/macaroon/service"
+	macaroonstate "github.com/juju/juju/domain/macaroon/state"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
@@ -188,8 +188,8 @@ func (s *ControllerFactory) SecretBackend() *secretbackendservice.WatchableServi
 	)
 }
 
-func (s *ControllerFactory) Macaroon() *bakerystorageservice.Service {
-	return bakerystorageservice.NewService(
-		bakerystoragestate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+func (s *ControllerFactory) Macaroon() *macaroonservice.Service {
+	return macaroonservice.NewService(
+		macaroonstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }

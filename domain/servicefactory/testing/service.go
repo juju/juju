@@ -8,7 +8,6 @@ import (
 	annotationservice "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
-	bakerystorageservice "github.com/juju/juju/domain/bakerystorage/service"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	cloudservice "github.com/juju/juju/domain/cloud/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
@@ -16,6 +15,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	flagservice "github.com/juju/juju/domain/flag/service"
+	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelagentservice "github.com/juju/juju/domain/modelagent/service"
@@ -149,7 +149,7 @@ func (s *TestingServiceFactory) Agent() *modelagentservice.ModelService {
 }
 
 // Macaroon returns the macaroon bakery service
-func (s *TestingServiceFactory) Macaroon() *bakerystorageservice.Service {
+func (s *TestingServiceFactory) Macaroon() *macaroonservice.Service {
 	return nil
 }
 
