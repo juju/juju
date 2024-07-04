@@ -13,6 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
+// DumpTable dumps the contents of the given table to stdout.
+// This is useful for debugging tests. It is not intended for use
+// in production code.
 func DumpTable(c *gc.C, db *sql.DB, table string) {
 	rows, err := db.Query("SELECT * FROM " + table)
 	c.Assert(err, jc.ErrorIsNil)
