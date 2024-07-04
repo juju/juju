@@ -876,34 +876,28 @@ func (c *AddCAASCommand) getClusterMetadataFunc(ctx *cmd.Context) provider.GetCl
 }
 
 func (c *AddCAASCommand) verifyName(name string) error {
-	public, _, err := c.cloudMetadataStore.PublicCloudMetadata()
-	if err != nil {
-		return err
+	if name == k8s.K8sCloudMicrok8s {
+		return fmt.Errorf(`%q is the name of a built-in cloud.
+If you want to use Juju with microk8s, the recommended way is to install the strictly confined microk8s snap.
+Using the strictly confined microk8s snap means that Juju and microk8s will work together out of the box.`, name)
 	}
-	msg, err := nameExists(name, public)
+
+	public, _, err := c.cloudMetadataStore.PublicCloudMetadata()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if msg != "" {
-		return errors.Errorf(msg)
-	}
-	return nil
-}
 
-// nameExists returns either an empty string if the name does not exist, or a
-// non-empty string with an error message if it does exist.
-func nameExists(name string, public map[string]jujucloud.Cloud) (string, error) {
 	if _, ok := public[name]; ok {
-		return fmt.Sprintf("%q is the name of a public cloud", name), nil
+		return fmt.Errorf("%q is the name of a public cloud", name)
 	}
 	builtin, err := common.BuiltInClouds()
 	if err != nil {
-		return "", errors.Trace(err)
+		return errors.Trace(err)
 	}
 	if _, ok := builtin[name]; ok {
-		return fmt.Sprintf("%q is the name of a built-in cloud", name), nil
+		return fmt.Errorf("%q is the name of a built-in cloud", name)
 	}
-	return "", nil
+	return nil
 }
 
 func addCloudToLocal(cloudMetadataStore CloudMetadataStore, newCloud jujucloud.Cloud) error {
