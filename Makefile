@@ -39,6 +39,10 @@ BIN_DIR ?= ${BUILD_DIR}/${GOOS}_${GOARCH}/bin
 # for built juju binaries.
 JUJU_METADATA_SOURCE ?= ${BUILD_DIR}/simplestreams
 
+# JUJU_PUBLISH_STREAM defines the simplestreams stream that we will publish
+# agents to (default "released").
+JUJU_PUBLISH_STREAM ?= "released"
+
 # TEST_PACKAGE_LIST is the path to a file that is a newline delimited list of
 # packages to test. This file must be sorted.
 TEST_PACKAGE_LIST ?=
@@ -54,7 +58,7 @@ tool_platform_paths = $(addsuffix /${1},$(call bin_platform_paths,${2}))
 
 # simplestream_paths takes a list of Go style platforms to calculate the
 # paths to their respective simplestreams agent binary archives.
-simplestream_paths = $(addprefix ${JUJU_METADATA_SOURCE}/, $(addprefix tools/released/juju-${JUJU_VERSION}-, $(addsuffix .tgz,$(subst /,-,${1}))))
+simplestream_paths = $(addprefix ${JUJU_METADATA_SOURCE}/, $(addprefix tools/${JUJU_PUBLISH_STREAM}/juju-${JUJU_VERSION}-, $(addsuffix .tgz,$(subst /,-,${1}))))
 
 # CLIENT_PACKAGE_PLATFORMS defines a white space seperated list of platforms
 # to build the Juju client binaries for. Platforms are defined as GO style
@@ -406,14 +410,14 @@ ${BUILD_DIR}/%/bin/pebble: phony_explicit
 # build for pebble
 	$(run_go_build)
 
-${JUJU_METADATA_SOURCE}/tools/released/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS) $(BUILD_CGO_AGENT_TARGETS)
+${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}/juju-${JUJU_VERSION}-%.tgz: phony_explicit juju $(BUILD_AGENT_TARGETS) $(BUILD_CGO_AGENT_TARGETS)
 	@echo "Packaging simplestream tools for juju ${JUJU_VERSION} on $*"
-	@mkdir -p ${JUJU_METADATA_SOURCE}/tools/released
+	@mkdir -p ${JUJU_METADATA_SOURCE}/tools/${JUJU_PUBLISH_STREAM}
 	@tar czf "$@" -C $(call bin_platform_paths,$(subst -,/,$*)) .
 
 .PHONY: simplestreams
 simplestreams: juju juju-metadata ${SIMPLESTREAMS_TARGETS}
-	@juju metadata generate-agent-binaries -d ${JUJU_METADATA_SOURCE} --clean --prevent-fallback ;
+	@juju metadata generate-agent-binaries -d ${JUJU_METADATA_SOURCE} --clean --prevent-fallback --stream ${JUJU_PUBLISH_STREAM} ;
 	@echo "\nRun export JUJU_METADATA_SOURCE=\"${JUJU_METADATA_SOURCE}\" if not defined in your env"
 
 .PHONY: build
