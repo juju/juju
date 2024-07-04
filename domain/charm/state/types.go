@@ -44,6 +44,7 @@ type charmState struct {
 	Available bool   `db:"available"`
 }
 
+// charmMetadata is used to get the metadata of a charm.
 type charmMetadata struct {
 	Name           string `db:"name"`
 	Summary        string `db:"summary"`
@@ -54,21 +55,28 @@ type charmMetadata struct {
 	RunAs          string `db:"run_as"`
 }
 
+// charmTag is used to get the tags of a charm.
+// This is a row based struct that is normalised form of an array of strings.
 type charmTag struct {
 	CharmUUID string `db:"charm_uuid"`
 	Tag       string `db:"value"`
 }
 
+// charmCategory is used to get the categories of a charm.
+// This is a row based struct that is normalised form of an array of strings.
 type charmCategory struct {
 	CharmUUID string `db:"charm_uuid"`
 	Category  string `db:"value"`
 }
 
+// charmTerm is used to get the terms of a charm.
+// This is a row based struct that is normalised form of an array of strings.
 type charmTerm struct {
 	CharmUUID string `db:"charm_uuid"`
 	Term      string `db:"value"`
 }
 
+// charmRelation is used to get the relations of a charm.
 type charmRelation struct {
 	CharmUUID string `db:"charm_uuid"`
 	Kind      string `db:"kind"`
@@ -81,12 +89,16 @@ type charmRelation struct {
 	Scope     string `db:"scope"`
 }
 
+// charmExtraBinding is used to get the extra bindings of a charm.
 type charmExtraBinding struct {
 	CharmUUID string `db:"charm_uuid"`
 	Key       string `db:"key"`
 	Name      string `db:"name"`
 }
 
+// charmStorage is used to get the storage of a charm.
+// This is a row based struct that is normalised form of an array of strings
+// for the property field.
 type charmStorage struct {
 	CharmUUID   string `db:"charm_uuid"`
 	Key         string `db:"key"`
@@ -102,6 +114,7 @@ type charmStorage struct {
 	Property    string `db:"property"`
 }
 
+// charmDevice is used to get the devices of a charm.
 type charmDevice struct {
 	CharmUUID   string `db:"charm_uuid"`
 	Key         string `db:"key"`
@@ -112,6 +125,7 @@ type charmDevice struct {
 	CountMax    int64  `db:"count_max"`
 }
 
+// charmPayload is used to get the payload of a charm.
 type charmPayload struct {
 	CharmUUID string `db:"charm_uuid"`
 	Key       string `db:"key"`
@@ -119,6 +133,7 @@ type charmPayload struct {
 	Type      string `db:"type"`
 }
 
+// charmResource is used to get the resources of a charm.
 type charmResource struct {
 	CharmUUID   string `db:"charm_uuid"`
 	Key         string `db:"key"`

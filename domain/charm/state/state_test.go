@@ -339,14 +339,23 @@ func (s *stateSuite) TestGetCharmMetadataWithTagsAndCategories(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
 
+	// Ensure that duplicate tags and categories are correctly inserted and
+	// extracted.
+
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		expected = insertCharmState(ctx, c, tx, uuid)
 
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm_category (charm_uuid, value) VALUES (?, 'data'), (?, 'kubernetes')`, uuid, uuid)
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO charm_category (charm_uuid, "index", value)
+VALUES (?, 0, 'data'), (?, 1, 'kubernetes'), (?, 2, 'kubernetes')
+`, uuid, uuid, uuid)
 		c.Assert(err, jc.ErrorIsNil)
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_tag (charm_uuid, value) VALUES (?, 'foo'), (?, 'bar')`, uuid, uuid)
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO charm_tag (charm_uuid, "index", value)
+VALUES (?, 0, 'foo'), (?, 1, 'foo'), (?, 2,'bar')
+`, uuid, uuid, uuid)
 		c.Assert(err, jc.ErrorIsNil)
 
 		return nil
@@ -357,8 +366,8 @@ func (s *stateSuite) TestGetCharmMetadataWithTagsAndCategories(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
-		expected.Tags = []string{"bar", "foo"}
-		expected.Categories = []string{"data", "kubernetes"}
+		expected.Tags = []string{"foo", "foo", "bar"}
+		expected.Categories = []string{"data", "kubernetes", "kubernetes"}
 		return expected
 	})
 }
@@ -369,11 +378,16 @@ func (s *stateSuite) TestGetCharmMetadataWithTerms(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
 
+	// Ensure that duplicate terms are correctly inserted and extracted.
+
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		expected = insertCharmState(ctx, c, tx, uuid)
 
-		_, err := tx.ExecContext(ctx, `INSERT INTO charm_term (charm_uuid, value) VALUES (?, 'alpha'), (?, 'beta')`, uuid, uuid)
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO charm_term (charm_uuid, "index", value) 
+VALUES (?, 0, 'alpha'), (?, 1, 'beta'), (?, 2, 'beta')
+`, uuid, uuid, uuid)
 		c.Assert(err, jc.ErrorIsNil)
 
 		return nil
@@ -384,7 +398,7 @@ func (s *stateSuite) TestGetCharmMetadataWithTerms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	assertCharmMetadata(c, metadata, func() charm.Metadata {
-		expected.Terms = []string{"alpha", "beta"}
+		expected.Terms = []string{"alpha", "beta", "beta"}
 		return expected
 	})
 }
@@ -593,11 +607,13 @@ INSERT INTO charm_storage (
 INSERT INTO charm_storage_property (
     charm_uuid,
     charm_storage_key,
+    "index",
     value
 ) VALUES
-    (?, 'foo', 'alpha'),
-    (?, 'foo', 'beta');`,
-			uuid, uuid)
+    (?, 'foo', 0, 'alpha'),
+    (?, 'foo', 1, 'beta'),
+    (?, 'foo', 2, 'beta');`,
+			uuid, uuid, uuid)
 		c.Assert(err, jc.ErrorIsNil)
 
 		return nil
@@ -619,7 +635,7 @@ INSERT INTO charm_storage_property (
 				CountMax:    2,
 				MinimumSize: 3,
 				Location:    "/tmp",
-				Properties:  []string{"alpha", "beta"},
+				Properties:  []string{"alpha", "beta", "beta"},
 			},
 			"fred": {
 				Name:        "baz",
@@ -860,9 +876,9 @@ INSERT INTO charm_container_mount (
     storage,
     location
 ) VALUES
-	(?, 0, 'foo', 'block', '/tmp'),
-	(?, 1, 'foo', 'block', '/dev/nvme0n1'),
-	(?, 0, 'fred', 'file', '/var/log');`,
+    (?, 0, 'foo', 'block', '/tmp'),
+    (?, 1, 'foo', 'block', '/dev/nvme0n1'),
+    (?, 0, 'fred', 'file', '/var/log');`,
 			uuid, uuid, uuid)
 		c.Assert(err, jc.ErrorIsNil)
 		return nil

@@ -237,11 +237,12 @@ ON charm_extra_binding (charm_uuid);
 -- by 3rd party stores.
 CREATE TABLE charm_category (
     charm_uuid TEXT NOT NULL,
+    "index" INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_category_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, value)
+    PRIMARY KEY (charm_uuid, "index", value)
 );
 
 CREATE INDEX idx_charm_category_charm
@@ -250,11 +251,12 @@ ON charm_category (charm_uuid);
 -- charm_tag is a free form tag that can be applied to a charm.
 CREATE TABLE charm_tag (
     charm_uuid TEXT NOT NULL,
+    "index" INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_tag_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, value)
+    PRIMARY KEY (charm_uuid, "index", value)
 );
 
 CREATE INDEX idx_charm_tag_charm
@@ -303,6 +305,7 @@ SELECT
     cs.count_max,
     cs.minimum_size_mib,
     cs.location,
+    csp."index" AS property_index,
     csp.value AS property
 FROM charm_storage AS cs
 LEFT JOIN charm_storage_kind AS csk ON cs.storage_kind_id = csk.id
@@ -314,6 +317,7 @@ ON charm_storage (charm_uuid);
 CREATE TABLE charm_storage_property (
     charm_uuid TEXT NOT NULL,
     charm_storage_key TEXT NOT NULL,
+    "index" INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_storage_property_charm
     FOREIGN KEY (charm_uuid)
@@ -321,7 +325,7 @@ CREATE TABLE charm_storage_property (
     CONSTRAINT fk_charm_storage_property_charm_storage
     FOREIGN KEY (charm_uuid, charm_storage_key)
     REFERENCES charm_storage (charm_uuid, "key"),
-    PRIMARY KEY (charm_uuid, charm_storage_key, value)
+    PRIMARY KEY (charm_uuid, charm_storage_key, "index", value)
 );
 
 CREATE INDEX idx_charm_storage_property_charm
@@ -402,11 +406,12 @@ ON charm_resource (charm_uuid);
 
 CREATE TABLE charm_term (
     charm_uuid TEXT NOT NULL,
+    "index" INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_term_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, value)
+    PRIMARY KEY (charm_uuid, "index", value)
 );
 
 CREATE INDEX idx_charm_term_charm

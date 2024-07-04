@@ -467,7 +467,8 @@ func getCharmTags(ctx context.Context, tx *sqlair.TX, p domain.Preparer, id core
 	query := `
 SELECT charm_tag.* AS &charmTag.*
 FROM charm_tag
-WHERE charm_uuid = $charmID.uuid;
+WHERE charm_uuid = $charmID.uuid
+ORDER BY "index" ASC;
 `
 	stmt, err := p.Prepare(query, charmTag{}, charmID{})
 	if err != nil {
@@ -496,7 +497,8 @@ func getCharmCategories(ctx context.Context, tx *sqlair.TX, p domain.Preparer, i
 	query := `
 SELECT charm_category.* AS &charmCategory.*
 FROM charm_category
-WHERE charm_uuid = $charmID.uuid;
+WHERE charm_uuid = $charmID.uuid
+ORDER BY "index" ASC;
 `
 	stmt, err := p.Prepare(query, charmCategory{}, charmID{})
 	if err != nil {
@@ -525,7 +527,8 @@ func getCharmTerms(ctx context.Context, tx *sqlair.TX, p domain.Preparer, id cor
 	query := `
 SELECT charm_term.* AS &charmTerm.*
 FROM charm_term
-WHERE charm_uuid = $charmID.uuid;
+WHERE charm_uuid = $charmID.uuid
+ORDER BY "index" ASC;
 `
 	stmt, err := p.Prepare(query, charmTerm{}, charmID{})
 	if err != nil {
@@ -607,7 +610,8 @@ func getCharmStorage(ctx context.Context, tx *sqlair.TX, p domain.Preparer, id c
 	query := `
 SELECT v_charm_storage.* AS &charmStorage.*
 FROM v_charm_storage
-WHERE charm_uuid = $charmID.uuid;
+WHERE charm_uuid = $charmID.uuid
+ORDER BY property_index ASC;
 `
 
 	stmt, err := p.Prepare(query, charmStorage{}, charmID{})
