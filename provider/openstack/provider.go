@@ -1273,7 +1273,7 @@ func (e *Environ) startInstance(
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
 	if err != nil || server == nil {
 		// Attempt to clean up any security groups we created.
-		if err := e.cleanupGroups(ctx, e.nova(), novaGroupNames); err != nil {
+		if err := e.firewaller.DeleteMachineGroup(ctx, args.InstanceConfig.MachineId); err != nil {
 			// If we failed to clean up the security groups, we need the user
 			// to manually clean them up.
 			logger.Errorf("cannot cleanup security groups: %v", err)
@@ -1349,19 +1349,6 @@ func (e *Environ) startInstance(
 		Instance: inst,
 		Hardware: inst.hardwareCharacteristics(),
 	}, nil
-}
-
-// Clean up any groups that we have created if we fail to start the instance.
-func (e *Environ) cleanupGroups(
-	ctx context.ProviderCallContext,
-	client *nova.Client,
-	groups []nova.SecurityGroupName,
-) error {
-	names := make([]string, len(groups))
-	for i, group := range groups {
-		names[i] = group.Name
-	}
-	return e.firewaller.DeleteGroups(ctx, names...)
 }
 
 func (e *Environ) userFriendlyInvalidNetworkError(err error) error {

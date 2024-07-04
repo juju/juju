@@ -29,7 +29,7 @@ jobs:
         sudo DEBIAN_FRONTEND=noninteractive apt install -y expect
 
     - name: Checkout juju
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup LXD
       uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
@@ -61,7 +61,7 @@ jobs:
         juju version
 
     - name: Find terraform provider for juju latest release
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: 'juju/terraform-provider-juju'
         #path: terraform-provider-juju
