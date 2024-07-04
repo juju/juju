@@ -247,7 +247,7 @@ def removesuffix(text, suffix):
 def post_title(doc_name: str) -> str:
     if doc_name == 'index':
         return 'Juju CLI commands'
-    return f"Command '{doc_name}'"
+    return f"Command 'juju {doc_name}'"
 
 
 if __name__ == "__main__":

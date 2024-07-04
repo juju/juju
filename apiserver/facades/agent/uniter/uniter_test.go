@@ -4648,6 +4648,30 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	c.Assert(appCfg, gc.DeepEquals, map[string]interface{}{"app_data": "updated"}, gc.Commentf("application data not updated by leader unit"))
 }
 
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesOpenPortsICMPNotSupported(c *gc.C) {
+	_, cm, _, unit := s.setupCAASModel(c, true)
+
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+
+	b.OpenPortRange("db", network.MustParsePortRange("icmp"))
+	req, _ := b.Build()
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{
+				Message: "protocol icmp on caas models not supported",
+				Code:    "not supported"}},
+		},
+	})
+}
+
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 	s.addRelationAndAssertInScope(c)
 
