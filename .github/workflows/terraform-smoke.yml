@@ -17,7 +17,7 @@ jobs:
 
   smoke:
     name: Terraform Smoke
-    runs-on: [self-hosted, linux, x64, aws, xlarge]
+    runs-on: [self-hosted, linux, x64, aws, xxlarge]
     if: github.event.pull_request.draft == false
     steps:
 
@@ -70,6 +70,7 @@ jobs:
     - name: Checkout terraform provider for juju latest release
       run: |
         LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+        # LATEST_TAG=HEAD
         git checkout $LATEST_TAG
 
     - name: Set environment to configure provider for test
