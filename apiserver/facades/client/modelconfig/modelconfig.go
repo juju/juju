@@ -23,13 +23,13 @@ import (
 
 // ModelConfigAPI provides the base implementation of the methods.
 type ModelConfigAPI struct {
-	backend        Backend
-	backendService SecretBackendService
-	configService  ModelConfigService
-	auth           facade.Authorizer
-	check          *common.BlockChecker
+	backend              Backend
+	secretBackendService SecretBackendService
+	configService        ModelConfigService
+	auth                 facade.Authorizer
+	check                *common.BlockChecker
 
-	modelUUID string
+	modelID coremodel.UUID
 }
 
 // ModelConfigAPIV3 is currently the latest.
@@ -39,9 +39,9 @@ type ModelConfigAPIV3 struct {
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
 func NewModelConfigAPI(
-	modelUUID string,
+	modelID coremodel.UUID,
 	backend Backend,
-	backendService SecretBackendService,
+	secretBackendService SecretBackendService,
 	configService ModelConfigService,
 	authorizer facade.Authorizer,
 ) (*ModelConfigAPI, error) {
@@ -49,12 +49,12 @@ func NewModelConfigAPI(
 		return nil, apiservererrors.ErrPerm
 	}
 	return &ModelConfigAPI{
-		modelUUID:      modelUUID,
-		backend:        backend,
-		backendService: backendService,
-		configService:  configService,
-		auth:           authorizer,
-		check:          common.NewBlockChecker(backend),
+		modelID:              modelID,
+		backend:              backend,
+		secretBackendService: secretBackendService,
+		configService:        configService,
+		auth:                 authorizer,
+		check:                common.NewBlockChecker(backend),
 	}, nil
 }
 
@@ -297,11 +297,11 @@ func (s *ModelConfigAPIV3) GetModelSecretBackend(context.Context) {}
 // GetModelSecretBackend returns the secret backend for the model.
 func (s *ModelConfigAPI) GetModelSecretBackend(ctx context.Context) (params.StringResult, error) {
 	result := params.StringResult{}
-	if err := s.auth.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelUUID)); err != nil {
+	if err := s.auth.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelID.String())); err != nil {
 		return result, errors.Trace(err)
 	}
 
-	name, err := s.configService.GetModelSecretBackend(ctx, coremodel.UUID(s.modelUUID))
+	name, err := s.secretBackendService.GetModelSecretBackend(ctx, s.modelID)
 	if err != nil {
 		result.Error = apiservererrors.ServerError(err)
 	} else {
@@ -315,9 +315,9 @@ func (s *ModelConfigAPIV3) SetModelSecretBackend(_ context.Context, _ struct{}) 
 
 // SetModelSecretBackend sets the secret backend name for the model.
 func (s *ModelConfigAPI) SetModelSecretBackend(ctx context.Context, arg params.SetModelSecretBackendArg) (params.ErrorResult, error) {
-	if err := s.auth.HasPermission(permission.WriteAccess, names.NewModelTag(s.modelUUID)); err != nil {
+	if err := s.auth.HasPermission(permission.WriteAccess, names.NewModelTag(s.modelID.String())); err != nil {
 		return params.ErrorResult{}, errors.Trace(err)
 	}
-	err := s.configService.SetModelSecretBackend(ctx, coremodel.UUID(s.modelUUID), arg.SecretBackendName)
+	err := s.secretBackendService.SetModelSecretBackend(ctx, s.modelID, arg.SecretBackendName)
 	return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 }

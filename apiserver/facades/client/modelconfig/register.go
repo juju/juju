@@ -37,8 +37,12 @@ func newFacade(ctx facade.ModelContext) (*ModelConfigAPI, error) {
 
 	configService := serviceFactory.Config()
 	configSchemaSourceGetter := environs.ProviderConfigSchemaSource(ctx.ServiceFactory().Cloud())
+	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(context.Background())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	return NewModelConfigAPI(
-		ctx.State().ModelUUID(),
+		modelInfo.UUID,
 		NewStateBackend(model, configSchemaSourceGetter), backendService, configService, auth,
 	)
 }

@@ -60,13 +60,12 @@ func (c *modelSecretBackendCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "model-secret-backend",
 		Args:     "<secret-backend-name>",
-		Purpose:  "Displays or sets the secret backend on a model.",
+		Purpose:  "Displays or sets the secret backend for a model.",
 		Doc:      modelSecretBackendDoc,
 		Examples: modelSecretBackendExamples,
 		SeeAlso: []string{
 			"add-secret-backend",
 			"secret-backends",
-			"list-secret-backends",
 			"remove-secret-backend",
 			"show-secret-backend",
 			"update-secret-backend",

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -1003,6 +1004,35 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 		},
 	)
 	wC.AssertNoChange()
+}
+
+func (s *serviceSuite) TestGetModelSecretBackend(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := newService(
+		s.mockState, s.logger, s.clock, nil,
+	)
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockState.EXPECT().GetModelSecretBackend(gomock.Any(), modelUUID).Return("backend-name", nil)
+
+	backendID, err := svc.GetModelSecretBackend(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendID, gc.Equals, "backend-name")
+}
+
+func (s *serviceSuite) TestSetModelSecretBackend(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	svc := newService(
+		s.mockState, s.logger, s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			c.Assert(backendType, gc.Equals, "vault")
+			return s.mockRegistry, nil
+		},
+	)
+	modelUUID := modeltesting.GenModelUUID(c)
+	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-name").Return(nil)
+	err := svc.SetModelSecretBackend(context.Background(), modelUUID, "backend-name")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) assertGetSecretsToDrain(c *gc.C, backendID string, expectedRevisions ...RevisionInfo) {

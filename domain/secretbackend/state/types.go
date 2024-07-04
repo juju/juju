@@ -244,3 +244,10 @@ type CloudRow struct {
 	// ModelOwnerUserName holds the name of the user who owns the model.
 	ModelOwnerUserName string `db:"model_owner_user_name"`
 }
+
+// SecretBackendInfo represents a secret backend.
+type SecretBackendInfo struct {
+	BackendUUID string `db:"uuid"`
+	Name        string `db:"name"`
+	ModelUUID   string `db:"model_uuid"`
+}

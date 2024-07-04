@@ -41,6 +41,45 @@ func (m *MockSecretBackendService) EXPECT() *MockSecretBackendServiceMockRecorde
 	return m.recorder
 }
 
+// GetModelSecretBackend mocks base method.
+func (m *MockSecretBackendService) GetModelSecretBackend(arg0 context.Context, arg1 model.UUID) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelSecretBackend", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelSecretBackend indicates an expected call of GetModelSecretBackend.
+func (mr *MockSecretBackendServiceMockRecorder) GetModelSecretBackend(arg0, arg1 any) *MockSecretBackendServiceGetModelSecretBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelSecretBackend", reflect.TypeOf((*MockSecretBackendService)(nil).GetModelSecretBackend), arg0, arg1)
+	return &MockSecretBackendServiceGetModelSecretBackendCall{Call: call}
+}
+
+// MockSecretBackendServiceGetModelSecretBackendCall wrap *gomock.Call
+type MockSecretBackendServiceGetModelSecretBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretBackendServiceGetModelSecretBackendCall) Return(arg0 string, arg1 error) *MockSecretBackendServiceGetModelSecretBackendCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretBackendServiceGetModelSecretBackendCall) Do(f func(context.Context, model.UUID) (string, error)) *MockSecretBackendServiceGetModelSecretBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretBackendServiceGetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID) (string, error)) *MockSecretBackendServiceGetModelSecretBackendCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // PingSecretBackend mocks base method.
 func (m *MockSecretBackendService) PingSecretBackend(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
@@ -79,6 +118,44 @@ func (c *MockSecretBackendServicePingSecretBackendCall) DoAndReturn(f func(conte
 	return c
 }
 
+// SetModelSecretBackend mocks base method.
+func (m *MockSecretBackendService) SetModelSecretBackend(arg0 context.Context, arg1 model.UUID, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetModelSecretBackend", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetModelSecretBackend indicates an expected call of SetModelSecretBackend.
+func (mr *MockSecretBackendServiceMockRecorder) SetModelSecretBackend(arg0, arg1, arg2 any) *MockSecretBackendServiceSetModelSecretBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelSecretBackend", reflect.TypeOf((*MockSecretBackendService)(nil).SetModelSecretBackend), arg0, arg1, arg2)
+	return &MockSecretBackendServiceSetModelSecretBackendCall{Call: call}
+}
+
+// MockSecretBackendServiceSetModelSecretBackendCall wrap *gomock.Call
+type MockSecretBackendServiceSetModelSecretBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockSecretBackendServiceSetModelSecretBackendCall) Return(arg0 error) *MockSecretBackendServiceSetModelSecretBackendCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockSecretBackendServiceSetModelSecretBackendCall) Do(f func(context.Context, model.UUID, string) error) *MockSecretBackendServiceSetModelSecretBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockSecretBackendServiceSetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID, string) error) *MockSecretBackendServiceSetModelSecretBackendCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // MockModelConfigService is a mock of ModelConfigService interface.
 type MockModelConfigService struct {
 	ctrl     *gomock.Controller
@@ -100,45 +177,6 @@ func NewMockModelConfigService(ctrl *gomock.Controller) *MockModelConfigService 
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelConfigService) EXPECT() *MockModelConfigServiceMockRecorder {
 	return m.recorder
-}
-
-// GetModelSecretBackend mocks base method.
-func (m *MockModelConfigService) GetModelSecretBackend(arg0 context.Context, arg1 model.UUID) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetModelSecretBackend", arg0, arg1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetModelSecretBackend indicates an expected call of GetModelSecretBackend.
-func (mr *MockModelConfigServiceMockRecorder) GetModelSecretBackend(arg0, arg1 any) *MockModelConfigServiceGetModelSecretBackendCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelSecretBackend", reflect.TypeOf((*MockModelConfigService)(nil).GetModelSecretBackend), arg0, arg1)
-	return &MockModelConfigServiceGetModelSecretBackendCall{Call: call}
-}
-
-// MockModelConfigServiceGetModelSecretBackendCall wrap *gomock.Call
-type MockModelConfigServiceGetModelSecretBackendCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelConfigServiceGetModelSecretBackendCall) Return(arg0 string, arg1 error) *MockModelConfigServiceGetModelSecretBackendCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelConfigServiceGetModelSecretBackendCall) Do(f func(context.Context, model.UUID) (string, error)) *MockModelConfigServiceGetModelSecretBackendCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelConfigServiceGetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID) (string, error)) *MockModelConfigServiceGetModelSecretBackendCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
 }
 
 // ModelConfigValues mocks base method.
@@ -176,44 +214,6 @@ func (c *MockModelConfigServiceModelConfigValuesCall) Do(f func(context.Context)
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockModelConfigServiceModelConfigValuesCall) DoAndReturn(f func(context.Context) (config.ConfigValues, error)) *MockModelConfigServiceModelConfigValuesCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetModelSecretBackend mocks base method.
-func (m *MockModelConfigService) SetModelSecretBackend(arg0 context.Context, arg1 model.UUID, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetModelSecretBackend", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetModelSecretBackend indicates an expected call of SetModelSecretBackend.
-func (mr *MockModelConfigServiceMockRecorder) SetModelSecretBackend(arg0, arg1, arg2 any) *MockModelConfigServiceSetModelSecretBackendCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModelSecretBackend", reflect.TypeOf((*MockModelConfigService)(nil).SetModelSecretBackend), arg0, arg1, arg2)
-	return &MockModelConfigServiceSetModelSecretBackendCall{Call: call}
-}
-
-// MockModelConfigServiceSetModelSecretBackendCall wrap *gomock.Call
-type MockModelConfigServiceSetModelSecretBackendCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockModelConfigServiceSetModelSecretBackendCall) Return(arg0 error) *MockModelConfigServiceSetModelSecretBackendCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockModelConfigServiceSetModelSecretBackendCall) Do(f func(context.Context, model.UUID, string) error) *MockModelConfigServiceSetModelSecretBackendCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelConfigServiceSetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID, string) error) *MockModelConfigServiceSetModelSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
