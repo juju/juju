@@ -25,9 +25,15 @@ type decodeMetadataArgs struct {
 }
 
 func decodeMetadata(metadata charmMetadata, args decodeMetadataArgs) (charm.Metadata, error) {
-	minVersion, err := version.Parse(metadata.MinJujuVersion)
-	if err != nil {
-		return charm.Metadata{}, fmt.Errorf("cannot parse min juju version %q: %w", metadata.MinJujuVersion, err)
+	var (
+		err        error
+		minVersion version.Number
+	)
+	if metadata.MinJujuVersion != "" {
+		minVersion, err = version.Parse(metadata.MinJujuVersion)
+		if err != nil {
+			return charm.Metadata{}, fmt.Errorf("cannot parse min juju version %q: %w", metadata.MinJujuVersion, err)
+		}
 	}
 
 	runAs, err := decodeRunAs(metadata.RunAs)
@@ -124,6 +130,11 @@ func decodeRelations(relations []charmRelation) (map[string]charm.Relation, map[
 			return charm.Relation{}, fmt.Errorf("cannot decode relation role %q: %w", relation.Role, err)
 		}
 
+		scope, err := decodeRelationScope(relation.Scope)
+		if err != nil {
+			return charm.Relation{}, fmt.Errorf("cannot decode relation scope %q: %w", relation.Scope, err)
+		}
+
 		return charm.Relation{
 			Key:       relation.Key,
 			Name:      relation.Name,
@@ -131,6 +142,7 @@ func decodeRelations(relations []charmRelation) (map[string]charm.Relation, map[
 			Optional:  relation.Optional,
 			Limit:     relation.Capacity,
 			Role:      role,
+			Scope:     scope,
 		}, nil
 	}
 
@@ -175,6 +187,17 @@ func decodeRelationRole(role string) (charm.RelationRole, error) {
 		return charm.RolePeer, nil
 	default:
 		return "", fmt.Errorf("unknown relation role %q", role)
+	}
+}
+
+func decodeRelationScope(scope string) (charm.RelationScope, error) {
+	switch scope {
+	case "global":
+		return charm.ScopeGlobal, nil
+	case "container":
+		return charm.ScopeContainer, nil
+	default:
+		return "", fmt.Errorf("unknown relation scope %q", scope)
 	}
 }
 

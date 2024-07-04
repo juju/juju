@@ -314,13 +314,7 @@ func (s *stateSuite) TestGetCharmMetadata(c *gc.C) {
 	uuid := id.String()
 
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		insertCharmState(ctx, c, tx, uuid)
 
 		return nil
 	})
@@ -345,16 +339,11 @@ func (s *stateSuite) TestGetCharmMetadataWithTagsAndCategories(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
 
+	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		expected = insertCharmState(ctx, c, tx, uuid)
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_category (charm_uuid, value) VALUES (?, 'data'), (?, 'kubernetes')`, uuid, uuid)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm_category (charm_uuid, value) VALUES (?, 'data'), (?, 'kubernetes')`, uuid, uuid)
 		c.Assert(err, jc.ErrorIsNil)
 
 		_, err = tx.ExecContext(ctx, `INSERT INTO charm_tag (charm_uuid, value) VALUES (?, 'foo'), (?, 'bar')`, uuid, uuid)
@@ -366,16 +355,11 @@ VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		Tags:           []string{"bar", "foo"},
-		Categories:     []string{"data", "kubernetes"},
+
+	assertCharmMetadata(c, metadata, func() charm.Metadata {
+		expected.Tags = []string{"bar", "foo"}
+		expected.Categories = []string{"data", "kubernetes"}
+		return expected
 	})
 }
 
@@ -385,16 +369,11 @@ func (s *stateSuite) TestGetCharmMetadataWithTerms(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
 
+	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		expected = insertCharmState(ctx, c, tx, uuid)
 
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_term (charm_uuid, value) VALUES (?, 'alpha'), (?, 'beta')`, uuid, uuid)
+		_, err := tx.ExecContext(ctx, `INSERT INTO charm_term (charm_uuid, value) VALUES (?, 'alpha'), (?, 'beta')`, uuid, uuid)
 		c.Assert(err, jc.ErrorIsNil)
 
 		return nil
@@ -403,15 +382,10 @@ VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		Terms:          []string{"alpha", "beta"},
+
+	assertCharmMetadata(c, metadata, func() charm.Metadata {
+		expected.Terms = []string{"alpha", "beta"}
+		return expected
 	})
 }
 
@@ -423,22 +397,17 @@ func (s *stateSuite) TestGetCharmMetadataWithRelation(c *gc.C) {
 
 	// Ensure that relations are correctly extracted.
 
+	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		expected = insertCharmState(ctx, c, tx, uuid)
+
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_relation (charm_uuid, kind_id, key, name, role_id) 
+INSERT INTO charm_relation (charm_uuid, kind_id, key, name, role_id, scope_id) 
 VALUES 
-    (?, 0, 'foo', 'baz', 0),
-    (?, 0, 'fred', 'bar', 0),
-    (?, 1, 'foo', 'baz', 1),
-    (?, 2, 'foo', 'baz', 2);`,
+    (?, 0, 'foo', 'baz', 0, 0),
+    (?, 0, 'fred', 'bar', 0, 1),
+    (?, 1, 'foo', 'baz', 1, 1),
+    (?, 2, 'foo', 'baz', 2, 0);`,
 			uuid, uuid, uuid, uuid)
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -448,40 +417,39 @@ VALUES
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		Provides: map[string]charm.Relation{
+
+	assertCharmMetadata(c, metadata, func() charm.Metadata {
+		expected.Provides = map[string]charm.Relation{
 			"foo": {
-				Key:  "foo",
-				Name: "baz",
-				Role: charm.RoleProvider,
+				Key:   "foo",
+				Name:  "baz",
+				Role:  charm.RoleProvider,
+				Scope: charm.ScopeGlobal,
 			},
 			"fred": {
-				Key:  "fred",
-				Name: "bar",
-				Role: charm.RoleProvider,
+				Key:   "fred",
+				Name:  "bar",
+				Role:  charm.RoleProvider,
+				Scope: charm.ScopeContainer,
 			},
-		},
-		Requires: map[string]charm.Relation{
+		}
+		expected.Requires = map[string]charm.Relation{
 			"foo": {
-				Key:  "foo",
-				Name: "baz",
-				Role: charm.RoleRequirer,
+				Key:   "foo",
+				Name:  "baz",
+				Role:  charm.RoleRequirer,
+				Scope: charm.ScopeContainer,
 			},
-		},
-		Peers: map[string]charm.Relation{
+		}
+		expected.Peers = map[string]charm.Relation{
 			"foo": {
-				Key:  "foo",
-				Name: "baz",
-				Role: charm.RolePeer,
+				Key:   "foo",
+				Name:  "baz",
+				Role:  charm.RolePeer,
+				Scope: charm.ScopeGlobal,
 			},
-		},
+		}
+		return expected
 	})
 }
 
@@ -491,16 +459,11 @@ func (s *stateSuite) TestGetCharmMetadataWithExtraBindings(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
 
+	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		expected = insertCharmState(ctx, c, tx, uuid)
+
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_extra_binding (charm_uuid, key, name) 
 VALUES 
     (?, 'foo', 'bar'),
@@ -514,22 +477,17 @@ VALUES
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		ExtraBindings: map[string]charm.ExtraBinding{
+
+	assertCharmMetadata(c, metadata, func() charm.Metadata {
+		expected.ExtraBindings = map[string]charm.ExtraBinding{
 			"foo": {
 				Name: "bar",
 			},
 			"fred": {
 				Name: "baz",
 			},
-		},
+		}
+		return expected
 	})
 }
 
@@ -541,16 +499,11 @@ func (s *stateSuite) TestGetCharmMetadataWithStorageWithNoProperties(c *gc.C) {
 
 	// Ensure that storage with no properties is correctly extracted.
 
+	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		expected = insertCharmState(ctx, c, tx, uuid)
+
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_storage (
     charm_uuid,
     key,
@@ -575,15 +528,9 @@ INSERT INTO charm_storage (
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		Storage: map[string]charm.Storage{
+
+	assertCharmMetadata(c, metadata, func() charm.Metadata {
+		expected.Storage = map[string]charm.Storage{
 			"foo": {
 				Name:        "bar",
 				Type:        charm.StorageFilesystem,
@@ -606,7 +553,8 @@ INSERT INTO charm_storage (
 				MinimumSize: 6,
 				Location:    "/var/mount",
 			},
-		},
+		}
+		return expected
 	})
 }
 
@@ -618,16 +566,11 @@ func (s *stateSuite) TestGetCharmMetadataWithStorageWithProperties(c *gc.C) {
 
 	// Ensure that storage with properties is correctly extracted.
 
+	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		expected = insertCharmState(ctx, c, tx, uuid)
+
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_storage (
     charm_uuid,
     key,
@@ -663,15 +606,9 @@ INSERT INTO charm_storage_property (
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		Storage: map[string]charm.Storage{
+
+	assertCharmMetadata(c, metadata, func() charm.Metadata {
+		expected.Storage = map[string]charm.Storage{
 			"foo": {
 				Name:        "bar",
 				Type:        charm.StorageFilesystem,
@@ -695,7 +632,8 @@ INSERT INTO charm_storage_property (
 				MinimumSize: 6,
 				Location:    "/var/mount",
 			},
-		},
+		}
+		return expected
 	})
 }
 
@@ -705,18 +643,11 @@ func (s *stateSuite) TestGetCharmMetadataWithDevices(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
 
-	// Ensure that storage with no properties is correctly extracted.
-
+	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		expected = insertCharmState(ctx, c, tx, uuid)
+
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_device (
     charm_uuid,
     key,
@@ -737,15 +668,9 @@ INSERT INTO charm_device (
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		Devices: map[string]charm.Device{
+
+	assertCharmMetadata(c, metadata, func() charm.Metadata {
+		expected.Devices = map[string]charm.Device{
 			"foo": {
 				Name:        "bar",
 				Type:        charm.DeviceType("gpu"),
@@ -760,7 +685,8 @@ INSERT INTO charm_device (
 				CountMin:    3,
 				CountMax:    4,
 			},
-		},
+		}
+		return expected
 	})
 }
 
@@ -770,18 +696,11 @@ func (s *stateSuite) TestGetCharmMetadataWithPayloadClasses(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
 
-	// Ensure that storage with no properties is correctly extracted.
-
+	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		expected = insertCharmState(ctx, c, tx, uuid)
+
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_payload (
     charm_uuid,
     key,
@@ -799,15 +718,9 @@ INSERT INTO charm_payload (
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		PayloadClasses: map[string]charm.PayloadClass{
+
+	assertCharmMetadata(c, metadata, func() charm.Metadata {
+		expected.PayloadClasses = map[string]charm.PayloadClass{
 			"foo": {
 				Name: "bar",
 				Type: "docker",
@@ -816,7 +729,8 @@ INSERT INTO charm_payload (
 				Name: "baz",
 				Type: "kvm",
 			},
-		},
+		}
+		return expected
 	})
 }
 
@@ -826,18 +740,11 @@ func (s *stateSuite) TestGetCharmMetadataWithResources(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
 
-	// Ensure that storage with no properties is correctly extracted.
-
+	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		expected = insertCharmState(ctx, c, tx, uuid)
+
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_resource (
     charm_uuid,
     key,
@@ -857,15 +764,9 @@ INSERT INTO charm_resource (
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		Resources: map[string]charm.Resource{
+
+	assertCharmMetadata(c, metadata, func() charm.Metadata {
+		expected.Resources = map[string]charm.Resource{
 			"foo": {
 				Name:        "bar",
 				Type:        charm.ResourceTypeFile,
@@ -878,7 +779,8 @@ INSERT INTO charm_resource (
 				Path:        "hub.docker.io/jujusolutions",
 				Description: "description 2",
 			},
-		},
+		}
+		return expected
 	})
 }
 
@@ -888,18 +790,11 @@ func (s *stateSuite) TestGetCharmMetadataWithContainersWithNoMounts(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
 
-	// Ensure that storage with no properties is correctly extracted.
-
+	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		expected = insertCharmState(ctx, c, tx, uuid)
+
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_container (
     charm_uuid,
     key,
@@ -918,15 +813,9 @@ INSERT INTO charm_container (
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		Containers: map[string]charm.Container{
+
+	assertCharmMetadata(c, metadata, func() charm.Metadata {
+		expected.Containers = map[string]charm.Container{
 			"foo": {
 				Resource: "ubuntu@22.04",
 				Uid:      ptr(100),
@@ -935,7 +824,8 @@ INSERT INTO charm_container (
 			"fred": {
 				Resource: "ubuntu@20.04",
 			},
-		},
+		}
+		return expected
 	})
 }
 
@@ -945,18 +835,11 @@ func (s *stateSuite) TestGetCharmMetadataWithContainersWithMounts(c *gc.C) {
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
 
-	// Ensure that storage with no properties is correctly extracted.
-
+	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		expected = insertCharmState(ctx, c, tx, uuid)
+
 		_, err := tx.ExecContext(ctx, `
-INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
-VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-		c.Assert(err, jc.ErrorIsNil)
-
-		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_container (
     charm_uuid,
     key,
@@ -988,15 +871,9 @@ INSERT INTO charm_container_mount (
 
 	metadata, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(metadata, gc.DeepEquals, charm.Metadata{
-		Name:           "ubuntu",
-		Summary:        "summary",
-		Description:    "description",
-		Subordinate:    true,
-		RunAs:          charm.RunAsRoot,
-		MinJujuVersion: version.MustParse("4.0.0"),
-		Assumes:        []byte("null"),
-		Containers: map[string]charm.Container{
+
+	assertCharmMetadata(c, metadata, func() charm.Metadata {
+		expected.Containers = map[string]charm.Container{
 			"foo": {
 				Resource: "ubuntu@22.04",
 				Uid:      ptr(100),
@@ -1021,8 +898,33 @@ INSERT INTO charm_container_mount (
 					},
 				},
 			},
-		},
+		}
+		return expected
 	})
+}
+
+func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) charm.Metadata {
+	_, err := tx.ExecContext(ctx, `
+INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
+VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+}
+
+func assertCharmMetadata(c *gc.C, metadata charm.Metadata, expected func() charm.Metadata) {
+	c.Check(metadata, gc.DeepEquals, expected())
 }
 
 func ptr[T any](v T) *T {
