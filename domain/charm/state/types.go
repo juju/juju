@@ -38,12 +38,6 @@ type charmIDName struct {
 	Name string `db:"name"`
 }
 
-// charmState is used to get the state of a charm.
-type charmState struct {
-	CharmUUID string `db:"charm_uuid"`
-	Available bool   `db:"available"`
-}
-
 // charmMetadata is used to get the metadata of a charm.
 type charmMetadata struct {
 	Name           string `db:"name"`

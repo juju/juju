@@ -422,10 +422,12 @@ func (s *schemaSuite) TestModelViews(c *gc.C) {
 
 	// Ensure that each view is present.
 	expected := set.NewStrings(
+		"v_charm",
+		"v_charm_container",
 		"v_charm_relation",
+		"v_charm_resource",
 		"v_charm_storage",
 		"v_charm_url",
-		"v_charm",
 		"v_secret_permission",
 		"v_space_subnet",
 	)

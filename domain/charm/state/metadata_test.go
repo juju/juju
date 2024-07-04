@@ -4,12 +4,12 @@
 package state
 
 import (
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/domain/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/version/v2"
 )
 
 type metadataSuite struct {
