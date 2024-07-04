@@ -205,7 +205,7 @@ func (h *registerUserHandler) getSecretKeyLoginResponsePayload(
 	caCert, _ := controllerConfig.CACert()
 	payload := params.SecretKeyLoginResponsePayload{
 		CACert:         caCert,
-		ControllerUUID: st.ControllerUUID(),
+		ControllerUUID: controllerConfig.ControllerUUID(),
 	}
 
 	model, err := st.Model()

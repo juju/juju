@@ -17,6 +17,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 type provisionerSuite struct {
@@ -49,13 +50,13 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 		backend,
 		storageBackend,
 		s.DefaultModelServiceFactory(c).BlockDevice(),
-		s.ControllerServiceFactory(c).ControllerConfig(),
 		s.ControllerServiceFactory(c).Config(),
 		common.NewResources(),
 		authorizer,
 		nil, nil,
 		loggertesting.WrapCheckLog(c),
 		modelInfo.UUID,
+		testing.ControllerTag.Id(),
 	)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

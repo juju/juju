@@ -55,7 +55,6 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		backend,
 		storageBackend,
 		serviceFactory.BlockDevice(),
-		serviceFactory.ControllerConfig(),
 		serviceFactory.Config(),
 		ctx.Resources(),
 		ctx.Auth(),
@@ -63,5 +62,6 @@ func newFacadeV4(stdCtx context.Context, ctx facade.ModelContext) (*StorageProvi
 		serviceFactory.Storage(registry),
 		ctx.Logger().Child("storageprovisioner"),
 		modelInfo.UUID,
+		ctx.ControllerUUID(),
 	)
 }

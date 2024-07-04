@@ -25,6 +25,7 @@ type ModelContext struct {
 	State_           *state.State
 	StatePool_       *state.StatePool
 	ID_              string
+	ControllerID_    string
 	RequestRecorder_ facade.RequestRecorder
 
 	LeadershipClaimer_     leadership.Claimer
@@ -99,6 +100,11 @@ func (c ModelContext) State() *state.State {
 // StatePool is part of the facade.ModelContext interface.
 func (c ModelContext) StatePool() *state.StatePool {
 	return c.StatePool_
+}
+
+// ControllerUUID returns the controller unique identifier.
+func (c ModelContext) ControllerUUID() string {
+	return c.ControllerID_
 }
 
 // ID is part of the facade.ModelContext interface.

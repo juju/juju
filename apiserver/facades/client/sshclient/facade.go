@@ -34,10 +34,11 @@ type Facade struct {
 	getBroker        newCaasBrokerFunc
 
 	modelConfigService ModelConfigService
+	controllerUUID     string
 }
 
 func internalFacade(
-	backend Backend, modelConfigService ModelConfigService, leadershipReader leadership.Reader, auth facade.Authorizer,
+	backend Backend, modelConfigService ModelConfigService, controllerUUID string, leadershipReader leadership.Reader, auth facade.Authorizer,
 	getBroker newCaasBrokerFunc,
 ) (*Facade, error) {
 	if !auth.AuthClient() {
@@ -47,6 +48,7 @@ func internalFacade(
 	return &Facade{
 		backend:            backend,
 		modelConfigService: modelConfigService,
+		controllerUUID:     controllerUUID,
 		authorizer:         auth,
 		leadershipReader:   leadershipReader,
 		getBroker:          getBroker,
@@ -282,7 +284,7 @@ func (facade *Facade) getExecSecretToken(ctx stdcontext.Context, cloudSpec envir
 	}
 
 	broker, err := facade.getBroker(ctx, environs.OpenParams{
-		ControllerUUID: model.ControllerUUID(),
+		ControllerUUID: facade.controllerUUID,
 		Cloud:          cloudSpec,
 		Config:         cfg,
 	})

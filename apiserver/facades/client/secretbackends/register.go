@@ -27,7 +27,7 @@ func newSecretBackendsAPI(context facade.ModelContext) (*SecretBackendsAPI, erro
 	secretBackendService := serviceFactory.SecretBackend()
 	return &SecretBackendsAPI{
 		authorizer:     context.Auth(),
-		controllerUUID: context.State().ControllerUUID(),
+		controllerUUID: context.ControllerUUID(),
 		backendService: secretBackendService,
 	}, nil
 }

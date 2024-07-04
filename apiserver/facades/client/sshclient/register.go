@@ -43,6 +43,7 @@ func newFacade(ctx facade.ModelContext) (*Facade, error) {
 	return internalFacade(
 		&facadeBackend,
 		ctx.ServiceFactory().Config(),
+		ctx.ControllerUUID(),
 		leadershipReader,
 		ctx.Auth(),
 		func(ctx stdcontext.Context, args environs.OpenParams) (Broker, error) {

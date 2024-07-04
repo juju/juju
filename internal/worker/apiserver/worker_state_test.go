@@ -66,7 +66,7 @@ func (s *WorkerStateSuite) TearDownTest(c *gc.C) {
 
 func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(
-		map[string]any{},
+		map[string]any{"controller-uuid": coretesting.ControllerTag.Id()},
 		nil,
 	)
 	w, err := apiserver.NewWorker(context.Background(), s.config)
@@ -129,5 +129,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		ServiceFactoryGetter:       s.serviceFactoryGetter,
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,
+		ControllerUUID:             s.controllerUUID,
 	})
 }

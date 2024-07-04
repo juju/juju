@@ -61,7 +61,6 @@ func NewStorageProvisionerAPIv4(
 	st Backend,
 	sb StorageBackend,
 	blockDeviceService BlockDeviceService,
-	controllerConfigService ControllerConfigService,
 	modelConfigService ModelConfigService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
@@ -69,19 +68,11 @@ func NewStorageProvisionerAPIv4(
 	storagePoolGetter StoragePoolGetter,
 	logger logger.Logger,
 	modelUUID model.UUID,
+	controllerUUID string,
 ) (*StorageProvisionerAPIv4, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
 	}
-
-	// Cache the controller UUID so that we can use it later on.
-	// The controller UUID is a readonly property of the controller	config,
-	// so we don't need to refetch it for every request.
-	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	controllerUUID := controllerConfig.ControllerUUID()
 
 	canAccessStorageMachine := func(tag names.Tag, allowController bool) bool {
 		authEntityTag := authorizer.GetAuthTag()

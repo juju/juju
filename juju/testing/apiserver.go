@@ -673,6 +673,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		Mux:                        &apiserverhttp.Mux{},
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
 		GetAuditConfig:             func() auditlog.Config { return auditlog.Config{} },
+		ControllerUUID:             coretesting.ControllerTag.Id(),
 	}
 }
 

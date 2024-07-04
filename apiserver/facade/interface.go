@@ -147,6 +147,9 @@ type ModelContext interface {
 	// a good idea; see Resources.
 	ID() string
 
+	// ControllerUUID returns the controller's unique identifier.
+	ControllerUUID() string
+
 	// RequestRecorder defines a metrics collector for outbound requests.
 	RequestRecorder() RequestRecorder
 

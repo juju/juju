@@ -85,7 +85,6 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 		backend,
 		storageBackend,
 		blockDeviceService,
-		s.ControllerServiceFactory(c).ControllerConfig(),
 		s.ControllerServiceFactory(c).Config(),
 		s.resources,
 		s.authorizer,
@@ -93,6 +92,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 		storageService,
 		loggertesting.WrapCheckLog(c),
 		modelInfo.UUID,
+		testing.ControllerTag.Id(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return api

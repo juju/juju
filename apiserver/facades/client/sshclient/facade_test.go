@@ -37,6 +37,7 @@ type facadeSuite struct {
 	model      *MockModel
 
 	modelConfigService *MockModelConfigService
+	controllerUUID     string
 }
 
 var _ = gc.Suite(&facadeSuite{})
@@ -54,6 +55,10 @@ func (s *facadeSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *facadeSuite) SetUpTest(c *gc.C) {
+	s.controllerUUID = testing.ControllerTag.Id()
+}
+
 func (s *facadeSuite) TestNonClientNotAllowed(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
@@ -63,6 +68,7 @@ func (s *facadeSuite) TestNonClientNotAllowed(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -91,6 +97,7 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -129,6 +136,7 @@ func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -173,6 +181,7 @@ func (s *facadeSuite) TestPublicAddress(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -217,6 +226,7 @@ func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -281,6 +291,7 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -341,6 +352,7 @@ func (s *facadeSuite) TestPublicKeys(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -384,6 +396,7 @@ func (s *facadeSuite) TestProxyTrue(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -418,6 +431,7 @@ func (s *facadeSuite) TestProxyFalse(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -447,6 +461,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -479,6 +494,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -523,6 +539,7 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(context.Context, environs.OpenParams) (sshclient.Broker, error) {
@@ -588,7 +605,6 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C) {
 
 	s.backend.EXPECT().ModelTag().Return(testing.ModelTag).AnyTimes()
 	s.backend.EXPECT().ControllerTag().Return(testing.ControllerTag)
-	s.model.EXPECT().ControllerUUID().Return(testing.ControllerTag.Id())
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
@@ -602,6 +618,7 @@ func (s *facadeSuite) assertModelCredentialForSSH(c *gc.C) {
 	facade, err := sshclient.InternalFacade(
 		s.backend,
 		s.modelConfigService,
+		s.controllerUUID,
 		nil,
 		s.authorizer,
 		func(ctx context.Context, arg environs.OpenParams) (sshclient.Broker, error) {

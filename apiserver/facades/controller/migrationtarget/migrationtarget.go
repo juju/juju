@@ -81,6 +81,7 @@ type API struct {
 	modelImporter  ModelImporter
 	upgradeService UpgradeService
 
+	controllerUUID              string
 	controllerConfigService     ControllerConfigService
 	externalControllerService   ExternalControllerService
 	cloudService                common.CloudService
@@ -147,6 +148,7 @@ func NewAPI(
 		getCAASBroker:                   getCAASBroker,
 		requiredMigrationFacadeVersions: requiredMigrationFacadeVersions,
 		logDir:                          logDir,
+		controllerUUID:                  ctx.ControllerUUID(),
 	}, nil
 }
 
@@ -457,7 +459,7 @@ func (api *API) AdoptResources(ctx context.Context, args params.AdoptResourcesAr
 		return errors.Trace(err)
 	}
 	callCtx := environscontext.WithCredentialInvalidator(ctx, invalidatorFunc)
-	err = ra.AdoptResources(callCtx, st.ControllerUUID(), args.SourceControllerVersion)
+	err = ra.AdoptResources(callCtx, api.controllerUUID, args.SourceControllerVersion)
 	if errors.Is(err, errors.NotImplemented) {
 		return nil
 	}

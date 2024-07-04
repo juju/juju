@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type workerFixture struct {
@@ -47,6 +48,7 @@ type workerFixture struct {
 	objectStoreGetter       stubObjectStoreGetter
 	controllerConfigService *MockControllerConfigService
 	serviceFactoryGetter    *MockServiceFactoryGetter
+	controllerUUID          string
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -70,6 +72,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.charmhubHTTPClient = &http.Client{}
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
+	s.controllerUUID = coretesting.ControllerTag.Id()
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{
