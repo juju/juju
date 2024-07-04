@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	accessservice "github.com/juju/juju/domain/access/service"
-	bakerystorage "github.com/juju/juju/domain/bakerystorage/service"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
+	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/state"
@@ -243,7 +243,7 @@ func (s *stubServiceFactory) Access() *accessservice.Service {
 	return nil
 }
 
-func (s *stubServiceFactory) Macaroon() *bakerystorage.Service {
+func (s *stubServiceFactory) Macaroon() *macaroonservice.Service {
 	s.MethodCall(s, "Macaroon")
 	return nil
 }
