@@ -366,11 +366,11 @@ func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		needsCleanup, err := s.State.NeedsCleanup()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(needsCleanup, jc.IsFalse)
+		c.Assert(needsCleanup, jc.IsTrue)
 	}
 	needsCleanup, err := s.State.NeedsCleanup()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(needsCleanup, jc.IsFalse)
+	c.Assert(needsCleanup, jc.IsTrue)
 
 	err = m2.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
@@ -380,6 +380,8 @@ func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.State.RemoveControllerReference(cn2)
 	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.State.Cleanup(), jc.ErrorIsNil)
 
 	err = m2.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
