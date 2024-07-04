@@ -1136,7 +1136,7 @@ func openStatePool(
 		ControllerTag:      agentConfig.Controller(),
 		ControllerModelTag: agentConfig.Model(),
 		MongoSession:       session,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(cloudService, credService, func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolGetter {
+		NewPolicy: stateenvirons.GetNewPolicyFunc(cloudService, credService, func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
 			return serviceFactoryGetter.FactoryForModel(modelUUID).Storage(registry)
 		}),
 		RunTransactionObserver: runTransactionObserver,

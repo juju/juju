@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	coretrace "github.com/juju/juju/core/trace"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
@@ -279,7 +280,7 @@ func (w *objectStoreWorker) initObjectStore(namespace string) error {
 		if namespace == database.ControllerNS {
 			metadataService = w.cfg.ControllerMetadataService
 		} else {
-			metadataService = w.cfg.ModelMetadataServiceGetter.ForModelUUID(namespace)
+			metadataService = w.cfg.ModelMetadataServiceGetter.ForModelUUID(model.UUID(namespace))
 		}
 
 		objectStore, err := w.cfg.NewObjectStoreWorker(

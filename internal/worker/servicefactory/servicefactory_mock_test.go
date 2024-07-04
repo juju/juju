@@ -12,6 +12,7 @@ package servicefactory
 import (
 	reflect "reflect"
 
+	model "github.com/juju/juju/core/model"
 	service "github.com/juju/juju/domain/access/service"
 	service0 "github.com/juju/juju/domain/annotation/service"
 	service1 "github.com/juju/juju/domain/application/service"
@@ -2110,7 +2111,7 @@ func (m *MockServiceFactoryGetter) EXPECT() *MockServiceFactoryGetterMockRecorde
 }
 
 // FactoryForModel mocks base method.
-func (m *MockServiceFactoryGetter) FactoryForModel(arg0 string) servicefactory.ServiceFactory {
+func (m *MockServiceFactoryGetter) FactoryForModel(arg0 model.UUID) servicefactory.ServiceFactory {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FactoryForModel", arg0)
 	ret0, _ := ret[0].(servicefactory.ServiceFactory)
@@ -2136,13 +2137,13 @@ func (c *MockServiceFactoryGetterFactoryForModelCall) Return(arg0 servicefactory
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockServiceFactoryGetterFactoryForModelCall) Do(f func(string) servicefactory.ServiceFactory) *MockServiceFactoryGetterFactoryForModelCall {
+func (c *MockServiceFactoryGetterFactoryForModelCall) Do(f func(model.UUID) servicefactory.ServiceFactory) *MockServiceFactoryGetterFactoryForModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockServiceFactoryGetterFactoryForModelCall) DoAndReturn(f func(string) servicefactory.ServiceFactory) *MockServiceFactoryGetterFactoryForModelCall {
+func (c *MockServiceFactoryGetterFactoryForModelCall) DoAndReturn(f func(model.UUID) servicefactory.ServiceFactory) *MockServiceFactoryGetterFactoryForModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

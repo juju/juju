@@ -141,11 +141,11 @@ type serviceFactoryGetter struct {
 
 // FactoryForModel returns a service factory for the given model uuid.
 // This will late bind the model service factory to the actual service factory.
-func (s *serviceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+func (s *serviceFactoryGetter) FactoryForModel(modelUUID coremodel.UUID) servicefactory.ServiceFactory {
 	return &serviceFactory{
 		ControllerServiceFactory: s.ctrlFactory,
 		ModelServiceFactory: s.newModelServiceFactory(
-			coremodel.UUID(modelUUID), s.dbGetter,
+			modelUUID, s.dbGetter,
 			s.providerFactory,
 			s.logger,
 		),

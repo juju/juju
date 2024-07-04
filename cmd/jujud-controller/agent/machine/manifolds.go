@@ -671,6 +671,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Hub:                               config.CentralHub,
 			Presence:                          config.PresenceRecorder,
 			GetControllerConfigService:        apiserver.GetControllerConfigService,
+			GetModelService:                   apiserver.GetModelService,
 			NewWorker:                         apiserver.NewWorker,
 			NewMetricsCollector:               apiserver.NewMetricsCollector,
 		})),

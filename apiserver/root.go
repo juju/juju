@@ -137,7 +137,7 @@ func newAPIHandler(
 	objectStore objectstore.ObjectStore,
 	objectStoreGetter objectstore.ObjectStoreGetter,
 	controllerObjectStore objectstore.ObjectStore,
-	modelUUID string,
+	modelID model.UUID,
 	connectionID uint64,
 	serverHost string,
 ) (*apiHandler, error) {
@@ -174,7 +174,7 @@ func newAPIHandler(
 		watcherRegistry:       registry,
 		shared:                srv.shared,
 		rpcConn:               rpcConn,
-		modelUUID:             modelUUID,
+		modelUUID:             modelID.String(),
 		connectionID:          connectionID,
 		serverHost:            serverHost,
 	}
@@ -985,7 +985,7 @@ func (ctx *facadeContext) migrationScope(modelUUID string) modelmigration.Scope 
 // ServiceFactoryForModel returns the services factory for a given
 // model uuid.
 func (ctx *facadeContext) ServiceFactoryForModel(uuid model.UUID) servicefactory.ServiceFactory {
-	return ctx.r.serviceFactoryGetter.FactoryForModel(uuid.String())
+	return ctx.r.serviceFactoryGetter.FactoryForModel(uuid)
 }
 
 // ObjectStoreForModel returns the object store for a given model uuid.

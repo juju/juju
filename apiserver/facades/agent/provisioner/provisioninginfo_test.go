@@ -36,7 +36,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	serviceFactoryGetter := s.ServiceFactoryGetter(c)
 
 	st := s.ControllerModel(c).State()
-	storageService := serviceFactoryGetter.FactoryForModel(st.ModelUUID()).Storage(registry)
+	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
 	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -140,7 +140,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoRootDiskVolume(c *gc.C) {
 	serviceFactoryGetter := s.ServiceFactoryGetter(c)
 
 	st := s.ControllerModel(c).State()
-	storageService := serviceFactoryGetter.FactoryForModel(st.ModelUUID()).Storage(registry)
+	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
 	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	template := state.MachineTemplate{

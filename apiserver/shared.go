@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/pubsub/controller"
@@ -74,6 +75,9 @@ type sharedServerContext struct {
 	controllerConfig jujucontroller.Config
 	features         set.Strings
 
+	// controllerModelID is the ID of the controller model.
+	controllerModelID model.UUID
+
 	machineTag names.Tag
 	dataDir    string
 	logDir     string
@@ -87,6 +91,7 @@ type sharedServerConfig struct {
 	presence             presence.Recorder
 	leaseManager         lease.Manager
 	controllerUUID       string
+	controllerModelID    model.UUID
 	controllerConfig     jujucontroller.Config
 	logger               corelogger.Logger
 	charmhubHTTPClient   facade.HTTPClient
@@ -151,6 +156,7 @@ func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, er
 		leaseManager:         config.leaseManager,
 		logger:               config.logger,
 		controllerUUID:       config.controllerUUID,
+		controllerModelID:    config.controllerModelID,
 		controllerConfig:     config.controllerConfig,
 		charmhubHTTPClient:   config.charmhubHTTPClient,
 		dbGetter:             config.dbGetter,

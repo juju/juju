@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	coreuser "github.com/juju/juju/core/user"
@@ -397,7 +398,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 				cloudGetter{cloud: &args.ControllerCloud},
 				credentialGetter{cred: args.ControllerCloudCredential},
 				// We don't need the storage service at bootstrap.
-				func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolGetter {
+				func(modelUUID model.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
 					return noopStoragePoolGetter{}
 				},
 			),

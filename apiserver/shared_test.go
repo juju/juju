@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/presence"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/controller"
@@ -54,6 +55,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		dataDir:              c.MkDir(),
 		logDir:               c.MkDir(),
 		controllerUUID:       testing.ControllerTag.Id(),
+		controllerModelID:    model.UUID(testing.ModelTag.Id()),
 	}
 }
 

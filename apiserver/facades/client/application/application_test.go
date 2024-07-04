@@ -85,7 +85,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 	st := s.ControllerModel(c).State()
 	storageAccess, err := application.GetStorageState(st)
 	c.Assert(err, jc.ErrorIsNil)
-	model, err := st.Model()
+	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
 
@@ -101,7 +101,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	serviceFactoryGetter := s.ServiceFactoryGetter(c)
-	storageService := serviceFactoryGetter.FactoryForModel(st.ModelUUID()).Storage(registry)
+	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
 	api, err := application.NewAPIBase(
 		application.GetState(st, env),
 		nil,
@@ -111,7 +111,7 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		nil,
 		nil,
 		blockChecker,
-		application.GetModel(model),
+		application.GetModel(m),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),

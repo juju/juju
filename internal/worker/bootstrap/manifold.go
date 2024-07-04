@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/flags"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
@@ -324,7 +325,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				_ = stTracker.Done()
 				return nil, errors.Trace(err)
 			}
-			modelServiceFactory := serviceFactoryGetter.FactoryForModel(systemState.ModelUUID())
+			modelServiceFactory := serviceFactoryGetter.FactoryForModel(model.UUID(systemState.ModelUUID()))
 
 			// TODO (stickupkid): This should be removed once we get rid of
 			// the policy and move it into the service factory.

@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/httpcontext"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
@@ -235,7 +236,7 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 	}
 
 	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
-	serviceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(st.ModelUUID())
+	serviceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(coremodel.UUID(st.ModelUUID()))
 	env, err := newEnviron(model, serviceFactory.Cloud(), serviceFactory.Credential())
 	if err != nil {
 		return err

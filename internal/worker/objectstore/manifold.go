@@ -18,6 +18,7 @@ import (
 	coredependency "github.com/juju/juju/core/dependency"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/servicefactory"
@@ -29,7 +30,7 @@ import (
 // MetadataService for a given model UUID.
 type MetadataServiceGetter interface {
 	// For returns the MetadataService for the given model UUID.
-	ForModelUUID(string) MetadataService
+	ForModelUUID(model.UUID) MetadataService
 }
 
 // ModelClaimGetter is the interface that is used to get a model claimer.
@@ -237,7 +238,7 @@ type modelMetadataServiceGetter struct {
 }
 
 // ForModelUUID returns the MetadataService for the given model UUID.
-func (s modelMetadataServiceGetter) ForModelUUID(modelUUID string) MetadataService {
+func (s modelMetadataServiceGetter) ForModelUUID(modelUUID model.UUID) MetadataService {
 	return modelMetadataService{factory: s.factoryGetter.FactoryForModel(modelUUID)}
 }
 

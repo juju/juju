@@ -130,5 +130,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,
 		ControllerUUID:             s.controllerUUID,
+		ControllerModelID:          s.controllerModelID,
 	})
 }
