@@ -73,6 +73,13 @@ type Firewaller interface {
 	// If the model security group doesn't exist, return a NotFound error
 	ModelIngressRules(ctx context.ProviderCallContext) (firewall.IngressRules, error)
 
+	// DeleteMachineGroup delete's the security group specific to the provided machine.
+	// When in 'instance' firewall mode, each instance in a model is assigned its own
+	// security group, with a lifecycle matching that of the instance itself.
+	// In 'global' mode, all security groups are model scoped, and have lifecycles
+	// matching the model, so this method will remove no groups.
+	DeleteMachineGroup(ctx context.ProviderCallContext, machineId string) error
+
 	// DeleteAllModelGroups deletes all security groups for the
 	// model.
 	DeleteAllModelGroups(ctx context.ProviderCallContext) error
@@ -461,6 +468,10 @@ func (c *neutronFirewaller) DeleteAllControllerGroups(ctx context.ProviderCallCo
 // DeleteAllModelGroups implements Firewaller interface.
 func (c *neutronFirewaller) DeleteAllModelGroups(ctx context.ProviderCallContext) error {
 	return deleteSecurityGroupsMatchingName(ctx, c.deleteSecurityGroups, c.jujuGroupPrefixRegexp())
+}
+
+func (c *neutronFirewaller) DeleteMachineGroup(ctx context.ProviderCallContext, machineID string) error {
+	return deleteSecurityGroupsMatchingName(ctx, c.deleteSecurityGroups, c.machineGroupRegexp(machineID))
 }
 
 // UpdateGroupController implements Firewaller interface.

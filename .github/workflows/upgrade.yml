@@ -29,7 +29,7 @@ jobs:
       channel: ${{ steps.check.outputs.channel }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Check
         id: check
         run: |
@@ -62,7 +62,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup LXD
         if: matrix.cloud == 'localhost'
