@@ -1906,7 +1906,7 @@ func (st *State) AllApplications() (applications []*Application, err error) {
 
 // InferActiveRelation returns the relation corresponding to the supplied
 // application or endpoint name(s), assuming such a relation exists and is unique.
-// There must be 1 or 2 supplied names, of the form <application>[:<relation>].
+// There must be 1 or 2 supplied names, of the form <application>[:<endpoint>].
 func (st *State) InferActiveRelation(names ...string) (*Relation, error) {
 	candidates, err := matchingRelations(st, names...)
 	if err != nil {
@@ -1931,7 +1931,7 @@ func (st *State) InferActiveRelation(names ...string) (*Relation, error) {
 }
 
 // InferEndpoints returns the endpoints corresponding to the supplied names.
-// There must be 1 or 2 supplied names, of the form <application>[:<relation>].
+// There must be 1 or 2 supplied names, of the form <application>[:<endpoint>].
 // If the supplied names uniquely specify a possible relation, or if they
 // uniquely specify a possible relation once all implicit relations have been
 // filtered, the endpoints corresponding to that relation will be returned.
