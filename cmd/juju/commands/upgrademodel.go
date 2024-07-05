@@ -33,7 +33,7 @@ var usageUpgradeJujuDetails = `
 Juju provides agent software to every machine it creates. This command
 upgrades that software across an entire model, which is, by default, the
 current model.
-A model's agent version can be shown with `[1:] + "`juju model-config agent-\nversion`" + `.
+A model's agent version can be shown with `[1:] + "`juju model-config agent-version`" + `.
 A version is denoted by: major.minor.patch
 
 If '--agent-version' is not specified, then the upgrade candidate is
