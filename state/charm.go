@@ -251,7 +251,7 @@ func insertCharmOps(mb modelBackend, info CharmInfo) ([]txn.Op, error) {
 	}
 	lpc, ok := info.Charm.(charm.LXDProfiler)
 	if !ok {
-		return nil, errors.New("charm does no implement LXDProfiler")
+		return nil, errors.New("charm does not implement LXDProfiler")
 	}
 	doc.LXDProfile = safeLXDProfile(lpc.LXDProfile())
 
@@ -490,6 +490,8 @@ type Charm struct {
 	charmURL *charm.URL
 }
 
+var _ charm.LXDProfiler = (*Charm)(nil)
+
 func newCharm(st *State, cdoc *charmDoc) *Charm {
 	// Because we probably just read the doc from state, make sure we
 	// unescape any config option names for "$" and ".". See
@@ -678,8 +680,15 @@ func (c *Charm) Actions() *charm.Actions {
 }
 
 // LXDProfile returns the lxd profile definition of the charm.
-func (c *Charm) LXDProfile() *LXDProfile {
-	return c.doc.LXDProfile
+func (c *Charm) LXDProfile() *charm.LXDProfile {
+	if c.doc.LXDProfile == nil {
+		return nil
+	}
+	return &charm.LXDProfile{
+		Config:      c.doc.LXDProfile.Config,
+		Description: c.doc.LXDProfile.Description,
+		Devices:     c.doc.LXDProfile.Devices,
+	}
 }
 
 // StoragePath returns the storage path of the charm bundle.
