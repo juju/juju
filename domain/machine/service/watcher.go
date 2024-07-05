@@ -47,3 +47,14 @@ func (s *WatchableService) WatchMachines(ctx context.Context) (watcher.StringsWa
 		eventsource.InitialNamespaceChanges(stmt),
 	)
 }
+
+// WatchMachineCloudInstances returns a StringsWatcher that is subscribed to
+// the changes in the machine_cloud_instance table in the model.
+func (s *WatchableService) WatchMachineCloudInstances(ctx context.Context) (watcher.StringsWatcher, error) {
+	table, stmt := s.st.InitialWatchInstanceStatement()
+	return s.watcherFactory.NewNamespaceWatcher(
+		table,
+		changestream.All,
+		eventsource.InitialNamespaceChanges(stmt),
+	)
+}
