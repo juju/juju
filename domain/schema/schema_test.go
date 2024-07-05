@@ -313,6 +313,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"machine_tool",
 		"machine_volume",
 		"machine_filesystem",
+		"machine_requires_reboot",
 
 		// Charm
 		"charm",

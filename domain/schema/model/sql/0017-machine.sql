@@ -73,3 +73,11 @@ CREATE TABLE machine_filesystem (
     REFERENCES storage_filesystem (uuid),
     PRIMARY KEY (machine_uuid, filesystem_uuid)
 );
+
+CREATE TABLE machine_requires_reboot (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    created_at DATETIME NOT NULL DEFAULT (STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW', 'utc')),
+    CONSTRAINT fk_machine_requires_reboot_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
+);
