@@ -287,44 +287,9 @@ func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *gc.C) {
 
 func (*validatorsSuite) TestSecretsBackendChecker(c *gc.C) {
 	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
-		c.Assert(s, gc.Equals, "vault")
-		return true, nil
-	})
-
-	oldCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "vault",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (*validatorsSuite) TestSecretsBackendCheckerNoExist(c *gc.C) {
-	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
-		c.Assert(s, gc.Equals, "vault")
 		return false, nil
 	})
 
-	oldCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
 	newCfg, err := config.New(config.NoDefaults, map[string]any{
 		"name":           "wallyworld",
 		"uuid":           testing.ModelTag.Id(),
@@ -333,37 +298,8 @@ func (*validatorsSuite) TestSecretsBackendCheckerNoExist(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
-	var validationError *config.ValidationError
-	c.Assert(errors.As(err, &validationError), jc.IsTrue)
-	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"secret-backend"})
-}
-
-func (*validatorsSuite) TestSecretsBackendCheckerProviderError(c *gc.C) {
-	providerErr := errors.New("some error")
-	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
-		c.Assert(s, gc.Equals, "vault")
-		return false, providerErr
-	})
-
-	oldCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "vault",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIs, providerErr)
+	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, nil)
+	c.Assert(err, gc.ErrorMatches, "cannot set model secret backend via model config anymore")
 }
 
 // TestAuthorizedKeysChanged asserts that if we change the value of authorised

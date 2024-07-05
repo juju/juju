@@ -180,30 +180,9 @@ type SecretBackendProvider interface {
 // is performed. Any validation errors will satisfy config.ValidationError.
 func SecretBackendChecker(provider SecretBackendProvider) config.ValidatorFunc {
 	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
-		backendName := cfg.SecretBackend()
-		if backendName == old.SecretBackend() {
+		if cfg.SecretBackend() == "" {
 			return cfg, nil
 		}
-		if backendName == "" {
-			return cfg, &config.ValidationError{
-				InvalidAttrs: []string{config.SecretBackendKey},
-				Reason:       "secret back cannot be empty",
-			}
-		}
-		if backendName == config.DefaultSecretBackend {
-			return cfg, nil
-		}
-
-		has, err := provider.HasSecretsBackend(backendName)
-		if err != nil {
-			return cfg, fmt.Errorf("fetching secret backend for %q to validate model config: %w", backendName, err)
-		}
-		if !has {
-			return cfg, &config.ValidationError{
-				InvalidAttrs: []string{config.SecretBackendKey},
-				Reason:       fmt.Sprintf("secret backend %q not found", backendName),
-			}
-		}
-		return cfg, nil
+		return nil, fmt.Errorf("cannot set model secret backend via model config anymore")
 	}
 }
