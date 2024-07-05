@@ -49,7 +49,6 @@ func (e *exportOperation) Setup(scope modelmigration.Scope) error {
 		// no-op provider.
 		noopModelDefaultsProvider{},
 		config.ModelValidator(),
-		state.NewControllerState(scope.ControllerDB()),
 		state.NewState(scope.ModelDB()))
 	return nil
 }

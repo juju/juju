@@ -9,8 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate go run go.uber.org/mock/mockgen -typed -package service -destination controllerstate_mock_test.go github.com/juju/juju/domain/modelconfig/service ControllerState
-
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

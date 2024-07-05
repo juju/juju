@@ -8,10 +8,8 @@ import (
 
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gomock "go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/domain/modelconfig/service/testing"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
@@ -23,17 +21,9 @@ type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, er
 
 type serviceSuite struct {
 	jtesting.IsolationSuite
-
-	mockCtrlState *MockControllerState
 }
 
 var _ = gc.Suite(&serviceSuite{})
-
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.mockCtrlState = NewMockControllerState(ctrl)
-	return ctrl
-}
 
 func (f ModelDefaultsProviderFunc) ModelDefaults(
 	c context.Context,
@@ -63,7 +53,7 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	st := testing.NewState()
 	defer st.Close()
 
-	svc := NewWatchableService(defaults, config.ModelValidator(), nil, st, st)
+	svc := NewWatchableService(defaults, config.ModelValidator(), st, st)
 
 	watcher, err := svc.Watch()
 	c.Assert(err, jc.ErrorIsNil)
@@ -99,26 +89,4 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 	c.Check(changes, jc.SameContents, []string{
 		"name", "uuid", "type", "foo", "secret-backend", "logging-config",
 	})
-}
-
-func (s *serviceSuite) TestGetModelSecretBackend(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	svc := NewService(nil, nil, s.mockCtrlState, nil)
-	modelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
-	s.mockCtrlState.EXPECT().GetModelSecretBackend(gomock.Any(), modelUUID).Return("backend-id", nil)
-
-	backendID, err := svc.GetModelSecretBackend(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(backendID, gc.Equals, "backend-id")
-}
-
-func (s *serviceSuite) TestSetModelSecretBackend(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	svc := NewService(nil, nil, s.mockCtrlState, nil)
-	modelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
-	s.mockCtrlState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-id").Return(nil)
-	err := svc.SetModelSecretBackend(context.Background(), modelUUID, "backend-id")
-	c.Assert(err, jc.ErrorIsNil)
 }
