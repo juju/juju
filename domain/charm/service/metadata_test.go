@@ -87,7 +87,8 @@ var metadataTestCases = [...]struct {
 			Name:  "foo",
 			RunAs: charm.RunAsDefault,
 			Provides: map[string]charm.Relation{
-				"db": {
+				"baz": {
+					Key:       "baz",
 					Name:      "db",
 					Role:      charm.RoleProvider,
 					Interface: "mysql",
@@ -100,7 +101,7 @@ var metadataTestCases = [...]struct {
 		output: internalcharm.Meta{
 			Name: "foo",
 			Provides: map[string]internalcharm.Relation{
-				"db": {
+				"baz": {
 					Name:      "db",
 					Role:      internalcharm.RoleProvider,
 					Interface: "mysql",
@@ -117,7 +118,8 @@ var metadataTestCases = [...]struct {
 			Name:  "foo",
 			RunAs: charm.RunAsDefault,
 			Requires: map[string]charm.Relation{
-				"db": {
+				"baz": {
+					Key:       "baz",
 					Name:      "db",
 					Role:      charm.RoleProvider,
 					Interface: "mysql",
@@ -130,7 +132,7 @@ var metadataTestCases = [...]struct {
 		output: internalcharm.Meta{
 			Name: "foo",
 			Requires: map[string]internalcharm.Relation{
-				"db": {
+				"baz": {
 					Name:      "db",
 					Role:      internalcharm.RoleProvider,
 					Interface: "mysql",
@@ -147,7 +149,8 @@ var metadataTestCases = [...]struct {
 			Name:  "foo",
 			RunAs: charm.RunAsDefault,
 			Peers: map[string]charm.Relation{
-				"db": {
+				"baz": {
+					Key:       "baz",
 					Name:      "db",
 					Role:      charm.RoleProvider,
 					Interface: "mysql",
@@ -160,7 +163,7 @@ var metadataTestCases = [...]struct {
 		output: internalcharm.Meta{
 			Name: "foo",
 			Peers: map[string]internalcharm.Relation{
-				"db": {
+				"baz": {
 					Name:      "db",
 					Role:      internalcharm.RoleProvider,
 					Interface: "mysql",

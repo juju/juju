@@ -43,7 +43,7 @@ INSERT INTO storage_kind VALUES
 CREATE TABLE application_storage_directive (
     application_uuid TEXT NOT NULL,
     charm_uuid TEXT NOT NULL,
-    storage_name TEXT NOT NULL,
+    storage_key TEXT NOT NULL,
     -- These attributes are filled in by sourcing data from:
     -- user supplied, model config, charm config, opinionated fallbacks.
     -- By the time the row is written, all values are known.
@@ -64,9 +64,9 @@ CREATE TABLE application_storage_directive (
     FOREIGN KEY (application_uuid)
     REFERENCES application (uuid),
     CONSTRAINT fk_application_storage_directive_charm_storage
-    FOREIGN KEY (charm_uuid, storage_name)
-    REFERENCES charm_storage (charm_uuid, name),
-    PRIMARY KEY (application_uuid, charm_uuid, storage_name)
+    FOREIGN KEY (charm_uuid, storage_key)
+    REFERENCES charm_storage (charm_uuid, "key"),
+    PRIMARY KEY (application_uuid, charm_uuid, storage_key)
 );
 
 -- Note that this is not unique; it speeds access by application.
@@ -83,7 +83,7 @@ ON application_storage_directive (application_uuid);
 CREATE TABLE unit_storage_directive (
     unit_uuid TEXT NOT NULL,
     charm_uuid TEXT NOT NULL,
-    storage_name TEXT NOT NULL,
+    storage_key TEXT NOT NULL,
     -- These attributes are filled in by sourcing data from:
     -- user supplied, model config, charm config, opinionated fallbacks.
     -- By the time the row is written, all values are known.
@@ -101,9 +101,9 @@ CREATE TABLE unit_storage_directive (
     size INT NOT NULL,
     count INT NOT NULL,
     CONSTRAINT fk_unit_storage_directive_charm_storage
-    FOREIGN KEY (charm_uuid, storage_name)
-    REFERENCES charm_storage (charm_uuid, name),
-    PRIMARY KEY (unit_uuid, charm_uuid, storage_name)
+    FOREIGN KEY (charm_uuid, storage_key)
+    REFERENCES charm_storage (charm_uuid, "key"),
+    PRIMARY KEY (unit_uuid, charm_uuid, storage_key)
 );
 
 -- Note that this is not unique; it speeds access by unit.

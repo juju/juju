@@ -35,15 +35,10 @@ var _ = gc.Suite(&serviceSuite{})
 func (s *serviceSuite) TestGetCharmID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	id := charmtesting.GenCharmID(c)
-
-	s.state.EXPECT().GetCharmIDByLatestRevision(gomock.Any(), "foo").Return(id, nil)
-
-	result, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
+	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
 		Name: "foo",
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(result, gc.Equals, id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
 }
 
 func (s *serviceSuite) TestGetCharmIDInvalidName(c *gc.C) {
@@ -70,17 +65,6 @@ func (s *serviceSuite) TestGetCharmIDWithRevision(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, gc.Equals, id)
-}
-
-func (s *serviceSuite) TestGetCharmIDErrorNotFound(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().GetCharmIDByLatestRevision(gomock.Any(), "foo").Return("", charmerrors.NotFound)
-
-	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
-		Name: "foo",
-	})
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
 }
 
 func (s *serviceSuite) TestIsControllerCharm(c *gc.C) {

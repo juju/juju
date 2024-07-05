@@ -436,6 +436,7 @@ func encodeMetadataRelation(relations map[string]internalcharm.Relation) (map[st
 		}
 
 		result[k] = charm.Relation{
+			Key:       k,
 			Name:      v.Name,
 			Role:      role,
 			Scope:     scope,

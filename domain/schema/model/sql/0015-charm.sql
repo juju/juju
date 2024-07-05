@@ -19,7 +19,7 @@ CREATE TABLE charm (
     summary TEXT,
     subordinate BOOLEAN DEFAULT FALSE,
     min_juju_version TEXT,
-    run_as_id INT,
+    run_as_id INT DEFAULT 0,
     -- Assumes is a blob of YAML that will be parsed by the charm to compute
     -- the result of the SAT expression.
     -- As the expression tree is generic, you can't use RI or index into the
@@ -31,6 +31,19 @@ CREATE TABLE charm (
     REFERENCES charm_run_as_kind (id)
 );
 
+CREATE VIEW v_charm AS
+SELECT
+    c.uuid,
+    c.name,
+    c.description,
+    c.summary,
+    c.subordinate,
+    c.min_juju_version,
+    crak.name AS run_as,
+    c.assumes
+FROM charm AS c
+LEFT JOIN charm_run_as_kind AS crak ON c.run_as_id = crak.id;
+
 CREATE TABLE charm_channel (
     charm_uuid TEXT NOT NULL,
     track TEXT NOT NULL,
@@ -41,9 +54,6 @@ CREATE TABLE charm_channel (
     REFERENCES charm (uuid),
     PRIMARY KEY (charm_uuid)
 );
-
-CREATE UNIQUE INDEX idx_charm_name
-ON charm (name);
 
 -- The charm_state table exists to store the availability of a charm. The
 -- fact that the charm is in the database indicates that it's a placeholder.
@@ -167,6 +177,7 @@ INSERT INTO charm_relation_scope VALUES
 CREATE TABLE charm_relation (
     charm_uuid TEXT NOT NULL,
     kind_id TEXT NOT NULL,
+    "key" TEXT NOT NULL,
     name TEXT,
     role_id TEXT,
     interface TEXT,
@@ -185,19 +196,36 @@ CREATE TABLE charm_relation (
     CONSTRAINT fk_charm_relation_scope
     FOREIGN KEY (scope_id)
     REFERENCES charm_relation_scope (id),
-    PRIMARY KEY (charm_uuid, kind_id, name)
+    PRIMARY KEY (charm_uuid, kind_id, "key")
 );
+
+CREATE VIEW v_charm_relation AS
+SELECT
+    cr.charm_uuid,
+    crk.name AS kind,
+    cr."key",
+    cr.name,
+    crr.name AS role,
+    cr.interface,
+    cr.optional,
+    cr.capacity,
+    crs.name AS scope
+FROM charm_relation AS cr
+LEFT JOIN charm_relation_kind AS crk ON cr.kind_id = crk.id
+LEFT JOIN charm_relation_role AS crr ON cr.role_id = crr.id
+LEFT JOIN charm_relation_scope AS crs ON cr.scope_id = crs.id;
 
 CREATE INDEX idx_charm_relation_charm
 ON charm_relation (charm_uuid);
 
 CREATE TABLE charm_extra_binding (
     charm_uuid TEXT NOT NULL,
-    name TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    name TEXT,
     CONSTRAINT fk_charm_extra_binding_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, name)
+    PRIMARY KEY (charm_uuid, "key", name)
 );
 
 CREATE INDEX idx_charm_extra_binding_charm
@@ -209,11 +237,12 @@ ON charm_extra_binding (charm_uuid);
 -- by 3rd party stores.
 CREATE TABLE charm_category (
     charm_uuid TEXT NOT NULL,
+    "index" INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_category_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, value)
+    PRIMARY KEY (charm_uuid, "index", value)
 );
 
 CREATE INDEX idx_charm_category_charm
@@ -222,11 +251,12 @@ ON charm_category (charm_uuid);
 -- charm_tag is a free form tag that can be applied to a charm.
 CREATE TABLE charm_tag (
     charm_uuid TEXT NOT NULL,
+    "index" INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_tag_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, value)
+    PRIMARY KEY (charm_uuid, "index", value)
 );
 
 CREATE INDEX idx_charm_tag_charm
@@ -243,7 +273,8 @@ INSERT INTO charm_storage_kind VALUES
 
 CREATE TABLE charm_storage (
     charm_uuid TEXT NOT NULL,
-    name TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    name TEXT,
     description TEXT,
     storage_kind_id INT NOT NULL,
     shared BOOLEAN,
@@ -258,23 +289,43 @@ CREATE TABLE charm_storage (
     CONSTRAINT fk_charm_storage_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, name)
+    PRIMARY KEY (charm_uuid, "key")
 );
+
+CREATE VIEW v_charm_storage AS
+SELECT
+    cs.charm_uuid,
+    cs."key",
+    cs.name,
+    cs.description,
+    csk.name AS kind,
+    cs.shared,
+    cs.read_only,
+    cs.count_min,
+    cs.count_max,
+    cs.minimum_size_mib,
+    cs.location,
+    csp."index" AS property_index,
+    csp.value AS property
+FROM charm_storage AS cs
+LEFT JOIN charm_storage_kind AS csk ON cs.storage_kind_id = csk.id
+LEFT JOIN charm_storage_property AS csp ON cs.charm_uuid = csp.charm_uuid AND cs."key" = csp.charm_storage_key;
 
 CREATE INDEX idx_charm_storage_charm
 ON charm_storage (charm_uuid);
 
 CREATE TABLE charm_storage_property (
     charm_uuid TEXT NOT NULL,
-    charm_storage_name TEXT NOT NULL,
-    value TEXT,
+    charm_storage_key TEXT NOT NULL,
+    "index" INT NOT NULL,
+    value TEXT NOT NULL,
     CONSTRAINT fk_charm_storage_property_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
     CONSTRAINT fk_charm_storage_property_charm_storage
-    FOREIGN KEY (charm_storage_name)
-    REFERENCES charm_storage (name),
-    PRIMARY KEY (charm_uuid, charm_storage_name, value)
+    FOREIGN KEY (charm_uuid, charm_storage_key)
+    REFERENCES charm_storage (charm_uuid, "key"),
+    PRIMARY KEY (charm_uuid, charm_storage_key, "index", value)
 );
 
 CREATE INDEX idx_charm_storage_property_charm
@@ -282,6 +333,7 @@ ON charm_storage_property (charm_uuid);
 
 CREATE TABLE charm_device (
     charm_uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
     name TEXT,
     description TEXT,
     device_type TEXT,
@@ -290,7 +342,7 @@ CREATE TABLE charm_device (
     CONSTRAINT fk_charm_device_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, name)
+    PRIMARY KEY (charm_uuid, "key")
 );
 
 CREATE INDEX idx_charm_device_charm
@@ -298,12 +350,13 @@ ON charm_device (charm_uuid);
 
 CREATE TABLE charm_payload (
     charm_uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
     name TEXT,
     type TEXT,
     CONSTRAINT fk_charm_payload_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, name)
+    PRIMARY KEY (charm_uuid, "key")
 );
 
 CREATE INDEX idx_charm_payload_charm
@@ -323,6 +376,7 @@ INSERT INTO charm_resource_kind VALUES
 
 CREATE TABLE charm_resource (
     charm_uuid TEXT NOT NULL,
+    "key" TEXT NOT NULL,
     name TEXT,
     kind_id INT NOT NULL,
     path TEXT,
@@ -333,19 +387,31 @@ CREATE TABLE charm_resource (
     CONSTRAINT fk_charm_resource_charm_resource_kind
     FOREIGN KEY (kind_id)
     REFERENCES charm_resource_kind (id),
-    PRIMARY KEY (charm_uuid, name)
+    PRIMARY KEY (charm_uuid, "key")
 );
+
+CREATE VIEW v_charm_resource AS
+SELECT
+    cr.charm_uuid,
+    cr."key",
+    cr.name,
+    crk.name AS kind,
+    cr.path,
+    cr.description
+FROM charm_resource AS cr
+LEFT JOIN charm_resource_kind AS crk ON cr.kind_id = crk.id;
 
 CREATE INDEX idx_charm_resource_charm
 ON charm_resource (charm_uuid);
 
 CREATE TABLE charm_term (
     charm_uuid TEXT NOT NULL,
+    "index" INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_term_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, value)
+    PRIMARY KEY (charm_uuid, "index", value)
 );
 
 CREATE INDEX idx_charm_term_charm
@@ -353,7 +419,7 @@ ON charm_term (charm_uuid);
 
 CREATE TABLE charm_container (
     charm_uuid TEXT NOT NULL,
-    name TEXT,
+    "key" TEXT NOT NULL,
     resource TEXT,
     -- Enforce the optional uid and gid to -1 if not set, otherwise the it might
     -- become 0, which happens to be root.
@@ -362,25 +428,38 @@ CREATE TABLE charm_container (
     CONSTRAINT fk_charm_container_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, resource)
+    PRIMARY KEY (charm_uuid, "key")
 );
+
+CREATE VIEW v_charm_container AS
+SELECT
+    cc.charm_uuid,
+    cc."key",
+    cc.resource,
+    cc.uid,
+    cc.gid,
+    ccm."index",
+    ccm.storage,
+    ccm.location
+FROM charm_container AS cc
+LEFT JOIN charm_container_mount AS ccm ON cc.charm_uuid = ccm.charm_uuid AND cc."key" = ccm.charm_container_key;
 
 CREATE INDEX idx_charm_container_charm
 ON charm_container (charm_uuid);
 
 CREATE TABLE charm_container_mount (
+    "index" INT NOT NULL,
     charm_uuid TEXT NOT NULL,
-    charm_container_name TEXT,
-    name TEXT,
+    charm_container_key TEXT,
     storage TEXT,
     location TEXT,
     CONSTRAINT fk_charm_container_mount_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
     CONSTRAINT fk_charm_container_mount_charm_container
-    FOREIGN KEY (charm_container_name)
-    REFERENCES charm_container (name),
-    PRIMARY KEY (charm_uuid, name)
+    FOREIGN KEY (charm_uuid, charm_container_key)
+    REFERENCES charm_container (charm_uuid, "key"),
+    PRIMARY KEY (charm_uuid, charm_container_key, "index")
 );
 
 CREATE INDEX idx_charm_container_mount_charm
