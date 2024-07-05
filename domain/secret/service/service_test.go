@@ -1507,8 +1507,8 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	s.state = NewMockState(ctrl)
 	mockWatcherFactory := NewMockWatcherFactory(ctrl)
 
-	ch1 := make(chan struct{}, 1)
-	ch2 := make(chan struct{}, 1)
+	ch1 := make(chan struct{})
+	ch2 := make(chan struct{})
 
 	go func() {
 		// send the initial change.
@@ -1543,13 +1543,13 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for sending the secret revision changes")
 	}
+	wc.AssertOneChange()
 	select {
 	case ch2 <- struct{}{}:
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for sending the secret URI changes")
 	}
-
-	wc.AssertNChanges(2)
+	wc.AssertOneChange()
 }
 
 func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {

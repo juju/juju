@@ -279,7 +279,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 	wCSingleUnit.AssertNoChange()
 }
 
-func (s *watcherSuite) TestWatchObsoleteForUserSecrets(c *gc.C) {
+func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	ctx := context.Background()
 	svc, st := s.setupServiceAndState(c)
 
