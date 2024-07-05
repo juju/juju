@@ -66,7 +66,7 @@ AND charm_origin.revision = $charmNameRevision.revision;
 		id = corecharm.ID(result.UUID)
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to run transaction: %w", err)
+		return "", fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 	return id, nil
 }
@@ -103,7 +103,7 @@ WHERE uuid = $charmID.uuid;
 		isController = result.Name == "juju-controller"
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 	return isController, nil
 }
@@ -140,7 +140,7 @@ WHERE uuid = $charmID.uuid;
 		isSubordinate = result.Subordinate
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 	return isSubordinate, nil
 }
@@ -185,7 +185,7 @@ WHERE uuid = $charmID.uuid;
 		supportsContainers = num > 0
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 	return supportsContainers, nil
 }
@@ -224,7 +224,7 @@ WHERE uuid = $charmID.uuid;
 		isAvailable = result.Available
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 	return isAvailable, nil
 }
@@ -275,7 +275,7 @@ WHERE charm_uuid = $charmID.uuid;
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to run transaction: %w", err)
+		return fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 
 	return nil
@@ -344,7 +344,7 @@ WHERE uuid = $charmID.uuid;
 
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to run transaction: %w", err)
+		return "", fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 
 	return newID, nil
@@ -430,7 +430,7 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 
 		return nil
 	}); err != nil {
-		return charm.Metadata{}, fmt.Errorf("failed to run transaction: %w", err)
+		return charm.Metadata{}, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 
 	return decodeMetadata(metadata, decodeMetadataArgs{
@@ -445,6 +445,44 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 		resources:     resources,
 		containers:    containers,
 	})
+}
+
+// GetCharmManifest returns the manifest for the charm using the charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *State) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Manifest, error) {
+	db, err := s.DB()
+	if err != nil {
+		return charm.Manifest{}, errors.Trace(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	query := `
+SELECT v_charm_manifest.* AS &charmManifest.*
+FROM v_charm_manifest
+WHERE charm_uuid = $charmID.uuid
+ORDER BY "idx" ASC;
+`
+
+	stmt, err := s.Prepare(query, charmManifest{}, ident)
+	if err != nil {
+		return charm.Manifest{}, fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	var manifests []charmManifest
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, ident).GetAll(&manifests); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return charmerrors.NotFound
+			}
+			return fmt.Errorf("failed to get charm manifest: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return charm.Manifest{}, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+	}
+
+	return decodeManifest(manifests)
 }
 
 // getCharmMetadata returns the metadata for the charm using the charm ID.

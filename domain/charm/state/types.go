@@ -137,6 +137,9 @@ type charmResource struct {
 	Description string `db:"description"`
 }
 
+// charmContainer is used to get the containers of a charm.
+// This is a row based struct that is normalised form of an array of strings
+// for the storage and location field.
 type charmContainer struct {
 	CharmUUID string `db:"charm_uuid"`
 	Key       string `db:"key"`
@@ -145,4 +148,17 @@ type charmContainer struct {
 	Gid       int    `db:"gid"`
 	Storage   string `db:"storage"`
 	Location  string `db:"location"`
+}
+
+// charmManifest is used to get the manifest of a charm.
+// This is a row based struct that is normalised form of an array of strings
+// for the all the fields.
+type charmManifest struct {
+	CharmUUID    string `db:"charm_uuid"`
+	Index        int    `db:"idx"`
+	Track        string `db:"track"`
+	Risk         string `db:"risk"`
+	Branch       string `db:"branch"`
+	OS           string `db:"os"`
+	Architecture string `db:"architecture"`
 }
