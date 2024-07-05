@@ -117,6 +117,12 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 		}
 	}()
 
+	// If the account details are set, ensure that the user we've logged in as
+	// matches the user we expected to log in as.
+	if args.AccountDetails != nil && st.AuthTag() != nil && args.AccountDetails.User != st.AuthTag().Id() {
+		return nil, errors.Unauthorizedf("attempted login as %q for user %q", st.AuthTag().Id(), args.AccountDetails.User)
+	}
+
 	// Update API addresses if they've changed. Error is non-fatal.
 	// Note that in the redirection case, we won't update the addresses
 	// of the controller we first connected to. This shouldn't be
