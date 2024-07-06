@@ -33,7 +33,7 @@ type Charm interface {
 	Manifest() *charm.Manifest
 	Metrics() *charm.Metrics
 	Actions() *charm.Actions
-	LXDProfile() *state.LXDProfile
+	LXDProfile() *charm.LXDProfile
 }
 
 type Model interface {
@@ -334,7 +334,7 @@ func convertCharmExtraBindingMap(bindings map[string]charm.ExtraBinding) map[str
 	return result
 }
 
-func convertCharmLXDProfile(profile *state.LXDProfile) *params.CharmLXDProfile {
+func convertCharmLXDProfile(profile *charm.LXDProfile) *params.CharmLXDProfile {
 	return &params.CharmLXDProfile{
 		Description: profile.Description,
 		Config:      convertCharmLXDProfileConfig(profile.Config),

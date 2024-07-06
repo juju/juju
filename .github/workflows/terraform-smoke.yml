@@ -17,7 +17,7 @@ jobs:
 
   smoke:
     name: Terraform Smoke
-    runs-on: [self-hosted, linux, x64, aws, xlarge]
+    runs-on: [self-hosted, linux, x64, aws, xxlarge]
     if: github.event.pull_request.draft == false
     steps:
 
