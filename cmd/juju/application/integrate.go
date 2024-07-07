@@ -196,7 +196,7 @@ func (c *addRelationCommand) Info() *cmd.Info {
 	addCmd := &cmd.Info{
 		Name:     "integrate",
 		Aliases:  []string{"relate"},
-		Args:     "<application>[:<relation>] <application>[:<relation>]",
+		Args:     "<application>[:<endpoint>] <application>[:<endpoint>]",
 		Purpose:  "Integrate two applications.",
 		Doc:      integrateDoc,
 		Examples: integrateExamples,
