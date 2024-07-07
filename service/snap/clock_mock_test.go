@@ -68,6 +68,48 @@ func (mr *MockClockMockRecorder) AfterFunc(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AfterFunc", reflect.TypeOf((*MockClock)(nil).AfterFunc), arg0, arg1)
 }
 
+// At mocks base method.
+func (m *MockClock) At(arg0 time.Time) <-chan time.Time {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "At", arg0)
+	ret0, _ := ret[0].(<-chan time.Time)
+	return ret0
+}
+
+// At indicates an expected call of At.
+func (mr *MockClockMockRecorder) At(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "At", reflect.TypeOf((*MockClock)(nil).At), arg0)
+}
+
+// AtFunc mocks base method.
+func (m *MockClock) AtFunc(arg0 time.Time, arg1 func()) clock.Alarm {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AtFunc", arg0, arg1)
+	ret0, _ := ret[0].(clock.Alarm)
+	return ret0
+}
+
+// AtFunc indicates an expected call of AtFunc.
+func (mr *MockClockMockRecorder) AtFunc(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AtFunc", reflect.TypeOf((*MockClock)(nil).AtFunc), arg0, arg1)
+}
+
+// NewAlarm mocks base method.
+func (m *MockClock) NewAlarm(arg0 time.Time) clock.Alarm {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewAlarm", arg0)
+	ret0, _ := ret[0].(clock.Alarm)
+	return ret0
+}
+
+// NewAlarm indicates an expected call of NewAlarm.
+func (mr *MockClockMockRecorder) NewAlarm(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewAlarm", reflect.TypeOf((*MockClock)(nil).NewAlarm), arg0)
+}
+
 // NewTimer mocks base method.
 func (m *MockClock) NewTimer(arg0 time.Duration) clock.Timer {
 	m.ctrl.T.Helper()

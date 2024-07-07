@@ -14,7 +14,6 @@ import (
 
 	charm "github.com/juju/charm/v12"
 	charms "github.com/juju/juju/apiserver/common/charms"
-	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -178,10 +177,10 @@ func (mr *MockCharmMockRecorder) Config() *gomock.Call {
 }
 
 // LXDProfile mocks base method.
-func (m *MockCharm) LXDProfile() *state.LXDProfile {
+func (m *MockCharm) LXDProfile() *charm.LXDProfile {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LXDProfile")
-	ret0, _ := ret[0].(*state.LXDProfile)
+	ret0, _ := ret[0].(*charm.LXDProfile)
 	return ret0
 }
 

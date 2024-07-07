@@ -17,7 +17,6 @@ import (
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type charmInfoSuite struct{}
@@ -41,7 +40,7 @@ func (s *charmInfoSuite) TestBasic(c *gc.C) {
 	ch.EXPECT().Actions().Return(&charm.Actions{})
 	ch.EXPECT().Metrics().Return(&charm.Metrics{})
 	ch.EXPECT().Manifest().Return(&charm.Manifest{})
-	ch.EXPECT().LXDProfile().Return(&state.LXDProfile{})
+	ch.EXPECT().LXDProfile().Return(&charm.LXDProfile{})
 	ch.EXPECT().URL().Return("ch:foo-1")
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
