@@ -103,7 +103,7 @@ type Worker struct {
 
 	secretRevisions map[string]secretRevisionExpiryInfo
 
-	timer       clock.Timer
+	alarm       clock.Alarm
 	nextTrigger time.Time
 }
 
@@ -127,8 +127,8 @@ func (w *Worker) loop() (err error) {
 	}
 	for {
 		var timeout <-chan time.Time
-		if w.timer != nil {
-			timeout = w.timer.Chan()
+		if w.alarm != nil {
+			timeout = w.alarm.Chan()
 		}
 		select {
 		case <-w.catacomb.Dying():
@@ -206,7 +206,7 @@ func (w *Worker) computeNextExpireTime() {
 	w.config.Logger.Debugf("computing next expire time for secret revisions %#v", w.secretRevisions)
 
 	if len(w.secretRevisions) == 0 {
-		w.timer = nil
+		w.alarm = nil
 		return
 	}
 
@@ -225,29 +225,28 @@ func (w *Worker) computeNextExpireTime() {
 		}
 		soonestExpireTime = info.expireTime
 	}
-	// There's no need to start or reset the timer if there's no changes to make.
+	// There's no need to start or reset the alarm if there's no changes to make.
 	if soonestExpireTime.IsZero() || w.nextTrigger == soonestExpireTime {
 		return
 	}
 
-	nextDuration := soonestExpireTime.Sub(now)
-	w.config.Logger.Debugf("next secret revision for %q will expire in %v at %s", w.config.SecretOwners, nextDuration, soonestExpireTime)
+	w.config.Logger.Debugf("next secret revision for %q will expire at %s", w.config.SecretOwners, soonestExpireTime)
 
 	w.nextTrigger = soonestExpireTime
-	if w.timer == nil {
-		w.timer = w.config.Clock.NewTimer(nextDuration)
+	if w.alarm == nil {
+		w.alarm = w.config.Clock.NewAlarm(w.nextTrigger)
 	} else {
-		// See the docs on Timer.Reset() that says it isn't safe to call
+		// See the docs on (*time.Timer).Reset() that says it isn't safe to call
 		// on a non-stopped channel, and if it is stopped, you need to check
 		// if the channel needs to be drained anyway. It isn't safe to drain
 		// unconditionally in case another goroutine has already noticed,
 		// but make an attempt.
-		if !w.timer.Stop() {
+		if !w.alarm.Stop() {
 			select {
-			case <-w.timer.Chan():
+			case <-w.alarm.Chan():
 			default:
 			}
 		}
-		w.timer.Reset(nextDuration)
+		w.alarm.Reset(w.nextTrigger)
 	}
 }
