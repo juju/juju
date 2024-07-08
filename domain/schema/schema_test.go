@@ -573,6 +573,10 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_machine_update",
 		"trg_log_machine_delete",
 
+		"trg_log_machine_cloud_instance_insert",
+		"trg_log_machine_cloud_instance_update",
+		"trg_log_machine_cloud_instance_delete",
+
 		"trg_log_user_public_ssh_key_insert",
 		"trg_log_user_public_ssh_key_update",
 		"trg_log_user_public_ssh_key_delete",

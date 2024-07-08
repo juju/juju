@@ -97,9 +97,10 @@ VALUES ($instanceTag.*)
 		if err := tx.Query(ctx, setInstanceDataStmt, instanceData).Run(); err != nil {
 			return errors.Annotatef(domain.CoerceError(err), "inserting machine cloud instance for machine %q", machineUUID)
 		}
-		instanceTags := tagsFromHardwareCharacteristics(machineUUID, &hardwareCharacteristics)
-		if err := tx.Query(ctx, setInstanceTagStmt, instanceTags).Run(); err != nil {
-			return errors.Annotatef(domain.CoerceError(err), "inserting instance tags for machine %q", machineUUID)
+		if instanceTags := tagsFromHardwareCharacteristics(machineUUID, &hardwareCharacteristics); len(instanceTags) > 0 {
+			if err := tx.Query(ctx, setInstanceTagStmt, instanceTags).Run(); err != nil {
+				return errors.Annotatef(domain.CoerceError(err), "inserting instance tags for machine %q", machineUUID)
+			}
 		}
 		return nil
 	})
@@ -198,4 +199,10 @@ func (st *State) InstanceStatus(ctx context.Context, machineName machine.Name) (
 	// TODO(cderici): Implementation for this is deferred until the design for
 	// the domain entity statuses on dqlite is finalized.
 	return "running", nil
+}
+
+// InitialWatchInstanceStatement returns the table and the initial watch statement
+// for the machine cloud instances.
+func (s *State) InitialWatchInstanceStatement() (string, string) {
+	return "machine_cloud_instance", "SELECT machine_uuid FROM machine_cloud_instance"
 }
