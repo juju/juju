@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/cmd/juju/commands"
-	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
@@ -38,23 +37,28 @@ import (
 	"github.com/juju/juju/jujuclient"
 )
 
-// GetControllerConfigServiceFunc is a helper function that gets a service from
-// the manifold.
+// GetControllerConfigServiceFunc is a helper function that gets a
+// [ControllerConfigService] from the manifold.
 type GetControllerConfigServiceFunc func(getter dependency.Getter, name string) (ControllerConfigService, error)
 
-// GetControllerConfigService is a helper function that gets a service from the
-// manifold.
+// GetControllerConfigService is a helper function that gets a
+// [ControllerConfigService] from the manifold.
 func GetControllerConfigService(getter dependency.Getter, name string) (ControllerConfigService, error) {
 	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ControllerConfigService {
 		return factory.ControllerConfig()
 	})
 }
 
-// ControllerConfigService is the interface that the worker uses to get the
-// controller configuration.
-type ControllerConfigService interface {
-	// ControllerConfig returns the current controller configuration.
-	ControllerConfig(context.Context) (jujucontroller.Config, error)
+// GetModelServiceFunc is a helper function that gets a [ModelService] from the
+// manifold.
+type GetModelServiceFunc func(getter dependency.Getter, name string) (ModelService, error)
+
+// GetModelService is a helper function that gets a [ModelService] from the
+// manifold.
+func GetModelService(getter dependency.Getter, name string) (ModelService, error) {
+	return coredependency.GetDependencyByName(getter, name, func(factory servicefactory.ControllerServiceFactory) ModelService {
+		return factory.Model()
+	})
 }
 
 // ManifoldConfig holds the information necessary to run an apiserver
@@ -81,6 +85,7 @@ type ManifoldConfig struct {
 	Hub                               *pubsub.StructuredHub
 	Presence                          presence.Recorder
 	GetControllerConfigService        GetControllerConfigServiceFunc
+	GetModelService                   GetModelServiceFunc
 
 	NewWorker           func(context.Context, Config) (worker.Worker, error)
 	NewMetricsCollector func() *apiserver.Collector
@@ -153,6 +158,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.GetControllerConfigService == nil {
 		return errors.NotValidf("nil GetControllerConfigService")
+	}
+	if config.GetModelService == nil {
+		return errors.NotValidf("nil GetModelService")
 	}
 	return nil
 }
@@ -269,6 +277,11 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		return nil, errors.Trace(err)
 	}
 
+	modelService, err := config.GetModelService(getter, config.ServiceFactoryName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Register the metrics collector against the prometheus register.
 	metricsCollector := config.NewMetricsCollector()
 	if err := config.PrometheusRegisterer.Register(metricsCollector); err != nil {
@@ -310,6 +323,7 @@ func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter
 		TracerGetter:                      tracerGetter,
 		ObjectStoreGetter:                 objectStoreGetter,
 		ControllerConfigService:           controllerConfigService,
+		ModelService:                      modelService,
 	})
 	if err != nil {
 		// Ensure we clean up the resources we've registered with. This includes

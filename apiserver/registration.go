@@ -19,6 +19,7 @@ import (
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -51,7 +52,8 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 	// TODO (stickupkid): Remove this nonsense, we should be able to get the
 	// service factory from the handler.
-	serviceFactory := h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(st.ModelUUID())
+	var serviceFactory servicefactory.ControllerServiceFactory
+	serviceFactory = h.ctxt.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctxt.srv.shared.controllerModelID)
 	userTag, response, err := h.processPost(
 		req,
 		st.State,

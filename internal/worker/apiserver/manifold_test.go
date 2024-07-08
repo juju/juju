@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/changestream"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/servicefactory"
@@ -64,6 +65,7 @@ type ManifoldSuite struct {
 	dbDeleter               stubDBDeleter
 	serviceFactoryGetter    *stubServiceFactoryGetter
 	controllerConfigService *MockControllerConfigService
+	modelService            *MockModelService
 	tracerGetter            stubTracerGetter
 	objectStoreGetter       stubObjectStoreGetter
 
@@ -92,6 +94,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
 	s.dbDeleter = stubDBDeleter{}
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.modelService = NewMockModelService(ctrl)
 
 	s.getter = s.newGetter(nil)
 	s.manifold = apiserver.Manifold(apiserver.ManifoldConfig{
@@ -116,6 +119,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		Presence:                          presence.New(s.clock),
 		GetControllerConfigService: func(getter dependency.Getter, name string) (apiserver.ControllerConfigService, error) {
 			return s.controllerConfigService, nil
+		},
+		GetModelService: func(getter dependency.Getter, name string) (apiserver.ModelService, error) {
+			return s.modelService, nil
 		},
 		NewWorker:           s.newWorker,
 		NewMetricsCollector: s.newMetricsCollector,
@@ -243,6 +249,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		TracerGetter:               s.tracerGetter,
 		ObjectStoreGetter:          s.objectStoreGetter,
 		ControllerConfigService:    s.controllerConfigService,
+		ModelService:               s.modelService,
 	})
 }
 
@@ -408,7 +415,7 @@ type stubServiceFactoryGetter struct {
 	servicefactory.ServiceFactoryGetter
 }
 
-func (s *stubServiceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+func (s *stubServiceFactoryGetter) FactoryForModel(model.UUID) servicefactory.ServiceFactory {
 	return nil
 }
 

@@ -176,7 +176,7 @@ func (i *ModelImporter) ImportModel(ctx context.Context, bytes []byte) (*state.M
 
 	modelUUID := coremodel.UUID(model.Tag().Id())
 
-	serviceFactory := i.serviceFactoryGetter.FactoryForModel(modelUUID.String())
+	serviceFactory := i.serviceFactoryGetter.FactoryForModel(modelUUID)
 	configSchemaSource := i.configSchemaSourceProvider(serviceFactory.Cloud())
 	dbModel, dbState, err := i.legacyStateImporter.Import(model, ctrlConfig, configSchemaSource)
 	if err != nil {

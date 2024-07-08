@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/core/auditlog"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
@@ -463,7 +462,7 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 		// The best option might be to round up all of these special case
 		// "everyone@external" checks and push them into either the permission
 		// delegator or the service itself.
-		accessService := a.srv.shared.serviceFactoryGetter.FactoryForModel(database.ControllerNS).Access()
+		accessService := a.srv.shared.serviceFactoryGetter.FactoryForModel(a.srv.shared.controllerModelID).Access()
 		everyoneGroupUser, err := accessService.ReadUserAccessForTarget(
 			context.TODO(),
 			common.EveryoneTagName,

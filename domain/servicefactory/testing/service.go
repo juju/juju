@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"github.com/juju/juju/core/model"
 	accessservice "github.com/juju/juju/domain/access/service"
 	annotationservice "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -155,7 +156,7 @@ func (s *TestingServiceFactory) Macaroon() *macaroonservice.Service {
 
 // FactoryForModel returns a service factory for the given model uuid.
 // This will late bind the model service factory to the actual service factory.
-func (s *TestingServiceFactory) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+func (s *TestingServiceFactory) FactoryForModel(modelID model.UUID) servicefactory.ServiceFactory {
 	return s
 }
 

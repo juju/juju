@@ -76,13 +76,13 @@ func (s stubDBDeleter) DeleteDB(namespace string) error {
 // ControllerServiceFactory conveniently constructs a service factory for the
 // controller model.
 func (s *ServiceFactorySuite) ControllerServiceFactory(c *gc.C) servicefactory.ServiceFactory {
-	return s.ServiceFactoryGetter(c)(string(s.ControllerModelUUID))
+	return s.ServiceFactoryGetter(c)(s.ControllerModelUUID)
 }
 
 // DefaultModelServiceFactory conveniently constructs a service factory for the
 // default model.
 func (s *ServiceFactorySuite) DefaultModelServiceFactory(c *gc.C) servicefactory.ServiceFactory {
-	return s.ServiceFactoryGetter(c)(string(s.ControllerModelUUID))
+	return s.ServiceFactoryGetter(c)(s.ControllerModelUUID)
 }
 
 func (s *ServiceFactorySuite) SeedAdminUser(c *gc.C) {
@@ -191,11 +191,11 @@ func (s *ServiceFactorySuite) SeedModelDatabases(c *gc.C) {
 // ServiceFactoryGetter provides an implementation of the ServiceFactoryGetter
 // interface to use in tests.
 func (s *ServiceFactorySuite) ServiceFactoryGetter(c *gc.C) ServiceFactoryGetterFunc {
-	return func(modelUUID string) servicefactory.ServiceFactory {
+	return func(modelUUID coremodel.UUID) servicefactory.ServiceFactory {
 		return domainservicefactory.NewServiceFactory(
 			databasetesting.ConstFactory(s.TxnRunner()),
-			coremodel.UUID(modelUUID),
-			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID)),
+			modelUUID,
+			databasetesting.ConstFactory(s.ModelTxnRunner(c, modelUUID.String())),
 			stubDBDeleter{DB: s.DB()},
 			s.ProviderTracker,
 			loggertesting.WrapCheckLog(c),
@@ -220,9 +220,9 @@ func (s *ServiceFactorySuite) SetUpTest(c *gc.C) {
 
 // ServiceFactoryGetterFunc is a convenience type for translating a getter
 // function into the ServiceFactoryGetter interface.
-type ServiceFactoryGetterFunc func(string) servicefactory.ServiceFactory
+type ServiceFactoryGetterFunc func(coremodel.UUID) servicefactory.ServiceFactory
 
 // FactoryForModel implements the ServiceFactoryGetter interface.
-func (s ServiceFactoryGetterFunc) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+func (s ServiceFactoryGetterFunc) FactoryForModel(modelUUID coremodel.UUID) servicefactory.ServiceFactory {
 	return s(modelUUID)
 }

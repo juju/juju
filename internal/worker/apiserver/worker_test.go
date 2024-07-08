@@ -22,6 +22,8 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
+	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/internal/worker/apiserver"
 	"github.com/juju/juju/state"
@@ -47,8 +49,10 @@ type workerFixture struct {
 	tracerGetter            stubTracerGetter
 	objectStoreGetter       stubObjectStoreGetter
 	controllerConfigService *MockControllerConfigService
+	modelService            *MockModelService
 	serviceFactoryGetter    *MockServiceFactoryGetter
 	controllerUUID          string
+	controllerModelID       model.UUID
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -71,8 +75,10 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
+	s.modelService = NewMockModelService(ctrl)
 	s.serviceFactoryGetter = NewMockServiceFactoryGetter(ctrl)
 	s.controllerUUID = coretesting.ControllerTag.Id()
+	s.controllerModelID = modeltesting.GenModelUUID(c)
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{
@@ -93,6 +99,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		DBGetter:                          s.dbGetter,
 		DBDeleter:                         s.dbDeleter,
 		ControllerConfigService:           s.controllerConfigService,
+		ModelService:                      s.modelService,
 		ServiceFactoryGetter:              s.serviceFactoryGetter,
 		TracerGetter:                      s.tracerGetter,
 		ObjectStoreGetter:                 s.objectStoreGetter,

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8stesting "github.com/juju/juju/caas/kubernetes/provider/testing"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -61,7 +62,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	serviceFactoryGetter := s.ServiceFactoryGetter(c)
-	storageService := serviceFactoryGetter.FactoryForModel(s.st.ModelUUID()).Storage(registry)
+	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(s.st.ModelUUID())).Storage(registry)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),

@@ -15,6 +15,7 @@ import (
 	reflect "reflect"
 
 	controller "github.com/juju/juju/controller"
+	model "github.com/juju/juju/core/model"
 	objectstore "github.com/juju/juju/core/objectstore"
 	objectstore0 "github.com/juju/juju/internal/objectstore"
 	gomock "go.uber.org/mock/gomock"
@@ -295,7 +296,7 @@ func (m *MockMetadataServiceGetter) EXPECT() *MockMetadataServiceGetterMockRecor
 }
 
 // ForModelUUID mocks base method.
-func (m *MockMetadataServiceGetter) ForModelUUID(arg0 string) MetadataService {
+func (m *MockMetadataServiceGetter) ForModelUUID(arg0 model.UUID) MetadataService {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ForModelUUID", arg0)
 	ret0, _ := ret[0].(MetadataService)
@@ -321,13 +322,13 @@ func (c *MockMetadataServiceGetterForModelUUIDCall) Return(arg0 MetadataService)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMetadataServiceGetterForModelUUIDCall) Do(f func(string) MetadataService) *MockMetadataServiceGetterForModelUUIDCall {
+func (c *MockMetadataServiceGetterForModelUUIDCall) Do(f func(model.UUID) MetadataService) *MockMetadataServiceGetterForModelUUIDCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMetadataServiceGetterForModelUUIDCall) DoAndReturn(f func(string) MetadataService) *MockMetadataServiceGetterForModelUUIDCall {
+func (c *MockMetadataServiceGetterForModelUUIDCall) DoAndReturn(f func(model.UUID) MetadataService) *MockMetadataServiceGetterForModelUUIDCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

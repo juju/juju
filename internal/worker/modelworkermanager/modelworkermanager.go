@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/database"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/pki"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/state"
@@ -283,7 +284,7 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 
 		// Get the provider service factory for the model.
 		cfg.ProviderServiceFactoryGetter = m.config.ProviderServiceFactoryGetter
-		cfg.ServiceFactory = m.config.ServiceFactoryGetter.FactoryForModel(modelUUID)
+		cfg.ServiceFactory = m.config.ServiceFactoryGetter.FactoryForModel(model.UUID(modelUUID))
 
 		// Get the controller config for the model worker so that we correctly
 		// handle the case where the controller config changes between model

@@ -4,6 +4,7 @@
 package servicefactory
 
 import (
+	"github.com/juju/juju/core/model"
 	accessservice "github.com/juju/juju/domain/access/service"
 	annotationService "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
@@ -110,7 +111,7 @@ type ServiceFactory interface {
 // model.
 type ServiceFactoryGetter interface {
 	// FactoryForModel returns a ServiceFactory for the given model.
-	FactoryForModel(modelUUID string) ServiceFactory
+	FactoryForModel(modelID model.UUID) ServiceFactory
 }
 
 // ProviderServiceFactory provides access to the services required by the

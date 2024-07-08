@@ -11,7 +11,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc/params"
 )
@@ -45,7 +44,7 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 	// or "read" access on the controller model, can
 	// access these endpoints.
 
-	accessService := h.ctx.srv.shared.serviceFactoryGetter.FactoryForModel(database.ControllerNS).Access()
+	accessService := h.ctx.srv.shared.serviceFactoryGetter.FactoryForModel(h.ctx.srv.shared.controllerModelID).Access()
 
 	userPermission := func(subject names.UserTag, target names.Tag) (permission.Access, error) {
 		var pID permission.ID

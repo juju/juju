@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -1304,7 +1305,7 @@ func (s *withoutControllerSuite) TestSetInstanceInfo(c *gc.C) {
 	serviceFactoryGetter := s.ServiceFactoryGetter(c)
 
 	st := s.ControllerModel(c).State()
-	storageService := serviceFactoryGetter.FactoryForModel(st.ModelUUID()).Storage(registry)
+	storageService := serviceFactoryGetter.FactoryForModel(model.UUID(st.ModelUUID())).Storage(registry)
 	err := storageService.CreateStoragePool(context.Background(), "static-pool", "static", map[string]any{"foo": "bar"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.ControllerModel(c).UpdateModelConfig(s.ConfigSchemaSourceGetter(c), map[string]any{

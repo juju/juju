@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/constraints"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -39,7 +40,7 @@ type deployChecker interface {
 	environs.ConstraintsChecker
 }
 
-type storageServiceGetter func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolGetter
+type storageServiceGetter func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter
 
 // GetNewPolicyFunc returns a state.NewPolicyFunc that will return
 // a state.Policy implemented in terms of either environs.Environ
@@ -142,7 +143,7 @@ func (p *environStatePolicy) StorageServices() (state.StoragePoolGetter, storage
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	storageService := p.storageServiceGetter(model.UUID(), registry)
+	storageService := p.storageServiceGetter(coremodel.UUID(model.UUID()), registry)
 	return storageService, registry, nil
 }
 

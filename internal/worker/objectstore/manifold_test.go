@@ -11,9 +11,10 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	dependencytesting "github.com/juju/worker/v4/dependency/testing"
 	"github.com/juju/worker/v4/workertest"
-	gomock "go.uber.org/mock/gomock"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/trace"
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
@@ -137,7 +138,7 @@ type stubServiceFactoryGetter struct {
 	servicefactory.ServiceFactoryGetter
 }
 
-func (s *stubServiceFactoryGetter) FactoryForModel(modelUUID string) servicefactory.ServiceFactory {
+func (s *stubServiceFactoryGetter) FactoryForModel(model.UUID) servicefactory.ServiceFactory {
 	return &stubServiceFactory{}
 }
 

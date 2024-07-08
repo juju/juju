@@ -57,6 +57,7 @@ type Config struct {
 	TracerGetter            trace.TracerGetter
 	ObjectStoreGetter       objectstore.ObjectStoreGetter
 	ControllerConfigService ControllerConfigService
+	ModelService            ModelService
 }
 
 type HTTPClient interface {
@@ -126,6 +127,12 @@ func (config Config) Validate() error {
 	if config.ObjectStoreGetter == nil {
 		return errors.NotValidf("nil ObjectStoreGetter")
 	}
+	if config.ControllerConfigService == nil {
+		return errors.NotValidf("nil ControllerConfigService")
+	}
+	if config.ModelService == nil {
+		return errors.NotValidf("nil ModelService")
+	}
 	return nil
 }
 
@@ -143,6 +150,11 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	controllerConfig, err := config.ControllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting controller config")
+	}
+
+	controllerModel, err := config.ModelService.ControllerModel(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting controller model information")
 	}
 
 	observerFactory, err := newObserverFn(
@@ -170,6 +182,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		Presence:                      config.Presence,
 		Mux:                           config.Mux,
 		ControllerUUID:                controllerConfig.ControllerUUID(),
+		ControllerModelID:             controllerModel.UUID,
 		LocalMacaroonAuthenticator:    config.LocalMacaroonAuthenticator,
 		JWTAuthenticator:              jwtAuthenticator,
 		UpgradeComplete:               config.UpgradeComplete,

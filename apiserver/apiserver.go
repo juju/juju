@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/resources"
@@ -164,6 +165,9 @@ type ServerConfig struct {
 	// ControllerUUID is the controller unique identifier.
 	ControllerUUID string
 
+	// ControllerModelID is the ID for the controller model.
+	ControllerModelID model.UUID
+
 	// LocalMacaroonAuthenticator is the request authenticator used for verifying
 	// local user macaroons.
 	LocalMacaroonAuthenticator macaroon.LocalMacaroonAuthenticator
@@ -266,6 +270,9 @@ func (c ServerConfig) Validate() error {
 	if c.ControllerUUID == "" {
 		return errors.NotValidf("missing ControllerUUID")
 	}
+	if c.ControllerModelID == "" {
+		return errors.NotValidf("missing ControllerModelID")
+	}
 	if c.LocalMacaroonAuthenticator == nil {
 		return errors.NotValidf("missing local macaroon authenticator")
 	}
@@ -337,7 +344,7 @@ func NewServer(ctx context.Context, cfg ServerConfig) (*Server, error) {
 const readyTimeout = time.Second * 30
 
 func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
-	controllerServiceFactory := cfg.ServiceFactoryGetter.FactoryForModel(database.ControllerNS)
+	controllerServiceFactory := cfg.ServiceFactoryGetter.FactoryForModel(cfg.ControllerModelID)
 	controllerConfigService := controllerServiceFactory.ControllerConfig()
 	controllerConfig, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
@@ -358,6 +365,7 @@ func newServer(ctx context.Context, cfg ServerConfig) (_ *Server, err error) {
 		presence:             cfg.Presence,
 		leaseManager:         cfg.LeaseManager,
 		controllerUUID:       cfg.ControllerUUID,
+		controllerModelID:    cfg.ControllerModelID,
 		controllerConfig:     controllerConfig,
 		logger:               internallogger.GetLogger("juju.apiserver"),
 		charmhubHTTPClient:   cfg.CharmhubHTTPClient,
@@ -1107,7 +1115,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 		if err := srv.serveConn(
 			srv.tomb.Context(req.Context()),
 			conn,
-			modelUUID,
+			model.UUID(modelUUID),
 			connectionID,
 			apiObserver,
 			req.Host,
@@ -1120,7 +1128,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 func (srv *Server) serveConn(
 	ctx context.Context,
 	wsConn *websocket.Conn,
-	modelUUID string,
+	modelID model.UUID,
 	connectionID uint64,
 	apiObserver observer.Observer,
 	host string,
@@ -1129,33 +1137,27 @@ func (srv *Server) serveConn(
 	recorderFactory := observer.NewRecorderFactory(apiObserver, nil, observer.NoCaptureArgs)
 	conn := rpc.NewConn(codec, recorderFactory)
 
-	modelService := srv.shared.serviceFactoryGetter.FactoryForModel(database.ControllerNS).Model()
-
 	// Note that we don't overwrite modelUUID here because
 	// newAPIHandler treats an empty modelUUID as signifying
 	// the API version used.
-	resolvedModelUUID := modelUUID
-	if modelUUID == "" {
-		info, err := modelService.ControllerModel(ctx)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		resolvedModelUUID = info.UUID.String()
+	resolvedModelID := modelID
+	if resolvedModelID == "" {
+		resolvedModelID = srv.shared.controllerModelID
 	}
 
 	tracer, err := srv.shared.tracerGetter.GetTracer(
 		ctx,
-		coretrace.Namespace("apiserver", resolvedModelUUID),
+		coretrace.Namespace("apiserver", resolvedModelID.String()),
 	)
 	if err != nil {
-		logger.Infof("failed to get tracer for model %q: %v", modelUUID, err)
+		logger.Infof("failed to get tracer for model %q: %v", resolvedModelID, err)
 		tracer = coretrace.NoopTracer{}
 	}
 
 	// Grab the object store for the model.
-	objectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, resolvedModelUUID)
+	objectStore, err := srv.shared.objectStoreGetter.GetObjectStore(ctx, resolvedModelID.String())
 	if err != nil {
-		return errors.Annotatef(err, "getting object store for model %q", resolvedModelUUID)
+		return errors.Annotatef(err, "getting object store for model %q", resolvedModelID)
 	}
 
 	// Grab the object store for the controller, this is primarily used for
@@ -1165,10 +1167,10 @@ func (srv *Server) serveConn(
 		return errors.Annotatef(err, "getting controller object store")
 	}
 
-	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(resolvedModelUUID)
+	serviceFactory := srv.shared.serviceFactoryGetter.FactoryForModel(resolvedModelID)
 
 	var handler *apiHandler
-	st, err := srv.shared.statePool.Get(resolvedModelUUID)
+	st, err := srv.shared.statePool.Get(resolvedModelID.String())
 	if err == nil {
 		defer st.Release()
 		handler, err = newAPIHandler(
@@ -1182,13 +1184,13 @@ func (srv *Server) serveConn(
 			objectStore,
 			srv.shared.objectStoreGetter,
 			controllerObjectStore,
-			modelUUID,
+			modelID,
 			connectionID,
 			host,
 		)
 	}
 	if errors.Is(err, errors.NotFound) {
-		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelUUID)
+		err = fmt.Errorf("%w: %q", apiservererrors.UnknownModelError, resolvedModelID)
 	}
 
 	if err != nil {

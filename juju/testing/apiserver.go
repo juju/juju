@@ -281,7 +281,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		CloudName:     DefaultCloud.Name,
 		MongoSession:  session,
 		AdminPassword: AdminSecret,
-		NewPolicy: stateenvirons.GetNewPolicyFunc(serviceFactory.Cloud(), serviceFactory.Credential(), func(modelUUID string, registry storage.ProviderRegistry) state.StoragePoolGetter {
+		NewPolicy: stateenvirons.GetNewPolicyFunc(serviceFactory.Cloud(), serviceFactory.Credential(), func(modelUUID coremodel.UUID, registry storage.ProviderRegistry) state.StoragePoolGetter {
 			return s.ServiceFactoryGetter(c).FactoryForModel(modelUUID).Storage(registry)
 		}),
 	}, environs.ProviderConfigSchemaSource(serviceFactory.Cloud()))
@@ -541,7 +541,7 @@ func (s *ApiServerSuite) NewFactory(c *gc.C, modelUUID string) (*factory.Factory
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	modelServiceFactory := s.ServiceFactoryGetter(c).FactoryForModel(modelUUID)
+	modelServiceFactory := s.ServiceFactoryGetter(c).FactoryForModel(coremodel.UUID(modelUUID))
 	var registry storage.ProviderRegistry
 	if model.Type() == state.ModelTypeIAAS {
 		registry = storage.ChainedProviderRegistry{
@@ -674,6 +674,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		LocalMacaroonAuthenticator: &mockAuthenticator{},
 		GetAuditConfig:             func() auditlog.Config { return auditlog.Config{} },
 		ControllerUUID:             coretesting.ControllerTag.Id(),
+		ControllerModelID:          coremodel.UUID(coretesting.ModelTag.Id()),
 	}
 }
 
@@ -707,7 +708,7 @@ type stubObjectStoreGetter struct {
 }
 
 func (s *stubObjectStoreGetter) GetObjectStore(ctx context.Context, namespace string) (objectstore.ObjectStore, error) {
-	serviceFactory := s.serviceFactoryGetter.FactoryForModel(namespace)
+	serviceFactory := s.serviceFactoryGetter.FactoryForModel(coremodel.UUID(namespace))
 
 	return internalobjectstore.ObjectStoreFactory(ctx,
 		internalobjectstore.DefaultBackendType(),
