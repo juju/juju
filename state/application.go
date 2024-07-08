@@ -3091,7 +3091,7 @@ func (a *Application) Relations() (relations []*Relation, err error) {
 }
 
 // matchingRelations returns all relations matching the application(s)/endpoint(s) provided
-// There must be 1 or 2 supplied names, of the form <application>[:<relation>]
+// There must be 1 or 2 supplied names, of the form <application>[:<endpoint>]
 func matchingRelations(st *State, names ...string) (relations []*Relation, err error) {
 	defer errors.DeferredAnnotatef(&err, "can't get relations matching %q", strings.Join(names, " "))
 	relationsCollection, closer := st.db().GetCollection(relationsC)

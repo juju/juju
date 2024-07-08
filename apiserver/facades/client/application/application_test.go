@@ -303,7 +303,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithLXDProfile(c *gc.C)
 	c.Assert(expected.Config(), gc.DeepEquals, ch.Config())
 
 	expectedProfile := ch.(charm.LXDProfiler).LXDProfile()
-	c.Assert(expected.LXDProfile(), gc.DeepEquals, &state.LXDProfile{
+	c.Assert(expected.LXDProfile(), gc.DeepEquals, &charm.LXDProfile{
 		Description: expectedProfile.Description,
 		Config:      expectedProfile.Config,
 		Devices:     expectedProfile.Devices,
@@ -357,7 +357,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	c.Assert(expected.Config(), gc.DeepEquals, ch.Config())
 
 	expectedProfile := ch.(charm.LXDProfiler).LXDProfile()
-	c.Assert(expected.LXDProfile(), gc.DeepEquals, &state.LXDProfile{
+	c.Assert(expected.LXDProfile(), gc.DeepEquals, &charm.LXDProfile{
 		Description: expectedProfile.Description,
 		Config:      expectedProfile.Config,
 		Devices:     expectedProfile.Devices,

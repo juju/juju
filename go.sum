@@ -474,8 +474,8 @@ github.com/juju/clock v0.0.0-20190205081909-9c5c9712527c/go.mod h1:nD0vlnrUjcjJh
 github.com/juju/clock v0.0.0-20220202072423-1b0f830854c4/go.mod h1:zDZCPSgCJQINeZtQwHx2/cFk4seaBC8Yiqe8V82xiP0=
 github.com/juju/clock v0.0.0-20220203021603-d9deb868a28a/go.mod h1:GZ/FY8Cqw3KHG6DwRVPUKbSPTAwyrU28xFi5cqZnLsc=
 github.com/juju/clock v1.0.0/go.mod h1:GZ/FY8Cqw3KHG6DwRVPUKbSPTAwyrU28xFi5cqZnLsc=
-github.com/juju/clock v1.0.3 h1:yJHIsWXeU8j3QcBdiess09SzfiXRRrsjKPn2whnMeds=
-github.com/juju/clock v1.0.3/go.mod h1:HIBvJ8kiV/n7UHwKuCkdYL4l/MDECztHR2sAvWDxxf0=
+github.com/juju/clock v1.1.1 h1:NvgHG9DQmOpBevgt6gzkyimdWBooLXDy1cQn89qJzBI=
+github.com/juju/clock v1.1.1/go.mod h1:HIBvJ8kiV/n7UHwKuCkdYL4l/MDECztHR2sAvWDxxf0=
 github.com/juju/cmd v0.0.0-20171107070456-e74f39857ca0/go.mod h1:yWJQHl73rdSX4DHVKGqkAip+huBslxRwS8m9CrOLq18=
 github.com/juju/cmd/v3 v3.0.0-20220202061353-b1cc80b193b0/go.mod h1:EoGJiEG+vbMwO9l+Es0SDTlaQPjH6nLcnnc4NfZB3cY=
 github.com/juju/cmd/v3 v3.0.14 h1:KuuamArSH7vQ6SdQKEHYK2scEMkJTEZKLs8abrlW3XE=
