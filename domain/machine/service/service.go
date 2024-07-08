@@ -53,6 +53,15 @@ type State interface {
 	// DeleteMachineCloudInstance removes an entry in the machine cloud instance table
 	// along with the instance tags and the link to a lxd profile if any.
 	DeleteMachineCloudInstance(context.Context, string) error
+
+	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
+	RequireMachineReboot(ctx context.Context, uuid string) error
+
+	// CancelMachineReboot cancels the reboot of the machine referenced by its UUID if it has previously been required.
+	CancelMachineReboot(ctx context.Context, uuid string) error
+
+	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
+	IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error)
 }
 
 // Service provides the API for working with machines.
@@ -126,4 +135,20 @@ func (s *Service) InstanceStatus(ctx context.Context, machineName machine.Name) 
 		return "", errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineName)
 	}
 	return instanceStatus, nil
+}
+
+// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
+func (s *Service) RequireMachineReboot(ctx context.Context, uuid string) error {
+	return errors.Annotatef(s.st.RequireMachineReboot(ctx, uuid), "requiring a machine reboot for machine with uuid %q", uuid)
+}
+
+// CancelMachineReboot cancels the reboot of the machine referenced by its UUID if it has previously been required.
+func (s *Service) CancelMachineReboot(ctx context.Context, uuid string) error {
+	return errors.Annotatef(s.st.CancelMachineReboot(ctx, uuid), "cancelling a machine reboot for machine with uuid %q", uuid)
+}
+
+// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
+func (s *Service) IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error) {
+	rebootRequired, err := s.st.IsMachineRebootRequired(ctx, uuid)
+	return rebootRequired, errors.Annotatef(err, "checking if machine with uuid %q is requiring a reboot", uuid)
 }
