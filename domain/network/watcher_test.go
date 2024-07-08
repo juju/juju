@@ -41,6 +41,9 @@ func (s *watcherSuite) TestWatchWithAdd(c *gc.C) {
 	watcher, err := svc.WatchSubnets(context.Background(), set.NewStrings())
 	c.Assert(err, jc.ErrorIsNil)
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
+	// Initial event.
+	watcherC.AssertOneChange()
+	s.AssertChangeStreamIdle(c)
 
 	// Add a new subnet.
 	subnet := network.SubnetInfo{
@@ -69,6 +72,9 @@ func (s *watcherSuite) TestWatchWithDelete(c *gc.C) {
 	watcher, err := svc.WatchSubnets(context.Background(), set.NewStrings())
 	c.Assert(err, jc.ErrorIsNil)
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
+	// Initial event.
+	watcherC.AssertOneChange()
+	s.AssertChangeStreamIdle(c)
 
 	// Add a new subnet.
 	subnet := network.SubnetInfo{

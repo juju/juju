@@ -4,8 +4,12 @@
 package testing
 
 import (
+	"context"
+	"database/sql"
 	"time"
 
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/changestream"
@@ -27,6 +31,11 @@ func (s *ModelSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	s.watchableDB = NewTestWatchableDB(c, s.ModelUUID(), s.TxnRunner())
+
+	// Prime the change stream, so that there is at least some
+	// value in the stream, otherwise the changestream won't have any
+	// bounds (terms) to work on.
+	s.PrimeChangeStream(c)
 }
 
 func (s *ModelSuite) TearDownTest(c *gc.C) {
@@ -60,4 +69,28 @@ func (s *ModelSuite) AssertChangeStreamIdle(c *gc.C) {
 			c.Fatalf("timed out waiting for idle state")
 		}
 	}
+}
+
+// PrimeChangeStream the change stream with some initial data. This ensures
+// that the change stream has some initial data otherwise the upper bound
+// won't be set correctly. The model database has no triggers for the initial
+// model, if this changes, we could remove the need for this.
+// This is only for tests as we depend on the change stream to have at least
+// some data, other wise we can't detect if the change stream is idle.
+func (s *ModelSuite) PrimeChangeStream(c *gc.C) {
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO change_log_namespace (id, namespace, description) VALUES (666, 'test', 'all your bases are belong to us')
+`); err != nil {
+			return errors.Trace(err)
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+INSERT INTO change_log (edit_type_id, namespace_id, changed) VALUES (1, 666, 'foo')
+`); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
 }

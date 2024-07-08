@@ -69,5 +69,9 @@ func (s *watcherSuite) machineServiceAndWatcher(c *gc.C) (*service.WatchableServ
 	watcher, err := machineService.WatchMachines(context.Background())
 	c.Assert(err, gc.IsNil)
 	watcherC := watchertest.NewStringsWatcherC(c, watcher)
+	// Initial event.
+	watcherC.AssertOneChange()
+	s.AssertChangeStreamIdle(c)
+
 	return machineService, watcherC
 }
