@@ -203,27 +203,25 @@ func (st *State) IsController(ctx context.Context, mName machine.Name) (bool, er
 	}
 
 	machineNameParam := machineName{Name: mName}
-	query := `SELECT is_controller AS &machineIsController.is_controller FROM machine WHERE name = $machineName.name`
-	queryStmt, err := st.Prepare(query, machineNameParam, machineIsController{})
+	result := machineIsController{}
+	query := `SELECT &machineIsController.is_controller FROM machine WHERE name = $machineName.name`
+	queryStmt, err := st.Prepare(query, machineNameParam, result)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
 
-	var isController bool
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result := machineIsController{}
 		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
 		if err != nil {
 			return errors.Annotatef(err, "querying if machine %q is a controller", mName)
 		}
-		isController = result.IsController
 		return nil
 	})
 	if err != nil && errors.Is(err, sqlair.ErrNoRows) {
 		return false, errors.NotFoundf("machine %q", mName)
 	}
 
-	return isController, errors.Annotatef(err, "checking if machine %q is a controller", mName)
+	return result.IsController, errors.Annotatef(err, "checking if machine %q is a controller", mName)
 }
 
 // AllMachineNames retrieves the names of all machines in the model.
