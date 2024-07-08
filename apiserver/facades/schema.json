@@ -21362,10 +21362,7 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false,
-                    "required": [
-                        "checksum"
-                    ]
+                    "additionalProperties": false
                 },
                 "SecretContentResult": {
                     "type": "object",
@@ -40476,10 +40473,7 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false,
-                    "required": [
-                        "checksum"
-                    ]
+                    "additionalProperties": false
                 },
                 "SecretRevision": {
                     "type": "object",
@@ -40956,10 +40950,7 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false,
-                    "required": [
-                        "checksum"
-                    ]
+                    "additionalProperties": false
                 },
                 "SecretRevision": {
                     "type": "object",
@@ -41757,10 +41748,7 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false,
-                    "required": [
-                        "checksum"
-                    ]
+                    "additionalProperties": false
                 },
                 "SecretContentResult": {
                     "type": "object",
@@ -50266,10 +50254,7 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false,
-                    "required": [
-                        "checksum"
-                    ]
+                    "additionalProperties": false
                 },
                 "SecretContentResult": {
                     "type": "object",
@@ -53034,10 +53019,7 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false,
-                    "required": [
-                        "checksum"
-                    ]
+                    "additionalProperties": false
                 },
                 "SecretContentResult": {
                     "type": "object",

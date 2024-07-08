@@ -980,8 +980,8 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets
 
 // UpdateSecret creates a secret with the specified data.
 func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpdateArgs) error {
-	md, ok := ctx.secretMetadata[uri.ID]
-	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+	md, knowSecret := ctx.secretMetadata[uri.ID]
+	if knowSecret && md.Owner.Kind() == names.ApplicationTagKind {
 		isLeader, err := ctx.IsLeader()
 		if err != nil {
 			return errors.Annotatef(err, "cannot determine leadership")
@@ -1005,14 +1005,13 @@ func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpd
 		if err != nil {
 			return errors.Annotate(err, "calculating secret checksum")
 		}
-		if !ok || md.LatestChecksum != checksum {
+		if !knowSecret || md.LatestChecksum != checksum {
 			updateArg.Value = args.Value
 			updateArg.Checksum = checksum
 		}
 	}
 	if args.RotatePolicy == nil && args.Description == nil && args.ExpireTime == nil &&
 		args.Label == nil && updateArg.Value == nil {
-		ctx.logger.Criticalf("NO UPDATE")
 		return nil
 	}
 
