@@ -136,20 +136,20 @@ run_deploy_exported_charmhub_bundle_with_fixed_revisions() {
 	echo "Make a copy of reference yaml"
 	cp ${bundle} "${TEST_DIR}/telegraf_bundle.yaml"
 	if [[ -n ${MODEL_ARCH} ]]; then
-		yq -i "
+		yq -yi "
 			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"1\".constraints = \"arch=${MODEL_ARCH}\"
 		" "${TEST_DIR}/telegraf_bundle.yaml"
 	else
-		yq -i . "${TEST_DIR}/telegraf_bundle.yaml"
+		yq -yi . "${TEST_DIR}/telegraf_bundle.yaml"
 	fi
 	# no need to wait for the bundle to finish deploying to
 	# check the export.
 	echo "Compare export-bundle with telegraf_bundle"
 	juju export-bundle --filename "${TEST_DIR}/exported_bundle.yaml"
 	# Sort keys in both yaml files to get a fair comparison.
-	yq -i 'sort_keys(..)' "${TEST_DIR}/telegraf_bundle.yaml"
-	yq -i 'sort_keys(..)' "${TEST_DIR}/exported_bundle.yaml"
+	yq -yi --sort-keys '..' "${TEST_DIR}/telegraf_bundle.yaml"
+	yq -yi --sort-keys '..' "${TEST_DIR}/exported_bundle.yaml"
 	diff -u "${TEST_DIR}/telegraf_bundle.yaml" "${TEST_DIR}/exported_bundle.yaml"
 
 	destroy_model "test-export-bundles-deploy-with-fixed-revisions"
@@ -168,11 +168,11 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	cp ${bundle} "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
 	cp ${bundle_with_fake_revisions} "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
 	if [[ -n ${MODEL_ARCH} ]]; then
-		yq -i "
+		yq -yi "
       .applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
       .applications.juju-qa-test.constraints = \"arch=${MODEL_ARCH}\"
     " "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
-		yq -i "
+		yq -yi "
       .applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
       .applications.juju-qa-test.constraints = \"arch=${MODEL_ARCH}\"
     " "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
@@ -181,10 +181,10 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	# Add correct PGP key for influxdb - workaround from
 	# https://bugs.launchpad.net/influxdb-charm/+bug/2004303
 	INFLUXDB_PGP=$(curl -s https://repos.influxdata.com/influxdata-archive_compat.key)
-	yq -i "
+	yq -yi "
 		.applications.influxdb.options.install_keys = \"${INFLUXDB_PGP}\"
 	" "${TEST_DIR}/telegraf_bundle_without_revisions.yaml"
-	yq -i "
+	yq -yi "
 		.applications.influxdb.options.install_keys = \"${INFLUXDB_PGP}\"
 	" "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml"
 
@@ -203,14 +203,14 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 
 	echo "Make a copy of reference yaml and insert revisions in it"
 	cp "${TEST_DIR}/telegraf_bundle_with_fake_revisions.yaml" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
-	yq -i "
+	yq -yi "
 		.applications.influxdb.revision = ${influxdb_rev} |
 		.applications.telegraf.revision = ${telegraf_rev} |
 		.applications.juju-qa-test.revision = ${juju_qa_test_rev}
 	" "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
 
 	if [[ -n ${MODEL_ARCH} ]]; then
-		yq -i "
+		yq -yi "
 			.applications.influxdb.constraints = \"arch=${MODEL_ARCH}\" |
 			.applications.juju-qa-test.constraints = \"arch=${MODEL_ARCH}\" |
 			.machines.\"0\".constraints = \"arch=${MODEL_ARCH}\" |
@@ -223,8 +223,8 @@ run_deploy_exported_charmhub_bundle_with_float_revisions() {
 	echo "Compare export-bundle with telegraf_bundle_with_revisions"
 	juju export-bundle --filename "${TEST_DIR}/exported_bundle.yaml"
 	# Sort keys in both yaml files to get a fair comparison.
-	yq -i 'sort_keys(..)' "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
-	yq -i 'sort_keys(..)' "${TEST_DIR}/exported_bundle.yaml"
+	yq -yi --sort-keys '..' "${TEST_DIR}/telegraf_bundle_with_revisions.yaml"
+	yq -yi --sort-keys '..' "${TEST_DIR}/exported_bundle.yaml"
 	diff -u "${TEST_DIR}/telegraf_bundle_with_revisions.yaml" "${TEST_DIR}/exported_bundle.yaml"
 
 	destroy_model "test-export-bundles-deploy-with-float-revisions"
