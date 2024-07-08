@@ -52,6 +52,11 @@ jobs:
         go-version-file: 'go.mod'
         cache: true
 
+    - name: Cache build environment
+      uses: actions/cache@v4
+      with:
+        path: '/var/snap/lxd/common/lxd/containers/snapcraft-juju'
+
     - name: Build snap
       shell: bash
       run: |
