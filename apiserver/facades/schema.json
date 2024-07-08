@@ -22775,7 +22775,7 @@
     {
         "Name": "Machiner",
         "Description": "MachinerAPI implements the API used by the machiner worker.",
-        "Version": 5,
+        "Version": 6,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",

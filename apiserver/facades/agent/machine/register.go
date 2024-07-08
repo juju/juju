@@ -14,8 +14,16 @@ import (
 
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
+	// Register the Machiner facade at version 6, which relies on the dqlite
+	// backend. SetMachineAddresses is removed (to be handled by the network
+	// api).
+	registry.MustRegister("Machiner", 6, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		return newMachinerAPI(stdCtx, ctx)
+	}, reflect.TypeOf((*MachinerAPI)(nil)))
+	// Register the Machiner facade at version 5, which, on Juju 4.0, stubs out
+	// the Jobs() and SetMachineAddresses() methods.
 	registry.MustRegister("Machiner", 5, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newMachinerAPI(stdCtx, ctx) // Adds RecordAgentHostAndStartTime.
+		return newMachinerAPIV5(stdCtx, ctx) // Adds RecordAgentHostAndStartTime.
 	}, reflect.TypeOf((*MachinerAPI)(nil)))
 }
 
@@ -37,4 +45,15 @@ func newMachinerAPI(stdCtx context.Context, ctx facade.ModelContext) (*MachinerA
 		ctx.Resources(),
 		ctx.Auth(),
 	)
+}
+
+// newMachinerAPIV5 creates a new instance of the Machiner API at version 5.
+func newMachinerAPIV5(stdCtx context.Context, ctx facade.ModelContext) (*MachinerAPIv5, error) {
+	api, err := newMachinerAPI(stdCtx, ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &MachinerAPIv5{
+		MachinerAPI: api,
+	}, nil
 }

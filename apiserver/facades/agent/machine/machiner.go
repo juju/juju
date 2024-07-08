@@ -64,6 +64,11 @@ type MachinerAPI struct {
 	getCanRead              common.GetAuthFunc
 }
 
+// MachinerAPI5 stubs out the Jobs() and SetMachineAddresses() methods.
+type MachinerAPIv5 struct {
+	*MachinerAPI
+}
+
 // NewMachinerAPIForState creates a new instance of the Machiner API.
 func NewMachinerAPIForState(
 	ctx context.Context,
@@ -153,6 +158,16 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 		}
 	}
 	return results, nil
+}
+
+// SetMachineAddresses is not supported in MachinerAPI at version 5.
+func (api *MachinerAPIv5) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
+	return params.ErrorResults{}, errors.NotSupported
+}
+
+// Jobs is not supported in MachinerAPI at version 5.
+func (api *MachinerAPIv5) Jobs(ctx context.Context, args params.Entities) (params.JobsResults, error) {
+	return params.JobsResults{}, errors.NotSupported
 }
 
 // Jobs returns the jobs assigned to the given entities.
