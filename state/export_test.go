@@ -966,10 +966,6 @@ func (st *State) ModelQueryForUser(user names.UserTag, isSuperuser bool) (mongo.
 	return st.modelQueryForUser(user, isSuperuser)
 }
 
-func UnitsHaveChanged(m *Machine, unitNames []string) (bool, error) {
-	return m.unitsHaveChanged(unitNames)
-}
-
 func GetCloudContainerStatusHistory(st *State, name string, filter status.StatusHistoryFilter) ([]status.StatusInfo, error) {
 	args := &statusHistoryArgs{
 		db:        st.db(),

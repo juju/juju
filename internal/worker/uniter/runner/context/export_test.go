@@ -197,10 +197,6 @@ func SetEnvironmentHookContextNotice(context *HookContext, workloadName, noticeI
 	context.noticeKey = noticeKey
 }
 
-func SetEnvironmentHookContextTargetBase(context *HookContext, baseStr string) {
-	context.baseUpgradeTarget = baseStr
-}
-
 // SetRelationBroken sets the relation as broken.
 func SetRelationBroken(context jujuc.Context, relId int) {
 	context.(*HookContext).relations[relId].broken = true

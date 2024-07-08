@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -45,12 +44,6 @@ type rebootResolver struct {
 func (r *rebootResolver) NextOp(ctx context.Context, localState resolver.LocalState, remoteState remotestate.Snapshot, opfactory operation.Factory) (operation.Operation, error) {
 	// Have we already notified that a reboot occurred?
 	if !r.rebootDetected {
-		return nil, resolver.ErrNoOperation
-	}
-
-	// If we performing a series upgrade, suppress start hooks until the
-	// upgrade is complete.
-	if remoteState.UpgradeMachineStatus != model.UpgradeSeriesNotStarted {
 		return nil, resolver.ErrNoOperation
 	}
 

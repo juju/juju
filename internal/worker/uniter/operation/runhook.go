@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
@@ -226,10 +225,6 @@ func (rh *runHook) beforeHook(ctx stdcontext.Context, state State) error {
 			Status: string(status.Maintenance),
 			Info:   "cleaning up prior to charm deletion",
 		})
-	case hooks.PreSeriesUpgrade:
-		err = rh.callbacks.SetUpgradeSeriesStatus(ctx, model.UpgradeSeriesPrepareRunning, "pre-series-upgrade hook running")
-	case hooks.PostSeriesUpgrade:
-		err = rh.callbacks.SetUpgradeSeriesStatus(ctx, model.UpgradeSeriesCompleteRunning, "post-series-upgrade hook running")
 	}
 
 	if err != nil {
@@ -285,13 +280,6 @@ func (rh *runHook) afterHook(stdCtx stdcontext.Context, state State) (_ bool, er
 	return hasRunStatusSet && err == nil, err
 }
 
-func createUpgradeSeriesStatusMessage(name string, hookFound bool) string {
-	if !hookFound {
-		return fmt.Sprintf("%s hook not found, skipping", name)
-	}
-	return fmt.Sprintf("%s completed", name)
-}
-
 // Commit updates relation state to include the fact of the hook's execution,
 // records the impact of start and collect-metrics hooks, and queues follow-up
 // config-changed hooks to directly follow install and upgrade-charm hooks.
@@ -323,12 +311,6 @@ func (rh *runHook) Commit(ctx stdcontext.Context, state State) (*State, error) {
 			Step: Queued,
 			Hook: &hook.Info{Kind: hooks.ConfigChanged},
 		}
-	case hooks.PreSeriesUpgrade:
-		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
-		err = rh.callbacks.SetUpgradeSeriesStatus(ctx, model.UpgradeSeriesPrepareCompleted, message)
-	case hooks.PostSeriesUpgrade:
-		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
-		err = rh.callbacks.SetUpgradeSeriesStatus(ctx, model.UpgradeSeriesCompleted, message)
 	case hooks.SecretRotate:
 		var info map[string]jujuc.SecretMetadata
 		info, err = rh.runner.Context().SecretMetadata()

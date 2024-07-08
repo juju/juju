@@ -54,11 +54,6 @@ type Info struct {
 	// NoticeKey is the Pebble notice key associated with the hook.
 	NoticeKey string `yaml:"notice-key,omitempty"`
 
-	// MachineUpgradeTarget is the base that the unit's machine is to be
-	// updated to when Juju is issued the `upgrade-machine` command.
-	// It is only set for the pre-series-upgrade hook.
-	MachineUpgradeTarget string `yaml:"series-upgrade-target,omitempty"`
-
 	// SecretURI is the secret URI relevant to the hook.
 	SecretURI string `yaml:"secret-uri,omitempty"`
 
@@ -107,14 +102,8 @@ func (hi Info) Validate() error {
 			return errors.Errorf("%q hook requires a workload name", hi.Kind)
 		}
 		return nil
-	case hooks.PreSeriesUpgrade:
-		if hi.MachineUpgradeTarget == "" {
-			return errors.Errorf("%q hook requires a target base", hi.Kind)
-		}
-		return nil
 	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop,
-		hooks.RelationCreated, hooks.RelationBroken, hooks.UpdateStatus,
-		hooks.PostSeriesUpgrade:
+		hooks.RelationCreated, hooks.RelationBroken, hooks.UpdateStatus:
 		return nil
 	case hooks.Action:
 		return errors.Errorf("hooks.Kind Action is deprecated")

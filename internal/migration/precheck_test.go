@@ -120,8 +120,6 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 
 	backend := newFakeBackend()
-	hasUpgradeSeriesLocks := true
-	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
 	backend.machineCountForSeriesUbuntu = map[string]int{"ubuntu@22.04": 1}
 	backend.machines = []migration.PrecheckMachine{
 		&fakeMachine{id: "0"},
@@ -148,7 +146,6 @@ func (s *SourcePrecheckSuite) TestTargetController3Failed(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, `
 cannot migrate to controller due to issues:
 "foo/model-1":
-- unexpected upgrade series lock found
 - the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }
@@ -165,8 +162,6 @@ func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	})
 
 	backend := newFakeBackend()
-	hasUpgradeSeriesLocks := true
-	backend.hasUpgradeSeriesLocks = &hasUpgradeSeriesLocks
 	backend.machineCountForSeriesUbuntu = map[string]int{"ubuntu@22.04": 1}
 	backend.machines = []migration.PrecheckMachine{
 		&fakeMachine{id: "0"},
@@ -188,7 +183,6 @@ func (s *SourcePrecheckSuite) TestTargetController2Failed(c *gc.C) {
 	c.Assert(err.Error(), gc.Equals, `
 cannot migrate to controller due to issues:
 "foo/model-1":
-- unexpected upgrade series lock found
 - the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04`[1:])
 }
 
@@ -1018,9 +1012,6 @@ type fakeBackend struct {
 
 	controllerBackend *fakeBackend
 
-	hasUpgradeSeriesLocks    *bool
-	hasUpgradeSeriesLocksErr error
-
 	machineCountForSeriesUbuntu map[string]int
 	machineCountForSeriesErr    error
 
@@ -1069,13 +1060,6 @@ func (b *fakeBackend) ControllerBackend() (migration.PrecheckBackend, error) {
 		return b, nil
 	}
 	return b.controllerBackend, nil
-}
-
-func (b *fakeBackend) HasUpgradeSeriesLocks() (bool, error) {
-	if b.hasUpgradeSeriesLocks == nil {
-		return false, nil
-	}
-	return *b.hasUpgradeSeriesLocks, b.hasUpgradeSeriesLocksErr
 }
 
 func (b *fakeBackend) MachineCountForBase(base ...state.Base) (map[string]int, error) {

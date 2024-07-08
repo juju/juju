@@ -35,12 +35,10 @@ func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *gc.C) {
 	blockers1 := upgradevalidation.NewModelUpgradeBlockers(
 		"controller",
 		*upgradevalidation.NewBlocker("model migration is in process"),
-		*upgradevalidation.NewBlocker("unexpected upgrade series lock found"),
 	)
 	for i := 1; i < 5; i++ {
 		blockers := upgradevalidation.NewModelUpgradeBlockers(
 			fmt.Sprintf("model-%d", i),
-			*upgradevalidation.NewBlocker("unexpected upgrade series lock found"),
 			*upgradevalidation.NewBlocker("model migration is in process"),
 		)
 		blockers1.Join(blockers)
@@ -48,18 +46,13 @@ func (s *upgradeValidationSuite) TestModelUpgradeBlockers(c *gc.C) {
 	c.Assert(blockers1.String(), gc.Equals, `
 "controller":
 - model migration is in process
-- unexpected upgrade series lock found
 "model-1":
-- unexpected upgrade series lock found
 - model migration is in process
 "model-2":
-- unexpected upgrade series lock found
 - model migration is in process
 "model-3":
-- unexpected upgrade series lock found
 - model migration is in process
 "model-4":
-- unexpected upgrade series lock found
 - model migration is in process`[1:])
 }
 
@@ -99,17 +92,13 @@ func (s *upgradeValidationSuite) TestModelUpgradeCheck(c *gc.C) {
 		func(modelUUID string, pool upgradevalidation.StatePool, st upgradevalidation.State, model upgradevalidation.Model) (*upgradevalidation.Blocker, error) {
 			return upgradevalidation.NewBlocker("model migration is in process"), nil
 		},
-		func(modelUUID string, pool upgradevalidation.StatePool, st upgradevalidation.State, model upgradevalidation.Model) (*upgradevalidation.Blocker, error) {
-			return upgradevalidation.NewBlocker("unexpected upgrade series lock found"), nil
-		},
 	)
 
 	blockers, err := checker.Validate()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blockers.String(), gc.Equals, `
 "admin/model-1":
-- model migration is in process
-- unexpected upgrade series lock found`[1:])
+- model migration is in process`[1:])
 }
 
 func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *gc.C) {
@@ -127,30 +116,6 @@ func (s *upgradeValidationSuite) TestCheckForDeprecatedUbuntuSeriesForModel(c *g
 	blocker, err := upgradevalidation.CheckForDeprecatedUbuntuSeriesForModel("", nil, st, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(blocker.Error(), gc.Equals, `the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04`)
-}
-
-func (s *upgradeValidationSuite) TestGetCheckUpgradeSeriesLockForModel(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	st := mocks.NewMockState(ctrl)
-	gomock.InOrder(
-		st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil),
-		st.EXPECT().HasUpgradeSeriesLocks().Return(true, nil),
-		st.EXPECT().HasUpgradeSeriesLocks().Return(true, nil),
-	)
-
-	blocker, err := upgradevalidation.GetCheckUpgradeSeriesLockForModel(false)("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
-
-	blocker, err = upgradevalidation.GetCheckUpgradeSeriesLockForModel(true)("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker, gc.IsNil)
-
-	blocker, err = upgradevalidation.GetCheckUpgradeSeriesLockForModel(false)("", nil, st, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(blocker.Error(), gc.Equals, `unexpected upgrade series lock found`)
 }
 
 func (s *upgradeValidationSuite) TestGetCheckTargetVersionForControllerModel(c *gc.C) {

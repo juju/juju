@@ -33,7 +33,6 @@ type PrecheckBackend interface {
 	AllApplications() ([]PrecheckApplication, error)
 	AllRelations() ([]PrecheckRelation, error)
 	ControllerBackend() (PrecheckBackend, error)
-	HasUpgradeSeriesLocks() (bool, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)
 }

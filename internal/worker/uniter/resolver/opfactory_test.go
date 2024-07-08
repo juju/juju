@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -64,28 +63,6 @@ func (s *ResolverOpFactorySuite) testUpdateStatusChanged(
 func (s *ResolverOpFactorySuite) TestConfigChanged(c *gc.C) {
 	s.testConfigChanged(c, resolver.ResolverOpFactory.NewRunHook)
 	s.testConfigChanged(c, resolver.ResolverOpFactory.NewSkipHook)
-}
-
-func (s *ResolverOpFactorySuite) TestUpgradeSeriesStatusChanged(c *gc.C) {
-	f := resolver.NewResolverOpFactory(s.opFactory)
-
-	// The initial state.
-	f.LocalState.UpgradeMachineStatus = model.UpgradeSeriesNotStarted
-	f.RemoteState.UpgradeMachineStatus = model.UpgradeSeriesPrepareStarted
-
-	op, err := f.NewRunHook(hook.Info{Kind: hooks.PreSeriesUpgrade})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = op.Prepare(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(f.LocalState.UpgradeMachineStatus, gc.Equals, model.UpgradeSeriesPrepareStarted)
-	f.RemoteState.UpgradeMachineStatus = model.UpgradeSeriesPrepareCompleted
-
-	_, err = op.Commit(context.Background(), operation.State{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(f.LocalState.UpgradeMachineStatus, gc.Equals, model.UpgradeSeriesPrepareCompleted)
 }
 
 func (s *ResolverOpFactorySuite) TestNewHookError(c *gc.C) {

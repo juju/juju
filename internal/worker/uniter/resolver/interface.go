@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 )
@@ -94,10 +93,6 @@ type LocalState struct {
 	// This is used to prevent us re running actions requested by the
 	// controller.
 	CompletedActions map[string]struct{}
-
-	// UpgradeMachineStatus is the current state of any currently running
-	// upgrade series.
-	UpgradeMachineStatus model.UpgradeSeriesStatus
 
 	// ContainerRunningStatus is the current state of remote containers for CAAS.
 	ContainerRunningStatus *remotestate.ContainerRunningStatus

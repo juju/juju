@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm/hooks"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
@@ -45,18 +44,6 @@ func (s *resolverOpFactory) NewSkipHook(info hook.Info) (operation.Operation, er
 		return nil, errors.Trace(err)
 	}
 	return s.wrapHookOp(op, info), nil
-}
-
-func (s *resolverOpFactory) NewNoOpFinishUpgradeSeries() (operation.Operation, error) {
-	op, err := s.Factory.NewNoOpFinishUpgradeSeries()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	f := func(*operation.State) {
-		s.LocalState.UpgradeMachineStatus = model.UpgradeSeriesNotStarted
-	}
-	op = onCommitWrapper{op, f}
-	return op, nil
 }
 
 func (s *resolverOpFactory) NewUpgrade(charmURL string) (operation.Operation, error) {
@@ -157,25 +144,6 @@ func (s *resolverOpFactory) wrapUpgradeOp(op operation.Operation, charmURL strin
 
 func (s *resolverOpFactory) wrapHookOp(op operation.Operation, info hook.Info) operation.Operation {
 	switch info.Kind {
-	case hooks.PreSeriesUpgrade:
-		op = onPrepareWrapper{op, func() {
-			//on prepare the local status should be made to reflect
-			//that the upgrade process for this united has started.
-			s.LocalState.UpgradeMachineStatus = s.RemoteState.UpgradeMachineStatus
-		}}
-		op = onCommitWrapper{op, func(*operation.State) {
-			// on commit, the local status should indicate the hook
-			// has completed. The remote status should already
-			// indicate completion. We sync the states here.
-			s.LocalState.UpgradeMachineStatus = model.UpgradeSeriesPrepareCompleted
-		}}
-	case hooks.PostSeriesUpgrade:
-		op = onPrepareWrapper{op, func() {
-			s.LocalState.UpgradeMachineStatus = s.RemoteState.UpgradeMachineStatus
-		}}
-		op = onCommitWrapper{op, func(*operation.State) {
-			s.LocalState.UpgradeMachineStatus = model.UpgradeSeriesCompleted
-		}}
 	case hooks.ConfigChanged:
 		configHash := s.RemoteState.ConfigHash
 		trustHash := s.RemoteState.TrustHash

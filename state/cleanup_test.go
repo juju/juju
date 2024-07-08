@@ -801,63 +801,6 @@ func (s *CleanupSuite) TestRemoveApplicationRemovesAllCleanUps(c *gc.C) {
 	c.Assert(appfoo.UnitCount(), gc.Equals, 1)
 }
 
-func (s *CleanupSuite) TestForceDestroyMachineRemovesUpgradeSeriesLock(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertDoesNotNeedCleanup(c)
-
-	err = machine.CreateUpgradeSeriesLock(nil, state.UbuntuBase("16.04"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = machine.ForceDestroy(time.Minute)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertNeedsCleanup(c)
-	s.assertCleanupRuns(c)
-
-	assertLifeIs(c, machine, state.Dead)
-
-	// Running a cleanup pass succeeds but doesn't get rid of cleanups
-	// because there's a scheduled one.
-	s.assertCleanupRuns(c)
-	assertLifeIs(c, machine, state.Dead)
-	s.assertNeedsCleanup(c)
-
-	locked, err := machine.IsLockedForSeriesUpgrade()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(locked, jc.IsFalse)
-
-	s.Clock.Advance(time.Minute)
-	s.assertCleanupCount(c, 1)
-	err = machine.Refresh()
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
-func (s *CleanupSuite) TestDestroyMachineAssertsNoUpgradeSeriesLock(c *gc.C) {
-	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertDoesNotNeedCleanup(c)
-
-	// Simulate a race by adding a lock after the check has been run,
-	// but before the destruction transaction assertions execute.
-	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(machine.CreateUpgradeSeriesLock(nil, state.UbuntuBase("16.04")), gc.IsNil)
-	}).Check()
-
-	// Check that we get an error, but for the transaction assertion failure,
-	// and not for the initial check, which passes.
-	err = machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.Not(gc.ErrorMatches), `machine 1 is locked for series upgrade`)
-
-	assertLifeIs(c, machine, state.Alive)
-}
-
 func (s *CleanupSuite) TestForceDestroyMachineRemovesLinkLayerDevices(c *gc.C) {
 	machine, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)

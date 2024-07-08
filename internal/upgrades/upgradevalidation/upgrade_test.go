@@ -129,8 +129,6 @@ func (s *upgradeValidationSuite) TestValidatorsForModelUpgradeJuju3(c *gc.C) {
 	)
 	cloudSpec := lxd.CloudSpec{CloudSpec: environscloudspec.CloudSpec{Type: "lxd"}}
 
-	// - check no upgrade series in process.
-	st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
 	st.EXPECT().AllMachinesCount().Return(0, nil)
 

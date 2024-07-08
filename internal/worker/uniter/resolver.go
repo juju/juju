@@ -32,7 +32,6 @@ type ResolverConfig struct {
 	StartRetryHookTimer func()
 	StopRetryHookTimer  func()
 	VerifyCharmProfile  resolver.Resolver
-	UpgradeSeries       resolver.Resolver
 	Reboot              resolver.Resolver
 	Leadership          resolver.Resolver
 	Actions             resolver.Resolver
@@ -76,21 +75,9 @@ func (s *uniterResolver) NextOp(
 	}
 	log := s.config.Logger
 
-	// Operations for series-upgrade need to be resolved early,
-	// in particular because no other operations should be run when the unit
-	// has completed preparation and is waiting for upgrade completion.
-	badge = "upgrade series"
-	op, err := s.config.UpgradeSeries.NextOp(ctx, localState, remoteState, opFactory)
-	if errors.Cause(err) != resolver.ErrNoOperation {
-		if errors.Cause(err) == resolver.ErrDoNotProceed {
-			return nil, resolver.ErrNoOperation
-		}
-		return op, err
-	}
-
 	// Check if we need to notify the charms because a reboot was detected.
 	badge = "reboot"
-	op, err = s.config.Reboot.NextOp(ctx, localState, remoteState, opFactory)
+	op, err := s.config.Reboot.NextOp(ctx, localState, remoteState, opFactory)
 	if errors.Cause(err) != resolver.ErrNoOperation {
 		return op, err
 	}

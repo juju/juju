@@ -19,7 +19,6 @@ type StatePool interface {
 
 // State represents a point of use interface for modelling a current model.
 type State interface {
-	HasUpgradeSeriesLocks() (bool, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)
 	AllMachinesCount() (int, error)
 	MongoCurrentStatus() (*replicaset.Status, error)

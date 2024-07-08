@@ -169,13 +169,6 @@ func (s *EnvSuite) setStorage(ctx *context.HookContext) (expectVars []string) {
 	}
 }
 
-func (s *EnvSuite) setBaseUpgrade(ctx *context.HookContext) (expectedVars []string) {
-	context.SetEnvironmentHookContextTargetBase(ctx, "ubuntu@24.04")
-	return []string{
-		"JUJU_TARGET_BASE=ubuntu@24.04",
-	}
-}
-
 func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -229,10 +222,9 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	secretVars := s.setSecret(hookContext)
 	storageVars := s.setStorage(hookContext)
 	noticeVars := s.setNotice(hookContext)
-	upgradeVars := s.setBaseUpgrade(hookContext)
 	actualVars, err = hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, noticeVars, upgradeVars, []string{"KUBERNETES_SERVICE=test"})
+	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, noticeVars, []string{"KUBERNETES_SERVICE=test"})
 }
 
 func (s *EnvSuite) TestContextDependentDoesNotIncludeUnSet(c *gc.C) {

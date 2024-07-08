@@ -2275,18 +2275,6 @@ func (w *documentFieldWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-// WatchUpgradeSeriesNotifications returns a watcher that observes the status of
-// a series upgrade by monitoring changes to its parent machine's upgrade series
-// lock.
-func (m *Machine) WatchUpgradeSeriesNotifications() (NotifyWatcher, error) {
-	watch := newEntityWatcher(m.st, machineUpgradeSeriesLocksC, m.doc.DocID)
-	if _, ok := <-watch.Changes(); ok {
-		return watch, nil
-	}
-
-	return nil, watcher.EnsureErr(watch)
-}
-
 func newEntityWatcher(backend modelBackend, collName string, key interface{}) NotifyWatcher {
 	return newDocWatcher(backend, []docKey{{collName, key}})
 }

@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
@@ -73,11 +72,9 @@ type Unit interface {
 	WatchTrustConfigSettingsHash() (watcher.StringsWatcher, error)
 	WatchRelations() (watcher.StringsWatcher, error)
 	WatchAddressesHash() (watcher.StringsWatcher, error)
-	WatchUpgradeSeriesNotifications(ctx stdcontext.Context) (watcher.NotifyWatcher, error)
 	WatchActionNotifications() (watcher.StringsWatcher, error)
 	WatchStorage() (watcher.StringsWatcher, error)
 	WatchInstanceData() (watcher.NotifyWatcher, error)
-	UpgradeSeriesStatus(ctx stdcontext.Context) (model.UpgradeSeriesStatus, string, error)
 
 	// Used by relationer.
 
@@ -87,7 +84,6 @@ type Unit interface {
 
 	// Used by operation.Callbacks.
 
-	SetUpgradeSeriesStatus(ctx stdcontext.Context, upgradeSeriesStatus model.UpgradeSeriesStatus, reason string) error
 	SetCharmURL(curl string) error
 }
 

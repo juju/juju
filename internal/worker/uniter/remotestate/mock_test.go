@@ -226,7 +226,6 @@ type mockUnit struct {
 	addressesWatcher                 *mockStringsWatcher
 	configSettingsWatcher            *mockStringsWatcher
 	applicationConfigSettingsWatcher *mockStringsWatcher
-	upgradeSeriesWatcher             *mockNotifyWatcher
 	storageWatcher                   *mockStringsWatcher
 	actionWatcher                    *mockStringsWatcher
 	relationsWatcher                 *mockStringsWatcher
@@ -290,20 +289,8 @@ func (u *mockUnit) WatchRelations() (watcher.StringsWatcher, error) {
 	return u.relationsWatcher, nil
 }
 
-func (u *mockUnit) WatchUpgradeSeriesNotifications(context.Context) (watcher.NotifyWatcher, error) {
-	return u.upgradeSeriesWatcher, nil
-}
-
 func (u *mockUnit) WatchInstanceData() (watcher.NotifyWatcher, error) {
 	return u.instanceDataWatcher, nil
-}
-
-func (u *mockUnit) UpgradeSeriesStatus(context.Context) (model.UpgradeSeriesStatus, string, error) {
-	return model.UpgradeSeriesPrepareStarted, "ubuntu@20.04", nil
-}
-
-func (u *mockUnit) SetUpgradeSeriesStatus(ctx context.Context, status model.UpgradeSeriesStatus, reason string) error {
-	return nil
 }
 
 type mockApplication struct {

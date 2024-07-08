@@ -7,7 +7,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/rpc/params"
 )
@@ -108,14 +107,6 @@ type Snapshot struct {
 	// DeletedSecrets is a list of deleted secret
 	// URIs owned by this unit.
 	DeletedSecrets []string
-
-	// UpgradeMachineStatus is the preparation status of
-	// any currently running machine upgrade.
-	UpgradeMachineStatus model.UpgradeSeriesStatus
-
-	// UpgradeMachineTarget is the OS base that an in-flight
-	// machine upgrade is transitioning to.
-	UpgradeMachineTarget string
 
 	// ContainerRunningStatus is set on CAAS models
 	// for remote init/upgrade of charm.

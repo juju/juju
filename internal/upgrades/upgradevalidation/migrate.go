@@ -14,7 +14,6 @@ func ValidatorsForModelMigrationSource(
 	cloudspec environscloudspec.CloudSpec,
 ) []Validator {
 	return []Validator{
-		getCheckUpgradeSeriesLockForModel(false),
 		checkForDeprecatedUbuntuSeriesForModel,
 		getCheckForLXDVersion(cloudspec),
 	}

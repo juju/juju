@@ -150,11 +150,6 @@ func (opc *operationCallbacks) SetExecutingStatus(message string) error {
 	return setAgentStatus(opc.u, status.Executing, message, nil)
 }
 
-// SetUpgradeSeriesStatus is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SetUpgradeSeriesStatus(ctx stdcontext.Context, upgradeSeriesStatus model.UpgradeSeriesStatus, reason string) error {
-	return setUpgradeSeriesStatus(ctx, opc.u, upgradeSeriesStatus, reason)
-}
-
 // RemoteInit is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) RemoteInit(runningStatus remotestate.ContainerRunningStatus, abort <-chan struct{}) error {
 	if opc.u.modelType != model.CAAS || opc.u.sidecar {

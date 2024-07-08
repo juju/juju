@@ -17,7 +17,6 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/charm"
@@ -908,128 +907,6 @@ func (s *unitSuite) TestWatchAddressesHashNotImplemented(c *gc.C) {
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
 
 	_, err := unit.WatchAddressesHash()
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
-}
-
-func (s *unitSuite) TestWatchUpgradeSeriesNotifications(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		if objType == "NotifyWatcher" {
-			if request != "Next" && request != "Stop" {
-				c.Fatalf("unexpected watcher request %q", request)
-			}
-			return nil
-		}
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "WatchUpgradeSeriesNotifications")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
-		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
-			Results: []params.NotifyWatchResult{{
-				NotifyWatcherId: "1",
-			}},
-		}
-		return nil
-	})
-	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.WatchUpgradeSeriesNotifications(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	wc := watchertest.NewNotifyWatcherC(c, w)
-	defer wc.AssertStops()
-
-	// Initial event.
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("watcher did not send change")
-	}
-}
-
-func (s *unitSuite) TestWatchUpgradeSeriesNotificationsNotImplemented(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
-	})
-	tag := names.NewUnitTag("mysql/0")
-	client := uniter.NewClient(apiCaller, tag)
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-
-	_, err := unit.WatchUpgradeSeriesNotifications(context.Background())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
-}
-
-func (s *unitSuite) TestUpgradeSeriesStatus(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "SetUpgradeSeriesUnitStatus")
-		c.Assert(arg, gc.DeepEquals, params.UpgradeSeriesStatusParams{
-			Params: []params.UpgradeSeriesStatusParam{{
-				Entity:  params.Entity{Tag: "unit-mysql-0"},
-				Status:  "completed",
-				Message: "done",
-			}},
-		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{Error: &params.Error{Message: "biff"}}},
-		}
-		return nil
-	})
-	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.SetUpgradeSeriesStatus(context.Background(), model.UpgradeSeriesCompleted, "done")
-	c.Assert(err, gc.ErrorMatches, "biff")
-}
-
-func (s *unitSuite) TestUpgradeSeriesStatusNotImplemented(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
-	})
-	tag := names.NewUnitTag("mysql/0")
-	client := uniter.NewClient(apiCaller, tag)
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-
-	err := unit.SetUpgradeSeriesStatus(context.Background(), model.UpgradeSeriesCompleted, "done")
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
-}
-
-func (s *unitSuite) TestSetUpgradeSeriesStatus(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(request, gc.Equals, "UpgradeSeriesUnitStatus")
-		c.Assert(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "unit-mysql-0"}}})
-		c.Assert(result, gc.FitsTypeOf, &params.UpgradeSeriesStatusResults{})
-		*(result.(*params.UpgradeSeriesStatusResults)) = params.UpgradeSeriesStatusResults{
-			Results: []params.UpgradeSeriesStatusResult{{
-				Status: "completed",
-				Target: "focal",
-			}},
-		}
-		return nil
-	})
-	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	seriesStatus, target, err := unit.UpgradeSeriesStatus(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(seriesStatus, gc.Equals, model.UpgradeSeriesCompleted)
-	c.Check(target, gc.Equals, "focal")
-}
-
-func (s *unitSuite) TestSetUpgradeSeriesStatusNotImplemented(c *gc.C) {
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		return apiservererrors.ServerError(errors.NotImplementedf("not implemented"))
-	})
-	tag := names.NewUnitTag("mysql/0")
-	client := uniter.NewClient(apiCaller, tag)
-
-	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-
-	_, _, err := unit.UpgradeSeriesStatus(context.Background())
 	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 

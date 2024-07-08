@@ -361,15 +361,6 @@ func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId s
 		return nil, nil, errors.Errorf("machine %s cannot host %s containers", parentId, containerType)
 	}
 
-	// Ensure that the machine is not locked for series-upgrade.
-	locked, err := parent.IsLockedForSeriesUpgrade()
-	if err != nil {
-		return nil, nil, err
-	}
-	if locked {
-		return nil, nil, errors.Errorf("machine %s is locked for series upgrade", parentId)
-	}
-
 	newId, err := st.newContainerId(parentId, containerType)
 	if err != nil {
 		return nil, nil, err

@@ -89,7 +89,6 @@ jobs:
             juju status controller
 
             if [[ ${attempt} -eq 10 ]]; then
-              juju status controller
               exit 1
             fi
 
@@ -109,7 +108,7 @@ jobs:
 
           # Wait a few secs for the machine status to update
           # so that migration prechecks pass.
-          sleep 10
+          sleep 20
 
           $JUJU version
           $JUJU migrate test-migrate target-controller
@@ -157,7 +156,6 @@ jobs:
             juju status ubuntu
 
             if [[ ${attempt} -eq 10 ]]; then
-              juju status ubuntu
               exit 1
             fi
 
@@ -173,7 +171,6 @@ jobs:
             juju status yet-another-ubuntu
 
             if [[ ${attempt} -eq 10 ]]; then
-              juju status yet-another-ubuntu
               exit 1
             fi
 

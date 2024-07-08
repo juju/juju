@@ -836,14 +836,6 @@ func (original *Machine) advanceLifecycle(life Life, force, dyingAllowContainers
 		}
 	}
 
-	locked, err := original.IsLockedForSeriesUpgrade()
-	if err != nil {
-		return errors.Annotatef(err, "reading machine %s upgrade-series lock", original.Id())
-	}
-	if locked {
-		return errors.Errorf("machine %s is locked for series upgrade", original.Id())
-	}
-
 	m := original
 	defer func() {
 		if err == nil {
@@ -1002,11 +994,6 @@ func (m *Machine) advanceLifecyleInitialOps(life Life) []txn.Op {
 			C:      machinesC,
 			Id:     m.doc.DocID,
 			Update: bson.D{{"$set", bson.D{{"life", life}}}},
-		},
-		{
-			C:      machineUpgradeSeriesLocksC,
-			Id:     m.doc.Id,
-			Assert: txn.DocMissing,
 		},
 	}
 }
@@ -2205,48 +2192,6 @@ func (m *Machine) PendingActions() ([]Action, error) {
 // RunningActions is part of the ActionReceiver interface.
 func (m *Machine) RunningActions() ([]Action, error) {
 	return m.st.matchingActionsRunning(m)
-}
-
-// UpdateMachineSeries updates the base for the Machine.
-func (m *Machine) UpdateMachineSeries(base Base) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := m.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		// Exit early if the Machine base doesn't need to change.
-		if m.Base().String() == base.String() {
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		units, err := m.Units()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		ops := []txn.Op{{
-			C:      machinesC,
-			Id:     m.doc.DocID,
-			Assert: bson.D{{"life", Alive}, {"principals", m.Principals()}},
-			Update: bson.D{{"$set", bson.D{{"base", base}}}},
-		}}
-		for _, unit := range units {
-			ops = append(ops, txn.Op{
-				C:  unitsC,
-				Id: unit.doc.DocID,
-				Assert: bson.D{{"life", Alive},
-					{"charmurl", unit.CharmURL()},
-					{"subordinates", unit.SubordinateNames()}},
-				Update: bson.D{{"$set",
-					bson.D{{"base", base}}}},
-			})
-		}
-
-		return ops, nil
-	}
-	err := m.st.db().Run(buildTxn)
-	return errors.Annotatef(err, "updating series for machine %q", m)
 }
 
 // RecordAgentStartInformation updates the host name (if non-empty) reported

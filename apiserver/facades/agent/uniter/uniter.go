@@ -44,7 +44,6 @@ type UniterAPI struct {
 	*common.APIAddresser
 	*common.MongoModelWatcher
 	*common.RebootRequester
-	*common.UpgradeSeriesAPI
 	*common.UnitStateAPI
 	*leadershipapiserver.LeadershipSettingsAccessor
 

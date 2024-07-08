@@ -200,9 +200,7 @@ func (s *RunHookSuite) getExecuteRunnerTest(
 	}
 	factory := newOpFactory(c, runnerFactory, callbacks)
 
-	// Target is supplied for the special-cased pre-series-upgrade hook.
-	// This is the only one of the designated unit hooks with validation.
-	op, err := newHook(factory, hook.Info{Kind: kind, MachineUpgradeTarget: "ubuntu@20.04"})
+	op, err := newHook(factory, hook.Info{Kind: kind})
 
 	c.Assert(err, jc.ErrorIsNil)
 	return op, callbacks, runnerFactory

@@ -592,8 +592,6 @@ func (s *modelUpgradeSuite) assertUpgradeModelJuju3(c *gc.C, ctrlModelVers strin
 		)
 	}
 
-	// - check no upgrade series in process.
-	st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 	// - check if the model has deprecated ubuntu machines;
 	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
 	st.EXPECT().AllMachinesCount().Return(0, nil)
@@ -679,9 +677,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 		}, nil,
 	)
 
-	// - check no upgrade series in process.
-	st.EXPECT().HasUpgradeSeriesLocks().Return(true, nil)
-
 	// - check if the model has deprecated ubuntu machines;
 	st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(map[string]int{
 		"ubuntu@20.04": 1, "ubuntu@22.04": 2, "ubuntu@24.04": 3,
@@ -706,7 +701,6 @@ func (s *modelUpgradeSuite) TestUpgradeModelJuju3Failed(c *gc.C) {
 	c.Assert(result.Error.Error(), gc.Equals, `
 cannot upgrade to "3.9.99" due to issues with these models:
 "admin/model-1":
-- unexpected upgrade series lock found
 - the model hosts 1 ubuntu machine(s) with an unsupported base. The supported bases are: ubuntu@24.04, ubuntu@22.04, ubuntu@20.04
 - LXD version has to be at least "5.0.0", but current version is only "4.0.0"`[1:])
 }

@@ -86,10 +86,6 @@ func (f *factory) NewSkipRemoteInit(retry bool) (Operation, error) {
 	return &skipRemoteInit{retry}, nil
 }
 
-func (f *factory) NewNoOpFinishUpgradeSeries() (Operation, error) {
-	return &noOpFinishUpgradeSeries{&skipOperation{}}, nil
-}
-
 // NewRevertUpgrade is part of the Factory interface.
 func (f *factory) NewRevertUpgrade(charmURL string) (Operation, error) {
 	return f.newDeploy(Upgrade, charmURL, true, false)

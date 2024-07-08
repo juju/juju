@@ -75,7 +75,6 @@ func (s *instanceTypesSuite) setup(c *gc.C) *gomock.Controller {
 		apiservertesting.NoopModelCredentialInvalidatorGetter,
 		common.NewResources(),
 		s.leadership,
-		nil,
 		loggertesting.WrapCheckLog(c),
 		s.networkService,
 	)

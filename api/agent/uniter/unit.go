@@ -14,7 +14,6 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
@@ -545,12 +544,6 @@ func (u *Unit) WatchActionNotifications() (watcher.StringsWatcher, error) {
 	return w, nil
 }
 
-// WatchUpgradeSeriesNotifications returns a NotifyWatcher for observing the
-// state of a series upgrade.
-func (u *Unit) WatchUpgradeSeriesNotifications(ctx context.Context) (watcher.NotifyWatcher, error) {
-	return u.client.WatchUpgradeSeriesNotifications(ctx)
-}
-
 // LogActionMessage logs a progress message for the specified action.
 func (u *Unit) LogActionMessage(tag names.ActionTag, message string) error {
 	var result params.ErrorResults
@@ -562,16 +555,6 @@ func (u *Unit) LogActionMessage(tag names.ActionTag, message string) error {
 		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	return result.OneError()
-}
-
-// UpgradeSeriesStatus returns the upgrade series status of a unit from remote state
-func (u *Unit) UpgradeSeriesStatus(ctx context.Context) (model.UpgradeSeriesStatus, string, error) {
-	return u.client.UpgradeSeriesUnitStatus(ctx)
-}
-
-// SetUpgradeSeriesStatus sets the upgrade series status of the unit in the remote state
-func (u *Unit) SetUpgradeSeriesStatus(ctx context.Context, status model.UpgradeSeriesStatus, reason string) error {
-	return u.client.SetUpgradeSeriesUnitStatus(ctx, status, reason)
 }
 
 // RequestReboot sets the reboot flag for its machine agent

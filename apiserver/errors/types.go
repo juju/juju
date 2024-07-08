@@ -84,18 +84,8 @@ func (e *DischargeRequiredError) SendError(w http.ResponseWriter) error {
 	return sendError(w, e)
 }
 
-// UpgradeSeriesValidationError is the error returns when an upgrade-machine
-// can not be run because of a validation error.
-type UpgradeSeriesValidationError struct {
-	Cause  error
-	Status string
-}
-
-// Error implements the error interface.
-func (e *UpgradeSeriesValidationError) Error() string {
-	return e.Cause.Error()
-}
-
+// NewErrIncompatibleBase returns an error indicating that the base is not
+// supported by the charm.
 func NewErrIncompatibleBase(baseList []base.Base, b base.Base, charmName string) error {
 	return fmt.Errorf("base %q not supported by charm %q, supported bases are: %s%w",
 		b.DisplayString(),

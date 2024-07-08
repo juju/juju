@@ -172,9 +172,7 @@ func (s *validatorSuite) TestValidatePlacementSuccess(c *gc.C) {
 	s.model.EXPECT().UUID().Return("")
 
 	// Placement
-	s.state.EXPECT().Machine("0").Return(s.machine, nil).Times(2)
-	s.machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
-	s.machine.EXPECT().IsParentLockedForSeriesUpgrade().Return(false, nil)
+	s.state.EXPECT().Machine("0").Return(s.machine, nil)
 	s.machine.EXPECT().Base().Return(state.Base{
 		OS:      "ubuntu",
 		Channel: "22.04",

@@ -1157,21 +1157,6 @@ func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
 	s.assertMachineContainers(c, host, nil)
 }
 
-func (s *StateSuite) TestAddContainerToMachineLockedForSeriesUpgrade(c *gc.C) {
-	oneJob := []state.MachineJob{state.JobHostUnits}
-	host, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.10"), oneJob...)
-	c.Assert(err, jc.ErrorIsNil)
-	err = host.CreateUpgradeSeriesLock(nil, state.UbuntuBase("18.04"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
-		Base: state.UbuntuBase("12.10"),
-		Jobs: []state.MachineJob{state.JobHostUnits},
-	}, "0", instance.LXD)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 is locked for series upgrade")
-	s.assertMachineContainers(c, host, nil)
-}
-
 func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 	instIdTemplate := state.MachineTemplate{
 		Base:       state.UbuntuBase("12.10"),

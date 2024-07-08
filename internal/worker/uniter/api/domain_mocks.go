@@ -15,7 +15,6 @@ import (
 
 	uniter "github.com/juju/juju/api/agent/uniter"
 	life "github.com/juju/juju/core/life"
-	model "github.com/juju/juju/core/model"
 	relation "github.com/juju/juju/core/relation"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
@@ -1240,44 +1239,6 @@ func (c *MockUnitSetUnitStatusCall) DoAndReturn(f func(context.Context, status.S
 	return c
 }
 
-// SetUpgradeSeriesStatus mocks base method.
-func (m *MockUnit) SetUpgradeSeriesStatus(arg0 context.Context, arg1 model.UpgradeSeriesStatus, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetUpgradeSeriesStatus indicates an expected call of SetUpgradeSeriesStatus.
-func (mr *MockUnitMockRecorder) SetUpgradeSeriesStatus(arg0, arg1, arg2 any) *MockUnitSetUpgradeSeriesStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeSeriesStatus", reflect.TypeOf((*MockUnit)(nil).SetUpgradeSeriesStatus), arg0, arg1, arg2)
-	return &MockUnitSetUpgradeSeriesStatusCall{Call: call}
-}
-
-// MockUnitSetUpgradeSeriesStatusCall wrap *gomock.Call
-type MockUnitSetUpgradeSeriesStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUnitSetUpgradeSeriesStatusCall) Return(arg0 error) *MockUnitSetUpgradeSeriesStatusCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUnitSetUpgradeSeriesStatusCall) Do(f func(context.Context, model.UpgradeSeriesStatus, string) error) *MockUnitSetUpgradeSeriesStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitSetUpgradeSeriesStatusCall) DoAndReturn(f func(context.Context, model.UpgradeSeriesStatus, string) error) *MockUnitSetUpgradeSeriesStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // State mocks base method.
 func (m *MockUnit) State(arg0 context.Context) (params.UnitStateResult, error) {
 	m.ctrl.T.Helper()
@@ -1390,46 +1351,6 @@ func (c *MockUnitUnitStatusCall) Do(f func(context.Context) (params.StatusResult
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockUnitUnitStatusCall) DoAndReturn(f func(context.Context) (params.StatusResult, error)) *MockUnitUnitStatusCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// UpgradeSeriesStatus mocks base method.
-func (m *MockUnit) UpgradeSeriesStatus(arg0 context.Context) (model.UpgradeSeriesStatus, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpgradeSeriesStatus", arg0)
-	ret0, _ := ret[0].(model.UpgradeSeriesStatus)
-	ret1, _ := ret[1].(string)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// UpgradeSeriesStatus indicates an expected call of UpgradeSeriesStatus.
-func (mr *MockUnitMockRecorder) UpgradeSeriesStatus(arg0 any) *MockUnitUpgradeSeriesStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpgradeSeriesStatus", reflect.TypeOf((*MockUnit)(nil).UpgradeSeriesStatus), arg0)
-	return &MockUnitUpgradeSeriesStatusCall{Call: call}
-}
-
-// MockUnitUpgradeSeriesStatusCall wrap *gomock.Call
-type MockUnitUpgradeSeriesStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUnitUpgradeSeriesStatusCall) Return(arg0 model.UpgradeSeriesStatus, arg1 string, arg2 error) *MockUnitUpgradeSeriesStatusCall {
-	c.Call = c.Call.Return(arg0, arg1, arg2)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUnitUpgradeSeriesStatusCall) Do(f func(context.Context) (model.UpgradeSeriesStatus, string, error)) *MockUnitUpgradeSeriesStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitUpgradeSeriesStatusCall) DoAndReturn(f func(context.Context) (model.UpgradeSeriesStatus, string, error)) *MockUnitUpgradeSeriesStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1742,45 +1663,6 @@ func (c *MockUnitWatchTrustConfigSettingsHashCall) Do(f func() (watcher.Watcher[
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockUnitWatchTrustConfigSettingsHashCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchTrustConfigSettingsHashCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// WatchUpgradeSeriesNotifications mocks base method.
-func (m *MockUnit) WatchUpgradeSeriesNotifications(arg0 context.Context) (watcher.Watcher[struct{}], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchUpgradeSeriesNotifications", arg0)
-	ret0, _ := ret[0].(watcher.Watcher[struct{}])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// WatchUpgradeSeriesNotifications indicates an expected call of WatchUpgradeSeriesNotifications.
-func (mr *MockUnitMockRecorder) WatchUpgradeSeriesNotifications(arg0 any) *MockUnitWatchUpgradeSeriesNotificationsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUpgradeSeriesNotifications", reflect.TypeOf((*MockUnit)(nil).WatchUpgradeSeriesNotifications), arg0)
-	return &MockUnitWatchUpgradeSeriesNotificationsCall{Call: call}
-}
-
-// MockUnitWatchUpgradeSeriesNotificationsCall wrap *gomock.Call
-type MockUnitWatchUpgradeSeriesNotificationsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockUnitWatchUpgradeSeriesNotificationsCall) Return(arg0 watcher.Watcher[struct{}], arg1 error) *MockUnitWatchUpgradeSeriesNotificationsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockUnitWatchUpgradeSeriesNotificationsCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockUnitWatchUpgradeSeriesNotificationsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitWatchUpgradeSeriesNotificationsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockUnitWatchUpgradeSeriesNotificationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
