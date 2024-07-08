@@ -96,7 +96,7 @@ func (s *workerSuite) TestWatchUpgradeCompleted(c *gc.C) {
 	//  - Watch for the upgrade to be failed, but do not act upon it.
 
 	srv := s.upgradeService.EXPECT()
-	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.AlreadyExists)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
 	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(upgrade.Info{State: upgrade.Created}, nil)
 	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(nil)
@@ -157,7 +157,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReady(c *gc.C) 
 	done := make(chan struct{})
 
 	srv := s.upgradeService.EXPECT()
-	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.AlreadyExists)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
 	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(upgrade.Info{State: upgrade.Created}, nil)
 	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(errors.Errorf("boom"))
@@ -213,7 +213,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedErrorSetControllerReadyError(c *g
 	done := make(chan struct{})
 
 	srv := s.upgradeService.EXPECT()
-	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.AlreadyExists)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
 	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(upgrade.Info{State: upgrade.Created}, nil)
 	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(errors.Errorf("boom"))
@@ -260,11 +260,11 @@ func (s *workerSuite) TestWatchUpgradeCompletedNotFound(c *gc.C) {
 	done := make(chan struct{})
 
 	srv := s.upgradeService.EXPECT()
-	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.AlreadyExists)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
 	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID) (upgrade.Info, error) {
 		defer close(done)
-		return upgrade.Info{State: upgrade.Created}, errors.NotFoundf("boom")
+		return upgrade.Info{State: upgrade.Created}, upgradeerrors.NotFound
 	})
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
@@ -298,7 +298,7 @@ func (s *workerSuite) TestWatchUpgradeCompletedInErrorState(c *gc.C) {
 	done := make(chan struct{})
 
 	srv := s.upgradeService.EXPECT()
-	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.AlreadyExists)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
 	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID) (upgrade.Info, error) {
 		defer close(done)
@@ -347,7 +347,7 @@ func (s *workerSuite) TestWatchUpgradeFailed(c *gc.C) {
 	sync := make(chan struct{})
 
 	srv := s.upgradeService.EXPECT()
-	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.AlreadyExists)
 	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, nil)
 	srv.UpgradeInfo(gomock.Any(), s.upgradeUUID).Return(upgrade.Info{State: upgrade.Created}, nil)
 	srv.SetControllerReady(gomock.Any(), s.upgradeUUID, "0").Return(nil)
@@ -399,8 +399,8 @@ func (s *workerSuite) TestWatchUpgradeError(c *gc.C) {
 	//  - Get the active upgrade, but it doesn't exist.
 
 	srv := s.upgradeService.EXPECT()
-	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.ErrUpgradeAlreadyStarted)
-	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, errors.NotFoundf("no upgrade"))
+	srv.CreateUpgrade(gomock.Any(), cfg.FromVersion, cfg.ToVersion).Return(domainupgrade.UUID(""), upgradeerrors.AlreadyExists)
+	srv.ActiveUpgrade(gomock.Any()).Return(s.upgradeUUID, upgradeerrors.NotFound)
 
 	w, err := NewUpgradeDatabaseWorker(cfg)
 	c.Assert(err, jc.ErrorIsNil)

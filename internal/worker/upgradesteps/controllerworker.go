@@ -36,10 +36,11 @@ type UpgradeService interface {
 	// SetDBUpgradeFailed marks the upgrade as failed in the database.
 	// Manual intervention will be required if this has been invoked.
 	SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgrade.UUID) error
-	// ActiveUpgrade returns the uuid of the current active upgrade.
-	// If there are no active upgrades, return a NotFound error
+	// ActiveUpgrade returns the uuid of the current active upgrade. If there
+	// are no active upgrades, return an upgradeerrors.NotFound error.
 	ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error)
-	// // UpgradeInfo returns the upgrade info for the supplied upgradeUUID.
+	// UpgradeInfo returns the upgrade info for the supplied upgradeUUID. If
+	// there are no active upgrades, return an upgradeerrors.NotFound error.
 	UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUID) (upgrade.Info, error)
 	// WatchForUpgradeState creates a watcher which notifies when the upgrade
 	// has reached the given state.
@@ -136,7 +137,7 @@ func (w *controllerWorker) run() error {
 		return errors.Trace(err)
 	}
 
-	// Verify the the active upgrade information is at the correct state.
+	// Verify the active upgrade information is at the correct state.
 	info, err := w.upgradeService.UpgradeInfo(ctx, upgradeUUID)
 	if err != nil {
 		return errors.Trace(err)

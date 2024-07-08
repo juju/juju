@@ -43,16 +43,18 @@ type UpgradeService interface {
 	// to start its upgrade. All provisioned controllers need to be ready
 	// before an upgrade can start
 	SetControllerReady(ctx context.Context, upgradeUUID domainupgrade.UUID, controllerID string) error
-	// StartUpgrade starts the current upgrade if it exists
+	// StartUpgrade starts the current upgrade if it exists. If it is already
+	// started it will return an AlreadyStarted error.
 	StartUpgrade(ctx context.Context, upgradeUUID domainupgrade.UUID) error
 	// SetDBUpgradeCompleted marks the upgrade as completed in the database
 	SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainupgrade.UUID) error
 	// SetDBUpgradeFailed marks the upgrade as failed in the database
 	SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgrade.UUID) error
-	// ActiveUpgrade returns the uuid of the current active upgrade.
-	// If there are no active upgrades, return a NotFound error
+	// ActiveUpgrade returns the uuid of the current active upgrade. If there
+	// are no active upgrades, return an upgradeerrors.NotFound error.
 	ActiveUpgrade(ctx context.Context) (domainupgrade.UUID, error)
-	// UpgradeInfo returns the upgrade info for the supplied upgradeUUID
+	// UpgradeInfo returns the upgrade info for the supplied upgradeUUID. If
+	// there are no active upgrades, return an upgradeerrors.NotFound error.
 	UpgradeInfo(ctx context.Context, upgradeUUID domainupgrade.UUID) (upgrade.Info, error)
 	// WatchForUpgradeReady creates a watcher which notifies when all controller
 	// nodes have been registered, meaning the upgrade is ready to start.
@@ -202,16 +204,16 @@ func (w *upgradeDBWorker) loop() error {
 	w.logger.Debugf("attempting to create upgrade from: %v to: %v", w.fromVersion, w.toVersion)
 
 	// Create an upgrade for this controller. If another controller has already
-	// created the upgrade, we will get an ErrUpgradeAlreadyStarted error. The
-	// job of this controller is just to wait for the upgrade to be done and
-	// then unlock the DBUpgradeCompleteLock.
+	// created the upgrade, we will get an AlreadyExists error. The job of this
+	// controller is just to wait for the upgrade to be done and then unlock the
+	// DBUpgradeCompleteLock.
 	//
 	// If the upgrade failed the previous time, we'll be allowed to create a
 	// new upgrade. We don't want to block this, as this will brick all
 	// controllers attempting upgrade and fail with an error.
 	upgradeUUID, err := w.upgradeService.CreateUpgrade(ctx, w.fromVersion, w.toVersion)
 	if err != nil {
-		if errors.Is(err, upgradeerrors.ErrUpgradeAlreadyStarted) {
+		if errors.Is(err, upgradeerrors.AlreadyExists) {
 			// We're already running the upgrade, so we can just watch the
 			// upgrade and wait for it to complete.
 			w.logger.Tracef("upgrade already started, watching upgrade")
@@ -233,7 +235,7 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 
 	upgradeUUID, err := w.upgradeService.ActiveUpgrade(ctx)
 	if err != nil {
-		if errors.Is(err, errors.NotFound) {
+		if errors.Is(err, upgradeerrors.NotFound) {
 			// This currently no active upgrade, so we can't watch anything.
 			// If this happens, it's probably in a bad state. We can't really
 			// do anything about it, so we'll just bounce and hope that we
@@ -246,7 +248,7 @@ func (w *upgradeDBWorker) watchUpgrade(ctx context.Context) error {
 
 	info, err := w.upgradeService.UpgradeInfo(ctx, upgradeUUID)
 	if err != nil {
-		if errors.Is(err, errors.NotFound) {
+		if errors.Is(err, upgradeerrors.NotFound) {
 			// This currently no active upgrade, so we can't watch anything.
 			// If this happens, it's probably in a bad state. We can't really
 			// do anything about it, so we'll just bounce and hope that we
@@ -380,7 +382,7 @@ func (w *upgradeDBWorker) runUpgrade(upgradeUUID domainupgrade.UUID) error {
 
 			// Any errors within this block will need to set the upgrade as
 			// failed. Otherwise once the agent restarts upon the error, the
-			// create upgrade will error out with ErrUpgradeAlreadyStarted. This
+			// create upgrade will error out with AlreadyExists. This
 			// will cause the controller to fall into the watching state. No
 			// other controller will be able to start the upgrade, at they're
 			// also in the watching state. No forward progress will be made.
