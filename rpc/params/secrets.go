@@ -60,7 +60,7 @@ type SecretContentParams struct {
 	// backend like vault is used.
 	ValueRef *SecretValueRef `json:"value-ref,omitempty"`
 	// Checksum is the hash of the secret context.
-	Checksum string `json:"checksum"`
+	Checksum string `json:"checksum,omitempty"`
 }
 
 // UpsertSecretArg holds the args for creating or updating a secret.
