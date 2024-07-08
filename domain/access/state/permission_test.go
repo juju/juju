@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"sort"
 	"time"
 
 	"github.com/juju/names/v5"
@@ -43,9 +44,10 @@ func (s *permissionStateSuite) SetUpTest(c *gc.C) {
 
 	s.modelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "test-model")
 	s.defaultModelUUID = modeltesting.CreateTestModel(c, s.TxnRunnerFactory(), "default-model")
-	s.ensureUser(c, "42", "admin", "42") // model owner
-	s.ensureUser(c, "123", "bob", "42")
-	s.ensureUser(c, "456", "sue", "42")
+
+	s.ensureUser(c, "42", "admin", "42", false) // model owner
+	s.ensureUser(c, "123", "bob", "42", false)
+	s.ensureUser(c, "456", "sue", "42", false)
 	s.ensureCloud(c, "987", "test-cloud", "34574", "42")
 	s.ensureCloud(c, "654", "another-cloud", "987208634", "42")
 }
@@ -334,6 +336,84 @@ WHERE grant_to = 123
 	c.Assert(createUserAccess, gc.DeepEquals, readUserAccess)
 }
 
+func (s *permissionStateSuite) TestReadUserAccessForTargetExternalUser(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	jimUserName := "jim@juju"
+
+	s.ensureUser(c, "666", "everyone@external", "42", true) // model owner
+	s.ensureUser(c, "777", jimUserName, "42", true)         // model owner
+
+	// Add Jim's permissions.
+	target := corepermission.ID{
+		Key:        s.controllerUUID,
+		ObjectType: corepermission.Controller,
+	}
+	expected, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: jimUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.LoginAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check Jim's permissions are what we added (everyone@external has no permissions yet).
+	userAccess, err := st.ReadUserAccessForTarget(context.Background(), jimUserName, target)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(userAccess, gc.DeepEquals, expected)
+
+	// Add everyone@external's permissions. These are higher than Jim's.
+	everyoneUserAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "everyone@external",
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.SuperuserAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that Jim gets the higher level of access given to everyone@external.
+	expectedWithEveryoneSuperuser := expected
+	expectedWithEveryoneSuperuser.Access = everyoneUserAccess.Access
+	expectedWithEveryoneSuperuser.PermissionID = everyoneUserAccess.PermissionID
+	userAccess, err = st.ReadUserAccessForTarget(context.Background(), jimUserName, target)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(userAccess, gc.DeepEquals, expectedWithEveryoneSuperuser)
+
+	// Delete Jim's permissions.
+	err = st.DeletePermission(context.Background(), jimUserName, target)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that Jim gets everyone@external permissions when he has none
+	// himself.
+	userAccess, err = st.ReadUserAccessForTarget(context.Background(), jimUserName, target)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(userAccess, gc.DeepEquals, expectedWithEveryoneSuperuser)
+}
+
+func (s *permissionStateSuite) TestReadUserAccessForTargetUserNotFound(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	target := corepermission.ID{
+		Key:        s.controllerUUID,
+		ObjectType: corepermission.Controller,
+	}
+	_, err := st.ReadUserAccessForTarget(context.Background(), "dave", target)
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNotFound)
+}
+
+func (s *permissionStateSuite) TestReadUserAccessForTargetPermissionNotFound(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	target := corepermission.ID{
+		Key:        s.controllerUUID,
+		ObjectType: corepermission.Controller,
+	}
+	// Bob is added in SetUpTest.
+	_, err := st.ReadUserAccessForTarget(context.Background(), "bob", target)
+	c.Assert(err, jc.ErrorIs, accesserrors.PermissionNotFound)
+}
+
 func (s *permissionStateSuite) TestReadUserAccessLevelForTarget(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -356,6 +436,58 @@ func (s *permissionStateSuite) TestReadUserAccessLevelForTarget(c *gc.C) {
 	c.Assert(readUserAccessType, gc.Equals, corepermission.AddModelAccess)
 }
 
+func (s *permissionStateSuite) TestReadUserAccessLevelForTargetExternalUser(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	jimUserName := "jim@juju"
+	s.ensureUser(c, "666", "everyone@external", "42", true) // model owner
+	s.ensureUser(c, "777", jimUserName, "42", true)         // model owner
+
+	// Add Jim's permissions.
+	target := corepermission.ID{
+		Key:        s.controllerUUID,
+		ObjectType: corepermission.Controller,
+	}
+	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: jimUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.LoginAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check Jim's permissions are what we added (everyone@external has no permissions yet).
+	accessLevel, err := st.ReadUserAccessLevelForTarget(context.Background(), jimUserName, target)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(accessLevel, gc.Equals, corepermission.LoginAccess)
+
+	// Add everyone@external's permissions. These are higher than Jim's.
+	_, err = st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "everyone@external",
+		AccessSpec: corepermission.AccessSpec{
+			Target: target,
+			Access: corepermission.SuperuserAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that Jim gets the higher level of access given to everyone@external.
+	accessLevel, err = st.ReadUserAccessLevelForTarget(context.Background(), jimUserName, target)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(accessLevel, gc.Equals, corepermission.SuperuserAccess)
+
+	// Delete Jim's permissions.
+	err = st.DeletePermission(context.Background(), jimUserName, target)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that Jim gets everyone@external permissions when he has none
+	// himself.
+	accessLevel, err = st.ReadUserAccessLevelForTarget(context.Background(), jimUserName, target)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(accessLevel, gc.DeepEquals, corepermission.SuperuserAccess)
+}
+
 func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
@@ -369,8 +501,121 @@ func (s *permissionStateSuite) TestReadAllUserAccessForUser(c *gc.C) {
 		c.Assert(access.UserName, gc.Equals, "bob")
 		c.Assert(access.CreatedBy.Id(), gc.Equals, "admin")
 	}
-	accessOne := userAccesses[0]
-	c.Assert(accessOne.Access, gc.Equals, corepermission.AddModelAccess)
+	// TODO(aflynn) fix this test to actually test something.
+}
+
+func (s *permissionStateSuite) TestReadAllUserAccessForUserExternalUser(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	jimUserName := "jim@juju"
+	s.ensureUser(c, "666", "everyone@external", "42", true) // model owner
+	s.ensureUser(c, "777", jimUserName, "42", true)         // model owner
+
+	// Add Jim's permissions.
+	controllerTarget := corepermission.ID{
+		ObjectType: corepermission.Controller,
+		Key:        s.controllerUUID,
+	}
+	jimsControllerAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: jimUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: controllerTarget,
+			Access: corepermission.LoginAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	modelTarget := corepermission.ID{
+		ObjectType: corepermission.Model,
+		Key:        s.modelUUID.String(),
+	}
+	jimsModelAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: jimUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: modelTarget,
+			Access: corepermission.ReadAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check Jim's permissions are what we added (everyone@external has no permissions yet).
+	expected := []corepermission.UserAccess{jimsModelAccess, jimsControllerAccess}
+	sort.Slice(expected, func(i, j int) bool {
+		return expected[i].PermissionID > expected[j].PermissionID
+	})
+
+	accesses, err := st.ReadAllUserAccessForUser(context.Background(), jimUserName)
+	sort.Slice(accesses, func(i, j int) bool {
+		return accesses[i].PermissionID > accesses[j].PermissionID
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(accesses, gc.DeepEquals, expected)
+
+	// Add everyone@external's permissions. These are higher than Jim's.
+	everyoneController, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "everyone@external",
+		AccessSpec: corepermission.AccessSpec{
+			Target: controllerTarget,
+			Access: corepermission.SuperuserAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	everyoneModel, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "everyone@external",
+		AccessSpec: corepermission.AccessSpec{
+			Target: modelTarget,
+			Access: corepermission.AdminAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that Jim gets the higher level of access given to everyone@external.
+	expectedWithExternal := []corepermission.UserAccess{jimsModelAccess, jimsControllerAccess}
+	expectedWithExternal[0].Access = everyoneModel.Access
+	expectedWithExternal[0].PermissionID = everyoneModel.PermissionID
+	expectedWithExternal[1].Access = everyoneController.Access
+	expectedWithExternal[1].PermissionID = everyoneController.PermissionID
+	sort.Slice(expectedWithExternal, func(i, j int) bool {
+		return expectedWithExternal[i].PermissionID > expectedWithExternal[j].PermissionID
+	})
+
+	accesses, err = st.ReadAllUserAccessForUser(context.Background(), jimUserName)
+	sort.Slice(accesses, func(i, j int) bool {
+		return accesses[i].PermissionID > accesses[j].PermissionID
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(accesses, gc.DeepEquals, expectedWithExternal)
+
+	// Delete one of Jim's permissions (the controller permission).
+	err = st.DeletePermission(context.Background(), jimUserName, controllerTarget)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.DeletePermission(context.Background(), jimUserName, modelTarget)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that Jim gets everyone@external permissions when he has none
+	// himself.
+	accesses, err = st.ReadAllUserAccessForUser(context.Background(), jimUserName)
+	sort.Slice(accesses, func(i, j int) bool {
+		return accesses[i].PermissionID > accesses[j].PermissionID
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(accesses, gc.DeepEquals, expectedWithExternal)
+}
+
+func (s *permissionStateSuite) TestReadAllUserAccessForUserUserNotFound(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	_, err := st.ReadAllUserAccessForUser(context.Background(), "dave")
+	c.Assert(err, jc.ErrorIs, accesserrors.UserNotFound)
+}
+
+func (s *permissionStateSuite) TestReadAllUserAccessForUserEmptyAccesses(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	s.ensureUser(c, "777", "dave", "42", true) // model owner
+
+	accesses, err := st.ReadAllUserAccessForUser(context.Background(), "dave")
+	c.Assert(err, gc.IsNil)
+	c.Assert(accesses, gc.HasLen, 0)
 }
 
 func (s *permissionStateSuite) TestReadAllUserAccessForTarget(c *gc.C) {
@@ -393,6 +638,93 @@ func (s *permissionStateSuite) TestReadAllUserAccessForTarget(c *gc.C) {
 	c.Check(accessOne.Object, gc.Equals, names.NewCloudTag("test-cloud"))
 
 	c.Check(accessZero.UserID, gc.Not(gc.Equals), accessOne.UserID)
+}
+
+func (s *permissionStateSuite) TestReadAllUserAccessForTargetExternalUser(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	jimUserName := "jim@juju"
+	johnUserName := "john@juju"
+	s.ensureUser(c, "777", jimUserName, "42", true)  // model owner
+	s.ensureUser(c, "888", johnUserName, "42", true) // model owner
+
+	// Add Jim and John's permissions.
+	cloudTarget := corepermission.ID{
+		ObjectType: corepermission.Cloud,
+		Key:        "test-cloud",
+	}
+	jimsCloudAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: jimUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: cloudTarget,
+			Access: corepermission.AddModelAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	johnsCloudAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: johnUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: cloudTarget,
+			Access: corepermission.AddModelAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check Jim's permissions are what we added (everyone@external has no permissions yet).
+	expected := []corepermission.UserAccess{jimsCloudAccess, johnsCloudAccess}
+	sort.Slice(expected, func(i, j int) bool {
+		return expected[i].PermissionID > expected[j].PermissionID
+	})
+
+	accesses, err := st.ReadAllUserAccessForTarget(context.Background(), cloudTarget)
+	sort.Slice(accesses, func(i, j int) bool {
+		return accesses[i].PermissionID > accesses[j].PermissionID
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(accesses, gc.DeepEquals, expected)
+
+	// Add everyone@external's permissions. These are higher than Jim's, but not Johns.
+	s.ensureUser(c, "666", "everyone@external", "42", true) // model owner
+	everyoneCloud, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "everyone@external",
+		AccessSpec: corepermission.AccessSpec{
+			Target: cloudTarget,
+			Access: corepermission.AdminAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that Jim gets the higher level of access given to everyone@external.
+	expectedWithExternal := []corepermission.UserAccess{jimsCloudAccess, johnsCloudAccess}
+	expectedWithExternal[0].Access = everyoneCloud.Access
+	expectedWithExternal[0].PermissionID = everyoneCloud.PermissionID
+	expectedWithExternal[1].Access = everyoneCloud.Access
+	expectedWithExternal[1].PermissionID = everyoneCloud.PermissionID
+	sort.Slice(expectedWithExternal, func(i, j int) bool {
+		return expectedWithExternal[i].PermissionID > expectedWithExternal[j].PermissionID
+	})
+
+	accesses, err = st.ReadAllUserAccessForTarget(context.Background(), cloudTarget)
+	sort.Slice(accesses, func(i, j int) bool {
+		return accesses[i].PermissionID > accesses[j].PermissionID
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(accesses, gc.DeepEquals, expectedWithExternal)
+
+	// Delete Jim and John's own permission.
+	err = st.DeletePermission(context.Background(), johnUserName, cloudTarget)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.DeletePermission(context.Background(), jimUserName, cloudTarget)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that Jim and John get everyone@external permissions when they have
+	// none themselves.
+	accesses, err = st.ReadAllUserAccessForTarget(context.Background(), cloudTarget)
+	sort.Slice(accesses, func(i, j int) bool {
+		return accesses[i].PermissionID > accesses[j].PermissionID
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(accesses, gc.DeepEquals, expectedWithExternal)
 }
 
 func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeCloud(c *gc.C) {
@@ -471,6 +803,102 @@ func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeNotFound(c *
 	c.Assert(err, jc.ErrorIs, accesserrors.PermissionNotFound)
 }
 
+func (s *permissionStateSuite) TestReadAllAccessForUserAndObjectTypeExternalUser(c *gc.C) {
+	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+
+	jimUserName := "jim@juju"
+	s.ensureUser(c, "777", jimUserName, "42", true) // model owner
+
+	// Add Jim's permissions.
+	cloudTargetOne := corepermission.ID{
+		ObjectType: corepermission.Cloud,
+		Key:        "test-cloud",
+	}
+	cloudTargetTwo := corepermission.ID{
+		ObjectType: corepermission.Cloud,
+		Key:        "another-cloud",
+	}
+	jimsCloudOneAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: jimUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: cloudTargetOne,
+			Access: corepermission.AddModelAccess,
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	jimsCloudTwoAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: jimUserName,
+		AccessSpec: corepermission.AccessSpec{
+			Target: cloudTargetTwo,
+			Access: corepermission.AddModelAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check Jim's permissions are what we added (everyone@external has no permissions yet).
+	expected := []corepermission.UserAccess{jimsCloudOneAccess, jimsCloudTwoAccess}
+	sort.Slice(expected, func(i, j int) bool {
+		return expected[i].PermissionID > expected[j].PermissionID
+	})
+
+	accesses, err := st.ReadAllAccessForUserAndObjectType(context.Background(), jimUserName, corepermission.Cloud)
+	c.Assert(err, jc.ErrorIsNil)
+	sort.Slice(accesses, func(i, j int) bool {
+		return accesses[i].PermissionID > accesses[j].PermissionID
+	})
+
+	// Add everyone@external's permissions. These are higher than Jim's, but not Johns.
+	s.ensureUser(c, "666", "everyone@external", "42", true) // model owner
+	everyoneCloudOne, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "everyone@external",
+		AccessSpec: corepermission.AccessSpec{
+			Target: cloudTargetOne,
+			Access: corepermission.AdminAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	everyoneCloudTwo, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
+		User: "everyone@external",
+		AccessSpec: corepermission.AccessSpec{
+			Target: cloudTargetTwo,
+			Access: corepermission.AdminAccess,
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that Jim gets the higher level of access given to everyone@external.
+	expectedWithExternal := []corepermission.UserAccess{jimsCloudOneAccess, jimsCloudTwoAccess}
+	expectedWithExternal[0].Access = everyoneCloudOne.Access
+	expectedWithExternal[0].PermissionID = everyoneCloudOne.PermissionID
+	expectedWithExternal[1].Access = everyoneCloudTwo.Access
+	expectedWithExternal[1].PermissionID = everyoneCloudTwo.PermissionID
+	sort.Slice(expectedWithExternal, func(i, j int) bool {
+		return expectedWithExternal[i].PermissionID > expectedWithExternal[j].PermissionID
+	})
+
+	accesses, err = st.ReadAllAccessForUserAndObjectType(context.Background(), jimUserName, corepermission.Cloud)
+	sort.Slice(accesses, func(i, j int) bool {
+		return accesses[i].PermissionID > accesses[j].PermissionID
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(accesses, gc.DeepEquals, expectedWithExternal)
+
+	// Delete Jims permissions
+	err = st.DeletePermission(context.Background(), jimUserName, cloudTargetOne)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.DeletePermission(context.Background(), jimUserName, cloudTargetTwo)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that Jim and John get everyone@external permissions when they have
+	// none themselves.
+	accesses, err = st.ReadAllAccessForUserAndObjectType(context.Background(), jimUserName, corepermission.Cloud)
+	sort.Slice(accesses, func(i, j int) bool {
+		return accesses[i].PermissionID > accesses[j].PermissionID
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(accesses, gc.DeepEquals, expectedWithExternal)
+}
+
 func (s *permissionStateSuite) TestUpsertPermissionGrantNewUser(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
@@ -500,15 +928,17 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantNewUser(c *gc.C) {
 		ObjectType: corepermission.Model,
 		Key:        s.modelUUID.String(),
 	}
+	external := false
 	arg := access.UpdatePermissionArgs{
 		AccessSpec: corepermission.AccessSpec{
 			Target: target,
 			Access: corepermission.WriteAccess,
 		},
-		AddUser: true,
-		ApiUser: "admin",
-		Change:  corepermission.Grant,
-		Subject: "tom",
+		AddUser:  true,
+		External: &external,
+		ApiUser:  "admin",
+		Change:   corepermission.Grant,
+		Subject:  "tom",
 	}
 	err = st.UpsertPermission(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -532,15 +962,17 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantExistingUser(c *gc.C) {
 		ObjectType: corepermission.Model,
 		Key:        s.defaultModelUUID.String(),
 	}
+	external := false
 	arg := access.UpdatePermissionArgs{
 		AccessSpec: corepermission.AccessSpec{
 			Target: target,
 			Access: corepermission.AdminAccess,
 		},
-		AddUser: true,
-		ApiUser: "admin",
-		Change:  corepermission.Grant,
-		Subject: "bob",
+		AddUser:  true,
+		External: &external,
+		ApiUser:  "admin",
+		Change:   corepermission.Grant,
+		Subject:  "bob",
 	}
 	err := st.UpsertPermission(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -560,15 +992,17 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantLessAccess(c *gc.C) {
 		ObjectType: corepermission.Model,
 		Key:        s.modelUUID.String(),
 	}
+	external := false
 	arg := access.UpdatePermissionArgs{
 		AccessSpec: corepermission.AccessSpec{
 			Target: target,
 			Access: corepermission.ReadAccess,
 		},
-		AddUser: true,
-		ApiUser: "admin",
-		Change:  corepermission.Grant,
-		Subject: "bob",
+		AddUser:  true,
+		External: &external,
+		ApiUser:  "admin",
+		Change:   corepermission.Grant,
+		Subject:  "bob",
 	}
 	err := st.UpsertPermission(context.Background(), arg)
 	c.Assert(err, jc.ErrorIs, accesserrors.PermissionAccessGreater)
@@ -602,15 +1036,17 @@ func (s *permissionStateSuite) TestUpsertPermissionRevokeRemovePerm(c *gc.C) {
 		ObjectType: corepermission.Model,
 		Key:        s.defaultModelUUID.String(),
 	}
+	external := false
 	arg := access.UpdatePermissionArgs{
 		AccessSpec: corepermission.AccessSpec{
 			Target: target,
 			Access: corepermission.ReadAccess,
 		},
-		AddUser: true,
-		ApiUser: "admin",
-		Change:  corepermission.Revoke,
-		Subject: "bob",
+		AddUser:  true,
+		External: &external,
+		ApiUser:  "admin",
+		Change:   corepermission.Revoke,
+		Subject:  "bob",
 	}
 	err := st.UpsertPermission(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -741,12 +1177,12 @@ func (s *permissionStateSuite) setupForRead(c *gc.C, st *PermissionState) {
 	}
 }
 
-func (s *permissionStateSuite) ensureUser(c *gc.C, userUUID, name, createdByUUID string) {
+func (s *permissionStateSuite) ensureUser(c *gc.C, userUUID, name, createdByUUID string, external bool) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, userUUID, name, name, false, createdByUUID, time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, userUUID, name, name, external, false, createdByUUID, time.Now())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

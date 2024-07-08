@@ -26,7 +26,6 @@ import (
 	apiclient "github.com/juju/juju/api/client/client"
 	machineclient "github.com/juju/juju/api/client/machinemanager"
 	"github.com/juju/juju/api/client/modelconfig"
-	"github.com/juju/juju/apiserver/common"
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/migration"
@@ -181,6 +180,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
@@ -221,6 +221,7 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
@@ -450,6 +451,7 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
@@ -713,6 +715,7 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
@@ -889,6 +892,7 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (names.UserTag, par
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
@@ -990,6 +994,7 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	userUUID, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userName,
 		DisplayName: "Bob Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
 		Permission: permission.AccessSpec{
@@ -1048,9 +1053,10 @@ func assertPermissionDenied(c *gc.C, err error) {
 	})
 }
 
-func setEveryoneAccess(c *gc.C, st *state.State, adminUser names.UserTag, access permission.Access) {
-	targetUserTag := names.NewUserTag(common.EveryoneTagName)
-	_, err := st.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: adminUser, Access: access})
+func setEveryoneAccess(c *gc.C, st *state.State, adminUser names.UserTag, accessLevel permission.Access) {
+	//TODO(aflynn): Move this test to use the service.
+	targetUserTag := names.NewUserTag(permission.EveryoneTagName)
+	_, err := st.AddControllerUser(state.UserAccessSpec{User: targetUserTag, CreatedBy: adminUser, Access: accessLevel})
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1129,6 +1135,7 @@ func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *g
 	uuid, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
 		Permission: permission.AccessSpec{

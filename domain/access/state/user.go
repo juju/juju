@@ -45,6 +45,7 @@ func (st *UserState) AddUser(
 	uuid user.UUID,
 	name string,
 	displayName string,
+	external bool,
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
 ) error {
@@ -54,7 +55,7 @@ func (st *UserState) AddUser(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission))
+		return errors.Trace(AddUser(ctx, tx, uuid, name, displayName, external, creatorUUID, permission))
 	})
 }
 
@@ -67,6 +68,7 @@ func (st *UserState) AddUserWithPasswordHash(
 	uuid user.UUID,
 	name string,
 	displayName string,
+	external bool,
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
 	passwordHash string,
@@ -78,7 +80,7 @@ func (st *UserState) AddUserWithPasswordHash(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(AddUserWithPassword(ctx, tx, uuid, name, displayName, creatorUUID, permission, passwordHash, salt))
+		return errors.Trace(AddUserWithPassword(ctx, tx, uuid, name, displayName, external, creatorUUID, permission, passwordHash, salt))
 	})
 }
 
@@ -92,6 +94,7 @@ func (st *UserState) AddUserWithActivationKey(
 	uuid user.UUID,
 	name string,
 	displayName string,
+	external bool,
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
 	activationKey []byte,
@@ -102,7 +105,7 @@ func (st *UserState) AddUserWithActivationKey(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission)
+		err = AddUser(ctx, tx, uuid, name, displayName, external, creatorUUID, permission)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -614,12 +617,13 @@ func AddUserWithPassword(
 	uuid user.UUID,
 	name string,
 	displayName string,
+	external bool,
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
 	passwordHash string,
 	salt []byte,
 ) error {
-	err := AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission)
+	err := AddUser(ctx, tx, uuid, name, displayName, external, creatorUUID, permission)
 	if err != nil {
 		return errors.Annotatef(err, "adding user with uuid %q", uuid)
 	}
@@ -639,6 +643,7 @@ func AddUser(
 	uuid user.UUID,
 	name string,
 	displayName string,
+	external bool,
 	creatorUuid user.UUID,
 	access permission.AccessSpec,
 ) error {
@@ -647,23 +652,25 @@ func AddUser(
 		return errors.Annotate(err, "generating permission UUID")
 	}
 
-	addUserQuery := `
-INSERT INTO user (uuid, name, display_name, created_by_uuid, created_at) 
-VALUES      ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)`
+	user := dbUser{
+		UUID:        uuid.String(),
+		Name:        name,
+		DisplayName: displayName,
+		External:    external,
+		CreatorUUID: creatorUuid.String(),
+		CreatedAt:   time.Now(),
+	}
 
-	insertAddUserStmt, err := sqlair.Prepare(addUserQuery, sqlair.M{})
+	addUserQuery := `
+INSERT INTO user (uuid, name, display_name, external, created_by_uuid, created_at) 
+VALUES           ($dbUser.*)`
+
+	insertAddUserStmt, err := sqlair.Prepare(addUserQuery, user)
 	if err != nil {
 		return errors.Annotate(err, "preparing add user query")
 	}
 
-	m := sqlair.M{
-		"uuid":            uuid.String(),
-		"name":            name,
-		"display_name":    displayName,
-		"created_by_uuid": creatorUuid.String(),
-		"created_at":      time.Now(),
-	}
-	err = tx.Query(ctx, insertAddUserStmt, m).Run()
+	err = tx.Query(ctx, insertAddUserStmt, user).Run()
 	if internaldatabase.IsErrConstraintUnique(err) {
 		return errors.Annotatef(accesserrors.UserAlreadyExists, "adding user %q", name)
 	} else if internaldatabase.IsErrConstraintForeignKey(err) {
@@ -674,15 +681,15 @@ VALUES      ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_a
 
 	enableUserQuery := `
 INSERT INTO user_authentication (user_uuid, disabled)
-VALUES ($M.uuid, false)
+VALUES ($dbUser.uuid, false)
 `
 
-	enableUserStmt, err := sqlair.Prepare(enableUserQuery, sqlair.M{})
+	enableUserStmt, err := sqlair.Prepare(enableUserQuery, user)
 	if err != nil {
 		return errors.Annotate(err, "preparing enable user query")
 	}
 
-	if err := tx.Query(ctx, enableUserStmt, m).Run(); err != nil {
+	if err := tx.Query(ctx, enableUserStmt, user).Run(); err != nil {
 		return errors.Annotatef(err, "enabling user %q", name)
 	}
 

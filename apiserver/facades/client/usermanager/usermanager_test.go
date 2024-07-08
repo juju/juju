@@ -62,6 +62,7 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        "foobar",
 		DisplayName: "Foo Bar",
+		External:    false,
 		Password:    &pass,
 		CreatorUUID: s.apiUser.UUID,
 		Permission: permission.AccessSpec{
@@ -99,6 +100,7 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        "foobar",
 		DisplayName: "Foo Bar",
+		External:    false,
 		CreatorUUID: s.apiUser.UUID,
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,

@@ -92,6 +92,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
 		Permission: permission.AccessSpec{
@@ -121,6 +122,7 @@ func (s *userAuthenticatorSuite) TestDisabledUserLogin(c *gc.C) {
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
 		Permission: permission.AccessSpec{
@@ -151,6 +153,7 @@ func (s *userAuthenticatorSuite) TestRemovedUserLogin(c *gc.C) {
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
 		Permission: permission.AccessSpec{
@@ -181,6 +184,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
 		Permission: permission.AccessSpec{
@@ -209,6 +213,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bob",
 		DisplayName: "Bob Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
@@ -251,6 +256,7 @@ func (s *userAuthenticatorSuite) TestInvalidMacaroonUserLogin(c *gc.C) {
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
@@ -325,6 +331,7 @@ func (s *userAuthenticatorSuite) TestRemovedMacaroonUserLogin(c *gc.C) {
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,

@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access/service"
@@ -126,7 +125,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *gc.C) {
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C) {
-	s.AddControllerUser(c, common.EveryoneTagName, permission.LoginAccess)
+	s.AddControllerUser(c, permission.EveryoneTagName, permission.LoginAccess)
 
 	s.DischargerLogin = func() string {
 		return remoteUser
@@ -155,7 +154,7 @@ func parseHostPortsFromAddress(c *gc.C, addresses ...string) []network.ProviderH
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerSuperuserAccess(c *gc.C) {
-	s.AddControllerUser(c, common.EveryoneTagName, permission.SuperuserAccess)
+	s.AddControllerUser(c, permission.EveryoneTagName, permission.SuperuserAccess)
 	var remoteUserTag = names.NewUserTag(remoteUser)
 
 	s.DischargerLogin = func() string {
@@ -177,7 +176,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelNoExplicitAccess(c *gc.C)
 	// If we have a remote user which the controller knows nothing about,
 	// and the macaroon is discharged successfully, and the user is attempting
 	// to log into a model, that is permission denied.
-	s.AddControllerUser(c, common.EveryoneTagName, permission.LoginAccess)
+	s.AddControllerUser(c, permission.EveryoneTagName, permission.LoginAccess)
 	s.DischargerLogin = func() string {
 		return remoteUser
 	}
@@ -202,6 +201,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        remoteUser,
 		DisplayName: "Remote User",
+		External:    true,
 		CreatorUUID: s.AdminUserUUID,
 		Permission: permission.AccessSpec{
 			Target: permission.ID{

@@ -187,7 +187,7 @@ type fakeEveryoneUserAccess struct {
 }
 
 func (f *fakeEveryoneUserAccess) call(subject names.UserTag, object names.Tag) (permission.Access, error) {
-	if subject.Id() == common.EveryoneTagName {
+	if subject.Id() == permission.EveryoneTagName {
 		return f.everyone, nil
 	}
 	return f.user, nil

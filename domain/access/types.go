@@ -18,6 +18,9 @@ type UpdatePermissionArgs struct {
 	AccessSpec permission.AccessSpec
 	// AddUser will add the subject if the user does not exist.
 	AddUser bool
+	// External must be set if AddUser is true. It indicates if the subject is
+	// an external or local user.
+	External *bool
 	// ApiUser is the user requesting the change, they must have
 	// permission to do it as well.
 	ApiUser string
@@ -33,6 +36,9 @@ func (args UpdatePermissionArgs) Validate() error {
 	}
 	if args.Subject == "" {
 		return errors.Trace(errors.NotValidf("empty subject"))
+	}
+	if args.AddUser && (args.External == nil) {
+		return errors.Trace(errors.NotValidf("add user is true but external is not set"))
 	}
 	if err := args.AccessSpec.Validate(); err != nil {
 		return errors.Trace(err)

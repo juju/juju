@@ -106,9 +106,9 @@ func NewCloudAPI(
 	}, nil
 }
 
-func (api *CloudAPI) canAccessCloud(ctx context.Context, cloud string, user string, access permission.Access) (bool, error) {
+func (api *CloudAPI) canAccessCloud(ctx context.Context, cloud string, user names.UserTag, access permission.Access) (bool, error) {
 	id := permission.ID{ObjectType: permission.Cloud, Key: cloud}
-	perm, err := api.cloudAccessService.ReadUserAccessLevelForTarget(ctx, user, id)
+	perm, err := api.cloudAccessService.ReadUserAccessLevelForTarget(ctx, user.Id(), id)
 	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}
@@ -137,7 +137,7 @@ func (api *CloudAPI) Clouds(ctx context.Context) (params.CloudsResult, error) {
 	for _, aCloud := range clouds {
 		// Ensure user has permission to see the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, aCloud.Name, api.apiUser.Id(), permission.AddModelAccess)
+			canAccess, err := api.canAccessCloud(ctx, aCloud.Name, api.apiUser, permission.AddModelAccess)
 			if err != nil {
 				return result, err
 			}
@@ -170,7 +170,7 @@ func (api *CloudAPI) Cloud(ctx context.Context, args params.Entities) (params.Cl
 		}
 		// Ensure user has permission to see the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, tag.Id(), api.apiUser.Id(), permission.AddModelAccess)
+			canAccess, err := api.canAccessCloud(ctx, tag.Id(), api.apiUser, permission.AddModelAccess)
 			if err != nil {
 				return nil, err
 			}
@@ -229,7 +229,7 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 	isAdmin := err == nil
 	// If not a controller admin, check for cloud admin.
 	if !isAdmin {
-		isAdmin, err = api.canAccessCloud(ctx, tag.Id(), api.apiUser.Id(), permission.AdminAccess)
+		isAdmin, err = api.canAccessCloud(ctx, tag.Id(), api.apiUser, permission.AdminAccess)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
@@ -650,7 +650,7 @@ func (api *CloudAPI) RemoveClouds(ctx context.Context, args params.Entities) (pa
 		}
 		// Ensure user has permission to remove the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, tag.Id(), api.apiUser.Id(), permission.AdminAccess)
+			canAccess, err := api.canAccessCloud(ctx, tag.Id(), api.apiUser, permission.AdminAccess)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue

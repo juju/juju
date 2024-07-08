@@ -35,6 +35,8 @@ func (p *PermissionDelegator) SubjectPermissions(
 		return permission.NoAccess, errors.Trace(err)
 	}
 
+	// TODO(aflynn) why is this not ReadUserAccessLevelForTarget? We just throw
+	// away the access.
 	access, err := p.AccessService.ReadUserAccessForTarget(ctx, userID, permissionID)
 	if err != nil {
 		return permission.NoAccess, errors.Trace(err)

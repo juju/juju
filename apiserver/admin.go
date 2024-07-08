@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/observer"
@@ -25,7 +24,6 @@ import (
 	"github.com/juju/juju/core/pinger"
 	"github.com/juju/juju/core/trace"
 	jujuversion "github.com/juju/juju/core/version"
-	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -450,44 +448,12 @@ func (a *admin) checkUserPermissions(
 		return nil, fmt.Errorf("establishing user tag from authenticated user entity")
 	}
 
-	modelAccess := permission.NoAccess
-
-	// TODO(perrito666) remove the following section about everyone group
-	// when groups are implemented, this accounts only for the lack of a local
-	// ControllerUser when logging in from an external user that has not been granted
-	// permissions on the controller but there are permissions for the special
-	// everyone group.
-	everyoneGroupAccess := permission.NoAccess
-	if !userTag.IsLocal() {
-
-		// TODO (manadart 2024-05-27): This is a huge wart.
-		// Having to acquire the service this way is an abysmal failure of
-		// encapsulation.
-		// The best option might be to round up all of these special case
-		// "everyone@external" checks and push them into either the permission
-		// delegator or the service itself.
-		accessService := a.srv.shared.serviceFactoryGetter.FactoryForModel(a.srv.shared.controllerModelID).Access()
-		everyoneGroupUser, err := accessService.ReadUserAccessForTarget(
-			ctx,
-			common.EveryoneTagName,
-			permission.ID{
-				ObjectType: permission.Controller,
-				Key:        a.root.shared.controllerUUID,
-			},
-		)
-		if err != nil && !errors.Is(err, accesserrors.UserNotFound) && !errors.Is(err, accesserrors.PermissionNotFound) {
-			return nil, errors.Annotatef(err, "obtaining ControllerUser for everyone group")
-		}
-		everyoneGroupAccess = everyoneGroupUser.Access
-	}
-
 	controllerAccess, err := authInfo.SubjectPermissions(ctx, a.root.state.ControllerTag())
-	if errors.Is(err, accesserrors.PermissionNotFound) || errors.Is(err, accesserrors.UserNotFound) {
-		controllerAccess = everyoneGroupAccess
-	} else if err != nil {
+	if err != nil {
 		return nil, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", userTag.Id())
 	}
 
+	modelAccess := permission.NoAccess
 	if !controllerOnlyLogin {
 		// Only grab modelUser permissions if this is not a controller only
 		// login. In all situations, if the model user is not found, they have
@@ -504,11 +470,6 @@ func (a *admin) checkUserPermissions(
 		}
 	}
 
-	// It is possible that the everyoneGroup permissions are more capable than an
-	// individuals. If they are, use them.
-	if everyoneGroupAccess.GreaterControllerAccessThan(controllerAccess) {
-		controllerAccess = everyoneGroupAccess
-	}
 	if controllerOnlyLogin || !a.srv.allowModelAccess {
 		// We're either explicitly logging into the controller or
 		// we must check that the user has access to the controller

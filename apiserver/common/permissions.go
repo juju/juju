@@ -15,10 +15,6 @@ import (
 	accesserrors "github.com/juju/juju/domain/access/errors"
 )
 
-// EveryoneTagName represents a special group that encompasses
-// all external users.
-const EveryoneTagName = "everyone@external"
-
 // UserAccessFunc represents a func that can answer the question about what
 // level of access a user entity has for a given subject tag.
 type UserAccessFunc func(names.UserTag, names.Tag) (permission.Access, error)
@@ -79,24 +75,6 @@ func GetPermission(accessGetter UserAccessFunc, userTag names.UserTag, target na
 		return permission.NoAccess, errors.Trace(err)
 	}
 
-	// There is a special case for external users, a group called everyone@external.
-	if !userTag.IsLocal() {
-		// TODO(perrito666) remove the following section about everyone group
-		// when groups are implemented.
-		everyoneTag := names.NewUserTag(EveryoneTagName)
-		everyoneAccess, err := accessGetter(everyoneTag, target)
-		if err != nil &&
-			!errors.Is(err, accesserrors.PermissionNotFound) &&
-			!errors.Is(err, accesserrors.UserNotFound) {
-			return permission.NoAccess, errors.Trace(err)
-		}
-		if userAccess == permission.NoAccess && everyoneAccess != permission.NoAccess {
-			userAccess = everyoneAccess
-		}
-		if everyoneAccess.EqualOrGreaterControllerAccessThan(userAccess) {
-			userAccess = everyoneAccess
-		}
-	}
 	return userAccess, nil
 }
 

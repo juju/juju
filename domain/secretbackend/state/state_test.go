@@ -122,6 +122,7 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 		userUUID,
 		userName,
 		userName,
+		false,
 		userUUID,
 		// TODO (stickupkid): This should be AdminAccess, but we don't have
 		// a model to set the user as the owner of.

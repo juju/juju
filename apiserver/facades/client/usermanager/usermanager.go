@@ -114,6 +114,8 @@ func (api *UserManagerAPI) addOneUser(ctx context.Context, arg params.AddUser) p
 	var activationKey []byte
 	var err error
 
+	userTag := names.NewUserTag(arg.Username)
+
 	// TODO(anvial): Legacy block to delete when user domain wire up is complete.
 	if arg.Password != "" {
 		_, err = api.state.AddUser(arg.Username, arg.DisplayName, arg.Password, api.apiUserTag.Id())
@@ -131,6 +133,7 @@ func (api *UserManagerAPI) addOneUser(ctx context.Context, arg params.AddUser) p
 	addUserArg := service.AddUserArg{
 		Name:        arg.Username,
 		DisplayName: arg.DisplayName,
+		External:    !userTag.IsLocal(),
 		CreatorUUID: api.apiUser.UUID,
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
@@ -151,7 +154,7 @@ func (api *UserManagerAPI) addOneUser(ctx context.Context, arg params.AddUser) p
 	}
 
 	return params.AddUserResult{
-		Tag:       names.NewLocalUserTag(arg.Username).String(),
+		Tag:       userTag.String(),
 		SecretKey: activationKey,
 	}
 }

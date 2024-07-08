@@ -156,6 +156,7 @@ func (s *workerSuite) TestMetricsUsersAddSuccess(c *gc.C) {
 	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        "juju-metrics-r0",
 		DisplayName: "juju-metrics-r0",
+		External:    false,
 		Password:    ptr(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 	}).Return(coreuser.UUID("foobar"), nil, nil)
@@ -179,6 +180,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExists(c *gc.C) {
 	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        "juju-metrics-r0",
 		DisplayName: "juju-metrics-r0",
+		External:    false,
 		Password:    ptr(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 	}).Return(coreuser.UUID("foobar"), nil, usererrors.UserAlreadyExists)
@@ -204,6 +206,7 @@ func (s *workerSuite) TestMetricsUsersAddAlreadyExistsButDisabled(c *gc.C) {
 	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        "juju-metrics-r0",
 		DisplayName: "juju-metrics-r0",
+		External:    false,
 		Password:    ptr(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 	}).Return(coreuser.UUID("foobar"), nil, usererrors.UserAlreadyExists)
@@ -230,6 +233,7 @@ func (s *workerSuite) TestMetricsUsersAddIdempotent(c *gc.C) {
 	s.userService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        "juju-metrics-r0",
 		DisplayName: "juju-metrics-r0",
+		External:    false,
 		Password:    ptr(auth.NewPassword("bar")),
 		CreatorUUID: coreuser.UUID("deadbeef"),
 	}).Return(coreuser.UUID("foobar"), nil, usererrors.UserAlreadyExists)

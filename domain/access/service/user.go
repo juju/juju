@@ -174,7 +174,7 @@ func (s *UserService) addUserWithPassword(ctx context.Context, arg AddUserArg) e
 		return errors.Trace(err)
 	}
 
-	err = s.st.AddUserWithPasswordHash(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.CreatorUUID, arg.Permission, hash, salt)
+	err = s.st.AddUserWithPasswordHash(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.External, arg.CreatorUUID, arg.Permission, hash, salt)
 	return errors.Trace(err)
 }
 
@@ -184,7 +184,7 @@ func (s *UserService) addUserWithActivationKey(ctx context.Context, arg AddUserA
 		return nil, errors.Trace(err)
 	}
 
-	if err = s.st.AddUserWithActivationKey(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.CreatorUUID, arg.Permission, key); err != nil {
+	if err = s.st.AddUserWithActivationKey(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.External, arg.CreatorUUID, arg.Permission, key); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return key, nil

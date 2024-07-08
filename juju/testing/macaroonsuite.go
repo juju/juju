@@ -91,6 +91,7 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        username,
 		DisplayName: "Remote User",
+		External:    true,
 		CreatorUUID: s.AdminUserUUID,
 		Permission: permission.AccessSpec{
 			Target: permission.ID{
@@ -118,6 +119,7 @@ func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, access permi
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        username,
 		DisplayName: "User Name",
+		External:    true,
 		CreatorUUID: s.AdminUserUUID,
 		Permission:  perm,
 	})

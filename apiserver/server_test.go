@@ -265,6 +265,7 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (state.Entity, names.C
 	userUUID, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        uTag.Id(),
 		DisplayName: "Foo Bar",
+		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
 		Permission: permission.AccessSpec{

@@ -41,6 +41,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	userUUID, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
+		External:    false,
 		Password:    ptr(auth.NewPassword("password")),
 		CreatorUUID: s.AdminUserUUID,
 		Permission: permission.AccessSpec{

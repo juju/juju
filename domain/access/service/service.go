@@ -34,6 +34,7 @@ type UserState interface {
 		uuid user.UUID,
 		name string,
 		displayName string,
+		external bool,
 		creatorUUID user.UUID,
 		permission permission.AccessSpec,
 	) error
@@ -48,6 +49,7 @@ type UserState interface {
 		uuid user.UUID,
 		name string,
 		displayName string,
+		external bool,
 		creatorUUID user.UUID,
 		permission permission.AccessSpec,
 		passwordHash string,
@@ -64,6 +66,7 @@ type UserState interface {
 		uuid user.UUID,
 		name string,
 		displayName string,
+		external bool,
 		creatorUUID user.UUID,
 		permission permission.AccessSpec,
 		activationKey []byte,

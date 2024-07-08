@@ -90,9 +90,9 @@ func CreateTestModel(
 
 	err = runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, userUUID.String(), name, userName, false, userUUID, time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, userUUID.String(), name, userName, false, false, userUUID, time.Now())
 		if err != nil {
 			return err
 		}

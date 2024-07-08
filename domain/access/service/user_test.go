@@ -65,6 +65,7 @@ func (s *userServiceSuite) TestAddUserAlreadyExists(c *gc.C) {
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
+		External:    false,
 		CreatorUUID: newUUID(c),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
@@ -87,6 +88,7 @@ func (s *userServiceSuite) TestAddUserCreatorUUIDNotFound(c *gc.C) {
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
+		External:    false,
 		CreatorUUID: newUUID(c),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
@@ -123,6 +125,7 @@ func (s *userServiceSuite) TestAddUserWithPassword(c *gc.C) {
 		UUID:        userUUID,
 		Name:        "valid",
 		DisplayName: "display",
+		External:    false,
 		Password:    &pass,
 		CreatorUUID: creatorUUID,
 		Permission:  perms,
@@ -146,6 +149,7 @@ func (s *userServiceSuite) TestAddUserWithPasswordNotValid(c *gc.C) {
 		UUID:        userUUID,
 		Name:        "valid",
 		DisplayName: "display",
+		External:    false,
 		Password:    &badPass,
 		CreatorUUID: creatorUUID,
 		Permission: permission.AccessSpec{
@@ -172,6 +176,7 @@ func (s *userServiceSuite) TestAddUserWithPermissionInvalid(c *gc.C) {
 		UUID:        userUUID,
 		Name:        "valid",
 		DisplayName: "display",
+		External:    false,
 		Password:    &pass,
 		CreatorUUID: creatorUUID,
 	})

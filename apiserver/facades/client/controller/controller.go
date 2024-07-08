@@ -810,6 +810,7 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 			continue
 		}
 
+		external := !targetUserTag.IsLocal()
 		updateArgs := access.UpdatePermissionArgs{
 			AccessSpec: permission.AccessSpec{
 				Access: permission.Access(arg.Access),
@@ -818,10 +819,11 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 					Key:        c.controllerTag.Id(),
 				},
 			},
-			AddUser: true,
-			ApiUser: c.apiUser.Id(),
-			Change:  permission.AccessChange(string(arg.Action)),
-			Subject: targetUserTag.Id(),
+			AddUser:  true,
+			External: &external,
+			ApiUser:  c.apiUser.Id(),
+			Change:   permission.AccessChange(string(arg.Action)),
+			Subject:  targetUserTag.Id(),
 		}
 		err = c.accessService.UpdatePermission(ctx, updateArgs)
 		result.Results[i].Error = apiservererrors.ServerError(err)

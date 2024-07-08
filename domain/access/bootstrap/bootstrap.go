@@ -33,6 +33,8 @@ func AddUser(name string, access permission.AccessSpec) (user.UUID, internaldata
 		return "", bootstrapErr(errors.Annotatef(usererrors.UserNameNotValid, "%q", name))
 	}
 
+	external := !names.NewUserTag(name).IsLocal()
+
 	uuid, err := user.NewUUID()
 	if err != nil {
 		return "", bootstrapErr(
@@ -41,7 +43,7 @@ func AddUser(name string, access permission.AccessSpec) (user.UUID, internaldata
 
 	return uuid, func(ctx context.Context, controller, model database.TxnRunner) error {
 		err := controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			return state.AddUser(ctx, tx, uuid, name, "", uuid, access)
+			return state.AddUser(ctx, tx, uuid, name, "", external, uuid, access)
 		})
 
 		if err != nil {
@@ -91,6 +93,7 @@ func AddUserWithPassword(name string, password auth.Password, access permission.
 				ctx, tx,
 				uuid,
 				name, name,
+				false,
 				uuid,
 				access,
 				pwHash, salt,

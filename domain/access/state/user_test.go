@@ -54,27 +54,27 @@ func (s *userStateSuite) SetUpTest(c *gc.C) {
 func (s *userStateSuite) TestSingletonActiveUser(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, "123", "bob", "Bob", true, "123", time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, "123", "bob", "Bob", false, true, "123", time.Now())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, "124", "bob", "Bob", true, "123", time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, "124", "bob", "Bob", false, true, "123", time.Now())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, "125", "bob", "Bob", true, "123", time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, "125", "bob", "Bob", false, true, "123", time.Now())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -82,9 +82,9 @@ func (s *userStateSuite) TestSingletonActiveUser(c *gc.C) {
 	// Insert the first non-removed (active) Bob user.
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, "126", "bob", "Bob", false, "123", time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, "126", "bob", "Bob", false, false, "123", time.Now())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,9 +93,9 @@ func (s *userStateSuite) TestSingletonActiveUser(c *gc.C) {
 	// up the constraint.
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, "127", "bob", "Bob", false, "123", time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, "127", "bob", "Bob", false, false, "123", time.Now())
 		return err
 	})
 	c.Assert(database.IsErrConstraintUnique(err), jc.IsTrue)
@@ -123,7 +123,7 @@ func (s *userStateSuite) TestBootstrapAddUserWithPassword(c *gc.C) {
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		err = AddUserWithPassword(
 			context.Background(), tx, adminUUID,
-			"admin", "admin",
+			"admin", "admin", false,
 			adminUUID, s.controllerLoginAccess(), "passwordHash", salt,
 		)
 		return err
@@ -166,7 +166,7 @@ func (s *userStateSuite) TestAddUser(c *gc.C) {
 	loginAccess := s.controllerLoginAccess()
 	err = st.AddUser(
 		context.Background(), adminUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		adminUUID, loginAccess,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,7 +197,7 @@ func (s *userStateSuite) TestAddUserAlreadyExists(c *gc.C) {
 
 	err = st.AddUser(
 		context.Background(), adminUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -208,7 +208,7 @@ func (s *userStateSuite) TestAddUserAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddUser(
 		context.Background(), adminCloneUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		adminCloneUUID,
 		s.controllerLoginAccess(),
 	)
@@ -229,7 +229,7 @@ func (s *userStateSuite) TestAddUserCreatorNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddUser(
 		context.Background(), adminUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		nonExistingUUID,
 		s.controllerLoginAccess(),
 	)
@@ -250,7 +250,7 @@ func (s *userStateSuite) TestAddUserWithInvalidPermissions(c *gc.C) {
 
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		adminUUID,
 		permission.AccessSpec{
 			Access: permission.ReadAccess,
@@ -277,7 +277,7 @@ func (s *userStateSuite) TestGetUser(c *gc.C) {
 
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -304,7 +304,7 @@ func (s *userStateSuite) TestGetRemovedUser(c *gc.C) {
 
 	err = st.AddUser(
 		context.Background(), adminUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -320,6 +320,7 @@ func (s *userStateSuite) TestGetRemovedUser(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), userToRemoveUUID,
 		"userToRemove", "userToRemove",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -368,6 +369,7 @@ func (s *userStateSuite) TestGetUserByName(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -397,6 +399,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -409,6 +412,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), userToRemoveUUID,
 		"userToRemove", "userToRemove",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -435,6 +439,7 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -455,6 +460,7 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 		context.Background(),
 		admin2UUID,
 		"admin", "admin2",
+		false,
 		admin2UUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -496,6 +502,7 @@ func (s *userStateSuite) TestGetUserWithAuthInfoByName(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -532,6 +539,7 @@ func (s *userStateSuite) TestGetUserByAuth(c *gc.C) {
 		context.Background(),
 		adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		passwordHash, salt)
@@ -560,6 +568,7 @@ func (s *userStateSuite) TestGetUserByAuthWithInvalidSalt(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", []byte{},
@@ -590,6 +599,7 @@ func (s *userStateSuite) TestGetUserByAuthDisabled(c *gc.C) {
 		context.Background(),
 		adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		passwordHash, salt)
@@ -627,6 +637,7 @@ func (s *userStateSuite) TestGetUserByAuthUnauthorized(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		passwordHash, salt,
@@ -659,6 +670,7 @@ func (s *userStateSuite) TestRemoveUser(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -671,6 +683,7 @@ func (s *userStateSuite) TestRemoveUser(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), userToRemoveUUID,
 		"userToRemove", "userToRemove",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -732,6 +745,7 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), admin1UUID,
 		"admin1", "admin1",
+		false,
 		admin1UUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -748,6 +762,7 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 	err = st.AddUserWithActivationKey(
 		context.Background(), admin2UUID,
 		"admin2", "admin2",
+		false,
 		admin2UUID,
 		s.controllerLoginAccess(),
 		admin2ActivationKey,
@@ -812,6 +827,7 @@ func (s *userStateSuite) TestUserWithAuthInfo(c *gc.C) {
 		context.Background(),
 		uuid,
 		name, name,
+		false,
 		uuid,
 		s.controllerLoginAccess(),
 		"passwordHash", salt)
@@ -844,6 +860,7 @@ func (s *userStateSuite) TestSetPasswordHash(c *gc.C) {
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		newActivationKey,
@@ -911,6 +928,7 @@ func (s *userStateSuite) TestSetPasswordHashTwice(c *gc.C) {
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		newActivationKey,
@@ -961,6 +979,7 @@ func (s *userStateSuite) TestAddUserWithPasswordHash(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -999,6 +1018,7 @@ func (s *userStateSuite) TestAddUserWithPasswordWhichCreatorDoesNotExist(c *gc.C
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		nonExistedCreatorUuid,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -1020,6 +1040,7 @@ func (s *userStateSuite) TestAddUserWithActivationKey(c *gc.C) {
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		adminActivationKey,
@@ -1045,6 +1066,7 @@ func (s *userStateSuite) TestGetActivationKeyNotFound(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -1073,6 +1095,7 @@ func (s *userStateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c 
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		nonExistedCreatorUuid,
 		s.controllerLoginAccess(),
 		newActivationKey,
@@ -1095,6 +1118,7 @@ func (s *userStateSuite) TestSetActivationKey(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -1150,6 +1174,7 @@ func (s *userStateSuite) TestDisableUserAuthentication(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -1192,6 +1217,7 @@ func (s *userStateSuite) TestEnableUserAuthentication(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -1228,7 +1254,14 @@ func (s *userStateSuite) TestGetUserUUIDByName(c *gc.C) {
 	uuid, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.AddUser(context.Background(), uuid, "dnuof", "", uuid, s.controllerLoginAccess())
+	err = st.AddUser(
+		context.Background(),
+		uuid,
+		"dnuof", "",
+		false,
+		uuid,
+		s.controllerLoginAccess(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(),
@@ -1360,6 +1393,7 @@ func (s *userStateSuite) addTestUser(c *gc.C, st *UserState, name string) (strin
 	err = st.AddUserWithPasswordHash(
 		context.Background(), userUUID,
 		name, name,
+		false,
 		userUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,

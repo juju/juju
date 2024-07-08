@@ -68,6 +68,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 		m.userUUID,
 		m.userName,
 		m.userName,
+		false,
 		m.userUUID,
 		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
@@ -216,6 +217,7 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 		userUUID,
 		coremodel.ControllerModelOwnerUsername,
 		coremodel.ControllerModelOwnerUsername,
+		false,
 		userUUID,
 		permission.AccessSpec{
 			Access: permission.SuperuserAccess,

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/names/v5"
 	"gopkg.in/yaml.v2"
 
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	coreapplication "github.com/juju/juju/core/application"
@@ -757,7 +756,7 @@ func (b *BundleAPI) endpointBindings(bindings map[string]string, spaceLookup net
 // filterOfferACL prunes the input offer ACL to remove internal juju users that
 // we shouldn't export as part of the bundle.
 func (b *BundleAPI) filterOfferACL(in map[string]string) map[string]string {
-	delete(in, common.EveryoneTagName)
+	delete(in, permission.EveryoneTagName)
 	return in
 }
 

@@ -127,3 +127,47 @@ SELECT
 FROM v_permission AS p
 INNER JOIN controller ON p.grant_on = controller.uuid
 WHERE p.object_type = 'controller';
+
+-- The permissions for the special user everyone@external.
+CREATE VIEW v_everyone_external AS
+SELECT
+    p.uuid,
+    p.grant_on,
+    p.access_type,
+    p.object_type
+FROM v_permission AS p
+INNER JOIN user AS u ON p.grant_to = u.uuid
+WHERE u.name = 'everyone@external';
+
+-- All model permissions for everyone@external, verifying the model does exists.
+CREATE VIEW v_ee_permission_model AS
+SELECT
+    ee.uuid,
+    ee.grant_on,
+    ee.access_type,
+    ee.object_type
+FROM v_everyone_external AS ee
+INNER JOIN model ON ee.grant_on = model.uuid
+WHERE ee.object_type = 'model';
+
+-- All cloud permissions for everyone@external, verifying the cloud does exists.
+CREATE VIEW v_ee_permission_cloud AS
+SELECT
+    ee.uuid,
+    ee.grant_on,
+    ee.access_type,
+    ee.object_type
+FROM v_everyone_external AS ee
+INNER JOIN cloud ON ee.grant_on = cloud.name
+WHERE ee.object_type = 'cloud';
+
+-- All controller permissions for everyone@external, verifying the controller does exists.
+CREATE VIEW v_ee_permission_controller AS
+SELECT
+    ee.uuid,
+    ee.grant_on,
+    ee.access_type,
+    ee.object_type
+FROM v_everyone_external AS ee
+INNER JOIN controller ON ee.grant_on = controller.uuid
+WHERE ee.object_type = 'controller';
