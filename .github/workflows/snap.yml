@@ -53,7 +53,7 @@ jobs:
         cache: true
 
     - run: |
-        sudo chmod 0777 /var/snap/lxd/common/lxd
+        sudo chmod -R 0777 /var/snap/lxd/common/lxd
         sudo stat /var/snap/lxd/common/lxd || true
         sudo stat /var/snap/lxd/common/lxd/containers || true
         sudo stat /var/snap/lxd/common/lxd/containers/snapcraft-juju || true
@@ -91,7 +91,10 @@ jobs:
         juju bootstrap localhost --debug
 
     - run: |
-        sudo chmod 0777 /var/snap/lxd/common/lxd
+        sudo stat /var/snap/lxd/common/lxd || true
+        sudo stat /var/snap/lxd/common/lxd/containers || true
+        sudo stat /var/snap/lxd/common/lxd/containers/snapcraft-juju || true
+        sudo chmod -R 0777 /var/snap/lxd/common/lxd
         sudo stat /var/snap/lxd/common/lxd || true
         sudo stat /var/snap/lxd/common/lxd/containers || true
         sudo stat /var/snap/lxd/common/lxd/containers/snapcraft-juju || true
