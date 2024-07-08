@@ -775,10 +775,6 @@ func Validate(_ctx context.Context, cfg, old *Config) error {
 
 	if v, ok := cfg.defined[ContainerNetworkingMethod].(string); ok {
 		switch v {
-		case "fan":
-			if cfg, err := cfg.FanConfig(); err != nil || cfg == nil {
-				return errors.New("container-networking-method cannot be set to 'fan' without fan-config set")
-			}
 		case "provider": // TODO(wpk) FIXME we should check that the provider supports this setting!
 		case "local":
 		case "": // We'll try to autoconfigure it
