@@ -313,7 +313,7 @@ func (s *ModelConfigAPI) GetModelSecretBackend(ctx context.Context) (params.Stri
 // SetModelSecretBackend isn't implemented in the ModelConfigAPIV3 facade.
 func (s *ModelConfigAPIV3) SetModelSecretBackend(_ context.Context, _ struct{}) {}
 
-// SetModelSecretBackend sets the secret backend name for the model.
+// SetModelSecretBackend sets the secret backend for the model.
 func (s *ModelConfigAPI) SetModelSecretBackend(ctx context.Context, arg params.SetModelSecretBackendArg) (params.ErrorResult, error) {
 	if err := s.auth.HasPermission(permission.WriteAccess, names.NewModelTag(s.modelID.String())); err != nil {
 		return params.ErrorResult{}, errors.Trace(err)

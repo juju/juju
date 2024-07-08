@@ -31,7 +31,6 @@ import (
 	backenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/internal/uuid"
@@ -1284,7 +1283,9 @@ WHERE model_uuid = ?`
 		BackendType: "vault",
 	}, nil)
 
-	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "another-backend")
+	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, func(coremodel.ModelType) (string, error) {
+		return "another-backend", nil
+	})
 	c.Assert(err, gc.IsNil)
 
 	q = `
@@ -1299,7 +1300,9 @@ WHERE model_uuid = ?`
 
 func (s *stateSuite) TestSetModelSecretBackendBackendNotFound(c *gc.C) {
 	modelUUID := s.createModel(c, coremodel.IAAS)
-	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, "non-existing-backen-id")
+	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, func(coremodel.ModelType) (string, error) {
+		return "non-existing-backen-id", nil
+	})
 	c.Assert(err, jc.ErrorIs, backenderrors.NotFound)
 	c.Assert(err, gc.ErrorMatches, `secret backend not found: "non-existing-backen-id"`)
 }
@@ -1322,47 +1325,29 @@ func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
 	}, nil)
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
+	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, func(coremodel.ModelType) (string, error) {
+		return "my-backend", nil
+	})
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: model %q`, modelUUID))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: %q`, modelUUID))
 }
 
-func (s *stateSuite) TestGetModelSecretBackendIaaSDefault(c *gc.C) {
+func (s *stateSuite) TestGetModelSecretBackendIAAS(c *gc.C) {
 	modelUUID := s.createModel(c, coremodel.IAAS)
 
-	result, err := s.state.GetModelSecretBackend(context.Background(), modelUUID)
+	backendName, modelType, err := s.state.GetModelSecretBackend(context.Background(), modelUUID)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, `my-backend`)
-
-	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "auto")
-	c.Assert(err, gc.IsNil)
-
-	detail, err := s.state.GetModelSecretBackendDetails(context.Background(), modelUUID)
-	c.Assert(err, gc.IsNil)
-	c.Assert(detail.SecretBackendName, gc.Equals, provider.Internal)
-
-	result, err = s.state.GetModelSecretBackend(context.Background(), modelUUID)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, provider.Auto)
+	c.Assert(backendName, gc.Equals, `my-backend`)
+	c.Assert(modelType, gc.Equals, coremodel.IAAS)
 }
 
-func (s *stateSuite) TestGetModelSecretBackendCaaSDefault(c *gc.C) {
+func (s *stateSuite) TestGetModelSecretBackendCAAS(c *gc.C) {
 	modelUUID := s.createModel(c, coremodel.CAAS)
 
-	result, err := s.state.GetModelSecretBackend(context.Background(), modelUUID)
+	backendName, modelType, err := s.state.GetModelSecretBackend(context.Background(), modelUUID)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, `my-backend`)
-
-	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "auto")
-	c.Assert(err, gc.IsNil)
-
-	detail, err := s.state.GetModelSecretBackendDetails(context.Background(), modelUUID)
-	c.Assert(err, gc.IsNil)
-	c.Assert(detail.SecretBackendName, gc.Equals, kubernetes.BackendName)
-
-	result, err = s.state.GetModelSecretBackend(context.Background(), modelUUID)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.Equals, provider.Auto)
+	c.Assert(backendName, gc.Equals, `my-backend`)
+	c.Assert(modelType, gc.Equals, coremodel.CAAS)
 }
 
 func (s *stateSuite) TestGetModelSecretBackendDetails(c *gc.C) {

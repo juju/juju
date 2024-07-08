@@ -202,12 +202,13 @@ func (c *MockStateGetModelCloudAndCredentialCall) DoAndReturn(f func(context.Con
 }
 
 // GetModelSecretBackend mocks base method.
-func (m *MockState) GetModelSecretBackend(arg0 context.Context, arg1 model.UUID) (string, error) {
+func (m *MockState) GetModelSecretBackend(arg0 context.Context, arg1 model.UUID) (string, model.ModelType, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelSecretBackend", arg0, arg1)
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(model.ModelType)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetModelSecretBackend indicates an expected call of GetModelSecretBackend.
@@ -223,19 +224,19 @@ type MockStateGetModelSecretBackendCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetModelSecretBackendCall) Return(arg0 string, arg1 error) *MockStateGetModelSecretBackendCall {
-	c.Call = c.Call.Return(arg0, arg1)
+func (c *MockStateGetModelSecretBackendCall) Return(arg0 string, arg1 model.ModelType, arg2 error) *MockStateGetModelSecretBackendCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelSecretBackendCall) Do(f func(context.Context, model.UUID) (string, error)) *MockStateGetModelSecretBackendCall {
+func (c *MockStateGetModelSecretBackendCall) Do(f func(context.Context, model.UUID) (string, model.ModelType, error)) *MockStateGetModelSecretBackendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID) (string, error)) *MockStateGetModelSecretBackendCall {
+func (c *MockStateGetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID) (string, model.ModelType, error)) *MockStateGetModelSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -518,7 +519,7 @@ func (c *MockStateSecretBackendRotatedCall) DoAndReturn(f func(context.Context, 
 }
 
 // SetModelSecretBackend mocks base method.
-func (m *MockState) SetModelSecretBackend(arg0 context.Context, arg1 model.UUID, arg2 string) error {
+func (m *MockState) SetModelSecretBackend(arg0 context.Context, arg1 model.UUID, arg2 func(model.ModelType) (string, error)) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetModelSecretBackend", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -544,13 +545,13 @@ func (c *MockStateSetModelSecretBackendCall) Return(arg0 error) *MockStateSetMod
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetModelSecretBackendCall) Do(f func(context.Context, model.UUID, string) error) *MockStateSetModelSecretBackendCall {
+func (c *MockStateSetModelSecretBackendCall) Do(f func(context.Context, model.UUID, func(model.ModelType) (string, error)) error) *MockStateSetModelSecretBackendCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID, string) error) *MockStateSetModelSecretBackendCall {
+func (c *MockStateSetModelSecretBackendCall) DoAndReturn(f func(context.Context, model.UUID, func(model.ModelType) (string, error)) error) *MockStateSetModelSecretBackendCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

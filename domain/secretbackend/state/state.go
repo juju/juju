@@ -27,7 +27,6 @@ import (
 	domainsecretbackend "github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/internal/database"
-	"github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 )
@@ -523,52 +522,38 @@ WHERE uuid = $M.uuid`, sqlair.M{}, SecretBackendRotationRow{})
 }
 
 // GetModelSecretBackend returns the secret backend name for the specified model.
-func (s *State) GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, error) {
+func (s *State) GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, coremodel.ModelType, error) {
 	db, err := s.DB()
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", "", errors.Trace(err)
 	}
-	var backendName string
+	var modelBackendDetails domainsecretbackend.ModelSecretBackend
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		modelBackendDetails, err := s.getModelSecretBackendDetails(ctx, modelUUID, tx)
+		modelBackendDetails, err = s.getModelSecretBackendDetails(ctx, modelUUID, tx)
 		if err != nil {
 			return errors.Trace(err)
-		}
-		backendName = modelBackendDetails.SecretBackendName
-		switch modelBackendDetails.Type {
-		case coremodel.IAAS:
-			if backendName == provider.Internal {
-				backendName = provider.Auto
-			}
-		case coremodel.CAAS:
-			if backendName == kubernetes.BackendName {
-				backendName = provider.Auto
-			}
-		default:
-			// Should never happen.
-			return errors.NotValidf("model type %q", modelBackendDetails.Type)
 		}
 		return nil
 	})
 	if err != nil {
-		return "", domain.CoerceError(err)
+		return "", "", domain.CoerceError(err)
 	}
-	return backendName, nil
+	return modelBackendDetails.SecretBackendName, modelBackendDetails.Type, nil
 }
 
 // SetModelSecretBackend sets the secret backend for the given model.
-func (s *State) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
+func (s *State) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, getBackendName func(coremodel.ModelType) (string, error)) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	secretBackendSelectQ := `
-SELECT b.uuid AS &SecretBackendInfo.uuid
+SELECT b.uuid AS &ModelSecretBackend.secret_backend_uuid
 FROM   secret_backend b
-WHERE  b.name = $SecretBackendInfo.name
+WHERE  b.name = $ModelSecretBackend.secret_backend_name
 `
-	backendInfo := SecretBackendInfo{Name: backendName, ModelUUID: modelUUID.String()}
+	backendInfo := ModelSecretBackend{ID: modelUUID}
 	secretBackendSelectStmt, err := s.Prepare(secretBackendSelectQ, backendInfo)
 	if err != nil {
 		return errors.Trace(err)
@@ -576,37 +561,30 @@ WHERE  b.name = $SecretBackendInfo.name
 
 	modelBackendUpdate := `
 UPDATE model_secret_backend
-SET    secret_backend_uuid = $SecretBackendInfo.uuid
-WHERE  model_uuid = $SecretBackendInfo.model_uuid`
+SET    secret_backend_uuid = $ModelSecretBackend.secret_backend_uuid
+WHERE  model_uuid = $ModelSecretBackend.uuid`
 	modelBackendUpdateStmt, err := s.Prepare(modelBackendUpdate, backendInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if backendInfo.Name == provider.Auto {
-			modelBackendDetails, err := s.getModelSecretBackendDetails(ctx, modelUUID, tx)
-			if err != nil {
-				return fmt.Errorf("cannot get model secret backend details for model %q: %w", modelUUID, err)
-			}
-			switch modelBackendDetails.Type {
-			case coremodel.IAAS:
-				backendInfo.Name = provider.Internal
-			case coremodel.CAAS:
-				backendInfo.Name = kubernetes.BackendName
-			default:
-				// Should never happen.
-				return errors.NotValidf("model type %q", modelBackendDetails.Type)
-			}
-			if backendInfo.Name == modelBackendDetails.SecretBackendName {
-				// Nothing to update.
-				return nil
-			}
+		modelBackendDetails, err := s.getModelSecretBackendDetails(ctx, modelUUID, tx)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		backendInfo.SecretBackendName, err = getBackendName(modelBackendDetails.Type)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if backendInfo.SecretBackendName == modelBackendDetails.SecretBackendName {
+			// Nothing to update.
+			return nil
 		}
 
 		err = tx.Query(ctx, secretBackendSelectStmt, backendInfo).Get(&backendInfo)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: %q", secretbackenderrors.NotFound, backendInfo.Name)
+			return fmt.Errorf("%w: %q", secretbackenderrors.NotFound, backendInfo.SecretBackendName)
 		}
 		if err != nil {
 			return fmt.Errorf("querying secret backends: %w", err)
@@ -615,14 +593,14 @@ WHERE  model_uuid = $SecretBackendInfo.model_uuid`
 		var outcome sqlair.Outcome
 		err = tx.Query(ctx, modelBackendUpdateStmt, backendInfo).Get(&outcome)
 		if err != nil {
-			return fmt.Errorf("setting secret backend %q for model %q: %w", backendName, modelUUID, err)
+			return fmt.Errorf("setting secret backend %q for model %q: %w", backendInfo.SecretBackendName, modelUUID, err)
 		}
 		affected, err := outcome.Result().RowsAffected()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if affected == 0 {
-			return fmt.Errorf("%w: model %q", modelerrors.NotFound, modelUUID)
+			return fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
 		}
 		return nil
 	})

@@ -70,6 +70,7 @@ func (s *ModelFactory) Config() *modelconfigservice.WatchableService {
 		modeldefaultsstate.NewState(
 			changestream.NewTxnRunnerFactory(s.controllerDB),
 		)).ModelDefaultsProvider(s.modelUUID)
+
 	return modelconfigservice.NewWatchableService(
 		defaultsProvider,
 		config.ModelValidator(),

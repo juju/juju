@@ -703,14 +703,50 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 // GetModelSecretBackend returns the secret backend name for the given model UUID, returning an error
 // satisfying [modelerrors.NotFound] if the model provided does not exist.
 func (s *Service) GetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID) (string, error) {
-	return s.st.GetModelSecretBackend(ctx, modelUUID)
+	backendName, modelType, err := s.st.GetModelSecretBackend(ctx, modelUUID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	switch modelType {
+	case coremodel.IAAS:
+		if backendName == provider.Internal {
+			backendName = provider.Auto
+		}
+	case coremodel.CAAS:
+		if backendName == kubernetes.BackendName {
+			backendName = provider.Auto
+		}
+	default:
+		// Should never happen.
+		return "", errors.NotValidf("model type %q", modelType)
+	}
+	return backendName, nil
 }
 
-// SetModelSecretBackend sets the secret backend config for the given model UUID, returning an error
-// satisfying [secretbackenderrors.NotFound] if the backend provided does not exist, returning an error
-// satisfying [modelerrors.NotFound] if the model provided does not exist..
+// SetModelSecretBackend sets the secret backend config for the given model UUID,
+// returning an error satisfying [secretbackenderrors.NotFound] if the backend provided does not exist,
+// returning an error satisfying [modelerrors.NotFound] if the model provided does not exist,
+// returning an error satisfying [secretbackenderrors.NotValid] if the backend name provided is not valid.
 func (s *Service) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
-	return s.st.SetModelSecretBackend(ctx, modelUUID, backendName)
+	if backendName == "" {
+		return fmt.Errorf("missing backend name%w", errors.Hide(secretbackenderrors.NotValid))
+	}
+	if backendName == provider.Internal || backendName == kubernetes.BackendName {
+		return fmt.Errorf("secret backend name %q not valid%w", backendName, errors.Hide(secretbackenderrors.NotValid))
+	}
+	return s.st.SetModelSecretBackend(ctx, modelUUID, func(modelType coremodel.ModelType) (string, error) {
+		if backendName != provider.Auto {
+			return backendName, nil
+		}
+		switch modelType {
+		case coremodel.IAAS:
+			return provider.Internal, nil
+		case coremodel.CAAS:
+			return kubernetes.BackendName, nil
+		default:
+			return "", errors.NotValidf("model type %q", modelType)
+		}
+	})
 }
 
 // GetRevisionsToDrain looks at the supplied revisions and returns any which should be

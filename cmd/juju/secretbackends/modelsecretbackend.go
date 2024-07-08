@@ -47,10 +47,13 @@ func (c *modelSecretBackendCommand) secretBackendAPI() (ModelSecretBackendAPI, e
 
 const (
 	modelSecretBackendDoc = `
-Sets or displays the secret backend config for the current model.
+Sets or displays the secret backend for the current model.
 `
 	modelSecretBackendExamples = `
+   Display the secret backend config for the current model:
    juju model-secret-backend
+
+   Set the secret backend config to myVault:
    juju model-secret-backend myVault
 `
 )
@@ -59,7 +62,7 @@ Sets or displays the secret backend config for the current model.
 func (c *modelSecretBackendCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:     "model-secret-backend",
-		Args:     "<secret-backend-name>",
+		Args:     "[<secret-backend-name>]",
 		Purpose:  "Displays or sets the secret backend for a model.",
 		Doc:      modelSecretBackendDoc,
 		Examples: modelSecretBackendExamples,
