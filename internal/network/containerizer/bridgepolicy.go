@@ -47,7 +47,6 @@ type BridgePolicy struct {
 
 	// containerNetworkingMethod defines the way containers are networked.
 	// It's one of:
-	//  - fan
 	//  - provider
 	//  - local
 	containerNetworkingMethod string
@@ -96,35 +95,19 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 		guest.Id(), guestSpaceInfos, formatDeviceMap(devicesPerSpace))
 
 	spacesFound := make(corenetwork.SpaceInfos, 0)
-	fanSpacesFound := make(corenetwork.SpaceInfos, 0)
 	for spaceID, devices := range devicesPerSpace {
 		for _, device := range devices {
 			if device.Type() == corenetwork.BridgeDevice {
 				if p.containerNetworkingMethod != "local" && skippedDeviceNames.Contains(device.Name()) {
 					continue
 				}
-				if strings.HasPrefix(device.Name(), "fan-") {
-					addInfo := p.allSpaces.GetByID(spaceID)
-					fanSpacesFound = append(fanSpacesFound, *addInfo)
-				} else {
-					addInfo := p.allSpaces.GetByID(spaceID)
-					spacesFound = append(spacesFound, *addInfo)
-				}
+				addInfo := p.allSpaces.GetByID(spaceID)
+				spacesFound = append(spacesFound, *addInfo)
 			}
 		}
 	}
 
 	notFound := guestSpaceInfos.Minus(spacesFound)
-	fanNotFound := guestSpaceInfos.Minus(fanSpacesFound)
-
-	if p.containerNetworkingMethod == "fan" {
-		if len(fanNotFound) == 0 {
-			// Nothing to do; just return success.
-			return nil, 0, nil
-		}
-		return nil, 0, errors.Errorf("host machine %q has no available FAN devices in space(s) %s",
-			host.Id(), fanNotFound)
-	}
 
 	if len(notFound) == 0 {
 		// Nothing to do; just return success.
@@ -520,13 +503,6 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 
 	for spaceID, hostDevices := range devicesPerSpace {
 		for _, hostDevice := range hostDevices {
-			isFan := strings.HasPrefix(hostDevice.Name(), "fan-")
-			if !(isFan == (p.containerNetworkingMethod == "fan")) {
-				// This is not a suitable bridge for
-				// our container networking method.
-				continue
-			}
-
 			name := hostDevice.Name()
 			if hostDevice.Type() == corenetwork.BridgeDevice && !skippedDeviceNames.Contains(name) {
 				devicesByName[name] = hostDevice

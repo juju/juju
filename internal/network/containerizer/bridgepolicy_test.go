@@ -1066,24 +1066,6 @@ func (s *bridgePolicySuite) TestFindMissingBridgesForContainerVLANOnBond(c *gc.C
 	c.Check(reconfigureDelay, gc.Equals, 13)
 }
 
-func (s *bridgePolicySuite) TestFindMissingBridgesForContainerNetworkingMethodFAN(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.guest.EXPECT().Constraints().Return(constraints.MustParse("spaces=somespace"), nil)
-
-	s.setupTwoSpaces()
-	s.expectNICWithIP(c, ctrl, "eth0", corenetwork.AlphaSpaceId)
-
-	s.expectMachineAddressesDevices()
-
-	s.containerNetworkingMethod = "fan"
-	bridgePolicy := s.policy()
-
-	_, _, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.guest, s.allSubnets)
-	c.Assert(err, gc.ErrorMatches, `host machine "host-id" has no available FAN devices in space\(s\) "somespace"`)
-}
-
 var bridgeNames = map[string]string{
 	"eno0":            "br-eno0",
 	"enovlan.123":     "br-enovlan-123",
