@@ -101,21 +101,22 @@ type secretRevisionDetails struct {
 type secretDetailsByID map[string]secretDisplayDetails
 
 type secretDisplayDetails struct {
-	URI              *secrets.URI            `json:"-" yaml:"-"`
-	LatestRevision   int                     `json:"revision" yaml:"revision"`
-	LatestExpireTime *time.Time              `json:"expires,omitempty" yaml:"expires,omitempty"`
-	RotatePolicy     secrets.RotatePolicy    `json:"rotation,omitempty" yaml:"rotation,omitempty"`
-	NextRotateTime   *time.Time              `json:"rotates,omitempty" yaml:"rotates,omitempty"`
-	Owner            string                  `json:"owner,omitempty" yaml:"owner,omitempty"`
-	Description      string                  `json:"description,omitempty" yaml:"description,omitempty"`
-	Name             string                  `json:"name,omitempty" yaml:"name,omitempty"`
-	Label            string                  `json:"label,omitempty" yaml:"label,omitempty"`
-	CreateTime       time.Time               `json:"created" yaml:"created"`
-	UpdateTime       time.Time               `json:"updated" yaml:"updated"`
-	Error            string                  `json:"error,omitempty" yaml:"error,omitempty"`
-	Value            *secretValueDetails     `json:"content,omitempty" yaml:"content,omitempty"`
-	Revisions        []secretRevisionDetails `json:"revisions,omitempty" yaml:"revisions,omitempty"`
-	Access           []AccessInfo            `yaml:"access,omitempty" json:"access,omitempty"`
+	URI                    *secrets.URI            `json:"-" yaml:"-"`
+	LatestRevision         int                     `json:"revision" yaml:"revision"`
+	LatestRevisionChecksum string                  `json:"checksum,omitempty" yaml:"checksum,omitempty"`
+	LatestExpireTime       *time.Time              `json:"expires,omitempty" yaml:"expires,omitempty"`
+	RotatePolicy           secrets.RotatePolicy    `json:"rotation,omitempty" yaml:"rotation,omitempty"`
+	NextRotateTime         *time.Time              `json:"rotates,omitempty" yaml:"rotates,omitempty"`
+	Owner                  string                  `json:"owner,omitempty" yaml:"owner,omitempty"`
+	Description            string                  `json:"description,omitempty" yaml:"description,omitempty"`
+	Name                   string                  `json:"name,omitempty" yaml:"name,omitempty"`
+	Label                  string                  `json:"label,omitempty" yaml:"label,omitempty"`
+	CreateTime             time.Time               `json:"created" yaml:"created"`
+	UpdateTime             time.Time               `json:"updated" yaml:"updated"`
+	Error                  string                  `json:"error,omitempty" yaml:"error,omitempty"`
+	Value                  *secretValueDetails     `json:"content,omitempty" yaml:"content,omitempty"`
+	Revisions              []secretRevisionDetails `json:"revisions,omitempty" yaml:"revisions,omitempty"`
+	Access                 []AccessInfo            `yaml:"access,omitempty" json:"access,omitempty"`
 }
 
 // AccessInfo holds info about a secret access information.
@@ -217,6 +218,7 @@ func gatherSecretInfo(
 			}
 		}
 		if reveal && m.Value != nil && !m.Value.IsEmpty() {
+			info.LatestRevisionChecksum = m.Metadata.LatestRevisionChecksum
 			valueDetails := &secretValueDetails{}
 			val, err := m.Value.Values()
 			if err != nil {

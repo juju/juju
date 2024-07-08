@@ -76,6 +76,7 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 			ExpireTime:     ptr(expire),
 			Params:         nil,
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, p)
@@ -84,17 +85,18 @@ func (s *SecretsSuite) TestCreate(c *gc.C) {
 	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
 	c.Assert(md, mc, &secrets.SecretMetadata{
-		URI:              uri,
-		Version:          1,
-		Description:      "my secret",
-		Label:            "foobar",
-		RotatePolicy:     secrets.RotateDaily,
-		NextRotateTime:   ptr(next),
-		LatestRevision:   1,
-		LatestExpireTime: ptr(expire),
-		OwnerTag:         s.owner.Tag().String(),
-		CreateTime:       now,
-		UpdateTime:       now,
+		URI:                    uri,
+		Version:                1,
+		Description:            "my secret",
+		Label:                  "foobar",
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		OwnerTag:               s.owner.Tag().String(),
+		CreateTime:             now,
+		UpdateTime:             now,
 	})
 
 	p.Label = nil
@@ -114,6 +116,7 @@ func (s *SecretsSuite) TestCreateUserSecret(c *gc.C) {
 			Label:       ptr("label-1"),
 			Params:      nil,
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, p)
@@ -122,14 +125,15 @@ func (s *SecretsSuite) TestCreateUserSecret(c *gc.C) {
 	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
 	c.Assert(md, mc, &secrets.SecretMetadata{
-		URI:            uri,
-		Version:        1,
-		Description:    "my secret",
-		Label:          "label-1",
-		LatestRevision: 1,
-		OwnerTag:       s.Model.Tag().String(),
-		CreateTime:     now,
-		UpdateTime:     now,
+		URI:                    uri,
+		Version:                1,
+		Description:            "my secret",
+		Label:                  "label-1",
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		OwnerTag:               s.Model.Tag().String(),
+		CreateTime:             now,
+		UpdateTime:             now,
 	})
 
 	uri2 := secrets.NewURI()
@@ -159,10 +163,12 @@ func (s *SecretsSuite) TestCreateBackendRef(c *gc.C) {
 				BackendID:  "backend-id",
 				RevisionID: "rev-id",
 			},
+			Checksum: "deadbeef",
 		},
 	}
-	_, err = s.store.CreateSecret(uri, p)
+	md, err := s.store.CreateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(md.LatestRevisionChecksum, gc.Equals, "deadbeef")
 	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backendRefCount, gc.Equals, 1)
@@ -241,6 +247,7 @@ func (s *SecretsSuite) assertCreateDuplicateLabelUnitOwned(c *gc.C, label string
 			ExpireTime:     ptr(expire),
 			Params:         nil,
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, p)
@@ -281,6 +288,7 @@ func (s *SecretsSuite) assertCreateDuplicateLabelUnitConsumed(c *gc.C, label str
 			LeaderToken: &fakeToken{},
 			Params:      nil,
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, p)
@@ -335,6 +343,7 @@ func (s *SecretsSuite) TestCreateDyingOwner(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri, cp)
@@ -355,6 +364,7 @@ func (s *SecretsSuite) TestGetValue(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, p)
@@ -385,6 +395,7 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 			ExpireTime:     ptr(expire),
 			Params:         nil,
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri, p)
@@ -401,6 +412,7 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri2, p2)
@@ -413,24 +425,26 @@ func (s *SecretsSuite) TestListByOwner(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedList := []*secrets.SecretMetadata{{
-		URI:              uri,
-		RotatePolicy:     secrets.RotateDaily,
-		NextRotateTime:   ptr(next),
-		LatestRevision:   1,
-		LatestExpireTime: ptr(expire),
-		Version:          1,
-		OwnerTag:         s.owner.Tag().String(),
-		Description:      "my secret",
-		Label:            "foobar",
-		CreateTime:       now,
-		UpdateTime:       now,
+		URI:                    uri,
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar",
+		CreateTime:             now,
+		UpdateTime:             now,
 	}, {
-		URI:            uri2,
-		LatestRevision: 1,
-		Version:        1,
-		OwnerTag:       another.Tag().String(),
-		CreateTime:     now2,
-		UpdateTime:     now2,
+		URI:                    uri2,
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		Version:                1,
+		OwnerTag:               another.Tag().String(),
+		CreateTime:             now2,
+		UpdateTime:             now2,
 	}}
 	list, err := s.store.ListSecrets(state.SecretsFilter{
 		OwnerTags: []names.Tag{s.owner.Tag(), names.NewApplicationTag("mariadb")},
@@ -468,6 +482,7 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 			ExpireTime:     ptr(expire),
 			Params:         nil,
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri, p)
@@ -487,17 +502,18 @@ func (s *SecretsSuite) TestListByURI(c *gc.C) {
 	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
 	c.Assert(list, mc, []*secrets.SecretMetadata{{
-		URI:              uri,
-		RotatePolicy:     secrets.RotateDaily,
-		NextRotateTime:   ptr(next),
-		LatestRevision:   1,
-		LatestExpireTime: ptr(expire),
-		Version:          1,
-		OwnerTag:         s.owner.Tag().String(),
-		Description:      "my secret",
-		Label:            "foobar",
-		CreateTime:       now,
-		UpdateTime:       now,
+		URI:                    uri,
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar",
+		CreateTime:             now,
+		UpdateTime:             now,
 	}})
 }
 
@@ -518,6 +534,7 @@ func (s *SecretsSuite) TestListByLabel(c *gc.C) {
 			ExpireTime:     ptr(expire),
 			Params:         nil,
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri, p)
@@ -537,17 +554,18 @@ func (s *SecretsSuite) TestListByLabel(c *gc.C) {
 	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
 	c.Assert(list, mc, []*secrets.SecretMetadata{{
-		URI:              uri,
-		RotatePolicy:     secrets.RotateDaily,
-		NextRotateTime:   ptr(next),
-		LatestRevision:   1,
-		LatestExpireTime: ptr(expire),
-		Version:          1,
-		OwnerTag:         s.owner.Tag().String(),
-		Description:      "my secret",
-		Label:            "foobar",
-		CreateTime:       now,
-		UpdateTime:       now,
+		URI:                    uri,
+		RotatePolicy:           secrets.RotateDaily,
+		NextRotateTime:         ptr(next),
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(expire),
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		Label:                  "foobar",
+		CreateTime:             now,
+		UpdateTime:             now,
 	}})
 }
 
@@ -563,6 +581,7 @@ func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
 			LeaderToken: &fakeToken{},
 			Description: ptr("my secret"),
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri, cp)
@@ -590,13 +609,14 @@ func (s *SecretsSuite) TestListByConsumer(c *gc.C) {
 	mc.AddExpr(`_.CreateTime`, jc.Almost, jc.ExpectedValue)
 	mc.AddExpr(`_.UpdateTime`, jc.Almost, jc.ExpectedValue)
 	c.Assert(list, mc, []*secrets.SecretMetadata{{
-		URI:            uri,
-		LatestRevision: 1,
-		Version:        1,
-		OwnerTag:       s.owner.Tag().String(),
-		Description:    "my secret",
-		CreateTime:     now,
-		UpdateTime:     now,
+		URI:                    uri,
+		LatestRevision:         1,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		Version:                1,
+		OwnerTag:               s.owner.Tag().String(),
+		Description:            "my secret",
+		CreateTime:             now,
+		UpdateTime:             now,
 	}})
 }
 
@@ -619,6 +639,7 @@ func (s *SecretsSuite) TestListModelSecrets(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri, p)
@@ -631,6 +652,7 @@ func (s *SecretsSuite) TestListModelSecrets(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			ValueRef:    &secrets.ValueRef{BackendID: "backend-id"},
+			Checksum:    "deadbeef",
 		},
 	}
 	_, err = s.store.CreateSecret(uri2, p2)
@@ -648,6 +670,7 @@ func (s *SecretsSuite) TestListModelSecrets(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			ValueRef:    &secrets.ValueRef{BackendID: caasSt.ModelUUID()},
+			Checksum:    "deadbeef2",
 		},
 	}
 	_, err = caasSecrets.CreateSecret(uri3, p3)
@@ -716,6 +739,7 @@ func (s *SecretsSuite) TestUpdateAll(c *gc.C) {
 			Description:    ptr("my secret"),
 			Label:          ptr("foobar"),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -728,6 +752,7 @@ func (s *SecretsSuite) TestUpdateAll(c *gc.C) {
 		RotatePolicy:   ptr(secrets.RotateHourly),
 		NextRotateTime: ptr(next),
 		Data:           newData,
+		Checksum:       "deadbeef",
 	})
 }
 
@@ -743,6 +768,7 @@ func (s *SecretsSuite) TestUpdateRotateInterval(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -766,6 +792,7 @@ func (s *SecretsSuite) TestUpdateExpiry(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -791,6 +818,7 @@ func (s *SecretsSuite) TestUpdateDuplicateLabel(c *gc.C) {
 			Label:       ptr("label"),
 			Description: ptr("description"),
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri, cp)
@@ -824,6 +852,7 @@ func (s *SecretsSuite) TestUpdateData(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -832,6 +861,7 @@ func (s *SecretsSuite) TestUpdateData(c *gc.C) {
 	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        newData,
+		Checksum:    "deadbeef",
 	})
 }
 
@@ -847,6 +877,7 @@ func (s *SecretsSuite) TestUpdateAutoPrune(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -875,6 +906,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -889,6 +921,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevision(c *gc.C) {
 	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        newData,
+		Checksum:    "deadbeef",
 	})
 	cmd, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -911,6 +944,7 @@ func (s *SecretsSuite) TestUpdateOwnerLabel(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -937,6 +971,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentAdd(c *
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(now.Add(time.Minute)),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -957,6 +992,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentAdd(c *
 	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        newData,
+		Checksum:    "deadbeef",
 	})
 	cmd, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -978,6 +1014,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentRemove(
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -1005,6 +1042,7 @@ func (s *SecretsSuite) TestUpdateDataSetsLatestConsumerRevisionConcurrentRemove(
 	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        newData,
+		Checksum:    "deadbeef",
 	})
 	cmd, err = s.State.GetSecretConsumer(uri, names.NewUnitTag("mariadb/0"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -1031,6 +1069,9 @@ func (s *SecretsSuite) assertUpdatedSecret(c *gc.C, original *secrets.SecretMeta
 	}
 	if update.ExpireTime != nil && !update.ExpireTime.IsZero() {
 		expected.LatestExpireTime = update.ExpireTime
+	}
+	if update.Data != nil || update.ValueRef != nil {
+		expected.LatestRevisionChecksum = update.Checksum
 	}
 
 	s.Clock.Advance(time.Hour)
@@ -1097,6 +1138,7 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -1108,6 +1150,7 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 			NextRotateTime: ptr(next),
 			Params:         nil,
 			Data:           map[string]string{"foo": "baz", "goodbye": "world"},
+			Checksum:       "deadbeef",
 		}
 		md, err = s.store.UpdateSecret(md.URI, up)
 		c.Assert(err, jc.ErrorIsNil)
@@ -1118,6 +1161,7 @@ func (s *SecretsSuite) TestUpdateConcurrent(c *gc.C) {
 		RotatePolicy:   ptr(secrets.RotateHourly),
 		NextRotateTime: ptr(next),
 		Data:           newData,
+		Checksum:       "deadbeef",
 	})
 }
 
@@ -1153,6 +1197,7 @@ func (s *SecretsSuite) TestChangeSecretBackendExternalToExternal(c *gc.C) {
 				BackendID:  "old-backend-id",
 				RevisionID: "rev-id",
 			},
+			Checksum: "deadbeef",
 		},
 	}
 	_, err = s.store.CreateSecret(uri, p)
@@ -1215,6 +1260,7 @@ func (s *SecretsSuite) TestChangeSecretBackendInternalToExternal(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri, p)
@@ -1285,6 +1331,7 @@ func (s *SecretsSuite) TestChangeSecretBackendExternalToInternal(c *gc.C) {
 				BackendID:  "backend-id",
 				RevisionID: "rev-id",
 			},
+			Checksum: "deadbeef",
 		},
 	}
 	_, err = s.store.CreateSecret(uri, p)
@@ -1344,6 +1391,7 @@ func (s *SecretsSuite) TestSecretGrants(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -1384,6 +1432,7 @@ func (s *SecretsSuite) TestGetSecret(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -1407,6 +1456,7 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -1415,6 +1465,7 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        newData,
+		Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 	})
 
 	backendStore := state.NewSecretBackends(s.State)
@@ -1430,6 +1481,7 @@ func (s *SecretsSuite) TestListSecretRevisions(c *gc.C) {
 			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
+		Checksum: "deadbeef",
 	})
 	updateTime2 := s.Clock.Now().Round(time.Second).UTC()
 	r, err := s.store.ListSecretRevisions(uri)
@@ -1470,6 +1522,7 @@ func (s *SecretsSuite) TestListUnusedSecretRevisions(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -1478,6 +1531,7 @@ func (s *SecretsSuite) TestListUnusedSecretRevisions(c *gc.C) {
 	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        newData,
+		Checksum:    "deadbeef",
 	})
 
 	backendStore := state.NewSecretBackends(s.State)
@@ -1492,6 +1546,7 @@ func (s *SecretsSuite) TestListUnusedSecretRevisions(c *gc.C) {
 			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
+		Checksum: "deadbeef2",
 	})
 	r, err := s.store.ListUnusedSecretRevisions(uri)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1513,6 +1568,7 @@ func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -1521,6 +1577,7 @@ func (s *SecretsSuite) TestGetSecretRevision(c *gc.C) {
 	s.assertUpdatedSecret(c, md, 2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        newData,
+		Checksum:    "deadbeef",
 	})
 	r, err := s.store.GetSecretRevision(uri, 2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1543,6 +1600,7 @@ func (s *SecretsSuite) TestGetSecretConsumerAndGetSecretConsumerURI(c *gc.C) {
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
 			Label:       strPtr("owner-label"),
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	uri := secrets.NewURI()
@@ -1581,6 +1639,7 @@ func (s *SecretsSuite) TestGetSecretConsumerCrossModelURI(c *gc.C) {
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
 			Label:       strPtr("owner-label"),
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	uri := secrets.NewURI().WithSource("deadbeef-1bad-500d-9000-4b1d0d06f00d")
@@ -1615,6 +1674,7 @@ func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	uri := secrets.NewURI()
@@ -1641,6 +1701,7 @@ func (s *SecretsSuite) TestSaveSecretConsumer(c *gc.C) {
 	md, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar", "baz": "qux"},
+		Checksum:    "deadbeef",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md.LatestRevision, gc.Equals, 2)
@@ -1679,6 +1740,7 @@ func (s *SecretsSuite) TestSaveSecretConsumerConcurrent(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	uri := secrets.NewURI()
@@ -1735,6 +1797,7 @@ func (s *SecretsSuite) TestSecretGrantAccess(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri, cp)
@@ -1797,6 +1860,7 @@ func (s *SecretsSuite) assertSecretGrantCrossModelOffer(c *gc.C, offer, unit boo
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri, cp)
@@ -1830,6 +1894,7 @@ func (s *SecretsSuite) TestSecretGrantAccessDyingScope(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri, cp)
@@ -1865,6 +1930,7 @@ func (s *SecretsSuite) TestSecretGrantAccessDyingSubject(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri, cp)
@@ -1900,6 +1966,7 @@ func (s *SecretsSuite) TestSecretRevokeAccess(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri, cp)
@@ -1943,6 +2010,7 @@ func (s *SecretsSuite) TestSecretAccessScope(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri, cp)
@@ -1975,6 +2043,7 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 				NextRotateTime: ptr(next),
 				Label:          ptr(label),
 				Data:           map[string]string{"foo": "bar"},
+				Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 			},
 		}
 		_, err := s.store.CreateSecret(uri, cp)
@@ -2012,6 +2081,7 @@ func (s *SecretsSuite) TestDelete(c *gc.C) {
 			BackendID:  "backend-id",
 			RevisionID: "rev-id",
 		},
+		Checksum: "deadbeef",
 	}
 	_, err = s.store.UpdateSecret(uri1, up)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2107,6 +2177,7 @@ func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri, cp)
@@ -2122,6 +2193,7 @@ func (s *SecretsSuite) TestDeleteRevisions(c *gc.C) {
 			BackendID:  "backend-id",
 			RevisionID: "rev-id",
 		},
+		Checksum: "deadbeef",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	backendRefCount, err = s.State.ReadBackendRefCount("backend-id")
@@ -2173,6 +2245,7 @@ func (s *SecretsSuite) TestSecretRotated(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -2198,6 +2271,7 @@ func (s *SecretsSuite) TestSecretRotatedConcurrent(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -2246,6 +2320,7 @@ func (s *SecretsRotationWatcherSuite) setupWatcher(c *gc.C) (state.SecretsTrigge
 			RotatePolicy:   ptr(secrets.RotateDaily),
 			NextRotateTime: ptr(next),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -2378,6 +2453,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchMultipleUpdates(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateHourly),
 			NextRotateTime: ptr(next2),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2416,6 +2492,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchRestartChangeOwners(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateHourly),
 			NextRotateTime: ptr(next2),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri2, cp)
@@ -2433,6 +2510,7 @@ func (s *SecretsRotationWatcherSuite) TestWatchRestartChangeOwners(c *gc.C) {
 			RotatePolicy:   ptr(secrets.RotateHourly),
 			NextRotateTime: ptr(next3),
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri3, cp)
@@ -2491,6 +2569,7 @@ func (s *SecretsExpiryWatcherSuite) setupWatcher(c *gc.C) (state.SecretsTriggerW
 			LeaderToken: &fakeToken{},
 			ExpireTime:  ptr(next),
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := s.store.CreateSecret(uri, cp)
@@ -2624,6 +2703,7 @@ func (s *SecretsExpiryWatcherSuite) TestWatchRemoveSecret(c *gc.C) {
 			LeaderToken: &fakeToken{},
 			ExpireTime:  ptr(next),
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri2, cp)
@@ -2655,6 +2735,7 @@ func (s *SecretsExpiryWatcherSuite) TestWatchRemoveRevision(c *gc.C) {
 	_, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar2"},
+		Checksum:    "deadbeef",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(watcher.SecretTriggerChange{
@@ -2691,6 +2772,7 @@ func (s *SecretsExpiryWatcherSuite) TestWatchRestartChangeOwners(c *gc.C) {
 			LeaderToken: &fakeToken{},
 			ExpireTime:  ptr(next2),
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri2, cp)
@@ -2707,6 +2789,7 @@ func (s *SecretsExpiryWatcherSuite) TestWatchRestartChangeOwners(c *gc.C) {
 			LeaderToken: &fakeToken{},
 			ExpireTime:  ptr(next3),
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri3, cp)
@@ -2772,6 +2855,7 @@ func (s *SecretsConsumedWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatche
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri, cp)
@@ -2784,6 +2868,7 @@ func (s *SecretsConsumedWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatche
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri2, cp)
@@ -2791,6 +2876,7 @@ func (s *SecretsConsumedWatcherSuite) setupWatcher(c *gc.C) (state.StringsWatche
 	_, err = s.store.UpdateSecret(uri2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        secrets.SecretData{"foo": "bar2"},
+		Checksum:    "deadbeef",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2827,6 +2913,7 @@ func (s *SecretsConsumedWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	_, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        secrets.SecretData{"foo": "bar2"},
+		Checksum:    "deadbeef",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2846,6 +2933,7 @@ func (s *SecretsConsumedWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo2": "bar"},
+			Checksum:    "deadbeef",
 		},
 	}
 	_, err := s.store.CreateSecret(uri2, cp)
@@ -2859,6 +2947,7 @@ func (s *SecretsConsumedWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        secrets.SecretData{"foo": "bar2"},
+		Checksum:    "deadbeef",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2868,6 +2957,7 @@ func (s *SecretsConsumedWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 	_, err = s.store.UpdateSecret(uri2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        secrets.SecretData{"foo2": "bar2"},
+		Checksum:    "deadbeef",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2929,6 +3019,7 @@ func (s *SecretsRemoteConsumerWatcherSuite) setupWatcher(c *gc.C) (state.Strings
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri, cp)
@@ -2941,6 +3032,7 @@ func (s *SecretsRemoteConsumerWatcherSuite) setupWatcher(c *gc.C) (state.Strings
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri2, cp)
@@ -2948,6 +3040,7 @@ func (s *SecretsRemoteConsumerWatcherSuite) setupWatcher(c *gc.C) (state.Strings
 	_, err = s.store.UpdateSecret(uri2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        secrets.SecretData{"foo": "bar2"},
+		Checksum:    "deadbeef",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -2984,6 +3077,7 @@ func (s *SecretsRemoteConsumerWatcherSuite) TestWatchSingleUpdate(c *gc.C) {
 	_, err := s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        secrets.SecretData{"foo": "bar2"},
+		Checksum:    "deadbeef",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -3003,6 +3097,7 @@ func (s *SecretsRemoteConsumerWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo2": "bar"},
+			Checksum:    "deadbeef",
 		},
 	}
 	_, err := s.store.CreateSecret(uri2, cp)
@@ -3016,6 +3111,7 @@ func (s *SecretsRemoteConsumerWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 	_, err = s.store.UpdateSecret(uri, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        secrets.SecretData{"foo": "bar2"},
+		Checksum:    "deadbeef2",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -3025,6 +3121,7 @@ func (s *SecretsRemoteConsumerWatcherSuite) TestWatchMultipleSecrets(c *gc.C) {
 	_, err = s.store.UpdateSecret(uri2, state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        secrets.SecretData{"foo2": "bar2"},
+		Checksum:    "deadbeef3",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -3079,6 +3176,7 @@ func (s *SecretsObsoleteWatcherSuite) setupWatcher(c *gc.C, forAutoPrune bool) (
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	if forAutoPrune {
@@ -3123,6 +3221,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
 	p := state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar2"},
+		Checksum:    "deadbeef",
 	}
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3146,6 +3245,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
 	p = state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar3"},
+		Checksum:    "deadbeef2",
 	}
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3156,6 +3256,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisions(c *gc.C) {
 	p = state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar4"},
+		Checksum:    "deadbeef3",
 	}
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3177,6 +3278,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisionsToPrune(c *gc.C)
 	p := state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar2"},
+		Checksum:    "deadbeef",
 	}
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3196,6 +3298,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisionsToPrune(c *gc.C)
 		AutoPrune:   ptr(true),
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar3"},
+		Checksum:    "deadbeef2",
 	}
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3206,6 +3309,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchObsoleteRevisionsToPrune(c *gc.C)
 	p = state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar4"},
+		Checksum:    "deadbeef3",
 	}
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)
@@ -3238,6 +3342,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err := s.store.CreateSecret(uri2, cp)
@@ -3250,6 +3355,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchOwnedDeleted(c *gc.C) {
 		UpdateSecretParams: state.UpdateSecretParams{
 			LeaderToken: &fakeToken{},
 			Data:        map[string]string{"foo": "bar"},
+			Checksum:    "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	_, err = s.store.CreateSecret(uri3, cp)
@@ -3284,6 +3390,7 @@ func (s *SecretsObsoleteWatcherSuite) TestWatchDeletedSupercedesObsolete(c *gc.C
 	p := state.UpdateSecretParams{
 		LeaderToken: &fakeToken{},
 		Data:        map[string]string{"foo": "bar2"},
+		Checksum:    "deadbeef2",
 	}
 	_, err = s.store.UpdateSecret(uri, p)
 	c.Assert(err, jc.ErrorIsNil)

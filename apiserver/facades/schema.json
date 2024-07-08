@@ -21347,6 +21347,9 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
+                        "checksum": {
+                            "type": "string"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -21359,7 +21362,10 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "checksum"
+                    ]
                 },
                 "SecretContentResult": {
                     "type": "object",
@@ -40376,6 +40382,9 @@
                         "latest-revision": {
                             "type": "integer"
                         },
+                        "latest-revision-checksum": {
+                            "type": "string"
+                        },
                         "next-rotate-time": {
                             "type": "string",
                             "format": "date-time"
@@ -40412,6 +40421,7 @@
                         "version",
                         "owner-tag",
                         "latest-revision",
+                        "latest-revision-checksum",
                         "create-time",
                         "update-time",
                         "revisions"
@@ -40451,6 +40461,9 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
+                        "checksum": {
+                            "type": "string"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -40463,7 +40476,10 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "checksum"
+                    ]
                 },
                 "SecretRevision": {
                     "type": "object",
@@ -40847,6 +40863,9 @@
                         "latest-revision": {
                             "type": "integer"
                         },
+                        "latest-revision-checksum": {
+                            "type": "string"
+                        },
                         "next-rotate-time": {
                             "type": "string",
                             "format": "date-time"
@@ -40883,6 +40902,7 @@
                         "version",
                         "owner-tag",
                         "latest-revision",
+                        "latest-revision-checksum",
                         "create-time",
                         "update-time",
                         "revisions"
@@ -40921,6 +40941,9 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
+                        "checksum": {
+                            "type": "string"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -40933,7 +40956,10 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "checksum"
+                    ]
                 },
                 "SecretRevision": {
                     "type": "object",
@@ -41532,6 +41558,9 @@
                         "latest-revision": {
                             "type": "integer"
                         },
+                        "latest-revision-checksum": {
+                            "type": "string"
+                        },
                         "next-rotate-time": {
                             "type": "string",
                             "format": "date-time"
@@ -41568,6 +41597,7 @@
                         "version",
                         "owner-tag",
                         "latest-revision",
+                        "latest-revision-checksum",
                         "create-time",
                         "update-time",
                         "revisions"
@@ -41712,6 +41742,9 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
+                        "checksum": {
+                            "type": "string"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -41724,7 +41757,10 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "checksum"
+                    ]
                 },
                 "SecretContentResult": {
                     "type": "object",
@@ -49269,6 +49305,9 @@
                         "latest-revision": {
                             "type": "integer"
                         },
+                        "latest-revision-checksum": {
+                            "type": "string"
+                        },
                         "next-rotate-time": {
                             "type": "string",
                             "format": "date-time"
@@ -49305,6 +49344,7 @@
                         "version",
                         "owner-tag",
                         "latest-revision",
+                        "latest-revision-checksum",
                         "create-time",
                         "update-time",
                         "revisions"
@@ -50211,6 +50251,9 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
+                        "checksum": {
+                            "type": "string"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -50223,7 +50266,10 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "checksum"
+                    ]
                 },
                 "SecretContentResult": {
                     "type": "object",
@@ -52808,6 +52854,9 @@
                         "latest-revision": {
                             "type": "integer"
                         },
+                        "latest-revision-checksum": {
+                            "type": "string"
+                        },
                         "next-rotate-time": {
                             "type": "string",
                             "format": "date-time"
@@ -52844,6 +52893,7 @@
                         "version",
                         "owner-tag",
                         "latest-revision",
+                        "latest-revision-checksum",
                         "create-time",
                         "update-time",
                         "revisions"
@@ -52969,6 +53019,9 @@
                 "SecretContentParams": {
                     "type": "object",
                     "properties": {
+                        "checksum": {
+                            "type": "string"
+                        },
                         "data": {
                             "type": "object",
                             "patternProperties": {
@@ -52981,7 +53034,10 @@
                             "$ref": "#/definitions/SecretValueRef"
                         }
                     },
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "required": [
+                        "checksum"
+                    ]
                 },
                 "SecretContentResult": {
                     "type": "object",

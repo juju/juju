@@ -149,17 +149,18 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 	now := time.Now()
 	uri := coresecrets.NewURI()
 	metadata := []*coresecrets.SecretMetadata{{
-		URI:              uri,
-		Version:          1,
-		OwnerTag:         "application-mysql",
-		RotatePolicy:     coresecrets.RotateHourly,
-		LatestRevision:   2,
-		LatestExpireTime: ptr(now),
-		NextRotateTime:   ptr(now.Add(time.Hour)),
-		Description:      "shhh",
-		Label:            "foobar",
-		CreateTime:       now,
-		UpdateTime:       now.Add(time.Second),
+		URI:                    uri,
+		Version:                1,
+		OwnerTag:               "application-mysql",
+		RotatePolicy:           coresecrets.RotateHourly,
+		LatestRevision:         2,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(now),
+		NextRotateTime:         ptr(now.Add(time.Hour)),
+		Description:            "shhh",
+		Label:                  "foobar",
+		CreateTime:             now,
+		UpdateTime:             now.Add(time.Second),
 	}}
 	revisions := []*coresecrets.SecretRevisionMetadata{{
 		Revision:   666,
@@ -213,18 +214,19 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal, withBackend bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
-			URI:              uri.String(),
-			Version:          1,
-			OwnerTag:         "application-mysql",
-			RotatePolicy:     string(coresecrets.RotateHourly),
-			LatestExpireTime: ptr(now),
-			NextRotateTime:   ptr(now.Add(time.Hour)),
-			Description:      "shhh",
-			Label:            "foobar",
-			LatestRevision:   2,
-			CreateTime:       now,
-			UpdateTime:       now.Add(time.Second),
-			Value:            valueResult,
+			URI:                    uri.String(),
+			Version:                1,
+			OwnerTag:               "application-mysql",
+			RotatePolicy:           string(coresecrets.RotateHourly),
+			LatestExpireTime:       ptr(now),
+			NextRotateTime:         ptr(now.Add(time.Hour)),
+			Description:            "shhh",
+			Label:                  "foobar",
+			LatestRevision:         2,
+			LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+			CreateTime:             now,
+			UpdateTime:             now.Add(time.Second),
+			Value:                  valueResult,
 			Revisions: []params.SecretRevision{{
 				Revision:    666,
 				BackendName: ptr("internal"),
@@ -349,6 +351,7 @@ func (s *SecretsSuite) assertCreateSecrets(c *gc.C, isInternal bool, finalStepFa
 			})
 			c.Assert(params.UpdateSecretParams.Data, gc.IsNil)
 		}
+		c.Assert(params.UpdateSecretParams.Checksum, gc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
 		if finalStepFailed {
 			return nil, errors.New("some error")
 		}
@@ -409,7 +412,7 @@ func (s *SecretsSuite) TestCreateSecretsInternalBackend(c *gc.C) {
 	s.assertCreateSecrets(c, true, false)
 }
 
-func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI, isInternal bool, finalStepFailed bool) {
+func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI, isInternal bool, currentChecksum string, finalStepFailed bool) {
 	defer s.setup(c).Finish()
 
 	s.expectAuthClient()
@@ -431,30 +434,37 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI, isInte
 		uriString = uri.String()
 	}
 	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
-		URI:            uri,
-		LatestRevision: 2,
+		URI:                    uri,
+		LatestRevision:         2,
+		LatestRevisionChecksum: currentChecksum,
 	}, nil)
-	if isInternal {
-		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 3, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
-			Return("", errors.NotSupportedf("not supported"))
-	} else {
-		s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 3, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
-			Return("rev-id", nil)
+	differentChecksums := currentChecksum != "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b"
+	if differentChecksums {
+		if isInternal {
+			s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 3, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+				Return("", errors.NotSupportedf("not supported"))
+		} else {
+			s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 3, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+				Return("rev-id", nil)
+		}
 	}
 	s.secretsState.EXPECT().UpdateSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(arg1 *coresecrets.URI, params state.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
 		c.Assert(arg1, gc.DeepEquals, uri)
 		c.Assert(params.Description, gc.DeepEquals, ptr("this is a user secret."))
 		c.Assert(params.Label, gc.DeepEquals, ptr("label"))
 		c.Assert(params.AutoPrune, gc.DeepEquals, ptr(true))
-		if isInternal {
-			c.Assert(params.ValueRef, gc.IsNil)
-			c.Assert(params.Data, gc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
-		} else {
-			c.Assert(params.ValueRef, gc.DeepEquals, &coresecrets.ValueRef{
-				BackendID:  "backend-id",
-				RevisionID: "rev-id",
-			})
-			c.Assert(params.Data, gc.IsNil)
+		if differentChecksums {
+			if isInternal {
+				c.Assert(params.ValueRef, gc.IsNil)
+				c.Assert(params.Data, gc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
+			} else {
+				c.Assert(params.ValueRef, gc.DeepEquals, &coresecrets.ValueRef{
+					BackendID:  "backend-id",
+					RevisionID: "rev-id",
+				})
+				c.Assert(params.Data, gc.IsNil)
+			}
+			c.Assert(params.Checksum, gc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
 		}
 		if finalStepFailed {
 			return nil, errors.New("some error")
@@ -534,19 +544,23 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI, isInte
 }
 
 func (s *SecretsSuite) TestUpdateSecretsExternalBackend(c *gc.C) {
-	s.assertUpdateSecrets(c, coresecrets.NewURI(), false, false)
+	s.assertUpdateSecrets(c, coresecrets.NewURI(), false, "deadbeef", false)
 }
 
 func (s *SecretsSuite) TestUpdateSecretsExternalBackendFailedAndCleanup(c *gc.C) {
-	s.assertUpdateSecrets(c, coresecrets.NewURI(), false, true)
+	s.assertUpdateSecrets(c, coresecrets.NewURI(), false, "deadbeef", true)
 }
 
 func (s *SecretsSuite) TestUpdateSecretsInternalBackend(c *gc.C) {
-	s.assertUpdateSecrets(c, coresecrets.NewURI(), true, false)
+	s.assertUpdateSecrets(c, coresecrets.NewURI(), true, "deadbeef", false)
 }
 
 func (s *SecretsSuite) TestUpdateSecretsByName(c *gc.C) {
-	s.assertUpdateSecrets(c, nil, true, false)
+	s.assertUpdateSecrets(c, nil, true, "deadbeef", false)
+}
+
+func (s *SecretsSuite) TestUpdateSecretsSameChecksum(c *gc.C) {
+	s.assertUpdateSecrets(c, coresecrets.NewURI(), true, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b", false)
 }
 
 func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {

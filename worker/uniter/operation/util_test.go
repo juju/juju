@@ -342,6 +342,7 @@ func (mock *MockContext) SecretMetadata() (map[string]jujuc.SecretMetadata, erro
 			Owner:          names.NewApplicationTag("mariadb"),
 			RotatePolicy:   secrets.RotateHourly,
 			LatestRevision: 666,
+			LatestChecksum: "deadbeef",
 		},
 	}, nil
 }

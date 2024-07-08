@@ -679,14 +679,15 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 		state.SecretsFilter{
 			OwnerTags: []names.Tag{names.NewUnitTag("mariadb/0"), names.NewApplicationTag("mariadb")},
 		}).Return([]*coresecrets.SecretMetadata{{
-		URI:              uri,
-		OwnerTag:         "application-mariadb",
-		Description:      "description",
-		Label:            "label",
-		RotatePolicy:     coresecrets.RotateHourly,
-		LatestRevision:   666,
-		LatestExpireTime: &now,
-		NextRotateTime:   &now,
+		URI:                    uri,
+		OwnerTag:               "application-mariadb",
+		Description:            "description",
+		Label:                  "label",
+		RotatePolicy:           coresecrets.RotateHourly,
+		LatestRevision:         666,
+		LatestRevisionChecksum: "checksum",
+		LatestExpireTime:       &now,
+		NextRotateTime:         &now,
 	}}, nil)
 	secretsMetaState.EXPECT().SecretGrants(uri, coresecrets.RoleView).Return([]coresecrets.AccessInfo{
 		{
@@ -709,14 +710,15 @@ func (s *secretsSuite) TestGetSecretMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
-			URI:              uri.String(),
-			OwnerTag:         "application-mariadb",
-			Description:      "description",
-			Label:            "label",
-			RotatePolicy:     coresecrets.RotateHourly.String(),
-			LatestRevision:   666,
-			LatestExpireTime: &now,
-			NextRotateTime:   &now,
+			URI:                    uri.String(),
+			OwnerTag:               "application-mariadb",
+			Description:            "description",
+			Label:                  "label",
+			RotatePolicy:           coresecrets.RotateHourly.String(),
+			LatestRevision:         666,
+			LatestRevisionChecksum: "checksum",
+			LatestExpireTime:       &now,
+			NextRotateTime:         &now,
 			Revisions: []params.SecretRevision{{
 				Revision: 666,
 				ValueRef: &params.SecretValueRef{
