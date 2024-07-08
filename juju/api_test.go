@@ -108,6 +108,77 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfig(c *gc.C) {
 	c.Assert(controllerBefore, gc.DeepEquals, controllerAfter)
 }
 
+func (s *NewAPIClientSuite) TestIncorrectAuthTag(c *gc.C) {
+	store := newClientStore(c, "noconfig")
+	store.UpdateAccount("noconfig", jujuclient.AccountDetails{
+		User: "wally@external",
+	})
+
+	called := 0
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+		called++
+		expectState.authTag = names.NewUserTag("simon@external")
+		return expectState, nil
+	}
+
+	stubStore := jujuclienttesting.WrapClientStore(store)
+	_, err := newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
+	c.Assert(err, jc.ErrorIs, errors.Unauthorized)
+}
+
+func (s *NewAPIClientSuite) TestCorrectAuthTag(c *gc.C) {
+	store := newClientStore(c, "noconfig")
+	store.UpdateAccount("noconfig", jujuclient.AccountDetails{
+		User: "wally@external",
+	})
+
+	called := 0
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+		called++
+		expectState.authTag = names.NewUserTag("wally@external")
+		return expectState, nil
+	}
+
+	stubStore := jujuclienttesting.WrapClientStore(store)
+	_, err := newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *NewAPIClientSuite) TestIncorrectAdminAuthTag(c *gc.C) {
+	store := newClientStore(c, "noconfig")
+
+	called := 0
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+		checkCommonAPIInfoAttrs(c, apiInfo, opts)
+		called++
+		expectState.authTag = names.NewUserTag("wally@external")
+		return expectState, nil
+	}
+
+	stubStore := jujuclienttesting.WrapClientStore(store)
+	_, err := newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
+	c.Assert(err, jc.ErrorIs, errors.Unauthorized)
+}
+
+func (s *NewAPIClientSuite) TestCorrectAdminAuthTag(c *gc.C) {
+	store := newClientStore(c, "noconfig")
+
+	called := 0
+	expectState := mockedAPIState(mockedHostPort | mockedModelTag)
+	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (api.Connection, error) {
+		checkCommonAPIInfoAttrs(c, apiInfo, opts)
+		called++
+		return expectState, nil
+	}
+
+	stubStore := jujuclienttesting.WrapClientStore(store)
+	_, err := newAPIConnectionFromNames(c, "noconfig", "admin/admin", stubStore, apiOpen)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *NewAPIClientSuite) TestUpdatesLastKnownAccess(c *gc.C) {
 	store := newClientStore(c, "noconfig")
 

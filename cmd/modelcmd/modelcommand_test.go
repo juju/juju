@@ -494,7 +494,8 @@ func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
 	}
 	s.store.Accounts[s.controllerName] = jujuclient.AccountDetails{
 		// External user forces use of macaroons.
-		User: "me@external",
+		User:      testUser,
+		Macaroons: []macaroon.Slice{{}},
 	}
 	s.store.Models[s.controllerName] = &jujuclient.ControllerModels{
 		Models: map[string]jujuclient.ModelDetails{
