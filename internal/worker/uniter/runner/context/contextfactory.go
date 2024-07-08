@@ -424,6 +424,7 @@ func (f *contextFactory) updateContext(stdCtx context.Context, ctx *HookContext)
 			Owner:            md.Owner,
 			RotatePolicy:     md.RotatePolicy,
 			LatestRevision:   md.LatestRevision,
+			LatestChecksum:   md.LatestRevisionChecksum,
 			LatestExpireTime: md.LatestExpireTime,
 			NextRotateTime:   md.NextRotateTime,
 			Revisions:        v.Revisions,

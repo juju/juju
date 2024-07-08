@@ -283,17 +283,18 @@ func (s *SecretsManagerAPI) GetSecretMetadata(ctx context.Context) (params.ListS
 			return params.ListSecretResults{}, errors.Trace(err)
 		}
 		secretResult := params.ListSecretResult{
-			URI:              md.URI.String(),
-			Version:          md.Version,
-			OwnerTag:         ownerTag.String(),
-			RotatePolicy:     md.RotatePolicy.String(),
-			NextRotateTime:   md.NextRotateTime,
-			Description:      md.Description,
-			Label:            md.Label,
-			LatestRevision:   md.LatestRevision,
-			LatestExpireTime: md.LatestExpireTime,
-			CreateTime:       md.CreateTime,
-			UpdateTime:       md.UpdateTime,
+			URI:                    md.URI.String(),
+			Version:                md.Version,
+			OwnerTag:               ownerTag.String(),
+			RotatePolicy:           md.RotatePolicy.String(),
+			NextRotateTime:         md.NextRotateTime,
+			Description:            md.Description,
+			Label:                  md.Label,
+			LatestRevision:         md.LatestRevision,
+			LatestRevisionChecksum: md.LatestRevisionChecksum,
+			LatestExpireTime:       md.LatestExpireTime,
+			CreateTime:             md.CreateTime,
+			UpdateTime:             md.UpdateTime,
 		}
 		grants, err := s.secretService.GetSecretGrants(ctx, md.URI, coresecrets.RoleView)
 		if err != nil {

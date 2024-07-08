@@ -46,6 +46,7 @@ type UpdateUserSecretParams struct {
 	Label       *string
 	Params      map[string]interface{}
 	Data        secrets.SecretData
+	Checksum    string
 	AutoPrune   *bool
 }
 

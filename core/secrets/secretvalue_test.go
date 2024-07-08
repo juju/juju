@@ -44,6 +44,17 @@ func (s *SecretValueSuite) TestValues(c *gc.C) {
 	})
 }
 
+func (s *SecretValueSuite) TestChecksum(c *gc.C) {
+	in := map[string]string{
+		"a": base64.StdEncoding.EncodeToString([]byte("foo")),
+		"b": base64.StdEncoding.EncodeToString([]byte("1")),
+	}
+	val := secrets.NewSecretValue(in)
+	cs, err := val.Checksum()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cs, gc.Equals, "c3d5969f3a16dd48b80a58f21dfe105eaf7fe822fbe564f555f31e3e1a9ba9ac")
+}
+
 func (s *SecretValueSuite) TestEmpty(c *gc.C) {
 	in := map[string]string{}
 	val := secrets.NewSecretValue(in)

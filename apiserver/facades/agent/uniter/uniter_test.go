@@ -3421,9 +3421,10 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	uri := secrets.NewURI()
 	err = b.AddSecretCreates([]apiuniter.SecretCreateArg{{
 		SecretUpsertArg: apiuniter.SecretUpsertArg{
-			URI:   uri,
-			Label: ptr("foobar"),
-			Value: secrets.NewSecretValue(map[string]string{"foo": "bar"}),
+			URI:      uri,
+			Label:    ptr("foobar"),
+			Value:    secrets.NewSecretValue(map[string]string{"foo": "bar"}),
+			Checksum: "checksum",
 		},
 		Owner: secrets.Owner{Kind: secrets.ApplicationOwner, ID: s.wordpress.Name()},
 	}})
@@ -3434,9 +3435,11 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 		Description:  ptr("a secret"),
 		Label:        ptr("foobar"),
 		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
+		Checksum:     "checksum2",
 	}, {
-		URI:   uri3,
-		Value: secrets.NewSecretValue(map[string]string{"foo3": "bar3"}),
+		URI:      uri3,
+		Value:    secrets.NewSecretValue(map[string]string{"foo3": "bar3"}),
+		Checksum: "checksum3",
 	}})
 	b.AddTrackLatest([]string{uri3.ID})
 	b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{URI: uri3, Revision: ptr(1)}})
@@ -3470,6 +3473,7 @@ func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(md.Description, gc.Equals, "a secret")
 	c.Assert(md.Label, gc.Equals, "foobar")
+	c.Assert(md.LatestRevisionChecksum, gc.Equals, "checksum2")
 	c.Assert(md.RotatePolicy, gc.Equals, secrets.RotateDaily)
 	val, _, err := store.GetSecretValue(uri, 2)
 	c.Assert(err, jc.ErrorIsNil)

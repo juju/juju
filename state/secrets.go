@@ -48,6 +48,7 @@ type UpdateSecretParams struct {
 	Params         map[string]interface{}
 	Data           secrets.SecretData
 	ValueRef       *secrets.ValueRef
+	Checksum       string
 	AutoPrune      *bool
 }
 
@@ -115,6 +116,8 @@ type secretMetadataDoc struct {
 	// LatestRevision is denormalised here - it is the
 	// revision of the latest revision doc,
 	LatestRevision int `bson:"latest-revision"`
+	// LatestRevisionChecksum is the checksum of the latest revision content.
+	LatestRevisionChecksum string `bson:"latest-revision-checksum"`
 	// LatestExpireTime is denormalised here - it is the
 	// expire time of the latest revision doc,
 	LatestExpireTime *time.Time `bson:"latest-expire-time"`
@@ -225,6 +228,7 @@ func (s *secretsStore) updateSecretMetadataDoc(doc *secretMetadataDoc, p *Update
 		}
 	}
 	if hasData {
+		doc.LatestRevisionChecksum = p.Checksum
 		doc.LatestRevision++
 	}
 	doc.UpdateTime = s.st.nowToTheSecond()
@@ -557,18 +561,19 @@ func (s *secretsStore) toSecretMetadata(doc *secretMetadataDoc, nextRotateTime *
 		return nil, errors.Trace(err)
 	}
 	return &secrets.SecretMetadata{
-		URI:              uri,
-		Version:          doc.Version,
-		RotatePolicy:     secrets.RotatePolicy(doc.RotatePolicy),
-		NextRotateTime:   nextRotateTime,
-		LatestRevision:   doc.LatestRevision,
-		LatestExpireTime: doc.LatestExpireTime,
-		Description:      doc.Description,
-		Label:            doc.Label,
-		Owner:            owner,
-		AutoPrune:        doc.AutoPrune,
-		CreateTime:       doc.CreateTime,
-		UpdateTime:       doc.UpdateTime,
+		URI:                    uri,
+		Version:                doc.Version,
+		RotatePolicy:           secrets.RotatePolicy(doc.RotatePolicy),
+		NextRotateTime:         nextRotateTime,
+		LatestRevision:         doc.LatestRevision,
+		LatestRevisionChecksum: doc.LatestRevisionChecksum,
+		LatestExpireTime:       doc.LatestExpireTime,
+		Description:            doc.Description,
+		Label:                  doc.Label,
+		Owner:                  owner,
+		AutoPrune:              doc.AutoPrune,
+		CreateTime:             doc.CreateTime,
+		UpdateTime:             doc.UpdateTime,
 	}, nil
 }
 

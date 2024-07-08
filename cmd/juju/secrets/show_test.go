@@ -70,10 +70,11 @@ func (s *ShowSuite) TestShow(c *gc.C) {
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
 				Version: 1, LatestRevision: 2,
-				Description:      "my secret",
-				Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
-				Label:            "foobar",
-				LatestExpireTime: &expire,
+				Description:            "my secret",
+				Owner:                  coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
+				Label:                  "foobar",
+				LatestExpireTime:       &expire,
+				LatestRevisionChecksum: "deadbeef",
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 			Access: []coresecrets.AccessInfo{
@@ -118,10 +119,11 @@ func (s *ShowSuite) TestShowByName(c *gc.C) {
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
 				Version: 1, LatestRevision: 2,
-				Description:      "my secret",
-				Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
-				Label:            "foobar",
-				LatestExpireTime: &expire,
+				Description:            "my secret",
+				Owner:                  coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
+				Label:                  "foobar",
+				LatestExpireTime:       &expire,
+				LatestRevisionChecksum: "deadbeef",
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
@@ -154,9 +156,10 @@ func (s *ShowSuite) TestShowReveal(c *gc.C) {
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
 				Version: 1, LatestRevision: 2,
-				Description: "my secret",
-				Owner:       coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
-				Label:       "foobar",
+				Description:            "my secret",
+				Owner:                  coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
+				Label:                  "foobar",
+				LatestRevisionChecksum: "deadbeef",
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 		}}, nil)
@@ -168,6 +171,7 @@ func (s *ShowSuite) TestShowReveal(c *gc.C) {
 	c.Assert(out, gc.Equals, fmt.Sprintf(`
 %s:
   revision: 2
+  checksum: deadbeef
   rotation: hourly
   owner: mysql
   description: my secret
@@ -190,9 +194,10 @@ func (s *ShowSuite) TestShowRevisions(c *gc.C) {
 			Metadata: coresecrets.SecretMetadata{
 				URI: uri, RotatePolicy: coresecrets.RotateHourly,
 				Version: 1, LatestRevision: 2,
-				Description: "my secret",
-				Owner:       coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
-				Label:       "foobar",
+				Description:            "my secret",
+				Owner:                  coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
+				Label:                  "foobar",
+				LatestRevisionChecksum: "deadbeef",
 			},
 			Value: coresecrets.NewSecretValue(map[string]string{"foo": "YmFy"}),
 			Revisions: []coresecrets.SecretRevisionMetadata{{

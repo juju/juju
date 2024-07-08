@@ -255,6 +255,7 @@ func (s *BaseHookContextSuite) AssertCoreContext(c *gc.C, ctx *runnercontext.Hoo
 		c.Assert(v.Description, gc.Equals, "description")
 		c.Assert(v.RotatePolicy, gc.Equals, secrets.RotateHourly)
 		c.Assert(v.LatestRevision, gc.Equals, 666)
+		c.Assert(v.LatestChecksum, gc.Equals, "deadbeef")
 	}
 }
 

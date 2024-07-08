@@ -86,17 +86,18 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal bool) {
 	now := time.Now()
 	uri := coresecrets.NewURI()
 	metadata := []*coresecrets.SecretMetadata{{
-		URI:              uri,
-		Version:          1,
-		Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
-		RotatePolicy:     coresecrets.RotateHourly,
-		LatestRevision:   2,
-		LatestExpireTime: ptr(now),
-		NextRotateTime:   ptr(now.Add(time.Hour)),
-		Description:      "shhh",
-		Label:            "foobar",
-		CreateTime:       now,
-		UpdateTime:       now.Add(time.Second),
+		URI:                    uri,
+		Version:                1,
+		Owner:                  coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mysql"},
+		RotatePolicy:           coresecrets.RotateHourly,
+		LatestRevision:         2,
+		LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+		LatestExpireTime:       ptr(now),
+		NextRotateTime:         ptr(now.Add(time.Hour)),
+		Description:            "shhh",
+		Label:                  "foobar",
+		CreateTime:             now,
+		UpdateTime:             now.Add(time.Second),
 	}}
 	revisions := [][]*coresecrets.SecretRevisionMetadata{
 		{{
@@ -144,18 +145,19 @@ func (s *SecretsSuite) assertListSecrets(c *gc.C, reveal bool) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
-			URI:              uri.String(),
-			Version:          1,
-			OwnerTag:         "application-mysql",
-			RotatePolicy:     string(coresecrets.RotateHourly),
-			LatestExpireTime: ptr(now),
-			NextRotateTime:   ptr(now.Add(time.Hour)),
-			Description:      "shhh",
-			Label:            "foobar",
-			LatestRevision:   2,
-			CreateTime:       now,
-			UpdateTime:       now.Add(time.Second),
-			Value:            valueResult,
+			URI:                    uri.String(),
+			Version:                1,
+			OwnerTag:               "application-mysql",
+			RotatePolicy:           string(coresecrets.RotateHourly),
+			LatestExpireTime:       ptr(now),
+			NextRotateTime:         ptr(now.Add(time.Hour)),
+			Description:            "shhh",
+			Label:                  "foobar",
+			LatestRevision:         2,
+			LatestRevisionChecksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+			CreateTime:             now,
+			UpdateTime:             now.Add(time.Second),
+			Value:                  valueResult,
 			Revisions: []params.SecretRevision{{
 				Revision:    666,
 				BackendName: ptr("internal"),
@@ -258,6 +260,7 @@ func (s *SecretsSuite) TestCreateSecrets(c *gc.C) {
 		c.Assert(params.UpdateUserSecretParams.Description, gc.DeepEquals, ptr("this is a user secret."))
 		c.Assert(params.UpdateUserSecretParams.Label, gc.DeepEquals, ptr("label"))
 		c.Assert(params.UpdateUserSecretParams.Data, gc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
+		c.Assert(params.UpdateUserSecretParams.Checksum, gc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
 		return nil
 	})
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)
@@ -304,6 +307,7 @@ func (s *SecretsSuite) assertUpdateSecrets(c *gc.C, uri *coresecrets.URI) {
 		c.Assert(params.Label, gc.DeepEquals, ptr("label"))
 		c.Assert(params.AutoPrune, gc.DeepEquals, ptr(true))
 		c.Assert(params.Data, gc.DeepEquals, coresecrets.SecretData(map[string]string{"foo": "bar"}))
+		c.Assert(params.Checksum, gc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
 		return nil
 	})
 	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretService, s.secretBackendService)

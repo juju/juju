@@ -331,14 +331,15 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 		Kind: secretservice.ApplicationOwner,
 		ID:   "mariadb",
 	}}).Return([]*coresecrets.SecretMetadata{{
-		URI:              uri,
-		Owner:            coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
-		Description:      "description",
-		Label:            "label",
-		RotatePolicy:     coresecrets.RotateHourly,
-		LatestRevision:   666,
-		LatestExpireTime: &now,
-		NextRotateTime:   &now,
+		URI:                    uri,
+		Owner:                  coresecrets.Owner{Kind: coresecrets.ApplicationOwner, ID: "mariadb"},
+		Description:            "description",
+		Label:                  "label",
+		RotatePolicy:           coresecrets.RotateHourly,
+		LatestRevision:         666,
+		LatestRevisionChecksum: "deadbeef",
+		LatestExpireTime:       &now,
+		NextRotateTime:         &now,
 	}}, [][]*coresecrets.SecretRevisionMetadata{{
 		{
 			Revision: 666,
@@ -368,14 +369,15 @@ func (s *SecretsManagerSuite) TestGetSecretMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.ListSecretResults{
 		Results: []params.ListSecretResult{{
-			URI:              uri.String(),
-			OwnerTag:         "application-mariadb",
-			Description:      "description",
-			Label:            "label",
-			RotatePolicy:     coresecrets.RotateHourly.String(),
-			LatestRevision:   666,
-			LatestExpireTime: &now,
-			NextRotateTime:   &now,
+			URI:                    uri.String(),
+			OwnerTag:               "application-mariadb",
+			Description:            "description",
+			Label:                  "label",
+			RotatePolicy:           coresecrets.RotateHourly.String(),
+			LatestRevision:         666,
+			LatestRevisionChecksum: "deadbeef",
+			LatestExpireTime:       &now,
+			NextRotateTime:         &now,
 			Revisions: []params.SecretRevision{{
 				Revision: 666,
 				ValueRef: &params.SecretValueRef{
