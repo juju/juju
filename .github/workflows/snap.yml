@@ -64,7 +64,7 @@ jobs:
     - name: Cache build environment
       uses: actions/cache@v4
       with:
-        path: '/var/snap/lxd/common/lxd/containers/snapcraft-juju'
+        path: '/var/snap/lxd/common/lxd/storage-pools/default/containers/snapcraft-juju'
         key: snapcraft-build-env-${{ runner.os }}
 
     - name: Build snap
