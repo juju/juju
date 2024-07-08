@@ -6,12 +6,18 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
+	"golang.org/x/crypto/ssh"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	k8sconstants "github.com/juju/juju/caas/kubernetes/provider/constants"
 	k8sproxy "github.com/juju/juju/caas/kubernetes/provider/proxy"
+	"github.com/juju/juju/caas/kubernetes/provider/sshexec"
+	"github.com/juju/juju/caas/kubernetes/provider/utils"
 	"github.com/juju/juju/proxy"
 )
 
@@ -86,4 +92,30 @@ func (k *kubernetesClient) ConnectionProxyInfo() (proxy.Proxier, error) {
 		return nil, errors.Trace(err)
 	}
 	return p, nil
+}
+
+func (k *kubernetesClient) HandleSSHConn(conn net.Conn, unit names.UnitTag, container string, hostKey ssh.Signer, authorisedKeys []ssh.PublicKey) error {
+	podList, err := k.client().CoreV1().Pods(k.namespace).List(context.TODO(), v1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("cannot list pods: %w", err)
+	}
+
+	unitID := unit.Id()
+	podName := ""
+	for _, pod := range podList.Items {
+		if pod.Annotations != nil && pod.Annotations[utils.AnnotationUnitKey(k.IsLegacyLabels())] == unitID {
+			podName = pod.Name
+			break
+		}
+	}
+	if podName == "" {
+		return fmt.Errorf("cannot find pod for unit %s", unitID)
+	}
+
+	if container == "" {
+		container = "charm"
+	}
+
+	sshexec.HandleSSHConn(k.client(), k.k8sConfig(), k.namespace, podName, container, conn, hostKey, authorisedKeys)
+	return nil
 }

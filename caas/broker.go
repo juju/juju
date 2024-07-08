@@ -6,10 +6,12 @@ package caas
 import (
 	"context"
 	"fmt"
+	"net"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/version/v2"
+	"golang.org/x/crypto/ssh"
 
 	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/core/config"
@@ -229,6 +231,9 @@ type Broker interface {
 
 	// ProxyManager provides methods for managing application proxy connections.
 	ProxyManager
+
+	// SSHManager provides termination for an SSH connection.
+	SSHManager
 }
 
 // ApplicationBroker provides an API for accessing the broker interface for
@@ -351,6 +356,11 @@ type CredentialChecker interface {
 // ProxyManager provides the API to get proxier information for applications
 type ProxyManager interface {
 	ProxyToApplication(appName, remotePort string) (proxy.Proxier, error)
+}
+
+// SSHManager provides termination for an SSH connection.
+type SSHManager interface {
+	HandleSSHConn(conn net.Conn, unit names.UnitTag, container string, hostKey ssh.Signer, authorisedKeys []ssh.PublicKey) error
 }
 
 // ServiceManager provides the API to manipulate services.

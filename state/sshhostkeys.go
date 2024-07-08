@@ -4,6 +4,7 @@
 package state
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/juju/errors"
@@ -12,6 +13,9 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	jujutxn "github.com/juju/txn/v3"
+	"golang.org/x/crypto/ssh"
+
+	pkissh "github.com/juju/juju/pki/ssh"
 )
 
 // SSHHostKeys holds the public SSH host keys for an entity (almost
@@ -27,25 +31,25 @@ type SSHHostKeys []string
 // Note that the document id hasn't been included because we don't
 // need to read it or (directly) write it.
 type sshHostKeysDoc struct {
-	Keys []string `bson:"keys"`
+	Keys            []string `bson:"keys"`
+	ProxyPublicKey  string   `bson:"proxy-public-key,omitempty"`
+	ProxyPrivateKey string   `bson:"proxy-private-key,omitempty"`
 }
 
 // GetSSHHostKeys retrieves the SSH host keys stored for an entity.
 // /
 // NOTE: Currently only machines are supported. This can be
 // generalised to take other tag types later, if and when we need it.
-func (st *State) GetSSHHostKeys(tag names.MachineTag) (SSHHostKeys, error) {
-	coll, closer := st.db().GetCollection(sshHostKeysC)
-	defer closer()
-
-	var doc sshHostKeysDoc
-	err := coll.FindId(machineGlobalKey(tag.Id())).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("keys")
-	} else if err != nil {
-		return nil, errors.Annotate(err, "key lookup failed")
+func (st *State) GetSSHHostKeys(tag names.Tag) (SSHHostKeys, error) {
+	doc, err := st.getSSHHostKeysDoc(tag)
+	if err != nil {
+		return nil, err
 	}
-	return SSHHostKeys(doc.Keys), nil
+	keys := SSHHostKeys(doc.Keys)
+	if doc.ProxyPublicKey != "" {
+		keys = append(keys, doc.ProxyPublicKey)
+	}
+	return keys, nil
 }
 
 // keysEqual checks if the ssh host keys are the same between two sets.
@@ -73,20 +77,20 @@ func (st *State) SetSSHHostKeys(tag names.MachineTag, keys SSHHostKeys) error {
 	coll, closer := st.db().GetCollection(sshHostKeysC)
 	defer closer()
 	id := machineGlobalKey(tag.Id())
-	doc := sshHostKeysDoc{
-		Keys: keys,
-	}
 	var dbDoc sshHostKeysDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		err := coll.FindId(id).One(&dbDoc)
-		if err != nil {
-			if err == mgo.ErrNotFound {
-				return []txn.Op{{
-					C:      sshHostKeysC,
-					Id:     id,
-					Insert: doc,
-				}}, nil
+		if err == mgo.ErrNotFound {
+			doc := sshHostKeysDoc{
+				Keys: keys,
 			}
+			return []txn.Op{{
+				C:      sshHostKeysC,
+				Id:     id,
+				Assert: txn.DocMissing,
+				Insert: doc,
+			}}, nil
+		} else if err != nil {
 			return nil, err
 		}
 		if keysEqual(dbDoc.Keys, keys) {
@@ -95,7 +99,7 @@ func (st *State) SetSSHHostKeys(tag names.MachineTag, keys SSHHostKeys) error {
 		return []txn.Op{{
 			C:      sshHostKeysC,
 			Id:     id,
-			Update: bson.M{"$set": doc},
+			Update: bson.M{"$set": bson.D{{"keys", keys}}},
 		}}, nil
 	}
 
@@ -113,4 +117,106 @@ func removeSSHHostKeyOp(globalKey string) txn.Op {
 		Id:     globalKey,
 		Remove: true,
 	}
+}
+
+func (st *State) GetSSHProxyHostKeys(unit names.Tag) (ssh.Signer, error) {
+	doc, err := st.getSSHHostKeysDoc(unit)
+	if err != nil && !errors.Is(err, errors.NotFound) {
+		return nil, err
+	}
+	if doc != nil && doc.ProxyPrivateKey != "" {
+		privateKey, err := ssh.ParsePrivateKey([]byte(doc.ProxyPrivateKey))
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse private proxy ssh host key for %v: %w", unit, err)
+		}
+		return privateKey, nil
+	}
+
+	newPrivateKey, err := pkissh.ED25519()
+	if err != nil {
+		return nil, fmt.Errorf("cannot generate ed25519 ssh key pair for %v: %w", unit, err)
+	}
+	private, public, _, err := pkissh.FormatKey(newPrivateKey, fmt.Sprintf("%s@%s", unit.String(), st.modelTag.Id()))
+	if err != nil {
+		return nil, fmt.Errorf("cannot format ed25519 ssh key pair for %v: %w", unit, err)
+	}
+
+	coll, closer := st.db().GetCollection(sshHostKeysC)
+	defer closer()
+
+	reload := false
+	id := unitGlobalKey(unit.Id())
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var dbDoc sshHostKeysDoc
+		err := coll.FindId(id).One(&dbDoc)
+		if err == mgo.ErrNotFound {
+			doc := sshHostKeysDoc{
+				ProxyPublicKey:  public,
+				ProxyPrivateKey: private,
+			}
+			return []txn.Op{{
+				C:      sshHostKeysC,
+				Id:     id,
+				Assert: txn.DocMissing,
+				Insert: doc,
+			}}, nil
+		} else if err != nil {
+			return nil, err
+		}
+		if doc.ProxyPrivateKey != "" {
+			reload = true
+			return nil, jujutxn.ErrNoOperations
+		}
+		return []txn.Op{{
+			C:      sshHostKeysC,
+			Id:     id,
+			Assert: bson.M{"proxy-private-key": bson.M{"$exists": false}},
+			Update: bson.M{"$set": bson.M{
+				"proxy-public-key":  public,
+				"proxy-private-key": private,
+			}},
+		}}, nil
+	}
+	if err := st.db().Run(buildTxn); err != nil {
+		return nil, fmt.Errorf("cannot update ssh proxy host keys for %v: %w", unit, err)
+	}
+
+	if !reload {
+		return ssh.NewSignerFromKey(newPrivateKey)
+	}
+
+	doc, err = st.getSSHHostKeysDoc(unit)
+	if err != nil {
+		return nil, fmt.Errorf("cannot load ssh proxy host keys for %v: %w", unit, err)
+	}
+	privateKey, err := ssh.ParsePrivateKey([]byte(doc.ProxyPrivateKey))
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse private proxy ssh host key for %v: %w", unit, err)
+	}
+	return privateKey, nil
+}
+
+func (st *State) getSSHHostKeysDoc(tag names.Tag) (*sshHostKeysDoc, error) {
+	coll, closer := st.db().GetCollection(sshHostKeysC)
+	defer closer()
+
+	id := ""
+	switch t := tag.(type) {
+	case names.MachineTag:
+		id = machineGlobalKey(t.Id())
+	case names.UnitTag:
+		id = unitGlobalKey(t.Id())
+	default:
+		return nil, errors.NotFoundf("keys")
+	}
+
+	var doc sshHostKeysDoc
+	err := coll.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("keys")
+	} else if err != nil {
+		return nil, errors.Annotate(err, "key lookup failed")
+	}
+
+	return &doc, nil
 }

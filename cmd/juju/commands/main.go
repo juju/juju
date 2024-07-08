@@ -390,6 +390,7 @@ func registerCommands(r commandRegistry) {
 	r.Register(action.NewExecCommand(nil))
 	r.Register(ssh.NewSCPCommand(nil, ssh.DefaultSSHRetryStrategy, ssh.DefaultSSHPublicKeyRetryStrategy))
 	r.Register(ssh.NewSSHCommand(nil, nil, ssh.DefaultSSHRetryStrategy, ssh.DefaultSSHPublicKeyRetryStrategy))
+	r.RegisterDeprecated(ssh.NewSSHProxyCommand(), &deprecatedCmdCheck{"ssh directly"})
 	r.Register(application.NewResolvedCommand())
 	r.Register(newDebugLogCommand(nil))
 	r.Register(ssh.NewDebugHooksCommand(nil, ssh.DefaultSSHRetryStrategy, ssh.DefaultSSHPublicKeyRetryStrategy))
@@ -618,4 +619,16 @@ func (cloudToCommandAdapter) PersonalCloudMetadata() (map[string]cloudfile.Cloud
 }
 func (cloudToCommandAdapter) WritePersonalCloudMetadata(cloudsMap map[string]cloudfile.Cloud) error {
 	return cloudfile.WritePersonalCloudMetadata(cloudsMap)
+}
+
+type deprecatedCmdCheck struct {
+	replacement string
+}
+
+func (d deprecatedCmdCheck) Deprecated() (bool, string) {
+	return true, d.replacement
+}
+
+func (deprecatedCmdCheck) Obsolete() bool {
+	return false
 }

@@ -39180,7 +39180,7 @@
     {
         "Name": "SSHClient",
         "Description": "Facade implements the API required by the sshclient worker.",
-        "Version": 4,
+        "Version": 5,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",

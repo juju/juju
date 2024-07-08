@@ -18,7 +18,7 @@ import (
 type Backend interface {
 	ModelConfig() (*config.Config, error)
 	GetMachineForEntity(tag string) (SSHMachine, error)
-	GetSSHHostKeys(names.MachineTag) (state.SSHHostKeys, error)
+	GetSSHHostKeys(names.Tag) (state.SSHHostKeys, error)
 	ModelTag() names.ModelTag
 	ControllerTag() names.ControllerTag
 	Model() (Model, error)

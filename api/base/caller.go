@@ -5,6 +5,7 @@ package base
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"net/http"
 	"net/url"
@@ -50,6 +51,10 @@ type APICaller interface {
 
 	// BakeryClient returns the bakery client for this connection.
 	BakeryClient() MacaroonDischarger
+
+	// NewHTTPRequest returns a new base authenticated http.Request and
+	// the tls.Dialer to connect with.
+	NewHTTPRequest() (*http.Request, *tls.Dialer, error)
 
 	// Context returns the standard context for this connection.
 	Context() context.Context

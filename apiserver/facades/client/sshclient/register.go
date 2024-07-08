@@ -21,6 +21,11 @@ func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("SSHClient", 4, func(ctx facade.Context) (facade.Facade, error) {
 		return newFacade(ctx)
 	}, reflect.TypeOf((*Facade)(nil)))
+	// SSHClient facade version 5 is symbolic. It represents a controller that supports SSH proxying
+	// via HTTP Upgrade.
+	registry.MustRegister("SSHClient", 5, func(ctx facade.Context) (facade.Facade, error) {
+		return newFacade(ctx)
+	}, reflect.TypeOf((*Facade)(nil)))
 }
 
 func newFacade(ctx facade.Context) (*Facade, error) {
