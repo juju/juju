@@ -53,10 +53,13 @@ jobs:
         cache: true
 
     - run: |
+        set -x
         sudo chmod -R 0777 /var/snap/lxd/common/lxd
         sudo stat /var/snap/lxd/common/lxd || true
-        sudo stat /var/snap/lxd/common/lxd/containers || true
-        sudo stat /var/snap/lxd/common/lxd/containers/snapcraft-juju || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/ || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/default/ || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/default/containers/ || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/default/containers/snapcraft-juju || true
 
     - name: Cache build environment
       uses: actions/cache@v4
@@ -92,9 +95,13 @@ jobs:
 
     - run: |
         sudo stat /var/snap/lxd/common/lxd || true
-        sudo stat /var/snap/lxd/common/lxd/containers || true
-        sudo stat /var/snap/lxd/common/lxd/containers/snapcraft-juju || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/ || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/default/ || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/default/containers/ || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/default/containers/snapcraft-juju || true
         sudo chmod -R 0777 /var/snap/lxd/common/lxd
         sudo stat /var/snap/lxd/common/lxd || true
-        sudo stat /var/snap/lxd/common/lxd/containers || true
-        sudo stat /var/snap/lxd/common/lxd/containers/snapcraft-juju || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/ || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/default/ || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/default/containers/ || true
+        sudo stat /var/snap/lxd/common/lxd/storage-pools/default/containers/snapcraft-juju || true
