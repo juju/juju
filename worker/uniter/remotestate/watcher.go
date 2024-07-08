@@ -468,17 +468,13 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 	requiredEvents++
 
-	if w.modelType == model.IAAS {
-		// Only IAAS models support upgrading the machine series.
-		// TODO(externalreality) This pattern should probably be extracted
-		upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := w.catacomb.Add(upgradeSeriesw); err != nil {
-			return errors.Trace(err)
-		}
-		upgradeSeriesChanges = upgradeSeriesw.Changes()
+	if upgradeSeriesChanges, err = w.watchUpgradeSeries(); err != nil {
+		return errors.Trace(err)
+	} else if upgradeSeriesChanges != nil {
+		// Only update the required events if we have a watcher:
+		//   1. Model is an IAAS model
+		//   2. The controller supports upgrade machine and hasn't deprecated
+		//      the feature.
 		requiredEvents++
 	}
 
@@ -845,6 +841,26 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	}
 }
 
+func (w *RemoteStateWatcher) watchUpgradeSeries() (watcher.NotifyChannel, error) {
+	// Only IAAS models support upgrading the machine series.
+	if w.modelType != model.IAAS {
+		return nil, nil
+	}
+
+	upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications()
+	if err != nil {
+		// Upgrade series has been removed in 4.0, so we can ignore this error.
+		if errors.Is(err, errors.NotImplemented) {
+			return nil, nil
+		}
+		return nil, errors.Trace(err)
+	}
+	if err := w.catacomb.Add(upgradeSeriesw); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return upgradeSeriesw.Changes(), nil
+}
+
 // upgradeSeriesStatusChanged is called when the remote status of a series
 // upgrade changes.
 func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
@@ -871,6 +887,9 @@ func (w *RemoteStateWatcher) upgradeSeriesStatusChanged() error {
 func (w *RemoteStateWatcher) upgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
 	status, target, err := w.unit.UpgradeSeriesStatus()
 	if err != nil {
+		if errors.Is(err, errors.NotImplemented) {
+			return model.UpgradeSeriesNotStarted, "", nil
+		}
 		return "", "", errors.Trace(err)
 	}
 

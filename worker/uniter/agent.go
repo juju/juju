@@ -40,5 +40,9 @@ func reportAgentError(u *Uniter, userMessage string, err error) {
 // setUpgradeSeriesStatus sets the upgrade series status.
 func setUpgradeSeriesStatus(u *Uniter, status model.UpgradeSeriesStatus, reason string) error {
 	err := u.unit.SetUpgradeSeriesStatus(status, reason)
+	// Upgrade series status has been deprecated.
+	if errors.Is(err, errors.NotImplemented) {
+		return nil
+	}
 	return errors.Annotatef(err, "cannot set upgrade series status to %q with reason: %q", status, reason)
 }

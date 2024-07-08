@@ -135,7 +135,7 @@ func (client *Client) UpgradeSeriesPrepare(machineName, channel string, force bo
 	}
 	var result params.ErrorResult
 	if err := client.facade.FacadeCall("UpgradeSeriesPrepare", args, &result); err != nil {
-		return errors.Trace(err)
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 
 	if err := result.Error; err != nil {
@@ -153,7 +153,7 @@ func (client *Client) UpgradeSeriesComplete(machineName string) error {
 	result := new(params.ErrorResult)
 	err := client.facade.FacadeCall("UpgradeSeriesComplete", args, result)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if result.Error != nil {
 		return result.Error
@@ -174,7 +174,7 @@ func (client *Client) UpgradeSeriesValidate(machineName, channel string) ([]stri
 	results := new(params.UpgradeSeriesUnitsResults)
 	err := client.facade.FacadeCall("UpgradeSeriesValidate", args, results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if n := len(results.Results); n != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", n)
@@ -194,7 +194,7 @@ func (client *Client) WatchUpgradeSeriesNotifications(machineName string) (watch
 	}
 	err := client.facade.FacadeCall("WatchUpgradeSeriesNotifications", args, &results)
 	if err != nil {
-		return nil, "", errors.Trace(err)
+		return nil, "", errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, "", errors.Errorf("expected 1 result, got %d", len(results.Results))
@@ -221,7 +221,7 @@ func (client *Client) GetUpgradeSeriesMessages(machineName, watcherId string) ([
 	}
 	err := client.facade.FacadeCall("GetUpgradeSeriesMessages", args, &results)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Trace(apiservererrors.RestoreError(err))
 	}
 	if len(results.Results) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
