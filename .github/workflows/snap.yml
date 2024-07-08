@@ -52,6 +52,8 @@ jobs:
         go-version-file: 'go.mod'
         cache: true
 
+    - run: sudo chmod 0777 /var/snap/lxd/common/lxd
+
     - name: Cache build environment
       uses: actions/cache@v4
       with:
