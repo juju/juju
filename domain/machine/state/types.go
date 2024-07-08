@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/life"
 )
 
@@ -69,11 +70,16 @@ type instanceID struct {
 // machineName represents the struct to be used for the name column
 // within the sqlair statements in the machine domain.
 type machineName struct {
-	Name string `db:"name"`
+	Name machine.Name `db:"name"`
 }
 
 // machineUUID represents the struct to be used for the machine_uuid column
 // within the sqlair statements in the machine domain.
 type machineUUID struct {
 	UUID string `db:"uuid"`
+}
+
+// machineIsController represents the struct to be used for the is_controller column within the sqlair statements in the machine domain.
+type machineIsController struct {
+	IsController bool `db:"is_controller"`
 }

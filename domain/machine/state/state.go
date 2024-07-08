@@ -96,21 +96,20 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 
 // DeleteMachine deletes the specified machine and any dependent child records.
 // TODO - this just deals with child block devices for now.
-func (st *State) DeleteMachine(ctx context.Context, machineName machine.Name) error {
+func (st *State) DeleteMachine(ctx context.Context, mName machine.Name) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	machineNameParam := sqlair.M{"name": machineName}
-
-	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $M.name`
+	machineNameParam := machineName{Name: mName}
+	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name`
 	queryMachineStmt, err := st.Prepare(queryMachine, machineNameParam, machineUUID{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	deleteMachine := `DELETE FROM machine WHERE name = $M.name`
+	deleteMachine := `DELETE FROM machine WHERE name = $machineName.name`
 	deleteMachineStmt, err := st.Prepare(deleteMachine, machineNameParam)
 	if err != nil {
 		return errors.Trace(err)
@@ -118,7 +117,7 @@ func (st *State) DeleteMachine(ctx context.Context, machineName machine.Name) er
 
 	deleteNode := `
 DELETE FROM net_node WHERE uuid IN
-(SELECT net_node_uuid FROM machine WHERE name = $M.name) 
+(SELECT net_node_uuid FROM machine WHERE name = $machineName.name)
 `
 	deleteNodeStmt, err := st.Prepare(deleteNode, machineNameParam)
 	if err != nil {
@@ -133,25 +132,25 @@ DELETE FROM net_node WHERE uuid IN
 			return nil
 		}
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotatef(err, "looking up UUID for machine %q", machineName)
+			return errors.Annotatef(err, "looking up UUID for machine %q", mName)
 		}
 
 		machineUUID := result.UUID
 
 		if err := blockdevice.RemoveMachineBlockDevices(ctx, tx, machineUUID); err != nil {
-			return errors.Annotatef(err, "deleting block devices for machine %q", machineName)
+			return errors.Annotatef(err, "deleting block devices for machine %q", mName)
 		}
 
 		if err := tx.Query(ctx, deleteMachineStmt, machineNameParam).Run(); err != nil {
-			return errors.Annotatef(err, "deleting machine %q", machineName)
+			return errors.Annotatef(err, "deleting machine %q", mName)
 		}
 		if err := tx.Query(ctx, deleteNodeStmt, machineNameParam).Run(); err != nil {
-			return errors.Annotatef(err, "deleting net node for machine  %q", machineName)
+			return errors.Annotatef(err, "deleting net node for machine  %q", mName)
 		}
 
 		return nil
 	})
-	return errors.Annotatef(err, "deleting machine %q", machineName)
+	return errors.Annotatef(err, "deleting machine %q", mName)
 }
 
 // InitialWatchStatement returns the table and the initial watch statement
@@ -161,14 +160,15 @@ func (s *State) InitialWatchStatement() (string, string) {
 }
 
 // GetMachineLife returns the life status of the specified machine.
-func (st *State) GetMachineLife(ctx context.Context, machineName machine.Name) (*life.Life, error) {
+// It returns a NotFound if the given machine doesn't exist.
+func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	machineNameParam := sqlair.M{"name": machineName}
-	queryForLife := `SELECT life_id as &machineLife.life_id FROM machine WHERE name = $M.name`
+	machineNameParam := machineName{Name: mName}
+	queryForLife := `SELECT life_id as &machineLife.life_id FROM machine WHERE name = $machineName.name`
 	lifeStmt, err := st.Prepare(queryForLife, machineNameParam, machineLife{})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -179,7 +179,7 @@ func (st *State) GetMachineLife(ctx context.Context, machineName machine.Name) (
 		result := machineLife{}
 		err := tx.Query(ctx, lifeStmt, machineNameParam).Get(&result)
 		if err != nil {
-			return errors.Annotatef(err, "looking up life for machine %q", machineName)
+			return errors.Annotatef(err, "looking up life for machine %q", mName)
 		}
 
 		lifeResult = result.ID
@@ -188,10 +188,40 @@ func (st *State) GetMachineLife(ctx context.Context, machineName machine.Name) (
 	})
 
 	if err != nil && errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.NotFoundf("machine %q", machineName)
+		return nil, errors.NotFoundf("machine %q", mName)
 	}
 
-	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", machineName)
+	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", mName)
+}
+
+// IsController returns whether the machine is a controller machine.
+// It returns a NotFound if the given machine doesn't exist.
+func (st *State) IsController(ctx context.Context, mName machine.Name) (bool, error) {
+	db, err := st.DB()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	machineNameParam := machineName{Name: mName}
+	result := machineIsController{}
+	query := `SELECT &machineIsController.is_controller FROM machine WHERE name = $machineName.name`
+	queryStmt, err := st.Prepare(query, machineNameParam, result)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
+		if err != nil {
+			return errors.Annotatef(err, "querying if machine %q is a controller", mName)
+		}
+		return nil
+	})
+	if err != nil && errors.Is(err, sqlair.ErrNoRows) {
+		return false, errors.NotFoundf("machine %q", mName)
+	}
+
+	return result.IsController, errors.Annotatef(err, "checking if machine %q is a controller", mName)
 }
 
 // AllMachineNames retrieves the names of all machines in the model.
@@ -216,7 +246,7 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 	}
 
 	// Transform the results ([]machineName) into a slice of machine.Name.
-	machineNames := transform.Slice[machineName, machine.Name](results, func(r machineName) machine.Name { return machine.Name(r.Name) })
+	machineNames := transform.Slice[machineName, machine.Name](results, func(r machineName) machine.Name { return r.Name })
 
 	return machineNames, nil
 }

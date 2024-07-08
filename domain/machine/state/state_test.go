@@ -9,11 +9,13 @@ import (
 	"sort"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -51,6 +53,7 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 }
 
+// TestCreateMachine asserts the happy path of CreateMachine at the state layer.
 func (s *stateSuite) TestCreateMachine(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,24 +72,7 @@ func (s *stateSuite) TestCreateMachine(c *gc.C) {
 	c.Assert(machineID, gc.Equals, "666")
 }
 
-func (s *stateSuite) TestUpdateMachine(c *gc.C) {
-	err := s.state.CreateMachine(context.Background(), "666", "", "")
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.state.CreateMachine(context.Background(), "666", "", "")
-	c.Assert(err, jc.ErrorIsNil)
-
-	var machineID string
-	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT name FROM machine").Scan(&machineID)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	})
-	c.Check(err, jc.ErrorIsNil)
-	c.Assert(machineID, gc.Equals, "666")
-}
-
+// TestDeleteMachine asserts the happy path of DeleteMachine at the state layer.
 func (s *stateSuite) TestDeleteMachine(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -145,6 +131,8 @@ VALUES (?, ?)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestGetMachineLifeSuccess asserts the happy path of GetMachineLife at the
+// state layer.
 func (s *stateSuite) TestGetMachineLifeSuccess(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
@@ -155,6 +143,8 @@ func (s *stateSuite) TestGetMachineLifeSuccess(c *gc.C) {
 	c.Assert(*obtainedLife, gc.Equals, expectedLife)
 }
 
+// TestGetMachineLifeNotFound asserts that a NotFound error is returned when the
+// machine is not found.
 func (s *stateSuite) TestGetMachineLifeNotFound(c *gc.C) {
 	_, err := s.state.GetMachineLife(context.Background(), "666")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
@@ -171,19 +161,70 @@ func (s *stateSuite) TestListAllMachines(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expectedMachines := []string{"666", "667"}
-	ms := []string{}
-	for _, m := range machines {
-		ms = append(ms, m.String())
-	}
+	ms := transform.Slice[machine.Name, string](machines, func(m machine.Name) string { return m.String() })
+
 	sort.Strings(ms)
 	sort.Strings(expectedMachines)
 	c.Assert(ms, gc.DeepEquals, expectedMachines)
 }
 
+// TestListAllMachinesEmpty asserts that AllMachineNames returns an empty list
+// if there are no machines.
 func (s *stateSuite) TestListAllMachinesEmpty(c *gc.C) {
 	machines, err := s.state.AllMachineNames(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machines, gc.HasLen, 0)
+}
+
+// TestListAllMachineNamesSuccess asserts the happy path of AllMachineNames at
+// the state layer.
+func (s *stateSuite) TestListAllMachineNamesSuccess(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "3", "1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.CreateMachine(context.Background(), "667", "4", "2")
+	c.Assert(err, jc.ErrorIsNil)
+
+	machines, err := s.state.AllMachineNames(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedMachines := []string{"666", "667"}
+	ms := transform.Slice[machine.Name, string](machines, func(m machine.Name) string { return m.String() })
+
+	sort.Strings(ms)
+	sort.Strings(expectedMachines)
+	c.Assert(ms, gc.DeepEquals, expectedMachines)
+}
+
+// TestIsControllerSuccess asserts the happy path of IsController at the state
+// layer.
+func (s *stateSuite) TestIsControllerSuccess(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	isController, err := s.state.IsController(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(isController, gc.Equals, false)
+
+	db := s.DB()
+
+	updateIsController := `
+UPDATE machine
+SET is_controller = TRUE
+WHERE name = $1;
+`
+	_, err = db.ExecContext(context.Background(), updateIsController, "666")
+	c.Assert(err, jc.ErrorIsNil)
+	isController, err = s.state.IsController(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(isController, gc.Equals, true)
+}
+
+// TestIsControllerNotFound asserts that a NotFound error is returned when the
+// machine is not found.
+func (s *stateSuite) TestIsControllerNotFound(c *gc.C) {
+	_, err := s.state.IsController(context.Background(), "666")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 func (s *stateSuite) TestIsMachineRebootRequiredNoMachine(c *gc.C) {

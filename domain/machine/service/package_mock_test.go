@@ -428,6 +428,45 @@ func (c *MockStateInstanceStatusCall) DoAndReturn(f func(context.Context, machin
 	return c
 }
 
+// IsController mocks base method.
+func (m *MockState) IsController(arg0 context.Context, arg1 machine.Name) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsController", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsController indicates an expected call of IsController.
+func (mr *MockStateMockRecorder) IsController(arg0, arg1 any) *MockStateIsControllerCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsController", reflect.TypeOf((*MockState)(nil).IsController), arg0, arg1)
+	return &MockStateIsControllerCall{Call: call}
+}
+
+// MockStateIsControllerCall wrap *gomock.Call
+type MockStateIsControllerCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateIsControllerCall) Return(arg0 bool, arg1 error) *MockStateIsControllerCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateIsControllerCall) Do(f func(context.Context, machine.Name) (bool, error)) *MockStateIsControllerCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateIsControllerCall) DoAndReturn(f func(context.Context, machine.Name) (bool, error)) *MockStateIsControllerCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // IsMachineRebootRequired mocks base method.
 func (m *MockState) IsMachineRebootRequired(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
