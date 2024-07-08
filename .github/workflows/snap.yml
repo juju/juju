@@ -52,7 +52,11 @@ jobs:
         go-version-file: 'go.mod'
         cache: true
 
-    - run: sudo chmod 0777 /var/snap/lxd/common/lxd
+    - run: |
+        sudo chmod 0777 /var/snap/lxd/common/lxd
+        sudo stat /var/snap/lxd/common/lxd || true
+        sudo stat /var/snap/lxd/common/lxd/containers || true
+        sudo stat /var/snap/lxd/common/lxd/containers/snapcraft-juju || true
 
     - name: Cache build environment
       uses: actions/cache@v4
@@ -85,3 +89,9 @@ jobs:
         set -euxo pipefail
         mkdir -p ~/.ssh
         juju bootstrap localhost --debug
+
+    - run: |
+        sudo chmod 0777 /var/snap/lxd/common/lxd
+        sudo stat /var/snap/lxd/common/lxd || true
+        sudo stat /var/snap/lxd/common/lxd/containers || true
+        sudo stat /var/snap/lxd/common/lxd/containers/snapcraft-juju || true
