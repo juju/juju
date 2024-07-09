@@ -290,6 +290,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"cloud_service",
 		"cloud_container",
 		"machine_cloud_instance",
+		"machine_cloud_instance_status",
 		"machine_lxd_profile",
 		"instance_tag",
 
@@ -315,6 +316,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"machine_volume",
 		"machine_filesystem",
 		"machine_requires_reboot",
+		"machine_status",
 
 		// Charm
 		"charm",
@@ -407,6 +409,10 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"secret_role",
 		"secret_grant_subject_type",
 		"secret_grant_scope_type",
+
+		// Status
+		"machine_status_values",
+		"instance_status_values",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)

@@ -81,3 +81,14 @@ CREATE TABLE machine_requires_reboot (
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid)
 );
+
+CREATE TABLE machine_status (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    machine_status INT NOT NULL,
+    CONSTRAINT fk_machine_constraint_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid),
+    CONSTRAINT fk_machine_constraint_status
+    FOREIGN KEY (machine_status)
+    REFERENCES machine_status_values (id)
+);
