@@ -162,3 +162,30 @@ type charmManifest struct {
 	OS           string `db:"os"`
 	Architecture string `db:"architecture"`
 }
+
+// charmLXDProfile is used to get the LXD profile of a charm.
+type charmLXDProfile struct {
+	UUID       string `db:"uuid"`
+	LXDProfile []byte `db:"lxd_profile"`
+}
+
+// charmConfig is used to get the config of a charm.
+// This is a row based struct that is normalised form of a map of config.
+type charmConfig struct {
+	CharmUUID    string `db:"charm_uuid"`
+	Key          string `db:"key"`
+	Type         string `db:"type"`
+	DefaultValue string `db:"default_value"`
+	Description  string `db:"description"`
+}
+
+// charmAction is used to get the actions of a charm.
+// This is a row based struct that is normalised form of a map of actions.
+type charmAction struct {
+	CharmUUID      string `db:"charm_uuid"`
+	Key            string `db:"key"`
+	Description    string `db:"description"`
+	Parallel       bool   `db:"parallel"`
+	ExecutionGroup string `db:"execution_group"`
+	Params         []byte `db:"params"`
+}

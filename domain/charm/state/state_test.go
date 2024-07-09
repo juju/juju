@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
@@ -344,19 +345,26 @@ func (s *stateSuite) TestGetCharmMetadataWithTagsAndCategories(c *gc.C) {
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmMetadata(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_category (charm_uuid, "index", value)
 VALUES (?, 0, 'data'), (?, 1, 'kubernetes'), (?, 2, 'kubernetes')
 `, uuid, uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_tag (charm_uuid, "index", value)
 VALUES (?, 0, 'foo'), (?, 1, 'foo'), (?, 2,'bar')
 `, uuid, uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -382,13 +390,18 @@ func (s *stateSuite) TestGetCharmMetadataWithTerms(c *gc.C) {
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmMetadata(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_term (charm_uuid, "index", value) 
 VALUES (?, 0, 'alpha'), (?, 1, 'beta'), (?, 2, 'beta')
 `, uuid, uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -413,9 +426,12 @@ func (s *stateSuite) TestGetCharmMetadataWithRelation(c *gc.C) {
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmMetadata(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_relation (charm_uuid, kind_id, key, name, role_id, scope_id) 
 VALUES 
     (?, 0, 'foo', 'baz', 0, 0),
@@ -423,7 +439,9 @@ VALUES
     (?, 1, 'foo', 'baz', 1, 1),
     (?, 2, 'foo', 'baz', 2, 0);`,
 			uuid, uuid, uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -475,15 +493,20 @@ func (s *stateSuite) TestGetCharmMetadataWithExtraBindings(c *gc.C) {
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmMetadata(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_extra_binding (charm_uuid, key, name) 
 VALUES 
     (?, 'foo', 'bar'),
     (?, 'fred', 'baz');`,
 			uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -515,9 +538,12 @@ func (s *stateSuite) TestGetCharmMetadataWithStorageWithNoProperties(c *gc.C) {
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmMetadata(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_storage (
     charm_uuid,
     key,
@@ -534,7 +560,9 @@ INSERT INTO charm_storage (
     (?, 'foo', 'bar', 'description 1', 1, true, true, 1, 2, 3, '/tmp'),
     (?, 'fred', 'baz', 'description 2', 0, false, false, 4, 5, 6, '/var/mount');`,
 			uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -582,9 +610,12 @@ func (s *stateSuite) TestGetCharmMetadataWithStorageWithProperties(c *gc.C) {
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmMetadata(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_storage (
     charm_uuid,
     key,
@@ -601,7 +632,9 @@ INSERT INTO charm_storage (
     (?, 'foo', 'bar', 'description 1', 1, true, true, 1, 2, 3, '/tmp'),
     (?, 'fred', 'baz', 'description 2', 0, false, false, 4, 5, 6, '/var/mount');`,
 			uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_storage_property (
@@ -614,7 +647,9 @@ INSERT INTO charm_storage_property (
     (?, 'foo', 1, 'beta'),
     (?, 'foo', 2, 'beta');`,
 			uuid, uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -661,9 +696,12 @@ func (s *stateSuite) TestGetCharmMetadataWithDevices(c *gc.C) {
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmMetadata(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_device (
     charm_uuid,
     key,
@@ -676,7 +714,9 @@ INSERT INTO charm_device (
     (?, 'foo', 'bar', 'description 1', 'gpu', 1, 2),
     (?, 'fred', 'baz', 'description 2', 'tpu', 3, 4);`,
 			uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -714,9 +754,12 @@ func (s *stateSuite) TestGetCharmMetadataWithPayloadClasses(c *gc.C) {
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmMetadata(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_payload (
     charm_uuid,
     key,
@@ -726,7 +769,9 @@ INSERT INTO charm_payload (
     (?, 'foo', 'bar', 'docker'),
     (?, 'fred', 'baz', 'kvm');`,
 			uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -758,9 +803,12 @@ func (s *stateSuite) TestGetCharmMetadataWithResources(c *gc.C) {
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmMetadata(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_resource (
     charm_uuid,
     key,
@@ -772,7 +820,9 @@ INSERT INTO charm_resource (
     (?, 'foo', 'bar', 0, '/tmp/file.txt', 'description 1'),
     (?, 'fred', 'baz', 1, 'hub.docker.io/jujusolutions', 'description 2');`,
 			uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -808,9 +858,12 @@ func (s *stateSuite) TestGetCharmMetadataWithContainersWithNoMounts(c *gc.C) {
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmMetadata(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_container (
     charm_uuid,
     key,
@@ -821,7 +874,9 @@ INSERT INTO charm_container (
     (?, 'foo', 'ubuntu@22.04', 100, 100),
     (?, 'fred', 'ubuntu@20.04', -1, -1);`,
 			uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		return nil
 	})
@@ -853,9 +908,12 @@ func (s *stateSuite) TestGetCharmMetadataWithContainersWithMounts(c *gc.C) {
 
 	var expected charm.Metadata
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmMetadata(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmMetadata(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_container (
     charm_uuid,
     key,
@@ -866,7 +924,9 @@ INSERT INTO charm_container (
     (?, 'foo', 'ubuntu@22.04', 100, 100),
     (?, 'fred', 'ubuntu@20.04', -1, -1);`,
 			uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_container_mount (
@@ -880,7 +940,9 @@ INSERT INTO charm_container_mount (
     (?, 1, 'foo', 'block', '/dev/nvme0n1'),
     (?, 0, 'fred', 'file', '/var/log');`,
 			uuid, uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -927,9 +989,12 @@ func (s *stateSuite) TestGetCharmManifest(c *gc.C) {
 
 	var expected charm.Manifest
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		expected = insertCharmManifest(ctx, c, tx, uuid)
+		var err error
+		if expected, err = insertCharmManifest(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
 
-		_, err := tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_manifest_base (
     charm_uuid,
 	"index",
@@ -944,7 +1009,9 @@ INSERT INTO charm_manifest_base (
 	(?, 1, 0, '', 'edge', 'foo', 0),
 	(?, 2, 0, '4.0', 'beta', 'baz', 2);`,
 			uuid, uuid, uuid, uuid)
-		c.Assert(err, jc.ErrorIsNil)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		return nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -983,18 +1050,252 @@ INSERT INTO charm_manifest_base (
 	})
 }
 
-func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) {
+func (s *stateSuite) TestGetCharmManifestNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+
+	_, err := st.GetCharmManifest(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *stateSuite) TestGetCharmLXDProfile(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err := tx.ExecContext(ctx, `
+UPDATE charm 
+SET lxd_profile = ?
+WHERE uuid = ?
+`, `{"profile": []}`, uuid)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	profile, err := st.GetCharmLXDProfile(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(profile, gc.DeepEquals, []byte(`{"profile": []}`))
+}
+
+func (s *stateSuite) TestGetCharmLXDProfileNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+
+	_, err := st.GetCharmLXDProfile(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *stateSuite) TestGetCharmConfig(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO charm_config (
+    charm_uuid,
+	"key",
+    type_id,
+    default_value,
+    description
+) VALUES 
+    (?, 'foo', 0, 'string', 'this is a string'),
+    (?, 'bar', 1, '42', 'this is an int'),
+	(?, 'baz', 3, 'true', 'this is a bool'),
+	(?, 'alpha', 2, '3.42', 'this is a float'),
+	(?, 'beta', 2, '3', 'this is also a float'),
+	(?, 'shh', 4, 'secret', 'this is a secret');`,
+			uuid, uuid, uuid, uuid, uuid, uuid)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := st.GetCharmConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, gc.DeepEquals, charm.Config{
+		Options: map[string]charm.Option{
+			"foo": {
+				Type:        charm.OptionString,
+				Default:     "string",
+				Description: "this is a string",
+			},
+			"bar": {
+				Type:        charm.OptionInt,
+				Default:     42,
+				Description: "this is an int",
+			},
+			"baz": {
+				Type:        charm.OptionBool,
+				Default:     true,
+				Description: "this is a bool",
+			},
+			"alpha": {
+				Type:        charm.OptionFloat,
+				Default:     3.42,
+				Description: "this is a float",
+			},
+			"beta": {
+				Type:        charm.OptionFloat,
+				Default:     float64(3),
+				Description: "this is also a float",
+			},
+			"shh": {
+				Type:        charm.OptionSecret,
+				Default:     "secret",
+				Description: "this is a secret",
+			},
+		},
+	})
+}
+
+func (s *stateSuite) TestGetCharmConfigNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+
+	_, err := st.GetCharmConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *stateSuite) TestGetCharmConfigEmpty(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := st.GetCharmConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, gc.DeepEquals, charm.Config{
+		Options: map[string]charm.Option{},
+	})
+}
+
+func (s *stateSuite) TestGetCharmActions(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
+
+		_, err := tx.ExecContext(ctx, `
+INSERT INTO charm_action (
+    charm_uuid,
+	"key",
+    description,
+    parallel,
+    execution_group,
+	params
+) VALUES 
+    (?, 'foo', 'description1', true, 'group1', '{}'),
+    (?, 'bar', 'description2', false, 'group2', null);`,
+			uuid, uuid, uuid, uuid, uuid, uuid)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := st.GetCharmActions(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, gc.DeepEquals, charm.Actions{
+		Actions: map[string]charm.Action{
+			"foo": {
+				Description:    "description1",
+				Parallel:       true,
+				ExecutionGroup: "group1",
+				Params:         []byte("{}"),
+			},
+			"bar": {
+				Description:    "description2",
+				Parallel:       false,
+				ExecutionGroup: "group2",
+			},
+		},
+	})
+}
+
+func (s *stateSuite) TestGetCharmActionsNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+
+	_, err := st.GetCharmActions(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *stateSuite) TestGetCharmActionsEmpty(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+	uuid := id.String()
+
+	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		if err := insertCharmState(ctx, c, tx, uuid); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	config, err := st.GetCharmActions(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(config, gc.DeepEquals, charm.Actions{
+		Actions: map[string]charm.Action{},
+	})
+}
+
+func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) error {
 	_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 
 VALUES (?, 'ubuntu', 'description', 'summary', true, '4.0.0', 1, 'null')`, uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	_, err = tx.ExecContext(ctx, `INSERT INTO charm_state (charm_uuid, available) VALUES (?, false)`, uuid)
-	c.Assert(err, jc.ErrorIsNil)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
-func insertCharmMetadata(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) charm.Metadata {
-	insertCharmState(ctx, c, tx, uuid)
+func insertCharmMetadata(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) (charm.Metadata, error) {
+	if err := insertCharmState(ctx, c, tx, uuid); err != nil {
+		return charm.Metadata{}, errors.Trace(err)
+	}
 
 	return charm.Metadata{
 		Name:           "ubuntu",
@@ -1004,13 +1305,15 @@ func insertCharmMetadata(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) 
 		RunAs:          charm.RunAsRoot,
 		MinJujuVersion: version.MustParse("4.0.0"),
 		Assumes:        []byte("null"),
-	}
+	}, nil
 }
 
-func insertCharmManifest(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) charm.Manifest {
-	insertCharmState(ctx, c, tx, uuid)
+func insertCharmManifest(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) (charm.Manifest, error) {
+	if err := insertCharmState(ctx, c, tx, uuid); err != nil {
+		return charm.Manifest{}, errors.Trace(err)
+	}
 
-	return charm.Manifest{}
+	return charm.Manifest{}, nil
 }
 
 func assertCharmMetadata(c *gc.C, metadata charm.Metadata, expected func() charm.Metadata) {
