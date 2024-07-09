@@ -17,7 +17,7 @@ jobs:
 
   smoke:
     name: Terraform Smoke
-    runs-on: [self-hosted, linux, x64, aws, xxlarge]
+    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
     if: github.event.pull_request.draft == false
     steps:
 
@@ -57,6 +57,7 @@ jobs:
         set -euxo pipefail
             
         juju bootstrap localhost c \
+              --model-default enable-os-upgrade=false \
               --constraints "arch=$(go env GOARCH)"
         juju version
 

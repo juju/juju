@@ -82,7 +82,9 @@ jobs:
       - name: Bootstrap target controller
         run: |
           juju version
-          juju bootstrap lxd target-controller --constraints "arch=$(go env GOARCH)"
+          juju bootstrap lxd target-controller \
+            --constraints "arch=$(go env GOARCH)" \
+            --model-default enable-os-upgrade=false
           juju switch controller
           juju wait-for application controller
 
