@@ -1219,7 +1219,7 @@ INSERT INTO charm_action (
 ) VALUES 
     (?, 'foo', 'description1', true, 'group1', '{}'),
     (?, 'bar', 'description2', false, 'group2', null);`,
-			uuid, uuid, uuid, uuid, uuid, uuid)
+			uuid, uuid)
 		if err != nil {
 			return errors.Trace(err)
 		}
