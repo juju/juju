@@ -21,6 +21,7 @@ func Register(registry facade.FacadeRegistry) {
 
 // newControllerAPIv11 creates a new ControllerAPIv11
 func newControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*ControllerAPI, error) {
+
 	var (
 		st             = ctx.State()
 		authorizer     = ctx.Auth()

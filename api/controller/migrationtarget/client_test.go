@@ -87,7 +87,7 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	mc := jc.NewMultiChecker()
 	mc.AddExpr("_.FacadeVersions", gc.Not(gc.HasLen), 0)
 
-	c.Assert(arg, mc, expectedArg)
+	c.Check(arg, mc, expectedArg)
 }
 
 func (s *ClientSuite) TestImport(c *gc.C) {
