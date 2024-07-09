@@ -368,8 +368,12 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 		TLSClientConfig: st.tlsConfig,
 	}
 	var requestHeader http.Header
-	if st.tag != "" || st.LoginToken() != "" {
-		requestHeader = jujuhttp.BasicAuthHeader(st.tag, st.LoginToken())
+	token, err := st.LoginToken()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if st.tag != "" || token != "" {
+		requestHeader = jujuhttp.BasicAuthHeader(st.tag, token)
 	} else {
 		requestHeader = make(http.Header)
 	}
@@ -380,7 +384,7 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 	}
 	// Add any cookies because they will not be sent to websocket
 	// connections by default.
-	err := st.addCookiesToHeader(requestHeader)
+	err = st.addCookiesToHeader(requestHeader)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

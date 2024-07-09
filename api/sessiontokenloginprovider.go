@@ -54,11 +54,14 @@ type sessionTokenLoginProvider struct {
 	updateAccountDetailsFunc func(string) error
 }
 
-// Token implements the LoginProvider.Token method.
+// Token implements the [LoginProvider.Token] method.
 // Returns the session token obtained after performing the login flow.
-// Returns an empty string if no session token was obtained.
-func (p *sessionTokenLoginProvider) Token() string {
-	return p.sessionToken
+// Returns an ErrorTokenNotAvailable error if no token available.
+func (p *sessionTokenLoginProvider) Token() (string, error) {
+	if p.sessionToken == "" {
+		return "", ErrorTokenNotAvailable
+	}
+	return p.sessionToken, nil
 }
 
 // Login implements the LoginProvider.Login method.

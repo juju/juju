@@ -31,10 +31,13 @@ func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "provider 2 error")
 
 	lp = loginprovider.NewTryInOrderLoginProvider(logger, p1, p2, p3)
-	c.Assert(lp.Token(), gc.Equals, "")
+	_, err = lp.Token()
+	c.Check(err, gc.ErrorMatches, api.ErrorLoginFirst.Error())
 	_, err = lp.Login(context.Background(), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(lp.Token(), gc.Equals, "successful-login-token")
+	c.Check(err, jc.ErrorIsNil)
+	token, err := lp.Token()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(token, gc.Equals, "successful-login-token")
 }
 
 type mockLoginProvider struct {
@@ -42,8 +45,8 @@ type mockLoginProvider struct {
 	token string
 }
 
-func (p *mockLoginProvider) Token() string {
-	return p.token
+func (p *mockLoginProvider) Token() (string, error) {
+	return p.token, nil
 }
 
 func (p *mockLoginProvider) Login(ctx context.Context, caller base.APICaller) (*api.LoginResultParams, error) {

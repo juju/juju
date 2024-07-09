@@ -21,22 +21,27 @@ import (
 // for the first time when we still don't know which login method.
 func NewTryInOrderLoginProvider(logger loggo.Logger, providers ...api.LoginProvider) api.LoginProvider {
 	return &tryInOrderLoginProviders{
-		providers: providers,
-		logger:    logger,
+		providers:  providers,
+		logger:     logger,
+		loginToken: missingToken,
 	}
+}
+
+func missingToken() (string, error) {
+	return "", api.ErrorLoginFirst
 }
 
 type tryInOrderLoginProviders struct {
 	providers  []api.LoginProvider
 	logger     loggo.Logger
-	loginToken string
+	loginToken func() (string, error)
 }
 
-// Token implements the LoginProvider.Token method.
-// Returns the token obtained from the last successful login provider.
-// Returns an empty string if no session token was obtained.
-func (p *tryInOrderLoginProviders) Token() string {
-	return p.loginToken
+// Token implements the [LoginProvider.Token] method.
+// It attempts to retrieve the token from the last successful login provider.
+// If login was never attempted/successful, an ErrorLoginFirst error is returned.
+func (p *tryInOrderLoginProviders) Token() (string, error) {
+	return p.loginToken()
 }
 
 // Login implements the LoginProvider.Login method.
@@ -48,7 +53,7 @@ func (p *tryInOrderLoginProviders) Login(ctx context.Context, caller base.APICal
 			p.logger.Debugf("login error using provider %d - %s", i, err.Error())
 		} else {
 			p.logger.Debugf("successful login using provider %d", i)
-			p.loginToken = provider.Token()
+			p.loginToken = func() (string, error) { return provider.Token() }
 			return result, nil
 		}
 		lastError = err

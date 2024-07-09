@@ -32,9 +32,10 @@ type clientCredentialsLoginProvider struct {
 	clientSecret string
 }
 
-// Token implements LoginProvider.Token
-func (p *clientCredentialsLoginProvider) Token() string {
-	return p.clientSecret
+// Token implements [LoginProvider.Token]
+// Returning the client secret used for logging in to a Juju controller.
+func (p *clientCredentialsLoginProvider) Token() (string, error) {
+	return p.clientSecret, nil
 }
 
 // Login implements the LoginProvider.Login method.

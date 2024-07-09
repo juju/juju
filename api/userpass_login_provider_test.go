@@ -36,5 +36,7 @@ func (s *userPassLoginProviderSuite) TestUserPassLogin(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer apiState.Close()
-	c.Assert(lp.Token(), gc.Equals, password)
+	token, err := lp.Token()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(token, gc.Equals, password)
 }

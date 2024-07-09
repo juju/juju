@@ -117,11 +117,13 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *gc.C) 
 		LoginProvider: lp,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(output.String(), gc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
-	c.Assert(obtainedSessionToken, gc.Equals, sessionToken)
-	c.Assert(lp.Token(), gc.Equals, sessionToken)
 	defer func() { _ = apiState.Close() }()
+
+	c.Check(output.String(), gc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
+	c.Check(obtainedSessionToken, gc.Equals, sessionToken)
+	token, err := lp.Token()
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(token, gc.Equals, sessionToken)
 }
 
 func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c *gc.C) {

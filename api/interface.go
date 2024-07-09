@@ -29,6 +29,15 @@ import (
 // AnonymousUsername is the special username to use for anonymous logins.
 const AnonymousUsername = "jujuanonymous"
 
+const (
+	// ErrorTokenNotAvailable describes an error case where the [LoginProvider] is not able to offer a token
+	// as this stage yet.
+	ErrorTokenNotAvailable = errors.ConstError("login provider token not available")
+
+	// ErrorLoginFirst indicates that login has not taken place yet.
+	ErrorLoginFirst = errors.ConstError("login provider needs to be logged in")
+)
+
 // Info encapsulates information about a server holding juju state and
 // can be used to make a connection to it.
 type Info struct {
@@ -189,7 +198,7 @@ type LoginProvider interface {
 	// a token after login has completed.
 	// This is normally used as part of basic authentication in scenarios where a client
 	// makes use of a StreamConnector like when fetching logs using `juju debug-log`.
-	Token() string
+	Token() (string, error)
 }
 
 // DialOpts holds configuration parameters that control the

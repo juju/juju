@@ -198,7 +198,7 @@ func (st *state) AuthTag() names.Tag {
 
 // LoginToken returns a token appropriate for basic auth as determined by the
 // underlying login provider.
-func (st *state) LoginToken() string {
+func (st *state) LoginToken() (string, error) {
 	return st.loginProvider.Token()
 }
 
