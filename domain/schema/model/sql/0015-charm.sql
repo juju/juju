@@ -179,11 +179,11 @@ CREATE TABLE charm_relation (
     kind_id TEXT NOT NULL,
     "key" TEXT NOT NULL,
     name TEXT,
-    role_id TEXT,
+    role_id INT,
     interface TEXT,
     optional BOOLEAN,
     capacity INT,
-    scope_id TEXT,
+    scope_id INT,
     CONSTRAINT fk_charm_relation_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
@@ -237,12 +237,12 @@ ON charm_extra_binding (charm_uuid);
 -- by 3rd party stores.
 CREATE TABLE charm_category (
     charm_uuid TEXT NOT NULL,
-    "index" INT NOT NULL,
+    array_index INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_category_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, "index", value)
+    PRIMARY KEY (charm_uuid, array_index, value)
 );
 
 CREATE INDEX idx_charm_category_charm
@@ -251,12 +251,12 @@ ON charm_category (charm_uuid);
 -- charm_tag is a free form tag that can be applied to a charm.
 CREATE TABLE charm_tag (
     charm_uuid TEXT NOT NULL,
-    "index" INT NOT NULL,
+    array_index INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_tag_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, "index", value)
+    PRIMARY KEY (charm_uuid, array_index, value)
 );
 
 CREATE INDEX idx_charm_tag_charm
@@ -305,7 +305,7 @@ SELECT
     cs.count_max,
     cs.minimum_size_mib,
     cs.location,
-    csp."index" AS property_index,
+    csp.array_index AS property_index,
     csp.value AS property
 FROM charm_storage AS cs
 LEFT JOIN charm_storage_kind AS csk ON cs.storage_kind_id = csk.id
@@ -317,7 +317,7 @@ ON charm_storage (charm_uuid);
 CREATE TABLE charm_storage_property (
     charm_uuid TEXT NOT NULL,
     charm_storage_key TEXT NOT NULL,
-    "index" INT NOT NULL,
+    array_index INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_storage_property_charm
     FOREIGN KEY (charm_uuid)
@@ -325,7 +325,7 @@ CREATE TABLE charm_storage_property (
     CONSTRAINT fk_charm_storage_property_charm_storage
     FOREIGN KEY (charm_uuid, charm_storage_key)
     REFERENCES charm_storage (charm_uuid, "key"),
-    PRIMARY KEY (charm_uuid, charm_storage_key, "index", value)
+    PRIMARY KEY (charm_uuid, charm_storage_key, array_index, value)
 );
 
 CREATE INDEX idx_charm_storage_property_charm
@@ -406,12 +406,12 @@ ON charm_resource (charm_uuid);
 
 CREATE TABLE charm_term (
     charm_uuid TEXT NOT NULL,
-    "index" INT NOT NULL,
+    array_index INT NOT NULL,
     value TEXT NOT NULL,
     CONSTRAINT fk_charm_term_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, "index", value)
+    PRIMARY KEY (charm_uuid, array_index, value)
 );
 
 CREATE INDEX idx_charm_term_charm
@@ -438,7 +438,7 @@ SELECT
     cc.resource,
     cc.uid,
     cc.gid,
-    ccm."index",
+    ccm.array_index,
     ccm.storage,
     ccm.location
 FROM charm_container AS cc
@@ -448,7 +448,7 @@ CREATE INDEX idx_charm_container_charm
 ON charm_container (charm_uuid);
 
 CREATE TABLE charm_container_mount (
-    "index" INT NOT NULL,
+    array_index INT NOT NULL,
     charm_uuid TEXT NOT NULL,
     charm_container_key TEXT,
     storage TEXT,
@@ -459,7 +459,7 @@ CREATE TABLE charm_container_mount (
     CONSTRAINT fk_charm_container_mount_charm_container
     FOREIGN KEY (charm_uuid, charm_container_key)
     REFERENCES charm_container (charm_uuid, "key"),
-    PRIMARY KEY (charm_uuid, charm_container_key, "index")
+    PRIMARY KEY (charm_uuid, charm_container_key, array_index)
 );
 
 CREATE INDEX idx_charm_container_mount_charm
@@ -489,7 +489,7 @@ CREATE TABLE charm_action (
 
 CREATE TABLE charm_manifest_base (
     charm_uuid TEXT NOT NULL,
-    "index" INT NOT NULL,
+    array_index INT NOT NULL,
     os_id TEXT NOT NULL,
     track TEXT,
     risk TEXT NOT NULL,
@@ -504,13 +504,13 @@ CREATE TABLE charm_manifest_base (
     CONSTRAINT fk_charm_manifest_base_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id),
-    PRIMARY KEY (charm_uuid, "index", os_id, track, risk, branch, architecture_id)
+    PRIMARY KEY (charm_uuid, array_index, os_id, track, risk, branch, architecture_id)
 );
 
 CREATE VIEW v_charm_manifest AS
 SELECT
     cmb.charm_uuid,
-    cmb."index" AS idx,
+    cmb.array_index AS idx,
     cmb.track,
     cmb.risk,
     cmb.branch,

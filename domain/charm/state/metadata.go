@@ -8,7 +8,16 @@ import (
 
 	"github.com/juju/version/v2"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/charm"
+)
+
+type relationKind = string
+
+const (
+	relationKindProvides relationKind = "provides"
+	relationKindRequires relationKind = "requires"
+	relationKindPeers    relationKind = "peers"
 )
 
 type decodeMetadataArgs struct {
@@ -154,17 +163,17 @@ func decodeRelations(relations []charmRelation) (map[string]charm.Relation, map[
 		}
 
 		switch relation.Kind {
-		case "provides":
+		case relationKindProvides:
 			if provides == nil {
 				provides = make(map[string]charm.Relation)
 			}
 			provides[relation.Key] = rel
-		case "requires":
+		case relationKindRequires:
 			if requires == nil {
 				requires = make(map[string]charm.Relation)
 			}
 			requires[relation.Key] = rel
-		case "peers":
+		case relationKindPeers:
 			if peers == nil {
 				peers = make(map[string]charm.Relation)
 			}
@@ -382,4 +391,339 @@ func decodeContainers(containers []charmContainer) (map[string]charm.Container, 
 		}
 	}
 	return result, nil
+}
+
+func encodeMetadata(id corecharm.ID, metadata charm.Metadata, lxdProfile []byte) (setCharmMetadata, error) {
+	runAs, err := encodeRunAs(metadata.RunAs)
+	if err != nil {
+		return setCharmMetadata{}, fmt.Errorf("cannot encode run as %q: %w", metadata.RunAs, err)
+	}
+
+	return setCharmMetadata{
+		UUID:           id.String(),
+		Name:           metadata.Name,
+		Summary:        metadata.Summary,
+		Description:    metadata.Description,
+		Subordinate:    metadata.Subordinate,
+		MinJujuVersion: metadata.MinJujuVersion.String(),
+		RunAsID:        runAs,
+		Assumes:        metadata.Assumes,
+		LXDProfile:     lxdProfile,
+	}, nil
+}
+
+func encodeRunAs(runAs charm.RunAs) (int, error) {
+	switch runAs {
+	case charm.RunAsDefault:
+		return 0, nil
+	case charm.RunAsRoot:
+		return 1, nil
+	case charm.RunAsSudoer:
+		return 2, nil
+	case charm.RunAsNonRoot:
+		return 3, nil
+	default:
+		return -1, fmt.Errorf("unknown run as value %q", runAs)
+	}
+}
+
+func encodeTags(id corecharm.ID, tags []string) []setCharmTag {
+	var result []setCharmTag
+	for i, tag := range tags {
+		result = append(result, setCharmTag{
+			CharmUUID: id.String(),
+			Tag:       tag,
+			Index:     i,
+		})
+	}
+	return result
+}
+
+func encodeCategories(id corecharm.ID, categories []string) []setCharmCategory {
+	var result []setCharmCategory
+	for i, category := range categories {
+		result = append(result, setCharmCategory{
+			CharmUUID: id.String(),
+			Category:  category,
+			Index:     i,
+		})
+	}
+	return result
+}
+
+func encodeTerms(id corecharm.ID, terms []string) []setCharmTerm {
+	var result []setCharmTerm
+	for i, term := range terms {
+		result = append(result, setCharmTerm{
+			CharmUUID: id.String(),
+			Term:      term,
+			Index:     i,
+		})
+	}
+	return result
+}
+
+func encodeRelations(id corecharm.ID, metatadata charm.Metadata) ([]setCharmRelation, error) {
+	var result []setCharmRelation
+	for _, relation := range metatadata.Provides {
+		encoded, err := encodeRelation(id, relationKindProvides, relation)
+		if err != nil {
+			return nil, fmt.Errorf("cannot encode provides relation: %w", err)
+		}
+		result = append(result, encoded)
+	}
+
+	for _, relation := range metatadata.Requires {
+		encoded, err := encodeRelation(id, relationKindRequires, relation)
+		if err != nil {
+			return nil, fmt.Errorf("cannot encode requires relation: %w", err)
+		}
+		result = append(result, encoded)
+	}
+
+	for _, relation := range metatadata.Peers {
+		encoded, err := encodeRelation(id, relationKindPeers, relation)
+		if err != nil {
+			return nil, fmt.Errorf("cannot encode peers relation: %w", err)
+		}
+		result = append(result, encoded)
+	}
+
+	return result, nil
+}
+
+func encodeRelation(id corecharm.ID, kind string, relation charm.Relation) (setCharmRelation, error) {
+	kindID, err := encodeRelationKind(kind)
+	if err != nil {
+		return setCharmRelation{}, fmt.Errorf("cannot encode relation kind %q: %w", kind, err)
+	}
+
+	roleID, err := encodeRelationRole(relation.Role)
+	if err != nil {
+		return setCharmRelation{}, fmt.Errorf("cannot encode relation role %q: %w", relation.Role, err)
+	}
+
+	scopeID, err := encodeRelationScope(relation.Scope)
+	if err != nil {
+		return setCharmRelation{}, fmt.Errorf("cannot encode relation scope %q: %w", relation.Scope, err)
+	}
+
+	return setCharmRelation{
+		CharmUUID: id.String(),
+		KindID:    kindID,
+		Key:       relation.Key,
+		Name:      relation.Name,
+		RoleID:    roleID,
+		Interface: relation.Interface,
+		Optional:  relation.Optional,
+		Capacity:  relation.Limit,
+		ScopeID:   scopeID,
+	}, nil
+}
+
+func encodeRelationKind(kind string) (int, error) {
+	// This values are hardcoded to match the index relation kind values in the
+	// database.
+	switch kind {
+	case relationKindProvides:
+		return 0, nil
+	case relationKindRequires:
+		return 1, nil
+	case relationKindPeers:
+		return 2, nil
+	default:
+		return -1, fmt.Errorf("unknown relation kind %q", kind)
+	}
+}
+
+func encodeRelationRole(role charm.RelationRole) (int, error) {
+	// This values are hardcoded to match the index relation role values in the
+	// database.
+	switch role {
+	case charm.RoleProvider:
+		return 0, nil
+	case charm.RoleRequirer:
+		return 1, nil
+	case charm.RolePeer:
+		return 2, nil
+	default:
+		return -1, fmt.Errorf("unknown relation role %q", role)
+	}
+}
+
+func encodeRelationScope(scope charm.RelationScope) (int, error) {
+	// This values are hardcoded to match the index relation scope values in the
+	// database.
+	switch scope {
+	case charm.ScopeGlobal:
+		return 0, nil
+	case charm.ScopeContainer:
+		return 1, nil
+	default:
+		return -1, fmt.Errorf("unknown relation scope %q", scope)
+	}
+}
+
+func encodeExtraBindings(id corecharm.ID, extraBindings map[string]charm.ExtraBinding) []setCharmExtraBinding {
+	var result []setCharmExtraBinding
+	for key, binding := range extraBindings {
+		result = append(result, setCharmExtraBinding{
+			CharmUUID: id.String(),
+			Key:       key,
+			Name:      binding.Name,
+		})
+	}
+	return result
+}
+
+func encodeStorage(id corecharm.ID, storage map[string]charm.Storage) ([]setCharmStorage, []setCharmStorageProperty, error) {
+	var (
+		storages   []setCharmStorage
+		properties []setCharmStorageProperty
+	)
+	for key, storage := range storage {
+		kind, err := encodeStorageType(storage.Type)
+		if err != nil {
+			return nil, nil, fmt.Errorf("cannot encode storage type %q: %w", storage.Type, err)
+		}
+
+		storages = append(storages, setCharmStorage{
+			CharmUUID:   id.String(),
+			Key:         key,
+			Name:        storage.Name,
+			Description: storage.Description,
+			KindID:      kind,
+			Shared:      storage.Shared,
+			ReadOnly:    storage.ReadOnly,
+			CountMin:    storage.CountMin,
+			CountMax:    storage.CountMax,
+			MinimumSize: storage.MinimumSize,
+			Location:    storage.Location,
+		})
+
+		for i, property := range storage.Properties {
+			properties = append(properties, setCharmStorageProperty{
+				CharmUUID: id.String(),
+				Key:       key,
+				Index:     i,
+				Value:     property,
+			})
+		}
+	}
+	return storages, properties, nil
+}
+
+func encodeStorageType(kind charm.StorageType) (int, error) {
+	// This values are hardcoded to match the index storage type values in the
+	// database.
+	switch kind {
+	case charm.StorageBlock:
+		return 0, nil
+	case charm.StorageFilesystem:
+		return 1, nil
+	default:
+		return -1, fmt.Errorf("unknown storage kind %q", kind)
+	}
+}
+
+func encodeDevices(id corecharm.ID, devices map[string]charm.Device) []setCharmDevice {
+	var result []setCharmDevice
+	for key, device := range devices {
+		result = append(result, setCharmDevice{
+			CharmUUID:   id.String(),
+			Key:         key,
+			Name:        device.Name,
+			Description: device.Description,
+			// This is currently safe to do this as the device type is a string,
+			// and there is no validation around what is a device type. In the
+			// future, we should probably validate this.
+			DeviceType: string(device.Type),
+			CountMin:   device.CountMin,
+			CountMax:   device.CountMax,
+		})
+	}
+	return result
+}
+
+func encodePayloads(id corecharm.ID, payloads map[string]charm.PayloadClass) []setCharmPayload {
+	var result []setCharmPayload
+	for key, payload := range payloads {
+		result = append(result, setCharmPayload{
+			CharmUUID: id.String(),
+			Key:       key,
+			Name:      payload.Name,
+			Type:      payload.Type,
+		})
+	}
+	return result
+}
+
+func encodeResources(id corecharm.ID, resources map[string]charm.Resource) ([]setCharmResource, error) {
+	var result []setCharmResource
+	for key, resource := range resources {
+		kind, err := encodeResourceType(resource.Type)
+		if err != nil {
+			return nil, fmt.Errorf("cannot encode resource type %q: %w", resource.Type, err)
+		}
+
+		result = append(result, setCharmResource{
+			CharmUUID:   id.String(),
+			Key:         key,
+			Name:        resource.Name,
+			KindID:      kind,
+			Path:        resource.Path,
+			Description: resource.Description,
+		})
+
+	}
+	return result, nil
+}
+
+func encodeResourceType(kind charm.ResourceType) (int, error) {
+	// This values are hardcoded to match the index resource type values in the
+	// database.
+	switch kind {
+	case charm.ResourceTypeFile:
+		return 0, nil
+	case charm.ResourceTypeContainerImage:
+		return 1, nil
+	default:
+		return -1, fmt.Errorf("unknown resource kind %q", kind)
+	}
+}
+
+func encodeContainers(id corecharm.ID, containerSet map[string]charm.Container) ([]setCharmContainer, []setCharmMount, error) {
+	var (
+		containers []setCharmContainer
+		mounts     []setCharmMount
+	)
+	for key, container := range containerSet {
+		uid := -1
+		if container.Uid != nil {
+			uid = *container.Uid
+		}
+		gid := -1
+		if container.Gid != nil {
+			gid = *container.Gid
+		}
+
+		containers = append(containers, setCharmContainer{
+			CharmUUID: id.String(),
+			Key:       key,
+			Resource:  container.Resource,
+			Uid:       uid,
+			Gid:       gid,
+		})
+
+		for i, mount := range container.Mounts {
+			mounts = append(mounts, setCharmMount{
+				CharmUUID: id.String(),
+				Key:       key,
+				Index:     i,
+				Storage:   mount.Storage,
+				Location:  mount.Location,
+			})
+		}
+	}
+	return containers, mounts, nil
 }

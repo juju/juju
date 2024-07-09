@@ -351,7 +351,7 @@ func (s *stateSuite) TestGetCharmMetadataWithTagsAndCategories(c *gc.C) {
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_category (charm_uuid, "index", value)
+INSERT INTO charm_category (charm_uuid, array_index, value)
 VALUES (?, 0, 'data'), (?, 1, 'kubernetes'), (?, 2, 'kubernetes')
 `, uuid, uuid, uuid)
 		if err != nil {
@@ -359,7 +359,7 @@ VALUES (?, 0, 'data'), (?, 1, 'kubernetes'), (?, 2, 'kubernetes')
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_tag (charm_uuid, "index", value)
+INSERT INTO charm_tag (charm_uuid, array_index, value)
 VALUES (?, 0, 'foo'), (?, 1, 'foo'), (?, 2,'bar')
 `, uuid, uuid, uuid)
 		if err != nil {
@@ -396,7 +396,7 @@ func (s *stateSuite) TestGetCharmMetadataWithTerms(c *gc.C) {
 		}
 
 		_, err = tx.ExecContext(ctx, `
-INSERT INTO charm_term (charm_uuid, "index", value) 
+INSERT INTO charm_term (charm_uuid, array_index, value) 
 VALUES (?, 0, 'alpha'), (?, 1, 'beta'), (?, 2, 'beta')
 `, uuid, uuid, uuid)
 		if err != nil {
@@ -640,7 +640,7 @@ INSERT INTO charm_storage (
 INSERT INTO charm_storage_property (
     charm_uuid,
     charm_storage_key,
-    "index",
+    array_index,
     value
 ) VALUES
     (?, 'foo', 0, 'alpha'),
@@ -931,7 +931,7 @@ INSERT INTO charm_container (
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_container_mount (
     charm_uuid,
-    "index",
+    array_index,
     charm_container_key,
     storage,
     location
@@ -981,6 +981,453 @@ INSERT INTO charm_container_mount (
 	})
 }
 
+func (s *stateSuite) TestSetCharmThenGetCharmMetadata(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		Tags:           []string{"foo", "foo", "bar"},
+		Categories:     []string{"data", "kubernetes", "kubernetes"},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		Terms:          []string{"foo", "foo", "bar"},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		Provides: map[string]charm.Relation{
+			"foo": {
+				Key:   "foo",
+				Name:  "baz",
+				Role:  charm.RoleProvider,
+				Scope: charm.ScopeGlobal,
+			},
+			"fred": {
+				Key:   "fred",
+				Name:  "bar",
+				Role:  charm.RoleProvider,
+				Scope: charm.ScopeContainer,
+			},
+		},
+		Requires: map[string]charm.Relation{
+			"foo": {
+				Key:   "foo",
+				Name:  "baz",
+				Role:  charm.RoleRequirer,
+				Scope: charm.ScopeContainer,
+			},
+		},
+		Peers: map[string]charm.Relation{
+			"foo": {
+				Key:   "foo",
+				Name:  "baz",
+				Role:  charm.RolePeer,
+				Scope: charm.ScopeGlobal,
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		ExtraBindings: map[string]charm.ExtraBinding{
+			"foo": {
+				Name: "bar",
+			},
+			"fred": {
+				Name: "baz",
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoProperties(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		Storage: map[string]charm.Storage{
+			"foo": {
+				Name:        "bar",
+				Type:        charm.StorageFilesystem,
+				Description: "description 1",
+				Shared:      true,
+				ReadOnly:    true,
+				CountMin:    1,
+				CountMax:    2,
+				MinimumSize: 3,
+				Location:    "/tmp",
+			},
+			"fred": {
+				Name:        "baz",
+				Type:        charm.StorageBlock,
+				Description: "description 2",
+				Shared:      false,
+				ReadOnly:    false,
+				CountMin:    4,
+				CountMax:    5,
+				MinimumSize: 6,
+				Location:    "/var/mount",
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithProperties(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		Storage: map[string]charm.Storage{
+			"foo": {
+				Name:        "bar",
+				Type:        charm.StorageFilesystem,
+				Description: "description 1",
+				Shared:      true,
+				ReadOnly:    true,
+				CountMin:    1,
+				CountMax:    2,
+				MinimumSize: 3,
+				Location:    "/tmp",
+				Properties:  []string{"alpha", "beta", "beta"},
+			},
+			"fred": {
+				Name:        "baz",
+				Type:        charm.StorageBlock,
+				Description: "description 2",
+				Shared:      false,
+				ReadOnly:    false,
+				CountMin:    4,
+				CountMax:    5,
+				MinimumSize: 6,
+				Location:    "/var/mount",
+				Properties:  []string{"foo", "foo", "baz"},
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		Devices: map[string]charm.Device{
+			"foo": {
+				Name:        "bar",
+				Type:        charm.DeviceType("gpu"),
+				Description: "description 1",
+				CountMin:    1,
+				CountMax:    2,
+			},
+			"fred": {
+				Name:        "baz",
+				Type:        charm.DeviceType("tpu"),
+				Description: "description 2",
+				CountMin:    3,
+				CountMax:    4,
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithPayloadClasses(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		PayloadClasses: map[string]charm.PayloadClass{
+			"foo": {
+				Name: "bar",
+				Type: "docker",
+			},
+			"fred": {
+				Name: "baz",
+				Type: "kvm",
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		Resources: map[string]charm.Resource{
+			"foo": {
+				Name:        "bar",
+				Type:        charm.ResourceTypeFile,
+				Path:        "/tmp/file.txt",
+				Description: "description 1",
+			},
+			"fred": {
+				Name:        "baz",
+				Type:        charm.ResourceTypeContainerImage,
+				Path:        "hub.docker.io/jujusolutions",
+				Description: "description 2",
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithNoMounts(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		Containers: map[string]charm.Container{
+			"foo": {
+				Resource: "ubuntu@22.04",
+				Uid:      ptr(100),
+				Gid:      ptr(100),
+			},
+			"fred": {
+				Resource: "ubuntu@20.04",
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMounts(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+		Containers: map[string]charm.Container{
+			"foo": {
+				Resource: "ubuntu@22.04",
+				Uid:      ptr(100),
+				Gid:      ptr(100),
+				Mounts: []charm.Mount{
+					{
+						Storage:  "block",
+						Location: "/tmp",
+					},
+					{
+						Storage:  "block",
+						Location: "/tmp",
+					},
+					{
+						Storage:  "block",
+						Location: "/dev/nvme0n1",
+					},
+				},
+			},
+			"fred": {
+				Resource: "ubuntu@20.04",
+				Mounts: []charm.Mount{
+					{
+						Storage:  "file",
+						Location: "/var/log",
+					},
+				},
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
 func (s *stateSuite) TestGetCharmManifest(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -997,7 +1444,7 @@ func (s *stateSuite) TestGetCharmManifest(c *gc.C) {
 		_, err = tx.ExecContext(ctx, `
 INSERT INTO charm_manifest_base (
     charm_uuid,
-	"index",
+	array_index,
     os_id,
     track,
     risk,

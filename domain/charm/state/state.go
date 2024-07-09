@@ -384,47 +384,47 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 	)
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		var err error
-		if metadata, err = getCharmMetadata(ctx, tx, s, ident); err != nil {
+		if metadata, err = s.getCharmMetadata(ctx, tx, ident); err != nil {
 			return errors.Trace(err)
 		}
 
-		if tags, err = getCharmTags(ctx, tx, s, ident); err != nil {
+		if tags, err = s.getCharmTags(ctx, tx, ident); err != nil {
 			return errors.Trace(err)
 		}
 
-		if categories, err = getCharmCategories(ctx, tx, s, ident); err != nil {
+		if categories, err = s.getCharmCategories(ctx, tx, ident); err != nil {
 			return errors.Trace(err)
 		}
 
-		if terms, err = getCharmTerms(ctx, tx, s, ident); err != nil {
+		if terms, err = s.getCharmTerms(ctx, tx, ident); err != nil {
 			return errors.Trace(err)
 		}
 
-		if relations, err = getCharmRelations(ctx, tx, s, ident); err != nil {
+		if relations, err = s.getCharmRelations(ctx, tx, ident); err != nil {
 			return errors.Trace(err)
 		}
 
-		if extraBindings, err = getCharmExtraBindings(ctx, tx, s, ident); err != nil {
+		if extraBindings, err = s.getCharmExtraBindings(ctx, tx, ident); err != nil {
 			return errors.Trace(err)
 		}
 
-		if storage, err = getCharmStorage(ctx, tx, s, ident); err != nil {
+		if storage, err = s.getCharmStorage(ctx, tx, ident); err != nil {
 			return errors.Trace(err)
 		}
 
-		if devices, err = getCharmDevices(ctx, tx, s, ident); err != nil {
+		if devices, err = s.getCharmDevices(ctx, tx, ident); err != nil {
 			return errors.Trace(err)
 		}
 
-		if payloads, err = getCharmPayloads(ctx, tx, s, ident); err != nil {
+		if payloads, err = s.getCharmPayloads(ctx, tx, ident); err != nil {
 			return errors.Trace(err)
 		}
 
-		if resources, err = getCharmResources(ctx, tx, s, ident); err != nil {
+		if resources, err = s.getCharmResources(ctx, tx, ident); err != nil {
 			return errors.Trace(err)
 		}
 
-		if containers, err = getCharmContainers(ctx, tx, s, ident); err != nil {
+		if containers, err = s.getCharmContainers(ctx, tx, ident); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -627,11 +627,93 @@ WHERE charm_uuid = $charmID.uuid;
 	return decodeActions(actions), nil
 }
 
+// SetCharm persists the charm metadata, actions, config and manifest to
+// state.
+func (s *State) SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	id, err := corecharm.NewID()
+	if err != nil {
+		return "", fmt.Errorf("failed to set charm: %w", err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := s.setCharmMetadata(ctx, tx, id, charm.Metadata, charm.LXDProfile); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmTags(ctx, tx, id, charm.Metadata.Tags); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmCategories(ctx, tx, id, charm.Metadata.Categories); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmTerms(ctx, tx, id, charm.Metadata.Terms); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmRelations(ctx, tx, id, charm.Metadata); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmExtraBindings(ctx, tx, id, charm.Metadata.ExtraBindings); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmStorage(ctx, tx, id, charm.Metadata.Storage); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmDevices(ctx, tx, id, charm.Metadata.Devices); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmPayloads(ctx, tx, id, charm.Metadata.PayloadClasses); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmResources(ctx, tx, id, charm.Metadata.Resources); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmContainers(ctx, tx, id, charm.Metadata.Containers); err != nil {
+			return errors.Trace(err)
+		}
+		/*
+			if err := s.setCharmActions(ctx, tx, id, charm.Actions); err != nil {
+				return errors.Trace(err)
+			}
+
+			if err := s.setCharmConfig(ctx, tx, id, charm.Config); err != nil {
+				return errors.Trace(err)
+			}
+
+			if err := s.setCharmManifest(ctx, tx, id, charm.Manifest); err != nil {
+				return errors.Trace(err)
+			}
+		*/
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+	}
+
+	return id, nil
+}
+
 // getCharmMetadata returns the metadata for the charm using the charm ID.
 // This is the core metadata for the charm.
-func getCharmMetadata(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) (charmMetadata, error) {
-	query := `SELECT &charmMetadata.* FROM v_charm WHERE uuid = $charmID.uuid;`
-	stmt, err := p.Prepare(query, charmMetadata{}, ident)
+func (s *State) getCharmMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (charmMetadata, error) {
+	query := `
+SELECT &charmMetadata.*
+FROM v_charm
+WHERE uuid = $charmID.uuid;
+`
+	stmt, err := s.Prepare(query, charmMetadata{}, ident)
 	if err != nil {
 		return charmMetadata{}, fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -654,14 +736,14 @@ func getCharmMetadata(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ide
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Tags are expected to be unique, no duplicates are expected.
-func getCharmTags(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmTag, error) {
+func (s *State) getCharmTags(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmTag, error) {
 	query := `
 SELECT &charmTag.*
 FROM charm_tag
 WHERE charm_uuid = $charmID.uuid
-ORDER BY "index" ASC;
+ORDER BY array_index ASC;
 `
-	stmt, err := p.Prepare(query, charmTag{}, ident)
+	stmt, err := s.Prepare(query, charmTag{}, ident)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -684,14 +766,14 @@ ORDER BY "index" ASC;
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Categories are expected to be unique, no duplicates are expected.
-func getCharmCategories(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmCategory, error) {
+func (s *State) getCharmCategories(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmCategory, error) {
 	query := `
 SELECT &charmCategory.*
 FROM charm_category
 WHERE charm_uuid = $charmID.uuid
-ORDER BY "index" ASC;
+ORDER BY array_index ASC;
 `
-	stmt, err := p.Prepare(query, charmCategory{}, ident)
+	stmt, err := s.Prepare(query, charmCategory{}, ident)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -714,14 +796,14 @@ ORDER BY "index" ASC;
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Terms are expected to be unique, no duplicates are expected.
-func getCharmTerms(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmTerm, error) {
+func (s *State) getCharmTerms(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmTerm, error) {
 	query := `
 SELECT &charmTerm.*
 FROM charm_term
 WHERE charm_uuid = $charmID.uuid
-ORDER BY "index" ASC;
+ORDER BY array_index ASC;
 `
-	stmt, err := p.Prepare(query, charmTerm{}, ident)
+	stmt, err := s.Prepare(query, charmTerm{}, ident)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -742,13 +824,13 @@ ORDER BY "index" ASC;
 // is required to separate the relations into provides, requires and peers.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func getCharmRelations(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmRelation, error) {
+func (s *State) getCharmRelations(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmRelation, error) {
 	query := `
 SELECT &charmRelation.*
 FROM v_charm_relation
 WHERE charm_uuid = $charmID.uuid;
 	`
-	stmt, err := p.Prepare(query, charmRelation{}, ident)
+	stmt, err := s.Prepare(query, charmRelation{}, ident)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -770,14 +852,14 @@ WHERE charm_uuid = $charmID.uuid;
 // gains support for scalar types, this can be changed.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func getCharmExtraBindings(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmExtraBinding, error) {
+func (s *State) getCharmExtraBindings(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmExtraBinding, error) {
 	query := `
 SELECT &charmExtraBinding.*
 FROM charm_extra_binding
 WHERE charm_uuid = $charmID.uuid;
 `
 
-	stmt, err := p.Prepare(query, charmExtraBinding{}, ident)
+	stmt, err := s.Prepare(query, charmExtraBinding{}, ident)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -797,7 +879,7 @@ WHERE charm_uuid = $charmID.uuid;
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Charm properties are expected to be unique, no duplicates are expected.
-func getCharmStorage(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmStorage, error) {
+func (s *State) getCharmStorage(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmStorage, error) {
 	query := `
 SELECT &charmStorage.*
 FROM v_charm_storage
@@ -805,7 +887,7 @@ WHERE charm_uuid = $charmID.uuid
 ORDER BY property_index ASC;
 `
 
-	stmt, err := p.Prepare(query, charmStorage{}, ident)
+	stmt, err := s.Prepare(query, charmStorage{}, ident)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -824,14 +906,14 @@ ORDER BY property_index ASC;
 // getCharmDevices returns the devices for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func getCharmDevices(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmDevice, error) {
+func (s *State) getCharmDevices(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmDevice, error) {
 	query := `
 SELECT &charmDevice.*
 FROM charm_device
 WHERE charm_uuid = $charmID.uuid;
 `
 
-	stmt, err := p.Prepare(query, charmDevice{}, ident)
+	stmt, err := s.Prepare(query, charmDevice{}, ident)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -850,14 +932,14 @@ WHERE charm_uuid = $charmID.uuid;
 // getCharmPayloads returns the payloads for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func getCharmPayloads(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmPayload, error) {
+func (s *State) getCharmPayloads(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmPayload, error) {
 	query := `
 SELECT &charmPayload.*
 FROM charm_payload
 WHERE charm_uuid = $charmID.uuid;
 `
 
-	stmt, err := p.Prepare(query, charmPayload{}, ident)
+	stmt, err := s.Prepare(query, charmPayload{}, ident)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -876,14 +958,14 @@ WHERE charm_uuid = $charmID.uuid;
 // getCharmResources returns the resources for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func getCharmResources(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmResource, error) {
+func (s *State) getCharmResources(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmResource, error) {
 	query := `
 SELECT &charmResource.*
 FROM v_charm_resource
 WHERE charm_uuid = $charmID.uuid;
 `
 
-	stmt, err := p.Prepare(query, charmResource{}, ident)
+	stmt, err := s.Prepare(query, charmResource{}, ident)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -902,15 +984,15 @@ WHERE charm_uuid = $charmID.uuid;
 // getCharmContainers returns the containers for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func getCharmContainers(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmContainer, error) {
+func (s *State) getCharmContainers(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmContainer, error) {
 	query := `
 SELECT &charmContainer.*
 FROM v_charm_container
 WHERE charm_uuid = $charmID.uuid
-ORDER BY "index" ASC;
+ORDER BY array_index ASC;
 `
 
-	stmt, err := p.Prepare(query, charmContainer{}, ident)
+	stmt, err := s.Prepare(query, charmContainer{}, ident)
 	if err != nil {
 		return nil, fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -924,4 +1006,265 @@ ORDER BY "index" ASC;
 	}
 
 	return result, nil
+}
+
+func (s *State) setCharmMetadata(
+	ctx context.Context,
+	tx *sqlair.TX,
+	id corecharm.ID,
+	metadata charm.Metadata,
+	lxdProfile []byte) error {
+	ident := charmID{UUID: id.String()}
+
+	encodedMetadata, err := encodeMetadata(id, metadata, lxdProfile)
+	if err != nil {
+		return fmt.Errorf("failed to encode charm metadata: %w", err)
+	}
+
+	query := `INSERT INTO charm (*) VALUES ($setCharmMetadata.*);`
+	stmt, err := s.Prepare(query, encodedMetadata, ident)
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodedMetadata).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm metadata: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmTags(ctx context.Context, tx *sqlair.TX, id corecharm.ID, tags []string) error {
+	// If there are no tags, we don't need to do anything.
+	if len(tags) == 0 {
+		return nil
+	}
+
+	query := `INSERT INTO charm_tag (*) VALUES ($setCharmTag.*);`
+	stmt, err := s.Prepare(query, setCharmTag{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodeTags(id, tags)).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm tag: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmCategories(ctx context.Context, tx *sqlair.TX, id corecharm.ID, categories []string) error {
+	// If there are no categories, we don't need to do anything.
+	if len(categories) == 0 {
+		return nil
+	}
+
+	query := `INSERT INTO charm_category (*) VALUES ($setCharmCategory.*);`
+	stmt, err := s.Prepare(query, setCharmCategory{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodeCategories(id, categories)).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm categories: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmTerms(ctx context.Context, tx *sqlair.TX, id corecharm.ID, terms []string) error {
+	// If there are no terms, we don't need to do anything.
+	if len(terms) == 0 {
+		return nil
+	}
+
+	query := `INSERT INTO charm_term (*) VALUES ($setCharmTerm.*);`
+	stmt, err := s.Prepare(query, setCharmTerm{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodeTerms(id, terms)).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm terms: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmRelations(ctx context.Context, tx *sqlair.TX, id corecharm.ID, metadata charm.Metadata) error {
+	encodedRelations, err := encodeRelations(id, metadata)
+	if err != nil {
+		return fmt.Errorf("failed to encode charm relations: %w", err)
+	}
+
+	// If there are no relations, we don't need to do anything.
+	if len(encodedRelations) == 0 {
+		return nil
+	}
+
+	query := `INSERT INTO charm_relation (*) VALUES ($setCharmRelation.*);`
+	stmt, err := s.Prepare(query, setCharmRelation{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodedRelations).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm relations: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmExtraBindings(ctx context.Context, tx *sqlair.TX, id corecharm.ID, extraBindings map[string]charm.ExtraBinding) error {
+	// If there is no extraBindings, we don't need to do anything.
+	if len(extraBindings) == 0 {
+		return nil
+	}
+
+	query := `INSERT INTO charm_extra_binding (*) VALUES ($setCharmExtraBinding.*);`
+	stmt, err := s.Prepare(query, setCharmExtraBinding{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodeExtraBindings(id, extraBindings)).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm extra bindings: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm.ID, storage map[string]charm.Storage) error {
+	// If there is no storage, we don't need to do anything.
+	if len(storage) == 0 {
+		return nil
+	}
+
+	encodedStorage, encodedProperties, err := encodeStorage(id, storage)
+	if err != nil {
+		return fmt.Errorf("failed to encode charm storage: %w", err)
+	}
+
+	storageQuery := `INSERT INTO charm_storage (*) VALUES ($setCharmStorage.*);`
+	storageStmt, err := s.Prepare(storageQuery, setCharmStorage{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, storageStmt, encodedStorage).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm storage: %w", err)
+	}
+
+	// Only insert properties if there are any.
+	if len(encodedProperties) > 0 {
+		propertiesQuery := `INSERT INTO charm_storage_property (*) VALUES ($setCharmStorageProperty.*);`
+		propertiesStmt, err := s.Prepare(propertiesQuery, setCharmStorageProperty{})
+		if err != nil {
+			return fmt.Errorf("failed to prepare query: %w", err)
+		}
+
+		if err := tx.Query(ctx, propertiesStmt, encodedProperties).Run(); err != nil {
+			return fmt.Errorf("failed to insert charm storage properties: %w", err)
+		}
+	}
+	return nil
+}
+
+func (s *State) setCharmDevices(ctx context.Context, tx *sqlair.TX, id corecharm.ID, devices map[string]charm.Device) error {
+	// If there are no devices, we don't need to do anything.
+	if len(devices) == 0 {
+		return nil
+	}
+
+	query := `INSERT INTO charm_device (*) VALUES ($setCharmDevice.*);`
+	stmt, err := s.Prepare(query, setCharmDevice{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodeDevices(id, devices)).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm devices: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmPayloads(ctx context.Context, tx *sqlair.TX, id corecharm.ID, payloads map[string]charm.PayloadClass) error {
+	// If there are no payloads, we don't need to do anything.
+	if len(payloads) == 0 {
+		return nil
+	}
+
+	query := `INSERT INTO charm_payload (*) VALUES ($setCharmPayload.*);`
+	stmt, err := s.Prepare(query, setCharmPayload{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodePayloads(id, payloads)).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm payloads: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmResources(ctx context.Context, tx *sqlair.TX, id corecharm.ID, resources map[string]charm.Resource) error {
+	// If there are no resources, we don't need to do anything.
+	if len(resources) == 0 {
+		return nil
+	}
+
+	encodedResources, err := encodeResources(id, resources)
+	if err != nil {
+		return fmt.Errorf("failed to encode charm resources: %w", err)
+	}
+
+	query := `INSERT INTO charm_resource (*) VALUES ($setCharmResource.*);`
+	stmt, err := s.Prepare(query, setCharmResource{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodedResources).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm resources: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corecharm.ID, containers map[string]charm.Container) error {
+	// If there are no containers, we don't need to do anything.
+	if len(containers) == 0 {
+		return nil
+	}
+
+	encodedContainers, encodedMounts, err := encodeContainers(id, containers)
+	if err != nil {
+		return fmt.Errorf("failed to encode charm containers: %w", err)
+	}
+
+	containerQuery := `INSERT INTO charm_container (*) VALUES ($setCharmContainer.*);`
+	containerStmt, err := s.Prepare(containerQuery, setCharmContainer{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, containerStmt, encodedContainers).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm containers: %w", err)
+	}
+
+	// Only insert mounts if there are any.
+	if len(encodedMounts) > 0 {
+		mountQuery := `INSERT INTO charm_container_mount (*) VALUES ($setCharmMount.*);`
+		mountStmt, err := s.Prepare(mountQuery, setCharmMount{})
+		if err != nil {
+			return fmt.Errorf("failed to prepare query: %w", err)
+		}
+
+		if err := tx.Query(ctx, mountStmt, encodedMounts).Run(); err != nil {
+			return fmt.Errorf("failed to insert charm container mounts: %w", err)
+		}
+	}
+
+	return nil
 }
