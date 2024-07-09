@@ -82,7 +82,7 @@ func (s *SecretsSuite) TestGetSecretBackendConfig(c *gc.C) {
 	})
 }
 
-func (s *SecretsSuite) TestGetBackendConfigForDraing(c *gc.C) {
+func (s *SecretsSuite) TestGetBackendConfigForDraining(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "SecretsManager")
 		c.Check(version, gc.Equals, 0)
@@ -392,12 +392,13 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.ListSecretResults{})
 		*(result.(*params.ListSecretResults)) = params.ListSecretResults{
 			Results: []params.ListSecretResult{{
-				URI:              uri.String(),
-				OwnerTag:         coretesting.ModelTag.String(),
-				Label:            "label",
-				LatestRevision:   667,
-				NextRotateTime:   &now,
-				LatestExpireTime: &now,
+				URI:                    uri.String(),
+				OwnerTag:               coretesting.ModelTag.String(),
+				Label:                  "label",
+				LatestRevision:         667,
+				LatestRevisionChecksum: "checksum",
+				NextRotateTime:         &now,
+				LatestExpireTime:       &now,
 				Revisions: []params.SecretRevision{{
 					Revision: 666,
 					ValueRef: &params.SecretValueRef{
@@ -427,6 +428,7 @@ func (s *SecretsSuite) TestSecretMetadata(c *gc.C) {
 		c.Assert(info.Metadata.OwnerTag, gc.Equals, coretesting.ModelTag.String())
 		c.Assert(info.Metadata.Label, gc.Equals, "label")
 		c.Assert(info.Metadata.LatestRevision, gc.Equals, 667)
+		c.Assert(info.Metadata.LatestRevisionChecksum, gc.Equals, "checksum")
 		c.Assert(info.Metadata.LatestExpireTime, gc.Equals, &now)
 		c.Assert(info.Metadata.NextRotateTime, gc.Equals, &now)
 		c.Assert(info.Revisions, jc.DeepEquals, []int{666, 667})

@@ -169,7 +169,8 @@ type SecretMetadata struct {
 	// These are denormalised here for ease of access.
 
 	// LatestRevision is the most recent secret revision.
-	LatestRevision int
+	LatestRevision         int
+	LatestRevisionChecksum string
 	// LatestExpireTime is the expire time of the most recent revision.
 	LatestExpireTime *time.Time
 	// NextRotateTime is when the secret should be rotated.
@@ -205,9 +206,9 @@ type SecretOwnerMetadata struct {
 	Revisions []int
 }
 
-// SecretMetadataForDrain holds a secret metadata and any backend references of revisions for drain.
+// SecretMetadataForDrain holds a secret URI and any backend references of revisions for drain.
 type SecretMetadataForDrain struct {
-	Metadata  SecretMetadata
+	URI       *URI
 	Revisions []SecretRevisionMetadata
 }
 

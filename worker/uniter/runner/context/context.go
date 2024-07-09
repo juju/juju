@@ -949,6 +949,13 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets
 			return nil, ErrIsNotLeader
 		}
 	}
+	if args.Value == nil || args.Value.IsEmpty() {
+		return nil, errors.NotValidf("empty secrte content")
+	}
+	checksum, err := args.Value.Checksum()
+	if err != nil {
+		return nil, errors.Annotate(err, "calculating secret checksum")
+	}
 	uris, err := ctx.secretsClient.CreateSecretURIs(1)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -961,6 +968,7 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets
 			Description:  args.Description,
 			Label:        args.Label,
 			Value:        args.Value,
+			Checksum:     checksum,
 		},
 		OwnerTag: args.OwnerTag,
 	})
@@ -972,8 +980,8 @@ func (ctx *HookContext) CreateSecret(args *jujuc.SecretCreateArgs) (*coresecrets
 
 // UpdateSecret creates a secret with the specified data.
 func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpdateArgs) error {
-	md, ok := ctx.secretMetadata[uri.ID]
-	if ok && md.Owner.Kind() == names.ApplicationTagKind {
+	md, knowSecret := ctx.secretMetadata[uri.ID]
+	if knowSecret && md.Owner.Kind() == names.ApplicationTagKind {
 		isLeader, err := ctx.IsLeader()
 		if err != nil {
 			return errors.Annotatef(err, "cannot determine leadership")
@@ -982,17 +990,32 @@ func (ctx *HookContext) UpdateSecret(uri *coresecrets.URI, args *jujuc.SecretUpd
 			return ErrIsNotLeader
 		}
 	}
-	ctx.secretChanges.update(uniter.SecretUpdateArg{
+	updateArg := uniter.SecretUpdateArg{
 		SecretUpsertArg: uniter.SecretUpsertArg{
 			URI:          uri,
 			RotatePolicy: args.RotatePolicy,
 			ExpireTime:   args.ExpireTime,
 			Description:  args.Description,
 			Label:        args.Label,
-			Value:        args.Value,
 		},
 		CurrentRevision: md.LatestRevision,
-	})
+	}
+	if args.Value != nil && !args.Value.IsEmpty() {
+		checksum, err := args.Value.Checksum()
+		if err != nil {
+			return errors.Annotate(err, "calculating secret checksum")
+		}
+		if !knowSecret || md.LatestChecksum != checksum {
+			updateArg.Value = args.Value
+			updateArg.Checksum = checksum
+		}
+	}
+	if args.RotatePolicy == nil && args.Description == nil && args.ExpireTime == nil &&
+		args.Label == nil && updateArg.Value == nil {
+		return nil
+	}
+
+	ctx.secretChanges.update(updateArg)
 	return nil
 }
 
@@ -1020,6 +1043,7 @@ func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error
 		md := jujuc.SecretMetadata{
 			Owner:          c.OwnerTag,
 			LatestRevision: 1,
+			LatestChecksum: c.Checksum,
 		}
 		if c.Label != nil {
 			md.Label = *c.Label
@@ -1052,6 +1076,7 @@ func (ctx *HookContext) SecretMetadata() (map[string]jujuc.SecretMetadata, error
 			if u.ExpireTime != nil {
 				v.LatestExpireTime = u.ExpireTime
 			}
+			v.LatestChecksum = u.Checksum
 		}
 		result[id] = v
 	}
@@ -1629,7 +1654,7 @@ func (ctx *HookContext) doFlush(process string) error {
 	for _, u := range ctx.secretChanges.pendingUpdates {
 		// Juju checks that the current revision is stable when updating metadata so it's
 		// safe to increment here knowing the same value will be saved in Juju.
-		if u.Value.IsEmpty() {
+		if u.Value == nil || u.Value.IsEmpty() {
 			pendingUpdates = append(pendingUpdates, u.SecretUpsertArg)
 			continue
 		}

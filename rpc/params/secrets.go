@@ -59,6 +59,8 @@ type SecretContentParams struct {
 	// ValueRef is the content reference for when a secret
 	// backend like vault is used.
 	ValueRef *SecretValueRef `json:"value-ref,omitempty"`
+	// Checksum is the hash of the secret context.
+	Checksum string `json:"checksum,omitempty"`
 }
 
 // UpsertSecretArg holds the args for creating or updating a secret.
@@ -270,20 +272,21 @@ type SecretRevision struct {
 
 // ListSecretResult is the result of getting secret metadata.
 type ListSecretResult struct {
-	URI              string             `json:"uri"`
-	Version          int                `json:"version"`
-	OwnerTag         string             `json:"owner-tag"`
-	RotatePolicy     string             `json:"rotate-policy,omitempty"`
-	NextRotateTime   *time.Time         `json:"next-rotate-time,omitempty"`
-	Description      string             `json:"description,omitempty"`
-	Label            string             `json:"label,omitempty"`
-	LatestRevision   int                `json:"latest-revision"`
-	LatestExpireTime *time.Time         `json:"latest-expire-time,omitempty"`
-	CreateTime       time.Time          `json:"create-time"`
-	UpdateTime       time.Time          `json:"update-time"`
-	Revisions        []SecretRevision   `json:"revisions"`
-	Value            *SecretValueResult `json:"value,omitempty"`
-	Access           []AccessInfo       `json:"access,omitempty"`
+	URI                    string             `json:"uri"`
+	Version                int                `json:"version"`
+	OwnerTag               string             `json:"owner-tag"`
+	RotatePolicy           string             `json:"rotate-policy,omitempty"`
+	NextRotateTime         *time.Time         `json:"next-rotate-time,omitempty"`
+	Description            string             `json:"description,omitempty"`
+	Label                  string             `json:"label,omitempty"`
+	LatestRevision         int                `json:"latest-revision"`
+	LatestRevisionChecksum string             `json:"latest-revision-checksum"`
+	LatestExpireTime       *time.Time         `json:"latest-expire-time,omitempty"`
+	CreateTime             time.Time          `json:"create-time"`
+	UpdateTime             time.Time          `json:"update-time"`
+	Revisions              []SecretRevision   `json:"revisions"`
+	Value                  *SecretValueResult `json:"value,omitempty"`
+	Access                 []AccessInfo       `json:"access,omitempty"`
 }
 
 // AccessInfo holds info about a secret access information.

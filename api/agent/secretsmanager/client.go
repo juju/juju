@@ -153,14 +153,15 @@ func (c *Client) SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error) {
 			return nil, errors.NotValidf("secret URI %q", info.URI)
 		}
 		md := coresecrets.SecretMetadata{
-			URI:              uri,
-			OwnerTag:         info.OwnerTag,
-			Description:      info.Description,
-			Label:            info.Label,
-			RotatePolicy:     coresecrets.RotatePolicy(info.RotatePolicy),
-			LatestRevision:   info.LatestRevision,
-			LatestExpireTime: info.LatestExpireTime,
-			NextRotateTime:   info.NextRotateTime,
+			URI:                    uri,
+			OwnerTag:               info.OwnerTag,
+			Description:            info.Description,
+			Label:                  info.Label,
+			RotatePolicy:           coresecrets.RotatePolicy(info.RotatePolicy),
+			LatestRevision:         info.LatestRevision,
+			LatestRevisionChecksum: info.LatestRevisionChecksum,
+			LatestExpireTime:       info.LatestExpireTime,
+			NextRotateTime:         info.NextRotateTime,
 		}
 		for _, g := range info.Access {
 			md.Access = append(md.Access, coresecrets.AccessInfo{

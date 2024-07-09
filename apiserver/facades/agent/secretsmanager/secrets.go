@@ -306,6 +306,7 @@ func fromUpsertParams(p params.UpsertSecretArg, token leadership.Token, nextRota
 		Params:         p.Params,
 		Data:           p.Content.Data,
 		ValueRef:       valueRef,
+		Checksum:       p.Content.Checksum,
 	}
 }
 

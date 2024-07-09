@@ -101,7 +101,7 @@ func (s *workerSuite) TestDrainNoOPS(c *gc.C) {
 	gomock.InOrder(
 		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
-				Metadata: coresecrets.SecretMetadata{URI: uri},
+				URI: uri,
 				Revisions: []coresecrets.SecretRevisionMetadata{
 					{
 						Revision: 1,
@@ -132,7 +132,7 @@ func (s *workerSuite) TestDrainBetweenExternalBackends(c *gc.C) {
 	gomock.InOrder(
 		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
-				Metadata: coresecrets.SecretMetadata{URI: uri},
+				URI: uri,
 				Revisions: []coresecrets.SecretRevisionMetadata{
 					{
 						Revision: 1,
@@ -178,7 +178,7 @@ func (s *workerSuite) TestDrainFromInternalToExternal(c *gc.C) {
 	gomock.InOrder(
 		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
-				Metadata:  coresecrets.SecretMetadata{URI: uri},
+				URI:       uri,
 				Revisions: []coresecrets.SecretRevisionMetadata{{Revision: 1}},
 			},
 		}, nil),
@@ -217,7 +217,7 @@ func (s *workerSuite) TestDrainFromExternalToInternal(c *gc.C) {
 	gomock.InOrder(
 		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
-				Metadata: coresecrets.SecretMetadata{URI: uri},
+				URI: uri,
 				Revisions: []coresecrets.SecretRevisionMetadata{
 					{
 						Revision: 1,
@@ -262,7 +262,7 @@ func (s *workerSuite) TestDrainPartiallyFailed(c *gc.C) {
 	gomock.InOrder(
 		s.facade.EXPECT().GetSecretsToDrain().Return([]coresecrets.SecretMetadataForDrain{
 			{
-				Metadata: coresecrets.SecretMetadata{URI: uri},
+				URI: uri,
 				Revisions: []coresecrets.SecretRevisionMetadata{
 					{
 						Revision: 1,

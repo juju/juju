@@ -940,6 +940,7 @@ type SecretUpsertArg struct {
 	Label        *string
 	Value        secrets.SecretValue
 	ValueRef     *secrets.ValueRef
+	Checksum     string
 }
 
 // SecretCreateArg holds parameters for creating a secret.
@@ -994,6 +995,7 @@ func (b *CommitHookParamsBuilder) AddSecretCreates(creates []SecretCreateArg) {
 				Content: params.SecretContentParams{
 					Data:     data,
 					ValueRef: valueRef,
+					Checksum: c.Checksum,
 				},
 			},
 			URI:      &uriStr,
@@ -1035,6 +1037,7 @@ func (b *CommitHookParamsBuilder) AddSecretUpdates(updates []SecretUpsertArg) {
 				Content: params.SecretContentParams{
 					Data:     data,
 					ValueRef: valueRef,
+					Checksum: u.Checksum,
 				},
 			},
 			URI: u.URI.String(),

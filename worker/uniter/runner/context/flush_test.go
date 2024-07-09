@@ -357,7 +357,11 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.secretMetadata = map[string]jujuc.SecretMetadata{
-		uri.ID: {Description: "some secret", LatestRevision: 1, Owner: names.NewApplicationTag("mariadb")},
+		uri.ID: {
+			Description:    "some secret",
+			LatestRevision: 1,
+			LatestChecksum: "deadbeef",
+			Owner:          names.NewApplicationTag("mariadb")},
 	}
 	ctx := s.context(c)
 

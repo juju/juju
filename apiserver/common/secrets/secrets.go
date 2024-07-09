@@ -501,17 +501,18 @@ func GetSecretMetadata(
 	}
 	for _, md := range secrets {
 		secretResult := params.ListSecretResult{
-			URI:              md.URI.String(),
-			Version:          md.Version,
-			OwnerTag:         md.OwnerTag,
-			RotatePolicy:     md.RotatePolicy.String(),
-			NextRotateTime:   md.NextRotateTime,
-			Description:      md.Description,
-			Label:            md.Label,
-			LatestRevision:   md.LatestRevision,
-			LatestExpireTime: md.LatestExpireTime,
-			CreateTime:       md.CreateTime,
-			UpdateTime:       md.UpdateTime,
+			URI:                    md.URI.String(),
+			Version:                md.Version,
+			OwnerTag:               md.OwnerTag,
+			RotatePolicy:           md.RotatePolicy.String(),
+			NextRotateTime:         md.NextRotateTime,
+			Description:            md.Description,
+			Label:                  md.Label,
+			LatestRevision:         md.LatestRevision,
+			LatestRevisionChecksum: md.LatestRevisionChecksum,
+			LatestExpireTime:       md.LatestExpireTime,
+			CreateTime:             md.CreateTime,
+			UpdateTime:             md.UpdateTime,
 		}
 		grants, err := secretsState.SecretGrants(md.URI, coresecrets.RoleView)
 		if err != nil {

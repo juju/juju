@@ -135,12 +135,13 @@ func (s SecretsContextAccessor) SecretMetadata() ([]secrets.SecretOwnerMetadata,
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
 	return []secrets.SecretOwnerMetadata{{
 		Metadata: secrets.SecretMetadata{
-			URI:            uri,
-			LatestRevision: 666,
-			OwnerTag:       "application-mariadb",
-			Description:    "description",
-			RotatePolicy:   secrets.RotateHourly,
-			Label:          "label",
+			URI:                    uri,
+			LatestRevision:         666,
+			LatestRevisionChecksum: "deadbeef",
+			OwnerTag:               "application-mariadb",
+			Description:            "description",
+			RotatePolicy:           secrets.RotateHourly,
+			Label:                  "label",
 		},
 		Revisions: []int{666},
 	}}, nil

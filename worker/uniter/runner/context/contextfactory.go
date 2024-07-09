@@ -457,6 +457,7 @@ func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
 			Owner:            ownerTag,
 			RotatePolicy:     md.RotatePolicy,
 			LatestRevision:   md.LatestRevision,
+			LatestChecksum:   md.LatestRevisionChecksum,
 			LatestExpireTime: md.LatestExpireTime,
 			NextRotateTime:   md.NextRotateTime,
 			Revisions:        v.Revisions,

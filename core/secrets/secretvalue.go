@@ -5,7 +5,10 @@ package secrets
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"io"
 	"strings"
 
@@ -36,6 +39,9 @@ type SecretValue interface {
 
 	// IsEmpty checks if the value is empty.
 	IsEmpty() bool
+
+	// Checksum is the checksum of the secret content.
+	Checksum() (string, error)
 }
 
 type secretValue struct {
@@ -72,7 +78,7 @@ func (v secretValue) IsEmpty() bool {
 }
 
 // EncodedValues implements SecretValue.
-func (v *secretValue) EncodedValues() map[string]string {
+func (v secretValue) EncodedValues() map[string]string {
 	dataCopy := make(map[string]string, len(v.data))
 	for k, val := range v.data {
 		dataCopy[k] = string(val)
@@ -81,7 +87,7 @@ func (v *secretValue) EncodedValues() map[string]string {
 }
 
 // Values implements SecretValue.
-func (v *secretValue) Values() (map[string]string, error) {
+func (v secretValue) Values() (map[string]string, error) {
 	dataCopy := v.EncodedValues()
 	for k, v := range dataCopy {
 		data, err := base64.StdEncoding.DecodeString(v)
@@ -94,7 +100,7 @@ func (v *secretValue) Values() (map[string]string, error) {
 }
 
 // KeyValue implements SecretValue.
-func (v *secretValue) KeyValue(key string) (string, error) {
+func (v secretValue) KeyValue(key string) (string, error) {
 	useBase64 := false
 	if strings.HasSuffix(key, base64Suffix) {
 		key = strings.TrimSuffix(key, base64Suffix)
@@ -114,4 +120,18 @@ func (v *secretValue) KeyValue(key string) (string, error) {
 		return "", errors.Trace(err)
 	}
 	return string(result), nil
+}
+
+// Checksum implements SecretValue.
+func (v secretValue) Checksum() (string, error) {
+	data, err := json.Marshal(v.EncodedValues())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	hash := sha256.New()
+	_, err = hash.Write(data)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }

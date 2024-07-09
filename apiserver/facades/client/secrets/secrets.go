@@ -123,17 +123,18 @@ func (s *SecretsAPI) ListSecrets(arg params.ListSecretsArgs) (params.ListSecretR
 	result.Results = make([]params.ListSecretResult, len(metadata))
 	for i, m := range metadata {
 		secretResult := params.ListSecretResult{
-			URI:              m.URI.String(),
-			Version:          m.Version,
-			OwnerTag:         m.OwnerTag,
-			Description:      m.Description,
-			Label:            m.Label,
-			RotatePolicy:     string(m.RotatePolicy),
-			NextRotateTime:   m.NextRotateTime,
-			LatestRevision:   m.LatestRevision,
-			LatestExpireTime: m.LatestExpireTime,
-			CreateTime:       m.CreateTime,
-			UpdateTime:       m.UpdateTime,
+			URI:                    m.URI.String(),
+			Version:                m.Version,
+			OwnerTag:               m.OwnerTag,
+			Description:            m.Description,
+			Label:                  m.Label,
+			RotatePolicy:           string(m.RotatePolicy),
+			NextRotateTime:         m.NextRotateTime,
+			LatestRevision:         m.LatestRevision,
+			LatestRevisionChecksum: m.LatestRevisionChecksum,
+			LatestExpireTime:       m.LatestExpireTime,
+			CreateTime:             m.CreateTime,
+			UpdateTime:             m.UpdateTime,
 		}
 		grants, err := s.secretsState.SecretGrants(m.URI, coresecrets.RoleView)
 		if err != nil {
@@ -310,6 +311,12 @@ func (s *SecretsAPI) createSecret(backend provider.SecretsBackend, arg params.Cr
 	if len(arg.Content.Data) == 0 {
 		return "", errors.NotValidf("empty secret value")
 	}
+	v := coresecrets.NewSecretValue(arg.Content.Data)
+	checksum, err := v.Checksum()
+	if err != nil {
+		return "", errors.Annotate(err, "calculating secret checksum")
+	}
+	arg.UpsertSecretArg.Content.Checksum = checksum
 	revId, err := backend.SaveContent(context.TODO(), uri, 1, coresecrets.NewSecretValue(arg.Content.Data))
 	if err != nil && !errors.Is(err, errors.NotSupported) {
 		return "", errors.Trace(err)
@@ -378,6 +385,7 @@ func fromUpsertParams(autoPrune *bool, p params.UpsertSecretArg) state.UpdateSec
 		Params:      p.Params,
 		Data:        p.Content.Data,
 		ValueRef:    valueRef,
+		Checksum:    p.Content.Checksum,
 	}
 }
 
@@ -429,29 +437,44 @@ func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.Up
 		return errors.Trace(err)
 	}
 	if len(arg.Content.Data) > 0 {
-		revId, err := backend.SaveContent(context.TODO(), uri, md.LatestRevision+1, coresecrets.NewSecretValue(arg.Content.Data))
-		if err != nil && !errors.Is(err, errors.NotSupported) {
-			return errors.Trace(err)
+		v := coresecrets.NewSecretValue(arg.Content.Data)
+		checksum, err := v.Checksum()
+		if err != nil {
+			return errors.Annotate(err, "calculating secret checksum")
 		}
-		if err == nil {
-			defer func() {
-				if errOut != nil {
-					// If we failed to update the secret, we should delete the
-					// secret value from the backend for the new revision.
-					if err2 := backend.DeleteContent(context.TODO(), revId); err2 != nil &&
-						!errors.Is(err2, errors.NotSupported) &&
-						!errors.Is(err2, errors.NotFound) {
-						logger.Errorf("failed to delete secret %q: %v", revId, err2)
-					}
-				}
-			}()
+		if checksum == md.LatestRevisionChecksum {
+			logger.Debugf("no new revision for user secret with checksum %s", checksum)
 			arg.Content.Data = nil
-			arg.Content.ValueRef = &params.SecretValueRef{
-				BackendID:  s.activeBackendID,
-				RevisionID: revId,
+		} else {
+			arg.Content.Checksum = checksum
+			revId, err := backend.SaveContent(context.TODO(), uri, md.LatestRevision+1, coresecrets.NewSecretValue(arg.Content.Data))
+			if err != nil && !errors.Is(err, errors.NotSupported) {
+				return errors.Trace(err)
+			}
+			if err == nil {
+				defer func() {
+					if errOut != nil {
+						// If we failed to update the secret, we should delete the
+						// secret value from the backend for the new revision.
+						if err2 := backend.DeleteContent(context.TODO(), revId); err2 != nil &&
+							!errors.Is(err2, errors.NotSupported) &&
+							!errors.Is(err2, errors.NotFound) {
+							logger.Errorf("failed to delete secret %q: %v", revId, err2)
+						}
+					}
+				}()
+				arg.Content.Data = nil
+				arg.Content.ValueRef = &params.SecretValueRef{
+					BackendID:  s.activeBackendID,
+					RevisionID: revId,
+				}
 			}
 		}
 	}
+	if arg.AutoPrune == nil && arg.Description == nil && arg.Label == nil && len(arg.Content.Data) == 0 {
+		return nil
+	}
+
 	md, err = s.secretsState.UpdateSecret(uri, fromUpsertParams(arg.AutoPrune, arg.UpsertSecretArg))
 	if err != nil {
 		return errors.Trace(err)

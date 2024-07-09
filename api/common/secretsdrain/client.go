@@ -30,14 +30,15 @@ func processListSecretResult(info params.ListSecretResult) (out coresecrets.Secr
 		return out, errors.NotValidf("secret URI %q", info.URI)
 	}
 	return coresecrets.SecretMetadata{
-		URI:              uri,
-		OwnerTag:         info.OwnerTag,
-		Description:      info.Description,
-		Label:            info.Label,
-		RotatePolicy:     coresecrets.RotatePolicy(info.RotatePolicy),
-		LatestRevision:   info.LatestRevision,
-		LatestExpireTime: info.LatestExpireTime,
-		NextRotateTime:   info.NextRotateTime,
+		URI:                    uri,
+		OwnerTag:               info.OwnerTag,
+		Description:            info.Description,
+		Label:                  info.Label,
+		RotatePolicy:           coresecrets.RotatePolicy(info.RotatePolicy),
+		LatestRevision:         info.LatestRevision,
+		LatestRevisionChecksum: info.LatestRevisionChecksum,
+		LatestExpireTime:       info.LatestExpireTime,
+		NextRotateTime:         info.NextRotateTime,
 	}, nil
 }
 
@@ -71,7 +72,7 @@ func (c *Client) GetSecretsToDrain() ([]coresecrets.SecretMetadataForDrain, erro
 			}
 			revisions[i] = rev
 		}
-		out[i] = coresecrets.SecretMetadataForDrain{Metadata: md, Revisions: revisions}
+		out[i] = coresecrets.SecretMetadataForDrain{URI: md.URI, Revisions: revisions}
 	}
 	return out, nil
 }

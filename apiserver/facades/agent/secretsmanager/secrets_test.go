@@ -254,6 +254,7 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 			Label:          ptr("foobar"),
 			Params:         map[string]interface{}{"param": 1},
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	var gotURI *coresecrets.URI
@@ -286,7 +287,10 @@ func (s *SecretsManagerSuite) TestCreateSecrets(c *gc.C) {
 				Description:  ptr("my secret"),
 				Label:        ptr("foobar"),
 				Params:       map[string]interface{}{"param": 1},
-				Content:      params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+				Content: params.SecretContentParams{
+					Data:     map[string]string{"foo": "bar"},
+					Checksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+				},
 			},
 		}, {
 			UpsertSecretArg: params.UpsertSecretArg{
@@ -358,6 +362,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 		Label:          ptr("foobar"),
 		Params:         map[string]interface{}{"param": 1},
 		Data:           map[string]string{"foo": "bar"},
+		Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 	}
 	pWithBackendId := p
 	p.ValueRef = &coresecrets.ValueRef{
@@ -365,6 +370,7 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 		RevisionID: "rev-id",
 	}
 	p.Data = nil
+	p.Checksum = "deadbeef"
 	uri := coresecrets.NewURI()
 	expectURI := *uri
 	s.secretsState.EXPECT().GetSecret(&expectURI).Return(&coresecrets.SecretMetadata{}, nil).Times(2)
@@ -399,7 +405,10 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 				Description:  ptr("my secret"),
 				Label:        ptr("foobar"),
 				Params:       map[string]interface{}{"param": 1},
-				Content:      params.SecretContentParams{Data: map[string]string{"foo": "bar"}},
+				Content: params.SecretContentParams{
+					Data:     map[string]string{"foo": "bar"},
+					Checksum: "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
+				},
 			},
 		}, {
 			URI: uri.String(),
@@ -409,10 +418,13 @@ func (s *SecretsManagerSuite) TestUpdateSecrets(c *gc.C) {
 				Description:  ptr("my secret"),
 				Label:        ptr("foobar"),
 				Params:       map[string]interface{}{"param": 1},
-				Content: params.SecretContentParams{ValueRef: &params.SecretValueRef{
-					BackendID:  "backend-id",
-					RevisionID: "rev-id",
-				}},
+				Content: params.SecretContentParams{
+					ValueRef: &params.SecretValueRef{
+						BackendID:  "backend-id",
+						RevisionID: "rev-id",
+					},
+					Checksum: "deadbeef",
+				},
 			},
 		}, {
 			URI: uri.String(),
