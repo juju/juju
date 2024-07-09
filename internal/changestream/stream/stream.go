@@ -45,7 +45,7 @@ var (
 	// from the database. This is used to prevent the worker from polling
 	// the database too frequently and allow us to attempt to coalesce
 	// changes when there is less activity.
-	backOffStrategy = retry.ExpBackoff(time.Millisecond*10, time.Millisecond*250, 1.5, false)
+	backOffStrategy = retry.ExpBackoff(time.Millisecond*100, time.Second*10, 1.4, false)
 )
 
 // MetricsCollector represents the metrics methods called.
