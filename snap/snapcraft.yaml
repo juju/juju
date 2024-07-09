@@ -105,7 +105,9 @@ parts:
     override-build: |
       set -ex
 
-      ln -s $(pwd)/include/sys/queue.h /usr/local/musl/include/sys/queue.h
+      if [ ! -L /usr/local/musl/include/sys/queue.h ]; then
+        ln -s $(pwd)/include/sys/queue.h /usr/local/musl/include/sys/queue.h
+      fi
 
   libtirpc:
     after:
