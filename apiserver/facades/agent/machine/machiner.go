@@ -45,6 +45,9 @@ type MachineService interface {
 	// No error is returned if the provided machine doesn't exist, just nothing
 	// gets updated.
 	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
+	// IsController returns whether the machine is a controller machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	IsController(context.Context, machine.Name) (bool, error)
 }
 
 // MachinerAPI implements the API used by the machiner worker.
@@ -57,6 +60,7 @@ type MachinerAPI struct {
 	*networkingcommon.NetworkConfigAPI
 
 	networkService          NetworkService
+	machineService          MachineService
 	st                      *state.State
 	controllerConfigService ControllerConfigService
 	auth                    facade.Authorizer
@@ -101,6 +105,7 @@ func NewMachinerAPIForState(
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
 		NetworkConfigAPI:        netConfigAPI,
 		networkService:          networkService,
+		machineService:          machineService,
 		st:                      st,
 		controllerConfigService: controllerConfigService,
 		auth:                    authorizer,
@@ -168,6 +173,14 @@ func (api *MachinerAPIv5) SetMachineAddresses(ctx context.Context, args params.S
 // Jobs is not supported in MachinerAPI at version 5.
 func (api *MachinerAPIv5) Jobs(ctx context.Context, args params.Entities) (params.JobsResults, error) {
 	return params.JobsResults{}, errors.NotSupported
+}
+
+func (api *MachinerAPI) IsController(ctx context.Context, machineName machine.Name) (params.IsControllerResult, error) {
+	isC, err := api.machineService.IsController(ctx, machineName)
+	if err != nil {
+		return params.IsControllerResult{}, errors.Trace(err)
+	}
+	return params.IsControllerResult{IsController: isC}, nil
 }
 
 // Jobs returns the jobs assigned to the given entities.

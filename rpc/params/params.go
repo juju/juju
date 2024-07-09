@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/tools"
@@ -790,6 +791,17 @@ type ProvisioningScriptResult struct {
 // API call.
 type DeployerConnectionValues struct {
 	APIAddresses []string `json:"api-addresses"`
+}
+
+// IsController holds a machine name.
+type IsController struct {
+	Name machine.Name `json:"machine-name"`
+}
+
+// IsControllerResult holds the result of an IsController call, which returns
+// whether a given machine is a controller machine.
+type IsControllerResult struct {
+	IsController bool `json:"is-controller"`
 }
 
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.

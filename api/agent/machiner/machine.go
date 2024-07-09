@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -91,6 +92,19 @@ func (m *Machine) EnsureDead(ctx context.Context) error {
 // Watch returns a watcher for observing changes to the machine.
 func (m *Machine) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	return common.Watch(ctx, m.client.facade, "Watch", m.tag)
+}
+
+// IsController returns a list of jobs for the machine.
+func (m *Machine) IsController(machineName string) (bool, error) {
+	var result params.IsControllerResult
+	args := params.IsController{
+		Name: machine.Name(machineName),
+	}
+	err := m.client.facade.FacadeCall(context.TODO(), "Jobs", args, &result)
+	if err != nil {
+		return false, errors.Annotate(err, "error from FacadeCall")
+	}
+	return result.IsController, nil
 }
 
 // Jobs returns a list of jobs for the machine.
