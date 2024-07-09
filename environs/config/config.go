@@ -304,9 +304,6 @@ const (
 	// explicitly use for charms unless otherwise provided.
 	DefaultBaseKey = "default-base"
 
-	// SecretBackendKey is used to specify the secret backend.
-	SecretBackendKey = "secret-backend"
-
 	// LoggingConfigKey is used to specify the logging backend configuration.
 	LoggingConfigKey = "logging-config"
 )
@@ -607,9 +604,6 @@ var defaultConfigValues = map[string]any{
 	MaxStatusHistorySize: DefaultStatusHistorySize,
 	MaxActionResultsAge:  DefaultActionResultsAge,
 	MaxActionResultsSize: DefaultActionResultsSize,
-
-	// Secret settings.
-	SecretBackendKey: DefaultSecretBackend,
 
 	// Model firewall settings
 	SSHAllowKey:         "0.0.0.0/0,::/0",
@@ -1032,12 +1026,6 @@ func (c *Config) DefaultBase() (string, bool) {
 		logger.Errorf("invalid default-base: %q", s)
 		return "", false
 	}
-}
-
-// SecretBackend returns the secret backend name.
-func (c *Config) SecretBackend() string {
-	value, _ := c.defined[SecretBackendKey].(string)
-	return value
 }
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.

@@ -332,6 +332,8 @@ func (c *configCommand) setConfig(client configCommandAPI, attrs config.Attrs) e
 			}
 			return errors.Errorf(`%q must be set via "add-model"`,
 				envconfig.CharmHubURLKey)
+		} else if k == "secret-backend" {
+			return errors.Errorf(`%q has been removed from model config, use the new command "model-secret-backend" instead`, k)
 		}
 
 		values[k] = v

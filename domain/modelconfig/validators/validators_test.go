@@ -14,17 +14,11 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type dummySecretBackendProviderFunc func(string) (bool, error)
-
 type dummySpaceProviderFunc func(context.Context, string) (bool, error)
 
 type validatorsSuite struct{}
 
 var _ = gc.Suite(&validatorsSuite{})
-
-func (d dummySecretBackendProviderFunc) HasSecretsBackend(s string) (bool, error) {
-	return d(s)
-}
 
 func (d dummySpaceProviderFunc) HasSpace(ctx context.Context, s string) (bool, error) {
 	return d(ctx, s)
@@ -283,23 +277,6 @@ func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *gc.C) {
 
 	_, err = LoggingTracePermissionChecker(true)(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (*validatorsSuite) TestSecretsBackendChecker(c *gc.C) {
-	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
-		return false, nil
-	})
-
-	newCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "vault",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, nil)
-	c.Assert(err, gc.ErrorMatches, "cannot set model secret backend via model config anymore")
 }
 
 // TestAuthorizedKeysChanged asserts that if we change the value of authorised

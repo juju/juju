@@ -330,7 +330,6 @@ func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (bool, 
 // - Agent version is not being changed.
 // - CharmhubURL is not being changed.
 // - Network space exists.
-// - Secret backend exists.
 // - There is no changes to authorized keys.
 func (s *Service) updateModelConfigValidator(
 	additional ...config.Validator,
@@ -342,7 +341,6 @@ func (s *Service) updateModelConfigValidator(
 			validators.SpaceChecker(&spaceValidator{
 				st: s.st,
 			}),
-			validators.SecretBackendChecker(&dummySecretsBackendProvider{}),
 			validators.AuthorizedKeysChange(),
 			s.modelValidator,
 		},

@@ -164,25 +164,3 @@ func LoggingTracePermissionChecker(canTrace bool) config.ValidatorFunc {
 		return cfg, nil
 	}
 }
-
-// SecretBackendProvider is responsible for checking if a given secrets backend
-// exists.
-type SecretBackendProvider interface {
-	// HasSecretsBackend checks if the provided secrets backend name exists. If
-	// an error occurs during checking for the backend false and a subsequent
-	// error is returned.
-	HasSecretsBackend(string) (bool, error)
-}
-
-// SecretBackendChecker is responsible for asserting the secret backend in the
-// updated model config is a valid secret backend in the controller. If the
-// secret backend has not changed or is the default backend then no validation
-// is performed. Any validation errors will satisfy config.ValidationError.
-func SecretBackendChecker(provider SecretBackendProvider) config.ValidatorFunc {
-	return func(ctx context.Context, cfg, old *config.Config) (*config.Config, error) {
-		if cfg.SecretBackend() == "" {
-			return cfg, nil
-		}
-		return nil, fmt.Errorf("cannot set model secret backend via model config anymore")
-	}
-}

@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
@@ -2303,17 +2302,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(backendRefCount, gc.Equals, 1)
 
-	err = s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{config.SecretBackendKey: "myvault"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	mCfg, err := s.Model.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault")
-
-	newModel, newSt := s.importModel(c, s.State)
-
-	mCfg, err = newModel.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault")
+	_, newSt := s.importModel(c, s.State)
 
 	backendRefCount, err = s.State.ReadBackendRefCount(backendID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2455,34 +2444,6 @@ func (s *MigrationImportSuite) TestSecretsMissingBackend(c *gc.C) {
 	in := newModel(out, uuid, "new")
 	_, _, err = s.Controller.Import(in, ctrlCfg, state.NoopConfigSchemaSource)
 	c.Assert(err, gc.ErrorMatches, "secrets: target controller does not have all required secret backends set up")
-}
-
-func (s *MigrationImportSuite) TestDefaultSecretBackend(c *gc.C) {
-	testModel, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctrlCfg := coretesting.FakeControllerConfig()
-
-	newConfig := testModel.Config()
-	newConfig["uuid"] = "aabbccdd-1234-8765-abcd-0123456789ab"
-	newConfig["name"] = "something-new"
-	delete(newConfig, "secret-backend")
-	importModel := description.NewModel(description.ModelArgs{
-		Type:           string(state.ModelTypeIAAS),
-		Owner:          testModel.Owner(),
-		Config:         newConfig,
-		EnvironVersion: testModel.EnvironVersion(),
-		Blocks:         testModel.Blocks(),
-		Cloud:          testModel.Cloud(),
-		CloudRegion:    testModel.CloudRegion(),
-	})
-	imported, newSt, err := s.Controller.Import(importModel, ctrlCfg, state.NoopConfigSchemaSource)
-	c.Assert(err, jc.ErrorIsNil)
-	defer func() { _ = newSt.Close() }()
-
-	importedCfg, err := imported.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(importedCfg.SecretBackend(), gc.Equals, "auto")
 }
 
 // newModel replaces the uuid and name of the config attributes so we

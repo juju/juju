@@ -425,9 +425,4 @@ CIDRs specifying what ingress can be applied to offers in this model.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	SecretBackendKey: {
-		Description: `The name of the secret store backend. (default "auto")`,
-		Type:        environschema.Tstring,
-		Group:       environschema.EnvironGroup,
-	},
 }
