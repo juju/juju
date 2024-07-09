@@ -13,7 +13,6 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	"github.com/juju/juju/api/agent/machiner"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -71,15 +70,16 @@ func (c *converter) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 }
 
 // Handle implements NotifyWatchHandler's Handle method.  If the change means
-// that the machine is now expected to manage the environment,
-// we throw a fatal error to instigate agent restart.
-func (c *converter) Handle(ctx context.Context) error {
+// that the machine is now expected to manage the environment, we throw a fatal
+// error to instigate agent restart.
+func (c *converter) Handle(_ context.Context) error {
 	c.logger.Tracef("Calling Handle for %s", c.machineTag)
-	results, err := c.machine.Jobs(ctx)
+	isController, err := c.machine.IsController(c.machineTag.Id())
 	if err != nil {
-		return errors.Annotate(err, "can't get jobs for machine")
+		return errors.Trace(err)
 	}
-	if !model.AnyJobNeedsState(results.Jobs...) {
+
+	if !isController {
 		return nil
 	}
 

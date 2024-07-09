@@ -22815,17 +22815,17 @@
                     },
                     "description": "EnsureDead calls EnsureDead on each given entity from state. It\nwill fail if the entity is not present. If it's Alive, nothing will\nhappen (see state/EnsureDead() for units or machines)."
                 },
-                "Jobs": {
+                "IsController": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/IsControllerArg"
                         },
                         "Result": {
-                            "$ref": "#/definitions/JobsResults"
+                            "$ref": "#/definitions/IsControllerResult"
                         }
                     },
-                    "description": "Jobs returns the jobs assigned to the given entities."
+                    "description": "IsController returns if the given machine is a controller machine."
                 },
                 "Life": {
                     "type": "object",
@@ -23120,37 +23120,28 @@
                         "port"
                     ]
                 },
-                "JobsResult": {
+                "IsControllerArg": {
                     "type": "object",
                     "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "jobs": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "machine-name": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "jobs"
+                        "machine-name"
                     ]
                 },
-                "JobsResults": {
+                "IsControllerResult": {
                     "type": "object",
                     "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/JobsResult"
-                            }
+                        "is-controller": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "results"
+                        "is-controller"
                     ]
                 },
                 "LifeResult": {

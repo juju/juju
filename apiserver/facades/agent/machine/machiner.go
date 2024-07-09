@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -45,9 +44,9 @@ type MachineService interface {
 	// No error is returned if the provided machine doesn't exist, just nothing
 	// gets updated.
 	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
-	// IsController returns whether the machine is a controller machine.
+	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
-	IsController(context.Context, machine.Name) (bool, error)
+	IsMachineController(context.Context, machine.Name) (bool, error)
 }
 
 // MachinerAPI implements the API used by the machiner worker.
@@ -175,39 +174,13 @@ func (api *MachinerAPIv5) Jobs(ctx context.Context, args params.Entities) (param
 	return params.JobsResults{}, errors.NotSupported
 }
 
-func (api *MachinerAPI) IsController(ctx context.Context, machineName machine.Name) (params.IsControllerResult, error) {
-	isC, err := api.machineService.IsController(ctx, machineName)
+// IsController returns if the given machine is a controller machine.
+func (api *MachinerAPI) IsController(ctx context.Context, arg params.IsControllerArg) (params.IsControllerResult, error) {
+	isC, err := api.machineService.IsMachineController(ctx, arg.Name)
 	if err != nil {
 		return params.IsControllerResult{}, errors.Trace(err)
 	}
 	return params.IsControllerResult{IsController: isC}, nil
-}
-
-// Jobs returns the jobs assigned to the given entities.
-func (api *MachinerAPI) Jobs(ctx context.Context, args params.Entities) (params.JobsResults, error) {
-	result := params.JobsResults{
-		Results: make([]params.JobsResult, len(args.Entities)),
-	}
-
-	canRead, err := api.getCanRead()
-	if err != nil {
-		return result, err
-	}
-
-	for i, agent := range args.Entities {
-		machine, err := api.getMachine(agent.Tag, canRead)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		machineJobs := machine.Jobs()
-		jobs := make([]model.MachineJob, len(machineJobs))
-		for i, job := range machineJobs {
-			jobs[i] = job.ToParams()
-		}
-		result.Results[i].Jobs = jobs
-	}
-	return result, nil
 }
 
 // RecordAgentStartTime updates the agent start time field in the machine doc.

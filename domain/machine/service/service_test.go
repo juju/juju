@@ -352,9 +352,9 @@ func (s *serviceSuite) TestSetInstanceStatusInvalid(c *gc.C) {
 func (s *serviceSuite) TestIsControllerSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().IsController(gomock.Any(), cmachine.Name("666")).Return(true, nil)
+	s.state.EXPECT().IsMachineController(gomock.Any(), cmachine.Name("666")).Return(true, nil)
 
-	isController, err := NewService(s.state).IsController(context.Background(), "666")
+	isController, err := NewService(s.state).IsMachineController(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(isController, jc.IsTrue)
 }
@@ -365,9 +365,9 @@ func (s *serviceSuite) TestIsControllerError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().IsController(gomock.Any(), cmachine.Name("666")).Return(false, rErr)
+	s.state.EXPECT().IsMachineController(gomock.Any(), cmachine.Name("666")).Return(false, rErr)
 
-	isController, err := NewService(s.state).IsController(context.Background(), "666")
+	isController, err := NewService(s.state).IsMachineController(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Check(isController, jc.IsFalse)
 }
@@ -378,9 +378,9 @@ func (s *serviceSuite) TestIsControllerError(c *gc.C) {
 func (s *serviceSuite) TestIsControllerNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().IsController(gomock.Any(), cmachine.Name("666")).Return(false, errors.NotFound)
+	s.state.EXPECT().IsMachineController(gomock.Any(), cmachine.Name("666")).Return(false, errors.NotFound)
 
-	isController, err := NewService(s.state).IsController(context.Background(), "666")
+	isController, err := NewService(s.state).IsMachineController(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIs, errors.NotFound)
 	c.Check(isController, jc.IsFalse)
 }

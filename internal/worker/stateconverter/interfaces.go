@@ -9,7 +9,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/rpc/params"
 )
 
 // Machiner represents necessary methods for this worker from the
@@ -21,6 +20,6 @@ type Machiner interface {
 // Machine represents necessary methods for this worker from the
 // a machiner's machine.
 type Machine interface {
-	Jobs(context.Context) (*params.JobsResult, error)
+	IsController(string) (bool, error)
 	Watch(context.Context) (watcher.NotifyWatcher, error)
 }

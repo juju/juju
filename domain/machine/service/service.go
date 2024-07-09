@@ -85,9 +85,9 @@ type State interface {
 	// table along with the instance tags and the link to a lxd profile if any.
 	DeleteMachineCloudInstance(context.Context, string) error
 
-	// IsController returns whether the machine is a controller machine.
+	// IsMachineController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
-	IsController(context.Context, coremachine.Name) (bool, error)
+	IsMachineController(context.Context, coremachine.Name) (bool, error)
 
 	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
 	RequireMachineReboot(ctx context.Context, uuid string) error
@@ -233,10 +233,10 @@ func (s *Service) SetMachineStatus(ctx context.Context, machineName coremachine.
 	return nil
 }
 
-// IsController returns whether the machine is a controller machine.
+// IsMachineController returns whether the machine is a controller machine.
 // It returns a NotFound if the given machine doesn't exist.
-func (s *Service) IsController(ctx context.Context, machineName coremachine.Name) (bool, error) {
-	isController, err := s.st.IsController(ctx, machineName)
+func (s *Service) IsMachineController(ctx context.Context, machineName coremachine.Name) (bool, error) {
+	isController, err := s.st.IsMachineController(ctx, machineName)
 	if err != nil {
 		return false, errors.Annotatef(err, "checking if machine %q is a controller", machineName)
 	}

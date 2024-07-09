@@ -793,8 +793,8 @@ type DeployerConnectionValues struct {
 	APIAddresses []string `json:"api-addresses"`
 }
 
-// IsController holds a machine name.
-type IsController struct {
+// IsControllerArg holds a machine name.
+type IsControllerArg struct {
 	Name machine.Name `json:"machine-name"`
 }
 
