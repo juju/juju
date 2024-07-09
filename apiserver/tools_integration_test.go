@@ -138,7 +138,13 @@ func (s *toolsWithMacaroonsIntegrationSuite) TestCanPostWithLocalLogin(c *gc.C) 
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(password)),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess, s.ControllerUUID),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

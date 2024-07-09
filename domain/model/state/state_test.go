@@ -70,7 +70,13 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 		m.userName,
 		m.userName,
 		m.userUUID,
-		permission.ControllerForAccess(permission.SuperuserAccess, m.controllerUUID),
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        m.controllerUUID,
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -210,7 +216,13 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 		coremodel.ControllerModelOwnerUsername,
 		coremodel.ControllerModelOwnerUsername,
 		userUUID,
-		permission.ControllerForAccess(permission.SuperuserAccess, m.controllerUUID),
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        m.controllerUUID,
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

@@ -113,7 +113,13 @@ func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info, name string) *a
 		Name:        userTag.Name(),
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("hunter2")),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess, s.ControllerUUID),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

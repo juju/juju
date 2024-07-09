@@ -104,7 +104,13 @@ func (s *ServiceFactorySuite) SeedAdminUser(c *gc.C) {
 	uuid, fn := userbootstrap.AddUserWithPassword(
 		coreuser.AdminUserName,
 		password,
-		permission.ControllerForAccess(permission.SuperuserAccess, jujutesting.ControllerTag.Id()),
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        jujutesting.ControllerTag.Id(),
+			},
+		},
 	)
 	s.AdminUserUUID = uuid
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())

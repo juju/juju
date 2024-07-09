@@ -307,7 +307,13 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 		DisplayName: "Juju Metrics",
 		Password:    &password,
 		CreatorUUID: adminUser.UUID,
-		Permission:  permission.ControllerForAccess(permission.LoginAccess, controllerUUID),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        controllerUUID,
+			},
+		},
 	})
 	// User already exists, we don't need to do anything in this scenario.
 	if errors.Is(err, usererrors.UserAlreadyExists) {

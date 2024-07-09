@@ -43,7 +43,13 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 		DisplayName: "Bob Brown",
 		Password:    ptr(auth.NewPassword("password")),
 		CreatorUUID: s.AdminUserUUID,
-		Permission:  permission.ControllerForAccess(permission.LoginAccess, s.ControllerUUID),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	user, err := userService.GetUser(context.Background(), userUUID)

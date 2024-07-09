@@ -66,15 +66,3 @@ func (u UserAccessSpec) Validate() error {
 	}
 	return nil
 }
-
-// ControllerForAccess is the access spec for the controller
-// login access.
-func ControllerForAccess(access Access, controllerUUID string) AccessSpec {
-	return AccessSpec{
-		Access: access,
-		Target: ID{
-			ObjectType: Controller,
-			Key:        controllerUUID,
-		},
-	}
-}

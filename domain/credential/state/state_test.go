@@ -69,7 +69,13 @@ func (s *credentialSuite) addOwner(c *gc.C, name string) user.UUID {
 		name,
 		"test user",
 		userUUID,
-		permission.ControllerForAccess(permission.SuperuserAccess, s.controllerUUID),
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.controllerUUID,
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return userUUID

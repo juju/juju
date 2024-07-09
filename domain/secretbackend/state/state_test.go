@@ -53,12 +53,8 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
-	s.setupController(c)
-	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-}
-
-func (s *stateSuite) setupController(c *gc.C) {
 	s.controllerUUID = s.SeedControllerUUID(c)
+	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 }
 
 func (s *stateSuite) createModel(c *gc.C, modelType coremodel.ModelType) coremodel.UUID {
@@ -129,7 +125,13 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 		userUUID,
 		// TODO (stickupkid): This should be AdminAccess, but we don't have
 		// a model to set the user as the owner of.
-		permission.ControllerForAccess(permission.SuperuserAccess, s.controllerUUID),
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.controllerUUID,
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

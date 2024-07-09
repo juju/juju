@@ -51,7 +51,16 @@ func (s *modelConfigSuite) SetUpTest(c *gc.C) {
 
 	controllerUUID := s.SeedControllerUUID(c)
 
-	userID, fn := userbootstrap.AddUser(coreuser.AdminUserName, permission.ControllerForAccess(permission.SuperuserAccess, controllerUUID))
+	userID, fn := userbootstrap.AddUser(
+		coreuser.AdminUserName,
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        controllerUUID,
+			},
+		},
+	)
 	err := fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 

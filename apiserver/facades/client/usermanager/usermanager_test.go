@@ -64,7 +64,13 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 		DisplayName: "Foo Bar",
 		Password:    &pass,
 		CreatorUUID: s.apiUser.UUID,
-		Permission:  permission.ControllerForAccess(permission.LoginAccess, s.ControllerUUID),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+		},
 	}).Return(newUserUUID(c), nil, nil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -94,7 +100,13 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 		Name:        "foobar",
 		DisplayName: "Foo Bar",
 		CreatorUUID: s.apiUser.UUID,
-		Permission:  permission.ControllerForAccess(permission.LoginAccess, s.ControllerUUID),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+		},
 	}).Return(newUserUUID(c), []byte("secret-key"), nil)
 
 	args := params.AddUsers{
