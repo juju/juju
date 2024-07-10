@@ -200,6 +200,20 @@ func (s *stateSuite) TestGetMachineStatusNotSetError(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, machineerrors.StatusNotSet)
 }
 
+// TestSetMachineStatusSuccess asserts the happy path of SetMachineStatus at the
+// state layer.
+func (s *stateSuite) TestSetMachineStatusSuccess(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetMachineStatus(context.Background(), "666", status.Started)
+	c.Check(err, jc.ErrorIsNil)
+
+	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(obtainedStatus, gc.Equals, status.Started)
+}
+
 // TestSetMachineLifeSuccess asserts the happy path of SetMachineLife at the
 // state layer.
 func (s *stateSuite) TestSetMachineLifeSuccess(c *gc.C) {

@@ -250,6 +250,60 @@ WHERE m.name = $machineInstanceStatus.name;
 	return machineStatus, nil
 }
 
+// SetMachineStatus sets the status of the specified machine.
+func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newStatus status.Status) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var iStatus int
+	switch newStatus {
+	case status.Error:
+		iStatus = 0
+	case status.Started:
+		iStatus = 1
+	case status.Pending:
+		iStatus = 2
+	case status.Stopped:
+		iStatus = 3
+	case status.Down:
+		iStatus = 4
+	}
+	machineStatus := machineInstanceStatus{
+		Name:   mName,
+		Status: iStatus,
+	}
+
+	mUUID := instanceTag{}
+	queryMachine := `SELECT uuid AS &instanceTag.machine_uuid FROM machine WHERE name = $machineInstanceStatus.name`
+	queryMachineStmt, err := st.Prepare(queryMachine, machineStatus, mUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	statusQuery := `
+INSERT INTO machine_status (*)
+VALUES ($instanceTag.machine_uuid, $machineInstanceStatus.status)
+`
+	statusQueryStmt, err := st.Prepare(statusQuery, mUUID, machineStatus)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryMachineStmt, machineStatus).Get(&mUUID)
+		if err != nil {
+			return errors.Annotatef(err, "querying uuid for machine %q", mName)
+		}
+		err = tx.Query(ctx, statusQueryStmt, mUUID, machineStatus).Run()
+		if err != nil {
+			return errors.Annotatef(err, "setting machine status for machine %q", mName)
+		}
+		return nil
+	})
+}
+
 // SetMachineLife sets the life status of the specified machine.
 // It returns a NotFound if the provided machine doesn't exist.
 func (st *State) SetMachineLife(ctx context.Context, mName machine.Name, life life.Life) error {

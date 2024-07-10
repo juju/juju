@@ -268,6 +268,19 @@ func (s Status) KnownInstanceStatus() bool {
 	return false
 }
 
+func (s Status) KnownMachineStatus() bool {
+	switch s {
+	case
+		Error,
+		Started,
+		Pending,
+		Stopped,
+		Down:
+		return true
+	}
+	return false
+}
+
 // KnownAgentStatus returns true if status has a known value for an agent.
 // It includes every status that has ever been valid for a unit or machine agent.
 // This is used by the apiserver client facade to filter out unknown values.

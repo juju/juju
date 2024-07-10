@@ -289,7 +289,7 @@ VALUES ($instanceTag.machine_uuid, $machineInstanceStatus.status)
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, queryMachineStmt, machineStatus).Get(&mUUID)
 		if err != nil {
-			return errors.Annotatef(err, "querying uuid for machine machine %q", mName)
+			return errors.Annotatef(err, "querying uuid for machine %q", mName)
 		}
 		err = tx.Query(ctx, statusQueryStmt, mUUID, machineStatus).Run()
 		if err != nil {

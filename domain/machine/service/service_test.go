@@ -259,6 +259,36 @@ func (s *serviceSuite) TestGetMachineStatusError(c *gc.C) {
 	c.Check(machineStatus, gc.Equals, corestatus.Status(""))
 }
 
+// TestSetMachineStatusSuccess asserts the happy path of the SetMachineStatus.
+func (s *serviceSuite) TestSetMachineStatusSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().SetMachineStatus(gomock.Any(), cmachine.Name("666"), corestatus.Started).Return(nil)
+
+	err := NewService(s.state).SetMachineStatus(context.Background(), cmachine.Name("666"), corestatus.Started)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestSetMachineStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestSetMachineStatusError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().SetMachineStatus(gomock.Any(), cmachine.Name("666"), corestatus.Started).Return(rErr)
+
+	err := NewService(s.state).SetMachineStatus(context.Background(), cmachine.Name("666"), corestatus.Started)
+	c.Check(err, jc.ErrorIs, rErr)
+}
+
+// TestSetMachineStatusInvalid asserts that an invalid status is passed to the
+// service will result in a InvalidStatus error.
+func (s *serviceSuite) TestSetMachineStatusInvalid(c *gc.C) {
+	err := NewService(nil).SetMachineStatus(context.Background(), cmachine.Name("666"), corestatus.Status("invalid status"))
+	c.Check(err, jc.ErrorIs, machineerrors.InvalidStatus)
+}
+
+// TestInstanceStatusSuccess asserts the happy path of the GetInstanceStatus.
 func (s *serviceSuite) TestInstanceStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
