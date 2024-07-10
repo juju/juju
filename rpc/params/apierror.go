@@ -160,7 +160,6 @@ func serializeToMap(v interface{}) map[string]interface{} {
 // The Code constants hold error codes for well known errors.
 const (
 	CodeNotFound                   = "not found"
-	CodeUserNotFound               = "user not found"
 	CodeModelNotFound              = "model not found"
 	CodeSecretNotFound             = "secret not found"
 	CodeSecretRevisionNotFound     = "secret revision not found"
@@ -229,7 +228,7 @@ const (
 	CodeTagKindNotSupported = "tag kind not supported"
 
 	//
-	// Machine base errors
+	// Machine based errors
 	//
 
 	// CodeMachineInvalidID represents an error code that indicates a supplied
@@ -239,6 +238,46 @@ const (
 	// CodeMachineNotFound represents an error code that indicates the machine
 	// requested does not exist.
 	CodeMachineNotFound = "machine not found"
+
+	//
+	// User based errors
+	//
+
+	// CodeUserInvalidName represents an error that happens when a user name
+	// has been supplied that is invalid.
+	CodeUserInvalidName = "invalid user name"
+
+	// CodeUserNotFound represents an error that happens when a user requested
+	// does not exist.
+	CodeUserNotFound = "user not found"
+
+	//
+	// User ssh key errors
+	//
+
+	// CodeUserKeyInvalidComment represents an error where a requested key to be
+	// added by a user violates the Juju comment restrictions.
+	CodeUserKeyInvalidComment = "invalid public key comment"
+
+	// CodeUserKeyInvalidKey represents an error where a requested key to be
+	// added is not considered valid.
+	CodeUserKeyInvalidKey = "invalid public key"
+
+	// CodeUserKeyAlreadyExists represents an error where a requested key to be
+	// added already exists for the user.
+	CodeUserKeyAlreadyExists = "public key already exists"
+
+	// CodeUserKeyInvalidKeySource represents an error where by a public key
+	// ssh import source is not valid.
+	CodeUserKeyInvalidKeySource = "invalid user public key source"
+
+	// CodeUserKeyUnknownKeySource represents an error where the public key
+	// source being asked to import for is unknown and not supported.
+	CodeUserKeyUnknownKeySource = "unknown user public key source"
+
+	// CodeUserKeySourceSubjectNotFound represents an error where the key source
+	// has told us the subject being imported does not exist.
+	CodeUserKeySourceSubjectNotFound = "key source subject not found"
 )
 
 // TranslateWellKnownError translates well known wire error codes into a github.com/juju/errors error
