@@ -16,7 +16,9 @@ import (
 
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -166,6 +168,36 @@ func (s *stateSuite) TestListAllMachines(c *gc.C) {
 	sort.Strings(ms)
 	sort.Strings(expectedMachines)
 	c.Assert(ms, gc.DeepEquals, expectedMachines)
+}
+
+// TestGetMachineStatusSuccess asserts the happy path of GetMachineStatus at the
+// state layer.
+func (s *stateSuite) TestGetMachineStatusSuccess(c *gc.C) {
+	db := s.DB()
+
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a status value for this machine into the
+	// machine_status table using the machineUUID and the status
+	// value 2 for "running" (from instance_status_values table).
+	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_status VALUES('123', '1')")
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
+	expectedStatus := status.Started
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(obtainedStatus, gc.Equals, expectedStatus)
+}
+
+// TestGetMachineStatusNotSetError asserts that a StatusNotSet error is returned
+// when the status is not set.
+func (s *stateSuite) TestGetMachineStatusNotSetError(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.GetMachineStatus(context.Background(), "666")
+	c.Assert(err, jc.ErrorIs, machineerrors.StatusNotSet)
 }
 
 // TestSetMachineLifeSuccess asserts the happy path of SetMachineLife at the

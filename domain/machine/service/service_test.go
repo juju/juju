@@ -235,6 +235,30 @@ func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *gc.C) {
 	c.Check(instanceId, gc.Equals, "")
 }
 
+// TestGetMachineStatusSuccess asserts the happy path of the GetMachineStatus.
+func (s *serviceSuite) TestGetMachineStatusSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return(corestatus.Running, nil)
+
+	machineStatus, err := NewService(s.state).GetMachineStatus(context.Background(), cmachine.Name("666"))
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(machineStatus, gc.Equals, corestatus.Running)
+}
+
+// TestGetMachineStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestGetMachineStatusError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return("", rErr)
+
+	machineStatus, err := NewService(s.state).GetMachineStatus(context.Background(), cmachine.Name("666"))
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Check(machineStatus, gc.Equals, corestatus.Status(""))
+}
+
 func (s *serviceSuite) TestInstanceStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

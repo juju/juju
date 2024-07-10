@@ -13,9 +13,11 @@ import (
 	coredb "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain"
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/database"
 )
 
@@ -192,6 +194,60 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 	}
 
 	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", mName)
+}
+
+// GetMachineStatus returns the status of the specified machine.
+// It returns a StatusNotSet if the status is not set.
+// Idempotent.
+func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (status.Status, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	machineStatusParam := machineInstanceStatus{Name: mName}
+	statusQuery := `
+SELECT ms.status as &machineInstanceStatus.status
+FROM machine as m
+	JOIN machine_status as ms ON m.uuid = ms.machine_uuid
+WHERE m.name = $machineInstanceStatus.name;
+`
+
+	statusQueryStmt, err := st.Prepare(statusQuery, machineStatusParam)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, statusQueryStmt, machineStatusParam).Get(&machineStatusParam)
+		if err != nil {
+			return errors.Annotatef(err, "querying machine status for machine %q", mName)
+		}
+		return nil
+	})
+
+	if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return "", errors.Annotatef(machineerrors.StatusNotSet, "machine: %q", mName)
+		}
+		return "", errors.Trace(err)
+	}
+	internalStatus := machineStatusParam.Status
+	// Convert the internal status id from the (machine_status_values table)
+	// into the core status.Status type.
+	var machineStatus status.Status
+	switch internalStatus {
+	case 0:
+		machineStatus = status.Error
+	case 1:
+		machineStatus = status.Started
+	case 2:
+		machineStatus = status.Pending
+	case 3:
+		machineStatus = status.Stopped
+	case 4:
+		machineStatus = status.Down
+	}
+	return machineStatus, nil
 }
 
 // SetMachineLife sets the life status of the specified machine.

@@ -58,6 +58,11 @@ type State interface {
 	// machine.
 	SetInstanceStatus(context.Context, machine.Name, status.Status) error
 
+	// GetMachineStatus returns the status of the specified machine.
+	// It returns a StatusNotSet if the status is not set.
+	// Idempotent.
+	GetMachineStatus(context.Context, machine.Name) (status.Status, error)
+
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
 	HardwareCharacteristics(context.Context, string) (*instance.HardwareCharacteristics, error)
@@ -185,6 +190,17 @@ func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Nam
 		return errors.Annotatef(err, "setting cloud instance status for machine %q", machineName)
 	}
 	return nil
+}
+
+// GetMachineStatus returns the status of the specified machine.
+// It returns a StatusNotSet if the status is not set.
+// Idempotent.
+func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name) (status.Status, error) {
+	machineStatus, err := s.st.GetMachineStatus(ctx, machineName)
+	if err != nil {
+		return "", errors.Annotatef(err, "retrieving machine status for machine %q", machineName)
+	}
+	return machineStatus, nil
 }
 
 // IsController returns whether the machine is a controller machine.
