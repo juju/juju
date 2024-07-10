@@ -24,6 +24,7 @@ type mockAPIState struct {
 	modelTag      string
 	controllerTag string
 	publicDNSName string
+	authTag       names.Tag
 }
 
 type mockedStateFlags int
@@ -59,6 +60,7 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 		modelTag:      modelTag,
 		controllerTag: testing.ControllerTag.Id(),
 		addr:          addr,
+		authTag:       names.NewUserTag("admin"),
 	}
 }
 
@@ -109,7 +111,7 @@ func (s *mockAPIState) ControllerTag() names.ControllerTag {
 }
 
 func (s *mockAPIState) AuthTag() names.Tag {
-	return names.NewUserTag("admin")
+	return s.authTag
 }
 
 func (s *mockAPIState) ControllerAccess() string {
