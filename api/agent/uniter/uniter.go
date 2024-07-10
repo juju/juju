@@ -38,7 +38,6 @@ const uniterFacade = "Uniter"
 type Client struct {
 	*common.ModelWatcher
 	*common.APIAddresser
-	*common.UpgradeSeriesAPI
 	*common.UnitStateAPI
 	*StorageAccessor
 
@@ -60,13 +59,12 @@ func NewClient(
 		options...,
 	)
 	client := &Client{
-		ModelWatcher:     common.NewModelWatcher(facadeCaller),
-		APIAddresser:     common.NewAPIAddresser(facadeCaller),
-		UpgradeSeriesAPI: common.NewUpgradeSeriesAPI(facadeCaller, authTag),
-		UnitStateAPI:     common.NewUniterStateAPI(facadeCaller, authTag),
-		StorageAccessor:  NewStorageAccessor(facadeCaller),
-		facade:           facadeCaller,
-		unitTag:          authTag,
+		ModelWatcher:    common.NewModelWatcher(facadeCaller),
+		APIAddresser:    common.NewAPIAddresser(facadeCaller),
+		UnitStateAPI:    common.NewUniterStateAPI(facadeCaller, authTag),
+		StorageAccessor: NewStorageAccessor(facadeCaller),
+		facade:          facadeCaller,
+		unitTag:         authTag,
 	}
 
 	newWatcher := func(result params.NotifyWatchResult) watcher.NotifyWatcher {

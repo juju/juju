@@ -104,7 +104,6 @@ type Application interface {
 	MergeExposeSettings(map[string]state.ExposedEndpoint) error
 	UnsetExposeSettings([]string) error
 	SetMinUnits(int) error
-	UpdateApplicationBase(state.Base, bool) error
 	UpdateCharmConfig(string, charm.Settings) error
 	UpdateApplicationConfig(coreconfig.ConfigAttributes, []string, environschema.Fields, schema.Defaults) error
 	SetScale(int, int64, bool) error
@@ -150,8 +149,6 @@ type Machine interface {
 	HardwareCharacteristics() (*instance.HardwareCharacteristics, error)
 	Id() string
 	PublicAddress() (network.SpaceAddress, error)
-	IsLockedForSeriesUpgrade() (bool, error)
-	IsParentLockedForSeriesUpgrade() (bool, error)
 }
 
 // Relation defines a subset of the functionality provided by the

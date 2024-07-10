@@ -12,7 +12,6 @@ import (
 	utilexec "github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/charm/hooks"
@@ -185,10 +184,6 @@ func (cb *PrepareHookCallbacks) PrepareHook(_ context.Context, hookInfo hook.Inf
 
 func (cb *PrepareHookCallbacks) SetExecutingStatus(message string) error {
 	cb.executingMessage = message
-	return nil
-}
-
-func (cb *PrepareHookCallbacks) SetUpgradeSeriesStatus(context.Context, model.UpgradeSeriesStatus, string) error {
 	return nil
 }
 

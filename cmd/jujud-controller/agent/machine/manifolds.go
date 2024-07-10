@@ -110,7 +110,6 @@ import (
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/internal/worker/upgradedatabase"
 	"github.com/juju/juju/internal/worker/upgrader"
-	"github.com/juju/juju/internal/worker/upgradeseries"
 	"github.com/juju/juju/internal/worker/upgradesteps"
 	"github.com/juju/juju/internal/worker/upgradestepsmachine"
 	"github.com/juju/juju/state"
@@ -1012,14 +1011,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:                config.Clock,
 		}),
 
-		upgradeSeriesWorkerName: ifNotMigrating(upgradeseries.Manifold(upgradeseries.ManifoldConfig{
-			AgentName:     agentName,
-			APICallerName: apiCallerName,
-			Logger:        internallogger.GetLogger("juju.worker.upgradeseries"),
-			NewFacade:     upgradeseries.NewFacade,
-			NewWorker:     upgradeseries.NewWorker,
-		})),
-
 		// The upgradesteps worker runs soon after the machine agent
 		// starts and runs any steps required to upgrade to the
 		// running jujud version. Once upgrade steps have run, the
@@ -1347,8 +1338,6 @@ const (
 	objectStoreS3CallerName       = "object-store-s3-caller"
 
 	secretBackendRotateName = "secret-backend-rotate"
-
-	upgradeSeriesWorkerName = "upgrade-series"
 
 	traceName = "trace"
 

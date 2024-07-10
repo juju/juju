@@ -315,45 +315,6 @@ func (c *MockPrecheckBackendControllerBackendCall) DoAndReturn(f func() (migrati
 	return c
 }
 
-// HasUpgradeSeriesLocks mocks base method.
-func (m *MockPrecheckBackend) HasUpgradeSeriesLocks() (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasUpgradeSeriesLocks")
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HasUpgradeSeriesLocks indicates an expected call of HasUpgradeSeriesLocks.
-func (mr *MockPrecheckBackendMockRecorder) HasUpgradeSeriesLocks() *MockPrecheckBackendHasUpgradeSeriesLocksCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasUpgradeSeriesLocks", reflect.TypeOf((*MockPrecheckBackend)(nil).HasUpgradeSeriesLocks))
-	return &MockPrecheckBackendHasUpgradeSeriesLocksCall{Call: call}
-}
-
-// MockPrecheckBackendHasUpgradeSeriesLocksCall wrap *gomock.Call
-type MockPrecheckBackendHasUpgradeSeriesLocksCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockPrecheckBackendHasUpgradeSeriesLocksCall) Return(arg0 bool, arg1 error) *MockPrecheckBackendHasUpgradeSeriesLocksCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockPrecheckBackendHasUpgradeSeriesLocksCall) Do(f func() (bool, error)) *MockPrecheckBackendHasUpgradeSeriesLocksCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPrecheckBackendHasUpgradeSeriesLocksCall) DoAndReturn(f func() (bool, error)) *MockPrecheckBackendHasUpgradeSeriesLocksCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // IsMigrationActive mocks base method.
 func (m *MockPrecheckBackend) IsMigrationActive(arg0 string) (bool, error) {
 	m.ctrl.T.Helper()

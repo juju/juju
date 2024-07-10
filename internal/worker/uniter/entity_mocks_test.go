@@ -16,7 +16,6 @@ import (
 	apiuniter "github.com/juju/juju/api/agent/uniter"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	jujucharm "github.com/juju/juju/internal/charm"
@@ -107,7 +106,6 @@ func (ctx *testContext) makeUnit(c *gc.C, unitTag names.UnitTag, l life.Value) *
 	u.EXPECT().ApplicationTag().Return(appTag).AnyTimes()
 	u.EXPECT().Refresh(gomock.Any()).Return(nil).AnyTimes()
 	u.EXPECT().ProviderID().Return("").AnyTimes()
-	u.EXPECT().UpgradeSeriesStatus(gomock.Any()).Return(model.UpgradeSeriesNotStarted, "", nil).AnyTimes()
 	u.EXPECT().PrincipalName().Return("u", false, nil).AnyTimes()
 	u.EXPECT().EnsureDead().DoAndReturn(func() error {
 		u.mu.Lock()

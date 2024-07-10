@@ -143,7 +143,6 @@ func (s *WatcherSuiteIAAS) SetUpTest(c *gc.C) {
 
 	s.uniterClient.unit.application.applicationWatcher = newMockNotifyWatcher()
 	s.applicationWatcher = s.uniterClient.unit.application.applicationWatcher
-	s.uniterClient.unit.upgradeSeriesWatcher = newMockNotifyWatcher()
 	s.uniterClient.unit.instanceDataWatcher = newMockNotifyWatcher()
 
 	w, err := remotestate.NewWatcher(s.setupWatcherConfig(c))
@@ -246,7 +245,6 @@ func (s *WatcherSuiteIAAS) TestInitialSnapshot(c *gc.C) {
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:           map[string]int{},
-		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
 	})
@@ -259,7 +257,6 @@ func (s *WatcherSuiteCAAS) TestInitialSnapshot(c *gc.C) {
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:           map[string]int{},
 		ActionsBlocked:          true,
-		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
 	})
@@ -271,7 +268,6 @@ func (s *WatcherSuiteSidecar) TestInitialSnapshot(c *gc.C) {
 		Relations:               map[int]remotestate.RelationSnapshot{},
 		Storage:                 map[names.StorageTag]remotestate.StorageSnapshot{},
 		ActionChanged:           map[string]int{},
-		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
 	})
@@ -285,9 +281,6 @@ func (s *WatcherSuite) TestInitialSignal(c *gc.C) {
 	s.uniterClient.unit.addressesWatcher.changes <- []string{"addresseshash"}
 	s.uniterClient.unit.configSettingsWatcher.changes <- []string{"confighash"}
 	s.uniterClient.unit.applicationConfigSettingsWatcher.changes <- []string{"trusthash"}
-	if s.uniterClient.unit.upgradeSeriesWatcher != nil {
-		s.uniterClient.unit.upgradeSeriesWatcher.changes <- struct{}{}
-	}
 	if s.uniterClient.unit.instanceDataWatcher != nil {
 		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
 	}
@@ -319,7 +312,6 @@ func (s *WatcherSuite) signalAll() {
 	s.applicationWatcher.changes <- struct{}{}
 	s.secretsClient.secretsWatcher.changes <- []string{}
 	if s.uniterClient.modelType == model.IAAS {
-		s.uniterClient.unit.upgradeSeriesWatcher.changes <- struct{}{}
 		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
 	}
 }
@@ -343,8 +335,6 @@ func (s *WatcherSuite) TestSnapshot(c *gc.C) {
 		AddressesHash:           "addresseshash",
 		LeaderSettingsVersion:   1,
 		Leader:                  true,
-		UpgradeMachineStatus:    model.UpgradeSeriesPrepareStarted,
-		UpgradeMachineTarget:    "ubuntu@20.04",
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
 	})
@@ -369,7 +359,6 @@ func (s *WatcherSuiteSidecar) TestSnapshot(c *gc.C) {
 		AddressesHash:           "addresseshash",
 		LeaderSettingsVersion:   1,
 		Leader:                  true,
-		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
 	})
@@ -393,7 +382,6 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		AddressesHash:           "addresseshash",
 		LeaderSettingsVersion:   1,
 		Leader:                  true,
-		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 		ActionsBlocked:          true,
 		ActionChanged:           map[string]int{},
 		ContainerRunningStatus:  nil,
@@ -430,7 +418,6 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		AddressesHash:           "addresseshash",
 		LeaderSettingsVersion:   1,
 		Leader:                  true,
-		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 		ActionsBlocked:          true,
 		ActionChanged:           map[string]int{},
 		ProviderID:              s.uniterClient.unit.providerID,
@@ -466,7 +453,6 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		AddressesHash:           "addresseshash",
 		LeaderSettingsVersion:   1,
 		Leader:                  true,
-		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 		ActionsBlocked:          false,
 		ActionChanged:           map[string]int{},
 		ProviderID:              s.uniterClient.unit.providerID,
@@ -552,8 +538,6 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 
 	if s.modelType == model.IAAS {
-		s.uniterClient.unit.upgradeSeriesWatcher.changes <- struct{}{}
-		assertOneChange()
 		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
 		assertOneChange()
 	}
@@ -1135,8 +1119,6 @@ func (s *WatcherSuiteSidecarCharmModVer) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 
 	if s.modelType == model.IAAS {
-		s.uniterClient.unit.upgradeSeriesWatcher.changes <- struct{}{}
-		assertOneChange()
 		s.uniterClient.unit.instanceDataWatcher.changes <- struct{}{}
 		assertOneChange()
 	}
@@ -1173,7 +1155,6 @@ func (s *WatcherSuiteSidecarCharmModVer) TestSnapshot(c *gc.C) {
 		AddressesHash:           "addresseshash",
 		LeaderSettingsVersion:   1,
 		Leader:                  true,
-		UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 		ConsumedSecretInfo:      map[string]secrets.SecretRevisionInfo{},
 		ObsoleteSecretRevisions: map[string][]int{},
 	})

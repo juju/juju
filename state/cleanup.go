@@ -1319,14 +1319,6 @@ func (st *State) cleanupForceDestroyedMachine(ctx context.Context, store objects
 }
 
 func (st *State) cleanupForceDestroyedMachineInternal(ctx context.Context, store objectstore.ObjectStore, unitRemover UnitRemover, machineRemover MachineRemover, machineID string, maxWait time.Duration) error {
-	// The first thing we want to do is remove any series upgrade machine
-	// locks that might prevent other resources from being removed.
-	// We don't tie the lock cleanup to existence of the machine.
-	// Just always delete it if it exists.
-	if err := st.cleanupUpgradeSeriesLock(machineID); err != nil {
-		return errors.Trace(err)
-	}
-
 	machine, err := st.Machine(machineID)
 	if errors.Is(err, errors.NotFound) {
 		return nil
@@ -1784,22 +1776,6 @@ func (st *State) cleanupAttachmentsForDyingFilesystem(filesystemId string) (err 
 		}
 	}
 	return nil
-}
-
-// cleanupUpgradeSeriesLock removes a series upgrade lock
-// for the input machine ID if one exists.
-func (st *State) cleanupUpgradeSeriesLock(machineID string) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if _, err := st.getUpgradeSeriesLock(machineID); err != nil {
-			if errors.Is(err, errors.NotFound) {
-				return nil, jujutxn.ErrNoOperations
-			}
-			return nil, errors.Trace(err)
-		}
-
-		return removeUpgradeSeriesLockTxnOps(machineID), nil
-	}
-	return errors.Trace(st.db().Run(buildTxn))
 }
 
 func closeIter(iter mongo.Iterator, errOut *error, message string) {

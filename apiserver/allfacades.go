@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/unitassigner"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
 	"github.com/juju/juju/apiserver/facades/agent/upgrader"
-	"github.com/juju/juju/apiserver/facades/agent/upgradeseries"
 	"github.com/juju/juju/apiserver/facades/agent/upgradesteps"
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/facades/client/annotations" // ModelUser Write
@@ -153,7 +152,6 @@ func requiredMigrationFacadeVersions() facades.FacadeVersions {
 	unitassigner.Register(registry)
 	uniter.Register(registry)
 	upgrader.Register(registry)
-	upgradeseries.Register(registry)
 	upgradesteps.Register(registry)
 
 	registerWatchers(registry)
@@ -266,7 +264,6 @@ func AllFacades() *facade.Registry {
 	unitassigner.Register(registry)
 	uniter.Register(registry)
 	upgrader.Register(registry)
-	upgradeseries.Register(registry)
 	upgradesteps.Register(registry)
 	usermanager.Register(registry)
 

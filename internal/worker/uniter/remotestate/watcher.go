@@ -164,7 +164,6 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			Storage:                 make(map[names.StorageTag]StorageSnapshot),
 			ActionsBlocked:          config.ContainerRunningStatusChannel != nil,
 			ActionChanged:           make(map[string]int),
-			UpgradeMachineStatus:    model.UpgradeSeriesNotStarted,
 			WorkloadEvents:          config.InitialWorkloadEventIDs,
 			ConsumedSecretInfo:      make(map[string]secrets.SecretRevisionInfo),
 			ObsoleteSecretRevisions: make(map[string][]int),
@@ -438,11 +437,9 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 	requiredEvents++
 
 	var (
-		seenApplicationChange   bool
-		seenInstanceDataChange  bool
-		seenUpgradeSeriesChange bool
-		upgradeSeriesChanges    watcher.NotifyChannel
-		instanceDataChannel     watcher.NotifyChannel
+		seenApplicationChange  bool
+		seenInstanceDataChange bool
+		instanceDataChannel    watcher.NotifyChannel
 	)
 
 	applicationw, err := w.application.Watch(ctx)
@@ -453,20 +450,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		return errors.Trace(err)
 	}
 	requiredEvents++
-
-	if w.modelType == model.IAAS {
-		// Only IAAS models support upgrading the machine series.
-		// TODO(externalreality) This pattern should probably be extracted
-		upgradeSeriesw, err := w.unit.WatchUpgradeSeriesNotifications(ctx)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if err := w.catacomb.Add(upgradeSeriesw); err != nil {
-			return errors.Trace(err)
-		}
-		upgradeSeriesChanges = upgradeSeriesw.Changes()
-		requiredEvents++
-	}
 
 	if w.canApplyCharmProfile {
 		// Note: canApplyCharmProfile will be false for a CAAS model.
@@ -662,16 +645,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 			w.trustHashChanged(hashes[0])
 			observedEvent(&seenTrustConfigChange)
 
-		case _, ok := <-upgradeSeriesChanges:
-			w.logger.Debugf("got upgrade series change")
-			if !ok {
-				return errors.New("upgrades series watcher closed")
-			}
-			if err := w.upgradeSeriesStatusChanged(ctx); err != nil {
-				return errors.Trace(err)
-			}
-			observedEvent(&seenUpgradeSeriesChange)
-
 		case hashes, ok := <-addressesChanges:
 			w.logger.Debugf("got address change for %s: ok=%t, hashes=%v", w.unit.Tag().Id(), ok, hashes)
 			if !ok {
@@ -829,45 +802,6 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 		// Something changed.
 		fire()
 	}
-}
-
-// upgradeSeriesStatusChanged is called when the remote status of a series
-// upgrade changes.
-func (w *RemoteStateWatcher) upgradeSeriesStatusChanged(ctx context.Context) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	status, target, err := w.upgradeSeriesStatus(ctx)
-	if errors.Is(err, errors.NotFound) {
-		// There is no remote state so no upgrade is started.
-		w.logger.Debugf("no upgrade series in progress, reinitializing local upgrade series state")
-		w.current.UpgradeMachineStatus = model.UpgradeSeriesNotStarted
-		return nil
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	w.current.UpgradeMachineStatus = status
-	w.current.UpgradeMachineTarget = target
-
-	return nil
-}
-
-func (w *RemoteStateWatcher) upgradeSeriesStatus(ctx context.Context) (model.UpgradeSeriesStatus, string, error) {
-	status, target, err := w.unit.UpgradeSeriesStatus(ctx)
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-
-	graph := model.UpgradeSeriesGraph()
-	if err := graph.Validate(); err != nil {
-		return "", "", errors.Trace(err)
-	}
-	if !graph.ValidState(status) {
-		return "", "", errors.NotValidf("upgrade series %q is", status)
-	}
-	return status, target, nil
 }
 
 // updateStatusChanged is called when the update status timer expires.

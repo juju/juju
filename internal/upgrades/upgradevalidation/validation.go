@@ -139,19 +139,6 @@ func (m *ModelUpgradeCheck) Validate() (*ModelUpgradeBlockers, error) {
 	), nil
 }
 
-func getCheckUpgradeSeriesLockForModel(force bool) Validator {
-	return func(modelUUID string, pool StatePool, st State, model Model) (*Blocker, error) {
-		locked, err := st.HasUpgradeSeriesLocks()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if locked && !force {
-			return NewBlocker("unexpected upgrade series lock found"), nil
-		}
-		return nil, nil
-	}
-}
-
 // For testing.
 // TODO: unexport it if we don't need to patch it anymore.
 var SupportedJujuBases = corebase.WorkloadBases

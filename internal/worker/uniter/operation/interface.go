@@ -11,7 +11,6 @@ import (
 	utilexec "github.com/juju/utils/v4/exec"
 
 	"github.com/juju/juju/api/agent/uniter"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
@@ -107,10 +106,6 @@ type Factory interface {
 
 	// NewSkipRemoteInit skips a remote-init operation.
 	NewSkipRemoteInit(retry bool) (Operation, error)
-
-	// NewNoOpFinishUpgradeSeries creates a noop which simply resets the
-	// status of a units upgrade series.
-	NewNoOpFinishUpgradeSeries() (Operation, error)
 
 	// NewRevertUpgrade creates an operation to clear the unit's resolved flag,
 	// and execute an upgrade to the supplied charm that is careful to excise
@@ -226,12 +221,6 @@ type Callbacks interface {
 	// no path by which the controller can legitimately garbage collect that
 	// charm or the application's settings for it. It's only used by Deploy operations.
 	SetCurrentCharm(charmURL string) error
-
-	// SetUpgradeSeriesStatus is intended to give the uniter a chance to
-	// upgrade the status of a running series upgrade before or after
-	// upgrade series hook code completes and, for display purposes, to
-	// supply a reason as to why it is making the change.
-	SetUpgradeSeriesStatus(ctx stdcontext.Context, status model.UpgradeSeriesStatus, reason string) error
 
 	// SetSecretRotated updates the secret rotation status.
 	SetSecretRotated(url string, originalRevision int) error

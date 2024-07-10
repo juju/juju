@@ -53,9 +53,6 @@ var validateTests = []struct {
 		hook.Info{Kind: hooks.PebbleCustomNotice, WorkloadName: "test"},
 		`"pebble-custom-notice" hook requires a notice ID, type, and key`,
 	}, {
-		hook.Info{Kind: hooks.PreSeriesUpgrade},
-		`"pre-series-upgrade" hook requires a target base`,
-	}, {
 		hook.Info{Kind: hooks.SecretRotate},
 		`"secret-rotate" hook requires a secret URI`,
 	}, {
@@ -81,7 +78,6 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.StorageAttached, StorageId: "data/0"}, ""},
 	{hook.Info{Kind: hooks.StorageDetaching, StorageId: "data/0"}, ""},
 	{hook.Info{Kind: hooks.PebbleReady, WorkloadName: "gitlab"}, ""},
-	{hook.Info{Kind: hooks.PreSeriesUpgrade, MachineUpgradeTarget: "ubuntu@20.04"}, ""},
 }
 
 func (s *InfoSuite) TestValidate(c *gc.C) {

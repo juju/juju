@@ -207,7 +207,6 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.storageAccess,
 		s.authorizer,
 		nil,
-		nil,
 		s.blockChecker,
 		s.model,
 		s.cloudService,
@@ -1344,8 +1343,8 @@ func (s *ApplicationSuite) TestDeployAttachStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage is non-empty, but NumUnits is 2")
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, `"volume-baz-0" is not a valid volume tag`)
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, ".*AttachStorage is non-empty, but NumUnits is 2")
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, `.*"volume-baz-0" is not a valid volume tag`)
 }
 
 func (s *ApplicationSuite) TestDeployCharmOrigin(c *gc.C) {
@@ -1490,10 +1489,6 @@ func (s *ApplicationSuite) TestApplicationDeployPlacement(c *gc.C) {
 	curl := "ch:precise/dummy-42"
 	s.backend.EXPECT().Charm(curl).Return(ch, nil)
 
-	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil)
-	machine.EXPECT().IsParentLockedForSeriesUpgrade().Return(false, nil)
-	s.backend.EXPECT().Machine("valid").Return(machine, nil)
 	s.model.EXPECT().UUID().Return("")
 
 	placement := []*instance.Placement{
@@ -1549,47 +1544,6 @@ func (s *ApplicationSuite) TestApplicationDeployPlacementModelUUIDSubstitute(c *
 	c.Assert(s.deployParams["my-app"].Placement, gc.DeepEquals, []*instance.Placement{
 		{Scope: "deadbeef-0bad-400d-8000-4b1d0d06f00d", Directive: "0"},
 	})
-}
-
-func (s *ApplicationSuite) TestApplicationDeployWithPlacementLockedError(c *gc.C) {
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().IsLockedForSeriesUpgrade().Return(true, nil).MinTimes(1)
-	s.backend.EXPECT().Machine("0").Return(machine, nil).MinTimes(1)
-	containerMachine := mocks.NewMockMachine(ctrl)
-	containerMachine.EXPECT().IsLockedForSeriesUpgrade().Return(false, nil).MinTimes(1)
-	containerMachine.EXPECT().IsParentLockedForSeriesUpgrade().Return(true, nil).MinTimes(1)
-	s.backend.EXPECT().Machine("0/lxd/0").Return(containerMachine, nil).MinTimes(1)
-	s.model.EXPECT().UUID().Return("").AnyTimes()
-
-	curl := "ch:precise/dummy-42"
-	args := []params.ApplicationDeploy{{
-		ApplicationName: "machine-placement",
-		CharmURL:        curl,
-		CharmOrigin:     validCharmOriginForTest(nil),
-		Placement:       []*instance.Placement{{Scope: "#", Directive: "0"}},
-	}, {
-		ApplicationName: "container-placement",
-		CharmURL:        curl,
-		CharmOrigin:     validCharmOriginForTest(nil),
-		Placement:       []*instance.Placement{{Scope: "lxd", Directive: "0"}},
-	}, {
-		ApplicationName: "container-placement-locked-parent",
-		CharmURL:        curl,
-		CharmOrigin:     validCharmOriginForTest(nil),
-		Placement:       []*instance.Placement{{Scope: "#", Directive: "0/lxd/0"}},
-	}}
-	results, err := s.api.Deploy(context.Background(), params.ApplicationsDeploy{
-		Applications: args,
-	})
-
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results.Results, gc.HasLen, 3)
-	c.Assert(results.Results[0].Error.Error(), gc.Matches, ".*: machine is locked for series upgrade")
-	c.Assert(results.Results[1].Error.Error(), gc.Matches, ".*: machine is locked for series upgrade")
-	c.Assert(results.Results[2].Error.Error(), gc.Matches, ".*: parent machine is locked for series upgrade")
 }
 
 func (s *ApplicationSuite) TestApplicationDeployFailCharmOrigin(c *gc.C) {
@@ -1716,7 +1670,7 @@ func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 2)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, "boom")
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, ".*boom")
 	c.Assert(results.Results[1].Error, gc.IsNil)
 
 	c.Assert(s.deployParams["regular"].EndpointBindings, gc.DeepEquals, map[string]string{
@@ -1779,8 +1733,8 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 3)
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[1].Error, gc.ErrorMatches, "AttachStorage may not be specified for container models")
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, "only 1 placement directive is supported for container models, got 2")
+	c.Assert(results.Results[1].Error, gc.ErrorMatches, ".*AttachStorage may not be specified for container models")
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, ".*only 1 placement directive is supported for container models, got 2")
 }
 
 func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
@@ -1811,7 +1765,7 @@ func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
 	result, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
-	c.Assert(result.OneError(), gc.ErrorMatches, `block storage "block" is not supported for container charms`)
+	c.Assert(result.OneError(), gc.ErrorMatches, `.*block storage "block" is not supported for container charms`)
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
@@ -1848,7 +1802,7 @@ func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	msg := result.OneError().Error()
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `deploying this Kubernetes application requires a suitable storage class.*`)
+	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `.*deploying this Kubernetes application requires a suitable storage class.*`)
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.C) {
@@ -1966,7 +1920,7 @@ func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, 1)
 	msg := result.OneError().Error()
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `the "k8s-operator-storage" storage pool requires a provider type of "kubernetes", not "rootfs"`)
+	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `.*the "k8s-operator-storage" storage pool requires a provider type of "kubernetes", not "rootfs"`)
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
@@ -1999,7 +1953,7 @@ func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
 	result, err := s.api.Deploy(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	msg := result.OneError().Error()
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `storage class not found`)
+	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `.*storage class not found`)
 }
 
 func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
@@ -2552,37 +2506,6 @@ func (s *ApplicationSuite) TestConsumeRemoteAppTerminated(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.OneError(), gc.IsNil)
-}
-
-func (s *ApplicationSuite) TestApplicationUpdateBaseNoParams(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	results, err := s.api.UpdateApplicationBase(
-		context.Background(),
-		params.UpdateChannelArgs{
-			Args: []params.UpdateChannelArg{},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult{}})
-}
-
-func (s *ApplicationSuite) TestApplicationUpdateBasePermissionDenied(c *gc.C) {
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("fred"),
-	}
-	defer s.setup(c).Finish()
-
-	_, err := s.api.UpdateApplicationBase(
-		context.Background(),
-		params.UpdateChannelArgs{
-			Args: []params.UpdateChannelArg{{
-				Entity:  params.Entity{Tag: names.NewApplicationTag("postgresql").String()},
-				Channel: "22.04",
-			}},
-		},
-	)
-	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *ApplicationSuite) TestRemoteRelationBadCIDR(c *gc.C) {

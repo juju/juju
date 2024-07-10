@@ -101,7 +101,6 @@ type APIBase struct {
 	ecService  ExternalControllerService
 	authorizer facade.Authorizer
 	check      BlockChecker
-	updateBase UpdateBase
 	repoDeploy DeployFromRepository
 
 	model              Model
@@ -179,24 +178,8 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 
 	state := &stateShim{State: ctx.State(), prechecker: prechecker}
 
-	modelCfg, err := model.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	charmhubHTTPClient := ctx.HTTPClient(facade.CharmhubHTTPClient)
-	chURL, _ := modelCfg.CharmHubURL()
-	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:        chURL,
-		HTTPClient: charmhubHTTPClient,
-		Logger:     ctx.Logger(),
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	repoLogger := ctx.Logger().Child("deployfromrepo")
-	updateBase := NewUpdateBaseAPI(state, makeUpdateSeriesValidator(chClient))
 	validatorCfg := validatorConfig{
 		charmhubHTTPClient: charmhubHTTPClient,
 		caasBroker:         caasBroker,
@@ -223,7 +206,6 @@ func newFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*APIBase, e
 		serviceFactory.Network(),
 		storageAccess,
 		ctx.Auth(),
-		updateBase,
 		repoDeploy,
 		blockChecker,
 		model,
@@ -263,7 +245,6 @@ func NewAPIBase(
 	networkService NetworkService,
 	storageAccess StorageInterface,
 	authorizer facade.Authorizer,
-	updateBase UpdateBase,
 	repoDeploy DeployFromRepository,
 	blockChecker BlockChecker,
 	model Model,
@@ -291,7 +272,6 @@ func NewAPIBase(
 		networkService:        networkService,
 		storageAccess:         storageAccess,
 		authorizer:            authorizer,
-		updateBase:            updateBase,
 		repoDeploy:            repoDeploy,
 		check:                 blockChecker,
 		model:                 model,
@@ -348,7 +328,7 @@ func (api *APIBase) Deploy(ctx context.Context, args params.ApplicationsDeploy) 
 			arg.CharmOrigin.Revision = &rev
 		}
 		err := api.deployApplication(ctx, arg)
-		result.Results[i].Error = apiservererrors.ServerError(err)
+		result.Results[i].Error = apiservererrors.ServerError(errors.Annotatef(err, "cannot deploy %q", arg.ApplicationName))
 
 		if err != nil && len(arg.Resources) != 0 {
 			// Remove any pending resources - these would have been
@@ -792,12 +772,8 @@ type MachinePlacementBackend interface {
 // checkMachinePlacement does a non-exhaustive validation of any supplied
 // placement directives.
 // If the placement scope is for a machine, ensure that the machine exists.
-// If the placement is for a machine or a container on an existing machine,
-// check that the machine is not locked for series upgrade.
 // If the placement scope is model-uuid, replace it with the actual model uuid.
 func checkMachinePlacement(backend MachinePlacementBackend, modelUUID string, app string, placement []*instance.Placement) error {
-	errTemplate := "cannot deploy %q to machine %s"
-
 	for _, p := range placement {
 		if p == nil {
 			continue
@@ -813,30 +789,6 @@ func checkMachinePlacement(backend MachinePlacementBackend, modelUUID string, ap
 		toProvisionedMachine := p.Scope == instance.MachineScope
 		if !toProvisionedMachine && dir == "" {
 			continue
-		}
-
-		m, err := backend.Machine(dir)
-		if err != nil {
-			if errors.Is(err, errors.NotFound) && !toProvisionedMachine {
-				continue
-			}
-			return errors.Annotatef(err, errTemplate, app, dir)
-		}
-
-		locked, err := m.IsLockedForSeriesUpgrade()
-		if locked {
-			err = errors.New("machine is locked for series upgrade")
-		}
-		if err != nil {
-			return errors.Annotatef(err, errTemplate, app, dir)
-		}
-
-		locked, err = m.IsParentLockedForSeriesUpgrade()
-		if locked {
-			err = errors.New("parent machine is locked for series upgrade")
-		}
-		if err != nil {
-			return errors.Annotatef(err, errTemplate, app, dir)
 		}
 	}
 
@@ -936,45 +888,6 @@ func (api *APIBase) setConfig(app Application, generation, settingsYAML string, 
 	}
 
 	return nil
-}
-
-// UpdateApplicationBase updates the application base.
-// Base for subordinates is updated too.
-func (api *APIBase) UpdateApplicationBase(ctx context.Context, args params.UpdateChannelArgs) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(); err != nil {
-		return params.ErrorResults{}, err
-	}
-	if err := api.check.ChangeAllowed(ctx); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
-	}
-	for i, arg := range args.Args {
-		err := api.updateOneApplicationBase(ctx, arg)
-		results.Results[i].Error = apiservererrors.ServerError(err)
-	}
-	return results, nil
-}
-
-func (api *APIBase) updateOneApplicationBase(ctx context.Context, arg params.UpdateChannelArg) error {
-	var argBase corebase.Base
-	if arg.Channel != "" {
-		appTag, err := names.ParseTag(arg.Entity.Tag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		app, err := api.backend.Application(appTag.Id())
-		if err != nil {
-			return errors.Trace(err)
-		}
-		origin := app.CharmOrigin()
-		argBase, err = corebase.ParseBase(origin.Platform.OS, arg.Channel)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return api.updateBase.UpdateBase(ctx, arg.Entity.Tag, argBase, arg.Force)
 }
 
 // SetCharm sets the charm for a given for the application.

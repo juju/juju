@@ -273,18 +273,6 @@ type AddMachinesResult struct {
 	Error   *Error `json:"error,omitempty"`
 }
 
-// DestroyMachinesParamsV9 holds parameters for the v9 DestroyMachinesWithParams call.
-type DestroyMachinesParamsV9 struct {
-	MachineTags []string `json:"machine-tags"`
-	Force       bool     `json:"force,omitempty"`
-	Keep        bool     `json:"keep,omitempty"`
-
-	// MaxWait specifies the amount of time that each step in machine destroy process
-	// will wait before forcing the next step to kick-off. This parameter
-	// only makes sense in combination with 'force' set to 'true'.
-	MaxWait *time.Duration `json:"max-wait,omitempty"`
-}
-
 // DestroyMachinesParams holds parameters for the latest DestroyMachinesWithParams call.
 type DestroyMachinesParams struct {
 	MachineTags []string `json:"machine-tags"`
@@ -1243,72 +1231,6 @@ type DestroyUnitInfo struct {
 type DumpModelRequest struct {
 	Entities   []Entity `json:"entities"`
 	Simplified bool     `json:"simplified"`
-}
-
-// UpgradeSeriesStatusResult contains the upgrade series status result for an upgrading
-// machine or unit
-type UpgradeSeriesStatusResult struct {
-	Error  *Error                    `json:"error,omitempty"`
-	Status model.UpgradeSeriesStatus `json:"status,omitempty"`
-	Target string                    `json:"target,omitempty"`
-}
-
-// UpgradeSeriesStatusResults contains the upgrade series status results for
-// upgrading machines or units.
-type UpgradeSeriesStatusResults struct {
-	Results []UpgradeSeriesStatusResult `json:"results,omitempty"`
-}
-
-// UpgradeSeriesStatusParams contains the entities and desired statuses for
-// those entities.
-type UpgradeSeriesStatusParams struct {
-	Params []UpgradeSeriesStatusParam `json:"params"`
-}
-
-// UpgradeSeriesStatusParam contains the entity and desired status for that
-// entity along with a context message describing why the change to the status
-// is being requested.
-type UpgradeSeriesStatusParam struct {
-	Entity  Entity                    `json:"entity"`
-	Status  model.UpgradeSeriesStatus `json:"status"`
-	Message string                    `json:"message"`
-}
-
-// UpgradeSeriesStartUnitCompletionParam contains entities and a context message.
-type UpgradeSeriesStartUnitCompletionParam struct {
-	Entities []Entity `json:"entities"`
-	Message  string   `json:"message"`
-}
-
-type UpgradeSeriesNotificationParams struct {
-	Params []UpgradeSeriesNotificationParam `json:"params"`
-}
-
-type UpgradeSeriesNotificationParam struct {
-	Entity    Entity `json:"entity"`
-	WatcherId string `json:"watcher-id"`
-}
-
-// UpgradeSeriesUnitsResults contains the units affected by a series per
-// machine entity.
-type UpgradeSeriesUnitsResults struct {
-	Results []UpgradeSeriesUnitsResult
-}
-
-// UpgradeSeriesUnitsResult contains the units affected by a series for
-// a given machine.
-type UpgradeSeriesUnitsResult struct {
-	Error     *Error   `json:"error,omitempty"`
-	UnitNames []string `json:"unit-names"`
-}
-
-type UpgradeSeriesValidationErrorInfo struct {
-	Status string
-}
-
-// AsMap encodes the error info as a map that can be attached to an Error.
-func (e UpgradeSeriesValidationErrorInfo) AsMap() map[string]interface{} {
-	return serializeToMap(e)
 }
 
 type ProfileArg struct {

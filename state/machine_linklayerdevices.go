@@ -330,15 +330,6 @@ func (m *Machine) newLinkLayerDeviceDocFromArgs(args *LinkLayerDeviceArgs) *link
 	}
 }
 
-func (m *Machine) isStillAlive() error {
-	if machineAlive, err := isAlive(m.st, machinesC, m.doc.Id); err != nil {
-		return errors.Trace(err)
-	} else if !machineAlive {
-		return errors.Errorf("machine not found or not alive")
-	}
-	return nil
-}
-
 func (m *Machine) assertAliveOp() txn.Op {
 	return txn.Op{
 		C:      machinesC,

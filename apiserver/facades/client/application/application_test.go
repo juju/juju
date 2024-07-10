@@ -109,7 +109,6 @@ func (s *applicationSuite) makeAPI(c *gc.C) *application.APIBase {
 		storageAccess,
 		s.authorizer,
 		nil,
-		nil,
 		blockChecker,
 		application.GetModel(m),
 		serviceFactory.Cloud(),
@@ -252,7 +251,7 @@ func (s *applicationSuite) TestApplicationDeployConfigError(c *gc.C) {
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, `option "skill-level" expected int, got "fred"`)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `.*option "skill-level" expected int, got "fred"`)
 	_, err = s.ControllerModel(c).State().Application("application-name")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -419,7 +418,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineWithInvalidLXDProfileAn
 	c.Assert(mid, gc.Equals, machine.Id())
 }
 
-func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
+func (s *applicationSuite) TestApplicationDeployToCharmNotFound(c *gc.C) {
 	results, err := s.applicationAPI.Deploy(context.Background(), params.ApplicationsDeploy{
 		Applications: []params.ApplicationDeploy{{
 			CharmURL:        "ch:jammy/application-name-1",
@@ -430,7 +429,7 @@ func (s *applicationSuite) TestApplicationDeployToMachineNotFound(c *gc.C) {
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.ErrorMatches, `cannot deploy "application-name" to machine 42: machine 42 not found`)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches, `cannot deploy "application-name": charm "ch:jammy/application-name-1" not found`)
 
 	_, err = s.ControllerModel(c).State().Application("application-name")
 	c.Assert(err, gc.ErrorMatches, `application "application-name" not found`)

@@ -6,7 +6,6 @@ package machinemanager
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/juju/collections/set"
@@ -101,7 +100,6 @@ type MachineManagerAPI struct {
 	check                   *common.BlockChecker
 	resources               facade.Resources
 	leadership              Leadership
-	upgradeSeriesAPI        UpgradeSeries
 	store                   objectstore.ObjectStore
 	controllerStore         objectstore.ObjectStore
 
@@ -112,25 +110,9 @@ type MachineManagerAPI struct {
 	logger                      corelogger.Logger
 }
 
-type MachineManagerV9 struct {
-	*MachineManagerAPI
-}
-
-// NewFacadeV9 create a new server-side MachineManager API facade. This
+// NewFacadeV11 create a new server-side MachineManager API facade. This
 // is used for facade registration.
-func NewFacadeV9(ctx facade.ModelContext) (*MachineManagerV9, error) {
-	api, err := NewFacadeV10(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &MachineManagerV9{
-		MachineManagerAPI: api,
-	}, nil
-}
-
-// NewFacadeV10 create a new server-side MachineManager API facade. This
-// is used for facade registration.
-func NewFacadeV10(ctx facade.ModelContext) (*MachineManagerAPI, error) {
+func NewFacadeV11(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 	st := ctx.State()
 	model, err := st.Model()
 	if err != nil {
@@ -159,21 +141,7 @@ func NewFacadeV10(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	modelCfg, err := model.Config()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	logger := ctx.Logger().Child("machinemanager")
-	chURL, _ := modelCfg.CharmHubURL()
-	chClient, err := charmhub.NewClient(charmhub.Config{
-		URL:        chURL,
-		HTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
-		Logger:     logger,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	controllerConfigService := serviceFactory.ControllerConfig()
 
@@ -194,7 +162,6 @@ func NewFacadeV10(ctx facade.ModelContext) (*MachineManagerAPI, error) {
 		credentialcommon.CredentialInvalidatorGetter(ctx),
 		ctx.Resources(),
 		leadership,
-		chClient,
 		logger,
 		ctx.ServiceFactory().Network(),
 	)
@@ -214,7 +181,6 @@ func NewMachineManagerAPI(
 	credentialInvalidatorGetter environscontext.ModelCredentialInvalidatorGetter,
 	resources facade.Resources,
 	leadership Leadership,
-	charmhubClient CharmhubClient,
 	logger corelogger.Logger,
 	networkService NetworkService,
 ) (*MachineManagerAPI, error) {
@@ -237,13 +203,8 @@ func NewMachineManagerAPI(
 		resources:                   resources,
 		leadership:                  leadership,
 		storageAccess:               storageAccess,
-		upgradeSeriesAPI: NewUpgradeSeriesAPI(
-			upgradeSeriesState{state: backend},
-			makeUpgradeSeriesValidator(charmhubClient),
-			auth,
-		),
-		logger:         logger,
-		networkService: networkService,
+		logger:                      logger,
+		networkService:              networkService,
 	}
 	return api, nil
 }
@@ -552,15 +513,6 @@ func (mm *MachineManagerAPI) DestroyMachineWithParams(ctx context.Context, args 
 	return mm.destroyMachine(ctx, entities, args.Force, args.Keep, args.DryRun, common.MaxWait(args.MaxWait))
 }
 
-// DestroyMachineWithParams removes a set of machines from the model.
-func (mm *MachineManagerV9) DestroyMachineWithParams(ctx context.Context, args params.DestroyMachinesParamsV9) (params.DestroyMachineResults, error) {
-	entities := params.Entities{Entities: make([]params.Entity, len(args.MachineTags))}
-	for i, tag := range args.MachineTags {
-		entities.Entities[i].Tag = tag
-	}
-	return mm.destroyMachine(ctx, entities, args.Force, args.Keep, false, common.MaxWait(args.MaxWait))
-}
-
 func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Entities, force, keep, dryRun bool, maxWait time.Duration) (params.DestroyMachineResults, error) {
 	if err := mm.authorizer.CanWrite(); err != nil {
 		return params.DestroyMachineResults{}, err
@@ -606,7 +558,7 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 			continue
 		}
 		if force || dryRun {
-			info.DestroyedContainers, err = mm.destoryContainer(ctx, containers, force, keep, dryRun, maxWait)
+			info.DestroyedContainers, err = mm.destroyContainer(ctx, containers, force, keep, dryRun, maxWait)
 			if err != nil {
 				fail(err)
 				continue
@@ -683,7 +635,7 @@ func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Ent
 	return params.DestroyMachineResults{Results: results}, nil
 }
 
-func (mm *MachineManagerAPI) destoryContainer(ctx context.Context, containers []string, force, keep, dryRun bool, maxWait time.Duration) ([]params.DestroyMachineResult, error) {
+func (mm *MachineManagerAPI) destroyContainer(ctx context.Context, containers []string, force, keep, dryRun bool, maxWait time.Duration) ([]params.DestroyMachineResult, error) {
 	if containers == nil || len(containers) == 0 {
 		return nil, nil
 	}
@@ -734,168 +686,6 @@ func (mm *MachineManagerAPI) classifyDetachedStorage(units []Unit) (destroyed, d
 	}
 	err := params.ErrorResults{Results: storageErrors}.Combine()
 	return destroyed, detached, err
-}
-
-// UpgradeSeriesValidate validates that the incoming arguments correspond to a
-// valid series upgrade for the target machine.
-// If they do, a list of the machine's current units is returned for use in
-// soliciting user confirmation of the command.
-func (mm *MachineManagerAPI) UpgradeSeriesValidate(
-	ctx context.Context,
-	args params.UpdateChannelArgs,
-) (params.UpgradeSeriesUnitsResults, error) {
-	entities := make([]ValidationEntity, len(args.Args))
-	for i, arg := range args.Args {
-		entities[i] = ValidationEntity{
-			Tag:     arg.Entity.Tag,
-			Channel: arg.Channel,
-			Force:   arg.Force,
-		}
-	}
-
-	validations, err := mm.upgradeSeriesAPI.Validate(ctx, entities)
-	if err != nil {
-		return params.UpgradeSeriesUnitsResults{}, apiservererrors.ServerError(err)
-	}
-
-	results := params.UpgradeSeriesUnitsResults{
-		Results: make([]params.UpgradeSeriesUnitsResult, len(validations)),
-	}
-	for i, v := range validations {
-		if v.Error != nil {
-			results.Results[i].Error = apiservererrors.ServerError(v.Error)
-			continue
-		}
-		results.Results[i].UnitNames = v.UnitNames
-	}
-	return results, nil
-}
-
-// UpgradeSeriesPrepare prepares a machine for a OS series upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesPrepare(ctx context.Context, arg params.UpdateChannelArg) (params.ErrorResult, error) {
-	if err := mm.authorizer.CanWrite(); err != nil {
-		return params.ErrorResult{}, err
-	}
-	if err := mm.check.ChangeAllowed(ctx); err != nil {
-		return params.ErrorResult{}, err
-	}
-	if err := mm.upgradeSeriesAPI.Prepare(ctx, arg.Entity.Tag, arg.Channel, arg.Force); err != nil {
-		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
-	}
-	return params.ErrorResult{}, nil
-}
-
-// UpgradeSeriesComplete marks a machine as having completed a managed series
-// upgrade.
-func (mm *MachineManagerAPI) UpgradeSeriesComplete(ctx context.Context, arg params.UpdateChannelArg) (params.ErrorResult, error) {
-	if err := mm.authorizer.CanWrite(); err != nil {
-		return params.ErrorResult{}, err
-	}
-	if err := mm.check.ChangeAllowed(ctx); err != nil {
-		return params.ErrorResult{}, err
-	}
-	err := mm.upgradeSeriesAPI.Complete(arg.Entity.Tag)
-	if err != nil {
-		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
-	}
-
-	return params.ErrorResult{}, nil
-}
-
-// WatchUpgradeSeriesNotifications returns a watcher that fires on upgrade
-// series events.
-func (mm *MachineManagerAPI) WatchUpgradeSeriesNotifications(ctx context.Context, args params.Entities) (params.NotifyWatchResults, error) {
-	err := mm.authorizer.CanRead()
-	if err != nil {
-		return params.NotifyWatchResults{}, err
-	}
-	result := params.NotifyWatchResults{
-		Results: make([]params.NotifyWatchResult, len(args.Entities)),
-	}
-	for i, entity := range args.Entities {
-		tag, err := names.ParseTag(entity.Tag)
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
-			continue
-		}
-		var watcherID string
-		machine, err := mm.st.Machine(tag.Id())
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		w, err := machine.WatchUpgradeSeriesNotifications()
-		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		watcherID = mm.resources.Register(w)
-		result.Results[i].NotifyWatcherId = watcherID
-	}
-	return result, nil
-}
-
-// GetUpgradeSeriesMessages returns all new messages associated with upgrade
-// series events. Messages that have already been retrieved once are not
-// returned by this method.
-func (mm *MachineManagerAPI) GetUpgradeSeriesMessages(ctx context.Context, args params.UpgradeSeriesNotificationParams) (params.StringsResults, error) {
-	if err := mm.authorizer.CanRead(); err != nil {
-		return params.StringsResults{}, err
-	}
-	results := params.StringsResults{
-		Results: make([]params.StringsResult, len(args.Params)),
-	}
-	for i, param := range args.Params {
-		machine, err := mm.machineFromTag(param.Entity.Tag)
-		if err != nil {
-			err = errors.Trace(err)
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		messages, finished, err := machine.GetUpgradeSeriesMessages()
-		if err != nil {
-			results.Results[i].Error = apiservererrors.ServerError(err)
-			continue
-		}
-		if finished {
-			// If there are no more messages we stop the watcher resource.
-			err = mm.resources.Stop(param.WatcherId)
-			if err != nil {
-				results.Results[i].Error = apiservererrors.ServerError(err)
-				continue
-			}
-		}
-		results.Results[i].Result = messages
-	}
-	return results, nil
-}
-
-// TODO (stickupkid): This will eventually be removed once we extract all the
-// other methods to commands.
-func (mm *MachineManagerAPI) machineFromTag(tag string) (Machine, error) {
-	machineTag, err := names.ParseMachineTag(tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	machine, err := mm.st.Machine(machineTag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return machine, nil
-}
-
-// isBaseLessThan returns a bool indicating whether the first argument's
-// version is lexicographically less than the second argument's, thus indicating
-// that the series represents an older version of the operating system. The
-// output is only valid for Ubuntu series.
-func isBaseLessThan(base1, base2 corebase.Base) (bool, error) {
-	// Versions may be numeric.
-	vers1Int, err1 := strconv.Atoi(base1.Channel.Track)
-	vers2Int, err2 := strconv.Atoi(base2.Channel.Track)
-	if err1 == nil && err2 == nil {
-		return vers2Int > vers1Int, nil
-	}
-	return base2.Channel.Track > base1.Channel.Track, nil
 }
 
 // ModelAuthorizer defines if a given operation can be performed based on a

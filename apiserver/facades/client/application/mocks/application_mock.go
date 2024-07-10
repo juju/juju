@@ -3309,44 +3309,6 @@ func (c *MockApplicationUnsetExposeSettingsCall) DoAndReturn(f func([]string) er
 	return c
 }
 
-// UpdateApplicationBase mocks base method.
-func (m *MockApplication) UpdateApplicationBase(arg0 state.Base, arg1 bool) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateApplicationBase", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// UpdateApplicationBase indicates an expected call of UpdateApplicationBase.
-func (mr *MockApplicationMockRecorder) UpdateApplicationBase(arg0, arg1 any) *MockApplicationUpdateApplicationBaseCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationBase", reflect.TypeOf((*MockApplication)(nil).UpdateApplicationBase), arg0, arg1)
-	return &MockApplicationUpdateApplicationBaseCall{Call: call}
-}
-
-// MockApplicationUpdateApplicationBaseCall wrap *gomock.Call
-type MockApplicationUpdateApplicationBaseCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockApplicationUpdateApplicationBaseCall) Return(arg0 error) *MockApplicationUpdateApplicationBaseCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockApplicationUpdateApplicationBaseCall) Do(f func(state.Base, bool) error) *MockApplicationUpdateApplicationBaseCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationUpdateApplicationBaseCall) DoAndReturn(f func(state.Base, bool) error) *MockApplicationUpdateApplicationBaseCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // UpdateApplicationConfig mocks base method.
 func (m *MockApplication) UpdateApplicationConfig(arg0 config.ConfigAttributes, arg1 []string, arg2 environschema.Fields, arg3 schema.Defaults) error {
 	m.ctrl.T.Helper()
@@ -5434,84 +5396,6 @@ func (c *MockMachineIdCall) Do(f func() string) *MockMachineIdCall {
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMachineIdCall) DoAndReturn(f func() string) *MockMachineIdCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsLockedForSeriesUpgrade mocks base method.
-func (m *MockMachine) IsLockedForSeriesUpgrade() (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsLockedForSeriesUpgrade")
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsLockedForSeriesUpgrade indicates an expected call of IsLockedForSeriesUpgrade.
-func (mr *MockMachineMockRecorder) IsLockedForSeriesUpgrade() *MockMachineIsLockedForSeriesUpgradeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsLockedForSeriesUpgrade", reflect.TypeOf((*MockMachine)(nil).IsLockedForSeriesUpgrade))
-	return &MockMachineIsLockedForSeriesUpgradeCall{Call: call}
-}
-
-// MockMachineIsLockedForSeriesUpgradeCall wrap *gomock.Call
-type MockMachineIsLockedForSeriesUpgradeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineIsLockedForSeriesUpgradeCall) Return(arg0 bool, arg1 error) *MockMachineIsLockedForSeriesUpgradeCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineIsLockedForSeriesUpgradeCall) Do(f func() (bool, error)) *MockMachineIsLockedForSeriesUpgradeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineIsLockedForSeriesUpgradeCall) DoAndReturn(f func() (bool, error)) *MockMachineIsLockedForSeriesUpgradeCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// IsParentLockedForSeriesUpgrade mocks base method.
-func (m *MockMachine) IsParentLockedForSeriesUpgrade() (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsParentLockedForSeriesUpgrade")
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// IsParentLockedForSeriesUpgrade indicates an expected call of IsParentLockedForSeriesUpgrade.
-func (mr *MockMachineMockRecorder) IsParentLockedForSeriesUpgrade() *MockMachineIsParentLockedForSeriesUpgradeCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsParentLockedForSeriesUpgrade", reflect.TypeOf((*MockMachine)(nil).IsParentLockedForSeriesUpgrade))
-	return &MockMachineIsParentLockedForSeriesUpgradeCall{Call: call}
-}
-
-// MockMachineIsParentLockedForSeriesUpgradeCall wrap *gomock.Call
-type MockMachineIsParentLockedForSeriesUpgradeCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockMachineIsParentLockedForSeriesUpgradeCall) Return(arg0 bool, arg1 error) *MockMachineIsParentLockedForSeriesUpgradeCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockMachineIsParentLockedForSeriesUpgradeCall) Do(f func() (bool, error)) *MockMachineIsParentLockedForSeriesUpgradeCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineIsParentLockedForSeriesUpgradeCall) DoAndReturn(f func() (bool, error)) *MockMachineIsParentLockedForSeriesUpgradeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

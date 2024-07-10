@@ -14,7 +14,6 @@ import (
 	"github.com/juju/loggo/v2"
 	"github.com/juju/mgo/v3"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/mgo/v3/txn"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
@@ -403,18 +402,6 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, stateerrors.HasContainersError)
 	c.Assert(err, gc.ErrorMatches, `machine 1 is hosting containers "1/lxd/0"`)
 
-	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
-}
-
-func (s *MachineSuite) TestLifeMachineLockedForSeriesUpgrade(c *gc.C) {
-	err := s.machine.CreateUpgradeSeriesLock(nil, state.UbuntuBase("16.04"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.machine.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, gc.ErrorMatches, `machine 1 is locked for series upgrade`)
-
-	err = s.machine.EnsureDead()
-	c.Assert(err, gc.ErrorMatches, `machine 1 is locked for series upgrade`)
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
 }
 
@@ -2618,140 +2605,6 @@ func (s *MachineSuite) TestAddActionWithError(c *gc.C) {
 	op, err := s.Model.Operation(operationID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.Status(), gc.Equals, state.ActionError)
-}
-
-func (s *MachineSuite) setupTestUpdateMachineSeries(c *gc.C) *state.Machine {
-	mach, err := s.State.AddMachine(defaultInstancePrechecker, state.UbuntuBase("12.04"), state.JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-	app := state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "multi-series", ch)
-	subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
-	_ = state.AddTestingApplicationForBase(c, s.State, s.objectStore, state.UbuntuBase("12.04"), "multi-series-subordinate", subCh)
-
-	eps, err := s.State.InferEndpoints("multi-series", "multi-series-subordinate")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, jc.ErrorIsNil)
-
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(mach)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ru, err := rel.Unit(unit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = ru.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	return mach
-}
-
-func (s *MachineSuite) assertMachineAndUnitSeriesChanged(c *gc.C, mach *state.Machine, base state.Base) {
-	err := mach.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mach.Base().String(), gc.Equals, base.String())
-	principals := mach.Principals()
-	for _, p := range principals {
-		u, err := s.State.Unit(p)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(u.Base().String(), jc.DeepEquals, base.String())
-		subs := u.SubordinateNames()
-		for _, sn := range subs {
-			u, err := s.State.Unit(sn)
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(u.Base().String(), jc.DeepEquals, base.String())
-		}
-	}
-}
-
-func (s *MachineSuite) TestUpdateMachineSeries(c *gc.C) {
-	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.UpdateMachineSeries(state.UbuntuBase("22.04"))
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertMachineAndUnitSeriesChanged(c, mach, state.UbuntuBase("22.04"))
-}
-
-func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesToStart(c *gc.C) {
-	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.UpdateMachineSeries(state.UbuntuBase("22.04"))
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertMachineAndUnitSeriesChanged(c, mach, state.UbuntuBase("22.04"))
-}
-
-func (s *MachineSuite) TestUpdateMachineSeriesSameSeriesAfterStart(c *gc.C) {
-	mach := s.setupTestUpdateMachineSeries(c)
-
-	defer state.SetTestHooks(c, s.State,
-		jujutxn.TestHook{
-			Before: func() {
-				ops := []txn.Op{{
-					C:      state.MachinesC,
-					Id:     state.DocID(s.State, mach.Id()),
-					Update: bson.D{{"$set", bson.D{{"series", state.UbuntuBase("22.04")}}}},
-				}}
-				state.RunTransaction(c, s.State, ops)
-			},
-			After: func() {
-				err := mach.Refresh()
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(mach.Base().String(), gc.Equals, "ubuntu@22.04/stable")
-			},
-		},
-	).Check()
-
-	err := mach.UpdateMachineSeries(state.UbuntuBase("22.04"))
-	c.Assert(err, jc.ErrorIsNil)
-	err = mach.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mach.Base().DisplayString(), gc.Equals, "ubuntu@22.04")
-}
-
-func (s *MachineSuite) TestUpdateMachineSeriesPrincipalsListChange(c *gc.C) {
-	mach := s.setupTestUpdateMachineSeries(c)
-	err := mach.Refresh()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(mach.Principals()), gc.Equals, 1)
-
-	defer state.SetTestHooks(c, s.State,
-		jujutxn.TestHook{
-			Before: func() {
-				app, err := s.State.Application("multi-series")
-				c.Assert(err, jc.ErrorIsNil)
-				unit, err := app.AddUnit(state.AddUnitParams{})
-				c.Assert(err, jc.ErrorIsNil)
-				err = unit.AssignToMachine(mach)
-				c.Assert(err, jc.ErrorIsNil)
-			},
-		},
-	).Check()
-
-	err = mach.UpdateMachineSeries(state.UbuntuBase("22.04"))
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertMachineAndUnitSeriesChanged(c, mach, state.UbuntuBase("22.04"))
-	c.Assert(len(mach.Principals()), gc.Equals, 2)
-}
-
-func (s *MachineSuite) addMachineUnit(c *gc.C, mach *state.Machine) *state.Unit {
-	units, err := mach.Units()
-	c.Assert(err, jc.ErrorIsNil)
-
-	var app *state.Application
-	if len(units) == 0 {
-		ch := state.AddTestingCharmMultiSeries(c, s.State, "multi-series")
-		app = state.AddTestingApplicationForBase(c, s.State, s.objectStore, mach.Base(), "multi-series", ch)
-		subCh := state.AddTestingCharmMultiSeries(c, s.State, "multi-series-subordinate")
-		_ = state.AddTestingApplicationForBase(c, s.State, s.objectStore, mach.Base(), "multi-series-subordinate", subCh)
-	} else {
-		app, err = units[0].Application()
-		c.Assert(err, jc.ErrorIsNil)
-	}
-
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(mach)
-	c.Assert(err, jc.ErrorIsNil)
-	return unit
 }
 
 func (s *MachineSuite) TestWatchAddresses(c *gc.C) {

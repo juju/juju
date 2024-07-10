@@ -1852,24 +1852,6 @@ func (st *State) addMachineWithPlacement(prechecker environs.InstancePrechecker,
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-
-		// Check if an upgrade-series lock is present for the requested
-		// machine or its parent.
-		// If one exists, return an error to prevent deployment.
-		locked, err := machine.IsLockedForSeriesUpgrade()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if locked {
-			return nil, errors.Errorf("machine %q is locked for series upgrade", mId)
-		}
-		locked, err = machine.IsParentLockedForSeriesUpgrade()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if locked {
-			return nil, errors.Errorf("machine hosting %q is locked for series upgrade", mId)
-		}
 	}
 
 	switch data.placementType() {

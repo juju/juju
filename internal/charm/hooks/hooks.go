@@ -23,8 +23,6 @@ const (
 	LeaderDeposed         Kind = "leader-deposed"
 	LeaderSettingsChanged Kind = "leader-settings-changed"
 	UpdateStatus          Kind = "update-status"
-	PreSeriesUpgrade      Kind = "pre-series-upgrade"
-	PostSeriesUpgrade     Kind = "post-series-upgrade"
 	SecretChanged         Kind = "secret-changed"
 	SecretExpired         Kind = "secret-expired"
 	SecretRemove          Kind = "secret-remove"
@@ -74,8 +72,6 @@ var unitHooks = []Kind{
 	LeaderDeposed,
 	LeaderSettingsChanged,
 	UpdateStatus,
-	PreSeriesUpgrade,
-	PostSeriesUpgrade,
 }
 
 // UnitHooks returns all known unit hook kinds.

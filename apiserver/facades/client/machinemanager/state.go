@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
@@ -83,16 +82,8 @@ type Machine interface {
 	Containers() ([]string, error)
 	Units() ([]Unit, error)
 	SetKeepInstance(keepInstance bool) error
-	CreateUpgradeSeriesLock([]string, state.Base) error
-	RemoveUpgradeSeriesLock() error
-	CompleteUpgradeSeries() error
 	Principals() []string
-	WatchUpgradeSeriesNotifications() (state.NotifyWatcher, error)
-	GetUpgradeSeriesMessages() ([]string, bool, error)
 	IsManager() bool
-	IsLockedForSeriesUpgrade() (bool, error)
-	UpgradeSeriesStatus() (model.UpgradeSeriesStatus, error)
-	SetUpgradeSeriesStatus(model.UpgradeSeriesStatus, string) error
 	ApplicationNames() ([]string, error)
 	InstanceStatus() (status.StatusInfo, error)
 	SetInstanceStatus(sInfo status.StatusInfo) error

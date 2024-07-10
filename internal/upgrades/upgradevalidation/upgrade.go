@@ -41,7 +41,6 @@ func ValidatorsForModelUpgrade(
 	force bool, targetVersion version.Number, cloudspec environscloudspec.CloudSpec,
 ) []Validator {
 	validators := []Validator{
-		getCheckUpgradeSeriesLockForModel(force),
 		checkForDeprecatedUbuntuSeriesForModel,
 		getCheckForLXDVersion(cloudspec),
 	}

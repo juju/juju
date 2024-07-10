@@ -90,8 +90,6 @@ func (s *migrateSuite) setupMocks(c *gc.C) (*gomock.Controller, environscloudspe
 		return transform.Slice([]string{"ubuntu@24.04", "ubuntu@22.04", "ubuntu@20.04"}, base.MustParseBaseFromString)
 	})
 
-	// - check no upgrade series in process.
-	s.st.EXPECT().HasUpgradeSeriesLocks().Return(false, nil)
 	// - check if the model has win machines;
 	s.st.EXPECT().MachineCountForBase(makeBases("ubuntu", []string{"24.04/stable", "22.04/stable", "20.04/stable"})).Return(nil, nil)
 	s.st.EXPECT().AllMachinesCount().Return(0, nil)

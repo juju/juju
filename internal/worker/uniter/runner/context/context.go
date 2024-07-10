@@ -302,10 +302,6 @@ type HookContext struct {
 	// noticeKey is the Pebble notice key associated with the hook.
 	noticeKey string
 
-	// baseUpgradeTarget is the base that the unit's machine is to be
-	// updated to when Juju is issued the `upgrade-machine` command.
-	baseUpgradeTarget string
-
 	// secretURI is the reference to the secret relevant to the hook.
 	secretURI string
 
@@ -1346,12 +1342,6 @@ func (c *HookContext) HookVars(
 				"JUJU_NOTICE_KEY="+c.noticeKey,
 			)
 		}
-	}
-
-	if c.baseUpgradeTarget != "" {
-		vars = append(vars,
-			"JUJU_TARGET_BASE="+c.baseUpgradeTarget,
-		)
 	}
 
 	if c.secretURI != "" {

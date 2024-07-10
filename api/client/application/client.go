@@ -342,22 +342,6 @@ func (c *Client) SetCharm(branchName string, cfg SetCharmConfig) error {
 	return c.facade.FacadeCall(context.TODO(), "SetCharm", args, nil)
 }
 
-// UpdateApplicationBase updates the application base in the db.
-func (c *Client) UpdateApplicationBase(appName string, base corebase.Base, force bool) error {
-	args := params.UpdateChannelArgs{
-		Args: []params.UpdateChannelArg{{
-			Entity:  params.Entity{Tag: names.NewApplicationTag(appName).String()},
-			Force:   force,
-			Channel: base.Channel.Track,
-		}},
-	}
-	results := new(params.ErrorResults)
-	if err := c.facade.FacadeCall(context.TODO(), "UpdateApplicationBase", args, results); err != nil {
-		return errors.Trace(err)
-	}
-	return results.OneError()
-}
-
 // AddUnitsParams contains parameters for the AddUnits API method.
 type AddUnitsParams struct {
 	// ApplicationName is the name of the application to which units

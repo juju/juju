@@ -2710,42 +2710,6 @@ func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]stat
 	return statusHistory(args)
 }
 
-// UpgradeSeriesStatus returns the upgrade status of the unit's assigned machine.
-func (u *Unit) UpgradeSeriesStatus() (model.UpgradeSeriesStatus, string, error) {
-	mID, err := u.AssignedMachineId()
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-
-	coll, closer := u.st.db().GetCollection(machineUpgradeSeriesLocksC)
-	defer closer()
-
-	var lock upgradeSeriesLockDoc
-	err = coll.FindId(mID).One(&lock)
-	if err == mgo.ErrNotFound {
-		return "", "", errors.NotFoundf("upgrade series lock for machine %q", mID)
-	}
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-
-	sts, ok := lock.UnitStatuses[u.Name()]
-	if !ok {
-		return "", "", errors.NotFoundf("unit %q of machine %q", u.Name(), mID)
-	}
-
-	return sts.Status, lock.ToBase, nil
-}
-
-// SetUpgradeSeriesStatus sets the upgrade status of the units assigned machine.
-func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, message string) error {
-	machine, err := u.machine()
-	if err != nil {
-		return err
-	}
-	return machine.SetUpgradeSeriesUnitStatus(u.Name(), status, message)
-}
-
 // assertUnitNotDeadOp returns a txn.Op that asserts the given unit name is
 // not dead.
 func assertUnitNotDeadOp(st *State, unitName string) txn.Op {

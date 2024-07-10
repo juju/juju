@@ -289,9 +289,6 @@ func (f *contextFactory) HookContext(stdCtx context.Context, hookInfo hook.Info)
 			ctx.noticeKey = hookInfo.NoticeKey
 		}
 	}
-	if hookInfo.Kind == hooks.PreSeriesUpgrade {
-		ctx.baseUpgradeTarget = hookInfo.MachineUpgradeTarget
-	}
 	if hookInfo.Kind.IsSecret() {
 		ctx.secretURI = hookInfo.SecretURI
 		ctx.secretLabel = hookInfo.SecretLabel

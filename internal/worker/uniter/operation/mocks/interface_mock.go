@@ -13,7 +13,6 @@ import (
 	context "context"
 	reflect "reflect"
 
-	model "github.com/juju/juju/core/model"
 	charm "github.com/juju/juju/internal/worker/uniter/charm"
 	hook "github.com/juju/juju/internal/worker/uniter/hook"
 	operation "github.com/juju/juju/internal/worker/uniter/operation"
@@ -526,45 +525,6 @@ func (c *MockFactoryNewInstallCall) Do(f func(string) (operation.Operation, erro
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockFactoryNewInstallCall) DoAndReturn(f func(string) (operation.Operation, error)) *MockFactoryNewInstallCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// NewNoOpFinishUpgradeSeries mocks base method.
-func (m *MockFactory) NewNoOpFinishUpgradeSeries() (operation.Operation, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewNoOpFinishUpgradeSeries")
-	ret0, _ := ret[0].(operation.Operation)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// NewNoOpFinishUpgradeSeries indicates an expected call of NewNoOpFinishUpgradeSeries.
-func (mr *MockFactoryMockRecorder) NewNoOpFinishUpgradeSeries() *MockFactoryNewNoOpFinishUpgradeSeriesCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewNoOpFinishUpgradeSeries", reflect.TypeOf((*MockFactory)(nil).NewNoOpFinishUpgradeSeries))
-	return &MockFactoryNewNoOpFinishUpgradeSeriesCall{Call: call}
-}
-
-// MockFactoryNewNoOpFinishUpgradeSeriesCall wrap *gomock.Call
-type MockFactoryNewNoOpFinishUpgradeSeriesCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockFactoryNewNoOpFinishUpgradeSeriesCall) Return(arg0 operation.Operation, arg1 error) *MockFactoryNewNoOpFinishUpgradeSeriesCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockFactoryNewNoOpFinishUpgradeSeriesCall) Do(f func() (operation.Operation, error)) *MockFactoryNewNoOpFinishUpgradeSeriesCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFactoryNewNoOpFinishUpgradeSeriesCall) DoAndReturn(f func() (operation.Operation, error)) *MockFactoryNewNoOpFinishUpgradeSeriesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1394,44 +1354,6 @@ func (c *MockCallbacksSetSecretRotatedCall) Do(f func(string, int) error) *MockC
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockCallbacksSetSecretRotatedCall) DoAndReturn(f func(string, int) error) *MockCallbacksSetSecretRotatedCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// SetUpgradeSeriesStatus mocks base method.
-func (m *MockCallbacks) SetUpgradeSeriesStatus(arg0 context.Context, arg1 model.UpgradeSeriesStatus, arg2 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetUpgradeSeriesStatus", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// SetUpgradeSeriesStatus indicates an expected call of SetUpgradeSeriesStatus.
-func (mr *MockCallbacksMockRecorder) SetUpgradeSeriesStatus(arg0, arg1, arg2 any) *MockCallbacksSetUpgradeSeriesStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetUpgradeSeriesStatus", reflect.TypeOf((*MockCallbacks)(nil).SetUpgradeSeriesStatus), arg0, arg1, arg2)
-	return &MockCallbacksSetUpgradeSeriesStatusCall{Call: call}
-}
-
-// MockCallbacksSetUpgradeSeriesStatusCall wrap *gomock.Call
-type MockCallbacksSetUpgradeSeriesStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockCallbacksSetUpgradeSeriesStatusCall) Return(arg0 error) *MockCallbacksSetUpgradeSeriesStatusCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockCallbacksSetUpgradeSeriesStatusCall) Do(f func(context.Context, model.UpgradeSeriesStatus, string) error) *MockCallbacksSetUpgradeSeriesStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCallbacksSetUpgradeSeriesStatusCall) DoAndReturn(f func(context.Context, model.UpgradeSeriesStatus, string) error) *MockCallbacksSetUpgradeSeriesStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

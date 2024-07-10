@@ -1204,6 +1204,11 @@ func (*rpcSuite) TestRequestContext(c *gc.C) {
 		c.Assert(info.rcvr, gc.Equals, root.contextInst)
 		c.Assert(info.method, gc.Equals, method)
 		c.Assert(root.contextInst.callContext, gc.NotNil)
+		select {
+		case <-root.contextInst.callContext.Done():
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timeout waiting for context to be done")
+		}
 		// context is cancelled when the method returns
 		c.Assert(root.contextInst.callContext.Err(), gc.Equals, context.Canceled)
 		return info.arg

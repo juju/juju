@@ -51,7 +51,6 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/internal/worker/uniter/secrets"
 	"github.com/juju/juju/internal/worker/uniter/storage"
-	"github.com/juju/juju/internal/worker/uniter/upgradeseries"
 	"github.com/juju/juju/internal/worker/uniter/verifycharmprofile"
 	"github.com/juju/juju/rpc/params"
 )
@@ -481,9 +480,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				u.logger.Child("verifycharmprofile"),
 				u.modelType,
 			),
-			UpgradeSeries: upgradeseries.NewResolver(
-				u.logger.Child("upgradeseries"),
-			),
 			Reboot: rebootResolver,
 			Leadership: uniterleadership.NewResolver(
 				u.logger.Child("leadership"),
@@ -530,7 +526,6 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		localState := resolver.LocalState{
 			CharmURL:             charmURL,
 			CharmModifiedVersion: charmModifiedVersion,
-			UpgradeMachineStatus: model.UpgradeSeriesNotStarted,
 			// CAAS remote units should trigger remote update of the charm every start.
 			OutdatedRemoteCharm: u.isRemoteUnit,
 		}

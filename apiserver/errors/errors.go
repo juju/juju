@@ -157,11 +157,10 @@ func ServerError(err error) *params.Error {
 	)
 
 	var (
-		dischargeRequiredError       *DischargeRequiredError
-		notLeaderError               *NotLeaderError
-		redirectError                *RedirectError
-		upgradeSeriesValidationError *UpgradeSeriesValidationError
-		accessRequiredError          *AccessRequiredError
+		dischargeRequiredError *DischargeRequiredError
+		notLeaderError         *NotLeaderError
+		redirectError          *RedirectError
+		accessRequiredError    *AccessRequiredError
 	)
 	// Skip past annotations when looking for the code.
 	err = errors.Cause(err)
@@ -242,10 +241,6 @@ func ServerError(err error) *params.Error {
 			BakeryMacaroon: dischargeRequiredError.Macaroon,
 			// One macaroon fits all.
 			MacaroonPath: "/",
-		}.AsMap()
-	case errors.As(err, &upgradeSeriesValidationError):
-		info = params.UpgradeSeriesValidationErrorInfo{
-			Status: upgradeSeriesValidationError.Status,
 		}.AsMap()
 	case errors.As(err, &redirectError):
 		code = params.CodeRedirect

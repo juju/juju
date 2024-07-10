@@ -24,7 +24,6 @@ type StatePool interface {
 // State represents a point of use interface for modelling a current model.
 type State interface {
 	Model() (Model, error)
-	HasUpgradeSeriesLocks() (bool, error)
 	Release() bool
 	AllModelUUIDs() ([]string, error)
 	MachineCountForBase(base ...state.Base) (map[string]int, error)

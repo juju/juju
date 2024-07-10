@@ -4,11 +4,6 @@
 package uniter
 
 import (
-	stdcontext "context"
-
-	"github.com/juju/errors"
-
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 )
 
@@ -37,10 +32,4 @@ func reportAgentError(u *Uniter, userMessage string, err error) {
 	if err2 != nil {
 		u.logger.Errorf("updating agent status: %v", err2)
 	}
-}
-
-// setUpgradeSeriesStatus sets the upgrade series status.
-func setUpgradeSeriesStatus(ctx stdcontext.Context, u *Uniter, status model.UpgradeSeriesStatus, reason string) error {
-	err := u.unit.SetUpgradeSeriesStatus(ctx, status, reason)
-	return errors.Annotatef(err, "cannot set upgrade series status to %q with reason: %q", status, reason)
 }

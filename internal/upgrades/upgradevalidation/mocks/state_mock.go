@@ -143,45 +143,6 @@ func (c *MockStateAllMachinesCountCall) DoAndReturn(f func() (int, error)) *Mock
 	return c
 }
 
-// HasUpgradeSeriesLocks mocks base method.
-func (m *MockState) HasUpgradeSeriesLocks() (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasUpgradeSeriesLocks")
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HasUpgradeSeriesLocks indicates an expected call of HasUpgradeSeriesLocks.
-func (mr *MockStateMockRecorder) HasUpgradeSeriesLocks() *MockStateHasUpgradeSeriesLocksCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasUpgradeSeriesLocks", reflect.TypeOf((*MockState)(nil).HasUpgradeSeriesLocks))
-	return &MockStateHasUpgradeSeriesLocksCall{Call: call}
-}
-
-// MockStateHasUpgradeSeriesLocksCall wrap *gomock.Call
-type MockStateHasUpgradeSeriesLocksCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateHasUpgradeSeriesLocksCall) Return(arg0 bool, arg1 error) *MockStateHasUpgradeSeriesLocksCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateHasUpgradeSeriesLocksCall) Do(f func() (bool, error)) *MockStateHasUpgradeSeriesLocksCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateHasUpgradeSeriesLocksCall) DoAndReturn(f func() (bool, error)) *MockStateHasUpgradeSeriesLocksCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // MachineCountForBase mocks base method.
 func (m *MockState) MachineCountForBase(arg0 ...state.Base) (map[string]int, error) {
 	m.ctrl.T.Helper()

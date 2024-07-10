@@ -5,7 +5,6 @@ package machine
 
 import (
 	"github.com/juju/cmd/v4"
-	"github.com/juju/worker/v4/catacomb"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -59,20 +58,6 @@ func NewRemoveCommandForTest(apiRoot api.Connection, machineAPI RemoveMachineAPI
 	}
 	command.SetClientStore(jujuclienttesting.MinimalStore())
 	return modelcmd.Wrap(command), &RemoveCommand{command}
-}
-
-// NewUpgradeMachineCommand returns an upgrade machine command for test
-func NewUpgradeMachineCommandForTest(statusAPI StatusAPI, upgradeAPI UpgradeMachineAPI) cmd.Command {
-	command := &upgradeMachineCommand{
-		statusClient:         statusAPI,
-		upgradeMachineClient: upgradeAPI,
-	}
-	command.plan = catacomb.Plan{
-		Site: &command.catacomb,
-		Work: func() error { return nil },
-	}
-	command.SetClientStore(jujuclienttesting.MinimalStore())
-	return modelcmd.Wrap(command)
 }
 
 func NewDisksFlag(disks *[]storage.Directive) *disksFlag {
