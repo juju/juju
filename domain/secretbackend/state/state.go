@@ -71,16 +71,17 @@ WHERE  uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
 	if err != nil {
 		return secretbackend.ModelSecretBackend{}, errors.Trace(domain.CoerceError(err))
 	}
-	if !m.Type.IsValid() {
+	if !m.ModelType.IsValid() {
 		// This should never happen.
-		return secretbackend.ModelSecretBackend{}, fmt.Errorf("invalid model type for model %q", m.Name)
+		return secretbackend.ModelSecretBackend{}, fmt.Errorf("invalid model type for model %q", m.ModelName)
 	}
 	return secretbackend.ModelSecretBackend{
-		ControllerUUID:  m.ControllerUUID,
-		ID:              m.ID,
-		Name:            m.Name,
-		Type:            m.Type,
-		SecretBackendID: m.SecretBackendID,
+		ControllerUUID:    m.ControllerUUID,
+		ModelID:           m.ModelID,
+		ModelName:         m.ModelName,
+		ModelType:         m.ModelType,
+		SecretBackendID:   m.SecretBackendID,
+		SecretBackendName: m.SecretBackendName,
 	}, nil
 }
 
@@ -512,51 +513,59 @@ WHERE uuid = $M.uuid`, sqlair.M{}, SecretBackendRotationRow{})
 	return domain.CoerceError(err)
 }
 
-// SetModelSecretBackend sets the secret backend for the given model.
-func (s *State) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
+// SetModelSecretBackend sets the secret backend for the given model,
+// returning an error satisfying [secretbackenderrors.NotFound] if the backend provided does not exist,
+// returning an error satisfying [modelerrors.NotFound] if the model provided does not exist.
+func (s *State) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, secretBackendName string) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	modelBackendUpsert := `
-INSERT INTO model_secret_backend
-	(model_uuid, secret_backend_uuid)
-VALUES ($M.model_uuid, $SecretBackendRow.uuid)
-ON CONFLICT (model_uuid) DO UPDATE SET
-	secret_backend_uuid = EXCLUDED.secret_backend_uuid`
-	modelBackendUpsertStmt, err := s.Prepare(modelBackendUpsert, sqlair.M{}, SecretBackendRow{})
+	backendInfo := ModelSecretBackend{
+		ModelID:           modelUUID,
+		SecretBackendName: secretBackendName,
+	}
+
+	secretBackendSelectQ := `
+SELECT b.uuid AS &ModelSecretBackend.secret_backend_uuid
+FROM   secret_backend b
+WHERE  b.name = $ModelSecretBackend.secret_backend_name
+`
+	secretBackendSelectStmt, err := s.Prepare(secretBackendSelectQ, backendInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	q := `
-SELECT b.uuid AS &SecretBackendRow.uuid
-FROM secret_backend b
-WHERE b.name = $SecretBackendRow.name`
-	stmt, err := s.Prepare(q, SecretBackendRow{})
+	modelBackendUpdate := `
+UPDATE model_secret_backend
+SET    secret_backend_uuid = $ModelSecretBackend.secret_backend_uuid
+WHERE  model_uuid = $ModelSecretBackend.uuid`
+	modelBackendUpdateStmt, err := s.Prepare(modelBackendUpdate, backendInfo)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		backend := SecretBackendRow{Name: backendName}
-
-		var result SecretBackendRow
-		err = tx.Query(ctx, stmt, backend).Get(&result)
+		err = tx.Query(ctx, secretBackendSelectStmt, backendInfo).Get(&backendInfo)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: %q", secretbackenderrors.NotFound, backendName)
+			return fmt.Errorf("%w: %q", secretbackenderrors.NotFound, backendInfo.SecretBackendName)
 		}
 		if err != nil {
 			return fmt.Errorf("querying secret backends: %w", err)
 		}
-		backend.ID = result.ID
-		err = tx.Query(ctx, modelBackendUpsertStmt, backend, sqlair.M{"model_uuid": modelUUID}).Run()
-		if database.IsErrConstraintForeignKey(err) {
-			return fmt.Errorf("%w: model %q", modelerrors.NotFound, modelUUID)
-		}
+
+		var outcome sqlair.Outcome
+		err = tx.Query(ctx, modelBackendUpdateStmt, backendInfo).Get(&outcome)
 		if err != nil {
-			return fmt.Errorf("setting secret backend %q for model %q: %w", backendName, modelUUID, err)
+			return fmt.Errorf("setting secret backend %q for model %q: %w", backendInfo.SecretBackendName, modelUUID, err)
+		}
+		affected, err := outcome.Result().RowsAffected()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if affected == 0 {
+			return fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
 		}
 		return nil
 	})

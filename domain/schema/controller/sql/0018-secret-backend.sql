@@ -69,7 +69,9 @@ SELECT
     m.name,
     mt.type AS model_type,
     msb.secret_backend_uuid,
+    sb.name AS secret_backend_name,
     (SELECT uuid FROM controller) AS controller_uuid
 FROM model_secret_backend AS msb
+INNER JOIN secret_backend AS sb ON msb.secret_backend_uuid = sb.uuid
 INNER JOIN model AS m ON msb.model_uuid = m.uuid
 INNER JOIN model_type AS mt ON m.model_type_id = mt.id;

@@ -28,7 +28,7 @@ type State interface {
 	GetSecretBackend(context.Context, secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error)
 	SecretBackendRotated(ctx context.Context, backendID string, next time.Time) error
 
-	SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error
+	SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, secretBackendName string) error
 	GetModelSecretBackendDetails(ctx context.Context, modelUUID coremodel.UUID) (secretbackend.ModelSecretBackend, error)
 
 	InitialWatchStatement() (string, string)

@@ -95,8 +95,8 @@ func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID 
 		}
 		info.Configs[b.ID] = provider.ModelBackendConfig{
 			ControllerUUID: m.ControllerUUID,
-			ModelUUID:      m.ID.String(),
-			ModelName:      m.Name,
+			ModelUUID:      m.ModelID.String(),
+			ModelName:      m.ModelName,
 			BackendConfig: provider.BackendConfig{
 				BackendType: b.BackendType,
 				Config:      cfg,
@@ -700,11 +700,6 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	return errors.Trace(err)
 }
 
-// SetModelSecretBackend sets the secret backend for the given model UUID.
-func (s *Service) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
-	return s.st.SetModelSecretBackend(ctx, modelUUID, backendName)
-}
-
 // GetRevisionsToDrain looks at the supplied revisions and returns any which should be
 // drained to a different backend for the specified model.
 func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.UUID, revs []coresecrets.SecretExternalRevision) ([]RevisionInfo, error) {
@@ -734,6 +729,76 @@ func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.U
 		})
 	}
 	return result, nil
+}
+
+// ModelSecretBackendService is a service for interacting with the secret backend state for a specific model.
+type ModelSecretBackendService struct {
+	Service
+	modelID coremodel.UUID
+}
+
+// NewModelSecretBackendService creates a new ModelSecretBackendService for interacting with the secret backend state for a specific model.
+func NewModelSecretBackendService(modelID coremodel.UUID, st State, logger logger.Logger) *ModelSecretBackendService {
+	service := newService(st, logger, clock.WallClock, provider.Provider)
+	return newModelSecretBackendService(modelID, *service)
+}
+
+func newModelSecretBackendService(modelID coremodel.UUID, service Service) *ModelSecretBackendService {
+	return &ModelSecretBackendService{modelID: modelID, Service: service}
+}
+
+// GetModelSecretBackend returns the secret backend name for the given model UUID, returning an error
+// satisfying [modelerrors.NotFound] if the model provided does not exist.
+func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (string, error) {
+	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	backendName := modelSecretBackend.SecretBackendName
+	switch modelSecretBackend.ModelType {
+	case coremodel.IAAS:
+		if backendName == provider.Internal {
+			backendName = provider.Auto
+		}
+	case coremodel.CAAS:
+		if backendName == kubernetes.BackendName {
+			backendName = provider.Auto
+		}
+	default:
+		// Should never happen.
+		return "", errors.NotValidf("model type %q", modelSecretBackend.ModelType)
+	}
+	return backendName, nil
+}
+
+// SetModelSecretBackend sets the secret backend config for the given model UUID,
+// returning an error satisfying [secretbackenderrors.NotFound] if the backend provided does not exist,
+// returning an error satisfying [modelerrors.NotFound] if the model provided does not exist,
+// returning an error satisfying [secretbackenderrors.NotValid] if the backend name provided is not valid.
+func (s *ModelSecretBackendService) SetModelSecretBackend(ctx context.Context, backendName string) error {
+	if backendName == "" {
+		return fmt.Errorf("missing backend name%w", errors.Hide(secretbackenderrors.NotValid))
+	}
+	if backendName == provider.Internal || backendName == kubernetes.BackendName {
+		return fmt.Errorf("secret backend name %q not valid%w", backendName, errors.Hide(secretbackenderrors.NotValid))
+	}
+
+	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if backendName == provider.Auto {
+		switch modelSecretBackend.ModelType {
+		case coremodel.IAAS:
+			backendName = provider.Internal
+		case coremodel.CAAS:
+			backendName = kubernetes.BackendName
+		default:
+			// Should never happen.
+			return errors.NotValidf("model type %q", modelSecretBackend.ModelType)
+		}
+	}
+	return s.st.SetModelSecretBackend(ctx, s.modelID, backendName)
 }
 
 // WatchableService defines a service that can be watched for changes.
