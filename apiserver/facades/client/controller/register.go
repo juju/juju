@@ -7,6 +7,8 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/facade"
 )
 
@@ -29,6 +31,11 @@ func newControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*Cont
 		serviceFactory = ctx.ServiceFactory()
 	)
 
+	leadership, err := ctx.LeadershipReader()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return NewControllerAPI(
 		stdCtx,
 		st,
@@ -44,5 +51,8 @@ func newControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*Cont
 		serviceFactory.Credential(),
 		serviceFactory.Upgrade(),
 		serviceFactory.Access(),
+		ctx.ModelExporter(st),
+		ctx.ObjectStore(),
+		leadership,
 	)
 }

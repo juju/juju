@@ -8,7 +8,8 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/core/migration"
+	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/state"
 )
 
@@ -17,7 +18,17 @@ type patcher interface {
 }
 
 func SetPrecheckResult(p patcher, err error) {
-	p.PatchValue(&runMigrationPrechecks, func(context.Context, *state.State, *state.State, *migration.TargetInfo, facade.Presence, ControllerConfigService, common.CloudService, common.CredentialService, UpgradeService) error {
+	p.PatchValue(&runMigrationPrechecks, func(ctx context.Context,
+		st, ctlrSt *state.State,
+		targetInfo *coremigration.TargetInfo,
+		presence facade.Presence,
+		controllerConfigService ControllerConfigService,
+		cloudService common.CloudService,
+		credentialService common.CredentialService,
+		upgradeService UpgradeService,
+		modelExporter ModelExporter,
+		store objectstore.ObjectStore,
+		leaders map[string]string) error {
 		return err
 	})
 }
