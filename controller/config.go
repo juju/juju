@@ -165,12 +165,12 @@ const (
 	// which should be more than enough time for a debugging session.
 	MaxDebugLogDuration = "max-debug-log-duration"
 
-	// AgentLogfileMaxSize is the maximum file size in MB of each agent log
-	// file.
+	// AgentLogfileMaxSize is the maximum file size of each agent log file,
+	// in MB.
 	AgentLogfileMaxSize = "agent-logfile-max-size"
 
-	// AgentLogfileMaxBackups is the number of old agent log files to keep
-	// (compressed; saved on each unit, synced to the controller).
+	// AgentLogfileMaxBackups is the maximum number of old agent log files
+	// to keep (compressed; saved on each unit, synced to the controller).
 	AgentLogfileMaxBackups = "agent-logfile-max-backups"
 
 	// ModelLogfileMaxSize is the maximum size of the log file written out by the
