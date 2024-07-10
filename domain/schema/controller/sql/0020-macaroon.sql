@@ -12,3 +12,10 @@ CREATE TABLE bakery_config (
 -- A unique constraint over a constant index ensures only 1 entry matching the
 -- condition can exist.
 CREATE UNIQUE INDEX idx_singleton_bakery_config ON bakery_config ((1));
+
+CREATE TABLE macaroon_root_key (
+    id BLOB PRIMARY KEY,
+    created_at TIMESTAMP NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    root_key BLOB NOT NULL
+);
