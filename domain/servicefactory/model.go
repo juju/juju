@@ -17,6 +17,8 @@ import (
 	applicationstate "github.com/juju/juju/domain/application/state"
 	blockdeviceservice "github.com/juju/juju/domain/blockdevice/service"
 	blockdevicestate "github.com/juju/juju/domain/blockdevice/state"
+	keymanagerservice "github.com/juju/juju/domain/keymanager/service"
+	keymanagerstate "github.com/juju/juju/domain/keymanager/state"
 	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
 	keyupdaterstate "github.com/juju/juju/domain/keyupdater/state"
 	machineservice "github.com/juju/juju/domain/machine/service"
@@ -139,6 +141,31 @@ func (s *ModelFactory) Application(registry storage.ProviderRegistry) *applicati
 	)
 }
 
+// KeyManager returns the models user public ssh key manager. Use this service
+// when wanting to modify a users public ssh keys within a model.
+func (s *ModelFactory) KeyManager(
+	importer keymanagerservice.PublicKeyImporter,
+) *keymanagerservice.Service {
+	return keymanagerservice.NewService(
+		importer,
+		keymanagerstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
+// KeyUpdater returns the model's key updater service. Use this service when
+// wanting to retrieve the authorised ssh public keys for a model.
+func (s *ModelFactory) KeyUpdater() *keyupdaterservice.Service {
+	// The keyupdater service requires information from both the model and
+	// controller databases. We supply the controller DB dependency via a
+	// provider service to abstract the source of the information.
+	return keyupdaterservice.NewService(
+		keyupdaterservice.NewControllerKeyService(
+			keyupdaterstate.NewControllerKeyState(changestream.NewTxnRunnerFactory(s.controllerDB)),
+		),
+		keyupdaterstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
+	)
+}
+
 // Unit returns the model's unit service.
 func (s *ModelFactory) Unit() *unitservice.Service {
 	return unitservice.NewService(
@@ -211,17 +238,5 @@ func (s *ModelFactory) ModelInfo() *modelservice.ModelService {
 		s.modelUUID,
 		modelstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		modelstate.NewModelState(changestream.NewTxnRunnerFactory(s.modelDB)),
-	)
-}
-
-// KeyUpdater returns the key updater service.
-func (s *ModelFactory) KeyUpdater() *keyupdaterservice.Service {
-	return keyupdaterservice.NewService(
-		keyupdaterservice.NewControllerKeyService(
-			keyupdaterstate.NewControllerKeyState(
-				changestream.NewTxnRunnerFactory(s.controllerDB),
-			),
-		),
-		keyupdaterstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB)),
 	)
 }
