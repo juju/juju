@@ -1,8 +1,6 @@
 run_secrets() {
 	echo
 
-	microk8s enable ingress
-
 	model_name='model-secrets-k8s'
 	juju --show-log add-model "$model_name" --config secret-backend=auto
 
@@ -102,8 +100,6 @@ run_secrets() {
 
 run_user_secrets() {
 	echo
-
-	microk8s enable ingress
 
 	model_name='model-user-secrets-k8s'
 	juju --show-log add-model "$model_name" --config secret-backend=auto

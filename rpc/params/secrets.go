@@ -137,7 +137,7 @@ type UpdateUserSecretArg struct {
 
 // Validate validates the UpdateUserSecretArg.
 func (arg UpdateUserSecretArg) Validate() error {
-	if arg.AutoPrune == nil && arg.Description == nil && arg.Label == nil && len(arg.Content.Data) == 0 {
+	if !arg.HasUpdate() {
 		return errors.New("at least one attribute to update must be specified")
 	}
 	if arg.URI == "" && arg.ExistingLabel == "" {
@@ -147,6 +147,13 @@ func (arg UpdateUserSecretArg) Validate() error {
 		return errors.New("must specify either URI or label but not both")
 	}
 	return nil
+}
+
+// HasUpdate returns true if arg contains at least one attribute to update.
+func (arg UpdateUserSecretArg) HasUpdate() bool {
+	return arg.AutoPrune != nil || arg.Description != nil || arg.Label != nil ||
+		arg.RotatePolicy != nil || arg.ExpireTime != nil ||
+		len(arg.Content.Data) != 0 || arg.Content.ValueRef != nil
 }
 
 // DeleteSecretArgs holds args for deleting secrets.

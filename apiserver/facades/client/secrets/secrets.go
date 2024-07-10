@@ -471,7 +471,9 @@ func (s *SecretsAPI) updateSecret(backend provider.SecretsBackend, arg params.Up
 			}
 		}
 	}
-	if arg.AutoPrune == nil && arg.Description == nil && arg.Label == nil && len(arg.Content.Data) == 0 {
+
+	// There might be nothing to update if the checksums matched above.
+	if !arg.HasUpdate() {
 		return nil
 	}
 

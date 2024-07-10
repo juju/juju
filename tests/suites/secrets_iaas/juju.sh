@@ -58,7 +58,7 @@ check_secrets() {
 	echo "Set different content for $secret_owned_by_easyrsa."
 	juju exec --unit easyrsa/0 -- secret-set "$secret_owned_by_easyrsa_id" foo=bar
 	check_contains "$(juju exec --unit easyrsa/0 -- secret-info-get "$secret_owned_by_easyrsa" --format json | jq ".${secret_owned_by_easyrsa_id}.revision")" '2'
-	check_contains "$(juju exec --unit easyrsa/0 -- secret-get "$secret_owned_by_easyrsa")" 'foo: bar'
+	check_contains "$(juju exec --unit easyrsa/0 -- secret-get --refresh "$secret_owned_by_easyrsa")" 'foo: bar'
 
 	echo "Checking: secret-revoke by relation ID"
 	juju exec --unit easyrsa/0 -- secret-revoke "$secret_owned_by_easyrsa" --relation "$relation_id"
@@ -91,7 +91,7 @@ run_user_secrets() {
 
 	# set same content again for revision 1.
 	juju --show-log update-secret "$secret_uri" owned-by="$model_name-1"
-	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'info'
+	check_contains "$(juju --show-log show-secret "$secret_uri" --revisions | yq ".${secret_short_uri}.description")" 'this is a user secret'
 	check_contains "$(juju --show-log show-secret "$secret_uri" | yq ".${secret_short_uri}.revision")" '1'
 
 	# create a new revision 2.
