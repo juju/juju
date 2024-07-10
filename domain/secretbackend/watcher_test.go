@@ -45,9 +45,13 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, watcher)
 
-	wC := watchertest.NewSecretBackendRotateWatcherC(c, watcher)
+	wC := watchertest.NewWatcherC(c, watcher)
 	// Wait for the initial change.
-	wC.AssertChanges([]corewatcher.SecretBackendRotateChange(nil)...)
+	wC.AssertChange(
+		watchertest.SecretBackendRotateTriggerTimeAssert(
+			[]corewatcher.SecretBackendRotateChange(nil)...,
+		),
+	)
 
 	backendID1 := uuid.MustNewUUID().String()
 	rotateInternal := 24 * time.Hour
@@ -90,17 +94,19 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	c.Assert(result, gc.Equals, backendID2)
 
 	// Triggered by INSERT.
-	wC.AssertChanges(
-		corewatcher.SecretBackendRotateChange{
-			ID:              backendID1,
-			Name:            "my-backend1",
-			NextTriggerTime: nextRotateTime,
-		},
-		corewatcher.SecretBackendRotateChange{
-			ID:              backendID2,
-			Name:            "my-backend2",
-			NextTriggerTime: nextRotateTime,
-		},
+	wC.AssertChange(
+		watchertest.SecretBackendRotateTriggerTimeAssert([]corewatcher.SecretBackendRotateChange{
+			{
+				ID:              backendID1,
+				Name:            "my-backend1",
+				NextTriggerTime: nextRotateTime,
+			},
+			{
+				ID:              backendID2,
+				Name:            "my-backend2",
+				NextTriggerTime: nextRotateTime,
+			},
+		}...),
 	)
 
 	nameChange := "my-backend1-updated"
@@ -133,11 +139,14 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	// Triggered - updated the rotation time.
-	wC.AssertChanges(corewatcher.SecretBackendRotateChange{
-		ID:              backendID2,
-		Name:            "my-backend2",
-		NextTriggerTime: newNextRotateTime,
-	},
+	wC.AssertChange(
+		watchertest.SecretBackendRotateTriggerTimeAssert([]corewatcher.SecretBackendRotateChange{
+			{
+				ID:              backendID2,
+				Name:            "my-backend2",
+				NextTriggerTime: newNextRotateTime,
+			},
+		}...),
 	)
 
 	// NOT triggered - delete the backend.

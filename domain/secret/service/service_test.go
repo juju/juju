@@ -1723,7 +1723,7 @@ func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	defer workertest.CleanKill(c, w)
-	wC := watchertest.NewSecretsTriggerWatcherC(c, w)
+	wC := watchertest.NewWatcherC(c, w)
 
 	select {
 	case ch <- []string{uri1.ID, uri2.ID}:
@@ -1732,16 +1732,18 @@ func (s *serviceSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	}
 
 	wC.AssertChange(
-		watcher.SecretTriggerChange{
-			URI:             uri1,
-			Revision:        1,
-			NextTriggerTime: now,
-		},
-		watcher.SecretTriggerChange{
-			URI:             uri2,
-			Revision:        2,
-			NextTriggerTime: now.Add(2 * time.Hour),
-		},
+		watchertest.SecretTriggerTimeAssert([]watcher.SecretTriggerChange{
+			{
+				URI:             uri1,
+				Revision:        1,
+				NextTriggerTime: now,
+			},
+			{
+				URI:             uri2,
+				Revision:        2,
+				NextTriggerTime: now.Add(2 * time.Hour),
+			},
+		}...),
 	)
 	wC.AssertNoChange()
 }
@@ -1806,7 +1808,7 @@ func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	defer workertest.CleanKill(c, w)
-	wC := watchertest.NewSecretsTriggerWatcherC(c, w)
+	wC := watchertest.NewWatcherC(c, w)
 
 	select {
 	case ch <- []string{"revision-uuid-1", "revision-uuid-2"}:
@@ -1815,16 +1817,18 @@ func (s *serviceSuite) TestWatchSecretRevisionsExpiryChanges(c *gc.C) {
 	}
 
 	wC.AssertChange(
-		watcher.SecretTriggerChange{
-			URI:             uri1,
-			Revision:        1,
-			NextTriggerTime: now,
-		},
-		watcher.SecretTriggerChange{
-			URI:             uri2,
-			Revision:        2,
-			NextTriggerTime: now.Add(2 * time.Hour),
-		},
+		watchertest.SecretTriggerTimeAssert([]watcher.SecretTriggerChange{
+			{
+				URI:             uri1,
+				Revision:        1,
+				NextTriggerTime: now,
+			},
+			{
+				URI:             uri2,
+				Revision:        2,
+				NextTriggerTime: now.Add(2 * time.Hour),
+			},
+		}...),
 	)
 	wC.AssertNoChange()
 }

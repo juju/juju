@@ -591,10 +591,10 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	c.Assert(watcher, gc.NotNil)
 	defer workertest.CleanKill(c, watcher)
 
-	wc := watchertest.NewSecretsTriggerWatcherC(c, watcher)
+	wc := watchertest.NewWatcherC(c, watcher)
 
 	// Wait for the initial changes.
-	wc.AssertChange([]corewatcher.SecretTriggerChange(nil)...)
+	wc.AssertChange(watchertest.SecretTriggerTimeAssert([]corewatcher.SecretTriggerChange(nil)...))
 	wc.AssertNoChange()
 
 	now := time.Now()
@@ -604,16 +604,18 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(
-		corewatcher.SecretTriggerChange{
-			URI:             uri1,
-			Revision:        1,
-			NextTriggerTime: now.Add(1 * time.Hour),
-		},
-		corewatcher.SecretTriggerChange{
-			URI:             uri2,
-			Revision:        2,
-			NextTriggerTime: now.Add(2 * time.Hour),
-		},
+		watchertest.SecretTriggerTimeAssert([]corewatcher.SecretTriggerChange{
+			{
+				URI:             uri1,
+				Revision:        1,
+				NextTriggerTime: now.Add(1 * time.Hour),
+			},
+			{
+				URI:             uri2,
+				Revision:        2,
+				NextTriggerTime: now.Add(2 * time.Hour),
+			},
+		}...),
 	)
 
 	wc.AssertNoChange()
@@ -632,19 +634,21 @@ func (s *watcherSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(watcher1, gc.NotNil)
 	defer workertest.CleanKill(c, watcher1)
-	wc1 := watchertest.NewSecretsTriggerWatcherC(c, watcher1)
-	wc1.AssertChange([]corewatcher.SecretTriggerChange(nil)...)
+	wc1 := watchertest.NewWatcherC(c, watcher1)
+	wc1.AssertChange(watchertest.SecretTriggerTimeAssert([]corewatcher.SecretTriggerChange(nil)...))
 	wc1.AssertChange(
-		corewatcher.SecretTriggerChange{
-			URI:             uri1,
-			Revision:        1,
-			NextTriggerTime: now.Add(1 * time.Hour),
-		},
-		corewatcher.SecretTriggerChange{
-			URI:             uri2,
-			Revision:        2,
-			NextTriggerTime: now.Add(2 * time.Hour),
-		},
+		watchertest.SecretTriggerTimeAssert([]corewatcher.SecretTriggerChange{
+			{
+				URI:             uri1,
+				Revision:        1,
+				NextTriggerTime: now.Add(1 * time.Hour),
+			},
+			{
+				URI:             uri2,
+				Revision:        2,
+				NextTriggerTime: now.Add(2 * time.Hour),
+			},
+		}...),
 	)
 	wc1.AssertNoChange()
 }
@@ -683,10 +687,10 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	c.Assert(watcher, gc.NotNil)
 	defer workertest.CleanKill(c, watcher)
 
-	wc := watchertest.NewSecretsTriggerWatcherC(c, watcher)
+	wc := watchertest.NewWatcherC(c, watcher)
 
 	// Wait for the initial changes.
-	wc.AssertChange([]corewatcher.SecretTriggerChange(nil)...)
+	wc.AssertChange(watchertest.SecretTriggerTimeAssert([]corewatcher.SecretTriggerChange(nil)...))
 	wc.AssertNoChange()
 
 	now := time.Now()
@@ -704,16 +708,18 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 
 	s.AssertChangeStreamIdle(c)
 	wc.AssertChange(
-		corewatcher.SecretTriggerChange{
-			URI:             uri1,
-			Revision:        1,
-			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
-		},
-		corewatcher.SecretTriggerChange{
-			URI:             uri2,
-			Revision:        2,
-			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
-		},
+		watchertest.SecretTriggerTimeAssert([]corewatcher.SecretTriggerChange{
+			{
+				URI:             uri1,
+				Revision:        1,
+				NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+			},
+			{
+				URI:             uri2,
+				Revision:        2,
+				NextTriggerTime: now.Add(2 * time.Hour).UTC(),
+			},
+		}...),
 	)
 
 	wc.AssertNoChange()
@@ -732,20 +738,22 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(watcher1, gc.NotNil)
 	defer workertest.CleanKill(c, watcher1)
-	wc1 := watchertest.NewSecretsTriggerWatcherC(c, watcher1)
-	wc1.AssertChange([]corewatcher.SecretTriggerChange(nil)...)
+	wc1 := watchertest.NewWatcherC(c, watcher1)
+	wc1.AssertChange(watchertest.SecretTriggerTimeAssert([]corewatcher.SecretTriggerChange(nil)...))
 	s.AssertChangeStreamIdle(c)
 	wc1.AssertChange(
-		corewatcher.SecretTriggerChange{
-			URI:             uri1,
-			Revision:        1,
-			NextTriggerTime: now.Add(1 * time.Hour).UTC(),
-		},
-		corewatcher.SecretTriggerChange{
-			URI:             uri2,
-			Revision:        2,
-			NextTriggerTime: now.Add(2 * time.Hour).UTC(),
-		},
+		watchertest.SecretTriggerTimeAssert([]corewatcher.SecretTriggerChange{
+			{
+				URI:             uri1,
+				Revision:        1,
+				NextTriggerTime: now.Add(1 * time.Hour).UTC(),
+			},
+			{
+				URI:             uri2,
+				Revision:        2,
+				NextTriggerTime: now.Add(2 * time.Hour).UTC(),
+			},
+		}...),
 	)
 
 	wc1.AssertNoChange()

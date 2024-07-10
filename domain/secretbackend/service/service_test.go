@@ -29,6 +29,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -982,7 +983,7 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	c.Assert(w, gc.NotNil)
 	defer workertest.CleanKill(c, w)
 
-	wC := watchertest.NewSecretBackendRotateWatcherC(c, w)
+	wC := watchertest.NewWatcherC(c, w)
 
 	select {
 	case ch <- []string{backendID1, backendID2}:
@@ -990,17 +991,19 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 		c.Fatalf("timed out waiting for the initial changes")
 	}
 
-	wC.AssertChanges(
-		watcher.SecretBackendRotateChange{
-			ID:              backendID1,
-			Name:            "my-backend1",
-			NextTriggerTime: nextRotateTime1,
-		},
-		watcher.SecretBackendRotateChange{
-			ID:              backendID2,
-			Name:            "my-backend2",
-			NextTriggerTime: nextRotateTime2,
-		},
+	wC.AssertChange(
+		watchertest.SecretBackendRotateTriggerTimeAssert([]corewatcher.SecretBackendRotateChange{
+			watcher.SecretBackendRotateChange{
+				ID:              backendID1,
+				Name:            "my-backend1",
+				NextTriggerTime: nextRotateTime1,
+			},
+			watcher.SecretBackendRotateChange{
+				ID:              backendID2,
+				Name:            "my-backend2",
+				NextTriggerTime: nextRotateTime2,
+			},
+		}...),
 	)
 	wC.AssertNoChange()
 }
