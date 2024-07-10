@@ -30,7 +30,7 @@ func (s *keymanagerSuite) TestListKeys(c *gc.C) {
 		Entities: params.Entities{
 			Entities: []params.Entity{{tag.Name()}},
 		},
-		Mode: ssh.Fingerprints,
+		Mode: params.SSHListModeFingerprint,
 	}
 	result := new(params.StringsResults)
 	results := params.StringsResults{

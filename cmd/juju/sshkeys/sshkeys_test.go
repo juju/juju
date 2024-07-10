@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4/ssh"
 	sshtesting "github.com/juju/utils/v4/ssh/testing"
 	gc "gopkg.in/check.v1"
 
@@ -44,7 +43,7 @@ func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "ListKeys")
 		c.Assert(arg, jc.DeepEquals, params.ListSSHKeys{
-			Mode:     ssh.Fingerprints,
+			Mode:     params.SSHListModeFingerprint,
 			Entities: params.Entities{Entities: []params.Entity{{Tag: "admin"}}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringsResults{})
@@ -73,7 +72,7 @@ func (s *ListKeysSuite) TestListKeysWithModelUUID(c *gc.C) {
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "ListKeys")
 		c.Assert(arg, jc.DeepEquals, params.ListSSHKeys{
-			Mode:     ssh.Fingerprints,
+			Mode:     params.SSHListModeFingerprint,
 			Entities: params.Entities{Entities: []params.Entity{{Tag: "admin"}}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringsResults{})
@@ -104,7 +103,7 @@ func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 		c.Assert(id, gc.Equals, "")
 		c.Assert(request, gc.Equals, "ListKeys")
 		c.Assert(arg, jc.DeepEquals, params.ListSSHKeys{
-			Mode:     ssh.FullKeys,
+			Mode:     params.SSHListModeFull,
 			Entities: params.Entities{Entities: []params.Entity{{Tag: "admin"}}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringsResults{})
