@@ -576,21 +576,10 @@ AND removed = false
 		return fmt.Errorf("getting user uuid for setting model %q owner: %w", input.Name, err)
 	}
 
-	// deleteBadStateModel is here to allow models to be recreated that may have
-	// failed during the full model creation process and never activated. We
-	// will only ever allow this to happen if the model is not activated.
-	deleteBadStateModel := `
-DELETE FROM model
-WHERE name = ?
-AND owner_uuid = ?
-AND activated = false
-`
-
-	_, err = tx.ExecContext(ctx, deleteBadStateModel, input.Name, input.Owner)
-	if err != nil {
-		return fmt.Errorf("cleaning up bad model state for name %q and owner %q: %w",
-			input.Name, input.Owner, err,
-		)
+	// If a model with this name/owner was previously created, clean it up
+	// before creating the new model.
+	if err := cleanupBrokenModel(ctx, tx, input.Name, input.Owner); err != nil {
+		return fmt.Errorf("deleting broken model with name %q and owner %q: %w", input.Name, input.Owner, err)
 	}
 
 	stmt := `
@@ -1095,6 +1084,97 @@ func registerModelNamespace(
 	}
 
 	return uuid.String(), nil
+}
+
+// cleanupBrokenModel removes broken models from the database. This is here to
+// allow models to be recreated that may have failed during the full model
+// creation process and never activated. We will only ever allow this to happen
+// if the model is not activated.
+func cleanupBrokenModel(
+	ctx context.Context,
+	tx *sql.Tx,
+	modelName string, modelOwner user.UUID,
+) error {
+	// Find the UUID for the broken model
+	findBrokenModelStmt := `
+SELECT uuid FROM model
+WHERE name = ?
+AND owner_uuid = ?
+AND activated = false
+`
+	var modelID string
+	err := tx.QueryRowContext(ctx, findBrokenModelStmt, modelName, modelOwner).Scan(&modelID)
+	if errors.Is(err, sql.ErrNoRows) {
+		// Model doesn't exist so nothing to cleanup
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("finding broken model for name %q and owner %q: %w",
+			modelName, modelOwner, err,
+		)
+	}
+
+	// Delete model namespace
+	deleteBadStateModelNamespace := `
+DELETE FROM model_namespace
+WHERE model_uuid = ?
+`
+	_, err = tx.ExecContext(ctx, deleteBadStateModelNamespace, modelID)
+	if err != nil {
+		return fmt.Errorf("cleaning up bad model namespace for model with ID %q: %w",
+			modelID, err,
+		)
+	}
+
+	// Delete model agent entry
+	deleteBrokenModelAgent := `
+DELETE FROM model_agent
+WHERE model_uuid = ?
+`
+	_, err = tx.ExecContext(ctx, deleteBrokenModelAgent, modelID)
+	if err != nil {
+		return fmt.Errorf("cleaning up model agent entry for model with ID %q: %w",
+			modelID, err,
+		)
+	}
+
+	// Delete model secret backend
+	deleteBrokenModelSecretBackend := `
+DELETE FROM model_secret_backend
+WHERE model_uuid = ?
+`
+	_, err = tx.ExecContext(ctx, deleteBrokenModelSecretBackend, modelID)
+	if err != nil {
+		return fmt.Errorf("cleaning up model secret backend for model with ID %q: %w",
+			modelID, err,
+		)
+	}
+
+	// Delete model last login
+	deleteBrokenModelLastLogin := `
+DELETE FROM model_last_login
+WHERE model_uuid = ?
+`
+	_, err = tx.ExecContext(ctx, deleteBrokenModelLastLogin, modelID)
+	if err != nil {
+		return fmt.Errorf("cleaning up model last login for model with ID %q: %w",
+			modelID, err,
+		)
+	}
+
+	// Finally, delete the model from the model table.
+	deleteBadStateModel := `
+DELETE FROM model
+WHERE uuid = ?
+`
+	_, err = tx.ExecContext(ctx, deleteBadStateModel, modelID)
+	if err != nil {
+		return fmt.Errorf("cleaning up bad model state for model with ID %q: %w",
+			modelID, err,
+		)
+	}
+
+	return nil
 }
 
 // setCloudRegion is responsible for setting a model's cloud region. This
