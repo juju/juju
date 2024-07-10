@@ -2482,6 +2482,11 @@ func (u *UniterAPI) commitHookChangesForOneUnit(ctx context.Context, unitTag nam
 				return apiservererrors.ErrPerm
 			}
 
+			// ICMP is not supported on CAAS models.
+			if u.m.Type() == state.ModelTypeCAAS && r.Protocol == "icmp" {
+				return errors.NotSupportedf("protocol icmp on caas models")
+			}
+
 			// Pre-2.9 clients (using V15 or V16 of this API) do
 			// not populate the new Endpoint field; this
 			// effectively opens the port for all endpoints and

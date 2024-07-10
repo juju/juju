@@ -230,8 +230,8 @@ is determined by the contents of the charm at the specified path.
 --switch and --revision are mutually exclusive.
 
 Use of the --force-units option is not generally recommended; units upgraded
-while in an error state will not have refreshed hooks executed, and may cause
-unexpected behavior.
+while in an error state will not have upgrade-charm hooks executed, and may
+cause unexpected behavior.
 
 --force option for LXD Profiles is not generally recommended when upgrading an
 application; overriding profiles on the container may cause unexpected

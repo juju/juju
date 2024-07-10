@@ -44,6 +44,7 @@ run_custom_managed_identity() {
 
 	# Create the managed identity to use with the controller.
 	group="jtest-$(xxd -l 6 -c 32 -p </dev/random)"
+	role="jrole-$(xxd -l 6 -c 32 -p </dev/random)"
 	identity_name=jmid
 	subscription=$(az account show --query id --output tsv)
 
@@ -52,9 +53,28 @@ run_custom_managed_identity() {
 	echo "${group}" >>"${TEST_DIR}/azure-groups"
 	az identity create --resource-group "${group}" --name jmid
 	mid=$(az identity show --resource-group "${group}" --name jmid --query principalId --output tsv)
-	rid=$(az role assignment create --assignee-object-id "${mid}" --assignee-principal-type "ServicePrincipal" --role "JujuRoles" --scope "/subscriptions/${subscription}" | jq -r .id)
-	if [[ -n ${rid} ]]; then
-		echo "${rid}" >>"${TEST_DIR}/azure-role-assignments"
+	az role definition create --role-definition "{
+      \"Name\": \"${role}\",
+      \"Description\": \"Role definition for a Juju controller\",
+      \"Actions\": [
+                \"Microsoft.Compute/*\",
+                \"Microsoft.KeyVault/*\",
+                \"Microsoft.Network/*\",
+                \"Microsoft.Resources/*\",
+                \"Microsoft.Storage/*\",
+                \"Microsoft.ManagedIdentity/userAssignedIdentities/*\"
+      ],
+      \"AssignableScopes\": [
+            \"/subscriptions/${subscription}\"
+      ]
+  }"
+	rname=$(az role definition list --name "${role}" | jq -r '.[0].name')
+	if [[ -n ${rname} ]]; then
+		echo "${rname}" >>"${TEST_DIR}/azure-roles"
+	fi
+	raid=$(az role assignment create --assignee-object-id "${mid}" --assignee-principal-type "ServicePrincipal" --role "${role}" --scope "/subscriptions/${subscription}" | jq -r .id)
+	if [[ -n ${raid} ]]; then
+		echo "${raid}" >>"${TEST_DIR}/azure-role-assignments"
 	fi
 
 	name="azure-custom-managed-identity"
@@ -81,6 +101,14 @@ run_cleanup_azure() {
 		done <"${TEST_DIR}/azure-role-assignments"
 	fi
 	echo "==> Removed role assignments"
+
+	echo "==> Removing roles"
+	if [[ -f "${TEST_DIR}/azure-roles" ]]; then
+		while read -r name; do
+			az role definition delete --name "${name}" >>"${TEST_DIR}/azure_cleanup"
+		done <"${TEST_DIR}/azure-roles"
+	fi
+	echo "==> Removed roles"
 }
 
 test_managed_identity() {
