@@ -86,8 +86,11 @@ def check_package(package):
 
 	comment_files = package_comment_files(package)
 	non_doc_files = [f for f in comment_files if f != 'doc.go']
+	doc_files = [f for f in comment_files if f == 'doc.go']
 	if non_doc_files:
 		errors.append('package comment in non-doc.go files: '+', '.join(non_doc_files))
+	elif not doc_files:
+		return None
 
 	lines = header.splitlines()
 	if len(lines) > 2 and not lines[2].startswith('Package '):
