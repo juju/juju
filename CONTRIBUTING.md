@@ -301,6 +301,39 @@ with an environment variable:
 JUJU_NOTEST_MONGOJS=1 go test github.com/juju/juju/...
 ```
 
+Conventional commits
+--------------------
+
+Once you have written some code and have tested the changes, the next step is to
+`git commit` it. For commit messages Juju follows the conventional commits guidelines specified [in this
+document](https://docs.google.com/document/d/1SYUo9G7qZ_jdoVXpUVamS5VCgHmtZ0QA-wZxKoMS-C0/).
+In short the commits should be of the following form:
+```
+<type>(optional <scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+- **Type:** The type describes the kind of change (e.g., feat, fix, docs, style,
+  refactor, test, chore).
+- **Scope:** The scope indicates the part of the codebase affected (e.g., model,
+  api, cli).
+- **Description:** The description briefly describes the change. It should not
+  end in any punctuation.
+- **Body:** The body should be a detailed explanation of the change. It should
+  specify what has been changed and why and include descriptions of the
+  behaviour before and after.
+- **Footer:**  The footer includes information about breaking changes, issues
+  closed, etc.
+
+The type, scope and description should all begin with a lower case letter. None
+of the lines can exceed 100 characters in length.
+
+There is a CI action on the Juju GitHub repository that will flag any syntactic
+issues with your commit messages. The action is required to pass before code can
+be merged so make sure to take a look once your PR is up.
+
 Pushing
 -------
 
@@ -317,6 +350,9 @@ Go to the web page (https://github.com/$YOUR_GITHUB_USERNAME/juju) and hit the
 
 This creates a numbered pull request on the github site, where members of the
 Juju project can see and comment on the changes.
+
+The title of the PR should match the form of the title of a conventional commit.
+This can be the title of the most significant commit in the PR.
 
 Make sure to add a clear description of why and what has been changed, and
 include the Launchpad bug number if one exists.
