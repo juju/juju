@@ -327,3 +327,46 @@ func (s *stateSuite) TestInstanceStatusStatusNotSetError(c *gc.C) {
 	_, err = s.state.GetInstanceStatus(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, machineerrors.StatusNotSet)
 }
+
+// TestSetInstanceStatusSuccess asserts the happy path of SetInstanceStatus at
+// the state layer.
+func (s *stateSuite) TestSetInstanceStatusSuccess(c *gc.C) {
+	db := s.DB()
+
+	// Create a reference machine.
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	var machineUUID string
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='666'")
+	c.Assert(row.Err(), jc.ErrorIsNil)
+	err = row.Scan(&machineUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	// Add a reference AZ.
+	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetMachineCloudInstance(
+		context.Background(),
+		machineUUID,
+		instance.Id("123"),
+		instance.HardwareCharacteristics{
+			Arch:             strptr("arm64"),
+			Mem:              uintptr(1024),
+			RootDisk:         uintptr(256),
+			RootDiskSource:   strptr("/test"),
+			CpuCores:         uintptr(4),
+			CpuPower:         uintptr(75),
+			Tags:             strsliceptr([]string{"tag1", "tag2"}),
+			AvailabilityZone: strptr("az-1"),
+			VirtType:         strptr("virtual-machine"),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetInstanceStatus(context.Background(), "666", corestatus.Running)
+	c.Check(err, jc.ErrorIsNil)
+
+	status, err := s.state.GetInstanceStatus(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, corestatus.Running)
+}

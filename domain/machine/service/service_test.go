@@ -15,6 +15,7 @@ import (
 	cmachine "github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
 type serviceSuite struct {
@@ -255,6 +256,36 @@ func (s *serviceSuite) TestInstanceStatusError(c *gc.C) {
 	instanceStatus, err := NewService(s.state).GetInstanceStatus(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Check(instanceStatus, gc.Equals, corestatus.Status(""))
+}
+
+// TestSetInstanceStatusSuccess asserts the happy path of the SetInstanceStatus
+// service.
+func (s *serviceSuite) TestSetInstanceStatusSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), corestatus.Running).Return(nil)
+
+	err := NewService(s.state).SetInstanceStatus(context.Background(), cmachine.Name("666"), corestatus.Running)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestSetInstanceStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestSetInstanceStatusError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), corestatus.Running).Return(rErr)
+
+	err := NewService(s.state).SetInstanceStatus(context.Background(), cmachine.Name("666"), corestatus.Running)
+	c.Check(err, jc.ErrorIs, rErr)
+}
+
+// TestSetInstanceStatusInvalid asserts that an invalid status is passed to the
+// service will result in a InvalidStatus error.
+func (s *serviceSuite) TestSetInstanceStatusInvalid(c *gc.C) {
+	err := NewService(nil).SetInstanceStatus(context.Background(), cmachine.Name("666"), corestatus.Status("invalid status"))
+	c.Check(err, jc.ErrorIs, machineerrors.InvalidStatus)
 }
 
 // TestIsControllerSuccess asserts the happy path of the IsController service.

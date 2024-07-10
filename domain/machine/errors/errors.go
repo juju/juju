@@ -19,4 +19,7 @@ const (
 	// StatusNotSet describes an error that occurs when the status of a machine
 	// or a cloud instance is not set yet.
 	StatusNotSet = errors.ConstError("status not set")
+
+	// InvalidStatus describes a status that is not valid
+	InvalidStatus = errors.ConstError("invalid status")
 )

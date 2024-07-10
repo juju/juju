@@ -246,6 +246,59 @@ WHERE m.name = $machineInstanceStatus.name;
 	return instanceStatus, nil
 }
 
+// SetInstanceStatus sets the cloud specific instance status for this
+// machine.
+func (st *State) SetInstanceStatus(ctx context.Context, mName machine.Name, instanceStatus status.Status) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var iStatus int
+	switch instanceStatus {
+	case status.Empty:
+		iStatus = 0
+	case status.Allocating:
+		iStatus = 1
+	case status.Running:
+		iStatus = 2
+	case status.ProvisioningError:
+		iStatus = 3
+	}
+	machineStatus := machineInstanceStatus{
+		Name:   mName,
+		Status: iStatus,
+	}
+
+	mUUID := instanceTag{}
+	queryMachine := `SELECT uuid AS &instanceTag.machine_uuid FROM machine WHERE name = $machineInstanceStatus.name`
+	queryMachineStmt, err := st.Prepare(queryMachine, machineStatus, mUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	statusQuery := `
+INSERT INTO machine_cloud_instance_status (*)
+VALUES ($instanceTag.machine_uuid, $machineInstanceStatus.status)
+`
+	statusQueryStmt, err := st.Prepare(statusQuery, mUUID, machineStatus)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryMachineStmt, machineStatus).Get(&mUUID)
+		if err != nil {
+			return errors.Annotatef(err, "querying uuid for machine machine %q", mName)
+		}
+		err = tx.Query(ctx, statusQueryStmt, mUUID, machineStatus).Run()
+		if err != nil {
+			return errors.Annotatef(err, "setting cloud instance status for machine %q", mName)
+		}
+		return nil
+	})
+}
+
 // InitialWatchInstanceStatement returns the table and the initial watch statement
 // for the machine cloud instances.
 func (s *State) InitialWatchInstanceStatement() (string, string) {
