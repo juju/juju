@@ -52,7 +52,7 @@ var actionsTestCases = [...]struct {
 	},
 }
 
-func (s *actionsSuite) TestConvertActions(c *gc.C) {
+func (s *actionsSuite) TestDecodeActions(c *gc.C) {
 	for _, tc := range actionsTestCases {
 		c.Logf("Running test case %q", tc.name)
 

@@ -131,7 +131,7 @@ var configTestCases = [...]struct {
 	},
 }
 
-func (s *configSuite) TestConvertConfig(c *gc.C) {
+func (s *configSuite) TestDecodeConfig(c *gc.C) {
 	for _, tc := range configTestCases {
 		c.Logf("Running test case %q", tc.name)
 

@@ -4,10 +4,14 @@
 package state
 
 import (
+	"context"
+
+	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version/v2"
 	gc "gopkg.in/check.v1"
 
+	charmtesting "github.com/juju/juju/core/charm/testing"
 	"github.com/juju/juju/domain/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
@@ -18,7 +22,7 @@ type metadataSuite struct {
 
 var _ = gc.Suite(&metadataSuite{})
 
-var metadataTestCases = [...]struct {
+var metadataDecodeTestCases = [...]struct {
 	name      string
 	input     charmMetadata
 	inputArgs decodeMetadataArgs
@@ -449,12 +453,260 @@ var metadataTestCases = [...]struct {
 	},
 }
 
-func (s *metadataSuite) TestConvertMetadata(c *gc.C) {
-	for _, tc := range metadataTestCases {
+func (s *metadataSuite) TestDecodeMetadata(c *gc.C) {
+	for _, tc := range metadataDecodeTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		result, err := decodeMetadata(tc.input, tc.inputArgs)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
 	}
+}
+
+func (s *metadataSuite) TestEncodeMetadata(c *gc.C) {
+	id := charmtesting.GenCharmID(c)
+
+	result, err := encodeMetadata(id, charm.Metadata{
+		Name:           "foo",
+		Summary:        "summary",
+		Description:    "description",
+		MinJujuVersion: version.MustParse("2.0.0"),
+		RunAs:          "root",
+		Subordinate:    true,
+		Assumes:        []byte("null"),
+	}, []byte("{}"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(result, gc.DeepEquals, setCharmMetadata{
+		UUID:           id.String(),
+		Name:           "foo",
+		Summary:        "summary",
+		Description:    "description",
+		MinJujuVersion: "2.0.0",
+		RunAsID:        1,
+		Subordinate:    true,
+		Assumes:        []byte("null"),
+		LXDProfile:     []byte("{}"),
+	})
+
+}
+
+type metadataStateSuite struct {
+	schematesting.ModelSuite
+}
+
+var _ = gc.Suite(&metadataStateSuite{})
+
+// Bake the charm.RunAs values into the database.
+func (s *metadataStateSuite) TestMetadataRunAs(c *gc.C) {
+	type charmRunAs struct {
+		ID   int    `db:"id"`
+		Name string `db:"name"`
+	}
+
+	stmt := sqlair.MustPrepare(`
+SELECT charm_run_as_kind.* AS &charmRunAs.* FROM charm_run_as_kind ORDER BY id;
+`, charmRunAs{})
+
+	var results []charmRunAs
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).GetAll(&results)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 4)
+
+	m := []charm.RunAs{
+		charm.RunAsDefault,
+		charm.RunAsRoot,
+		charm.RunAsSudoer,
+		charm.RunAsNonRoot,
+	}
+
+	for i, value := range m {
+		c.Logf("result %d: %#v", i, value)
+		result, err := encodeRunAs(value)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(result, gc.DeepEquals, results[i].ID)
+	}
+}
+
+func (s *metadataStateSuite) TestMetadataRunAsWithError(c *gc.C) {
+	_, err := encodeRunAs(charm.RunAs("invalid"))
+	c.Assert(err, gc.ErrorMatches, `unknown run as value "invalid"`)
+}
+
+func (s *metadataStateSuite) TestMetadataRelationKind(c *gc.C) {
+	type charmRelationKind struct {
+		ID   int    `db:"id"`
+		Name string `db:"name"`
+	}
+
+	stmt := sqlair.MustPrepare(`
+SELECT charm_relation_kind.* AS &charmRelationKind.* FROM charm_relation_kind ORDER BY id;
+`, charmRelationKind{})
+
+	var results []charmRelationKind
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).GetAll(&results)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 3)
+
+	m := []string{
+		relationKindProvides,
+		relationKindRequires,
+		relationKindPeers,
+	}
+
+	for i, value := range m {
+		c.Logf("result %d: %#v", i, value)
+		result, err := encodeRelationKind(value)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(result, gc.DeepEquals, results[i].ID)
+	}
+}
+
+func (s *metadataStateSuite) TestMetadataRelationKindWithError(c *gc.C) {
+	_, err := encodeRelationKind("invalid")
+	c.Assert(err, gc.ErrorMatches, `unknown relation kind "invalid"`)
+}
+
+func (s *metadataStateSuite) TestMetadataRelationRole(c *gc.C) {
+	type charmRelationRole struct {
+		ID   int    `db:"id"`
+		Name string `db:"name"`
+	}
+
+	stmt := sqlair.MustPrepare(`
+SELECT charm_relation_role.* AS &charmRelationRole.* FROM charm_relation_role ORDER BY id;
+`, charmRelationRole{})
+
+	var results []charmRelationRole
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).GetAll(&results)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 3)
+
+	m := []charm.RelationRole{
+		charm.RoleProvider,
+		charm.RoleRequirer,
+		charm.RolePeer,
+	}
+
+	for i, value := range m {
+		c.Logf("result %d: %#v", i, value)
+		result, err := encodeRelationRole(value)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(result, gc.DeepEquals, results[i].ID)
+	}
+}
+
+func (s *metadataStateSuite) TestMetadataRelationRoleWithError(c *gc.C) {
+	_, err := encodeRelationRole(charm.RelationRole("invalid"))
+	c.Assert(err, gc.ErrorMatches, `unknown relation role "invalid"`)
+}
+
+func (s *metadataStateSuite) TestMetadataRelationScope(c *gc.C) {
+	type charmRelationScope struct {
+		ID   int    `db:"id"`
+		Name string `db:"name"`
+	}
+
+	stmt := sqlair.MustPrepare(`
+SELECT charm_relation_scope.* AS &charmRelationScope.* FROM charm_relation_scope ORDER BY id;
+`, charmRelationScope{})
+
+	var results []charmRelationScope
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).GetAll(&results)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+
+	m := []charm.RelationScope{
+		charm.ScopeGlobal,
+		charm.ScopeContainer,
+	}
+
+	for i, value := range m {
+		c.Logf("result %d: %#v", i, value)
+		result, err := encodeRelationScope(value)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(result, gc.DeepEquals, results[i].ID)
+	}
+}
+
+func (s *metadataStateSuite) TestMetadataRelationScopeWithError(c *gc.C) {
+	_, err := encodeRelationScope(charm.RelationScope("invalid"))
+	c.Assert(err, gc.ErrorMatches, `unknown relation scope "invalid"`)
+}
+
+func (s *metadataStateSuite) TestMetadataStorageKind(c *gc.C) {
+	type charmStorageKind struct {
+		ID   int    `db:"id"`
+		Name string `db:"name"`
+	}
+
+	stmt := sqlair.MustPrepare(`
+SELECT charm_storage_kind.* AS &charmStorageKind.* FROM charm_storage_kind ORDER BY id;
+`, charmStorageKind{})
+
+	var results []charmStorageKind
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).GetAll(&results)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+
+	m := []charm.StorageType{
+		charm.StorageBlock,
+		charm.StorageFilesystem,
+	}
+
+	for i, value := range m {
+		c.Logf("result %d: %#v", i, value)
+		result, err := encodeStorageType(value)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(result, gc.DeepEquals, results[i].ID)
+	}
+}
+
+func (s *metadataStateSuite) TestMetadataStorageKindWithError(c *gc.C) {
+	_, err := encodeStorageType(charm.StorageType("invalid"))
+	c.Assert(err, gc.ErrorMatches, `unknown storage kind "invalid"`)
+}
+
+func (s *metadataStateSuite) TestMetadataResourceKind(c *gc.C) {
+	type charmResourceKind struct {
+		ID   int    `db:"id"`
+		Name string `db:"name"`
+	}
+
+	stmt := sqlair.MustPrepare(`
+SELECT charm_resource_kind.* AS &charmResourceKind.* FROM charm_resource_kind ORDER BY id;
+`, charmResourceKind{})
+
+	var results []charmResourceKind
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).GetAll(&results)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 2)
+
+	m := []charm.ResourceType{
+		charm.ResourceTypeFile,
+		charm.ResourceTypeContainerImage,
+	}
+
+	for i, value := range m {
+		c.Logf("result %d: %#v", i, value)
+		result, err := encodeResourceType(value)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(result, gc.DeepEquals, results[i].ID)
+	}
+}
+
+func (s *metadataStateSuite) TestMetadataResourceKindWithError(c *gc.C) {
+	_, err := encodeResourceType(charm.ResourceType("invalid"))
+	c.Assert(err, gc.ErrorMatches, `unknown resource kind "invalid"`)
 }
