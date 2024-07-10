@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	internallogger "github.com/juju/juju/internal/logger"
-	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
 	"github.com/juju/juju/internal/tools"
@@ -219,11 +218,6 @@ func (ctrl *Controller) Import(
 
 // modelConfig creates a config for the model being imported.
 func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
-	// Ensure the expected default secret-backend value is set.
-	if v, ok := attrs[config.SecretBackendKey].(string); v == "" || !ok {
-		attrs[config.SecretBackendKey] = config.DefaultSecretBackend
-	}
-
 	// Remove obsolete and no longer supported syslog forward config.
 	for _, a := range []string{
 		"logforward-enabled", "syslog-host", "syslog-ca-cert", "syslog-client-cert", "syslog-client-key",
@@ -2457,29 +2451,8 @@ func (i *importer) addFilesystemAttachmentOp(fsID string, attachment description
 }
 
 func (i *importer) secretBackend() error {
-	mCfg, err := i.dbModel.ModelConfig(context.Background())
-	if err != nil {
-		return errors.Trace(err)
-	}
-	mSecretBackendName := mCfg.SecretBackend()
-	if mSecretBackendName == "" || mSecretBackendName == secretsprovider.Auto || mSecretBackendName == secretsprovider.Internal {
-		return nil
-	}
-
-	backendID := i.model.SecretBackendID()
-	if backendID == "" {
-		// We reject if no backend ID is set, because we don't want to accidentally drain secrets to the wrong backend.
-		// So we suggest to upgrade the source controller if no backend ID in the exported data(because the source model is too old).
-		return errors.NotFoundf("secret backend config %q in model export", mSecretBackendName)
-	}
-	i.logger.Debugf("importing secret backend")
-	backends := NewSecretBackends(i.st)
-	mBackend, err := backends.GetSecretBackendByID(backendID)
-	if err != nil {
-		return errors.Annotatef(err, "cannot load secret backend %q", backendID)
-	}
-	err = i.dbModel.UpdateModelConfig(i.configSchemaSourceGetter, map[string]interface{}{config.SecretBackendKey: mBackend.Name}, nil)
-	return errors.Trace(err)
+	// TODO: remove once we implement the model migration for secrets in dqlite.
+	return nil
 }
 
 func (i *importer) secrets() error {

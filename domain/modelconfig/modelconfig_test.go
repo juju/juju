@@ -145,7 +145,7 @@ func (s *modelConfigSuite) TestWatchModelConfig(c *gc.C) {
 
 	// Changestream becomes idle and then we receive the bootstrap changes
 	// from the model config.
-	w.AssertChange("name", "uuid", "type", "foo", "secret-backend", "logging-config")
+	w.AssertChange("name", "uuid", "type", "foo", "logging-config")
 
 	// Ensure that the changestream is idle.
 	s.ModelSuite.AssertChangeStreamIdle(c)

@@ -14,17 +14,11 @@ import (
 	"github.com/juju/juju/internal/testing"
 )
 
-type dummySecretBackendProviderFunc func(string) (bool, error)
-
 type dummySpaceProviderFunc func(context.Context, string) (bool, error)
 
 type validatorsSuite struct{}
 
 var _ = gc.Suite(&validatorsSuite{})
-
-func (d dummySecretBackendProviderFunc) HasSecretsBackend(s string) (bool, error) {
-	return d(s)
-}
 
 func (d dummySpaceProviderFunc) HasSpace(ctx context.Context, s string) (bool, error) {
 	return d(ctx, s)
@@ -283,87 +277,6 @@ func (*validatorsSuite) TestLoggincTracePermissionTraceAllow(c *gc.C) {
 
 	_, err = LoggingTracePermissionChecker(true)(context.Background(), newCfg, oldCfg)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (*validatorsSuite) TestSecretsBackendChecker(c *gc.C) {
-	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
-		c.Assert(s, gc.Equals, "vault")
-		return true, nil
-	})
-
-	oldCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "vault",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (*validatorsSuite) TestSecretsBackendCheckerNoExist(c *gc.C) {
-	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
-		c.Assert(s, gc.Equals, "vault")
-		return false, nil
-	})
-
-	oldCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "vault",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
-	var validationError *config.ValidationError
-	c.Assert(errors.As(err, &validationError), jc.IsTrue)
-	c.Assert(validationError.InvalidAttrs, gc.DeepEquals, []string{"secret-backend"})
-}
-
-func (*validatorsSuite) TestSecretsBackendCheckerProviderError(c *gc.C) {
-	providerErr := errors.New("some error")
-	provider := dummySecretBackendProviderFunc(func(s string) (bool, error) {
-		c.Assert(s, gc.Equals, "vault")
-		return false, providerErr
-	})
-
-	oldCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "default",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	newCfg, err := config.New(config.NoDefaults, map[string]any{
-		"name":           "wallyworld",
-		"uuid":           testing.ModelTag.Id(),
-		"type":           "sometype",
-		"secret-backend": "vault",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = SecretBackendChecker(provider)(context.Background(), newCfg, oldCfg)
-	c.Assert(err, jc.ErrorIs, providerErr)
 }
 
 // TestAuthorizedKeysChanged asserts that if we change the value of authorised

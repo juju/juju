@@ -77,7 +77,6 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 		"uuid":           "a677bdfd-3c96-46b2-912f-38e25faceaf7",
 		"type":           "sometype",
 		"foo":            "bar",
-		"secret-backend": "auto",
 		"logging-config": "<root>=INFO",
 	})
 
@@ -87,6 +86,6 @@ func (s *serviceSuite) TestSetModelConfig(c *gc.C) {
 		c.Fatal(ctx.Err())
 	}
 	c.Check(changes, jc.SameContents, []string{
-		"name", "uuid", "type", "foo", "secret-backend", "logging-config",
+		"name", "uuid", "type", "foo", "logging-config",
 	})
 }

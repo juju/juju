@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
-	secretsprovider "github.com/juju/juju/internal/secrets/provider"
 	"github.com/juju/juju/state/migrations"
 )
 
@@ -1592,20 +1591,8 @@ func (e *exporter) operations() error {
 }
 
 func (e *exporter) secretBackendID() (string, error) {
-	mCfg, err := e.dbModel.Config()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	backendName := mCfg.SecretBackend()
-	if backendName == "" || backendName == secretsprovider.Auto || backendName == secretsprovider.Internal {
-		return "", nil
-	}
-	store := NewSecretBackends(e.st)
-	backend, err := store.GetSecretBackend(backendName)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return backend.ID, nil
+	// TODO: remove once we implement the model migration for secrets in dqlite.
+	return "", nil
 }
 
 func ownerTagFromSecretOwner(owner secrets.Owner) (names.Tag, error) {

@@ -146,6 +146,5 @@ func (s *bootstrapSuite) TestSetModelConfig(c *gc.C) {
 		"type":           "iaas",
 		"foo":            "bar",
 		"logging-config": "<root>=INFO",
-		"secret-backend": "auto",
 	})
 }

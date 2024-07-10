@@ -148,6 +148,11 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 		return err
 	}
 
+	if args.Config != nil && args.Config["secret-backend"] != "" {
+		// This is for old client talking to the juju4 controller.
+		return fmt.Errorf(`cannot set "secret-backend" via model-config`)
+	}
+
 	if err := c.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}

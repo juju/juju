@@ -55,7 +55,6 @@ func (s *providerServiceSuite) TestModelConfig(c *gc.C) {
 		"name":           "wallyworld",
 		"uuid":           "a677bdfd-3c96-46b2-912f-38e25faceaf7",
 		"type":           "sometype",
-		"secret-backend": "auto",
 		"logging-config": "<root>=INFO",
 	})
 }
