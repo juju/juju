@@ -65,10 +65,18 @@ type machineLife struct {
 	LifeID life.Life `db:"life_id"`
 }
 
-// instanceID represents the struct to be used for the insatnce_id column within
+// instanceID represents the struct to be used for the instance_id column within
 // the sqlair statements in the machine domain.
 type instanceID struct {
 	ID string `db:"instance_id"`
+}
+
+// machineInstanceStatus represents the struct to be used for the status columns
+// of the machine_status and the machine_cloud_instance_status tables) within
+// the sqlair statements in the machine domain.
+type machineInstanceStatus struct {
+	Name   machine.Name `db:"name"`
+	Status string       `db:"status"`
 }
 
 // machineName represents the struct to be used for the name column

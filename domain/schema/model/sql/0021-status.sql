@@ -1,7 +1,7 @@
 -- Status values for machines
 CREATE TABLE machine_status_values (
     id INT PRIMARY KEY,
-    value TEXT NOT NULL
+    status TEXT NOT NULL
 );
 
 INSERT INTO machine_status_values VALUES
@@ -14,7 +14,7 @@ INSERT INTO machine_status_values VALUES
 -- Status values for machine cloud instances
 CREATE TABLE instance_status_values (
     id INT PRIMARY KEY,
-    value TEXT NOT NULL
+    status TEXT NOT NULL
 );
 
 INSERT INTO instance_status_values VALUES

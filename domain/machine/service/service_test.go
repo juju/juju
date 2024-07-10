@@ -236,9 +236,9 @@ func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *gc.C) {
 func (s *serviceSuite) TestInstanceStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().InstanceStatus(gomock.Any(), cmachine.Name("666")).Return("running", nil)
+	s.state.EXPECT().GetInstanceStatus(gomock.Any(), cmachine.Name("666")).Return("running", nil)
 
-	instanceStatus, err := NewService(s.state).InstanceStatus(context.Background(), cmachine.Name("666"))
+	instanceStatus, err := NewService(s.state).GetInstanceStatus(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(instanceStatus, gc.Equals, "running")
 }
@@ -249,9 +249,9 @@ func (s *serviceSuite) TestInstanceStatusError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().InstanceStatus(gomock.Any(), cmachine.Name("666")).Return("", rErr)
+	s.state.EXPECT().GetInstanceStatus(gomock.Any(), cmachine.Name("666")).Return("", rErr)
 
-	instanceStatus, err := NewService(s.state).InstanceStatus(context.Background(), cmachine.Name("666"))
+	instanceStatus, err := NewService(s.state).GetInstanceStatus(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Check(instanceStatus, gc.Equals, "")
 }

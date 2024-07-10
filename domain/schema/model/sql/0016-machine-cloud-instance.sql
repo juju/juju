@@ -40,11 +40,11 @@ CREATE TABLE machine_lxd_profile (
 
 CREATE TABLE machine_cloud_instance_status (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
-    instance_status INT NOT NULL,
+    status INT NOT NULL,
     CONSTRAINT fk_machine_constraint_instance
     FOREIGN KEY (machine_uuid)
     REFERENCES machine_cloud_instance (machine_uuid),
     CONSTRAINT fk_machine_constraint_status
-    FOREIGN KEY (instance_status)
+    FOREIGN KEY (status)
     REFERENCES instance_status_values (id)
 );

@@ -46,10 +46,11 @@ type State interface {
 	// If the machine is not provisioned, it returns a NotProvisionedError.
 	InstanceId(context.Context, machine.Name) (string, error)
 
-	// InstanceStatus returns the cloud specific instance status for this
+	// GetInstanceStatus returns the cloud specific instance status for this
 	// machine.
-	// If the machine is not provisioned, it returns a NotProvisionedError.
-	InstanceStatus(context.Context, machine.Name) (string, error)
+	// It returns a StatusNotSet if the instance status is not set.
+	// Idempotent.
+	GetInstanceStatus(context.Context, machine.Name) (string, error)
 
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
@@ -154,11 +155,12 @@ func (s *Service) InstanceId(ctx context.Context, machineName machine.Name) (str
 	return instanceId, nil
 }
 
-// InstanceStatus returns the cloud specific instance status for this
+// GetInstanceStatus returns the cloud specific instance status for this
 // machine.
-// If the machine is not provisioned, it returns a NotProvisionedError.
-func (s *Service) InstanceStatus(ctx context.Context, machineName machine.Name) (string, error) {
-	instanceStatus, err := s.st.InstanceStatus(ctx, machineName)
+// It returns a StatusNotSet if the instance status is not set.
+// Idempotent.
+func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (string, error) {
+	instanceStatus, err := s.st.GetInstanceStatus(ctx, machineName)
 	if err != nil {
 		return "", errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineName)
 	}

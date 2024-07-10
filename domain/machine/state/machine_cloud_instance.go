@@ -192,13 +192,44 @@ WHERE m.name = $machineName.name;
 	return instanceId, nil
 }
 
-// InstanceStatus returns the cloud specific instance status for this
+// GetInstanceStatus returns the cloud specific instance status for the given
 // machine.
-// If the machine is not provisioned, it returns a NotProvisionedError.
-func (st *State) InstanceStatus(ctx context.Context, machineName machine.Name) (string, error) {
-	// TODO(cderici): Implementation for this is deferred until the design for
-	// the domain entity statuses on dqlite is finalized.
-	return "running", nil
+// It returns a StatusNotSet if the instance status is not set.
+// Idempotent.
+func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	machineStatus := machineInstanceStatus{Name: mName}
+	statusQuery := `
+SELECT isv.status as &machineInstanceStatus.status
+FROM machine as m
+	JOIN machine_cloud_instance_status as mcis ON m.uuid = mcis.machine_uuid
+	JOIN instance_status_values as isv ON mcis.status = isv.id
+WHERE m.name = $machineInstanceStatus.name;
+`
+
+	statusQueryStmt, err := st.Prepare(statusQuery, machineStatus)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, statusQueryStmt, machineStatus).Get(&machineStatus)
+		if err != nil {
+			return errors.Annotatef(err, "querying cloud instance status for machine %q", mName)
+		}
+		return nil
+	})
+
+	if err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return "", errors.Annotatef(machineerrors.StatusNotSet, "machine: %q", mName)
+		}
+		return "", errors.Trace(err)
+	}
+	return machineStatus.Status, nil
 }
 
 // InitialWatchInstanceStatement returns the table and the initial watch statement

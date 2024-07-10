@@ -233,6 +233,45 @@ func (c *MockStateDeleteMachineCloudInstanceCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// GetInstanceStatus mocks base method.
+func (m *MockState) GetInstanceStatus(arg0 context.Context, arg1 machine.Name) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetInstanceStatus", arg0, arg1)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetInstanceStatus indicates an expected call of GetInstanceStatus.
+func (mr *MockStateMockRecorder) GetInstanceStatus(arg0, arg1 any) *MockStateGetInstanceStatusCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetInstanceStatus", reflect.TypeOf((*MockState)(nil).GetInstanceStatus), arg0, arg1)
+	return &MockStateGetInstanceStatusCall{Call: call}
+}
+
+// MockStateGetInstanceStatusCall wrap *gomock.Call
+type MockStateGetInstanceStatusCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetInstanceStatusCall) Return(arg0 string, arg1 error) *MockStateGetInstanceStatusCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetInstanceStatusCall) Do(f func(context.Context, machine.Name) (string, error)) *MockStateGetInstanceStatusCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetInstanceStatusCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateGetInstanceStatusCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetMachineLife mocks base method.
 func (m *MockState) GetMachineLife(arg0 context.Context, arg1 machine.Name) (*life.Life, error) {
 	m.ctrl.T.Helper()
@@ -424,45 +463,6 @@ func (c *MockStateInstanceIdCall) Do(f func(context.Context, machine.Name) (stri
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateInstanceIdCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateInstanceIdCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// InstanceStatus mocks base method.
-func (m *MockState) InstanceStatus(arg0 context.Context, arg1 machine.Name) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InstanceStatus", arg0, arg1)
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// InstanceStatus indicates an expected call of InstanceStatus.
-func (mr *MockStateMockRecorder) InstanceStatus(arg0, arg1 any) *MockStateInstanceStatusCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceStatus", reflect.TypeOf((*MockState)(nil).InstanceStatus), arg0, arg1)
-	return &MockStateInstanceStatusCall{Call: call}
-}
-
-// MockStateInstanceStatusCall wrap *gomock.Call
-type MockStateInstanceStatusCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockStateInstanceStatusCall) Return(arg0 string, arg1 error) *MockStateInstanceStatusCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockStateInstanceStatusCall) Do(f func(context.Context, machine.Name) (string, error)) *MockStateInstanceStatusCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateInstanceStatusCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateInstanceStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
