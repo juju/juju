@@ -112,6 +112,44 @@ func (s *serviceSuite) TestGetLifeNotFoundError(c *gc.C) {
 	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
+// TestSetMachineLifeSuccess asserts the happy path of the SetMachineLife
+// service.
+func (s *serviceSuite) TestSetMachineLifeSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	life := life.Alive
+	s.state.EXPECT().SetMachineLife(gomock.Any(), cmachine.Name("666"), life).Return(nil)
+
+	err := NewService(s.state).SetMachineLife(context.Background(), cmachine.Name("666"), life)
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestSetMachineLifeError asserts that an error coming from the state layer is
+// preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestSetMachineLifeError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	life := life.Alive
+	s.state.EXPECT().SetMachineLife(gomock.Any(), cmachine.Name("666"), life).Return(rErr)
+
+	err := NewService(s.state).SetMachineLife(context.Background(), cmachine.Name("666"), life)
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Assert(err, gc.ErrorMatches, `setting life status for machine "666": boom`)
+}
+
+// TestSetMachineLifeMachineDontExist asserts that the state layer returns a
+// NotFound Error if a machine is not found with the given machineName, and that
+// error is preserved and passed on to the service layer to be handled there.
+func (s *serviceSuite) TestSetMachineLifeMachineDontExist(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().SetMachineLife(gomock.Any(), cmachine.Name("nonexistent"), life.Alive).Return(nil)
+
+	err := NewService(s.state).SetMachineLife(context.Background(), cmachine.Name("nonexistent"), life.Alive)
+	c.Check(err, jc.ErrorIsNil)
+}
+
 func (s *serviceSuite) TestListAllMachinesSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

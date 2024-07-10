@@ -620,3 +620,41 @@ func (c *MockStateSetMachineCloudInstanceCall) DoAndReturn(f func(context.Contex
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// SetMachineLife mocks base method.
+func (m *MockState) SetMachineLife(arg0 context.Context, arg1 machine.Name, arg2 life.Life) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetMachineLife", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetMachineLife indicates an expected call of SetMachineLife.
+func (mr *MockStateMockRecorder) SetMachineLife(arg0, arg1, arg2 any) *MockStateSetMachineLifeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMachineLife", reflect.TypeOf((*MockState)(nil).SetMachineLife), arg0, arg1, arg2)
+	return &MockStateSetMachineLifeCall{Call: call}
+}
+
+// MockStateSetMachineLifeCall wrap *gomock.Call
+type MockStateSetMachineLifeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateSetMachineLifeCall) Return(arg0 error) *MockStateSetMachineLifeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateSetMachineLifeCall) Do(f func(context.Context, machine.Name, life.Life) error) *MockStateSetMachineLifeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateSetMachineLifeCall) DoAndReturn(f func(context.Context, machine.Name, life.Life) error) *MockStateSetMachineLifeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

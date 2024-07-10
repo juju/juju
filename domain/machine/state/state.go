@@ -182,7 +182,7 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 			return errors.Annotatef(err, "looking up life for machine %q", mName)
 		}
 
-		lifeResult = result.ID
+		lifeResult = result.LifeID
 
 		return nil
 	})
@@ -192,6 +192,31 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 	}
 
 	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", mName)
+}
+
+// SetMachineLife sets the life status of the specified machine.
+// No error is returned if the provided machine doesn't exist, just nothing gets
+// updated.
+func (st *State) SetMachineLife(ctx context.Context, mName machine.Name, life life.Life) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	machineNameParam := machineLife{Name: mName, LifeID: life}
+	query := `UPDATE machine SET life_id = $machineLife.life_id WHERE name = $machineLife.name`
+	queryStmt, err := st.Prepare(query, machineNameParam)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, queryStmt, machineNameParam).Run()
+		if err != nil {
+			return errors.Annotatef(err, "setting life for machine %q", mName)
+		}
+		return nil
+	})
 }
 
 // IsController returns whether the machine is a controller machine.
