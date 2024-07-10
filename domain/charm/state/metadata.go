@@ -414,7 +414,7 @@ func encodeMetadata(id corecharm.ID, metadata charm.Metadata, lxdProfile []byte)
 
 func encodeRunAs(runAs charm.RunAs) (int, error) {
 	switch runAs {
-	case charm.RunAsDefault:
+	case charm.RunAsDefault, "":
 		return 0, nil
 	case charm.RunAsRoot:
 		return 1, nil

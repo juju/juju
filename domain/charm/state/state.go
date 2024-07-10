@@ -461,7 +461,7 @@ func (s *State) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Ma
 SELECT &charmManifest.*
 FROM v_charm_manifest
 WHERE charm_uuid = $charmID.uuid
-ORDER BY "idx" ASC;
+ORDER BY array_index ASC;
 `
 
 	stmt, err := s.Prepare(query, charmManifest{}, ident)
@@ -684,19 +684,19 @@ func (s *State) SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, 
 		if err := s.setCharmContainers(ctx, tx, id, charm.Metadata.Containers); err != nil {
 			return errors.Trace(err)
 		}
-		/*
-			if err := s.setCharmActions(ctx, tx, id, charm.Actions); err != nil {
-				return errors.Trace(err)
-			}
 
-			if err := s.setCharmConfig(ctx, tx, id, charm.Config); err != nil {
-				return errors.Trace(err)
-			}
+		if err := s.setCharmActions(ctx, tx, id, charm.Actions); err != nil {
+			return errors.Trace(err)
+		}
 
-			if err := s.setCharmManifest(ctx, tx, id, charm.Manifest); err != nil {
-				return errors.Trace(err)
-			}
-		*/
+		if err := s.setCharmConfig(ctx, tx, id, charm.Config); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmManifest(ctx, tx, id, charm.Manifest); err != nil {
+			return errors.Trace(err)
+		}
+
 		return nil
 	}); err != nil {
 		return "", fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
@@ -1264,6 +1264,73 @@ func (s *State) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corech
 		if err := tx.Query(ctx, mountStmt, encodedMounts).Run(); err != nil {
 			return fmt.Errorf("failed to insert charm container mounts: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (s *State) setCharmActions(ctx context.Context, tx *sqlair.TX, id corecharm.ID, actions charm.Actions) error {
+	// If there are no resources, we don't need to do anything.
+	if len(actions.Actions) == 0 {
+		return nil
+	}
+
+	query := `INSERT INTO charm_action (*) VALUES ($setCharmAction.*);`
+	stmt, err := s.Prepare(query, setCharmAction{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodeActions(id, actions)).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm actions: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmConfig(ctx context.Context, tx *sqlair.TX, id corecharm.ID, config charm.Config) error {
+	// If there are no resources, we don't need to do anything.
+	if len(config.Options) == 0 {
+		return nil
+	}
+
+	encodedConfig, err := encodeConfig(id, config)
+	if err != nil {
+		return fmt.Errorf("failed to encode charm config: %w", err)
+	}
+
+	query := `INSERT INTO charm_config (*) VALUES ($setCharmConfig.*);`
+	stmt, err := s.Prepare(query, setCharmConfig{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodedConfig).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm config: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corecharm.ID, manifest charm.Manifest) error {
+	// If there are no resources, we don't need to do anything.
+	if len(manifest.Bases) == 0 {
+		return nil
+	}
+
+	encodedManifest, err := encodeManifest(id, manifest)
+	if err != nil {
+		return fmt.Errorf("failed to encode charm manifest: %w", err)
+	}
+
+	query := `INSERT INTO charm_manifest_base (*) VALUES ($setCharmManifest.*);`
+	stmt, err := s.Prepare(query, setCharmManifest{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, encodedManifest).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm manifest: %w", err)
 	}
 
 	return nil

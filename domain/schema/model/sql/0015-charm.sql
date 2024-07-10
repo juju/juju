@@ -490,11 +490,11 @@ CREATE TABLE charm_action (
 CREATE TABLE charm_manifest_base (
     charm_uuid TEXT NOT NULL,
     array_index INT NOT NULL,
-    os_id TEXT NOT NULL,
+    os_id INT DEFAULT 0,
     track TEXT,
     risk TEXT NOT NULL,
     branch TEXT,
-    architecture_id TEXT NOT NULL,
+    architecture_id INT DEFAULT 0,
     CONSTRAINT fk_charm_manifest_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
@@ -510,7 +510,7 @@ CREATE TABLE charm_manifest_base (
 CREATE VIEW v_charm_manifest AS
 SELECT
     cmb.charm_uuid,
-    cmb.array_index AS idx,
+    cmb.array_index,
     cmb.track,
     cmb.risk,
     cmb.branch,

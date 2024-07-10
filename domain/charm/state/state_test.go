@@ -1497,6 +1497,50 @@ INSERT INTO charm_manifest_base (
 	})
 }
 
+func (s *stateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk: charm.RiskStable,
+				},
+				Architectures: []string{"amd64", "arm64"},
+			},
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Risk:   charm.RiskEdge,
+					Branch: "foo",
+				},
+				Architectures: []string{"amd64"},
+			},
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track:  "4.0",
+					Risk:   charm.RiskBeta,
+					Branch: "baz",
+				},
+				Architectures: []string{"ppc64el"},
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "ubuntu",
+		},
+		Manifest: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmManifest(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
 func (s *stateSuite) TestGetCharmManifestNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -1614,6 +1658,57 @@ INSERT INTO charm_config (
 	})
 }
 
+func (s *stateSuite) TestSetCharmThenGetCharmConfig(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Config{
+		Options: map[string]charm.Option{
+			"foo": {
+				Type:        charm.OptionString,
+				Default:     "string",
+				Description: "this is a string",
+			},
+			"bar": {
+				Type:        charm.OptionInt,
+				Default:     42,
+				Description: "this is an int",
+			},
+			"baz": {
+				Type:        charm.OptionBool,
+				Default:     true,
+				Description: "this is a bool",
+			},
+			"alpha": {
+				Type:        charm.OptionFloat,
+				Default:     3.42,
+				Description: "this is a float",
+			},
+			"beta": {
+				Type:        charm.OptionFloat,
+				Default:     float64(3),
+				Description: "this is also a float",
+			},
+			"shh": {
+				Type:        charm.OptionSecret,
+				Default:     "secret",
+				Description: "this is a secret",
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "ubuntu",
+		},
+		Config: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmConfig(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
 func (s *stateSuite) TestGetCharmConfigNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -1691,6 +1786,38 @@ INSERT INTO charm_action (
 			},
 		},
 	})
+}
+
+func (s *stateSuite) TestSetCharmThenGetCharmActions(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Actions{
+		Actions: map[string]charm.Action{
+			"foo": {
+				Description:    "description1",
+				Parallel:       true,
+				ExecutionGroup: "group1",
+				Params:         []byte("{}"),
+			},
+			"bar": {
+				Description:    "description2",
+				Parallel:       false,
+				ExecutionGroup: "group2",
+			},
+		},
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "ubuntu",
+		},
+		Actions: expected,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmActions(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
 }
 
 func (s *stateSuite) TestGetCharmActionsNotFound(c *gc.C) {

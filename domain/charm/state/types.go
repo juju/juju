@@ -288,12 +288,24 @@ type setCharmMount struct {
 // for the all the fields.
 type charmManifest struct {
 	CharmUUID    string `db:"charm_uuid"`
-	Index        int    `db:"idx"`
+	Index        int    `db:"array_index"`
 	Track        string `db:"track"`
 	Risk         string `db:"risk"`
 	Branch       string `db:"branch"`
 	OS           string `db:"os"`
 	Architecture string `db:"architecture"`
+}
+
+// setCharmManifest is used to set the manifest of a charm.
+// This includes the setting of the index.
+type setCharmManifest struct {
+	CharmUUID      string `db:"charm_uuid"`
+	Index          int    `db:"array_index"`
+	Track          string `db:"track"`
+	Risk           string `db:"risk"`
+	Branch         string `db:"branch"`
+	OSID           int    `db:"os_id"`
+	ArchitectureID int    `db:"architecture_id"`
 }
 
 // charmLXDProfile is used to get the LXD profile of a charm.
@@ -312,9 +324,28 @@ type charmConfig struct {
 	Description  string `db:"description"`
 }
 
+// setCharmConfig is used to set the config of a charm.
+type setCharmConfig struct {
+	CharmUUID    string `db:"charm_uuid"`
+	Key          string `db:"key"`
+	TypeID       int    `db:"type_id"`
+	DefaultValue string `db:"default_value"`
+	Description  string `db:"description"`
+}
+
 // charmAction is used to get the actions of a charm.
 // This is a row based struct that is normalised form of a map of actions.
 type charmAction struct {
+	CharmUUID      string `db:"charm_uuid"`
+	Key            string `db:"key"`
+	Description    string `db:"description"`
+	Parallel       bool   `db:"parallel"`
+	ExecutionGroup string `db:"execution_group"`
+	Params         []byte `db:"params"`
+}
+
+// setCharmAction is used to set the actions of a charm.
+type setCharmAction struct {
 	CharmUUID      string `db:"charm_uuid"`
 	Key            string `db:"key"`
 	Description    string `db:"description"`

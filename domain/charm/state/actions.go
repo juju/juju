@@ -4,6 +4,7 @@
 package state
 
 import (
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/charm"
 )
 
@@ -18,6 +19,21 @@ func decodeActions(actions []charmAction) charm.Actions {
 			ExecutionGroup: action.ExecutionGroup,
 			Params:         action.Params,
 		}
+	}
+	return result
+}
+
+func encodeActions(id corecharm.ID, actions charm.Actions) []setCharmAction {
+	result := make([]setCharmAction, 0, len(actions.Actions))
+	for key, action := range actions.Actions {
+		result = append(result, setCharmAction{
+			CharmUUID:      id.String(),
+			Key:            key,
+			Description:    action.Description,
+			Parallel:       action.Parallel,
+			ExecutionGroup: action.ExecutionGroup,
+			Params:         action.Params,
+		})
 	}
 	return result
 }
