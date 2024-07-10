@@ -16,14 +16,13 @@ import (
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
 	"github.com/juju/juju/cmd/juju/secretbackends"
-	"github.com/juju/juju/cmd/juju/secretbackends/mocks"
 	"github.com/juju/juju/jujuclient"
 )
 
 type AddSuite struct {
 	jujutesting.IsolationSuite
 	store                *jujuclient.MemStore
-	addSecretBackendsAPI *mocks.MockAddSecretBackendsAPI
+	addSecretBackendsAPI *secretbackends.MockAddSecretBackendsAPI
 }
 
 var _ = gc.Suite(&AddSuite{})
@@ -39,7 +38,7 @@ func (s *AddSuite) SetUpTest(c *gc.C) {
 func (s *AddSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.addSecretBackendsAPI = mocks.NewMockAddSecretBackendsAPI(ctrl)
+	s.addSecretBackendsAPI = secretbackends.NewMockAddSecretBackendsAPI(ctrl)
 
 	return ctrl
 }

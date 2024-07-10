@@ -15,7 +15,6 @@ import (
 
 	apisecretbackends "github.com/juju/juju/api/client/secretbackends"
 	"github.com/juju/juju/cmd/juju/secretbackends"
-	"github.com/juju/juju/cmd/juju/secretbackends/mocks"
 	"github.com/juju/juju/core/status"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
@@ -24,7 +23,7 @@ import (
 type ListSuite struct {
 	jujutesting.IsolationSuite
 	store             *jujuclient.MemStore
-	secretBackendsAPI *mocks.MockListSecretBackendsAPI
+	secretBackendsAPI *secretbackends.MockListSecretBackendsAPI
 }
 
 var _ = gc.Suite(&ListSuite{})
@@ -40,7 +39,7 @@ func (s *ListSuite) SetUpTest(c *gc.C) {
 func (s *ListSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.secretBackendsAPI = mocks.NewMockListSecretBackendsAPI(ctrl)
+	s.secretBackendsAPI = secretbackends.NewMockListSecretBackendsAPI(ctrl)
 
 	return ctrl
 }
