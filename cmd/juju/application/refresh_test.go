@@ -163,7 +163,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, b corebase.Base, currentCharmURL, late
 		},
 		charmOrigin: commoncharm.Origin{
 			ID:           "testing",
-			Source:       schemaToOriginScource(currentCharmURL.Schema),
+			Source:       schemaToOriginSource(currentCharmURL.Schema),
 			Risk:         risk,
 			Architecture: arch.DefaultArchitecture,
 			Base:         s.testBase,
@@ -182,7 +182,7 @@ func (s *BaseRefreshSuite) setup(c *gc.C, b corebase.Base, currentCharmURL, late
 	}
 }
 
-func schemaToOriginScource(schema string) commoncharm.OriginSource {
+func schemaToOriginSource(schema string) commoncharm.OriginSource {
 	switch {
 	case charm.Local.Matches(schema):
 		return commoncharm.OriginLocal
@@ -1240,6 +1240,7 @@ func (s *RefreshSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {
 type mockAPIConnection struct {
 	api.Connection
 	serverVersion *version.Number
+	authTag       names.Tag
 }
 
 func (m *mockAPIConnection) Addr() string {
@@ -1251,7 +1252,7 @@ func (m *mockAPIConnection) IPAddr() string {
 }
 
 func (m *mockAPIConnection) AuthTag() names.Tag {
-	return names.NewUserTag("testuser")
+	return m.authTag
 }
 
 func (m *mockAPIConnection) PublicDNSName() string {
