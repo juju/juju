@@ -1,10 +1,6 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// loginprovider within the cmd/juju package provides interactive based methods
-// for login normally used by the CLI.
-// These are contrasted with login providers defined elsewhere which may not
-// require interactive login.
 package api
 
 import (
