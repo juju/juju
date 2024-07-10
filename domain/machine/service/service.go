@@ -31,7 +31,6 @@ type State interface {
 	GetMachineLife(context.Context, machine.Name) (*life.Life, error)
 
 	// SetMachineLife sets the life status of the specified machine.
-
 	// No error is returned if the provided machine doesn't exist, just nothing
 	// gets updated.
 	SetMachineLife(context.Context, machine.Name, life.Life) error

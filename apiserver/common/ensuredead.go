@@ -45,7 +45,7 @@ func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModi
 	}
 }
 
-func (d *DeadEnsurer) ensureEntityDead(tag names.Tag) error {
+func (d *DeadEnsurer) ensureEntityDead(ctx context.Context, tag names.Tag) error {
 	entity0, err := d.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -57,6 +57,13 @@ func (d *DeadEnsurer) ensureEntityDead(tag names.Tag) error {
 	if err := entity.EnsureDead(); err != nil {
 		return errors.Trace(err)
 	}
+	// Double write the Dead life status on dqlite if the entity is a machine.
+	if tag.Kind() == names.MachineTagKind {
+		if err := d.machineService.EnsureDeadMachine(ctx, machine.Name(tag.Id())); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if d.afterDead != nil {
 		d.afterDead(tag)
 	}
@@ -85,7 +92,7 @@ func (d *DeadEnsurer) EnsureDead(ctx context.Context, args params.Entities) (par
 
 		err = apiservererrors.ErrPerm
 		if canModify(tag) {
-			err = d.ensureEntityDead(tag)
+			err = d.ensureEntityDead(ctx, tag)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
