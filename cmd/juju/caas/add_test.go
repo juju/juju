@@ -510,6 +510,15 @@ func (s *addCAASSuite) TestMissingName(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `missing k8s name.`)
 }
 
+func (s *addCAASSuite) TestInvalidName(c *gc.C) {
+	command := s.makeCommand(c, true, true, true)
+	_, err := s.runCommand(c, nil, command, "microk8s")
+	c.Assert(err, gc.ErrorMatches, `
+"microk8s" is the name of a built-in cloud.
+If you want to use Juju with microk8s, the recommended way is to install the strictly confined microk8s snap.
+Using the strictly confined microk8s snap means that Juju and microk8s will work together out of the box.`[1:])
+}
+
 func (s *addCAASSuite) TestMissingArgs(c *gc.C) {
 	command := s.makeCommand(c, true, true, true)
 	_, err := s.runCommand(c, nil, command)

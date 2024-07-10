@@ -1,7 +1,7 @@
 // Copyright 2024 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package loginprovider_test
+package api_test
 
 import (
 	"bytes"
@@ -18,10 +18,8 @@ import (
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/cmd/internal/loginprovider"
 	"github.com/juju/juju/rpc/params"
 	jtesting "github.com/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type sessionTokenLoginProviderProviderSuite struct {
@@ -48,28 +46,6 @@ func (s *sessionTokenLoginProviderProviderSuite) APIInfo() *api.Info {
 	return info
 }
 
-type testRootAPI struct {
-	serverAddrs [][]params.HostPort
-}
-
-func (r testRootAPI) Admin(id string) (testAdminAPI, error) {
-	return testAdminAPI{r: r}, nil
-}
-
-type testAdminAPI struct {
-	r testRootAPI
-}
-
-func (a testAdminAPI) Login(req params.LoginRequest) params.LoginResult {
-	return params.LoginResult{
-		ControllerTag: jtesting.ControllerTag.String(),
-		ModelTag:      jtesting.ModelTag.String(),
-		Servers:       a.r.serverAddrs,
-		ServerVersion: jujuversion.Current.String(),
-		PublicDNSName: "somewhere.example.com",
-	}
-}
-
 func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 	info := s.APIInfo()
 
@@ -79,7 +55,7 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 
 	var obtainedSessionToken string
 
-	s.PatchValue(loginprovider.LoginDeviceAPICall, func(ctx context.Context, _ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(api.LoginDeviceAPICall, func(ctx context.Context, _ base.APICaller, request interface{}, response interface{}) error {
 		lr := struct {
 			UserCode        string `json:"user-code"`
 			VerificationURI string `json:"verification-uri"`
@@ -96,7 +72,7 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 		return json.Unmarshal(data, response)
 	})
 
-	s.PatchValue(loginprovider.GetDeviceSessionTokenAPICall, func(ctx context.Context, _ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(api.GetDeviceSessionTokenAPICall, func(ctx context.Context, _ base.APICaller, request interface{}, response interface{}) error {
 		lr := struct {
 			SessionToken string `json:"session-token"`
 		}{
@@ -111,7 +87,7 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 		return json.Unmarshal(data, response)
 	})
 
-	s.PatchValue(loginprovider.LoginWithSessionTokenAPICall, func(ctx context.Context, _ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(api.LoginWithSessionTokenAPICall, func(ctx context.Context, _ base.APICaller, request interface{}, response interface{}) error {
 		data, err := json.Marshal(request)
 		if err != nil {
 			return errors.Trace(err)
@@ -153,7 +129,7 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 		ControllerUUID: info.ControllerUUID,
 		CACert:         info.CACert,
 	}, api.DialOpts{
-		LoginProvider: loginprovider.NewSessionTokenLoginProvider(
+		LoginProvider: api.NewSessionTokenLoginProvider(
 			"expired-token",
 			&output,
 			func(sessionToken string) error {

@@ -116,6 +116,120 @@ func (c *MockClockAfterFuncCall) DoAndReturn(f func(time.Duration, func()) clock
 	return c
 }
 
+// At mocks base method.
+func (m *MockClock) At(arg0 time.Time) <-chan time.Time {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "At", arg0)
+	ret0, _ := ret[0].(<-chan time.Time)
+	return ret0
+}
+
+// At indicates an expected call of At.
+func (mr *MockClockMockRecorder) At(arg0 any) *MockClockAtCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "At", reflect.TypeOf((*MockClock)(nil).At), arg0)
+	return &MockClockAtCall{Call: call}
+}
+
+// MockClockAtCall wrap *gomock.Call
+type MockClockAtCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockClockAtCall) Return(arg0 <-chan time.Time) *MockClockAtCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockClockAtCall) Do(f func(time.Time) <-chan time.Time) *MockClockAtCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockClockAtCall) DoAndReturn(f func(time.Time) <-chan time.Time) *MockClockAtCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AtFunc mocks base method.
+func (m *MockClock) AtFunc(arg0 time.Time, arg1 func()) clock.Alarm {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AtFunc", arg0, arg1)
+	ret0, _ := ret[0].(clock.Alarm)
+	return ret0
+}
+
+// AtFunc indicates an expected call of AtFunc.
+func (mr *MockClockMockRecorder) AtFunc(arg0, arg1 any) *MockClockAtFuncCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AtFunc", reflect.TypeOf((*MockClock)(nil).AtFunc), arg0, arg1)
+	return &MockClockAtFuncCall{Call: call}
+}
+
+// MockClockAtFuncCall wrap *gomock.Call
+type MockClockAtFuncCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockClockAtFuncCall) Return(arg0 clock.Alarm) *MockClockAtFuncCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockClockAtFuncCall) Do(f func(time.Time, func()) clock.Alarm) *MockClockAtFuncCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockClockAtFuncCall) DoAndReturn(f func(time.Time, func()) clock.Alarm) *MockClockAtFuncCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// NewAlarm mocks base method.
+func (m *MockClock) NewAlarm(arg0 time.Time) clock.Alarm {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewAlarm", arg0)
+	ret0, _ := ret[0].(clock.Alarm)
+	return ret0
+}
+
+// NewAlarm indicates an expected call of NewAlarm.
+func (mr *MockClockMockRecorder) NewAlarm(arg0 any) *MockClockNewAlarmCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewAlarm", reflect.TypeOf((*MockClock)(nil).NewAlarm), arg0)
+	return &MockClockNewAlarmCall{Call: call}
+}
+
+// MockClockNewAlarmCall wrap *gomock.Call
+type MockClockNewAlarmCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockClockNewAlarmCall) Return(arg0 clock.Alarm) *MockClockNewAlarmCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockClockNewAlarmCall) Do(f func(time.Time) clock.Alarm) *MockClockNewAlarmCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockClockNewAlarmCall) DoAndReturn(f func(time.Time) clock.Alarm) *MockClockNewAlarmCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // NewTimer mocks base method.
 func (m *MockClock) NewTimer(arg0 time.Duration) clock.Timer {
 	m.ctrl.T.Helper()

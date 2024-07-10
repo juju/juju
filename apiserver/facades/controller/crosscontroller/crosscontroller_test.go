@@ -1,38 +1,39 @@
 // Copyright 2017 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package crosscontroller_test
+package crosscontroller
 
 import (
 	"context"
 	"errors"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/facades/controller/crosscontroller"
+	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&CrossControllerSuite{})
 
 type CrossControllerSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 
 	resources                *common.Resources
 	watcher                  *mockNotifyWatcher
 	localControllerInfo      func() ([]string, string, error)
 	watchLocalControllerInfo func() state.NotifyWatcher
-	api                      *crosscontroller.CrossControllerAPI
+	api                      *CrossControllerAPI
 
 	publicDnsAddress string
 }
 
 func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 	s.localControllerInfo = func() ([]string, string, error) {
@@ -41,7 +42,7 @@ func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
 	s.watchLocalControllerInfo = func() state.NotifyWatcher {
 		return s.watcher
 	}
-	api, err := crosscontroller.NewCrossControllerAPI(
+	api, err := NewCrossControllerAPI(
 		s.resources,
 		func(context.Context) ([]string, string, error) { return s.localControllerInfo() },
 		func(context.Context) (string, error) { return s.publicDnsAddress, nil },
@@ -50,7 +51,7 @@ func (s *CrossControllerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = api
 	s.watcher = newMockNotifyWatcher()
-	s.AddCleanup(func(*gc.C) { s.watcher.Stop() })
+	s.AddCleanup(func(*gc.C) { _ = s.watcher.Stop() })
 }
 
 func (s *CrossControllerSuite) TestControllerInfo(c *gc.C) {
@@ -113,4 +114,42 @@ func (s *CrossControllerSuite) TestWatchControllerInfoError(c *gc.C) {
 		}},
 	})
 	c.Assert(s.resources.Get("1"), gc.IsNil)
+}
+
+type stubControllerInfoGetter struct{}
+
+func (stubControllerInfoGetter) APIHostPortsForClients(config controller.Config) ([]network.SpaceHostPorts, error) {
+	return []network.SpaceHostPorts{{
+		network.SpaceHostPort{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "10.1.2.3",
+					Scope: network.ScopeCloudLocal,
+				},
+				SpaceID: "0",
+			},
+			NetPort: 50000,
+		},
+		network.SpaceHostPort{
+			SpaceAddress: network.SpaceAddress{
+				MachineAddress: network.MachineAddress{
+					Value: "host-name",
+					Scope: network.ScopePublic,
+				},
+				SpaceID: "0",
+			},
+			NetPort: 50000,
+		},
+	}}, nil
+}
+
+func (s *CrossControllerSuite) TestGetControllerInfo(c *gc.C) {
+	addrs, cert, err := controllerInfo(stubControllerInfoGetter{}, controller.Config{
+		"ca-cert": "ca-cert",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Public address is sorted first.
+	c.Check(addrs, jc.DeepEquals, []string{"host-name:50000", "10.1.2.3:50000"})
+	c.Check(cert, gc.Equals, "ca-cert")
 }

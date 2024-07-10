@@ -42,7 +42,7 @@ Upgrades Juju on a controller.`[1:]
 var usageUpgradeControllerDetails = `
 This command upgrades the Juju agent for a controller.
 
-A controller's agent version can be shown with `[1:] + "`juju model-config -m controller agent-\nversion`" + `.
+A controller's agent version can be shown with `[1:] + "`juju model-config -m controller agent-version`" + `.
 A version is denoted by: major.minor.patch
 
 You can upgrade the controller to a new patch version by specifying

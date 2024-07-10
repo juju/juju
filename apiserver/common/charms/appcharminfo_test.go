@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type appCharmInfoSuite struct{}
@@ -48,7 +47,7 @@ func (s *appCharmInfoSuite) TestBasic(c *gc.C) {
 	ch.EXPECT().Meta().Return(&charm.Meta{Name: "foo"})
 	ch.EXPECT().Actions().Return(&charm.Actions{})
 	ch.EXPECT().Manifest().Return(&charm.Manifest{})
-	ch.EXPECT().LXDProfile().Return(&state.LXDProfile{})
+	ch.EXPECT().LXDProfile().Return(&charm.LXDProfile{})
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().AuthController().Return(true)
@@ -134,7 +133,7 @@ func (s *appCharmInfoSuite) TestSidecarCharm(c *gc.C) {
 	})
 	ch.EXPECT().Actions().Return(&charm.Actions{})
 	ch.EXPECT().Manifest().Return(&charm.Manifest{})
-	ch.EXPECT().LXDProfile().Return(&state.LXDProfile{})
+	ch.EXPECT().LXDProfile().Return(&charm.LXDProfile{})
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().AuthController().Return(true)

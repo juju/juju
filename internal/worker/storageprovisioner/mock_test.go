@@ -856,6 +856,7 @@ func newMockMachineAccessor(c *gc.C) *mockMachineAccessor {
 }
 
 type mockClock struct {
+	clock.Clock
 	testing.Stub
 	now         time.Time
 	onNow       func() time.Time

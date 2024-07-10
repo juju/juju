@@ -14,7 +14,6 @@ import (
 
 	charms "github.com/juju/juju/apiserver/common/charms"
 	charm "github.com/juju/juju/internal/charm"
-	state "github.com/juju/juju/state"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -322,10 +321,10 @@ func (c *MockCharmConfigCall) DoAndReturn(f func() *charm.Config) *MockCharmConf
 }
 
 // LXDProfile mocks base method.
-func (m *MockCharm) LXDProfile() *state.LXDProfile {
+func (m *MockCharm) LXDProfile() *charm.LXDProfile {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LXDProfile")
-	ret0, _ := ret[0].(*state.LXDProfile)
+	ret0, _ := ret[0].(*charm.LXDProfile)
 	return ret0
 }
 
@@ -342,19 +341,19 @@ type MockCharmLXDProfileCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockCharmLXDProfileCall) Return(arg0 *state.LXDProfile) *MockCharmLXDProfileCall {
+func (c *MockCharmLXDProfileCall) Return(arg0 *charm.LXDProfile) *MockCharmLXDProfileCall {
 	c.Call = c.Call.Return(arg0)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmLXDProfileCall) Do(f func() *state.LXDProfile) *MockCharmLXDProfileCall {
+func (c *MockCharmLXDProfileCall) Do(f func() *charm.LXDProfile) *MockCharmLXDProfileCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmLXDProfileCall) DoAndReturn(f func() *state.LXDProfile) *MockCharmLXDProfileCall {
+func (c *MockCharmLXDProfileCall) DoAndReturn(f func() *charm.LXDProfile) *MockCharmLXDProfileCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

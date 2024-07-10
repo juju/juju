@@ -19,7 +19,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type charmInfoSuite struct{}
@@ -42,7 +41,7 @@ func (s *charmInfoSuite) TestBasic(c *gc.C) {
 	ch.EXPECT().Meta().Return(&charm.Meta{Name: "foo"})
 	ch.EXPECT().Actions().Return(&charm.Actions{})
 	ch.EXPECT().Manifest().Return(&charm.Manifest{})
-	ch.EXPECT().LXDProfile().Return(&state.LXDProfile{})
+	ch.EXPECT().LXDProfile().Return(&charm.LXDProfile{})
 	ch.EXPECT().URL().Return("ch:foo-1")
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
