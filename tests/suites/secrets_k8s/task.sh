@@ -6,6 +6,15 @@ test_secrets_k8s() {
 
 	set_verbosity
 
+	case "${BOOTSTRAP_PROVIDER:-}" in
+	"k8s")
+		microk8s enable ingress >/dev/null 2>&1 || true
+		;;
+	*)
+		echo "==> TEST SKIPPED: caas secrets tests, not a k8s provider"
+		;;
+	esac
+
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 

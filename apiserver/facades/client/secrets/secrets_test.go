@@ -563,6 +563,61 @@ func (s *SecretsSuite) TestUpdateSecretsSameChecksum(c *gc.C) {
 	s.assertUpdateSecrets(c, coresecrets.NewURI(), true, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b", false)
 }
 
+func (s *SecretsSuite) TestUpdateSecretJustContent(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.expectAuthClient()
+	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil)
+
+	uri := coresecrets.NewURI()
+	uriString := uri.String()
+
+	s.secretsState.EXPECT().GetSecret(uri).Return(&coresecrets.SecretMetadata{
+		URI:                    uri,
+		LatestRevision:         2,
+		LatestRevisionChecksum: "deadbeef",
+	}, nil)
+	s.secretsBackend.EXPECT().SaveContent(gomock.Any(), uri, 3, coresecrets.NewSecretValue(map[string]string{"foo": "bar"})).
+		Return("rev-id", nil)
+	s.secretsState.EXPECT().UpdateSecret(gomock.Any(), gomock.Any()).DoAndReturn(func(arg1 *coresecrets.URI, params state.UpdateSecretParams) (*coresecrets.SecretMetadata, error) {
+		c.Assert(arg1, gc.DeepEquals, uri)
+		c.Assert(params.ValueRef, gc.DeepEquals, &coresecrets.ValueRef{
+			BackendID:  "backend-id",
+			RevisionID: "rev-id",
+		})
+		c.Assert(params.Data, gc.IsNil)
+		c.Assert(params.Checksum, gc.Equals, "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b")
+		result := &coresecrets.SecretMetadata{URI: uri, LatestRevision: 3}
+		if params.AutoPrune != nil {
+			result.AutoPrune = *params.AutoPrune
+		}
+		return result, nil
+	})
+
+	facade, err := apisecrets.NewTestAPI(s.authTag, s.authorizer, s.secretsState, s.secretConsumer,
+		adminBackendConfigGetter, backendConfigGetterForUserSecretsWrite(c),
+		func(cfg *provider.ModelBackendConfig) (provider.SecretsBackend, error) {
+			c.Assert(cfg.Config, jc.DeepEquals, provider.ConfigAttrs{"foo": cfg.BackendType})
+			return s.secretsBackend, nil
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := facade.UpdateSecrets(params.UpdateUserSecretArgs{
+		Args: []params.UpdateUserSecretArg{
+			{
+				URI: uriString,
+				UpsertSecretArg: params.UpsertSecretArg{
+					Content: params.SecretContentParams{
+						Data: map[string]string{"foo": "bar"},
+					},
+				},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results[0].Error, gc.IsNil)
+}
+
 func (s *SecretsSuite) TestRemoveSecrets(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.expectAuthClient()

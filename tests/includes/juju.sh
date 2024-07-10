@@ -72,8 +72,15 @@ bootstrap() {
 	"lxd")
 		cloud="${BOOTSTRAP_CLOUD:-localhost}"
 		;;
-	"vsphere" | "openstack" | "k8s" | "maas")
+	"vsphere" | "openstack" | "maas")
 		cloud="${BOOTSTRAP_CLOUD}"
+		if [[ -z ${cloud} ]]; then
+			echo "must specify cloud to bootstrap for provider ${BOOTSTRAP_PROVIDER}"
+			exit 1
+		fi
+		;;
+	"k8s")
+		cloud="${BOOTSTRAP_CLOUD:-microk8s}"
 		;;
 	"manual")
 		manual_name=${1}
