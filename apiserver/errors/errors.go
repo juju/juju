@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/upgrade"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -181,6 +182,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeSecretConsumerNotFound
 	case errors.Is(err, secretbackenderrors.NotFound):
 		code = params.CodeSecretBackendNotFound
+	case errors.Is(err, modelerrors.NotFound):
+		code = params.CodeModelNotFound
 	case errors.Is(err, errors.AlreadyExists):
 		code = params.CodeAlreadyExists
 	case errors.Is(err, secretbackenderrors.AlreadyExists):

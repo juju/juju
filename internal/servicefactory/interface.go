@@ -99,6 +99,8 @@ type ModelServiceFactory interface {
 	// the model service. As this is only for read-only model information, we
 	// can rename it to the more obscure version.
 	ModelInfo() *modelservice.ModelService
+	// ModelSecretBackend returns the model secret backend service.
+	ModelSecretBackend() *secretbackendservice.ModelSecretBackendService
 }
 
 // ServiceFactory provides access to the services required by the apiserver.
