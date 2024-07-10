@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	corestatus "github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
@@ -283,7 +284,7 @@ func (s *stateSuite) TestInstanceStatusSuccess(c *gc.C) {
 
 	status, err := s.state.GetInstanceStatus(context.Background(), "666")
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, "running")
+	c.Assert(status, gc.Equals, corestatus.Running)
 }
 
 // TestInstanceStatusStatusNotSetError asserts that InstanceStatus returns a

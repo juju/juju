@@ -13,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	cmachine "github.com/juju/juju/core/machine"
+	corestatus "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 )
 
@@ -240,7 +241,7 @@ func (s *serviceSuite) TestInstanceStatusSuccess(c *gc.C) {
 
 	instanceStatus, err := NewService(s.state).GetInstanceStatus(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(instanceStatus, gc.Equals, "running")
+	c.Assert(instanceStatus, gc.Equals, corestatus.Running)
 }
 
 // TestInstanceStatusError asserts that an error coming from the state layer is
@@ -253,7 +254,7 @@ func (s *serviceSuite) TestInstanceStatusError(c *gc.C) {
 
 	instanceStatus, err := NewService(s.state).GetInstanceStatus(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIs, rErr)
-	c.Check(instanceStatus, gc.Equals, "")
+	c.Check(instanceStatus, gc.Equals, corestatus.Status(""))
 }
 
 // TestIsControllerSuccess asserts the happy path of the IsController service.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -50,7 +51,7 @@ type State interface {
 	// machine.
 	// It returns a StatusNotSet if the instance status is not set.
 	// Idempotent.
-	GetInstanceStatus(context.Context, machine.Name) (string, error)
+	GetInstanceStatus(context.Context, machine.Name) (status.Status, error)
 
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
@@ -159,7 +160,7 @@ func (s *Service) InstanceId(ctx context.Context, machineName machine.Name) (str
 // machine.
 // It returns a StatusNotSet if the instance status is not set.
 // Idempotent.
-func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (string, error) {
+func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (status.Status, error) {
 	instanceStatus, err := s.st.GetInstanceStatus(ctx, machineName)
 	if err != nil {
 		return "", errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineName)

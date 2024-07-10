@@ -15,6 +15,7 @@ import (
 
 	instance "github.com/juju/juju/core/instance"
 	machine "github.com/juju/juju/core/machine"
+	status "github.com/juju/juju/core/status"
 	life "github.com/juju/juju/domain/life"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -234,10 +235,10 @@ func (c *MockStateDeleteMachineCloudInstanceCall) DoAndReturn(f func(context.Con
 }
 
 // GetInstanceStatus mocks base method.
-func (m *MockState) GetInstanceStatus(arg0 context.Context, arg1 machine.Name) (string, error) {
+func (m *MockState) GetInstanceStatus(arg0 context.Context, arg1 machine.Name) (status.Status, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInstanceStatus", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret0, _ := ret[0].(status.Status)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -255,19 +256,19 @@ type MockStateGetInstanceStatusCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockStateGetInstanceStatusCall) Return(arg0 string, arg1 error) *MockStateGetInstanceStatusCall {
+func (c *MockStateGetInstanceStatusCall) Return(arg0 status.Status, arg1 error) *MockStateGetInstanceStatusCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetInstanceStatusCall) Do(f func(context.Context, machine.Name) (string, error)) *MockStateGetInstanceStatusCall {
+func (c *MockStateGetInstanceStatusCall) Do(f func(context.Context, machine.Name) (status.Status, error)) *MockStateGetInstanceStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetInstanceStatusCall) DoAndReturn(f func(context.Context, machine.Name) (string, error)) *MockStateGetInstanceStatusCall {
+func (c *MockStateGetInstanceStatusCall) DoAndReturn(f func(context.Context, machine.Name) (status.Status, error)) *MockStateGetInstanceStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

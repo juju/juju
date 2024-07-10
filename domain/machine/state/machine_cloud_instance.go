@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
@@ -196,17 +197,16 @@ WHERE m.name = $machineName.name;
 // machine.
 // It returns a StatusNotSet if the instance status is not set.
 // Idempotent.
-func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (string, error) {
+func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (status.Status, error) {
 	db, err := st.DB()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	machineStatus := machineInstanceStatus{Name: mName}
 	statusQuery := `
-SELECT isv.status as &machineInstanceStatus.status
+SELECT mcis.status as &machineInstanceStatus.status
 FROM machine as m
 	JOIN machine_cloud_instance_status as mcis ON m.uuid = mcis.machine_uuid
-	JOIN instance_status_values as isv ON mcis.status = isv.id
 WHERE m.name = $machineInstanceStatus.name;
 `
 
@@ -229,7 +229,21 @@ WHERE m.name = $machineInstanceStatus.name;
 		}
 		return "", errors.Trace(err)
 	}
-	return machineStatus.Status, nil
+	internalStatus := machineStatus.Status
+	// Convert the internal status id from the (instance_status_values table)
+	// into the core status.Status type.
+	var instanceStatus status.Status
+	switch internalStatus {
+	case 0:
+		instanceStatus = status.Empty
+	case 1:
+		instanceStatus = status.Allocating
+	case 2:
+		instanceStatus = status.Running
+	case 3:
+		instanceStatus = status.ProvisioningError
+	}
+	return instanceStatus, nil
 }
 
 // InitialWatchInstanceStatement returns the table and the initial watch statement

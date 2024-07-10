@@ -76,7 +76,7 @@ type instanceID struct {
 // the sqlair statements in the machine domain.
 type machineInstanceStatus struct {
 	Name   machine.Name `db:"name"`
-	Status string       `db:"status"`
+	Status int          `db:"status"`
 }
 
 // machineName represents the struct to be used for the name column
