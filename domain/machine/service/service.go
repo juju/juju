@@ -131,6 +131,13 @@ func (s *Service) SetMachineLife(ctx context.Context, machineName machine.Name, 
 	return errors.Annotatef(err, "setting life status for machine %q", machineName)
 }
 
+// EnsureDeadMachine sets the provided machine's life status to Dead.
+// No error is returned if the provided machine doesn't exist, just nothing gets
+// updated.
+func (s *Service) EnsureDeadMachine(ctx context.Context, machineName machine.Name) error {
+	return s.SetMachineLife(ctx, machineName, life.Dead)
+}
+
 // AllMachineNames returns the names of all machines in the model.
 func (s *Service) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 	machines, err := s.st.AllMachineNames(ctx)
