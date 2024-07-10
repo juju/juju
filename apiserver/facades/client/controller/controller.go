@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/collections/set"
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
@@ -27,9 +28,11 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/caas"
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/leadership"
 	corelogger "github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -72,6 +75,15 @@ type ControllerAccessService interface {
 	LastModelLogin(context.Context, string, coremodel.UUID) (time.Time, error)
 }
 
+// ModelExporter exports a model to a description.Model.
+type ModelExporter interface {
+	// ExportModel exports a model to a description.Model.
+	// It requires a known set of leaders to be passed in, so that applications
+	// can have their leader set correctly once imported.
+	// The objectstore is used to retrieve charms and resources for export.
+	ExportModel(context.Context, map[string]string, objectstore.ObjectStore) (description.Model, error)
+}
+
 // ControllerAPI provides the Controller API.
 type ControllerAPI struct {
 	*common.ControllerConfigAPI
@@ -90,6 +102,9 @@ type ControllerAPI struct {
 	upgradeService          UpgradeService
 	controllerConfigService ControllerConfigService
 	accessService           ControllerAccessService
+	modelExporter           ModelExporter
+	store                   objectstore.ObjectStore
+	leadership              leadership.Reader
 
 	logger corelogger.Logger
 
@@ -117,6 +132,9 @@ func NewControllerAPI(
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
 	accessService ControllerAccessService,
+	modelExporter ModelExporter,
+	store objectstore.ObjectStore,
+	leadership leadership.Reader,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(apiservererrors.ErrPerm)
@@ -163,6 +181,9 @@ func NewControllerAPI(
 		cloudService:            cloudService,
 		accessService:           accessService,
 		controllerTag:           st.ControllerTag(),
+		modelExporter:           modelExporter,
+		store:                   store,
+		leadership:              leadership,
 	}, nil
 }
 
@@ -719,6 +740,10 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	leaders, err := c.leadership.Leaders()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	if err := runMigrationPrechecks(
 		ctx,
 		hostedState.State, systemState,
@@ -727,6 +752,9 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 		c.cloudService,
 		c.credentialService,
 		c.upgradeService,
+		c.modelExporter,
+		c.store,
+		leaders,
 	); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -852,7 +880,7 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 	return nil
 }
 
-// runMigrationPrechecks runs prechecks on the migration and updates
+// runMigrationPreChecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information
 // retrieved from the target controller.
 var runMigrationPrechecks = func(
@@ -864,6 +892,9 @@ var runMigrationPrechecks = func(
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
+	modelExporter ModelExporter,
+	store objectstore.ObjectStore,
+	leaders map[string]string,
 ) error {
 	// Check model and source controller.
 	backend, err := migration.PrecheckShim(st, ctlrSt)
@@ -885,7 +916,8 @@ var runMigrationPrechecks = func(
 	}
 
 	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt, controllerConfigService)
+	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt,
+		controllerConfigService, modelExporter, store, leaders)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -984,11 +1016,21 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, controllerConfigService ControllerConfigService) (coremigration.ModelInfo, userList, error) {
+func makeModelInfo(ctx context.Context, st, ctlrSt *state.State,
+	controllerConfigService ControllerConfigService,
+	modelExporter ModelExporter,
+	store objectstore.ObjectStore,
+	leaders map[string]string,
+) (coremigration.ModelInfo, userList, error) {
 	var empty coremigration.ModelInfo
 	var ul userList
 
 	model, err := st.Model()
+	if err != nil {
+		return empty, ul, errors.Trace(err)
+	}
+
+	description, err := modelExporter.ExportModel(ctx, leaders, store)
 	if err != nil {
 		return empty, ul, errors.Trace(err)
 	}
@@ -1031,6 +1073,7 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State, controllerConfi
 		Owner:                  model.Owner(),
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerVersion,
+		ModelDescription:       description,
 	}, ul, nil
 }
 

@@ -183,6 +183,9 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 		CredentialOwner: "owner",
 	}, nil)
 
+	modelDescription := description.NewModel(description.ModelArgs{})
+	s.modelExporter.EXPECT().ExportModel(gomock.Any(), gomock.Any(), gomock.Any()).Return(modelDescription, nil)
+
 	modelConfig, err := config.New(false, map[string]any{
 		config.UUIDKey:         "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		config.NameKey:         "model-name",
@@ -195,10 +198,14 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 	mod, err := s.mustMakeAPI(c).ModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(mod.UUID, gc.Equals, "model-uuid")
-	c.Assert(mod.Name, gc.Equals, "model-name")
-	c.Assert(mod.OwnerTag, gc.Equals, names.NewUserTag("owner").String())
-	c.Assert(mod.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
+	c.Check(mod.UUID, gc.Equals, "model-uuid")
+	c.Check(mod.Name, gc.Equals, "model-name")
+	c.Check(mod.OwnerTag, gc.Equals, names.NewUserTag("owner").String())
+	c.Check(mod.AgentVersion, gc.Equals, version.MustParse("1.2.3"))
+
+	bytes, err := description.Serialize(modelDescription)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod.ModelDescription, gc.DeepEquals, bytes)
 }
 
 func (s *Suite) TestSourceControllerInfo(c *gc.C) {

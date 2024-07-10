@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/names/v5"
@@ -124,28 +125,36 @@ var (
 		},
 	}
 	watchStatusLockdownCalls = []jujutesting.StubCall{
-		{"facade.Watch", nil},
-		{"facade.MigrationStatus", nil},
-		{"guard.Lockdown", nil},
+		{FuncName: "facade.Watch", Args: nil},
+		{FuncName: "facade.MigrationStatus", Args: nil},
+		{FuncName: "guard.Lockdown", Args: nil},
 	}
 	prechecksCalls = []jujutesting.StubCall{
-		{"facade.ModelInfo", nil},
-		{"facade.Prechecks", []interface{}{}},
+		{FuncName: "facade.ModelInfo", Args: nil},
+		{FuncName: "facade.Prechecks", Args: []interface{}{}},
 		apiOpenControllerCall,
-		{"MigrationTarget.Prechecks", []interface{}{params.MigrationModelInfo{
+		{FuncName: "MigrationTarget.Prechecks", Args: []interface{}{params.MigrationModelInfo{
 			UUID:         modelUUID,
 			Name:         modelName,
 			OwnerTag:     ownerTag.String(),
 			AgentVersion: modelVersion,
+			ModelDescription: func() []byte {
+				modelDescription := description.NewModel(description.ModelArgs{})
+				bytes, err := description.Serialize(modelDescription)
+				if err != nil {
+					panic(err)
+				}
+				return bytes
+			}(),
 		}}},
 		apiCloseCall,
 	}
 	abortCalls = []jujutesting.StubCall{
-		{"facade.SetPhase", []interface{}{coremigration.ABORT}},
+		{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORT}},
 		apiOpenControllerCall,
 		abortCall,
 		apiCloseCall,
-		{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
+		{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORTDONE}},
 	}
 	openDestLogStreamCall = jujutesting.StubCall{FuncName: "ConnectControllerStream", Args: []interface{}{
 		"/migrate/logtransfer",
@@ -233,24 +242,24 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 		// Wait for migration to start.
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 		},
 
 		// QUIESCE
 		prechecksCalls,
 		[]jujutesting.StubCall{
-			{"facade.WatchMinionReports", nil},
-			{"facade.MinionReports", nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
+			{FuncName: "facade.MinionReports", Args: nil},
 		},
 		prechecksCalls,
 		[]jujutesting.StubCall{
-			{"facade.SetPhase", []interface{}{coremigration.IMPORT}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.IMPORT}},
 
 			//IMPORT
-			{"facade.Export", nil},
+			{FuncName: "facade.Export", Args: nil},
 			apiOpenControllerCall,
 			importCall,
-			{"UploadBinaries", []interface{}{
+			{FuncName: "UploadBinaries", Args: []interface{}{
 				[]string{"charm0", "charm1"},
 				fakeCharmDownloader,
 				map[version.Binary]string{
@@ -261,41 +270,41 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 				s.facade,
 			}},
 			apiCloseCall, // for target controller
-			{"facade.SetPhase", []interface{}{coremigration.PROCESSRELATIONS}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.PROCESSRELATIONS}},
 
 			// PROCESSRELATIONS
-			{"facade.ProcessRelations", []interface{}{""}},
-			{"facade.SetPhase", []interface{}{coremigration.VALIDATION}},
+			{FuncName: "facade.ProcessRelations", Args: []interface{}{""}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.VALIDATION}},
 
 			// VALIDATION
-			{"facade.WatchMinionReports", nil},
-			{"facade.MinionReports", nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
+			{FuncName: "facade.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			checkMachinesCall,
-			{"facade.SourceControllerInfo", nil},
+			{FuncName: "facade.SourceControllerInfo", Args: nil},
 			activateCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.SUCCESS}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.SUCCESS}},
 
 			// SUCCESS
-			{"facade.WatchMinionReports", nil},
-			{"facade.MinionReports", nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
+			{FuncName: "facade.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.LOGTRANSFER}},
 
 			// LOGTRANSFER
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{"StreamModelLog", []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.REAP}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
 
 			// REAP
-			{"facade.Reap", nil},
-			{"facade.SetPhase", []interface{}{coremigration.DONE}},
+			{FuncName: "facade.Reap", Args: nil},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
 		}),
 	)
 }
@@ -321,15 +330,15 @@ func (s *Suite) TestIncompatibleTarget(c *gc.C) {
 		// Wait for migration to start.
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 		},
 
 		// QUIESCE
 		[]jujutesting.StubCall{
-			{"facade.ModelInfo", nil},
-			{"facade.Prechecks", []interface{}{}},
+			{FuncName: "facade.ModelInfo", Args: nil},
+			{FuncName: "facade.Prechecks", Args: []interface{}{}},
 			apiOpenControllerCall,
-			{"facade.SourceControllerInfo", nil},
+			{FuncName: "facade.SourceControllerInfo", Args: nil},
 			apiCloseCall,
 		},
 		abortCalls,
@@ -345,21 +354,21 @@ func (s *Suite) TestMigrationResume(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.WatchMinionReports", nil},
-			{"facade.MinionReports", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
+			{FuncName: "facade.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{"StreamModelLog", []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.REAP}},
-			{"facade.Reap", nil},
-			{"facade.SetPhase", []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.Reap", Args: nil},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
 		},
 	))
 }
@@ -382,8 +391,8 @@ func (s *Suite) TestPreviouslyCompletedMigration(c *gc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.DONE))
 	s.checkWorkerReturns(c, migrationmaster.ErrMigrated)
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"facade.Watch", nil},
-		{"facade.MigrationStatus", nil},
+		{FuncName: "facade.Watch", Args: nil},
+		{FuncName: "facade.MigrationStatus", Args: nil},
 	})
 }
 
@@ -398,8 +407,8 @@ func (s *Suite) TestStatusError(c *gc.C) {
 
 	s.checkWorkerErr(c, "retrieving migration status: splat")
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"facade.Watch", nil},
-		{"facade.MigrationStatus", nil},
+		{FuncName: "facade.Watch", Args: nil},
+		{FuncName: "facade.MigrationStatus", Args: nil},
 	})
 }
 
@@ -427,9 +436,9 @@ func (s *Suite) TestUnlockError(c *gc.C) {
 
 	s.checkWorkerErr(c, "pow")
 	s.stub.CheckCalls(c, []jujutesting.StubCall{
-		{"facade.Watch", nil},
-		{"facade.MigrationStatus", nil},
-		{"guard.Unlock", nil},
+		{FuncName: "facade.Watch", Args: nil},
+		{FuncName: "facade.MigrationStatus", Args: nil},
+		{FuncName: "guard.Unlock", Args: nil},
 	})
 }
 
@@ -464,12 +473,12 @@ func (s *Suite) TestQUIESCEFailedAgent(c *gc.C) {
 	expectedCalls := joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 		},
 		prechecksCalls,
 		[]jujutesting.StubCall{
-			{"facade.WatchMinionReports", nil},
-			{"facade.MinionReports", nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
+			{FuncName: "facade.MinionReports", Args: nil},
 		},
 		abortCalls,
 	)
@@ -485,9 +494,9 @@ func (s *Suite) TestQUIESCEWrongController(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.ModelInfo", nil},
-			{"facade.Prechecks", []interface{}{}},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.ModelInfo", Args: nil},
+			{FuncName: "facade.Prechecks", Args: []interface{}{}},
 			apiOpenControllerCall,
 			apiCloseCall,
 		},
@@ -503,9 +512,9 @@ func (s *Suite) TestQUIESCESourceChecksFail(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.ModelInfo", nil},
-			{"facade.Prechecks", []interface{}{}},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.ModelInfo", Args: nil},
+			{FuncName: "facade.Prechecks", Args: []interface{}{}},
 		},
 		abortCalls,
 	))
@@ -519,8 +528,8 @@ func (s *Suite) TestQUIESCEModelInfoFail(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.ModelInfo", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.ModelInfo", Args: nil},
 		},
 		abortCalls,
 	))
@@ -534,7 +543,7 @@ func (s *Suite) TestQUIESCETargetChecksFail(c *gc.C) {
 	assertExpectedCallArgs(c, s.stub, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 		},
 		prechecksCalls,
 		abortCalls,
@@ -549,8 +558,8 @@ func (s *Suite) TestProcessRelationsFailure(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.ProcessRelations", []interface{}{""}},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.ProcessRelations", Args: []interface{}{""}},
 		},
 		abortCalls,
 	))
@@ -564,8 +573,8 @@ func (s *Suite) TestExportFailure(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.Export", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.Export", Args: nil},
 		},
 		abortCalls,
 	))
@@ -579,12 +588,12 @@ func (s *Suite) TestAPIOpenFailure(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.Export", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.Export", Args: nil},
 			apiOpenControllerCall,
-			{"facade.SetPhase", []interface{}{coremigration.ABORT}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORT}},
 			apiOpenControllerCall,
-			{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORTDONE}},
 		},
 	))
 }
@@ -597,8 +606,8 @@ func (s *Suite) TestImportFailure(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.Export", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.Export", Args: nil},
 			apiOpenControllerCall,
 			importCall,
 			apiCloseCall,
@@ -639,9 +648,9 @@ func (s *Suite) TestVALIDATIONFailedAgent(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.WatchMinionReports", nil},
-			{"facade.MinionReports", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
+			{FuncName: "facade.MinionReports", Args: nil},
 		},
 		abortCalls,
 	))
@@ -656,9 +665,9 @@ func (s *Suite) TestVALIDATIONCheckMachinesOneError(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.WatchMinionReports", nil},
-			{"facade.MinionReports", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
+			{FuncName: "facade.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			checkMachinesCall,
 			apiCloseCall,
@@ -680,9 +689,9 @@ func (s *Suite) TestVALIDATIONCheckMachinesSeveralErrors(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.WatchMinionReports", nil},
-			{"facade.MinionReports", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
+			{FuncName: "facade.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			checkMachinesCall,
 			apiCloseCall,
@@ -705,9 +714,9 @@ func (s *Suite) TestVALIDATIONCheckMachinesOtherError(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.WatchMinionReports", nil},
-			{"facade.MinionReports", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
+			{FuncName: "facade.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			checkMachinesCall,
 			apiCloseCall,
@@ -737,21 +746,21 @@ func (s *Suite) TestSUCCESSMinionWaitFailedMachine(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.WatchMinionReports", nil},
-			{"facade.MinionReports", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
+			{FuncName: "facade.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{"StreamModelLog", []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.REAP}},
-			{"facade.Reap", nil},
-			{"facade.SetPhase", []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.Reap", Args: nil},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
 		},
 	))
 }
@@ -770,21 +779,21 @@ func (s *Suite) TestSUCCESSMinionWaitFailedUnit(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.WatchMinionReports", nil},
-			{"facade.MinionReports", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
+			{FuncName: "facade.MinionReports", Args: nil},
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{"StreamModelLog", []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.REAP}},
-			{"facade.Reap", nil},
-			{"facade.SetPhase", []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.Reap", Args: nil},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
 		},
 	))
 }
@@ -814,20 +823,20 @@ func (s *Suite) TestSUCCESSMinionWaitTimeout(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
-			{"facade.WatchMinionReports", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
+			{FuncName: "facade.WatchMinionReports", Args: nil},
 			apiOpenControllerCall,
 			adoptResourcesCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.LOGTRANSFER}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.LOGTRANSFER}},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{"StreamModelLog", []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.REAP}},
-			{"facade.Reap", nil},
-			{"facade.SetPhase", []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.Reap", Args: nil},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
 		},
 	))
 }
@@ -882,10 +891,10 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *gc.C, authUser names.UserTag) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			{
-				"apiOpen",
-				[]interface{}{
+				FuncName: "apiOpen",
+				Args: []interface{}{
 					&api.Info{
 						Addrs:     []string{"1.2.3.4:5"},
 						CACert:    "cert",
@@ -897,7 +906,7 @@ func (s *Suite) assertAPIConnectWithMacaroon(c *gc.C, authUser names.UserTag) {
 			},
 			abortCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.ABORTDONE}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.ABORTDONE}},
 		},
 	))
 }
@@ -918,7 +927,7 @@ func (s *Suite) TestLogTransferErrorOpeningTargetAPI(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 		},
 	))
@@ -932,7 +941,7 @@ func (s *Suite) TestLogTransferErrorGettingStartTime(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
 			apiCloseCall,
@@ -948,10 +957,10 @@ func (s *Suite) TestLogTransferErrorOpeningLogSource(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{"StreamModelLog", []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
 			apiCloseCall,
 		},
 	))
@@ -965,10 +974,10 @@ func (s *Suite) TestLogTransferErrorOpeningLogDest(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{"StreamModelLog", []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
 		},
@@ -985,10 +994,10 @@ func (s *Suite) TestLogTransferErrorWriting(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{"StreamModelLog", []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
 		},
@@ -1022,15 +1031,15 @@ func (s *Suite) TestLogTransferSendsRecords(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{"StreamModelLog", []interface{}{time.Time{}}},
+			{FuncName: "StreamModelLog", Args: []interface{}{time.Time{}}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.REAP}},
-			{"facade.Reap", nil},
-			{"facade.SetPhase", []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.Reap", Args: nil},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
 		},
 	))
 	c.Assert(s.connection.logStream.written, gc.DeepEquals, []params.LogRecord{
@@ -1090,15 +1099,15 @@ func (s *Suite) TestLogTransferChecksLatestTime(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		[]jujutesting.StubCall{
-			{"facade.MinionReportTimeout", nil},
+			{FuncName: "facade.MinionReportTimeout", Args: nil},
 			apiOpenControllerCall,
 			latestLogTimeCall,
-			{"StreamModelLog", []interface{}{t}},
+			{FuncName: "StreamModelLog", Args: []interface{}{t}},
 			openDestLogStreamCall,
 			apiCloseCall,
-			{"facade.SetPhase", []interface{}{coremigration.REAP}},
-			{"facade.Reap", nil},
-			{"facade.SetPhase", []interface{}{coremigration.DONE}},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.REAP}},
+			{FuncName: "facade.Reap", Args: nil},
+			{FuncName: "facade.SetPhase", Args: []interface{}{coremigration.DONE}},
 		},
 	))
 }
@@ -1331,10 +1340,11 @@ func (f *stubMasterFacade) ModelInfo() (coremigration.ModelInfo, error) {
 		return coremigration.ModelInfo{}, f.modelInfoErr
 	}
 	return coremigration.ModelInfo{
-		UUID:         modelUUID,
-		Name:         modelName,
-		Owner:        ownerTag,
-		AgentVersion: modelVersion,
+		UUID:             modelUUID,
+		Name:             modelName,
+		Owner:            ownerTag,
+		AgentVersion:     modelVersion,
+		ModelDescription: description.NewModel(description.ModelArgs{}),
 	}, nil
 }
 

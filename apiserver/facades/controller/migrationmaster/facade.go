@@ -177,11 +177,27 @@ func (api *API) ModelInfo(ctx context.Context) (params.MigrationModelInfo, error
 		return empty, errors.New("no agent version")
 	}
 
+	leaders, err := api.leadership.Leaders()
+	if err != nil {
+		return empty, errors.Annotatef(err, "retrieving leaders")
+	}
+
+	model, err := api.modelExporter.ExportModel(ctx, leaders, api.store)
+	if err != nil {
+		return empty, errors.Annotate(err, "retrieving model")
+	}
+
+	modelDescription, err := description.Serialize(model)
+	if err != nil {
+		return empty, errors.Annotate(err, "serializing model")
+	}
+
 	return params.MigrationModelInfo{
-		UUID:         modelInfo.UUID.String(),
-		Name:         modelInfo.Name,
-		OwnerTag:     names.NewUserTag(modelInfo.CredentialOwner).String(),
-		AgentVersion: vers,
+		UUID:             modelInfo.UUID.String(),
+		Name:             modelInfo.Name,
+		OwnerTag:         names.NewUserTag(modelInfo.CredentialOwner).String(),
+		AgentVersion:     vers,
+		ModelDescription: modelDescription,
 	}, nil
 }
 

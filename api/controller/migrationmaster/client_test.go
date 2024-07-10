@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jujutesting "github.com/juju/testing"
@@ -173,7 +174,7 @@ func (s *ClientSuite) TestSetStatusMessageError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
-func (s *ClientSuite) TestModelInfo(c *gc.C) {
+func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *gc.C) {
 	var stub jujutesting.Stub
 	owner := names.NewUserTag("owner")
 	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
@@ -189,16 +190,56 @@ func (s *ClientSuite) TestModelInfo(c *gc.C) {
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
 	model, err := client.ModelInfo()
+	c.Assert(err, jc.ErrorIsNil)
+
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.ModelInfo", Args: []interface{}{"", nil}},
 	})
-	c.Check(err, jc.ErrorIsNil)
 	c.Check(model, jc.DeepEquals, migration.ModelInfo{
 		UUID:                   "uuid",
 		Name:                   "name",
 		Owner:                  owner,
 		AgentVersion:           version.MustParse("1.2.3"),
 		ControllerAgentVersion: version.MustParse("1.2.4"),
+	})
+}
+
+func (s *ClientSuite) TestModelInfoWithModelDescription(c *gc.C) {
+	modelDescription := description.NewModel(description.ModelArgs{
+		Config: make(map[string]interface{}),
+	})
+	modelDescription.SetStatus(description.StatusArgs{})
+	serialized, err := description.Serialize(modelDescription)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var stub jujutesting.Stub
+	owner := names.NewUserTag("owner")
+	apiCaller := apitesting.APICallerFunc(func(objType string, v int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		*(result.(*params.MigrationModelInfo)) = params.MigrationModelInfo{
+			UUID:                   "uuid",
+			Name:                   "name",
+			OwnerTag:               owner.String(),
+			AgentVersion:           version.MustParse("1.2.3"),
+			ControllerAgentVersion: version.MustParse("1.2.4"),
+			ModelDescription:       serialized,
+		}
+		return nil
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	model, err := client.ModelInfo()
+	c.Assert(err, jc.ErrorIsNil)
+
+	stub.CheckCalls(c, []jujutesting.StubCall{
+		{FuncName: "MigrationMaster.ModelInfo", Args: []interface{}{"", nil}},
+	})
+	c.Check(model, jc.DeepEquals, migration.ModelInfo{
+		UUID:                   "uuid",
+		Name:                   "name",
+		Owner:                  owner,
+		AgentVersion:           version.MustParse("1.2.3"),
+		ControllerAgentVersion: version.MustParse("1.2.4"),
+		ModelDescription:       modelDescription,
 	})
 }
 
