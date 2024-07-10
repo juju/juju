@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/keymanager"
 	keyserrors "github.com/juju/juju/domain/keymanager/errors"
@@ -59,7 +60,7 @@ type State interface {
 
 	// GetPublicKeysForUser is responsible for returning all of the
 	// public keys for the current user in this model.
-	GetPublicKeysForUser(context.Context, user.UUID) ([]string, error)
+	GetPublicKeysForUser(context.Context, user.UUID) ([]coressh.PublicKey, error)
 
 	// DeletePublicKeysForUser is responsible for removing the keys from the
 	// users list of public keys where the string list represents one of
@@ -248,7 +249,7 @@ func (s *Service) ImportPublicKeysForUser(
 func (s *Service) ListPublicKeysForUser(
 	ctx context.Context,
 	userID user.UUID,
-) ([]string, error) {
+) ([]coressh.PublicKey, error) {
 	if err := userID.Validate(); err != nil {
 		return nil, fmt.Errorf(
 			"validating user id %q when listing public keys: %w",

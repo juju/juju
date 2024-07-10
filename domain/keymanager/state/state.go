@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/database"
+	coressh "github.com/juju/juju/core/ssh"
 	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/keymanager"
@@ -188,14 +189,14 @@ WHERE s.algorithm = $userPublicKeyInsert.algorithm
 func (s *State) GetPublicKeysForUser(
 	ctx context.Context,
 	id user.UUID,
-) ([]string, error) {
+) ([]coressh.PublicKey, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	stmt, err := s.Prepare(`
-SELECT public_key AS &publicKey.*
+SELECT (public_key, fingerprint) AS &publicKey.*
 FROM user_public_ssh_key
 WHERE user_id = $userId.user_id
 `, userId{}, publicKey{})
@@ -224,9 +225,12 @@ WHERE user_id = $userId.user_id
 		)
 	}
 
-	rval := make([]string, 0, len(publicKeys))
+	rval := make([]coressh.PublicKey, 0, len(publicKeys))
 	for _, pk := range publicKeys {
-		rval = append(rval, pk.PublicKey)
+		rval = append(rval, coressh.PublicKey{
+			Fingerprint: pk.Fingerprint,
+			Key:         pk.PublicKey,
+		})
 	}
 	return rval, nil
 }
