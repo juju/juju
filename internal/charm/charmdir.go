@@ -256,7 +256,7 @@ func (dir *CharmDir) ArchiveTo(w io.Writer) error {
 		return err
 	}
 	// We update the version to make sure we don't lag behind
-	dir.version, _, err = dir.MaybeGenerateVersionString()
+	dir.version, _, err = dir.MaybeGenerateVersionString(context.Background(), DefaultVersionReader(dir.logger))
 	if err != nil {
 		// We don't want to stop, even if the version cannot be generated
 		dir.logger.Warningf("trying to generate version string: %v", err)
@@ -444,130 +444,214 @@ func checkFileType(path string, mode os.FileMode) error {
 	return fmt.Errorf(e, path)
 }
 
-type typeCheckerFunc = func(ctx context.Context, charmPath string, CancelFunc func(), logger logger.Logger) bool
+// MaybeGenerateVersionString generates charm version string.
+// We want to know whether parent folders use one of these vcs, that's why we
+// try to execute each one of them.
+// The second return value is the detected vcs type.
+func (dir *CharmDir) MaybeGenerateVersionString(ctx context.Context, reader VersionReader) (string, string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
 
-type vcsCMD struct {
-	vcsType       string
-	args          []string
-	usesTypeCheck typeCheckerFunc
+	return reader.ReadVersion(ctx, dir.Path)
 }
 
-func (v *vcsCMD) commonErrHandler(err error, charmPath string) error {
-	return errors.Errorf("%q version string generation failed : "+
-		"%v\nThis means that the charm version won't show in juju status. Charm path %q", v.vcsType, err, charmPath)
+type VersionType = string
+
+const (
+	versionTypeNone VersionType = ""
+	versionTypeGit  VersionType = "git"
+	versionTypeHg   VersionType = "hg"
+	versionTypeBzr  VersionType = "bzr"
+	versionTypeFile VersionType = "versionFile"
+)
+
+// VersionReader is an interface that reads the version file.
+type VersionReader interface {
+	ReadVersion(ctx context.Context, path string) (string, VersionType, error)
 }
 
-// usesGit first check checks for the easy case of the current charmdir has a
+var (
+	// ErrVersionGenerationFailed is returned when the version string
+	// generation failed.
+	ErrVersionGenerationFailed = errors.ConstError("version string generation failed")
+)
+
+type versionsReader struct {
+	strategies [4]VersionReader
+	logger     logger.Logger
+}
+
+// DefaultVersionReader returns a VersionReader that reads the version file.
+func DefaultVersionReader(logger logger.Logger) VersionReader {
+	return versionsReader{
+		strategies: [4]VersionReader{
+			gitVersionReader{logger: logger},
+			hgVersionReader{logger: logger},
+			bzrVersionReader{logger: logger},
+			versionFileReader{logger: logger},
+		},
+		logger: logger,
+	}
+}
+
+func (r versionsReader) ReadVersion(ctx context.Context, path string) (string, VersionType, error) {
+	absPath := path
+	if !filepath.IsAbs(absPath) {
+		var err error
+		absPath, err = filepath.Abs(path)
+		if err != nil {
+			return "", "", errors.Annotatef(err, "failed resolving relative path %q", path)
+		}
+	}
+
+	for _, strategy := range r.strategies {
+		ver, verType, err := strategy.ReadVersion(ctx, path)
+		if err != nil {
+			return "", verType, errors.Annotatef(err, "failed reading version from %q", absPath)
+		}
+		if verType != versionTypeNone {
+			return ver, verType, nil
+		}
+	}
+
+	r.logger.Infof("charm is not versioned, charm path %q", absPath)
+	return "", versionTypeNone, nil
+}
+
+type gitVersionReader struct {
+	logger logger.Logger
+}
+
+// GitVersionReader returns just a git version reader.
+func GitVersionReader(logger logger.Logger) VersionReader {
+	return gitVersionReader{logger: logger}
+}
+
+func (r gitVersionReader) ReadVersion(ctx context.Context, path string) (string, VersionType, error) {
+	if !r.usesGit(ctx, path) {
+		return "", versionTypeNone, nil
+	}
+	cmd := exec.CommandContext(ctx, "git", "describe", "--dirty", "--always")
+	// We need to make sure that the working directory will be the one we
+	// execute the commands from.
+	cmd.Dir = path
+	// Version string value is written to stdout if successful.
+	out, err := cmd.Output()
+	if err != nil {
+		// We had an error but we still know that we use a vcs, hence we can
+		// stop here and handle it.
+		return "", versionTypeGit, fmt.Errorf("git %w: "+
+			"%w\nThis means that the charm version won't show in juju status.", ErrVersionGenerationFailed, err)
+	}
+	output := strings.TrimSuffix(string(out), "\n")
+	return output, versionTypeGit, nil
+
+}
+
+// usesGit first checks for the easy case of the current charmdir has a
 // git folder.
 // There can be cases when the charmdir actually uses git and is just a subdir,
-// hence the below check
-func usesGit(ctx context.Context, charmPath string, cancelFunc func(), logger logger.Logger) bool {
-	defer cancelFunc()
+// hence the below check.
+func (r gitVersionReader) usesGit(ctx context.Context, charmPath string) bool {
 	if _, err := os.Stat(filepath.Join(charmPath, ".git")); err == nil {
 		return true
 	}
+
 	args := []string{"rev-parse", "--is-inside-work-tree"}
 	execCmd := exec.CommandContext(ctx, "git", args...)
 	execCmd.Dir = charmPath
 
-	_, err := execCmd.Output()
-
-	if ctx.Err() == context.DeadlineExceeded {
-		logger.Debugf("git command timed out for charm in path: %q", charmPath)
-		return false
-	}
-
-	if err == nil {
+	if _, err := execCmd.Output(); err == nil {
 		return true
 	}
 	return false
 }
 
-func usesBzr(ctx context.Context, charmPath string, cancelFunc func(), logger logger.Logger) bool {
-	defer cancelFunc()
-	if _, err := os.Stat(filepath.Join(charmPath, ".bzr")); err == nil {
-		return true
-	}
-	return false
+type hgVersionReader struct {
+	logger logger.Logger
 }
 
-func usesHg(ctx context.Context, charmPath string, cancelFunc func(), logger logger.Logger) bool {
-	defer cancelFunc()
+func (r hgVersionReader) ReadVersion(ctx context.Context, path string) (string, VersionType, error) {
+	if !r.usesHg(path) {
+		return "", versionTypeNone, nil
+	}
+
+	cmd := exec.CommandContext(ctx, "hg", "id", "-n")
+	// We need to make sure that the working directory will be the one we
+	// execute the commands from.
+	cmd.Dir = path
+	// Version string value is written to stdout if successful.
+	out, err := cmd.Output()
+	if err != nil {
+		// We had an error but we still know that we use a vcs, hence we can
+		// stop here and handle it.
+		return "", versionTypeHg, fmt.Errorf("hg %w: "+
+			"%w\nThis means that the charm version won't show in juju status.", ErrVersionGenerationFailed, err)
+	}
+	output := strings.TrimSuffix(string(out), "\n")
+	return output, versionTypeHg, nil
+
+}
+
+// usesHg first checks for the easy case of the current charmdir has a
+// hg folder.
+func (r hgVersionReader) usesHg(charmPath string) bool {
 	if _, err := os.Stat(filepath.Join(charmPath, ".hg")); err == nil {
 		return true
 	}
 	return false
 }
 
-// VersionFileVersionType holds the type of the versioned file type, either
-// git, hg, bzr or a raw version file.
-const versionFileVersionType = "versionFile"
+type bzrVersionReader struct {
+	logger logger.Logger
+}
 
-// MaybeGenerateVersionString generates charm version string.
-// We want to know whether parent folders use one of these vcs, that's why we
-// try to execute each one of them
-// The second return value is the detected vcs type.
-func (dir *CharmDir) MaybeGenerateVersionString() (string, string, error) {
-	// vcsStrategies is the strategies to use to access the version file content.
-	vcsStrategies := map[string]vcsCMD{
-		"hg": {
-			vcsType:       "hg",
-			args:          []string{"id", "-n"},
-			usesTypeCheck: usesHg,
-		},
-		"git": {
-			vcsType:       "git",
-			args:          []string{"describe", "--dirty", "--always"},
-			usesTypeCheck: usesGit,
-		},
-		"bzr": {
-			vcsType:       "bzr",
-			args:          []string{"version-info"},
-			usesTypeCheck: usesBzr,
-		},
+func (r bzrVersionReader) ReadVersion(ctx context.Context, path string) (string, VersionType, error) {
+	if !r.usesBzr(path) {
+		return "", versionTypeNone, nil
 	}
 
-	// Nowadays most vcs used are git, we want to make sure that git is the first one we test
-	vcsOrder := [...]string{"git", "hg", "bzr"}
-	cmdWaitTime := 2 * time.Second
-
-	absPath := dir.Path
-	if !filepath.IsAbs(absPath) {
-		var err error
-		absPath, err = filepath.Abs(dir.Path)
-		if err != nil {
-			return "", "", errors.Annotatef(err, "failed resolving relative path %q", dir.Path)
-		}
+	cmd := exec.CommandContext(ctx, "bzr", "version-info")
+	// We need to make sure that the working directory will be the one we
+	// execute the commands from.
+	cmd.Dir = path
+	// Version string value is written to stdout if successful.
+	out, err := cmd.Output()
+	if err != nil {
+		// We had an error but we still know that we use a vcs, hence we can
+		// stop here and handle it.
+		return "", versionTypeBzr, fmt.Errorf("bzr %w: "+
+			"%w\nThis means that the charm version won't show in juju status.", ErrVersionGenerationFailed, err)
 	}
+	output := strings.TrimSuffix(string(out), "\n")
+	return output, versionTypeBzr, nil
 
-	for _, vcsType := range vcsOrder {
-		vcsCmd := vcsStrategies[vcsType]
-		ctx, cancel := context.WithTimeout(context.Background(), cmdWaitTime)
-		if vcsCmd.usesTypeCheck(ctx, dir.Path, cancel, dir.logger) {
-			cmd := exec.Command(vcsCmd.vcsType, vcsCmd.args...)
-			// We need to make sure that the working directory will be the one we execute the commands from.
-			cmd.Dir = dir.Path
-			// Version string value is written to stdout if successful.
-			out, err := cmd.Output()
-			if err != nil {
-				// We had an error but we still know that we use a vcs, hence we can stop here and handle it.
-				return "", vcsType, vcsCmd.commonErrHandler(err, absPath)
-			}
-			output := strings.TrimSuffix(string(out), "\n")
-			return output, vcsType, nil
-		}
+}
+
+// usesBzr first checks for the easy case of the current charmdir has a
+// bzr folder.
+func (r bzrVersionReader) usesBzr(charmPath string) bool {
+	if _, err := os.Stat(filepath.Join(charmPath, ".bzr")); err == nil {
+		return true
 	}
+	return false
+}
 
+type versionFileReader struct {
+	logger logger.Logger
+}
+
+func (r versionFileReader) ReadVersion(ctx context.Context, path string) (string, VersionType, error) {
 	// If all strategies fail we fallback to check the version below
-	if file, err := os.Open(dir.join("version")); err == nil {
-		dir.logger.Debugf("charm is not in version control, but uses a version file, charm path %q", absPath)
+	if file, err := os.Open(filepath.Join(path, "version")); err == nil {
+		r.logger.Debugf("charm is not in version control, but uses a version file")
 		ver, err := ReadVersion(file)
 		file.Close()
 		if err != nil {
-			return "", versionFileVersionType, err
+			return "", versionTypeFile, err
 		}
-		return ver, versionFileVersionType, nil
+		return ver, versionTypeFile, nil
 	}
-	dir.logger.Infof("charm is not versioned, charm path %q", absPath)
-	return "", "", nil
+
+	return "", versionTypeNone, nil
 }
