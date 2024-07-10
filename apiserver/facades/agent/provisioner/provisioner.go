@@ -188,7 +188,7 @@ func NewProvisionerAPI(stdCtx stdcontext.Context, ctx facade.ModelContext) (*Pro
 		Remover:              common.NewRemover(st, ctx.ObjectStore(), nil, false, getAuthFunc, unitRemover),
 		StatusSetter:         common.NewStatusSetter(st, getAuthFunc),
 		StatusGetter:         common.NewStatusGetter(st, getAuthFunc),
-		DeadEnsurer:          common.NewDeadEnsurer(st, nil, getAuthFunc),
+		DeadEnsurer:          common.NewDeadEnsurer(st, nil, getAuthFunc, ctx.ServiceFactory().Machine()),
 		PasswordChanger:      common.NewPasswordChanger(st, getAuthFunc),
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:         common.NewAPIAddresser(systemState, resources),

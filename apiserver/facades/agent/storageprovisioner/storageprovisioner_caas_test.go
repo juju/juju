@@ -78,6 +78,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 		storageBackend,
 		s.DefaultModelServiceFactory(c).BlockDevice(),
 		s.ControllerServiceFactory(c).Config(),
+		s.DefaultModelServiceFactory(c).Machine(),
 		s.resources,
 		s.authorizer,
 		registry,

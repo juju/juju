@@ -87,6 +87,7 @@ func (s *iaasProvisionerSuite) newApi(c *gc.C, blockDeviceService storageprovisi
 		storageBackend,
 		blockDeviceService,
 		s.ControllerServiceFactory(c).Config(),
+		s.DefaultModelServiceFactory(c).Machine(),
 		s.resources,
 		s.authorizer,
 		registry,

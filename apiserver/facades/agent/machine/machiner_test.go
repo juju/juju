@@ -32,6 +32,7 @@ type machinerSuite struct {
 	resources      *common.Resources
 	machiner       *machine.MachinerAPI
 	networkService *MockNetworkService
+	machineService *MockMachineService
 }
 
 var _ = gc.Suite(&machinerSuite{})
@@ -40,6 +41,7 @@ func (s *machinerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.networkService = NewMockNetworkService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 	return ctrl
 }
 
@@ -59,6 +61,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		apiservertesting.ConstCloudGetter(&testing.DefaultCloud),
 		s.networkService,
+		s.machineService,
 		s.resources,
 		s.authorizer,
 	)
@@ -79,6 +82,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		nil,
 		s.networkService,
+		s.machineService,
 		s.resources,
 		anAuthorizer,
 	)

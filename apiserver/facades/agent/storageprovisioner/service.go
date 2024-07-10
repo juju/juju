@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/blockdevice"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/storage"
@@ -24,6 +25,15 @@ type ControllerConfigService interface {
 type ModelConfigService interface {
 	// ModelConfig returns the current config for the model.
 	ModelConfig(context.Context) (*config.Config, error)
+}
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// EnsureDeadMachine sets the provided machine's life status to Dead.
+	// No error is returned if the provided machine doesn't exist, just nothing
+	// gets updated.
+	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
 }
 
 // BlockDeviceService instances can fetch and watch block devices on a machine.

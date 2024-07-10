@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/credential"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
@@ -61,4 +62,13 @@ type NetworkService interface {
 	SpaceByName(ctx context.Context, name string) (*network.SpaceInfo, error)
 	// GetAllSubnets returns all the subnets for the model.
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
+}
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// EnsureDeadMachine sets the provided machine's life status to Dead.
+	// No error is returned if the provided machine doesn't exist, just nothing
+	// gets updated.
+	EnsureDeadMachine(ctx context.Context, machineName coremachine.Name) error
 }

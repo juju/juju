@@ -10,26 +10,38 @@ import (
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// EnsureDeadMachine sets the provided machine's life status to Dead.
+	// No error is returned if the provided machine doesn't exist, just nothing
+	// gets updated.
+	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
+}
+
 // DeadEnsurer implements a common EnsureDead method for use by
 // various facades.
 type DeadEnsurer struct {
-	st           state.EntityFinder
-	afterDead    func(names.Tag)
-	getCanModify GetAuthFunc
+	st             state.EntityFinder
+	afterDead      func(names.Tag)
+	getCanModify   GetAuthFunc
+	machineService MachineService
 }
 
 // NewDeadEnsurer returns a new DeadEnsurer. The GetAuthFunc will be
 // used on each invocation of EnsureDead to determine current
 // permissions.
-func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModify GetAuthFunc) *DeadEnsurer {
+func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModify GetAuthFunc, machineService MachineService) *DeadEnsurer {
 	return &DeadEnsurer{
-		st:           st,
-		afterDead:    afterDead,
-		getCanModify: getCanModify,
+		st:             st,
+		afterDead:      afterDead,
+		getCanModify:   getCanModify,
+		machineService: machineService,
 	}
 }
 
