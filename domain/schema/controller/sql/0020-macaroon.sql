@@ -1,12 +1,12 @@
 CREATE TABLE bakery_config (
-    local_users_private_key BLOB NOT NULL,
-    local_users_public_key BLOB NOT NULL,
-    local_users_third_party_private_key BLOB NOT NULL,
-    local_users_third_party_public_key BLOB NOT NULL,
-    external_users_third_party_private_key BLOB NOT NULL,
-    external_users_third_party_public_key BLOB NOT NULL,
-    offers_third_party_private_key BLOB NOT NULL,
-    offers_third_party_public_key BLOB NOT NULL
+    local_users_private_key TEXT NOT NULL,
+    local_users_public_key TEXT NOT NULL,
+    local_users_third_party_private_key TEXT NOT NULL,
+    local_users_third_party_public_key TEXT NOT NULL,
+    external_users_third_party_private_key TEXT NOT NULL,
+    external_users_third_party_public_key TEXT NOT NULL,
+    offers_third_party_private_key TEXT NOT NULL,
+    offers_third_party_public_key TEXT NOT NULL
 );
 
 -- A unique constraint over a constant index ensures only 1 entry matching the
@@ -14,8 +14,8 @@ CREATE TABLE bakery_config (
 CREATE UNIQUE INDEX idx_singleton_bakery_config ON bakery_config ((1));
 
 CREATE TABLE macaroon_root_key (
-    id BLOB PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     created_at TIMESTAMP NOT NULL,
     expires_at TIMESTAMP NOT NULL,
-    root_key BLOB NOT NULL
+    root_key TEXT NOT NULL
 );
