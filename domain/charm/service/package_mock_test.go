@@ -43,6 +43,44 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// DeleteCharm mocks base method.
+func (m *MockState) DeleteCharm(arg0 context.Context, arg1 charm.ID) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteCharm", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteCharm indicates an expected call of DeleteCharm.
+func (mr *MockStateMockRecorder) DeleteCharm(arg0, arg1 any) *MockStateDeleteCharmCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteCharm", reflect.TypeOf((*MockState)(nil).DeleteCharm), arg0, arg1)
+	return &MockStateDeleteCharmCall{Call: call}
+}
+
+// MockStateDeleteCharmCall wrap *gomock.Call
+type MockStateDeleteCharmCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateDeleteCharmCall) Return(arg0 error) *MockStateDeleteCharmCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateDeleteCharmCall) Do(f func(context.Context, charm.ID) error) *MockStateDeleteCharmCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateDeleteCharmCall) DoAndReturn(f func(context.Context, charm.ID) error) *MockStateDeleteCharmCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetCharmActions mocks base method.
 func (m *MockState) GetCharmActions(arg0 context.Context, arg1 charm.ID) (charm0.Actions, error) {
 	m.ctrl.T.Helper()

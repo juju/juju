@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	"github.com/juju/juju/domain/charm"
 	domaincharm "github.com/juju/juju/domain/charm"
 	charmerrors "github.com/juju/juju/domain/charm/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -26,6 +27,7 @@ type serviceSuite struct {
 	testing.IsolationSuite
 
 	state *MockState
+	charm *MockCharm
 
 	service *Service
 }
@@ -269,10 +271,43 @@ func (s *serviceSuite) TestReserveCharmRevisionInvalidRevision(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, charmerrors.RevisionNotValid)
 }
 
+func (s *serviceSuite) TestSetCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{})
+	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{})
+	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
+	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
+
+	s.state.EXPECT().SetCharm(gomock.Any(), charm.Charm{
+		Metadata: charm.Metadata{
+			RunAs: "default",
+		},
+	}).Return(id, nil)
+
+	got, err := s.service.SetCharm(context.Background(), s.charm)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, id)
+}
+
+func (s *serviceSuite) TestDeleteCharm(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().DeleteCharm(gomock.Any(), id).Return(nil)
+
+	err := s.service.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.state = NewMockState(ctrl)
+	s.charm = NewMockCharm(ctrl)
 
 	s.service = NewService(s.state, loggertesting.WrapCheckLog(c))
 

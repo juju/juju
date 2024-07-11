@@ -6,6 +6,7 @@ package state
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain/charm"
 	charmerrors "github.com/juju/juju/domain/charm/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -988,6 +990,15 @@ INSERT INTO charm_container_mount (
 	})
 }
 
+func (s *stateSuite) TestDeleteCharm(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+
+	err := st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
 func (s *stateSuite) TestSetCharmThenGetCharmMetadata(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
@@ -1009,6 +1020,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadata(c *gc.C) {
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(c *gc.C) {
@@ -1034,6 +1051,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(c *gc
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *gc.C) {
@@ -1058,6 +1081,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *gc.C) {
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C) {
@@ -1111,6 +1140,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C) {
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_relation")
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *gc.C) {
@@ -1142,6 +1177,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *gc.C) 
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_extra_binding")
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoProperties(c *gc.C) {
@@ -1189,6 +1230,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoProperties
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_storage")
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithProperties(c *gc.C) {
@@ -1238,6 +1285,13 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithProperties(c
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_storage")
+	assertTableEmpty(c, s.TxnRunner(), "charm_storage_property")
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
@@ -1277,6 +1331,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_device")
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithPayloadClasses(c *gc.C) {
@@ -1310,6 +1370,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithPayloadClasses(c *gc.C)
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_payload")
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C) {
@@ -1347,6 +1413,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C) {
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_resource")
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithNoMounts(c *gc.C) {
@@ -1380,6 +1452,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithNoMounts(
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_container")
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMounts(c *gc.C) {
@@ -1433,6 +1511,13 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMounts(c 
 	got, err := st.GetCharmMetadata(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_container")
+	assertTableEmpty(c, s.TxnRunner(), "charm_container_mount")
 }
 
 func (s *stateSuite) TestGetCharmManifest(c *gc.C) {
@@ -1502,6 +1587,12 @@ INSERT INTO charm_manifest_base (
 		}
 		return expected
 	})
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_manifest_base")
 }
 
 func (s *stateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
@@ -1547,6 +1638,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
 	got, err := st.GetCharmManifest(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_manifest_base")
 }
 func (s *stateSuite) TestGetCharmManifestNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
@@ -1583,6 +1680,11 @@ WHERE uuid = ?
 	profile, err := st.GetCharmLXDProfile(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(profile, gc.DeepEquals, []byte(`{"profile": []}`))
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
 }
 
 func (s *stateSuite) TestGetCharmLXDProfileNotFound(c *gc.C) {
@@ -1714,6 +1816,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmConfig(c *gc.C) {
 	got, err := st.GetCharmConfig(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_config")
 }
 
 func (s *stateSuite) TestGetCharmConfigNotFound(c *gc.C) {
@@ -1826,6 +1934,12 @@ func (s *stateSuite) TestSetCharmThenGetCharmActions(c *gc.C) {
 	got, err := st.GetCharmActions(context.Background(), id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, expected)
+
+	err = st.DeleteCharm(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+
+	assertTableEmpty(c, s.TxnRunner(), "charm")
+	assertTableEmpty(c, s.TxnRunner(), "charm_action")
 }
 
 func (s *stateSuite) TestGetCharmActionsNotFound(c *gc.C) {
@@ -1896,6 +2010,22 @@ func insertCharmManifest(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) 
 	}
 
 	return charm.Manifest{}, nil
+}
+
+func assertTableEmpty(c *gc.C, runner coredatabase.TxnRunner, table string) {
+	// Ensure that we don't use zero values for the count, as that would
+	// pass if the table is empty.
+	count := -1
+	err := runner.StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, fmt.Sprintf("SELECT COUNT(*) FROM %s", table)).Scan(&count)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		return nil
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(count, gc.Equals, 0)
 }
 
 func assertCharmMetadata(c *gc.C, metadata charm.Metadata, expected func() charm.Metadata) {

@@ -11,6 +11,10 @@ type charmID struct {
 	UUID string `db:"uuid"`
 }
 
+type charmUUID struct {
+	UUID string `db:"charm_uuid"`
+}
+
 // charmName is used to pass the name to the query.
 type charmName struct {
 	Name string `db:"name"`
