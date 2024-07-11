@@ -1721,20 +1721,21 @@ func (e *exporter) secrets() error {
 			return errors.Trace(err)
 		}
 		arg := description.SecretArgs{
-			ID:              md.URI.ID,
-			Version:         md.Version,
-			Description:     md.Description,
-			Label:           md.Label,
-			RotatePolicy:    md.RotatePolicy.String(),
-			AutoPrune:       md.AutoPrune,
-			Owner:           owner,
-			Created:         md.CreateTime,
-			Updated:         md.UpdateTime,
-			NextRotateTime:  md.NextRotateTime,
-			Revisions:       revisionArgsByID[md.URI.ID],
-			ACL:             accessArgsByID[md.URI.ID],
-			Consumers:       consumersByID[md.URI.ID],
-			RemoteConsumers: remoteConsumersByID[md.URI.ID],
+			ID:                     md.URI.ID,
+			Version:                md.Version,
+			Description:            md.Description,
+			Label:                  md.Label,
+			RotatePolicy:           md.RotatePolicy.String(),
+			AutoPrune:              md.AutoPrune,
+			Owner:                  owner,
+			Created:                md.CreateTime,
+			Updated:                md.UpdateTime,
+			NextRotateTime:         md.NextRotateTime,
+			LatestRevisionChecksum: md.LatestRevisionChecksum,
+			Revisions:              revisionArgsByID[md.URI.ID],
+			ACL:                    accessArgsByID[md.URI.ID],
+			Consumers:              consumersByID[md.URI.ID],
+			RemoteConsumers:        remoteConsumersByID[md.URI.ID],
 		}
 		e.model.AddSecret(arg)
 	}

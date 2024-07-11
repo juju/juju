@@ -337,6 +337,7 @@ func (mock *MockContext) SecretMetadata() (map[string]jujuc.SecretMetadata, erro
 			Owner:          secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"},
 			RotatePolicy:   secrets.RotateHourly,
 			LatestRevision: 666,
+			LatestChecksum: "deadbeef",
 		},
 	}, nil
 }

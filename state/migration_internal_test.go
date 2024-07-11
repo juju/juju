@@ -831,6 +831,7 @@ func (s *MigrationSuite) TestSecretMetadataDocFields(c *gc.C) {
 		"Description",
 		"Label",
 		"RotatePolicy",
+		"LatestRevisionChecksum",
 		"AutoPrune",
 		"CreateTime",
 		"UpdateTime",

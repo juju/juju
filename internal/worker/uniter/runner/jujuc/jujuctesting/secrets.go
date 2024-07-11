@@ -47,6 +47,7 @@ func (c *ContextSecrets) SecretMetadata() (map[string]jujuc.SecretMetadata, erro
 	return map[string]jujuc.SecretMetadata{
 		"9m4e2mr0ui3e8a215n4g": {
 			LatestRevision: 666,
+			LatestChecksum: "deadbeef",
 			Label:          "label",
 			Owner:          secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"},
 			Description:    "description",

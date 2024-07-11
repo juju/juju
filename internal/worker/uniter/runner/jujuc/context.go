@@ -189,6 +189,7 @@ type SecretMetadata struct {
 	RotatePolicy     secrets.RotatePolicy
 	LatestRevision   int
 	LatestExpireTime *time.Time
+	LatestChecksum   string
 	NextRotateTime   *time.Time
 	Revisions        []int
 	Access           []secrets.AccessInfo

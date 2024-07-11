@@ -90,15 +90,16 @@ func (api *Client) ListSecrets(reveal bool, filter secrets.Filter) ([]SecretDeta
 	for i, r := range response.Results {
 		details := SecretDetails{
 			Metadata: secrets.SecretMetadata{
-				Version:          r.Version,
-				RotatePolicy:     secrets.RotatePolicy(r.RotatePolicy),
-				NextRotateTime:   r.NextRotateTime,
-				LatestRevision:   r.LatestRevision,
-				LatestExpireTime: r.LatestExpireTime,
-				Description:      r.Description,
-				Label:            r.Label,
-				CreateTime:       r.CreateTime,
-				UpdateTime:       r.UpdateTime,
+				Version:                r.Version,
+				RotatePolicy:           secrets.RotatePolicy(r.RotatePolicy),
+				NextRotateTime:         r.NextRotateTime,
+				LatestRevision:         r.LatestRevision,
+				LatestRevisionChecksum: r.LatestRevisionChecksum,
+				LatestExpireTime:       r.LatestExpireTime,
+				Description:            r.Description,
+				Label:                  r.Label,
+				CreateTime:             r.CreateTime,
+				UpdateTime:             r.UpdateTime,
 			},
 			Access: toGrantInfo(r.Access),
 		}

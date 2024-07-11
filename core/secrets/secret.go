@@ -189,7 +189,8 @@ type SecretMetadata struct {
 	// These are denormalised here for ease of access.
 
 	// LatestRevision is the most recent secret revision.
-	LatestRevision int
+	LatestRevision         int
+	LatestRevisionChecksum string
 	// LatestExpireTime is the expire time of the most recent revision.
 	LatestExpireTime *time.Time
 	// NextRotateTime is when the secret should be rotated.

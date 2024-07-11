@@ -286,7 +286,12 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 	uri2 := secrets.NewURI()
 
 	s.secretMetadata = map[string]jujuc.SecretMetadata{
-		uri.ID: {Description: "some secret", LatestRevision: 1, Owner: secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"}},
+		uri.ID: {
+			Description:    "some secret",
+			LatestRevision: 1,
+			LatestChecksum: "deadbeef",
+			Owner:          secrets.Owner{Kind: secrets.ApplicationOwner, ID: "mariadb"},
+		},
 	}
 
 	ctrl := gomock.NewController(c)
@@ -320,7 +325,8 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 				Description:  ptr("a secret"),
 				Label:        ptr("foobar"),
 				Content: params.SecretContentParams{
-					Data: map[string]string{"foo": "bar2"},
+					Data:     map[string]string{"foo": "bar2"},
+					Checksum: "f6956a0bbc93272e46689a2a3ccde66bbb8add5166df232f3b27644a589c656c",
 				},
 			},
 		}},

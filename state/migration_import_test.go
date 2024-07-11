@@ -2256,6 +2256,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 			ExpireTime:     ptr(expire),
 			Params:         nil,
 			Data:           map[string]string{"foo": "bar"},
+			Checksum:       "7a38bf81f383f69433ad6e900d35b3e2385593f76a7b7ab5d4355b8ba41ee24b",
 		},
 	}
 	md, err := store.CreateSecret(uri, p)
@@ -2268,6 +2269,7 @@ func (s *MigrationImportSuite) TestSecrets(c *gc.C) {
 			BackendID:  backendID,
 			RevisionID: "rev-id",
 		},
+		Checksum: "deadbeef",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

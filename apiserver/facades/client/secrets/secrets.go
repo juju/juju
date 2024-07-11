@@ -129,17 +129,18 @@ func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs
 			return params.ListSecretResults{}, errors.Trace(err)
 		}
 		secretResult := params.ListSecretResult{
-			URI:              m.URI.String(),
-			Version:          m.Version,
-			OwnerTag:         ownerTag.String(),
-			Description:      m.Description,
-			Label:            m.Label,
-			RotatePolicy:     string(m.RotatePolicy),
-			NextRotateTime:   m.NextRotateTime,
-			LatestRevision:   m.LatestRevision,
-			LatestExpireTime: m.LatestExpireTime,
-			CreateTime:       m.CreateTime,
-			UpdateTime:       m.UpdateTime,
+			URI:                    m.URI.String(),
+			Version:                m.Version,
+			OwnerTag:               ownerTag.String(),
+			Description:            m.Description,
+			Label:                  m.Label,
+			RotatePolicy:           string(m.RotatePolicy),
+			NextRotateTime:         m.NextRotateTime,
+			LatestRevision:         m.LatestRevision,
+			LatestRevisionChecksum: m.LatestRevisionChecksum,
+			LatestExpireTime:       m.LatestExpireTime,
+			CreateTime:             m.CreateTime,
+			UpdateTime:             m.UpdateTime,
 		}
 		grants, err := s.secretService.GetSecretGrants(ctx, m.URI, coresecrets.RoleView)
 		if err != nil {
@@ -267,6 +268,15 @@ func (s *SecretsAPI) createSecret(ctx context.Context, arg params.CreateSecretAr
 		uri = coresecrets.NewURI()
 	}
 
+	if len(arg.Content.Data) == 0 {
+		return "", errors.NotValidf("empty secret value")
+	}
+	v := coresecrets.NewSecretValue(arg.Content.Data)
+	checksum, err := v.Checksum()
+	if err != nil {
+		return "", errors.Annotate(err, "calculating secret checksum")
+	}
+	arg.UpsertSecretArg.Content.Checksum = checksum
 	err = s.secretService.CreateUserSecret(ctx, uri, secretservice.CreateUserSecretParams{
 		Version:                secrets.Version,
 		UpdateUserSecretParams: fromUpsertParams(s.modelUUID, nil, arg.UpsertSecretArg),
@@ -285,6 +295,7 @@ func fromUpsertParams(modelUUID string, autoPrune *bool, p params.UpsertSecretAr
 		Label:       p.Label,
 		Params:      p.Params,
 		Data:        p.Content.Data,
+		Checksum:    p.Content.Checksum,
 	}
 }
 
@@ -317,7 +328,14 @@ func (s *SecretsAPI) updateSecret(ctx context.Context, arg params.UpdateUserSecr
 	if err != nil {
 		return errors.Trace(err)
 	}
-
+	if len(arg.Content.Data) > 0 {
+		v := coresecrets.NewSecretValue(arg.Content.Data)
+		checksum, err := v.Checksum()
+		if err != nil {
+			return errors.Annotate(err, "calculating secret checksum")
+		}
+		arg.Content.Checksum = checksum
+	}
 	err = s.secretService.UpdateUserSecret(ctx, uri, fromUpsertParams(s.modelUUID, arg.AutoPrune, arg.UpsertSecretArg))
 	return errors.Trace(err)
 }
