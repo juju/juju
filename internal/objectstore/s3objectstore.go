@@ -796,9 +796,11 @@ func (t *s3ObjectStore) removeDrainedFile(ctx context.Context, hash string) erro
 }
 
 func (t *s3ObjectStore) reportInternalState(state string) {
+	if t.internalStates == nil {
+		return
+	}
 	select {
 	case <-t.tomb.Dying():
 	case t.internalStates <- state:
-	default:
 	}
 }
