@@ -1103,3 +1103,59 @@ func (m *stateSuite) TestGetModelByName(c *gc.C) {
 		OwnerName: m.userName,
 	})
 }
+
+// TestCleanupBrokenModel tests that when creation of a model fails (it is not
+// activated), and the user tries to recreate the model with the same name, we
+// can successfully clean up the broken model state and create the new model.
+// This is a regression test for a bug in the original code, where State.Create
+// was unable to clean up all the references to the original model.
+// Bug report: https://bugs.launchpad.net/juju/+bug/2072601
+func (m *stateSuite) TestCleanupBrokenModel(c *gc.C) {
+	modelSt := NewState(m.TxnRunnerFactory())
+
+	// Create a "broken" model
+	modelID := modeltesting.GenModelUUID(c)
+	err := modelSt.Create(
+		context.Background(),
+		modelID,
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			CloudRegion:  "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Name:          "broken-model",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Suppose that model creation failed after the Create function was called,
+	// and so the model was never activated. Now, the user tries to create a
+	// new model with exactly the same name and owner.
+	newModelID := modeltesting.GenModelUUID(c)
+	err = modelSt.Create(
+		context.Background(),
+		newModelID,
+		coremodel.IAAS,
+		model.ModelCreationArgs{
+			AgentVersion: version.Current,
+			Cloud:        "my-cloud",
+			CloudRegion:  "my-region",
+			Credential: corecredential.Key{
+				Cloud: "my-cloud",
+				Owner: "test-user",
+				Name:  "foobar",
+			},
+			Name:          "broken-model",
+			Owner:         m.userUUID,
+			SecretBackend: juju.BackendName,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
