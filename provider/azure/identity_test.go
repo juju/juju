@@ -53,9 +53,9 @@ func (s *identitySuite) TestFinaliseBootstrapCredentialInstanceRole(c *gc.C) {
 	}
 	got, err := env.FinaliseBootstrapCredential(ctx, args, &cred)
 	c.Assert(err, jc.ErrorIsNil)
-	want := cloud.NewCredential("instance-role", map[string]string{
-		"subscription-id":  fakeSubscriptionId,
-		"managed-identity": "foo",
+	want := cloud.NewCredential("managed-identity", map[string]string{
+		"subscription-id":       fakeSubscriptionId,
+		"managed-identity-path": "foo",
 	})
 	c.Assert(got, jc.DeepEquals, &want)
 }

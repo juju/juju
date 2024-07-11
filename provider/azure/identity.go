@@ -257,7 +257,7 @@ func (env *azureEnviron) FinaliseBootstrapCredential(
 	if len(strings.Split(*args.BootstrapConstraints.InstanceRole, "/")) > 3 {
 		return nil, errors.NotValidf("managaed identity %q", *args.BootstrapConstraints.InstanceRole)
 	}
-	newCred := cloud.NewCredential(cloud.InstanceRoleAuthType, map[string]string{
+	newCred := cloud.NewCredential(cloud.ManagedIdentityAuthType, map[string]string{
 		credManagedIdentity:    *args.BootstrapConstraints.InstanceRole,
 		credAttrSubscriptionId: env.subscriptionId,
 	})

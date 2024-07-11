@@ -17,7 +17,7 @@ check_managed_identity_controller() {
 
 	cred_name=${AZURE_CREDENTIAL_NAME:-credentials}
 	cred=$(juju show-credential --controller "${name}" azure "${cred_name}" 2>&1 || true)
-	check_contains "$cred" "managed-identity"
+	check_contains "$cred" "managed-identity-path"
 
 	juju switch controller
 	juju enable-ha

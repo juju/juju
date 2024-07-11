@@ -287,15 +287,21 @@ func transformModelCloudSpecForInstanceRoles(
 	modelCloudSpec cloudspec.CloudSpec,
 	controllerCloudSpec cloudspec.CloudSpec,
 ) (cloudspec.CloudSpec, error) {
+	authType := modelCloudSpec.Credential.AuthType()
+	var notSupportedAuthType bool
 	switch modelCloudSpec.Type {
-	case "ec2", "azure":
-		if modelCloudSpec.Credential.AuthType() == cloud.InstanceRoleAuthType {
-			if modelCloudSpec.Type != controllerCloudSpec.Type ||
-				modelCloudSpec.Name != controllerCloudSpec.Name {
-				return modelCloudSpec, errors.NotSupportedf("model %q uses instance profile credentials, can't destroy model. It will have to be cleaned up manually", modelName)
-			}
-			return controllerCloudSpec, nil
+	case "ec2":
+		notSupportedAuthType = authType == cloud.InstanceRoleAuthType
+	case "azure":
+		notSupportedAuthType = authType == cloud.ManagedIdentityAuthType
+	}
+	if notSupportedAuthType {
+		if modelCloudSpec.Type != controllerCloudSpec.Type ||
+			modelCloudSpec.Name != controllerCloudSpec.Name {
+			return modelCloudSpec, errors.NotSupportedf(
+				"model %q uses %s credentials, can't destroy model. It will have to be cleaned up manually", modelName, authType)
 		}
+		return controllerCloudSpec, nil
 	}
 	return modelCloudSpec, nil
 }

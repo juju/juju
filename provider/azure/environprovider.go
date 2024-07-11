@@ -93,7 +93,6 @@ func (cfg ProviderConfig) Validate() error {
 }
 
 type azureEnvironProvider struct {
-	environProviderCloud
 	environProviderCredentials
 
 	config ProviderConfig
@@ -177,7 +176,7 @@ func validateCloudSpec(spec environscloudspec.CloudSpec) error {
 	if spec.Credential == nil {
 		return errors.NotValidf("missing credential")
 	}
-	if authType := spec.Credential.AuthType(); authType != clientCredentialsAuthType && authType != cloud.InstanceRoleAuthType {
+	if authType := spec.Credential.AuthType(); authType != clientCredentialsAuthType && authType != cloud.ManagedIdentityAuthType {
 		return errors.NotSupportedf("%q auth-type", authType)
 	}
 	return nil
