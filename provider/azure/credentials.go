@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
@@ -26,7 +27,7 @@ const (
 	credAttrSubscriptionId        = "subscription-id"
 	credAttrManagedSubscriptionId = "managed-subscription-id"
 	credAttrAppPassword           = "application-password"
-	credManagedIdentity           = "managed-identity"
+	credManagedIdentity           = "managed-identity-path"
 
 	// clientCredentialsAuthType is the auth-type for the
 	// "client credentials" OAuth flow, which requires a
@@ -102,14 +103,14 @@ func (c environProviderCredentials) CredentialSchemas() map[cloud.AuthType]cloud
 				},
 			},
 		},
-		// InstanceRoleAuthType is an authentication type used by sourcing
-		// credentials from within the machine's context in a given cloud provider.
+		// ManagedIdentityAuthType is an authentication type used by sourcing
+		// credentials from a user managed identity from within the machine's context.
 		// You only get these credentials by running within that machine.
-		cloud.InstanceRoleAuthType: {
+		cloud.ManagedIdentityAuthType: {
 			{
 				credManagedIdentity,
 				cloud.CredentialAttr{
-					Description: "The Azure Managed Identity ID",
+					Description: "The Azure Managed Identity path, either name or resourcegroup/name",
 				},
 			}, {
 				credAttrSubscriptionId, cloud.CredentialAttr{Description: "Azure subscription ID"},
@@ -212,6 +213,16 @@ func (c environProviderCredentials) FinalizeCredential(
 		}
 		return c.azureCLICredential(ctx, args, params)
 	case clientCredentialsAuthType:
+		return &args.Credential, nil
+	case cloud.ManagedIdentityAuthType:
+		if subscriptionId := args.Credential.Attributes()[credAttrSubscriptionId]; subscriptionId == "" {
+			return nil, errors.Errorf("subscription id cannot be empty")
+		}
+		identity := args.Credential.Attributes()[credManagedIdentity]
+		numParts := len(strings.Split(identity, "/"))
+		if identity == "" || numParts > 2 {
+			return nil, errors.Errorf("managed identity path must be <name> or <resourcegroup>/<name>")
+		}
 		return &args.Credential, nil
 	default:
 		return nil, errors.NotSupportedf("%q auth-type", authType)

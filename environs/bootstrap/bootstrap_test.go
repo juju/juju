@@ -140,6 +140,38 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *bootstrapSuite) TestBootstrapCredentialMismatch(c *gc.C) {
+	env := newEnviron("bar", noKeysDefined, nil)
+	s.setDummyStorage(c, env)
+
+	cred := cloud.NewCredential(cloud.InstanceRoleAuthType, nil)
+	err := bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+		s.callContext,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			CAPrivateKey:            coretesting.CAKey,
+			AdminSecret:             "admin-secret",
+			SupportedBootstrapBases: supportedJujuBases,
+			BootstrapConstraints:    constraints.MustParse("instance-role=foo"),
+			CloudCredential:         &cred,
+		})
+	c.Assert(err, gc.ErrorMatches, "instance role constraint with instance role credential not supported")
+
+	cred = cloud.NewCredential(cloud.ManagedIdentityAuthType, nil)
+	err = bootstrap.Bootstrap(envtesting.BootstrapTODOContext(c), env,
+		s.callContext,
+		bootstrap.BootstrapParams{
+			ControllerConfig:        coretesting.FakeControllerConfig(),
+			CAPrivateKey:            coretesting.CAKey,
+			AdminSecret:             "admin-secret",
+			SupportedBootstrapBases: supportedJujuBases,
+			BootstrapConstraints:    constraints.MustParse("instance-role=foo"),
+			CloudCredential:         &cred,
+		})
+	c.Assert(err, gc.ErrorMatches, "instance role constraint with managed identity credential not supported")
+
+}
+
 func (s *bootstrapSuite) TestBootstrapTestingOptions(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
