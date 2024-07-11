@@ -5,12 +5,14 @@ package secretbackends_test
 
 import (
 	"github.com/juju/cmd/v4/cmdtesting"
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/secretbackends"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -48,6 +50,16 @@ func (s *modelSecretBackendCommandSuite) TestGet(c *gc.C) {
 	c.Assert(out, gc.Equals, "myVault"+"\n")
 }
 
+func (s *modelSecretBackendCommandSuite) TestGetNotSupported(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.secretsAPI.EXPECT().GetModelSecretBackend(gomock.Any()).Return("", errors.NotSupportedf("model secret backend"))
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	_, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI))
+	c.Assert(err, gc.ErrorMatches, `"model-secret-backend" has not been implemented on the controller, use the "model-config" command instead`)
+}
+
 func (s *modelSecretBackendCommandSuite) TestSet(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -56,6 +68,36 @@ func (s *modelSecretBackendCommandSuite) TestSet(c *gc.C) {
 
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI), "myVault")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *modelSecretBackendCommandSuite) TestSetNotSupported(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.secretsAPI.EXPECT().SetModelSecretBackend(gomock.Any(), "myVault").Return(errors.NotSupportedf("model secret backend"))
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	_, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI), "myVault")
+	c.Assert(err, gc.ErrorMatches, `"model-secret-backend" has not been implemented on the controller, use the "model-config" command instead`)
+}
+
+func (s *modelSecretBackendCommandSuite) TestSetSecretBackendNotFound(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.secretsAPI.EXPECT().SetModelSecretBackend(gomock.Any(), "myVault").Return(secretbackenderrors.NotFound)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	_, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI), "myVault")
+	c.Assert(err, gc.ErrorMatches, `secret backend "myVault" does not exist`)
+}
+
+func (s *modelSecretBackendCommandSuite) TestSetSecretBackendNotValid(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.secretsAPI.EXPECT().SetModelSecretBackend(gomock.Any(), "myVault").Return(secretbackenderrors.NotValid)
+	s.secretsAPI.EXPECT().Close().Return(nil)
+
+	_, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI), "myVault")
+	c.Assert(err, gc.ErrorMatches, `secret backend "myVault" is not valid`)
 }
 
 func (s *modelSecretBackendCommandSuite) TestSetFailedEmptyBackendName(c *gc.C) {

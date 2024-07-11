@@ -13,6 +13,7 @@ import (
 	api "github.com/juju/juju/api/client/modelconfig"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 )
 
 type modelSecretBackendCommand struct {
@@ -103,11 +104,27 @@ func (c *modelSecretBackendCommand) Run(ctx *cmd.Context) error {
 
 	if c.secretBackendName == nil {
 		secretBackendName, err := api.GetModelSecretBackend(ctx.Context)
+		if errors.Is(err, errors.NotSupported) {
+			return modelSecretBackendNotSupportedError
+		}
 		if err != nil {
 			return errors.Trace(err)
 		}
 		fmt.Fprintln(ctx.Stdout, secretBackendName)
 		return nil
 	}
-	return api.SetModelSecretBackend(ctx.Context, *c.secretBackendName)
+	err = api.SetModelSecretBackend(ctx.Context, *c.secretBackendName)
+	if errors.Is(err, errors.NotSupported) {
+		return modelSecretBackendNotSupportedError
+	} else if errors.Is(err, secretbackenderrors.NotFound) {
+		return fmt.Errorf("secret backend %q does not exist", *c.secretBackendName)
+	} else if errors.Is(err, secretbackenderrors.NotValid) {
+		return fmt.Errorf("secret backend %q is not valid", *c.secretBackendName)
+	}
+	return errors.Trace(err)
 }
+
+var modelSecretBackendNotSupportedError = fmt.Errorf(
+	`%q has not been implemented on the controller, use the %q command instead`,
+	"model-secret-backend", "model-config",
+)

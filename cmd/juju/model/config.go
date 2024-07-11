@@ -205,6 +205,7 @@ type configCommandAPI interface {
 	ModelGetWithMetadata() (envconfig.ConfigValues, error)
 	ModelSet(config map[string]interface{}) error
 	ModelUnset(keys ...string) error
+	BestAPIVersion() int
 }
 
 // Info implements part of the cmd.Command interface.
@@ -332,8 +333,8 @@ func (c *configCommand) setConfig(client configCommandAPI, attrs config.Attrs) e
 			}
 			return errors.Errorf(`%q must be set via "add-model"`,
 				envconfig.CharmHubURLKey)
-		} else if k == "secret-backend" {
-			return errors.Errorf(`%q has been removed from model config, use the new command "model-secret-backend" instead`, k)
+		} else if k == "secret-backend" && client.BestAPIVersion() > 3 {
+			return secretBackendNotSupportedError
 		}
 
 		values[k] = v
@@ -352,6 +353,11 @@ func (c *configCommand) setConfig(client configCommandAPI, attrs config.Attrs) e
 	return block.ProcessBlockedError(client.ModelSet(coerced), block.BlockChange)
 }
 
+var secretBackendNotSupportedError = fmt.Errorf(
+	`%q has been removed from model config, use the new command %q instead`,
+	"secret-backend", "model-secret-backend",
+)
+
 // getConfig writes the value of a single model config key to the cmd.Context.
 func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) error {
 	attrs, err := c.getFilteredModel(client)
@@ -364,6 +370,9 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 	}
 
 	key := c.configBase.KeysToGet[0]
+	if key == "secret-backend" && client.BestAPIVersion() > 3 {
+		return secretBackendNotSupportedError
+	}
 	if value, found := attrs[key]; found {
 		if c.out.Name() == "tabular" {
 			// The user has not specified that they want
