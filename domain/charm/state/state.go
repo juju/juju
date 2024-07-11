@@ -458,7 +458,7 @@ func (s *State) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Ma
 	ident := charmID{UUID: id.String()}
 
 	query := `
-SELECT v_charm_manifest.* AS &charmManifest.*
+SELECT &charmManifest.*
 FROM v_charm_manifest
 WHERE charm_uuid = $charmID.uuid
 ORDER BY "idx" ASC;
@@ -497,7 +497,7 @@ func (s *State) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte
 	ident := charmID{UUID: id.String()}
 
 	query := `
-SELECT charm.* AS &charmLXDProfile.*
+SELECT &charmLXDProfile.*
 FROM charm
 WHERE uuid = $charmID.uuid;
 `
@@ -534,12 +534,12 @@ func (s *State) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Conf
 	ident := charmID{UUID: id.String()}
 
 	charmQuery := `
-SELECT charm.* AS &charmID.*
+SELECT &charmID.*
 FROM charm
 WHERE uuid = $charmID.uuid;
 `
 	configQuery := `
-SELECT v_charm_config.* AS &charmConfig.*
+SELECT &charmConfig.*
 FROM v_charm_config
 WHERE charm_uuid = $charmID.uuid;
 `
@@ -586,12 +586,12 @@ func (s *State) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Act
 	ident := charmID{UUID: id.String()}
 
 	charmQuery := `
-SELECT charm.* AS &charmID.*
+SELECT &charmID.*
 FROM charm
 WHERE uuid = $charmID.uuid;
 `
 	actionQuery := `
-SELECT charm_action.* AS &charmAction.*
+SELECT &charmAction.*
 FROM charm_action
 WHERE charm_uuid = $charmID.uuid;
 `
@@ -630,11 +630,7 @@ WHERE charm_uuid = $charmID.uuid;
 // getCharmMetadata returns the metadata for the charm using the charm ID.
 // This is the core metadata for the charm.
 func getCharmMetadata(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) (charmMetadata, error) {
-	query := `
-SELECT v_charm.* AS &charmMetadata.*
-FROM v_charm
-WHERE uuid = $charmID.uuid;
-`
+	query := `SELECT &charmMetadata.* FROM v_charm WHERE uuid = $charmID.uuid;`
 	stmt, err := p.Prepare(query, charmMetadata{}, ident)
 	if err != nil {
 		return charmMetadata{}, fmt.Errorf("failed to prepare query: %w", err)
@@ -660,7 +656,7 @@ WHERE uuid = $charmID.uuid;
 // Tags are expected to be unique, no duplicates are expected.
 func getCharmTags(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmTag, error) {
 	query := `
-SELECT charm_tag.* AS &charmTag.*
+SELECT &charmTag.*
 FROM charm_tag
 WHERE charm_uuid = $charmID.uuid
 ORDER BY "index" ASC;
@@ -690,7 +686,7 @@ ORDER BY "index" ASC;
 // Categories are expected to be unique, no duplicates are expected.
 func getCharmCategories(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmCategory, error) {
 	query := `
-SELECT charm_category.* AS &charmCategory.*
+SELECT &charmCategory.*
 FROM charm_category
 WHERE charm_uuid = $charmID.uuid
 ORDER BY "index" ASC;
@@ -720,7 +716,7 @@ ORDER BY "index" ASC;
 // Terms are expected to be unique, no duplicates are expected.
 func getCharmTerms(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmTerm, error) {
 	query := `
-SELECT charm_term.* AS &charmTerm.*
+SELECT &charmTerm.*
 FROM charm_term
 WHERE charm_uuid = $charmID.uuid
 ORDER BY "index" ASC;
@@ -748,7 +744,7 @@ ORDER BY "index" ASC;
 // the caller will handle this case.
 func getCharmRelations(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmRelation, error) {
 	query := `
-SELECT v_charm_relation.* AS &charmRelation.*
+SELECT &charmRelation.*
 FROM v_charm_relation
 WHERE charm_uuid = $charmID.uuid;
 	`
@@ -776,7 +772,7 @@ WHERE charm_uuid = $charmID.uuid;
 // the caller will handle this case.
 func getCharmExtraBindings(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmExtraBinding, error) {
 	query := `
-SELECT charm_extra_binding.* AS &charmExtraBinding.*
+SELECT &charmExtraBinding.*
 FROM charm_extra_binding
 WHERE charm_uuid = $charmID.uuid;
 `
@@ -803,7 +799,7 @@ WHERE charm_uuid = $charmID.uuid;
 // Charm properties are expected to be unique, no duplicates are expected.
 func getCharmStorage(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmStorage, error) {
 	query := `
-SELECT v_charm_storage.* AS &charmStorage.*
+SELECT &charmStorage.*
 FROM v_charm_storage
 WHERE charm_uuid = $charmID.uuid
 ORDER BY property_index ASC;
@@ -830,7 +826,7 @@ ORDER BY property_index ASC;
 // the caller will handle this case.
 func getCharmDevices(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmDevice, error) {
 	query := `
-SELECT charm_device.* AS &charmDevice.*
+SELECT &charmDevice.*
 FROM charm_device
 WHERE charm_uuid = $charmID.uuid;
 `
@@ -856,7 +852,7 @@ WHERE charm_uuid = $charmID.uuid;
 // the caller will handle this case.
 func getCharmPayloads(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmPayload, error) {
 	query := `
-SELECT charm_payload.* AS &charmPayload.*
+SELECT &charmPayload.*
 FROM charm_payload
 WHERE charm_uuid = $charmID.uuid;
 `
@@ -882,7 +878,7 @@ WHERE charm_uuid = $charmID.uuid;
 // the caller will handle this case.
 func getCharmResources(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmResource, error) {
 	query := `
-SELECT v_charm_resource.* AS &charmResource.*
+SELECT &charmResource.*
 FROM v_charm_resource
 WHERE charm_uuid = $charmID.uuid;
 `
@@ -908,7 +904,7 @@ WHERE charm_uuid = $charmID.uuid;
 // the caller will handle this case.
 func getCharmContainers(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmContainer, error) {
 	query := `
-SELECT v_charm_container.* AS &charmContainer.*
+SELECT &charmContainer.*
 FROM v_charm_container
 WHERE charm_uuid = $charmID.uuid
 ORDER BY "index" ASC;
