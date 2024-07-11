@@ -47,7 +47,7 @@ func (s *credentialsSuite) TestCredentialSchemas(c *gc.C) {
 	envtesting.AssertProviderAuthTypes(c, s.provider,
 		"interactive",
 		"service-principal-secret",
-		"instance-role",
+		"managed-identity",
 	)
 }
 
@@ -61,9 +61,9 @@ func (s *credentialsSuite) TestServicePrincipalSecretCredentialsValid(c *gc.C) {
 }
 
 func (s *credentialsSuite) TestManagedIdentityCredentialsValid(c *gc.C) {
-	envtesting.AssertProviderCredentialsValid(c, s.provider, "instance-role", map[string]string{
-		"managed-identity": "some-identity",
-		"subscription-id":  "subscription",
+	envtesting.AssertProviderCredentialsValid(c, s.provider, "managed-identity", map[string]string{
+		"managed-identity-path": "some-identity",
+		"subscription-id":       "subscription",
 	})
 }
 
@@ -301,6 +301,42 @@ func (s *credentialsSuite) TestFinalizeCredentialInteractiveError(c *gc.C) {
 		CloudIdentityEndpoint: "https://graph.invalid",
 	})
 	c.Assert(err, gc.ErrorMatches, "blargh")
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialInstanceRole(c *gc.C) {
+	s.sender = azuretesting.Senders{discoverAuthSender()}
+	in := cloud.NewCredential("managed-identity", map[string]string{
+		"subscription-id":       fakeSubscriptionId,
+		"managed-identity-path": "mymid",
+	})
+	ctx := cmdtesting.Context(c)
+	out, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
+		CloudName:             "azure",
+		Credential:            in,
+		CloudEndpoint:         "https://arm.invalid",
+		CloudStorageEndpoint:  "https://core.invalid",
+		CloudIdentityEndpoint: "https://graph.invalid",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out, gc.NotNil)
+	c.Assert(out.AuthType(), gc.Equals, cloud.AuthType("managed-identity"))
+	c.Assert(out.Attributes(), jc.DeepEquals, map[string]string{
+		"managed-identity-path": "mymid",
+		"subscription-id":       fakeSubscriptionId,
+	})
+}
+
+func (s *credentialsSuite) TestFinalizeCredentialInstanceRoleError(c *gc.C) {
+	s.sender = azuretesting.Senders{discoverAuthSender()}
+	in := cloud.NewCredential("managed-identity", map[string]string{"subscription-id": fakeSubscriptionId})
+	ctx := cmdtesting.Context(c)
+	_, err := s.provider.FinalizeCredential(ctx, environs.FinalizeCredentialParams{
+		CloudName:             "azure",
+		Credential:            in,
+		CloudEndpoint:         "https://arm.invalid",
+		CloudIdentityEndpoint: "https://graph.invalid",
+	})
+	c.Assert(err, gc.ErrorMatches, "managed identity path must be <name> or <resourcegroup>/<name>")
 }
 
 func (s *credentialsSuite) TestFinalizeCredentialAzureCLI(c *gc.C) {

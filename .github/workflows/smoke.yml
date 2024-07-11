@@ -13,7 +13,7 @@ jobs:
 
   smoke:
     name: Smoke
-    runs-on: [self-hosted, linux, x64, aws, xlarge]
+    runs-on: [self-hosted, linux, arm64, aws, quad-xlarge]
     if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
@@ -87,6 +87,7 @@ jobs:
       run: |
         cd tests
         export MODEL_ARCH=$(go env GOARCH)
+        export BOOTSTRAP_ADDITIONAL_ARGS="--model-default enable-os-upgrade=false"
         ./main.sh -v -s 'test_build' smoke
 
     - name: Smoke test (MicroK8s)

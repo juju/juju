@@ -149,7 +149,7 @@ func (env *azureEnviron) SetCloudSpec(ctx context.Context, cloudSpec environsclo
 	env.resourceGroup = cfg.resourceGroupName
 	// If using a managed identity, the resource group can (and needs to) be set
 	// without any further checks since those were done at bootstrap.
-	if env.resourceGroup == "" && env.cloud.Credential.AuthType() == cloud.InstanceRoleAuthType {
+	if env.resourceGroup == "" && env.cloud.Credential.AuthType() == cloud.ManagedIdentityAuthType {
 		modelTag := names.NewModelTag(cfg.UUID())
 		env.resourceGroup = resourceGroupName(modelTag, cfg.Name())
 	}
@@ -203,7 +203,7 @@ func (env *azureEnviron) initEnviron(ctx context.Context) error {
 	logger.Debugf("discovered tenant id: %s", tenantID)
 	env.tenantId = tenantID
 
-	if env.cloud.Credential.AuthType() == cloud.InstanceRoleAuthType {
+	if env.cloud.Credential.AuthType() == cloud.ManagedIdentityAuthType {
 		managedIdentity := env.cloud.Credential.Attributes()[credManagedIdentity]
 		managedIdentityId := env.managedIdentityResourceId(managedIdentity)
 		logger.Debugf("using managed identity id: %s", managedIdentityId)
@@ -251,8 +251,14 @@ func (env *azureEnviron) Bootstrap(
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 	existingResourceGroup := env.config.resourceGroupName != ""
-	if !existingResourceGroup && args.BootstrapConstraints.HasInstanceRole() {
-		existingResourceGroup = env.managedIdentityGroup(*args.BootstrapConstraints.InstanceRole) == env.resourceGroup
+	if !existingResourceGroup && (args.BootstrapConstraints.HasInstanceRole() || env.cloud.Credential.AuthType() == cloud.ManagedIdentityAuthType) {
+		var instanceRole string
+		if args.BootstrapConstraints.HasInstanceRole() {
+			instanceRole = *args.BootstrapConstraints.InstanceRole
+		} else {
+			instanceRole = env.cloud.Credential.Attributes()[credManagedIdentity]
+		}
+		existingResourceGroup = env.managedIdentityGroup(instanceRole) == env.resourceGroup
 	}
 	if err := env.initResourceGroup(callCtx, args.ControllerConfig.ControllerUUID(), existingResourceGroup, true); err != nil {
 		return nil, errors.Annotate(err, "creating controller resource group")
@@ -874,7 +880,7 @@ func (env *azureEnviron) createVirtualMachine(
 	// For controllers, check to see if we need to assign a managed identity resource to the vm.
 	if instanceConfig.IsController() {
 		var managedIdentity string
-		if env.cloud.Credential.AuthType() == cloud.InstanceRoleAuthType {
+		if env.cloud.Credential.AuthType() == cloud.ManagedIdentityAuthType {
 			// Add a new controller after bootstrap (enable-ha).
 			managedIdentity = env.cloud.Credential.Attributes()[credManagedIdentity]
 		} else if instanceConfig.Bootstrap.BootstrapMachineConstraints.HasInstanceRole() {

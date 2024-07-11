@@ -181,6 +181,30 @@ clouds:
 	})
 }
 
+func (s *cloudSuite) TestAzurePublicCloudsMetadata(c *gc.C) {
+	metadata := `
+clouds:
+  azure-me:
+    type: azure
+    auth-types: [ service-principal-secret ]
+`[1:]
+	dir := c.MkDir()
+	cloudyamlfile := filepath.Join(dir, "public-clouds.yaml")
+	err := os.WriteFile(cloudyamlfile, []byte(metadata), 0644)
+	c.Assert(err, jc.ErrorIsNil)
+	clouds, fallbackUsed, err := cloud.PublicCloudMetadata(cloudyamlfile)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(fallbackUsed, jc.IsFalse)
+	c.Assert(clouds, jc.DeepEquals, map[string]cloud.Cloud{
+		"azure-me": {
+			Name:        "azure-me",
+			Type:        "azure",
+			Description: "Microsoft Azure",
+			AuthTypes:   []cloud.AuthType{"service-principal-secret", "managed-identity"},
+		},
+	})
+}
+
 func (s *cloudSuite) TestGeneratedPublicCloudInfo(c *gc.C) {
 	cloudData, err := os.ReadFile("fallback-public-cloud.yaml")
 	c.Assert(err, jc.ErrorIsNil)

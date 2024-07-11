@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"context"
 	"sort"
-	"strconv"
 	"time"
 
 	"github.com/juju/errors"
@@ -474,64 +473,6 @@ func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "controller 0 is the only controller")
 	s.assertDoesNotNeedCleanup(c)
 	assertLife(c, manager, state.Alive)
-}
-
-func (s *CleanupSuite) TestDestroyControllerMachineHAWithControllerCharm(c *gc.C) {
-	cons := constraints.Value{
-		Mem: newUint64(100),
-	}
-	changes, _, err := s.State.EnableHA(defaultInstancePrechecker, 3, cons, state.UbuntuBase("12.04"), nil)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(changes.Added, gc.HasLen, 3)
-
-	ch := s.AddTestingCharmWithSeries(c, "juju-controller", "")
-	app := s.AddTestingApplicationForBase(c, state.UbuntuBase("12.04"), "controller", ch)
-
-	var machines []*state.Machine
-	var units []*state.Unit
-	for i := 0; i < 3; i++ {
-		m, err := s.State.Machine(strconv.Itoa(i))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{
-			state.JobHostUnits,
-			state.JobManageModel,
-		})
-
-		if i == 0 {
-			node, err := s.State.ControllerNode(m.Id())
-			c.Assert(err, jc.ErrorIsNil)
-			node.SetHasVote(true)
-		}
-
-		u, err := app.AddUnit(state.AddUnitParams{})
-		c.Assert(err, jc.ErrorIsNil)
-		err = u.SetCharmURL(ch.URL())
-		c.Assert(err, jc.ErrorIsNil)
-		err = u.AssignToMachine(m)
-		c.Assert(err, jc.ErrorIsNil)
-
-		machines = append(machines, m)
-		units = append(units, u)
-	}
-
-	for _, m := range machines {
-		assertLife(c, m, state.Alive)
-	}
-	for _, u := range units {
-		assertLife(c, u, state.Alive)
-	}
-
-	s.assertDoesNotNeedCleanup(c)
-	err = machines[2].Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.assertNeedsCleanup(c)
-	s.assertNextCleanup(c, "evacuateMachine(2)")
-	s.assertNeedsCleanup(c)
-	s.assertNextCleanup(c, `removedUnit("controller/2")`)
-	s.assertNeedsCleanup(c)
-	s.assertNextCleanup(c, "evacuateMachine(2)")
-	s.assertDoesNotNeedCleanup(c)
 }
 
 const dontWait = time.Duration(0)

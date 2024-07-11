@@ -67,6 +67,10 @@ def check_package(package):
 	"""Check the package doc comment for the given package. Ensure that if the
 	package has a package doc comment, it's only in doc.go.
 	"""
+	comment_files = package_comment_files(package)
+	if not comment_files:
+		return None
+
 	process = subprocess.run(['go', 'doc', package], capture_output=True, check=True)
 	output = process.stdout.decode('utf-8').strip()
 
@@ -83,11 +87,12 @@ def check_package(package):
 		return None
 
 	errors = []
-
-	comment_files = package_comment_files(package)
 	non_doc_files = [f for f in comment_files if f != 'doc.go']
+	doc_files = [f for f in comment_files if f == 'doc.go']
 	if non_doc_files:
 		errors.append('package comment in non-doc.go files: '+', '.join(non_doc_files))
+	elif not doc_files:
+		return None
 
 	lines = header.splitlines()
 	if len(lines) > 2 and not lines[2].startswith('Package '):

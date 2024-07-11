@@ -43,7 +43,7 @@ jobs:
 
   upgrade:
     name: Upgrade
-    runs-on: [self-hosted, linux, x64, aws, xlarge]
+    runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
     timeout-minutes: 30
     needs: setup
     if: github.event.pull_request.draft == false && needs.setup.outputs.channel != ''
@@ -53,7 +53,7 @@ jobs:
         cloud: ["localhost", "microk8s"]
     env:
       CHARM_localhost: apache2
-      CHARM_microk8s: prometheus-k8s
+      CHARM_microk8s: snappass-test
       DOCKER_REGISTRY: 10.152.183.69
       UPGRADE_FLAGS_localhost: --build-agent
       UPGRADE_FLAGS_microk8s: --agent-stream=develop
@@ -181,6 +181,7 @@ jobs:
           set -euxo pipefail
           
           juju bootstrap localhost c \
+            --model-default enable-os-upgrade=false \
             --constraints "arch=$(go env GOARCH)"
           juju version
           
