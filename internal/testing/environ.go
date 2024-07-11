@@ -86,7 +86,6 @@ func FakeConfig() Attrs {
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
-		"secret-backend":            "auto",
 		"development":               false,
 	}
 }
