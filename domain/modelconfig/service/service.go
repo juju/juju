@@ -303,17 +303,6 @@ func (s *Service) UpdateModelConfig(
 	return nil
 }
 
-// dummySecretsBackendProvider implements validators.SecretBackendProvider and
-// always returns true.
-// TODO (tlm): These needs to be swapped out with an actual checker when we have
-// secrets in dqlite
-type dummySecretsBackendProvider struct{}
-
-// HasSecretsBackend implements validators.SecretBackendProvider
-func (*dummySecretsBackendProvider) HasSecretsBackend(_ string) (bool, error) {
-	return true, nil
-}
-
 // spaceValidator implements validators.SpaceProvider.
 type spaceValidator struct {
 	st SpaceValidatorState

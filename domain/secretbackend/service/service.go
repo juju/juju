@@ -747,8 +747,8 @@ func newModelSecretBackendService(modelID coremodel.UUID, service Service) *Mode
 	return &ModelSecretBackendService{modelID: modelID, Service: service}
 }
 
-// GetModelSecretBackend returns the secret backend name for the given model UUID, returning an error
-// satisfying [modelerrors.NotFound] if the model provided does not exist.
+// GetModelSecretBackend returns the secret backend name for the given model UUID,
+// returning an error satisfying [modelerrors.NotFound] if the model provided does not exist.
 func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (string, error) {
 	modelSecretBackend, err := s.st.GetModelSecretBackendDetails(ctx, s.modelID)
 	if err != nil {

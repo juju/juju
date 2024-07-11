@@ -64,7 +64,7 @@ WHERE  uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, sqlair.M{"uuid": uuid}).Get(&m)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: %q", modelerrors.NotFound, uuid)
+			return fmt.Errorf("cannot get secret backend for model %q: %w", uuid, modelerrors.NotFound)
 		}
 		return errors.Trace(err)
 	})
@@ -549,10 +549,10 @@ WHERE  model_uuid = $ModelSecretBackend.uuid`
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, secretBackendSelectStmt, backendInfo).Get(&backendInfo)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("%w: %q", secretbackenderrors.NotFound, backendInfo.SecretBackendName)
+			return fmt.Errorf("cannot get secret backend %q%w", backendInfo.SecretBackendName, errors.Hide(secretbackenderrors.NotFound))
 		}
 		if err != nil {
-			return fmt.Errorf("querying secret backends: %w", err)
+			return fmt.Errorf("cannot get secret backend %q: %w", backendInfo.SecretBackendName, err)
 		}
 
 		var outcome sqlair.Outcome
@@ -565,7 +565,9 @@ WHERE  model_uuid = $ModelSecretBackend.uuid`
 			return errors.Trace(err)
 		}
 		if affected == 0 {
-			return fmt.Errorf("%w: %q", modelerrors.NotFound, modelUUID)
+			return fmt.Errorf("cannot set secret backend %q for model %q%w",
+				backendInfo.SecretBackendName, backendInfo.ModelID, errors.Hide(modelerrors.NotFound),
+			)
 		}
 		return nil
 	})
