@@ -43,6 +43,7 @@ func (s *BindSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookieFile)
 
 	s.apiConnection = mockAPIConnection{
+		authTag: names.NewUserTag("testuser"),
 		serverVersion: &version.Number{
 			Major: 1,
 			Minor: 2,
@@ -67,6 +68,9 @@ func (s *BindSuite) SetUpTest(c *gc.C) {
 	store.Models["foo"] = &jujuclient.ControllerModels{
 		CurrentModel: "admin/bar",
 		Models:       map[string]jujuclient.ModelDetails{"admin/bar": {ActiveBranch: model.GenerationMaster}},
+	}
+	store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: "testuser",
 	}
 	apiOpen := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		s.AddCall("OpenAPI")
@@ -139,6 +143,7 @@ func (s *BindSuite) TestBindUnknownEndpoint(c *gc.C) {
 
 func (s *BindSuite) setupAPIConnection() {
 	s.apiConnection = mockAPIConnection{
+		authTag: names.NewUserTag("testuser"),
 		serverVersion: &version.Number{
 			Major: 1,
 			Minor: 2,
