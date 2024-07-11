@@ -37,31 +37,55 @@ func (s *watcherSuite) TestWatchControllerConfig(c *gc.C) {
 	watcher, err := svc.WatchControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := watchertest.NewStringsWatcherC(c, watcher)
+	harness := watchertest.NewHarness(s, watchertest.NewStringsWatcherC(c, watcher))
 
-	// Wait for the initial change.
-	w.AssertOneChange()
-	s.AssertChangeStreamIdle(c)
+	harness.AddTest(func(c *gc.C) {
+		cfgMap := map[string]any{
+			controller.AuditingEnabled:        true,
+			controller.AuditLogCaptureArgs:    false,
+			controller.AuditLogMaxBackups:     10,
+			controller.APIPortOpenDelay:       "100ms",
+			controller.MigrationMinionWaitMax: "101ms",
+		}
 
-	cfgMap := map[string]any{
-		controller.AuditingEnabled:        true,
-		controller.AuditLogCaptureArgs:    false,
-		controller.AuditLogMaxBackups:     10,
-		controller.APIPortOpenDelay:       "100ms",
-		controller.MigrationMinionWaitMax: "101ms",
-	}
+		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.AssertWatcher) {
+		// Get the change.
+		w.AssertChange(
+			controller.AuditingEnabled,
+			controller.AuditLogCaptureArgs,
+			controller.AuditLogMaxBackups,
+			controller.APIPortOpenDelay,
+			controller.MigrationMinionWaitMax,
+		)
+	})
 
-	err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
-	c.Assert(err, jc.ErrorIsNil)
+	harness.AddTest(func(c *gc.C) {
+		cfgMap := map[string]any{
+			controller.AuditLogMaxBackups: 11,
+		}
 
-	s.AssertChangeStreamIdle(c)
+		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.AssertWatcher) {
+		// Get the change.
+		w.AssertChange(
+			controller.AuditLogMaxBackups,
+		)
+	})
 
-	// Get the change.
-	w.AssertChange(
-		controller.AuditingEnabled,
-		controller.AuditLogCaptureArgs,
-		controller.AuditLogMaxBackups,
-		controller.APIPortOpenDelay,
-		controller.MigrationMinionWaitMax,
-	)
+	harness.AddTest(func(c *gc.C) {
+		cfgMap := map[string]any{
+			controller.AuditLogMaxBackups: 11,
+		}
+
+		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}, func(w watchertest.AssertWatcher) {
+		// The value is the same, we shouldn't get a change.
+		w.AssertNoChange()
+	})
+
+	harness.Run(c)
 }

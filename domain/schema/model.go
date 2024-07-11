@@ -20,6 +20,7 @@ import (
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-triggers.gen.go -package=triggers -tables=machine
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/machine-cloud-instance-triggers.gen.go -package=triggers -tables=machine_cloud_instance
 //go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/user-public-ssh-key.gen.go -package=triggers -tables=user_public_ssh_key
+//go:generate go run ./../../generate/triggergen -db=model -destination=./model/triggers/charm.gen.go -package=triggers -tables=charm
 
 //go:embed model/sql/*.sql
 var modelSchemaDir embed.FS
@@ -44,6 +45,7 @@ const (
 	tableMachine
 	tableMachineCloudInstance
 	tableUserPublicSSHKey
+	tableCharm
 )
 
 // ModelDDL is used to create model databases.
@@ -98,6 +100,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForMachine("name", tableMachine),
 		triggers.ChangeLogTriggersForMachineCloudInstance("machine_uuid", tableMachineCloudInstance),
 		triggers.ChangeLogTriggersForUserPublicSshKey("id", tableUserPublicSSHKey),
+		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),
 	)
 
 	// Generic triggers.
