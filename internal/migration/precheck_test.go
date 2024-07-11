@@ -6,6 +6,7 @@ package migration_test
 import (
 	"context"
 
+	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/replicaset/v3"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/testing"
 )
 
 var (
@@ -898,6 +900,32 @@ func (s *TargetPrecheckSuite) TestUUIDAlreadyExistsButImporting(c *gc.C) {
 	backend.models = pool.uuids()
 	err := migration.TargetPrecheck(context.Background(), backend, pool, s.modelInfo, allAlivePresence(), s.upgradeService)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *TargetPrecheckSuite) TestFanConfigInModelConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectIsUpgrade(false)
+	backend := newFakeBackend()
+	s.modelInfo.ModelDescription = description.NewModel(description.ModelArgs{
+		Config: testing.FakeConfig().Merge(testing.Attrs{"fan-config": "10.100.0.0/16=251.0.0.0/8 192.168.0.0/16=252.0.0.0/8"}),
+	})
+
+	err := s.runPrecheck(backend, nil, s.upgradeService)
+	c.Assert(err.Error(), gc.Equals, "fan networking not supported, remove fan-config \"10.100.0.0/16=251.0.0.0/8 192.168.0.0/16=252.0.0.0/8\" from migrating model config")
+}
+
+func (s *TargetPrecheckSuite) TestContainerNetworkingFan(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectIsUpgrade(false)
+	backend := newFakeBackend()
+	s.modelInfo.ModelDescription = description.NewModel(description.ModelArgs{
+		Config: testing.FakeConfig().Merge(testing.Attrs{"container-networking-method": "fan"}),
+	})
+
+	err := s.runPrecheck(backend, nil, s.upgradeService)
+	c.Assert(err.Error(), gc.Equals, "fan networking not supported, remove container-networking-method \"fan\" from migrating model config")
 }
 
 type precheckRunner func(migration.PrecheckBackend, migration.CredentialService, migration.UpgradeService) error

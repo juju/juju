@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/state"
@@ -112,6 +113,12 @@ func TargetPrecheck(ctx context.Context,
 	controllerCtx := newPrecheckTarget(backend, presence, upgradeService)
 	if err := controllerCtx.checkController(ctx); err != nil {
 		return errors.Trace(err)
+	}
+
+	if modelInfo.ModelDescription != nil {
+		if err := checkNoFanConfig(modelInfo.ModelDescription.Config()); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	// Check for conflicts with existing models
@@ -424,6 +431,18 @@ func (ctx *precheckSource) checkModel(stdCtx context.Context) error {
 
 type agentToolsGetter interface {
 	AgentTools() (*tools.Tools, error)
+}
+
+// checkNoFanConfig makes sure that no fan config was used in the config of the
+// model being migrated.
+func checkNoFanConfig(modelConfig map[string]interface{}) error {
+	if modelConfig[config.FanConfig] != nil && modelConfig[config.FanConfig] != "" {
+		return errors.Errorf("fan networking not supported, remove fan-config %q from migrating model config", modelConfig[config.FanConfig])
+	}
+	if modelConfig[config.ContainerNetworkingMethod] != nil && modelConfig[config.ContainerNetworkingMethod] == "fan" {
+		return errors.Errorf("fan networking not supported, remove container-networking-method %q from migrating model config", modelConfig[config.ContainerNetworkingMethod])
+	}
+	return nil
 }
 
 func checkAgentTools(modelVersion version.Number, agent agentToolsGetter, agentLabel string) error {
