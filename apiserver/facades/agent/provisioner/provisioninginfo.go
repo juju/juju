@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
-	"github.com/juju/juju/internal/provider/azure"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -446,7 +445,7 @@ func (api *ProvisionerAPI) subnetsAndZonesForSpace(ctx context.Context, machineI
 				return nil, errors.Trace(err)
 			}
 
-			if providerType != azure.ProviderType && providerType != "openstack" {
+			if providerType != "azure" && providerType != "openstack" {
 				api.logger.Warningf(warningPrefix + "no availability zone(s) set")
 				continue
 			}
