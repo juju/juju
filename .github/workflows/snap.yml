@@ -21,7 +21,7 @@ jobs:
 
   snap:
     name: linux-arm64
-    runs-on: [self-hosted, linux, arm64, aws, large]
+    runs-on: [self-hosted, linux, arm64, aws, quad-xlarge]
     if: github.event.pull_request.draft == false
     steps:
 
@@ -76,4 +76,4 @@ jobs:
       run: |
         set -euxo pipefail
         mkdir -p ~/.ssh
-        juju bootstrap localhost --debug
+        juju bootstrap --model-default enable-os-upgrade=false localhost --debug

@@ -137,7 +137,7 @@ clouds:
     # recent Juju versions, and are retained for compatibility only.
     type: azure
     description: Microsoft Azure
-    auth-types: [ interactive, service-principal-secret ]
+    auth-types: [ interactive, service-principal-secret, managed-identity ]
     regions:
       centralus:
         endpoint: https://management.azure.com

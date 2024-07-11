@@ -1543,13 +1543,14 @@ func (s *serviceSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for sending the secret revision changes")
 	}
+	wc.AssertOneChange()
+
 	select {
 	case ch2 <- struct{}{}:
 	case <-time.After(coretesting.ShortWait):
 		c.Fatalf("timed out waiting for sending the secret URI changes")
 	}
-
-	wc.AssertNChanges(2)
+	wc.AssertOneChange()
 }
 
 func (s *serviceSuite) TestWatchConsumedSecretsChanges(c *gc.C) {
