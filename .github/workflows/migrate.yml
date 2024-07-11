@@ -51,7 +51,7 @@ jobs:
 
       - name: Build local juju client
         run: |
-          make juju jujud jujud-controller &>/dev/null
+          BUILD_TAGS='minimal provider_lxd' make juju jujud jujud-controller
 
       - name: Install Juju ${{ matrix.channel }}
         if: ${{ matrix.channel != 'local' }}
@@ -96,22 +96,42 @@ jobs:
             attempt=$((attempt+1))
           done
 
-      - name: Migrate model to target controller
+      - name: Determine which Juju client to use
+        shell: bash
         run: |
-          # Determine which Juju client to use
-          JUJU='juju'
+          JUJU_CLIENT='juju'
           if [[ ${{ matrix.channel }} != 'local' ]]; then
-            JUJU='/snap/bin/juju'
+            JUJU_CLIENT='/snap/bin/juju'
           fi
+          echo "JUJU_CLIENT=$JUJU_CLIENT" >> $GITHUB_ENV
 
-          $JUJU switch source-controller
+      - name: Wait for everything to reach a steady state
+        shell: bash
+        run: |
+          export JUJU_CLIENT
+          
+          # Wait for source machine to start
+          MODEL='source-controller:test-migrate' \
+          QUERY='.machines."0"."juju-status".current' EXPECTED='started' \
+          MAX_ATTEMPTS=60 ./.github/waitfor.sh
+          
+          # Wait for unit ubuntu/0 to reach idle state
+          MODEL='source-controller:test-migrate' \
+          QUERY='.applications.ubuntu.units."ubuntu/0"."juju-status".current' \
+          EXPECTED='idle' ./.github/waitfor.sh
+          
+          # Wait for target controller machine to start
+          MODEL='target-controller:controller' \
+          QUERY='.machines."0"."machine-status".current' \
+          EXPECTED='running' ./.github/waitfor.sh
 
-          # Wait a few secs for the machine status to update
-          # so that migration prechecks pass.
-          sleep 20
-
-          $JUJU version
-          $JUJU migrate test-migrate target-controller
+      - name: Migrate model to target controller
+        shell: bash
+        run: |
+          $JUJU_CLIENT switch source-controller
+          $JUJU_CLIENT version
+          $JUJU_CLIENT status -m source-controller:test-migrate --format json || true
+          $JUJU_CLIENT migrate test-migrate target-controller
 
       - name: Check the migration was successful
         run: |
@@ -132,16 +152,6 @@ jobs:
             attempt=$((attempt+1))
             if [ "$attempt" -eq 10 ]; then
               echo "Migration timed out"
-              echo "-------------------"
-
-              echo " - Migration source controller logs"
-              juju switch source-controller
-              juju debug-log -m controller || true
-
-              echo " - Migration target controller logs"
-              juju switch target-controller
-              juju debug-log -m controller || true
-
               exit 1
             fi
           done
@@ -178,3 +188,20 @@ jobs:
             attempt=$((attempt+1))
           done
 
+      - name: Get debug info
+        if: failure()
+        run: |
+          set -x
+          echo " - Migration source status"
+          juju status -m source-controller:controller --format json || true
+          juju status -m source-controller:test-migrate --format json || true
+          
+          echo " - Migration source controller logs"
+          juju debug-log -m source-controller:controller || true
+          
+          echo " - Migration target status"
+          juju status -m target-controller:controller --format json || true
+          juju status -m target-controller:test-migrate --format json || true
+          
+          echo " - Migration target controller logs"
+          juju debug-log -m target-controller:controller || true
