@@ -14,11 +14,8 @@ type Backend interface {
 	Model() (*state.Model, error)
 	Application(name string) (Application, error)
 	MongoVersion() (string, error)
-	ControllerModelUUID() string
-	AllModelUUIDs() ([]string, error)
 	AllBlocksForController() ([]state.Block, error)
 	RemoveAllBlocksForController() error
-	ModelExists(uuid string) (bool, error)
 }
 
 type Application interface {

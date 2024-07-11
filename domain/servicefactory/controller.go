@@ -30,6 +30,8 @@ import (
 	macaroonstate "github.com/juju/juju/domain/macaroon/state"
 	modelservice "github.com/juju/juju/domain/model/service"
 	modelstate "github.com/juju/juju/domain/model/state"
+	modelagentservice "github.com/juju/juju/domain/modelagent/service"
+	modelagentstate "github.com/juju/juju/domain/modelagent/state"
 	modeldefaultsservice "github.com/juju/juju/domain/modeldefaults/service"
 	modeldefaultsstate "github.com/juju/juju/domain/modeldefaults/state"
 	objectstoreservice "github.com/juju/juju/domain/objectstore/service"
@@ -194,5 +196,12 @@ func (s *ControllerFactory) Macaroon() *macaroonservice.Service {
 	return macaroonservice.NewService(
 		macaroonstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 		clock.WallClock,
+	)
+}
+
+// Agent returns the model agent service.
+func (s *ControllerFactory) Agent() *modelagentservice.Service {
+	return modelagentservice.NewService(
+		modelagentstate.NewState(changestream.NewTxnRunnerFactory(s.controllerDB)),
 	)
 }

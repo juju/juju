@@ -152,7 +152,7 @@ func (s *TestingServiceFactory) Secret(secretservice.BackendAdminConfigGetter) *
 }
 
 // Agent returns the modelagent service.
-func (s *TestingServiceFactory) Agent() *modelagentservice.ModelService {
+func (s *TestingServiceFactory) Agent() *modelagentservice.Service {
 	return nil
 }
 
@@ -231,5 +231,10 @@ func (s *TestingServiceFactory) ModelInfo() *modelservice.ModelService {
 
 // KeyUpdater returns the block device service.
 func (s *TestingServiceFactory) KeyUpdater() *keyupdaterservice.Service {
+	return nil
+}
+
+// ModelAgent returns the modelagent service.
+func (s *TestingServiceFactory) ModelAgent() *modelagentservice.ModelService {
 	return nil
 }

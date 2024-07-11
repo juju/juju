@@ -14,10 +14,9 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
-	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/controller"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
+	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/testing/factory"
@@ -61,16 +60,19 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
 	}
-	testController, err := controller.LatestAPI(
-		context.Background(),
-		facadetest.ModelContext{
-			State_:          s.ControllerModel(c).State(),
-			StatePool_:      s.StatePool(),
-			Resources_:      s.resources,
-			Auth_:           s.authorizer,
-			ServiceFactory_: servicefactorytesting.NewTestingServiceFactory(),
-			Logger_:         loggertesting.WrapCheckLog(c),
-		})
+	testController, err := controller.NewControllerAPI(
+		model.UUID(testing.ModelTag.Id()),
+		s.ControllerModel(c).State(),
+		s.StatePool(),
+		s.authorizer,
+		s.resources,
+		nil,
+		nil,
+		loggertesting.WrapCheckLog(c),
+		// Services not currently needed for Destroy.
+		nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil,
+	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = testController
 

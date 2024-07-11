@@ -354,7 +354,7 @@ func (s *Service) ControllerModel(ctx context.Context) (coremodel.Model, error) 
 
 // Model returns the model associated with the provided uuid.
 // The following error types can be expected to be returned:
-// - [modelerrors.ModelNotFound]: When the model does not exist.
+// - [modelerrors.NotFound]: When the model does not exist.
 func (s *Service) Model(ctx context.Context, uuid coremodel.UUID) (coremodel.Model, error) {
 	if err := uuid.Validate(); err != nil {
 		return coremodel.Model{}, fmt.Errorf("model uuid: %w", err)
@@ -425,7 +425,7 @@ func (s *Service) ListModelIDs(ctx context.Context) ([]coremodel.UUID, error) {
 	return uuids, nil
 }
 
-// ListAllModels  lists all models in the controller. If no models exist then
+// ListAllModels lists all models in the controller. If no models exist then
 // an empty slice is returned.
 func (s *Service) ListAllModels(ctx context.Context) ([]coremodel.Model, error) {
 	return s.st.ListAllModels(ctx)

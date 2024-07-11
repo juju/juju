@@ -206,7 +206,7 @@ func (m *stateSuite) TestModelCloudNameAndCredential(c *gc.C) {
 
 // TestModelCloudNameAndCredentialController is testing the cloud name and
 // credential id is returned for the controller model and owner. This is the
-// common pattern that this sate func will be used for so we have made a special
+// common pattern that this state func will be used for, so we have made a special
 // case to continuously test this.
 func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 	userUUID, err := user.NewUUID()

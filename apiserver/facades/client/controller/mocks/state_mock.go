@@ -80,45 +80,6 @@ func (c *MockBackendAllBlocksForControllerCall) DoAndReturn(f func() ([]state.Bl
 	return c
 }
 
-// AllModelUUIDs mocks base method.
-func (m *MockBackend) AllModelUUIDs() ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllModelUUIDs")
-	ret0, _ := ret[0].([]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllModelUUIDs indicates an expected call of AllModelUUIDs.
-func (mr *MockBackendMockRecorder) AllModelUUIDs() *MockBackendAllModelUUIDsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllModelUUIDs", reflect.TypeOf((*MockBackend)(nil).AllModelUUIDs))
-	return &MockBackendAllModelUUIDsCall{Call: call}
-}
-
-// MockBackendAllModelUUIDsCall wrap *gomock.Call
-type MockBackendAllModelUUIDsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendAllModelUUIDsCall) Return(arg0 []string, arg1 error) *MockBackendAllModelUUIDsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendAllModelUUIDsCall) Do(f func() ([]string, error)) *MockBackendAllModelUUIDsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendAllModelUUIDsCall) DoAndReturn(f func() ([]string, error)) *MockBackendAllModelUUIDsCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Application mocks base method.
 func (m *MockBackend) Application(arg0 string) (controller.Application, error) {
 	m.ctrl.T.Helper()
@@ -158,44 +119,6 @@ func (c *MockBackendApplicationCall) DoAndReturn(f func(string) (controller.Appl
 	return c
 }
 
-// ControllerModelUUID mocks base method.
-func (m *MockBackend) ControllerModelUUID() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerModelUUID")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// ControllerModelUUID indicates an expected call of ControllerModelUUID.
-func (mr *MockBackendMockRecorder) ControllerModelUUID() *MockBackendControllerModelUUIDCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerModelUUID", reflect.TypeOf((*MockBackend)(nil).ControllerModelUUID))
-	return &MockBackendControllerModelUUIDCall{Call: call}
-}
-
-// MockBackendControllerModelUUIDCall wrap *gomock.Call
-type MockBackendControllerModelUUIDCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendControllerModelUUIDCall) Return(arg0 string) *MockBackendControllerModelUUIDCall {
-	c.Call = c.Call.Return(arg0)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendControllerModelUUIDCall) Do(f func() string) *MockBackendControllerModelUUIDCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendControllerModelUUIDCall) DoAndReturn(f func() string) *MockBackendControllerModelUUIDCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
 // Model mocks base method.
 func (m *MockBackend) Model() (*state.Model, error) {
 	m.ctrl.T.Helper()
@@ -231,45 +154,6 @@ func (c *MockBackendModelCall) Do(f func() (*state.Model, error)) *MockBackendMo
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockBackendModelCall) DoAndReturn(f func() (*state.Model, error)) *MockBackendModelCall {
-	c.Call = c.Call.DoAndReturn(f)
-	return c
-}
-
-// ModelExists mocks base method.
-func (m *MockBackend) ModelExists(arg0 string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelExists", arg0)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ModelExists indicates an expected call of ModelExists.
-func (mr *MockBackendMockRecorder) ModelExists(arg0 any) *MockBackendModelExistsCall {
-	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelExists", reflect.TypeOf((*MockBackend)(nil).ModelExists), arg0)
-	return &MockBackendModelExistsCall{Call: call}
-}
-
-// MockBackendModelExistsCall wrap *gomock.Call
-type MockBackendModelExistsCall struct {
-	*gomock.Call
-}
-
-// Return rewrite *gomock.Call.Return
-func (c *MockBackendModelExistsCall) Return(arg0 bool, arg1 error) *MockBackendModelExistsCall {
-	c.Call = c.Call.Return(arg0, arg1)
-	return c
-}
-
-// Do rewrite *gomock.Call.Do
-func (c *MockBackendModelExistsCall) Do(f func(string) (bool, error)) *MockBackendModelExistsCall {
-	c.Call = c.Call.Do(f)
-	return c
-}
-
-// DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBackendModelExistsCall) DoAndReturn(f func(string) (bool, error)) *MockBackendModelExistsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

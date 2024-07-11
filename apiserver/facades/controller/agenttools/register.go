@@ -41,6 +41,6 @@ func newFacade(ctx facade.ModelContext) (*AgentToolsAPI, error) {
 		ctx.Auth(),
 		ctx.Logger().Child("model"),
 		ctx.ServiceFactory().Config(),
-		ctx.ServiceFactory().Agent(),
+		ctx.ServiceFactory().ModelAgent(),
 	)
 }

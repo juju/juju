@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/description/v6"
@@ -48,33 +47,6 @@ import (
 	"github.com/juju/juju/state/stateenvirons"
 )
 
-// ControllerConfigService is the interface that wraps the ControllerConfig method.
-type ControllerConfigService interface {
-	// ControllerConfig returns a controller.Config
-	ControllerConfig(context.Context) (corecontroller.Config, error)
-	// UpdateControllerConfig updates the controller config and has an optional
-	// list of config keys to remove.
-	UpdateControllerConfig(context.Context, corecontroller.Config, []string) error
-}
-
-// UpgradeService provides a subset of the upgrade domain service methods.
-type UpgradeService interface {
-	// IsUpgrading returns whether the controller is currently upgrading.
-	IsUpgrading(context.Context) (bool, error)
-}
-
-// ControllerAccessService provides a subset of the Access domain for use.
-type ControllerAccessService interface {
-	// ReadUserAccessLevelForTarget returns the access level for the provided
-	// subject (user) for controller.
-	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
-	// UpdatePermission updates the access level for a user for the controller.
-	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
-	// LastModelLogin gets the time the specified user last connected to the
-	// model.
-	LastModelLogin(context.Context, string, coremodel.UUID) (time.Time, error)
-}
-
 // ModelExporter exports a model to a description.Model.
 type ModelExporter interface {
 	// ExportModel exports a model to a description.Model.
@@ -90,29 +62,28 @@ type ControllerAPI struct {
 	*common.ModelStatusAPI
 	cloudspec.CloudSpecer
 
-	state                   Backend
-	statePool               *state.StatePool
-	authorizer              facade.Authorizer
-	apiUser                 names.UserTag
-	resources               facade.Resources
-	presence                facade.Presence
-	hub                     facade.Hub
-	cloudService            common.CloudService
-	credentialService       common.CredentialService
-	upgradeService          UpgradeService
-	controllerConfigService ControllerConfigService
-	accessService           ControllerAccessService
-	modelExporter           ModelExporter
-	store                   objectstore.ObjectStore
-	leadership              leadership.Reader
+	state                    Backend
+	statePool                *state.StatePool
+	authorizer               facade.Authorizer
+	apiUser                  names.UserTag
+	resources                facade.Resources
+	presence                 facade.Presence
+	hub                      facade.Hub
+	cloudService             common.CloudService
+	credentialService        common.CredentialService
+	upgradeService           UpgradeService
+	controllerConfigService  ControllerConfigService
+	accessService            ControllerAccessService
+	modelService             ModelService
+	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService
+	agentService             AgentService
+	modelExporter            ModelExporter
+	store                    objectstore.ObjectStore
+	leadership               leadership.Reader
 
 	logger corelogger.Logger
 
 	controllerTag names.ControllerTag
-}
-
-type ControllerAPIv11 struct {
-	*ControllerAPI
 }
 
 // LatestAPI is used for testing purposes to create the latest
@@ -122,7 +93,7 @@ var LatestAPI = makeControllerAPI
 // NewControllerAPI creates a new api server endpoint for operations
 // on a controller.
 func NewControllerAPI(
-	ctx context.Context,
+	modelID coremodel.UUID,
 	st *state.State,
 	pool *state.StatePool,
 	authorizer facade.Authorizer,
@@ -136,6 +107,9 @@ func NewControllerAPI(
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
 	accessService ControllerAccessService,
+	modelService ModelService,
+	modelConfigServiceGetter func(coremodel.UUID) ModelConfigService,
+	agentService AgentService,
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	leadership leadership.Reader,
@@ -169,25 +143,28 @@ func NewControllerAPI(
 			cloudspec.MakeCloudSpecWatcherForModel(st, cloudService),
 			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st, credentialService),
-			common.AuthFuncForTag(model.ModelTag()),
+			common.AuthFuncForTag(names.NewModelTag(modelID.String())),
 		),
-		state:                   stateShim{State: st},
-		statePool:               pool,
-		authorizer:              authorizer,
-		apiUser:                 apiUser,
-		resources:               resources,
-		presence:                presence,
-		hub:                     hub,
-		logger:                  logger,
-		controllerConfigService: controllerConfigService,
-		credentialService:       credentialService,
-		upgradeService:          upgradeService,
-		cloudService:            cloudService,
-		accessService:           accessService,
-		controllerTag:           st.ControllerTag(),
-		modelExporter:           modelExporter,
-		store:                   store,
-		leadership:              leadership,
+		state:                    stateShim{State: st},
+		statePool:                pool,
+		authorizer:               authorizer,
+		apiUser:                  apiUser,
+		resources:                resources,
+		presence:                 presence,
+		hub:                      hub,
+		logger:                   logger,
+		controllerConfigService:  controllerConfigService,
+		credentialService:        credentialService,
+		upgradeService:           upgradeService,
+		cloudService:             cloudService,
+		accessService:            accessService,
+		modelService:             modelService,
+		modelConfigServiceGetter: modelConfigServiceGetter,
+		agentService:             agentService,
+		controllerTag:            st.ControllerTag(),
+		modelExporter:            modelExporter,
+		store:                    store,
+		leadership:               leadership,
 	}, nil
 }
 
@@ -309,11 +286,10 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 		return nil, errors.NotFoundf("dashboard port in charm config")
 	}
 
-	model, err := c.state.Model()
+	controllerModel, err := c.modelService.ControllerModel(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, fmt.Errorf("getting controller model: %w", err)
 	}
-	modelName := model.Name()
 	ctrCfg, err := c.controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -321,7 +297,7 @@ func (c *ControllerAPI) dashboardConnectionInfoForIAAS(
 	controllerName := ctrCfg.ControllerName()
 
 	return &params.DashboardConnectionSSHTunnel{
-		Model:  fmt.Sprintf("%s:%s", controllerName, modelName),
+		Model:  fmt.Sprintf("%s:%s", controllerName, controllerModel.Name),
 		Entity: fmt.Sprintf("%s/leader", appName),
 		Host:   fmt.Sprintf("%s", addr),
 		Port:   fmt.Sprintf("%d", port),
@@ -352,6 +328,11 @@ func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.Das
 				continue
 			}
 
+			modelInfo, err := c.modelService.Model(ctx, coremodel.UUID(rel.ModelUUID()))
+			if err != nil {
+				return rval, fmt.Errorf("getting model for ID %q: %w", rel.ModelUUID(), err)
+			}
+
 			model, ph, err := c.statePool.GetModel(rel.ModelUUID())
 			if err != nil {
 				return rval, errors.Trace(err)
@@ -369,7 +350,7 @@ func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.Das
 				return rval, errors.Trace(err)
 			}
 
-			if model.Type() != state.ModelTypeCAAS {
+			if modelInfo.ModelType == coremodel.IAAS {
 				sshConnection, err := c.dashboardConnectionInfoForIAAS(
 					ctx,
 					related.ApplicationName,
@@ -403,36 +384,21 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := c.state.AllModelUUIDs()
+	models, err := c.modelService.ListAllModels(ctx)
 	if err != nil {
-		return result, errors.Trace(err)
+		return result, fmt.Errorf("getting models: %w", err)
 	}
-	for _, modelUUID := range modelUUIDs {
-		st, err := c.statePool.Get(modelUUID)
-		if err != nil {
-			// This model could have been removed.
-			if errors.Is(err, errors.NotFound) {
-				continue
-			}
-			return result, errors.Trace(err)
-		}
-		defer st.Release()
-
-		model, err := st.Model()
-		if err != nil {
-			return result, errors.Trace(err)
-		}
-
+	for _, model := range models {
 		userModel := params.UserModel{
 			Model: params.Model{
-				Name:     model.Name(),
-				UUID:     model.UUID(),
-				Type:     string(model.Type()),
-				OwnerTag: model.Owner().String(),
+				Name:     model.Name,
+				UUID:     model.UUID.String(),
+				Type:     model.ModelType.String(),
+				OwnerTag: names.NewUserTag(model.OwnerName).String(),
 			},
 		}
 
-		lastConn, err := c.accessService.LastModelLogin(ctx, c.apiUser.Id(), coremodel.UUID(model.UUID()))
+		lastConn, err := c.accessService.LastModelLogin(ctx, c.apiUser.Id(), model.UUID)
 		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
 			userModel.LastConnection = nil
 		} else if errors.Is(err, modelerrors.NotFound) {
@@ -444,7 +410,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 			userModel.LastConnection = nil
 		} else if err != nil {
 			return result, errors.Annotatef(err,
-				"getting model last login time for user %q on model %q", c.apiUser.Name(), model.Name())
+				"getting model last login time for user %q on model %q", c.apiUser.Name(), model.Name)
 		} else {
 			userModel.LastConnection = &lastConn
 		}
@@ -481,58 +447,23 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 		modelBlocks[uuid] = types
 	}
 
-	for uuid, blocks := range modelBlocks {
-		model, ph, err := c.statePool.GetModel(uuid)
+	for modelID, blocks := range modelBlocks {
+		model, err := c.modelService.Model(ctx, coremodel.UUID(modelID))
 		if err != nil {
-			c.logger.Debugf("unable to retrieve model %s: %v", uuid, err)
+			c.logger.Debugf("unable to retrieve model %s: %v", modelID, err)
 			continue
 		}
 		results.Models = append(results.Models, params.ModelBlockInfo{
-			UUID:     model.UUID(),
-			Name:     model.Name(),
-			OwnerTag: model.Owner().String(),
+			UUID:     model.UUID.String(),
+			Name:     model.Name,
+			OwnerTag: names.NewUserTag(model.OwnerName).String(),
 			Blocks:   blocks,
 		})
-		ph.Release()
 	}
 
 	// Sort the resulting sequence by model name, then owner.
 	sort.Sort(orderedBlockInfo(results.Models))
 	return results, nil
-}
-
-// ModelConfig returns the model config for the controller model.
-//
-// Deprecated: this facade method will be removed in 4.0 when this facade is
-// converted to a multi-model facade. Please use the ModelConfig facade's
-// ModelGet method instead:
-// [github.com/juju/juju/apiserver/facades/client/modelconfig.ModelConfigAPI.ModelGet]
-func (c *ControllerAPIv11) ModelConfig(ctx context.Context) (params.ModelConfigResults, error) {
-	result := params.ModelConfigResults{}
-	if err := c.checkIsSuperUser(ctx); err != nil {
-		return result, errors.Trace(err)
-	}
-
-	controllerState, err := c.statePool.SystemState()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	controllerModel, err := controllerState.Model()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	cfg, err := controllerModel.Config()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-
-	result.Config = make(map[string]params.ConfigValue)
-	for name, val := range cfg.AllAttrs() {
-		result.Config[name] = params.ConfigValue{
-			Value: val,
-		}
-	}
-	return result, nil
 }
 
 // HostedModelConfigs returns all the information that the client needs in
@@ -544,40 +475,35 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 		return result, errors.Trace(err)
 	}
 
-	modelUUIDs, err := c.state.AllModelUUIDs()
+	models, err := c.modelService.ListAllModels(ctx)
 	if err != nil {
-		return result, errors.Trace(err)
+		return result, fmt.Errorf("getting model IDs: %w", err)
+	}
+	controllerModel, err := c.modelService.ControllerModel(ctx)
+	if err != nil {
+		return result, fmt.Errorf("getting controller model: %w", err)
 	}
 
-	for _, modelUUID := range modelUUIDs {
-		if modelUUID == c.state.ControllerModelUUID() {
+	for _, model := range models {
+		if model.UUID == controllerModel.UUID {
 			continue
-		}
-		st, err := c.statePool.Get(modelUUID)
-		if err != nil {
-			// This model could have been removed.
-			if errors.Is(err, errors.NotFound) {
-				continue
-			}
-			return result, errors.Trace(err)
-		}
-		defer st.Release()
-		model, err := st.Model()
-		if err != nil {
-			return result, errors.Trace(err)
 		}
 
 		config := params.HostedModelConfig{
-			Name:     model.Name(),
-			OwnerTag: model.Owner().String(),
+			Name:     model.Name,
+			OwnerTag: names.NewUserTag(model.OwnerName).String(),
 		}
-		modelConf, err := model.Config()
+
+		modelConf, err := c.modelConfigServiceGetter(model.UUID).ModelConfig(ctx)
 		if err != nil {
-			config.Error = apiservererrors.ServerError(err)
-		} else {
-			config.Config = modelConf.AllAttrs()
+			// This model could have been removed.
+			if !errors.Is(err, modelerrors.NotFound) {
+				config.Error = apiservererrors.ServerError(err)
+			}
+			continue
 		}
-		cloudSpec := c.GetCloudSpec(ctx, model.ModelTag())
+		config.Config = modelConf.AllAttrs()
+		cloudSpec := c.GetCloudSpec(ctx, names.NewModelTag(model.UUID.String()))
 		if config.Error == nil {
 			config.CloudSpec = cloudSpec.Result
 			config.Error = cloudSpec.Error
@@ -710,10 +636,10 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	}
 
 	// Ensure the model exists.
-	if modelExists, err := c.state.ModelExists(modelTag.Id()); err != nil {
-		return "", errors.Annotate(err, "reading model")
-	} else if !modelExists {
-		return "", errors.NotFoundf("model")
+	modelID := coremodel.UUID(modelTag.Id())
+	modelInfo, err := c.modelService.Model(ctx, modelID)
+	if err != nil {
+		return "", fmt.Errorf("getting model with ID %q: %w", modelTag.Id(), err)
 	}
 
 	hostedState, err := c.statePool.Get(modelTag.Id())
@@ -757,14 +683,17 @@ func (c *ControllerAPI) initiateOneMigration(ctx context.Context, spec params.Mi
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+
 	if err := runMigrationPrechecks(
 		ctx,
 		hostedState.State, systemState,
+		c.agentService,
 		&targetInfo, c.presence,
 		c.controllerConfigService,
 		c.cloudService,
 		c.credentialService,
 		c.upgradeService,
+		modelInfo,
 		c.modelExporter,
 		c.store,
 		leaders,
@@ -901,18 +830,20 @@ func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerCon
 	return nil
 }
 
-// runMigrationPreChecks runs prechecks on the migration and updates
+// runMigrationPrechecks runs prechecks on the migration and updates
 // information in targetInfo as needed based on information
 // retrieved from the target controller.
 var runMigrationPrechecks = func(
 	ctx context.Context,
 	st, ctlrSt *state.State,
+	agentService AgentService,
 	targetInfo *coremigration.TargetInfo,
 	presence facade.Presence,
 	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	upgradeService UpgradeService,
+	coremodelInfo coremodel.Model,
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	leaders map[string]string,
@@ -937,8 +868,8 @@ var runMigrationPrechecks = func(
 	}
 
 	// Check target controller.
-	modelInfo, srcUserList, err := makeModelInfo(ctx, st, ctlrSt,
-		controllerConfigService, modelExporter, store, leaders)
+	modelInfo, srcUserList, err := makeModelInfo(ctx, st, agentService,
+		controllerConfigService, coremodelInfo, modelExporter, store, leaders)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1037,8 +968,10 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func makeModelInfo(ctx context.Context, st, ctlrSt *state.State,
+func makeModelInfo(ctx context.Context, st *state.State,
+	agentService AgentService,
 	controllerConfigService ControllerConfigService,
+	modelInfo coremodel.Model,
 	modelExporter ModelExporter,
 	store objectstore.ObjectStore,
 	leaders map[string]string,
@@ -1066,22 +999,16 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State,
 	}
 
 	// Retrieve agent version for the model.
-	conf, err := model.ModelConfig(ctx)
+	agentVersion, err := agentService.GetModelAgentVersion(ctx, modelInfo.UUID)
 	if err != nil {
-		return empty, userList{}, errors.Trace(err)
+		return coremigration.ModelInfo{}, userList{}, fmt.Errorf("getting agent version for current model: %w", err)
 	}
-	agentVersion, _ := conf.AgentVersion()
 
 	// Retrieve agent version for the controller.
-	controllerModel, err := ctlrSt.Model()
+	controllerVersion, err := agentService.ControllerAgentVersion(ctx)
 	if err != nil {
-		return empty, userList{}, errors.Trace(err)
+		return coremigration.ModelInfo{}, userList{}, fmt.Errorf("getting agent version for controller: %w", err)
 	}
-	controllerConfig, err := controllerModel.Config()
-	if err != nil {
-		return empty, userList{}, errors.Trace(err)
-	}
-	controllerVersion, _ := controllerConfig.AgentVersion()
 
 	coreConf, err := controllerConfigService.ControllerConfig(ctx)
 	if err != nil {
@@ -1089,9 +1016,9 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State,
 	}
 	ul.identityURL = coreConf.IdentityURL()
 	return coremigration.ModelInfo{
-		UUID:                   model.UUID(),
-		Name:                   model.Name(),
-		Owner:                  model.Owner(),
+		UUID:                   modelInfo.UUID.String(),
+		Name:                   modelInfo.Name,
+		Owner:                  names.NewUserTag(modelInfo.OwnerName),
 		AgentVersion:           agentVersion,
 		ControllerAgentVersion: controllerVersion,
 		ModelDescription:       description,

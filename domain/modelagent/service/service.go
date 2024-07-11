@@ -16,6 +16,9 @@ import (
 type State interface {
 	// GetModelAgentVersion returns the agent version for the specified model.
 	GetModelAgentVersion(ctx context.Context, modelID model.UUID) (version.Number, error)
+	// AgentVersionForModelName returns the agent version for the model with the
+	// given name and owner.
+	AgentVersionForModelName(ctx context.Context, username string, modelName string) (version.Number, error)
 }
 
 // Service is a modelagent service which can be used to get the running Juju
@@ -39,6 +42,11 @@ func (s *Service) GetModelAgentVersion(ctx context.Context, modelID model.UUID) 
 		return version.Zero, errors.Annotate(err, "validating model ID")
 	}
 	return s.st.GetModelAgentVersion(ctx, modelID)
+}
+
+// ControllerAgentVersion returns the agent version for the controller model.
+func (s *Service) ControllerAgentVersion(ctx context.Context) (version.Number, error) {
+	return s.st.AgentVersionForModelName(ctx, model.ControllerModelOwnerUsername, model.ControllerModelName)
 }
 
 // ModelService is a modelagent service which can be used to get the running

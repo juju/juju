@@ -75,3 +75,54 @@ WHERE uuid = $M.model_id
 	}
 	return vers, nil
 }
+
+// AgentVersionForModelName returns the agent version for the model with the
+// given name and owner.
+func (st *State) AgentVersionForModelName(
+	ctx context.Context,
+	username string,
+	modelName string,
+) (version.Number, error) {
+	db, err := st.DB()
+	if err != nil {
+		return version.Zero, errors.Trace(err)
+	}
+
+	q := `
+SELECT &dbAgentVersion.target_agent_version
+FROM v_model
+WHERE name = $M.model_name
+AND owner_name = $M.owner
+`
+
+	rval := dbAgentVersion{}
+	args := sqlair.M{
+		"model_name": modelName,
+		"owner":      username,
+	}
+
+	stmt, err := st.Prepare(q, rval, args)
+	if err != nil {
+		return version.Zero, fmt.Errorf("preparing agent version query for model %s/%s: %w", username, modelName, err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt, args).Get(&rval)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w with name %s/%s", modelerrors.NotFound, username, modelName)
+		} else if err != nil {
+			return fmt.Errorf("cannot get agent version for model %s/%s: %w", username, modelName, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return version.Zero, errors.Trace(err)
+	}
+
+	vers, err := version.Parse(rval.TargetAgentVersion)
+	if err != nil {
+		return version.Zero, fmt.Errorf("cannot parse agent version %q for model %s/%s: %w",
+			rval.TargetAgentVersion, username, modelName, err)
+	}
+	return vers, nil
+}

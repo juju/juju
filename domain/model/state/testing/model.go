@@ -62,6 +62,12 @@ func CreateKubernetesSecretBackend(c *gc.C, runner database.TxnRunner) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// TestModelConfig contains configuration options for created test models.
+type TestModelConfig struct {
+	// Owner is the username of the model owner.
+	Owner string
+}
+
 // CreateTestModel is a testing utility function for creating a basic model for
 // a test to rely on. The created model will have it's uuid returned.
 //
@@ -73,16 +79,36 @@ func CreateTestModel(
 	txnRunner database.TxnRunnerFactory,
 	name string,
 ) coremodel.UUID {
+	return CreateTestModelWithConfig(c, txnRunner, name, TestModelConfig{})
+}
+
+// CreateTestModelWithConfig is the generalised version of CreateTestModel,
+// which allows passing in config to control metadata of the created model.
+// Tests can use this when they need a model with a certain property (e.g.
+// owned by a given user).
+func CreateTestModelWithConfig(
+	c *gc.C,
+	txnRunner database.TxnRunnerFactory,
+	modelName string,
+	config TestModelConfig,
+) coremodel.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudUUID, err := uuid.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
+	cloudName := modelName
 
 	credId, err := corecredential.NewID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	userName := "test-user" + name
+	var userName string
+	if config.Owner == "" {
+		userName = "test-user" + modelName
+	} else {
+		userName = config.Owner
+	}
+
 	runner, err := txnRunner()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -92,7 +118,7 @@ func CreateTestModel(
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, userUUID.String(), name, userName, false, false, userUUID, time.Now())
+		`, userUUID.String(), userName, userName, false, false, userUUID, time.Now())
 		if err != nil {
 			return err
 		}
@@ -108,7 +134,7 @@ func CreateTestModel(
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO cloud (uuid, name, cloud_type_id, endpoint, skip_tls_verify)
 			VALUES (?, ?, ?, "", true)
-		`, cloudUUID.String(), name, 5)
+		`, cloudUUID.String(), cloudName, 5)
 		if err != nil {
 			return err
 		}
@@ -141,13 +167,13 @@ func CreateTestModel(
 		coremodel.IAAS,
 		model.ModelCreationArgs{
 			AgentVersion: version.Current,
-			Cloud:        name,
+			Cloud:        cloudName,
 			Credential: corecredential.Key{
-				Cloud: name,
-				Owner: name,
+				Cloud: cloudName,
+				Owner: userName,
 				Name:  "foobar",
 			},
-			Name:          name,
+			Name:          modelName,
 			Owner:         userUUID,
 			SecretBackend: juju.BackendName,
 		},

@@ -65,6 +65,47 @@ func (s *stateSuite) TestGetModelAgentVersionCantParseVersion(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `cannot parse agent version "invalid-version".*`)
 }
 
+// TestAgentVersionForModelNameSuccess tests that State.AgentVersionForModelName
+// is correct in the expected case when the model exists.
+func (s *stateSuite) TestAgentVersionForModelNameSuccess(c *gc.C) {
+	expectedVersion, err := version.Parse("4.21.54")
+	c.Assert(err, jc.ErrorIsNil)
+
+	txnRunner := s.TxnRunnerFactory()
+	state := modelagentstate.NewState(txnRunner)
+	modelID := modelstatetesting.CreateTestModelWithConfig(c, txnRunner, "mymodel",
+		modelstatetesting.TestModelConfig{Owner: "bob"})
+	s.setAgentVersion(c, modelID, expectedVersion.String())
+
+	obtainedVersion, err := state.AgentVersionForModelName(context.Background(), "bob", "mymodel")
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(obtainedVersion, jc.DeepEquals, expectedVersion)
+}
+
+// TestAgentVersionForModelNameNotFound tests that State.AgentVersionForModelName
+// returns modelerrors.NotFound when the model does not exist in the DB.
+func (s *stateSuite) TestAgentVersionForModelNameNotFound(c *gc.C) {
+	txnRunner := s.TxnRunnerFactory()
+	state := modelagentstate.NewState(txnRunner)
+
+	_, err := state.AgentVersionForModelName(context.Background(), "bob", "mymodel")
+	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+// TestAgentVersionForModelNameCantParseVersion tests that
+// State.AgentVersionForModelName returns an appropriate error when the agent
+// version in the DB is invalid.
+func (s *stateSuite) TestAgentVersionForModelNameCantParseVersion(c *gc.C) {
+	txnRunner := s.TxnRunnerFactory()
+	state := modelagentstate.NewState(txnRunner)
+	modelID := modelstatetesting.CreateTestModelWithConfig(c, txnRunner, "mymodel",
+		modelstatetesting.TestModelConfig{Owner: "bob"})
+	s.setAgentVersion(c, modelID, "invalid-version")
+
+	_, err := state.AgentVersionForModelName(context.Background(), "bob", "mymodel")
+	c.Check(err, gc.ErrorMatches, `cannot parse agent version "invalid-version".*`)
+}
+
 // Set the agent version for the given model in the DB.
 func (s *stateSuite) setAgentVersion(c *gc.C, modelID model.UUID, vers string) {
 	st := domain.NewStateBase(s.TxnRunnerFactory())

@@ -68,6 +68,8 @@ type ControllerServiceFactory interface {
 	SecretBackend() *secretbackendservice.WatchableService
 	// Macaroon returns the macaroon bakery backend service
 	Macaroon() *macaroonservice.Service
+	// Agent returns the model agent service.
+	Agent() *modelagentservice.Service
 }
 
 // ModelServiceFactory provides access to the services required by the
@@ -95,8 +97,8 @@ type ModelServiceFactory interface {
 	Storage(registry storage.ProviderRegistry) *storageservice.Service
 	// Secret returns the secret service.
 	Secret(secretservice.BackendAdminConfigGetter) *secretservice.WatchableService
-	// Agent returns the model's agent service.
-	Agent() *modelagentservice.ModelService
+	// ModelAgent returns the model's agent service.
+	ModelAgent() *modelagentservice.ModelService
 	// ModelInfo returns the model service for the model. The model info
 	// contains read-only information about the model.
 	// Note: This should be called model, but we have naming conflicts with
