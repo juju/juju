@@ -20,12 +20,12 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ApplicationOffers", 5, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newOffersAPI(ctx)
+		return makeOffersAPI(stdCtx, ctx)
 	}, reflect.TypeOf((*OffersAPIv5)(nil)))
 }
 
-// newOffersAPI returns a new application offers OffersAPI facade.
-func newOffersAPI(facadeContext facade.ModelContext) (*OffersAPIv5, error) {
+// makeOffersAPI returns a new application offers OffersAPI facade.
+func makeOffersAPI(ctx context.Context, facadeContext facade.ModelContext) (*OffersAPIv5, error) {
 	serviceFactory := facadeContext.ServiceFactory()
 	environFromModel := func(ctx context.Context, modelUUID string) (environs.Environ, error) {
 		st, err := facadeContext.StatePool().Get(modelUUID)
@@ -58,6 +58,7 @@ func newOffersAPI(facadeContext facade.ModelContext) (*OffersAPIv5, error) {
 		getControllerInfo,
 		GetStateAccess(st),
 		GetStatePool(facadeContext.StatePool()),
+		serviceFactory.Model(),
 		facadeContext.Auth(),
 		authContext.(*commoncrossmodel.AuthContext),
 		credentialcommon.CredentialInvalidatorGetter(facadeContext),

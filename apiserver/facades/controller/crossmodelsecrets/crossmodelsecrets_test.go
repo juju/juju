@@ -94,7 +94,7 @@ func (s *CrossModelSecretsSuite) SetUpTest(c *gc.C) {
 	})
 	s.bakery = &mockBakery{bakery}
 	s.authContext, err = crossmodel.NewAuthContext(
-		nil, key, crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
+		nil, coretesting.ModelTag, key, crossmodel.NewOfferBakeryForTest(s.bakery, clock.WallClock),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -116,7 +116,7 @@ func (s *CrossModelSecretsSuite) setup(c *gc.C) *gomock.Controller {
 		s.resources,
 		s.authContext,
 		coretesting.ControllerTag.Id(),
-		coretesting.ModelTag.Id(),
+		model.UUID(coretesting.ModelTag.Id()),
 		secretsServiceGetter,
 		s.secretBackendService,
 		s.crossModelState,

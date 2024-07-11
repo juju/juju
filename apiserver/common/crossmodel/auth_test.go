@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -77,7 +78,7 @@ offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, names.NewModelTag(uuid.String()), s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	opc, err := authContext.CheckOfferAccessCaveat("has-offer-permission " + permCheckDetails)
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,7 +98,7 @@ offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:], uuid)
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, names.NewModelTag(uuid.String()), s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.CheckOfferAccessCaveat("different-caveat " + permCheckDetails)
 	c.Assert(err, gc.ErrorMatches, ".*caveat not recognized.*")
@@ -111,7 +112,7 @@ offer-uuid: mysql-uuid
 relation-key: mediawiki:db mysql:server
 permission: consume
 `[1:]
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, names.NewModelTag("invalid"), s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.CheckOfferAccessCaveat("has-offer-permission " + permCheckDetails)
 	c.Assert(err, gc.ErrorMatches, `source-model-uuid "invalid" not valid`)
@@ -125,7 +126,7 @@ func (s *authSuite) TestCheckLocalAccessRequest(c *gc.C) {
 			"mysql-uuid:mary": permission.ConsumeAccess,
 		},
 	}
-	authContext, err := crossmodel.NewAuthContext(st, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(st, names.NewModelTag(uuid.String()), s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
@@ -154,7 +155,7 @@ func (s *authSuite) TestCheckLocalAccessRequestControllerAdmin(c *gc.C) {
 			coretesting.ControllerTag.Id() + ":mary": permission.SuperuserAccess,
 		},
 	}
-	authContext, err := crossmodel.NewAuthContext(st, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(st, names.NewModelTag(uuid.String()), s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
@@ -177,7 +178,7 @@ func (s *authSuite) TestCheckLocalAccessRequestModelAdmin(c *gc.C) {
 			uuid.String() + ":mary": permission.AdminAccess,
 		},
 	}
-	authContext, err := crossmodel.NewAuthContext(st, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(st, names.NewModelTag(uuid.String()), s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
@@ -198,7 +199,7 @@ func (s *authSuite) TestCheckLocalAccessRequestNoPermission(c *gc.C) {
 		tag:         names.NewModelTag(uuid.String()),
 		permissions: make(map[string]permission.Access),
 	}
-	authContext, err := crossmodel.NewAuthContext(st, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(st, names.NewModelTag(uuid.String()), s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	permCheckDetails := fmt.Sprintf(`
 source-model-uuid: %v
@@ -218,7 +219,7 @@ func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
 		SourceModelTag: coretesting.ModelTag.String(),
 		OfferUUID:      "mysql-uuid",
 	}
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, coretesting.ModelTag, s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := authContext.CreateConsumeOfferMacaroon(context.Background(), offer, "mary", bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
@@ -231,11 +232,11 @@ func (s *authSuite) TestCreateConsumeOfferMacaroon(c *gc.C) {
 }
 
 func (s *authSuite) TestCreateRemoteRelationMacaroon(c *gc.C) {
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, coretesting.ModelTag, s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := authContext.CreateRemoteRelationMacaroon(
 		context.Background(),
-		coretesting.ModelTag.Id(), "mysql-uuid", "mary", names.NewRelationTag("mediawiki:db mysql:server"), bakery.LatestVersion)
+		model.UUID(coretesting.ModelTag.Id()), "mysql-uuid", "mary", names.NewRelationTag("mediawiki:db mysql:server"), bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	cav := mac.M().Caveats()
 	c.Assert(cav, gc.HasLen, 5)
@@ -247,7 +248,7 @@ func (s *authSuite) TestCreateRemoteRelationMacaroon(c *gc.C) {
 }
 
 func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, coretesting.ModelTag, s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := s.bakery.NewMacaroon(
 		context.Background(),
@@ -261,7 +262,7 @@ func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	attr, err := authContext.Authenticator().CheckOfferMacaroons(
 		context.Background(),
-		coretesting.ModelTag.Id(),
+		model.UUID(coretesting.ModelTag.Id()),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -276,7 +277,7 @@ func (s *authSuite) TestCheckOfferMacaroons(c *gc.C) {
 }
 
 func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, coretesting.ModelTag, s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := s.bakery.NewMacaroon(
 		context.Background(),
@@ -290,7 +291,7 @@ func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.Authenticator().CheckOfferMacaroons(
 		context.Background(),
-		coretesting.ModelTag.Id(),
+		model.UUID(coretesting.ModelTag.Id()),
 		"prod.another",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -302,7 +303,7 @@ func (s *authSuite) TestCheckOfferMacaroonsWrongOffer(c *gc.C) {
 }
 
 func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, coretesting.ModelTag, s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	mac, err := s.bakery.NewMacaroon(
 		context.Background(),
@@ -315,7 +316,7 @@ func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = authContext.Authenticator().CheckOfferMacaroons(
 		context.Background(),
-		coretesting.ModelTag.Id(),
+		model.UUID(coretesting.ModelTag.Id()),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -324,7 +325,7 @@ func (s *authSuite) TestCheckOfferMacaroonsNoUser(c *gc.C) {
 }
 
 func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, coretesting.ModelTag, s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	clock := testclock.NewClock(time.Now().Add(-10 * time.Minute))
 	authContext.SetClock(clock)
@@ -339,7 +340,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 
 	_, err = authContext.Authenticator().CheckOfferMacaroons(
 		context.Background(),
-		coretesting.ModelTag.Id(),
+		model.UUID(coretesting.ModelTag.Id()),
 		"mysql-uuid",
 		macaroon.Slice{mac.M()},
 		bakery.LatestVersion,
@@ -352,7 +353,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 }
 
 func (s *authSuite) TestCheckRelationMacaroons(c *gc.C) {
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, coretesting.ModelTag, s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := s.bakery.NewMacaroon(
@@ -367,7 +368,7 @@ func (s *authSuite) TestCheckRelationMacaroons(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator().CheckRelationMacaroons(
 		context.Background(),
-		coretesting.ModelTag.Id(),
+		model.UUID(coretesting.ModelTag.Id()),
 		"mysql-uuid",
 		relationTag,
 		macaroon.Slice{mac.M()},
@@ -377,7 +378,7 @@ func (s *authSuite) TestCheckRelationMacaroons(c *gc.C) {
 }
 
 func (s *authSuite) TestCheckRelationMacaroonsWrongRelation(c *gc.C) {
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, coretesting.ModelTag, s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := s.bakery.NewMacaroon(
@@ -392,7 +393,7 @@ func (s *authSuite) TestCheckRelationMacaroonsWrongRelation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator().CheckRelationMacaroons(
 		context.Background(),
-		coretesting.ModelTag.Id(),
+		model.UUID(coretesting.ModelTag.Id()),
 		"mysql-uuid",
 		names.NewRelationTag("app:db offer:db"),
 		macaroon.Slice{mac.M()},
@@ -405,7 +406,7 @@ func (s *authSuite) TestCheckRelationMacaroonsWrongRelation(c *gc.C) {
 }
 
 func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, coretesting.ModelTag, s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := s.bakery.NewMacaroon(
@@ -419,7 +420,7 @@ func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = authContext.Authenticator().CheckRelationMacaroons(
 		context.Background(),
-		coretesting.ModelTag.Id(),
+		model.UUID(coretesting.ModelTag.Id()),
 		"mysql-uuid",
 		relationTag,
 		macaroon.Slice{mac.M()},
@@ -429,7 +430,7 @@ func (s *authSuite) TestCheckRelationMacaroonsNoUser(c *gc.C) {
 }
 
 func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
-	authContext, err := crossmodel.NewAuthContext(nil, s.bakeryKey, s.offerBakery)
+	authContext, err := crossmodel.NewAuthContext(nil, coretesting.ModelTag, s.bakeryKey, s.offerBakery)
 	c.Assert(err, jc.ErrorIsNil)
 	clock := testclock.NewClock(time.Now().Add(-10 * time.Minute))
 	authContext.SetClock(clock)
@@ -438,12 +439,12 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 	relationTag := names.NewRelationTag("mediawiki:db mysql:server")
 	mac, err := authContext.CreateRemoteRelationMacaroon(
 		context.Background(),
-		coretesting.ModelTag.Id(), "mysql-uuid", "mary", relationTag, bakery.LatestVersion)
+		model.UUID(coretesting.ModelTag.Id()), "mysql-uuid", "mary", relationTag, bakery.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = authContext.Authenticator().CheckRelationMacaroons(
 		context.Background(),
-		coretesting.ModelTag.Id(),
+		model.UUID(coretesting.ModelTag.Id()),
 		"mysql-uuid",
 		relationTag,
 		macaroon.Slice{mac.M()},

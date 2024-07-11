@@ -5,12 +5,14 @@ package apiserver
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -24,11 +26,6 @@ const (
 
 type localOfferAuthHandler struct {
 	authCtx *crossmodel.AuthContext
-}
-
-type BakeryConfigService interface {
-	GetOffersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error)
-	GetExternalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error)
 }
 
 func addOfferAuthHandlers(offerAuthCtxt *crossmodel.AuthContext, mux *apiserverhttp.Mux) {
@@ -46,7 +43,13 @@ func addOfferAuthHandlers(offerAuthCtxt *crossmodel.AuthContext, mux *apiserverh
 	_ = mux.AddHandler("GET", localOfferAccessLocationPath+"/publickey", appOfferDischargeMux)
 }
 
-func newOfferAuthContext(ctx context.Context, pool *state.StatePool, controllerConfigService ControllerConfigService, bakeryConfigService BakeryConfigService) (*crossmodel.AuthContext, error) {
+func newOfferAuthContext(
+	ctx context.Context,
+	pool *state.StatePool,
+	modelInfoService ModelInfoService,
+	controllerConfigService ControllerConfigService,
+	bakeryConfigService BakeryConfigService,
+) (*crossmodel.AuthContext, error) {
 	// Create a bakery service for discharging third-party caveats for
 	// local offer access authentication. This service does not persist keys;
 	// its macaroons should be very short-lived.
@@ -54,7 +57,12 @@ func newOfferAuthContext(ctx context.Context, pool *state.StatePool, controllerC
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	location := "juju model " + st.ModelUUID()
+
+	modelInfo, err := modelInfoService.GetModelInfo(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving model info for controller model: %w", err)
+	}
+	location := "juju model " + modelInfo.UUID.String()
 	checker := checkers.New(macaroon.MacaroonNamespace)
 
 	// Create a bakery service for local offer access authentication. This service
@@ -72,6 +80,7 @@ func newOfferAuthContext(ctx context.Context, pool *state.StatePool, controllerC
 	if err != nil {
 		return nil, errors.Annotate(err, "unable to get controller config")
 	}
+	modelTag := names.NewModelTag(modelInfo.UUID.String())
 	loginTokenRefreshURL := controllerConfig.LoginTokenRefreshURL()
 	if loginTokenRefreshURL != "" {
 		offerBakery, err := crossmodel.NewJaaSOfferBakery(
@@ -80,13 +89,13 @@ func newOfferAuthContext(ctx context.Context, pool *state.StatePool, controllerC
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return crossmodel.NewAuthContext(crossmodel.GetBackend(st), key, offerBakery)
+		return crossmodel.NewAuthContext(crossmodel.GetBackend(st), modelTag, key, offerBakery)
 	}
 	offerBakery, err := crossmodel.NewLocalOfferBakery(location, key, store, checker)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return crossmodel.NewAuthContext(crossmodel.GetBackend(st), key, offerBakery)
+	return crossmodel.NewAuthContext(crossmodel.GetBackend(st), modelTag, key, offerBakery)
 }
 
 func (h *localOfferAuthHandler) checkThirdPartyCaveat(stdctx context.Context, req *http.Request, cavInfo *bakery.ThirdPartyCaveatInfo, _ *httpbakery.DischargeToken) ([]checkers.Caveat, error) {

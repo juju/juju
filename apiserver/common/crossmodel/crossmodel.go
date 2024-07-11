@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/network"
@@ -31,8 +32,8 @@ var (
 )
 
 // PublishRelationChange applies the relation change event to the specified backend.
-func PublishRelationChange(auth authoriser, backend Backend, relationTag, applicationTag names.Tag, change params.RemoteRelationChangeEvent) error {
-	logger.Debugf("publish into model %v change for %v on %v: %#v", backend.ModelUUID(), relationTag, applicationTag, &change)
+func PublishRelationChange(auth authoriser, backend Backend, modelID model.UUID, relationTag, applicationTag names.Tag, change params.RemoteRelationChangeEvent) error {
+	logger.Debugf("publish into model %s change for %v on %v: %#v", modelID, relationTag, applicationTag, &change)
 
 	dyingOrDead := change.Life != "" && change.Life != life.Alive
 	// Ensure the relation exists.
@@ -46,7 +47,7 @@ func PublishRelationChange(auth authoriser, backend Backend, relationTag, applic
 		return errors.Trace(err)
 	}
 
-	if err := handleSuspendedRelation(auth, backend, change, rel, dyingOrDead); err != nil {
+	if err := handleSuspendedRelation(auth, backend, names.NewModelTag(modelID.String()), change, rel, dyingOrDead); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -87,7 +88,7 @@ func PublishRelationChange(auth authoriser, backend Backend, relationTag, applic
 		return nil
 	}
 	logger.Debugf("remote application for changed relation %v is %v in model %v",
-		relationTag.Id(), applicationTag.Id(), backend.ModelUUID())
+		relationTag.Id(), applicationTag.Id(), modelID)
 
 	// Allow sending an empty non-nil map to clear all the settings.
 	if change.ApplicationSettings != nil {
@@ -110,12 +111,8 @@ type authoriser interface {
 	EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) error
 }
 
-type offerBackend interface {
-	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
-}
-
 // CheckCanConsume checks consume permission for a user on an offer connection.
-func CheckCanConsume(auth authoriser, backend offerBackend, controllerTag, modelTag names.Tag, oc OfferConnection) (bool, error) {
+func CheckCanConsume(auth authoriser, controllerTag, modelTag names.Tag, oc OfferConnection) (bool, error) {
 	user := names.NewUserTag(oc.UserName())
 	err := auth.EntityHasPermission(user, permission.SuperuserAccess, controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
@@ -134,7 +131,14 @@ func CheckCanConsume(auth authoriser, backend offerBackend, controllerTag, model
 	return err == nil, err
 }
 
-func handleSuspendedRelation(auth authoriser, backend Backend, change params.RemoteRelationChangeEvent, rel Relation, dyingOrDead bool) error {
+func handleSuspendedRelation(
+	auth authoriser,
+	backend Backend,
+	modelTag names.Tag,
+	change params.RemoteRelationChangeEvent,
+	rel Relation,
+	dyingOrDead bool,
+) error {
 	// Update the relation suspended status.
 	currentStatus := rel.Suspended()
 	if !dyingOrDead && change.Suspended != nil && currentStatus != *change.Suspended {
@@ -154,7 +158,7 @@ func handleSuspendedRelation(auth authoriser, backend Backend, change params.Rem
 				return errors.Trace(err)
 			}
 			if err == nil {
-				ok, err := CheckCanConsume(auth, backend, backend.ControllerTag(), backend.ModelTag(), oc)
+				ok, err := CheckCanConsume(auth, backend.ControllerTag(), modelTag, oc)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -435,8 +439,15 @@ func RelationUnitSettings(backend Backend, ru params.RelationUnit) (params.Setti
 }
 
 // PublishIngressNetworkChange saves the specified ingress networks for a relation.
-func PublishIngressNetworkChange(ctx context.Context, backend Backend, relationTag names.Tag, change params.IngressNetworksChangeEvent) error {
-	logger.Debugf("publish into model %v network change for %v: %#v", backend.ModelUUID(), relationTag, &change)
+func PublishIngressNetworkChange(
+	ctx context.Context,
+	modelID model.UUID,
+	backend Backend,
+	modelConfigService ModelConfigService,
+	relationTag names.Tag,
+	change params.IngressNetworksChangeEvent,
+) error {
+	logger.Debugf("publish into model %s network change for %v: %#v", modelID, relationTag, &change)
 
 	// Ensure the relation exists.
 	rel, err := backend.KeyRelation(relationTag.Id())
@@ -448,7 +459,7 @@ func PublishIngressNetworkChange(ctx context.Context, backend Backend, relationT
 	}
 
 	logger.Debugf("relation %v requires ingress networks %v", rel, change.Networks)
-	if err := validateIngressNetworks(ctx, backend, change.Networks); err != nil {
+	if err := validateIngressNetworks(ctx, modelConfigService, change.Networks); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -456,13 +467,13 @@ func PublishIngressNetworkChange(ctx context.Context, backend Backend, relationT
 	return err
 }
 
-func validateIngressNetworks(ctx context.Context, backend Backend, networks []string) error {
+func validateIngressNetworks(ctx context.Context, modelConfigService ModelConfigService, networks []string) error {
 	if len(networks) == 0 {
 		return nil
 	}
 
 	// Check that the required ingress is allowed.
-	cfg, err := backend.ModelConfig(ctx)
+	cfg, err := modelConfigService.ModelConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}

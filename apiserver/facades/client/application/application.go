@@ -1907,7 +1907,7 @@ func (api *APIBase) SetRelationsSuspended(ctx context.Context, args params.Relat
 			return errors.Errorf("cannot set suspend status for %q which is not associated with an offer", rel.Tag().Id())
 		}
 		if oc != nil && !arg.Suspended && rel.Suspended() {
-			ok, err := commoncrossmodel.CheckCanConsume(api.authorizer, api.backend, api.backend.ControllerTag(), api.model.ModelTag(), oc)
+			ok, err := commoncrossmodel.CheckCanConsume(api.authorizer, api.backend.ControllerTag(), api.model.ModelTag(), oc)
 			if err != nil {
 				return errors.Trace(err)
 			}

@@ -5,6 +5,7 @@ package remoterelations
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -19,12 +20,16 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("RemoteRelations", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newAPI(ctx) // Adds UpdateControllersForModels and WatchLocalRelationChanges.
+		api, err := makeAPI(stdCtx, ctx) // Adds UpdateControllersForModels and WatchLocalRelationChanges.
+		if err != nil {
+			return nil, fmt.Errorf("creating RemoteRelations facade: %w", err)
+		}
+		return api, nil
 	}, reflect.TypeOf((*API)(nil)))
 }
 
-// newAPI creates a new server-side API facade backed by global state.
-func newAPI(ctx facade.ModelContext) (*API, error) {
+// makeAPI creates a new server-side API facade backed by global state.
+func makeAPI(stdCtx context.Context, ctx facade.ModelContext) (*API, error) {
 	systemState, err := ctx.StatePool().SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -32,7 +37,12 @@ func newAPI(ctx facade.ModelContext) (*API, error) {
 	serviceFactory := ctx.ServiceFactory()
 	controllerConfigService := serviceFactory.ControllerConfig()
 	externalControllerService := serviceFactory.ExternalController()
+	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, fmt.Errorf("retrieving model info: %w", err)
+	}
 	return NewRemoteRelationsAPI(
+		modelInfo.UUID,
 		stateShim{st: ctx.State(), Backend: commoncrossmodel.GetBackend(ctx.State())},
 		externalControllerService,
 		serviceFactory.Secret(secretservice.NotImplementedBackendConfigGetter),

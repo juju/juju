@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/rpc/params"
@@ -39,10 +40,12 @@ type API struct {
 	resources     facade.Resources
 	authorizer    facade.Authorizer
 	logger        corelogger.Logger
+	modelID       model.UUID
 }
 
 // NewRemoteRelationsAPI returns a new server-side API facade.
 func NewRemoteRelationsAPI(
+	modelID model.UUID,
 	st RemoteRelationsState,
 	ecService ExternalControllerService,
 	secretService SecretService,
@@ -62,6 +65,7 @@ func NewRemoteRelationsAPI(
 		resources:           resources,
 		authorizer:          authorizer,
 		logger:              logger,
+		modelID:             modelID,
 	}, nil
 }
 
@@ -384,7 +388,7 @@ func (api *API) ConsumeRemoteRelationChanges(ctx context.Context, changes params
 			continue
 		}
 		api.logger.Debugf("ConsumeRemoteRelationChanges: rel tag %v; app tag: %v", relationTag, applicationTag)
-		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, relationTag, applicationTag, change); err != nil {
+		if err := commoncrossmodel.PublishRelationChange(api.authorizer, api.st, api.modelID, relationTag, applicationTag, change); err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

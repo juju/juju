@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	envcontext "github.com/juju/juju/environs/envcontext"
@@ -41,6 +42,7 @@ func createOffersAPI(
 	getControllerInfo func(context.Context) ([]string, string, error),
 	backend Backend,
 	statePool StatePool,
+	modelService ModelService,
 	authorizer facade.Authorizer,
 	authContext *commoncrossmodel.AuthContext,
 	credentialInvalidatorGetter envcontext.ModelCredentialInvalidatorGetter,
@@ -58,6 +60,7 @@ func createOffersAPI(
 			Authorizer:                  authorizer,
 			GetApplicationOffers:        getApplicationOffers,
 			ControllerModel:             backend,
+			modelService:                modelService,
 			credentialInvalidatorGetter: credentialInvalidatorGetter,
 			StatePool:                   statePool,
 			getEnviron:                  getEnviron,
@@ -86,7 +89,14 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 		}
 		defer releaser()
 
-		if err := api.checkAdmin(apiUser, backend); err != nil {
+		// Get model information for the specified model
+		modelInfo, err := api.modelService.Model(ctx, model.UUID(modelTag.Id()))
+		if err != nil {
+			result[i].Error = apiservererrors.ServerError(fmt.Errorf("retrieving model info for ID %s: %w", modelTag.Id(), err))
+			continue
+		}
+
+		if err := api.checkAdmin(apiUser, modelInfo.UUID, backend); err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -213,7 +223,7 @@ func (api *OffersAPIv5) modifyOneOfferAccess(user names.UserTag, modelUUID strin
 
 	canModifyOffer := isControllerAdmin
 	if !canModifyOffer {
-		err = api.Authorizer.HasPermission(permission.AdminAccess, backend.ModelTag())
+		err = api.Authorizer.HasPermission(permission.AdminAccess, names.NewModelTag(modelUUID))
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return errors.Trace(err)
 		}
@@ -471,7 +481,14 @@ func (api *OffersAPIv5) getConsumeDetails(ctx context.Context, user names.UserTa
 		}
 		defer releaser()
 
-		err = api.checkAdmin(user, backend)
+		// Get model information for the specified model
+		modelInfo, err := api.modelService.Model(ctx, model.UUID(modelTag.Id()))
+		if err != nil {
+			results[i].Error = apiservererrors.ServerError(fmt.Errorf("retrieving model info for ID %s: %w", modelTag.Id(), err))
+			continue
+		}
+
+		err = api.checkAdmin(user, modelInfo.UUID, backend)
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -593,7 +610,14 @@ func (api *OffersAPIv5) DestroyOffers(ctx context.Context, args params.DestroyAp
 		}
 		defer releaser()
 
-		if err := api.checkAdmin(user, backend); err != nil {
+		// Get model information for the specified model
+		modelInfo, err := api.modelService.Model(ctx, model.UUID(models[i].model.UUID()))
+		if err != nil {
+			result[i].Error = apiservererrors.ServerError(fmt.Errorf("retrieving model info for ID %s: %w", models[i].model.UUID(), err))
+			continue
+		}
+
+		if err := api.checkAdmin(user, modelInfo.UUID, backend); err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
