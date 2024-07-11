@@ -56,11 +56,11 @@ const (
 	ControllerResourceDownloadLimit = "controller-resource-download-limit"
 
 	// AgentRateLimitMax is the maximum size of the token bucket used to
-	// ratelimit the agent connections.
+	// ratelimit the agent connections to the API server.
 	AgentRateLimitMax = "agent-ratelimit-max"
 
-	// AgentRateLimitRate is the time taken to add a new token to the bucket.
-	// This effectively says that we can have a new agent connect per duration specified.
+	// AgentRateLimitRate is the interval at which a new token is added to
+	// the token bucket, in milliseconds (ms).
 	AgentRateLimitRate = "agent-ratelimit-rate"
 
 	// APIPortOpenDelay is a duration that the controller will wait
@@ -165,12 +165,12 @@ const (
 	// which should be more than enough time for a debugging session.
 	MaxDebugLogDuration = "max-debug-log-duration"
 
-	// AgentLogfileMaxSize is the maximum file size in MB of each
-	// agent/controller log file.
+	// AgentLogfileMaxSize is the maximum file size of each agent log file,
+	// in MB.
 	AgentLogfileMaxSize = "agent-logfile-max-size"
 
-	// AgentLogfileMaxBackups is the number of old agent/controller log files
-	// to keep (compressed).
+	// AgentLogfileMaxBackups is the maximum number of old agent log files
+	// to keep (compressed; saved on each unit, synced to the controller).
 	AgentLogfileMaxBackups = "agent-logfile-max-backups"
 
 	// ModelLogfileMaxSize is the maximum size of the log file written out by the
