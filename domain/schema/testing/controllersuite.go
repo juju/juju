@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/testing"
-	jujutesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 // ControllerSuite is used to provide a sql.DB reference to tests.

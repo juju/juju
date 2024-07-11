@@ -25,7 +25,7 @@ import (
 	usererrors "github.com/juju/juju/domain/access/errors"
 	usertesting "github.com/juju/juju/domain/access/testing"
 	"github.com/juju/juju/internal/auth"
-	jujutesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type userServiceSuite struct {
