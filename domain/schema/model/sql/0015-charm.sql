@@ -476,7 +476,7 @@ LEFT JOIN charm_source AS cs ON co.source_id = cs.id;
 
 CREATE TABLE charm_action (
     charm_uuid TEXT NOT NULL,
-    name TEXT NOT NULL,
+    "key" TEXT NOT NULL,
     description TEXT,
     parallel BOOLEAN,
     execution_group TEXT,
@@ -484,11 +484,12 @@ CREATE TABLE charm_action (
     CONSTRAINT fk_charm_actions_charm
     FOREIGN KEY (charm_uuid)
     REFERENCES charm (uuid),
-    PRIMARY KEY (charm_uuid, name)
+    PRIMARY KEY (charm_uuid, "key")
 );
 
 CREATE TABLE charm_manifest_base (
     charm_uuid TEXT NOT NULL,
+    "index" INT NOT NULL,
     os_id TEXT NOT NULL,
     track TEXT,
     risk TEXT NOT NULL,
@@ -503,8 +504,21 @@ CREATE TABLE charm_manifest_base (
     CONSTRAINT fk_charm_manifest_base_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id),
-    PRIMARY KEY (charm_uuid, os_id, track, risk, branch, architecture_id)
+    PRIMARY KEY (charm_uuid, "index", os_id, track, risk, branch, architecture_id)
 );
+
+CREATE VIEW v_charm_manifest AS
+SELECT
+    cmb.charm_uuid,
+    cmb."index" AS idx,
+    cmb.track,
+    cmb.risk,
+    cmb.branch,
+    os.name AS os,
+    architecture.name AS architecture
+FROM charm_manifest_base AS cmb
+LEFT JOIN os ON cmb.os_id = os.id
+LEFT JOIN architecture ON cmb.architecture_id = architecture.id;
 
 CREATE TABLE charm_config_type (
     id INT PRIMARY KEY,
@@ -523,7 +537,7 @@ INSERT INTO charm_config_type VALUES
 
 CREATE TABLE charm_config (
     charm_uuid TEXT NOT NULL,
-    name TEXT NOT NULL,
+    "key" TEXT NOT NULL,
     type_id TEXT,
     default_value TEXT,
     description TEXT,
@@ -533,5 +547,15 @@ CREATE TABLE charm_config (
     CONSTRAINT fk_charm_config_charm_config_type
     FOREIGN KEY (type_id)
     REFERENCES charm_config_type (id),
-    PRIMARY KEY (charm_uuid, name)
+    PRIMARY KEY (charm_uuid, "key")
 );
+
+CREATE VIEW v_charm_config AS
+SELECT
+    cc.charm_uuid,
+    cc."key",
+    cct.name AS type,
+    cc.default_value,
+    cc.description
+FROM charm_config AS cc
+LEFT JOIN charm_config_type AS cct ON cc.type_id = cct.id;

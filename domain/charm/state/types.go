@@ -137,6 +137,9 @@ type charmResource struct {
 	Description string `db:"description"`
 }
 
+// charmContainer is used to get the containers of a charm.
+// This is a row based struct that is normalised form of an array of strings
+// for the storage and location field.
 type charmContainer struct {
 	CharmUUID string `db:"charm_uuid"`
 	Key       string `db:"key"`
@@ -145,4 +148,44 @@ type charmContainer struct {
 	Gid       int    `db:"gid"`
 	Storage   string `db:"storage"`
 	Location  string `db:"location"`
+}
+
+// charmManifest is used to get the manifest of a charm.
+// This is a row based struct that is normalised form of an array of strings
+// for the all the fields.
+type charmManifest struct {
+	CharmUUID    string `db:"charm_uuid"`
+	Index        int    `db:"idx"`
+	Track        string `db:"track"`
+	Risk         string `db:"risk"`
+	Branch       string `db:"branch"`
+	OS           string `db:"os"`
+	Architecture string `db:"architecture"`
+}
+
+// charmLXDProfile is used to get the LXD profile of a charm.
+type charmLXDProfile struct {
+	UUID       string `db:"uuid"`
+	LXDProfile []byte `db:"lxd_profile"`
+}
+
+// charmConfig is used to get the config of a charm.
+// This is a row based struct that is normalised form of a map of config.
+type charmConfig struct {
+	CharmUUID    string `db:"charm_uuid"`
+	Key          string `db:"key"`
+	Type         string `db:"type"`
+	DefaultValue string `db:"default_value"`
+	Description  string `db:"description"`
+}
+
+// charmAction is used to get the actions of a charm.
+// This is a row based struct that is normalised form of a map of actions.
+type charmAction struct {
+	CharmUUID      string `db:"charm_uuid"`
+	Key            string `db:"key"`
+	Description    string `db:"description"`
+	Parallel       bool   `db:"parallel"`
+	ExecutionGroup string `db:"execution_group"`
+	Params         []byte `db:"params"`
 }

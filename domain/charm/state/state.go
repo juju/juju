@@ -66,7 +66,7 @@ AND charm_origin.revision = $charmNameRevision.revision;
 		id = corecharm.ID(result.UUID)
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to run transaction: %w", err)
+		return "", fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 	return id, nil
 }
@@ -103,7 +103,7 @@ WHERE uuid = $charmID.uuid;
 		isController = result.Name == "juju-controller"
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 	return isController, nil
 }
@@ -140,7 +140,7 @@ WHERE uuid = $charmID.uuid;
 		isSubordinate = result.Subordinate
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 	return isSubordinate, nil
 }
@@ -185,7 +185,7 @@ WHERE uuid = $charmID.uuid;
 		supportsContainers = num > 0
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 	return supportsContainers, nil
 }
@@ -224,7 +224,7 @@ WHERE uuid = $charmID.uuid;
 		isAvailable = result.Available
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", err)
+		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 	return isAvailable, nil
 }
@@ -275,7 +275,7 @@ WHERE charm_uuid = $charmID.uuid;
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to run transaction: %w", err)
+		return fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 
 	return nil
@@ -344,7 +344,7 @@ WHERE uuid = $charmID.uuid;
 
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to run transaction: %w", err)
+		return "", fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 
 	return newID, nil
@@ -430,7 +430,7 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 
 		return nil
 	}); err != nil {
-		return charm.Metadata{}, fmt.Errorf("failed to run transaction: %w", err)
+		return charm.Metadata{}, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
 	}
 
 	return decodeMetadata(metadata, decodeMetadataArgs{
@@ -447,14 +447,190 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 	})
 }
 
+// GetCharmManifest returns the manifest for the charm using the charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *State) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Manifest, error) {
+	db, err := s.DB()
+	if err != nil {
+		return charm.Manifest{}, errors.Trace(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	query := `
+SELECT &charmManifest.*
+FROM v_charm_manifest
+WHERE charm_uuid = $charmID.uuid
+ORDER BY "idx" ASC;
+`
+
+	stmt, err := s.Prepare(query, charmManifest{}, ident)
+	if err != nil {
+		return charm.Manifest{}, fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	var manifests []charmManifest
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, ident).GetAll(&manifests); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return charmerrors.NotFound
+			}
+			return fmt.Errorf("failed to get charm manifest: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return charm.Manifest{}, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+	}
+
+	return decodeManifest(manifests)
+}
+
+// GetCharmLXDProfile returns the LXD profile for the charm using the
+// charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *State) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	query := `
+SELECT &charmLXDProfile.*
+FROM charm
+WHERE uuid = $charmID.uuid;
+`
+
+	var profile charmLXDProfile
+	stmt, err := s.Prepare(query, profile, ident)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, ident).Get(&profile); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return charmerrors.NotFound
+			}
+			return fmt.Errorf("failed to get charm lxd profile: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+	}
+
+	return profile.LXDProfile, nil
+}
+
+// GetCharmConfig returns the config for the charm using the charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *State) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Config, error) {
+	db, err := s.DB()
+	if err != nil {
+		return charm.Config{}, errors.Trace(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	charmQuery := `
+SELECT &charmID.*
+FROM charm
+WHERE uuid = $charmID.uuid;
+`
+	configQuery := `
+SELECT &charmConfig.*
+FROM v_charm_config
+WHERE charm_uuid = $charmID.uuid;
+`
+
+	charmStmt, err := s.Prepare(charmQuery, ident)
+	if err != nil {
+		return charm.Config{}, fmt.Errorf("failed to prepare query: %w", err)
+	}
+	configStmt, err := s.Prepare(configQuery, charmConfig{}, ident)
+	if err != nil {
+		return charm.Config{}, fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	var configs []charmConfig
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return charmerrors.NotFound
+			}
+		}
+
+		if err := tx.Query(ctx, configStmt, ident).GetAll(&configs); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
+			return fmt.Errorf("failed to get charm config: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return charm.Config{}, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+	}
+
+	return decodeConfig(configs)
+}
+
+// GetCharmActions returns the actions for the charm using the charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *State) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Actions, error) {
+	db, err := s.DB()
+	if err != nil {
+		return charm.Actions{}, errors.Trace(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	charmQuery := `
+SELECT &charmID.*
+FROM charm
+WHERE uuid = $charmID.uuid;
+`
+	actionQuery := `
+SELECT &charmAction.*
+FROM charm_action
+WHERE charm_uuid = $charmID.uuid;
+`
+
+	charmStmt, err := s.Prepare(charmQuery, ident)
+	if err != nil {
+		return charm.Actions{}, fmt.Errorf("failed to prepare query: %w", err)
+	}
+	actionsStmt, err := s.Prepare(actionQuery, charmAction{}, ident)
+	if err != nil {
+		return charm.Actions{}, fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	var actions []charmAction
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return charmerrors.NotFound
+			}
+		}
+
+		if err := tx.Query(ctx, actionsStmt, ident).GetAll(&actions); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
+			return fmt.Errorf("failed to get charm actions: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return charm.Actions{}, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+	}
+
+	return decodeActions(actions), nil
+}
+
 // getCharmMetadata returns the metadata for the charm using the charm ID.
 // This is the core metadata for the charm.
 func getCharmMetadata(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) (charmMetadata, error) {
-	query := `
-SELECT v_charm.* AS &charmMetadata.*
-FROM v_charm
-WHERE uuid = $charmID.uuid;
-`
+	query := `SELECT &charmMetadata.* FROM v_charm WHERE uuid = $charmID.uuid;`
 	stmt, err := p.Prepare(query, charmMetadata{}, ident)
 	if err != nil {
 		return charmMetadata{}, fmt.Errorf("failed to prepare query: %w", err)
@@ -480,7 +656,7 @@ WHERE uuid = $charmID.uuid;
 // Tags are expected to be unique, no duplicates are expected.
 func getCharmTags(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmTag, error) {
 	query := `
-SELECT charm_tag.* AS &charmTag.*
+SELECT &charmTag.*
 FROM charm_tag
 WHERE charm_uuid = $charmID.uuid
 ORDER BY "index" ASC;
@@ -510,7 +686,7 @@ ORDER BY "index" ASC;
 // Categories are expected to be unique, no duplicates are expected.
 func getCharmCategories(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmCategory, error) {
 	query := `
-SELECT charm_category.* AS &charmCategory.*
+SELECT &charmCategory.*
 FROM charm_category
 WHERE charm_uuid = $charmID.uuid
 ORDER BY "index" ASC;
@@ -540,7 +716,7 @@ ORDER BY "index" ASC;
 // Terms are expected to be unique, no duplicates are expected.
 func getCharmTerms(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmTerm, error) {
 	query := `
-SELECT charm_term.* AS &charmTerm.*
+SELECT &charmTerm.*
 FROM charm_term
 WHERE charm_uuid = $charmID.uuid
 ORDER BY "index" ASC;
@@ -568,7 +744,7 @@ ORDER BY "index" ASC;
 // the caller will handle this case.
 func getCharmRelations(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmRelation, error) {
 	query := `
-SELECT v_charm_relation.* AS &charmRelation.*
+SELECT &charmRelation.*
 FROM v_charm_relation
 WHERE charm_uuid = $charmID.uuid;
 	`
@@ -596,7 +772,7 @@ WHERE charm_uuid = $charmID.uuid;
 // the caller will handle this case.
 func getCharmExtraBindings(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmExtraBinding, error) {
 	query := `
-SELECT charm_extra_binding.* AS &charmExtraBinding.*
+SELECT &charmExtraBinding.*
 FROM charm_extra_binding
 WHERE charm_uuid = $charmID.uuid;
 `
@@ -623,7 +799,7 @@ WHERE charm_uuid = $charmID.uuid;
 // Charm properties are expected to be unique, no duplicates are expected.
 func getCharmStorage(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmStorage, error) {
 	query := `
-SELECT v_charm_storage.* AS &charmStorage.*
+SELECT &charmStorage.*
 FROM v_charm_storage
 WHERE charm_uuid = $charmID.uuid
 ORDER BY property_index ASC;
@@ -650,7 +826,7 @@ ORDER BY property_index ASC;
 // the caller will handle this case.
 func getCharmDevices(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmDevice, error) {
 	query := `
-SELECT charm_device.* AS &charmDevice.*
+SELECT &charmDevice.*
 FROM charm_device
 WHERE charm_uuid = $charmID.uuid;
 `
@@ -676,7 +852,7 @@ WHERE charm_uuid = $charmID.uuid;
 // the caller will handle this case.
 func getCharmPayloads(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmPayload, error) {
 	query := `
-SELECT charm_payload.* AS &charmPayload.*
+SELECT &charmPayload.*
 FROM charm_payload
 WHERE charm_uuid = $charmID.uuid;
 `
@@ -702,7 +878,7 @@ WHERE charm_uuid = $charmID.uuid;
 // the caller will handle this case.
 func getCharmResources(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmResource, error) {
 	query := `
-SELECT v_charm_resource.* AS &charmResource.*
+SELECT &charmResource.*
 FROM v_charm_resource
 WHERE charm_uuid = $charmID.uuid;
 `
@@ -728,7 +904,7 @@ WHERE charm_uuid = $charmID.uuid;
 // the caller will handle this case.
 func getCharmContainers(ctx context.Context, tx *sqlair.TX, p domain.Preparer, ident charmID) ([]charmContainer, error) {
 	query := `
-SELECT v_charm_container.* AS &charmContainer.*
+SELECT &charmContainer.*
 FROM v_charm_container
 WHERE charm_uuid = $charmID.uuid
 ORDER BY "index" ASC;
