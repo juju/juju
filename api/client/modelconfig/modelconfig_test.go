@@ -6,6 +6,7 @@ package modelconfig_test
 import (
 	"context"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -157,6 +158,7 @@ func (s *modelconfigSuite) TestGetModelSecretBackendNotSupported(c *gc.C) {
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	_, err := client.GetModelSecretBackend(context.Background())
 	c.Assert(err, gc.ErrorMatches, "getting model secret backend not supported")
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *modelconfigSuite) TestGetModelSecretBackend(c *gc.C) {
@@ -185,6 +187,7 @@ func (s *modelconfigSuite) TestSetModelSecretBackendNotSupported(c *gc.C) {
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelSecretBackend(context.Background(), "backend-id")
 	c.Assert(err, gc.ErrorMatches, "setting model secret backend not supported")
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *modelconfigSuite) TestSetModelSecretBackend(c *gc.C) {
@@ -200,4 +203,15 @@ func (s *modelconfigSuite) TestSetModelSecretBackend(c *gc.C) {
 	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
 	err := client.SetModelSecretBackend(context.Background(), "backend-id")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *modelconfigSuite) TestBestAPIVersion(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockFacadeCaller := basemocks.NewMockFacadeCaller(ctrl)
+	mockFacadeCaller.EXPECT().BestAPIVersion().Return(4)
+	client := modelconfig.NewClientFromCaller(mockFacadeCaller)
+	result := client.BestAPIVersion()
+	c.Assert(result, gc.Equals, 4)
 }
