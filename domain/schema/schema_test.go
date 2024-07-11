@@ -184,6 +184,7 @@ func (s *schemaSuite) TestControllerTables(c *gc.C) {
 
 		// macaroon bakery
 		"bakery_config",
+		"macaroon_root_key",
 	)
 	got := readEntityNames(c, s.DB(), "table")
 	wanted := expected.Union(internalTableNames)
