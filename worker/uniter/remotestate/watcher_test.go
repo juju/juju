@@ -18,13 +18,12 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
+	testing "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type WatcherSuite struct {
-	coretesting.BaseSuite
+	testing.BaseSuite
 
 	modelType                    model.ModelType
 	sidecar                      bool
@@ -411,7 +410,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 	}
 	select {
 	case s.runningStatusWatcher.changes <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("timeout waiting to post running status change")
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
@@ -447,7 +446,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 	}
 	select {
 	case s.runningStatusWatcher.changes <- struct{}{}:
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatal("timeout waiting to post running status change")
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
@@ -1025,12 +1024,12 @@ func (s *WatcherSuite) TestUpdateStatusIntervalChanges(c *gc.C) {
 // for a specific number is very likely to start failing intermittently
 // again, as in lp:1604955, if the SUT undergoes even subtle changes.
 func (s *WatcherSuite) waitAlarmsStable(c *gc.C) {
-	timeout := time.After(coretesting.LongWait)
+	timeout := time.After(testing.LongWait)
 	for i := 0; ; i++ {
 		c.Logf("waiting for alarm %d", i)
 		select {
 		case <-s.clock.Alarms():
-		case <-time.After(coretesting.ShortWait):
+		case <-time.After(testing.ShortWait):
 			return
 		case <-timeout:
 			c.Fatalf("never stopped setting alarms")
