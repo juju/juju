@@ -45,6 +45,13 @@ func (s *stateSuite) TestGetCharmIDByRevision(c *gc.C) {
 	c.Check(charmID, gc.Equals, id)
 }
 
+func (s *stateSuite) TestGetCharmIDByRevisionWithNoCharm(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	_, err := st.GetCharmIDByRevision(context.Background(), "foo", 0)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
 func (s *stateSuite) TestIsControllerCharmWithNoCharm(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 

@@ -52,6 +52,10 @@ func decodeManifest(manifests []charmManifest) (charm.Manifest, error) {
 		}
 	}
 
+	if len(bases) == 0 {
+		return charm.Manifest{}, nil
+	}
+
 	// Convert the map into a slice using the largest index as the length. This
 	// means that we preserved the order of the bases even faced with holes in
 	// the array.
