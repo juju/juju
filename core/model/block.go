@@ -3,7 +3,8 @@
 
 package model
 
-// BlockType values define model block type.
+// BlockType values define model block type, which can be used to prevent
+// accidental damage to Juju deployments.
 type BlockType string
 
 const (
