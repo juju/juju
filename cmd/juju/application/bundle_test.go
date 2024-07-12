@@ -192,7 +192,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidBaseWithoutForce(c *
 
 func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidBaseWithForce(c *gc.C, force bool) {
 	dir := c.MkDir()
-	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "dummy")
+	charmDir := testcharms.RepoWithSeries("bionic").CharmArchive(dir, "dummy")
 
 	dummyURL := charm.MustParseURL("local:dummy-1")
 	withLocalCharmDeployable(s.fakeAPI, dummyURL, charmDir, force)
@@ -205,13 +205,13 @@ func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidBaseWithForce(c *g
 	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
 
 	path := filepath.Join(dir, "mybundle")
-	data := `
+	data := fmt.Sprintf(`
         default-base: ubuntu@12.10
         applications:
             dummy:
-                charm: ./dummy
+                charm: %s
                 num_units: 1
-    `
+    `, charmDir.Path)
 	err := os.WriteFile(path, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 	deployArgs := []string{path}
@@ -224,7 +224,7 @@ func (s *BundleDeploySuite) assertDeployBundleLocalPathInvalidBaseWithForce(c *g
 
 func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidJujuBase(c *gc.C) {
 	dir := c.MkDir()
-	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "jammyonly")
+	charmDir := testcharms.RepoWithSeries("bionic").CharmArchive(dir, "jammyonly")
 
 	curl := charm.MustParseURL("local:jammyonly-1")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
@@ -237,13 +237,13 @@ func (s *BundleDeploySuite) TestDeployBundleLocalPathInvalidJujuBase(c *gc.C) {
 	s.fakeAPI.Call("Status", args).Returns(&params.FullStatus{}, nil)
 
 	path := filepath.Join(dir, "mybundle")
-	data := `
+	data := fmt.Sprintf(`
         default-base: ubuntu@20.04
         applications:
             jammyonly:
-                charm: ./jammyonly
+                charm: %s
                 num_units: 1
-    `
+    `, charmDir.Path)
 	err := os.WriteFile(path, []byte(data), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -340,8 +340,8 @@ func (s *BundleDeploySuite) TestDeployBundleErrors(c *gc.C) {
 
 func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadConfig(c *gc.C) {
 	charmsPath := c.MkDir()
-	mysqlPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "mysql")
-	wordpressPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(charmsPath, "wordpress")
+	mysqlPath := testcharms.RepoWithSeries("bionic").CharmArchivePath(charmsPath, "mysql")
+	wordpressPath := testcharms.RepoWithSeries("bionic").CharmArchivePath(charmsPath, "wordpress")
 	err := s.DeployBundleYAML(c, fmt.Sprintf(`
        default-base: ubuntu@16.04
        applications:
@@ -360,7 +360,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadConfig(c *gc.C) {
 
 func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
 	charmsPath := c.MkDir()
-	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "lxd-profile")
+	charmDir := testcharms.RepoWithSeries("bionic").CharmArchive(charmsPath, "lxd-profile")
 
 	curl := charm.MustParseURL("local:lxd-profile-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
@@ -384,7 +384,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentLXDProfile(c *gc.C) {
 
 func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadLXDProfile(c *gc.C) {
 	charmsPath := c.MkDir()
-	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "lxd-profile-fail")
+	charmDir := testcharms.RepoWithSeries("bionic").CharmArchive(charmsPath, "lxd-profile-fail")
 
 	curl := charm.MustParseURL("local:lxd-profile-fail-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
@@ -409,7 +409,7 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadLXDProfile(c *gc.C
 
 func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentBadLXDProfileWithForce(c *gc.C) {
 	charmsPath := c.MkDir()
-	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "lxd-profile-fail")
+	charmDir := testcharms.RepoWithSeries("bionic").CharmArchive(charmsPath, "lxd-profile-fail")
 
 	curl := charm.MustParseURL("local:lxd-profile-fail-0")
 	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, true)
@@ -449,8 +449,8 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *
 		jc.ErrorIsNil)
 
 	charmsPath := c.MkDir()
-	mysqlDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "mysql")
-	wordpressDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "wordpress")
+	mysqlDir := testcharms.RepoWithSeries("bionic").CharmArchive(charmsPath, "mysql")
+	wordpressDir := testcharms.RepoWithSeries("bionic").CharmArchive(charmsPath, "wordpress")
 
 	mysqlURL := charm.MustParseURL("local:mysql-1")
 	wordpressURL := charm.MustParseURL("local:wordpress-3")
@@ -504,15 +504,15 @@ func (s *BundleDeploySuite) TestDeployBundleLocalDeploymentWithBundleOverlay(c *
 
 func (s *BundleDeploySuite) TestDeployLocalBundleWithRelativeCharmPaths(c *gc.C) {
 	bundleDir := c.MkDir()
-	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(bundleDir, "dummy")
+	charmDir := testcharms.RepoWithSeries("bionic").CharmArchive(bundleDir, "dummy")
 
 	bundleFile := filepath.Join(bundleDir, "bundle.yaml")
-	bundleContent := `
+	bundleContent := fmt.Sprintf(`
 default-base: ubuntu@20.04
 applications:
  dummy:
-   charm: ./dummy
-`
+   charm: %s
+`, charmDir.Path)
 	c.Assert(
 		os.WriteFile(bundleFile, []byte(bundleContent), 0644),
 		jc.ErrorIsNil)
@@ -534,7 +534,7 @@ applications:
 func (s *BundleDeploySuite) TestDeployBundleLocalAndCharmhubCharms(c *gc.C) {
 	charmsPath := c.MkDir()
 	wordpressDir := s.setupCharm(c, "ch:wordpress-1", "wordpress", base.MustParseBaseFromString("ubuntu@20.04"))
-	mysqlDir := testcharms.RepoWithSeries("bionic").ClonedDir(charmsPath, "mysql")
+	mysqlDir := testcharms.RepoWithSeries("bionic").CharmArchive(charmsPath, "mysql")
 	mysqlURL := charm.MustParseURL("local:mysql-1")
 	wordpressURL := charm.MustParseURL("ch:wordpress-1")
 	withLocalCharmDeployable(s.fakeAPI, mysqlURL, mysqlDir, false)

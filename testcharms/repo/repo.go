@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/juju/utils/v4/fs"
 
@@ -121,7 +122,7 @@ func (r *CharmRepo) ClonedDir(dst, name string) *charm.CharmDir {
 // in the directory dst, created from the charm directory named name.
 func (r *CharmRepo) CharmArchivePath(dst, name string) string {
 	dir := r.CharmDir(name)
-	path := filepath.Join(dst, "archive.charm")
+	path := filepath.Join(dst, fmt.Sprintf("archive-%s.charm", time.Now().Format(time.RFC3339Nano)))
 	file, err := os.Create(path)
 	check(err)
 	defer func() { _ = file.Close() }()
