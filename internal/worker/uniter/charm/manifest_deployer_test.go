@@ -18,9 +18,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/charm"
 	"github.com/juju/juju/internal/worker/uniter/charm/mocks"
-	"github.com/juju/juju/testing"
 )
 
 type ManifestDeployerSuite struct {

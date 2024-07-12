@@ -32,8 +32,8 @@ import (
 	"github.com/juju/juju/internal/container/broker"
 	"github.com/juju/juju/internal/container/broker/mocks"
 	"github.com/juju/juju/internal/container/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

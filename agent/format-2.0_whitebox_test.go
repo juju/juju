@@ -20,7 +20,7 @@ import (
 	agentconstants "github.com/juju/juju/agent/constants"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type format_2_0Suite struct {

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	corecrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type crossmodelSuite struct {

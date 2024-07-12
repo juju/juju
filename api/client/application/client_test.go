@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 const newBranchName = "new-branch"

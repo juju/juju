@@ -10,7 +10,7 @@ import (
 )
 
 // Dear Reader,
-// You have found your way here because you imported github.com/juju/juju/testing
+// You have found your way here because you imported github.com/juju/juju/internal/testing
 // into code that found its way into a non-test binary.
 // This is bad. Please don't use test code inside a juju binary.
 

@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/internal/provider/azure"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type storageSuite struct {

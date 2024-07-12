@@ -18,7 +18,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/internal/mongo"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type StorageSuite struct {

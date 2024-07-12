@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/internal/provider/ec2"
 	ec2test "github.com/juju/juju/internal/provider/ec2/internal/testing"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type ebsSuite struct {

@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/ec2"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type SecurityGroupSuite struct {

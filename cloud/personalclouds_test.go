@@ -10,8 +10,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/testing"
 )
 
 type personalCloudSuite struct {

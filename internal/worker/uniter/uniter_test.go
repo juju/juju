@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/charm/hooks"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/uniter"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
@@ -32,7 +33,6 @@ import (
 	contextmocks "github.com/juju/juju/internal/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type UniterSuite struct {

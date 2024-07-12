@@ -13,10 +13,10 @@ import (
 	"github.com/juju/juju/core/base"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/internal/provider/lxd"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation"
 	"github.com/juju/juju/internal/upgrades/upgradevalidation/mocks"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 func makeBases(os string, vers []string) []state.Base {

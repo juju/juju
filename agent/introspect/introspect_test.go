@@ -26,7 +26,7 @@ import (
 
 	"github.com/juju/juju/agent/config"
 	"github.com/juju/juju/agent/introspect"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type IntrospectCommandSuite struct {

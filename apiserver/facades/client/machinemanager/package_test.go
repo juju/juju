@@ -6,7 +6,7 @@ package machinemanager_test
 import (
 	"testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package machinemanager_test -destination package_mock_test.go github.com/juju/juju/apiserver/facades/client/machinemanager Leadership,Authorizer,ControllerBackend,InstanceConfigBackend,Backend,StorageInterface,Pool,Model,Machine,Application,Unit,Charm,CharmhubClient,ControllerConfigService,MachineService,NetworkService

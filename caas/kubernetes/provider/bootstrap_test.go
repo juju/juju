@@ -41,8 +41,8 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	"github.com/juju/juju/internal/featureflag"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

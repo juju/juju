@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 

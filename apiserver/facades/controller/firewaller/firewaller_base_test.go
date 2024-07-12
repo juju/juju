@@ -19,11 +19,11 @@ import (
 	"github.com/juju/juju/core/instance"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 // firewallerBaseSuite implements common testing suite for all API

@@ -25,8 +25,8 @@ import (
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/servicefactory"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/logsink"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {

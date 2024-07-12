@@ -27,8 +27,8 @@ import (
 	dqlitetesting "github.com/juju/juju/internal/database/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/apiserver"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/httpserver"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type workerFixture struct {

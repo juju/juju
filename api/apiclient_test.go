@@ -41,10 +41,10 @@ import (
 	"github.com/juju/juju/core/network"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	proxy "github.com/juju/juju/internal/proxy/config"
+	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
-	jtesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

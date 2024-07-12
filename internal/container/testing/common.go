@@ -18,9 +18,9 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/container"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testing"
 )
 
 func MockMachineConfig(machineId string) (*instancecfg.InstanceConfig, error) {

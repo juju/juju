@@ -11,11 +11,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm/hooks"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
-	"github.com/juju/juju/testing"
 )
 
 type ResolverOpFactorySuite struct {

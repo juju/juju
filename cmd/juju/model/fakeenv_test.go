@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/api"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 // ModelConfig related fake environment for testing.

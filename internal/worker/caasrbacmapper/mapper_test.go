@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasrbacmapper"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type MapperSuite struct {

@@ -8,7 +8,7 @@ import (
 
 	gc "gopkg.in/check.v1"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package pinger -destination clock_mock_test.go github.com/juju/clock Clock,Timer

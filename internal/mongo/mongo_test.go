@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/internal/packaging"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/snap"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type MongoSuite struct {

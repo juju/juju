@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/internal/docker/registry"
 	registrymocks "github.com/juju/juju/internal/docker/registry/mocks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager"
 	"github.com/juju/juju/internal/worker/caasmodelconfigmanager/mocks"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&workerSuite{})

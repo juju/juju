@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/apiserver/logsink"
 	"github.com/juju/juju/apiserver/logsink/mocks"
 	"github.com/juju/juju/apiserver/websocket/websockettest"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var shortAttempt = &utils.AttemptStrategy{

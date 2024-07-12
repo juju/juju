@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/migration"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/migrationmaster"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ValidateSuite struct {

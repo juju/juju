@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/internal/cloudconfig/cloudinit/cloudinittest"
 	"github.com/juju/juju/internal/cloudconfig/providerinit/renderers"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type RenderersSuite struct {

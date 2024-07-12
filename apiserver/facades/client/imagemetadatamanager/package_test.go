@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	imagetesting "github.com/juju/juju/environs/imagemetadata/testing"
 	"github.com/juju/juju/environs/simplestreams"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	coretesting "github.com/juju/juju/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package imagemetadatamanager_test -destination service_mock_test.go github.com/juju/juju/apiserver/facades/client/imagemetadatamanager ModelConfigService

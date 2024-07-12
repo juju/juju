@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type bootstrapSuite struct {

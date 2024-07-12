@@ -18,9 +18,9 @@ import (
 
 	"github.com/juju/juju/internal/featureflag"
 	"github.com/juju/juju/internal/logger"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
 )
 
 type HubWatcherSuite struct {

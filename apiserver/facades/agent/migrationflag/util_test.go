@@ -8,9 +8,9 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/migration"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // agentAuth implements facade.Authorizer for use in the tests.

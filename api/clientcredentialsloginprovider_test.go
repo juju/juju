@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coretesting "github.com/juju/juju/internal/testing"
+	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
-	jtesting "github.com/juju/juju/testing"
 )
 
 type clientCredentialsLoginProviderProviderSuite struct {

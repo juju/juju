@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/internal/pubsub/apiserver"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/pubsub/forwarder"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/presence"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type PresenceSuite struct {

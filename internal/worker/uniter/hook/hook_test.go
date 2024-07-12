@@ -8,8 +8,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm/hooks"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
-	"github.com/juju/juju/testing"
 )
 
 type InfoSuite struct {

@@ -25,8 +25,8 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/internal/provider/oci"
 	ocitesting "github.com/juju/juju/internal/provider/oci/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 var clk = testclock.NewClock(time.Time{})

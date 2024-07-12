@@ -21,7 +21,7 @@ import (
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 	"github.com/juju/juju/internal/packaging/commands"
 	"github.com/juju/juju/internal/packaging/manager"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type initialiserTestSuite struct {

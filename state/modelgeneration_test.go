@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 const (

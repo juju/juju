@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	containerlxd "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/lxd"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type environInstSuite struct {

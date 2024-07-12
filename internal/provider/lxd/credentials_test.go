@@ -24,8 +24,8 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	containerLXD "github.com/juju/juju/internal/container/lxd"
 	"github.com/juju/juju/internal/provider/lxd"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
-	coretesting "github.com/juju/juju/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package lxd -destination net_mock_test.go net Addr

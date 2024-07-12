@@ -16,10 +16,10 @@ import (
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/secretexpire"
 	"github.com/juju/juju/internal/worker/secretexpire/mocks"
 	rotatemocks "github.com/juju/juju/internal/worker/secretrotate/mocks"
-	"github.com/juju/juju/testing"
 )
 
 type workerSuite struct {

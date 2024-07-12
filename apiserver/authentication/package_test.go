@@ -6,7 +6,7 @@ package authentication_test
 import (
 	"testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 func TestAll(t *testing.T) {

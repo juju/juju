@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/cmd/jujud-controller/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud-controller/agent/machine"
 	"github.com/juju/juju/cmd/jujud-controller/agent/model"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 var (

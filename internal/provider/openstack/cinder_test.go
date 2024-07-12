@@ -25,7 +25,7 @@ import (
 	"github.com/juju/juju/internal/provider/common/mocks"
 	"github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 const (

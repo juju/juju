@@ -18,9 +18,9 @@ import (
 	"github.com/juju/juju/core/presence"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/controller"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/lease"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
 )
 
 type sharedServerContextSuite struct {

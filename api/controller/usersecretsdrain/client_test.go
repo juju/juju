@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/api/controller/usersecretsdrain"
 	"github.com/juju/juju/api/controller/usersecretsdrain/mocks"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 var _ = gc.Suite(&userSecretsdrainSuite{})

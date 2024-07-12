@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/internal/testing/factory"
 )
 
 type ControllerUserSuite struct {

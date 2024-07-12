@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/internal/provider/azure/internal/azureauth"
 	"github.com/juju/juju/internal/provider/azure/internal/azurecli"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type environProviderSuite struct {

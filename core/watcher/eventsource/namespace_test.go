@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/database/schema"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 var _ watcher.StringsWatcher = &NamespaceWatcher{}

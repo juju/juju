@@ -28,8 +28,8 @@ import (
 	"github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/packaging/commands"
 	pacconfig "github.com/juju/juju/internal/packaging/config"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/proxyupdater"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ProxyUpdaterSuite struct {

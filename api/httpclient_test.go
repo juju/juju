@@ -19,9 +19,9 @@ import (
 
 	"github.com/juju/juju/api"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 

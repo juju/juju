@@ -16,8 +16,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/logsender"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type LogSenderSuite struct {

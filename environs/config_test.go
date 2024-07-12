@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	_ "github.com/juju/juju/internal/provider/manual"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type suite struct {

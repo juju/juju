@@ -18,9 +18,9 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/network"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiaddressupdater"
 	"github.com/juju/juju/internal/worker/apiaddressupdater/mocks"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type APIAddressUpdaterSuite struct {

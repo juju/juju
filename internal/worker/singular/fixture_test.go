@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/lease"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/singular"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type fixture struct {

@@ -16,8 +16,8 @@ import (
 
 	"github.com/juju/juju/core/trace"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	jujujujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/leaseexpiry"
-	jujujujutesting "github.com/juju/juju/testing"
 )
 
 type workerSuite struct {

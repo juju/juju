@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/internal/pubsub/apiserver"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/machine_mock.go github.com/juju/juju/cmd/jujud-controller/agent CommandRunner

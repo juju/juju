@@ -17,8 +17,8 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
+	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	jtesting "github.com/juju/juju/testing"
 )
 
 type mockState struct {

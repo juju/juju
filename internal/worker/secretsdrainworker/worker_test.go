@@ -21,9 +21,9 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jujusecrets "github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/secretsdrainworker"
 	"github.com/juju/juju/internal/worker/secretsdrainworker/mocks"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type workerSuite struct {

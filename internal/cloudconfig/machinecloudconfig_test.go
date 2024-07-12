@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/cloudconfig"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type fromHostSuite struct {

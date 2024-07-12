@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/cmd/juju/machine"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type FlagsSuite struct {

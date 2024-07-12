@@ -11,7 +11,7 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type MultiModelRunnerSuite struct {

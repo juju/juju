@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/dummy"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades"
 	jworker "github.com/juju/juju/internal/worker"
@@ -48,7 +49,6 @@ import (
 	"github.com/juju/juju/internal/worker/machiner"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

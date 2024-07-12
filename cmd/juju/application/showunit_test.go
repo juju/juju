@@ -15,9 +15,9 @@ import (
 
 	apiapplication "github.com/juju/juju/api/client/application"
 	"github.com/juju/juju/cmd/juju/application"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type ShowUnitSuite struct {

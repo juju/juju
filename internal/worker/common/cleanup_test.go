@@ -11,8 +11,8 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/common"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type cleanupSuite struct {

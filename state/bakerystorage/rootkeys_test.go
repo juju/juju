@@ -14,7 +14,7 @@ import (
 	mgotesting "github.com/juju/mgo/v3/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type RootKeySuite struct {

@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/storage"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ConfigSuite struct {

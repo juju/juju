@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/api/common/secretsdrain"
 	"github.com/juju/juju/api/common/secretsdrain/mocks"
 	coresecrets "github.com/juju/juju/core/secrets"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&secretsDrainSuite{})

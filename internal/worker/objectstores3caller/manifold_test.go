@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	"github.com/juju/juju/internal/s3client"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type manifoldSuite struct {

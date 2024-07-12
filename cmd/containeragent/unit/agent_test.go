@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/cmd/containeragent/unit"
 	utilsmocks "github.com/juju/juju/cmd/containeragent/utils/mocks"
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/logsender"
 	jnames "github.com/juju/juju/juju/names"
-	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

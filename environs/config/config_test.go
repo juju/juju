@@ -23,8 +23,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/featureflag"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

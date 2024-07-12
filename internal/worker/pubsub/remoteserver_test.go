@@ -22,9 +22,9 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pubsub/centralhub"
 	"github.com/juju/juju/internal/pubsub/forwarder"
+	coretesting "github.com/juju/juju/internal/testing"
 	psworker "github.com/juju/juju/internal/worker/pubsub"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type RemoteServerSuite struct {

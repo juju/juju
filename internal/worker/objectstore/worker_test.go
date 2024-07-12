@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/testing"
 )
 
 type workerSuite struct {

@@ -19,9 +19,9 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type crossmodelMockSuite struct {

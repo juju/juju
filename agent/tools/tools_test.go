@@ -15,8 +15,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/internal/testing"
 	coretest "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/testing"
 )
 
 type ToolsImportSuite struct {

@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 func (s *environSuite) TestSupportsInstanceRole(c *gc.C) {

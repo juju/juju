@@ -50,10 +50,10 @@ import (
 	"github.com/juju/juju/internal/provider/azure/internal/armtemplates"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
 	jujustorage "github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testing"
 )
 
 var (

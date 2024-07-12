@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type podcfgSuite struct {

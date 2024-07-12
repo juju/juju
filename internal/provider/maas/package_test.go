@@ -16,8 +16,8 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/keys"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 

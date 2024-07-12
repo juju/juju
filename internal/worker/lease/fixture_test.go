@@ -15,8 +15,8 @@ import (
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/trace"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/lease"
-	coretesting "github.com/juju/juju/testing"
 )
 
 const (

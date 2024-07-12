@@ -16,8 +16,8 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/internal/mongo"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/peergrouper"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type oplogSuite struct {

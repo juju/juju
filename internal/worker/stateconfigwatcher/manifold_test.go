@@ -19,8 +19,8 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/stateconfigwatcher"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {

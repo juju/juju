@@ -29,11 +29,11 @@ import (
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
 	stateerrors "github.com/juju/juju/state/errors"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&MachineManagerSuite{})

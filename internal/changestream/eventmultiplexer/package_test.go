@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	domaintesting "github.com/juju/juju/domain/schema/testing"
-	jujutesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package eventmultiplexer -destination change_mock_test.go github.com/juju/juju/core/changestream Term

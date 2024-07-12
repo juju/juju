@@ -9,7 +9,7 @@ import (
 	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas/kubernetes/provider/storage"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type storageSuite struct {

@@ -18,7 +18,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coredatabase "github.com/juju/juju/core/database"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 // Ensure that the trackedDBWorker is a killableWorker.

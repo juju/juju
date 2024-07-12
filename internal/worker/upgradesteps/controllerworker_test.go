@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher/watchertest"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgradesteps"
-	"github.com/juju/juju/testing"
 )
 
 type controllerWorkerSuite struct {

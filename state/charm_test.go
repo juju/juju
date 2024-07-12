@@ -18,9 +18,9 @@ import (
 
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing/factory"
 )
 
 // TODO (hml) lxd-profile

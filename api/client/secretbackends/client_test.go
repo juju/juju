@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/secretbackends"
 	"github.com/juju/juju/core/status"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&SecretBackendsSuite{})

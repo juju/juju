@@ -19,8 +19,8 @@ import (
 
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/api/base"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/singular"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {

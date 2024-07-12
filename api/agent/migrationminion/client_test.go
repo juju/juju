@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/api/agent/migrationminion"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/migration"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ClientSuite struct {

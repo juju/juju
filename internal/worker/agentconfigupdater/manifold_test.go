@@ -24,11 +24,11 @@ import (
 	coretrace "github.com/juju/juju/core/trace"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/agentconfigupdater"
 	"github.com/juju/juju/internal/worker/trace"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type AgentConfigUpdaterSuite struct {

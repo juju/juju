@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/testing"
 )
 
 type buildSuite struct {

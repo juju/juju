@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/domain/controllerconfig/service"
 	domainstate "github.com/juju/juju/domain/controllerconfig/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	jujutesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type controllerconfigSuite struct {

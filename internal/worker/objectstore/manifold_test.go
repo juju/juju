@@ -20,7 +20,7 @@ import (
 	controllerconfigservice "github.com/juju/juju/domain/controllerconfig/service"
 	internalobjectstore "github.com/juju/juju/internal/objectstore"
 	"github.com/juju/juju/internal/servicefactory"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type manifoldSuite struct {

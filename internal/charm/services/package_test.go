@@ -6,7 +6,7 @@ package services_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package services -destination interface_mocks_test.go github.com/juju/juju/internal/charm/services StateBackend,ModelBackend,Storage,UploadedCharm

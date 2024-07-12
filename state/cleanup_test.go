@@ -26,11 +26,11 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	corestorage "github.com/juju/juju/internal/storage"
+	jujutesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/testing"
-	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type CleanupSuite struct {

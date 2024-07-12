@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/api/agent/retrystrategy"
 	"github.com/juju/juju/api/base/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type retryStrategySuite struct {

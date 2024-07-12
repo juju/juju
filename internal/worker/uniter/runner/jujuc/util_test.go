@@ -11,9 +11,9 @@ import (
 
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc/jujuctesting"
-	"github.com/juju/juju/testing"
 )
 
 const (

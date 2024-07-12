@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
+	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/testcharms/repo"
-	jtesting "github.com/juju/juju/testing"
 )
 
 const (

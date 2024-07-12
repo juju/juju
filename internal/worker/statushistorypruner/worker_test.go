@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/pruner"
 	"github.com/juju/juju/internal/worker/pruner/mocks"
 	"github.com/juju/juju/internal/worker/statushistorypruner"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type PrunerSuite struct{}

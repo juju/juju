@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/core/trace"
 	jujuhttp "github.com/juju/juju/internal/http"
 	"github.com/juju/juju/internal/rpcreflect"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
-	"github.com/juju/juju/testing"
 )
 
 // Server represents a fake API server. It must be closed

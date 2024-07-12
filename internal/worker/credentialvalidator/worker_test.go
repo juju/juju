@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/credentialvalidator"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WorkerSuite struct {

@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/cmd/jujud/reboot"
 	"github.com/juju/juju/cmd/jujud/reboot/mocks"
 	"github.com/juju/juju/environs/instances"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type NewRebootSuite struct {

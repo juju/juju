@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller/crosscontroller"
 	"github.com/juju/juju/core/crossmodel"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/externalcontrollerupdater"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&ExternalControllerUpdaterSuite{})

@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type charmSuite struct {

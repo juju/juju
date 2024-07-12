@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/network/ssh"
 	sshtesting "github.com/juju/juju/internal/network/ssh/testing"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type SSHReachableHostPortSuite struct {

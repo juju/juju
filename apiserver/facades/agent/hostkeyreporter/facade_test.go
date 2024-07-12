@@ -13,9 +13,9 @@ import (
 
 	"github.com/juju/juju/apiserver/facades/agent/hostkeyreporter"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type facadeSuite struct {

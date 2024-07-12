@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/core/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 var _ = gc.Suite(&ModelFirewallRulesWatcherSuite{})

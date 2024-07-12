@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit/cloudinittest"
 	"github.com/juju/juju/internal/provider/maas"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type RenderersSuite struct {

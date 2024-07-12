@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/status"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasenvironupgrader"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WorkerSuite struct {

@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/internal/provider/vsphere"
 	"github.com/juju/juju/internal/provider/vsphere/internal/ovatest"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type ProviderFixture struct {

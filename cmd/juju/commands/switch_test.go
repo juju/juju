@@ -15,10 +15,10 @@ import (
 
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	coretesting "github.com/juju/juju/internal/testing"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type SwitchSimpleSuite struct {

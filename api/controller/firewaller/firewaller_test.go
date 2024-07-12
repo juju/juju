@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/api/controller/firewaller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // NOTE: This suite is intended for embedding into other suites,

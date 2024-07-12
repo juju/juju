@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasoperatorupgrader"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&CAASProvisionerSuite{})
