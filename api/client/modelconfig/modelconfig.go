@@ -5,11 +5,13 @@ package modelconfig
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/constraints"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 )
@@ -116,6 +118,12 @@ func (c *Client) GetModelSecretBackend(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
+	if result.Error != nil {
+		if params.IsCodeModelNotFound(result.Error) {
+			return "", fmt.Errorf("%s%w", result.Error.Error(), errors.Hide(modelerrors.NotFound))
+		}
+		return "", params.TranslateWellKnownError(result.Error)
+	}
 	return result.Result, nil
 }
 
@@ -136,6 +144,9 @@ func (c *Client) SetModelSecretBackend(ctx context.Context, secretBackendName st
 		return errors.Trace(err)
 	}
 	if result.Error != nil {
+		if params.IsCodeModelNotFound(result.Error) {
+			return fmt.Errorf("%s%w", result.Error.Error(), errors.Hide(modelerrors.NotFound))
+		}
 		return params.TranslateWellKnownError(result.Error)
 	}
 	return nil

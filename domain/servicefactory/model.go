@@ -180,7 +180,6 @@ func (s *ModelFactory) ModelSecretBackend() *secretbackendservice.ModelSecretBac
 	)
 	return secretbackendservice.NewModelSecretBackendService(
 		s.modelUUID, state,
-		logger.Child("service"),
 	)
 }
 

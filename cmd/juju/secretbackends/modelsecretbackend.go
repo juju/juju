@@ -51,11 +51,11 @@ const (
 Sets or displays the secret backend for the current model.
 `
 	modelSecretBackendExamples = `
-Display the secret backend config for the current model:
+Display the secret backend for the current model:
 
    juju model-secret-backend
 
-Set the secret backend config to myVault:
+Set the secret backend to myVault for the current model:
 
    juju model-secret-backend myVault
 `
@@ -117,9 +117,9 @@ func (c *modelSecretBackendCommand) Run(ctx *cmd.Context) error {
 	if errors.Is(err, errors.NotSupported) {
 		return modelSecretBackendNotSupportedError
 	} else if errors.Is(err, secretbackenderrors.NotFound) {
-		return fmt.Errorf("secret backend %q does not exist", *c.secretBackendName)
+		return fmt.Errorf(`%w: consider to use "add-secret-backend" command to add %q to the controller first`, err, *c.secretBackendName)
 	} else if errors.Is(err, secretbackenderrors.NotValid) {
-		return fmt.Errorf("secret backend %q is not valid", *c.secretBackendName)
+		return fmt.Errorf(`%w: please use "auto" instead`, err)
 	}
 	return errors.Trace(err)
 }

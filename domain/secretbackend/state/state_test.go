@@ -1299,7 +1299,7 @@ func (s *stateSuite) TestSetModelSecretBackendBackendNotFound(c *gc.C) {
 	modelUUID := s.createModel(c, coremodel.IAAS)
 	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, "non-existing-backend-name")
 	c.Assert(err, jc.ErrorIs, backenderrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, `cannot get secret backend "non-existing-backend-name"`)
+	c.Assert(err, gc.ErrorMatches, `cannot get secret backend "non-existing-backend-name": secret backend not found`)
 }
 
 func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
@@ -1322,7 +1322,7 @@ func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, `cannot set secret backend "my-backend" for model "`+modelUUID.String()+`"`)
+	c.Assert(err, gc.ErrorMatches, `cannot set secret backend "my-backend" for model "`+modelUUID.String()+`": model not found`)
 }
 
 func (s *stateSuite) TestGetModelSecretBackendDetails(c *gc.C) {

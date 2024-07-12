@@ -45,8 +45,8 @@ func NewState(factory coredatabase.TxnRunnerFactory, logger logger.Logger) *Stat
 	}
 }
 
-// GetModelSecretBackendDetails is responsible for returning the backend
-// details for a given model uuid.
+// GetModelSecretBackendDetails is responsible for returning the backend details for a given model uuid,
+// returning an error satisfying [modelerrors.NotFound] if the model provided does not exist.
 func (s *State) GetModelSecretBackendDetails(ctx context.Context, uuid coremodel.UUID) (secretbackend.ModelSecretBackend, error) {
 	db, err := s.DB()
 	if err != nil {
@@ -70,10 +70,6 @@ WHERE  uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
 	})
 	if err != nil {
 		return secretbackend.ModelSecretBackend{}, errors.Trace(domain.CoerceError(err))
-	}
-	if !m.ModelType.IsValid() {
-		// This should never happen.
-		return secretbackend.ModelSecretBackend{}, fmt.Errorf("invalid model type for model %q", m.ModelName)
 	}
 	return secretbackend.ModelSecretBackend{
 		ControllerUUID:    m.ControllerUUID,
@@ -549,7 +545,7 @@ WHERE  model_uuid = $ModelSecretBackend.uuid`
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, secretBackendSelectStmt, backendInfo).Get(&backendInfo)
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("cannot get secret backend %q%w", backendInfo.SecretBackendName, errors.Hide(secretbackenderrors.NotFound))
+			return fmt.Errorf("cannot get secret backend %q: %w", backendInfo.SecretBackendName, secretbackenderrors.NotFound)
 		}
 		if err != nil {
 			return fmt.Errorf("cannot get secret backend %q: %w", backendInfo.SecretBackendName, err)
@@ -565,8 +561,8 @@ WHERE  model_uuid = $ModelSecretBackend.uuid`
 			return errors.Trace(err)
 		}
 		if affected == 0 {
-			return fmt.Errorf("cannot set secret backend %q for model %q%w",
-				backendInfo.SecretBackendName, backendInfo.ModelID, errors.Hide(modelerrors.NotFound),
+			return fmt.Errorf("cannot set secret backend %q for model %q: %w",
+				backendInfo.SecretBackendName, backendInfo.ModelID, modelerrors.NotFound,
 			)
 		}
 		return nil

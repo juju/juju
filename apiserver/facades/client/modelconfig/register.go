@@ -16,15 +16,15 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ModelConfig", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newFacadeV3(stdCtx, ctx)
+		return makeFacadeV3(stdCtx, ctx)
 	}, reflect.TypeOf((*ModelConfigAPIV3)(nil)))
 	registry.MustRegister("ModelConfig", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newFacade(stdCtx, ctx)
+		return makeFacade(stdCtx, ctx)
 	}, reflect.TypeOf((*ModelConfigAPI)(nil)))
 }
 
-// newFacade is used for API registration.
-func newFacade(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAPI, error) {
+// makeFacade is used for API registration.
+func makeFacade(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAPI, error) {
 	auth := ctx.Auth()
 
 	model, err := ctx.State().Model()
@@ -43,13 +43,14 @@ func newFacade(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAPI
 	}
 	return NewModelConfigAPI(
 		modelInfo.UUID,
-		NewStateBackend(model, configSchemaSourceGetter), modelSecretBackend, configService, auth,
+		NewStateBackend(model, configSchemaSourceGetter),
+		modelSecretBackend, configService, auth,
 	)
 }
 
-// newFacadeV3 is used for API registration.
-func newFacadeV3(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAPIV3, error) {
-	api, err := newFacade(stdCtx, ctx)
+// makeFacadeV3 is used for API registration.
+func makeFacadeV3(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAPIV3, error) {
+	api, err := makeFacade(stdCtx, ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

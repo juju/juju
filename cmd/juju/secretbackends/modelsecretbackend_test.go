@@ -87,17 +87,17 @@ func (s *modelSecretBackendCommandSuite) TestSetSecretBackendNotFound(c *gc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI), "myVault")
-	c.Assert(err, gc.ErrorMatches, `secret backend "myVault" does not exist`)
+	c.Assert(err, gc.ErrorMatches, `secret backend not found: consider to use "add-secret-backend" command to add "myVault" to the controller first`)
 }
 
 func (s *modelSecretBackendCommandSuite) TestSetSecretBackendNotValid(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.secretsAPI.EXPECT().SetModelSecretBackend(gomock.Any(), "myVault").Return(secretbackenderrors.NotValid)
+	s.secretsAPI.EXPECT().SetModelSecretBackend(gomock.Any(), "internal").Return(secretbackenderrors.NotValid)
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
-	_, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI), "myVault")
-	c.Assert(err, gc.ErrorMatches, `secret backend "myVault" is not valid`)
+	_, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI), "internal")
+	c.Assert(err, gc.ErrorMatches, `secret backend not valid: please use "auto" instead`)
 }
 
 func (s *modelSecretBackendCommandSuite) TestSetFailedEmptyBackendName(c *gc.C) {

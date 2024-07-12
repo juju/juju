@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secretbackend"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
@@ -1006,103 +1007,231 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	wC.AssertNoChange()
 }
 
-func (s *serviceSuite) TestGetModelSecretBackend(c *gc.C) {
+func (s *serviceSuite) TestGetModelSecretBackendFailedUnkownModelType(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	svc := NewModelSecretBackendService(
-		modelUUID, s.mockState, s.logger,
-	)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
-	gomock.InOrder(
-		s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-			SecretBackendName: "backend-name",
-			ModelType:         coremodel.CAAS,
-		}, nil),
-		s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-			SecretBackendName: "backend-name",
-			ModelType:         coremodel.IAAS,
-		}, nil),
-		s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-			SecretBackendName: "kubernetes",
-			ModelType:         coremodel.CAAS,
-		}, nil),
-		s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-			SecretBackendName: "internal",
-			ModelType:         coremodel.IAAS,
-		}, nil),
-	)
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
+		SecretBackendName: "backend-name",
+		ModelType:         "bad-type",
+	}, nil)
 
-	backendID, err := svc.GetModelSecretBackend(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(backendID, gc.Equals, "backend-name")
-
-	backendID, err = svc.GetModelSecretBackend(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(backendID, gc.Equals, "backend-name")
-
-	backendID, err = svc.GetModelSecretBackend(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(backendID, gc.Equals, "auto")
-
-	backendID, err = svc.GetModelSecretBackend(context.Background())
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(backendID, gc.Equals, "auto")
+	_, err := svc.GetModelSecretBackend(context.Background())
+	c.Assert(err, gc.ErrorMatches, `cannot get model secret backend for unsupported model type "bad-type" for model "`+modelUUID.String()+`"`)
 }
 
-func (s *serviceSuite) TestSetModelSecretBackend(c *gc.C) {
+func (s *serviceSuite) TestGetModelSecretBackendFailedModelNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	modelUUID := modeltesting.GenModelUUID(c)
-	svc := NewModelSecretBackendService(
-		modelUUID, s.mockState, s.logger,
-	)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
-	gomock.InOrder(
-		s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-			ModelType: coremodel.CAAS,
-		}, nil),
-		s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-name").Return(nil),
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{}, modelerrors.NotFound)
 
-		s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-			ModelType: coremodel.IAAS,
-		}, nil),
-		s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-name").Return(nil),
+	_, err := svc.GetModelSecretBackend(context.Background())
+	c.Assert(err, gc.ErrorMatches, `cannot get model secret backend detail for "`+modelUUID.String()+`": model not found`)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
 
-		s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-			ModelType: coremodel.CAAS,
-		}, nil),
-		s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "kubernetes").Return(nil),
+func (s *serviceSuite) TestGetModelSecretBackendCAAS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-		s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-			ModelType: coremodel.IAAS,
-		}, nil),
-		s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "internal").Return(nil),
-	)
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
+		SecretBackendName: "backend-name",
+		ModelType:         coremodel.CAAS,
+	}, nil)
+
+	backendID, err := svc.GetModelSecretBackend(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendID, gc.Equals, "backend-name")
+}
+
+func (s *serviceSuite) TestGetModelSecretBackendIAAS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
+		SecretBackendName: "backend-name",
+		ModelType:         coremodel.IAAS,
+	}, nil)
+
+	backendID, err := svc.GetModelSecretBackend(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendID, gc.Equals, "backend-name")
+}
+
+func (s *serviceSuite) TestGetModelSecretBackendCAASAuto(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
+		SecretBackendName: "kubernetes",
+		ModelType:         coremodel.CAAS,
+	}, nil)
+
+	backendID, err := svc.GetModelSecretBackend(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendID, gc.Equals, "auto")
+}
+
+func (s *serviceSuite) TestGetModelSecretBackendIAASAuto(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
+		SecretBackendName: "internal",
+		ModelType:         coremodel.IAAS,
+	}, nil)
+
+	backendID, err := svc.GetModelSecretBackend(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(backendID, gc.Equals, "auto")
+}
+
+func (s *serviceSuite) TestSetModelSecretBackendFailedEmptyBackendName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	err := svc.SetModelSecretBackend(context.Background(), "")
+	c.Assert(err, gc.ErrorMatches, `missing backend name`)
+}
+
+func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameKubernetes(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	err := svc.SetModelSecretBackend(context.Background(), "kubernetes")
+	c.Assert(err, gc.ErrorMatches, `secret backend name "kubernetes" not valid`)
+	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotValid)
+}
+
+func (s *serviceSuite) TestSetModelSecretBackendFailedReservedNameInternal(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	err := svc.SetModelSecretBackend(context.Background(), "internal")
+	c.Assert(err, gc.ErrorMatches, `secret backend name "internal" not valid`)
+	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotValid)
+}
+
+func (s *serviceSuite) TestSetModelSecretBackendFailedUnkownModelType(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
+		ModelType: "bad-type",
+	}, nil)
+
+	err := svc.SetModelSecretBackend(context.Background(), "auto")
+	c.Assert(err, gc.ErrorMatches, `cannot set model secret backend for unsupported model type "bad-type" for model "`+modelUUID.String()+`"`)
+}
+
+func (s *serviceSuite) TestSetModelSecretBackendFailedModelNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{}, modelerrors.NotFound)
+
+	err := svc.SetModelSecretBackend(context.Background(), "auto")
+	c.Assert(err, gc.ErrorMatches, `cannot get model secret backend detail for "`+modelUUID.String()+`": model not found`)
+	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
+}
+
+func (s *serviceSuite) TestSetModelSecretBackendFailedSecretBackendNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
+		ModelType: coremodel.CAAS,
+	}, nil)
+	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-name").Return(secretbackenderrors.NotFound)
 
 	err := svc.SetModelSecretBackend(context.Background(), "backend-name")
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, `cannot set model secret backend for "`+modelUUID.String()+`": secret backend not found`)
+	c.Assert(err, jc.ErrorIs, secretbackenderrors.NotFound)
+}
 
-	err = svc.SetModelSecretBackend(context.Background(), "backend-name")
-	c.Check(err, jc.ErrorIsNil)
+func (s *serviceSuite) TestSetModelSecretBackendCAAS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-	err = svc.SetModelSecretBackend(context.Background(), "auto")
-	c.Check(err, jc.ErrorIsNil)
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
 
-	err = svc.SetModelSecretBackend(context.Background(), "auto")
-	c.Check(err, jc.ErrorIsNil)
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
+		ModelType: coremodel.CAAS,
+	}, nil)
+	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-name").Return(nil)
 
-	err = svc.SetModelSecretBackend(context.Background(), "")
-	c.Check(err, gc.ErrorMatches, `missing backend name`)
-	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
+	err := svc.SetModelSecretBackend(context.Background(), "backend-name")
+	c.Assert(err, jc.ErrorIsNil)
+}
 
-	err = svc.SetModelSecretBackend(context.Background(), "kubernetes")
-	c.Check(err, gc.ErrorMatches, `secret backend name "kubernetes" not valid`)
-	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
+func (s *serviceSuite) TestSetModelSecretBackendIAAS(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-	err = svc.SetModelSecretBackend(context.Background(), "internal")
-	c.Check(err, gc.ErrorMatches, `secret backend name "internal" not valid`)
-	c.Check(err, jc.ErrorIs, secretbackenderrors.NotValid)
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
+		ModelType: coremodel.IAAS,
+	}, nil)
+	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "backend-name").Return(nil)
+
+	err := svc.SetModelSecretBackend(context.Background(), "backend-name")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetModelSecretBackendCAASAuto(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
+		ModelType: coremodel.CAAS,
+	}, nil)
+	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "kubernetes").Return(nil)
+
+	err := svc.SetModelSecretBackend(context.Background(), "auto")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestSetModelSecretBackendIAASAuto(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	modelUUID := modeltesting.GenModelUUID(c)
+	svc := NewModelSecretBackendService(modelUUID, s.mockState)
+
+	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
+		ModelType: coremodel.IAAS,
+	}, nil)
+	s.mockState.EXPECT().SetModelSecretBackend(gomock.Any(), modelUUID, "internal").Return(nil)
+
+	err := svc.SetModelSecretBackend(context.Background(), "auto")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *serviceSuite) assertGetSecretsToDrain(c *gc.C, backendID string, expectedRevisions ...RevisionInfo) {
