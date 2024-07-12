@@ -4,6 +4,8 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/domain/life"
@@ -75,8 +77,18 @@ type instanceID struct {
 // of the machine_status and the machine_cloud_instance_status tables) within
 // the sqlair statements in the machine domain.
 type machineInstanceStatus struct {
-	Name   machine.Name `db:"name"`
-	Status int          `db:"status"`
+	Status  int        `db:"status"`
+	Message string     `db:"message"`
+	Updated *time.Time `db:"updated_at"`
+}
+
+// machineInstanceStatusData represents the struct to be used for the status
+// data columns of the machine_status_data and the
+// machine_cloud_instance_status_data tables within the sqlair statements in the
+// machine domain.
+type machineInstanceStatusData struct {
+	Key  string `db:"key"`
+	Data string `db:"data"`
 }
 
 // machineName represents the struct to be used for the name column

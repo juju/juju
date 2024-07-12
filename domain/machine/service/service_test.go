@@ -14,6 +14,7 @@ import (
 
 	cmachine "github.com/juju/juju/core/machine"
 	corestatus "github.com/juju/juju/core/status"
+	status "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
@@ -239,11 +240,12 @@ func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *gc.C) {
 func (s *serviceSuite) TestGetMachineStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return(corestatus.Running, nil)
+	expectedStatus := status.StatusInfo{Status: corestatus.Running}
+	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return(expectedStatus, nil)
 
 	machineStatus, err := NewService(s.state).GetMachineStatus(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(machineStatus, gc.Equals, corestatus.Running)
+	c.Assert(machineStatus, gc.DeepEquals, expectedStatus)
 }
 
 // TestGetMachineStatusError asserts that an error coming from the state layer
@@ -252,11 +254,11 @@ func (s *serviceSuite) TestGetMachineStatusError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return("", rErr)
+	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return(status.StatusInfo{}, rErr)
 
 	machineStatus, err := NewService(s.state).GetMachineStatus(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIs, rErr)
-	c.Check(machineStatus, gc.Equals, corestatus.Status(""))
+	c.Check(machineStatus, gc.DeepEquals, status.StatusInfo{})
 }
 
 // TestSetMachineStatusSuccess asserts the happy path of the SetMachineStatus.

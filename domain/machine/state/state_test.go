@@ -181,13 +181,47 @@ func (s *stateSuite) TestGetMachineStatusSuccess(c *gc.C) {
 	// Add a status value for this machine into the
 	// machine_status table using the machineUUID and the status
 	// value 2 for "running" (from instance_status_values table).
-	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_status VALUES('123', '1')")
+	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_status VALUES('123', '1', 'started', '2024-07-12 12:00:00')")
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
-	expectedStatus := status.Started
+	expectedStatus := status.StatusInfo{Status: status.Started, Message: "started"}
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(obtainedStatus, gc.Equals, expectedStatus)
+	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
+	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
+}
+
+// TestGetMachineStatusWithData asserts the happy path of GetMachineStatus at
+// the state layer.
+func (s *stateSuite) TestGetMachineStatusSuccessWithData(c *gc.C) {
+	db := s.DB()
+
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a status value for this machine into the
+	// machine_status table using the machineUUID and the status
+	// value 2 for "running" (from instance_status_values table).
+	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_status VALUES('123', '1', 'started', '2024-07-12 12:00:00')")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add some status data for this machine into the machine_status_data table.
+	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_status_data VALUES('123', 'key', 'data')")
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
+	expectedStatus := status.StatusInfo{Status: status.Started, Message: "started", Data: map[string]interface{}{"key": "data"}}
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
+	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
+	c.Assert(obtainedStatus.Data, gc.DeepEquals, expectedStatus.Data)
+}
+
+// TestGetMachineStatusNotFoundError asserts that a NotFound error is returned
+// when the machine is not found.
+func (s *stateSuite) TestGetMachineStatusNotFoundError(c *gc.C) {
+	_, err := s.state.GetMachineStatus(context.Background(), "666")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 // TestGetMachineStatusNotSetError asserts that a StatusNotSet error is returned

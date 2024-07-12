@@ -50,6 +50,7 @@ type State interface {
 
 	// GetInstanceStatus returns the cloud specific instance status for this
 	// machine.
+	// It returns NotFound if the machine does not exist.
 	// It returns a StatusNotSet if the instance status is not set.
 	// Idempotent.
 	GetInstanceStatus(context.Context, machine.Name) (status.Status, error)
@@ -59,9 +60,10 @@ type State interface {
 	SetInstanceStatus(context.Context, machine.Name, status.Status) error
 
 	// GetMachineStatus returns the status of the specified machine.
+	// It returns NotFound if the machine does not exist.
 	// It returns a StatusNotSet if the status is not set.
 	// Idempotent.
-	GetMachineStatus(context.Context, machine.Name) (status.Status, error)
+	GetMachineStatus(context.Context, machine.Name) (status.StatusInfo, error)
 
 	// SetMachineStatus sets the status of the specified machine.
 	SetMachineStatus(context.Context, machine.Name, status.Status) error
@@ -171,6 +173,7 @@ func (s *Service) InstanceId(ctx context.Context, machineName machine.Name) (str
 
 // GetInstanceStatus returns the cloud specific instance status for this
 // machine.
+// It returns NotFound if the machine does not exist.
 // It returns a StatusNotSet if the instance status is not set.
 // Idempotent.
 func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (status.Status, error) {
@@ -196,12 +199,13 @@ func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Nam
 }
 
 // GetMachineStatus returns the status of the specified machine.
+// It returns NotFound if the machine does not exist.
 // It returns a StatusNotSet if the status is not set.
 // Idempotent.
-func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name) (status.Status, error) {
+func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
 	machineStatus, err := s.st.GetMachineStatus(ctx, machineName)
 	if err != nil {
-		return "", errors.Annotatef(err, "retrieving machine status for machine %q", machineName)
+		return status.StatusInfo{}, errors.Annotatef(err, "retrieving machine status for machine %q", machineName)
 	}
 	return machineStatus, nil
 }
