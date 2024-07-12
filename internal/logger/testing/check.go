@@ -42,7 +42,7 @@ func formatMsg(level, name, msg string) string {
 	if name == "" {
 		return fmt.Sprintf("%s: ", level) + msg
 	}
-	return fmt.Sprintf("%s: %s", level, name) + msg
+	return fmt.Sprintf("%s: %s ", level, name) + msg
 }
 
 func (c checkLogger) Criticalf(msg string, args ...any) {

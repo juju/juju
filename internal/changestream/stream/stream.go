@@ -292,7 +292,6 @@ func (s *Stream) loop() error {
 			watermarkTimer.Reset(jitter(defaultWatermarkInterval, 0.1))
 
 		default:
-
 			begin := s.clock.Now()
 			changes, err := s.readChanges()
 			if err != nil {
@@ -308,6 +307,12 @@ func (s *Stream) loop() error {
 				// we can do, so we just return an error.
 				return errors.Annotate(err, "reading change")
 			}
+
+			traceEnabled := s.logger.IsLevelEnabled(logger.TRACE)
+			if traceEnabled {
+				s.logger.Tracef("read %d changes", len(changes))
+			}
+
 			// We only want to record successful changes retrieve
 			// queries on the metrics.
 			s.metrics.ChangesRequestDurationObserve(s.clock.Now().Sub(begin).Seconds())
@@ -319,6 +324,11 @@ func (s *Stream) loop() error {
 				// stuttering and should allow use to coalesce in the large
 				// case when nothing is happening.
 				attempt++
+
+				if traceEnabled {
+					s.logger.Tracef("no changes, with attempt %d", attempt)
+				}
+
 				select {
 				case <-s.tomb.Dying():
 					return tomb.ErrDying
@@ -341,8 +351,6 @@ func (s *Stream) loop() error {
 
 				lower = int64(math.MaxInt64)
 				upper = int64(math.MinInt64)
-
-				traceEnabled = s.logger.IsLevelEnabled(logger.TRACE)
 			)
 			for _, change := range changes {
 				if traceEnabled {
@@ -368,6 +376,11 @@ func (s *Stream) loop() error {
 			// been completed. It is the responsibility of the consumer of the
 			// terms channel to ensure that the term is completed in the
 			// fastest possible time.
+
+			if traceEnabled {
+				s.logger.Tracef("term start: processing changes %d", len(changes))
+			}
+
 			select {
 			case <-s.tomb.Dying():
 				return tomb.ErrDying
@@ -412,6 +425,11 @@ func (s *Stream) loop() error {
 				// when there is less activity.
 				if empty {
 					attempt++
+
+					if traceEnabled {
+						s.logger.Tracef("empty term, with attempt %d", attempt)
+					}
+
 					select {
 					case <-s.tomb.Dying():
 						return tomb.ErrDying
@@ -423,6 +441,10 @@ func (s *Stream) loop() error {
 				// Reset the attempt counter if we get changes, so the
 				// back=off strategy is reset.
 				attempt = 0
+
+				if traceEnabled {
+					s.logger.Tracef("term done: processed changes %d", len(changes))
+				}
 			}
 		}
 	}

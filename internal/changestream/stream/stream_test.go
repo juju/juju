@@ -85,7 +85,7 @@ func (s *streamSuite) TestOneChange(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectFileNotifyWatcher()
-	s.expectAfterAnyTimes()
+	s.expectAnyAfterAnyTimes()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -123,7 +123,7 @@ func (s *streamSuite) TestOneChangeDoesNotRepeatSameChange(c *gc.C) {
 	defer close(done)
 
 	s.expectFileNotifyWatcher()
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
 	s.expectTimer()
 	s.expectClock()
@@ -179,7 +179,7 @@ func (s *streamSuite) TestOneChangeWithEmptyResults(c *gc.C) {
 	defer close(done)
 
 	s.expectFileNotifyWatcher()
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
 	s.expectTimer()
 	s.expectClock()
@@ -215,7 +215,7 @@ func (s *streamSuite) TestOneChangeWithClosedAbort(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectFileNotifyWatcher()
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -254,7 +254,7 @@ func (s *streamSuite) TestOneChangeWithDelayedTermDone(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectFileNotifyWatcher()
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -293,7 +293,7 @@ func (s *streamSuite) TestOneChangeWithTermDoneAfterKill(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectFileNotifyWatcher()
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -379,7 +379,7 @@ func (s *streamSuite) TestMultipleTerms(c *gc.C) {
 	defer close(done)
 
 	s.expectFileNotifyWatcher()
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
 	s.expectTimer()
 	s.expectClock()
@@ -484,7 +484,7 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.expectFileNotifyWatcher()
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -559,7 +559,7 @@ func (s *streamSuite) TestSecondTermDoesNotStartUntilFirstTermDone(c *gc.C) {
 func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectFileNotifyWatcher()
 	s.expectTimer()
 	s.expectClock()
@@ -619,7 +619,7 @@ func (s *streamSuite) TestMultipleChangesWithSameUUIDCoalesce(c *gc.C) {
 func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectFileNotifyWatcher()
 	s.expectTimer()
 	s.expectClock()
@@ -669,7 +669,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespaces(c *gc.C) {
 func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectFileNotifyWatcher()
 	s.expectTimer()
 	s.expectClock()
@@ -734,7 +734,7 @@ func (s *streamSuite) TestMultipleChangesWithNamespacesCoalesce(c *gc.C) {
 func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectFileNotifyWatcher()
 	s.expectTimer()
 	s.expectClock()
@@ -809,7 +809,7 @@ func (s *streamSuite) TestMultipleChangesWithNoNamespacesDoNotCoalesce(c *gc.C) 
 func (s *streamSuite) TestOneChangeIsBlockedByFile(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectTimer()
 	s.expectClock()
 	s.expectMetrics()
@@ -882,7 +882,7 @@ func (s *streamSuite) TestReport(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
@@ -981,7 +981,7 @@ func (s *streamSuite) TestWatermarkWrite(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
@@ -1045,7 +1045,7 @@ func (s *streamSuite) TestWatermarkWriteIsIgnored(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
@@ -1109,7 +1109,7 @@ func (s *streamSuite) TestWatermarkWriteUpdatesToTheLaterOne(c *gc.C) {
 	done := make(chan struct{})
 	defer close(done)
 
-	s.expectAfterAnyTimes()
+	s.expectTermAfterAnyTimes()
 	s.expectBackoffAnyTimes(done)
 	s.expectFileNotifyWatcher()
 	s.expectClock()
