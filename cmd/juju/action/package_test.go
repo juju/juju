@@ -24,8 +24,8 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
 )
 
 const (

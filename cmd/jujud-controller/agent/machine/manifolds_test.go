@@ -18,12 +18,12 @@ import (
 	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud-controller/agent/machine"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type ManifoldsSuite struct {

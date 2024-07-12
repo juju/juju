@@ -29,12 +29,12 @@ import (
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/featureflag"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing/factory"
 )
 
 type statusSuite struct {

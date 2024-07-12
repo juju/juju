@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	uniterapi "github.com/juju/juju/internal/worker/uniter/api"
 	runnercontext "github.com/juju/juju/internal/worker/uniter/runner/context"
@@ -31,7 +32,6 @@ import (
 	runnertesting "github.com/juju/juju/internal/worker/uniter/runner/testing"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var noProxies = proxy.Settings{}

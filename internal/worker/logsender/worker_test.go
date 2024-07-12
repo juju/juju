@@ -16,10 +16,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apilogsender "github.com/juju/juju/api/logsender"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/logsender"
 	"github.com/juju/juju/internal/worker/logsender/mocks"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type workerSuite struct {

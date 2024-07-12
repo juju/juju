@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/domain/servicefactory/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage/provider"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&CAASApplicationSuite{})

@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/status"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 const ETag = "eTag"

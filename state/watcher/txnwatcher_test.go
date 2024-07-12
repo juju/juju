@@ -20,8 +20,8 @@ import (
 	"gopkg.in/tomb.v2"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/testing"
 )
 
 type TxnWatcherSuite struct {

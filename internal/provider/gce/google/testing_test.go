@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	jujuhttp "github.com/juju/juju/internal/http"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type BaseSuite struct {

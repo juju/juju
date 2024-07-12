@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/tools"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

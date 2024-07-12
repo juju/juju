@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type machineConfigSuite struct {

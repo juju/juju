@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/core/permission"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	proxyfactory "github.com/juju/juju/internal/proxy/factory"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type Suite struct {

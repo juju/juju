@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/caas/kubernetes/provider/exec/mocks"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type termSizeSuite struct {

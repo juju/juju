@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/mocks"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

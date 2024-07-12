@@ -30,9 +30,9 @@ import (
 	"github.com/juju/juju/internal/migration"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type ImportSuite struct {

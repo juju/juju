@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/domain/controllerconfig/bootstrap"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	jujutesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type stateSuite struct {

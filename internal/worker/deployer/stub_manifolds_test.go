@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
-	"github.com/juju/juju/testing"
 )
 
 func (s *unitWorkersStub) Manifolds(config deployer.UnitManifoldsConfig) dependency.Manifolds {

@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/core/network"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/testing"
 )
 
 type errorsSuite struct {

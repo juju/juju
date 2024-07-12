@@ -21,8 +21,8 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	backendservice "github.com/juju/juju/domain/secretbackend/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type secretsDrainSuite struct {

@@ -14,7 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 var _ = gc.Suite(&ProvisionerWorkerPoolSuite{})

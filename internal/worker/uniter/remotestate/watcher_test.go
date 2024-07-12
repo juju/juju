@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type WatcherSuite struct {

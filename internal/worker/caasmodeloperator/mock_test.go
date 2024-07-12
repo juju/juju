@@ -7,7 +7,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/agent"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type mockAgentConfig struct {

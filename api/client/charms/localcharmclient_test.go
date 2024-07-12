@@ -19,9 +19,9 @@ import (
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/http/mocks"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

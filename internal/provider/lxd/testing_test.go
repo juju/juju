@@ -37,8 +37,8 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/providerinit"
 	"github.com/juju/juju/internal/container/lxd"
 	containerlxd "github.com/juju/juju/internal/container/lxd"
+	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

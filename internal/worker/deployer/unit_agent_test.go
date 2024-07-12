@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	jt "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
-	jt "github.com/juju/juju/testing"
 	jv "github.com/juju/juju/version"
 )
 

@@ -19,12 +19,12 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	stateerrors "github.com/juju/juju/state/errors"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 // NOTE: the testing of the general model destruction code

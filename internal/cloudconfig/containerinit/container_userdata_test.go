@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/containerinit"
 	"github.com/juju/juju/internal/container"
 	containertesting "github.com/juju/juju/internal/container/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 func Test(t *stdtesting.T) {

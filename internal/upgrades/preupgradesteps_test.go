@@ -7,8 +7,8 @@ import (
 	"github.com/dustin/go-humanize"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
-	"github.com/juju/juju/testing"
 )
 
 type preupgradechecksSuite struct {

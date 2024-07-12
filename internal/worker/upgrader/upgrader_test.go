@@ -30,12 +30,12 @@ import (
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/upgrader"
 	"github.com/juju/juju/internal/worker/upgrader/mocks"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

@@ -24,7 +24,7 @@ import (
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type serviceSuite struct {

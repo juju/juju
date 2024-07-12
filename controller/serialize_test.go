@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
-	jujutesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type EncodeToStringSuite struct {

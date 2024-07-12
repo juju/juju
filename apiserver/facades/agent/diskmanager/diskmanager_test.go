@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/diskmanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/blockdevice"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&DiskManagerSuite{})

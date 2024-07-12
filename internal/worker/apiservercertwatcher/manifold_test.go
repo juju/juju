@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/internal/pki"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiservercertwatcher"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {

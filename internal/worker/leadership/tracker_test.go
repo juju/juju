@@ -15,8 +15,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	coreleadership "github.com/juju/juju/core/leadership"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/leadership"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type TrackerSuite struct {

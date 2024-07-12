@@ -24,9 +24,9 @@ import (
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub/transport"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	statemocks "github.com/juju/juju/state/mocks"
-	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

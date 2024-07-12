@@ -13,8 +13,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/watcher"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/applicationscaler"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // fixture is used to test the operation of an applicationscaler worker.

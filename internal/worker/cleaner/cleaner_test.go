@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/cleaner"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type CleanerSuite struct {

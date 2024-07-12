@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/core/facades"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type facadeVersionSuite struct {

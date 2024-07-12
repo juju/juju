@@ -28,9 +28,9 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/featureflag"
 	_ "github.com/juju/juju/internal/provider/ec2"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type AddModelSuite struct {

@@ -14,8 +14,8 @@ import (
 	"github.com/juju/worker/v4"
 	gc "gopkg.in/check.v1"
 
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/fortress"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type FortressSuite struct {

@@ -25,9 +25,9 @@ import (
 	environsTesting "github.com/juju/juju/environs/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	_ "github.com/juju/juju/internal/provider/gce"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type addCredentialSuite struct {

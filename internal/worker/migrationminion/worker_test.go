@@ -26,10 +26,10 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/migrationminion"
 	"github.com/juju/juju/rpc"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var (

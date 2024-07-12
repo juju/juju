@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	coretesting "github.com/juju/juju/testing"
 )
 
 func fakeConfig(c *gc.C, attrs ...coretesting.Attrs) *config.Config {

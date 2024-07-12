@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/featureflag"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
 type ModelsFileSuite struct {

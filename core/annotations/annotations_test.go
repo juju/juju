@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujuannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type annotationsSuite struct {

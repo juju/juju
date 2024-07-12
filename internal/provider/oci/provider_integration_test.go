@@ -22,7 +22,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/oci"
 	ocitesting "github.com/juju/juju/internal/provider/oci/testing"
-	jujutesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type credentialsSuite struct {

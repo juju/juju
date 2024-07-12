@@ -29,7 +29,7 @@ import (
 	dqlitetesting "github.com/juju/juju/internal/database/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/network"
-	jujutesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type nodeManagerSuite struct {

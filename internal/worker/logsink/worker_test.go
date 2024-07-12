@@ -14,7 +14,7 @@ import (
 
 	corelogger "github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type ModelLoggerSuite struct {

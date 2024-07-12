@@ -31,13 +31,13 @@ import (
 	"github.com/juju/juju/internal/charm"
 	internalpassword "github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testing"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/mocks"
-	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 	jujuversion "github.com/juju/juju/version"
 )
 

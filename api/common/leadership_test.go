@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type LeadershipSuite struct {

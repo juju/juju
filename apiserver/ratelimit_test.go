@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
+	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type rateLimitSuite struct {

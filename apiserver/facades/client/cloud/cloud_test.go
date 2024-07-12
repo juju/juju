@@ -27,8 +27,8 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	_ "github.com/juju/juju/internal/provider/dummy"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type cloudSuite struct {

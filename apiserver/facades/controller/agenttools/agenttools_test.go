@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&AgentToolsSuite{})

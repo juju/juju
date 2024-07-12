@@ -24,11 +24,11 @@ import (
 	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage/provider"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/juju/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing/factory"
 )
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each

@@ -12,9 +12,9 @@ import (
 
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/testing"
 )
 
 type WhoAmITestSuite struct {

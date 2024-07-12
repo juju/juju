@@ -6,7 +6,7 @@ package agent_test
 import (
 	stdtesting "testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 func TestPackage(t *stdtesting.T) {

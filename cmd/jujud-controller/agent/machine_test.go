@@ -44,6 +44,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/mongo"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/authenticationworker"
@@ -53,7 +54,6 @@ import (
 	"github.com/juju/juju/internal/worker/machiner"
 	"github.com/juju/juju/internal/worker/storageprovisioner"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

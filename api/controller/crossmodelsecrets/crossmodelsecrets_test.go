@@ -17,9 +17,9 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/secrets"
 	secretsprovider "github.com/juju/juju/internal/secrets/provider"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&CrossControllerSuite{})

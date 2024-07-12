@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/internal/pki"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type certPoolSuite struct {

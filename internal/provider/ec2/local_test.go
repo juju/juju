@@ -57,10 +57,10 @@ import (
 	"github.com/juju/juju/internal/provider/ec2"
 	ec2test "github.com/juju/juju/internal/provider/ec2/internal/testing"
 	"github.com/juju/juju/internal/storage"
+	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

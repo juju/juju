@@ -21,9 +21,9 @@ import (
 
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
+	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/testing"
 )
 
 const current = "2.0.42-ubuntu-amd64"

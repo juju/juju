@@ -18,10 +18,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

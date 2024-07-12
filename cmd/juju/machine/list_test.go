@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/api/client/client"
 	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type MachineListCommandSuite struct {

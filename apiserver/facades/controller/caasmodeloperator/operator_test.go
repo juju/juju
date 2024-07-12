@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ModelOperatorSuite struct {

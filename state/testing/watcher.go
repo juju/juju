@@ -13,7 +13,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 // AssertCanStopWhenSending ensures even when there are changes

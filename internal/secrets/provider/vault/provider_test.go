@@ -23,7 +23,7 @@ import (
 	_ "github.com/juju/juju/internal/secrets/provider/all"
 	jujuvault "github.com/juju/juju/internal/secrets/provider/vault"
 	"github.com/juju/juju/internal/secrets/provider/vault/mocks"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type providerSuite struct {

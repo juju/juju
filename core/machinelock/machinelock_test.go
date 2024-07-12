@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	jujutesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type Lock interface {

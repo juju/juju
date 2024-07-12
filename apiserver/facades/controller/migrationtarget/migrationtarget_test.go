@@ -45,14 +45,14 @@ import (
 	_ "github.com/juju/juju/internal/provider/manual"
 	"github.com/juju/juju/internal/storage"
 	"github.com/juju/juju/internal/storage/provider"
+	jujutesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	jujujujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	statetesting "github.com/juju/juju/state/testing"
-	jujutesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type Suite struct {

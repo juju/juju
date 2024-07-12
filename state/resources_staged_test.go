@@ -12,8 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	charmresource "github.com/juju/juju/internal/charm/resource"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 )
 
 var _ = gc.Suite(&StagedResourceSuite{})

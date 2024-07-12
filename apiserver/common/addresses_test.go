@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type apiAddresserSuite struct {

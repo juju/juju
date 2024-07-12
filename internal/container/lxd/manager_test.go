@@ -28,8 +28,8 @@ import (
 	"github.com/juju/juju/internal/container/lxd"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 	"github.com/juju/juju/internal/network"
+	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type managerSuite struct {

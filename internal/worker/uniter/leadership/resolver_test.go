@@ -13,13 +13,13 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/internal/charm/hooks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/leadership"
 	"github.com/juju/juju/internal/worker/uniter/operation"
 	"github.com/juju/juju/internal/worker/uniter/operation/mocks"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/resolver"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&resolverSuite{})

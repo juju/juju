@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/internal/featureflag"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 // None of the tests in this package require mongo.

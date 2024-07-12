@@ -20,9 +20,9 @@ import (
 	caasmocks "github.com/juju/juju/caas/mocks"
 	"github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/caasfirewaller"
 	"github.com/juju/juju/internal/worker/caasfirewaller/mocks"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type manifoldSuite struct {

@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/toolsversionchecker"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&ToolsCheckerSuite{})

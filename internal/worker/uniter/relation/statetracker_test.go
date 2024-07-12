@@ -23,13 +23,13 @@ import (
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 	"github.com/juju/juju/internal/worker/uniter/relation"
 	"github.com/juju/juju/internal/worker/uniter/relation/mocks"
 	"github.com/juju/juju/internal/worker/uniter/remotestate"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type stateTrackerSuite struct {

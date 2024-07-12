@@ -11,8 +11,8 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
+	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type StorageSuite struct {

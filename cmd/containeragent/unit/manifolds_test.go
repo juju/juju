@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/agenttest"
 	"github.com/juju/juju/cmd/containeragent/unit"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type ManifoldsSuite struct {

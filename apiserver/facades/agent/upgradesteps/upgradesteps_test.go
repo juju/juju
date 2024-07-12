@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type upgradeStepsSuite struct {

@@ -30,9 +30,9 @@ import (
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
+	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/names"
-	coretesting "github.com/juju/juju/testing"
 )
 
 func GetMockBundleTools(expectedForceVersion version.Number) tools.BundleToolsFunc {

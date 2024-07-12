@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication/macaroon"
 	"github.com/juju/juju/controller"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type workerConfigSuite struct {

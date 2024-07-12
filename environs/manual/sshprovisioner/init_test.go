@@ -13,7 +13,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/internal/service"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type initialisationSuite struct {

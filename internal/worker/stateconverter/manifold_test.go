@@ -16,9 +16,9 @@ import (
 
 	"github.com/juju/juju/api/base"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/stateconverter"
 	"github.com/juju/juju/internal/worker/stateconverter/mocks"
-	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&manifoldConfigSuite{})

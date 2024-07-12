@@ -29,11 +29,11 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/auth"
 	jujuhttp "github.com/juju/juju/internal/http"
+	coretesting "github.com/juju/juju/internal/testing"
+	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state/stateenvirons"
-	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type registrationSuite struct {

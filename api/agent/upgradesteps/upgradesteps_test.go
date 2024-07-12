@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/juju/api/agent/upgradesteps"
 	"github.com/juju/juju/api/base/mocks"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type upgradeStepsSuite struct {

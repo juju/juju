@@ -38,8 +38,8 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
 	"github.com/juju/juju/internal/provider/common"
 	corestorage "github.com/juju/juju/internal/storage"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

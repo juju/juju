@@ -20,7 +20,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 var _ = gc.Suite(&rbacSuite{})

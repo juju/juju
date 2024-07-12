@@ -14,8 +14,8 @@ import (
 	apicommoncharms "github.com/juju/juju/api/common/charms"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type suite struct {

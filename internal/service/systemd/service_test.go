@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/systemd"
 	systemdtesting "github.com/juju/juju/internal/service/systemd/testing"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 var renderer = &shell.BashRenderer{}

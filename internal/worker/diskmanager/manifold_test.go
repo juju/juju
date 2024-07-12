@@ -15,8 +15,8 @@ import (
 	apidiskmanager "github.com/juju/juju/api/agent/diskmanager"
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/core/model"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/diskmanager"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type manifoldSuite struct {

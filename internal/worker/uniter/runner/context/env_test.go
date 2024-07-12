@@ -17,10 +17,10 @@ import (
 	jujuos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/core/secrets"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/runner/context"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

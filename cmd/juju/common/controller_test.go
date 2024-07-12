@@ -18,10 +18,10 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	environscmd "github.com/juju/juju/environs/cmd"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
 

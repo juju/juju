@@ -38,10 +38,10 @@ import (
 	"github.com/juju/juju/internal/cloudconfig"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/testing"
 )
 
 type cloudinitSuite struct {

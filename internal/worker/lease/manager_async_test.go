@@ -16,8 +16,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corelease "github.com/juju/juju/core/lease"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/lease"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type leaseMap = map[corelease.Key]corelease.Info

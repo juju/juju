@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/api/client/highavailability"
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/testing"
 )
 
 type DebugLogSuite struct {

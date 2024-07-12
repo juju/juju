@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type instanceMutaterMachineSuite struct {

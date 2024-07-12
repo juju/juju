@@ -46,10 +46,10 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	_ "github.com/juju/juju/internal/provider/dummy"
 	corestorage "github.com/juju/juju/internal/storage"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

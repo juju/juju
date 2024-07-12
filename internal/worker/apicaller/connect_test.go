@@ -16,9 +16,9 @@ import (
 	apiagent "github.com/juju/juju/api/agent/agent"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apicaller"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // ScaryConnectSuite should cover all the *lines* where we get a connection

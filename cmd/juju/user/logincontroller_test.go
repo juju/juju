@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
 func (s *LoginCommandSuite) TestLoginFromDirectory(c *gc.C) {

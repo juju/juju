@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/internal/provider/vsphere"
 	"github.com/juju/juju/internal/provider/vsphere/internal/ovatest"
 	"github.com/juju/juju/internal/provider/vsphere/internal/vsphereclient"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type vmTemplateSuite struct {

@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cmd/jujud-controller/agent/machine"
 	corelogger "github.com/juju/juju/core/logger"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type MachineStartupSuite struct {

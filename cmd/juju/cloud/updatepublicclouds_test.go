@@ -22,8 +22,8 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/juju/cloud"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
 type updatePublicCloudsSuite struct {

@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // pingerSuite exercises the apiserver's ping timeout functionality

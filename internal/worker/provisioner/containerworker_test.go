@@ -28,11 +28,11 @@ import (
 	"github.com/juju/juju/internal/container/factory"
 	"github.com/juju/juju/internal/container/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/provisioner"
 	"github.com/juju/juju/internal/worker/provisioner/mocks"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

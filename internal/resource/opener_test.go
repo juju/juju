@@ -20,8 +20,8 @@ import (
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/resource"
 	"github.com/juju/juju/internal/resource/mocks"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type OpenerSuite struct {

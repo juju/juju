@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher/eventsource"
 	schematesting "github.com/juju/juju/domain/schema/testing"
-	jujutesting "github.com/juju/juju/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type watcherSuite struct {

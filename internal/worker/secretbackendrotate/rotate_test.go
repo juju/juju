@@ -14,9 +14,9 @@ import (
 
 	corewatcher "github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/secretbackendrotate"
 	"github.com/juju/juju/internal/worker/secretbackendrotate/mocks"
-	"github.com/juju/juju/testing"
 )
 
 type workerSuite struct {

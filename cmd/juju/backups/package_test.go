@@ -19,12 +19,12 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/core/model"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 // MetaResultString is the expected output of running dumpMetadata() on

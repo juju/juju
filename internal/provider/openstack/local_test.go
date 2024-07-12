@@ -71,12 +71,12 @@ import (
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/provider/openstack"
 	"github.com/juju/juju/internal/storage"
+	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

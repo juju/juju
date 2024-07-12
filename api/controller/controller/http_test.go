@@ -10,7 +10,7 @@ import (
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 var _ base.APICallCloser = (*httpAPICallCloser)(nil)

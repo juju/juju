@@ -18,9 +18,9 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/controller/crossmodelrelations"
+	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&CrossModelRelationsSuite{})

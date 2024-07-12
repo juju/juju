@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/internal/packaging"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 var _ = gc.Suite(&DependencyManagerTestSuite{})

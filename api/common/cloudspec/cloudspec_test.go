@@ -15,8 +15,8 @@ import (
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/cloud"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&CloudSpecSuite{})

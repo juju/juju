@@ -31,8 +31,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujutesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

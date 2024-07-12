@@ -38,8 +38,8 @@ import (
 	"github.com/juju/juju/internal/provider/vsphere/internal/ovatest"
 	"github.com/juju/juju/internal/provider/vsphere/internal/vsphereclient"
 	"github.com/juju/juju/internal/provider/vsphere/mocks"
+	coretesting "github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type legacyEnvironBrokerSuite struct {

@@ -19,11 +19,11 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/storage"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/binarystorage"
-	"github.com/juju/juju/testing"
 )
 
 type tooler interface {

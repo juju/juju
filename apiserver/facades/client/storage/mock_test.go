@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type mockBlockDeviceGetter struct {

@@ -14,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/names"
-	"github.com/juju/juju/testing"
 )
 
 type SymlinksSuite struct {

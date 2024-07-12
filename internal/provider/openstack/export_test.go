@@ -20,7 +20,7 @@ import (
 	envstorage "github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 var (

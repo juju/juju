@@ -6,7 +6,7 @@ package bakerystorage
 import (
 	"testing"
 
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 func TestPackage(t *testing.T) {

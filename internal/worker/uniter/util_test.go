@@ -46,6 +46,7 @@ import (
 	jujucharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/downloader"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/uniter"
@@ -59,7 +60,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type relationUnitSettings map[string]int64

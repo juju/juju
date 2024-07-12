@@ -21,7 +21,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/environs/cloudspec"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type providerWorkerSuite struct {

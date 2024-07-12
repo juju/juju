@@ -9,8 +9,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/mongo"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/peergrouper"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type mongoSuite struct {

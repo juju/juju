@@ -19,7 +19,7 @@ import (
 
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/internal/logtailer"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type TailerSuite struct {

@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	providercommon "github.com/juju/juju/internal/provider/common"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type StubNetwork struct {

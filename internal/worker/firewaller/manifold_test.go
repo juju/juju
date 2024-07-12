@@ -19,9 +19,9 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/common"
 	"github.com/juju/juju/internal/worker/firewaller"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {

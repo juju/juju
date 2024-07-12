@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/domain/objectstore/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type watcherSuite struct {

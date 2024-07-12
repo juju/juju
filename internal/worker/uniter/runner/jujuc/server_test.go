@@ -20,9 +20,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/testing"
 )
 
 type RpcCommand struct {

@@ -12,10 +12,10 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 const endpointSeparator = ":"

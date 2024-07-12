@@ -17,8 +17,8 @@ import (
 	"github.com/juju/juju/cmd/juju/secretbackends"
 	"github.com/juju/juju/cmd/juju/secretbackends/mocks"
 	"github.com/juju/juju/core/status"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ListSuite struct {

@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/core/network"
 	corefirewall "github.com/juju/juju/core/network/firewall"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type RuleSetSuite struct {

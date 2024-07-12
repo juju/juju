@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/api/base"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	jtesting "github.com/juju/juju/testing"
 )
 
 type sessionTokenLoginProviderProviderSuite struct {

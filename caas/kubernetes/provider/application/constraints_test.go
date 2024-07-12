@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/caas/kubernetes/provider/application"
 	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type applyConstraintsSuite struct {

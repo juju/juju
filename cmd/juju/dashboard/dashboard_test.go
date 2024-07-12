@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/cmd/juju/dashboard"
 	proxytesting "github.com/juju/juju/internal/proxy/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
 type baseDashboardSuite struct {

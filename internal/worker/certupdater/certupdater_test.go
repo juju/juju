@@ -18,8 +18,8 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/pki"
 	pkitest "github.com/juju/juju/internal/pki/test"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/certupdater"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 func TestPackage(t *stdtesting.T) {

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/internal/provider/azure/internal/azuretesting"
 	"github.com/juju/juju/internal/provider/azure/internal/imageutils"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type imageutilsSuite struct {

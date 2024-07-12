@@ -26,8 +26,8 @@ import (
 	"github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/internal/provider/lxd"
 	"github.com/juju/juju/internal/provider/lxd/lxdnames"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 var (

@@ -13,8 +13,8 @@ import (
 	"github.com/juju/worker/v4/dependency"
 	gc "gopkg.in/check.v1"
 
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/fortress"
-	coretesting "github.com/juju/juju/testing"
 )
 
 // fixture holds a fortress worker and the manifold whence it sprang.

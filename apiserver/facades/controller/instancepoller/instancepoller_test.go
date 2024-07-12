@@ -26,10 +26,10 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	jujutesting "github.com/juju/juju/testing"
 )
 
 type InstancePollerSuite struct {

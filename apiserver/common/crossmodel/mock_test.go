@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type mockBakery struct {

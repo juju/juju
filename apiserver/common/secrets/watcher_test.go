@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	"github.com/juju/juju/core/watcher/watchertest"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type watcherSuite struct {

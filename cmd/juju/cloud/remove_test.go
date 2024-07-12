@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/cmd/juju/cloud/mocks"
 	"github.com/juju/juju/environs"
 	environmocks "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/testing"
 )
 
 // This is required since our test provider needs to have the capabilty to

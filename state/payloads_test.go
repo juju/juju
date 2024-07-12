@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/internal/charm"
+	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing/factory"
 )
 
 type PayloadsSuite struct {

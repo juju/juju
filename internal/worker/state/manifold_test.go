@@ -18,10 +18,10 @@ import (
 
 	coreagent "github.com/juju/juju/agent"
 	"github.com/juju/juju/internal/servicefactory"
+	coretesting "github.com/juju/juju/internal/testing"
 	workerstate "github.com/juju/juju/internal/worker/state"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type ManifoldSuite struct {

@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/cmd/containeragent/initialize"
 	"github.com/juju/juju/cmd/containeragent/initialize/mocks"
 	utilsmocks "github.com/juju/juju/cmd/containeragent/utils/mocks"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 type initCommandSuit struct {

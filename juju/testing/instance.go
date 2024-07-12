@@ -27,8 +27,8 @@ import (
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/instancecfg"
+	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	"github.com/juju/juju/testing"
 )
 
 func fakeCallback(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {

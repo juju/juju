@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/sync"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

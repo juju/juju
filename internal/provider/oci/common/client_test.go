@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/internal/provider/oci/common"
 	ocitesting "github.com/juju/juju/internal/provider/oci/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/internal/testing"
 )
 
 type clientSuite struct {

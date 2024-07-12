@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/internal/provider/vsphere/internal/ovatest"
-	coretesting "github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 )
 
 func (s *clientSuite) TestCreateTemplateVM(c *gc.C) {

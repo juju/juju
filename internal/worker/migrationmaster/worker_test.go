@@ -34,11 +34,11 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/migration"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 

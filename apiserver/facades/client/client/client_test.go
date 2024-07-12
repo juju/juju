@@ -29,10 +29,10 @@ import (
 	"github.com/juju/juju/internal/docker/registry/image"
 	registrymocks "github.com/juju/juju/internal/docker/registry/mocks"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	jjtesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type clientSuite struct {
