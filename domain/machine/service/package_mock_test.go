@@ -738,7 +738,7 @@ func (c *MockStateSetMachineLifeCall) DoAndReturn(f func(context.Context, machin
 }
 
 // SetMachineStatus mocks base method.
-func (m *MockState) SetMachineStatus(arg0 context.Context, arg1 machine.Name, arg2 status.Status) error {
+func (m *MockState) SetMachineStatus(arg0 context.Context, arg1 machine.Name, arg2 status.StatusInfo) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetMachineStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -764,13 +764,13 @@ func (c *MockStateSetMachineStatusCall) Return(arg0 error) *MockStateSetMachineS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetMachineStatusCall) Do(f func(context.Context, machine.Name, status.Status) error) *MockStateSetMachineStatusCall {
+func (c *MockStateSetMachineStatusCall) Do(f func(context.Context, machine.Name, status.StatusInfo) error) *MockStateSetMachineStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetMachineStatusCall) DoAndReturn(f func(context.Context, machine.Name, status.Status) error) *MockStateSetMachineStatusCall {
+func (c *MockStateSetMachineStatusCall) DoAndReturn(f func(context.Context, machine.Name, status.StatusInfo) error) *MockStateSetMachineStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

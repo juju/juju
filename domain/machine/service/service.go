@@ -52,7 +52,6 @@ type State interface {
 	// machine.
 	// It returns NotFound if the machine does not exist.
 	// It returns a StatusNotSet if the instance status is not set.
-	// Idempotent.
 	GetInstanceStatus(context.Context, machine.Name) (status.Status, error)
 
 	// SetInstanceStatus sets the cloud specific instance status for this
@@ -62,11 +61,11 @@ type State interface {
 	// GetMachineStatus returns the status of the specified machine.
 	// It returns NotFound if the machine does not exist.
 	// It returns a StatusNotSet if the status is not set.
-	// Idempotent.
 	GetMachineStatus(context.Context, machine.Name) (status.StatusInfo, error)
 
 	// SetMachineStatus sets the status of the specified machine.
-	SetMachineStatus(context.Context, machine.Name, status.Status) error
+	// It returns NotFound if the machine does not exist.
+	SetMachineStatus(context.Context, machine.Name, status.StatusInfo) error
 
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
@@ -211,9 +210,10 @@ func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name
 }
 
 // SetMachineStatus sets the status of the specified machine.
+// It returns NotFound if the machine does not exist.
 // It returns InvalidStatus if the given status is not a known status value.
-func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, status status.Status) error {
-	if !status.KnownMachineStatus() {
+func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) error {
+	if !status.Status.KnownMachineStatus() {
 		return machineerrors.InvalidStatus
 	}
 	err := s.st.SetMachineStatus(ctx, machineName, status)

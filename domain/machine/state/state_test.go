@@ -240,12 +240,38 @@ func (s *stateSuite) TestSetMachineStatusSuccess(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "123")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.state.SetMachineStatus(context.Background(), "666", status.Started)
+	expectedStatus := status.StatusInfo{Status: status.Started, Message: "started"}
+	err = s.state.SetMachineStatus(context.Background(), "666", expectedStatus)
 	c.Check(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(obtainedStatus, gc.Equals, status.Started)
+	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
+	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
+}
+
+// TestSetMachineStatusSuccessWithData asserts the happy path of
+// SetMachineStatus at the state layer.
+func (s *stateSuite) TestSetMachineStatusSuccessWithData(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedStatus := status.StatusInfo{Status: status.Started, Message: "started", Data: map[string]interface{}{"key": "data"}}
+	err = s.state.SetMachineStatus(context.Background(), "666", expectedStatus)
+	c.Check(err, jc.ErrorIsNil)
+
+	obtainedStatus, err := s.state.GetMachineStatus(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
+	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
+	c.Assert(obtainedStatus.Data, gc.DeepEquals, expectedStatus.Data)
+}
+
+// TestSetMachineStatusNotFoundError asserts that a NotFound error is returned
+// when the machine is not found.
+func (s *stateSuite) TestSetMachineStatusNotFoundError(c *gc.C) {
+	err := s.state.SetMachineStatus(context.Background(), "666", status.StatusInfo{})
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 // TestMachineStatusValues asserts the keys and values in the
