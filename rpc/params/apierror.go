@@ -150,6 +150,7 @@ const (
 	CodeUserNotFound              = "user not found"
 	CodeModelNotFound             = "model not found"
 	CodeUnauthorized              = "unauthorized access"
+	CodeSessionTokenInvalid       = "session token invalid"
 	CodeLoginExpired              = "login expired"
 	CodeNoCreds                   = "no credentials provided"
 	CodeCannotEnterScope          = "cannot enter scope"
