@@ -6,7 +6,14 @@ package state
 import (
 	"fmt"
 
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain/charm"
+)
+
+const (
+	// Default architecture ID used when no architecture is specified.
+	// The default to Juju is amd64.
+	defaultArchitectureID = 0
 )
 
 // decodeManifest decodes the given manifests into a charm.Manifest.
@@ -43,6 +50,10 @@ func decodeManifest(manifests []charmManifest) (charm.Manifest, error) {
 		if base.Index > largestIndex {
 			largestIndex = base.Index
 		}
+	}
+
+	if len(bases) == 0 {
+		return charm.Manifest{}, nil
 	}
 
 	// Convert the map into a slice using the largest index as the length. This
@@ -85,5 +96,92 @@ func decodeManifestChannelRisk(risk string) (charm.ChannelRisk, error) {
 		return charm.RiskEdge, nil
 	default:
 		return "", fmt.Errorf("unknown risk %q", risk)
+	}
+}
+
+func encodeManifest(id corecharm.ID, manifest charm.Manifest) ([]setCharmManifest, error) {
+	result := make([]setCharmManifest, 0, len(manifest.Bases))
+	for index, base := range manifest.Bases {
+		encodedRisk, err := encodeManifestChannelRisk(base.Channel.Risk)
+		if err != nil {
+			return nil, fmt.Errorf("cannot encode risk: %w", err)
+		}
+
+		encodedOS, err := encodeManifestOS(base.Name)
+		if err != nil {
+			return nil, fmt.Errorf("cannot encode OS: %w", err)
+		}
+
+		// No architectures specified, use the default.
+		if len(base.Architectures) == 0 {
+			result = append(result, setCharmManifest{
+				CharmUUID:      id.String(),
+				Index:          index,
+				OSID:           encodedOS,
+				ArchitectureID: defaultArchitectureID,
+				Track:          base.Channel.Track,
+				Risk:           encodedRisk,
+				Branch:         base.Channel.Branch,
+			})
+			continue
+		}
+
+		for _, architecture := range base.Architectures {
+			encodedArch, err := encodeManifestArchitecture(architecture)
+			if err != nil {
+				return nil, fmt.Errorf("cannot encode architecture: %w", err)
+			}
+			result = append(result, setCharmManifest{
+				CharmUUID:      id.String(),
+				Index:          index,
+				OSID:           encodedOS,
+				ArchitectureID: encodedArch,
+				Track:          base.Channel.Track,
+				Risk:           encodedRisk,
+				Branch:         base.Channel.Branch,
+			})
+		}
+	}
+	return result, nil
+}
+
+func encodeManifestChannelRisk(risk charm.ChannelRisk) (string, error) {
+	switch risk {
+	case charm.RiskStable:
+		return "stable", nil
+	case charm.RiskCandidate:
+		return "candidate", nil
+	case charm.RiskBeta:
+		return "beta", nil
+	case charm.RiskEdge:
+		return "edge", nil
+	default:
+		return "", fmt.Errorf("unknown risk %q", risk)
+	}
+}
+
+func encodeManifestOS(os string) (int, error) {
+	switch os {
+	case "ubuntu":
+		return 0, nil
+	default:
+		return -1, fmt.Errorf("unknown OS %q", os)
+	}
+}
+
+func encodeManifestArchitecture(architecture string) (int, error) {
+	switch architecture {
+	case "amd64":
+		return 0, nil
+	case "arm64":
+		return 1, nil
+	case "ppc64el":
+		return 2, nil
+	case "s390x":
+		return 3, nil
+	case "riscv64":
+		return 4, nil
+	default:
+		return -1, fmt.Errorf("unknown architecture %q", architecture)
 	}
 }

@@ -4,6 +4,9 @@
 package state
 
 import (
+	"context"
+
+	"github.com/canonical/sqlair"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -131,12 +134,123 @@ var configTestCases = [...]struct {
 	},
 }
 
-func (s *configSuite) TestConvertConfig(c *gc.C) {
+func (s *configSuite) TestDecodeConfig(c *gc.C) {
 	for _, tc := range configTestCases {
 		c.Logf("Running test case %q", tc.name)
 
 		result, err := decodeConfig(tc.input)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(result, gc.DeepEquals, tc.output)
+	}
+}
+
+func (s *configSuite) TestDecodeConfigType(c *gc.C) {
+	_, err := decodeConfigType("invalid")
+	c.Assert(err, gc.ErrorMatches, `unknown config type "invalid"`)
+}
+
+func (s *configSuite) TestEncodeConfigType(c *gc.C) {
+	_, err := decodeConfigType("invalid")
+	c.Assert(err, gc.ErrorMatches, `unknown config type "invalid"`)
+}
+
+func (s *configSuite) TestEncodeConfigDefaultValue(c *gc.C) {
+	_, err := encodeConfigDefaultValue(int64(0))
+	c.Assert(err, gc.ErrorMatches, `unknown config default value type int64`)
+}
+
+var configTypeTestCases = [...]struct {
+	name   string
+	kind   charm.OptionType
+	input  string
+	output any
+}{
+	{
+		name:   "string",
+		kind:   charm.OptionString,
+		input:  "deadbeef",
+		output: "deadbeef",
+	},
+	{
+		name:   "int",
+		kind:   charm.OptionInt,
+		input:  "42",
+		output: 42,
+	},
+	{
+		name:   "float",
+		kind:   charm.OptionFloat,
+		input:  "42.3",
+		output: 42.3,
+	},
+	{
+		name:   "bool",
+		kind:   charm.OptionBool,
+		input:  "true",
+		output: true,
+	},
+	{
+		name:   "secret",
+		kind:   charm.OptionSecret,
+		input:  "ssh",
+		output: "ssh",
+	},
+}
+
+func (s *configSuite) TestEncodeThenDecodeDefaultValue(c *gc.C) {
+	for _, tc := range configTypeTestCases {
+		c.Logf("Running test case %q", tc.name)
+
+		decoded, err := decodeConfigDefaultValue(tc.kind, tc.input)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(decoded, gc.DeepEquals, tc.output)
+
+		encoded, err := encodeConfigDefaultValue(decoded)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(encoded, gc.DeepEquals, tc.input)
+	}
+}
+
+func (s *configSuite) TestDecodeConfigTypeError(c *gc.C) {
+	_, err := decodeConfigDefaultValue(charm.OptionType("invalid"), "")
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
+}
+
+type configStateSuite struct {
+	schematesting.ModelSuite
+}
+
+var _ = gc.Suite(&configStateSuite{})
+
+func (s *configStateSuite) TestConfigType(c *gc.C) {
+	type charmConfigType struct {
+		ID   int    `db:"id"`
+		Name string `db:"name"`
+	}
+
+	stmt := sqlair.MustPrepare(`
+SELECT charm_config_type.* AS &charmConfigType.* FROM charm_config_type ORDER BY id;
+`, charmConfigType{})
+
+	var results []charmConfigType
+	err := s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).GetAll(&results)
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results, gc.HasLen, 5)
+
+	m := []charm.OptionType{
+		charm.OptionString,
+		charm.OptionInt,
+		charm.OptionFloat,
+		charm.OptionBool,
+		charm.OptionSecret,
+	}
+
+	for i, value := range m {
+		c.Logf("result %d: %#v", i, value)
+		result, err := encodeConfigType(value)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(result, gc.DeepEquals, results[i].ID)
 	}
 }
