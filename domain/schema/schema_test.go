@@ -291,6 +291,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"cloud_container",
 		"machine_cloud_instance",
 		"machine_cloud_instance_status",
+		"machine_cloud_instance_status_data",
 		"machine_lxd_profile",
 		"instance_tag",
 
@@ -317,6 +318,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"machine_filesystem",
 		"machine_requires_reboot",
 		"machine_status",
+		"machine_status_data",
 
 		// Charm
 		"charm",

@@ -82,13 +82,45 @@ CREATE TABLE machine_requires_reboot (
     REFERENCES machine (uuid)
 );
 
+/*
+Using ON DELETE CASCADE on uuid foreign key because we don't want to have to
+cleanup the status and the status data whenever we remove a machine. Whenever a
+uuid is deleted on the referenced table (machine), CASCADE allows automatic
+deletion of affected rows in the child table (machine_status) to keep
+referential integrity.
+*/
 CREATE TABLE machine_status (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     status INT NOT NULL,
+    message TEXT,
+    updated_at DATETIME,
     CONSTRAINT fk_machine_constraint_machine
     FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid),
+    REFERENCES machine (uuid) ON DELETE CASCADE,
     CONSTRAINT fk_machine_constraint_status
     FOREIGN KEY (status)
     REFERENCES machine_status_values (id)
+);
+
+/*
+machine_status_data stores the status data for a machine as a key-value pair
+where the value being a JSON blob.
+
+Primary key is (machine_uuid, key) to allow for multiple status data entries for
+one machine.
+
+
+Using ON DELETE CASCADE on uuid foreign key because we don't want to have to
+cleanup the status and the status data whenever we remove a machine. Whenever a
+uuid is deleted on the referenced table (machine), CASCADE allows automatic
+deletion of affected rows in the child table (machine_status_table) to keep
+referential integrity.
+*/
+CREATE TABLE machine_status_data (
+    machine_uuid TEXT NOT NULL,
+    "key" TEXT,
+    data TEXT,
+    CONSTRAINT fk_machine_status_data_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid) ON DELETE CASCADE
 );
