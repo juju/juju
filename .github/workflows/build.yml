@@ -4,23 +4,44 @@ on:
     branches: [2.*, 3.*, 4.*, main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - '.github/workflows/build.yml'
-      - 'scripts/dqlite/**'
-      - 'Makefile'
-      - 'make_functions.sh'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  should-run:
+    # This job checks if files have been changed according
+    # to the filter, and sets a should-run output if
+    # the filter is satisfied.
+    name: Check changed files
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.set-flag.outputs.SHOULD_RUN }}
+    steps:
+      - name: Check changed files
+        id: should-run
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            should_run:
+              - '**.go'
+              - 'go.mod'
+              - '.github/workflows/build.yml'
+              - 'scripts/dqlite/**'
+              - 'Makefile'
+              - 'make_functions.sh'
+
+      - name: Set flag
+        id: set-flag
+        run: |
+          echo "SHOULD_RUN=steps.should-run.outputs.should_run" >> $GITHUB_OUTPUT
+
   Build:
+    needs: [should-run]
     name: Build
     runs-on: [self-hosted, linux, "${{ matrix.platform.host_arch }}", aws, large]
-    if: github.event.pull_request.draft == false
+    if: github.event.pull_request.draft == false && needs.should-run.outputs.should-run == true
     strategy:
       fail-fast: false
       matrix:
@@ -30,7 +51,6 @@ jobs:
 # Until we get rid of musl, lets just disable these to save build time.
 #           - { os: linux, arch: s390x }
 #           - { os: linux, arch: ppc64le }
-           - { os: windows, arch: amd64, host_arch: arm64 }
            - { os: darwin, arch: arm64, host_arch: arm64 }
 
     steps:
