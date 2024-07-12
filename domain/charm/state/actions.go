@@ -26,6 +26,9 @@ func decodeActions(actions []charmAction) charm.Actions {
 func encodeActions(id corecharm.ID, actions charm.Actions) []setCharmAction {
 	result := make([]setCharmAction, 0, len(actions.Actions))
 	for key, action := range actions.Actions {
+		if action.Params == nil {
+			action.Params = make([]byte, 0)
+		}
 		result = append(result, setCharmAction{
 			CharmUUID:      id.String(),
 			Key:            key,

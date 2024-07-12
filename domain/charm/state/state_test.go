@@ -1810,6 +1810,7 @@ func (s *stateSuite) TestSetCharmThenGetCharmActions(c *gc.C) {
 				Description:    "description2",
 				Parallel:       false,
 				ExecutionGroup: "group2",
+				Params:         make([]byte, 0),
 			},
 		},
 	}
