@@ -370,3 +370,40 @@ func (s *stateSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(status, gc.Equals, corestatus.Running)
 }
+
+// TestInstanceStatusValues asserts the keys and values in the
+// instance_status_values table, because we convert between core.status values
+// and instance_status_values based on these associations. This test will catch
+// any discrepancies between the two sets of values, and error if/when any of
+// them ever change.
+func (s *stateSuite) TestInstanceStatusValues(c *gc.C) {
+	db := s.DB()
+
+	// Check that the status values in the instance_status_values table match
+	// the instance status values in core status.
+	rows, err := db.QueryContext(context.Background(), "SELECT id, status FROM instance_status_values")
+	defer rows.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	var statusValues []struct {
+		ID   int
+		Name string
+	}
+	for rows.Next() {
+		var statusValue struct {
+			ID   int
+			Name string
+		}
+		err = rows.Scan(&statusValue.ID, &statusValue.Name)
+		c.Assert(err, jc.ErrorIsNil)
+		statusValues = append(statusValues, statusValue)
+	}
+	c.Check(statusValues, gc.HasLen, 4)
+	c.Check(statusValues[0].ID, gc.Equals, 0)
+	c.Check(statusValues[0].Name, gc.Equals, "empty")
+	c.Check(statusValues[1].ID, gc.Equals, 1)
+	c.Check(statusValues[1].Name, gc.Equals, "allocating")
+	c.Check(statusValues[2].ID, gc.Equals, 2)
+	c.Check(statusValues[2].Name, gc.Equals, "running")
+	c.Check(statusValues[3].ID, gc.Equals, 3)
+	c.Check(statusValues[3].Name, gc.Equals, "provisioning-error")
+}

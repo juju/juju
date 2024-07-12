@@ -214,6 +214,45 @@ func (s *stateSuite) TestSetMachineStatusSuccess(c *gc.C) {
 	c.Assert(obtainedStatus, gc.Equals, status.Started)
 }
 
+// TestMachineStatusValues asserts the keys and values in the
+// machine_status_values table, because we convert between core.status values
+// and machine_status_values based on these associations. This test will catch
+// any discrepancies between the two sets of values, and error if/when any of
+// them ever change.
+func (s *stateSuite) TestMachineStatusValues(c *gc.C) {
+	db := s.DB()
+
+	// Check that the status values in the machine_status_values table match
+	// the instance status values in core status.
+	rows, err := db.QueryContext(context.Background(), "SELECT id, status FROM machine_status_values")
+	defer rows.Close()
+	c.Assert(err, jc.ErrorIsNil)
+	var statusValues []struct {
+		ID   int
+		Name string
+	}
+	for rows.Next() {
+		var statusValue struct {
+			ID   int
+			Name string
+		}
+		err = rows.Scan(&statusValue.ID, &statusValue.Name)
+		c.Assert(err, jc.ErrorIsNil)
+		statusValues = append(statusValues, statusValue)
+	}
+	c.Check(statusValues, gc.HasLen, 5)
+	c.Check(statusValues[0].ID, gc.Equals, 0)
+	c.Check(statusValues[0].Name, gc.Equals, "error")
+	c.Check(statusValues[1].ID, gc.Equals, 1)
+	c.Check(statusValues[1].Name, gc.Equals, "started")
+	c.Check(statusValues[2].ID, gc.Equals, 2)
+	c.Check(statusValues[2].Name, gc.Equals, "pending")
+	c.Check(statusValues[3].ID, gc.Equals, 3)
+	c.Check(statusValues[3].Name, gc.Equals, "stopped")
+	c.Check(statusValues[4].ID, gc.Equals, 4)
+	c.Check(statusValues[4].Name, gc.Equals, "down")
+}
+
 // TestSetMachineLifeSuccess asserts the happy path of SetMachineLife at the
 // state layer.
 func (s *stateSuite) TestSetMachineLifeSuccess(c *gc.C) {
