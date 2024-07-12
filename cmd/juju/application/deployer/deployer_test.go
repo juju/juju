@@ -86,9 +86,18 @@ func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {
 	s.expectModelType()
 
 	dir := c.MkDir()
-	charmPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(dir, "multi-series")
-	s.expectStat(charmPath, nil)
-	cfg.CharmOrBundle = charmPath
+	chDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "multi-series")
+
+	archivePath := filepath.Join(dir, "archive.charm")
+	file, err := os.Create(archivePath)
+	c.Assert(err, jc.ErrorIsNil)
+	defer file.Close()
+
+	err = chDir.ArchiveTo(file)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.expectStat(archivePath, nil)
+	cfg.CharmOrBundle = archivePath
 
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
@@ -104,10 +113,20 @@ func (s *deployerSuite) TestGetDeployerLocalCharmPathWithSchema(c *gc.C) {
 	s.expectModelType()
 
 	dir := c.MkDir()
-	charmPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(dir, "multi-series")
-	charmPath = "local:" + charmPath
-	s.expectStat(charmPath, errors.NotFoundf("file"))
-	cfg.CharmOrBundle = charmPath
+	chDir := testcharms.RepoWithSeries("bionic").ClonedDir(dir, "multi-series")
+
+	archivePath := filepath.Join(dir, "archive.charm")
+	file, err := os.Create(archivePath)
+	c.Assert(err, jc.ErrorIsNil)
+	defer file.Close()
+
+	err = chDir.ArchiveTo(file)
+	c.Assert(err, jc.ErrorIsNil)
+
+	archivePath = "local:" + archivePath
+
+	s.expectStat(archivePath, errors.NotFoundf("file"))
+	cfg.CharmOrBundle = archivePath
 
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
