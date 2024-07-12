@@ -11,11 +11,13 @@ import (
 // bakery storage
 type State struct {
 	*BakeryConfigState
+	*RootKeyState
 }
 
 // NewState returns a new state reference
 func NewState(factory database.TxnRunnerFactory) *State {
 	return &State{
 		BakeryConfigState: NewBakeryConfigState(factory),
+		RootKeyState:      NewRootKeyState(factory),
 	}
 }
