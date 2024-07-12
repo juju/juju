@@ -174,8 +174,8 @@ uploaded with the revision specified in the charm, if possible, otherwise it
 gets a unique revision (highest in state + 1).
 
 When deploying from a path, the --path option is used to specify the location from
-which to load the updated charm. Note that the directory containing the charm must
-match what was originally used to deploy the charm as a superficial check that the
+which to load the updated charm. Note that the charm must match what was 
+originally used to deploy the charm as a superficial check that the
 updated charm is compatible.
 
 Resources may be uploaded at upgrade time by specifying the --resource option.
@@ -266,8 +266,8 @@ func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
 	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm located at path")
 	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
-	f.Var(stringMap{&c.Resources}, "resource", "Resource to be uploaded to the controller")
-	f.Var(storageFlag{&c.Storage, nil}, "storage", "Charm storage directives")
+	f.Var(stringMap{mapping: &c.Resources}, "resource", "Resource to be uploaded to the controller")
+	f.Var(storageFlag{stores: &c.Storage, bundleStores: nil}, "storage", "Charm storage directives")
 	f.Var(&c.ConfigOptions, "config", "Either a path to yaml-formatted application config file or a key=value pair ")
 	f.StringVar(&c.BindToSpaces, "bind", "", "Configure application endpoint bindings to spaces")
 	f.Var(newOptBoolValue(&c.Trust), "trust", "Allows charm to run hooks that require access credentials")
