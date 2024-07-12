@@ -245,7 +245,7 @@ func (s *K8sBrokerSuite) TestSetConfig(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
+func (s *K8sBrokerSuite) TestBootstrapNoWorkloadStorage(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -260,15 +260,15 @@ func (s *K8sBrokerSuite) TestBootstrapNoOperatorStorage(c *gc.C) {
 	_, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)
 	c.Assert(err, gc.NotNil)
 	msg := strings.Replace(err.Error(), "\n", "", -1)
-	c.Assert(msg, gc.Matches, "config without operator-storage value not valid.*")
+	c.Assert(msg, gc.Matches, "config without workload-storage value not valid.*")
 }
 
 func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	// Ensure the broker is configured with operator storage.
-	s.setupOperatorStorageConfig(c)
+	// Ensure the broker is configured with workload storage.
+	s.setupWorkloadStorageConfig(c)
 
 	ctx := envtesting.BootstrapContext(context.Background(), c)
 	callCtx := envcontext.WithoutCredentialInvalidator(ctx)
@@ -284,9 +284,6 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 	gomock.InOrder(
-		// Check the operator storage exists.
-		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-some-storage", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockStorageClass.EXPECT().Get(gomock.Any(), "some-storage", v1.GetOptions{}).
 			Return(sc, nil),
 	)
@@ -300,10 +297,10 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *K8sBrokerSuite) setupOperatorStorageConfig(c *gc.C) {
+func (s *K8sBrokerSuite) setupWorkloadStorageConfig(c *gc.C) {
 	cfg := s.broker.Config()
 	var err error
-	cfg, err = cfg.Apply(map[string]interface{}{"operator-storage": "some-storage"})
+	cfg, err = cfg.Apply(map[string]interface{}{"workload-storage": "some-storage"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = s.broker.SetConfig(context.Background(), cfg)
 	c.Assert(err, jc.ErrorIsNil)
@@ -313,8 +310,8 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	// Ensure the broker is configured with operator storage.
-	s.setupOperatorStorageConfig(c)
+	// Ensure the broker is configured with workload storage.
+	s.setupWorkloadStorageConfig(c)
 
 	sc := &storagev1.StorageClass{
 		ObjectMeta: v1.ObjectMeta{

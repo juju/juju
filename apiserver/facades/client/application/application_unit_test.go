@@ -37,14 +37,12 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/status"
 	applicationservice "github.com/juju/juju/domain/application/service"
-	storageerrors "github.com/juju/juju/domain/storage/errors"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charmhub"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage"
-	"github.com/juju/juju/internal/storage/provider"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/internal/uuid"
@@ -76,7 +74,6 @@ type ApplicationSuite struct {
 	leadershipReader   *mocks.MockReader
 	storagePoolGetter  *application.MockStoragePoolGetter
 	registry           *mocks.MockProviderRegistry
-	caasBroker         *mocks.MockCaasBrokerInterface
 	store              *mocks.MockObjectStore
 	networkService     *application.MockNetworkService
 
@@ -191,9 +188,6 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 	s.storagePoolGetter = application.NewMockStoragePoolGetter(ctrl)
 
 	s.registry = mocks.NewMockProviderRegistry(ctrl)
-	s.caasBroker = mocks.NewMockCaasBrokerInterface(ctrl)
-	ver := version.MustParse("1.15.0")
-	s.caasBroker.EXPECT().Version().Return(&ver, nil).AnyTimes()
 
 	s.cloudService = commonmocks.NewMockCloudService(ctrl)
 	s.credService = commonmocks.NewMockCredentialService(ctrl)
@@ -224,7 +218,6 @@ func (s *ApplicationSuite) setup(c *gc.C) *gomock.Controller {
 		s.storagePoolGetter,
 		s.registry,
 		common.NewResources(),
-		s.caasBroker,
 		s.store,
 		loggertesting.WrapCheckLog(c),
 	)
@@ -1680,7 +1673,6 @@ func (s *ApplicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 
 func (s *ApplicationSuite) expectDefaultK8sModelConfig() {
 	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
-		"operator-storage": "k8s-operator-storage",
 		"workload-storage": "k8s-storage",
 	})
 	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
@@ -1768,43 +1760,6 @@ func (s *ApplicationSuite) TestDeployCAASBlockStorageRejected(c *gc.C) {
 	c.Assert(result.OneError(), gc.ErrorMatches, `.*block storage "block" is not supported for container charms`)
 }
 
-func (s *ApplicationSuite) TestDeployCAASModelNoOperatorStorage(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectDefaultCharm(ctrl)
-	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
-
-	attrs := coretesting.FakeConfig().Merge(map[string]interface{}{
-		"workload-storage": "k8s-storage",
-	})
-
-	s.model.EXPECT().ModelConfig(gomock.Any()).Return(config.New(config.UseDefaults, attrs)).MinTimes(1)
-	s.model.EXPECT().UUID().Return("")
-
-	args := params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			ApplicationName: "foo",
-			CharmURL:        "local:foo-0",
-			CharmOrigin: &params.CharmOrigin{
-				Source:       "local",
-				Architecture: "amd64",
-				Base: params.Base{
-					Name:    "ubuntu",
-					Channel: "22.04/stable",
-				},
-			},
-			NumUnits: 1,
-		}},
-	}
-	result, err := s.api.Deploy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	msg := result.OneError().Error()
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `.*deploying this Kubernetes application requires a suitable storage class.*`)
-}
-
 func (s *ApplicationSuite) TestDeployCAASModelCharmNeedsNoOperatorStorage(c *gc.C) {
 	s.modelType = state.ModelTypeCAAS
 	ctrl := s.setup(c)
@@ -1866,7 +1821,7 @@ func (s *ApplicationSuite) TestDeployCAASModelSidecarCharmNeedsNoOperatorStorage
 	c.Assert(result.Results[0].Error, gc.IsNil)
 }
 
-func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.C) {
+func (s *ApplicationSuite) TestDeployCAASModelDefaultWorkloadStorageClass(c *gc.C) {
 	s.modelType = state.ModelTypeCAAS
 	ctrl := s.setup(c)
 	defer ctrl.Finish()
@@ -1874,9 +1829,6 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.expectDefaultK8sModelConfig()
-	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(nil)
-	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-operator-storage").Return(nil, fmt.Errorf("storage pool not found%w", errors.Hide(storageerrors.PoolNotFoundError)))
-	s.registry.EXPECT().StorageProvider(storage.ProviderType("k8s-operator-storage")).Return(nil, errors.NotFoundf(`provider type "k8s-operator-storage"`))
 	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{
@@ -1893,69 +1845,6 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultOperatorStorageClass(c *gc.
 	c.Assert(result.Results[0].Error, gc.IsNil)
 }
 
-func (s *ApplicationSuite) TestDeployCAASModelWrongOperatorStorageType(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectDefaultCharm(ctrl)
-	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
-	s.expectDefaultK8sModelConfig()
-	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-operator-storage").Return(storage.NewConfig(
-		"k8s-operator-storage",
-		provider.RootfsProviderType,
-		map[string]interface{}{"foo": "bar"}),
-	)
-	s.model.EXPECT().UUID().Return("")
-
-	args := params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			ApplicationName: "foo",
-			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
-			NumUnits:        1,
-		}},
-	}
-	result, err := s.api.Deploy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result.Results, gc.HasLen, 1)
-	msg := result.OneError().Error()
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `.*the "k8s-operator-storage" storage pool requires a provider type of "kubernetes", not "rootfs"`)
-}
-
-func (s *ApplicationSuite) TestDeployCAASModelInvalidStorage(c *gc.C) {
-	s.modelType = state.ModelTypeCAAS
-	ctrl := s.setup(c)
-	defer ctrl.Finish()
-
-	ch := s.expectDefaultCharm(ctrl)
-	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
-	s.expectDefaultK8sModelConfig()
-	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-operator-storage").Return(storage.NewConfig(
-		"k8s-operator-storage",
-		k8sconstants.StorageProviderType,
-		map[string]interface{}{"foo": "bar"}),
-	)
-	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(errors.NotFoundf("storage class"))
-	s.model.EXPECT().UUID().Return("")
-
-	args := params.ApplicationsDeploy{
-		Applications: []params.ApplicationDeploy{{
-			ApplicationName: "foo",
-			CharmURL:        "local:foo-0",
-			CharmOrigin:     &params.CharmOrigin{Source: "local", Base: params.Base{Name: "ubuntu", Channel: "20.04/stable"}},
-			NumUnits:        1,
-			Storage: map[string]storage.Directive{
-				"database": {},
-			},
-		}},
-	}
-	result, err := s.api.Deploy(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	msg := result.OneError().Error()
-	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, `.*storage class not found`)
-}
-
 func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 	s.modelType = state.ModelTypeCAAS
 	ctrl := s.setup(c)
@@ -1964,17 +1853,11 @@ func (s *ApplicationSuite) TestDeployCAASModelDefaultStorageClass(c *gc.C) {
 	ch := s.expectDefaultCharm(ctrl)
 	s.backend.EXPECT().Charm(gomock.Any()).Return(ch, nil)
 	s.expectDefaultK8sModelConfig()
-	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-operator-storage").Return(storage.NewConfig(
-		"k8s-operator-storage",
-		k8sconstants.StorageProviderType,
-		map[string]interface{}{"foo": "bar"}),
-	)
 	s.storagePoolGetter.EXPECT().GetStoragePoolByName(gomock.Any(), "k8s-storage").Return(storage.NewConfig(
 		"k8s-storage",
 		k8sconstants.StorageProviderType,
 		map[string]interface{}{"foo": "bar"}),
 	)
-	s.caasBroker.EXPECT().ValidateStorageClass(gomock.Any(), gomock.Any()).Return(nil)
 	s.model.EXPECT().UUID().Return("")
 
 	args := params.ApplicationsDeploy{

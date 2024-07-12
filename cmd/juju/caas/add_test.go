@@ -313,8 +313,8 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 
 	defaultClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: "gce", Regions: set.NewStrings("us-east1"),
-		OperatorStorageClass: &storagev1.StorageClass{
-			ObjectMeta: meta.ObjectMeta{Name: "operator-sc"},
+		WorkloadStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "workload-sc"},
 		},
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
@@ -790,7 +790,7 @@ type testData struct {
 
 func (s *addCAASSuite) assertAddCloudResult(
 	c *gc.C, testRun func(),
-	cloudRegion, workloadStorage, operatorStorage string,
+	cloudRegion, workloadStorage string,
 	t testData,
 ) {
 
@@ -826,7 +826,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 		Endpoint:         "https://1.1.1.1:8888",
 		IdentityEndpoint: "",
 		StorageEndpoint:  "",
-		Config:           map[string]interface{}{"operator-storage": operatorStorage, "workload-storage": workloadStorage},
+		Config:           map[string]interface{}{"workload-storage": workloadStorage},
 		RegionConfig:     cloud.RegionConfig(nil),
 		CACertificates:   []string{"A"},
 	}
@@ -887,7 +887,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c 
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(strings.Trim(cmdtesting.Stdout(ctx), "\n"), gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s".
 You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, cloudRegion, "", "operator-sc", testData{client: true, controller: true})
+	}, cloudRegion, "", testData{client: true, controller: true})
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
@@ -914,9 +914,6 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *gc.C) {
 	defer ctrl.Finish()
 
 	result := &k8s.ClusterMetadata{
-		OperatorStorageClass: &storagev1.StorageClass{
-			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
-		},
 		WorkloadStorageClass: &storagev1.StorageClass{
 			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
 		},
@@ -932,7 +929,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(strings.Trim(cmdtesting.Stdout(ctx), "\n"), gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s".
 You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, "other", "mystorage", "mystorage", testData{client: true, controller: true})
+	}, "other", "mystorage", testData{client: true, controller: true})
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataUnknownError(c *gc.C) {
@@ -975,9 +972,6 @@ func (s *addCAASSuite) TestGatherClusterMetadataUserStorage(c *gc.C) {
 	defer ctrl.Finish()
 
 	result := &k8s.ClusterMetadata{
-		OperatorStorageClass: &storagev1.StorageClass{
-			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
-		},
 		WorkloadStorageClass: &storagev1.StorageClass{
 			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
 		},
@@ -994,7 +988,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataUserStorage(c *gc.C) {
 		c.Assert(strings.Trim(cmdtesting.Stdout(ctx), "\n"), gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s" with storage provisioned
 by the existing "mystorage" storage class.
 You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, "other", "mystorage", "mystorage", testData{client: true, controller: true})
+	}, "other", "mystorage", testData{client: true, controller: true})
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataNoRecommendedStorageError(c *gc.C) {
@@ -1023,9 +1017,6 @@ func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *gc.C) {
 
 	defaultClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: cloudRegion,
-		OperatorStorageClass: &storagev1.StorageClass{
-			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
-		},
 		WorkloadStorageClass: &storagev1.StorageClass{
 			ObjectMeta: meta.ObjectMeta{Name: "mystorage"},
 		},
@@ -1042,7 +1033,7 @@ func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *gc.C) {
 		result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 		result = strings.Replace(result, "\n", " ", -1)
 		c.Assert(result, gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, cloudRegion, "mystorage", "mystorage", testData{client: true, controller: true})
+	}, cloudRegion, "mystorage", testData{client: true, controller: true})
 
 }
 
@@ -1072,7 +1063,6 @@ func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStora
 	}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(&k8s.ClusterMetadata{
 		Cloud:                "maas",
-		OperatorStorageClass: sc,
 		WorkloadStorageClass: sc,
 	}, nil)
 
@@ -1086,7 +1076,7 @@ func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStora
 		result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 		result = strings.Replace(result, "\n", " ", -1)
 		c.Assert(result, gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s". You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, "maas", "mystorage", "mystorage", testData{client: true, controller: true})
+	}, "maas", "mystorage", testData{client: true, controller: true})
 }
 
 func (s *addCAASSuite) TestLocalOnly(c *gc.C) {
@@ -1101,9 +1091,6 @@ func (s *addCAASSuite) TestLocalOnly(c *gc.C) {
 
 	defaultClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: cloudRegion,
-		OperatorStorageClass: &storagev1.StorageClass{
-			ObjectMeta: meta.ObjectMeta{Name: "operator-sc"},
-		},
 	}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 
@@ -1113,7 +1100,7 @@ func (s *addCAASSuite) TestLocalOnly(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `k8s substrate "myk8s" added as cloud "myk8s".You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`
 		c.Assert(strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1), gc.Equals, expected)
-	}, cloudRegion, "", "operator-sc", testData{client: true})
+	}, cloudRegion, "", testData{client: true})
 }
 
 func mockStdinPipe(content string) (*os.File, error) {

@@ -113,8 +113,8 @@ func (s *updateCAASSuite) SetUpTest(c *gc.C) {
 
 	defaultClusterMetadata := &k8s.ClusterMetadata{
 		Cloud: "gce", Regions: set.NewStrings("us-east1"),
-		OperatorStorageClass: &storagev1.StorageClass{
-			ObjectMeta: meta.ObjectMeta{Name: "operator-sc"},
+		WorkloadStorageClass: &storagev1.StorageClass{
+			ObjectMeta: meta.ObjectMeta{Name: "workload-sc"},
 		},
 	}
 	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{

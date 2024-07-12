@@ -278,7 +278,6 @@ type deployTemplate struct {
 
 type validatorConfig struct {
 	charmhubHTTPClient facade.HTTPClient
-	caasBroker         CaasBrokerInterface
 	model              Model
 	cloudService       common.CloudService
 	credentialService  common.CredentialService
@@ -305,7 +304,6 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 	}
 	if cfg.model.Type() == state.ModelTypeCAAS {
 		return &caasDeployFromRepositoryValidator{
-			caasBroker:        cfg.caasBroker,
 			registry:          cfg.registry,
 			storagePoolGetter: cfg.storagePoolGetter,
 			validator:         v,
@@ -322,7 +320,7 @@ func makeDeployFromRepositoryValidator(ctx context.Context, cfg validatorConfig)
 					placement:       dt.placement,
 					storage:         dt.storage,
 				}
-				return cdp.precheck(ctx, v.model, cfg.storagePoolGetter, cfg.registry, cfg.caasBroker)
+				return cdp.precheck(ctx, v.model, cfg.storagePoolGetter, cfg.registry)
 			},
 		}
 	}
@@ -522,7 +520,6 @@ func (v *deployFromRepositoryValidator) resolvedCharmValidation(ctx context.Cont
 type caasDeployFromRepositoryValidator struct {
 	validator *deployFromRepositoryValidator
 
-	caasBroker        CaasBrokerInterface
 	registry          storage.ProviderRegistry
 	storagePoolGetter StoragePoolGetter
 

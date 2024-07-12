@@ -45,9 +45,9 @@ var defaultK8sCloud = jujucloud.Cloud{
 var defaultClusterMetadata = &k8s.ClusterMetadata{
 	Cloud:   k8s.K8sCloudMicrok8s,
 	Regions: set.NewStrings(k8s.Microk8sRegion),
-	OperatorStorageClass: &storagev1.StorageClass{
+	WorkloadStorageClass: &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "operator-sc",
+			Name: "workload-sc",
 		},
 	},
 }
@@ -104,7 +104,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 		SkipTLSVerify:   true,
 		Endpoint:        "http://1.1.1.1:8080",
 		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
-		Config:          map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
+		Config:          map[string]interface{}{"workload-storage": "workload-sc"},
 		Regions:         []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	})
 }
@@ -117,7 +117,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",
 		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
-		Config:          map[string]interface{}{"operator-storage": "something-else", "workload-storage": ""},
+		Config:          map[string]interface{}{"workload-storage": "something-else"},
 		Regions:         []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	}
 
@@ -134,7 +134,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 		CACertificates:  []string{""},
 		Endpoint:        "http://1.1.1.1:8080",
 		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
-		Config:          map[string]interface{}{"operator-storage": "something-else", "workload-storage": ""},
+		Config:          map[string]interface{}{"workload-storage": "something-else"},
 		Regions:         []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	})
 }

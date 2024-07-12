@@ -84,19 +84,10 @@ func UpdateKubeCloudWithStorage(k8sCloud cloud.Cloud, storageParams KubeCloudSto
 		}
 	}
 
-	// We at least expected operator storage to be available to successfully use
-	// this cloud.
-	if clusterMetadata.OperatorStorageClass == nil {
-		return cloud.Cloud{}, &environs.PreferredStorageNotFound{
-			Message: "no preferred operator storage found in Kubernetes cluster",
-		}
-	}
-
 	if k8sCloud.Config == nil {
 		k8sCloud.Config = make(map[string]interface{})
 	}
 
-	k8sCloud.Config[k8sconstants.OperatorStorageKey] = clusterMetadata.OperatorStorageClass.Name
 	k8sCloud.Config[k8sconstants.WorkloadStorageKey] = ""
 	if clusterMetadata.WorkloadStorageClass != nil {
 		k8sCloud.Config[k8sconstants.WorkloadStorageKey] = clusterMetadata.WorkloadStorageClass.Name
@@ -138,11 +129,6 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 	// so that finalize credentials is free to change the credentials of the
 	// bootstrap. See lp-1918486
 	cld.AuthTypes = k8scloud.SupportedAuthTypes()
-
-	// if storage is already defined there is no need to query the cluster
-	if opStorage, ok := cld.Config[k8sconstants.OperatorStorageKey]; ok && opStorage != "" {
-		return cld, nil
-	}
 
 	var credentials cloud.Credential
 	if cld.Name != k8s.K8sCloudMicrok8s {

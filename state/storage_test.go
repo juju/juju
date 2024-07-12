@@ -87,12 +87,6 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 				"persistent": "true",
 			},
 		}
-	} else {
-		// Create the operator-storage
-		s.policy.Providers["k8s-operator-storage"] = domainstorage.StoragePoolDetails{
-			Name:     "k8s-operator-storage",
-			Provider: "loop",
-		}
 	}
 
 	var err error
