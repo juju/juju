@@ -41,19 +41,19 @@ func (s *ContextRelationSuite) setUp(c *gc.C) *gomock.Controller {
 func (s *ContextRelationSuite) assertSettingsCaching(c *gc.C, members ...string) {
 	defer s.setUp(c).Finish()
 
-	s.relUnit.EXPECT().ReadSettings("u/1").Return(params.Settings{"blib": "blob"}, nil)
+	s.relUnit.EXPECT().ReadSettings(stdcontext.Background(), "u/1").Return(params.Settings{"blib": "blob"}, nil)
 
 	cache := context.NewRelationCache(s.relUnit.ReadSettings, members)
 	ctx := context.NewContextRelation(s.relUnit, cache, false)
 
 	// Check that uncached settings are read once.
-	m, err := ctx.ReadSettings("u/1")
+	m, err := ctx.ReadSettings(stdcontext.Background(), "u/1")
 	c.Assert(err, jc.ErrorIsNil)
 	expectSettings := convertMap(map[string]interface{}{"blib": "blob"})
 	c.Assert(m, gc.DeepEquals, expectSettings)
 
 	// Check that another call does not hit the api.
-	m, err = ctx.ReadSettings("u/1")
+	m, err = ctx.ReadSettings(stdcontext.Background(), "u/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, gc.DeepEquals, expectSettings)
 }

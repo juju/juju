@@ -41,9 +41,9 @@ type Facade struct {
 }
 
 // Phase returns the current migration.Phase for the supplied model UUID.
-func (facade *Facade) Phase(uuid string) (migration.Phase, error) {
+func (facade *Facade) Phase(ctx context.Context, uuid string) (migration.Phase, error) {
 	results := params.PhaseResults{}
-	err := facade.call("Phase", uuid, &results)
+	err := facade.call(ctx, "Phase", uuid, &results)
 	if err != nil {
 		return migration.UNKNOWN, errors.Trace(err)
 	}
@@ -64,9 +64,9 @@ func (facade *Facade) Phase(uuid string) (migration.Phase, error) {
 
 // Watch returns a NotifyWatcher that will inform of potential changes
 // to the result of Phase for the supplied model UUID.
-func (facade *Facade) Watch(uuid string) (watcher.NotifyWatcher, error) {
+func (facade *Facade) Watch(ctx context.Context, uuid string) (watcher.NotifyWatcher, error) {
 	results := params.NotifyWatchResults{}
-	err := facade.call("Watch", uuid, &results)
+	err := facade.call(ctx, "Watch", uuid, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -84,10 +84,10 @@ func (facade *Facade) Watch(uuid string) (watcher.NotifyWatcher, error) {
 
 // call converts the supplied model uuid into a params.Entities and
 // invokes the facade caller.
-func (facade *Facade) call(name, uuid string, results interface{}) error {
+func (facade *Facade) call(ctx context.Context, name, uuid string, results interface{}) error {
 	model := names.NewModelTag(uuid).String()
-	args := params.Entities{[]params.Entity{{model}}}
-	err := facade.caller.FacadeCall(context.TODO(), name, args, results)
+	args := params.Entities{Entities: []params.Entity{{model}}}
+	err := facade.caller.FacadeCall(ctx, name, args, results)
 	return errors.Trace(err)
 }
 

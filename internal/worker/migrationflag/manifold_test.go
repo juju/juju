@@ -135,7 +135,7 @@ func (*ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 	config.NewFacade = func(base.APICaller) (migrationflag.Facade, error) {
 		return expectFacade, nil
 	}
-	config.NewWorker = func(workerConfig migrationflag.Config) (worker.Worker, error) {
+	config.NewWorker = func(ctx context.Context, workerConfig migrationflag.Config) (worker.Worker, error) {
 		c.Check(workerConfig.Facade, gc.Equals, expectFacade)
 		c.Check(workerConfig.Model, gc.Equals, validUUID)
 		c.Check(workerConfig.Check, gc.NotNil) // uncomparable
@@ -157,7 +157,7 @@ func (*ManifoldSuite) TestStartSuccess(c *gc.C) {
 	config.NewFacade = func(base.APICaller) (migrationflag.Facade, error) {
 		return &struct{ migrationflag.Facade }{}, nil
 	}
-	config.NewWorker = func(migrationflag.Config) (worker.Worker, error) {
+	config.NewWorker = func(context.Context, migrationflag.Config) (worker.Worker, error) {
 		return expectWorker, nil
 	}
 	manifold := migrationflag.Manifold(config)

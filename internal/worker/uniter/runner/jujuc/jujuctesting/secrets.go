@@ -4,6 +4,8 @@
 package jujuctesting
 
 import (
+	"context"
+
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 )
@@ -17,13 +19,13 @@ type ContextSecrets struct {
 }
 
 // GetSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) GetSecret(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error) {
+func (c *ContextSecrets) GetSecret(_ context.Context, uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error) {
 	c.stub.AddCall("GetSecret", uri.String(), label, refresh, peek)
 	return c.SecretValue, nil
 }
 
 // CreateSecret implements jujuc.ContextSecrets.
-func (c *ContextSecrets) CreateSecret(args *jujuc.SecretCreateArgs) (*secrets.URI, error) {
+func (c *ContextSecrets) CreateSecret(_ context.Context, args *jujuc.SecretCreateArgs) (*secrets.URI, error) {
 	c.stub.AddCall("CreateSecret", args)
 	uri, _ := secrets.ParseURI("secret:9m4e2mr0ui3e8a215n4g")
 	return uri, nil

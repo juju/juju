@@ -10,6 +10,7 @@
 package upgradesteps
 
 import (
+	context "context"
 	reflect "reflect"
 
 	status "github.com/juju/juju/core/status"
@@ -40,17 +41,17 @@ func (m *MockStatusSetter) EXPECT() *MockStatusSetterMockRecorder {
 }
 
 // SetStatus mocks base method.
-func (m *MockStatusSetter) SetStatus(arg0 status.Status, arg1 string, arg2 map[string]any) error {
+func (m *MockStatusSetter) SetStatus(arg0 context.Context, arg1 status.Status, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetStatus indicates an expected call of SetStatus.
-func (mr *MockStatusSetterMockRecorder) SetStatus(arg0, arg1, arg2 any) *MockStatusSetterSetStatusCall {
+func (mr *MockStatusSetterMockRecorder) SetStatus(arg0, arg1, arg2, arg3 any) *MockStatusSetterSetStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockStatusSetter)(nil).SetStatus), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockStatusSetter)(nil).SetStatus), arg0, arg1, arg2, arg3)
 	return &MockStatusSetterSetStatusCall{Call: call}
 }
 
@@ -66,13 +67,13 @@ func (c *MockStatusSetterSetStatusCall) Return(arg0 error) *MockStatusSetterSetS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStatusSetterSetStatusCall) Do(f func(status.Status, string, map[string]any) error) *MockStatusSetterSetStatusCall {
+func (c *MockStatusSetterSetStatusCall) Do(f func(context.Context, status.Status, string, map[string]any) error) *MockStatusSetterSetStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStatusSetterSetStatusCall) DoAndReturn(f func(status.Status, string, map[string]any) error) *MockStatusSetterSetStatusCall {
+func (c *MockStatusSetterSetStatusCall) DoAndReturn(f func(context.Context, status.Status, string, map[string]any) error) *MockStatusSetterSetStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

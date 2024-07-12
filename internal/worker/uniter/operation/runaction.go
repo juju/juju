@@ -88,7 +88,7 @@ func (ra *runAction) Prepare(ctx context.Context, state State) (*State, error) {
 // Execute is part of the Operation interface.
 func (ra *runAction) Execute(ctx context.Context, state State) (*State, error) {
 	message := fmt.Sprintf("running action %s", ra.name)
-	if err := ra.callbacks.SetExecutingStatus(message); err != nil {
+	if err := ra.callbacks.SetExecutingStatus(ctx, message); err != nil {
 		return nil, err
 	}
 

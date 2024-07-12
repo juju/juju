@@ -4,6 +4,8 @@
 package jujuctesting
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -56,7 +58,7 @@ type ContextNetworking struct {
 }
 
 // PublicAddress implements jujuc.ContextNetworking.
-func (c *ContextNetworking) PublicAddress() (string, error) {
+func (c *ContextNetworking) PublicAddress(_ context.Context) (string, error) {
 	c.stub.AddCall("PublicAddress")
 
 	return c.info.PublicAddress, c.stub.NextErr()
@@ -102,7 +104,7 @@ func (c *ContextNetworking) OpenedPortRanges() network.GroupedPortRanges {
 }
 
 // NetworkInfo implements jujuc.ContextNetworking.
-func (c *ContextNetworking) NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {
+func (c *ContextNetworking) NetworkInfo(_ context.Context, bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {
 	c.stub.AddCall("NetworkInfo", bindingNames, relationId)
 	if err := c.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

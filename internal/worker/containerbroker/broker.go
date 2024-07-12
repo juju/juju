@@ -44,7 +44,7 @@ type Config struct {
 type State interface {
 	broker.APICalls
 	Machines(context.Context, ...names.MachineTag) ([]provisioner.MachineResult, error)
-	ContainerManagerConfig(params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)
+	ContainerManagerConfig(context.Context, params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error)
 }
 
 // Validate returns an error if the config cannot be used to start a Tracker.
@@ -108,13 +108,14 @@ func NewTracker(ctx context.Context, config Config) (*Tracker, error) {
 	// types to prevent confusion.
 	containerType := instance.LXD
 	managerConfigResult, err := provisioner.ContainerManagerConfig(
+		ctx,
 		params.ContainerManagerConfigParams{Type: containerType},
 	)
 	if err != nil {
 		return nil, errors.Annotate(err, "generating container manager config")
 	}
 	managerConfig := container.ManagerConfig(managerConfigResult.ManagerConfig)
-	managerConfigWithZones, err := broker.ConfigureAvailabilityZone(managerConfig, result[0].Machine)
+	managerConfigWithZones, err := broker.ConfigureAvailabilityZone(ctx, managerConfig, result[0].Machine)
 	if err != nil {
 		return nil, errors.Annotate(err, "configuring availability zones")
 	}

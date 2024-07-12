@@ -169,8 +169,8 @@ func (client *Client) getOneAction(ctx context.Context, tag *names.ActionTag) (p
 // to use the concrete `api/uniter/LeadershipSettings` type, thus
 // simplifying testing.
 type LeadershipSettingsAccessor interface {
-	Read(applicationName string) (map[string]string, error)
-	Merge(applicationName, unitName string, settings map[string]string) error
+	Read(ctx context.Context, applicationName string) (map[string]string, error)
+	Merge(ctx context.Context, applicationName, unitName string, settings map[string]string) error
 }
 
 // LeadershipSettings returns the client's leadership settings api.

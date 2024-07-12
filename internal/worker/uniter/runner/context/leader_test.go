@@ -4,6 +4,8 @@
 package context_test
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -125,7 +127,7 @@ func (s *LeaderSuite) TestLeaderSettingsSuccess(c *gc.C) {
 			"some": "settings",
 			"of":   "interest",
 		}}
-		settings, err := s.context.LeaderSettings()
+		settings, err := s.context.LeaderSettings(stdcontext.Background())
 		c.Check(settings, jc.DeepEquals, map[string]string{
 			"some": "settings",
 			"of":   "interest",
@@ -135,7 +137,7 @@ func (s *LeaderSuite) TestLeaderSettingsSuccess(c *gc.C) {
 
 	s.CheckCalls(c, nil, func() {
 		// The second uses the cache.
-		settings, err := s.context.LeaderSettings()
+		settings, err := s.context.LeaderSettings(stdcontext.Background())
 		c.Check(settings, jc.DeepEquals, map[string]string{
 			"some": "settings",
 			"of":   "interest",
@@ -150,14 +152,14 @@ func (s *LeaderSuite) TestLeaderSettingsCopyMap(c *gc.C) {
 		"some": "settings",
 		"of":   "interest",
 	}}
-	settings, err := s.context.LeaderSettings()
+	settings, err := s.context.LeaderSettings(stdcontext.Background())
 	c.Check(err, gc.IsNil)
 
 	// Put some nonsense into the returned settings...
 	settings["bad"] = "news"
 
 	// Get the settings again and check they're as expected.
-	settings, err = s.context.LeaderSettings()
+	settings, err = s.context.LeaderSettings(stdcontext.Background())
 	c.Check(settings, jc.DeepEquals, map[string]string{
 		"some": "settings",
 		"of":   "interest",
@@ -172,7 +174,7 @@ func (s *LeaderSuite) TestLeaderSettingsError(c *gc.C) {
 	}}, func() {
 		s.accessor.results = []map[string]string{nil}
 		s.Stub.SetErrors(errors.New("blort"))
-		settings, err := s.context.LeaderSettings()
+		settings, err := s.context.LeaderSettings(stdcontext.Background())
 		c.Check(settings, gc.IsNil)
 		c.Check(err, gc.ErrorMatches, "cannot read settings: blort")
 	})
@@ -189,7 +191,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsSuccess(c *gc.C) {
 		}},
 	}}, func() {
 		s.tracker.results = []StubTicket{true}
-		err := s.context.WriteLeaderSettings(map[string]string{
+		err := s.context.WriteLeaderSettings(stdcontext.Background(), map[string]string{
 			"some": "very",
 			"nice": "data",
 		})
@@ -203,13 +205,13 @@ func (s *LeaderSuite) TestWriteLeaderSettingsMinion(c *gc.C) {
 	}}, func() {
 		// The first call fails...
 		s.tracker.results = []StubTicket{false}
-		err := s.context.WriteLeaderSettings(map[string]string{"blah": "blah"})
+		err := s.context.WriteLeaderSettings(stdcontext.Background(), map[string]string{"blah": "blah"})
 		c.Check(err, gc.ErrorMatches, "cannot write settings: not the leader")
 	})
 
 	s.CheckCalls(c, nil, func() {
 		// The second doesn't even try.
-		err := s.context.WriteLeaderSettings(map[string]string{"blah": "blah"})
+		err := s.context.WriteLeaderSettings(stdcontext.Background(), map[string]string{"blah": "blah"})
 		c.Check(err, gc.ErrorMatches, "cannot write settings: not the leader")
 	})
 }
@@ -226,7 +228,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsError(c *gc.C) {
 	}}, func() {
 		s.tracker.results = []StubTicket{true}
 		s.Stub.SetErrors(errors.New("glurk"))
-		err := s.context.WriteLeaderSettings(map[string]string{
+		err := s.context.WriteLeaderSettings(stdcontext.Background(), map[string]string{
 			"some": "very",
 			"nice": "data",
 		})
@@ -244,7 +246,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsClearsCache(c *gc.C) {
 			"some": "settings",
 			"of":   "interest",
 		}}
-		_, err := s.context.LeaderSettings()
+		_, err := s.context.LeaderSettings(stdcontext.Background())
 		c.Check(err, gc.IsNil)
 	})
 
@@ -259,7 +261,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsClearsCache(c *gc.C) {
 	}}, func() {
 		// Write new data to the controller...
 		s.tracker.results = []StubTicket{true}
-		err := s.context.WriteLeaderSettings(map[string]string{
+		err := s.context.WriteLeaderSettings(stdcontext.Background(), map[string]string{
 			"some": "very",
 			"nice": "data",
 		})
@@ -274,7 +276,7 @@ func (s *LeaderSuite) TestWriteLeaderSettingsClearsCache(c *gc.C) {
 			"totally": "different",
 			"server":  "decides",
 		}}
-		settings, err := s.context.LeaderSettings()
+		settings, err := s.context.LeaderSettings(stdcontext.Background())
 		c.Check(err, gc.IsNil)
 		c.Check(settings, jc.DeepEquals, map[string]string{
 			"totally": "different",
@@ -289,13 +291,13 @@ type StubLeadershipSettingsAccessor struct {
 	results []map[string]string
 }
 
-func (stub *StubLeadershipSettingsAccessor) Read(applicationName string) (result map[string]string, _ error) {
+func (stub *StubLeadershipSettingsAccessor) Read(_ stdcontext.Context, applicationName string) (result map[string]string, _ error) {
 	stub.MethodCall(stub, "Read", applicationName)
 	result, stub.results = stub.results[0], stub.results[1:]
 	return result, stub.NextErr()
 }
 
-func (stub *StubLeadershipSettingsAccessor) Merge(applicationName, unitName string, settings map[string]string) error {
+func (stub *StubLeadershipSettingsAccessor) Merge(_ stdcontext.Context, applicationName, unitName string, settings map[string]string) error {
 	stub.MethodCall(stub, "Merge", applicationName, unitName, settings)
 	return stub.NextErr()
 }

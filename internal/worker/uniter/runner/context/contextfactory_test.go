@@ -50,7 +50,7 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 func (s *ContextFactorySuite) setupContextFactory(c *gc.C, ctrl *gomock.Controller) {
 	s.setupUniter(ctrl)
 
-	s.unit.EXPECT().PrincipalName().Return("", false, nil)
+	s.unit.EXPECT().PrincipalName(gomock.Any()).Return("", false, nil)
 	s.uniter.EXPECT().Model(gomock.Any()).Return(&types.Model{
 		Name:      "test-model",
 		UUID:      coretesting.ModelTag.Id(),
@@ -64,7 +64,7 @@ func (s *ContextFactorySuite) setupContextFactory(c *gc.C, ctrl *gomock.Controll
 	s.uniter.EXPECT().ModelConfig(gomock.Any()).Return(cfg, nil).AnyTimes()
 
 	s.payloads = contextmocks.NewMockPayloadAPIClient(ctrl)
-	s.payloads.EXPECT().List().Return(nil, nil).AnyTimes()
+	s.payloads.EXPECT().List(gomock.Any()).Return(nil, nil).AnyTimes()
 
 	contextFactory, err := context.NewContextFactory(stdcontext.Background(), context.FactoryConfig{
 		Uniter:           s.uniter,
@@ -163,7 +163,7 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
 
-	s.uniter.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("u/0")).Return(params.StorageAttachment{
+	s.uniter.EXPECT().StorageAttachment(gomock.Any(), names.NewStorageTag("data/0"), names.NewUnitTag("u/0")).Return(params.StorageAttachment{
 		Kind:     params.StorageKindBlock,
 		Location: "/dev/sdb",
 	}, nil).AnyTimes()
@@ -339,8 +339,8 @@ func (s *ContextFactorySuite) TestNewHookContextPrunesNonMemberCaches(c *gc.C) {
 	s.updateCache(0, "rel0/0", params.Settings{"keep": "me"})
 	s.updateCache(0, "rel0/1", params.Settings{"drop": "me"})
 
-	s.relunits[0].EXPECT().ReadSettings("rel0/0").Return(nil, nil).AnyTimes()
-	s.relunits[0].EXPECT().ReadSettings("rel0/1").Return(nil, nil).AnyTimes()
+	s.relunits[0].EXPECT().ReadSettings(gomock.Any(), "rel0/0").Return(nil, nil).AnyTimes()
+	s.relunits[0].EXPECT().ReadSettings(gomock.Any(), "rel0/1").Return(nil, nil).AnyTimes()
 
 	ctx, err := s.factory.HookContext(stdcontext.Background(), hook.Info{Kind: hooks.Install})
 	c.Assert(err, jc.ErrorIsNil)
@@ -359,7 +359,7 @@ func (s *ContextFactorySuite) TestNewHookContextPrunesNonMemberCaches(c *gc.C) {
 
 	// Verify that the settings really were cached by trying to look them up.
 	// Nothing's really in scope, so the call would fail if they weren't.
-	settings0, err = relCtx.ReadSettings("rel0/0")
+	settings0, err = relCtx.ReadSettings(stdcontext.Background(), "rel0/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings0, jc.DeepEquals, params.Settings{"keep": "me"})
 }

@@ -39,7 +39,7 @@ func (s *storageProvisionerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.provider = &dummyProvider{dynamic: true}
 	s.registry = storage.StaticProviderRegistry{
-		map[storage.ProviderType]storage.Provider{
+		Providers: map[storage.ProviderType]storage.Provider{
 			"dummy": s.provider,
 		},
 	}
@@ -449,9 +449,9 @@ func (s *storageProvisionerSuite) TestAttachVolumeRetry(c *gc.C) {
 		}
 		return []storage.AttachVolumesResult{{
 			VolumeAttachment: &storage.VolumeAttachment{
-				args[0].Volume,
-				args[0].Machine,
-				storage.VolumeAttachmentInfo{
+				Volume:  args[0].Volume,
+				Machine: args[0].Machine,
+				VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
 					DeviceName: "/dev/sda1",
 				},
 			},
@@ -531,9 +531,9 @@ func (s *storageProvisionerSuite) TestAttachFilesystemRetry(c *gc.C) {
 		}
 		return []storage.AttachFilesystemsResult{{
 			FilesystemAttachment: &storage.FilesystemAttachment{
-				args[0].Filesystem,
-				args[0].Machine,
-				storage.FilesystemAttachmentInfo{
+				Filesystem: args[0].Filesystem,
+				Machine:    args[0].Machine,
+				FilesystemAttachmentInfo: storage.FilesystemAttachmentInfo{
 					Path: "/oh/over/there",
 				},
 			},

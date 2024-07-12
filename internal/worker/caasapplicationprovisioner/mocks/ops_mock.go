@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	clock "github.com/juju/clock"
@@ -45,17 +46,17 @@ func (m *MockApplicationOps) EXPECT() *MockApplicationOpsMockRecorder {
 }
 
 // AppAlive mocks base method.
-func (m *MockApplicationOps) AppAlive(arg0 string, arg1 caas.Application, arg2 string, arg3 *caas.ApplicationConfig, arg4 caasapplicationprovisioner.CAASProvisionerFacade, arg5 clock.Clock, arg6 logger.Logger) error {
+func (m *MockApplicationOps) AppAlive(arg0 context.Context, arg1 string, arg2 caas.Application, arg3 string, arg4 *caas.ApplicationConfig, arg5 caasapplicationprovisioner.CAASProvisionerFacade, arg6 clock.Clock, arg7 logger.Logger) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AppAlive", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	ret := m.ctrl.Call(m, "AppAlive", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AppAlive indicates an expected call of AppAlive.
-func (mr *MockApplicationOpsMockRecorder) AppAlive(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockApplicationOpsAppAliveCall {
+func (mr *MockApplicationOpsMockRecorder) AppAlive(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 any) *MockApplicationOpsAppAliveCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppAlive", reflect.TypeOf((*MockApplicationOps)(nil).AppAlive), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppAlive", reflect.TypeOf((*MockApplicationOps)(nil).AppAlive), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	return &MockApplicationOpsAppAliveCall{Call: call}
 }
 
@@ -71,13 +72,13 @@ func (c *MockApplicationOpsAppAliveCall) Return(arg0 error) *MockApplicationOpsA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsAppAliveCall) Do(f func(string, caas.Application, string, *caas.ApplicationConfig, caasapplicationprovisioner.CAASProvisionerFacade, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
+func (c *MockApplicationOpsAppAliveCall) Do(f func(context.Context, string, caas.Application, string, *caas.ApplicationConfig, caasapplicationprovisioner.CAASProvisionerFacade, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsAppAliveCall) DoAndReturn(f func(string, caas.Application, string, *caas.ApplicationConfig, caasapplicationprovisioner.CAASProvisionerFacade, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
+func (c *MockApplicationOpsAppAliveCall) DoAndReturn(f func(context.Context, string, caas.Application, string, *caas.ApplicationConfig, caasapplicationprovisioner.CAASProvisionerFacade, clock.Clock, logger.Logger) error) *MockApplicationOpsAppAliveCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -159,18 +160,18 @@ func (c *MockApplicationOpsAppDyingCall) DoAndReturn(f func(string, caas.Applica
 }
 
 // CheckCharmFormat mocks base method.
-func (m *MockApplicationOps) CheckCharmFormat(arg0 string, arg1 caasapplicationprovisioner.CAASProvisionerFacade, arg2 logger.Logger) (bool, error) {
+func (m *MockApplicationOps) CheckCharmFormat(arg0 context.Context, arg1 string, arg2 caasapplicationprovisioner.CAASProvisionerFacade, arg3 logger.Logger) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckCharmFormat", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "CheckCharmFormat", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CheckCharmFormat indicates an expected call of CheckCharmFormat.
-func (mr *MockApplicationOpsMockRecorder) CheckCharmFormat(arg0, arg1, arg2 any) *MockApplicationOpsCheckCharmFormatCall {
+func (mr *MockApplicationOpsMockRecorder) CheckCharmFormat(arg0, arg1, arg2, arg3 any) *MockApplicationOpsCheckCharmFormatCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmFormat", reflect.TypeOf((*MockApplicationOps)(nil).CheckCharmFormat), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckCharmFormat", reflect.TypeOf((*MockApplicationOps)(nil).CheckCharmFormat), arg0, arg1, arg2, arg3)
 	return &MockApplicationOpsCheckCharmFormatCall{Call: call}
 }
 
@@ -186,13 +187,13 @@ func (c *MockApplicationOpsCheckCharmFormatCall) Return(arg0 bool, arg1 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationOpsCheckCharmFormatCall) Do(f func(string, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) (bool, error)) *MockApplicationOpsCheckCharmFormatCall {
+func (c *MockApplicationOpsCheckCharmFormatCall) Do(f func(context.Context, string, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) (bool, error)) *MockApplicationOpsCheckCharmFormatCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationOpsCheckCharmFormatCall) DoAndReturn(f func(string, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) (bool, error)) *MockApplicationOpsCheckCharmFormatCall {
+func (c *MockApplicationOpsCheckCharmFormatCall) DoAndReturn(f func(context.Context, string, caasapplicationprovisioner.CAASProvisionerFacade, logger.Logger) (bool, error)) *MockApplicationOpsCheckCharmFormatCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

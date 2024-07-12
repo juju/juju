@@ -98,7 +98,7 @@ func (c *secretGetCommand) Init(args []string) (err error) {
 
 // Run implements cmd.Command.
 func (c *secretGetCommand) Run(ctx *cmd.Context) error {
-	value, err := c.ctx.GetSecret(c.secretUri, c.label, c.refresh, c.peek)
+	value, err := c.ctx.GetSecret(ctx, c.secretUri, c.label, c.refresh, c.peek)
 	if err != nil {
 		return err
 	}

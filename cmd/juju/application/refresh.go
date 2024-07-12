@@ -477,7 +477,7 @@ func (c *refreshCommand) Run(ctx *cmd.Context) error {
 
 	// Print out the updated endpoint binding plan.
 	charmsClient := c.NewCharmClient(apiRoot)
-	charmInfo, err := charmsClient.CharmInfo(curl.String())
+	charmInfo, err := charmsClient.CharmInfo(ctx, curl.String())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -579,11 +579,12 @@ func (c *refreshCommand) upgradeResources(
 		return nil, errors.Trace(err)
 	}
 	charmsClient := c.NewCharmClient(apiRoot)
-	meta, err := utils.GetMetaResources(chID.URL, charmsClient)
+	meta, err := utils.GetMetaResources(ctx, chID.URL, charmsClient)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	filtered, err := utils.GetUpgradeResources(
+		ctx,
 		chID,
 		charmsClient,
 		resourceLister,

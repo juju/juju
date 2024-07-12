@@ -101,7 +101,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifold(c *gc.C) {
 		{Machine: s.machine},
 	}
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
-	s.machine.EXPECT().SupportedContainers().Return([]instance.ContainerType{instance.LXD}, true, nil)
+	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return([]instance.ContainerType{instance.LXD}, true, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
 	cfg := provisioner.ContainerManifoldConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
@@ -120,7 +120,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldContainersNotK
 		{Machine: s.machine},
 	}
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
-	s.machine.EXPECT().SupportedContainers().Return(nil, false, nil)
+	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return(nil, false, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
 	cfg := provisioner.ContainerManifoldConfig{
 		Logger:        loggertesting.WrapCheckLog(c),
@@ -138,7 +138,7 @@ func (s *containerManifoldSuite) TestContainerProvisioningManifoldNoContainerSup
 		{Machine: s.machine},
 	}
 	s.getter.EXPECT().Machines(gomock.Any(), []names.MachineTag{tag}).Return(retval, nil)
-	s.machine.EXPECT().SupportedContainers().Return(nil, true, nil)
+	s.machine.EXPECT().SupportedContainers(gomock.Any()).Return(nil, true, nil)
 	s.machine.EXPECT().Life().Return(life.Alive)
 	cfg := provisioner.ContainerManifoldConfig{
 		Logger:        loggertesting.WrapCheckLog(c),

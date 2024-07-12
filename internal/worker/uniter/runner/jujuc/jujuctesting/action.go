@@ -4,6 +4,8 @@
 package jujuctesting
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 )
 
@@ -45,7 +47,7 @@ func (c *ContextActionHook) UpdateActionResults(keys []string, value interface{}
 }
 
 // LogActionMessage implements jujuc.ActionHookContext.
-func (c *ContextActionHook) LogActionMessage(message string) error {
+func (c *ContextActionHook) LogActionMessage(_ context.Context, message string) error {
 	c.stub.AddCall("LogActionMessage", message)
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)

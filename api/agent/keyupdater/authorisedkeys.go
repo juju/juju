@@ -33,12 +33,12 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 }
 
 // AuthorisedKeys returns the authorised ssh keys for the machine specified by machineTag.
-func (c *Client) AuthorisedKeys(tag names.MachineTag) ([]string, error) {
+func (c *Client) AuthorisedKeys(ctx context.Context, tag names.MachineTag) ([]string, error) {
 	var results params.StringsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "AuthorisedKeys", args, &results)
+	err := c.facade.FacadeCall(ctx, "AuthorisedKeys", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -56,12 +56,12 @@ func (c *Client) AuthorisedKeys(tag names.MachineTag) ([]string, error) {
 
 // WatchAuthorisedKeys returns a notify watcher that looks for changes in the
 // authorised ssh keys for the machine specified by machineTag.
-func (c *Client) WatchAuthorisedKeys(tag names.MachineTag) (watcher.NotifyWatcher, error) {
+func (c *Client) WatchAuthorisedKeys(ctx context.Context, tag names.MachineTag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "WatchAuthorisedKeys", args, &results)
+	err := c.facade.FacadeCall(ctx, "WatchAuthorisedKeys", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err

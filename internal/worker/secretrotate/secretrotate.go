@@ -4,6 +4,7 @@
 package secretrotate
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 
 // SecretManagerFacade instances provide a watcher for secret rotation changes.
 type SecretManagerFacade interface {
-	WatchSecretsRotationChanges(ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error)
+	WatchSecretsRotationChanges(ctx context.Context, ownerTags ...names.Tag) (watcher.SecretTriggerWatcher, error)
 }
 
 // Config defines the operation of the Worker.
@@ -102,7 +103,10 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	changes, err := w.config.SecretManagerFacade.WatchSecretsRotationChanges(w.config.SecretOwners...)
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	changes, err := w.config.SecretManagerFacade.WatchSecretsRotationChanges(ctx, w.config.SecretOwners...)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -225,4 +229,8 @@ func (w *Worker) computeNextRotateTime() {
 		}
 		w.timer.Reset(nextDuration)
 	}
+}
+
+func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

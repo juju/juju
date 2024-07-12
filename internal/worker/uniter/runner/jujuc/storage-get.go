@@ -4,6 +4,8 @@
 package jujuc
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -22,9 +24,9 @@ type StorageGetCommand struct {
 	out             cmd.Output
 }
 
-func NewStorageGetCommand(ctx Context) (cmd.Command, error) {
-	c := &StorageGetCommand{ctx: ctx}
-	sV, err := newStorageIdValue(ctx, &c.storageTag)
+func NewStorageGetCommand(cmdCtx Context) (cmd.Command, error) {
+	c := &StorageGetCommand{ctx: cmdCtx}
+	sV, err := newStorageIdValue(context.TODO(), cmdCtx, &c.storageTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -62,7 +64,7 @@ func (c *StorageGetCommand) Init(args []string) error {
 }
 
 func (c *StorageGetCommand) Run(ctx *cmd.Context) error {
-	storage, err := c.ctx.Storage(c.storageTag)
+	storage, err := c.ctx.Storage(ctx, c.storageTag)
 	if err != nil {
 		return errors.Trace(err)
 	}

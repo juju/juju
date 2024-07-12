@@ -337,11 +337,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 
 	// Check we are running the correct charm version.
 	if u.sidecar && u.enforcedCharmModifiedVersion != -1 {
-		app, err := u.unit.Application(stdcontext.TODO())
+		app, err := u.unit.Application(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		appCharmModifiedVersion, err := app.CharmModifiedVersion()
+		appCharmModifiedVersion, err := app.CharmModifiedVersion(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -430,11 +430,11 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			// error state.
 			return nil
 		}
-		return setAgentStatus(u, status.Idle, "", nil)
+		return setAgentStatus(ctx, u, status.Idle, "", nil)
 	}
 
 	clearResolved := func() error {
-		if err := u.unit.ClearResolved(); err != nil {
+		if err := u.unit.ClearResolved(ctx); err != nil {
 			return errors.Trace(err)
 		}
 		watcher.ClearResolvedMode()
@@ -560,7 +560,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				localState.HookWasShutdown = true
 				err = nil
 			case errors.Is(err, resolver.ErrUnitDead):
-				err = u.terminate(stdcontext.TODO())
+				err = u.terminate(ctx)
 			case errors.Is(err, resolver.ErrRestart):
 				// make sure we update the two values used above in
 				// creating LocalState.
@@ -574,9 +574,9 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 				// handling is outside of the resolver's control.
 				if _, is := errors.AsType[*operation.DeployConflictError](err); is {
 					localState.Conflicted = true
-					err = setAgentStatus(u, status.Error, "upgrade failed", nil)
+					err = setAgentStatus(ctx, u, status.Error, "upgrade failed", nil)
 				} else {
-					reportAgentError(u, "resolver loop error", err)
+					reportAgentError(ctx, u, "resolver loop error", err)
 				}
 			}
 		}
@@ -595,7 +595,7 @@ func (u *Uniter) verifyCharmProfile(ctx stdcontext.Context, url string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	required, err := ch.LXDProfileRequired()
+	required, err := ch.LXDProfileRequired(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -604,7 +604,7 @@ func (u *Uniter) verifyCharmProfile(ctx stdcontext.Context, url string) error {
 		u.logger.Debugf("no lxd profile required for %s", url)
 		return nil
 	}
-	profile, err := u.unit.LXDProfileName()
+	profile, err := u.unit.LXDProfileName(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -648,7 +648,7 @@ func (u *Uniter) charmState(ctx stdcontext.Context) (bool, string, int, error) {
 	var charmURL string
 	var charmModifiedVersion int
 
-	canApplyCharmProfile, err := u.unit.CanApplyLXDProfile()
+	canApplyCharmProfile, err := u.unit.CanApplyLXDProfile(ctx)
 	if err != nil {
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, err
 	}
@@ -674,7 +674,7 @@ func (u *Uniter) charmState(ctx stdcontext.Context) (bool, string, int, error) {
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, nil
 	}
 	// No install needed, find the curl and start.
-	curl, err := u.unit.CharmURL()
+	curl, err := u.unit.CharmURL(ctx)
 	if err != nil {
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
 	}
@@ -688,7 +688,7 @@ func (u *Uniter) charmState(ctx stdcontext.Context) (bool, string, int, error) {
 	// This assumes that the uniter is not restarting after an application
 	// changed notification, with changes to CharmModifiedVersion, but before
 	// it could be acted on.
-	charmModifiedVersion, err = app.CharmModifiedVersion()
+	charmModifiedVersion, err = app.CharmModifiedVersion(ctx)
 	if err != nil {
 		return canApplyCharmProfile, charmURL, charmModifiedVersion, errors.Trace(err)
 	}
@@ -715,14 +715,14 @@ func (u *Uniter) terminate(ctx stdcontext.Context) error {
 			if err := u.unit.Refresh(ctx); err != nil {
 				return errors.Trace(err)
 			}
-			if hasSubs, err := u.unit.HasSubordinates(); err != nil {
+			if hasSubs, err := u.unit.HasSubordinates(ctx); err != nil {
 				return errors.Trace(err)
 			} else if hasSubs {
 				continue
 			}
 			// The unit is known to be Dying; so if it didn't have subordinates
 			// just above, it can't acquire new ones before this call.
-			if err := u.unit.EnsureDead(); err != nil {
+			if err := u.unit.EnsureDead(ctx); err != nil {
 				return errors.Trace(err)
 			}
 			return u.stopUnitError()
@@ -953,7 +953,7 @@ func (u *Uniter) getApplicationCharmURL(ctx stdcontext.Context) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	charmURL, _, err := app.CharmURL()
+	charmURL, _, err := app.CharmURL(ctx)
 	return charmURL, err
 }
 
@@ -983,7 +983,7 @@ func (u *Uniter) acquireExecutionLock(action, executionGroup string) (func(), er
 	return releaser, nil
 }
 
-func (u *Uniter) reportHookError(hookInfo hook.Info) error {
+func (u *Uniter) reportHookError(ctx stdcontext.Context, hookInfo hook.Info) error {
 	// Set the agent status to "error". We must do this here in case the
 	// hook is interrupted (e.g. unit agent crashes), rather than immediately
 	// after attempting a runHookOp.
@@ -1009,7 +1009,7 @@ func (u *Uniter) reportHookError(hookInfo hook.Info) error {
 	}
 	statusData["hook"] = hookName
 	statusMessage := fmt.Sprintf("hook failed: %q", hookMessage)
-	return setAgentStatus(u, status.Error, statusMessage, statusData)
+	return setAgentStatus(ctx, u, status.Error, statusMessage, statusData)
 }
 
 // Terminate terminates the Uniter worker, ensuring the stop hook is fired before
@@ -1048,6 +1048,6 @@ func (u *Uniter) Report() map[string]interface{} {
 // It returns a cancellable context that is cancelled when the action has
 // completed.
 func (u *Uniter) scopedContext() (stdcontext.Context, stdcontext.CancelFunc) {
-	ctx, cancel := stdcontext.WithCancel(stdcontext.Background())
-	return u.catacomb.Context(ctx), cancel
+	ctx, cancel := stdcontext.WithCancel(u.catacomb.Context(stdcontext.Background()))
+	return ctx, cancel
 }

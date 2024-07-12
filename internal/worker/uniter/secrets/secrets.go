@@ -13,7 +13,6 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/logger"
-	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/worker/uniter/api"
 	"github.com/juju/juju/internal/worker/uniter/hook"
 )
@@ -21,7 +20,6 @@ import (
 // SecretsClient is used by the secrets tracker to access the Juju model.
 type SecretsClient interface {
 	api.SecretsClient
-	SecretMetadata() ([]coresecrets.SecretOwnerMetadata, error)
 }
 
 // Secrets generates storage hooks in response to changes to
@@ -73,7 +71,7 @@ func (s *Secrets) init(ctx context.Context) error {
 		for uri := range s.secretsState.ConsumedSecretInfo {
 			uris.Add(uri)
 		}
-		info, err := s.client.GetConsumerSecretsRevisionInfo(s.unitTag.Id(), uris.SortedValues())
+		info, err := s.client.GetConsumerSecretsRevisionInfo(ctx, s.unitTag.Id(), uris.SortedValues())
 		if err != nil {
 			return errors.Annotate(err, "getting consumed secret info")
 		}
@@ -86,7 +84,7 @@ func (s *Secrets) init(ctx context.Context) error {
 			s.secretsState.ConsumedSecretInfo = updated
 		}
 	}
-	metadata, err := s.client.SecretMetadata()
+	metadata, err := s.client.SecretMetadata(ctx)
 	if err != nil {
 		return errors.Annotate(err, "reading secret metadata")
 	}

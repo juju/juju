@@ -49,7 +49,7 @@ type mockCallbacks struct {
 	operation.Callbacks
 }
 
-func (c *mockCallbacks) SetExecutingStatus(status string) error {
+func (c *mockCallbacks) SetExecutingStatus(_ context.Context, status string) error {
 	c.MethodCall(c, "SetExecutingStatus", status)
 	return c.NextErr()
 }

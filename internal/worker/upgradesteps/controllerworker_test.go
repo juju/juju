@@ -436,7 +436,7 @@ func (s *controllerWorkerSuite) expectAbort(c *gc.C) chan struct{} {
 	done := make(chan struct{})
 	// Return an error during setting status and set db upgrade failed when
 	// aborting to ensure that we ignore it.
-	s.statusSetter.EXPECT().SetStatus(status.Error, gomock.Any(), gomock.Any()).Return(errors.New("should never be the cause of a failure"))
+	s.statusSetter.EXPECT().SetStatus(gomock.Any(), status.Error, gomock.Any(), gomock.Any()).Return(errors.New("should never be the cause of a failure"))
 	s.upgradeService.EXPECT().SetDBUpgradeFailed(gomock.Any(), s.upgradeUUID).DoAndReturn(func(ctx context.Context, uuid domainupgrade.UUID) error {
 		defer close(done)
 		return errors.New("this should still abort the work flow")
@@ -448,7 +448,7 @@ func (s *controllerWorkerSuite) expectComplete(c *gc.C) chan struct{} {
 	done := make(chan struct{})
 	// Return an error during setting status and set db upgrade failed when
 	// aborting to ensure that we ignore it.
-	s.statusSetter.EXPECT().SetStatus(status.Started, gomock.Any(), gomock.Any()).Return(errors.New("should never be the cause of a failure"))
+	s.statusSetter.EXPECT().SetStatus(gomock.Any(), status.Started, gomock.Any(), gomock.Any()).Return(errors.New("should never be the cause of a failure"))
 	s.lock.EXPECT().Unlock().Do(func() {
 		close(done)
 	})

@@ -46,9 +46,9 @@ func NewClient(jujuAPI JujuAPIClient) (*secretsClient, error) {
 }
 
 // GetBackend returns the secrets backend for the specified ID and the model's current active backend ID.
-func (c *secretsClient) GetBackend(backendID *string, forDrain bool) (provider.SecretsBackend, string, error) {
+func (c *secretsClient) GetBackend(ctx context.Context, backendID *string, forDrain bool) (provider.SecretsBackend, string, error) {
 	if forDrain {
-		cfg, activeID, err := c.jujuAPI.GetBackendConfigForDrain(backendID)
+		cfg, activeID, err := c.jujuAPI.GetBackendConfigForDrain(ctx, backendID)
 		if err != nil {
 			return nil, "", errors.Trace(err)
 		}
@@ -58,7 +58,7 @@ func (c *secretsClient) GetBackend(backendID *string, forDrain bool) (provider.S
 		}
 		return b, activeID, nil
 	}
-	info, err := c.jujuAPI.GetSecretBackendConfig(backendID)
+	info, err := c.jujuAPI.GetSecretBackendConfig(ctx, backendID)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -75,10 +75,10 @@ func (c *secretsClient) GetBackend(backendID *string, forDrain bool) (provider.S
 }
 
 // GetContent implements Client.
-func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error) {
+func (c *secretsClient) GetContent(ctx context.Context, uri *secrets.URI, label string, refresh, peek bool) (secrets.SecretValue, error) {
 	lastBackendID := ""
 	for {
-		content, backendCfg, wasDraining, err := c.jujuAPI.GetContentInfo(uri, label, refresh, peek)
+		content, backendCfg, wasDraining, err := c.jujuAPI.GetContentInfo(ctx, uri, label, refresh, peek)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -94,7 +94,7 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		val, err := backend.GetContent(context.TODO(), content.ValueRef.RevisionID)
+		val, err := backend.GetContent(ctx, content.ValueRef.RevisionID)
 		if err == nil || !errors.Is(err, secreterrors.SecretRevisionNotFound) || lastBackendID == backendID {
 			return val, errors.Trace(err)
 		}
@@ -108,8 +108,8 @@ func (c *secretsClient) GetContent(uri *secrets.URI, label string, refresh, peek
 }
 
 // GetRevisionContent implements Client.
-func (c *secretsClient) GetRevisionContent(uri *secrets.URI, revision int) (secrets.SecretValue, error) {
-	content, _, _, err := c.jujuAPI.GetRevisionContentInfo(uri, revision, false)
+func (c *secretsClient) GetRevisionContent(ctx context.Context, uri *secrets.URI, revision int) (secrets.SecretValue, error) {
+	content, _, _, err := c.jujuAPI.GetRevisionContentInfo(ctx, uri, revision, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -121,23 +121,23 @@ func (c *secretsClient) GetRevisionContent(uri *secrets.URI, revision int) (secr
 	}
 
 	backendID := content.ValueRef.BackendID
-	backend, _, err := c.GetBackend(&backendID, false)
+	backend, _, err := c.GetBackend(ctx, &backendID, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return backend.GetContent(context.TODO(), content.ValueRef.RevisionID)
+	return backend.GetContent(ctx, content.ValueRef.RevisionID)
 }
 
 // SaveContent implements Client.
-func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error) {
-	activeBackend, activeBackendID, err := c.GetBackend(nil, false)
+func (c *secretsClient) SaveContent(ctx context.Context, uri *secrets.URI, revision int, value secrets.SecretValue) (secrets.ValueRef, error) {
+	activeBackend, activeBackendID, err := c.GetBackend(ctx, nil, false)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			return secrets.ValueRef{}, errors.NotSupportedf("saving secret content to external backend")
 		}
 		return secrets.ValueRef{}, errors.Trace(err)
 	}
-	revId, err := activeBackend.SaveContent(context.TODO(), uri, revision, value)
+	revId, err := activeBackend.SaveContent(ctx, uri, revision, value)
 	if err != nil {
 		return secrets.ValueRef{}, errors.Trace(err)
 	}
@@ -148,10 +148,10 @@ func (c *secretsClient) SaveContent(uri *secrets.URI, revision int, value secret
 }
 
 // DeleteContent implements Client.
-func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
+func (c *secretsClient) DeleteContent(ctx context.Context, uri *secrets.URI, revision int) error {
 	lastBackendID := ""
 	for {
-		content, backendCfg, wasDraining, err := c.jujuAPI.GetRevisionContentInfo(uri, revision, true)
+		content, backendCfg, wasDraining, err := c.jujuAPI.GetRevisionContentInfo(ctx, uri, revision, true)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -164,7 +164,7 @@ func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = backend.DeleteContent(context.TODO(), content.ValueRef.RevisionID)
+		err = backend.DeleteContent(ctx, content.ValueRef.RevisionID)
 		if err == nil || !errors.Is(err, secreterrors.SecretRevisionNotFound) || lastBackendID == backendID {
 			return errors.Trace(err)
 		}
@@ -178,12 +178,12 @@ func (c *secretsClient) DeleteContent(uri *secrets.URI, revision int) error {
 }
 
 // DeleteExternalContent implements Client.
-func (c *secretsClient) DeleteExternalContent(ref secrets.ValueRef) error {
-	backend, _, err := c.GetBackend(&ref.BackendID, false)
+func (c *secretsClient) DeleteExternalContent(ctx context.Context, ref secrets.ValueRef) error {
+	backend, _, err := c.GetBackend(ctx, &ref.BackendID, false)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = backend.DeleteContent(context.TODO(), ref.RevisionID)
+	err = backend.DeleteContent(ctx, ref.RevisionID)
 	if errors.Is(err, secreterrors.SecretRevisionNotFound) {
 		return nil
 	}

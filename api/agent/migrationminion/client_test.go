@@ -4,6 +4,7 @@
 package migrationminion_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -43,7 +44,7 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 	})
 
 	client := migrationminion.NewClient(apiCaller)
-	w, err := client.Watch()
+	w, err := client.Watch(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	defer worker.Stop(w)
 
@@ -56,9 +57,9 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 	case err := <-errC:
 		c.Assert(err, gc.ErrorMatches, "boom")
 		expectedCalls := []jujutesting.StubCall{
-			{"Migrationminion.Watch", []interface{}{"", nil}},
-			{"MigrationStatusWatcher.Next", []interface{}{"abc", nil}},
-			{"MigrationStatusWatcher.Stop", []interface{}{"abc", nil}},
+			{FuncName: "Migrationminion.Watch", Args: []interface{}{"", nil}},
+			{FuncName: "MigrationStatusWatcher.Next", Args: []interface{}{"abc", nil}},
+			{FuncName: "MigrationStatusWatcher.Stop", Args: []interface{}{"abc", nil}},
 		}
 		// The Stop API call happens in a separate goroutine which
 		// might execute after the worker has exited so wait for the
@@ -79,7 +80,7 @@ func (s *ClientSuite) TestWatchErr(c *gc.C) {
 		return errors.New("boom")
 	})
 	client := migrationminion.NewClient(apiCaller)
-	_, err := client.Watch()
+	_, err := client.Watch(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -91,11 +92,11 @@ func (s *ClientSuite) TestReport(c *gc.C) {
 	})
 
 	client := migrationminion.NewClient(apiCaller)
-	err := client.Report("id", migration.IMPORT, true)
+	err := client.Report(context.Background(), "id", migration.IMPORT, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"MigrationMinion.Report", []interface{}{params.MinionReport{
+		{FuncName: "MigrationMinion.Report", Args: []interface{}{params.MinionReport{
 			MigrationId: "id",
 			Phase:       "IMPORT",
 			Success:     true,
@@ -109,6 +110,6 @@ func (s *ClientSuite) TestReportError(c *gc.C) {
 	})
 
 	client := migrationminion.NewClient(apiCaller)
-	err := client.Report("id", migration.IMPORT, true)
+	err := client.Report(context.Background(), "id", migration.IMPORT, true)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

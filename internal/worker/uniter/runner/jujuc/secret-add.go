@@ -184,7 +184,7 @@ func (c *secretAddCommand) Run(ctx *cmd.Context) error {
 		SecretUpdateArgs: *updateArgs,
 		Owner:            owner,
 	}
-	uri, err := c.ctx.CreateSecret(arg)
+	uri, err := c.ctx.CreateSecret(ctx, arg)
 	if err != nil {
 		return err
 	}

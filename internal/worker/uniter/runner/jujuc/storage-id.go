@@ -4,15 +4,17 @@
 package jujuc
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 )
 
 // newStorageIdValue returns a gnuflag.Value for convenient parsing of storage
 // ids in ctx.
-func newStorageIdValue(ctx Context, result *names.StorageTag) (*storageIdValue, error) {
-	v := &storageIdValue{result: result, ctx: ctx}
-	if s, err := ctx.HookStorage(); err == nil {
+func newStorageIdValue(ctx context.Context, cmdCtx Context, result *names.StorageTag) (*storageIdValue, error) {
+	v := &storageIdValue{result: result, ctx: ctx, cmdCtx: cmdCtx}
+	if s, err := cmdCtx.HookStorage(ctx); err == nil {
 		*v.result = s.Tag()
 	} else if !errors.Is(err, errors.NotFound) && !errors.Is(err, errors.NotProvisioned) {
 		return nil, errors.Trace(err)
@@ -23,7 +25,8 @@ func newStorageIdValue(ctx Context, result *names.StorageTag) (*storageIdValue, 
 // storageIdValue implements gnuflag.Value for use in storage commands.
 type storageIdValue struct {
 	result *names.StorageTag
-	ctx    Context
+	ctx    context.Context
+	cmdCtx Context
 }
 
 // String returns the current value.
@@ -42,7 +45,7 @@ func (v *storageIdValue) Set(value string) error {
 		return errors.Errorf("invalid storage ID %q", value)
 	}
 	tag := names.NewStorageTag(value)
-	if _, err := v.ctx.Storage(tag); err != nil {
+	if _, err := v.cmdCtx.Storage(v.ctx, tag); err != nil {
 		return errors.Trace(err)
 	}
 	*v.result = tag

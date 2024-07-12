@@ -40,5 +40,5 @@ func (c *ActionLogCommand) Init(args []string) error {
 }
 
 func (c *ActionLogCommand) Run(ctx *cmd.Context) error {
-	return c.ctx.LogActionMessage(c.Message)
+	return c.ctx.LogActionMessage(ctx, c.Message)
 }

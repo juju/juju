@@ -1245,17 +1245,17 @@ func (c *MockCallbacksSecretsRemovedCall) DoAndReturn(f func(context.Context, []
 }
 
 // SetCurrentCharm mocks base method.
-func (m *MockCallbacks) SetCurrentCharm(arg0 string) error {
+func (m *MockCallbacks) SetCurrentCharm(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCurrentCharm", arg0)
+	ret := m.ctrl.Call(m, "SetCurrentCharm", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetCurrentCharm indicates an expected call of SetCurrentCharm.
-func (mr *MockCallbacksMockRecorder) SetCurrentCharm(arg0 any) *MockCallbacksSetCurrentCharmCall {
+func (mr *MockCallbacksMockRecorder) SetCurrentCharm(arg0, arg1 any) *MockCallbacksSetCurrentCharmCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCurrentCharm", reflect.TypeOf((*MockCallbacks)(nil).SetCurrentCharm), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCurrentCharm", reflect.TypeOf((*MockCallbacks)(nil).SetCurrentCharm), arg0, arg1)
 	return &MockCallbacksSetCurrentCharmCall{Call: call}
 }
 
@@ -1271,29 +1271,29 @@ func (c *MockCallbacksSetCurrentCharmCall) Return(arg0 error) *MockCallbacksSetC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCallbacksSetCurrentCharmCall) Do(f func(string) error) *MockCallbacksSetCurrentCharmCall {
+func (c *MockCallbacksSetCurrentCharmCall) Do(f func(context.Context, string) error) *MockCallbacksSetCurrentCharmCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCallbacksSetCurrentCharmCall) DoAndReturn(f func(string) error) *MockCallbacksSetCurrentCharmCall {
+func (c *MockCallbacksSetCurrentCharmCall) DoAndReturn(f func(context.Context, string) error) *MockCallbacksSetCurrentCharmCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetExecutingStatus mocks base method.
-func (m *MockCallbacks) SetExecutingStatus(arg0 string) error {
+func (m *MockCallbacks) SetExecutingStatus(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetExecutingStatus", arg0)
+	ret := m.ctrl.Call(m, "SetExecutingStatus", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetExecutingStatus indicates an expected call of SetExecutingStatus.
-func (mr *MockCallbacksMockRecorder) SetExecutingStatus(arg0 any) *MockCallbacksSetExecutingStatusCall {
+func (mr *MockCallbacksMockRecorder) SetExecutingStatus(arg0, arg1 any) *MockCallbacksSetExecutingStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetExecutingStatus", reflect.TypeOf((*MockCallbacks)(nil).SetExecutingStatus), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetExecutingStatus", reflect.TypeOf((*MockCallbacks)(nil).SetExecutingStatus), arg0, arg1)
 	return &MockCallbacksSetExecutingStatusCall{Call: call}
 }
 
@@ -1309,29 +1309,29 @@ func (c *MockCallbacksSetExecutingStatusCall) Return(arg0 error) *MockCallbacksS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCallbacksSetExecutingStatusCall) Do(f func(string) error) *MockCallbacksSetExecutingStatusCall {
+func (c *MockCallbacksSetExecutingStatusCall) Do(f func(context.Context, string) error) *MockCallbacksSetExecutingStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCallbacksSetExecutingStatusCall) DoAndReturn(f func(string) error) *MockCallbacksSetExecutingStatusCall {
+func (c *MockCallbacksSetExecutingStatusCall) DoAndReturn(f func(context.Context, string) error) *MockCallbacksSetExecutingStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetSecretRotated mocks base method.
-func (m *MockCallbacks) SetSecretRotated(arg0 string, arg1 int) error {
+func (m *MockCallbacks) SetSecretRotated(arg0 context.Context, arg1 string, arg2 int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetSecretRotated", arg0, arg1)
+	ret := m.ctrl.Call(m, "SetSecretRotated", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetSecretRotated indicates an expected call of SetSecretRotated.
-func (mr *MockCallbacksMockRecorder) SetSecretRotated(arg0, arg1 any) *MockCallbacksSetSecretRotatedCall {
+func (mr *MockCallbacksMockRecorder) SetSecretRotated(arg0, arg1, arg2 any) *MockCallbacksSetSecretRotatedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSecretRotated", reflect.TypeOf((*MockCallbacks)(nil).SetSecretRotated), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSecretRotated", reflect.TypeOf((*MockCallbacks)(nil).SetSecretRotated), arg0, arg1, arg2)
 	return &MockCallbacksSetSecretRotatedCall{Call: call}
 }
 
@@ -1347,13 +1347,13 @@ func (c *MockCallbacksSetSecretRotatedCall) Return(arg0 error) *MockCallbacksSet
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCallbacksSetSecretRotatedCall) Do(f func(string, int) error) *MockCallbacksSetSecretRotatedCall {
+func (c *MockCallbacksSetSecretRotatedCall) Do(f func(context.Context, string, int) error) *MockCallbacksSetSecretRotatedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCallbacksSetSecretRotatedCall) DoAndReturn(f func(string, int) error) *MockCallbacksSetSecretRotatedCall {
+func (c *MockCallbacksSetSecretRotatedCall) DoAndReturn(f func(context.Context, string, int) error) *MockCallbacksSetSecretRotatedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

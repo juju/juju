@@ -93,7 +93,7 @@ func (s *workerSuite) testValidateConfig(c *gc.C, f func(*secretexpire.Config), 
 }
 
 func (s *workerSuite) expectWorker() {
-	s.facade.EXPECT().WatchSecretRevisionsExpiryChanges(s.config.SecretOwners).Return(s.triggerWatcher, nil)
+	s.facade.EXPECT().WatchSecretRevisionsExpiryChanges(gomock.Any(), s.config.SecretOwners).Return(s.triggerWatcher, nil)
 	s.triggerWatcher.EXPECT().Changes().AnyTimes().Return(s.expiryConfigChanges)
 	s.triggerWatcher.EXPECT().Kill().MaxTimes(1)
 	s.triggerWatcher.EXPECT().Wait().Return(nil).MinTimes(1)

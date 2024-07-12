@@ -47,7 +47,7 @@ func (r *relationsResolver) NextOp(ctx context.Context, localState resolver.Loca
 			}
 		}()
 	}
-	if err := r.maybeDestroySubordinates(remoteState); err != nil {
+	if err := r.maybeDestroySubordinates(ctx, remoteState); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -98,7 +98,7 @@ func (r *relationsResolver) NextOp(ctx context.Context, localState resolver.Loca
 // maybeDestroySubordinates checks whether the remote state indicates that the
 // unit is dying and ensures that any related subordinates are properly
 // destroyed.
-func (r *relationsResolver) maybeDestroySubordinates(remoteState remotestate.Snapshot) error {
+func (r *relationsResolver) maybeDestroySubordinates(ctx context.Context, remoteState remotestate.Snapshot) error {
 	if remoteState.Life != life.Dying {
 		return nil
 	}
@@ -118,7 +118,7 @@ func (r *relationsResolver) maybeDestroySubordinates(remoteState remotestate.Sna
 	}
 
 	if destroyAllSubordinates {
-		return r.subordinateDestroyer.DestroyAllSubordinates()
+		return r.subordinateDestroyer.DestroyAllSubordinates(ctx)
 	}
 
 	return nil

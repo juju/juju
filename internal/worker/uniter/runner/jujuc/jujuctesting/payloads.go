@@ -3,7 +3,11 @@
 
 package jujuctesting
 
-import "github.com/juju/juju/core/payloads"
+import (
+	"context"
+
+	"github.com/juju/juju/core/payloads"
+)
 
 // ContextPayloads is a test double for jujuc.ContextResources.
 type ContextPayloads struct {
@@ -23,13 +27,13 @@ func (c *ContextPayloads) TrackPayload(payload payloads.Payload) error {
 }
 
 // UntrackPayload implements jujuc.ContextPayloads.
-func (c *ContextPayloads) UntrackPayload(class, id string) error {
+func (c *ContextPayloads) UntrackPayload(_ context.Context, class, id string) error {
 	c.stub.AddCall("UntrackPayload", class, id)
 	return nil
 }
 
 // SetPayloadStatus implements jujuc.ContextPayloads.
-func (c *ContextPayloads) SetPayloadStatus(class, id, status string) error {
+func (c *ContextPayloads) SetPayloadStatus(_ context.Context, class, id, status string) error {
 	c.stub.AddCall("SetPayloadStatus", class, id, status)
 	return nil
 }
@@ -41,7 +45,7 @@ func (c *ContextPayloads) ListPayloads() ([]string, error) {
 }
 
 // FlushPayloads implements jujuc.ContextPayloads.
-func (c *ContextPayloads) FlushPayloads() error {
+func (c *ContextPayloads) FlushPayloads(_ context.Context) error {
 	c.stub.AddCall("FlushPayloads")
 	return nil
 }

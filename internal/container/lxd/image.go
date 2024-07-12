@@ -54,7 +54,7 @@ func (s *Server) FindImage(
 	callback environs.StatusCallbackFunc,
 ) (SourcedImage, error) {
 	if callback != nil {
-		_ = callback(status.Provisioning, "acquiring LXD image", nil)
+		_ = callback(ctx, status.Provisioning, "acquiring LXD image", nil)
 	}
 
 	// First we check if we have the image locally.
@@ -174,7 +174,8 @@ func (s *Server) FindImage(
 // CopyRemoteImage accepts an image sourced from a remote server and copies it
 // to the local cache
 func (s *Server) CopyRemoteImage(
-	ctx context.Context, sourced SourcedImage, aliases []string, callback environs.StatusCallbackFunc,
+	ctx context.Context, sourced SourcedImage, aliases []string,
+	callback environs.StatusCallbackFunc,
 ) error {
 	logger.Debugf("Copying image from remote server")
 
@@ -192,7 +193,7 @@ func (s *Server) CopyRemoteImage(
 		}
 		for _, key := range []string{"fs_progress", "download_progress"} {
 			if value, ok := op.Metadata[key]; ok {
-				_ = callback(status.Provisioning, fmt.Sprintf("Retrieving image: %s", value.(string)), nil)
+				_ = callback(ctx, status.Provisioning, fmt.Sprintf("Retrieving image: %s", value.(string)), nil)
 				return
 			}
 		}
@@ -246,7 +247,7 @@ func (s *Server) CopyRemoteImage(
 		},
 		NotifyFunc: func(_ error, attempt int) {
 			if callback != nil {
-				_ = callback(status.Provisioning, fmt.Sprintf("Failed remote LXD image download. Retrying. Attempt number %d", attempt+1), nil)
+				_ = callback(ctx, status.Provisioning, fmt.Sprintf("Failed remote LXD image download. Retrying. Attempt number %d", attempt+1), nil)
 			}
 		},
 	})

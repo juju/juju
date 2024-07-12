@@ -163,18 +163,18 @@ func (c *MockUnitApplicationTagCall) DoAndReturn(f func() names.ApplicationTag) 
 }
 
 // AssignedMachine mocks base method.
-func (m *MockUnit) AssignedMachine() (names.MachineTag, error) {
+func (m *MockUnit) AssignedMachine(arg0 context.Context) (names.MachineTag, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AssignedMachine")
+	ret := m.ctrl.Call(m, "AssignedMachine", arg0)
 	ret0, _ := ret[0].(names.MachineTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AssignedMachine indicates an expected call of AssignedMachine.
-func (mr *MockUnitMockRecorder) AssignedMachine() *MockUnitAssignedMachineCall {
+func (mr *MockUnitMockRecorder) AssignedMachine(arg0 any) *MockUnitAssignedMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedMachine", reflect.TypeOf((*MockUnit)(nil).AssignedMachine))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedMachine", reflect.TypeOf((*MockUnit)(nil).AssignedMachine), arg0)
 	return &MockUnitAssignedMachineCall{Call: call}
 }
 
@@ -190,30 +190,30 @@ func (c *MockUnitAssignedMachineCall) Return(arg0 names.MachineTag, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitAssignedMachineCall) Do(f func() (names.MachineTag, error)) *MockUnitAssignedMachineCall {
+func (c *MockUnitAssignedMachineCall) Do(f func(context.Context) (names.MachineTag, error)) *MockUnitAssignedMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitAssignedMachineCall) DoAndReturn(f func() (names.MachineTag, error)) *MockUnitAssignedMachineCall {
+func (c *MockUnitAssignedMachineCall) DoAndReturn(f func(context.Context) (names.MachineTag, error)) *MockUnitAssignedMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AvailabilityZone mocks base method.
-func (m *MockUnit) AvailabilityZone() (string, error) {
+func (m *MockUnit) AvailabilityZone(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AvailabilityZone")
+	ret := m.ctrl.Call(m, "AvailabilityZone", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AvailabilityZone indicates an expected call of AvailabilityZone.
-func (mr *MockUnitMockRecorder) AvailabilityZone() *MockUnitAvailabilityZoneCall {
+func (mr *MockUnitMockRecorder) AvailabilityZone(arg0 any) *MockUnitAvailabilityZoneCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailabilityZone", reflect.TypeOf((*MockUnit)(nil).AvailabilityZone))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailabilityZone", reflect.TypeOf((*MockUnit)(nil).AvailabilityZone), arg0)
 	return &MockUnitAvailabilityZoneCall{Call: call}
 }
 
@@ -229,30 +229,30 @@ func (c *MockUnitAvailabilityZoneCall) Return(arg0 string, arg1 error) *MockUnit
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitAvailabilityZoneCall) Do(f func() (string, error)) *MockUnitAvailabilityZoneCall {
+func (c *MockUnitAvailabilityZoneCall) Do(f func(context.Context) (string, error)) *MockUnitAvailabilityZoneCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitAvailabilityZoneCall) DoAndReturn(f func() (string, error)) *MockUnitAvailabilityZoneCall {
+func (c *MockUnitAvailabilityZoneCall) DoAndReturn(f func(context.Context) (string, error)) *MockUnitAvailabilityZoneCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CanApplyLXDProfile mocks base method.
-func (m *MockUnit) CanApplyLXDProfile() (bool, error) {
+func (m *MockUnit) CanApplyLXDProfile(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CanApplyLXDProfile")
+	ret := m.ctrl.Call(m, "CanApplyLXDProfile", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CanApplyLXDProfile indicates an expected call of CanApplyLXDProfile.
-func (mr *MockUnitMockRecorder) CanApplyLXDProfile() *MockUnitCanApplyLXDProfileCall {
+func (mr *MockUnitMockRecorder) CanApplyLXDProfile(arg0 any) *MockUnitCanApplyLXDProfileCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanApplyLXDProfile", reflect.TypeOf((*MockUnit)(nil).CanApplyLXDProfile))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanApplyLXDProfile", reflect.TypeOf((*MockUnit)(nil).CanApplyLXDProfile), arg0)
 	return &MockUnitCanApplyLXDProfileCall{Call: call}
 }
 
@@ -268,30 +268,30 @@ func (c *MockUnitCanApplyLXDProfileCall) Return(arg0 bool, arg1 error) *MockUnit
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitCanApplyLXDProfileCall) Do(f func() (bool, error)) *MockUnitCanApplyLXDProfileCall {
+func (c *MockUnitCanApplyLXDProfileCall) Do(f func(context.Context) (bool, error)) *MockUnitCanApplyLXDProfileCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitCanApplyLXDProfileCall) DoAndReturn(f func() (bool, error)) *MockUnitCanApplyLXDProfileCall {
+func (c *MockUnitCanApplyLXDProfileCall) DoAndReturn(f func(context.Context) (bool, error)) *MockUnitCanApplyLXDProfileCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CharmURL mocks base method.
-func (m *MockUnit) CharmURL() (string, error) {
+func (m *MockUnit) CharmURL(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmURL")
+	ret := m.ctrl.Call(m, "CharmURL", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CharmURL indicates an expected call of CharmURL.
-func (mr *MockUnitMockRecorder) CharmURL() *MockUnitCharmURLCall {
+func (mr *MockUnitMockRecorder) CharmURL(arg0 any) *MockUnitCharmURLCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmURL", reflect.TypeOf((*MockUnit)(nil).CharmURL))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmURL", reflect.TypeOf((*MockUnit)(nil).CharmURL), arg0)
 	return &MockUnitCharmURLCall{Call: call}
 }
 
@@ -307,29 +307,29 @@ func (c *MockUnitCharmURLCall) Return(arg0 string, arg1 error) *MockUnitCharmURL
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitCharmURLCall) Do(f func() (string, error)) *MockUnitCharmURLCall {
+func (c *MockUnitCharmURLCall) Do(f func(context.Context) (string, error)) *MockUnitCharmURLCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitCharmURLCall) DoAndReturn(f func() (string, error)) *MockUnitCharmURLCall {
+func (c *MockUnitCharmURLCall) DoAndReturn(f func(context.Context) (string, error)) *MockUnitCharmURLCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ClearResolved mocks base method.
-func (m *MockUnit) ClearResolved() error {
+func (m *MockUnit) ClearResolved(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ClearResolved")
+	ret := m.ctrl.Call(m, "ClearResolved", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ClearResolved indicates an expected call of ClearResolved.
-func (mr *MockUnitMockRecorder) ClearResolved() *MockUnitClearResolvedCall {
+func (mr *MockUnitMockRecorder) ClearResolved(arg0 any) *MockUnitClearResolvedCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearResolved", reflect.TypeOf((*MockUnit)(nil).ClearResolved))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearResolved", reflect.TypeOf((*MockUnit)(nil).ClearResolved), arg0)
 	return &MockUnitClearResolvedCall{Call: call}
 }
 
@@ -345,29 +345,29 @@ func (c *MockUnitClearResolvedCall) Return(arg0 error) *MockUnitClearResolvedCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitClearResolvedCall) Do(f func() error) *MockUnitClearResolvedCall {
+func (c *MockUnitClearResolvedCall) Do(f func(context.Context) error) *MockUnitClearResolvedCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitClearResolvedCall) DoAndReturn(f func() error) *MockUnitClearResolvedCall {
+func (c *MockUnitClearResolvedCall) DoAndReturn(f func(context.Context) error) *MockUnitClearResolvedCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CommitHookChanges mocks base method.
-func (m *MockUnit) CommitHookChanges(arg0 params.CommitHookChangesArgs) error {
+func (m *MockUnit) CommitHookChanges(arg0 context.Context, arg1 params.CommitHookChangesArgs) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitHookChanges", arg0)
+	ret := m.ctrl.Call(m, "CommitHookChanges", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CommitHookChanges indicates an expected call of CommitHookChanges.
-func (mr *MockUnitMockRecorder) CommitHookChanges(arg0 any) *MockUnitCommitHookChangesCall {
+func (mr *MockUnitMockRecorder) CommitHookChanges(arg0, arg1 any) *MockUnitCommitHookChangesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHookChanges", reflect.TypeOf((*MockUnit)(nil).CommitHookChanges), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHookChanges", reflect.TypeOf((*MockUnit)(nil).CommitHookChanges), arg0, arg1)
 	return &MockUnitCommitHookChangesCall{Call: call}
 }
 
@@ -383,30 +383,30 @@ func (c *MockUnitCommitHookChangesCall) Return(arg0 error) *MockUnitCommitHookCh
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitCommitHookChangesCall) Do(f func(params.CommitHookChangesArgs) error) *MockUnitCommitHookChangesCall {
+func (c *MockUnitCommitHookChangesCall) Do(f func(context.Context, params.CommitHookChangesArgs) error) *MockUnitCommitHookChangesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitCommitHookChangesCall) DoAndReturn(f func(params.CommitHookChangesArgs) error) *MockUnitCommitHookChangesCall {
+func (c *MockUnitCommitHookChangesCall) DoAndReturn(f func(context.Context, params.CommitHookChangesArgs) error) *MockUnitCommitHookChangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ConfigSettings mocks base method.
-func (m *MockUnit) ConfigSettings() (charm.Settings, error) {
+func (m *MockUnit) ConfigSettings(arg0 context.Context) (charm.Settings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConfigSettings")
+	ret := m.ctrl.Call(m, "ConfigSettings", arg0)
 	ret0, _ := ret[0].(charm.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ConfigSettings indicates an expected call of ConfigSettings.
-func (mr *MockUnitMockRecorder) ConfigSettings() *MockUnitConfigSettingsCall {
+func (mr *MockUnitMockRecorder) ConfigSettings(arg0 any) *MockUnitConfigSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigSettings", reflect.TypeOf((*MockUnit)(nil).ConfigSettings))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfigSettings", reflect.TypeOf((*MockUnit)(nil).ConfigSettings), arg0)
 	return &MockUnitConfigSettingsCall{Call: call}
 }
 
@@ -422,29 +422,29 @@ func (c *MockUnitConfigSettingsCall) Return(arg0 charm.Settings, arg1 error) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitConfigSettingsCall) Do(f func() (charm.Settings, error)) *MockUnitConfigSettingsCall {
+func (c *MockUnitConfigSettingsCall) Do(f func(context.Context) (charm.Settings, error)) *MockUnitConfigSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitConfigSettingsCall) DoAndReturn(f func() (charm.Settings, error)) *MockUnitConfigSettingsCall {
+func (c *MockUnitConfigSettingsCall) DoAndReturn(f func(context.Context) (charm.Settings, error)) *MockUnitConfigSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Destroy mocks base method.
-func (m *MockUnit) Destroy() error {
+func (m *MockUnit) Destroy(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Destroy")
+	ret := m.ctrl.Call(m, "Destroy", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Destroy indicates an expected call of Destroy.
-func (mr *MockUnitMockRecorder) Destroy() *MockUnitDestroyCall {
+func (mr *MockUnitMockRecorder) Destroy(arg0 any) *MockUnitDestroyCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockUnit)(nil).Destroy))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Destroy", reflect.TypeOf((*MockUnit)(nil).Destroy), arg0)
 	return &MockUnitDestroyCall{Call: call}
 }
 
@@ -460,29 +460,29 @@ func (c *MockUnitDestroyCall) Return(arg0 error) *MockUnitDestroyCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitDestroyCall) Do(f func() error) *MockUnitDestroyCall {
+func (c *MockUnitDestroyCall) Do(f func(context.Context) error) *MockUnitDestroyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitDestroyCall) DoAndReturn(f func() error) *MockUnitDestroyCall {
+func (c *MockUnitDestroyCall) DoAndReturn(f func(context.Context) error) *MockUnitDestroyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DestroyAllSubordinates mocks base method.
-func (m *MockUnit) DestroyAllSubordinates() error {
+func (m *MockUnit) DestroyAllSubordinates(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DestroyAllSubordinates")
+	ret := m.ctrl.Call(m, "DestroyAllSubordinates", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DestroyAllSubordinates indicates an expected call of DestroyAllSubordinates.
-func (mr *MockUnitMockRecorder) DestroyAllSubordinates() *MockUnitDestroyAllSubordinatesCall {
+func (mr *MockUnitMockRecorder) DestroyAllSubordinates(arg0 any) *MockUnitDestroyAllSubordinatesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyAllSubordinates", reflect.TypeOf((*MockUnit)(nil).DestroyAllSubordinates))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DestroyAllSubordinates", reflect.TypeOf((*MockUnit)(nil).DestroyAllSubordinates), arg0)
 	return &MockUnitDestroyAllSubordinatesCall{Call: call}
 }
 
@@ -498,29 +498,29 @@ func (c *MockUnitDestroyAllSubordinatesCall) Return(arg0 error) *MockUnitDestroy
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitDestroyAllSubordinatesCall) Do(f func() error) *MockUnitDestroyAllSubordinatesCall {
+func (c *MockUnitDestroyAllSubordinatesCall) Do(f func(context.Context) error) *MockUnitDestroyAllSubordinatesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitDestroyAllSubordinatesCall) DoAndReturn(f func() error) *MockUnitDestroyAllSubordinatesCall {
+func (c *MockUnitDestroyAllSubordinatesCall) DoAndReturn(f func(context.Context) error) *MockUnitDestroyAllSubordinatesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // EnsureDead mocks base method.
-func (m *MockUnit) EnsureDead() error {
+func (m *MockUnit) EnsureDead(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureDead")
+	ret := m.ctrl.Call(m, "EnsureDead", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnsureDead indicates an expected call of EnsureDead.
-func (mr *MockUnitMockRecorder) EnsureDead() *MockUnitEnsureDeadCall {
+func (mr *MockUnitMockRecorder) EnsureDead(arg0 any) *MockUnitEnsureDeadCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDead", reflect.TypeOf((*MockUnit)(nil).EnsureDead))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureDead", reflect.TypeOf((*MockUnit)(nil).EnsureDead), arg0)
 	return &MockUnitEnsureDeadCall{Call: call}
 }
 
@@ -536,30 +536,30 @@ func (c *MockUnitEnsureDeadCall) Return(arg0 error) *MockUnitEnsureDeadCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitEnsureDeadCall) Do(f func() error) *MockUnitEnsureDeadCall {
+func (c *MockUnitEnsureDeadCall) Do(f func(context.Context) error) *MockUnitEnsureDeadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitEnsureDeadCall) DoAndReturn(f func() error) *MockUnitEnsureDeadCall {
+func (c *MockUnitEnsureDeadCall) DoAndReturn(f func(context.Context) error) *MockUnitEnsureDeadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // HasSubordinates mocks base method.
-func (m *MockUnit) HasSubordinates() (bool, error) {
+func (m *MockUnit) HasSubordinates(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasSubordinates")
+	ret := m.ctrl.Call(m, "HasSubordinates", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // HasSubordinates indicates an expected call of HasSubordinates.
-func (mr *MockUnitMockRecorder) HasSubordinates() *MockUnitHasSubordinatesCall {
+func (mr *MockUnitMockRecorder) HasSubordinates(arg0 any) *MockUnitHasSubordinatesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasSubordinates", reflect.TypeOf((*MockUnit)(nil).HasSubordinates))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasSubordinates", reflect.TypeOf((*MockUnit)(nil).HasSubordinates), arg0)
 	return &MockUnitHasSubordinatesCall{Call: call}
 }
 
@@ -575,30 +575,30 @@ func (c *MockUnitHasSubordinatesCall) Return(arg0 bool, arg1 error) *MockUnitHas
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitHasSubordinatesCall) Do(f func() (bool, error)) *MockUnitHasSubordinatesCall {
+func (c *MockUnitHasSubordinatesCall) Do(f func(context.Context) (bool, error)) *MockUnitHasSubordinatesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitHasSubordinatesCall) DoAndReturn(f func() (bool, error)) *MockUnitHasSubordinatesCall {
+func (c *MockUnitHasSubordinatesCall) DoAndReturn(f func(context.Context) (bool, error)) *MockUnitHasSubordinatesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // LXDProfileName mocks base method.
-func (m *MockUnit) LXDProfileName() (string, error) {
+func (m *MockUnit) LXDProfileName(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LXDProfileName")
+	ret := m.ctrl.Call(m, "LXDProfileName", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // LXDProfileName indicates an expected call of LXDProfileName.
-func (mr *MockUnitMockRecorder) LXDProfileName() *MockUnitLXDProfileNameCall {
+func (mr *MockUnitMockRecorder) LXDProfileName(arg0 any) *MockUnitLXDProfileNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfileName", reflect.TypeOf((*MockUnit)(nil).LXDProfileName))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfileName", reflect.TypeOf((*MockUnit)(nil).LXDProfileName), arg0)
 	return &MockUnitLXDProfileNameCall{Call: call}
 }
 
@@ -614,13 +614,13 @@ func (c *MockUnitLXDProfileNameCall) Return(arg0 string, arg1 error) *MockUnitLX
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitLXDProfileNameCall) Do(f func() (string, error)) *MockUnitLXDProfileNameCall {
+func (c *MockUnitLXDProfileNameCall) Do(f func(context.Context) (string, error)) *MockUnitLXDProfileNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitLXDProfileNameCall) DoAndReturn(f func() (string, error)) *MockUnitLXDProfileNameCall {
+func (c *MockUnitLXDProfileNameCall) DoAndReturn(f func(context.Context) (string, error)) *MockUnitLXDProfileNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -664,17 +664,17 @@ func (c *MockUnitLifeCall) DoAndReturn(f func() life.Value) *MockUnitLifeCall {
 }
 
 // LogActionMessage mocks base method.
-func (m *MockUnit) LogActionMessage(arg0 names.ActionTag, arg1 string) error {
+func (m *MockUnit) LogActionMessage(arg0 context.Context, arg1 names.ActionTag, arg2 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LogActionMessage", arg0, arg1)
+	ret := m.ctrl.Call(m, "LogActionMessage", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // LogActionMessage indicates an expected call of LogActionMessage.
-func (mr *MockUnitMockRecorder) LogActionMessage(arg0, arg1 any) *MockUnitLogActionMessageCall {
+func (mr *MockUnitMockRecorder) LogActionMessage(arg0, arg1, arg2 any) *MockUnitLogActionMessageCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogActionMessage", reflect.TypeOf((*MockUnit)(nil).LogActionMessage), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LogActionMessage", reflect.TypeOf((*MockUnit)(nil).LogActionMessage), arg0, arg1, arg2)
 	return &MockUnitLogActionMessageCall{Call: call}
 }
 
@@ -690,13 +690,13 @@ func (c *MockUnitLogActionMessageCall) Return(arg0 error) *MockUnitLogActionMess
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitLogActionMessageCall) Do(f func(names.ActionTag, string) error) *MockUnitLogActionMessageCall {
+func (c *MockUnitLogActionMessageCall) Do(f func(context.Context, names.ActionTag, string) error) *MockUnitLogActionMessageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitLogActionMessageCall) DoAndReturn(f func(names.ActionTag, string) error) *MockUnitLogActionMessageCall {
+func (c *MockUnitLogActionMessageCall) DoAndReturn(f func(context.Context, names.ActionTag, string) error) *MockUnitLogActionMessageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -740,18 +740,18 @@ func (c *MockUnitNameCall) DoAndReturn(f func() string) *MockUnitNameCall {
 }
 
 // NetworkInfo mocks base method.
-func (m *MockUnit) NetworkInfo(arg0 []string, arg1 *int) (map[string]params.NetworkInfoResult, error) {
+func (m *MockUnit) NetworkInfo(arg0 context.Context, arg1 []string, arg2 *int) (map[string]params.NetworkInfoResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NetworkInfo", arg0, arg1)
+	ret := m.ctrl.Call(m, "NetworkInfo", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[string]params.NetworkInfoResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NetworkInfo indicates an expected call of NetworkInfo.
-func (mr *MockUnitMockRecorder) NetworkInfo(arg0, arg1 any) *MockUnitNetworkInfoCall {
+func (mr *MockUnitMockRecorder) NetworkInfo(arg0, arg1, arg2 any) *MockUnitNetworkInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkInfo", reflect.TypeOf((*MockUnit)(nil).NetworkInfo), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkInfo", reflect.TypeOf((*MockUnit)(nil).NetworkInfo), arg0, arg1, arg2)
 	return &MockUnitNetworkInfoCall{Call: call}
 }
 
@@ -767,21 +767,21 @@ func (c *MockUnitNetworkInfoCall) Return(arg0 map[string]params.NetworkInfoResul
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitNetworkInfoCall) Do(f func([]string, *int) (map[string]params.NetworkInfoResult, error)) *MockUnitNetworkInfoCall {
+func (c *MockUnitNetworkInfoCall) Do(f func(context.Context, []string, *int) (map[string]params.NetworkInfoResult, error)) *MockUnitNetworkInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitNetworkInfoCall) DoAndReturn(f func([]string, *int) (map[string]params.NetworkInfoResult, error)) *MockUnitNetworkInfoCall {
+func (c *MockUnitNetworkInfoCall) DoAndReturn(f func(context.Context, []string, *int) (map[string]params.NetworkInfoResult, error)) *MockUnitNetworkInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // PrincipalName mocks base method.
-func (m *MockUnit) PrincipalName() (string, bool, error) {
+func (m *MockUnit) PrincipalName(arg0 context.Context) (string, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrincipalName")
+	ret := m.ctrl.Call(m, "PrincipalName", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(error)
@@ -789,9 +789,9 @@ func (m *MockUnit) PrincipalName() (string, bool, error) {
 }
 
 // PrincipalName indicates an expected call of PrincipalName.
-func (mr *MockUnitMockRecorder) PrincipalName() *MockUnitPrincipalNameCall {
+func (mr *MockUnitMockRecorder) PrincipalName(arg0 any) *MockUnitPrincipalNameCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrincipalName", reflect.TypeOf((*MockUnit)(nil).PrincipalName))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrincipalName", reflect.TypeOf((*MockUnit)(nil).PrincipalName), arg0)
 	return &MockUnitPrincipalNameCall{Call: call}
 }
 
@@ -807,30 +807,30 @@ func (c *MockUnitPrincipalNameCall) Return(arg0 string, arg1 bool, arg2 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitPrincipalNameCall) Do(f func() (string, bool, error)) *MockUnitPrincipalNameCall {
+func (c *MockUnitPrincipalNameCall) Do(f func(context.Context) (string, bool, error)) *MockUnitPrincipalNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitPrincipalNameCall) DoAndReturn(f func() (string, bool, error)) *MockUnitPrincipalNameCall {
+func (c *MockUnitPrincipalNameCall) DoAndReturn(f func(context.Context) (string, bool, error)) *MockUnitPrincipalNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // PrivateAddress mocks base method.
-func (m *MockUnit) PrivateAddress() (string, error) {
+func (m *MockUnit) PrivateAddress(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrivateAddress")
+	ret := m.ctrl.Call(m, "PrivateAddress", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PrivateAddress indicates an expected call of PrivateAddress.
-func (mr *MockUnitMockRecorder) PrivateAddress() *MockUnitPrivateAddressCall {
+func (mr *MockUnitMockRecorder) PrivateAddress(arg0 any) *MockUnitPrivateAddressCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrivateAddress", reflect.TypeOf((*MockUnit)(nil).PrivateAddress))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrivateAddress", reflect.TypeOf((*MockUnit)(nil).PrivateAddress), arg0)
 	return &MockUnitPrivateAddressCall{Call: call}
 }
 
@@ -846,13 +846,13 @@ func (c *MockUnitPrivateAddressCall) Return(arg0 string, arg1 error) *MockUnitPr
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitPrivateAddressCall) Do(f func() (string, error)) *MockUnitPrivateAddressCall {
+func (c *MockUnitPrivateAddressCall) Do(f func(context.Context) (string, error)) *MockUnitPrivateAddressCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitPrivateAddressCall) DoAndReturn(f func() (string, error)) *MockUnitPrivateAddressCall {
+func (c *MockUnitPrivateAddressCall) DoAndReturn(f func(context.Context) (string, error)) *MockUnitPrivateAddressCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -896,18 +896,18 @@ func (c *MockUnitProviderIDCall) DoAndReturn(f func() string) *MockUnitProviderI
 }
 
 // PublicAddress mocks base method.
-func (m *MockUnit) PublicAddress() (string, error) {
+func (m *MockUnit) PublicAddress(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PublicAddress")
+	ret := m.ctrl.Call(m, "PublicAddress", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // PublicAddress indicates an expected call of PublicAddress.
-func (mr *MockUnitMockRecorder) PublicAddress() *MockUnitPublicAddressCall {
+func (mr *MockUnitMockRecorder) PublicAddress(arg0 any) *MockUnitPublicAddressCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublicAddress", reflect.TypeOf((*MockUnit)(nil).PublicAddress))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublicAddress", reflect.TypeOf((*MockUnit)(nil).PublicAddress), arg0)
 	return &MockUnitPublicAddressCall{Call: call}
 }
 
@@ -923,13 +923,13 @@ func (c *MockUnitPublicAddressCall) Return(arg0 string, arg1 error) *MockUnitPub
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitPublicAddressCall) Do(f func() (string, error)) *MockUnitPublicAddressCall {
+func (c *MockUnitPublicAddressCall) Do(f func(context.Context) (string, error)) *MockUnitPublicAddressCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitPublicAddressCall) DoAndReturn(f func() (string, error)) *MockUnitPublicAddressCall {
+func (c *MockUnitPublicAddressCall) DoAndReturn(f func(context.Context) (string, error)) *MockUnitPublicAddressCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -973,18 +973,18 @@ func (c *MockUnitRefreshCall) DoAndReturn(f func(context.Context) error) *MockUn
 }
 
 // RelationsStatus mocks base method.
-func (m *MockUnit) RelationsStatus() ([]uniter.RelationStatus, error) {
+func (m *MockUnit) RelationsStatus(arg0 context.Context) ([]uniter.RelationStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RelationsStatus")
+	ret := m.ctrl.Call(m, "RelationsStatus", arg0)
 	ret0, _ := ret[0].([]uniter.RelationStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RelationsStatus indicates an expected call of RelationsStatus.
-func (mr *MockUnitMockRecorder) RelationsStatus() *MockUnitRelationsStatusCall {
+func (mr *MockUnitMockRecorder) RelationsStatus(arg0 any) *MockUnitRelationsStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationsStatus", reflect.TypeOf((*MockUnit)(nil).RelationsStatus))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationsStatus", reflect.TypeOf((*MockUnit)(nil).RelationsStatus), arg0)
 	return &MockUnitRelationsStatusCall{Call: call}
 }
 
@@ -1000,29 +1000,29 @@ func (c *MockUnitRelationsStatusCall) Return(arg0 []uniter.RelationStatus, arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitRelationsStatusCall) Do(f func() ([]uniter.RelationStatus, error)) *MockUnitRelationsStatusCall {
+func (c *MockUnitRelationsStatusCall) Do(f func(context.Context) ([]uniter.RelationStatus, error)) *MockUnitRelationsStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitRelationsStatusCall) DoAndReturn(f func() ([]uniter.RelationStatus, error)) *MockUnitRelationsStatusCall {
+func (c *MockUnitRelationsStatusCall) DoAndReturn(f func(context.Context) ([]uniter.RelationStatus, error)) *MockUnitRelationsStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RequestReboot mocks base method.
-func (m *MockUnit) RequestReboot() error {
+func (m *MockUnit) RequestReboot(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RequestReboot")
+	ret := m.ctrl.Call(m, "RequestReboot", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RequestReboot indicates an expected call of RequestReboot.
-func (mr *MockUnitMockRecorder) RequestReboot() *MockUnitRequestRebootCall {
+func (mr *MockUnitMockRecorder) RequestReboot(arg0 any) *MockUnitRequestRebootCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestReboot", reflect.TypeOf((*MockUnit)(nil).RequestReboot))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestReboot", reflect.TypeOf((*MockUnit)(nil).RequestReboot), arg0)
 	return &MockUnitRequestRebootCall{Call: call}
 }
 
@@ -1038,13 +1038,13 @@ func (c *MockUnitRequestRebootCall) Return(arg0 error) *MockUnitRequestRebootCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitRequestRebootCall) Do(f func() error) *MockUnitRequestRebootCall {
+func (c *MockUnitRequestRebootCall) Do(f func(context.Context) error) *MockUnitRequestRebootCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitRequestRebootCall) DoAndReturn(f func() error) *MockUnitRequestRebootCall {
+func (c *MockUnitRequestRebootCall) DoAndReturn(f func(context.Context) error) *MockUnitRequestRebootCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1088,17 +1088,17 @@ func (c *MockUnitResolvedCall) DoAndReturn(f func() params.ResolvedMode) *MockUn
 }
 
 // SetAgentStatus mocks base method.
-func (m *MockUnit) SetAgentStatus(arg0 status.Status, arg1 string, arg2 map[string]any) error {
+func (m *MockUnit) SetAgentStatus(arg0 context.Context, arg1 status.Status, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetAgentStatus", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetAgentStatus", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetAgentStatus indicates an expected call of SetAgentStatus.
-func (mr *MockUnitMockRecorder) SetAgentStatus(arg0, arg1, arg2 any) *MockUnitSetAgentStatusCall {
+func (mr *MockUnitMockRecorder) SetAgentStatus(arg0, arg1, arg2, arg3 any) *MockUnitSetAgentStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAgentStatus", reflect.TypeOf((*MockUnit)(nil).SetAgentStatus), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAgentStatus", reflect.TypeOf((*MockUnit)(nil).SetAgentStatus), arg0, arg1, arg2, arg3)
 	return &MockUnitSetAgentStatusCall{Call: call}
 }
 
@@ -1114,29 +1114,29 @@ func (c *MockUnitSetAgentStatusCall) Return(arg0 error) *MockUnitSetAgentStatusC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitSetAgentStatusCall) Do(f func(status.Status, string, map[string]any) error) *MockUnitSetAgentStatusCall {
+func (c *MockUnitSetAgentStatusCall) Do(f func(context.Context, status.Status, string, map[string]any) error) *MockUnitSetAgentStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitSetAgentStatusCall) DoAndReturn(f func(status.Status, string, map[string]any) error) *MockUnitSetAgentStatusCall {
+func (c *MockUnitSetAgentStatusCall) DoAndReturn(f func(context.Context, status.Status, string, map[string]any) error) *MockUnitSetAgentStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetCharmURL mocks base method.
-func (m *MockUnit) SetCharmURL(arg0 string) error {
+func (m *MockUnit) SetCharmURL(arg0 context.Context, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetCharmURL", arg0)
+	ret := m.ctrl.Call(m, "SetCharmURL", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetCharmURL indicates an expected call of SetCharmURL.
-func (mr *MockUnitMockRecorder) SetCharmURL(arg0 any) *MockUnitSetCharmURLCall {
+func (mr *MockUnitMockRecorder) SetCharmURL(arg0, arg1 any) *MockUnitSetCharmURLCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmURL", reflect.TypeOf((*MockUnit)(nil).SetCharmURL), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmURL", reflect.TypeOf((*MockUnit)(nil).SetCharmURL), arg0, arg1)
 	return &MockUnitSetCharmURLCall{Call: call}
 }
 
@@ -1152,13 +1152,13 @@ func (c *MockUnitSetCharmURLCall) Return(arg0 error) *MockUnitSetCharmURLCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitSetCharmURLCall) Do(f func(string) error) *MockUnitSetCharmURLCall {
+func (c *MockUnitSetCharmURLCall) Do(f func(context.Context, string) error) *MockUnitSetCharmURLCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitSetCharmURLCall) DoAndReturn(f func(string) error) *MockUnitSetCharmURLCall {
+func (c *MockUnitSetCharmURLCall) DoAndReturn(f func(context.Context, string) error) *MockUnitSetCharmURLCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1395,18 +1395,18 @@ func (c *MockUnitWatchCall) DoAndReturn(f func(context.Context) (watcher.Watcher
 }
 
 // WatchActionNotifications mocks base method.
-func (m *MockUnit) WatchActionNotifications() (watcher.Watcher[[]string], error) {
+func (m *MockUnit) WatchActionNotifications(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchActionNotifications")
+	ret := m.ctrl.Call(m, "WatchActionNotifications", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchActionNotifications indicates an expected call of WatchActionNotifications.
-func (mr *MockUnitMockRecorder) WatchActionNotifications() *MockUnitWatchActionNotificationsCall {
+func (mr *MockUnitMockRecorder) WatchActionNotifications(arg0 any) *MockUnitWatchActionNotificationsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchActionNotifications", reflect.TypeOf((*MockUnit)(nil).WatchActionNotifications))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchActionNotifications", reflect.TypeOf((*MockUnit)(nil).WatchActionNotifications), arg0)
 	return &MockUnitWatchActionNotificationsCall{Call: call}
 }
 
@@ -1422,30 +1422,30 @@ func (c *MockUnitWatchActionNotificationsCall) Return(arg0 watcher.Watcher[[]str
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitWatchActionNotificationsCall) Do(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchActionNotificationsCall {
+func (c *MockUnitWatchActionNotificationsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchActionNotificationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitWatchActionNotificationsCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchActionNotificationsCall {
+func (c *MockUnitWatchActionNotificationsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchActionNotificationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchAddressesHash mocks base method.
-func (m *MockUnit) WatchAddressesHash() (watcher.Watcher[[]string], error) {
+func (m *MockUnit) WatchAddressesHash(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchAddressesHash")
+	ret := m.ctrl.Call(m, "WatchAddressesHash", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchAddressesHash indicates an expected call of WatchAddressesHash.
-func (mr *MockUnitMockRecorder) WatchAddressesHash() *MockUnitWatchAddressesHashCall {
+func (mr *MockUnitMockRecorder) WatchAddressesHash(arg0 any) *MockUnitWatchAddressesHashCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchAddressesHash", reflect.TypeOf((*MockUnit)(nil).WatchAddressesHash))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchAddressesHash", reflect.TypeOf((*MockUnit)(nil).WatchAddressesHash), arg0)
 	return &MockUnitWatchAddressesHashCall{Call: call}
 }
 
@@ -1461,30 +1461,30 @@ func (c *MockUnitWatchAddressesHashCall) Return(arg0 watcher.Watcher[[]string], 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitWatchAddressesHashCall) Do(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchAddressesHashCall {
+func (c *MockUnitWatchAddressesHashCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchAddressesHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitWatchAddressesHashCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchAddressesHashCall {
+func (c *MockUnitWatchAddressesHashCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchAddressesHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchConfigSettingsHash mocks base method.
-func (m *MockUnit) WatchConfigSettingsHash() (watcher.Watcher[[]string], error) {
+func (m *MockUnit) WatchConfigSettingsHash(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchConfigSettingsHash")
+	ret := m.ctrl.Call(m, "WatchConfigSettingsHash", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchConfigSettingsHash indicates an expected call of WatchConfigSettingsHash.
-func (mr *MockUnitMockRecorder) WatchConfigSettingsHash() *MockUnitWatchConfigSettingsHashCall {
+func (mr *MockUnitMockRecorder) WatchConfigSettingsHash(arg0 any) *MockUnitWatchConfigSettingsHashCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchConfigSettingsHash", reflect.TypeOf((*MockUnit)(nil).WatchConfigSettingsHash))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchConfigSettingsHash", reflect.TypeOf((*MockUnit)(nil).WatchConfigSettingsHash), arg0)
 	return &MockUnitWatchConfigSettingsHashCall{Call: call}
 }
 
@@ -1500,30 +1500,30 @@ func (c *MockUnitWatchConfigSettingsHashCall) Return(arg0 watcher.Watcher[[]stri
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitWatchConfigSettingsHashCall) Do(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchConfigSettingsHashCall {
+func (c *MockUnitWatchConfigSettingsHashCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchConfigSettingsHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitWatchConfigSettingsHashCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchConfigSettingsHashCall {
+func (c *MockUnitWatchConfigSettingsHashCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchConfigSettingsHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchInstanceData mocks base method.
-func (m *MockUnit) WatchInstanceData() (watcher.Watcher[struct{}], error) {
+func (m *MockUnit) WatchInstanceData(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchInstanceData")
+	ret := m.ctrl.Call(m, "WatchInstanceData", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchInstanceData indicates an expected call of WatchInstanceData.
-func (mr *MockUnitMockRecorder) WatchInstanceData() *MockUnitWatchInstanceDataCall {
+func (mr *MockUnitMockRecorder) WatchInstanceData(arg0 any) *MockUnitWatchInstanceDataCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchInstanceData", reflect.TypeOf((*MockUnit)(nil).WatchInstanceData))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchInstanceData", reflect.TypeOf((*MockUnit)(nil).WatchInstanceData), arg0)
 	return &MockUnitWatchInstanceDataCall{Call: call}
 }
 
@@ -1539,30 +1539,30 @@ func (c *MockUnitWatchInstanceDataCall) Return(arg0 watcher.Watcher[struct{}], a
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitWatchInstanceDataCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockUnitWatchInstanceDataCall {
+func (c *MockUnitWatchInstanceDataCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockUnitWatchInstanceDataCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitWatchInstanceDataCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockUnitWatchInstanceDataCall {
+func (c *MockUnitWatchInstanceDataCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockUnitWatchInstanceDataCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchRelations mocks base method.
-func (m *MockUnit) WatchRelations() (watcher.Watcher[[]string], error) {
+func (m *MockUnit) WatchRelations(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchRelations")
+	ret := m.ctrl.Call(m, "WatchRelations", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchRelations indicates an expected call of WatchRelations.
-func (mr *MockUnitMockRecorder) WatchRelations() *MockUnitWatchRelationsCall {
+func (mr *MockUnitMockRecorder) WatchRelations(arg0 any) *MockUnitWatchRelationsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelations", reflect.TypeOf((*MockUnit)(nil).WatchRelations))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRelations", reflect.TypeOf((*MockUnit)(nil).WatchRelations), arg0)
 	return &MockUnitWatchRelationsCall{Call: call}
 }
 
@@ -1578,30 +1578,30 @@ func (c *MockUnitWatchRelationsCall) Return(arg0 watcher.Watcher[[]string], arg1
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitWatchRelationsCall) Do(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchRelationsCall {
+func (c *MockUnitWatchRelationsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchRelationsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitWatchRelationsCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchRelationsCall {
+func (c *MockUnitWatchRelationsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchRelationsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchStorage mocks base method.
-func (m *MockUnit) WatchStorage() (watcher.Watcher[[]string], error) {
+func (m *MockUnit) WatchStorage(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchStorage")
+	ret := m.ctrl.Call(m, "WatchStorage", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchStorage indicates an expected call of WatchStorage.
-func (mr *MockUnitMockRecorder) WatchStorage() *MockUnitWatchStorageCall {
+func (mr *MockUnitMockRecorder) WatchStorage(arg0 any) *MockUnitWatchStorageCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchStorage", reflect.TypeOf((*MockUnit)(nil).WatchStorage))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchStorage", reflect.TypeOf((*MockUnit)(nil).WatchStorage), arg0)
 	return &MockUnitWatchStorageCall{Call: call}
 }
 
@@ -1617,30 +1617,30 @@ func (c *MockUnitWatchStorageCall) Return(arg0 watcher.Watcher[[]string], arg1 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitWatchStorageCall) Do(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchStorageCall {
+func (c *MockUnitWatchStorageCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchStorageCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitWatchStorageCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchStorageCall {
+func (c *MockUnitWatchStorageCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchStorageCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchTrustConfigSettingsHash mocks base method.
-func (m *MockUnit) WatchTrustConfigSettingsHash() (watcher.Watcher[[]string], error) {
+func (m *MockUnit) WatchTrustConfigSettingsHash(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchTrustConfigSettingsHash")
+	ret := m.ctrl.Call(m, "WatchTrustConfigSettingsHash", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchTrustConfigSettingsHash indicates an expected call of WatchTrustConfigSettingsHash.
-func (mr *MockUnitMockRecorder) WatchTrustConfigSettingsHash() *MockUnitWatchTrustConfigSettingsHashCall {
+func (mr *MockUnitMockRecorder) WatchTrustConfigSettingsHash(arg0 any) *MockUnitWatchTrustConfigSettingsHashCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchTrustConfigSettingsHash", reflect.TypeOf((*MockUnit)(nil).WatchTrustConfigSettingsHash))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchTrustConfigSettingsHash", reflect.TypeOf((*MockUnit)(nil).WatchTrustConfigSettingsHash), arg0)
 	return &MockUnitWatchTrustConfigSettingsHashCall{Call: call}
 }
 
@@ -1656,13 +1656,13 @@ func (c *MockUnitWatchTrustConfigSettingsHashCall) Return(arg0 watcher.Watcher[[
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitWatchTrustConfigSettingsHashCall) Do(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchTrustConfigSettingsHashCall {
+func (c *MockUnitWatchTrustConfigSettingsHashCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchTrustConfigSettingsHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitWatchTrustConfigSettingsHashCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockUnitWatchTrustConfigSettingsHashCall {
+func (c *MockUnitWatchTrustConfigSettingsHashCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockUnitWatchTrustConfigSettingsHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2132,18 +2132,18 @@ func (m *MockRelationUnit) EXPECT() *MockRelationUnitMockRecorder {
 }
 
 // ApplicationSettings mocks base method.
-func (m *MockRelationUnit) ApplicationSettings() (*uniter.Settings, error) {
+func (m *MockRelationUnit) ApplicationSettings(arg0 context.Context) (*uniter.Settings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplicationSettings")
+	ret := m.ctrl.Call(m, "ApplicationSettings", arg0)
 	ret0, _ := ret[0].(*uniter.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ApplicationSettings indicates an expected call of ApplicationSettings.
-func (mr *MockRelationUnitMockRecorder) ApplicationSettings() *MockRelationUnitApplicationSettingsCall {
+func (mr *MockRelationUnitMockRecorder) ApplicationSettings(arg0 any) *MockRelationUnitApplicationSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationSettings", reflect.TypeOf((*MockRelationUnit)(nil).ApplicationSettings))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationSettings", reflect.TypeOf((*MockRelationUnit)(nil).ApplicationSettings), arg0)
 	return &MockRelationUnitApplicationSettingsCall{Call: call}
 }
 
@@ -2159,13 +2159,13 @@ func (c *MockRelationUnitApplicationSettingsCall) Return(arg0 *uniter.Settings, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationUnitApplicationSettingsCall) Do(f func() (*uniter.Settings, error)) *MockRelationUnitApplicationSettingsCall {
+func (c *MockRelationUnitApplicationSettingsCall) Do(f func(context.Context) (*uniter.Settings, error)) *MockRelationUnitApplicationSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationUnitApplicationSettingsCall) DoAndReturn(f func() (*uniter.Settings, error)) *MockRelationUnitApplicationSettingsCall {
+func (c *MockRelationUnitApplicationSettingsCall) DoAndReturn(f func(context.Context) (*uniter.Settings, error)) *MockRelationUnitApplicationSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2209,17 +2209,17 @@ func (c *MockRelationUnitEndpointCall) DoAndReturn(f func() uniter.Endpoint) *Mo
 }
 
 // EnterScope mocks base method.
-func (m *MockRelationUnit) EnterScope() error {
+func (m *MockRelationUnit) EnterScope(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnterScope")
+	ret := m.ctrl.Call(m, "EnterScope", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // EnterScope indicates an expected call of EnterScope.
-func (mr *MockRelationUnitMockRecorder) EnterScope() *MockRelationUnitEnterScopeCall {
+func (mr *MockRelationUnitMockRecorder) EnterScope(arg0 any) *MockRelationUnitEnterScopeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnterScope", reflect.TypeOf((*MockRelationUnit)(nil).EnterScope))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnterScope", reflect.TypeOf((*MockRelationUnit)(nil).EnterScope), arg0)
 	return &MockRelationUnitEnterScopeCall{Call: call}
 }
 
@@ -2235,29 +2235,29 @@ func (c *MockRelationUnitEnterScopeCall) Return(arg0 error) *MockRelationUnitEnt
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationUnitEnterScopeCall) Do(f func() error) *MockRelationUnitEnterScopeCall {
+func (c *MockRelationUnitEnterScopeCall) Do(f func(context.Context) error) *MockRelationUnitEnterScopeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationUnitEnterScopeCall) DoAndReturn(f func() error) *MockRelationUnitEnterScopeCall {
+func (c *MockRelationUnitEnterScopeCall) DoAndReturn(f func(context.Context) error) *MockRelationUnitEnterScopeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // LeaveScope mocks base method.
-func (m *MockRelationUnit) LeaveScope() error {
+func (m *MockRelationUnit) LeaveScope(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LeaveScope")
+	ret := m.ctrl.Call(m, "LeaveScope", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // LeaveScope indicates an expected call of LeaveScope.
-func (mr *MockRelationUnitMockRecorder) LeaveScope() *MockRelationUnitLeaveScopeCall {
+func (mr *MockRelationUnitMockRecorder) LeaveScope(arg0 any) *MockRelationUnitLeaveScopeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeaveScope", reflect.TypeOf((*MockRelationUnit)(nil).LeaveScope))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LeaveScope", reflect.TypeOf((*MockRelationUnit)(nil).LeaveScope), arg0)
 	return &MockRelationUnitLeaveScopeCall{Call: call}
 }
 
@@ -2273,30 +2273,30 @@ func (c *MockRelationUnitLeaveScopeCall) Return(arg0 error) *MockRelationUnitLea
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationUnitLeaveScopeCall) Do(f func() error) *MockRelationUnitLeaveScopeCall {
+func (c *MockRelationUnitLeaveScopeCall) Do(f func(context.Context) error) *MockRelationUnitLeaveScopeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationUnitLeaveScopeCall) DoAndReturn(f func() error) *MockRelationUnitLeaveScopeCall {
+func (c *MockRelationUnitLeaveScopeCall) DoAndReturn(f func(context.Context) error) *MockRelationUnitLeaveScopeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReadSettings mocks base method.
-func (m *MockRelationUnit) ReadSettings(arg0 string) (params.Settings, error) {
+func (m *MockRelationUnit) ReadSettings(arg0 context.Context, arg1 string) (params.Settings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadSettings", arg0)
+	ret := m.ctrl.Call(m, "ReadSettings", arg0, arg1)
 	ret0, _ := ret[0].(params.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ReadSettings indicates an expected call of ReadSettings.
-func (mr *MockRelationUnitMockRecorder) ReadSettings(arg0 any) *MockRelationUnitReadSettingsCall {
+func (mr *MockRelationUnitMockRecorder) ReadSettings(arg0, arg1 any) *MockRelationUnitReadSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSettings", reflect.TypeOf((*MockRelationUnit)(nil).ReadSettings), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSettings", reflect.TypeOf((*MockRelationUnit)(nil).ReadSettings), arg0, arg1)
 	return &MockRelationUnitReadSettingsCall{Call: call}
 }
 
@@ -2312,13 +2312,13 @@ func (c *MockRelationUnitReadSettingsCall) Return(arg0 params.Settings, arg1 err
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationUnitReadSettingsCall) Do(f func(string) (params.Settings, error)) *MockRelationUnitReadSettingsCall {
+func (c *MockRelationUnitReadSettingsCall) Do(f func(context.Context, string) (params.Settings, error)) *MockRelationUnitReadSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationUnitReadSettingsCall) DoAndReturn(f func(string) (params.Settings, error)) *MockRelationUnitReadSettingsCall {
+func (c *MockRelationUnitReadSettingsCall) DoAndReturn(f func(context.Context, string) (params.Settings, error)) *MockRelationUnitReadSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2362,18 +2362,18 @@ func (c *MockRelationUnitRelationCall) DoAndReturn(f func() Relation) *MockRelat
 }
 
 // Settings mocks base method.
-func (m *MockRelationUnit) Settings() (*uniter.Settings, error) {
+func (m *MockRelationUnit) Settings(arg0 context.Context) (*uniter.Settings, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Settings")
+	ret := m.ctrl.Call(m, "Settings", arg0)
 	ret0, _ := ret[0].(*uniter.Settings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Settings indicates an expected call of Settings.
-func (mr *MockRelationUnitMockRecorder) Settings() *MockRelationUnitSettingsCall {
+func (mr *MockRelationUnitMockRecorder) Settings(arg0 any) *MockRelationUnitSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Settings", reflect.TypeOf((*MockRelationUnit)(nil).Settings))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Settings", reflect.TypeOf((*MockRelationUnit)(nil).Settings), arg0)
 	return &MockRelationUnitSettingsCall{Call: call}
 }
 
@@ -2389,13 +2389,13 @@ func (c *MockRelationUnitSettingsCall) Return(arg0 *uniter.Settings, arg1 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRelationUnitSettingsCall) Do(f func() (*uniter.Settings, error)) *MockRelationUnitSettingsCall {
+func (c *MockRelationUnitSettingsCall) Do(f func(context.Context) (*uniter.Settings, error)) *MockRelationUnitSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRelationUnitSettingsCall) DoAndReturn(f func() (*uniter.Settings, error)) *MockRelationUnitSettingsCall {
+func (c *MockRelationUnitSettingsCall) DoAndReturn(f func(context.Context) (*uniter.Settings, error)) *MockRelationUnitSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2424,18 +2424,18 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 }
 
 // CharmModifiedVersion mocks base method.
-func (m *MockApplication) CharmModifiedVersion() (int, error) {
+func (m *MockApplication) CharmModifiedVersion(arg0 context.Context) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmModifiedVersion")
+	ret := m.ctrl.Call(m, "CharmModifiedVersion", arg0)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CharmModifiedVersion indicates an expected call of CharmModifiedVersion.
-func (mr *MockApplicationMockRecorder) CharmModifiedVersion() *MockApplicationCharmModifiedVersionCall {
+func (mr *MockApplicationMockRecorder) CharmModifiedVersion(arg0 any) *MockApplicationCharmModifiedVersionCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmModifiedVersion", reflect.TypeOf((*MockApplication)(nil).CharmModifiedVersion))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmModifiedVersion", reflect.TypeOf((*MockApplication)(nil).CharmModifiedVersion), arg0)
 	return &MockApplicationCharmModifiedVersionCall{Call: call}
 }
 
@@ -2451,21 +2451,21 @@ func (c *MockApplicationCharmModifiedVersionCall) Return(arg0 int, arg1 error) *
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationCharmModifiedVersionCall) Do(f func() (int, error)) *MockApplicationCharmModifiedVersionCall {
+func (c *MockApplicationCharmModifiedVersionCall) Do(f func(context.Context) (int, error)) *MockApplicationCharmModifiedVersionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationCharmModifiedVersionCall) DoAndReturn(f func() (int, error)) *MockApplicationCharmModifiedVersionCall {
+func (c *MockApplicationCharmModifiedVersionCall) DoAndReturn(f func(context.Context) (int, error)) *MockApplicationCharmModifiedVersionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CharmURL mocks base method.
-func (m *MockApplication) CharmURL() (string, bool, error) {
+func (m *MockApplication) CharmURL(arg0 context.Context) (string, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmURL")
+	ret := m.ctrl.Call(m, "CharmURL", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(error)
@@ -2473,9 +2473,9 @@ func (m *MockApplication) CharmURL() (string, bool, error) {
 }
 
 // CharmURL indicates an expected call of CharmURL.
-func (mr *MockApplicationMockRecorder) CharmURL() *MockApplicationCharmURLCall {
+func (mr *MockApplicationMockRecorder) CharmURL(arg0 any) *MockApplicationCharmURLCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmURL", reflect.TypeOf((*MockApplication)(nil).CharmURL))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmURL", reflect.TypeOf((*MockApplication)(nil).CharmURL), arg0)
 	return &MockApplicationCharmURLCall{Call: call}
 }
 
@@ -2491,13 +2491,13 @@ func (c *MockApplicationCharmURLCall) Return(arg0 string, arg1 bool, arg2 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationCharmURLCall) Do(f func() (string, bool, error)) *MockApplicationCharmURLCall {
+func (c *MockApplicationCharmURLCall) Do(f func(context.Context) (string, bool, error)) *MockApplicationCharmURLCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationCharmURLCall) DoAndReturn(f func() (string, bool, error)) *MockApplicationCharmURLCall {
+func (c *MockApplicationCharmURLCall) DoAndReturn(f func(context.Context) (string, bool, error)) *MockApplicationCharmURLCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2579,17 +2579,17 @@ func (c *MockApplicationRefreshCall) DoAndReturn(f func(context.Context) error) 
 }
 
 // SetStatus mocks base method.
-func (m *MockApplication) SetStatus(arg0 string, arg1 status.Status, arg2 string, arg3 map[string]any) error {
+func (m *MockApplication) SetStatus(arg0 context.Context, arg1 string, arg2 status.Status, arg3 string, arg4 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1, arg2, arg3, arg4)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetStatus indicates an expected call of SetStatus.
-func (mr *MockApplicationMockRecorder) SetStatus(arg0, arg1, arg2, arg3 any) *MockApplicationSetStatusCall {
+func (mr *MockApplicationMockRecorder) SetStatus(arg0, arg1, arg2, arg3, arg4 any) *MockApplicationSetStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockApplication)(nil).SetStatus), arg0, arg1, arg2, arg3)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockApplication)(nil).SetStatus), arg0, arg1, arg2, arg3, arg4)
 	return &MockApplicationSetStatusCall{Call: call}
 }
 
@@ -2605,30 +2605,30 @@ func (c *MockApplicationSetStatusCall) Return(arg0 error) *MockApplicationSetSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationSetStatusCall) Do(f func(string, status.Status, string, map[string]any) error) *MockApplicationSetStatusCall {
+func (c *MockApplicationSetStatusCall) Do(f func(context.Context, string, status.Status, string, map[string]any) error) *MockApplicationSetStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationSetStatusCall) DoAndReturn(f func(string, status.Status, string, map[string]any) error) *MockApplicationSetStatusCall {
+func (c *MockApplicationSetStatusCall) DoAndReturn(f func(context.Context, string, status.Status, string, map[string]any) error) *MockApplicationSetStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Status mocks base method.
-func (m *MockApplication) Status(arg0 string) (params.ApplicationStatusResult, error) {
+func (m *MockApplication) Status(arg0 context.Context, arg1 string) (params.ApplicationStatusResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status", arg0)
+	ret := m.ctrl.Call(m, "Status", arg0, arg1)
 	ret0, _ := ret[0].(params.ApplicationStatusResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Status indicates an expected call of Status.
-func (mr *MockApplicationMockRecorder) Status(arg0 any) *MockApplicationStatusCall {
+func (mr *MockApplicationMockRecorder) Status(arg0, arg1 any) *MockApplicationStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockApplication)(nil).Status), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockApplication)(nil).Status), arg0, arg1)
 	return &MockApplicationStatusCall{Call: call}
 }
 
@@ -2644,13 +2644,13 @@ func (c *MockApplicationStatusCall) Return(arg0 params.ApplicationStatusResult, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStatusCall) Do(f func(string) (params.ApplicationStatusResult, error)) *MockApplicationStatusCall {
+func (c *MockApplicationStatusCall) Do(f func(context.Context, string) (params.ApplicationStatusResult, error)) *MockApplicationStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStatusCall) DoAndReturn(f func(string) (params.ApplicationStatusResult, error)) *MockApplicationStatusCall {
+func (c *MockApplicationStatusCall) DoAndReturn(f func(context.Context, string) (params.ApplicationStatusResult, error)) *MockApplicationStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2733,18 +2733,18 @@ func (c *MockApplicationWatchCall) DoAndReturn(f func(context.Context) (watcher.
 }
 
 // WatchLeadershipSettings mocks base method.
-func (m *MockApplication) WatchLeadershipSettings() (watcher.Watcher[struct{}], error) {
+func (m *MockApplication) WatchLeadershipSettings(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchLeadershipSettings")
+	ret := m.ctrl.Call(m, "WatchLeadershipSettings", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchLeadershipSettings indicates an expected call of WatchLeadershipSettings.
-func (mr *MockApplicationMockRecorder) WatchLeadershipSettings() *MockApplicationWatchLeadershipSettingsCall {
+func (mr *MockApplicationMockRecorder) WatchLeadershipSettings(arg0 any) *MockApplicationWatchLeadershipSettingsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLeadershipSettings", reflect.TypeOf((*MockApplication)(nil).WatchLeadershipSettings))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLeadershipSettings", reflect.TypeOf((*MockApplication)(nil).WatchLeadershipSettings), arg0)
 	return &MockApplicationWatchLeadershipSettingsCall{Call: call}
 }
 
@@ -2760,13 +2760,13 @@ func (c *MockApplicationWatchLeadershipSettingsCall) Return(arg0 watcher.Watcher
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationWatchLeadershipSettingsCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockApplicationWatchLeadershipSettingsCall {
+func (c *MockApplicationWatchLeadershipSettingsCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockApplicationWatchLeadershipSettingsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationWatchLeadershipSettingsCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockApplicationWatchLeadershipSettingsCall {
+func (c *MockApplicationWatchLeadershipSettingsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockApplicationWatchLeadershipSettingsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -2795,18 +2795,18 @@ func (m *MockCharm) EXPECT() *MockCharmMockRecorder {
 }
 
 // ArchiveSha256 mocks base method.
-func (m *MockCharm) ArchiveSha256() (string, error) {
+func (m *MockCharm) ArchiveSha256(arg0 context.Context) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ArchiveSha256")
+	ret := m.ctrl.Call(m, "ArchiveSha256", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ArchiveSha256 indicates an expected call of ArchiveSha256.
-func (mr *MockCharmMockRecorder) ArchiveSha256() *MockCharmArchiveSha256Call {
+func (mr *MockCharmMockRecorder) ArchiveSha256(arg0 any) *MockCharmArchiveSha256Call {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ArchiveSha256", reflect.TypeOf((*MockCharm)(nil).ArchiveSha256))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ArchiveSha256", reflect.TypeOf((*MockCharm)(nil).ArchiveSha256), arg0)
 	return &MockCharmArchiveSha256Call{Call: call}
 }
 
@@ -2822,30 +2822,30 @@ func (c *MockCharmArchiveSha256Call) Return(arg0 string, arg1 error) *MockCharmA
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmArchiveSha256Call) Do(f func() (string, error)) *MockCharmArchiveSha256Call {
+func (c *MockCharmArchiveSha256Call) Do(f func(context.Context) (string, error)) *MockCharmArchiveSha256Call {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmArchiveSha256Call) DoAndReturn(f func() (string, error)) *MockCharmArchiveSha256Call {
+func (c *MockCharmArchiveSha256Call) DoAndReturn(f func(context.Context) (string, error)) *MockCharmArchiveSha256Call {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // LXDProfileRequired mocks base method.
-func (m *MockCharm) LXDProfileRequired() (bool, error) {
+func (m *MockCharm) LXDProfileRequired(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LXDProfileRequired")
+	ret := m.ctrl.Call(m, "LXDProfileRequired", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // LXDProfileRequired indicates an expected call of LXDProfileRequired.
-func (mr *MockCharmMockRecorder) LXDProfileRequired() *MockCharmLXDProfileRequiredCall {
+func (mr *MockCharmMockRecorder) LXDProfileRequired(arg0 any) *MockCharmLXDProfileRequiredCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfileRequired", reflect.TypeOf((*MockCharm)(nil).LXDProfileRequired))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LXDProfileRequired", reflect.TypeOf((*MockCharm)(nil).LXDProfileRequired), arg0)
 	return &MockCharmLXDProfileRequiredCall{Call: call}
 }
 
@@ -2861,13 +2861,13 @@ func (c *MockCharmLXDProfileRequiredCall) Return(arg0 bool, arg1 error) *MockCha
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmLXDProfileRequiredCall) Do(f func() (bool, error)) *MockCharmLXDProfileRequiredCall {
+func (c *MockCharmLXDProfileRequiredCall) Do(f func(context.Context) (bool, error)) *MockCharmLXDProfileRequiredCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmLXDProfileRequiredCall) DoAndReturn(f func() (bool, error)) *MockCharmLXDProfileRequiredCall {
+func (c *MockCharmLXDProfileRequiredCall) DoAndReturn(f func(context.Context) (bool, error)) *MockCharmLXDProfileRequiredCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

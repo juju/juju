@@ -119,7 +119,7 @@ func (s *relationerSuite) TestCommitHookRelationRemoved(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	// Setup for test
 	s.expectEndpoint(endpoint())
-	s.relationUnit.EXPECT().LeaveScope().Return(&params.Error{Code: "not found"})
+	s.relationUnit.EXPECT().LeaveScope(gomock.Any()).Return(&params.Error{Code: "not found"})
 	s.expectRemoveRelation()
 
 	r := s.newRelationer(c)
@@ -237,7 +237,7 @@ func (s *relationerSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func implicitRelationEndpoint() apiuniter.Endpoint {
 	return apiuniter.Endpoint{
-		charm.Relation{
+		Relation: charm.Relation{
 			Role:      charm.RoleProvider,
 			Name:      "juju-info",
 			Interface: "juju-info",
@@ -246,7 +246,7 @@ func implicitRelationEndpoint() apiuniter.Endpoint {
 
 func endpoint() apiuniter.Endpoint {
 	return apiuniter.Endpoint{
-		charm.Relation{
+		Relation: charm.Relation{
 			Role:      charm.RoleRequirer,
 			Name:      "mysql",
 			Interface: "db",
@@ -260,11 +260,11 @@ func (s *relationerSuite) expectEndpoint(ep apiuniter.Endpoint) {
 }
 
 func (s *relationerSuite) expectLeaveScope() {
-	s.relationUnit.EXPECT().LeaveScope().Return(nil)
+	s.relationUnit.EXPECT().LeaveScope(gomock.Any()).Return(nil)
 }
 
 func (s *relationerSuite) expectEnterScope() {
-	s.relationUnit.EXPECT().EnterScope().Return(nil)
+	s.relationUnit.EXPECT().EnterScope(gomock.Any()).Return(nil)
 }
 
 func (s *relationerSuite) expectRelationUnitRelation() {

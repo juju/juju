@@ -55,7 +55,7 @@ func (s *storageResolver) NextOp(
 	if remoteState.Life == life.Dying {
 		// The unit is dying, so destroy all of its storage.
 		if !s.dying {
-			if err := s.storage.SetDying(); err != nil {
+			if err := s.storage.SetDying(ctx); err != nil {
 				return nil, errors.Trace(err)
 			}
 			s.dying = true
@@ -66,7 +66,7 @@ func (s *storageResolver) NextOp(
 		}
 	}
 
-	if err := s.maybeShortCircuitRemoval(remoteState.Storage); err != nil {
+	if err := s.maybeShortCircuitRemoval(ctx, remoteState.Storage); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -142,13 +142,13 @@ func (s *storageResolver) NextOp(
 
 // maybeShortCircuitRemoval removes any storage that is not alive,
 // and has not had a storage-attached hook committed.
-func (s *storageResolver) maybeShortCircuitRemoval(remote map[names.StorageTag]remotestate.StorageSnapshot) error {
+func (s *storageResolver) maybeShortCircuitRemoval(ctx context.Context, remote map[names.StorageTag]remotestate.StorageSnapshot) error {
 	for tag, snap := range remote {
 		attached, ok := s.storage.storageState.Attached(tag.Id())
 		if (ok && attached) || snap.Life == life.Alive {
 			continue
 		}
-		if err := s.storage.removeStorageAttachment(tag); err != nil {
+		if err := s.storage.removeStorageAttachment(ctx, tag); err != nil {
 			return errors.Trace(err)
 		}
 		delete(remote, tag)

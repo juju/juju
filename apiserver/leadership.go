@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -49,7 +50,7 @@ type leadershipClaimer struct {
 }
 
 // ClaimLeadership is part of the leadership.Claimer interface.
-func (m leadershipClaimer) ClaimLeadership(applicationName, unitName string, duration time.Duration) error {
+func (m leadershipClaimer) ClaimLeadership(ctx context.Context, applicationName, unitName string, duration time.Duration) error {
 	err := m.claimer.Claim(applicationName, unitName, duration)
 	if errors.Cause(err) == lease.ErrClaimDenied {
 		return leadership.ErrClaimDenied
@@ -58,7 +59,7 @@ func (m leadershipClaimer) ClaimLeadership(applicationName, unitName string, dur
 }
 
 // BlockUntilLeadershipReleased is part of the leadership.Claimer interface.
-func (m leadershipClaimer) BlockUntilLeadershipReleased(applicationName string, cancel <-chan struct{}) error {
+func (m leadershipClaimer) BlockUntilLeadershipReleased(ctx context.Context, applicationName string, cancel <-chan struct{}) error {
 	err := m.claimer.WaitUntilExpired(applicationName, cancel)
 	if errors.Cause(err) == lease.ErrWaitCancelled {
 		return leadership.ErrBlockCancelled

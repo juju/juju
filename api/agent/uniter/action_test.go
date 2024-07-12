@@ -146,7 +146,7 @@ func (s *actionSuite) TestLogActionMessage(c *gc.C) {
 	client := uniter.NewClient(caller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	err := unit.LogActionMessage(names.NewActionTag("666"), "hello")
+	err := unit.LogActionMessage(context.Background(), names.NewActionTag("666"), "hello")
 	c.Assert(err, gc.ErrorMatches, "biff")
 }
 
@@ -173,7 +173,7 @@ func (s *actionSuite) TestWatchActionNotifications(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	w, err := unit.WatchActionNotifications()
+	w, err := unit.WatchActionNotifications(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewStringsWatcherC(c, w)
 	defer wc.AssertStops()
@@ -189,7 +189,7 @@ func (s *actionSuite) TestWatchActionNotificationsError(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	_, err := unit.WatchActionNotifications()
+	_, err := unit.WatchActionNotifications(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -209,7 +209,7 @@ func (s *actionSuite) TestWatchActionNotificationsErrorResults(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	_, err := unit.WatchActionNotifications()
+	_, err := unit.WatchActionNotifications(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -222,7 +222,7 @@ func (s *actionSuite) TestWatchActionNotificationsNoResults(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	_, err := unit.WatchActionNotifications()
+	_, err := unit.WatchActionNotifications(context.Background())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
@@ -237,6 +237,6 @@ func (s *actionSuite) TestWatchActionNotificationsMoreResults(c *gc.C) {
 	client := uniter.NewClient(apiCaller, names.NewUnitTag("mysql/0"))
 
 	unit := uniter.CreateUnit(client, names.NewUnitTag("mysql/0"))
-	_, err := unit.WatchActionNotifications()
+	_, err := unit.WatchActionNotifications(context.Background())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }

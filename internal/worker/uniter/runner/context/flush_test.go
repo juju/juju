@@ -45,12 +45,12 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingError(c *gc.C) {
 	// Mess with multiple relation settings.
 	relCtx0, err := ctx.Relation(0)
 	c.Assert(err, jc.ErrorIsNil)
-	node0, err := relCtx0.Settings()
+	node0, err := relCtx0.Settings(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	node0.Set("foo", "1")
 	relCtx1, err := ctx.Relation(1)
 	c.Assert(err, jc.ErrorIsNil)
-	node1, err := relCtx1.Settings()
+	node1, err := relCtx1.Settings(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	node1.Set("bar", "2")
 
@@ -68,12 +68,12 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 	// Mess with multiple relation settings.
 	relCtx0, err := ctx.Relation(0)
 	c.Assert(err, jc.ErrorIsNil)
-	node0, err := relCtx0.Settings()
+	node0, err := relCtx0.Settings(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	node0.Set("baz", "3")
 	relCtx1, err := ctx.Relation(1)
 	c.Assert(err, jc.ErrorIsNil)
-	node1, err := relCtx1.Settings()
+	node1, err := relCtx1.Settings(stdcontext.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	node1.Set("qux", "4")
 
@@ -92,7 +92,7 @@ func (s *FlushContextSuite) TestRunHookRelationFlushingSuccess(c *gc.C) {
 		}},
 	}
 
-	s.unit.EXPECT().CommitHookChanges(hookCommitMatcher{c, params.CommitHookChangesArgs{
+	s.unit.EXPECT().CommitHookChanges(gomock.Any(), hookCommitMatcher{c: c, expected: params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{arg},
 	}}).Return(nil)
 
@@ -117,8 +117,8 @@ func (s *FlushContextSuite) TestRebootAfterHook(c *gc.C) {
 	c.Assert(err, gc.Equals, expErr)
 
 	// Flush the context without an error and check that reboot is triggered.
-	s.unit.EXPECT().SetAgentStatus(status.Rebooting, "", nil).Return(nil)
-	s.unit.EXPECT().RequestReboot().Return(nil)
+	s.unit.EXPECT().SetAgentStatus(gomock.Any(), status.Rebooting, "", nil).Return(nil)
+	s.unit.EXPECT().RequestReboot(gomock.Any()).Return(nil)
 	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
 	c.Assert(err, gc.Equals, context.ErrReboot)
 }
@@ -166,8 +166,8 @@ func (s *FlushContextSuite) TestRebootNowWhenHookFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Flush the context with an error and check that reboot is triggered regardless.
-	s.unit.EXPECT().SetAgentStatus(status.Rebooting, "", nil).Return(nil)
-	s.unit.EXPECT().RequestReboot().Return(nil)
+	s.unit.EXPECT().SetAgentStatus(gomock.Any(), status.Rebooting, "", nil).Return(nil)
+	s.unit.EXPECT().RequestReboot(gomock.Any()).Return(nil)
 
 	expErr := errors.New("hook execution failed")
 	err = ctx.Flush(stdcontext.Background(), "some badge", expErr)
@@ -193,8 +193,8 @@ func (s *FlushContextSuite) TestRebootNow(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Flush the context without an error and check that reboot is triggered.
-	s.unit.EXPECT().SetAgentStatus(status.Rebooting, "", nil).Return(nil)
-	s.unit.EXPECT().RequestReboot().Return(nil)
+	s.unit.EXPECT().SetAgentStatus(gomock.Any(), status.Rebooting, "", nil).Return(nil)
+	s.unit.EXPECT().RequestReboot(gomock.Any()).Return(nil)
 
 	err = ctx.Flush(stdcontext.Background(), "some badge", nil)
 	c.Assert(err, gc.Equals, context.ErrRequeueAndReboot)
@@ -244,7 +244,7 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	err = ctx.ClosePortRange("", network.MustParsePortRange("50-80/tcp"))
 	c.Assert(err, jc.ErrorIsNil) // still pending -> no longer pending
 
-	s.unit.EXPECT().CommitHookChanges(hookCommitMatcher{c, params.CommitHookChangesArgs{
+	s.unit.EXPECT().CommitHookChanges(gomock.Any(), hookCommitMatcher{c: c, expected: params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{{
 			Tag: s.unit.Tag().String(),
 			OpenPorts: []params.EntityPortRange{{
@@ -342,7 +342,7 @@ func (s *FlushContextSuite) TestRunHookUpdatesSecrets(c *gc.C) {
 		}},
 	}
 
-	s.unit.EXPECT().CommitHookChanges(hookCommitMatcher{c, params.CommitHookChangesArgs{
+	s.unit.EXPECT().CommitHookChanges(gomock.Any(), hookCommitMatcher{c: c, expected: params.CommitHookChangesArgs{
 		Args: []params.CommitHookChangesArg{arg},
 	}}).Return(nil)
 

@@ -57,11 +57,12 @@ func (s *secretsSuite) TestCommitSecretChanged(c *gc.C) {
 			},
 		},
 	)}, nil)
-	s.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo("foo/0",
+	s.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(
+		gomock.Any(), "foo/0",
 		[]string{"secret:666e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g"}).Return(
 		map[string]coresecrets.SecretRevisionInfo{"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 667}}, nil,
 	)
-	s.secretsClient.EXPECT().SecretMetadata().Return(nil, nil)
+	s.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(nil, nil)
 
 	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
@@ -101,7 +102,7 @@ func (s *secretsSuite) TestCommitSecretRemove(c *gc.C) {
 			},
 		},
 	)}, nil)
-	s.secretsClient.EXPECT().SecretMetadata().Return(
+	s.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(
 		[]coresecrets.SecretOwnerMetadata{{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}}}, nil)
 	s.stateReadWriter.EXPECT().SetState(gomock.Any(), params.SetUnitStateArg{SecretState: ptr(s.yamlString(c,
 		&secrets.State{
@@ -147,14 +148,15 @@ func (s *secretsSuite) TestCommitNoOpSecretsRemoved(c *gc.C) {
 			},
 		},
 	)}, nil)
-	s.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo("foo/0",
+	s.secretsClient.EXPECT().GetConsumerSecretsRevisionInfo(
+		gomock.Any(), "foo/0",
 		[]string{"secret:666e2mr0ui3e8a215n4g", "secret:9m4e2mr0ui3e8a215n4g"}).Return(
 		map[string]coresecrets.SecretRevisionInfo{
 			"secret:666e2mr0ui3e8a215n4g": {LatestRevision: 666},
 			"secret:9m4e2mr0ui3e8a215n4g": {LatestRevision: 667},
 		}, nil,
 	)
-	s.secretsClient.EXPECT().SecretMetadata().Return(
+	s.secretsClient.EXPECT().SecretMetadata(gomock.Any()).Return(
 		[]coresecrets.SecretOwnerMetadata{
 			{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "9m4e2mr0ui3e8a215n4g"}}},
 			{Metadata: coresecrets.SecretMetadata{URI: &coresecrets.URI{ID: "666e2mr0ui3e8a215n4g"}}},

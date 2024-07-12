@@ -53,7 +53,7 @@ type (
 // StatusSetter defines the single method required to set an agent's
 // status.
 type StatusSetter interface {
-	SetStatus(setableStatus status.Status, info string, data map[string]any) error
+	SetStatus(ctx context.Context, setableStatus status.Status, info string, data map[string]any) error
 }
 
 // BaseWorker defines the common fields and methods used by the
@@ -98,7 +98,7 @@ func (w *BaseWorker) AlreadyUpgraded() bool {
 // designed to be called via an agent's ChangeConfig method.
 func (w *BaseWorker) RunUpgradeSteps(ctx context.Context, targets []upgrades.Target) func(agentConfig agent.ConfigSetter) error {
 	return func(agentConfig agent.ConfigSetter) error {
-		if err := w.StatusSetter.SetStatus(status.Started, fmt.Sprintf("upgrading to %v", w.ToVersion), nil); err != nil {
+		if err := w.StatusSetter.SetStatus(ctx, status.Started, fmt.Sprintf("upgrading to %v", w.ToVersion), nil); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -118,7 +118,7 @@ func (w *BaseWorker) RunUpgradeSteps(ctx context.Context, targets []upgrades.Tar
 				return agenterrors.ConnectionIsDead(ctx, w.Logger, breakable)
 			},
 			NotifyFunc: func(lastErr error, attempt int) {
-				w.reportUpgradeFailure(lastErr, attempt == DefaultRetryAttempts)
+				w.reportUpgradeFailure(ctx, lastErr, attempt == DefaultRetryAttempts)
 			},
 			Func: func() error {
 				return w.PerformUpgradeSteps(w.FromVersion, targets, context)
@@ -139,13 +139,15 @@ func (w *BaseWorker) RunUpgradeSteps(ctx context.Context, targets []upgrades.Tar
 	}
 }
 
-func (w *BaseWorker) reportUpgradeFailure(err error, willRetry bool) {
+func (w *BaseWorker) reportUpgradeFailure(ctx context.Context, err error, willRetry bool) {
 	retryText := "will retry"
 	if !willRetry {
 		retryText = "giving up"
 	}
 	w.Logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
 		w.FromVersion, w.ToVersion, w.Tag, retryText, err)
-	_ = w.StatusSetter.SetStatus(status.Error,
+	_ = w.StatusSetter.SetStatus(
+		ctx,
+		status.Error,
 		fmt.Sprintf("upgrade to %v failed (%s): %v", w.ToVersion, retryText, err), nil)
 }

@@ -58,7 +58,7 @@ func NewAttachments(
 func (a *Attachments) init(ctx context.Context) error {
 	// Query all remote, known storage attachments for the unit,
 	// so we can store current context, and find pending storage.
-	attachmentIds, err := a.client.UnitStorageAttachments(a.unitTag)
+	attachmentIds, err := a.client.UnitStorageAttachments(ctx, a.unitTag)
 	if err != nil {
 		return errors.Annotate(err, "getting unit attachments")
 	}
@@ -101,8 +101,8 @@ func (a *Attachments) init(ctx context.Context) error {
 
 // SetDying ensures that any unprovisioned storage attachments are removed
 // from State.
-func (a *Attachments) SetDying() error {
-	if err := a.client.DestroyUnitStorageAttachments(a.unitTag); err != nil {
+func (a *Attachments) SetDying(ctx context.Context) error {
+	if err := a.client.DestroyUnitStorageAttachments(ctx, a.unitTag); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -142,15 +142,15 @@ func (a *Attachments) CommitHook(ctx context.Context, hi hook.Info) error {
 	case hooks.StorageAttached:
 		a.pending.Remove(storageTag)
 	case hooks.StorageDetaching:
-		if err := a.removeStorageAttachment(storageTag); err != nil {
+		if err := a.removeStorageAttachment(ctx, storageTag); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (a *Attachments) removeStorageAttachment(tag names.StorageTag) error {
-	if err := a.client.RemoveStorageAttachment(tag, a.unitTag); err != nil {
+func (a *Attachments) removeStorageAttachment(ctx context.Context, tag names.StorageTag) error {
+	if err := a.client.RemoveStorageAttachment(ctx, tag, a.unitTag); err != nil {
 		return errors.Annotate(err, "removing storage attachment")
 	}
 	a.pending.Remove(tag)

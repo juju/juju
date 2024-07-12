@@ -109,7 +109,7 @@ func (r *ContextRelation) Life() life.Value {
 }
 
 // Settings implements jujuc.ContextRelation.
-func (r *ContextRelation) Settings() (jujuc.Settings, error) {
+func (r *ContextRelation) Settings(_ context.Context) (jujuc.Settings, error) {
 	r.stub.AddCall("Settings")
 	if err := r.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -123,7 +123,7 @@ func (r *ContextRelation) Settings() (jujuc.Settings, error) {
 }
 
 // ApplicationSettings implements jujuc.ContextRelation.
-func (r *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
+func (r *ContextRelation) ApplicationSettings(context.Context) (jujuc.Settings, error) {
 	r.stub.AddCall("ApplicationSettings")
 	if err := r.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -146,7 +146,7 @@ func (r *ContextRelation) UnitNames() []string {
 }
 
 // ReadSettings implements jujuc.ContextRelation.
-func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
+func (r *ContextRelation) ReadSettings(_ context.Context, name string) (params.Settings, error) {
 	r.stub.AddCall("ReadSettings", name)
 	if err := r.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)
@@ -160,7 +160,7 @@ func (r *ContextRelation) ReadSettings(name string) (params.Settings, error) {
 }
 
 // ReadApplicationSettings implements jujuc.ContextRelation.
-func (r *ContextRelation) ReadApplicationSettings(name string) (params.Settings, error) {
+func (r *ContextRelation) ReadApplicationSettings(_ context.Context, name string) (params.Settings, error) {
 	r.stub.AddCall("ReadApplicationSettings", name)
 	if err := r.stub.NextErr(); err != nil {
 		return nil, errors.Trace(err)

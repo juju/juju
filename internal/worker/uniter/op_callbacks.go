@@ -141,13 +141,13 @@ func (opc *operationCallbacks) GetArchiveInfo(url string) (charm.BundleInfo, err
 }
 
 // SetCurrentCharm is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SetCurrentCharm(charmURL string) error {
-	return opc.u.unit.SetCharmURL(charmURL)
+func (opc *operationCallbacks) SetCurrentCharm(ctx stdcontext.Context, charmURL string) error {
+	return opc.u.unit.SetCharmURL(ctx, charmURL)
 }
 
 // SetExecutingStatus is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SetExecutingStatus(message string) error {
-	return setAgentStatus(opc.u, status.Executing, message, nil)
+func (opc *operationCallbacks) SetExecutingStatus(ctx stdcontext.Context, message string) error {
+	return setAgentStatus(ctx, opc.u, status.Executing, message, nil)
 }
 
 // RemoteInit is part of the operation.Callbacks interface.
@@ -163,8 +163,8 @@ func (opc *operationCallbacks) RemoteInit(runningStatus remotestate.ContainerRun
 }
 
 // SetSecretRotated is part of the operation.Callbacks interface.
-func (opc *operationCallbacks) SetSecretRotated(uri string, oldRevision int) error {
-	return opc.u.secretsClient.SecretRotated(uri, oldRevision)
+func (opc *operationCallbacks) SetSecretRotated(ctx stdcontext.Context, uri string, oldRevision int) error {
+	return opc.u.secretsClient.SecretRotated(ctx, uri, oldRevision)
 }
 
 // SecretsRemoved is part of the operation.Callbacks interface.

@@ -4,6 +4,7 @@
 package context
 
 import (
+	"context"
 	"sort"
 
 	"github.com/juju/errors"
@@ -12,7 +13,7 @@ import (
 )
 
 // SettingsFunc returns the relation settings for a unit.
-type SettingsFunc func(unitName string) (params.Settings, error)
+type SettingsFunc func(ctx context.Context, unitName string) (params.Settings, error)
 
 // SettingsMap is a map from unit name to relation settings.
 type SettingsMap map[string]params.Settings
@@ -68,7 +69,7 @@ func (cache *RelationCache) MemberNames() (memberNames []string) {
 
 // Settings returns the settings of the named remote unit. It's valid to get
 // the settings of any unit that has ever been in the relation.
-func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
+func (cache *RelationCache) Settings(ctx context.Context, unitName string) (params.Settings, error) {
 	// TODO(jam): 2019-10-10 We should probably validate that 'unitName' is a valid
 	//  application name and not a unit name. ReadSettings used to validate that
 	//  it was a valid unit name, but now it can be a unitName or appName
@@ -79,7 +80,7 @@ func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
 		}
 		if settings == nil {
 			var err error
-			settings, err = cache.readSettings(unitName)
+			settings, err = cache.readSettings(ctx, unitName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -94,14 +95,14 @@ func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
 }
 
 // ApplicationSettings returns the relation settings of the named application.
-func (cache *RelationCache) ApplicationSettings(appName string) (params.Settings, error) {
+func (cache *RelationCache) ApplicationSettings(ctx context.Context, appName string) (params.Settings, error) {
 	// TODO(jam): 2019-10-10 We should probably validate that 'appName' is a valid
 	//  application name and not a unit name. ReadSettings used to validate that
 	//  it was a valid unit name, but now it can be a unitName or appName
 	settings, found := cache.applications[appName]
 	if !found {
 		var err error
-		settings, err = cache.readSettings(appName)
+		settings, err = cache.readSettings(ctx, appName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

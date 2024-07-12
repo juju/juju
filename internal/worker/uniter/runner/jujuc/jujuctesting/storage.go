@@ -4,6 +4,7 @@
 package jujuctesting
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -82,7 +83,7 @@ type ContextStorage struct {
 }
 
 // StorageTags implements jujuc.ContextStorage.
-func (c *ContextStorage) StorageTags() ([]names.StorageTag, error) {
+func (c *ContextStorage) StorageTags(_ context.Context) ([]names.StorageTag, error) {
 	c.stub.AddCall("StorageTags")
 
 	tags := names.NewSet()
@@ -97,7 +98,7 @@ func (c *ContextStorage) StorageTags() ([]names.StorageTag, error) {
 }
 
 // Storage implements jujuc.ContextStorage.
-func (c *ContextStorage) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
+func (c *ContextStorage) Storage(_ context.Context, tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
 	c.stub.AddCall("Storage")
 
 	storage, ok := c.info.Storage[tag]
@@ -110,10 +111,10 @@ func (c *ContextStorage) Storage(tag names.StorageTag) (jujuc.ContextStorageAtta
 }
 
 // HookStorage implements jujuc.ContextStorage.
-func (c *ContextStorage) HookStorage() (jujuc.ContextStorageAttachment, error) {
+func (c *ContextStorage) HookStorage(ctx context.Context) (jujuc.ContextStorageAttachment, error) {
 	c.stub.AddCall("HookStorage")
 
-	return c.Storage(c.info.StorageTag)
+	return c.Storage(ctx, c.info.StorageTag)
 }
 
 // AddUnitStorage implements jujuc.ContextStorage.

@@ -33,7 +33,7 @@ func SetObserver(p Provisioner, observer chan<- *config.Config) {
 }
 
 func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
-	return p.getRetryWatcher()
+	return p.getRetryWatcher(context.Background())
 }
 
 var (

@@ -129,7 +129,7 @@ func (d *factory) GetDeployer(ctx context.Context, cfg DeployerConfig, deployAPI
 	} else if isLocalSchema(d.charmOrBundle) {
 		// Go for local pre-deployed charm
 		var localPreDeployedCharmErr error
-		if dk, localPreDeployedCharmErr = d.localPreDeployedCharmDeployer(deployAPI); localPreDeployedCharmErr != nil {
+		if dk, localPreDeployedCharmErr = d.localPreDeployedCharmDeployer(ctx, deployAPI); localPreDeployedCharmErr != nil {
 			return nil, errors.Trace(localPreDeployedCharmErr)
 		}
 	} else {
@@ -262,7 +262,7 @@ func (d *factory) localCharmDeployer(getter ModelConfigGetter) (DeployerKind, er
 	return &localCharmDeployerKind{base, imageStream, ch, curl}, nil
 }
 
-func (d *factory) localPreDeployedCharmDeployer(deployAPI CharmDeployAPI) (DeployerKind, error) {
+func (d *factory) localPreDeployedCharmDeployer(ctx context.Context, deployAPI CharmDeployAPI) (DeployerKind, error) {
 	// If the charm's schema is local, we should definitively attempt
 	// to deploy a charm that's already deployed in the
 	// environment.
@@ -274,7 +274,7 @@ func (d *factory) localPreDeployedCharmDeployer(deployAPI CharmDeployAPI) (Deplo
 		return nil, errors.Errorf("cannot interpret as a redeployment of a local charm from the controller")
 	}
 
-	charmInfo, err := deployAPI.CharmInfo(userCharmURL.String())
+	charmInfo, err := deployAPI.CharmInfo(ctx, userCharmURL.String())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

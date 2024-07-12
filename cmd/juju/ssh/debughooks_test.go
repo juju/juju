@@ -151,7 +151,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 
 		charmAPI := mocks.NewMockCharmAPI(ctrl)
 		chInfo := &charms.CharmInfo{Meta: &meta, Actions: &actions}
-		charmAPI.EXPECT().CharmInfo("ch:mysql").Return(chInfo, nil)
+		charmAPI.EXPECT().CharmInfo(gomock.Any(), "ch:mysql").Return(chInfo, nil)
 		charmAPI.EXPECT().Close().Return(nil)
 
 		hooksCmd := NewDebugHooksCommandForTest(app, ssh, status, charmAPI, t.hostChecker, baseTestingRetryStrategy, baseTestingRetryStrategy)
@@ -177,7 +177,7 @@ func (s *DebugHooksSuite) TestDebugHooksArgFormatting(c *gc.C) {
 
 	charmAPI := mocks.NewMockCharmAPI(ctrl)
 	chInfo := &charms.CharmInfo{Meta: &meta, Actions: &actions}
-	charmAPI.EXPECT().CharmInfo("ch:mysql").Return(chInfo, nil)
+	charmAPI.EXPECT().CharmInfo(gomock.Any(), "ch:mysql").Return(chInfo, nil)
 	charmAPI.EXPECT().Close().Return(nil)
 
 	s.setHostChecker(validAddresses("0.public"))

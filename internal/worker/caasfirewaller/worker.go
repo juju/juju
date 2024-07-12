@@ -4,6 +4,8 @@
 package caasfirewaller
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
@@ -105,6 +107,9 @@ func (p *firewaller) loop() error {
 		return errors.Trace(err)
 	}
 
+	ctx, cancel := p.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		case <-p.catacomb.Dying():
@@ -115,7 +120,7 @@ func (p *firewaller) loop() error {
 			}
 			for _, appName := range apps {
 				// If charm is a v1 charm, skip processing.
-				format, err := p.charmFormat(appName)
+				format, err := p.charmFormat(ctx, appName)
 				if errors.Is(err, errors.NotFound) {
 					p.config.Logger.Debugf("application %q no longer exists", appName)
 					continue
@@ -169,10 +174,14 @@ func (p *firewaller) loop() error {
 	}
 }
 
-func (p *firewaller) charmFormat(appName string) (charm.Format, error) {
-	charmInfo, err := p.config.FirewallerAPI.ApplicationCharmInfo(appName)
+func (p *firewaller) charmFormat(ctx context.Context, appName string) (charm.Format, error) {
+	charmInfo, err := p.config.FirewallerAPI.ApplicationCharmInfo(ctx, appName)
 	if err != nil {
 		return charm.FormatUnknown, errors.Annotatef(err, "failed to get charm info for application %q", appName)
 	}
 	return charm.MetaFormat(charmInfo.Charm()), nil
+}
+
+func (p *firewaller) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(p.catacomb.Context(context.Background()))
 }

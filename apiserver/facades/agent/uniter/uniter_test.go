@@ -2985,7 +2985,7 @@ func (s *uniterSuite) TestStorageAttachments(c *gc.C) {
 	uniter, err := apiuniter.NewFromConnection(api)
 	c.Assert(err, jc.ErrorIsNil)
 
-	attachments, err := uniter.UnitStorageAttachments(unit.UnitTag())
+	attachments, err := uniter.UnitStorageAttachments(context.Background(), unit.UnitTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(attachments, gc.DeepEquals, []params.StorageAttachmentId{{
 		StorageTag: "storage-data-0",

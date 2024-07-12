@@ -167,8 +167,8 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 	workertest.CleanKill(c, task)
 	close(s.instanceBroker.callsChan)
 	s.instanceBroker.CheckCalls(c, []testing.StubCall{
-		{"AllRunningInstances", []interface{}{s.callCtx}},
-		{"StopInstances", []interface{}{s.callCtx, []instance.Id{"zero"}}},
+		{FuncName: "AllRunningInstances", Args: []interface{}{s.callCtx}},
+		{FuncName: "StopInstances", Args: []interface{}{s.callCtx, []instance.Id{"zero"}}},
 	})
 	c.Assert(m0.markForRemoval, jc.IsTrue)
 	c.Assert(m1.markForRemoval, jc.IsTrue)
@@ -178,7 +178,7 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	m0 := &testMachine{id: "0"}
-	s.machinesAPI.EXPECT().MachinesWithTransientErrors().Return(
+	s.machinesAPI.EXPECT().MachinesWithTransientErrors(gomock.Any()).Return(
 		[]apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}, nil)
 	s.expectProvisioningInfo(m0)
 
@@ -207,7 +207,7 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
 
 func (s *ProvisionerTaskSuite) waitForProvisioned(c *gc.C, m *testMachine) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		_, err := m.InstanceId()
+		_, err := m.InstanceId(context.Background())
 		if err == nil {
 			if m.GetPassword() == "" {
 				c.Fatalf("provisioned machine %q does not have a password", m.id)
@@ -229,7 +229,7 @@ func (s *ProvisionerTaskSuite) waitForRemovalMark(c *gc.C, m *testMachine) {
 
 func (s *ProvisionerTaskSuite) waitForInstanceStatus(c *gc.C, m *testMachine, status status.Status) string {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		instStatus, info, err := m.InstanceStatus()
+		instStatus, info, err := m.InstanceStatus(context.Background())
 		c.Assert(err, jc.ErrorIsNil)
 		if instStatus == status {
 			return info
@@ -540,7 +540,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *gc
 		constraints: "zones=az1",
 	}
 	s.expectProvisioningInfo(m0)
-	s.machinesAPI.EXPECT().MachinesWithTransientErrors().Return(
+	s.machinesAPI.EXPECT().MachinesWithTransientErrors(gomock.Any()).Return(
 		[]apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}, nil).MinTimes(1)
 
 	broker := s.setUpZonedEnviron(ctrl)
@@ -612,7 +612,7 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *
 		constraints: "zones=az1,az2",
 	}
 	s.expectProvisioningInfo(m0)
-	s.machinesAPI.EXPECT().MachinesWithTransientErrors().Return(
+	s.machinesAPI.EXPECT().MachinesWithTransientErrors(gomock.Any()).Return(
 		[]apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}, nil).MinTimes(1)
 
 	broker := s.setUpZonedEnviron(ctrl)
@@ -650,7 +650,7 @@ func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGro
 		constraints: "zones=az2",
 	}
 	s.expectProvisioningInfo(m0)
-	s.machinesAPI.EXPECT().MachinesWithTransientErrors().Return(
+	s.machinesAPI.EXPECT().MachinesWithTransientErrors(gomock.Any()).Return(
 		[]apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}, nil).MinTimes(1)
 
 	broker := s.setUpZonedEnviron(ctrl)
@@ -1079,7 +1079,7 @@ func (s *ProvisionerTaskSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	m0 := &testMachine{id: "0"}
-	s.machinesAPI.EXPECT().MachinesWithTransientErrors().Return(
+	s.machinesAPI.EXPECT().MachinesWithTransientErrors(gomock.Any()).Return(
 		[]apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}, nil)
 	s.expectProvisioningInfo(m0)
 
@@ -1105,10 +1105,10 @@ func (s *ProvisionerTaskSuite) TestProvisionerStopRetryingIfDying(c *gc.C) {
 	c.Assert(m0.password, gc.Not(gc.Equals), "")
 	s.instanceBroker.CheckCallNames(c, "StartInstance")
 
-	statusInfo, _, err := m0.Status()
+	statusInfo, _, err := m0.Status(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(statusInfo, gc.Equals, status.Pending)
-	statusInfo, _, err = m0.InstanceStatus()
+	statusInfo, _, err = m0.InstanceStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	if statusInfo != status.Pending && statusInfo != status.Provisioning {
 		c.Errorf("statusInfo.Status was %q not one of %q or %q",
@@ -1149,7 +1149,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedRootDisk(c *
 	m0 := &testMachine{id: "0", life: life.Alive}
 	s.expectMachines(m0)
 
-	s.machinesAPI.EXPECT().ProvisioningInfo([]names.MachineTag{names.NewMachineTag("0")}).Return(
+	s.machinesAPI.EXPECT().ProvisioningInfo(gomock.Any(), []names.MachineTag{names.NewMachineTag("0")}).Return(
 		params.ProvisioningInfoResults{Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
 				ControllerConfig: coretesting.FakeControllerConfig(),
@@ -1189,7 +1189,7 @@ func (s *ProvisionerTaskSuite) TestProvisioningMachinesWithRequestedVolumes(c *g
 	m0 := &testMachine{id: "0", life: life.Alive}
 	s.expectMachines(m0)
 
-	s.machinesAPI.EXPECT().ProvisioningInfo([]names.MachineTag{names.NewMachineTag("0")}).Return(
+	s.machinesAPI.EXPECT().ProvisioningInfo(gomock.Any(), []names.MachineTag{names.NewMachineTag("0")}).Return(
 		params.ProvisioningInfoResults{Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
 				ControllerConfig: coretesting.FakeControllerConfig(),
@@ -1509,8 +1509,8 @@ func (s *ProvisionerTaskSuite) setUpMocks(c *gc.C) *gomock.Controller {
 
 func (s *ProvisionerTaskSuite) expectAuth() {
 	s.controllerAPI.EXPECT().APIAddresses(gomock.Any()).Return([]string{"10.0.0.1"}, nil).AnyTimes()
-	s.controllerAPI.EXPECT().ModelUUID().Return(coretesting.ModelTag.Id(), nil).AnyTimes()
-	s.controllerAPI.EXPECT().CACert().Return(coretesting.CACert, nil).AnyTimes()
+	s.controllerAPI.EXPECT().ModelUUID(gomock.Any()).Return(coretesting.ModelTag.Id(), nil).AnyTimes()
+	s.controllerAPI.EXPECT().CACert(gomock.Any()).Return(coretesting.CACert, nil).AnyTimes()
 }
 
 func (s *ProvisionerTaskSuite) expectMachines(machines ...*testMachine) {
@@ -1544,7 +1544,7 @@ func (s *ProvisionerTaskSuite) expectProvisioningInfo(machines ...*testMachine) 
 		}
 	})
 
-	s.machinesAPI.EXPECT().ProvisioningInfo(tags).Return(
+	s.machinesAPI.EXPECT().ProvisioningInfo(gomock.Any(), tags).Return(
 		params.ProvisioningInfoResults{Results: piResults}, nil).AnyTimes()
 }
 
@@ -1634,7 +1634,7 @@ func (m *testMachine) SetLife(life life.Value) {
 	m.life = life
 }
 
-func (m *testMachine) WatchContainers(cType instance.ContainerType) (watcher.StringsWatcher, error) {
+func (m *testMachine) WatchContainers(_ context.Context, cType instance.ContainerType) (watcher.StringsWatcher, error) {
 	if m.containersCh == nil {
 		return nil, errors.Errorf("unexpected call to watch %q containers on %q", cType, m.id)
 	}
@@ -1642,7 +1642,7 @@ func (m *testMachine) WatchContainers(cType instance.ContainerType) (watcher.Str
 	return w, nil
 }
 
-func (m *testMachine) InstanceId() (instance.Id, error) {
+func (m *testMachine) InstanceId(context.Context) (instance.Id, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.instance == nil {
@@ -1652,15 +1652,15 @@ func (m *testMachine) InstanceId() (instance.Id, error) {
 }
 
 func (m *testMachine) InstanceNames() (instance.Id, string, error) {
-	instId, err := m.InstanceId()
+	instId, err := m.InstanceId(context.Background())
 	return instId, "", err
 }
 
-func (m *testMachine) KeepInstance() (bool, error) {
+func (m *testMachine) KeepInstance(context.Context) (bool, error) {
 	return m.keepInstance, nil
 }
 
-func (m *testMachine) MarkForRemoval() error {
+func (m *testMachine) MarkForRemoval(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.markForRemoval = true
@@ -1681,7 +1681,7 @@ func (m *testMachine) MachineTag() names.MachineTag {
 	return names.NewMachineTag(m.id)
 }
 
-func (m *testMachine) SetInstanceStatus(status status.Status, message string, _ map[string]interface{}) error {
+func (m *testMachine) SetInstanceStatus(ctx context.Context, status status.Status, message string, _ map[string]interface{}) error {
 	m.mu.Lock()
 	m.instStatus = status
 	m.instStatusMsg = message
@@ -1689,7 +1689,7 @@ func (m *testMachine) SetInstanceStatus(status status.Status, message string, _ 
 	return nil
 }
 
-func (m *testMachine) InstanceStatus() (status.Status, string, error) {
+func (m *testMachine) InstanceStatus(context.Context) (status.Status, string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.instStatus == "" {
@@ -1698,7 +1698,7 @@ func (m *testMachine) InstanceStatus() (status.Status, string, error) {
 	return m.instStatus, m.instStatusMsg, nil
 }
 
-func (m *testMachine) SetModificationStatus(_ status.Status, message string, _ map[string]interface{}) error {
+func (m *testMachine) SetModificationStatus(_ context.Context, _ status.Status, message string, _ map[string]interface{}) error {
 	m.mu.Lock()
 	m.modStatusMsg = message
 	m.mu.Unlock()
@@ -1711,14 +1711,14 @@ func (m *testMachine) ModificationStatus() (status.Status, string, error) {
 	return "", m.modStatusMsg, nil
 }
 
-func (m *testMachine) SetStatus(status status.Status, _ string, _ map[string]interface{}) error {
+func (m *testMachine) SetStatus(_ context.Context, status status.Status, _ string, _ map[string]interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.machineStatus = status
 	return nil
 }
 
-func (m *testMachine) Status() (status.Status, string, error) {
+func (m *testMachine) Status(context.Context) (status.Status, string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.machineStatus == "" {
@@ -1727,7 +1727,7 @@ func (m *testMachine) Status() (status.Status, string, error) {
 	return m.machineStatus, "", nil
 }
 
-func (m *testMachine) ModelAgentVersion() (*version.Number, error) {
+func (m *testMachine) ModelAgentVersion(context.Context) (*version.Number, error) {
 	if m.agentVersion == version.Zero {
 		return &coretesting.FakeVersionNumber, nil
 	}
@@ -1741,6 +1741,7 @@ func (m *testMachine) SetUnprovisioned() {
 }
 
 func (m *testMachine) SetInstanceInfo(
+	_ context.Context,
 	instId instance.Id, _ string, _ string, _ *instance.HardwareCharacteristics, _ []params.NetworkConfig, _ []params.Volume,
 	_ map[string]params.VolumeAttachmentInfo, _ []string,
 ) error {
@@ -1750,7 +1751,7 @@ func (m *testMachine) SetInstanceInfo(
 	return nil
 }
 
-func (m *testMachine) SetPassword(password string) error {
+func (m *testMachine) SetPassword(_ context.Context, password string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.password = password
@@ -1763,7 +1764,7 @@ func (m *testMachine) GetPassword() string {
 	return m.password
 }
 
-func (m *testMachine) EnsureDead() error {
+func (m *testMachine) EnsureDead(context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.markForRemoval = true

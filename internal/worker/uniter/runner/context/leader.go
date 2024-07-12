@@ -4,6 +4,8 @@
 package context
 
 import (
+	stdcontext "context"
+
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/api/agent/uniter"
@@ -18,8 +20,8 @@ var (
 // exists separately of HookContext for clarity, and ease of testing.
 type LeadershipContext interface {
 	IsLeader() (bool, error)
-	LeaderSettings() (map[string]string, error)
-	WriteLeaderSettings(map[string]string) error
+	LeaderSettings(stdcontext.Context) (map[string]string, error)
+	WriteLeaderSettings(stdcontext.Context, map[string]string) error
 }
 
 type leadershipContext struct {
@@ -43,11 +45,11 @@ func NewLeadershipContext(accessor uniter.LeadershipSettingsAccessor, tracker le
 }
 
 // IsLeader is part of the hooks.Context interface.
-func (ctx *leadershipContext) IsLeader() (bool, error) {
+func (c *leadershipContext) IsLeader() (bool, error) {
 	// This doesn't technically need an error return, but that feels like a
 	// happy accident of the current implementation and not a reason to change
 	// the interface we're implementing.
-	err := ctx.ensureLeader()
+	err := c.ensureLeader()
 	switch err {
 	case nil:
 		return true, nil
@@ -58,45 +60,45 @@ func (ctx *leadershipContext) IsLeader() (bool, error) {
 }
 
 // WriteLeaderSettings is part of the hooks.Context interface.
-func (ctx *leadershipContext) WriteLeaderSettings(settings map[string]string) error {
+func (c *leadershipContext) WriteLeaderSettings(ctx stdcontext.Context, settings map[string]string) error {
 	// This may trigger a lease refresh; it would be desirable to use a less
 	// eager approach here, but we're working around a race described in
 	// `apiserver/leadership.LeadershipSettingsAccessor.Merge`, and as of
 	// 2015-02-19 it's better to stay eager.
-	err := ctx.ensureLeader()
+	err := c.ensureLeader()
 	if err == nil {
 		// Clear local settings; if we need them again we should use the values
 		// as merged by the server. But we don't need to get them again right now;
 		// the charm may not need to ask again before the hook finishes.
-		ctx.settings = nil
-		err = ctx.accessor.Merge(ctx.applicationName, ctx.unitName, settings)
+		c.settings = nil
+		err = c.accessor.Merge(ctx, c.applicationName, c.unitName, settings)
 	}
 	return errors.Annotate(err, "cannot write settings")
 }
 
 // LeaderSettings is part of the hooks.Context interface.
-func (ctx *leadershipContext) LeaderSettings() (map[string]string, error) {
-	if ctx.settings == nil {
+func (c *leadershipContext) LeaderSettings(ctx stdcontext.Context) (map[string]string, error) {
+	if c.settings == nil {
 		var err error
-		ctx.settings, err = ctx.accessor.Read(ctx.applicationName)
+		c.settings, err = c.accessor.Read(ctx, c.applicationName)
 		if err != nil {
 			return nil, errors.Annotate(err, "cannot read settings")
 		}
 	}
 	result := map[string]string{}
-	for key, value := range ctx.settings {
+	for key, value := range c.settings {
 		result[key] = value
 	}
 	return result, nil
 }
 
-func (ctx *leadershipContext) ensureLeader() error {
-	if ctx.isMinion {
+func (c *leadershipContext) ensureLeader() error {
+	if c.isMinion {
 		return errIsMinion
 	}
-	success := ctx.tracker.ClaimLeader().Wait()
+	success := c.tracker.ClaimLeader().Wait()
 	if !success {
-		ctx.isMinion = true
+		c.isMinion = true
 		return errIsMinion
 	}
 	return nil

@@ -146,7 +146,7 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	defer ctrl.Finish()
 	s.setupFactory(c, ctrl)
 
-	s.uniter.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("u/0")).Return(params.StorageAttachment{
+	s.uniter.EXPECT().StorageAttachment(gomock.Any(), names.NewStorageTag("data/0"), names.NewUnitTag("u/0")).Return(params.StorageAttachment{
 		Kind:     params.StorageKindBlock,
 		Location: "/dev/sdb",
 	}, nil).AnyTimes()

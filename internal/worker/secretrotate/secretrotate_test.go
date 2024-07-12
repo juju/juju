@@ -35,14 +35,6 @@ type workerSuite struct {
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-}
-
-func (s *workerSuite) TearDownTest(c *gc.C) {
-	s.BaseSuite.TearDownTest(c)
-}
-
 func (s *workerSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
@@ -92,7 +84,7 @@ func (s *workerSuite) testValidateConfig(c *gc.C, f func(*secretrotate.Config), 
 }
 
 func (s *workerSuite) expectWorker() {
-	s.facade.EXPECT().WatchSecretsRotationChanges(s.config.SecretOwners).Return(s.rotateWatcher, nil)
+	s.facade.EXPECT().WatchSecretsRotationChanges(gomock.Any(), s.config.SecretOwners).Return(s.rotateWatcher, nil)
 	s.rotateWatcher.EXPECT().Changes().AnyTimes().Return(s.rotateConfigChanges)
 	s.rotateWatcher.EXPECT().Kill().MaxTimes(1)
 	s.rotateWatcher.EXPECT().Wait().Return(nil).MinTimes(1)

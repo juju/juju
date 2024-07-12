@@ -116,12 +116,12 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPod(c *gc.C) {
 			Return([]application.UnitInfo{
 				{ProviderId: "mariadb-k8s-0", Charm: "test-charm-url"},
 			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
+		s.charmAPI.EXPECT().CharmInfo(gomock.Any(), "test-charm-url").
 			Return(&charms.CharmInfo{
 				Meta: &charm.Meta{},
 			}, nil),
 	)
-	target, err := s.sshC.ResolveTarget("mariadb-k8s/0")
+	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
 }
@@ -131,7 +131,7 @@ func (s *sshContainerSuite) TestResolveTargetForController(c *gc.C) {
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
-	target, err := s.sshC.ResolveTarget("0")
+	target, err := s.sshC.ResolveTarget(context.Background(), "0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.GetEntity(), gc.DeepEquals, "controller-0")
 }
@@ -141,7 +141,7 @@ func (s *sshContainerSuite) TestResolveTargetForControllerInvalidTarget(c *gc.C)
 	ctrl := s.setUpController(c, "")
 	defer ctrl.Finish()
 
-	_, err := s.sshC.ResolveTarget("1")
+	_, err := s.sshC.ResolveTarget(context.Background(), "1")
 	c.Assert(err, gc.ErrorMatches, `target "1" not found`)
 }
 
@@ -154,7 +154,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
 			Return([]application.UnitInfo{
 				{ProviderId: "mariadb-k8s-0", Charm: "test-charm-url"},
 			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
+		s.charmAPI.EXPECT().CharmInfo(gomock.Any(), "test-charm-url").
 			Return(&charms.CharmInfo{
 				Manifest: &charm.Manifest{
 					Bases: []charm.Base{{
@@ -168,7 +168,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharm(c *gc.C) {
 				Meta: &charm.Meta{},
 			}, nil),
 	)
-	target, err := s.sshC.ResolveTarget("mariadb-k8s/0")
+	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
 }
@@ -182,7 +182,7 @@ func (s *sshContainerSuite) TestResolveCharmTargetForSidecarCharm(c *gc.C) {
 			Return([]application.UnitInfo{
 				{ProviderId: "mariadb-k8s-0", Charm: "test-charm-url"},
 			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
+		s.charmAPI.EXPECT().CharmInfo(gomock.Any(), "test-charm-url").
 			Return(&charms.CharmInfo{
 				Manifest: &charm.Manifest{
 					Bases: []charm.Base{{
@@ -196,7 +196,7 @@ func (s *sshContainerSuite) TestResolveCharmTargetForSidecarCharm(c *gc.C) {
 				Meta: &charm.Meta{},
 			}, nil),
 	)
-	target, err := s.sshC.ResolveTarget("mariadb-k8s/0")
+	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
 }
@@ -210,7 +210,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *gc.
 			Return([]application.UnitInfo{
 				{ProviderId: "mariadb-k8s-0", Charm: "test-charm-url"},
 			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
+		s.charmAPI.EXPECT().CharmInfo(gomock.Any(), "test-charm-url").
 			Return(&charms.CharmInfo{
 				Meta: &charm.Meta{
 					Containers: map[string]charm.Container{
@@ -228,7 +228,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainer(c *gc.
 				},
 			}, nil),
 	)
-	target, err := s.sshC.ResolveTarget("mariadb-k8s/0")
+	target, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(target.GetEntity(), gc.DeepEquals, "mariadb-k8s-0")
 }
@@ -242,7 +242,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainerMissing
 			Return([]application.UnitInfo{
 				{ProviderId: "mariadb-k8s-0", Charm: "test-charm-url"},
 			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
+		s.charmAPI.EXPECT().CharmInfo(gomock.Any(), "test-charm-url").
 			Return(&charms.CharmInfo{
 				Meta: &charm.Meta{
 					Containers: map[string]charm.Container{
@@ -260,7 +260,7 @@ func (s *sshContainerSuite) TestResolveTargetForSidecarCharmWithContainerMissing
 				},
 			}, nil),
 	)
-	_, err := s.sshC.ResolveTarget("mariadb-k8s/0")
+	_, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
 	c.Assert(err, gc.ErrorMatches, `container "bad-test-container" must be one of charm, test-container`)
 }
 
@@ -273,12 +273,12 @@ func (s *sshContainerSuite) TestResolveTargetForWorkloadPodNoProviderID(c *gc.C)
 			Return([]application.UnitInfo{
 				{ProviderId: "", Charm: "test-charm-url"},
 			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
+		s.charmAPI.EXPECT().CharmInfo(gomock.Any(), "test-charm-url").
 			Return(&charms.CharmInfo{
 				Meta: &charm.Meta{},
 			}, nil),
 	)
-	_, err := s.sshC.ResolveTarget("mariadb-k8s/0")
+	_, err := s.sshC.ResolveTarget(context.Background(), "mariadb-k8s/0")
 	c.Assert(err, gc.ErrorMatches, `container for unit "mariadb-k8s/0" is not ready yet`)
 }
 
@@ -486,7 +486,7 @@ func (s *sshContainerSuite) TestCopyFromWorkloadPod(c *gc.C) {
 			Return([]application.UnitInfo{
 				{ProviderId: "mariadb-k8s-0", Charm: "test-charm-url"},
 			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
+		s.charmAPI.EXPECT().CharmInfo(gomock.Any(), "test-charm-url").
 			Return(&charms.CharmInfo{
 				Meta: &charm.Meta{},
 			}, nil),
@@ -516,7 +516,7 @@ func (s *sshContainerSuite) TestCopyToWorkloadPod(c *gc.C) {
 			Return([]application.UnitInfo{
 				{ProviderId: "mariadb-k8s-0", Charm: "test-charm-url"},
 			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
+		s.charmAPI.EXPECT().CharmInfo(gomock.Any(), "test-charm-url").
 			Return(&charms.CharmInfo{
 				Meta: &charm.Meta{},
 			}, nil),
@@ -546,7 +546,7 @@ func (s *sshContainerSuite) TestCopyToWorkloadPodWithContainerSpecified(c *gc.C)
 			Return([]application.UnitInfo{
 				{ProviderId: "mariadb-k8s-0", Charm: "test-charm-url"},
 			}, nil),
-		s.charmAPI.EXPECT().CharmInfo("test-charm-url").
+		s.charmAPI.EXPECT().CharmInfo(gomock.Any(), "test-charm-url").
 			Return(&charms.CharmInfo{
 				Meta: &charm.Meta{
 					Containers: map[string]charm.Container{

@@ -45,7 +45,7 @@ func (c *leaderSetCommand) Init(args []string) (err error) {
 }
 
 // Run is part of the cmd.Command interface.
-func (c *leaderSetCommand) Run(_ *cmd.Context) error {
-	err := c.ctx.WriteLeaderSettings(c.settings)
+func (c *leaderSetCommand) Run(ctx *cmd.Context) error {
+	err := c.ctx.WriteLeaderSettings(ctx, c.settings)
 	return errors.Annotatef(err, "cannot write leadership settings")
 }

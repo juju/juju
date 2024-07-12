@@ -262,7 +262,7 @@ func (s *charmSuite) newDeployCharm() *deployCharm {
 func (s *charmSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.deployerAPI = mocks.NewMockDeployerAPI(ctrl)
-	s.deployerAPI.EXPECT().CharmInfo(gomock.Any()).Return(s.charmInfo, nil).AnyTimes()
+	s.deployerAPI.EXPECT().CharmInfo(gomock.Any(), gomock.Any()).Return(s.charmInfo, nil).AnyTimes()
 	s.deployerAPI.EXPECT().ModelUUID().Return("dead-beef", true).AnyTimes()
 
 	s.modelCommand = mocks.NewMockModelCommand(ctrl)

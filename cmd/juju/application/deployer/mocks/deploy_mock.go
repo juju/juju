@@ -403,18 +403,18 @@ func (c *MockDeployerAPIBestFacadeVersionCall) DoAndReturn(f func(string) int) *
 }
 
 // CharmInfo mocks base method.
-func (m *MockDeployerAPI) CharmInfo(arg0 string) (*charms.CharmInfo, error) {
+func (m *MockDeployerAPI) CharmInfo(arg0 context.Context, arg1 string) (*charms.CharmInfo, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CharmInfo", arg0)
+	ret := m.ctrl.Call(m, "CharmInfo", arg0, arg1)
 	ret0, _ := ret[0].(*charms.CharmInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CharmInfo indicates an expected call of CharmInfo.
-func (mr *MockDeployerAPIMockRecorder) CharmInfo(arg0 any) *MockDeployerAPICharmInfoCall {
+func (mr *MockDeployerAPIMockRecorder) CharmInfo(arg0, arg1 any) *MockDeployerAPICharmInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockDeployerAPI)(nil).CharmInfo), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmInfo", reflect.TypeOf((*MockDeployerAPI)(nil).CharmInfo), arg0, arg1)
 	return &MockDeployerAPICharmInfoCall{Call: call}
 }
 
@@ -430,13 +430,13 @@ func (c *MockDeployerAPICharmInfoCall) Return(arg0 *charms.CharmInfo, arg1 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPICharmInfoCall) Do(f func(string) (*charms.CharmInfo, error)) *MockDeployerAPICharmInfoCall {
+func (c *MockDeployerAPICharmInfoCall) Do(f func(context.Context, string) (*charms.CharmInfo, error)) *MockDeployerAPICharmInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPICharmInfoCall) DoAndReturn(f func(string) (*charms.CharmInfo, error)) *MockDeployerAPICharmInfoCall {
+func (c *MockDeployerAPICharmInfoCall) DoAndReturn(f func(context.Context, string) (*charms.CharmInfo, error)) *MockDeployerAPICharmInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1038,18 +1038,18 @@ func (c *MockDeployerAPIHTTPClientCall) DoAndReturn(f func() (*httprequest.Clien
 }
 
 // ListCharmResources mocks base method.
-func (m *MockDeployerAPI) ListCharmResources(arg0 string, arg1 charm.Origin) ([]resource.Resource, error) {
+func (m *MockDeployerAPI) ListCharmResources(arg0 context.Context, arg1 string, arg2 charm.Origin) ([]resource.Resource, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListCharmResources", arg0, arg1)
+	ret := m.ctrl.Call(m, "ListCharmResources", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]resource.Resource)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListCharmResources indicates an expected call of ListCharmResources.
-func (mr *MockDeployerAPIMockRecorder) ListCharmResources(arg0, arg1 any) *MockDeployerAPIListCharmResourcesCall {
+func (mr *MockDeployerAPIMockRecorder) ListCharmResources(arg0, arg1, arg2 any) *MockDeployerAPIListCharmResourcesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmResources", reflect.TypeOf((*MockDeployerAPI)(nil).ListCharmResources), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCharmResources", reflect.TypeOf((*MockDeployerAPI)(nil).ListCharmResources), arg0, arg1, arg2)
 	return &MockDeployerAPIListCharmResourcesCall{Call: call}
 }
 
@@ -1065,13 +1065,13 @@ func (c *MockDeployerAPIListCharmResourcesCall) Return(arg0 []resource.Resource,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockDeployerAPIListCharmResourcesCall) Do(f func(string, charm.Origin) ([]resource.Resource, error)) *MockDeployerAPIListCharmResourcesCall {
+func (c *MockDeployerAPIListCharmResourcesCall) Do(f func(context.Context, string, charm.Origin) ([]resource.Resource, error)) *MockDeployerAPIListCharmResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockDeployerAPIListCharmResourcesCall) DoAndReturn(f func(string, charm.Origin) ([]resource.Resource, error)) *MockDeployerAPIListCharmResourcesCall {
+func (c *MockDeployerAPIListCharmResourcesCall) DoAndReturn(f func(context.Context, string, charm.Origin) ([]resource.Resource, error)) *MockDeployerAPIListCharmResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

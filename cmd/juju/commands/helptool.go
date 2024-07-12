@@ -29,7 +29,7 @@ func (dummyHookContext) AddMetrics(_, _ string, _ time.Time) error {
 func (dummyHookContext) UnitName() string {
 	return ""
 }
-func (dummyHookContext) PublicAddress() (string, error) {
+func (dummyHookContext) PublicAddress(context.Context) (string, error) {
 	return "", errors.NotFoundf("PublicAddress")
 }
 func (dummyHookContext) PrivateAddress() (string, error) {
@@ -47,7 +47,7 @@ func (dummyHookContext) ClosePort(protocol string, port int) error {
 func (dummyHookContext) OpenedPorts() []network.PortRange {
 	return nil
 }
-func (dummyHookContext) ConfigSettings() (charm.Settings, error) {
+func (dummyHookContext) ConfigSettings(ctx context.Context) (charm.Settings, error) {
 	return charm.NewConfig().DefaultSettings(), nil
 }
 func (dummyHookContext) HookRelation() (jujuc.ContextRelation, error) {
@@ -74,7 +74,7 @@ func (dummyHookContext) HookStorageInstance() (*storage.StorageInstance, error) 
 	return nil, errors.NotFoundf("HookStorageInstance")
 }
 
-func (dummyHookContext) HookStorage() (jujuc.ContextStorageAttachment, error) {
+func (dummyHookContext) HookStorage(context.Context) (jujuc.ContextStorageAttachment, error) {
 	return nil, errors.NotFoundf("HookStorage")
 }
 

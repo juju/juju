@@ -67,7 +67,7 @@ func (s *baseSuite) expectUpgradeVersion(ver version.Number) {
 }
 
 func (s *baseSuite) expectStatus(status status.Status) {
-	s.statusSetter.EXPECT().SetStatus(status, gomock.Any(), nil).Return(nil)
+	s.statusSetter.EXPECT().SetStatus(gomock.Any(), status, gomock.Any(), nil).Return(nil)
 }
 
 func (s *baseSuite) newBaseWorker(c *gc.C, from, to version.Number) *BaseWorker {

@@ -4,6 +4,8 @@
 package unitassigner
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
@@ -15,9 +17,9 @@ import (
 )
 
 type UnitAssigner interface {
-	AssignUnits(tags []names.UnitTag) ([]error, error)
-	WatchUnitAssignments() (watcher.StringsWatcher, error)
-	SetAgentStatus(args params.SetStatus) error
+	AssignUnits(ctx context.Context, tags []names.UnitTag) ([]error, error)
+	WatchUnitAssignments(ctx context.Context) (watcher.StringsWatcher, error)
+	SetAgentStatus(ctx context.Context, args params.SetStatus) error
 }
 
 func New(ua UnitAssigner, logger logger.Logger) (worker.Worker, error) {
@@ -31,11 +33,11 @@ type unitAssignerHandler struct {
 	logger logger.Logger
 }
 
-func (u unitAssignerHandler) SetUp() (watcher.StringsWatcher, error) {
-	return u.api.WatchUnitAssignments()
+func (u unitAssignerHandler) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
+	return u.api.WatchUnitAssignments(ctx)
 }
 
-func (u unitAssignerHandler) Handle(_ <-chan struct{}, ids []string) error {
+func (u unitAssignerHandler) Handle(ctx context.Context, ids []string) error {
 	traceEnabled := u.logger.IsLevelEnabled(logger.TRACE)
 	if traceEnabled {
 		u.logger.Tracef("Handling unit assignments: %q", ids)
@@ -52,7 +54,7 @@ func (u unitAssignerHandler) Handle(_ <-chan struct{}, ids []string) error {
 		units[i] = names.NewUnitTag(id)
 	}
 
-	results, err := u.api.AssignUnits(units)
+	results, err := u.api.AssignUnits(ctx, units)
 	if err != nil {
 		return err
 	}
@@ -88,7 +90,7 @@ func (u unitAssignerHandler) Handle(_ <-chan struct{}, ids []string) error {
 			x++
 		}
 
-		return u.api.SetAgentStatus(args)
+		return u.api.SetAgentStatus(ctx, args)
 	}
 	return nil
 }

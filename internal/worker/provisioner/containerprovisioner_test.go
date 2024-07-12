@@ -115,7 +115,7 @@ func (s *lxdProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 	s.machinesAPI.EXPECT().Machines(gomock.Any(), cTag).Return([]apiprovisioner.MachineResult{{
 		Machine: c666,
 	}}, nil).Times(2)
-	s.machinesAPI.EXPECT().ProvisioningInfo([]names.MachineTag{cTag}).Return(params.ProvisioningInfoResults{
+	s.machinesAPI.EXPECT().ProvisioningInfo(gomock.Any(), []names.MachineTag{cTag}).Return(params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
 				ControllerConfig: coretesting.FakeControllerConfig(),

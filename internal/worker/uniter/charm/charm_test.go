@@ -4,6 +4,7 @@
 package charm_test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -36,7 +37,7 @@ func (br *bundleReader) EnableWaitForAbort() (stopWaiting chan struct{}) {
 }
 
 // Read implements the BundleReader interface.
-func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (charm.Bundle, error) {
+func (br *bundleReader) Read(ctx context.Context, info charm.BundleInfo, abort <-chan struct{}) (charm.Bundle, error) {
 	bundle, ok := br.bundles[info.URL()]
 	if !ok {
 		return nil, fmt.Errorf("no such charm!")

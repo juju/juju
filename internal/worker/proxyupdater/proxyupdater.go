@@ -50,8 +50,8 @@ func (c *Config) Validate() error {
 // API is an interface that is provided to New
 // which can be used to fetch the API host ports
 type API interface {
-	ProxyConfig() (proxyupdater.ProxyConfiguration, error)
-	WatchForProxyConfigAndAPIHostPortChanges() (watcher.NotifyWatcher, error)
+	ProxyConfig(context.Context) (proxyupdater.ProxyConfiguration, error)
+	WatchForProxyConfigAndAPIHostPortChanges(context.Context) (watcher.NotifyWatcher, error)
 }
 
 // proxyWorker is responsible for monitoring the juju environment
@@ -280,8 +280,8 @@ func (w *proxyWorker) handleAptProxyValues(aptSettings proxy.Settings, aptMirror
 	return
 }
 
-func (w *proxyWorker) onChange() error {
-	config, err := w.config.API.ProxyConfig()
+func (w *proxyWorker) onChange(ctx context.Context) error {
+	config, err := w.config.API.ProxyConfig(ctx)
 	if err != nil {
 		return err
 	}
@@ -293,20 +293,20 @@ func (w *proxyWorker) onChange() error {
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.
-func (w *proxyWorker) SetUp(_ context.Context) (watcher.NotifyWatcher, error) {
+func (w *proxyWorker) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 	// We need to set this up initially as the NotifyWorker sucks up the first
 	// event.
-	err := w.onChange()
+	err := w.onChange(ctx)
 	if err != nil {
 		return nil, err
 	}
 	w.first = false
-	return w.config.API.WatchForProxyConfigAndAPIHostPortChanges()
+	return w.config.API.WatchForProxyConfigAndAPIHostPortChanges(ctx)
 }
 
 // Handle is defined on the worker.NotifyWatchHandler interface.
-func (w *proxyWorker) Handle(_ context.Context) error {
-	return w.onChange()
+func (w *proxyWorker) Handle(ctx context.Context) error {
+	return w.onChange(ctx)
 }
 
 // TearDown is defined on the worker.NotifyWatchHandler interface.

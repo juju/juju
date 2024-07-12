@@ -51,8 +51,8 @@ func (s *PayloadStatusSetSuiye) TestStatusSet(c *gc.C) {
 	defer ctrl.Finish()
 
 	hctx := mocks.NewMockContext(ctrl)
-	hctx.EXPECT().SetPayloadStatus("class", "id", "stopped").Return(nil)
-	hctx.EXPECT().FlushPayloads()
+	hctx.EXPECT().SetPayloadStatus(gomock.Any(), "class", "id", "stopped").Return(nil)
+	hctx.EXPECT().FlushPayloads(gomock.Any())
 
 	com, err := jujuc.NewCommand(hctx, "payload-status-set")
 	c.Assert(err, jc.ErrorIsNil)

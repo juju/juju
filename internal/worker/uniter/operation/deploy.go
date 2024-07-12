@@ -56,7 +56,7 @@ func (d *deploy) Prepare(ctx context.Context, state State) (*State, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := d.deployer.Stage(info, d.abort); err != nil {
+	if err := d.deployer.Stage(ctx, info, d.abort); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// note: yes, this *should* be in Prepare, not Execute. Before we can safely
@@ -66,7 +66,7 @@ func (d *deploy) Prepare(ctx context.Context, state State) (*State, error) {
 	// race with a new application-charm-url change on the controller, and lead to
 	// failures on resume in which we try to obtain archive info for a charm that
 	// has already been removed from the controller.
-	if err := d.callbacks.SetCurrentCharm(d.charmURL); err != nil {
+	if err := d.callbacks.SetCurrentCharm(ctx, d.charmURL); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return d.getState(state, Pending), nil

@@ -167,7 +167,7 @@ func (s *triggerSecretsSuite) TestRotateCommit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.mockCallbacks.EXPECT().CommitHook(gomock.Any(), hi).Return(nil)
-	s.mockCallbacks.EXPECT().SetSecretRotated(uri.String(), 666).Return(nil)
+	s.mockCallbacks.EXPECT().SetSecretRotated(gomock.Any(), uri.String(), 666).Return(nil)
 
 	_, err = op.Commit(context.Background(), operation.State{})
 	c.Assert(err, jc.ErrorIsNil)

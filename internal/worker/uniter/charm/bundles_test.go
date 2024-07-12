@@ -5,6 +5,7 @@ package charm_test
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -42,9 +43,9 @@ func (f fakeBundleInfo) URL() string {
 	return f.curl
 }
 
-func (f fakeBundleInfo) ArchiveSha256() (string, error) {
+func (f fakeBundleInfo) ArchiveSha256(ctx context.Context) (string, error) {
 	if f.sha256 == "" {
-		return f.BundleInfo.ArchiveSha256()
+		return f.BundleInfo.ArchiveSha256(ctx)
 	}
 	return f.sha256, nil
 }
@@ -98,23 +99,23 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	}
 
 	// Try to get the charm when the content doesn't match.
-	_, err = d.Read(&fakeBundleInfo{apiCharm, "", "..."}, nil)
+	_, err = d.Read(context.Background(), &fakeBundleInfo{apiCharm, "", "..."}, nil)
 	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/wordpress-1" from API server: `)+`expected sha256 "...", got ".*"`)
 	checkDownloadsEmpty()
 
 	// Try to get a charm whose bundle doesn't exist.
-	_, err = d.Read(&fakeBundleInfo{apiCharm, "ch:quantal/spam-1", ""}, nil)
+	_, err = d.Read(context.Background(), &fakeBundleInfo{apiCharm, "ch:quantal/spam-1", ""}, nil)
 	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/spam-1" from API server: `)+`.* not found`)
 	checkDownloadsEmpty()
 
 	// Get a charm whose bundle exists and whose content matches.
-	ch, err := d.Read(apiCharm, nil)
+	ch, err := d.Read(context.Background(), apiCharm, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	assertCharm(c, ch, sch)
 	checkDownloadsEmpty()
 
 	// Get the same charm again, without preparing a response from the server.
-	ch, err = d.Read(apiCharm, nil)
+	ch, err = d.Read(context.Background(), apiCharm, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	assertCharm(c, ch, sch)
 	checkDownloadsEmpty()
@@ -125,7 +126,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	abort := make(chan struct{})
 	close(abort)
 
-	ch, err = d.Read(apiCharm, abort)
+	ch, err = d.Read(context.Background(), apiCharm, abort)
 	c.Check(ch, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, regexp.QuoteMeta(`failed to download charm "ch:quantal/wordpress-1" from API server: download aborted`))
 	checkDownloadsEmpty()

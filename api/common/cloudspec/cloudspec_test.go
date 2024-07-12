@@ -102,7 +102,7 @@ func (s *CloudSpecSuite) TestWatchCloudSpecChanges(c *gc.C) {
 		return nil
 	}
 	api := cloudspec.NewCloudSpecAPI(&facadeCaller, coretesting.ModelTag)
-	w, err := api.WatchCloudSpecChanges()
+	w, err := api.WatchCloudSpecChanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	c.Assert(called, jc.IsTrue)

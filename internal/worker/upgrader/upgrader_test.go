@@ -131,9 +131,9 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	ch <- struct{}{}
 
 	client := mocks.NewMockUpgraderClient(ctrl)
-	client.EXPECT().SetVersion("machine-666", vers)
-	client.EXPECT().DesiredVersion("machine-666").Return(vers.Number, nil)
-	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+	client.EXPECT().SetVersion(gomock.Any(), "machine-666", vers)
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(vers.Number, nil)
+	client.EXPECT().WatchAPIVersion(gomock.Any(), "machine-666").Return(watch, nil)
 
 	u := s.makeUpgrader(c, client)
 	s.waitForUpgradeCheck(c)
@@ -152,17 +152,17 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	ch <- struct{}{}
 
 	client := mocks.NewMockUpgraderClient(ctrl)
-	client.EXPECT().SetVersion("machine-666", vers)
-	client.EXPECT().DesiredVersion("machine-666").Return(vers.Number, nil)
-	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+	client.EXPECT().SetVersion(gomock.Any(), "machine-666", vers)
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(vers.Number, nil)
+	client.EXPECT().WatchAPIVersion(gomock.Any(), "machine-666").Return(watch, nil)
 
 	u := s.makeUpgrader(c, client)
 	s.waitForUpgradeCheck(c)
 
 	newVersion := vers
 	newVersion.Minor++
-	client.EXPECT().DesiredVersion("machine-666").Return(newVersion.Number, nil)
-	client.EXPECT().Tools("machine-666").Return(coretools.List{}, nil)
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(newVersion.Number, nil)
+	client.EXPECT().Tools(gomock.Any(), "machine-666").Return(coretools.List{}, nil)
 
 	ch <- struct{}{}
 
@@ -180,7 +180,7 @@ func (s *UpgraderSuite) TestUpgraderWaitsForUpgradeStepsGate(c *gc.C) {
 	defer ctrl.Finish()
 
 	client := mocks.NewMockUpgraderClient(ctrl)
-	client.EXPECT().SetVersion("machine-666", vers)
+	client.EXPECT().SetVersion(gomock.Any(), "machine-666", vers)
 
 	u := s.makeUpgrader(c, client)
 	workertest.CheckAlive(c, u)
@@ -207,9 +207,9 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	ch <- struct{}{}
 
 	client := mocks.NewMockUpgraderClient(ctrl)
-	client.EXPECT().SetVersion("machine-666", vers)
-	client.EXPECT().DesiredVersion("machine-666").Return(newVersion.Number, nil)
-	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+	client.EXPECT().SetVersion(gomock.Any(), "machine-666", vers)
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(newVersion.Number, nil)
+	client.EXPECT().WatchAPIVersion(gomock.Any(), "machine-666").Return(watch, nil)
 
 	u := s.makeUpgrader(c, client)
 	err := workertest.CheckKilled(c, u)
@@ -241,13 +241,13 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	ch <- struct{}{}
 
 	client := mocks.NewMockUpgraderClient(ctrl)
-	client.EXPECT().SetVersion("machine-666", vers)
-	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+	client.EXPECT().SetVersion(gomock.Any(), "machine-666", vers)
+	client.EXPECT().WatchAPIVersion(gomock.Any(), "machine-666").Return(watch, nil)
 
 	retryCount := 3
 
-	client.EXPECT().DesiredVersion("machine-666").Return(newVersion.Number, nil).Times(retryCount + 1)
-	client.EXPECT().Tools("machine-666").Return(coretools.List{{
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(newVersion.Number, nil).Times(retryCount + 1)
+	client.EXPECT().Tools(gomock.Any(), "machine-666").Return(coretools.List{{
 		URL: "http://invalid",
 	}}, nil).Times(retryCount + 1)
 
@@ -269,8 +269,8 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 		c, s.store, "released", "released",
 		newerVersion)[0]
 
-	client.EXPECT().DesiredVersion("machine-666").Return(newerVersion.Number, nil)
-	client.EXPECT().Tools("machine-666").Return(coretools.List{newTools}, nil)
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(newerVersion.Number, nil)
+	client.EXPECT().Tools(gomock.Any(), "machine-666").Return(coretools.List{newTools}, nil)
 	ch <- struct{}{}
 
 	done := make(chan error)
@@ -326,8 +326,8 @@ func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
 	watch := watchertest.NewMockNotifyWatcher(ch)
 
 	client := mocks.NewMockUpgraderClient(ctrl)
-	client.EXPECT().SetVersion("machine-666", vers)
-	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
+	client.EXPECT().SetVersion(gomock.Any(), "machine-666", vers)
+	client.EXPECT().WatchAPIVersion(gomock.Any(), "machine-666").Return(watch, nil)
 
 	newVersion := vers
 	newVersion.Minor++
@@ -337,7 +337,7 @@ func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
 	// downloaded tools without looking in environment storage.
 	envtesting.InstallFakeDownloadedTools(c, s.dataDir, newVersion)
 
-	client.EXPECT().DesiredVersion("machine-666").Return(newVersion.Number, nil)
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(newVersion.Number, nil)
 	ch <- struct{}{}
 
 	u := s.makeUpgrader(c, client)
@@ -372,10 +372,10 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingMinorVersions(c *gc.C) {
 		oldVersion)[0]
 
 	client := mocks.NewMockUpgraderClient(ctrl)
-	client.EXPECT().SetVersion("machine-666", vers)
-	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
-	client.EXPECT().DesiredVersion("machine-666").Return(oldVersion.Number, nil)
-	client.EXPECT().Tools("machine-666").Return(coretools.List{downgradeTools}, nil)
+	client.EXPECT().SetVersion(gomock.Any(), "machine-666", vers)
+	client.EXPECT().WatchAPIVersion(gomock.Any(), "machine-666").Return(watch, nil)
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(oldVersion.Number, nil)
+	client.EXPECT().Tools(gomock.Any(), "machine-666").Return(coretools.List{downgradeTools}, nil)
 
 	u := s.makeUpgrader(c, client)
 	err := workertest.CheckKilled(c, u)
@@ -412,9 +412,9 @@ func (s *UpgraderSuite) TestUpgraderForbidsDowngradingToMajorVersion(c *gc.C) {
 		oldVersion)[0]
 
 	client := mocks.NewMockUpgraderClient(ctrl)
-	client.EXPECT().SetVersion("machine-666", vers)
-	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
-	client.EXPECT().DesiredVersion("machine-666").Return(oldVersion.Number, nil)
+	client.EXPECT().SetVersion(gomock.Any(), "machine-666", vers)
+	client.EXPECT().WatchAPIVersion(gomock.Any(), "machine-666").Return(watch, nil)
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(oldVersion.Number, nil)
 
 	u := s.makeUpgrader(c, client)
 	s.waitForUpgradeCheck(c)
@@ -449,10 +449,10 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 		oldVersion)[0]
 
 	client := mocks.NewMockUpgraderClient(ctrl)
-	client.EXPECT().SetVersion("machine-666", vers)
-	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
-	client.EXPECT().DesiredVersion("machine-666").Return(oldVersion.Number, nil)
-	client.EXPECT().Tools("machine-666").Return(coretools.List{downgradeTools}, nil)
+	client.EXPECT().SetVersion(gomock.Any(), "machine-666", vers)
+	client.EXPECT().WatchAPIVersion(gomock.Any(), "machine-666").Return(watch, nil)
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(oldVersion.Number, nil)
+	client.EXPECT().Tools(gomock.Any(), "machine-666").Return(coretools.List{downgradeTools}, nil)
 
 	u := s.makeUpgrader(c, client)
 	err := workertest.CheckKilled(c, u)
@@ -493,10 +493,10 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToPriorMinorVersion(c *gc.C) 
 		c, s.store, "released", "released", downgradeVersion)[0]
 
 	client := mocks.NewMockUpgraderClient(ctrl)
-	client.EXPECT().SetVersion("machine-666", origTools.Version)
-	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
-	client.EXPECT().DesiredVersion("machine-666").Return(downgradeVersion.Number, nil)
-	client.EXPECT().Tools("machine-666").Return(coretools.List{prevTools}, nil)
+	client.EXPECT().SetVersion(gomock.Any(), "machine-666", origTools.Version)
+	client.EXPECT().WatchAPIVersion(gomock.Any(), "machine-666").Return(watch, nil)
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(downgradeVersion.Number, nil)
+	client.EXPECT().Tools(gomock.Any(), "machine-666").Return(coretools.List{prevTools}, nil)
 
 	u := s.makeUpgrader(c, client)
 	err := workertest.CheckKilled(c, u)
@@ -530,10 +530,10 @@ func (s *UpgraderSuite) TestChecksSpaceBeforeDownloading(c *gc.C) {
 		version.MustParseBinary("5.4.5-ubuntu-amd64"))[0]
 
 	client := mocks.NewMockUpgraderClient(ctrl)
-	client.EXPECT().SetVersion("machine-666", oldTools.Version)
-	client.EXPECT().WatchAPIVersion("machine-666").Return(watch, nil)
-	client.EXPECT().DesiredVersion("machine-666").Return(newTools.Version.Number, nil)
-	client.EXPECT().Tools("machine-666").Return(coretools.List{newTools}, nil)
+	client.EXPECT().SetVersion(gomock.Any(), "machine-666", oldTools.Version)
+	client.EXPECT().WatchAPIVersion(gomock.Any(), "machine-666").Return(watch, nil)
+	client.EXPECT().DesiredVersion(gomock.Any(), "machine-666").Return(newTools.Version.Number, nil)
+	client.EXPECT().Tools(gomock.Any(), "machine-666").Return(coretools.List{newTools}, nil)
 
 	var diskSpaceStub testing.Stub
 	diskSpaceStub.SetErrors(nil, errors.Errorf("full-up"))

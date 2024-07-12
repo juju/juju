@@ -81,7 +81,7 @@ func (m *leadershipService) ClaimLeadership(ctx context.Context, args params.Cla
 			result.Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		if err = m.claimer.ClaimLeadership(applicationTag.Id(), unitTag.Id(), duration); err != nil {
+		if err = m.claimer.ClaimLeadership(ctx, applicationTag.Id(), unitTag.Id(), duration); err != nil {
 			result.Error = apiservererrors.ServerError(err)
 		}
 	}
@@ -104,7 +104,7 @@ func (m *leadershipService) BlockUntilLeadershipReleased(ctx context.Context, ap
 		return params.ErrorResult{Error: apiservererrors.ServerError(apiservererrors.ErrPerm)}, nil
 	}
 
-	if err := m.claimer.BlockUntilLeadershipReleased(applicationTag.Id(), ctx.Done()); err != nil {
+	if err := m.claimer.BlockUntilLeadershipReleased(ctx, applicationTag.Id(), ctx.Done()); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 	}
 	return params.ErrorResult{}, nil

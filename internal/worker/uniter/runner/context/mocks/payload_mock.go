@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	payloads "github.com/juju/juju/core/payloads"
@@ -40,10 +41,10 @@ func (m *MockPayloadAPIClient) EXPECT() *MockPayloadAPIClientMockRecorder {
 }
 
 // List mocks base method.
-func (m *MockPayloadAPIClient) List(arg0 ...string) ([]payloads.Result, error) {
+func (m *MockPayloadAPIClient) List(arg0 context.Context, arg1 ...string) ([]payloads.Result, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
+	varargs := []any{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "List", varargs...)
@@ -53,9 +54,10 @@ func (m *MockPayloadAPIClient) List(arg0 ...string) ([]payloads.Result, error) {
 }
 
 // List indicates an expected call of List.
-func (mr *MockPayloadAPIClientMockRecorder) List(arg0 ...any) *MockPayloadAPIClientListCall {
+func (mr *MockPayloadAPIClientMockRecorder) List(arg0 any, arg1 ...any) *MockPayloadAPIClientListCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockPayloadAPIClient)(nil).List), arg0...)
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockPayloadAPIClient)(nil).List), varargs...)
 	return &MockPayloadAPIClientListCall{Call: call}
 }
 
@@ -71,22 +73,22 @@ func (c *MockPayloadAPIClientListCall) Return(arg0 []payloads.Result, arg1 error
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockPayloadAPIClientListCall) Do(f func(...string) ([]payloads.Result, error)) *MockPayloadAPIClientListCall {
+func (c *MockPayloadAPIClientListCall) Do(f func(context.Context, ...string) ([]payloads.Result, error)) *MockPayloadAPIClientListCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPayloadAPIClientListCall) DoAndReturn(f func(...string) ([]payloads.Result, error)) *MockPayloadAPIClientListCall {
+func (c *MockPayloadAPIClientListCall) DoAndReturn(f func(context.Context, ...string) ([]payloads.Result, error)) *MockPayloadAPIClientListCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetStatus mocks base method.
-func (m *MockPayloadAPIClient) SetStatus(arg0 string, arg1 ...string) ([]payloads.Result, error) {
+func (m *MockPayloadAPIClient) SetStatus(arg0 context.Context, arg1 string, arg2 ...string) ([]payloads.Result, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{arg0}
-	for _, a := range arg1 {
+	varargs := []any{arg0, arg1}
+	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "SetStatus", varargs...)
@@ -96,9 +98,9 @@ func (m *MockPayloadAPIClient) SetStatus(arg0 string, arg1 ...string) ([]payload
 }
 
 // SetStatus indicates an expected call of SetStatus.
-func (mr *MockPayloadAPIClientMockRecorder) SetStatus(arg0 any, arg1 ...any) *MockPayloadAPIClientSetStatusCall {
+func (mr *MockPayloadAPIClientMockRecorder) SetStatus(arg0, arg1 any, arg2 ...any) *MockPayloadAPIClientSetStatusCall {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]any{arg0}, arg1...)
+	varargs := append([]any{arg0, arg1}, arg2...)
 	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockPayloadAPIClient)(nil).SetStatus), varargs...)
 	return &MockPayloadAPIClientSetStatusCall{Call: call}
 }
@@ -115,22 +117,22 @@ func (c *MockPayloadAPIClientSetStatusCall) Return(arg0 []payloads.Result, arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockPayloadAPIClientSetStatusCall) Do(f func(string, ...string) ([]payloads.Result, error)) *MockPayloadAPIClientSetStatusCall {
+func (c *MockPayloadAPIClientSetStatusCall) Do(f func(context.Context, string, ...string) ([]payloads.Result, error)) *MockPayloadAPIClientSetStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPayloadAPIClientSetStatusCall) DoAndReturn(f func(string, ...string) ([]payloads.Result, error)) *MockPayloadAPIClientSetStatusCall {
+func (c *MockPayloadAPIClientSetStatusCall) DoAndReturn(f func(context.Context, string, ...string) ([]payloads.Result, error)) *MockPayloadAPIClientSetStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Track mocks base method.
-func (m *MockPayloadAPIClient) Track(arg0 ...payloads.Payload) ([]payloads.Result, error) {
+func (m *MockPayloadAPIClient) Track(arg0 context.Context, arg1 ...payloads.Payload) ([]payloads.Result, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
+	varargs := []any{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Track", varargs...)
@@ -140,9 +142,10 @@ func (m *MockPayloadAPIClient) Track(arg0 ...payloads.Payload) ([]payloads.Resul
 }
 
 // Track indicates an expected call of Track.
-func (mr *MockPayloadAPIClientMockRecorder) Track(arg0 ...any) *MockPayloadAPIClientTrackCall {
+func (mr *MockPayloadAPIClientMockRecorder) Track(arg0 any, arg1 ...any) *MockPayloadAPIClientTrackCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Track", reflect.TypeOf((*MockPayloadAPIClient)(nil).Track), arg0...)
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Track", reflect.TypeOf((*MockPayloadAPIClient)(nil).Track), varargs...)
 	return &MockPayloadAPIClientTrackCall{Call: call}
 }
 
@@ -158,22 +161,22 @@ func (c *MockPayloadAPIClientTrackCall) Return(arg0 []payloads.Result, arg1 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockPayloadAPIClientTrackCall) Do(f func(...payloads.Payload) ([]payloads.Result, error)) *MockPayloadAPIClientTrackCall {
+func (c *MockPayloadAPIClientTrackCall) Do(f func(context.Context, ...payloads.Payload) ([]payloads.Result, error)) *MockPayloadAPIClientTrackCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPayloadAPIClientTrackCall) DoAndReturn(f func(...payloads.Payload) ([]payloads.Result, error)) *MockPayloadAPIClientTrackCall {
+func (c *MockPayloadAPIClientTrackCall) DoAndReturn(f func(context.Context, ...payloads.Payload) ([]payloads.Result, error)) *MockPayloadAPIClientTrackCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Untrack mocks base method.
-func (m *MockPayloadAPIClient) Untrack(arg0 ...string) ([]payloads.Result, error) {
+func (m *MockPayloadAPIClient) Untrack(arg0 context.Context, arg1 ...string) ([]payloads.Result, error) {
 	m.ctrl.T.Helper()
-	varargs := []any{}
-	for _, a := range arg0 {
+	varargs := []any{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Untrack", varargs...)
@@ -183,9 +186,10 @@ func (m *MockPayloadAPIClient) Untrack(arg0 ...string) ([]payloads.Result, error
 }
 
 // Untrack indicates an expected call of Untrack.
-func (mr *MockPayloadAPIClientMockRecorder) Untrack(arg0 ...any) *MockPayloadAPIClientUntrackCall {
+func (mr *MockPayloadAPIClientMockRecorder) Untrack(arg0 any, arg1 ...any) *MockPayloadAPIClientUntrackCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Untrack", reflect.TypeOf((*MockPayloadAPIClient)(nil).Untrack), arg0...)
+	varargs := append([]any{arg0}, arg1...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Untrack", reflect.TypeOf((*MockPayloadAPIClient)(nil).Untrack), varargs...)
 	return &MockPayloadAPIClientUntrackCall{Call: call}
 }
 
@@ -201,13 +205,13 @@ func (c *MockPayloadAPIClientUntrackCall) Return(arg0 []payloads.Result, arg1 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockPayloadAPIClientUntrackCall) Do(f func(...string) ([]payloads.Result, error)) *MockPayloadAPIClientUntrackCall {
+func (c *MockPayloadAPIClientUntrackCall) Do(f func(context.Context, ...string) ([]payloads.Result, error)) *MockPayloadAPIClientUntrackCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPayloadAPIClientUntrackCall) DoAndReturn(f func(...string) ([]payloads.Result, error)) *MockPayloadAPIClientUntrackCall {
+func (c *MockPayloadAPIClientUntrackCall) DoAndReturn(f func(context.Context, ...string) ([]payloads.Result, error)) *MockPayloadAPIClientUntrackCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

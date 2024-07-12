@@ -140,7 +140,7 @@ func (rh *runHook) Execute(ctx stdcontext.Context, state State) (*State, error) 
 	// records when it is running the update-status hook. If the
 	// hook fails, that is recorded.
 	if hooks.Kind(rh.name) != hooks.UpdateStatus {
-		if err := rh.callbacks.SetExecutingStatus(message); err != nil {
+		if err := rh.callbacks.SetExecutingStatus(ctx, message); err != nil {
 			return nil, err
 		}
 	}
@@ -323,7 +323,7 @@ func (rh *runHook) Commit(ctx stdcontext.Context, state State) (*State, error) {
 			originalRevision = m.LatestRevision
 		}
 		rh.logger.Debugf("set secret rotated for %q, original rev %v", rh.info.SecretURI, originalRevision)
-		err = rh.callbacks.SetSecretRotated(rh.info.SecretURI, originalRevision)
+		err = rh.callbacks.SetSecretRotated(ctx, rh.info.SecretURI, originalRevision)
 	}
 	if err != nil {
 		return nil, err

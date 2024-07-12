@@ -4,6 +4,8 @@
 package testing
 
 import (
+	context "context"
+
 	lxdapi "github.com/canonical/lxd/shared/api"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -17,7 +19,9 @@ const ETag = "eTag"
 
 // NoOpCallback can be passed to methods that receive a callback for setting
 // status messages.
-var NoOpCallback = func(st status.Status, info string, data map[string]interface{}) error { return nil }
+var NoOpCallback = func(ctx context.Context, st status.Status, info string, data map[string]interface{}) error {
+	return nil
+}
 
 // BaseSuite facilitates LXD testing.
 // Do not instantiate this suite directly.

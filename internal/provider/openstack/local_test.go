@@ -2477,7 +2477,7 @@ func (s *localServerSuite) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	possibleTools := coretools.List(envtesting.AssertUploadFakeToolsVersions(
 		c, s.toolsMetadataStorage, "released", "released", version.MustParseBinary("5.4.5-ubuntu-amd64"),
 	))
-	fakeCallback := func(_ status.Status, _ string, _ map[string]interface{}) error {
+	fakeCallback := func(_ context.Context, _ status.Status, _ string, _ map[string]interface{}) error {
 		return nil
 	}
 	params := environs.StartInstanceParams{

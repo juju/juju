@@ -4,6 +4,8 @@
 package payloads_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -32,7 +34,7 @@ func (s *contextSuite) TestNewContext(c *gc.C) {
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]corepayloads.Result{{
+	client.EXPECT().List(gomock.Any()).Return([]corepayloads.Result{{
 		ID: "id",
 		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
@@ -40,7 +42,7 @@ func (s *contextSuite) TestNewContext(c *gc.C) {
 		},
 	}}, nil)
 
-	ctx, err := payloads.NewContext(client)
+	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{
 		"class": pl,
@@ -63,7 +65,7 @@ func (s *contextSuite) TestTrackPayloads(c *gc.C) {
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]corepayloads.Result{{
+	client.EXPECT().List(gomock.Any()).Return([]corepayloads.Result{{
 		ID: "id",
 		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
@@ -81,7 +83,7 @@ func (s *contextSuite) TestTrackPayloads(c *gc.C) {
 		},
 	}
 
-	ctx, err := payloads.NewContext(client)
+	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.TrackPayload(pl2)
 	c.Assert(err, jc.ErrorIsNil)
@@ -106,7 +108,7 @@ func (s *contextSuite) TestTrackPayloadsFlush(c *gc.C) {
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]corepayloads.Result{{
+	client.EXPECT().List(gomock.Any()).Return([]corepayloads.Result{{
 		ID: "id",
 		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
@@ -123,13 +125,13 @@ func (s *contextSuite) TestTrackPayloadsFlush(c *gc.C) {
 			Type: "type",
 		},
 	}
-	client.EXPECT().Track(pl2)
+	client.EXPECT().Track(gomock.Any(), pl2)
 
-	ctx, err := payloads.NewContext(client)
+	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.TrackPayload(pl2)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.FlushPayloads()
+	err = ctx.FlushPayloads(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := ctx.Payloads()
@@ -153,7 +155,7 @@ func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]corepayloads.Result{{
+	client.EXPECT().List(gomock.Any()).Return([]corepayloads.Result{{
 		ID: "id",
 		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
@@ -161,9 +163,9 @@ func (s *contextSuite) TestFlushNotDirty(c *gc.C) {
 		},
 	}}, nil)
 
-	ctx, err := payloads.NewContext(client)
+	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.FlushPayloads()
+	err = ctx.FlushPayloads(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := ctx.Payloads()
@@ -189,7 +191,7 @@ func (s *contextSuite) TestTrackOverwritePayloads(c *gc.C) {
 		},
 		Unit: "a/0",
 	}
-	client.EXPECT().List().Return([]corepayloads.Result{{
+	client.EXPECT().List(gomock.Any()).Return([]corepayloads.Result{{
 		ID: "id",
 		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
@@ -198,13 +200,13 @@ func (s *contextSuite) TestTrackOverwritePayloads(c *gc.C) {
 	}}, nil)
 
 	pl.Status = "stopping"
-	client.EXPECT().Track(pl)
+	client.EXPECT().Track(gomock.Any(), pl)
 
-	ctx, err := payloads.NewContext(client)
+	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.TrackPayload(pl)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.FlushPayloads()
+	err = ctx.FlushPayloads(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := ctx.Payloads()
@@ -227,7 +229,7 @@ func (s *contextSuite) TestUnTrackPayloads(c *gc.C) {
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]corepayloads.Result{{
+	client.EXPECT().List(gomock.Any()).Return([]corepayloads.Result{{
 		ID: "id",
 		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
@@ -235,11 +237,11 @@ func (s *contextSuite) TestUnTrackPayloads(c *gc.C) {
 		},
 	}}, nil)
 
-	client.EXPECT().Untrack("class/id")
+	client.EXPECT().Untrack(gomock.Any(), "class/id")
 
-	ctx, err := payloads.NewContext(client)
+	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.UntrackPayload("class", "id")
+	err = ctx.UntrackPayload(context.Background(), "class", "id")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(payloads.ContextPayloads(ctx), jc.DeepEquals, map[string]corepayloads.Payload{})
@@ -257,7 +259,7 @@ func (s *contextSuite) TestSetPayloadStatus(c *gc.C) {
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]corepayloads.Result{{
+	client.EXPECT().List(gomock.Any()).Return([]corepayloads.Result{{
 		ID: "id",
 		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
@@ -265,11 +267,11 @@ func (s *contextSuite) TestSetPayloadStatus(c *gc.C) {
 		},
 	}}, nil)
 
-	client.EXPECT().SetStatus("stopping", "class/id")
+	client.EXPECT().SetStatus(gomock.Any(), "stopping", "class/id")
 
-	ctx, err := payloads.NewContext(client)
+	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ctx.SetPayloadStatus("class", "id", "stopping")
+	err = ctx.SetPayloadStatus(context.Background(), "class", "id", "stopping")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -285,7 +287,7 @@ func (s *contextSuite) TestGetPayload(c *gc.C) {
 			Name: "class",
 		},
 	}
-	client.EXPECT().List().Return([]corepayloads.Result{{
+	client.EXPECT().List(gomock.Any()).Return([]corepayloads.Result{{
 		ID: "id",
 		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
@@ -293,7 +295,7 @@ func (s *contextSuite) TestGetPayload(c *gc.C) {
 		},
 	}}, nil)
 
-	ctx, err := payloads.NewContext(client)
+	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
 	result, err := ctx.GetPayload("class", "id")
 	c.Assert(err, jc.ErrorIsNil)
@@ -315,7 +317,7 @@ func (s *contextSuite) TestTrackedPayload(c *gc.C) {
 		},
 		Unit: "a/0",
 	}
-	client.EXPECT().List().Return([]corepayloads.Result{{
+	client.EXPECT().List(gomock.Any()).Return([]corepayloads.Result{{
 		ID: "id",
 		Payload: &corepayloads.FullPayloadInfo{
 			Payload: pl,
@@ -325,7 +327,7 @@ func (s *contextSuite) TestTrackedPayload(c *gc.C) {
 
 	pl.Status = "stopping"
 
-	ctx, err := payloads.NewContext(client)
+	ctx, err := payloads.NewContext(context.Background(), client)
 	c.Assert(err, jc.ErrorIsNil)
 	err = ctx.TrackPayload(pl)
 	c.Assert(err, jc.ErrorIsNil)

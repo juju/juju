@@ -81,7 +81,7 @@ type RelationStateTracker interface {
 
 // SubordinateDestroyer destroys all subordinates of a unit.
 type SubordinateDestroyer interface {
-	DestroyAllSubordinates() error
+	DestroyAllSubordinates(stdcontext.Context) error
 }
 
 // StateManager encapsulates methods required to handle relation

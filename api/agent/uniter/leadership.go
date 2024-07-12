@@ -34,8 +34,8 @@ type LeadershipSettings struct {
 // Merge merges the provided settings into the leadership settings for
 // the given application and unit. Only leaders of a given application may perform
 // this operation.
-func (ls *LeadershipSettings) Merge(appId, unitId string, settings map[string]string) error {
-	results, err := ls.bulkMerge(ls.prepareMerge(appId, unitId, settings))
+func (ls *LeadershipSettings) Merge(ctx context.Context, appId, unitId string, settings map[string]string) error {
+	results, err := ls.bulkMerge(ctx, ls.prepareMerge(appId, unitId, settings))
 	if err != nil {
 		return errors.Annotatef(err, "failed to call leadership api")
 	}
@@ -50,8 +50,8 @@ func (ls *LeadershipSettings) Merge(appId, unitId string, settings map[string]st
 
 // Read retrieves the leadership settings for the given application
 // ID. Anyone may perform this operation.
-func (ls *LeadershipSettings) Read(appId string) (map[string]string, error) {
-	results, err := ls.bulkRead(ls.prepareRead(appId))
+func (ls *LeadershipSettings) Read(ctx context.Context, appId string) (map[string]string, error) {
+	results, err := ls.bulkRead(ctx, ls.prepareRead(appId))
 	if err != nil {
 		return nil, errors.Annotatef(err, "failed to call leadership api")
 	}
@@ -66,10 +66,10 @@ func (ls *LeadershipSettings) Read(appId string) (map[string]string, error) {
 
 // WatchLeadershipSettings returns a watcher which can be used to wait
 // for leadership settings changes to be made for a given application ID.
-func (ls *LeadershipSettings) WatchLeadershipSettings(appId string) (watcher.NotifyWatcher, error) {
+func (ls *LeadershipSettings) WatchLeadershipSettings(ctx context.Context, appId string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	if err := ls.facadeCaller(
-		context.TODO(),
+		ctx,
 		"WatchLeadershipSettings",
 		params.Entities{[]params.Entity{{names.NewApplicationTag(appId).String()}}},
 		&results,
@@ -105,7 +105,7 @@ func (ls *LeadershipSettings) prepareRead(appId string) params.Entity {
 // Bulk calls.
 //
 
-func (ls *LeadershipSettings) bulkMerge(args ...params.MergeLeadershipSettingsParam) (*params.ErrorResults, error) {
+func (ls *LeadershipSettings) bulkMerge(ctx context.Context, args ...params.MergeLeadershipSettingsParam) (*params.ErrorResults, error) {
 	// Don't make the jump over the network if we don't have to.
 	if len(args) <= 0 {
 		return &params.ErrorResults{}, nil
@@ -113,10 +113,10 @@ func (ls *LeadershipSettings) bulkMerge(args ...params.MergeLeadershipSettingsPa
 
 	bulkArgs := params.MergeLeadershipSettingsBulkParams{Params: args}
 	var results params.ErrorResults
-	return &results, ls.facadeCaller(context.TODO(), "Merge", bulkArgs, &results)
+	return &results, ls.facadeCaller(ctx, "Merge", bulkArgs, &results)
 }
 
-func (ls *LeadershipSettings) bulkRead(args ...params.Entity) (*params.GetLeadershipSettingsBulkResults, error) {
+func (ls *LeadershipSettings) bulkRead(ctx context.Context, args ...params.Entity) (*params.GetLeadershipSettingsBulkResults, error) {
 
 	// Don't make the jump over the network if we don't have to.
 	if len(args) <= 0 {
@@ -125,5 +125,5 @@ func (ls *LeadershipSettings) bulkRead(args ...params.Entity) (*params.GetLeader
 
 	bulkArgs := params.Entities{Entities: args}
 	var results params.GetLeadershipSettingsBulkResults
-	return &results, ls.facadeCaller(context.TODO(), "Read", bulkArgs, &results)
+	return &results, ls.facadeCaller(ctx, "Read", bulkArgs, &results)
 }

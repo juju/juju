@@ -245,10 +245,10 @@ func (s *trackerSuite) expectDeadMachines() {
 }
 
 func (s *trackerSuite) expectContainerConfig() {
-	s.state.EXPECT().ContainerManagerConfig(params.ContainerManagerConfigParams{
+	s.state.EXPECT().ContainerManagerConfig(gomock.Any(), params.ContainerManagerConfigParams{
 		Type: instance.LXD,
 	}).Return(params.ContainerManagerConfig{
 		ManagerConfig: make(map[string]string),
 	}, nil)
-	s.machine.EXPECT().AvailabilityZone().Return("0", nil)
+	s.machine.EXPECT().AvailabilityZone(gomock.Any()).Return("0", nil)
 }

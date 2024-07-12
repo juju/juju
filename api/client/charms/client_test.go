@@ -4,6 +4,7 @@
 package charms_test
 
 import (
+	context "context"
 	"os"
 
 	"github.com/juju/errors"
@@ -279,7 +280,7 @@ func (s *charmsMockSuite) TestListCharmResources(c *gc.C) {
 	client := charms.NewClientWithFacade(mockFacadeCaller, nil)
 	origin, err := apicharm.APICharmOrigin(noChannelParamsOrigin)
 	c.Assert(err, jc.ErrorIsNil)
-	got, err := client.ListCharmResources(curl, origin)
+	got, err := client.ListCharmResources(context.Background(), curl, origin)
 	c.Assert(err, gc.IsNil)
 
 	want := []charmresource.Resource{{

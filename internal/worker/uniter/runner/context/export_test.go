@@ -5,6 +5,7 @@ package context
 
 import (
 	"context"
+	stdcontext "context"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -80,15 +81,15 @@ func NewHookContext(c *gc.C, hcParams HookContextParams) (*HookContext, error) {
 	}
 	// Get and cache the addresses.
 	var err error
-	ctx.publicAddress, err = hcParams.Unit.PublicAddress()
+	ctx.publicAddress, err = hcParams.Unit.PublicAddress(stdcontext.Background())
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
-	ctx.privateAddress, err = hcParams.Unit.PrivateAddress()
+	ctx.privateAddress, err = hcParams.Unit.PrivateAddress(stdcontext.Background())
 	if err != nil && !params.IsCodeNoAddressSet(err) {
 		return nil, err
 	}
-	ctx.availabilityZone, err = hcParams.Unit.AvailabilityZone()
+	ctx.availabilityZone, err = hcParams.Unit.AvailabilityZone(stdcontext.Background())
 	if err != nil {
 		return nil, err
 	}

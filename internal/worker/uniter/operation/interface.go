@@ -193,7 +193,7 @@ type Callbacks interface {
 	CommitHook(ctx stdcontext.Context, info hook.Info) error
 
 	// SetExecutingStatus sets the agent state to "Executing" with a message.
-	SetExecutingStatus(string) error
+	SetExecutingStatus(stdcontext.Context, string) error
 
 	// NotifyHook* exist so that we can defer worrying about how to untangle the
 	// callbacks inserted for uniter_test. They're only used by RunHook operations.
@@ -220,10 +220,10 @@ type Callbacks interface {
 	// *before* recording local state referencing that charm, to ensure there's
 	// no path by which the controller can legitimately garbage collect that
 	// charm or the application's settings for it. It's only used by Deploy operations.
-	SetCurrentCharm(charmURL string) error
+	SetCurrentCharm(ctx stdcontext.Context, charmURL string) error
 
 	// SetSecretRotated updates the secret rotation status.
-	SetSecretRotated(url string, originalRevision int) error
+	SetSecretRotated(ctx stdcontext.Context, url string, originalRevision int) error
 
 	// SecretsRemoved updates the unit secret state when
 	// secrets are removed.
