@@ -125,7 +125,7 @@ func (s *serviceSuite) TestSetMachineLifeSuccess(c *gc.C) {
 }
 
 // TestSetMachineLifeError asserts that an error coming from the state layer is
-// preserved, passed over to the service layer to be maintained there.
+// preserved, and passed over to the service layer to be maintained there.
 func (s *serviceSuite) TestSetMachineLifeError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -144,10 +144,10 @@ func (s *serviceSuite) TestSetMachineLifeError(c *gc.C) {
 func (s *serviceSuite) TestSetMachineLifeMachineDontExist(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().SetMachineLife(gomock.Any(), cmachine.Name("nonexistent"), life.Alive).Return(nil)
+	s.state.EXPECT().SetMachineLife(gomock.Any(), cmachine.Name("nonexistent"), life.Alive).Return(errors.NotFound)
 
 	err := NewService(s.state).SetMachineLife(context.Background(), cmachine.Name("nonexistent"), life.Alive)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 // TestEnsureDeadMachineSuccess asserts the happy path of the EnsureDeadMachine

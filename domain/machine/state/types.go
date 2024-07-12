@@ -61,8 +61,8 @@ func (d *instanceData) toHardwareCharacteristics() *instance.HardwareCharacteris
 // machineLife represents the struct to be used for the life_id column within
 // the sqlair statements in the machine domain.
 type machineLife struct {
-	Name   machine.Name `db:"name"`
-	LifeID life.Life    `db:"life_id"`
+	UUID   string    `db:"uuid"`
+	LifeID life.Life `db:"life_id"`
 }
 
 // instanceID represents the struct to be used for the insatnce_id column within

@@ -189,11 +189,11 @@ func (s *stateSuite) TestSetMachineLifeSuccess(c *gc.C) {
 	c.Assert(*obtainedLife, gc.Equals, life.Dead)
 }
 
-// TestSetMachineLifeNoUpdate asserts that we get no errors from SetMachineLife
-// if the provided machine doesn't exist.
-func (s *stateSuite) TestSetMachineLifeNoUpdate(c *gc.C) {
+// TestSetMachineLifeNotFoundError asserts that we get a NotFound if the
+// provided machine doesn't exist.
+func (s *stateSuite) TestSetMachineLifeNotFoundError(c *gc.C) {
 	err := s.state.SetMachineLife(context.Background(), "666", life.Dead)
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 
 // TestListAllMachinesEmpty asserts that AllMachineNames returns an empty list
