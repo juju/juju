@@ -74,8 +74,12 @@ func (s *baseSuite) expectAfter() chan<- time.Time {
 	return ch
 }
 
-func (s *baseSuite) expectAfterAnyTimes() {
+func (s *baseSuite) expectTermAfterAnyTimes() {
 	s.clock.EXPECT().After(defaultWaitTermTimeout).Return(make(chan time.Time)).AnyTimes()
+}
+
+func (s *baseSuite) expectAnyAfterAnyTimes() {
+	s.clock.EXPECT().After(gomock.Any()).Return(make(chan time.Time)).AnyTimes()
 }
 
 func (s *baseSuite) expectBackoffAnyTimes(done chan struct{}) {
@@ -106,5 +110,5 @@ func (s *baseSuite) expectMetrics() {
 }
 
 func (s *baseSuite) expectClock() {
-	s.clock.EXPECT().Now().AnyTimes()
+	s.clock.EXPECT().Now().Return(time.Now()).AnyTimes()
 }
