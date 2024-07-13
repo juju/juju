@@ -253,7 +253,10 @@ func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (sta
 
 		// Query for the machine cloud instance status data, no need to return
 		// error if we don't have any status data.
-		tx.Query(ctx, statusDataQueryStmt, machineUUID).GetAll(&instanceStatusData)
+		err = tx.Query(ctx, statusDataQueryStmt, machineUUID).GetAll(&instanceStatusData)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(err, "querying machine status data for machine %q", mName)
+		}
 
 		return nil
 	})

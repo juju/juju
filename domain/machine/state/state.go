@@ -253,7 +253,10 @@ func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (stat
 
 		// Query for the machine status data, no need to return error if we
 		// don't have any status data.
-		tx.Query(ctx, statusDataQueryStmt, machineUUIDout).GetAll(&machineStatusData)
+		err = tx.Query(ctx, statusDataQueryStmt, machineUUIDout).GetAll(&machineStatusData)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(err, "querying machine status data for machine %q", mName)
+		}
 
 		return nil
 	})
