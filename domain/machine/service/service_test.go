@@ -322,9 +322,10 @@ func (s *serviceSuite) TestGetInstanceStatusError(c *gc.C) {
 func (s *serviceSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), corestatus.Running).Return(nil)
+	newStatus := status.StatusInfo{Status: corestatus.Running}
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), newStatus).Return(nil)
 
-	err := NewService(s.state).SetInstanceStatus(context.Background(), cmachine.Name("666"), corestatus.Running)
+	err := NewService(s.state).SetInstanceStatus(context.Background(), cmachine.Name("666"), newStatus)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -334,16 +335,17 @@ func (s *serviceSuite) TestSetInstanceStatusError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), corestatus.Running).Return(rErr)
+	newStatus := status.StatusInfo{Status: corestatus.Running}
+	s.state.EXPECT().SetInstanceStatus(gomock.Any(), cmachine.Name("666"), newStatus).Return(rErr)
 
-	err := NewService(s.state).SetInstanceStatus(context.Background(), cmachine.Name("666"), corestatus.Running)
+	err := NewService(s.state).SetInstanceStatus(context.Background(), cmachine.Name("666"), newStatus)
 	c.Check(err, jc.ErrorIs, rErr)
 }
 
 // TestSetInstanceStatusInvalid asserts that an invalid status is passed to the
 // service will result in a InvalidStatus error.
 func (s *serviceSuite) TestSetInstanceStatusInvalid(c *gc.C) {
-	err := NewService(nil).SetInstanceStatus(context.Background(), cmachine.Name("666"), corestatus.Status("invalid status"))
+	err := NewService(nil).SetInstanceStatus(context.Background(), cmachine.Name("666"), status.StatusInfo{Status: "invalid"})
 	c.Check(err, jc.ErrorIs, machineerrors.InvalidStatus)
 }
 

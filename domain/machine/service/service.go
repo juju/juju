@@ -56,7 +56,8 @@ type State interface {
 
 	// SetInstanceStatus sets the cloud specific instance status for this
 	// machine.
-	SetInstanceStatus(context.Context, machine.Name, status.Status) error
+	// It returns NotFound if the machine does not exist.
+	SetInstanceStatus(context.Context, machine.Name, status.StatusInfo) error
 
 	// GetMachineStatus returns the status of the specified machine.
 	// It returns NotFound if the machine does not exist.
@@ -185,9 +186,10 @@ func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Nam
 
 // SetInstanceStatus sets the cloud specific instance status for this
 // machine.
+// It returns NotFound if the machine does not exist.
 // It returns InvalidStatus if the given status is not a known status value.
-func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, status status.Status) error {
-	if !status.KnownInstanceStatus() {
+func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) error {
+	if !status.Status.KnownInstanceStatus() {
 		return machineerrors.InvalidStatus
 	}
 	err := s.st.SetInstanceStatus(ctx, machineName, status)

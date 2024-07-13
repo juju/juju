@@ -11,43 +11,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
-	corestatus "github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
 func (s *stateSuite) TestGetHardwareCharacteristics(c *gc.C) {
-	db := s.DB()
-
-	// Create a reference machine.
-	err := s.state.CreateMachine(context.Background(), "42", "", "")
-	c.Assert(err, jc.ErrorIsNil)
-	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'")
-	c.Assert(row.Err(), jc.ErrorIsNil)
-	err = row.Scan(&machineUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.state.SetMachineCloudInstance(
-		context.Background(),
-		machineUUID,
-		instance.Id("1"),
-		instance.HardwareCharacteristics{
-			Arch:             strptr("arm64"),
-			Mem:              uintptr(1024),
-			RootDisk:         uintptr(256),
-			RootDiskSource:   strptr("/test"),
-			CpuCores:         uintptr(4),
-			CpuPower:         uintptr(75),
-			Tags:             strsliceptr([]string{"tag1", "tag2"}),
-			AvailabilityZone: strptr("az-1"),
-			VirtType:         strptr("virtual-machine"),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	machineUUID := s.ensureInstance(c, "42")
 
 	hc, err := s.state.HardwareCharacteristics(context.Background(), machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,37 +109,9 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 func (s *stateSuite) TestDeleteInstanceData(c *gc.C) {
 	db := s.DB()
 
-	// Create a reference machine.
-	err := s.state.CreateMachine(context.Background(), "42", "", "")
-	c.Assert(err, jc.ErrorIsNil)
-	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='42'")
-	c.Assert(row.Err(), jc.ErrorIsNil)
-	err = row.Scan(&machineUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
-	c.Assert(err, jc.ErrorIsNil)
+	machineUUID := s.ensureInstance(c, "42")
 
-	err = s.state.SetMachineCloudInstance(
-		context.Background(),
-		machineUUID,
-		instance.Id("1"),
-		instance.HardwareCharacteristics{
-			Arch:             strptr("arm64"),
-			Mem:              uintptr(1024),
-			RootDisk:         uintptr(256),
-			RootDiskSource:   strptr("/test"),
-			CpuCores:         uintptr(4),
-			CpuPower:         uintptr(75),
-			Tags:             strsliceptr([]string{"tag1", "tag2"}),
-			AvailabilityZone: strptr("az-1"),
-			VirtType:         strptr("virtual-machine"),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.state.DeleteMachineCloudInstance(context.Background(), machineUUID)
+	err := s.state.DeleteMachineCloudInstance(context.Background(), machineUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Check that all rows've been deleted.
@@ -198,37 +140,7 @@ func strsliceptr(s []string) *[]string {
 }
 
 func (s *stateSuite) TestInstanceIdSuccess(c *gc.C) {
-	db := s.DB()
-
-	// Create a reference machine.
-	err := s.state.CreateMachine(context.Background(), "666", "", "")
-	c.Assert(err, jc.ErrorIsNil)
-	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='666'")
-	c.Assert(row.Err(), jc.ErrorIsNil)
-	err = row.Scan(&machineUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.state.SetMachineCloudInstance(
-		context.Background(),
-		machineUUID,
-		instance.Id("123"),
-		instance.HardwareCharacteristics{
-			Arch:             strptr("arm64"),
-			Mem:              uintptr(1024),
-			RootDisk:         uintptr(256),
-			RootDiskSource:   strptr("/test"),
-			CpuCores:         uintptr(4),
-			CpuPower:         uintptr(75),
-			Tags:             strsliceptr([]string{"tag1", "tag2"}),
-			AvailabilityZone: strptr("az-1"),
-			VirtType:         strptr("virtual-machine"),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	s.ensureInstance(c, "666")
 
 	instanceId, err := s.state.InstanceId(context.Background(), "666")
 	c.Check(err, jc.ErrorIsNil)
@@ -248,40 +160,12 @@ func (s *stateSuite) TestInstanceIdError(c *gc.C) {
 func (s *stateSuite) TestGetInstanceStatusSuccess(c *gc.C) {
 	db := s.DB()
 
-	// Create a reference machine.
-	err := s.state.CreateMachine(context.Background(), "666", "", "")
-	c.Assert(err, jc.ErrorIsNil)
-	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='666'")
-	c.Assert(row.Err(), jc.ErrorIsNil)
-	err = row.Scan(&machineUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.state.SetMachineCloudInstance(
-		context.Background(),
-		machineUUID,
-		instance.Id("123"),
-		instance.HardwareCharacteristics{
-			Arch:             strptr("arm64"),
-			Mem:              uintptr(1024),
-			RootDisk:         uintptr(256),
-			RootDiskSource:   strptr("/test"),
-			CpuCores:         uintptr(4),
-			CpuPower:         uintptr(75),
-			Tags:             strsliceptr([]string{"tag1", "tag2"}),
-			AvailabilityZone: strptr("az-1"),
-			VirtType:         strptr("virtual-machine"),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	machineUUID := s.ensureInstance(c, "666")
 
 	// Add a status value for this machine into the
 	// machine_cloud_instance_status table using the machineUUID and the status
 	// value 2 for "running" (from instance_status_values table).
-	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status VALUES('"+machineUUID+"', '2', 'running', '2024-07-12 12:00:00')")
+	_, err := db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status VALUES('"+machineUUID+"', '2', 'running', '2024-07-12 12:00:00')")
 	c.Assert(err, jc.ErrorIsNil)
 
 	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
@@ -295,41 +179,12 @@ func (s *stateSuite) TestGetInstanceStatusSuccess(c *gc.C) {
 // at the state layer.
 func (s *stateSuite) TestGetInstanceStatusSuccessWithData(c *gc.C) {
 	db := s.DB()
-
-	// Create a reference machine.
-	err := s.state.CreateMachine(context.Background(), "666", "", "")
-	c.Assert(err, jc.ErrorIsNil)
-	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='666'")
-	c.Assert(row.Err(), jc.ErrorIsNil)
-	err = row.Scan(&machineUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.state.SetMachineCloudInstance(
-		context.Background(),
-		machineUUID,
-		instance.Id("123"),
-		instance.HardwareCharacteristics{
-			Arch:             strptr("arm64"),
-			Mem:              uintptr(1024),
-			RootDisk:         uintptr(256),
-			RootDiskSource:   strptr("/test"),
-			CpuCores:         uintptr(4),
-			CpuPower:         uintptr(75),
-			Tags:             strsliceptr([]string{"tag1", "tag2"}),
-			AvailabilityZone: strptr("az-1"),
-			VirtType:         strptr("virtual-machine"),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	machineUUID := s.ensureInstance(c, "666")
 
 	// Add a status value for this machine into the
 	// machine_cloud_instance_status table using the machineUUID and the status
 	// value 2 for "running" (from instance_status_values table).
-	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status VALUES('"+machineUUID+"', '2', 'running', '2024-07-12 12:00:00')")
+	_, err := db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status VALUES('"+machineUUID+"', '2', 'running', '2024-07-12 12:00:00')")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add some status data for this machine into the
@@ -356,85 +211,50 @@ func (s *stateSuite) TestGetInstanceStatusNotFoundError(c *gc.C) {
 // a StatusNotSet error when a status value cannot be found for the given
 // machine.
 func (s *stateSuite) TestGetInstanceStatusStatusNotSetError(c *gc.C) {
-	db := s.DB()
-
-	// Create a reference machine.
-	err := s.state.CreateMachine(context.Background(), "666", "", "")
-	c.Assert(err, jc.ErrorIsNil)
-	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='666'")
-	c.Assert(row.Err(), jc.ErrorIsNil)
-	err = row.Scan(&machineUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.state.SetMachineCloudInstance(
-		context.Background(),
-		machineUUID,
-		instance.Id("123"),
-		instance.HardwareCharacteristics{
-			Arch:             strptr("arm64"),
-			Mem:              uintptr(1024),
-			RootDisk:         uintptr(256),
-			RootDiskSource:   strptr("/test"),
-			CpuCores:         uintptr(4),
-			CpuPower:         uintptr(75),
-			Tags:             strsliceptr([]string{"tag1", "tag2"}),
-			AvailabilityZone: strptr("az-1"),
-			VirtType:         strptr("virtual-machine"),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
+	s.ensureInstance(c, "666")
 
 	// Don't add a status value for this instance into the
 	// machine_cloud_instance_status table.
-	_, err = s.state.GetInstanceStatus(context.Background(), "666")
+	_, err := s.state.GetInstanceStatus(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, machineerrors.StatusNotSet)
 }
 
 // TestSetInstanceStatusSuccess asserts the happy path of SetInstanceStatus at
 // the state layer.
 func (s *stateSuite) TestSetInstanceStatusSuccess(c *gc.C) {
-	db := s.DB()
+	s.ensureInstance(c, "666")
 
-	// Create a reference machine.
-	err := s.state.CreateMachine(context.Background(), "666", "", "")
-	c.Assert(err, jc.ErrorIsNil)
-	var machineUUID string
-	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='666'")
-	c.Assert(row.Err(), jc.ErrorIsNil)
-	err = row.Scan(&machineUUID)
-	c.Assert(err, jc.ErrorIsNil)
-	// Add a reference AZ.
-	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.state.SetMachineCloudInstance(
-		context.Background(),
-		machineUUID,
-		instance.Id("123"),
-		instance.HardwareCharacteristics{
-			Arch:             strptr("arm64"),
-			Mem:              uintptr(1024),
-			RootDisk:         uintptr(256),
-			RootDiskSource:   strptr("/test"),
-			CpuCores:         uintptr(4),
-			CpuPower:         uintptr(75),
-			Tags:             strsliceptr([]string{"tag1", "tag2"}),
-			AvailabilityZone: strptr("az-1"),
-			VirtType:         strptr("virtual-machine"),
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.state.SetInstanceStatus(context.Background(), "666", corestatus.Running)
+	expectedStatus := status.StatusInfo{Status: status.Running, Message: "running"}
+	err := s.state.SetInstanceStatus(context.Background(), "666", expectedStatus)
 	c.Check(err, jc.ErrorIsNil)
 
-	status, err := s.state.GetInstanceStatus(context.Background(), "666")
+	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, corestatus.Running)
+	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
+	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
+}
+
+// TestSetInstanceStatusSuccessWithData asserts the happy path of
+// SetInstanceStatus at the state layer.
+func (s *stateSuite) TestSetInstanceStatusSuccessWithData(c *gc.C) {
+	s.ensureInstance(c, "666")
+
+	expectedStatus := status.StatusInfo{Status: status.Running, Message: "running", Data: map[string]interface{}{"key": "data"}}
+	err := s.state.SetInstanceStatus(context.Background(), "666", expectedStatus)
+	c.Check(err, jc.ErrorIsNil)
+
+	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
+	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
+	c.Assert(obtainedStatus.Data, gc.DeepEquals, expectedStatus.Data)
+}
+
+// TestSetInstanceStatusError asserts that SetInstanceStatus returns a NotFound
+// error when the given machine cannot be found.
+func (s *stateSuite) TestSetInstanceStatusError(c *gc.C) {
+	err := s.state.SetInstanceStatus(context.Background(), "666", status.StatusInfo{})
+	c.Check(err, jc.ErrorIs, errors.NotFound)
 }
 
 // TestInstanceStatusValues asserts the keys and values in the
@@ -465,11 +285,46 @@ func (s *stateSuite) TestInstanceStatusValues(c *gc.C) {
 	}
 	c.Check(statusValues, gc.HasLen, 4)
 	c.Check(statusValues[0].ID, gc.Equals, 0)
-	c.Check(statusValues[0].Name, gc.Equals, "empty")
+	c.Check(statusValues[0].Name, gc.Equals, "unknown")
 	c.Check(statusValues[1].ID, gc.Equals, 1)
 	c.Check(statusValues[1].Name, gc.Equals, "allocating")
 	c.Check(statusValues[2].ID, gc.Equals, 2)
 	c.Check(statusValues[2].Name, gc.Equals, "running")
 	c.Check(statusValues[3].ID, gc.Equals, 3)
-	c.Check(statusValues[3].Name, gc.Equals, "provisioning-error")
+	c.Check(statusValues[3].Name, gc.Equals, "provisioning error")
+}
+
+func (s *stateSuite) ensureInstance(c *gc.C, mName machine.Name) string {
+	db := s.DB()
+
+	// Create a reference machine.
+	err := s.state.CreateMachine(context.Background(), mName, "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	var machineUUID string
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='"+string(mName)+"'")
+	c.Assert(row.Err(), jc.ErrorIsNil)
+	err = row.Scan(&machineUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	// Add a reference AZ.
+	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetMachineCloudInstance(
+		context.Background(),
+		machineUUID,
+		instance.Id("123"),
+		instance.HardwareCharacteristics{
+			Arch:             strptr("arm64"),
+			Mem:              uintptr(1024),
+			RootDisk:         uintptr(256),
+			RootDiskSource:   strptr("/test"),
+			CpuCores:         uintptr(4),
+			CpuPower:         uintptr(75),
+			Tags:             strsliceptr([]string{"tag1", "tag2"}),
+			AvailabilityZone: strptr("az-1"),
+			VirtType:         strptr("virtual-machine"),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	return machineUUID
 }
