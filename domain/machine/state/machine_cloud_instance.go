@@ -231,7 +231,7 @@ func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (sta
 		return status.StatusInfo{}, errors.Trace(err)
 	}
 
-	statusDataResult := make(map[string]interface{})
+	var instanceStatusData []machineInstanceStatusData
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine uuid
 		err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUID)
@@ -251,20 +251,21 @@ func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (sta
 			return errors.Annotatef(err, "querying machine status for machine %q", mName)
 		}
 
-		var instanceStatusData []machineInstanceStatusData
 		// Query for the machine cloud instance status data, no need to return
 		// error if we don't have any status data.
-		if err := tx.Query(ctx, statusDataQueryStmt, machineUUID).GetAll(&instanceStatusData); err == nil {
-			statusDataResult = transform.SliceToMap(instanceStatusData, func(d machineInstanceStatusData) (string, interface{}) {
-				return d.Key, d.Data
-			})
-		}
+		tx.Query(ctx, statusDataQueryStmt, machineUUID).GetAll(&instanceStatusData)
+
 		return nil
 	})
 
 	if err != nil {
 		return status.StatusInfo{}, errors.Trace(err)
 	}
+
+	// Transform the status data slice into a status.Data map.
+	statusDataResult := transform.SliceToMap(instanceStatusData, func(d machineInstanceStatusData) (string, interface{}) {
+		return d.Key, d.Data
+	})
 
 	instanceStatus := status.StatusInfo{
 		Message: instanceStatusParam.Message,

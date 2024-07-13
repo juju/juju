@@ -122,6 +122,6 @@ CREATE TABLE machine_status_data (
     data TEXT,
     CONSTRAINT fk_machine_status_data_machine
     FOREIGN KEY (machine_uuid)
-    REFERENCES machine (uuid) ON DELETE CASCADE
+    REFERENCES machine (uuid) ON DELETE CASCADE,
     PRIMARY KEY (machine_uuid, "key")
 );
