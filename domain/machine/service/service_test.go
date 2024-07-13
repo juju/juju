@@ -240,7 +240,7 @@ func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *gc.C) {
 func (s *serviceSuite) TestGetMachineStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	expectedStatus := status.StatusInfo{Status: corestatus.Running}
+	expectedStatus := status.StatusInfo{Status: corestatus.Started}
 	s.state.EXPECT().GetMachineStatus(gomock.Any(), cmachine.Name("666")).Return(expectedStatus, nil)
 
 	machineStatus, err := NewService(s.state).GetMachineStatus(context.Background(), cmachine.Name("666"))
@@ -292,28 +292,29 @@ func (s *serviceSuite) TestSetMachineStatusInvalid(c *gc.C) {
 	c.Check(err, jc.ErrorIs, machineerrors.InvalidStatus)
 }
 
-// TestInstanceStatusSuccess asserts the happy path of the GetInstanceStatus.
-func (s *serviceSuite) TestInstanceStatusSuccess(c *gc.C) {
+// TestGetInstanceStatusSuccess asserts the happy path of the GetInstanceStatus.
+func (s *serviceSuite) TestGetInstanceStatusSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetInstanceStatus(gomock.Any(), cmachine.Name("666")).Return("running", nil)
+	expectedStatus := status.StatusInfo{Status: corestatus.Running}
+	s.state.EXPECT().GetInstanceStatus(gomock.Any(), cmachine.Name("666")).Return(expectedStatus, nil)
 
 	instanceStatus, err := NewService(s.state).GetInstanceStatus(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(instanceStatus, gc.Equals, corestatus.Running)
+	c.Assert(instanceStatus, gc.DeepEquals, expectedStatus)
 }
 
-// TestInstanceStatusError asserts that an error coming from the state layer is
-// preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestInstanceStatusError(c *gc.C) {
+// TestGetInstanceStatusError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestGetInstanceStatusError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().GetInstanceStatus(gomock.Any(), cmachine.Name("666")).Return("", rErr)
+	s.state.EXPECT().GetInstanceStatus(gomock.Any(), cmachine.Name("666")).Return(status.StatusInfo{}, rErr)
 
 	instanceStatus, err := NewService(s.state).GetInstanceStatus(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIs, rErr)
-	c.Check(instanceStatus, gc.Equals, corestatus.Status(""))
+	c.Check(instanceStatus, gc.DeepEquals, status.StatusInfo{})
 }
 
 // TestSetInstanceStatusSuccess asserts the happy path of the SetInstanceStatus

@@ -6,10 +6,12 @@ package state
 import (
 	"context"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/status"
 	corestatus "github.com/juju/juju/core/status"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
@@ -241,9 +243,9 @@ func (s *stateSuite) TestInstanceIdError(c *gc.C) {
 	c.Check(err, jc.ErrorIs, machineerrors.NotProvisioned)
 }
 
-// TestInstanceStatusSuccess asserts the happy path of InstanceStatus at the
+// TestGetInstanceStatusSuccess asserts the happy path of InstanceStatus at the
 // state layer.
-func (s *stateSuite) TestInstanceStatusSuccess(c *gc.C) {
+func (s *stateSuite) TestGetInstanceStatusSuccess(c *gc.C) {
 	db := s.DB()
 
 	// Create a reference machine.
@@ -279,17 +281,81 @@ func (s *stateSuite) TestInstanceStatusSuccess(c *gc.C) {
 	// Add a status value for this machine into the
 	// machine_cloud_instance_status table using the machineUUID and the status
 	// value 2 for "running" (from instance_status_values table).
-	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status VALUES('"+machineUUID+"', '2')")
+	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status VALUES('"+machineUUID+"', '2', 'running', '2024-07-12 12:00:00')")
 	c.Assert(err, jc.ErrorIsNil)
 
-	status, err := s.state.GetInstanceStatus(context.Background(), "666")
+	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
+	expectedStatus := status.StatusInfo{Status: status.Running, Message: "running"}
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(status, gc.Equals, corestatus.Running)
+	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
+	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
 }
 
-// TestInstanceStatusStatusNotSetError asserts that InstanceStatus returns a
-// StatusNotSet error when a status value cannot be found for the given machine.
-func (s *stateSuite) TestInstanceStatusStatusNotSetError(c *gc.C) {
+// TestGetInstanceStatusSuccessWithData asserts the happy path of InstanceStatus
+// at the state layer.
+func (s *stateSuite) TestGetInstanceStatusSuccessWithData(c *gc.C) {
+	db := s.DB()
+
+	// Create a reference machine.
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+	var machineUUID string
+	row := db.QueryRowContext(context.Background(), "SELECT uuid FROM machine WHERE name='666'")
+	c.Assert(row.Err(), jc.ErrorIsNil)
+	err = row.Scan(&machineUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	// Add a reference AZ.
+	_, err = db.ExecContext(context.Background(), "INSERT INTO availability_zone VALUES('az-1', 'az1')")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.SetMachineCloudInstance(
+		context.Background(),
+		machineUUID,
+		instance.Id("123"),
+		instance.HardwareCharacteristics{
+			Arch:             strptr("arm64"),
+			Mem:              uintptr(1024),
+			RootDisk:         uintptr(256),
+			RootDiskSource:   strptr("/test"),
+			CpuCores:         uintptr(4),
+			CpuPower:         uintptr(75),
+			Tags:             strsliceptr([]string{"tag1", "tag2"}),
+			AvailabilityZone: strptr("az-1"),
+			VirtType:         strptr("virtual-machine"),
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add a status value for this machine into the
+	// machine_cloud_instance_status table using the machineUUID and the status
+	// value 2 for "running" (from instance_status_values table).
+	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status VALUES('"+machineUUID+"', '2', 'running', '2024-07-12 12:00:00')")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Add some status data for this machine into the
+	// machine_clud_instance_status_data table.
+	_, err = db.ExecContext(context.Background(), "INSERT INTO machine_cloud_instance_status_data VALUES('"+machineUUID+"', 'key', 'data')")
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtainedStatus, err := s.state.GetInstanceStatus(context.Background(), "666")
+	expectedStatus := status.StatusInfo{Status: status.Running, Message: "running", Data: map[string]interface{}{"key": "data"}}
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(obtainedStatus.Status, gc.Equals, expectedStatus.Status)
+	c.Assert(obtainedStatus.Message, gc.Equals, expectedStatus.Message)
+	c.Assert(obtainedStatus.Data, gc.DeepEquals, expectedStatus.Data)
+}
+
+// TestGetInstanceStatusNotFoundError asserts that GetInstanceStatus returns a
+// NotFound error when the given machine cannot be found.
+func (s *stateSuite) TestGetInstanceStatusNotFoundError(c *gc.C) {
+	_, err := s.state.GetInstanceStatus(context.Background(), "666")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+// TestGetInstanceStatusStatusNotSetError asserts that GetInstanceStatus returns
+// a StatusNotSet error when a status value cannot be found for the given
+// machine.
+func (s *stateSuite) TestGetInstanceStatusStatusNotSetError(c *gc.C) {
 	db := s.DB()
 
 	// Create a reference machine.

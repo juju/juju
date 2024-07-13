@@ -8,6 +8,7 @@ import (
 	"database/sql"
 
 	"github.com/canonical/sqlair"
+	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
@@ -195,53 +196,93 @@ WHERE m.name = $machineName.name;
 
 // GetInstanceStatus returns the cloud specific instance status for the given
 // machine.
+// It returns NotFound if the machine does not exist.
 // It returns a StatusNotSet if the instance status is not set.
 // Idempotent.
-func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (status.Status, error) {
+func (st *State) GetInstanceStatus(ctx context.Context, mName machine.Name) (status.StatusInfo, error) {
 	db, err := st.DB()
 	if err != nil {
-		return "", errors.Trace(err)
+		return status.StatusInfo{}, errors.Trace(err)
 	}
-	machineStatus := machineInstanceStatus{Name: mName}
-	statusQuery := `
-SELECT mcis.status as &machineInstanceStatus.status
-FROM machine as m
-	JOIN machine_cloud_instance_status as mcis ON m.uuid = mcis.machine_uuid
-WHERE m.name = $machineInstanceStatus.name;
-`
 
-	statusQueryStmt, err := st.Prepare(statusQuery, machineStatus)
+	// Prepare query for machine uuid (to be used in
+	// machine_cloud_instance_status and machine_cloud_instance_status_data
+	// tables)
+	machineNameParam := machineName{Name: mName}
+	machineUUID := machineUUID{}
+	uuidQuery := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name`
+	uuidQueryStmt, err := st.Prepare(uuidQuery, machineNameParam, machineUUID)
 	if err != nil {
-		return "", errors.Trace(err)
+		return status.StatusInfo{}, errors.Trace(err)
 	}
 
+	// Prepare query for machine cloud instance status
+	instanceStatusParam := machineInstanceStatus{}
+	statusQuery := `SELECT &machineInstanceStatus.* FROM machine_cloud_instance_status WHERE machine_uuid = $machineUUID.uuid`
+	statusQueryStmt, err := st.Prepare(statusQuery, machineUUID, instanceStatusParam)
+	if err != nil {
+		return status.StatusInfo{}, errors.Trace(err)
+	}
+
+	// Prepare query for machine cloud instance status data
+	statusDataQuery := `SELECT &machineInstanceStatusData.* FROM machine_cloud_instance_status_data WHERE machine_uuid = $machineUUID.uuid`
+	statusDataQueryStmt, err := st.Prepare(statusDataQuery, machineUUID, machineInstanceStatusData{})
+	if err != nil {
+		return status.StatusInfo{}, errors.Trace(err)
+	}
+
+	statusDataResult := make(map[string]interface{})
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err := tx.Query(ctx, statusQueryStmt, machineStatus).Get(&machineStatus)
+		// Query for the machine uuid
+		err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUID)
 		if err != nil {
-			return errors.Annotatef(err, "querying cloud instance status for machine %q", mName)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.NotFoundf("machine %q", mName)
+			}
+			return errors.Annotatef(err, "querying uuid for machine %q", mName)
+		}
+
+		// Query for the machine cloud instance status
+		err = tx.Query(ctx, statusQueryStmt, machineUUID).Get(&instanceStatusParam)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Annotatef(machineerrors.StatusNotSet, "machine: %q", mName)
+			}
+			return errors.Annotatef(err, "querying machine status for machine %q", mName)
+		}
+
+		var instanceStatusData []machineInstanceStatusData
+		// Query for the machine cloud instance status data, no need to return
+		// error if we don't have any status data.
+		if err := tx.Query(ctx, statusDataQueryStmt, machineUUID).GetAll(&instanceStatusData); err == nil {
+			statusDataResult = transform.SliceToMap(instanceStatusData, func(d machineInstanceStatusData) (string, interface{}) {
+				return d.Key, d.Data
+			})
 		}
 		return nil
 	})
 
 	if err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return "", errors.Annotatef(machineerrors.StatusNotSet, "machine: %q", mName)
-		}
-		return "", errors.Trace(err)
+		return status.StatusInfo{}, errors.Trace(err)
 	}
-	internalStatus := machineStatus.Status
+
+	instanceStatus := status.StatusInfo{
+		Message: instanceStatusParam.Message,
+		Since:   instanceStatusParam.Updated,
+		Data:    statusDataResult,
+	}
+
 	// Convert the internal status id from the (instance_status_values table)
 	// into the core status.Status type.
-	var instanceStatus status.Status
-	switch internalStatus {
+	switch instanceStatusParam.Status {
 	case 0:
-		instanceStatus = status.Empty
+		instanceStatus.Status = status.Empty
 	case 1:
-		instanceStatus = status.Allocating
+		instanceStatus.Status = status.Allocating
 	case 2:
-		instanceStatus = status.Running
+		instanceStatus.Status = status.Running
 	case 3:
-		instanceStatus = status.ProvisioningError
+		instanceStatus.Status = status.ProvisioningError
 	}
 	return instanceStatus, nil
 }
@@ -266,7 +307,6 @@ func (st *State) SetInstanceStatus(ctx context.Context, mName machine.Name, inst
 		iStatus = 3
 	}
 	machineStatus := machineInstanceStatus{
-		Name:   mName,
 		Status: iStatus,
 	}
 

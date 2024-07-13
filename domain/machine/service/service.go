@@ -52,7 +52,7 @@ type State interface {
 	// machine.
 	// It returns NotFound if the machine does not exist.
 	// It returns a StatusNotSet if the instance status is not set.
-	GetInstanceStatus(context.Context, machine.Name) (status.Status, error)
+	GetInstanceStatus(context.Context, machine.Name) (status.StatusInfo, error)
 
 	// SetInstanceStatus sets the cloud specific instance status for this
 	// machine.
@@ -175,10 +175,10 @@ func (s *Service) InstanceId(ctx context.Context, machineName machine.Name) (str
 // It returns NotFound if the machine does not exist.
 // It returns a StatusNotSet if the instance status is not set.
 // Idempotent.
-func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (status.Status, error) {
+func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
 	instanceStatus, err := s.st.GetInstanceStatus(ctx, machineName)
 	if err != nil {
-		return "", errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineName)
+		return status.StatusInfo{}, errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineName)
 	}
 	return instanceStatus, nil
 }
