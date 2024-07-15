@@ -66,20 +66,3 @@ func (u UserAccessSpec) Validate() error {
 	}
 	return nil
 }
-
-// ControllerForAccess is the access spec for the controller
-// login access.
-func ControllerForAccess(access Access) AccessSpec {
-	return AccessSpec{
-		Access: access,
-		Target: ID{
-			ObjectType: Controller,
-			// This should be controllerNS from the core/database package, but
-			// using that import will cause the whole of the core/database
-			// package into the api client package.
-			// For now I've created a test to ensure that the value is correct.
-			// TODO (stickupkid): Move controllerNS to a namespace package.
-			Key: "controller",
-		},
-	}
-}

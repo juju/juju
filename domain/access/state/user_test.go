@@ -14,7 +14,6 @@ import (
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
-	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -29,9 +28,16 @@ import (
 
 type userStateSuite struct {
 	schematesting.ControllerSuite
+
+	controllerUUID string
 }
 
 var _ = gc.Suite(&userStateSuite{})
+
+func (s *userStateSuite) SetUpTest(c *gc.C) {
+	s.ControllerSuite.SetUpTest(c)
+	s.controllerUUID = s.SeedControllerUUID(c)
+}
 
 // TestSingletonActiveUser asserts the idx_singleton_active_user unique index
 // in the DDL. What we need in the DDL is the ability to have multiple users
@@ -118,7 +124,7 @@ func (s *userStateSuite) TestBootstrapAddUserWithPassword(c *gc.C) {
 		err = AddUserWithPassword(
 			context.Background(), tx, adminUUID,
 			"admin", "admin",
-			adminUUID, controllerLoginAccess(), "passwordHash", salt,
+			adminUUID, s.controllerLoginAccess(), "passwordHash", salt,
 		)
 		return err
 	})
@@ -157,7 +163,7 @@ func (s *userStateSuite) TestAddUser(c *gc.C) {
 	adminUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	loginAccess := controllerLoginAccess()
+	loginAccess := s.controllerLoginAccess()
 	err = st.AddUser(
 		context.Background(), adminUUID,
 		"admin", "admin",
@@ -193,7 +199,7 @@ func (s *userStateSuite) TestAddUserAlreadyExists(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -204,7 +210,7 @@ func (s *userStateSuite) TestAddUserAlreadyExists(c *gc.C) {
 		context.Background(), adminCloneUUID,
 		"admin", "admin",
 		adminCloneUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.UserAlreadyExists)
 }
@@ -225,7 +231,7 @@ func (s *userStateSuite) TestAddUserCreatorNotFound(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		nonExistingUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
@@ -273,7 +279,7 @@ func (s *userStateSuite) TestGetUser(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -300,7 +306,7 @@ func (s *userStateSuite) TestGetRemovedUser(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -315,7 +321,7 @@ func (s *userStateSuite) TestGetRemovedUser(c *gc.C) {
 		context.Background(), userToRemoveUUID,
 		"userToRemove", "userToRemove",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -363,7 +369,7 @@ func (s *userStateSuite) TestGetUserByName(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -392,7 +398,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -404,7 +410,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *gc.C) {
 		context.Background(), userToRemoveUUID,
 		"userToRemove", "userToRemove",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -430,7 +436,7 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -450,7 +456,7 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 		admin2UUID,
 		"admin", "admin2",
 		admin2UUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -491,7 +497,7 @@ func (s *userStateSuite) TestGetUserWithAuthInfoByName(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -527,7 +533,7 @@ func (s *userStateSuite) TestGetUserByAuth(c *gc.C) {
 		adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		passwordHash, salt)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -555,7 +561,7 @@ func (s *userStateSuite) TestGetUserByAuthWithInvalidSalt(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", []byte{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -585,7 +591,7 @@ func (s *userStateSuite) TestGetUserByAuthDisabled(c *gc.C) {
 		adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		passwordHash, salt)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -622,7 +628,7 @@ func (s *userStateSuite) TestGetUserByAuthUnauthorized(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		passwordHash, salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -654,7 +660,7 @@ func (s *userStateSuite) TestRemoveUser(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -666,7 +672,7 @@ func (s *userStateSuite) TestRemoveUser(c *gc.C) {
 		context.Background(), userToRemoveUUID,
 		"userToRemove", "userToRemove",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -727,7 +733,7 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 		context.Background(), admin1UUID,
 		"admin1", "admin1",
 		admin1UUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -743,7 +749,7 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 		context.Background(), admin2UUID,
 		"admin2", "admin2",
 		admin2UUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		admin2ActivationKey,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -807,7 +813,7 @@ func (s *userStateSuite) TestUserWithAuthInfo(c *gc.C) {
 		uuid,
 		name, name,
 		uuid,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -839,7 +845,7 @@ func (s *userStateSuite) TestSetPasswordHash(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		newActivationKey,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -906,7 +912,7 @@ func (s *userStateSuite) TestSetPasswordHashTwice(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		newActivationKey,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -956,7 +962,7 @@ func (s *userStateSuite) TestAddUserWithPasswordHash(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -994,7 +1000,7 @@ func (s *userStateSuite) TestAddUserWithPasswordWhichCreatorDoesNotExist(c *gc.C
 		context.Background(), adminUUID,
 		"admin", "admin",
 		nonExistedCreatorUuid,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
@@ -1015,7 +1021,7 @@ func (s *userStateSuite) TestAddUserWithActivationKey(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		adminActivationKey,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1040,7 +1046,7 @@ func (s *userStateSuite) TestGetActivationKeyNotFound(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1068,7 +1074,7 @@ func (s *userStateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c 
 		context.Background(), adminUUID,
 		"admin", "admin",
 		nonExistedCreatorUuid,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		newActivationKey,
 	)
 	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
@@ -1090,7 +1096,7 @@ func (s *userStateSuite) TestSetActivationKey(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1145,7 +1151,7 @@ func (s *userStateSuite) TestDisableUserAuthentication(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1187,7 +1193,7 @@ func (s *userStateSuite) TestEnableUserAuthentication(c *gc.C) {
 		context.Background(), adminUUID,
 		"admin", "admin",
 		adminUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1222,7 +1228,7 @@ func (s *userStateSuite) TestGetUserUUIDByName(c *gc.C) {
 	uuid, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.AddUser(context.Background(), uuid, "dnuof", "", uuid, controllerLoginAccess())
+	err = st.AddUser(context.Background(), uuid, "dnuof", "", uuid, s.controllerLoginAccess())
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(),
@@ -1355,19 +1361,19 @@ func (s *userStateSuite) addTestUser(c *gc.C, st *UserState, name string) (strin
 		context.Background(), userUUID,
 		name, name,
 		userUUID,
-		controllerLoginAccess(),
+		s.controllerLoginAccess(),
 		"passwordHash", salt,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return name, userUUID
 }
 
-func controllerLoginAccess() permission.AccessSpec {
+func (s *userStateSuite) controllerLoginAccess() permission.AccessSpec {
 	return permission.AccessSpec{
 		Access: permission.LoginAccess,
 		Target: permission.ID{
 			ObjectType: permission.Controller,
-			Key:        coredatabase.ControllerNS,
+			Key:        s.controllerUUID,
 		},
 	}
 }

@@ -19,6 +19,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/rpc/params"
@@ -727,7 +728,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 
 		// get model access
 		models, err := api.cloudAccessService.AllModelAccessForCloudCredential(ctx, key)
-		if err != nil && !errors.Is(err, errors.NotFound) {
+		if err != nil && !errors.Is(err, accesserrors.PermissionNotFound) {
 			return params.CredentialContentResult{Error: apiservererrors.ServerError(err)}
 		}
 		info.Models = make([]params.ModelAccess, len(models))

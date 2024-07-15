@@ -37,14 +37,17 @@ import (
 
 type credentialSuite struct {
 	changestreamtesting.ControllerSuite
-	userUUID user.UUID
-	userName string
+	userUUID       user.UUID
+	userName       string
+	controllerUUID string
 }
 
 var _ = gc.Suite(&credentialSuite{})
 
 func (s *credentialSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
+
+	s.controllerUUID = s.SeedControllerUUID(c)
 
 	s.userName = "test-user"
 	s.userUUID = s.addOwner(c, s.userName)
@@ -66,7 +69,13 @@ func (s *credentialSuite) addOwner(c *gc.C, name string) user.UUID {
 		name,
 		"test user",
 		userUUID,
-		permission.ControllerForAccess(permission.SuperuserAccess),
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.controllerUUID,
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	return userUUID

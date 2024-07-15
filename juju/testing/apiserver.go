@@ -6,7 +6,6 @@ package testing
 import (
 	"context"
 	"crypto/tls"
-	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
@@ -49,7 +48,6 @@ import (
 	"github.com/juju/juju/core/trace"
 	coreuser "github.com/juju/juju/core/user"
 	cloudstate "github.com/juju/juju/domain/cloud/state"
-	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/domain/credential"
 	credentialstate "github.com/juju/juju/domain/credential/state"
 	servicefactorytesting "github.com/juju/juju/domain/servicefactory/testing"
@@ -153,6 +151,9 @@ type ApiServerSuite struct {
 	// AdminUserUUID is the root user for the controller.
 	AdminUserUUID coreuser.UUID
 
+	// ControllerUUID is the unique identifier for the controller.
+	ControllerUUID string
+
 	// InstancePrechecker is used to validate instance creation.
 	// DEPRECATED: This will be removed in the future.
 	InstancePrechecker func(*gc.C, *state.State) environs.InstancePrechecker
@@ -252,6 +253,7 @@ func (s *ApiServerSuite) setupControllerModel(c *gc.C, controllerCfg controller.
 		modelAttrs[k] = v
 	}
 	controllerModelCfg := coretesting.CustomModelConfig(c, modelAttrs)
+	s.ServiceFactorySuite.ControllerConfig = controllerCfg
 	s.ServiceFactorySuite.ControllerModelUUID = coremodel.UUID(controllerModelCfg.UUID())
 	s.ServiceFactorySuite.SetUpTest(c)
 
@@ -373,7 +375,6 @@ func (s *ApiServerSuite) setupApiServer(c *gc.C, controllerCfg controller.Config
 
 func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
-	s.ServiceFactorySuite.SetUpTest(c)
 
 	s.InstancePrechecker = func(c *gc.C, s *state.State) environs.InstancePrechecker {
 		return state.NoopInstancePrechecker{}
@@ -391,6 +392,7 @@ func (s *ApiServerSuite) SetUpTest(c *gc.C) {
 	for key, value := range s.ControllerConfigAttrs {
 		controllerCfg[key] = value
 	}
+	s.ControllerUUID = controllerCfg.ControllerUUID()
 	s.setupControllerModel(c, controllerCfg)
 	s.setupApiServer(c, controllerCfg)
 }
@@ -463,7 +465,7 @@ func (s *ApiServerSuite) ControllerModelApiInfo() *api.Info {
 // connect to an api server's model endpoint. User and password are empty.
 func (s *ApiServerSuite) ModelApiInfo(modelUUID string) *api.Info {
 	info := s.apiInfo
-	info.ControllerUUID = coretesting.ControllerTag.Id()
+	info.ControllerUUID = s.ControllerUUID
 	info.ModelTag = names.NewModelTag(modelUUID)
 	return &info
 }
@@ -636,12 +638,8 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 // SeedDatabase the database with a supplied controller config, and dummy
 // cloud and dummy credentials.
 func SeedDatabase(c *gc.C, controller database.TxnRunner, serviceFactory servicefactory.ServiceFactory, controllerConfig controller.Config) {
-	ctx := context.Background()
-	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(ctx, controller, noopTxnRunner{})
-	c.Assert(err, jc.ErrorIsNil)
-
 	bakeryConfigService := serviceFactory.Macaroon()
-	err = bakeryConfigService.InitialiseBakeryConfig(context.Background())
+	err := bakeryConfigService.InitialiseBakeryConfig(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -794,14 +792,4 @@ func (f *fakePresence) AgentStatus(agent string) (presence.Status, error) {
 		return status, nil
 	}
 	return presence.Alive, nil
-}
-
-type noopTxnRunner struct{}
-
-func (noopTxnRunner) Txn(context.Context, func(context.Context, *sqlair.TX) error) error {
-	return errors.NotImplemented
-}
-
-func (noopTxnRunner) StdTxn(context.Context, func(context.Context, *sql.Tx) error) error {
-	return errors.NotImplemented
 }

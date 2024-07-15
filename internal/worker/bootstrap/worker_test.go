@@ -315,7 +315,7 @@ func (s *workerSuite) expectControllerConfig() {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).
 		Return(controller.Config{
 			controller.ControllerUUIDKey: "test-uuid",
-		}, nil).Times(2)
+		}, nil).Times(3)
 }
 
 func (s *workerSuite) expectUser(c *gc.C) {

@@ -31,3 +31,9 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 
 	c.Check(cert, gc.Equals, testing.CACert)
 }
+
+func (s *bootstrapSuite) TestInsertMinimalControllerConfig(c *gc.C) {
+	cfg := controller.Config{}
+	err := InsertInitialControllerConfig(cfg)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
+	c.Assert(err, gc.ErrorMatches, "no controller config values to insert at bootstrap")
+}

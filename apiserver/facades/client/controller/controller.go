@@ -652,7 +652,13 @@ func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Enti
 			results.Results[i].Error = apiservererrors.ServerError(apiservererrors.ErrPerm)
 			continue
 		}
-		spec := permission.ControllerForAccess(permission.SuperuserAccess)
+		spec := permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        c.controllerTag.Id(),
+			},
+		}
 		accessLevel, err := c.accessService.ReadUserAccessLevelForTarget(ctx, userTag.Id(), spec.Target)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
@@ -798,11 +804,17 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 		}
 
 		updateArgs := access.UpdatePermissionArgs{
-			AccessSpec: permission.ControllerForAccess(permission.Access(arg.Access)),
-			AddUser:    true,
-			ApiUser:    c.apiUser.Id(),
-			Change:     permission.AccessChange(string(arg.Action)),
-			Subject:    targetUserTag.Id(),
+			AccessSpec: permission.AccessSpec{
+				Access: permission.Access(arg.Access),
+				Target: permission.ID{
+					ObjectType: permission.Controller,
+					Key:        c.controllerTag.Id(),
+				},
+			},
+			AddUser: true,
+			ApiUser: c.apiUser.Id(),
+			Change:  permission.AccessChange(string(arg.Action)),
+			Subject: targetUserTag.Id(),
 		}
 		err = c.accessService.UpdatePermission(ctx, updateArgs)
 		result.Results[i].Error = apiservererrors.ServerError(err)

@@ -5,6 +5,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/canonical/sqlair"
 	"github.com/juju/errors"
@@ -68,8 +69,12 @@ func InsertInitialControllerConfig(cfg jujucontroller.Config) internaldatabase.B
 			}
 
 			// Update the attributes.
-			if err := tx.Query(ctx, insertStmt, updateKeyValues).Run(); err != nil {
-				return errors.Trace(err)
+			if len(updateKeyValues) > 0 {
+				if err := tx.Query(ctx, insertStmt, updateKeyValues).Run(); err != nil {
+					return errors.Trace(err)
+				}
+			} else {
+				return fmt.Errorf("no controller config values to insert at bootstrap")
 			}
 
 			return nil

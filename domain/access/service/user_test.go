@@ -25,6 +25,7 @@ import (
 	usererrors "github.com/juju/juju/domain/access/errors"
 	usertesting "github.com/juju/juju/domain/access/testing"
 	"github.com/juju/juju/internal/auth"
+	jujutesting "github.com/juju/juju/internal/testing"
 )
 
 type userServiceSuite struct {
@@ -65,7 +66,13 @@ func (s *userServiceSuite) TestAddUserAlreadyExists(c *gc.C) {
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
 		CreatorUUID: newUUID(c),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        jujutesting.ControllerTag.Id(),
+			},
+		},
 	})
 	c.Assert(err, jc.ErrorIs, usererrors.UserAlreadyExists)
 }
@@ -81,7 +88,13 @@ func (s *userServiceSuite) TestAddUserCreatorUUIDNotFound(c *gc.C) {
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
 		CreatorUUID: newUUID(c),
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        jujutesting.ControllerTag.Id(),
+			},
+		},
 	})
 	c.Assert(err, jc.ErrorIs, usererrors.UserCreatorUUIDNotFound)
 }
@@ -93,7 +106,13 @@ func (s *userServiceSuite) TestAddUserWithPassword(c *gc.C) {
 	userUUID := newUUID(c)
 	creatorUUID := newUUID(c)
 
-	perms := permission.ControllerForAccess(permission.LoginAccess)
+	perms := permission.AccessSpec{
+		Access: permission.LoginAccess,
+		Target: permission.ID{
+			ObjectType: permission.Controller,
+			Key:        jujutesting.ControllerTag.Id(),
+		},
+	}
 
 	s.state.EXPECT().AddUserWithPasswordHash(
 		gomock.Any(), userUUID, "valid", "display", creatorUUID, perms, gomock.Any(), gomock.Any()).Return(nil)
@@ -129,7 +148,13 @@ func (s *userServiceSuite) TestAddUserWithPasswordNotValid(c *gc.C) {
 		DisplayName: "display",
 		Password:    &badPass,
 		CreatorUUID: creatorUUID,
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        jujutesting.ControllerTag.Id(),
+			},
+		},
 	})
 	c.Assert(err, jc.ErrorIs, auth.ErrPasswordNotValid)
 }

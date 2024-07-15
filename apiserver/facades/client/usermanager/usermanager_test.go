@@ -64,7 +64,13 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 		DisplayName: "Foo Bar",
 		Password:    &pass,
 		CreatorUUID: s.apiUser.UUID,
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+		},
 	}).Return(newUserUUID(c), nil, nil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -94,7 +100,13 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 		Name:        "foobar",
 		DisplayName: "Foo Bar",
 		CreatorUUID: s.apiUser.UUID,
-		Permission:  permission.ControllerForAccess(permission.LoginAccess),
+		Permission: permission.AccessSpec{
+			Access: permission.LoginAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
+			},
+		},
 	}).Return(newUserUUID(c), []byte("secret-key"), nil)
 
 	args := params.AddUsers{
@@ -317,19 +329,19 @@ func (s *userManagerSuite) TestUserInfo(c *gc.C) {
 
 	exp.ReadUserAccessForTarget(gomock.Any(), "foobar", permission.ID{
 		ObjectType: permission.Controller,
-		Key:        "controller",
+		Key:        s.ControllerUUID,
 	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil)
 
 	// No access granted directly to the external user.
 	exp.ReadUserAccessForTarget(gomock.Any(), "mary@external", permission.ID{
 		ObjectType: permission.Controller,
-		Key:        "controller",
+		Key:        s.ControllerUUID,
 	}).Return(permission.UserAccess{Access: permission.NoAccess}, nil)
 
 	// But the special everyone group does have access.
 	exp.ReadUserAccessForTarget(gomock.Any(), "everyone@external", permission.ID{
 		ObjectType: permission.Controller,
-		Key:        "controller",
+		Key:        s.ControllerUUID,
 	}).Return(permission.UserAccess{Access: permission.SuperuserAccess}, nil)
 
 	args := params.UserInfoRequest{
@@ -424,7 +436,7 @@ func (s *userManagerSuite) TestUserInfoAll(c *gc.C) {
 	// users have NoPermissions.
 	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "fred", permission.ID{
 		ObjectType: permission.Controller,
-		Key:        "controller",
+		Key:        s.ControllerUUID,
 	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil).Times(2)
 
 	results, err := s.api.UserInfo(context.Background(), params.UserInfoRequest{})
@@ -470,7 +482,7 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 
 	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "aardvark", permission.ID{
 		ObjectType: permission.Controller,
-		Key:        "controller",
+		Key:        s.ControllerUUID,
 	}).Return(permission.UserAccess{Access: permission.LoginAccess}, nil)
 
 	f, release := s.NewFactory(c, s.ControllerModelUUID())
@@ -512,13 +524,13 @@ func (s *userManagerSuite) TestUserInfoEveryonePermission(c *gc.C) {
 	// No access granted directly to the user.
 	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "aardvark@external", permission.ID{
 		ObjectType: permission.Controller,
-		Key:        "controller",
+		Key:        s.ControllerUUID,
 	}).Return(permission.UserAccess{Access: permission.NoAccess}, nil)
 
 	// But the special everyone group does have access.
 	s.accessService.EXPECT().ReadUserAccessForTarget(gomock.Any(), "everyone@external", permission.ID{
 		ObjectType: permission.Controller,
-		Key:        "controller",
+		Key:        s.ControllerUUID,
 	}).Return(permission.UserAccess{Access: permission.SuperuserAccess}, nil)
 
 	args := params.UserInfoRequest{Entities: []params.Entity{{Tag: names.NewUserTag("aardvark@external").String()}}}
@@ -1055,6 +1067,7 @@ func (s *userManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 		s.apiUser,
 		s.apiUser.Name == "admin",
 		ctx.Logger(),
+		s.ControllerUUID,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

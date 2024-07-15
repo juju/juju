@@ -18,11 +18,9 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasapplication"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
-	controllerconfigbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
 	"github.com/juju/juju/domain/servicefactory/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/storage/provider"
-	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -42,10 +40,6 @@ type CAASApplicationSuite struct {
 
 func (s *CAASApplicationSuite) SetUpTest(c *gc.C) {
 	s.ServiceFactorySuite.SetUpTest(c)
-
-	controllerConfig := coretesting.FakeControllerConfig()
-	err := controllerconfigbootstrap.InsertInitialControllerConfig(controllerConfig)(context.Background(), s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
 
 	s.clock = testclock.NewClock(time.Now())
 

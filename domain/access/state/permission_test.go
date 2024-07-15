@@ -27,6 +27,7 @@ import (
 type permissionStateSuite struct {
 	schematesting.ControllerSuite
 
+	controllerUUID   string
 	modelUUID        coremodel.UUID
 	defaultModelUUID coremodel.UUID
 	debug            bool
@@ -36,6 +37,7 @@ var _ = gc.Suite(&permissionStateSuite{})
 
 func (s *permissionStateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
+	s.controllerUUID = s.SeedControllerUUID(c)
 
 	// Setup to add permissions for user bob on the model
 
@@ -109,7 +111,7 @@ func (s *permissionStateSuite) TestCreatePermissionController(c *gc.C) {
 		User: "bob",
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
-				Key:        "controller",
+				Key:        s.controllerUUID,
 				ObjectType: corepermission.Controller,
 			},
 			Access: corepermission.SuperuserAccess,
@@ -120,7 +122,7 @@ func (s *permissionStateSuite) TestCreatePermissionController(c *gc.C) {
 
 	c.Check(userAccess.UserID, gc.Equals, "123")
 	c.Check(userAccess.UserTag, gc.Equals, names.NewUserTag("bob"))
-	c.Check(userAccess.Object.Id(), gc.Equals, "controller")
+	c.Check(userAccess.Object.Id(), gc.Equals, s.controllerUUID)
 	c.Check(userAccess.Access, gc.Equals, corepermission.SuperuserAccess)
 	c.Check(userAccess.DisplayName, gc.Equals, "bob")
 	c.Check(userAccess.UserName, gc.Equals, "bob")
@@ -150,7 +152,7 @@ func (s *permissionStateSuite) TestCreatePermissionForControllerWithBadInfo(c *g
 	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	// The only valid key for an object type of Controller is
-	// 'controller'
+	// the controller UUID.
 	_, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
 		User: "bob",
 		AccessSpec: corepermission.AccessSpec{
@@ -299,7 +301,7 @@ func (s *permissionStateSuite) TestReadUserAccessForTarget(c *gc.C) {
 	st := NewPermissionState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	target := corepermission.ID{
-		Key:        "controller",
+		Key:        s.controllerUUID,
 		ObjectType: corepermission.Controller,
 	}
 	createUserAccess, err := st.CreatePermission(context.Background(), uuid.MustNewUUID(), corepermission.UserAccessSpec{
@@ -486,7 +488,7 @@ func (s *permissionStateSuite) TestUpsertPermissionGrantNewUser(c *gc.C) {
 		User: "admin",
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
-				Key:        "controller",
+				Key:        s.controllerUUID,
 				ObjectType: corepermission.Controller,
 			},
 			Access: corepermission.SuperuserAccess,
@@ -722,7 +724,7 @@ func (s *permissionStateSuite) setupForRead(c *gc.C, st *PermissionState) {
 		User: "admin",
 		AccessSpec: corepermission.AccessSpec{
 			Target: corepermission.ID{
-				Key:        "controller",
+				Key:        s.controllerUUID,
 				ObjectType: corepermission.Controller,
 			},
 			Access: corepermission.SuperuserAccess,

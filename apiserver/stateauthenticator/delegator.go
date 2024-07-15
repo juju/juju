@@ -30,22 +30,9 @@ func (p *PermissionDelegator) SubjectPermissions(
 	}
 	userID := userTag.Id()
 
-	var permissionID permission.ID
-	// TODO (manadart 2024-05-27): Follow up with this.
-	// checkUserPermissions in admin.go checks for access to a controller tag,
-	// which is constituted by a controller ID, but we appear to be granting
-	// access to an entity called "controller".
-	if _, ok := target.(names.ControllerTag); ok {
-		permissionID = permission.ID{
-			ObjectType: permission.Controller,
-			Key:        "controller",
-		}
-	} else {
-		var err error
-		permissionID, err = permission.ParseTagForID(target)
-		if err != nil {
-			return permission.NoAccess, errors.Trace(err)
-		}
+	permissionID, err := permission.ParseTagForID(target)
+	if err != nil {
+		return permission.NoAccess, errors.Trace(err)
 	}
 
 	access, err := p.AccessService.ReadUserAccessForTarget(context.TODO(), userID, permissionID)

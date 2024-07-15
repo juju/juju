@@ -21,9 +21,16 @@ import (
 
 type bootstrapSuite struct {
 	schematesting.ControllerSuite
+
+	controllerUUID string
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
+
+func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+	s.ControllerSuite.SetUpTest(c)
+	s.controllerUUID = s.SeedControllerUUID(c)
+}
 
 func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 	ctx := context.Background()
@@ -37,7 +44,13 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 		"fred",
 		"test user",
 		userUUID,
-		permission.ControllerForAccess(permission.SuperuserAccess),
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.controllerUUID,
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

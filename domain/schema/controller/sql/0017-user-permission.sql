@@ -116,7 +116,7 @@ FROM v_permission AS p
 INNER JOIN cloud ON p.grant_on = cloud.name
 WHERE p.object_type = 'cloud';
 
--- All controller permissions
+-- All controller permissions, verifying the controller does exists.
 CREATE VIEW v_permission_controller AS
 SELECT
     p.uuid,
@@ -125,4 +125,5 @@ SELECT
     p.access_type,
     p.object_type
 FROM v_permission AS p
-WHERE p.grant_on = 'controller' AND p.object_type = 'controller';
+INNER JOIN controller ON p.grant_on = controller.uuid
+WHERE p.object_type = 'controller';

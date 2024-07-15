@@ -41,6 +41,8 @@ type stateSuite struct {
 	schematesting.ControllerSuite
 	state *State
 
+	controllerUUID string
+
 	internalBackendID   string
 	kubernetesBackendID string
 	vaultBackendID      string
@@ -51,17 +53,8 @@ var _ = gc.Suite(&stateSuite{})
 func (s *stateSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
+	s.controllerUUID = s.SeedControllerUUID(c)
 	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-}
-
-func (s *stateSuite) setupController(c *gc.C) string {
-	controllerUUID := uuid.MustNewUUID().String()
-	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO controller (uuid) VALUES (?)`, controllerUUID)
-		return err
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return controllerUUID
 }
 
 func (s *stateSuite) createModel(c *gc.C, modelType coremodel.ModelType) coremodel.UUID {
@@ -132,7 +125,13 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 		userUUID,
 		// TODO (stickupkid): This should be AdminAccess, but we don't have
 		// a model to set the user as the owner of.
-		permission.ControllerForAccess(permission.SuperuserAccess),
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.controllerUUID,
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -356,7 +355,7 @@ func (s *stateSuite) TestCreateSecretBackendWithNoRotateNoConfig(c *gc.C) {
 	}, nil)
 }
 
-func (s *stateSuite) TestupsertSecretBackendInvalidArg(c *gc.C) {
+func (s *stateSuite) TestUpsertSecretBackendInvalidArg(c *gc.C) {
 	_, err := s.state.upsertSecretBackend(context.Background(), nil, upsertSecretBackendParams{})
 	c.Check(err, gc.ErrorMatches, `secret backend not valid: ID is missing`)
 
@@ -1330,13 +1329,12 @@ func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
 }
 
 func (s *stateSuite) TestGetModelSecretBackendDetails(c *gc.C) {
-	controllerUUID := s.setupController(c)
 	modelUUID := s.createModel(c, coremodel.IAAS)
 
 	result, err := s.state.GetModelSecretBackendDetails(context.Background(), modelUUID)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, secretbackend.ModelSecretBackend{
-		ControllerUUID:  controllerUUID,
+		ControllerUUID:  s.controllerUUID,
 		ID:              modelUUID,
 		Name:            "my-model",
 		Type:            "iaas",

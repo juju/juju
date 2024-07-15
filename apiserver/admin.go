@@ -468,7 +468,7 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 			common.EveryoneTagName,
 			permission.ID{
 				ObjectType: permission.Controller,
-				Key:        "controller",
+				Key:        a.root.shared.controllerUUID,
 			},
 		)
 		if err != nil && !errors.Is(err, accesserrors.UserNotFound) && !errors.Is(err, accesserrors.PermissionNotFound) {
