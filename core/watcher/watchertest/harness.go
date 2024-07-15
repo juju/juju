@@ -26,12 +26,6 @@ type Idler interface {
 	AssertChangeStreamIdle(c *gc.C)
 }
 
-// AssertWatcher is an interface that can be used to assert changes.
-type AssertWatcher interface {
-	AssertNoChange()
-	AssertChange(changes ...string)
-}
-
 // Harness is a test harness for testing watchers.
 // The harness is created to ensure that for every watcher, they have a
 // predictable lifecycle. This means that every watcher must adhere to the
@@ -42,6 +36,8 @@ type AssertWatcher interface {
 //  3. Run the setup for the test.
 //  4. The change stream should become idle.
 //  5. Assert the changes.
+//  6. The watcher should not emit any more changes.
+//  7. The change stream should be idle, or become idle.
 //
 // Steps from 3 to 5 are repeated for each test added to the harness.
 // Once the tests are run, the harness ensures that there are no more changes
@@ -54,18 +50,18 @@ type AssertWatcher interface {
 //
 // This isolation technique allows us to test the watcher in a predictable
 // manner.
-type Harness struct {
-	watcher AssertWatcher
+type Harness[T any] struct {
+	watcher WatcherC[T]
 	idler   Idler
-	tests   []harnessTest
+	tests   []harnessTest[T]
 }
 
 // NewHarness creates a new Harness. The idler is used to ensure that the
 // change stream is idle.
 // The watcher is used to assert the changes against. Normally this should be
 // a NotifyWatcherC or a StringsWatcherC.
-func NewHarness(idler Idler, watcher AssertWatcher) *Harness {
-	h := &Harness{
+func NewHarness[T any](idler Idler, watcher WatcherC[T]) *Harness[T] {
+	h := &Harness[T]{
 		watcher: watcher,
 		idler:   idler,
 	}
@@ -76,24 +72,22 @@ func NewHarness(idler Idler, watcher AssertWatcher) *Harness {
 // This is split into two functions to allow for the checking of the
 // assert change stream idle call in between the setup and the assertion.
 // Run must be called after all the tests have been added.
-func (h *Harness) AddTest(setup func(*gc.C), assert func(AssertWatcher)) {
-	h.tests = append(h.tests, harnessTest{
+func (h *Harness[T]) AddTest(setup func(*gc.C), assert func(WatcherC[T])) {
+	h.tests = append(h.tests, harnessTest[T]{
 		setup:  setup,
 		assert: assert,
 	})
 }
 
 // Run runs all the tests added to the harness.
-func (h *Harness) Run(c *gc.C) {
-	if h.watcher == nil {
-		c.Fatalf("watcher is nil")
-	}
+func (h *Harness[T]) Run(c *gc.C) {
 	if len(h.tests) == 0 {
 		c.Fatalf("no tests")
 	}
 
 	// Ensure that the initial event is sent by the watcher.
-	h.watcher.AssertChange()
+	var initial T
+	h.watcher.Check(SliceAssert[T](initial))
 	h.idler.AssertChangeStreamIdle(c)
 
 	for i, test := range h.tests {
@@ -105,11 +99,13 @@ func (h *Harness) Run(c *gc.C) {
 		test.assert(h.watcher)
 	}
 
+	// Ensure that the watcher doesn't emit any more changes.
+
 	h.watcher.AssertNoChange()
 	h.idler.AssertChangeStreamIdle(c)
 }
 
-type harnessTest struct {
+type harnessTest[T any] struct {
 	setup  func(*gc.C)
-	assert func(AssertWatcher)
+	assert func(WatcherC[T])
 }

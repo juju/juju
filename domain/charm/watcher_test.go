@@ -39,7 +39,7 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	watcher, err := svc.WatchCharms()
 	c.Assert(err, jc.ErrorIsNil)
 
-	harness := watchertest.NewHarness(s, watchertest.NewStringsWatcherC(c, watcher))
+	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
 
 	// Ensure that we get the charm created event.
 
@@ -47,8 +47,10 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	harness.AddTest(func(c *gc.C) {
 		id, err = svc.SetCharm(context.Background(), &stubCharm{})
 		c.Assert(err, jc.ErrorIsNil)
-	}, func(w watchertest.AssertWatcher) {
-		w.AssertChange(id.String())
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert[string](id.String()),
+		)
 	})
 
 	// Ensure that we get the charm deleted event.
@@ -56,8 +58,10 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	harness.AddTest(func(c *gc.C) {
 		err := svc.DeleteCharm(context.Background(), id)
 		c.Assert(err, jc.ErrorIsNil)
-	}, func(w watchertest.AssertWatcher) {
-		w.AssertChange(id.String())
+	}, func(w watchertest.WatcherC[[]string]) {
+		w.Check(
+			watchertest.StringSliceAssert[string](id.String()),
+		)
 	})
 
 	harness.Run(c)
@@ -73,15 +77,13 @@ func (s *stubCharm) Meta() *internalcharm.Meta {
 
 func (s *stubCharm) Manifest() *internalcharm.Manifest {
 	return &internalcharm.Manifest{
-		Bases: []internalcharm.Base{
-			{
-				Name: "ubuntu",
-				Channel: internalcharm.Channel{
-					Risk: internalcharm.Stable,
-				},
-				Architectures: []string{"amd64"},
+		Bases: []internalcharm.Base{{
+			Name: "ubuntu",
+			Channel: internalcharm.Channel{
+				Risk: internalcharm.Stable,
 			},
-		},
+			Architectures: []string{"amd64"},
+		}},
 	}
 }
 

@@ -37,7 +37,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *gc.C) {
 	watcher, err := svc.WatchControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	harness := watchertest.NewHarness(s, watchertest.NewStringsWatcherC(c, watcher))
+	harness := watchertest.NewHarness[[]string](s, watchertest.NewWatcherC[[]string](c, watcher))
 
 	harness.AddTest(func(c *gc.C) {
 		cfgMap := map[string]any{
@@ -50,14 +50,16 @@ func (s *watcherSuite) TestWatchControllerConfig(c *gc.C) {
 
 		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
 		c.Assert(err, jc.ErrorIsNil)
-	}, func(w watchertest.AssertWatcher) {
+	}, func(w watchertest.WatcherC[[]string]) {
 		// Get the change.
-		w.AssertChange(
-			controller.AuditingEnabled,
-			controller.AuditLogCaptureArgs,
-			controller.AuditLogMaxBackups,
-			controller.APIPortOpenDelay,
-			controller.MigrationMinionWaitMax,
+		w.Check(
+			watchertest.StringSliceAssert[string](
+				controller.AuditingEnabled,
+				controller.AuditLogCaptureArgs,
+				controller.AuditLogMaxBackups,
+				controller.APIPortOpenDelay,
+				controller.MigrationMinionWaitMax,
+			),
 		)
 	})
 
@@ -68,10 +70,12 @@ func (s *watcherSuite) TestWatchControllerConfig(c *gc.C) {
 
 		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
 		c.Assert(err, jc.ErrorIsNil)
-	}, func(w watchertest.AssertWatcher) {
+	}, func(w watchertest.WatcherC[[]string]) {
 		// Get the change.
-		w.AssertChange(
-			controller.AuditLogMaxBackups,
+		w.Check(
+			watchertest.StringSliceAssert[string](
+				controller.AuditLogMaxBackups,
+			),
 		)
 	})
 
@@ -82,7 +86,7 @@ func (s *watcherSuite) TestWatchControllerConfig(c *gc.C) {
 
 		err = svc.UpdateControllerConfig(context.Background(), cfgMap, nil)
 		c.Assert(err, jc.ErrorIsNil)
-	}, func(w watchertest.AssertWatcher) {
+	}, func(w watchertest.WatcherC[[]string]) {
 		// The value is the same, we shouldn't get a change.
 		w.AssertNoChange()
 	})
