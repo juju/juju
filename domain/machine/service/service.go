@@ -30,6 +30,10 @@ type State interface {
 	// It returns a NotFound if the given machine doesn't exist.
 	GetMachineLife(context.Context, machine.Name) (*life.Life, error)
 
+	// SetMachineLife sets the life status of the specified machine.
+	// It returns a NotFound if the provided machine doesn't exist.
+	SetMachineLife(context.Context, machine.Name, life.Life) error
+
 	// AllMachineNames retrieves the names of all machines in the model.
 	// If there's no machine, it returns an empty slice.
 	AllMachineNames(context.Context) ([]machine.Name, error)
@@ -115,6 +119,20 @@ func (s *Service) DeleteMachine(ctx context.Context, machineName machine.Name) e
 func (s *Service) GetMachineLife(ctx context.Context, machineName machine.Name) (*life.Life, error) {
 	life, err := s.st.GetMachineLife(ctx, machineName)
 	return life, errors.Annotatef(err, "getting life status for machine %q", machineName)
+}
+
+// SetMachineLife sets the life status of the specified machine.
+// It returns a NotFound if the provided machine doesn't exist.
+func (s *Service) SetMachineLife(ctx context.Context, machineName machine.Name, life life.Life) error {
+	err := s.st.SetMachineLife(ctx, machineName, life)
+	return errors.Annotatef(err, "setting life status for machine %q", machineName)
+}
+
+// EnsureDeadMachine sets the provided machine's life status to Dead.
+// No error is returned if the provided machine doesn't exist, just nothing gets
+// updated.
+func (s *Service) EnsureDeadMachine(ctx context.Context, machineName machine.Name) error {
+	return s.SetMachineLife(ctx, machineName, life.Dead)
 }
 
 // AllMachineNames returns the names of all machines in the model.

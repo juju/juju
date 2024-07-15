@@ -182,7 +182,7 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 			return errors.Annotatef(err, "looking up life for machine %q", mName)
 		}
 
-		lifeResult = result.ID
+		lifeResult = result.LifeID
 
 		return nil
 	})
@@ -192,6 +192,51 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 	}
 
 	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", mName)
+}
+
+// SetMachineLife sets the life status of the specified machine.
+// It returns a NotFound if the provided machine doesn't exist.
+func (st *State) SetMachineLife(ctx context.Context, mName machine.Name, life life.Life) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prepare query for machine UUID.
+	machineNameParam := machineName{Name: mName}
+	machineUUIDoutput := machineUUID{}
+	uuidQuery := `SELECT &machineUUID.uuid FROM machine WHERE name = $machineName.name`
+	uuidQueryStmt, err := st.Prepare(uuidQuery, machineNameParam, machineUUIDoutput)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prepare query for updating machine life.
+	machineLifeParam := machineLife{LifeID: life}
+	query := `UPDATE machine SET life_id = $machineLife.life_id WHERE uuid = $machineLife.uuid`
+	queryStmt, err := st.Prepare(query, machineLifeParam)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Query for machine uuid, return NotFound if machine doesn't exist.
+		err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUIDoutput)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.NotFoundf("machine not found %q", mName)
+			}
+			return errors.Annotatef(err, "querying UUID for machine %q", mName)
+		}
+
+		// Update machine life status.
+		machineLifeParam.UUID = machineUUIDoutput.UUID
+		err = tx.Query(ctx, queryStmt, machineLifeParam).Run()
+		if err != nil {
+			return errors.Annotatef(err, "setting life for machine %q", mName)
+		}
+		return nil
+	})
 }
 
 // IsController returns whether the machine is a controller machine.

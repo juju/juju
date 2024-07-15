@@ -14,6 +14,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
@@ -35,6 +36,15 @@ type NetworkService interface {
 	GetAllSubnets(ctx context.Context) (network.SubnetInfos, error)
 	// AddSubnet creates and returns a new subnet.
 	AddSubnet(ctx context.Context, args network.SubnetInfo) (network.Id, error)
+}
+
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// EnsureDeadMachine sets the provided machine's life status to Dead.
+	// No error is returned if the provided machine doesn't exist, just nothing
+	// gets updated.
+	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
 }
 
 // MachinerAPI implements the API used by the machiner worker.
@@ -61,6 +71,7 @@ func NewMachinerAPIForState(
 	controllerConfigService ControllerConfigService,
 	cloudService common.CloudService,
 	networkService NetworkService,
+	machineService MachineService,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*MachinerAPI, error) {
@@ -80,7 +91,7 @@ func NewMachinerAPIForState(
 	return &MachinerAPI{
 		LifeGetter:              common.NewLifeGetter(st, getCanAccess),
 		StatusSetter:            common.NewStatusSetter(st, getCanAccess),
-		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getCanAccess),
+		DeadEnsurer:             common.NewDeadEnsurer(st, nil, getCanAccess, machineService),
 		AgentEntityWatcher:      common.NewAgentEntityWatcher(st, resources, getCanAccess),
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
 		NetworkConfigAPI:        netConfigAPI,

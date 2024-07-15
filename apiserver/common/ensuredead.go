@@ -10,30 +10,42 @@ import (
 	"github.com/juju/names/v5"
 
 	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
 
+// MachineService defines the methods that the facade assumes from the Machine
+// service.
+type MachineService interface {
+	// EnsureDeadMachine sets the provided machine's life status to Dead.
+	// No error is returned if the provided machine doesn't exist, just nothing
+	// gets updated.
+	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
+}
+
 // DeadEnsurer implements a common EnsureDead method for use by
 // various facades.
 type DeadEnsurer struct {
-	st           state.EntityFinder
-	afterDead    func(names.Tag)
-	getCanModify GetAuthFunc
+	st             state.EntityFinder
+	afterDead      func(names.Tag)
+	getCanModify   GetAuthFunc
+	machineService MachineService
 }
 
 // NewDeadEnsurer returns a new DeadEnsurer. The GetAuthFunc will be
 // used on each invocation of EnsureDead to determine current
 // permissions.
-func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModify GetAuthFunc) *DeadEnsurer {
+func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModify GetAuthFunc, machineService MachineService) *DeadEnsurer {
 	return &DeadEnsurer{
-		st:           st,
-		afterDead:    afterDead,
-		getCanModify: getCanModify,
+		st:             st,
+		afterDead:      afterDead,
+		getCanModify:   getCanModify,
+		machineService: machineService,
 	}
 }
 
-func (d *DeadEnsurer) ensureEntityDead(tag names.Tag) error {
+func (d *DeadEnsurer) ensureEntityDead(ctx context.Context, tag names.Tag) error {
 	entity0, err := d.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -45,6 +57,13 @@ func (d *DeadEnsurer) ensureEntityDead(tag names.Tag) error {
 	if err := entity.EnsureDead(); err != nil {
 		return errors.Trace(err)
 	}
+	// Double write the Dead life status on dqlite if the entity is a machine.
+	if tag.Kind() == names.MachineTagKind {
+		if err := d.machineService.EnsureDeadMachine(ctx, machine.Name(tag.Id())); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if d.afterDead != nil {
 		d.afterDead(tag)
 	}
@@ -73,7 +92,7 @@ func (d *DeadEnsurer) EnsureDead(ctx context.Context, args params.Entities) (par
 
 		err = apiservererrors.ErrPerm
 		if canModify(tag) {
-			err = d.ensureEntityDead(tag)
+			err = d.ensureEntityDead(ctx, tag)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}

@@ -27,9 +27,11 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	environtesting "github.com/juju/juju/environs/testing"
@@ -95,10 +97,15 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 
 		s.machines = append(s.machines, testing.AddControllerMachine(c, st, controllerConfig))
 	}
+
+	s.serviceFactory = s.ControllerServiceFactory(c)
+
 	for i := 0; i < 5; i++ {
-		machine, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
+		m, err := st.AddMachine(state.NoopInstancePrechecker{}, state.UbuntuBase("12.10"), state.JobHostUnits)
 		c.Check(err, jc.ErrorIsNil)
-		s.machines = append(s.machines, machine)
+		_, err = s.serviceFactory.Machine().CreateMachine(context.Background(), machine.Name(m.Id()))
+		c.Assert(err, jc.ErrorIsNil)
+		s.machines = append(s.machines, m)
 	}
 
 	// Create a FakeAuthorizer so we can check permissions,
@@ -111,7 +118,6 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	// Register, and to register the root for tools URLs.
 	s.resources = common.NewResources()
 
-	s.serviceFactory = s.ControllerServiceFactory(c)
 	// Create a provisioner API for the machine.
 	provisionerAPI, err := provisioner.NewProvisionerAPIV11(context.Background(), facadetest.ModelContext{
 		Auth_:           s.authorizer,
@@ -651,11 +657,16 @@ func (s *withoutControllerSuite) TestMachinesWithTransientErrorsPermission(c *gc
 }
 
 func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
-	err := s.machines[1].EnsureDead()
+	machineName0 := machine.Name(s.machines[0].Id())
+	machineName1 := machine.Name(s.machines[1].Id())
+	machineName2 := machine.Name(s.machines[2].Id())
+
+	err := s.serviceFactory.Machine().SetMachineLife(context.Background(), machineName0, life.Alive)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertLife(c, 0, state.Alive)
-	s.assertLife(c, 1, state.Dead)
-	s.assertLife(c, 2, state.Alive)
+	err = s.serviceFactory.Machine().SetMachineLife(context.Background(), machineName1, life.Dead)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.serviceFactory.Machine().SetMachineLife(context.Background(), machineName2, life.Alive)
+	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: s.machines[0].Tag().String()},
@@ -679,9 +690,15 @@ func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
 	})
 
 	// Verify the changes.
-	s.assertLife(c, 0, state.Dead)
-	s.assertLife(c, 1, state.Dead)
-	s.assertLife(c, 2, state.Dead)
+	obtainedLife, err := s.serviceFactory.Machine().GetMachineLife(context.Background(), machine.Name(s.machines[0].Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(*obtainedLife, gc.Equals, life.Dead)
+	obtainedLife, err = s.serviceFactory.Machine().GetMachineLife(context.Background(), machine.Name(s.machines[1].Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(*obtainedLife, gc.Equals, life.Dead)
+	obtainedLife, err = s.serviceFactory.Machine().GetMachineLife(context.Background(), machine.Name(s.machines[2].Id()))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(*obtainedLife, gc.Equals, life.Dead)
 }
 
 func (s *withoutControllerSuite) assertLife(c *gc.C, index int, expectLife state.Life) {

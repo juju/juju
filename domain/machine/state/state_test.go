@@ -168,6 +168,34 @@ func (s *stateSuite) TestListAllMachines(c *gc.C) {
 	c.Assert(ms, gc.DeepEquals, expectedMachines)
 }
 
+// TestSetMachineLifeSuccess asserts the happy path of SetMachineLife at the
+// state layer.
+func (s *stateSuite) TestSetMachineLifeSuccess(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Assert the life status is initially Alive
+	obtainedLife, err := s.state.GetMachineLife(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(*obtainedLife, gc.Equals, life.Alive)
+
+	// Set the machine's life to Dead
+	err = s.state.SetMachineLife(context.Background(), "666", life.Dead)
+	c.Check(err, jc.ErrorIsNil)
+
+	// Assert we get the Dead as the machine's new life status.
+	obtainedLife, err = s.state.GetMachineLife(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(*obtainedLife, gc.Equals, life.Dead)
+}
+
+// TestSetMachineLifeNotFoundError asserts that we get a NotFound if the
+// provided machine doesn't exist.
+func (s *stateSuite) TestSetMachineLifeNotFoundError(c *gc.C) {
+	err := s.state.SetMachineLife(context.Background(), "666", life.Dead)
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
 // TestListAllMachinesEmpty asserts that AllMachineNames returns an empty list
 // if there are no machines.
 func (s *stateSuite) TestListAllMachinesEmpty(c *gc.C) {

@@ -32,6 +32,7 @@ type machinerSuite struct {
 	resources      *common.Resources
 	machiner       *machine.MachinerAPI
 	networkService *MockNetworkService
+	machineService *MockMachineService
 }
 
 var _ = gc.Suite(&machinerSuite{})
@@ -40,10 +41,12 @@ func (s *machinerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.networkService = NewMockNetworkService(ctrl)
+	s.machineService = NewMockMachineService(ctrl)
 	return ctrl
 }
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	s.commonSuite.SetUpTest(c)
 
 	// Create the resource registry separately to track invocations to
@@ -59,6 +62,7 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		apiservertesting.ConstCloudGetter(&testing.DefaultCloud),
 		s.networkService,
+		s.machineService,
 		s.resources,
 		s.authorizer,
 	)
@@ -79,6 +83,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 		s.ControllerServiceFactory(c).ControllerConfig(),
 		nil,
 		s.networkService,
+		s.machineService,
 		s.resources,
 		anAuthorizer,
 	)
@@ -156,6 +161,7 @@ func (s *machinerSuite) TestLife(c *gc.C) {
 }
 
 func (s *machinerSuite) TestEnsureDead(c *gc.C) {
+
 	c.Assert(s.machine0.Life(), gc.Equals, state.Alive)
 	c.Assert(s.machine1.Life(), gc.Equals, state.Alive)
 
@@ -164,6 +170,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
+	s.machineService.EXPECT().EnsureDeadMachine(gomock.Any(), "1").Return(nil).Times(1)
 	result, err := s.machiner.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{

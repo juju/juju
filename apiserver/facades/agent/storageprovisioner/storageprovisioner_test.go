@@ -51,6 +51,7 @@ func (s *provisionerSuite) TestNewStorageProvisionerAPINonMachine(c *gc.C) {
 		storageBackend,
 		s.DefaultModelServiceFactory(c).BlockDevice(),
 		s.ControllerServiceFactory(c).Config(),
+		s.DefaultModelServiceFactory(c).Machine(),
 		common.NewResources(),
 		authorizer,
 		nil, nil,
