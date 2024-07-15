@@ -88,7 +88,7 @@ type State interface {
 
 	// SetCharm persists the charm metadata, actions, config and manifest to
 	// state.
-	SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error)
+	SetCharm(ctx context.Context, charm charm.Charm, state charm.SetStateArgs) (corecharm.ID, error)
 
 	// DeleteCharm removes the charm from the state.
 	// If the charm does not exist, a NotFound error is returned.
@@ -315,13 +315,31 @@ func (s *Service) ReserveCharmRevision(ctx context.Context, id corecharm.ID, rev
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *Service) SetCharm(ctx context.Context, charm internalcharm.Charm) (corecharm.ID, error) {
-	ch, err := encodeCharm(charm)
+func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, error) {
+	meta := args.Charm.Meta()
+	if meta == nil {
+		return "", charmerrors.MetadataNotValid
+	} else if meta.Name == "" {
+		return "", charmerrors.NameNotValid
+	}
+
+	source, err := encodeCharmSource(args.Source)
+	if err != nil {
+		return "", fmt.Errorf("encode charm source: %w", err)
+	}
+
+	ch, err := encodeCharm(args.Charm)
 	if err != nil {
 		return "", fmt.Errorf("encode charm: %w", err)
 	}
 
-	charmID, err := s.st.SetCharm(ctx, ch)
+	charmID, err := s.st.SetCharm(ctx, ch, charm.SetStateArgs{
+		Source:      source,
+		Revision:    args.Revision,
+		Hash:        args.Hash,
+		ArchivePath: args.ArchivePath,
+		Version:     args.Version,
+	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}

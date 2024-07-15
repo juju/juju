@@ -5,6 +5,8 @@ package charm
 
 import (
 	"github.com/juju/version/v2"
+
+	internalcharm "github.com/juju/juju/internal/charm"
 )
 
 // GetCharmArgs holds the arguments for the GetCharmID method.
@@ -18,6 +20,46 @@ type GetCharmArgs struct {
 	// Revision allows the selection of a specific revision of the charm.
 	// Otherwise, the latest revision is returned.
 	Revision *int
+}
+
+// CharmSource represents the source of a charm.
+type CharmSource string
+
+const (
+	// LocalSource represents a local charm source.
+	LocalSource CharmSource = "local"
+	// CharmHubSource represents a charmhub charm source.
+	CharmHubSource CharmSource = "charmhub"
+)
+
+// SetCharmArgs holds the arguments for the SetCharm method.
+type SetCharmArgs struct {
+	// Charm is the charm to set.
+	Charm internalcharm.Charm
+	// Source is the source of the charm.
+	Source internalcharm.Schema
+	// Revision is the revision of the charm.
+	Revision int
+	// Hash is the hash of the charm.
+	Hash string
+	// ArchivePath is the path to the charm archive path.
+	ArchivePath string
+	// Version is the optional charm version.
+	Version string
+}
+
+// SetStateArgs holds the arguments for the SetState method.
+type SetStateArgs struct {
+	// Source is the source of the charm.
+	Source CharmSource
+	// Revision is the revision of the charm.
+	Revision int
+	// Hash is the hash of the charm.
+	Hash string
+	// ArchivePath is the path to the charm archive path.
+	ArchivePath string
+	// Version is the optional charm version.
+	Version string
 }
 
 // Charm represents a charm from the perspective of the service. This is the

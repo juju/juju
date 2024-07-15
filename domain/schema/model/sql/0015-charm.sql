@@ -26,6 +26,9 @@ CREATE TABLE charm (
     -- blob without constraining the expression to a specific set of rules.
     assumes TEXT,
     lxd_profile TEXT,
+    -- Archive path is the path to the charm archive on disk. This is used to
+    -- determine the source of the charm.
+    archive_path TEXT,
     CONSTRAINT fk_charm_run_as_kind_charm
     FOREIGN KEY (run_as_id)
     REFERENCES charm_run_as_kind (id)
@@ -89,6 +92,7 @@ CREATE TABLE charm_origin (
     source_id INT,
     id TEXT,
     revision INT,
+    version TEXT,
     CONSTRAINT fk_charm_source_source
     FOREIGN KEY (source_id)
     REFERENCES charm_source (id),
@@ -126,7 +130,7 @@ INSERT INTO hash_kind VALUES
 
 CREATE TABLE charm_hash (
     charm_uuid TEXT NOT NULL,
-    hash_kind_id TEXT NOT NULL,
+    hash_kind_id INT NOT NULL DEFAULT 0,
     hash TEXT NOT NULL,
     CONSTRAINT fk_charm_hash_charm
     FOREIGN KEY (charm_uuid)

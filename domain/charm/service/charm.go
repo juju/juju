@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/domain/charm"
+	charmerrors "github.com/juju/juju/domain/charm/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
@@ -48,4 +49,15 @@ func encodeCharm(ch internalcharm.Charm) (charm.Charm, error) {
 		Config:     config,
 		LXDProfile: profile,
 	}, nil
+}
+
+func encodeCharmSource(source internalcharm.Schema) (charm.CharmSource, error) {
+	switch source {
+	case internalcharm.Local:
+		return charm.LocalSource, nil
+	case internalcharm.CharmHub:
+		return charm.CharmHubSource, nil
+	default:
+		return "", fmt.Errorf("%w: %v", charmerrors.CharmSourceNotValid, source)
+	}
 }

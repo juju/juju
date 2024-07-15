@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/charm"
 	"github.com/juju/juju/domain/charm/service"
 	"github.com/juju/juju/domain/charm/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
@@ -45,7 +46,11 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 
 	var id corecharm.ID
 	harness.AddTest(func(c *gc.C) {
-		id, err = svc.SetCharm(context.Background(), &stubCharm{})
+		id, err = svc.SetCharm(context.Background(), charm.SetCharmArgs{
+			Charm:    &stubCharm{},
+			Source:   internalcharm.CharmHub,
+			Revision: 1,
+		})
 		c.Assert(err, jc.ErrorIsNil)
 	}, func(w watchertest.WatcherC[[]string]) {
 		w.Check(

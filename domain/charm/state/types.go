@@ -42,6 +42,22 @@ type charmIDName struct {
 	Name string `db:"name"`
 }
 
+// setCharmHash is used to set the hash of a charm.
+type setCharmHash struct {
+	CharmUUID  string `db:"charm_uuid"`
+	HashKindID int    `db:"hash_kind_id"`
+	Hash       string `db:"hash"`
+}
+
+// setCharmSourceRevisionVersion is used to set the source, revision and
+// version of a charm.
+type setCharmSourceRevisionVersion struct {
+	CharmUUID string `db:"charm_uuid"`
+	SourceID  int    `db:"source_id"`
+	Revision  int    `db:"revision"`
+	Version   string `db:"version"`
+}
+
 // charmMetadata is used to get the metadata of a charm.
 type charmMetadata struct {
 	Name           string `db:"name"`

@@ -17,6 +17,14 @@ import (
 	charmerrors "github.com/juju/juju/domain/charm/errors"
 )
 
+// hashKind is the type of hash to store.
+type hashKind = int
+
+const (
+	// sha256HashKind is the ID for the SHA256 hash kind.
+	sha256HashKind hashKind = 0
+)
+
 // State is used to access the database.
 type State struct {
 	*domain.StateBase
@@ -629,7 +637,7 @@ WHERE charm_uuid = $charmID.uuid;
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *State) SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error) {
+func (s *State) SetCharm(ctx context.Context, charm charm.Charm, charmArgs charm.SetStateArgs) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -641,7 +649,14 @@ func (s *State) SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, 
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := s.setCharmMetadata(ctx, tx, id, charm.Metadata, charm.LXDProfile); err != nil {
+		// Check the charm doesn't already exist, if it does, return an already
+		// exists error. Also doing this early, prevents the moving straight
+		// to a write transaction.
+		if err := s.checkSetCharmExists(ctx, tx, id, charm.Metadata.Name, charmArgs.Revision); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmMetadata(ctx, tx, id, charm.Metadata, charm.LXDProfile, charmArgs.ArchivePath); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -694,6 +709,14 @@ func (s *State) SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, 
 		}
 
 		if err := s.setCharmManifest(ctx, tx, id, charm.Manifest); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmHash(ctx, tx, id, charmArgs.Hash); err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := s.setCharmInitialOrigin(ctx, tx, id, charmArgs.Source, charmArgs.Revision, charmArgs.Version); err != nil {
 			return errors.Trace(err)
 		}
 
@@ -1097,12 +1120,86 @@ ORDER BY array_index ASC;
 	return result, nil
 }
 
+func (s *State) checkSetCharmExists(ctx context.Context, tx *sqlair.TX, id corecharm.ID, name string, revision int) error {
+	selectQuery := `
+SELECT charm.uuid AS &charmID.*
+FROM charm
+LEFT JOIN charm_origin ON charm.uuid = charm_origin.charm_uuid
+WHERE charm.name = $charmNameRevision.name AND charm_origin.revision = $charmNameRevision.revision
+
+	`
+	selectStmt, err := s.Prepare(selectQuery, charmID{}, charmNameRevision{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+	if err := tx.Query(ctx, selectStmt, charmNameRevision{
+		Name:     name,
+		Revision: revision,
+	}).Get(&charmID{}); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("failed to check charm exists: %w", err)
+	}
+
+	return charmerrors.AlreadyExists
+}
+
+func (s *State) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID, hash string) error {
+	ident := charmID{UUID: id.String()}
+
+	query := `INSERT INTO charm_hash (*) VALUES ($setCharmHash.*);`
+	stmt, err := s.Prepare(query, setCharmHash{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, setCharmHash{
+		CharmUUID:  ident.UUID,
+		HashKindID: sha256HashKind,
+		Hash:       hash,
+	}).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm hash: %w", err)
+	}
+
+	return nil
+}
+
+func (s *State) setCharmInitialOrigin(
+	ctx context.Context, tx *sqlair.TX, id corecharm.ID,
+	source charm.CharmSource, revision int, version string) error {
+	ident := charmID{UUID: id.String()}
+
+	encodedOriginSource, err := encodeOriginSource(source)
+	if err != nil {
+		return fmt.Errorf("failed to encode charm origin source: %w", err)
+	}
+
+	query := `INSERT INTO charm_origin (*) VALUES ($setCharmSourceRevisionVersion.*);`
+	stmt, err := s.Prepare(query, setCharmSourceRevisionVersion{})
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, setCharmSourceRevisionVersion{
+		CharmUUID: ident.UUID,
+		SourceID:  encodedOriginSource,
+		Revision:  revision,
+		Version:   version,
+	}).Run(); err != nil {
+		return fmt.Errorf("failed to insert charm origin: %w", err)
+	}
+
+	return nil
+}
+
 func (s *State) setCharmMetadata(
 	ctx context.Context,
 	tx *sqlair.TX,
 	id corecharm.ID,
 	metadata charm.Metadata,
-	lxdProfile []byte) error {
+	lxdProfile []byte,
+	archivePath string) error {
 	ident := charmID{UUID: id.String()}
 
 	encodedMetadata, err := encodeMetadata(id, metadata, lxdProfile)
@@ -1423,4 +1520,15 @@ func (s *State) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corechar
 	}
 
 	return nil
+}
+
+func encodeOriginSource(source charm.CharmSource) (int, error) {
+	switch source {
+	case charm.LocalSource:
+		return 0, nil
+	case charm.CharmHubSource:
+		return 1, nil
+	default:
+		return 0, fmt.Errorf("unsupported source type: %q", source)
+	}
 }

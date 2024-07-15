@@ -12,6 +12,10 @@ const (
 	// a charm using an invalid name.
 	NameNotValid = errors.ConstError("charm name not valid")
 
+	// CharmSourceNotValid describes an error that occurs when attempting to get
+	// a charm using an invalid charm source.
+	CharmSourceNotValid = errors.ConstError("charm source not valid")
+
 	// NotFound describes an error that occurs when a charm cannot be found.
 	NotFound = errors.ConstError("charm not found")
 
