@@ -390,6 +390,6 @@ VALUES ($machineUUID.uuid, $machineStatusWithData.key, $machineStatusWithData.da
 
 // InitialWatchInstanceStatement returns the table and the initial watch statement
 // for the machine cloud instances.
-func (s *State) InitialWatchInstanceStatement() (string, string) {
+func (st *State) InitialWatchInstanceStatement() (string, string) {
 	return "machine_cloud_instance", "SELECT machine_uuid FROM machine_cloud_instance"
 }
