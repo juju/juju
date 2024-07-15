@@ -284,7 +284,7 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 		},
 	}
 	gomock.InOrder(
-		s.mockStorageClass.EXPECT().Get(gomock.Any(), "some-storage", v1.GetOptions{}).
+		s.mockStorageClass.EXPECT().Get(gomock.Any(), "test-some-storage", v1.GetOptions{}).
 			Return(sc, nil),
 	)
 	result, err := s.broker.Bootstrap(ctx, callCtx, bootstrapParams)

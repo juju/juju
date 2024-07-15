@@ -606,6 +606,7 @@ func (_ *K8sMetadataSuite) TestGetMetadataVariations(c *gc.C) {
 			Name: "Test other cloud prefers annotation storage without workload",
 			InitialObjects: []runtime.Object{
 				newNode(map[string]string{}),
+				annotatedWorkloadStorage,
 			},
 			Result: kubernetes.ClusterMetadata{
 				Cloud:                "",
