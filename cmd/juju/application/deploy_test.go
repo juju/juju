@@ -484,7 +484,7 @@ func (s *CAASDeploySuiteBase) fakeAPI() *fakeDeployAPI {
 		"name":             "sword",
 		"uuid":             coretesting.ModelTag.Id(),
 		"type":             model.CAAS,
-		"operator-storage": "k8s-storage",
+		"workload-storage": "k8s-storage",
 		"secret-backend":   "auto",
 	}
 	fakeAPI := vanillaFakeModelAPI(cfgAttrs)
