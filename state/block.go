@@ -15,8 +15,10 @@ import (
 	"github.com/juju/juju/core/model"
 )
 
-// Customers and stakeholders want to be able to prevent accidental damage to their Juju deployments.
-// To prevent running some operations, we want to have blocks that can be switched on/off.
+// Customers and stakeholders want to be able to prevent accidental damage to
+// their Juju deployments.
+// To prevent running some operations, we want to have blocks that can be
+// switched on/off.
 type Block interface {
 	// Id returns this block's id.
 	Id() string

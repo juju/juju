@@ -50,9 +50,9 @@ run_enable_ha() {
 
 	juju switch enable-ha
 	controller_1=$(juju status -m controller --format json | jq -r '.applications.controller.units["controller/1"].machine')
-	juju remove-machine -m controller "${controller_1}"
+	juju remove-machine -m controller "${controller_1}" --force
 	controller_2=$(juju status -m controller --format json | jq -r '.applications.controller.units["controller/2"].machine')
-	juju remove-machine -m controller "${controller_2}"
+	juju remove-machine -m controller "${controller_2}" --force
 
 	wait_for_controller_no_leader
 	wait_for_controller_leader

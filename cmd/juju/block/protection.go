@@ -86,8 +86,13 @@ var blockedMessages = map[Block]string{
 	BlockChange:  changeMsg,
 }
 
-// ProcessBlockedError ensures that correct and user-friendly message is
-// displayed to the user based on the block type.
+// ProcessBlockedError handles the error returned by the API server, which
+// may indicate that the operation is blocked.
+// Processing of blocked commands is done by the API server based on the
+// user configuration via `disable-command` command. The user can
+// `enable-command` the operation by enabling the block type.
+// When an operation is blocked the API server returns a blocked error code
+// that returns a user-friendly message to the client.
 func ProcessBlockedError(err error, block Block) error {
 	if err == nil {
 		return nil

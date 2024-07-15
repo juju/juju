@@ -147,7 +147,7 @@ func (s *MachinemanagerSuite) TestRetryProvisioning(c *gc.C) {
 	result, err := client.RetryProvisioning(false, names.NewMachineTag("0"), names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []params.ErrorResult{
-		{&params.Error{Code: "boom"}},
+		{Error: &params.Error{Code: "boom"}},
 		{},
 	})
 }
@@ -171,7 +171,7 @@ func (s *MachinemanagerSuite) TestRetryProvisioningAll(c *gc.C) {
 	result, err := client.RetryProvisioning(true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, []params.ErrorResult{
-		{&params.Error{Code: "boom"}},
+		{Error: &params.Error{Code: "boom"}},
 		{},
 	})
 }
@@ -202,7 +202,7 @@ func (s *MachinemanagerSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(script, gc.Equals, "script")
 }
 
-func (s *MachinemanagerSuite) clientToTestDestroyMachinesWithParams(c *gc.C, maxWait *time.Duration, ctrl *gomock.Controller) (*machinemanager.Client, []params.DestroyMachineResult) {
+func (s *MachinemanagerSuite) clientToTestDestroyMachinesWithParams(maxWait *time.Duration, ctrl *gomock.Controller) (*machinemanager.Client, []params.DestroyMachineResult) {
 	expectedResults := []params.DestroyMachineResult{{
 		Error: &params.Error{Message: "boo"},
 	}, {
@@ -235,7 +235,7 @@ func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNoWait(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 	noWait := 0 * time.Second
-	client, expected := s.clientToTestDestroyMachinesWithParams(c, &noWait, ctrl)
+	client, expected := s.clientToTestDestroyMachinesWithParams(&noWait, ctrl)
 	results, err := client.DestroyMachinesWithParams(true, true, false, &noWait, "0", "0/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expected)
@@ -244,7 +244,7 @@ func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNoWait(c *gc.C) {
 func (s *MachinemanagerSuite) TestDestroyMachinesWithParamsNilWait(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-	client, expected := s.clientToTestDestroyMachinesWithParams(c, (*time.Duration)(nil), ctrl)
+	client, expected := s.clientToTestDestroyMachinesWithParams((*time.Duration)(nil), ctrl)
 	results, err := client.DestroyMachinesWithParams(true, true, false, (*time.Duration)(nil), "0", "0/lxd/1")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, expected)
