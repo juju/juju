@@ -66,14 +66,6 @@ func (s *legacySuite) TestAllModels(c *gc.C) {
 	c.Assert(obtained, jc.SameContents, expected)
 }
 
-func (s *legacySuite) TestModelConfig(c *gc.C) {
-	sysManager := s.OpenAPI(c)
-	defer sysManager.Close()
-	cfg, err := sysManager.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cfg["name"], gc.Equals, "controller")
-}
-
 func (s *legacySuite) TestControllerConfig(c *gc.C) {
 	sysManager := s.OpenAPI(c)
 	defer sysManager.Close()

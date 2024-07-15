@@ -17,7 +17,6 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/api/client/modelconfig"
-	apicontroller "github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -83,9 +82,11 @@ type upgradeModelCommand struct {
 	// version without waiting for all agents to be at the right version.
 	IgnoreAgentVersions bool
 
+	// model config API for the current model
 	modelConfigAPI   ModelConfigAPI
 	modelUpgraderAPI ModelUpgraderAPI
-	controllerAPI    ControllerAPI
+	// model config API for the controller model
+	controllerModelConfigAPI ModelConfigAPI
 }
 
 func (c *upgradeModelCommand) Info() *cmd.Info {
@@ -166,16 +167,16 @@ func (c *upgradeModelCommand) getModelConfigAPI() (ModelConfigAPI, error) {
 	return modelconfig.NewClient(api), nil
 }
 
-func (c *upgradeModelCommand) getControllerAPI() (ControllerAPI, error) {
-	if c.controllerAPI != nil {
-		return c.controllerAPI, nil
+func (c *upgradeModelCommand) getControllerModelConfigAPI() (ModelConfigAPI, error) {
+	if c.controllerModelConfigAPI != nil {
+		return c.controllerModelConfigAPI, nil
 	}
 
 	api, err := c.NewControllerAPIRoot()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return apicontroller.NewClient(api), nil
+	return modelconfig.NewClient(api), nil
 }
 
 // Run changes the version proposed for the juju envtools.
@@ -210,7 +211,7 @@ func (c *upgradeModelCommand) upgradeModel(ctx *cmd.Context, fetchTimeout time.D
 	}
 	defer modelUpgrader.Close()
 
-	controllerClient, err := c.getControllerAPI()
+	controllerClient, err := c.getControllerModelConfigAPI()
 	if err != nil {
 		return err
 	}
@@ -241,7 +242,7 @@ func (c *upgradeModelCommand) upgradeModel(ctx *cmd.Context, fetchTimeout time.D
 		return errUpToDate
 	}
 
-	controllerModelConfig, err := controllerClient.ModelConfig()
+	controllerModelConfig, err := controllerClient.ModelGet()
 	if err != nil && !params.IsCodeUnauthorized(err) {
 		return err
 	}

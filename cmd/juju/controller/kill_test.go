@@ -51,7 +51,7 @@ func (s *KillSuite) newKillCommand() cmd.Command {
 		clock = testclock.NewClock(time.Now())
 	}
 	return controller.NewKillCommandForTest(
-		s.api, s.store, s.apierror, clock, nil,
+		s.api, s.store, s.apierror, s.controllerModelConfigAPI, clock, nil,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		environs.Destroy,
 	)
@@ -394,7 +394,7 @@ func (s *KillSuite) TestKillEnvironmentGetFailsWithoutAPIConnection(c *gc.C) {
 }
 
 func (s *KillSuite) TestKillEnvironmentGetFailsWithAPIConnection(c *gc.C) {
-	s.api.SetErrors(errors.NotFoundf(`controller "test3"`))
+	s.controllerModelConfigAPI.SetErrors(errors.NotFoundf(`controller "test3"`))
 	_, err := s.runKillCommand(c, "test3", "--no-prompt")
 	c.Assert(err, gc.ErrorMatches,
 		"getting controller environ: getting model config from API: controller \"test3\" not found",
@@ -442,7 +442,8 @@ func (s *KillSuite) TestKillAPIPermErrFails(c *gc.C) {
 	testDialer := func(*api.Info, api.DialOpts) (api.Connection, error) {
 		return nil, apiservererrors.ErrPerm
 	}
-	cmd := controller.NewKillCommandForTest(nil, s.store, nil, clock.WallClock, testDialer,
+	cmd := controller.NewKillCommandForTest(nil, s.store, nil,
+		s.controllerModelConfigAPI, clock.WallClock, testDialer,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		environs.Destroy,
 	)
@@ -461,7 +462,8 @@ func (s *KillSuite) TestKillEarlyAPIConnectionTimeout(c *gc.C) {
 		return nil, errors.New("kill command waited too long")
 	}
 
-	cmd := controller.NewKillCommandForTest(nil, s.store, nil, clock, testDialer,
+	cmd := controller.NewKillCommandForTest(nil, s.store, nil,
+		s.controllerModelConfigAPI, clock, testDialer,
 		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		environs.Destroy,
 	)
