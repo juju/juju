@@ -136,8 +136,8 @@ run_enable_ha() {
 	wait_for "controller" "$(idle_condition "controller" 0 2)"
 
 	juju switch enable-ha
-	juju remove-machine -m controller 1
-	juju remove-machine -m controller 2
+	juju remove-machine -m controller 1 --force
+	juju remove-machine -m controller 2 --force
 
 	wait_for_controller_machines_tear_down 1
 
