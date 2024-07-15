@@ -50,6 +50,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/status",
 		"core/trace",
 		"core/user",
+		"core/version",
 		"core/watcher",
 		"domain/model/errors",
 		"domain/secret/errors",
@@ -71,6 +72,5 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"rpc",
 		"rpc/jsoncodec",
 		"rpc/params",
-		"version",
 	})
 }

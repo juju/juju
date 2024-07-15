@@ -35,6 +35,7 @@ import (
 	resourcetesting "github.com/juju/juju/core/resources/testing"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	jujuversion "github.com/juju/juju/core/version"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/internal/charm"
 	objectstoretesting "github.com/juju/juju/internal/objectstore/testing"
@@ -47,7 +48,6 @@ import (
 	"github.com/juju/juju/state/testing"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testcharms"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type ApplicationSuite struct {

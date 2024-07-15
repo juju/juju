@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/os/ostype"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -48,7 +49,6 @@ import (
 	"github.com/juju/juju/internal/provider/azure/internal/tracing"
 	"github.com/juju/juju/internal/provider/common"
 	"github.com/juju/juju/internal/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 const (

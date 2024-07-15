@@ -8,8 +8,8 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/core/changestream"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // MemoryState implements an in memory representation of the state required for

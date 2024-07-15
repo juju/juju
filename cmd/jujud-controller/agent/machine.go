@@ -62,6 +62,7 @@ import (
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/container/broker"
@@ -93,7 +94,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type (

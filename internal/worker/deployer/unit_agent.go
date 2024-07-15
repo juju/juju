@@ -29,10 +29,10 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/paths"
+	jujuversion "github.com/juju/juju/core/version"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/introspection"
 	"github.com/juju/juju/internal/worker/logsender"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // UnitAgent wraps the agent config for this unit.

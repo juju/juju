@@ -13,7 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/core/version"
 )
 
 type apiservermetricsSuite struct {

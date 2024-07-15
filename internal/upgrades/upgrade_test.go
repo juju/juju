@@ -19,10 +19,10 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/mongo"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/upgrades"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type upgradeSuite struct {

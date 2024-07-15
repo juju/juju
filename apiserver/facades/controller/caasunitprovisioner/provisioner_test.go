@@ -17,12 +17,12 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/caasunitprovisioner"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	jujuversion "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&CAASProvisionerSuite{})

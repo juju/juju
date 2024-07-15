@@ -46,6 +46,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/storage"
@@ -55,7 +56,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	apiparams "github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/testcharms"
-	"github.com/juju/juju/version"
 )
 
 var defaultBase = corebase.MustParseBaseFromString("ubuntu@22.04")

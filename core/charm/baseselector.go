@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/core/version"
 )
 
 const (

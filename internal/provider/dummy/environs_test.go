@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cloud"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/envcontext"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 const adminSecret = "admin-secret"

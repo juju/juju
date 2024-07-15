@@ -40,7 +40,7 @@ run_check_juju_version() {
 }
 
 check_juju_version() {
-	target_version="$(go run version/helper/main.go)"
+	target_version="$(go run scripts/version/main.go)"
 
 	snapcraft_juju_version="$(yq -r '.version' snap/snapcraft.yaml)"
 	echo "${snapcraft_juju_version}" | grep -q "${target_version}"

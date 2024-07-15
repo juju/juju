@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
+	jujuversion "github.com/juju/juju/core/version"
 	domainstorage "github.com/juju/juju/domain/storage"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -53,7 +54,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/mocks"
 	statetesting "github.com/juju/juju/state/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var goodPassword = "foo-12345678901234567890"

@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/juju/core/database/schema"
 	coresecrets "github.com/juju/juju/core/secrets"
+	jujuversion "github.com/juju/juju/core/version"
 	databasetesting "github.com/juju/juju/internal/database/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type schemaSuite struct {

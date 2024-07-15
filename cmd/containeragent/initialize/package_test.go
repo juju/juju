@@ -75,6 +75,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/trace",
 		"core/upgrade",
 		"core/user",
+		"core/version",
 		"core/watcher",
 		"domain/secret/errors",
 		"domain/model/errors",
@@ -126,7 +127,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"rpc/jsoncodec",
 		"rpc/params",
 		"state/errors",
-		"version",
 	)
 
 	unexpected := found.Difference(expected)

@@ -27,12 +27,12 @@ import (
 	"github.com/juju/juju/cmd/internal/agent/agentconf"
 	"github.com/juju/juju/cmd/jujud/agent/modeloperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
+	jujuversion "github.com/juju/juju/core/version"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/upgrade"
 	jworker "github.com/juju/juju/internal/worker"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/logsender"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // ModelCommand is a cmd.Command responsible for running a model agent.

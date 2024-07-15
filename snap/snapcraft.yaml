@@ -400,9 +400,9 @@ parts:
     go-packages:
       - github.com/juju/juju/cmd/jujud-controller
     go-external-strings:
-      github.com/juju/juju/version.GitCommit: ""
-      github.com/juju/juju/version.GitTreeState: ""
-      github.com/juju/juju/version.build: ""
+      github.com/juju/juju/core/version.GitCommit: ""
+      github.com/juju/juju/core/version.GitTreeState: ""
+      github.com/juju/juju/core/version.build: ""
     go-static: true
     go-strip: true
     go-buildtags: ["libsqlite3", "dqlite"]
@@ -439,9 +439,9 @@ parts:
       - github.com/juju/juju/cmd/jujuc
       - github.com/juju/juju/cmd/plugins/juju-metadata
     go-external-strings:
-      github.com/juju/juju/version.GitCommit: ""
-      github.com/juju/juju/version.GitTreeState: ""
-      github.com/juju/juju/version.build: ""
+      github.com/juju/juju/core/version.GitCommit: ""
+      github.com/juju/juju/core/version.GitTreeState: ""
+      github.com/juju/juju/core/version.build: ""
     go-static: true
     go-strip: true
     override-build: |

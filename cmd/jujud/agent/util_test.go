@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/blockdevice"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/dummy"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -49,7 +50,6 @@ import (
 	"github.com/juju/juju/internal/worker/machiner"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	jujuversion "github.com/juju/juju/version"
 )
 
 const (

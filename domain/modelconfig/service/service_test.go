@@ -10,11 +10,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/modelconfig/service/testing"
 	"github.com/juju/juju/domain/modeldefaults"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/internal/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type ModelDefaultsProviderFunc func(context.Context) (modeldefaults.Defaults, error)

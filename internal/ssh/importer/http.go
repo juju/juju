@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/core/version"
 )
 
 const (

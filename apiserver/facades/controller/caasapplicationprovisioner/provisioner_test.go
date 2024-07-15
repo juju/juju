@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/model"
 	jujuresource "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/core/watcher/watchertest"
 	envconfig "github.com/juju/juju/environs/config"
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&CAASApplicationProvisionerSuite{})

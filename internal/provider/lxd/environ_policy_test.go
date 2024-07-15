@@ -15,11 +15,11 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/envcontext"
 	"github.com/juju/juju/internal/provider/lxd"
-	"github.com/juju/juju/version"
 )
 
 type environPolicySuite struct {

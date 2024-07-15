@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/simplestreams"
@@ -28,7 +29,6 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type SimpleStreamsToolsSuite struct {

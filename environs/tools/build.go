@@ -22,8 +22,8 @@ import (
 	"github.com/juju/juju/core/arch"
 	corelogger "github.com/juju/juju/core/logger"
 	coreos "github.com/juju/juju/core/os"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/juju/names"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // Archive writes the executable files found in the given directory in

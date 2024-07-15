@@ -10,7 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	jujuversion "github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/core/version"
 )
 
 type lockSuite struct {

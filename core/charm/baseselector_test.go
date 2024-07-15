@@ -12,8 +12,8 @@ import (
 
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
-	"github.com/juju/juju/version"
 )
 
 type baseSelectorSuite struct {

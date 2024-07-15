@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/engine"
 	"github.com/juju/juju/core/logger"
+	jv "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	jt "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/deployer"
-	jv "github.com/juju/juju/version"
 )
 
 type UnitAgentSuite struct {

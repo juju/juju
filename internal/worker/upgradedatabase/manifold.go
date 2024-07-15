@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/logger"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/gate"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // ManifoldConfig defines the configuration on which this manifold depends.

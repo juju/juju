@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/core/version"
 )
 
 var VERSION_NOTICE = fmt.Sprintf(`

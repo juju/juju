@@ -12,7 +12,7 @@ import (
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/core/version"
 )
 
 // Manifold returns a manifold that starts a worker proxying the supplied Agent

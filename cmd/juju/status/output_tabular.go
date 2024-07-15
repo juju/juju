@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/core/output"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
-	jujuversion "github.com/juju/juju/version"
 )
 
 const (

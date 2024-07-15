@@ -12,13 +12,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/envcontext"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/juju/keys"
-	"github.com/juju/juju/version"
 )
 
 func TestPackage(t *testing.T) {

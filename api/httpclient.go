@@ -18,8 +18,8 @@ import (
 	"gopkg.in/httprequest.v1"
 	"gopkg.in/macaroon.v2"
 
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/rpc/params"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // HTTPClient implements Connection.APICaller.HTTPClient and returns an HTTP
