@@ -271,6 +271,12 @@ func IsCodeUnauthorized(err error) bool {
 	return ErrCode(err) == CodeUnauthorized
 }
 
+// IsCodeSessionTokenInvalid returns true if err includes a SessionTokenInvalid
+// error code.
+func IsCodeSessionTokenInvalid(err error) bool {
+	return ErrCode(err) == CodeSessionTokenInvalid
+}
+
 func IsCodeNoCreds(err error) bool {
 	// When we receive this error from an rpc call, rpc.RequestError
 	// is populated with a CodeUnauthorized code and a message that

@@ -64,7 +64,7 @@ func (p *sessionTokenLoginProvider) Login(ctx context.Context, caller base.APICa
 	if err == nil {
 		return result, nil
 	}
-	if params.ErrCode(err) == params.CodeSessionTokenInvalid {
+	if params.IsCodeSessionTokenInvalid(err) {
 		// if we fail because of an invalid session token, we initiate a
 		// new device login.
 		if err := p.initiateDeviceLogin(ctx, caller); err != nil {
