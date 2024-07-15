@@ -775,7 +775,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "fakeendpoint2"}},
-				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
+				Config:           map[string]interface{}{"workload-storage": "workload-sc"},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"fakecadata2"},
 			},
@@ -887,7 +887,7 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c 
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(strings.Trim(cmdtesting.Stdout(ctx), "\n"), gc.Equals, `k8s substrate "myk8s" added as cloud "myk8s".
 You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, cloudRegion, "", testData{client: true, controller: true})
+	}, cloudRegion, "workload-sc", testData{client: true, controller: true})
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
@@ -1246,8 +1246,7 @@ func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
 					{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"},
 				},
 				Config: map[string]interface{}{
-					"operator-storage": "operator-sc",
-					"workload-storage": "",
+					"workload-storage": "workload-sc",
 				},
 				RegionConfig:   cloud.RegionConfig(nil),
 				CACertificates: []string{"A"},
@@ -1328,7 +1327,7 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"}},
-				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
+				Config:           map[string]interface{}{"workload-storage": "workload-sc"},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"A"},
 			},
@@ -1383,7 +1382,7 @@ func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
 				IdentityEndpoint: "",
 				StorageEndpoint:  "",
 				Regions:          []cloud.Region{{Name: "us-east1", Endpoint: "https://1.1.1.1:8888"}},
-				Config:           map[string]interface{}{"operator-storage": "operator-sc", "workload-storage": ""},
+				Config:           map[string]interface{}{"workload-storage": "workload-sc"},
 				RegionConfig:     cloud.RegionConfig(nil),
 				CACertificates:   []string{"A"},
 			},

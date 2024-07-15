@@ -90,8 +90,7 @@ clouds:
     ca-certificates:
     - fakecadata2
     config:
-      operator-storage: operator-sc
-      workload-storage: ""
+      workload-storage: workload-sc
   mrcloud1:
     type: maas
     description: Metal As A Service
@@ -174,7 +173,7 @@ func (s *updateCAASSuite) TestCloudNotFound(c *gc.C) {
 
 func (s *updateCAASSuite) assertUpdateCloudResult(
 	c *gc.C, testRun func(),
-	cloudName, cloudRegion, workloadStorage, operatorStorage string,
+	cloudName, cloudRegion, workloadStorage string,
 	t testData,
 ) {
 
@@ -192,7 +191,7 @@ func (s *updateCAASSuite) assertUpdateCloudResult(
 		Endpoint:         "https://6.6.6.6:8888",
 		IdentityEndpoint: "",
 		StorageEndpoint:  "",
-		Config:           map[string]interface{}{"operator-storage": operatorStorage, "workload-storage": workloadStorage},
+		Config:           map[string]interface{}{"workload-storage": workloadStorage},
 		RegionConfig:     cloud.RegionConfig(nil),
 		CACertificates:   []string{"fakecadata2"},
 	}
@@ -244,7 +243,7 @@ func (s *updateCAASSuite) TestLocalOnly(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `k8s cloud "myk8s" updated on this client.`
 		c.Assert(strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1), gc.Equals, expected)
-	}, "myk8s", "gce/us-east1", "", "operator-sc", testData{client: true})
+	}, "myk8s", "gce/us-east1", "workload-sc", testData{client: true})
 }
 
 func (s *updateCAASSuite) TestInvalidControllerCloud(c *gc.C) {
@@ -271,7 +270,7 @@ func (s *updateCAASSuite) TestControllerAndClient(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1), gc.Equals,
 			`k8s cloud "myk8s" updated on this client.k8s cloud "myk8s" updated on controller "foo".`)
-	}, "myk8s", "gce/us-east1", "", "operator-sc", testData{client: true, controller: true})
+	}, "myk8s", "gce/us-east1", "workload-sc", testData{client: true, controller: true})
 }
 
 func (s *updateCAASSuite) TestBuiltinLocal(c *gc.C) {
