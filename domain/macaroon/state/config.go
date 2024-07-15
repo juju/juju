@@ -16,8 +16,8 @@ import (
 	internaldatabase "github.com/juju/juju/internal/database"
 )
 
-// BakeryConfigState describes the persistence layer to
-// store bakery config
+// BakeryConfigState describes the persistence layer for
+// the macaroon bakery config
 type BakeryConfigState struct {
 	*domain.StateBase
 }

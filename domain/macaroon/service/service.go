@@ -7,12 +7,14 @@ package service
 // storage required for this service
 type State interface {
 	BakeryConfigState
+	RootKeyState
 }
 
 // Service provides the API for managing the macaroon bakery
 // storage
 type Service struct {
 	*BakeryConfigService
+	*RootKeyService
 }
 
 // NewService returns a new Service providing an API to manage
@@ -20,5 +22,6 @@ type Service struct {
 func NewService(st State) *Service {
 	return &Service{
 		BakeryConfigService: NewBakeryConfigService(st),
+		RootKeyService:      NewRootKeyService(st),
 	}
 }

@@ -21,19 +21,19 @@ var (
 	testKey4 = bakery.MustGenerateKey()
 )
 
-type stateSuite struct {
+type configStateSuite struct {
 	testing.ControllerSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = gc.Suite(&configStateSuite{})
 
-func (s *stateSuite) TestInitialise(c *gc.C) {
+func (s *configStateSuite) TestInitialise(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.InitialiseBakeryConfig(context.Background(), testKey1, testKey2, testKey3, testKey4)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *stateSuite) TestInitialiseMultipleTimesFails(c *gc.C) {
+func (s *configStateSuite) TestInitialiseMultipleTimesFails(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.InitialiseBakeryConfig(context.Background(), testKey1, testKey2, testKey3, testKey4)
 	c.Assert(err, jc.ErrorIsNil)
@@ -42,7 +42,7 @@ func (s *stateSuite) TestInitialiseMultipleTimesFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, BakeryConfigAlreadyInitialised)
 }
 
-func (s *stateSuite) TestGetKeys(c *gc.C) {
+func (s *configStateSuite) TestGetKeys(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	err := st.InitialiseBakeryConfig(context.Background(), testKey1, testKey2, testKey3, testKey4)
 	c.Assert(err, jc.ErrorIsNil)
@@ -64,7 +64,7 @@ func (s *stateSuite) TestGetKeys(c *gc.C) {
 	c.Check(keypair, gc.DeepEquals, testKey4)
 }
 
-func (s *stateSuite) TestGetKeysUninitialised(c *gc.C) {
+func (s *configStateSuite) TestGetKeysUninitialised(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetLocalUsersKey(context.Background())
 	c.Check(err, jc.ErrorIs, errors.NotYetAvailable)

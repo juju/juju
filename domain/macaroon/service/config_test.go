@@ -12,20 +12,20 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-type serviceSuite struct {
+type configServiceSuite struct {
 	st *MockState
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = gc.Suite(&configServiceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *configServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.st = NewMockState(ctrl)
 	return ctrl
 }
 
-func (s *serviceSuite) TestInitialise(c *gc.C) {
+func (s *configServiceSuite) TestInitialise(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.st.EXPECT().InitialiseBakeryConfig(
@@ -41,7 +41,7 @@ func (s *serviceSuite) TestInitialise(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestGetLocalUsersKey(c *gc.C) {
+func (s *configServiceSuite) TestGetLocalUsersKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	testKey := bakery.MustGenerateKey()
@@ -53,7 +53,7 @@ func (s *serviceSuite) TestGetLocalUsersKey(c *gc.C) {
 	c.Assert(key, gc.DeepEquals, testKey)
 }
 
-func (s *serviceSuite) TestGetLocalUsersThirdPartyKey(c *gc.C) {
+func (s *configServiceSuite) TestGetLocalUsersThirdPartyKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	testKey := bakery.MustGenerateKey()
@@ -65,7 +65,7 @@ func (s *serviceSuite) TestGetLocalUsersThirdPartyKey(c *gc.C) {
 	c.Assert(key, gc.DeepEquals, testKey)
 }
 
-func (s *serviceSuite) TestGetExternalUsersThirdPartyKey(c *gc.C) {
+func (s *configServiceSuite) TestGetExternalUsersThirdPartyKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	testKey := bakery.MustGenerateKey()
@@ -77,7 +77,7 @@ func (s *serviceSuite) TestGetExternalUsersThirdPartyKey(c *gc.C) {
 	c.Assert(key, gc.DeepEquals, testKey)
 }
 
-func (s *serviceSuite) TestGetOffersThirdPartyKey(c *gc.C) {
+func (s *configServiceSuite) TestGetOffersThirdPartyKey(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	testKey := bakery.MustGenerateKey()

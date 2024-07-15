@@ -12,8 +12,10 @@ package service
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	bakery "github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	macaroon "github.com/juju/juju/domain/macaroon"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -38,6 +40,45 @@ func NewMockState(ctrl *gomock.Controller) *MockState {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
+}
+
+// FindLatestKey mocks base method.
+func (m *MockState) FindLatestKey(arg0 context.Context, arg1, arg2, arg3 time.Time) (macaroon.RootKey, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FindLatestKey", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(macaroon.RootKey)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FindLatestKey indicates an expected call of FindLatestKey.
+func (mr *MockStateMockRecorder) FindLatestKey(arg0, arg1, arg2, arg3 any) *MockStateFindLatestKeyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindLatestKey", reflect.TypeOf((*MockState)(nil).FindLatestKey), arg0, arg1, arg2, arg3)
+	return &MockStateFindLatestKeyCall{Call: call}
+}
+
+// MockStateFindLatestKeyCall wrap *gomock.Call
+type MockStateFindLatestKeyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateFindLatestKeyCall) Return(arg0 macaroon.RootKey, arg1 error) *MockStateFindLatestKeyCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateFindLatestKeyCall) Do(f func(context.Context, time.Time, time.Time, time.Time) (macaroon.RootKey, error)) *MockStateFindLatestKeyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateFindLatestKeyCall) DoAndReturn(f func(context.Context, time.Time, time.Time, time.Time) (macaroon.RootKey, error)) *MockStateFindLatestKeyCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // GetExternalUsersThirdPartyKey mocks base method.
@@ -75,6 +116,45 @@ func (c *MockStateGetExternalUsersThirdPartyKeyCall) Do(f func(context.Context) 
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateGetExternalUsersThirdPartyKeyCall) DoAndReturn(f func(context.Context) (*bakery.KeyPair, error)) *MockStateGetExternalUsersThirdPartyKeyCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// GetKey mocks base method.
+func (m *MockState) GetKey(arg0 context.Context, arg1 []byte) (macaroon.RootKey, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetKey", arg0, arg1)
+	ret0, _ := ret[0].(macaroon.RootKey)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetKey indicates an expected call of GetKey.
+func (mr *MockStateMockRecorder) GetKey(arg0, arg1 any) *MockStateGetKeyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKey", reflect.TypeOf((*MockState)(nil).GetKey), arg0, arg1)
+	return &MockStateGetKeyCall{Call: call}
+}
+
+// MockStateGetKeyCall wrap *gomock.Call
+type MockStateGetKeyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetKeyCall) Return(arg0 macaroon.RootKey, arg1 error) *MockStateGetKeyCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetKeyCall) Do(f func(context.Context, []byte) (macaroon.RootKey, error)) *MockStateGetKeyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetKeyCall) DoAndReturn(f func(context.Context, []byte) (macaroon.RootKey, error)) *MockStateGetKeyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -230,6 +310,44 @@ func (c *MockStateInitialiseBakeryConfigCall) Do(f func(context.Context, *bakery
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateInitialiseBakeryConfigCall) DoAndReturn(f func(context.Context, *bakery.KeyPair, *bakery.KeyPair, *bakery.KeyPair, *bakery.KeyPair) error) *MockStateInitialiseBakeryConfigCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// InsertKey mocks base method.
+func (m *MockState) InsertKey(arg0 context.Context, arg1 macaroon.RootKey) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InsertKey", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// InsertKey indicates an expected call of InsertKey.
+func (mr *MockStateMockRecorder) InsertKey(arg0, arg1 any) *MockStateInsertKeyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertKey", reflect.TypeOf((*MockState)(nil).InsertKey), arg0, arg1)
+	return &MockStateInsertKeyCall{Call: call}
+}
+
+// MockStateInsertKeyCall wrap *gomock.Call
+type MockStateInsertKeyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInsertKeyCall) Return(arg0 error) *MockStateInsertKeyCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInsertKeyCall) Do(f func(context.Context, macaroon.RootKey) error) *MockStateInsertKeyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInsertKeyCall) DoAndReturn(f func(context.Context, macaroon.RootKey) error) *MockStateInsertKeyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
