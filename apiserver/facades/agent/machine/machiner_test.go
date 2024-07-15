@@ -46,6 +46,7 @@ func (s *machinerSuite) setUpMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
 	s.commonSuite.SetUpTest(c)
 
 	// Create the resource registry separately to track invocations to
@@ -160,6 +161,7 @@ func (s *machinerSuite) TestLife(c *gc.C) {
 }
 
 func (s *machinerSuite) TestEnsureDead(c *gc.C) {
+
 	c.Assert(s.machine0.Life(), gc.Equals, state.Alive)
 	c.Assert(s.machine1.Life(), gc.Equals, state.Alive)
 
@@ -168,6 +170,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 		{Tag: "machine-0"},
 		{Tag: "machine-42"},
 	}}
+	s.machineService.EXPECT().EnsureDeadMachine(gomock.Any(), "1").Return(nil).Times(1)
 	result, err := s.machiner.EnsureDead(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
