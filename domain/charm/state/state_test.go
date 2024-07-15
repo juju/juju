@@ -1022,6 +1022,78 @@ func (s *stateSuite) TestDeleteCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
 }
 
+func (s *stateSuite) TestSetCharmTwice(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	}, setStateArgs())
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+
+	_, err = st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	}, setStateArgs())
+	c.Assert(err, jc.ErrorIs, charmerrors.AlreadyExists)
+}
+
+func (s *stateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	expected := charm.Metadata{
+		Name:           "ubuntu",
+		Summary:        "summary",
+		Description:    "description",
+		Subordinate:    true,
+		RunAs:          charm.RunAsRoot,
+		MinJujuVersion: version.MustParse("4.0.0"),
+		Assumes:        []byte("null"),
+	}
+
+	id1, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	}, charm.SetStateArgs{
+		Source:      charm.LocalSource,
+		Revision:    1,
+		Hash:        "hash",
+		ArchivePath: "archive",
+		Version:     "deadbeef",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmMetadata(context.Background(), id1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+
+	id2, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: expected,
+	}, charm.SetStateArgs{
+		Source:      charm.LocalSource,
+		Revision:    2,
+		Hash:        "hash",
+		ArchivePath: "archive",
+		Version:     "deadbeef",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err = st.GetCharmMetadata(context.Background(), id2)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, expected)
+}
+
 func (s *stateSuite) TestSetCharmThenGetCharmMetadata(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 
