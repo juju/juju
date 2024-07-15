@@ -89,6 +89,10 @@ type State interface {
 	// SetCharm persists the charm metadata, actions, config and manifest to
 	// state.
 	SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error)
+
+	// DeleteCharm removes the charm from the state.
+	// If the charm does not exist, a NotFound error is returned.
+	DeleteCharm(ctx context.Context, id corecharm.ID) error
 }
 
 // Service provides the API for working with charms.
@@ -323,7 +327,12 @@ func (s *Service) SetCharm(ctx context.Context, charm internalcharm.Charm) (core
 	}
 
 	return charmID, nil
+}
 
+// DeleteCharm removes the charm from the state.
+// Returns an error if the charm does not exist.
+func (s *Service) DeleteCharm(ctx context.Context, id corecharm.ID) error {
+	return s.st.DeleteCharm(ctx, id)
 }
 
 // WatchableService provides the API for working with charms and the
