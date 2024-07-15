@@ -24,7 +24,7 @@ type sessionTokenLoginProviderProviderSuite struct {
 
 var _ = gc.Suite(&sessionTokenLoginProviderProviderSuite{})
 
-func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
+func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *gc.C) {
 	info := s.APIInfo(c)
 
 	sessionToken := "test-session-token"
@@ -82,8 +82,8 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 
 		if lr.SessionToken != sessionToken {
 			return &params.Error{
-				Message: "unauthorized",
-				Code:    params.CodeUnauthorized,
+				Message: "invalid token",
+				Code:    params.CodeSessionTokenInvalid,
 			}
 		}
 
@@ -121,4 +121,32 @@ func (s *sessionTokenLoginProviderProviderSuite) Test(c *gc.C) {
 	c.Assert(output.String(), gc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
 	c.Assert(obtainedSessionToken, gc.Equals, sessionToken)
 	defer func() { _ = apiState.Close() }()
+}
+
+func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c *gc.C) {
+	info := s.APIInfo(c)
+
+	expectedErr := &params.Error{
+		Message: "unauthorized",
+		Code:    params.CodeUnauthorized,
+	}
+	s.PatchValue(api.LoginWithSessionTokenAPICall, func(_ base.APICaller, request interface{}, response interface{}) error {
+		return expectedErr
+	})
+
+	var output bytes.Buffer
+	_, err := api.Open(&api.Info{
+		Addrs:          info.Addrs,
+		ControllerUUID: info.ControllerUUID,
+		CACert:         info.CACert,
+	}, api.DialOpts{
+		LoginProvider: api.NewSessionTokenLoginProvider(
+			"random-token",
+			&output,
+			func(sessionToken string) error {
+				return nil
+			},
+		),
+	})
+	c.Assert(err, jc.ErrorIs, expectedErr)
 }
