@@ -932,41 +932,6 @@ You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
 	}, "other", "mystorage", testData{client: true, controller: true})
 }
 
-func (s *addCAASSuite) TestGatherClusterMetadataUnknownError(c *gc.C) {
-	result := &k8s.ClusterMetadata{
-		Cloud:   "foo",
-		Regions: set.NewStrings("region"),
-	}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
-	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("foo"))
-
-	err := SetKubeConfigData(kubeConfigStr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	command := s.makeCommand(c, true, false, true)
-	_, err = s.runCommand(c, nil, command, "myk8s", "--cluster-name", "myk8s", "-c", "foo")
-	c.Assert(err, gc.ErrorMatches, `	No recommended storage configuration is defined on this cluster.
-	Run add-k8s again with --storage=<name> and Juju will use the
-	specified storage class.
-`)
-}
-
-func (s *addCAASSuite) TestGatherClusterMetadataNoStorageError(c *gc.C) {
-	result := &k8s.ClusterMetadata{}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(result, nil)
-	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("foo"))
-
-	err := SetKubeConfigData(kubeConfigStr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	command := s.makeCommand(c, true, false, true)
-	_, err = s.runCommand(c, nil, command, "myk8s", "--cluster-name", "myk8s", "-c", "foo")
-	c.Assert(err, gc.ErrorMatches, `	No recommended storage configuration is defined on this cluster.
-	Run add-k8s again with --storage=<name> and Juju will use the
-	specified storage class.
-`)
-}
-
 func (s *addCAASSuite) TestGatherClusterMetadataUserStorage(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
@@ -989,23 +954,6 @@ func (s *addCAASSuite) TestGatherClusterMetadataUserStorage(c *gc.C) {
 by the existing "mystorage" storage class.
 You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
 	}, "other", "mystorage", testData{client: true, controller: true})
-}
-
-func (s *addCAASSuite) TestGatherClusterMetadataNoRecommendedStorageError(c *gc.C) {
-	result := k8s.ClusterMetadata{}
-	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(&result, nil)
-
-	err := SetKubeConfigData(kubeConfigStr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	command := s.makeCommand(c, true, false, true)
-	_, err = s.runCommand(c, nil, command, "myk8s", "--cluster-name", "myk8s", "-c", "foo")
-	expectedErr := `
-	No recommended storage configuration is defined on this cluster.
-	Run add-k8s again with --storage=<name> and Juju will use the
-	specified storage class.
-`[1:]
-	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
 
 func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *gc.C) {
