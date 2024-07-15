@@ -14,6 +14,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
+	"github.com/juju/juju/internal/secrets/provider"
 )
 
 type modelSecretBackendCommand struct {
@@ -117,14 +118,13 @@ func (c *modelSecretBackendCommand) Run(ctx *cmd.Context) error {
 	if errors.Is(err, errors.NotSupported) {
 		return modelSecretBackendNotSupportedError
 	} else if errors.Is(err, secretbackenderrors.NotFound) {
-		return fmt.Errorf(`%w: consider to use "add-secret-backend" command to add %q to the controller first`, err, *c.secretBackendName)
+		return fmt.Errorf(`%w: please use "add-secret-backend" to add %q to the controller first`, err, *c.secretBackendName)
 	} else if errors.Is(err, secretbackenderrors.NotValid) {
-		return fmt.Errorf(`%w: please use "auto" instead`, err)
+		return fmt.Errorf(`%w: please use %q instead`, err, provider.Auto)
 	}
 	return errors.Trace(err)
 }
 
-var modelSecretBackendNotSupportedError = fmt.Errorf(
-	`%q has not been implemented on the controller, use the %q command instead`,
-	"model-secret-backend", "model-config",
+const modelSecretBackendNotSupportedError = errors.ConstError(
+	`"model-secret-backend" has not been implemented on the controller, use the "model-config" command instead`,
 )

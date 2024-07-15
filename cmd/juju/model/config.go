@@ -353,9 +353,8 @@ func (c *configCommand) setConfig(client configCommandAPI, attrs config.Attrs) e
 	return block.ProcessBlockedError(client.ModelSet(coerced), block.BlockChange)
 }
 
-var secretBackendNotSupportedError = fmt.Errorf(
-	`%q has been removed from model config, use the new command %q instead`,
-	"secret-backend", "model-secret-backend",
+const secretBackendNotSupportedError = errors.ConstError(
+	`"secret-backend" has been removed from model config, use the new command "model-secret-backend" instead`,
 )
 
 // getConfig writes the value of a single model config key to the cmd.Context.

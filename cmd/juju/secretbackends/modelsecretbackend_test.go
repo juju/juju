@@ -87,7 +87,7 @@ func (s *modelSecretBackendCommandSuite) TestSetSecretBackendNotFound(c *gc.C) {
 	s.secretsAPI.EXPECT().Close().Return(nil)
 
 	_, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI), "myVault")
-	c.Assert(err, gc.ErrorMatches, `secret backend not found: consider to use "add-secret-backend" command to add "myVault" to the controller first`)
+	c.Assert(err, gc.ErrorMatches, `secret backend not found: please use "add-secret-backend" to add "myVault" to the controller first`)
 }
 
 func (s *modelSecretBackendCommandSuite) TestSetSecretBackendNotValid(c *gc.C) {

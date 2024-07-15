@@ -5,6 +5,7 @@ package modelconfig
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -16,10 +17,18 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ModelConfig", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return makeFacadeV3(stdCtx, ctx)
+		facade, err := makeFacadeV3(stdCtx, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("registering model config client facade: %w", err)
+		}
+		return facade, nil
 	}, reflect.TypeOf((*ModelConfigAPIV3)(nil)))
 	registry.MustRegister("ModelConfig", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return makeFacade(stdCtx, ctx)
+		facade, err := makeFacade(stdCtx, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("registering model config client facade: %w", err)
+		}
+		return facade, nil
 	}, reflect.TypeOf((*ModelConfigAPI)(nil)))
 }
 

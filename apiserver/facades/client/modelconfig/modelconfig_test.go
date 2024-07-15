@@ -86,7 +86,8 @@ func (s *modelconfigSuite) getAPI(c *gc.C) (*modelconfig.ModelConfigAPI, *gomock
 		}, nil,
 	).AnyTimes()
 
-	api, err := modelconfig.NewModelConfigAPI("", s.backend, s.mockModelSecretBackendService, s.mockModelConfigService, &s.authorizer)
+	modelID := modeltesting.GenModelUUID(c)
+	api, err := modelconfig.NewModelConfigAPI(modelID, s.backend, s.mockModelSecretBackendService, s.mockModelConfigService, &s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	return api, ctrl
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/macaroon.v2"
 
+	modelerrors "github.com/juju/juju/domain/model/errors"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -258,6 +259,8 @@ func TranslateWellKnownError(err error) error {
 		return errors.NewQuotaLimitExceeded(err, "")
 	case CodeNotYetAvailable:
 		return errors.NewNotYetAvailable(err, "")
+	case CodeModelNotFound:
+		return fmt.Errorf("%s%w", err.Error(), errors.Hide(modelerrors.NotFound))
 	}
 	return err
 }
