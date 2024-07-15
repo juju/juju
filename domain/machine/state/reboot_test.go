@@ -6,8 +6,12 @@ package state
 import (
 	"context"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/domain/machine"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
 func (s *stateSuite) TestIsMachineRebootRequiredNoMachine(c *gc.C) {
@@ -128,8 +132,100 @@ func (s *stateSuite) TestCancelMachineRebootSeveralMachine(c *gc.C) {
 	// Verify: Check which machine needs reboot
 	isRebootNeeded, err := s.state.IsMachineRebootRequired(context.Background(), "a-l-i-ve")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(isRebootNeeded, jc.IsFalse)
+	c.Check(isRebootNeeded, jc.IsFalse)
 	isRebootNeeded, err = s.state.IsMachineRebootRequired(context.Background(), "d-e-a-d")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isRebootNeeded, jc.IsTrue)
+}
+
+func (s *stateSuite) TestRebootLogic(c *gc.C) {
+	for _, testCase := range []struct {
+		description     string
+		hasParent       bool
+		isParentReboot  bool
+		isMachineReboot bool
+		expectedAction  machine.RebootAction
+	}{
+		{
+			description:    "orphan, non-rebooting machine, should do nothing",
+			expectedAction: machine.ShouldDoNothing,
+		},
+		{
+			description:     "orphan, rebooting machine, should reboot",
+			isMachineReboot: true,
+			expectedAction:  machine.ShouldReboot,
+		},
+		{
+			description:    "non-rebooting machine with non-rebooting parent, should do nothing",
+			hasParent:      true,
+			expectedAction: machine.ShouldDoNothing,
+		},
+		{
+			description:     "rebooting machine with non-rebooting parent, should reboot",
+			hasParent:       true,
+			isMachineReboot: true,
+			expectedAction:  machine.ShouldReboot,
+		},
+		{
+			description:    "non-rebooting machine with rebooting parent, should shutdown",
+			hasParent:      true,
+			isParentReboot: true,
+			expectedAction: machine.ShouldShutdown,
+		},
+		{
+			description:     "rebooting machine with rebooting parent, should shutdown",
+			hasParent:       true,
+			isParentReboot:  true,
+			isMachineReboot: true,
+			expectedAction:  machine.ShouldShutdown,
+		},
+	} {
+		s.SetUpTest(c) // reset db
+		// Setup: machines and parent if any and setup reboot if required in test case
+		err := s.state.CreateMachine(context.Background(), "machine", "machine", "machine")
+		c.Assert(err, jc.ErrorIsNil)
+		if testCase.isMachineReboot {
+			err = s.runQuery(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("machine")`)
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		if testCase.hasParent {
+			err := s.state.CreateMachine(context.Background(), "parent", "parent", "parent")
+			c.Assert(err, jc.ErrorIsNil)
+			err = s.runQuery(`INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
+			c.Assert(err, jc.ErrorIsNil)
+			if testCase.isParentReboot {
+				err = s.runQuery(`INSERT INTO machine_requires_reboot (machine_uuid) VALUES ("parent")`)
+				c.Assert(err, jc.ErrorIsNil)
+			}
+		}
+
+		// Call the function under test
+		rebootAction, err := s.state.ShouldRebootOrShutdown(context.Background(), "machine")
+		c.Assert(err, jc.ErrorIsNil, gc.Commentf("use case: %s", testCase.description))
+
+		// Verify: Check which machine needs reboot
+		c.Check(rebootAction, gc.Equals, testCase.expectedAction, gc.Commentf("use case: %s", testCase.description))
+
+		s.TearDownTest(c)
+	}
+}
+
+func (s *stateSuite) TestRebootLogicGrandParentNotSupported(c *gc.C) {
+	// Setup: Create a machine hierarchy
+	err := s.state.CreateMachine(context.Background(), "machine", "machine", "machine")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.CreateMachine(context.Background(), "parent", "parent", "parent")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.state.CreateMachine(context.Background(), "grandparent", "grandparent", "grandparent")
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.runQuery(`INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("machine", "parent")`)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.runQuery(`INSERT INTO machine_parent (machine_uuid, parent_uuid) VALUES ("parent", "grandparent")`)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Call the function under test
+	_, err = s.state.ShouldRebootOrShutdown(context.Background(), "machine")
+
+	// Verify: grand parent are not supported
+	c.Assert(errors.Is(err, machineerrors.GrandParentNotSupported), gc.Equals, true, gc.Commentf("obtained error: %v", err))
 }

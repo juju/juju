@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
+	domainmachine "github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -92,6 +93,9 @@ type State interface {
 
 	// IsMachineRebootRequired checks if the machine referenced by its UUID requires a reboot.
 	IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error)
+
+	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
+	ShouldRebootOrShutdown(ctx context.Context, uuid string) (domainmachine.RebootAction, error)
 }
 
 // Service provides the API for working with machines.
@@ -249,4 +253,10 @@ func (s *Service) CancelMachineReboot(ctx context.Context, uuid string) error {
 func (s *Service) IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error) {
 	rebootRequired, err := s.st.IsMachineRebootRequired(ctx, uuid)
 	return rebootRequired, errors.Annotatef(err, "checking if machine with uuid %q is requiring a reboot", uuid)
+}
+
+// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
+func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (domainmachine.RebootAction, error) {
+	rebootRequired, err := s.st.ShouldRebootOrShutdown(ctx, uuid)
+	return rebootRequired, errors.Annotatef(err, "getting if the machine with uuid %q need to reboot or shutdown", uuid)
 }

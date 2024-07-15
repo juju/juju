@@ -22,4 +22,8 @@ const (
 
 	// InvalidStatus describes a status that is not valid
 	InvalidStatus = errors.ConstError("invalid status")
+
+	// GrandParentNotSupported describes an error that occurs when the operation
+	// found a grandparent machine, as it is not currently supported.
+	GrandParentNotSupported = errors.ConstError("grandparent machine are not supported currently")
 )
