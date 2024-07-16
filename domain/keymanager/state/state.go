@@ -196,7 +196,7 @@ func (s *State) GetPublicKeysForUser(
 	}
 
 	stmt, err := s.Prepare(`
-SELECT (public_key, fingerprint) AS &publicKey.*
+SELECT (public_key, fingerprint) AS (&publicKey.*)
 FROM user_public_ssh_key
 WHERE user_id = $userId.user_id
 `, userId{}, publicKey{})
