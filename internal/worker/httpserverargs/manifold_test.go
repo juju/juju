@@ -27,16 +27,17 @@ import (
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/worker/httpserverargs"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type ManifoldSuite struct {
-	testing.IsolationSuite
+	statetesting.StateSuite
 
 	config         httpserverargs.ManifoldConfig
 	manifold       dependency.Manifold
 	getter         dependency.Getter
 	clock          *testclock.Clock
-	state          stubStateTracker
+	stateTracker   stubStateTracker
 	authenticator  mockLocalMacaroonAuthenticator
 	serviceFactory stubServiceFactory
 
@@ -46,10 +47,12 @@ type ManifoldSuite struct {
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
+	s.StateSuite.SetUpTest(c)
 
 	s.clock = testclock.NewClock(time.Time{})
-	s.state = stubStateTracker{}
+	s.stateTracker = stubStateTracker{
+		pool: s.StatePool,
+	}
 	s.serviceFactory = stubServiceFactory{}
 	s.stub.ResetCalls()
 
@@ -66,7 +69,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 	resources := map[string]any{
 		"clock":           s.clock,
-		"state":           &s.state,
+		"state":           &s.stateTracker,
 		"service-factory": &s.serviceFactory,
 	}
 	for k, v := range overlay {
@@ -78,6 +81,7 @@ func (s *ManifoldSuite) newGetter(overlay map[string]any) dependency.Getter {
 func (s *ManifoldSuite) newStateAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
+	modelUUID string,
 	controllerConfig httpserverargs.ControllerConfigService,
 	userService httpserverargs.AccessService,
 	bakerystorage httpserverargs.BakeryConfigService,
@@ -143,10 +147,10 @@ func (s *ManifoldSuite) TestStopWorkerClosesState(c *gc.C) {
 	w := s.startWorkerClean(c)
 	defer workertest.CleanKill(c, w)
 
-	s.state.CheckCallNames(c, "Use")
+	s.stateTracker.CheckCallNames(c, "Use")
 
 	workertest.CleanKill(c, w)
-	s.state.CheckCallNames(c, "Use", "Done")
+	s.stateTracker.CheckCallNames(c, "Use", "Done")
 }
 
 func (s *ManifoldSuite) TestStoppingWorkerClosesAuthenticator(c *gc.C) {
@@ -209,13 +213,13 @@ type mockLocalMacaroonAuthenticator struct {
 
 type stubStateTracker struct {
 	testing.Stub
-	pool  state.StatePool
-	state state.State
+	pool  *state.StatePool
+	state *state.State
 }
 
 func (s *stubStateTracker) Use() (*state.StatePool, *state.State, error) {
 	s.MethodCall(s, "Use")
-	return &s.pool, &s.state, s.NextErr()
+	return s.pool, s.state, s.NextErr()
 }
 
 func (s *stubStateTracker) Done() error {

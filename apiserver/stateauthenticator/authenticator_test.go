@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
+	"github.com/juju/juju/internal/testing"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -139,7 +140,7 @@ func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.bakeryConfigService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
 	s.bakeryConfigService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
 
-	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, s.State, s.controllerConfigService, s.accessService, s.bakeryConfigService, s.agentAuthenticatorFactory, clock.WallClock)
+	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, s.State, testing.ModelTag.Id(), s.controllerConfigService, s.accessService, s.bakeryConfigService, s.agentAuthenticatorFactory, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 

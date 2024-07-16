@@ -85,9 +85,16 @@ func newWorker(ctx context.Context, cfg workerConfig) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
+	st, err := w.cfg.statePool.SystemState()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	modelUUID := st.ModelUUID()
+
 	authenticator, err := w.cfg.newStateAuthenticatorFn(
 		ctx,
 		w.cfg.statePool,
+		modelUUID,
 		w.managedServices,
 		w.managedServices,
 		w.managedServices,

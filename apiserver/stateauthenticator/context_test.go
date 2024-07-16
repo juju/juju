@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/controller"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/testing"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -65,7 +66,7 @@ func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(s.State, loggertesting.WrapCheckLog(c))
 
-	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, s.State, s.controllerConfigService, s.accessService, s.bakeryConfigService, agentAuthFactory, s.clock)
+	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, s.State, testing.ModelTag.Id(), s.controllerConfigService, s.accessService, s.bakeryConfigService, agentAuthFactory, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 

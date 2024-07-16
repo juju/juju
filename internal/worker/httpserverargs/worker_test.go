@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/controller"
 	jujutesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type workerConfigSuite struct {
@@ -66,19 +67,19 @@ func (s *workerConfigSuite) TestMissing(c *gc.C) {
 }
 
 type workerSuite struct {
-	testing.IsolationSuite
+	statetesting.StateSuite
 
 	controllerConfigService *MockControllerConfigService
 	accessService           *MockAccessService
 
-	stateAuthFunc func(context.Context, *state.StatePool, ControllerConfigService, AccessService, BakeryConfigService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error)
+	stateAuthFunc NewStateAuthenticatorFunc
 }
 
 var _ = gc.Suite(&workerSuite{})
 
 func (s *workerSuite) TestWorkerStarted(c *gc.C) {
 	started := make(chan struct{})
-	s.stateAuthFunc = func(context.Context, *state.StatePool, ControllerConfigService, AccessService, BakeryConfigService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
+	s.stateAuthFunc = func(context.Context, *state.StatePool, string, ControllerConfigService, AccessService, BakeryConfigService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
 		defer close(started)
 		return nil, nil
 	}
@@ -101,7 +102,7 @@ func (s *workerSuite) TestWorkerControllerConfigContext(c *gc.C) {
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(controller.Config{}, nil)
 
 	started := make(chan struct{})
-	s.stateAuthFunc = func(context.Context, *state.StatePool, ControllerConfigService, AccessService, BakeryConfigService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
+	s.stateAuthFunc = func(context.Context, *state.StatePool, string, ControllerConfigService, AccessService, BakeryConfigService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
 		defer close(started)
 		return nil, nil
 	}
@@ -130,7 +131,7 @@ func (s *workerSuite) TestWorkerControllerConfigContextDeadline(c *gc.C) {
 	})
 
 	started := make(chan struct{})
-	s.stateAuthFunc = func(context.Context, *state.StatePool, ControllerConfigService, AccessService, BakeryConfigService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
+	s.stateAuthFunc = func(context.Context, *state.StatePool, string, ControllerConfigService, AccessService, BakeryConfigService, *apiserverhttp.Mux, clock.Clock, <-chan struct{}) (macaroon.LocalMacaroonAuthenticator, error) {
 		defer close(started)
 		return nil, nil
 	}
@@ -162,7 +163,7 @@ func (s *workerSuite) newWorkerConfig(c *gc.C) workerConfig {
 		accessService:           s.accessService,
 	}
 	return workerConfig{
-		statePool:               &state.StatePool{},
+		statePool:               s.StatePool,
 		controllerConfigService: services,
 		accessService:           services,
 		mux:                     &apiserverhttp.Mux{},

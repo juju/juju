@@ -66,13 +66,14 @@ func NewAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
 	systemState *state.State,
+	controllerModelUUID string,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
 	bakeryConfigService BakeryConfigService,
 	agentAuthFactory AgentAuthenticatorFactory,
 	clock clock.Clock,
 ) (*Authenticator, error) {
-	authContext, err := newAuthContext(ctx, systemState, controllerConfigService, accessService, bakeryConfigService, agentAuthFactory, clock)
+	authContext, err := newAuthContext(ctx, systemState, controllerModelUUID, controllerConfigService, accessService, bakeryConfigService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -166,7 +167,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	defer st.Release()
 
 	authenticator := a.authContext.authenticatorForState(serverHost, st.State)
-	authInfo, err := a.checkCreds(ctx, authParams, authenticator)
+	authInfo, err := a.checkCreds(ctx, modelUUID, authParams, authenticator)
 	if err == nil {
 		return authInfo, nil
 	}
@@ -182,7 +183,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		// Controller agents are allowed to log into any model.
 		authenticator := a.authContext.authenticator(serverHost)
 		var err2 error
-		authInfo, err2 = a.checkCreds(ctx, authParams, authenticator)
+		authInfo, err2 = a.checkCreds(ctx, modelUUID, authParams, authenticator)
 		if err2 == nil && authInfo.Controller {
 			err = nil
 		}
@@ -197,6 +198,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 
 func (a *Authenticator) checkCreds(
 	ctx context.Context,
+	modelUUID string,
 	authParams authentication.AuthParams,
 	authenticator authentication.EntityAuthenticator,
 ) (authentication.AuthInfo, error) {
@@ -217,13 +219,7 @@ func (a *Authenticator) checkCreds(
 		// For now we'll leave it as is, but we should fix this.
 		userTag := entity.Tag().(names.UserTag)
 
-		st := a.authContext.st
-		model, err := st.Model()
-		if err != nil {
-			return authentication.AuthInfo{}, errors.Trace(err)
-		}
-
-		err = a.authContext.accessService.UpdateLastModelLogin(ctx, userTag.Name(), coremodel.UUID(model.UUID()))
+		err = a.authContext.accessService.UpdateLastModelLogin(ctx, userTag.Name(), coremodel.UUID(modelUUID))
 		if err != nil {
 			logger.Warningf("updating last login time for %v, %v", userTag, err)
 		}

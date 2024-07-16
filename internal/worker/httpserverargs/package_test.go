@@ -4,13 +4,13 @@
 package httpserverargs_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
-	gc "gopkg.in/check.v1"
+	"github.com/juju/juju/internal/testing"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package httpserverargs -destination services_mock_test.go github.com/juju/juju/internal/worker/httpserverargs ControllerConfigService,AccessService
 
-func TestPackage(t *testing.T) {
-	gc.TestingT(t)
+func TestPackage(t *stdtesting.T) {
+	testing.MgoTestPackage(t)
 }
