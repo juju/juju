@@ -313,6 +313,58 @@ func (s *stateSuite) TestMachineStatusValues(c *gc.C) {
 	c.Check(statusValues[4].Name, gc.Equals, "down")
 }
 
+// TestMachineStatusValuesConversion asserts the conversions to and from the
+// core status values and the internal status values for machine stay intact.
+func (s *stateSuite) TestMachineStatusValuesConversion(c *gc.C) {
+
+	// Assert that toCoreMachineStatusValues returns the correct status value
+	tests := []struct {
+		statusValue int
+		expected    status.Status
+	}{
+		{0, status.Error},
+		{1, status.Started},
+		{2, status.Pending},
+		{3, status.Stopped},
+		{4, status.Down},
+	}
+
+	for _, test := range tests {
+		status := machineInstanceStatus{Status: test.statusValue}
+		c.Check(status.toCoreMachineStatusValue(), gc.Equals, test.expected)
+	}
+
+	// Assert that fromCoreMachineStatusValues returns the correct status value
+	for _, test := range tests {
+		c.Check(fromCoreMachineStatusValue(test.expected), gc.Equals, test.statusValue)
+	}
+}
+
+// TestInstanceStatusValuesConversion asserts the conversions to and from the core status values and the internal status values for instances stay intact.
+func (s *stateSuite) TestInstanceStatusValuesConversion(c *gc.C) {
+
+	// Assert that toCoreInstanceStatusValues returns the correct status value
+	tests := []struct {
+		statusValue int
+		expected    status.Status
+	}{
+		{0, status.Empty},
+		{1, status.Allocating},
+		{2, status.Running},
+		{3, status.ProvisioningError},
+	}
+
+	for _, test := range tests {
+		status := machineInstanceStatus{Status: test.statusValue}
+		c.Check(status.toCoreInstanceStatusValue(), gc.Equals, test.expected)
+	}
+
+	// Assert that fromCoreInstanceStatusValues returns the correct status value
+	for _, test := range tests {
+		c.Check(fromCoreInstanceStatusValue(test.expected), gc.Equals, test.statusValue)
+	}
+}
+
 // TestSetMachineLifeSuccess asserts the happy path of SetMachineLife at the
 // state layer.
 func (s *stateSuite) TestSetMachineLifeSuccess(c *gc.C) {

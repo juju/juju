@@ -254,6 +254,8 @@ func (s Status) KnownModificationStatus() bool {
 	return false
 }
 
+// KnownInstanceStatus returns true if status has a known value for a machine
+// cloud  instance.
 func (s Status) KnownInstanceStatus() bool {
 	switch s {
 	case
@@ -268,6 +270,7 @@ func (s Status) KnownInstanceStatus() bool {
 	return false
 }
 
+// KnownMachineStatus returns true if status has a known value for a machine.
 func (s Status) KnownMachineStatus() bool {
 	switch s {
 	case

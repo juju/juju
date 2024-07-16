@@ -278,18 +278,8 @@ func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (stat
 
 	// Convert the internal status id from the (machine_status_values table)
 	// into the core status.Status type.
-	switch machineStatusParam.Status {
-	case 0:
-		machineStatus.Status = status.Error
-	case 1:
-		machineStatus.Status = status.Started
-	case 2:
-		machineStatus.Status = status.Pending
-	case 3:
-		machineStatus.Status = status.Stopped
-	case 4:
-		machineStatus.Status = status.Down
-	}
+	machineStatus.Status = machineStatusParam.toCoreMachineStatusValue()
+
 	return machineStatus, nil
 }
 
@@ -304,21 +294,7 @@ func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newSt
 	// Prepare the new status to be set.
 	machineStatus := machineInstanceStatus{}
 
-	var iStatus int
-	switch newStatus.Status {
-	case status.Error:
-		iStatus = 0
-	case status.Started:
-		iStatus = 1
-	case status.Pending:
-		iStatus = 2
-	case status.Stopped:
-		iStatus = 3
-	case status.Down:
-		iStatus = 4
-	}
-
-	machineStatus.Status = iStatus
+	machineStatus.Status = fromCoreMachineStatusValue(newStatus.Status)
 	machineStatus.Message = newStatus.Message
 	machineStatus.Updated = newStatus.Since
 	machineStatusData := transform.MapToSlice(newStatus.Data, func(key string, value interface{}) []machineInstanceStatusData {
