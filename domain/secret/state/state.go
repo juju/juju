@@ -1039,7 +1039,7 @@ ON CONFLICT(revision_uuid, name) DO UPDATE SET
 // If all terms are empty, then all secrets are returned.
 func (st State) ListSecrets(ctx context.Context, uri *coresecrets.URI,
 	revision *int,
-	// TODO(secrets) - use all filter terms
+// TODO(secrets) - use all filter terms
 	labels domainsecret.Labels,
 ) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
 	db, err := st.DB()
@@ -3004,7 +3004,7 @@ HAVING sruc.current_revision < MAX(sr.revision)`
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// We need to set the source model UUID to mark it as a remote secret for comsumer side to use.
+		// We need to set the source model UUID to mark it as a remote secret for consumer side to use.
 		uri.SourceUUID = modelUUID
 		secretURIs[i] = uri.String()
 	}
@@ -3013,7 +3013,7 @@ HAVING sruc.current_revision < MAX(sr.revision)`
 
 type dbSecretIDs []string
 
-// InitialWatchStatementForObsolete returns the initial watch statement
+// InitialWatchStatementForObsoleteRevision returns the initial watch statement
 // and the table name for watching obsolete revisions.
 func (st State) InitialWatchStatementForObsoleteRevision(
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,
