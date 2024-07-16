@@ -1,58 +1,27 @@
 name: "Generate"
 on:
-  push:
-    branches: [2.*, 3.*, 4.*, main]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-  should-run:
-    # This job checks if files have been changed according
-    # to the filter, and sets a should-run output if
-    # the filter is satisfied.
-    name: Check changed files
-    runs-on: ubuntu-latest
-    outputs:
-      should-run: ${{ steps.set-flag.outputs.SHOULD_RUN }}
-    steps:
-      - name: Check changed files
-        id: should-run
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            should_run:
-              - '**.go'
-              - 'go.mod'
-              - '.github/workflows/gen.yml'
-
-      - name: Set flag
-        id: set-flag
-        run: |
-          echo "SHOULD_RUN=steps.should-run.outputs.should_run" >> $GITHUB_OUTPUT
-
-  Generate:
-    needs: [should-run]
-    name: Generate
+  generate:
+    name: Check Generated Mocks
     runs-on: [self-hosted, linux, arm64, aws, xxlarge]
-    if: github.event.pull_request.draft == false && needs.should-run.outputs.should-run == true
 
     steps:
       - name: "Checkout"
         uses: actions/checkout@v4
 
       - name: "Set up Go"
-        if: steps.should-run.outputs.go == 'true'
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
           cache: true
 
       - name: "Delete all mocks"
-        if: steps.should-run.outputs.go == 'true'
         shell: bash
         # Ideally we'd delete all generated files, but we can't because some of
         # the Go code depends on generated files for go:generate to actually work.

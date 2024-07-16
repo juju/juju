@@ -1,59 +1,15 @@
 name: "Upgrade"
 on:
-  push:
-    branches: [3.*]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - 'snap/**'
-      - '.github/workflows/upgrade.yml'
-      - '.github/setup-lxd/**'
-      - 'scripts/dqlite/**'
-      - 'Makefile'
-      - 'make_functions.sh'
-    branches-ignore:
-      - 'main'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-  should-run:
-    # This job checks if files have been changed according
-    # to the filter, and sets a should-run output if
-    # the filter is satisfied.
-    name: Check changed files
-    runs-on: ubuntu-latest
-    outputs:
-      should-run: ${{ steps.set-flag.outputs.SHOULD_RUN }}
-    steps:
-      - name: Check changed files
-        id: should-run
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            should_run:
-              - '**.go'
-              - 'go.mod'
-              - 'snap/**'
-              - '.github/workflows/migrate.yml'
-              - 'scripts/dqlite/**'
-              - 'Makefile'
-              - 'make_functions.sh'
-
-      - name: Set flag
-        id: set-flag
-        run: |
-          echo "SHOULD_RUN=steps.should-run.outputs.should_run" >> $GITHUB_OUTPUT
-
   setup:
-    needs: [should-run]
     name: Upgrade pre-check
     runs-on: ubuntu-latest
-    if: needs.should-run.outputs.should-run == true
     outputs:
       version: ${{ steps.check.outputs.version }}
       channel: ${{ steps.check.outputs.channel }}
@@ -72,11 +28,11 @@ jobs:
           echo "channel=$channel" >> $GITHUB_OUTPUT 
 
   upgrade:
-    name: Upgrade
+    name: Upgrade Smoke
     runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
     timeout-minutes: 30
     needs: setup
-    if: github.event.pull_request.draft == false && needs.setup.outputs.channel != '' && needs.should-run.outputs.should-run == true
+    if: needs.setup.outputs.channel != ''
     strategy:
       fail-fast: false
       matrix:
