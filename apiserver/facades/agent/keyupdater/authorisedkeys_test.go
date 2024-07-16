@@ -168,7 +168,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 		},
 	}
 
-	s.keyUpdaterService.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).
+	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).
 		Return([]string{"key1", "key2"}, nil)
 
 	result, err := endPoint.AuthorisedKeys(context.Background(), args)
@@ -257,7 +257,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNotFoundMachine(c *gc.C) {
 		},
 	}
 
-	s.keyUpdaterService.EXPECT().AuthorisedKeysForMachine(
+	s.keyUpdaterService.EXPECT().GetAuthorisedKeysForMachine(
 		gomock.Any(), coremachine.Name("0"),
 	).Return(nil, machineerrors.NotFound)
 

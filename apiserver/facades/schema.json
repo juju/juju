@@ -20715,6 +20715,9 @@
         "Description": "KeyManagerAPI provides api endpoints for manipulating ssh keys",
         "Version": 1,
         "AvailableTo": [
+            "controller-machine-agent",
+            "machine-agent",
+            "unit-agent",
             "model-user"
         ],
         "Schema": {
@@ -20754,7 +20757,7 @@
                             "$ref": "#/definitions/ErrorResults"
                         }
                     },
-                    "description": "ImportKeys imports new authorised ssh keys from the specified key ids for the specified user."
+                    "description": "ImportKeys imports new authorised ssh keys from the specified key ids for the\nspecified user."
                 },
                 "ListKeys": {
                     "type": "object",
@@ -20935,7 +20938,7 @@
                             "$ref": "#/definitions/StringsResults"
                         }
                     },
-                    "description": "AuthorisedKeys reports the authorised ssh keys for the specified machines.\nThe current implementation relies on global authorised keys being stored in\nthe model config and also the Juju system ssh key coming from the controllers\nconfig. This will change as new user management and authorisation\nfunctionality is added."
+                    "description": "AuthorisedKeys reports the authorised ssh keys for the specified machines.\nThe current implementation fetches all keys on the model that have been\ngranted for use on a machine.\nThe following param error codes can be expected:\n- [params.CodeTagInvalid] When a tag provided does not parse and is\nconsidered invalid.\n- [params.CodeTagKindNotSupported] When a tag has been supplied that is not a\nmachine tag.\n- [params.CodeUnathorized] When the caller does not have permissions to get\nthe authorised keys for a requested tag.\n- [params.CodeMachineInvalidID] When one of the machine tags id is invalid.\n- [params.CodeMachineNotFound] When one of the machine's does not exist."
                 },
                 "WatchAuthorisedKeys": {
                     "type": "object",

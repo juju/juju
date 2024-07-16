@@ -176,7 +176,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 		}
 
 		machineName := coremachine.Name(tag.Id())
-		keys, err := api.keyUpdaterService.AuthorisedKeysForMachine(ctx, machineName)
+		keys, err := api.keyUpdaterService.GetAuthorisedKeysForMachine(ctx, machineName)
 
 		switch {
 		case errors.Is(err, errors.NotValid):
