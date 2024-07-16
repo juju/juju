@@ -152,7 +152,7 @@ func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c 
 		Message: "unauthorized",
 		Code:    params.CodeUnauthorized,
 	}
-	s.PatchValue(api.LoginWithSessionTokenAPICall, func(_ base.APICaller, request interface{}, response interface{}) error {
+	s.PatchValue(api.LoginWithSessionTokenAPICall, func(_ context.Context, _ base.APICaller, request interface{}, response interface{}) error {
 		return expectedErr
 	})
 
