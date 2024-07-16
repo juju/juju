@@ -39,29 +39,19 @@ type NamespaceWatcher struct {
 
 // NewNamespaceWatcher returns a new watcher that receives changes from the
 // input base watcher's db/queue when changes in the namespace occur.
+// It emits the values from the namespace that changed.
 func NewNamespaceWatcher(
-	base *BaseWatcher, namespace string,
-	changeMask changestream.ChangeType, initialQuery NamespaceQuery,
+	base *BaseWatcher, namespace string, changeMask changestream.ChangeType, initialQuery NamespaceQuery,
 ) watcher.StringsWatcher {
-	w := &NamespaceWatcher{
-		BaseWatcher:  base,
-		out:          make(chan []string),
-		namespace:    namespace,
-		initialQuery: initialQuery,
-		changeMask:   changeMask,
-		mapper:       defaultMapper,
-	}
-
-	w.tomb.Go(w.loop)
-	return w
+	return NewNamespaceMapperWatcher(base, namespace, changeMask, initialQuery, defaultMapper)
 }
 
 // NewNamespaceMapperWatcher returns a new watcher that receives changes
 // from the input base watcher's db/queue when changes in the namespace occur.
+// Values from the namespace that change are processed by the input mapper,
+// and based on the mapper's logic a subset of them (or none) may be emitted.
 func NewNamespaceMapperWatcher(
-	base *BaseWatcher, namespace string,
-	changeMask changestream.ChangeType, initialQuery NamespaceQuery,
-	mapper Mapper,
+	base *BaseWatcher, namespace string, changeMask changestream.ChangeType, initialQuery NamespaceQuery, mapper Mapper,
 ) watcher.StringsWatcher {
 	w := &NamespaceWatcher{
 		BaseWatcher:  base,
@@ -110,7 +100,7 @@ func (w *NamespaceWatcher) loop() error {
 	var in <-chan []changestream.ChangeEvent
 	out := w.out
 
-	// Note: we don't use the mappper to prevent the initial event. All
+	// Note: we don't use the mapper to prevent the initial event. All
 	// namespace watchers are __required__ to send the initial state. The API
 	// design for watchers when they subscribe is that they must send the
 	// initial state, and then optional deltas thereafter.
@@ -161,7 +151,7 @@ func InitialNamespaceChanges(selectAll string) NamespaceQuery {
 		err := runner.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 			rows, err := tx.QueryContext(ctx, selectAll)
 			if err != nil {
-				if err == sql.ErrNoRows {
+				if errors.Is(err, sql.ErrNoRows) {
 					return nil
 				}
 				return errors.Trace(err)
