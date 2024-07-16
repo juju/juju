@@ -33,7 +33,7 @@ type clientCredentialsLoginProvider struct {
 }
 
 // Token implements [LoginProvider.Token]
-// Returning the client secret used for logging in to a Juju controller.
+// returning the client secret used for logging in to a Juju controller.
 func (p *clientCredentialsLoginProvider) Token() (string, error) {
 	return p.clientSecret, nil
 }

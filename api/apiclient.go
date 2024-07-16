@@ -367,16 +367,11 @@ func (st *state) connectStream(path string, attrs url.Values, extraHeaders http.
 		Proxy:           proxy.DefaultConfig.GetProxy,
 		TLSClientConfig: st.tlsConfig,
 	}
-	var requestHeader http.Header
 	token, err := st.LoginToken()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if st.tag != "" || token != "" {
-		requestHeader = jujuhttp.BasicAuthHeader(st.tag, token)
-	} else {
-		requestHeader = make(http.Header)
-	}
+	requestHeader := jujuhttp.BasicAuthHeader(st.tag, token)
 	requestHeader.Set(params.JujuClientVersion, jujuversion.Current.String())
 	requestHeader.Set("Origin", "http://localhost/")
 	if st.nonce != "" {
