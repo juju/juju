@@ -200,7 +200,7 @@ func (*accessSuite) TestGreaterControllerAccessThan(c *gc.C) {
 func (*accessSuite) TestEqualOrGreaterCloudAccessThan(c *gc.C) {
 	// A very boring but necessary test to test explicit responses.
 	var (
-		undefined = permission.NoAccess
+		noaccess  = permission.NoAccess
 		read      = permission.ReadAccess
 		write     = permission.WriteAccess
 		admin     = permission.AdminAccess
@@ -218,13 +218,21 @@ func (*accessSuite) TestEqualOrGreaterCloudAccessThan(c *gc.C) {
 		c.Check(value.EqualOrGreaterControllerAccessThan(write), jc.IsFalse)
 	}
 	// No comparison against a controller permission will return true
-	for _, value := range []permission.Access{undefined, login, superuser} {
+	for _, value := range []permission.Access{noaccess, login, superuser} {
 		c.Check(value.EqualOrGreaterControllerAccessThan(addmodel), jc.IsFalse)
 	}
 
+	c.Check(noaccess.EqualOrGreaterCloudAccessThan(noaccess), jc.IsTrue)
+	c.Check(noaccess.EqualOrGreaterCloudAccessThan(addmodel), jc.IsFalse)
+	c.Check(noaccess.EqualOrGreaterCloudAccessThan(admin), jc.IsFalse)
+
 	c.Check(addmodel.EqualOrGreaterCloudAccessThan(addmodel), jc.IsTrue)
+	c.Check(addmodel.EqualOrGreaterCloudAccessThan(noaccess), jc.IsTrue)
 	c.Check(addmodel.EqualOrGreaterCloudAccessThan(admin), jc.IsFalse)
+
+	c.Check(admin.EqualOrGreaterCloudAccessThan(noaccess), jc.IsTrue)
 	c.Check(admin.EqualOrGreaterCloudAccessThan(addmodel), jc.IsTrue)
+	c.Check(admin.EqualOrGreaterCloudAccessThan(admin), jc.IsTrue)
 }
 
 var validateObjectTypeTest = []struct {

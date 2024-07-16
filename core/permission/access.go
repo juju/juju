@@ -214,10 +214,12 @@ func (a Access) controllerValue() int {
 
 func (a Access) cloudValue() int {
 	switch a {
-	case AddModelAccess:
+	case NoAccess:
 		return 0
-	case AdminAccess:
+	case AddModelAccess:
 		return 1
+	case AdminAccess:
+		return 2
 	default:
 		return -1
 	}
