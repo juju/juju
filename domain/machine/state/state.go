@@ -181,6 +181,12 @@ DELETE FROM net_node WHERE uuid IN
 	return errors.Annotatef(err, "deleting machine %q", mName)
 }
 
+// InitialWatchModelMachinesStatement returns the table and the initial watch
+// statement for watching life changes of non-container machines.
+func (st *State) InitialWatchModelMachinesStatement() (string, string) {
+	return "machine", "SELECT uuid FROM machine WHERE name NOT LIKE '%/%'"
+}
+
 // InitialWatchStatement returns the table and the initial watch statement
 // for the machines.
 func (st *State) InitialWatchStatement() (string, string) {
