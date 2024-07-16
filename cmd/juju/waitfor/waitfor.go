@@ -32,8 +32,14 @@ Built-in functions are provided to help define the goal state. The built-in
 functions are defined in the query package. Examples of built-in functions
 include len, print, forEach (lambda), startsWith and endsWith.
 
-Examples:
+See also:
+    wait-for model
+    wait-for application
+    wait-for machine
+    wait-for unit
+`
 
+const waitForExamples = `
 Waits for the mysql/0 unit to be created and active.
 
     juju wait-for unit mysql/0
@@ -45,12 +51,6 @@ Waits for the mysql application to be active or idle.
 Waits for the model units to all start with ubuntu.
 
     juju wait-for model default --query='forEach(units, unit => startsWith(unit.name, "ubuntu"))'
-
-See also:
-    wait-for model
-    wait-for application
-    wait-for machine
-    wait-for unit
 `
 
 // NewWaitForCommand creates the wait-for supercommand and registers the
@@ -61,6 +61,7 @@ func NewWaitForCommand() cmd.Command {
 		UsagePrefix: "juju",
 		Doc:         waitForDoc,
 		Purpose:     "Wait for an entity to reach a specified state.",
+		Examples:    waitForExamples,
 	})
 
 	waitFor.Register(newApplicationCommand())

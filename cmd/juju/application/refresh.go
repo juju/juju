@@ -237,6 +237,20 @@ application; overriding profiles on the container may cause unexpected
 behavior.
 `
 
+const refreshExamples = `
+To refresh the storage constraints for the application foo:
+
+	juju refresh foo --storage cache=ssd,10G
+
+To refresh the application config from a file for application foo:
+
+	juju refresh foo --config config.yaml
+
+To refresh the resources for application foo:
+
+	juju refresh foo --resource bar=/some/file.tgz --resource baz=./docs/cfg.xml
+`
+
 const upgradedApplicationHasUnitsMessage = `
 Upgrading from an older PodSpec style charm to a newer Sidecar charm requires that
 the application be scaled down to 0 units.
@@ -249,10 +263,12 @@ all those units to disappear before continuing.
 
 func (c *refreshCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "refresh",
-		Args:    "<application>",
-		Purpose: "Refresh an application's charm.",
-		Doc:     refreshDoc,
+		Name:     "refresh",
+		Args:     "<application>",
+		Purpose:  "Refresh an application's charm.",
+		Doc:      refreshDoc,
+		SeeAlso:  []string{"deploy"},
+		Examples: refreshExamples,
 	})
 }
 
