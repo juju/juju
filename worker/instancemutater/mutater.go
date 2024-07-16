@@ -237,13 +237,13 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 		}
 	}
 
-	verified, err := m.verifyCurrentProfiles(string(info.InstanceId), expectedProfiles)
+	verified, currentProfiles, err := m.verifyCurrentProfiles(string(info.InstanceId), expectedProfiles)
 	if err != nil {
 		return report(errors.Annotatef(err, "%s", m.id))
 	}
 	if verified {
 		m.logger.Infof("no changes necessary to machine-%s lxd profiles (%v)", m.id, expectedProfiles)
-		return report(nil)
+		return report(m.machineApi.SetCharmProfiles(currentProfiles))
 	}
 
 	// Adding a wrench to test charm not running hooks before profile can be applied.
@@ -259,7 +259,7 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 
 	m.logger.Infof("machine-%s (%s) assign lxd profiles %q, %#v", m.id, string(info.InstanceId), expectedProfiles, post)
 	broker := m.context.getBroker()
-	currentProfiles, err := broker.AssignLXDProfiles(string(info.InstanceId), expectedProfiles, post)
+	currentProfiles, err = broker.AssignLXDProfiles(string(info.InstanceId), expectedProfiles, post)
 	if err != nil {
 		m.logger.Errorf("failure to assign lxd profiles %s to machine-%s: %s", expectedProfiles, m.id, err)
 		return report(err)
@@ -298,21 +298,21 @@ func (m MutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo)
 	return result, nil
 }
 
-func (m MutaterMachine) verifyCurrentProfiles(instID string, expectedProfiles []string) (bool, error) {
+func (m MutaterMachine) verifyCurrentProfiles(instID string, expectedProfiles []string) (bool, []string, error) {
 	broker := m.context.getBroker()
 	obtainedProfiles, err := broker.LXDProfileNames(instID)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 
 	if len(obtainedProfiles) == 0 && len(expectedProfiles) == 0 {
-		return true, nil
+		return true, obtainedProfiles, nil
 	} else if len(obtainedProfiles) != len(expectedProfiles) {
-		return false, nil
+		return false, obtainedProfiles, nil
 	}
 
 	obtainedSet := set.NewStrings(obtainedProfiles...)
 	expectedSet := set.NewStrings(expectedProfiles...)
 
-	return obtainedSet.Difference(expectedSet).Size() == 0, nil
+	return obtainedSet.Difference(expectedSet).Size() == 0, obtainedProfiles, nil
 }
