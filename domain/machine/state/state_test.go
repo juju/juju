@@ -110,6 +110,51 @@ func (s *stateSuite) TestDeleteMachine(c *gc.C) {
 	c.Assert(machineCount, gc.Equals, 0)
 }
 
+// TestDeleteMachineStatus asserts that DeleteMachine at the state layer removes
+// any machine status and status data when deleting a machine.
+func (s *stateSuite) TestDeleteMachineStatus(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	bd := blockdevice.BlockDevice{
+		DeviceName:     "name-666",
+		Label:          "label-666",
+		UUID:           "device-666",
+		HardwareId:     "hardware-666",
+		WWN:            "wwn-666",
+		BusAddress:     "bus-666",
+		SizeMiB:        666,
+		FilesystemType: "btrfs",
+		InUse:          true,
+		MountPoint:     "mount-666",
+		SerialId:       "serial-666",
+	}
+	bdUUID := uuid.MustNewUUID().String()
+	s.insertBlockDevice(c, bd, bdUUID, "666")
+
+	s.state.SetMachineStatus(context.Background(), "666", status.StatusInfo{Status: status.Started, Message: "started", Data: map[string]interface{}{"key": "data"}})
+
+	err = s.state.DeleteMachine(context.Background(), "666")
+	c.Assert(err, jc.ErrorIsNil)
+
+	var status int
+	var statusData int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT count(*) FROM machine_status WHERE machine_uuid=?", "123").Scan(&status)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		err = tx.QueryRowContext(ctx, "SELECT count(*) FROM machine_status_data WHERE machine_uuid=?", "123").Scan(&statusData)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, 0)
+	c.Assert(statusData, gc.Equals, 0)
+}
+
 func (s *stateSuite) insertBlockDevice(c *gc.C, bd blockdevice.BlockDevice, blockDeviceUUID, machineId string) {
 	db := s.DB()
 

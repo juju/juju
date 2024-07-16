@@ -104,19 +104,23 @@ func (st *State) DeleteMachine(ctx context.Context, mName machine.Name) error {
 		return errors.Trace(err)
 	}
 
+	// Prepare query for machine uuid.
 	machineNameParam := machineName{Name: mName}
+	machineUUIDParam := machineUUID{}
 	queryMachine := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name`
-	queryMachineStmt, err := st.Prepare(queryMachine, machineNameParam, machineUUID{})
+	queryMachineStmt, err := st.Prepare(queryMachine, machineNameParam, machineUUIDParam)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// Prepare query for deleting machine row.
 	deleteMachine := `DELETE FROM machine WHERE name = $machineName.name`
 	deleteMachineStmt, err := st.Prepare(deleteMachine, machineNameParam)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	// Prepare query for deleting net node row.
 	deleteNode := `
 DELETE FROM net_node WHERE uuid IN
 (SELECT net_node_uuid FROM machine WHERE name = $machineName.name)
@@ -126,9 +130,21 @@ DELETE FROM net_node WHERE uuid IN
 		return errors.Trace(err)
 	}
 
+	// Prepare query for deleting status and status data for the machine.
+	deleteStatus := `DELETE FROM machine_status WHERE machine_uuid = $machineUUID.uuid`
+	deleteStatusStmt, err := st.Prepare(deleteStatus, machineUUIDParam)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deleteStatusData := `DELETE FROM machine_status_data WHERE machine_uuid = $machineUUID.uuid`
+	deleteStatusDataStmt, err := st.Prepare(deleteStatusData, machineUUIDParam)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result := machineUUID{}
-		err = tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&result)
+		err = tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&machineUUIDParam)
 		// Machine already deleted is a no op.
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
@@ -137,15 +153,29 @@ DELETE FROM net_node WHERE uuid IN
 			return errors.Annotatef(err, "looking up UUID for machine %q", mName)
 		}
 
-		machineUUID := result.UUID
-
-		if err := blockdevice.RemoveMachineBlockDevices(ctx, tx, machineUUID); err != nil {
+		// Remove block devices for the machine.
+		if err := blockdevice.RemoveMachineBlockDevices(ctx, tx, machineUUIDParam.UUID); err != nil {
 			return errors.Annotatef(err, "deleting block devices for machine %q", mName)
 		}
 
+		// Remove the status for the machine. No need to return error if no
+		// status is set for the machine while deleting.
+		if err := tx.Query(ctx, deleteStatusStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(err, "deleting status for machine %q", mName)
+		}
+
+		// Remove the status data for the machine. No need to return error if no
+		// status data is set for the machine.
+		if err := tx.Query(ctx, deleteStatusDataStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(err, "deleting status data for machine %q", mName)
+		}
+
+		// Remove the machine.
 		if err := tx.Query(ctx, deleteMachineStmt, machineNameParam).Run(); err != nil {
 			return errors.Annotatef(err, "deleting machine %q", mName)
 		}
+
+		// Remove the net node for the machine.
 		if err := tx.Query(ctx, deleteNodeStmt, machineNameParam).Run(); err != nil {
 			return errors.Annotatef(err, "deleting net node for machine  %q", mName)
 		}
