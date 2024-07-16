@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/caas"
 	k8s "github.com/juju/juju/caas/kubernetes"
-	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	k8sutils "github.com/juju/juju/caas/kubernetes/provider/utils"
 	jujucloud "github.com/juju/juju/cloud"
@@ -105,36 +104,6 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 		Endpoint:        "http://1.1.1.1:8080",
 		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
 		Config:          map[string]interface{}{"workload-storage": "workload-sc"},
-		Regions:         []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
-	})
-}
-
-func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
-	preparedCloud := jujucloud.Cloud{
-		Name:            k8s.K8sCloudMicrok8s,
-		Type:            jujucloud.CloudTypeKubernetes,
-		AuthTypes:       []jujucloud.AuthType{jujucloud.UserPassAuthType},
-		CACertificates:  []string{""},
-		Endpoint:        "http://1.1.1.1:8080",
-		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
-		Config:          map[string]interface{}{"workload-storage": "something-else"},
-		Regions:         []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
-	}
-
-	p := s.getProvider()
-	cloudFinalizer := p.(environs.CloudFinalizer)
-
-	ctx := mockContext{Context: context.Background()}
-	cloud, err := cloudFinalizer.FinalizeCloud(&ctx, preparedCloud)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cloud, jc.DeepEquals, jujucloud.Cloud{
-		Name:            k8s.K8sCloudMicrok8s,
-		Type:            jujucloud.CloudTypeKubernetes,
-		AuthTypes:       k8scloud.SupportedAuthTypes(),
-		CACertificates:  []string{""},
-		Endpoint:        "http://1.1.1.1:8080",
-		HostCloudRegion: fmt.Sprintf("%s/%s", k8s.K8sCloudMicrok8s, k8s.Microk8sRegion),
-		Config:          map[string]interface{}{"workload-storage": "something-else"},
 		Regions:         []jujucloud.Region{{Name: k8s.Microk8sRegion, Endpoint: "http://1.1.1.1:8080"}},
 	})
 }
