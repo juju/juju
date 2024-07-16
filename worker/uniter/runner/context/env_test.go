@@ -141,17 +141,32 @@ func (s *EnvSuite) setSecret(ctx *context.HookContext) (expectVars []string) {
 	}
 }
 
-func (s *EnvSuite) setNotice(ctx *context.HookContext) (expectVars []string) {
+func (s *EnvSuite) setWorkload(ctx *context.HookContext) (expectVars []string) {
 	workload := "wrk"
+	context.SetEnvironmentHookContextWorkload(ctx, workload)
+	return []string{
+		"JUJU_WORKLOAD_NAME=" + workload,
+	}
+}
+
+func (s *EnvSuite) setNotice(ctx *context.HookContext) (expectVars []string) {
 	id := "1"
 	typ := "custom"
 	key := "a.com/b"
-	context.SetEnvironmentHookContextNotice(ctx, workload, id, typ, key)
+	context.SetEnvironmentHookContextNotice(ctx, id, typ, key)
 	return []string{
-		"JUJU_WORKLOAD_NAME=" + workload,
 		"JUJU_NOTICE_ID=" + id,
 		"JUJU_NOTICE_TYPE=" + typ,
 		"JUJU_NOTICE_KEY=" + key,
+	}
+}
+
+// setCheck sets the context for a check hook.
+func (s *EnvSuite) setCheck(ctx *context.HookContext) (expectVars []string) {
+	name := "http-check"
+	context.SetEnvironmentHookContextCheck(ctx, name)
+	return []string{
+		"JUJU_PEBBLE_CHECK_NAME=" + name,
 	}
 }
 
@@ -245,10 +260,12 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	relationVars := s.setDepartingRelation(ctx)
 	secretVars := s.setSecret(ctx)
 	storageVars := s.setStorage(ctx)
+	workloadVars := s.setWorkload(ctx)
 	noticeVars := s.setNotice(ctx)
+	checkVars := s.setCheck(ctx)
 	actualVars, err = ctx.HookVars(paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, noticeVars)
+	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, workloadVars, noticeVars, checkVars)
 }
 
 func (s *EnvSuite) TestEnvCentos(c *gc.C) {

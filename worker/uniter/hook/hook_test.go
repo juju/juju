@@ -53,6 +53,18 @@ var validateTests = []struct {
 		hook.Info{Kind: hooks.PebbleCustomNotice, WorkloadName: "test"},
 		`"pebble-custom-notice" hook requires a notice ID, type, and key`,
 	}, {
+		hook.Info{Kind: hooks.PebbleCheckFailed, CheckName: "http-check"},
+		`"pebble-check-failed" hook requires a workload name`,
+	}, {
+		hook.Info{Kind: hooks.PebbleCheckFailed, WorkloadName: "test"},
+		`"pebble-check-failed" hook requires a check name`,
+	}, {
+		hook.Info{Kind: hooks.PebbleCheckRecovered, CheckName: "http-check"},
+		`"pebble-check-recovered" hook requires a workload name`,
+	}, {
+		hook.Info{Kind: hooks.PebbleCheckRecovered, WorkloadName: "test"},
+		`"pebble-check-recovered" hook requires a check name`,
+	}, {
 		hook.Info{Kind: hooks.PreSeriesUpgrade},
 		`"pre-series-upgrade" hook requires a target base`,
 	}, {

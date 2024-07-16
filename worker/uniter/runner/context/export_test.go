@@ -197,13 +197,24 @@ func SetEnvironmentHookContextStorage(context *HookContext, storageTag names.Sto
 	context.storageTag = storageTag
 }
 
+// SetEnvironmentHookContextWorkload exists purely to set the fields used in hookVars.
+// It makes no assumptions about the validity of context.
+func SetEnvironmentHookContextWorkload(context *HookContext, workloadName string) {
+	context.workloadName = workloadName
+}
+
 // SetEnvironmentHookContextNotice exists purely to set the fields used in hookVars.
 // It makes no assumptions about the validity of context.
-func SetEnvironmentHookContextNotice(context *HookContext, workloadName, noticeID, noticeType, noticeKey string) {
-	context.workloadName = workloadName
+func SetEnvironmentHookContextNotice(context *HookContext, noticeID, noticeType, noticeKey string) {
 	context.noticeID = noticeID
 	context.noticeType = noticeType
 	context.noticeKey = noticeKey
+}
+
+// SetEnvironmentHookContextCheck exists purely to set the fields used in hookVars.
+// It makes no assumptions about the validity of context.
+func SetEnvironmentHookContextCheck(context *HookContext, checkName string) {
+	context.checkName = checkName
 }
 
 // SetRelationBroken sets the relation as broken.
