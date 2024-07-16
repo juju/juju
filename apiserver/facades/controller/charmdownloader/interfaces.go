@@ -10,7 +10,6 @@ import (
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/services"
 	"github.com/juju/juju/state"
@@ -23,11 +22,6 @@ type StateBackend interface {
 	PrepareCharmUpload(curl string) (services.UploadedCharm, error)
 	ModelUUID() string
 	Application(string) (Application, error)
-}
-
-// ModelBackend describes an API for accessing model-specific details.
-type ModelBackend interface {
-	Config() (*config.Config, error)
 }
 
 // Application provides an API for querying application-specific details.

@@ -99,6 +99,7 @@ type AgentBinaryBootstrapFunc func(context.Context, string, BinaryAgentStorageSe
 type ControllerCharmDeployerConfig struct {
 	StateBackend                SystemState
 	ApplicationService          ApplicationService
+	ModelConfigService          ModelConfigService
 	ObjectStore                 objectstore.ObjectStore
 	ControllerConfig            controller.Config
 	DataDir                     string
@@ -169,6 +170,7 @@ func makeBaseDeployerConfig(cfg ControllerCharmDeployerConfig) bootstrap.BaseDep
 		ObjectStore:         cfg.ObjectStore,
 		StateBackend:        cfg.StateBackend,
 		ApplicationService:  cfg.ApplicationService,
+		ModelConfigService:  cfg.ModelConfigService,
 		CharmUploader:       cfg.StateBackend,
 		Constraints:         cfg.BootstrapMachineConstraints,
 		ControllerConfig:    cfg.ControllerConfig,

@@ -18,8 +18,10 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machine"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	applicationservice "github.com/juju/juju/domain/application/service"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
@@ -70,21 +72,11 @@ type UnitAdder interface {
 	AddUnit(state.AddUnitParams) (Unit, error)
 }
 
-// MachineService instances save a machine to dqlite state.
-type MachineService interface {
-	CreateMachine(context.Context, machine.Name) (string, error)
-}
-
-// ApplicationService instances save an application to dqlite state.
-type ApplicationService interface {
-	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
-	AddUnits(ctx context.Context, name string, units ...applicationservice.AddUnitParams) error
-	UpdateApplicationCharm(ctx context.Context, name string, params applicationservice.UpdateCharmParams) error
-}
-
 // DeployApplication takes a charm and various parameters and deploys it.
 func DeployApplication(
-	ctx context.Context, st ApplicationDeployer, model Model, cloudService common.CloudService,
+	ctx context.Context, st ApplicationDeployer, model Model,
+	modelInfo coremodel.ReadOnlyModel,
+	cloudService common.CloudService,
 	credentialService common.CredentialService,
 	applicationService ApplicationService,
 	store objectstore.ObjectStore,
@@ -116,7 +108,7 @@ func DeployApplication(
 		logger.Warningf("proceeding with deployment of application %q even though the charm feature requirements could not be met as --force was specified", args.ApplicationName)
 	}
 
-	if model.Type() == state.ModelTypeCAAS {
+	if modelInfo.Type == coremodel.CAAS {
 		if charm.MetaFormat(args.Charm) == charm.FormatV1 {
 			return nil, errors.NotSupportedf("deploying format v1 charm %q", args.Charm.URL())
 		}
@@ -232,9 +224,13 @@ func (api *APIBase) addUnits(
 }
 
 func saveMachineInfo(ctx context.Context, machineService MachineService, machineName string) error {
-	// This is temporary - just insert the machine id all al the parent ones.
+	// This is temporary - just insert the machine id and all the parent ones.
 	for machineName != "" {
-		if _, err := machineService.CreateMachine(ctx, machine.Name(machineName)); err != nil {
+		_, err := machineService.CreateMachine(ctx, machine.Name(machineName))
+		// The machine might already exist e.g. if we are adding a subordinate
+		// unit to an already existing machine. In this case, just continue
+		// without error.
+		if err != nil && !errors.Is(err, machineerrors.MachineAlreadyExists) {
 			return errors.Annotatef(err, "saving info for machine %q", machineName)
 		}
 		parent := names.NewMachineTag(machineName).Parent()

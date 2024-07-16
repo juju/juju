@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/user"
 	userservice "github.com/juju/juju/domain/access/service"
-	applicationservice "github.com/juju/juju/domain/application/service"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -58,11 +57,6 @@ type CloudService interface {
 // StorageService instances save a storage pool to dqlite state.
 type StorageService interface {
 	CreateStoragePool(ctx context.Context, name string, providerType storage.ProviderType, attrs storageservice.PoolAttrs) error
-}
-
-// ApplicationService instances save an application to dqlite state.
-type ApplicationService interface {
-	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
 }
 
 // NetworkService is the interface that is used to interact with the
@@ -360,6 +354,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				StorageService:          modelServiceFactory.Storage(registry),
 				ProviderRegistry:        registry,
 				ApplicationService:      modelServiceFactory.Application(registry),
+				ModelConfigService:      modelServiceFactory.Config(),
 				FlagService:             flagService,
 				NetworkService:          modelServiceFactory.Network(),
 				BakeryConfigService:     controllerServiceFactory.Macaroon(),

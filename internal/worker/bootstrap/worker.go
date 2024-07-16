@@ -65,6 +65,7 @@ type WorkerConfig struct {
 	StorageService          StorageService
 	ProviderRegistry        storage.ProviderRegistry
 	ApplicationService      ApplicationService
+	ModelConfigService      ModelConfigService
 	FlagService             FlagService
 	NetworkService          NetworkService
 	BakeryConfigService     BakeryConfigService
@@ -108,6 +109,9 @@ func (c *WorkerConfig) Validate() error {
 	}
 	if c.ApplicationService == nil {
 		return errors.NotValidf("nil ApplicationService")
+	}
+	if c.ModelConfigService == nil {
+		return errors.NotValidf("nil ModelConfigService")
 	}
 	if c.BootstrapUnlocker == nil {
 		return errors.NotValidf("nil BootstrapUnlocker")
@@ -444,6 +448,7 @@ func (w *bootstrapWorker) seedControllerCharm(ctx context.Context, dataDir strin
 	deployer, err := w.cfg.ControllerCharmDeployer(ControllerCharmDeployerConfig{
 		StateBackend:                w.cfg.SystemState,
 		ApplicationService:          w.cfg.ApplicationService,
+		ModelConfigService:          w.cfg.ModelConfigService,
 		ObjectStore:                 objectStore,
 		ControllerConfig:            controllerConfig,
 		DataDir:                     dataDir,

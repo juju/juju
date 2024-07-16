@@ -16,6 +16,7 @@ import (
 	coreapiserver "github.com/juju/juju/apiserver"
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/model"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/apiserver"
 	statetesting "github.com/juju/juju/state/testing"
@@ -69,6 +70,9 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		map[string]any{"controller-uuid": coretesting.ControllerTag.Id()},
 		nil,
 	)
+	s.modelService.EXPECT().ControllerModel(gomock.Any()).Return(model.Model{
+		UUID: s.controllerModelID,
+	}, nil)
 	w, err := apiserver.NewWorker(context.Background(), s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	defer workertest.CleanKill(c, w)

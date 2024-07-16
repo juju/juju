@@ -10,7 +10,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/schema"
-	"github.com/juju/version/v2"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -34,14 +33,9 @@ import (
 // facade. For details on the methods, see the methods on state.State
 // with the same names.
 type Backend interface {
-	AllModelUUIDs() ([]string, error)
 	Application(string) (Application, error)
-	ApplicationOfferForUUID(offerUUID string) (*crossmodel.ApplicationOffer, error)
 	ApplyOperation(state.ModelOperation) error
 	AddApplication(state.AddApplicationArgs, objectstore.ObjectStore) (Application, error)
-	AddPendingResource(string, resource.Resource, objectstore.ObjectStore) (string, error)
-	RemovePendingResources(applicationID string, pendingIDs map[string]string, store objectstore.ObjectStore) error
-	AddCharmMetadata(info state.CharmInfo) (Charm, error)
 	RemoteApplication(string) (RemoteApplication, error)
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 	AddRelation(...state.Endpoint) (Relation, error)
@@ -58,7 +52,6 @@ type Backend interface {
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
 	Branch(string) (Generation, error)
-	ModelConstraints() (constraints.Value, error)
 	services.StateBackend
 
 	// ReadSequence is a stop gap to allow the next unit number to be read from mongo
@@ -207,13 +200,7 @@ type Unit interface {
 // the same names.
 type Model interface {
 	ModelTag() names.ModelTag
-	Name() string
-	Owner() names.UserTag
-	Tag() names.Tag
 	Type() state.ModelType
-	UUID() string
-	ModelConfig(context.Context) (*config.Config, error)
-	AgentVersion() (version.Number, error)
 	OpenedPortRangesForMachine(string) (state.MachinePortRanges, error)
 	// The following methods are required for querying the featureset
 	// supported by the model.

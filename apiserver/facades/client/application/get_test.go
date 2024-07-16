@@ -53,7 +53,7 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 	storageAccess, err := application.GetStorageState(st)
 	c.Assert(err, jc.ErrorIsNil)
 	blockChecker := common.NewBlockChecker(st)
-	model, err := st.Model()
+	m, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
 	serviceFactory := s.DefaultModelServiceFactory(c)
@@ -70,7 +70,10 @@ func (s *getSuite) SetUpTest(c *gc.C) {
 		s.authorizer,
 		nil,
 		blockChecker,
-		application.GetModel(model),
+		application.GetModel(m),
+		model.ReadOnlyModel{},
+		serviceFactory.Config(),
+		serviceFactory.Agent(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),
@@ -212,6 +215,9 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		nil,
 		blockChecker,
 		application.GetModel(mod),
+		model.ReadOnlyModel{},
+		serviceFactory.Config(),
+		serviceFactory.Agent(),
 		serviceFactory.Cloud(),
 		serviceFactory.Credential(),
 		serviceFactory.Machine(),

@@ -27,7 +27,6 @@ type CharmDownloaderAPI struct {
 	authChecker        AuthChecker
 	resourcesBackend   ResourcesBackend
 	stateBackend       StateBackend
-	modelBackend       ModelBackend
 	clock              clock.Clock
 	charmhubHTTPClient http.HTTPClient
 
@@ -37,6 +36,8 @@ type CharmDownloaderAPI struct {
 	mu         sync.Mutex
 	downloader Downloader
 	logger     corelogger.Logger
+
+	modelConfigService ModelConfigService
 }
 
 // newAPI is invoked both by the facade constructor and from our tests. It
@@ -45,7 +46,7 @@ func newAPI(
 	authChecker AuthChecker,
 	resourcesBackend ResourcesBackend,
 	stateBackend StateBackend,
-	modelBackend ModelBackend,
+	modelConfigService ModelConfigService,
 	clk clock.Clock,
 	httpClient http.HTTPClient,
 	objectStore services.Storage,
@@ -56,7 +57,7 @@ func newAPI(
 		authChecker:        authChecker,
 		resourcesBackend:   resourcesBackend,
 		stateBackend:       stateBackend,
-		modelBackend:       modelBackend,
+		modelConfigService: modelConfigService,
 		clock:              clk,
 		charmhubHTTPClient: httpClient,
 		objectStore:        objectStore,
@@ -160,7 +161,7 @@ func (a *CharmDownloaderAPI) getDownloader() (Downloader, error) {
 		CharmhubHTTPClient: a.charmhubHTTPClient,
 		ObjectStore:        a.objectStore,
 		StateBackend:       a.stateBackend,
-		ModelBackend:       a.modelBackend,
+		ModelConfigService: a.modelConfigService,
 	})
 
 	if err != nil {

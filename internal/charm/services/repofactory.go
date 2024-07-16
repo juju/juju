@@ -23,8 +23,7 @@ type CharmRepoFactoryConfig struct {
 	// An HTTP client that is injected when making Charmhub API calls.
 	CharmhubHTTPClient charmhub.HTTPClient
 
-	StateBackend StateBackend
-	ModelBackend ModelBackend
+	ModelConfigService ModelConfigService
 }
 
 // CharmRepoFactory instantiates charm repositories. It memoizes created
@@ -33,8 +32,7 @@ type CharmRepoFactoryConfig struct {
 type CharmRepoFactory struct {
 	logger             corelogger.Logger
 	charmhubHTTPClient charmhub.HTTPClient
-	stateBackend       StateBackend
-	modelBackend       ModelBackend
+	modelConfigService ModelConfigService
 
 	mu            sync.Mutex
 	memoizedRepos map[corecharm.Source]corecharm.Repository
@@ -45,8 +43,7 @@ func NewCharmRepoFactory(cfg CharmRepoFactoryConfig) *CharmRepoFactory {
 	return &CharmRepoFactory{
 		logger:             cfg.Logger,
 		charmhubHTTPClient: cfg.CharmhubHTTPClient,
-		stateBackend:       cfg.StateBackend,
-		modelBackend:       cfg.ModelBackend,
+		modelConfigService: cfg.ModelConfigService,
 		memoizedRepos:      make(map[corecharm.Source]corecharm.Repository),
 	}
 }
@@ -65,7 +62,7 @@ func (f *CharmRepoFactory) GetCharmRepository(ctx context.Context, src corecharm
 
 	switch src {
 	case corecharm.CharmHub:
-		cfg, err := f.modelBackend.Config()
+		cfg, err := f.modelConfigService.ModelConfig(ctx)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
