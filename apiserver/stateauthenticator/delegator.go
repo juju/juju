@@ -16,7 +16,7 @@ import (
 
 // PermissionDelegator implements authentication.PermissionDelegator
 type PermissionDelegator struct {
-	AccessService UserService
+	AccessService AccessService
 }
 
 // SubjectPermissions ensures that the input entity is a user,

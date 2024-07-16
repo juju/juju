@@ -26,7 +26,7 @@ import (
 type workerConfig struct {
 	statePool               *state.StatePool
 	controllerConfigService ControllerConfigService
-	userService             UserService
+	accessService           AccessService
 	bakeryConfigService     BakeryConfigService
 	mux                     *apiserverhttp.Mux
 	clock                   clock.Clock
@@ -40,8 +40,8 @@ func (w workerConfig) Validate() error {
 	if w.controllerConfigService == nil {
 		return errors.NotValidf("empty controllerConfigService")
 	}
-	if w.userService == nil {
-		return errors.NotValidf("empty userService")
+	if w.accessService == nil {
+		return errors.NotValidf("empty accessService")
 	}
 	if w.mux == nil {
 		return errors.NotValidf("empty mux")
@@ -70,7 +70,7 @@ func newWorker(ctx context.Context, cfg workerConfig) (worker.Worker, error) {
 		cfg: cfg,
 		managedServices: newManagedServices(
 			cfg.controllerConfigService,
-			cfg.userService,
+			cfg.accessService,
 			cfg.bakeryConfigService,
 		),
 	}
@@ -118,7 +118,7 @@ func (w *argsWorker) loop() error {
 	return w.catacomb.ErrDying()
 }
 
-// managedServices is a ControllerConfigService and a UserService that wraps
+// managedServices is a ControllerConfigService and a AccessService that wraps
 // the underlying services and cancels the context when the tomb is dying.
 // This is because the location of the request is not cancellable, so we need
 // the ability to cancel the request when the tomb is dying. This should
@@ -126,18 +126,18 @@ func (w *argsWorker) loop() error {
 type managedServices struct {
 	tomb                    tomb.Tomb
 	controllerConfigService ControllerConfigService
-	userService             UserService
+	accessService           AccessService
 	bakeryConfigService     BakeryConfigService
 }
 
 func newManagedServices(
 	controllerConfigService ControllerConfigService,
-	userService UserService,
+	accessService AccessService,
 	bakeryConfigService BakeryConfigService,
 ) *managedServices {
 	w := &managedServices{
 		controllerConfigService: controllerConfigService,
-		userService:             userService,
+		accessService:           accessService,
 		bakeryConfigService:     bakeryConfigService,
 	}
 	w.tomb.Go(func() error {
@@ -152,14 +152,14 @@ func (b *managedServices) ControllerConfig(ctx context.Context) (controller.Conf
 	return b.controllerConfigService.ControllerConfig(b.tomb.Context(ctx))
 }
 
-// GetUserByAuth is part of the UserService interface.
+// GetUserByAuth is part of the AccessService interface.
 func (b *managedServices) GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error) {
-	return b.userService.GetUserByAuth(b.tomb.Context(ctx), name, password)
+	return b.accessService.GetUserByAuth(b.tomb.Context(ctx), name, password)
 }
 
-// GetUserByName is part of the UserService interface.
+// GetUserByName is part of the AccessService interface.
 func (b *managedServices) GetUserByName(ctx context.Context, name string) (coreuser.User, error) {
-	return b.userService.GetUserByName(b.tomb.Context(ctx), name)
+	return b.accessService.GetUserByName(b.tomb.Context(ctx), name)
 }
 
 // ReadUserAccessForTarget returns the access that
@@ -167,13 +167,13 @@ func (b *managedServices) GetUserByName(ctx context.Context, name string) (coreu
 func (b *managedServices) ReadUserAccessForTarget(
 	ctx context.Context, subject string, target permission.ID,
 ) (permission.UserAccess, error) {
-	return b.userService.ReadUserAccessForTarget(b.tomb.Context(ctx), subject, target)
+	return b.accessService.ReadUserAccessForTarget(b.tomb.Context(ctx), subject, target)
 }
 
 // UpdateLastModelLogin updates the last login time for the user with the
 // given name.
 func (b *managedServices) UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error {
-	return b.userService.UpdateLastModelLogin(b.tomb.Context(ctx), name, modelUUID)
+	return b.accessService.UpdateLastModelLogin(b.tomb.Context(ctx), name, modelUUID)
 }
 
 func (b *managedServices) GetLocalUsersKey(ctx context.Context) (*bakery.KeyPair, error) {

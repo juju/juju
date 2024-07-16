@@ -67,12 +67,12 @@ func NewAuthenticator(
 	statePool *state.StatePool,
 	systemState *state.State,
 	controllerConfigService ControllerConfigService,
-	userService UserService,
+	accessService AccessService,
 	bakeryConfigService BakeryConfigService,
 	agentAuthFactory AgentAuthenticatorFactory,
 	clock clock.Clock,
 ) (*Authenticator, error) {
-	authContext, err := newAuthContext(ctx, systemState, controllerConfigService, userService, bakeryConfigService, agentAuthFactory, clock)
+	authContext, err := newAuthContext(ctx, systemState, controllerConfigService, accessService, bakeryConfigService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -191,7 +191,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 		return authentication.AuthInfo{}, errors.NewUnauthorized(err, "")
 	}
 
-	authInfo.Delegator = &PermissionDelegator{a.authContext.userService}
+	authInfo.Delegator = &PermissionDelegator{a.authContext.accessService}
 	return authInfo, nil
 }
 
@@ -206,7 +206,7 @@ func (a *Authenticator) checkCreds(
 	}
 
 	authInfo := authentication.AuthInfo{
-		Delegator: &PermissionDelegator{a.authContext.userService},
+		Delegator: &PermissionDelegator{a.authContext.accessService},
 		Entity:    entity,
 	}
 
@@ -223,7 +223,7 @@ func (a *Authenticator) checkCreds(
 			return authentication.AuthInfo{}, errors.Trace(err)
 		}
 
-		err = a.authContext.userService.UpdateLastModelLogin(ctx, userTag.Name(), coremodel.UUID(model.UUID()))
+		err = a.authContext.accessService.UpdateLastModelLogin(ctx, userTag.Name(), coremodel.UUID(model.UUID()))
 		if err != nil {
 			logger.Warningf("updating last login time for %v, %v", userTag, err)
 		}

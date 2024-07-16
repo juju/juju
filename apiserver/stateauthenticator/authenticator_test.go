@@ -29,7 +29,7 @@ type agentAuthenticatorSuite struct {
 	entityAuthenticator       *MockEntityAuthenticator
 	agentAuthenticatorFactory *MockAgentAuthenticatorFactory
 	controllerConfigService   *MockControllerConfigService
-	userService               *MockUserService
+	accessService             *MockAccessService
 	bakeryConfigService       *MockBakeryConfigService
 }
 
@@ -58,7 +58,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(authenticator, gc.NotNil)
 
-	s.userService.EXPECT().GetUserByAuth(context.Background(), "user", auth.NewPassword("password")).Return(user, nil).AnyTimes()
+	s.accessService.EXPECT().GetUserByAuth(context.Background(), "user", auth.NewPassword("password")).Return(user, nil).AnyTimes()
 
 	entity, err := authenticator.Authenticate(context.Background(), authentication.AuthParams{
 		AuthTag:     tag,
@@ -133,13 +133,13 @@ func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
 
-	s.userService = NewMockUserService(ctrl)
+	s.accessService = NewMockAccessService(ctrl)
 
 	s.bakeryConfigService = NewMockBakeryConfigService(ctrl)
 	s.bakeryConfigService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
 	s.bakeryConfigService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
 
-	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, s.State, s.controllerConfigService, s.userService, s.bakeryConfigService, s.agentAuthenticatorFactory, clock.WallClock)
+	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, s.State, s.controllerConfigService, s.accessService, s.bakeryConfigService, s.agentAuthenticatorFactory, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 

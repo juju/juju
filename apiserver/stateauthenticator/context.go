@@ -41,13 +41,15 @@ const (
 	localUserIdentityLocationPath = "/auth"
 )
 
-// UserService is the interface that wraps the methods required to
-// authenticate a user.
-type UserService interface {
+// AccessService defines a interface for interacting the users and permissions
+// of a controller.
+type AccessService interface {
 	// GetUserByAuth returns the user with the given name and password.
 	GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error)
+
 	// GetUserByName returns the user with the given name.
 	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+
 	// UpdateLastModelLogin updates the last login time for the user with the
 	// given name.
 	UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error
@@ -75,7 +77,7 @@ type authContext struct {
 	st                      *state.State
 	controllerConfigService ControllerConfigService
 	bakeryConfigService     BakeryConfigService
-	userService             UserService
+	accessService           AccessService
 
 	clock            clock.Clock
 	agentAuthFactory AgentAuthenticatorFactory
@@ -120,7 +122,7 @@ func newAuthContext(
 	ctx context.Context,
 	st *state.State,
 	controllerConfigService ControllerConfigService,
-	userService UserService,
+	accessService AccessService,
 	bakeryConfigService BakeryConfigService,
 	agentAuthFactory AgentAuthenticatorFactory,
 	clock clock.Clock,
@@ -129,7 +131,7 @@ func newAuthContext(
 		st:                      st,
 		clock:                   clock,
 		controllerConfigService: controllerConfigService,
-		userService:             userService,
+		accessService:           accessService,
 		bakeryConfigService:     bakeryConfigService,
 		localUserInteractions:   authentication.NewInteractions(),
 		agentAuthFactory:        agentAuthFactory,
@@ -307,7 +309,7 @@ func (a authenticator) localUserAuth() *authentication.LocalUserAuthenticator {
 		Path:   localUserIdentityLocationPath,
 	}
 	return &authentication.LocalUserAuthenticator{
-		UserService:               a.ctxt.userService,
+		UserService:               a.ctxt.accessService,
 		Bakery:                    a.ctxt.localUserBakery,
 		Clock:                     a.ctxt.clock,
 		LocalUserIdentityLocation: localUserIdentityLocation.String(),

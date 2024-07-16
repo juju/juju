@@ -73,7 +73,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	w, err := newWorker(context, workerConfig{
 		statePool:               statePool,
 		controllerConfigService: controllerServiceFactory.ControllerConfig(),
-		userService:             controllerServiceFactory.Access(),
+		accessService:           controllerServiceFactory.Access(),
 		bakeryConfigService:     controllerServiceFactory.Macaroon(),
 		mux:                     apiserverhttp.NewMux(),
 		clock:                   clock,

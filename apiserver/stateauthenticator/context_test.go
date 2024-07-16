@@ -36,7 +36,7 @@ type macaroonCommonSuite struct {
 	authenticator           *Authenticator
 	clock                   *testclock.Clock
 	controllerConfigService *MockControllerConfigService
-	userService             *MockUserService
+	accessService           *MockAccessService
 	bakeryConfigService     *MockBakeryConfigService
 }
 
@@ -65,7 +65,7 @@ func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(s.State, loggertesting.WrapCheckLog(c))
 
-	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, s.State, s.controllerConfigService, s.userService, s.bakeryConfigService, agentAuthFactory, s.clock)
+	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, s.State, s.controllerConfigService, s.accessService, s.bakeryConfigService, agentAuthFactory, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 

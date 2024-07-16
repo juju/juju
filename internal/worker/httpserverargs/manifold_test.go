@@ -79,7 +79,7 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
 	controllerConfig httpserverargs.ControllerConfigService,
-	userService httpserverargs.UserService,
+	userService httpserverargs.AccessService,
 	bakerystorage httpserverargs.BakeryConfigService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
