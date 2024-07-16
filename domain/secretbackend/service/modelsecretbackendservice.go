@@ -43,11 +43,6 @@ func (s *ModelSecretBackendService) GetModelSecretBackend(ctx context.Context) (
 		if backendName == kubernetes.BackendName {
 			backendName = provider.Auto
 		}
-	default:
-		// Should never happen.
-		return "", fmt.Errorf("cannot get model secret backend for unsupported model type %q for model %q",
-			modelSecretBackend.ModelType, s.modelID,
-		)
 	}
 	return backendName, nil
 }

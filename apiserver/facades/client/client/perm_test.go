@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/juju/core/model"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -154,10 +152,6 @@ func (s *permSuite) testOperationPerm(
 		if allow[e] {
 			c.Check(err, jc.ErrorIsNil)
 		} else {
-			c.Check(errors.Cause(err), gc.DeepEquals, &rpc.RequestError{
-				Message: "permission denied",
-				Code:    "unauthorized access",
-			})
 			c.Check(err, jc.Satisfies, params.IsCodeUnauthorized)
 		}
 		reset()

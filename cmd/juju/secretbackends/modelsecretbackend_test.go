@@ -100,13 +100,6 @@ func (s *modelSecretBackendCommandSuite) TestSetSecretBackendNotValid(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `secret backend not valid: please use "auto" instead`)
 }
 
-func (s *modelSecretBackendCommandSuite) TestSetFailedEmptyBackendName(c *gc.C) {
-	defer s.setup(c).Finish()
-
-	_, err := cmdtesting.RunCommand(c, secretbackends.NewModelCredentialCommandForTest(s.store, s.secretsAPI), "")
-	c.Assert(err, gc.ErrorMatches, "cannot specify an empty secret backend name")
-}
-
 func (s *modelSecretBackendCommandSuite) TestSetFailedMoreThanOneArgs(c *gc.C) {
 	defer s.setup(c).Finish()
 

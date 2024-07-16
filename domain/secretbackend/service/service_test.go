@@ -1007,21 +1007,6 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	wC.AssertNoChange()
 }
 
-func (s *serviceSuite) TestGetModelSecretBackendFailedUnkownModelType(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	svc := NewModelSecretBackendService(modelUUID, s.mockState)
-
-	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), modelUUID).Return(secretbackend.ModelSecretBackend{
-		SecretBackendName: "backend-name",
-		ModelType:         "bad-type",
-	}, nil)
-
-	_, err := svc.GetModelSecretBackend(context.Background())
-	c.Assert(err, gc.ErrorMatches, `cannot get model secret backend for unsupported model type "bad-type" for model "`+modelUUID.String()+`"`)
-}
-
 func (s *serviceSuite) TestGetModelSecretBackendFailedModelNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
