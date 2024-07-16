@@ -1,30 +1,17 @@
 name: "Snapcraft"
 on:
-  push:
-    branches: [2.*, 3.*, 4.*, main]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - 'snap/**'
-      - '.github/workflows/snap.yml'
-      - 'scripts/dqlite/**'
-      - 'Makefile'
-      - 'make_functions.sh'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-
   snap:
-    name: linux-arm64
+    name: Build linux-arm64
     runs-on: [self-hosted, linux, arm64, aws, quad-xlarge]
-    if: github.event.pull_request.draft == false
-    steps:
 
+    steps:
     - name: Install Dependencies
       shell: bash
       run: |
@@ -37,7 +24,7 @@ jobs:
 
     - name: Setup LXD
       uses: canonical/setup-lxd@4e959f8e0d9c5feb27d44c5e4d9a330a782edee0
-  
+
     - name: Wait for LXD
       run: |
         while ! ip link show lxdbr0; do

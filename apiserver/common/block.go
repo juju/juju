@@ -12,14 +12,20 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// BlockGetter defines method to get block for specific type.
+// Depending on the block type, the method will return block information
+// if it is enabled.
 type BlockGetter interface {
 	GetBlockForType(t state.BlockType) (state.Block, bool, error)
 }
 
 // BlockCheckerInterface defines methods of BlockChecker.
 type BlockCheckerInterface interface {
+	// ChangeAllowed checks if change block is in place.
 	ChangeAllowed(context.Context) error
+	// RemoveAllowed checks if remove block is in place.
 	RemoveAllowed(context.Context) error
+	// DestroyAllowed checks if destroy block is in place.
 	DestroyAllowed(context.Context) error
 }
 

@@ -1,21 +1,7 @@
 name: "Upgrade"
 on:
-  push:
-    branches: [3.*]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - 'snap/**'
-      - '.github/workflows/upgrade.yml'
-      - '.github/setup-lxd/**'
-      - 'scripts/dqlite/**'
-      - 'Makefile'
-      - 'make_functions.sh'
-    branches-ignore:
-      - 'main'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -42,11 +28,11 @@ jobs:
           echo "channel=$channel" >> $GITHUB_OUTPUT 
 
   upgrade:
-    name: Upgrade
+    name: Upgrade Smoke
     runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
     timeout-minutes: 30
     needs: setup
-    if: github.event.pull_request.draft == false && needs.setup.outputs.channel != ''
+    if: needs.setup.outputs.channel != ''
     strategy:
       fail-fast: false
       matrix:

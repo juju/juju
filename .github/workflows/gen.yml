@@ -1,49 +1,27 @@
 name: "Generate"
 on:
-  push:
-    branches: [2.*, 3.*, 4.*, main]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-  Generate:
-    name: Generate
+  generate:
+    name: Check Generated Mocks
     runs-on: [self-hosted, linux, arm64, aws, xxlarge]
-    if: github.event.pull_request.draft == false
 
     steps:
-        # Since this check is marked as "required", the action needs to run on
-        # every PR. However, if there were no changes to Go files, there will
-        # be no changes to the generated files, hence we don't need to check.
-        # So this step checks which files have been changed, and allows the
-        # rest of the workflow to be skipped if no Go files were changed.
-      - name: Check changed files
-        id: should-run
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            go:
-              - '**.go'
-              - 'go.mod'
-              - '.github/workflows/gen.yml'
-
       - name: "Checkout"
-        if: steps.should-run.outputs.go == 'true'
         uses: actions/checkout@v4
 
       - name: "Set up Go"
-        if: steps.should-run.outputs.go == 'true'
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
           cache: true
 
       - name: "Delete all mocks"
-        if: steps.should-run.outputs.go == 'true'
         shell: bash
         # Ideally we'd delete all generated files, but we can't because some of
         # the Go code depends on generated files for go:generate to actually work.
@@ -53,7 +31,6 @@ jobs:
           done
 
       - name: "Regenerate code"
-        if: steps.should-run.outputs.go == 'true'
         shell: bash
         run: |
           # Running go generate by itself is slow over a large codebase, where
@@ -69,7 +46,6 @@ jobs:
           grep -ir "//go:generate" --include '*.go' . | awk -F : '{ print $1 }' | uniq | xargs -n 1 -P 8 -I% go generate -x $(realpath %)
 
       - name: "Check diff"
-        if: steps.should-run.outputs.go == 'true'
         shell: bash
         run: |
           git add -A

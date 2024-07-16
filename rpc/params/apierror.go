@@ -157,6 +157,7 @@ const (
 	CodeSecretBackendNotFound      = "secret backend not found"
 	CodeSecretConsumerNotFound     = "secret consumer not found"
 	CodeUnauthorized               = "unauthorized access"
+	CodeSessionTokenInvalid        = "session token invalid"
 	CodeLoginExpired               = "login expired"
 	CodeNoCreds                    = "no credentials provided"
 	CodeCannotEnterScope           = "cannot enter scope"
@@ -327,6 +328,12 @@ func IsCodeSecretBackendNotSupported(err error) bool {
 
 func IsCodeUnauthorized(err error) bool {
 	return ErrCode(err) == CodeUnauthorized
+}
+
+// IsCodeSessionTokenInvalid returns true if err includes a SessionTokenInvalid
+// error code.
+func IsCodeSessionTokenInvalid(err error) bool {
+	return ErrCode(err) == CodeSessionTokenInvalid
 }
 
 func IsCodeNoCreds(err error) bool {

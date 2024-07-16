@@ -1,27 +1,15 @@
 name: "Client Tests"
 on:
-  push:
-    branches: [2.*, 3.*, 4.*, main]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - '.github/workflows/client-tests.yml'
-      - 'scripts/dqlite/**'
-      - 'Makefile'
-      - 'make_functions.sh'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-
   test-client-ubuntu:
     name: "Client Tests"
     runs-on: ${{ matrix.os }}
-    if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:

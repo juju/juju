@@ -1,20 +1,16 @@
 name: "Migrate"
 on:
-  push:
-    branches: [2.*, 3.*, 4.*, main]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
   migrate:
-    name: migrate from ${{ matrix.channel }} client
+    name: migrate from ${{ matrix.channel }} via ${{ matrix.client }} client
     timeout-minutes: 30
     runs-on: [self-hosted, linux, arm64, aws, xlarge]
-    if: github.event.pull_request.draft == false
     strategy:
       fail-fast: false
       matrix:
