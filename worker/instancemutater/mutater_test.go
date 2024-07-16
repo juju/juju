@@ -204,6 +204,26 @@ func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContents(c *gc.C) {
 	c.Assert(ok, jc.IsFalse)
 }
 
+func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContentsWithMissingExpectedProfiles(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	s.expectLXDProfileNames([]string{"default", "juju-testme", "juju-testme-lxd-profile-0"}, nil)
+
+	ok, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, []string{"default", "juju-testme"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, jc.IsFalse)
+}
+
+func (s *mutaterSuite) TestVerifyCurrentProfilesFalseContentsWithMissingProviderProfiles(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+
+	s.expectLXDProfileNames([]string{"default", "juju-testme"}, nil)
+
+	ok, err := instancemutater.VerifyCurrentProfiles(s.mutaterMachine, s.instId, []string{"default", "juju-testme", "juju-testme-lxd-profile-0"})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, jc.IsFalse)
+}
+
 func (s *mutaterSuite) TestVerifyCurrentProfilesError(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 

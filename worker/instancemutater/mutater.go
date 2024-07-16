@@ -304,16 +304,15 @@ func (m MutaterMachine) verifyCurrentProfiles(instID string, expectedProfiles []
 	if err != nil {
 		return false, err
 	}
+
+	if len(obtainedProfiles) == 0 && len(expectedProfiles) == 0 {
+		return true, nil
+	} else if len(obtainedProfiles) != len(expectedProfiles) {
+		return false, nil
+	}
+
 	obtainedSet := set.NewStrings(obtainedProfiles...)
 	expectedSet := set.NewStrings(expectedProfiles...)
 
-	if obtainedSet.Union(expectedSet).Size() > obtainedSet.Size() {
-		return false, nil
-	}
-
-	if expectedSet.Union(obtainedSet).Size() > expectedSet.Size() {
-		return false, nil
-	}
-
-	return true, nil
+	return obtainedSet.Difference(expectedSet).Size() == 0, nil
 }
