@@ -104,7 +104,7 @@ jobs:
   terraform:
     needs: [changed-files]
     name: Terraform Smoke
-    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-terraform == 'true'
+    if: github.event.pull_request.draft == false && github.base_ref != 'main' && needs.changed-files.outputs.check-terraform == 'true'
     uses: ./.github/workflows/terraform-smoke.yml
 
   migrate:
