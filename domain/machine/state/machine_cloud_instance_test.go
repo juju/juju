@@ -106,6 +106,8 @@ func (s *stateSuite) TestSetInstanceData(c *gc.C) {
 	c.Check(instanceTags[1], gc.Equals, "tag2")
 }
 
+// TestDeleteInstanceData asserts the happy path of DeleteMachineCloudInstance
+// at the state layer.
 func (s *stateSuite) TestDeleteInstanceData(c *gc.C) {
 	db := s.DB()
 
@@ -125,6 +127,32 @@ func (s *stateSuite) TestDeleteInstanceData(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rows.Err(), jc.ErrorIsNil)
 	c.Check(rows.Next(), jc.IsFalse)
+}
+
+// TestDeleteInstanceDataWithStatus asserts that DeleteMachineCloudInstance at
+// the state layer removes any instance status and status data when deleting an
+// instance.
+func (s *stateSuite) TestDeleteInstanceDataWithStatus(c *gc.C) {
+	db := s.DB()
+
+	machineUUID := s.ensureInstance(c, "42")
+
+	// Add a status with data for this instance
+	s.state.SetInstanceStatus(context.Background(), "42", status.StatusInfo{Status: status.Running, Message: "running", Data: map[string]interface{}{"key": "data"}})
+
+	err := s.state.DeleteMachineCloudInstance(context.Background(), machineUUID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that all rows've been deleted from the status tables.
+	var status int
+	var statusData int
+	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM machine_cloud_instance_status WHERE machine_uuid=?", "123").Scan(&status)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, 0)
+
+	err = db.QueryRowContext(context.Background(), "SELECT count(*) FROM machine_cloud_instance_status_data WHERE machine_uuid=?", "123").Scan(&statusData)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(statusData, gc.Equals, 0)
 }
 
 func strptr(s string) *string {

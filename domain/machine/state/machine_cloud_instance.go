@@ -108,47 +108,75 @@ VALUES ($instanceTag.*)
 	})
 }
 
-// DeleteMachineCloudInstance removes an entry in the machine cloud instance table
-// along with the instance tags and the link to a lxd profile if any.
+// DeleteMachineCloudInstance removes an entry in the machine cloud instance
+// table along with the instance tags and the link to a lxd profile if any.
 func (st *State) DeleteMachineCloudInstance(
 	ctx context.Context,
-	machineUUID string,
+	mUUID string,
 ) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	deleteInstanceData := `
+	// Prepare query for deleting machine cloud instance.
+	deleteInstanceQuery := `
 DELETE FROM machine_cloud_instance 
-WHERE machine_uuid=$instanceData.machine_uuid
+WHERE machine_uuid=$machineUUID.uuid
 `
-	machineUUIDQuery := instanceData{
-		MachineUUID: machineUUID,
+	machineUUIDParam := machineUUID{
+		UUID: mUUID,
 	}
-	deleteInstanceDataStmt, err := st.Prepare(deleteInstanceData, machineUUIDQuery)
+	deleteInstanceStmt, err := st.Prepare(deleteInstanceQuery, machineUUIDParam)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	deleteInstanceTags := `
+	// Prepare query for deleting instance tags.
+	deleteInstanceTagsQuery := `
 DELETE FROM instance_tag 
-WHERE machine_uuid=$instanceTag.machine_uuid
+WHERE machine_uuid=$machineUUID.uuid
 `
-	machineUUIDQueryTag := instanceTag{
-		MachineUUID: machineUUID,
+	deleteInstanceTagStmt, err := st.Prepare(deleteInstanceTagsQuery, machineUUIDParam)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	deleteInstanceTagStmt, err := st.Prepare(deleteInstanceTags, machineUUIDQueryTag)
+
+	// Prepare query for deleting cloud instance status.
+	deleteInstanceStatusQuery := `DELETE FROM machine_cloud_instance_status WHERE machine_uuid=$machineUUID.uuid`
+	deleteInstanceStatusStmt, err := st.Prepare(deleteInstanceStatusQuery, machineUUIDParam)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prepare query for deleting cloud instance status data.
+	deleteInstanceStatusDataQuery := `DELETE FROM machine_cloud_instance_status_data WHERE machine_uuid=$machineUUID.uuid`
+	deleteInstanceStatusDataStmt, err := st.Prepare(deleteInstanceStatusDataQuery, machineUUIDParam)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, deleteInstanceDataStmt, machineUUIDQuery).Run(); err != nil {
-			return errors.Annotatef(domain.CoerceError(err), "deleting machine cloud instance for machine %q", machineUUID)
+		// Delete the machine cloud instance status. No need to return error if
+		// no status is set for the instance while deleting.
+		if err := tx.Query(ctx, deleteInstanceStatusStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(domain.CoerceError(err), "deleting machine cloud instance status for machine %q", mUUID)
 		}
-		if err := tx.Query(ctx, deleteInstanceTagStmt, machineUUIDQueryTag).Run(); err != nil {
-			return errors.Annotatef(domain.CoerceError(err), "deleting instance tags for machine %q", machineUUID)
+
+		// Delete the machine cloud instance status data. No need to return
+		// error if no status data is set for the instance while deleting.
+		if err := tx.Query(ctx, deleteInstanceStatusDataStmt, machineUUIDParam).Run(); err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(domain.CoerceError(err), "deleting machine cloud instance status data for machine %q", mUUID)
+		}
+
+		// Delete the machine cloud instance.
+		if err := tx.Query(ctx, deleteInstanceStmt, machineUUIDParam).Run(); err != nil {
+			return errors.Annotatef(domain.CoerceError(err), "deleting machine cloud instance for machine %q", mUUID)
+		}
+
+		// Delete the machine cloud instance tags.
+		if err := tx.Query(ctx, deleteInstanceTagStmt, machineUUIDParam).Run(); err != nil {
+			return errors.Annotatef(domain.CoerceError(err), "deleting instance tags for machine %q", mUUID)
 		}
 		return nil
 	})
