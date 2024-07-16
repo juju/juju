@@ -1,4 +1,8 @@
 test_deploy_and_remove_application() {
+	if [ -n "$(skip 'test_deploy_and_remove_application')" ]; then
+		echo "==> SKIP: Asked to skip deploy and remove application"
+		return
+	fi
 	echo
 
 	# Ensure that a valid Juju controller exists
@@ -23,6 +27,10 @@ test_deploy_and_remove_application() {
 }
 
 test_deploy_and_force_remove_application() {
+	if [ -n "$(skip 'test_deploy_and_force_remove_application')" ]; then
+		echo "==> SKIP: Asked to skip deploy and force remove application"
+		return
+	fi
 	echo
 
 	# Ensure that a valid Juju controller exists
@@ -66,6 +74,10 @@ check_snappass() {
 }
 
 test_pebble_notices() {
+	if [ -n "$(skip 'test_pebble_notices')" ]; then
+		echo "==> SKIP: Asked to skip pebble notices"
+		return
+	fi
 	echo
 
 	# Ensure that a valid Juju controller exists
@@ -91,6 +103,10 @@ test_pebble_notices() {
 }
 
 test_pebble_checks() {
+	if [ -n "$(skip 'test_pebble_checks')" ]; then
+		echo "==> SKIP: Asked to skip pebble checks"
+		return
+	fi
 	echo
 
 	# Ensure that a valid Juju controller exists
