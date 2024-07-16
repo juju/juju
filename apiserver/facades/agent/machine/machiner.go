@@ -170,8 +170,27 @@ func (api *MachinerAPIv5) SetMachineAddresses(ctx context.Context, args params.S
 }
 
 // Jobs is not supported in MachinerAPI at version 5.
+// Deprecated: Jobs is being deprecated. Use IsController instead.
 func (api *MachinerAPIv5) Jobs(ctx context.Context, args params.Entities) (params.JobsResults, error) {
-	return params.JobsResults{}, errors.NotSupported
+	results := params.JobsResults{
+		Results: make([]params.JobsResult, len(args.Entities)),
+	}
+
+	for i, entity := range args.Entities {
+		isController, err := api.machineService.IsMachineController(ctx, machine.Name(entity.Tag))
+		if err != nil {
+			results.Results[i].Error = apiservererrors.ServerError(err)
+			continue
+		}
+		var jobs []string
+		if isController {
+			jobs = []string{"api-server", "host-units"}
+		} else {
+			jobs = []string{"host-units"}
+		}
+		results.Results[i].Jobs = jobs
+	}
+	return results, nil
 }
 
 // IsController returns if the given machine is a controller machine.

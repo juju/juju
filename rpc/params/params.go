@@ -805,9 +805,10 @@ type IsControllerResult struct {
 }
 
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.
+// Deprecated: Jobs is being deprecated. Use IsController instead.
 type JobsResult struct {
-	Jobs  []model.MachineJob `json:"jobs"`
-	Error *Error             `json:"error,omitempty"`
+	Jobs  []string `json:"jobs"`
+	Error *Error   `json:"error,omitempty"`
 }
 
 // JobsResults holds the result of a call to Jobs.
