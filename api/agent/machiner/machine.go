@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -96,15 +95,18 @@ func (m *Machine) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 
 // IsController returns true if the provided machine is a controller one.
 func (m *Machine) IsController(machineName string) (bool, error) {
-	var result params.IsControllerResult
-	args := params.IsControllerArg{
-		Name: machine.Name(machineName),
+	var results params.IsControllerResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall(context.TODO(), "IsController", args, &result)
+	err := m.client.facade.FacadeCall(context.TODO(), "IsController", args, &results)
 	if err != nil {
 		return false, errors.Annotate(err, "error from FacadeCall")
 	}
-	return result.IsController, nil
+	if n := len(results.Results); n != 1 {
+		return false, errors.Errorf("expected 1 result, got %d", n)
+	}
+	return results.Results[0].IsController, results.Results[0].Error
 }
 
 // SetObservedNetworkConfig sets the machine network config as observed on the

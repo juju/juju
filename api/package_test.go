@@ -37,6 +37,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/instance",
 		"core/life",
 		"core/logger",
+		"core/macaroon",
 		"core/migration",
 		"core/model",
 		"core/network",

@@ -182,24 +182,48 @@ func (api *MachinerAPIv5) Jobs(ctx context.Context, args params.Entities) (param
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		var jobs []string
+		jobs := []string{"host-units"}
 		if isController {
-			jobs = []string{"api-server", "host-units"}
-		} else {
-			jobs = []string{"host-units"}
+			jobs = append(jobs, "api-server")
 		}
+
 		results.Results[i].Jobs = jobs
 	}
 	return results, nil
 }
 
 // IsController returns if the given machine is a controller machine.
-func (api *MachinerAPI) IsController(ctx context.Context, arg params.IsControllerArg) (params.IsControllerResult, error) {
-	isC, err := api.machineService.IsMachineController(ctx, arg.Name)
-	if err != nil {
-		return params.IsControllerResult{}, errors.Trace(err)
+func (api *MachinerAPI) IsController(ctx context.Context, args params.Entities) (params.IsControllerResults, error) {
+	results := params.IsControllerResults{
+		Results: make([]params.IsControllerResult, len(args.Entities)),
 	}
-	return params.IsControllerResult{IsController: isC}, nil
+
+	for i, entity := range args.Entities {
+		result := params.IsControllerResult{}
+
+		// Assert that the entity is a machine.
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			// ParseMachineTag will return an InvalidTagError if the given
+			// entity is not a machine.
+			result.Error = apiservererrors.ServerError(err)
+			results.Results[i] = result
+			continue
+		}
+		machineName := machine.Name(machineTag.Id())
+
+		// Check if the machine is a controller by using the machine service.
+		isController, err := api.machineService.IsMachineController(ctx, machineName)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			results.Results[i] = result
+			continue
+		}
+
+		result.IsController = isController
+		results.Results[i] = result
+	}
+	return results, nil
 }
 
 // RecordAgentStartTime updates the agent start time field in the machine doc.

@@ -22819,10 +22819,10 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/IsControllerArg"
+                            "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/IsControllerResult"
+                            "$ref": "#/definitions/IsControllerResults"
                         }
                     },
                     "description": "IsController returns if the given machine is a controller machine."
@@ -23120,21 +23120,12 @@
                         "port"
                     ]
                 },
-                "IsControllerArg": {
-                    "type": "object",
-                    "properties": {
-                        "machine-name": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "machine-name"
-                    ]
-                },
                 "IsControllerResult": {
                     "type": "object",
                     "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
                         "is-controller": {
                             "type": "boolean"
                         }
@@ -23142,6 +23133,21 @@
                     "additionalProperties": false,
                     "required": [
                         "is-controller"
+                    ]
+                },
+                "IsControllerResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/IsControllerResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "LifeResult": {
