@@ -45,7 +45,7 @@ require (
 	github.com/juju/blobstore/v3 v3.0.2
 	github.com/juju/charm/v12 v12.0.2
 	github.com/juju/clock v1.1.1
-	github.com/juju/cmd/v3 v3.0.14
+	github.com/juju/cmd/v3 v3.0.15
 	github.com/juju/collections v1.0.4
 	github.com/juju/description/v5 v5.0.4
 	github.com/juju/errors v1.0.0
