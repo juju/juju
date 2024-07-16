@@ -21,7 +21,7 @@ run_machine_ssh() {
 
     # Check that the test can ssh to the machine with the new keypair and run a
     # command.
-    check_contains $(juju ssh 0 -i "${ssh_key_file}" echo foobar) "foobar"
+    check_contains "$(juju ssh 0 -i \"${ssh_key_file}\" echo foobar)" "foobar"
 }
 
 # test_machine_ssh is responsible for testing that adding authorised keys to a
