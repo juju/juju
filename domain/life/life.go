@@ -19,26 +19,28 @@ const (
 
 // ToCoreLife converts a life value to a core life value.
 func (l *Life) ToCoreLife() corelife.Value {
+	var lifeValue corelife.Value
 	switch *l {
 	case Alive:
-		return corelife.Alive
+		lifeValue = corelife.Alive
 	case Dying:
-		return corelife.Dying
+		lifeValue = corelife.Dying
 	case Dead:
-		return corelife.Dead
+		lifeValue = corelife.Dead
 	}
-	panic("unknown life value")
+	return lifeValue
 }
 
 // FromCoreLife converts a core life value into a domain life value.
 func FromCoreLife(l corelife.Value) Life {
+	var lifeValue Life
 	switch l {
 	case corelife.Alive:
-		return Alive
+		lifeValue = Alive
 	case corelife.Dying:
-		return Dying
+		lifeValue = Dying
 	case corelife.Dead:
-		return Dead
+		lifeValue = Dead
 	}
-	panic("unknown life value")
+	return lifeValue
 }

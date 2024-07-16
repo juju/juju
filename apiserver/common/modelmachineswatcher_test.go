@@ -46,7 +46,7 @@ func (s *modelMachinesWatcherSuite) TestWatchModelMachines(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	watcherRegistry := facademocks.NewMockWatcherRegistry(ctrl)
 	watcherRegistry.EXPECT().Register(gomock.Any()).Return("11", nil)
-	machineService := commonmocks.NewMockMachineService(ctrl)
+	machineService := commonmocks.NewMockMachineWatcherService(ctrl)
 	changes := make(chan []string, 1)
 	// Simulate initial event.
 	changes <- []string{"foo"}
@@ -71,7 +71,7 @@ func (s *modelMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
 	}
 	ctrl := gomock.NewController(c)
 	watcherRegistry := facademocks.NewMockWatcherRegistry(ctrl)
-	machineService := commonmocks.NewMockMachineService(ctrl)
+	machineService := commonmocks.NewMockMachineWatcherService(ctrl)
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewModelMachinesWatcher(

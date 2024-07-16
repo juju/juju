@@ -21,13 +21,22 @@ type DeadEnsurer struct {
 	st             state.EntityFinder
 	afterDead      func(names.Tag)
 	getCanModify   GetAuthFunc
-	machineService MachineService
+	machineService MachineDeadEnsurerService
+}
+
+// MachineDeadEnsurerService defines the methods that the facade assumes from
+// the Machine service.
+type MachineDeadEnsurerService interface {
+	// EnsureDeadMachine sets the provided machine's life status to Dead.
+	// No error is returned if the provided machine doesn't exist, just nothing
+	// gets updated.
+	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
 }
 
 // NewDeadEnsurer returns a new DeadEnsurer. The GetAuthFunc will be
 // used on each invocation of EnsureDead to determine current
 // permissions.
-func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModify GetAuthFunc, machineService MachineService) *DeadEnsurer {
+func NewDeadEnsurer(st state.EntityFinder, afterDead func(names.Tag), getCanModify GetAuthFunc, machineService MachineDeadEnsurerService) *DeadEnsurer {
 	return &DeadEnsurer{
 		st:             st,
 		afterDead:      afterDead,

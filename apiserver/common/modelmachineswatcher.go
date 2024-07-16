@@ -11,6 +11,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/internal"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -30,13 +31,21 @@ type ModelMachinesWatcher struct {
 	authorizer      facade.Authorizer
 	watcherRegistry facade.WatcherRegistry
 
-	machineService MachineService
+	machineService MachineWatcherService
+}
+
+// MachineWatcherService defines the methods that the facade assumes from the
+// Machine service.
+type MachineWatcherService interface {
+	// WatchMachines returns a StringsWatcher that notifies of the changes
+	// in the machines table for the model.
+	WatchMachines(context.Context) (corewatcher.StringsWatcher, error)
 }
 
 // NewModelMachinesWatcher returns a new ModelMachinesWatcher. The
 // GetAuthFunc will be used on each invocation of WatchUnits to
 // determine current permissions.
-func NewModelMachinesWatcher(st state.ModelMachinesWatcher, resources facade.Resources, authorizer facade.Authorizer, watcherRegistry facade.WatcherRegistry, machineService MachineService) *ModelMachinesWatcher {
+func NewModelMachinesWatcher(st state.ModelMachinesWatcher, resources facade.Resources, authorizer facade.Authorizer, watcherRegistry facade.WatcherRegistry, machineService MachineWatcherService) *ModelMachinesWatcher {
 	return &ModelMachinesWatcher{
 		st:              st,
 		resources:       resources,

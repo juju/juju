@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -42,9 +41,6 @@ type NetworkService interface {
 // MachineService defines the methods that the facade assumes from the Machine
 // service.
 type MachineService interface {
-	// WatchMachines returns a StringsWatcher that notifies of the changes
-	// in the machines table for the model.
-	WatchMachines(context.Context) (watcher.StringsWatcher, error)
 	// EnsureDeadMachine sets the provided machine's life status to Dead.
 	// No error is returned if the provided machine doesn't exist, just nothing
 	// gets updated.
