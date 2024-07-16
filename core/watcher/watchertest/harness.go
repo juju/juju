@@ -80,14 +80,13 @@ func (h *Harness[T]) AddTest(setup func(*gc.C), assert func(WatcherC[T])) {
 }
 
 // Run runs all the tests added to the harness.
-func (h *Harness[T]) Run(c *gc.C) {
+func (h *Harness[T]) Run(c *gc.C, initial ...T) {
 	if len(h.tests) == 0 {
 		c.Fatalf("no tests")
 	}
 
 	// Ensure that the initial event is sent by the watcher.
-	var initial T
-	h.watcher.Check(SliceAssert[T](initial))
+	h.watcher.Check(SliceAssert[T](initial...))
 	h.idler.AssertChangeStreamIdle(c)
 
 	for i, test := range h.tests {
