@@ -1039,7 +1039,7 @@ ON CONFLICT(revision_uuid, name) DO UPDATE SET
 // If all terms are empty, then all secrets are returned.
 func (st State) ListSecrets(ctx context.Context, uri *coresecrets.URI,
 	revision *int,
-// TODO(secrets) - use all filter terms
+	// TODO(secrets) - use all filter terms
 	labels domainsecret.Labels,
 ) ([]*coresecrets.SecretMetadata, [][]*coresecrets.SecretRevisionMetadata, error) {
 	db, err := st.DB()
