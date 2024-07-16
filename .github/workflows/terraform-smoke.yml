@@ -1,45 +1,15 @@
 name: "Terraform Provider for Juju Smoke"
 on:
-  push:
-    branches: [2.9, 3.*]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
-
-  should-run:
-    # This job checks if files have been changed according
-    # to the filter, and sets a should-run output if
-    # the filter is satisfied.
-    name: Check changed files
-    runs-on: ubuntu-latest
-    outputs:
-      should-run: ${{ steps.set-flag.outputs.SHOULD_RUN }}
-    steps:
-      - name: Check changed files
-        id: should-run
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            should_run:
-              - '**.go'
-              - 'go.mod'
-              - '.github/workflows/terraform-smoke.yml'
-
-      - name: Set flag
-        id: set-flag
-        run: |
-          echo "SHOULD_RUN=steps.should-run.outputs.should_run" >> $GITHUB_OUTPUT
-
   smoke:
-    needs: [should-run]
     name: Terraform Smoke
     runs-on: [self-hosted, linux, x64, aws, quad-xlarge]
-    if: github.event.pull_request.draft == false && needs.should-run.outputs.should-run == true
 
     steps:
       - name: Install Dependencies
