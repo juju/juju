@@ -123,8 +123,8 @@ func (kw *keyupdaterWorker) Handle(_ <-chan struct{}) error {
 	deleted := kw.jujuKeys.Difference(newJujuKeys)
 	added := newJujuKeys.Difference(kw.jujuKeys)
 	if added.Size() > 0 || deleted.Size() > 0 {
-		logger.Debugf("adding ssh keys to authorised keys: %v", added)
-		logger.Debugf("deleting ssh keys from authorised keys: %v", deleted)
+		logger.Infof("adding ssh keys to authorised keys: %v", added)
+		logger.Infof("deleting ssh keys from authorised keys: %v", deleted)
 		if err = kw.writeSSHKeys(newKeys); err != nil {
 			err = errors.Annotate(err, "updating ssh keys")
 			logger.Infof(err.Error())
