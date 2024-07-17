@@ -61,7 +61,7 @@ func (s *converterSuite) TestHandle(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil)
 	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil)
-	s.machine.EXPECT().IsController(gomock.Any()).Return(true, nil)
+	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(true, nil)
 
 	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
@@ -76,7 +76,7 @@ func (s *converterSuite) TestHandleNotController(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil)
 	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil)
-	s.machine.EXPECT().IsController(gomock.Any()).Return(false, nil)
+	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(false, nil)
 
 	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
@@ -89,9 +89,9 @@ func (s *converterSuite) TestHandleJobsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil).AnyTimes()
 	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil).AnyTimes()
-	s.machine.EXPECT().IsController(gomock.Any()).Return(true, nil)
+	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(true, nil)
 	expectedError := errors.New("foo")
-	s.machine.EXPECT().IsController(gomock.Any()).Return(false, expectedError)
+	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(false, expectedError)
 
 	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())

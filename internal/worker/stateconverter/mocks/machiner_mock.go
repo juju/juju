@@ -105,18 +105,18 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 }
 
 // IsController mocks base method.
-func (m *MockMachine) IsController(arg0 string) (bool, error) {
+func (m *MockMachine) IsController(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsController", arg0)
+	ret := m.ctrl.Call(m, "IsController", arg0, arg1)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // IsController indicates an expected call of IsController.
-func (mr *MockMachineMockRecorder) IsController(arg0 any) *MockMachineIsControllerCall {
+func (mr *MockMachineMockRecorder) IsController(arg0, arg1 any) *MockMachineIsControllerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsController", reflect.TypeOf((*MockMachine)(nil).IsController), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsController", reflect.TypeOf((*MockMachine)(nil).IsController), arg0, arg1)
 	return &MockMachineIsControllerCall{Call: call}
 }
 
@@ -132,13 +132,13 @@ func (c *MockMachineIsControllerCall) Return(arg0 bool, arg1 error) *MockMachine
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineIsControllerCall) Do(f func(string) (bool, error)) *MockMachineIsControllerCall {
+func (c *MockMachineIsControllerCall) Do(f func(context.Context, string) (bool, error)) *MockMachineIsControllerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineIsControllerCall) DoAndReturn(f func(string) (bool, error)) *MockMachineIsControllerCall {
+func (c *MockMachineIsControllerCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockMachineIsControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

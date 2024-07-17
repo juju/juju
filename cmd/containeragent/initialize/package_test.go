@@ -56,7 +56,6 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/lease",
 		"core/life",
 		"core/logger",
-		"core/macaroon",
 		"core/machinelock",
 		"core/migration",
 		"core/model",

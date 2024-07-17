@@ -20,6 +20,6 @@ type Machiner interface {
 // Machine represents necessary methods for this worker from the
 // a machiner's machine.
 type Machine interface {
-	IsController(string) (bool, error)
+	IsController(context.Context, string) (bool, error)
 	Watch(context.Context) (watcher.NotifyWatcher, error)
 }

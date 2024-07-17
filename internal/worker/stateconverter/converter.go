@@ -72,9 +72,9 @@ func (c *converter) SetUp(ctx context.Context) (watcher.NotifyWatcher, error) {
 // Handle implements NotifyWatchHandler's Handle method.  If the change means
 // that the machine is now expected to manage the environment, we throw a fatal
 // error to instigate agent restart.
-func (c *converter) Handle(_ context.Context) error {
+func (c *converter) Handle(ctx context.Context) error {
 	c.logger.Tracef("Calling Handle for %s", c.machineTag)
-	isController, err := c.machine.IsController(c.machineTag.Id())
+	isController, err := c.machine.IsController(ctx, c.machineTag.Id())
 	if err != nil {
 		return errors.Trace(err)
 	}

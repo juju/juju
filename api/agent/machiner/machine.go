@@ -94,19 +94,23 @@ func (m *Machine) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 }
 
 // IsController returns true if the provided machine is a controller one.
-func (m *Machine) IsController(machineName string) (bool, error) {
+func (m *Machine) IsController(ctx context.Context, machineName string) (bool, error) {
 	var results params.IsControllerResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall(context.TODO(), "IsController", args, &results)
+	err := m.client.facade.FacadeCall(ctx, "IsController", args, &results)
 	if err != nil {
 		return false, errors.Annotate(err, "error from FacadeCall")
 	}
 	if n := len(results.Results); n != 1 {
 		return false, errors.Errorf("expected 1 result, got %d", n)
 	}
-	return results.Results[0].IsController, results.Results[0].Error
+	var errOut error
+	if err := results.Results[0].Error; err != nil {
+		errOut = err
+	}
+	return results.Results[0].IsController, errOut
 }
 
 // SetObservedNetworkConfig sets the machine network config as observed on the
