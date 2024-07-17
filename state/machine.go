@@ -639,31 +639,25 @@ func (m *Machine) forceDestroyOps(maxWait time.Duration) ([]txn.Op, error) {
 		if len(controllerIds) <= 1 {
 			return nil, errors.Errorf("controller %s is the only controller", m.Id())
 		}
-		// We set the machine to Dying if it isn't already dead.
-		var machineOp txn.Op
-		if m.Life() < Dead {
-			// Make sure we don't want the vote, and we are queued to be Dying.
-			// Since we are force deleting, life assert should be current machine's life.
-			machineOp = txn.Op{
-				C:      machinesC,
-				Id:     m.doc.DocID,
-				Assert: bson.D{{"life", bson.D{{"$in", []Life{Alive, Dying}}}}},
-				Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-			}
-		}
-		controllerOp := txn.Op{
-			C:      controllersC,
-			Id:     modelGlobalKey,
-			Assert: bson.D{{"controller-ids", controllerIds}},
-		}
-		// Note that ForceDestroy does *not* cleanup the replicaset, so it might cause problems.
-		// However, we're letting the user handle times when the machine agent isn't running, etc.
-		// We may need to update the peergrouper for this.
 		return []txn.Op{
-			machineOp,
-			controllerOp,
+			{
+				C:  machinesC,
+				Id: m.doc.DocID,
+				Assert: bson.D{
+					{"life", Alive},
+					advanceLifecycleUnitAsserts(m.doc.Principals),
+				},
+				// To prevent race conditions, we remove the ability for new
+				// units to be deployed to the machine.
+				Update: bson.D{{"$pull", bson.D{{"jobs", JobHostUnits}}}},
+			},
+			{
+				C:      controllersC,
+				Id:     modelGlobalKey,
+				Assert: bson.D{{"controller-ids", controllerIds}},
+			},
 			setControllerWantsVoteOp(m.st, m.Id(), false),
-			newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id, maxWait),
+			newCleanupOp(cleanupEvacuateMachine, m.doc.Id),
 		}, nil
 	} else {
 		// Make sure the machine doesn't become a manager while we're destroying it

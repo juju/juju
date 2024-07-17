@@ -374,7 +374,9 @@ func (s *MachineSuite) TestLifeJobManageModelWithControllerCharm(c *gc.C) {
 
 	err = m2.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m2.Life(), gc.Equals, state.Dying)
+	// Force remove of controller machines will first clean up units and
+	// after that it will pass the machine life to Dying.
+	c.Assert(m2.Life(), gc.Equals, state.Alive)
 
 	cn2, err := s.State.ControllerNode(m2.Id())
 	c.Assert(err, jc.ErrorIsNil)
