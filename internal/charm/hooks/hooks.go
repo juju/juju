@@ -109,6 +109,8 @@ func StorageHooks() []Kind {
 }
 
 var workloadHooks = []Kind{
+	PebbleCheckFailed,
+	PebbleCheckRecovered,
 	PebbleCustomNotice,
 	PebbleReady,
 }
@@ -141,7 +143,7 @@ func (kind Kind) IsStorage() bool {
 // IsWorkload returns whether the Kind represents a workload hook.
 func (kind Kind) IsWorkload() bool {
 	switch kind {
-	case PebbleCustomNotice, PebbleReady:
+	case PebbleCheckFailed, PebbleCheckRecovered, PebbleCustomNotice, PebbleReady:
 		return true
 	}
 	return false
