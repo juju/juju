@@ -60,7 +60,7 @@ func decodeOptionType(t charm.OptionType) (string, error) {
 }
 
 func encodeConfig(config *internalcharm.Config) (charm.Config, error) {
-	if len(config.Options) == 0 {
+	if config == nil || len(config.Options) == 0 {
 		return charm.Config{}, nil
 	}
 
