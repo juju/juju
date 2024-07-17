@@ -60,7 +60,7 @@ func (st *State) AddControllerUser(spec UserAccessSpec) (permission.UserAccess, 
 }
 
 func (st *State) addUserAccess(spec UserAccessSpec, target userAccessTarget) (permission.UserAccess, error) {
-	// Ensure local user exists in state before adding them as an model user.
+	// Ensure local user exists in state before adding them as a model user.
 	if spec.User.IsLocal() {
 		localUser, err := st.User(spec.User)
 		if err != nil {

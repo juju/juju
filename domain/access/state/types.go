@@ -188,42 +188,4 @@ type loginTime struct {
 }
 
 // dbEveryoneExternal represents the permissions of the everyone@external user.
-type dbEveryoneExternal struct {
-	// UUID is the unique identifier for the permission.
-	UUID string `db:"uuid"`
-
-	// GrantOn is the unique identifier of the permission target.
-	// A name or UUID depending on the ObjectType.
-	GrantOn string `db:"grant_on"`
-
-	// AccessType is a string version of core permission AccessType.
-	AccessType string `db:"access_type"`
-
-	// ObjectType is a string version of core permission ObjectType.
-	ObjectType string `db:"object_type"`
-}
-
-// toUserAccess shims to the same function on dbPermission. It combines a
-// dbPermission with a user to create a core permission UserAccess.
-func (ee dbEveryoneExternal) toUserAccess(u dbPermissionUser) corepermission.UserAccess {
-	userAccess := u.toCoreUserAccess()
-	userAccess.PermissionID = ee.UUID
-	userAccess.Object = objectTag(corepermission.ID{
-		ObjectType: corepermission.ObjectType(ee.ObjectType),
-		Key:        ee.GrantOn,
-	})
-	userAccess.Access = corepermission.Access(ee.AccessType)
-	return userAccess
-}
-
-// accessSpec returns an accessSpec for the access of the everyone@external
-// users access.
-func (ee dbEveryoneExternal) accessSpec() corepermission.AccessSpec {
-	return corepermission.AccessSpec{
-		Target: corepermission.ID{
-			ObjectType: corepermission.ObjectType(ee.ObjectType),
-			Key:        ee.GrantOn,
-		},
-		Access: corepermission.Access(ee.AccessType),
-	}
-}
+type dbEveryoneExternal dbPermission
