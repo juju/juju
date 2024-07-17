@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/api/base"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/resources"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // Option is a function that can be used to configure a Client.

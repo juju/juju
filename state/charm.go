@@ -20,11 +20,11 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/objectstore"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/mongo"
 	mongoutils "github.com/juju/juju/internal/mongo/utils"
 	stateerrors "github.com/juju/juju/state/errors"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // Channel identifies and describes completely a store channel.

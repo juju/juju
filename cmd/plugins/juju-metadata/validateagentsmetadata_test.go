@@ -14,12 +14,12 @@ import (
 
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/arch"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/tools"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type ValidateToolsMetadataSuite struct {

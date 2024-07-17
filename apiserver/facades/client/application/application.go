@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
+	jujuversion "github.com/juju/juju/core/version"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -53,7 +54,6 @@ import (
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var ClassifyDetachedStorage = storagecommon.ClassifyDetachedStorage

@@ -57,7 +57,7 @@ microk8s_operator_update() {
 }
 
 juju_version() {
-    (cd "${PROJECT_DIR}" && go run version/helper/main.go)
+    (cd "${PROJECT_DIR}" && go run scripts/version/main.go)
 }
 
 operator_image_release_path() {

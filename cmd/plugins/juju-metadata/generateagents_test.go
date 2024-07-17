@@ -21,6 +21,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscmd "github.com/juju/juju/environs/cmd"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type GenerateAgentsSuite struct {

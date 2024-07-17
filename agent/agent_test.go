@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type suite struct {

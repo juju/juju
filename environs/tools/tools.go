@@ -13,11 +13,11 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	corebase "github.com/juju/juju/core/base"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	internallogger "github.com/juju/juju/internal/logger"
 	coretools "github.com/juju/juju/internal/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = internallogger.GetLogger("juju.environs.tools")

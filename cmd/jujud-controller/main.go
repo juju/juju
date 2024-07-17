@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/machinelock"
 	coreos "github.com/juju/juju/core/os"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	_ "github.com/juju/juju/internal/provider/all" // Import the providers.
@@ -49,7 +50,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/state"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = internallogger.GetLogger("juju.cmd.jujud")

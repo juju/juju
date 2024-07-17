@@ -21,6 +21,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/objectstore"
+	jujuversion "github.com/juju/juju/core/version"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -29,7 +30,6 @@ import (
 	"github.com/juju/juju/state/binarystorage"
 	"github.com/juju/juju/state/mocks"
 	statetesting "github.com/juju/juju/state/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type upgraderSuite struct {

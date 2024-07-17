@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/assumes"
 	"github.com/juju/juju/core/status"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -47,7 +48,6 @@ import (
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
 	"github.com/juju/juju/internal/docker"
 	internallogger "github.com/juju/juju/internal/logger"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = internallogger.GetLogger("juju.kubernetes.provider")

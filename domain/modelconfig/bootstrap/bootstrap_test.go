@@ -15,6 +15,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	jujuversion "github.com/juju/juju/core/version"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/domain/modeldefaults"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/environs/config"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type bootstrapSuite struct {

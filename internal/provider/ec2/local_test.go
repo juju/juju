@@ -36,6 +36,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	"github.com/juju/juju/core/status"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudspec"
@@ -61,7 +62,6 @@ import (
 	coretools "github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var localConfigAttrs = coretesting.FakeConfig().Merge(coretesting.Attrs{

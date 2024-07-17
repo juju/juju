@@ -39,6 +39,7 @@ import (
 	"github.com/juju/juju/controller"
 	k8sannotations "github.com/juju/juju/core/annotations"
 	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	environsbootstrap "github.com/juju/juju/environs/bootstrap"
@@ -51,7 +52,6 @@ import (
 	"github.com/juju/juju/internal/mongo"
 	"github.com/juju/juju/internal/service/pebble/plan"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/version"
 )
 
 const (

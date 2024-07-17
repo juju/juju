@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -37,7 +38,6 @@ import (
 	"github.com/juju/juju/internal/provider/gce/google"
 	"github.com/juju/juju/internal/testing"
 	coretools "github.com/juju/juju/internal/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // Ensure GCE provider supports the expected interfaces.

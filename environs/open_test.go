@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type OpenSuite struct {

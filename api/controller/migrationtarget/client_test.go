@@ -29,10 +29,10 @@ import (
 	"github.com/juju/juju/api/controller/migrationtarget"
 	coremigration "github.com/juju/juju/core/migration"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	jujuversion "github.com/juju/juju/core/version"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
 	"github.com/juju/juju/rpc/params"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type ClientSuite struct {

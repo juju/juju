@@ -25,6 +25,7 @@ import (
 	agenterrors "github.com/juju/juju/agent/errors"
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/core/arch"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
@@ -36,7 +37,6 @@ import (
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/upgrader"
 	"github.com/juju/juju/internal/worker/upgrader/mocks"
-	jujuversion "github.com/juju/juju/version"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -typed -package mocks -destination mocks/upgrader_mocks.go github.com/juju/juju/internal/worker/upgrader UpgraderClient

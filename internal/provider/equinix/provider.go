@@ -16,11 +16,11 @@ import (
 	"github.com/packethost/packngo"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
-	"github.com/juju/juju/version"
 )
 
 var _ environs.CloudEnvironProvider = (*environProvider)(nil)

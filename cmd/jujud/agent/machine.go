@@ -54,6 +54,7 @@ import (
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/internal/container/broker"
@@ -77,7 +78,6 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type (

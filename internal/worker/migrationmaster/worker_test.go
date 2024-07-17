@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/core/logger"
 	coremigration "github.com/juju/juju/core/migration"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/internal/migration"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/worker/fortress"
 	"github.com/juju/juju/internal/worker/migrationmaster"
 	"github.com/juju/juju/rpc/params"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type Suite struct {

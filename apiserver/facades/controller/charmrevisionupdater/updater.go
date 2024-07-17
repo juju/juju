@@ -17,12 +17,12 @@ import (
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/charmhub"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/version"
 )
 
 // CharmRevisionUpdater defines the methods on the charmrevisionupdater API end point.

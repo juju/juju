@@ -11,8 +11,8 @@ import (
 
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
 )
 
 // CloudService is the interface that is used to get the cloud service

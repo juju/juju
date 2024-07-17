@@ -16,11 +16,11 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/agent"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/service"
 	"github.com/juju/juju/internal/service/common"
 	"github.com/juju/juju/internal/service/mocks"
 	"github.com/juju/juju/internal/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type agentConfSuite struct {

@@ -18,13 +18,13 @@ import (
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/upgrade"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	domainupgrade "github.com/juju/juju/domain/upgrade"
 	"github.com/juju/juju/internal/upgrades"
 	"github.com/juju/juju/internal/upgradesteps"
 	"github.com/juju/juju/internal/worker/gate"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // UpgradeService is the interface for the upgrade service.

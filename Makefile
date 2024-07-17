@@ -28,7 +28,7 @@ JUJU_BUILD_NUMBER ?=
 
 # JUJU_VERSION is the JUJU version currently being represented in this
 # repository.
-JUJU_VERSION=$(shell go run -ldflags "-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)" version/helper/main.go)
+JUJU_VERSION=$(shell go run -ldflags "-X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)" scripts/version/main.go)
 
 # BUILD_DIR is the directory relative to this project where we place build
 # artifacts created by this Makefile.

@@ -13,9 +13,9 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/version"
 )
 
 type deployerCAASSuite struct {

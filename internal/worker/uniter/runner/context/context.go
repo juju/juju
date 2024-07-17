@@ -26,6 +26,7 @@ import (
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	coretrace "github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/version"
 	secreterrors "github.com/juju/juju/domain/secret/errors"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/hooks"
@@ -37,7 +38,6 @@ import (
 	"github.com/juju/juju/internal/worker/uniter/runner/jujuc"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/version"
 )
 
 // Context exposes hooks.Context, and additional methods needed by Runner.

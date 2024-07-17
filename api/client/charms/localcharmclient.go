@@ -18,8 +18,8 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/lxdprofile"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // LocalCharmClient allows access to the API endpoints

@@ -18,9 +18,9 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	jujuversion "github.com/juju/juju/core/version"
 	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	"github.com/juju/juju/state/binarystorage"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type agentBinarySuite struct {

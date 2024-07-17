@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/modelmigration"
 	modelmigrationtesting "github.com/juju/juju/core/modelmigration/testing"
 	coreuser "github.com/juju/juju/core/user"
+	jujuversion "github.com/juju/juju/core/version"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -26,7 +27,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type importSuite struct {

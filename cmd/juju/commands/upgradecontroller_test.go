@@ -18,11 +18,11 @@ import (
 	"github.com/juju/juju/cmd/juju/commands/mocks"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/sync"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/jujuclient"
-	jujuversion "github.com/juju/juju/version"
 )
 
 func newUpgradeControllerCommandForTest(

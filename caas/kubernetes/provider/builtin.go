@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
 	k8scloud "github.com/juju/juju/caas/kubernetes/cloud"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/version"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/version"
 )
 
 func attemptMicroK8sCloud(cmdRunner CommandRunner, getKubeConfigDir func() (string, error)) (jujucloud.Cloud, error) {

@@ -10,9 +10,9 @@ import (
 
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/client/modelmanager"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/version"
 )
 
 type modelInfoSuite struct {

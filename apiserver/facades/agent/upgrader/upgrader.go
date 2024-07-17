@@ -16,12 +16,12 @@ import (
 	"github.com/juju/juju/controller"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/objectstore"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // ControllerConfigGetter defines a method for getting the controller config.

@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/cloudconfig/cloudinit"
 	"github.com/juju/juju/internal/testing"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type formatSuite struct {

@@ -15,6 +15,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/os/ostype"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/envcontext"
@@ -23,7 +24,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type toolsSuite struct {

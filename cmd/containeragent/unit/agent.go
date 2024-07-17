@@ -39,6 +39,7 @@ import (
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/paths"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/upgrade"
@@ -48,7 +49,6 @@ import (
 	"github.com/juju/juju/internal/worker/logsender"
 	uniterworker "github.com/juju/juju/internal/worker/uniter"
 	jnames "github.com/juju/juju/juju/names"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var (

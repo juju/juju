@@ -18,7 +18,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	coretrace "github.com/juju/juju/core/trace"
-	"github.com/juju/juju/version"
+	"github.com/juju/juju/core/version"
 )
 
 // This file solely exists so that we do not tie ourselves to OTEL directly

@@ -24,12 +24,12 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/pinger"
 	"github.com/juju/juju/core/trace"
+	jujuversion "github.com/juju/juju/core/version"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type adminAPIFactory func(*Server, *apiHandler, observer.Observer) interface{}

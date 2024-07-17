@@ -15,11 +15,11 @@ import (
 	coreagent "github.com/juju/juju/core/agent"
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/worker/gate"
 	"github.com/juju/juju/internal/worker/upgrader"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = internallogger.GetLogger("juju.worker.caasupgrader")

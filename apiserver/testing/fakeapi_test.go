@@ -11,9 +11,9 @@ import (
 
 	"github.com/juju/juju/api"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/version"
 	jtesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&fakeAPISuite{})

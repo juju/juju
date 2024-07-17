@@ -23,10 +23,10 @@ import (
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charmhub/path"
 	"github.com/juju/juju/internal/charmhub/transport"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/version"
 )
 
 // action represents the type of refresh is performed.

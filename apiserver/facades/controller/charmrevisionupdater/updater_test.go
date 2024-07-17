@@ -19,6 +19,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	charmmetrics "github.com/juju/juju/core/charm/metrics"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/resource"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 	statemocks "github.com/juju/juju/state/mocks"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type updaterSuite struct {

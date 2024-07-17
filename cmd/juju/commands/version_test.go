@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
-	jujuversion "github.com/juju/juju/version"
+	jujuversion "github.com/juju/juju/core/version"
 )
 
 type VersionSuite struct {

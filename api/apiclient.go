@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/core/facades"
 	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/network"
+	jujuversion "github.com/juju/juju/core/version"
 	jujuhttp "github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
 	jujuproxy "github.com/juju/juju/internal/proxy"
@@ -41,7 +42,6 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/rpc/params"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // PingPeriod defines how often the internal connection health check

@@ -24,6 +24,7 @@ import (
 	corebase "github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/constraints"
 	corecontext "github.com/juju/juju/core/context"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/internal/pki"
 	corestorage "github.com/juju/juju/internal/storage"
 	coretools "github.com/juju/juju/internal/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 const (

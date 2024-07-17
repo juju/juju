@@ -20,9 +20,9 @@ import (
 	"gopkg.in/httprequest.v1"
 
 	corelogger "github.com/juju/juju/core/logger"
+	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charmhub/path"
 	jujuhttp "github.com/juju/juju/internal/http"
-	"github.com/juju/juju/version"
 )
 
 const (

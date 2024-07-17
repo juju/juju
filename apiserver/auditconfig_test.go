@@ -20,11 +20,11 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type auditConfigSuite struct {

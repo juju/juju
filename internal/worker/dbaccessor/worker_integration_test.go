@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/agent"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/model"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/app"
@@ -28,7 +29,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/worker/dbaccessor"
-	jujuversion "github.com/juju/juju/version"
 )
 
 // dqliteAppIntegrationSuite defines a base suite for running integration

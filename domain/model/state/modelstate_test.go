@@ -11,11 +11,11 @@ import (
 
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/uuid"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type modelSuite struct {

@@ -18,11 +18,11 @@ import (
 	basemocks "github.com/juju/juju/api/base/mocks"
 	"github.com/juju/juju/api/client/charms"
 	"github.com/juju/juju/api/http/mocks"
+	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/testcharms"
-	jujuversion "github.com/juju/juju/version"
 )
 
 type addCharmSuite struct {
