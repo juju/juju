@@ -92,6 +92,19 @@ type machineInstanceStatusData struct {
 	Data string `db:"data"`
 }
 
+// machineStatusData represents the struct to be used for the status and status
+// data columns of status and status_data tables for both machine and machine
+// cloud instances within the sqlair statements in the machine domain.
+type machineStatusWithData struct {
+	Status  int        `db:"status"`
+	Message string     `db:"message"`
+	Updated *time.Time `db:"updated_at"`
+	Key     string     `db:"key"`
+	Data    string     `db:"data"`
+}
+
+type machineStatusData []machineStatusWithData
+
 // machineName represents the struct to be used for the name column
 // within the sqlair statements in the machine domain.
 type machineName struct {
@@ -150,7 +163,7 @@ func fromCoreMachineStatusValue(s status.Status) int {
 // toCoreInstanceStatusValue converts an internal status used by machine cloud
 // instances (per the instance_status_values table) into a core type
 // status.Status.
-func (s *machineInstanceStatus) toCoreInstanceStatusValue() status.Status {
+func (s *machineStatusWithData) toCoreInstanceStatusValue() status.Status {
 	var out status.Status
 	switch s.Status {
 	case 0:

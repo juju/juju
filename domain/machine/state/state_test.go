@@ -400,7 +400,7 @@ func (s *stateSuite) TestInstanceStatusValuesConversion(c *gc.C) {
 	}
 
 	for _, test := range tests {
-		status := machineInstanceStatus{Status: test.statusValue}
+		status := machineStatusWithData{Status: test.statusValue}
 		c.Check(status.toCoreInstanceStatusValue(), gc.Equals, test.expected)
 	}
 

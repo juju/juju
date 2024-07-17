@@ -32,8 +32,9 @@ func (s *Service) SetMachineCloudInstance(
 	)
 }
 
-// DeleteMachineCloudInstance removes an entry in the machine cloud instance table
-// along with the instance tags and the link to a lxd profile if any.
+// DeleteMachineCloudInstance removes an entry in the machine cloud instance
+// table along with the instance tags and the link to a lxd profile if any, as
+// well as any associated status data.
 func (s *Service) DeleteMachineCloudInstance(ctx context.Context, machineUUID string) error {
 	return errors.Annotatef(
 		s.st.DeleteMachineCloudInstance(ctx, machineUUID),
