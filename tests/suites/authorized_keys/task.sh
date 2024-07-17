@@ -9,12 +9,12 @@ test_authorized_keys() {
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 
-	log_file="${TEST_DIR}/authorised_keys.log"
+	log_file="${TEST_DIR}/authorized_keys.log"
 
-	ensure "authorisedkeys" "$log_file"
+	ensure "authorizedkeys" "$log_file"
 
 	test_user_ssh_keys
 	test_machine_ssh
 
-	destroy_controller "authorisedkeys"
+	destroy_controller "authorizedkeys"
 }

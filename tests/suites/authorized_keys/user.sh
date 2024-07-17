@@ -27,7 +27,7 @@ run_user_ssh_keys() {
 
 test_user_ssh_keys() {
 	if [ "$(skip 'test_user_ssh_keys')" ]; then
-		echo "==> TEST SKIPPED: authorisedkeys user ssh keys"
+		echo "==> TEST SKIPPED: authorized keys user ssh keys"
 		return
 	fi
 
