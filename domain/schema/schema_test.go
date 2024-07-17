@@ -310,6 +310,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 
 		// Machine
 		"machine",
+		"machine_parent",
 		"machine_constraint",
 		"machine_tool",
 		"machine_volume",

@@ -27,6 +27,19 @@ ON machine (name);
 CREATE UNIQUE INDEX idx_machine_net_node
 ON machine (net_node_uuid);
 
+-- machine_parent table is a table which represents parents-children relationships of machines.
+-- Each machine can have a single parent or be a parent to multiple children.
+CREATE TABLE machine_parent (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    parent_uuid TEXT NOT NULL,
+    CONSTRAINT fk_machine_parent_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid),
+    CONSTRAINT fk_machine_parent_parent
+    FOREIGN KEY (parent_uuid)
+    REFERENCES machine (uuid)
+);
+
 CREATE TABLE machine_constraint (
     machine_uuid TEXT NOT NULL PRIMARY KEY,
     constraint_uuid TEXT NOT NULL,
