@@ -113,13 +113,11 @@ func newUpgradeControllerCommandForTest(
 	store jujuclient.ClientStore,
 	modelConfigAPI ModelConfigAPI,
 	modelUpgrader ModelUpgraderAPI,
-	controllerAPI ControllerAPI,
 	options ...modelcmd.WrapControllerOption,
 ) cmd.Command {
 	command := &upgradeControllerCommand{
 		modelConfigAPI:   modelConfigAPI,
 		modelUpgraderAPI: modelUpgrader,
-		controllerAPI:    controllerAPI,
 	}
 	command.SetClientStore(store)
 	return modelcmd.WrapController(command, options...)
@@ -130,7 +128,6 @@ type upgradeControllerSuite struct {
 
 	modelConfigAPI *mocks.MockModelConfigAPI
 	modelUpgrader  *mocks.MockModelUpgraderAPI
-	controllerAPI  *mocks.MockControllerAPI
 	store          *mocks.MockClientStore
 }
 
@@ -140,12 +137,10 @@ func (s *upgradeControllerSuite) upgradeControllerCommand(c *gc.C, isCAAS bool) 
 	ctrl := gomock.NewController(c)
 	s.modelConfigAPI = mocks.NewMockModelConfigAPI(ctrl)
 	s.modelUpgrader = mocks.NewMockModelUpgraderAPI(ctrl)
-	s.controllerAPI = mocks.NewMockControllerAPI(ctrl)
 	s.store = mocks.NewMockClientStore(ctrl)
 
 	s.modelConfigAPI.EXPECT().Close().AnyTimes()
 	s.modelUpgrader.EXPECT().Close().AnyTimes()
-	s.controllerAPI.EXPECT().Close().AnyTimes()
 
 	s.store.EXPECT().CurrentController().AnyTimes().Return("c-1", nil)
 	s.store.EXPECT().ControllerByName("c-1").AnyTimes().Return(&jujuclient.ControllerDetails{
@@ -168,7 +163,7 @@ func (s *upgradeControllerSuite) upgradeControllerCommand(c *gc.C, isCAAS bool) 
 	}, nil)
 
 	return ctrl, newUpgradeControllerCommandForTest(s.store,
-		s.modelConfigAPI, s.modelUpgrader, s.controllerAPI,
+		s.modelConfigAPI, s.modelUpgrader,
 	)
 }
 

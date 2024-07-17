@@ -20,16 +20,13 @@ import (
 
 	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/client/modelupgrader"
-	apicontroller "github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
-	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
@@ -89,17 +86,8 @@ type upgradeControllerCommand struct {
 
 	modelConfigAPI   ModelConfigAPI
 	modelUpgraderAPI ModelUpgraderAPI
-	controllerAPI    ControllerAPI
 
 	controllerModelDetails *jujuclient.ModelDetails
-}
-
-// ControllerAPI defines the controller API methods.
-type ControllerAPI interface {
-	CloudSpec(modelTag names.ModelTag) (environscloudspec.CloudSpec, error)
-	ControllerConfig() (controller.Config, error)
-	ModelConfig() (map[string]interface{}, error)
-	Close() error
 }
 
 func (c *upgradeControllerCommand) Info() *cmd.Info {
@@ -169,17 +157,6 @@ func (c *upgradeControllerCommand) getModelConfigAPI() (ModelConfigAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	return modelconfig.NewClient(api), nil
-}
-
-func (c *upgradeControllerCommand) getControllerAPI() (ControllerAPI, error) {
-	if c.controllerAPI != nil {
-		return c.controllerAPI, nil
-	}
-	api, err := c.NewAPIRoot()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return apicontroller.NewClient(api), nil
 }
 
 // TODO(jujud-controller-snap): remove if not needed in final upgrade command.
@@ -355,12 +332,6 @@ func (c *upgradeControllerCommand) upgradeController(
 		return errors.Trace(err)
 	}
 	defer modelUpgrader.Close()
-
-	controllerClient, err := c.getControllerAPI()
-	if err != nil {
-		return err
-	}
-	defer controllerClient.Close()
 
 	modelConfigClient, err := c.getModelConfigAPI()
 	if err != nil {

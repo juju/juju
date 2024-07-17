@@ -28,10 +28,15 @@ func NewListControllersCommandForTest(testStore jujuclient.ClientStore, api func
 
 // NewShowControllerCommandForTest returns a showControllerCommand with the clientstore provided
 // as specified.
-func NewShowControllerCommandForTest(testStore jujuclient.ClientStore, api func(string) ControllerAccessAPI) *showControllerCommand {
+func NewShowControllerCommandForTest(
+	testStore jujuclient.ClientStore,
+	api func(string) ControllerAccessAPI,
+	modelConfigAPI func(controllerName string) ModelConfigAPI,
+) *showControllerCommand {
 	return &showControllerCommand{
-		store: testStore,
-		api:   api,
+		store:          testStore,
+		api:            api,
+		modelConfigAPI: modelConfigAPI,
 	}
 }
 
@@ -99,6 +104,7 @@ func NewDestroyCommandForTest(
 	api destroyControllerAPI,
 	store jujuclient.ClientStore,
 	apierr error,
+	controllerModelConfigAPI modelConfigAPI,
 	controllerCredentialAPIFunc newCredentialAPIFunc,
 	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error,
 
@@ -107,6 +113,7 @@ func NewDestroyCommandForTest(
 		destroyCommandBase: destroyCommandBase{
 			api:                         api,
 			apierr:                      apierr,
+			controllerModelConfigAPI:    controllerModelConfigAPI,
 			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
 			environsDestroy:             environsDestroy,
 		},
@@ -125,6 +132,7 @@ func NewKillCommandForTest(
 	api destroyControllerAPI,
 	store jujuclient.ClientStore,
 	apierr error,
+	controllerModelConfigAPI modelConfigAPI,
 	clock clock.Clock,
 	apiOpen api.OpenFunc,
 	controllerCredentialAPIFunc newCredentialAPIFunc,
@@ -134,6 +142,7 @@ func NewKillCommandForTest(
 		destroyCommandBase: destroyCommandBase{
 			api:                         api,
 			apierr:                      apierr,
+			controllerModelConfigAPI:    controllerModelConfigAPI,
 			controllerCredentialAPIFunc: controllerCredentialAPIFunc,
 			environsDestroy:             environsDestroy,
 		},

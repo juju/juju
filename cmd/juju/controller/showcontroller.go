@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/client/modelconfig"
 	"github.com/juju/juju/api/controller/controller"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -46,6 +47,8 @@ type showControllerCommand struct {
 	store jujuclient.ClientStore
 	mu    sync.Mutex
 	api   func(controllerName string) ControllerAccessAPI
+
+	modelConfigAPI func(controllerName string) ModelConfigAPI
 
 	controllerNames []string
 	showPasswords   bool
@@ -97,12 +100,17 @@ func (c *showControllerCommand) SetClientStore(store jujuclient.ClientStore) {
 // ControllerAccessAPI defines a subset of the api/controller/Client API.
 type ControllerAccessAPI interface {
 	GetControllerAccess(user string) (permission.Access, error)
-	ModelConfig() (map[string]interface{}, error)
 	ModelStatus(models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
 	MongoVersion() (string, error)
 	IdentityProviderURL() (string, error)
 	ControllerVersion() (controller.ControllerVersion, error)
+	Close() error
+}
+
+// ModelConfigAPI defines a subset of the model config API.
+type ModelConfigAPI interface {
+	ModelGet() (map[string]interface{}, error)
 	Close() error
 }
 
@@ -115,6 +123,17 @@ func (c *showControllerCommand) getAPI(controllerName string) (ControllerAccessA
 		return nil, errors.Annotate(err, "opening API connection")
 	}
 	return controller.NewClient(api), nil
+}
+
+func (c *showControllerCommand) getModelConfigAPI(controllerName string) (ModelConfigAPI, error) {
+	if c.api != nil {
+		return c.modelConfigAPI(controllerName), nil
+	}
+	api, err := c.NewAPIRoot(c.store, controllerName, "")
+	if err != nil {
+		return nil, fmt.Errorf("opening API connection for controller %q: %w", controllerName, err)
+	}
+	return modelconfig.NewClient(api), nil
 }
 
 // Run implements Command.Run
@@ -144,6 +163,12 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 		defer client.Close()
 
+		modelConfigClient, err := c.getModelConfigAPI(controllerName)
+		if err != nil {
+			return err
+		}
+		defer modelConfigClient.Close()
+
 		var (
 			details           ShowControllerDetails
 			allModels         []base.UserModel
@@ -158,7 +183,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			access = "(error)"
 		} else {
 			access = c.userAccess(client, ctx, accountDetails.User)
-			controllerVersion = c.controllerModelVersion(client, ctx)
+			controllerVersion = c.controllerModelVersion(modelConfigClient, ctx)
 		}
 
 		ver, err := client.ControllerVersion()
@@ -265,9 +290,9 @@ func (c *showControllerCommand) userAccess(client ControllerAccessAPI, ctx *cmd.
 	return access
 }
 
-func (c *showControllerCommand) controllerModelVersion(client ControllerAccessAPI, ctx *cmd.Context) string {
+func (c *showControllerCommand) controllerModelVersion(client ModelConfigAPI, ctx *cmd.Context) string {
 	var ver string
-	mc, err := client.ModelConfig()
+	mc, err := client.ModelGet()
 	if err != nil {
 		code := params.ErrCode(err)
 		if code != "" {

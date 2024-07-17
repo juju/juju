@@ -116,8 +116,14 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("Unable to open API: %s\n", err)
 	}
 
+	controllerModelConfigAPI, err := c.getControllerModelConfigAPI()
+	if err != nil {
+		return fmt.Errorf("cannot connect to model config API: %w", err)
+	}
+	defer func() { _ = controllerModelConfigAPI.Close() }()
+
 	// Obtain controller environ so we can clean up afterwards.
-	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api)
+	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api, controllerModelConfigAPI)
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}

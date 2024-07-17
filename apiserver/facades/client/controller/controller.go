@@ -429,9 +429,12 @@ func (c *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	return results, nil
 }
 
-// ModelConfig returns the model config for the controller
-// model.  For information on the current model, use
-// client.ModelGet
+// ModelConfig returns the model config for the controller model.
+//
+// Deprecated: this facade method will be removed in 4.0 when this facade is
+// converted to a multi-model facade. Please use the ModelConfig facade's
+// ModelGet method instead:
+// [github.com/juju/juju/apiserver/facades/client/modelconfig.ModelConfigAPI.ModelGet]
 func (c *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 	if err := c.checkIsSuperUser(); err != nil {
