@@ -20,17 +20,16 @@ import (
 // State describes retrieval and persistence methods for machines.
 type State interface {
 	// CreateMachine persists the input machine entity.
-	// It returns the uuid of the created machine.
 	// It returns a MachineAlreadyExists error if a machine with the same name
 	// already exists.
 	CreateMachine(context.Context, coremachine.Name, string, string) error
 
 	// CreateMachineWithparent persists the input machine entity, associating it
 	// with the parent machine.
-	// It returns the uuid of the created machine.
-	// It returns a NotFound error if the parent machine does not exist.
 	// It returns a MachineAlreadyExists error if a machine with the same name
 	// already exists.
+	// It returns a NotFound error if the parent machine does not exist.
+
 	CreateMachineWithParent(context.Context, coremachine.Name, coremachine.Name, string, string) error
 
 	// DeleteMachine deletes the input machine entity.
@@ -126,7 +125,8 @@ func NewService(st State) *Service {
 }
 
 // CreateMachine creates the specified machine.
-// It returns the uuid of the created machine.
+// It returns a MachineAlreadyExists error if a machine with the same name
+// already exists.
 func (s *Service) CreateMachine(ctx context.Context, machineName coremachine.Name) (string, error) {
 	// Make a new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
@@ -143,7 +143,8 @@ func (s *Service) CreateMachine(ctx context.Context, machineName coremachine.Nam
 
 // CreateMachineWirhParent creates the specified machine with the specified
 // parent.
-// It returns the uuid of the created machine.
+// It returns a MachineAlreadyExists error if a machine with the same name
+// already exists.
 // It returns a NotFound error if the parent machine does not exist.
 func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, parentName machine.Name) (string, error) {
 	// Make a new UUIDs for the net-node and the machine.

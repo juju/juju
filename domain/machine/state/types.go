@@ -104,6 +104,13 @@ type machineIsController struct {
 	IsController bool `db:"is_controller"`
 }
 
+// machineParent represents the struct to be used for the columns of the
+// machine_parent table within the sqlair statements in the machine domain.
+type machineParent struct {
+	MachineUUID string `db:"machine_uuid"`
+	ParentUUID  string `db:"parent_uuid"`
+}
+
 // toCoreMachineStatusValue converts an internal status used by machines (per
 // the machine_status_value table) into a core type status.Status.
 func (s *machineStatusWithData) toCoreMachineStatusValue() status.Status {
@@ -175,4 +182,13 @@ func fromCoreInstanceStatusValue(s status.Status) int {
 		internalStatus = 3
 	}
 	return internalStatus
+}
+
+// createMachineArgs represents the struct to be used for the input parameters
+// of the createMachine state method in the machine domain.
+type createMachineArgs struct {
+	name        machine.Name
+	machineUUID string
+	netNodeUUID string
+	parentName  machine.Name
 }

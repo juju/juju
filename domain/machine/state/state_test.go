@@ -74,6 +74,45 @@ func (s *stateSuite) TestCreateMachine(c *gc.C) {
 	c.Assert(machineID, gc.Equals, "666")
 }
 
+// TestCreateMachineAlreadyExists asserts that a MachineAlreadyExists error is
+// returned when the machine already exists.
+func (s *stateSuite) TestCreateMachineAlreadyExists(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Check(err, jc.ErrorIs, machineerrors.MachineAlreadyExists)
+}
+
+// TestCreateMachineWithParentSuccess asserts the happy path of
+// CreateMachineWithParent at the state layer.
+func (s *stateSuite) TestCreateMachineWithParentSuccess(c *gc.C) {
+	// Create the parent first
+	err := s.state.CreateMachine(context.Background(), "666", "3", "1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create the machine with the created parent
+	err = s.state.CreateMachineWithParent(context.Background(), "667", "666", "4", "2")
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestCreateMachineWithParentNotFound asserts that a NotFound error is returned
+// when the parent machine is not found.
+func (s *stateSuite) TestCreateMachineWithParentNotFound(c *gc.C) {
+	err := s.state.CreateMachineWithParent(context.Background(), "667", "666", "4", "2")
+	c.Check(err, jc.ErrorIs, errors.NotFound)
+}
+
+// TestCreateMachineWithparentAlreadyExists asserts that a MachineAlreadyExists
+// error is returned when the machine to be created already exists.
+func (s *stateSuite) TestCreateMachineWithParentAlreadyExists(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.CreateMachineWithParent(context.Background(), "666", "357", "4", "2")
+	c.Check(err, jc.ErrorIs, machineerrors.MachineAlreadyExists)
+}
+
 // TestDeleteMachine asserts the happy path of DeleteMachine at the state layer.
 func (s *stateSuite) TestDeleteMachine(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "")
