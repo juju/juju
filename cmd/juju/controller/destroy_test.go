@@ -56,8 +56,7 @@ type baseDestroySuite struct {
 
 	controllerModelConfigAPI *fakeModelConfigAPI
 
-	controllerCredentialAPI *mockCredentialAPI
-	environsDestroy         func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error
+	environsDestroy func(string, environs.ControllerDestroyer, envcontext.ProviderCallContext, jujuclient.ControllerStore) error
 }
 
 // fakeDestroyAPI mocks out the controller API
@@ -83,7 +82,7 @@ func (f *fakeDestroyAPI) CloudSpec(tag names.ModelTag) (environscloudspec.CloudS
 	return f.cloud, nil
 }
 
-func (f *fakeDestroyAPI) ControllerConfig() (jujucontroller.Config, error) {
+func (f *fakeDestroyAPI) ControllerConfig(_ context.Context) (jujucontroller.Config, error) {
 	f.MethodCall(f, "ControllerConfig")
 	if err := f.NextErr(); err != nil {
 		return nil, err
@@ -125,7 +124,7 @@ func (f *fakeDestroyAPI) AllModels() ([]base.UserModel, error) {
 
 // fakeModelConfigAPI mocks out the controller model config API
 type fakeModelConfigAPI struct {
-	gitjujutesting.Stub
+	jujutesting.Stub
 	env map[string]interface{}
 }
 
@@ -162,7 +161,6 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 	}
 	s.apierror = nil
 	s.controllerModelConfigAPI = &fakeModelConfigAPI{}
-	s.controllerCredentialAPI = &mockCredentialAPI{}
 	s.environsDestroy = environs.Destroy
 
 	s.store = jujuclient.NewMemStore()
@@ -242,7 +240,6 @@ func (s *DestroySuite) runDestroyCommand(c *gc.C, args ...string) (*cmd.Context,
 func (s *DestroySuite) newDestroyCommand() cmd.Command {
 	return controller.NewDestroyCommandForTest(
 		s.api, s.store, s.apierror, s.controllerModelConfigAPI,
-		func() (controller.CredentialAPI, error) { return s.controllerCredentialAPI, nil },
 		s.environsDestroy,
 	)
 }

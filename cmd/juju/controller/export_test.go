@@ -106,8 +106,7 @@ func NewDestroyCommandForTest(
 	store jujuclient.ClientStore,
 	apierr error,
 	controllerModelConfigAPI modelConfigAPI,
-	controllerCredentialAPIFunc newCredentialAPIFunc,
-	environsDestroy func(string, environs.ControllerDestroyer, context.ProviderCallContext, jujuclient.ControllerStore) error,
+	environsDestroy func(string, environs.ControllerDestroyer, envcontext.ProviderCallContext, jujuclient.ControllerStore) error,
 
 ) cmd.Command {
 	cmd := &destroyCommand{

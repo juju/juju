@@ -4,6 +4,7 @@
 package controller_test
 
 import (
+	"context"
 	"regexp"
 
 	"github.com/juju/cmd/v4"
@@ -638,7 +639,7 @@ func (c *fakeController) GetControllerAccess(user string) (permission.Access, er
 	return c.access, nil
 }
 
-func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.ModelStatus, _ error) {
+func (c *fakeController) ModelStatus(_ context.Context, models ...names.ModelTag) (result []base.ModelStatus, _ error) {
 	if c.emptyModelStatus {
 		return result, nil
 	}

@@ -470,30 +470,6 @@ func (s *Suite) TestAllModels(c *gc.C) {
 	}})
 }
 
-func (s *Suite) TestModelConfig(c *gc.C) {
-	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
-		c.Check(objType, gc.Equals, "Controller")
-		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "ModelConfig")
-		c.Check(args, gc.IsNil)
-		c.Check(result, gc.FitsTypeOf, &params.ModelConfigResults{})
-		*(result.(*params.ModelConfigResults)) = params.ModelConfigResults{
-			Config: map[string]params.ConfigValue{
-				"name": {
-					Value:  "test",
-					Source: "controller",
-				},
-			},
-		}
-		return nil
-	})
-
-	client := controller.NewClient(apiCaller)
-	m, err := client.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m, jc.DeepEquals, map[string]interface{}{"name": "test"})
-}
-
 func (s *Suite) TestControllerConfig(c *gc.C) {
 	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, args, result interface{}) error {
 		c.Check(objType, gc.Equals, "Controller")
