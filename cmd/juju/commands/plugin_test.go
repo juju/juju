@@ -15,6 +15,7 @@ import (
 	"github.com/juju/cmd/v4/cmdtesting"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/testing"
@@ -100,7 +101,7 @@ func (suite *PluginSuite) TestRunPluginWithFailing(c *gc.C) {
 		return nil
 	})(ctx, "foo", []string{"some params"})
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 2")
-	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
+	c.Assert(err, jc.Satisfies, utils.IsRcPassthroughError)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "failing\n")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
