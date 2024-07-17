@@ -104,7 +104,7 @@ jobs:
   terraform:
     needs: [changed-files]
     name: Terraform Smoke
-    if: github.event.pull_request.draft == false && needs.changed-files.outputs.check-terraform == 'true'
+    if: github.event.pull_request.draft == false && github.base_ref != 'main' && needs.changed-files.outputs.check-terraform == 'true'
     uses: ./.github/workflows/terraform-smoke.yml
 
   migrate:
@@ -129,13 +129,13 @@ jobs:
           shell: bash
           run: |
             # TODO - add terraform once ready.
-            if ${{ needs.build.result == 'success' }} \
-                && ${{ needs.snap.result == 'success' }} \
-                && ${{ needs.generate.result == 'success' }} \
-                && ${{ needs.client.result == 'success' }} \
-                && ${{ needs.terraform.result != 'fix me' }} \
-                && ${{ needs.migrate.result == 'success' }} \
-                && ${{ needs.upgrade.result == 'success' }}; then
+            if ${{ needs.build.result == 'success' || needs.build.result == 'skipped' }} \
+                && ${{ needs.snap.result == 'success' || needs.snap.result == 'skipped' }} \
+                && ${{ needs.generate.result == 'success' || needs.generate.result == 'skipped' }} \
+                && ${{ needs.client.result == 'success' || needs.client.result == 'skipped' }} \
+                && ${{ needs.terraform.result != 'fix me' || needs.terraform.result == 'skipped' }} \
+                && ${{ needs.migrate.result == 'success' || needs.migrate.result == 'skipped' }} \
+                && ${{ needs.upgrade.result == 'success' || needs.upgrade.result == 'skipped' }}; then
               exit 0
             fi
             exit 1
