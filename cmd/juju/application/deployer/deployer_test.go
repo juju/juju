@@ -76,7 +76,7 @@ func (s *deployerSuite) TestGetDeployerPredeployedLocalCharm(c *gc.C) {
 	factory := s.newDeployerFactory()
 	deployer, err := factory.GetDeployer(context.Background(), cfg, s.charmDeployAPI, s.resolver)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy predeployed local charm: %s", ch))
+	c.Assert(deployer.String(), gc.Equals, fmt.Sprintf("deploy pre-deployed local charm: %s", ch))
 }
 
 func (s *deployerSuite) TestGetDeployerLocalCharm(c *gc.C) {

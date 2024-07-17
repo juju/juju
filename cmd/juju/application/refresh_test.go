@@ -478,7 +478,7 @@ func (s *RefreshSuite) TestLocalRevisionUnchanged(c *gc.C) {
 	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 
 	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
-	_, err := s.runRefresh(c, "riak", "--path", path)
+	_, err := s.runRefresh(c, "riak", "--path", s.archivePath(c, path))
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAdder.CheckCallNames(c, "AddLocalCharm")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
@@ -676,7 +676,7 @@ func (s *RefreshSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
 	err = dir.SetDiskRevision(rev)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.runRefresh(c, "riak", "--path", myriakPath)
+	_, err = s.runRefresh(c, "riak", "--path", s.archivePath(c, myriakPath))
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAdder.CheckCallNames(c, "AddLocalCharm")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
@@ -723,7 +723,7 @@ func (s *RefreshSuite) TestForcedSeriesUpgrade(c *gc.C) {
 		c.Fatal(errors.Annotate(err, "cannot write to metadata.yaml"))
 	}
 
-	_, err = s.runRefresh(c, "multi-series", "--path", repoPath, "--force-series")
+	_, err = s.runRefresh(c, "multi-series", "--path", s.archivePath(c, repoPath), "--force-series")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
@@ -750,7 +750,7 @@ func (s *RefreshSuite) TestForcedUnitsUpgrade(c *gc.C) {
 	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 
 	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
-	_, err := s.runRefresh(c, "riak", "--path", myriakPath, "--force-units")
+	_, err := s.runRefresh(c, "riak", "--path", s.archivePath(c, myriakPath), "--force-units")
 	c.Assert(err, jc.ErrorIsNil)
 	s.charmAdder.CheckCallNames(c, "AddLocalCharm")
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
@@ -791,7 +791,7 @@ func (s *RefreshSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 	s.BaseRefreshSuite.setup(c, corebase.MustParseBaseFromString("ubuntu@18.04"), charm.MustParseURL("local:riak"), charm.MustParseURL("local:riak"))
 	s.charmAPIClient.charmOrigin = commoncharm.Origin{Base: corebase.MustParseBaseFromString("ubuntu@18.04")}
 	// Revision 7 is running to start with.
-	myriakPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
+	myriakPath := testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "riak")
 
 	_, err := s.runRefresh(c, "riak", "--path", myriakPath)
 	c.Assert(err, jc.ErrorIsNil)
@@ -829,7 +829,8 @@ func (s *RefreshSuite) TestCharmPathDifferentNameFails(c *gc.C) {
 	if _, err := file.WriteString(newMetadata); err != nil {
 		c.Fatal("cannot write to metadata.yaml")
 	}
-	_, err = s.runRefresh(c, "riak", "--path", myriakPath)
+
+	_, err = s.runRefresh(c, "riak", "--path", s.archivePath(c, myriakPath))
 	c.Assert(err, gc.ErrorMatches, `cannot refresh "riak" to "myriak"`)
 }
 
@@ -858,7 +859,7 @@ devices: {}
 		c.Fatal(errors.Annotate(err, "cannot write to lxd-profile.yaml"))
 	}
 
-	_, err = s.runRefresh(c, "lxd-profile-alt", "--path", repoPath)
+	_, err = s.runRefresh(c, "lxd-profile-alt", "--path", s.archivePath(c, repoPath))
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charmAPIClient.CheckCallNames(c, "GetCharmURLOrigin", "Get", "SetCharm")
@@ -948,6 +949,20 @@ func (s *RefreshSuite) TestUpgradeSameVersionWithResourceUpload(c *gc.C) {
 		EndpointBindings: map[string]string{},
 		ResourceIDs:      map[string]string{"bar": "barId"},
 	})
+}
+
+func (s *RefreshSuite) archivePath(c *gc.C, path string) string {
+	charm, err := charm.ReadCharmDir(path)
+	c.Assert(err, jc.ErrorIsNil)
+
+	archivePath := filepath.Join(c.MkDir(), "myriak.charm")
+	archiveFile, err := os.Create(archivePath)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = archiveFile.Close() }()
+	err = charm.ArchiveTo(archiveFile)
+	c.Assert(err, jc.ErrorIsNil)
+
+	return archivePath
 }
 
 type RefreshCharmHubSuite struct {
