@@ -287,6 +287,8 @@ func (f *contextFactory) HookContext(stdCtx context.Context, hookInfo hook.Info)
 			ctx.noticeID = hookInfo.NoticeID
 			ctx.noticeType = hookInfo.NoticeType
 			ctx.noticeKey = hookInfo.NoticeKey
+		case hooks.PebbleCheckFailed, hooks.PebbleCheckRecovered:
+			ctx.checkName = hookInfo.CheckName
 		}
 	}
 	if hookInfo.Kind.IsSecret() {

@@ -4,7 +4,6 @@
 package controller_test
 
 import (
-	"context"
 	"regexp"
 
 	"github.com/juju/cmd/v4"
@@ -28,6 +27,7 @@ type ShowControllerSuite struct {
 	fakeController *fakeController
 	api            func(string) controller.ControllerAccessAPI
 	setAccess      func(permission.Access)
+	modelConfigAPI func(controllerName string) controller.ModelConfigAPI
 }
 
 var _ = gc.Suite(&ShowControllerSuite{})
@@ -60,6 +60,9 @@ func (s *ShowControllerSuite) SetUpTest(c *gc.C) {
 	}
 	s.setAccess = func(access permission.Access) {
 		s.fakeController.access = access
+	}
+	s.modelConfigAPI = func(controllerName string) controller.ModelConfigAPI {
+		return &fakeModelConfig{}
 	}
 }
 
@@ -534,7 +537,8 @@ mallards:
 	s.assertShowController(c, "mallards", "--show-password")
 }
 func (s *ShowControllerSuite) runShowController(c *gc.C, args ...string) (*cmd.Context, error) {
-	return cmdtesting.RunCommand(c, controller.NewShowControllerCommandForTest(s.store, s.api), args...)
+	return cmdtesting.RunCommand(c, controller.NewShowControllerCommandForTest(
+		s.store, s.api, s.modelConfigAPI), args...)
 }
 
 func (s *ShowControllerSuite) assertShowControllerFailed(c *gc.C, args ...string) {
@@ -634,11 +638,7 @@ func (c *fakeController) GetControllerAccess(user string) (permission.Access, er
 	return c.access, nil
 }
 
-func (*fakeController) ModelConfig() (map[string]interface{}, error) {
-	return map[string]interface{}{"agent-version": "999.99.99"}, nil
-}
-
-func (c *fakeController) ModelStatus(_ context.Context, models ...names.ModelTag) (result []base.ModelStatus, _ error) {
+func (c *fakeController) ModelStatus(models ...names.ModelTag) (result []base.ModelStatus, _ error) {
 	if c.emptyModelStatus {
 		return result, nil
 	}
@@ -689,5 +689,15 @@ func (c *fakeController) ControllerVersion() (apicontroller.ControllerVersion, e
 }
 
 func (*fakeController) Close() error {
+	return nil
+}
+
+type fakeModelConfig struct{}
+
+func (*fakeModelConfig) ModelGet() (map[string]interface{}, error) {
+	return map[string]interface{}{"agent-version": "999.99.99"}, nil
+}
+
+func (*fakeModelConfig) Close() error {
 	return nil
 }

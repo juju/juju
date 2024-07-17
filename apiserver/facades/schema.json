@@ -13841,7 +13841,7 @@
                             "$ref": "#/definitions/ModelConfigResults"
                         }
                     },
-                    "description": "ModelConfig returns the model config for the controller\nmodel.  For information on the current model, use\nclient.ModelGet"
+                    "description": "ModelConfig returns the model config for the controller model.\n\nDeprecated: this facade method will be removed in 4.0 when this facade is\nconverted to a multi-model facade. Please use the ModelConfig facade's\nModelGet method instead:\n[github.com/juju/juju/apiserver/facades/client/modelconfig.ModelConfigAPI.ModelGet]"
                 },
                 "ModelStatus": {
                     "type": "object",

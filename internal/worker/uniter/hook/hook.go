@@ -54,6 +54,14 @@ type Info struct {
 	// NoticeKey is the Pebble notice key associated with the hook.
 	NoticeKey string `yaml:"notice-key,omitempty"`
 
+	// CheckName is the Pebble check name associated with the hook.
+	CheckName string `yaml:"check-name,omitempty"`
+
+	// MachineUpgradeTarget is the base that the unit's machine is to be
+	// updated to when Juju is issued the `upgrade-machine` command.
+	// It is only set for the pre-series-upgrade hook.
+	MachineUpgradeTarget string `yaml:"series-upgrade-target,omitempty"`
+
 	// SecretURI is the secret URI relevant to the hook.
 	SecretURI string `yaml:"secret-uri,omitempty"`
 
@@ -100,6 +108,14 @@ func (hi Info) Validate() error {
 	case hooks.PebbleReady:
 		if hi.WorkloadName == "" {
 			return errors.Errorf("%q hook requires a workload name", hi.Kind)
+		}
+		return nil
+	case hooks.PebbleCheckFailed, hooks.PebbleCheckRecovered:
+		if hi.WorkloadName == "" {
+			return errors.Errorf("%q hook requires a workload name", hi.Kind)
+		}
+		if hi.CheckName == "" {
+			return errors.Errorf("%q hook requires a check name", hi.Kind)
 		}
 		return nil
 	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop,

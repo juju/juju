@@ -113,6 +113,56 @@ func (s *pebbleNoticerSuite) TestWaitNotices(c *gc.C) {
 	})
 }
 
+// TestCheckFailed verifies that a change-updated notice that is of kind
+// perform-check and has a status of Error results in a CheckFailed event.
+func (s *pebbleNoticerSuite) TestCheckFailed(c *gc.C) {
+	s.setUpWorker(c, []string{"c1"})
+	defer workertest.CleanKill(c, s.worker)
+
+	s.clients["c1"].AddChange(c, &client.Change{
+		ID:     "42",
+		Kind:   "perform-check",
+		Status: "Error",
+	})
+	s.clients["c1"].AddNotice(c, &client.Notice{
+		ID:           "1",
+		Type:         "change-update",
+		Key:          "42",
+		LastRepeated: time.Now(),
+		LastData:     map[string]string{"kind": "perform-check", "check-name": "http-check"},
+	})
+	s.waitWorkloadEvent(c, container.WorkloadEvent{
+		Type:         container.CheckFailedEvent,
+		WorkloadName: "c1",
+		CheckName:    "http-check",
+	})
+}
+
+// TestCheckRecovered verifies that a change-updated notice that is of kind
+// recover-check and has a status of Done results in a CheckRecovered event.
+func (s *pebbleNoticerSuite) TestCheckRecovered(c *gc.C) {
+	s.setUpWorker(c, []string{"c1"})
+	defer workertest.CleanKill(c, s.worker)
+
+	s.clients["c1"].AddChange(c, &client.Change{
+		ID:     "42",
+		Kind:   "recover-check",
+		Status: "Done",
+	})
+	s.clients["c1"].AddNotice(c, &client.Notice{
+		ID:           "1",
+		Type:         "change-update",
+		Key:          "42",
+		LastRepeated: time.Now(),
+		LastData:     map[string]string{"kind": "recover-check", "check-name": "tcp-check"},
+	})
+	s.waitWorkloadEvent(c, container.WorkloadEvent{
+		Type:         container.CheckRecoveredEvent,
+		WorkloadName: "c1",
+		CheckName:    "tcp-check",
+	})
+}
+
 func (s *pebbleNoticerSuite) TestWaitNoticesError(c *gc.C) {
 	s.setUpWorker(c, []string{"c1"})
 	defer workertest.CleanKill(c, s.worker)

@@ -42,6 +42,7 @@ import_subdir_files includes
 TEST_NAMES="actions \
             agents \
             appdata \
+            authorized_keys \
             backup \
             bootstrap \
             branches \
