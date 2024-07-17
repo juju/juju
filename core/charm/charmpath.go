@@ -28,7 +28,7 @@ func NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
 	} else if err == nil && !isValidCharmOrBundlePath(path) {
 		return nil, nil, InvalidPath(path)
 	} else if info.IsDir() {
-		return nil, nil, errors.NotSupportedf("deploying from directory %q", path)
+		return nil, nil, errors.NotSupportedf("deploying from directory")
 	}
 
 	ch, err := charm.ReadCharmArchive(path)

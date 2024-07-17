@@ -164,19 +164,18 @@ When no options are set, the application's charm will be refreshed to the latest
 revision available in the repository from which it was originally deployed. An
 explicit revision can be chosen with the --revision option.
 
-A path will need to be supplied to allow an updated copy of the charm
-to be located.
+Refreshing a local packaged charm will require a path to be supplied to allow an
+updated copy of the charm.
 
 Deploying from a path is intended to suit the workflow of a charm author working
 on a single client machine; use of this deployment method from multiple clients
-is not supported and may lead to confusing behaviour. Each local charm gets
-uploaded with the revision specified in the charm, if possible, otherwise it
-gets a unique revision (highest in state + 1).
+is not supported and may lead to confusing behaviour. Each local packaged charm 
+gets uploaded with the revision specified in the charm, if possible, otherwise 
+it gets a unique revision (highest in state + 1).
 
-When deploying from a path, the --path option is used to specify the location from
-which to load the updated charm. Note that the charm must match what was 
-originally used to deploy the charm as a superficial check that the
-updated charm is compatible.
+When deploying from a path, the --path option is used to specify the location
+of the packaged charm. Note that the charm must match what was originally used 
+to deploy the charm as a superficial check that the updated charm is compatible.
 
 Resources may be uploaded at upgrade time by specifying the --resource option.
 Following the resource option should be name=filepath pair.  This option may be
@@ -264,7 +263,7 @@ func (c *refreshCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.channelStr, "channel", "", "Channel to use when getting the charm from Charmhub")
 	f.BoolVar(&c.ForceBase, "force-series", false, "Refresh even if series of deployed applications are not supported by the new charm")
 	f.StringVar(&c.SwitchURL, "switch", "", "Crossgrade to a different charm")
-	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm located at path")
+	f.StringVar(&c.CharmPath, "path", "", "Refresh to a charm package located at path")
 	f.IntVar(&c.Revision, "revision", -1, "Explicit revision of current charm")
 	f.Var(stringMap{mapping: &c.Resources}, "resource", "Resource to be uploaded to the controller")
 	f.Var(storageFlag{stores: &c.Storage, bundleStores: nil}, "storage", "Charm storage directives")

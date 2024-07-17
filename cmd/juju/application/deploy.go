@@ -367,8 +367,14 @@ when refreshing the application in the future.
 You will need to be explicit if there is an ambiguity between a local and a
 remote charm:
 
-  juju deploy ./postgresql
+  juju deploy ./postgresql.charm
   juju deploy ch:postgresql
+
+A local charm may be deploy by giving the path to the charm package:
+
+   juju deploy /path/to/example.charm
+
+A charm package is created with charmcraft pack command.
 
 A bundle can be expressed similarly to a charm:
 

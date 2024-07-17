@@ -237,6 +237,8 @@ run_deploy_trusted_bundle() {
 
 	ensure "test-trusted-bundles-deploy" "${file}"
 
+	cd ./tests/suites/deploy/charms/trust-checker && zip -r ../trust-checker.charm . && cd - || exit
+
 	bundle=./tests/suites/deploy/bundles/trusted_bundle.yaml
 	OUT=$(juju deploy ${bundle} 2>&1 || true)
 	echo "${OUT}" | check "repeat the deploy command with the --trust argument"
