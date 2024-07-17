@@ -50,6 +50,7 @@ controllers:
         controller-machine-count: 0
         active-controller-machine-count: 0
 current-controller: mallards
+has-controller-changed-on-previous-switch: false
 `
 
 func (s *ControllersFileSuite) TestWriteFile(c *gc.C) {
@@ -133,6 +134,7 @@ controllers:
         controller-machine-count: 0
         active-controller-machine-count: 0%s
 current-controller: aws-test
+has-controller-changed-on-previous-switch: false
 `
 	modelCount := `
         model-count: 2`

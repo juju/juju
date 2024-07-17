@@ -6,9 +6,11 @@ package commands
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
@@ -30,8 +32,10 @@ type switchCommand struct {
 	modelcmd.CommandBase
 	RefreshModels func(jujuclient.ClientStore, string) error
 
-	Store  jujuclient.ClientStore
-	Target string
+	Store                 jujuclient.ClientStore
+	controllerOrModelName string
+	modelName             string
+	controllerName        string
 }
 
 var usageSummary = `
@@ -40,14 +44,21 @@ Selects or identifies the current controller and model.`[1:]
 var usageDetails = `
 When used without an argument, the command shows the current controller
 and its active model.
+
 When a single argument without a colon is provided juju first looks for a
 controller by that name and switches to it, and if it's not found it tries
-to switch to a model within current controller. mycontroller: switches to
-default model in mycontroller, :mymodel switches to mymodel in current
-controller and mycontroller:mymodel switches to mymodel on mycontroller.
+to switch to a model within current controller. 
+
+Colon allows to disambiguate model over controller:
+- mycontroller: switches to default model in mycontroller, 
+- :mymodel switches to mymodel in current controller 
+- mycontroller:mymodel switches to mymodel on mycontroller.
+
+The special arguments - (hyphen) instead of a model or a controller allows to return 
+to previous model or controller. It can be used as main argument or as flag argument.
+
 The `[1:] + "`juju models`" + ` command can be used to determine the active model
 (of any controller). An asterisk denotes it.
-
 `
 
 const usageExamples = `
@@ -57,6 +68,12 @@ const usageExamples = `
     juju switch mycontroller:mymodel
     juju switch mycontroller:
     juju switch :mymodel
+    juju switch -m mymodel
+	juju switch -m mycontroller:mymodel
+	juju switch -c mycontroller
+    juju switch - # switch to previous controller:model
+    juju switch -m - # switch to previous controller on its current model
+    juju switch -c - # switch to previous model on the current controller
 `
 
 func (c *switchCommand) Info() *cmd.Info {
@@ -74,10 +91,106 @@ func (c *switchCommand) Info() *cmd.Info {
 	})
 }
 
+// SetFlags implements Command.SetFlags.
+func (c *switchCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.CommandBase.SetFlags(f)
+	f.StringVar(&c.modelName, "m", "", "Model to operate in. Accepts [<controller name>:]<model name>")
+	f.StringVar(&c.modelName, "model", "", "")
+	f.StringVar(&c.controllerName, "c", "", "Controller to operate in")
+	f.StringVar(&c.controllerName, "controller", "", "")
+}
+
 func (c *switchCommand) Init(args []string) error {
-	var err error
-	c.Target, err = cmd.ZeroOrOneArgs(args)
-	return err
+	if c.modelName != "" && c.controllerName != "" {
+		return errors.Trace(fmt.Errorf("cannot specify both a --model and --controller"))
+	}
+
+	if c.controllerName != "" {
+		err := cmd.CheckEmpty(args)
+		if err != nil {
+			return errors.Trace(fmt.Errorf("no argument accepted when --controller flag  is specified"))
+		}
+	} else if c.modelName != "" {
+		err := cmd.CheckEmpty(args)
+		if err != nil {
+			return errors.Trace(fmt.Errorf("no argument accepted when --model flag  is specified"))
+		}
+		// This means we can support arguments like `juju switch -m mycontroller:mymodel`
+		c.parseModelName(c.modelName)
+	} else {
+		target, err := cmd.ZeroOrOneArgs(args)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		// if the target does not contain a ":", it is an ambiguous target so
+		// we cannot parse it as a model name
+		if strings.Contains(target, ":") {
+			c.parseModelName(target)
+		} else {
+			c.controllerOrModelName = target
+		}
+	}
+
+	// expand "-" syntactic sugar where it's found
+	if c.controllerName == "-" {
+		previous, _, err := c.Store.PreviousController()
+		if err != nil {
+			return errors.Annotatef(err, `interpreting "--controller -"`)
+		}
+		c.controllerName = previous
+	}
+
+	if c.modelName == "-" {
+		controller, err := c.Store.CurrentController()
+		if err != nil {
+			return errors.Annotatef(err, `interpreting "--model -"`)
+		}
+		previous, err := c.Store.PreviousModel(controller)
+		if err != nil {
+			return errors.Annotatef(err, `interpreting "--model -"`)
+		}
+		c.modelName = previous
+	}
+
+	if c.controllerOrModelName == "-" {
+		c.controllerOrModelName = ""
+
+		previousController, changedController, err := c.Store.PreviousController()
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return errors.Annotatef(err, `interpreting "-" argument`)
+		}
+
+		// if the last switch was intra-controller (i.e. changedController is true), we need
+		// to figure out from which model and switch back there. Otherwise (i.e. inter-controller),
+		// it is sufficient to switch to just the previous controller.
+		if changedController {
+			c.controllerName = previousController
+		} else {
+			c.controllerName, err = c.Store.CurrentController()
+			if err != nil {
+				return errors.Annotatef(err, `interpreting "-" argument after a model switch`)
+			}
+			previousModel, err := c.Store.PreviousModel(c.controllerName)
+			if errors.Is(err, errors.NotFound) {
+				return errors.Errorf(`no previous model for this controller %s, use a qualified switch 'juju switch controller:model' or return to previous controller through 'juju switch -c -' `, c.controllerName)
+			} else if err != nil {
+				return errors.Annotatef(err, `interpreting "-" argument after a model switch`)
+			}
+			c.modelName = previousModel
+		}
+	}
+
+	return nil
+}
+
+func (c *switchCommand) parseModelName(name string) {
+	parts := strings.SplitN(name, ":", 2)
+	if len(parts) == 1 {
+		c.modelName = parts[0]
+		return
+	}
+	c.controllerName = parts[0]
+	c.modelName = parts[1]
 }
 
 // SetClientStore implements Command.SetClientStore.
@@ -98,7 +211,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 	} else if err != nil {
 		return errors.Trace(err)
 	}
-	if c.Target == "" {
+	if c.controllerOrModelName == "" && c.modelName == "" && c.controllerName == "" {
 		currentName, err := c.name(store, currentControllerName, true)
 		if err != nil {
 			return errors.Trace(err)
@@ -106,20 +219,20 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		if currentName == "" {
 			return common.MissingModelNameError("switch")
 		}
-		fmt.Fprintf(ctx.Stdout, "%s\n", currentName)
-		return nil
+		_, err = fmt.Fprintf(ctx.Stdout, "%s\n", currentName)
+		return err
 	}
-	currentName, err := c.name(store, currentControllerName, false)
+	sourceName, err := c.name(store, currentControllerName, false)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	var newName string
+	var targetName string
 	defer func() {
 		if resultErr != nil {
 			return
 		}
-		logSwitch(ctx, currentName, &newName)
+		logSwitch(ctx, sourceName, targetName)
 	}()
 
 	// Switch is an alternative way of dealing with models rather than using
@@ -133,82 +246,58 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 		return errors.Errorf("cannot switch when JUJU_MODEL is overriding the model (set to %q)", model)
 	}
 
-	// If the target identifies a controller, or we want a controller explicitly,
-	// then set that as the current controller.
-	var newControllerName = c.Target
-	var forceController = false
-	if c.Target[len(c.Target)-1] == ':' {
-		forceController = true
-		newControllerName = c.Target[:len(c.Target)-1]
-	}
-	if _, err = store.ControllerByName(newControllerName); err == nil {
-		if newControllerName == currentControllerName {
-			newName = currentName
-			return nil
-		} else {
-			newName, err = c.name(store, newControllerName, false)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			return errors.Trace(store.SetCurrentController(newControllerName))
+	// juju switch something (ambiguous)
+	if c.controllerOrModelName != "" {
+		// Is it an existing controller ?
+		targetName, err = c.trySwitchToController(store, c.controllerOrModelName)
+		if err != nil && !errors.Is(err, errors.NotFound) {
+			return errors.Annotatef(err, "cannot determine if %q is a valid controller", c.controllerOrModelName)
 		}
-	} else if !errors.Is(err, errors.NotFound) || forceController {
-		return errors.Trace(err)
-	}
-
-	// The target is not a controller, so check for a model with
-	// the given name. The name can be qualified with the controller
-	// name (<controller>:<model>), or unqualified; in the latter
-	// case, the model must exist in the current controller.
-	newControllerName, modelName := modelcmd.SplitModelName(c.Target)
-	if newControllerName != "" {
-		if _, err = store.ControllerByName(newControllerName); err != nil {
-			return errors.Trace(err)
+		if err == nil {
+			return // switch successful
 		}
-	} else {
+		// Is an existing model in current controller ?
 		if currentControllerName == "" {
-			return unknownSwitchTargetError(c.Target)
+			return errors.Trace(unknownSwitchTargetError(c.controllerOrModelName))
 		}
-		newControllerName = currentControllerName
+		targetName, err = c.trySwitchToModel(store, currentControllerName, c.controllerOrModelName)
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine if %q is a valid model", c.controllerOrModelName)
+		}
+		return
 	}
-	modelName, err = store.QualifiedModelName(newControllerName, modelName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	newName = modelcmd.JoinModelName(newControllerName, modelName)
 
-	err = store.SetCurrentModel(newControllerName, modelName)
-	if errors.Is(err, errors.NotFound) {
-		// The model isn't known locally, so we must query the controller.
-		if err := c.RefreshModels(store, newControllerName); err != nil {
-			return errors.Annotate(err, "refreshing models cache")
+	// Juju switch non ambiguous
+	if c.modelName == "" {
+		targetName, err = c.trySwitchToController(store, c.controllerName)
+		if err != nil {
+			return errors.Annotate(err, "invalid target controller")
 		}
-		err := store.SetCurrentModel(newControllerName, modelName)
-		if errors.Is(err, errors.NotFound) {
-			return unknownSwitchTargetError(c.Target)
-		} else if err != nil {
-			return errors.Trace(err)
-		}
-	} else if err != nil {
-		return errors.Trace(err)
+		return
 	}
-	if currentControllerName != newControllerName {
-		if err := store.SetCurrentController(newControllerName); err != nil {
-			return errors.Trace(err)
+
+	if c.controllerName == "" {
+		if currentControllerName == "" {
+			return errors.Trace(unknownSwitchTargetError(c.modelName))
 		}
+		c.controllerName = currentControllerName
 	}
-	return nil
+	targetName, err = c.trySwitchToModel(store, c.controllerName, c.modelName)
+	if err != nil {
+		return errors.Annotate(err, "invalid target model")
+	}
+	return
 }
 
 func unknownSwitchTargetError(name string) error {
 	return errors.Errorf("%q is not the name of a model or controller", name)
 }
 
-func logSwitch(ctx *cmd.Context, oldName string, newName *string) {
-	if *newName == oldName {
+func logSwitch(ctx *cmd.Context, oldName string, newName string) {
+	if newName == oldName {
 		ctx.Infof("%s (no change)", oldName)
 	} else {
-		ctx.Infof("%s -> %s", oldName, *newName)
+		ctx.Infof("%s -> %s", oldName, newName)
 	}
 }
 
@@ -231,4 +320,45 @@ func (c *switchCommand) name(store jujuclient.ModelGetter, controllerName string
 		return controllerName, nil
 	}
 	return fmt.Sprintf("%s (controller)", controllerName), nil
+}
+
+func (c *switchCommand) trySwitchToController(store jujuclient.ClientStore, controller string) (string, error) {
+	// Check that the controller actually exists
+	_, err := store.ControllerByName(controller)
+	if err != nil {
+		// If something get wrong
+		return "", errors.Trace(err)
+	}
+	targetName, err := c.name(store, controller, false)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return targetName, errors.Trace(store.SetCurrentController(controller))
+}
+
+func (c *switchCommand) trySwitchToModel(store modelcmd.QualifyingClientStore, controller string, model string) (string, error) {
+	if err := store.SetCurrentController(controller); err != nil {
+		return "", errors.Trace(err)
+	}
+	modelName, err := store.QualifiedModelName(controller, model)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	err = store.SetCurrentModel(controller, modelName)
+	if errors.Is(err, errors.NotFound) {
+		// The model isn't known locally, so we must query the controller.
+		if err := c.RefreshModels(store, controller); err != nil {
+			return "", errors.Annotate(err, "refreshing models cache")
+		}
+		err := store.SetCurrentModel(controller, modelName)
+		if errors.Is(err, errors.NotFound) {
+			return "", unknownSwitchTargetError(controller + ":" + model)
+		} else if err != nil {
+			return "", errors.Trace(err)
+		}
+	} else if err != nil {
+		return "", errors.Trace(err)
+	}
+	return modelcmd.JoinModelName(controller, modelName), nil
 }
