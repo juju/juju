@@ -9,11 +9,10 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/identchecker"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakerytest"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock/testclock"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/juju/controller"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/testing"
-	statetesting "github.com/juju/juju/state/testing"
 )
 
 // TODO(babbageclunk): These have been extracted pretty mechanically
@@ -32,17 +30,17 @@ import (
 // rather than the export_test functions.
 
 type macaroonCommonSuite struct {
-	statetesting.StateSuite
 	discharger              *bakerytest.Discharger
 	authenticator           *Authenticator
 	clock                   *testclock.Clock
 	controllerConfigService *MockControllerConfigService
 	accessService           *MockAccessService
-	bakeryConfigService     *MockBakeryConfigService
+	macaroonService         MacaroonService
+
+	controllerConfig map[string]interface{}
 }
 
 func (s *macaroonCommonSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
 	s.clock = testclock.NewClock(time.Now())
 }
 
@@ -50,122 +48,58 @@ func (s *macaroonCommonSuite) TearDownTest(c *gc.C) {
 	if s.discharger != nil {
 		s.discharger.Close()
 	}
-	s.StateSuite.TearDownTest(c)
+}
+
+// backingShim is used to ensure macaroonService implement dbrootkeystore.Backing,
+// but also checks this interface is never used. Unfortunately our service needs to
+// implement these dues to percularities with the store constructor.
+//
+// TODO(jack-w-shaw): Remove this shim once https://github.com/go-macaroon-bakery/macaroon-bakery/pull/301
+// has been released.
+type backingShim struct {
+	*MockMacaroonService
+	c *gc.C
+}
+
+var _ dbrootkeystore.Backing = &backingShim{}
+
+func (b *backingShim) GetKey(_ []byte) (dbrootkeystore.RootKey, error) {
+	b.c.Fatal("Call to contextless backing method GetKey not allowed")
+	return dbrootkeystore.RootKey{}, nil
+}
+
+func (b *backingShim) FindLatestKey(_, _, _ time.Time) (dbrootkeystore.RootKey, error) {
+	b.c.Fatal("Call to contextless backing method FindLatestKey not allowed")
+	return dbrootkeystore.RootKey{}, nil
+}
+
+func (b *backingShim) InsertKey(_ dbrootkeystore.RootKey) error {
+	b.c.Fatal("Call to contextless backing method InsertKey not allowed")
+	return nil
 }
 
 func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
-	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.ControllerConfig, nil).AnyTimes()
+	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.controllerConfig, nil).AnyTimes()
 
-	s.bakeryConfigService = NewMockBakeryConfigService(ctrl)
-	s.bakeryConfigService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
-	s.bakeryConfigService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
-	s.bakeryConfigService.EXPECT().GetExternalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).AnyTimes()
+	macaroonService := NewMockMacaroonService(ctrl)
+	macaroonService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
+	macaroonService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
+	macaroonService.EXPECT().GetExternalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).AnyTimes()
+	s.macaroonService = &backingShim{
+		MockMacaroonService: macaroonService,
+		c:                   c,
+	}
 
-	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(s.State, loggertesting.WrapCheckLog(c))
+	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(nil, loggertesting.WrapCheckLog(c))
 
-	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, s.State, testing.ModelTag.Id(), s.controllerConfigService, s.accessService, s.bakeryConfigService, agentAuthFactory, s.clock)
+	authenticator, err := NewAuthenticator(context.Background(), nil, testing.ModelTag.Id(), s.controllerConfigService, s.accessService, s.macaroonService, agentAuthFactory, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	s.authenticator = authenticator
 
 	return ctrl
-}
-
-type macaroonAuthSuite struct {
-	macaroonCommonSuite
-}
-
-var _ = gc.Suite(&macaroonAuthSuite{})
-
-func (s *macaroonAuthSuite) SetUpTest(c *gc.C) {
-	s.discharger = bakerytest.NewDischarger(nil)
-	s.ControllerConfig = map[string]interface{}{
-		controller.IdentityURL: s.discharger.Location(),
-	}
-	s.macaroonCommonSuite.SetUpTest(c)
-}
-
-type alwaysIdent struct {
-	IdentityLocation string
-}
-
-// IdentityFromContext implements IdentityClient.IdentityFromContext.
-func (m *alwaysIdent) IdentityFromContext(ctx context.Context) (identchecker.Identity, []checkers.Caveat, error) {
-	return identchecker.SimpleIdentity("fred"), nil, nil
-}
-
-func (alwaysIdent) DeclaredIdentity(ctx context.Context, declared map[string]string) (identchecker.Identity, error) {
-	return nil, errors.New("not called")
-}
-
-func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	// TODO - remove when we use bakeryv2 everywhere
-	discharger := bakerytest.NewDischarger(nil)
-	defer discharger.Close()
-	discharger.CheckerP = httpbakery.ThirdPartyCaveatCheckerPFunc(func(ctx context.Context, p httpbakery.ThirdPartyCaveatCheckerParams) ([]checkers.Caveat, error) {
-		if p.Caveat != nil && string(p.Caveat.Condition) == "is-authenticated-user" {
-			return []checkers.Caveat{
-				checkers.DeclaredCaveat("username", "fred"),
-			}, nil
-		}
-		return nil, errors.New("unexpected caveat")
-	})
-
-	bsvc, err := ServerBakery(context.Background(), s.authenticator, &alwaysIdent{IdentityLocation: discharger.Location()})
-	c.Assert(err, gc.IsNil)
-
-	cav := []checkers.Caveat{
-		checkers.NeedDeclaredCaveat(
-			checkers.Caveat{
-				Location:  discharger.Location(),
-				Condition: "is-authenticated-user",
-			},
-			"username",
-		),
-	}
-	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
-	c.Assert(err, gc.IsNil)
-
-	client := httpbakery.NewClient()
-	ms, err := client.DischargeAll(context.Background(), mac)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, cond, err := bsvc.Oven.VerifyMacaroon(context.Background(), ms)
-	c.Assert(err, gc.IsNil)
-	c.Assert(cond, jc.DeepEquals, []string{"declared username fred"})
-	authChecker := bsvc.Checker.Auth(ms)
-	ai, err := authChecker.Allow(context.Background(), identchecker.LoginOp)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ai.Identity.Id(), gc.Equals, "fred")
-}
-
-func (s *macaroonAuthSuite) TestExpiredKey(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	bsvc, err := ServerBakeryExpiresImmediately(context.Background(), s.authenticator, &alwaysIdent{})
-	c.Assert(err, gc.IsNil)
-
-	cav := []checkers.Caveat{
-		checkers.NeedDeclaredCaveat(
-			checkers.Caveat{
-				Condition: "is-authenticated-user",
-			},
-			"username",
-		),
-	}
-	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
-	c.Assert(err, gc.IsNil)
-
-	client := httpbakery.NewClient()
-	ms, err := client.DischargeAll(context.Background(), mac)
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, _, err = bsvc.Oven.VerifyMacaroon(context.Background(), ms)
-	c.Assert(err, gc.ErrorMatches, "verification failed: macaroon not found in storage")
 }
 
 type macaroonAuthWrongPublicKeySuite struct {
@@ -178,7 +112,7 @@ func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *gc.C) {
 	s.discharger = bakerytest.NewDischarger(nil)
 	wrongKey, err := bakery.GenerateKey()
 	c.Assert(err, gc.IsNil)
-	s.ControllerConfig = map[string]interface{}{
+	s.controllerConfig = map[string]interface{}{
 		controller.IdentityURL:       s.discharger.Location(),
 		controller.IdentityPublicKey: wrongKey.Public.String(),
 	}
@@ -187,7 +121,6 @@ func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *gc.C) {
 
 func (s *macaroonAuthWrongPublicKeySuite) TearDownTest(c *gc.C) {
 	s.discharger.Close()
-	s.StateSuite.TearDownTest(c)
 }
 
 func (s *macaroonAuthWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {

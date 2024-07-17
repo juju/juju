@@ -5,8 +5,10 @@ package httpserverargs
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/worker/v4"
@@ -27,7 +29,7 @@ type workerConfig struct {
 	statePool               *state.StatePool
 	controllerConfigService ControllerConfigService
 	accessService           AccessService
-	bakeryConfigService     BakeryConfigService
+	macaroonService         MacaroonService
 	mux                     *apiserverhttp.Mux
 	clock                   clock.Clock
 	newStateAuthenticatorFn NewStateAuthenticatorFunc
@@ -71,7 +73,7 @@ func newWorker(ctx context.Context, cfg workerConfig) (worker.Worker, error) {
 		managedServices: newManagedServices(
 			cfg.controllerConfigService,
 			cfg.accessService,
-			cfg.bakeryConfigService,
+			cfg.macaroonService,
 		),
 	}
 
@@ -85,16 +87,16 @@ func newWorker(ctx context.Context, cfg workerConfig) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	st, err := w.cfg.statePool.SystemState()
+	systemState, err := w.cfg.statePool.SystemState()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	modelUUID := st.ModelUUID()
+	controllerModelUUID := systemState.ModelUUID()
 
 	authenticator, err := w.cfg.newStateAuthenticatorFn(
 		ctx,
 		w.cfg.statePool,
-		modelUUID,
+		controllerModelUUID,
 		w.managedServices,
 		w.managedServices,
 		w.managedServices,
@@ -134,18 +136,18 @@ type managedServices struct {
 	tomb                    tomb.Tomb
 	controllerConfigService ControllerConfigService
 	accessService           AccessService
-	bakeryConfigService     BakeryConfigService
+	macaroonService         MacaroonService
 }
 
 func newManagedServices(
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
-	bakeryConfigService BakeryConfigService,
+	macaroonService MacaroonService,
 ) *managedServices {
 	w := &managedServices{
 		controllerConfigService: controllerConfigService,
 		accessService:           accessService,
-		bakeryConfigService:     bakeryConfigService,
+		macaroonService:         macaroonService,
 	}
 	w.tomb.Go(func() error {
 		<-w.tomb.Dying()
@@ -183,16 +185,70 @@ func (b *managedServices) UpdateLastModelLogin(ctx context.Context, name string,
 	return b.accessService.UpdateLastModelLogin(b.tomb.Context(ctx), name, modelUUID)
 }
 
+// GetLocalUsersKey returns the key pair used with the local users bakery.
 func (b *managedServices) GetLocalUsersKey(ctx context.Context) (*bakery.KeyPair, error) {
-	return b.bakeryConfigService.GetLocalUsersKey(ctx)
+	return b.macaroonService.GetLocalUsersKey(ctx)
 }
 
+// GetLocalUsersThirdPartyKey returns the third party key pair used with the local users bakery.
 func (b *managedServices) GetLocalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
-	return b.bakeryConfigService.GetLocalUsersThirdPartyKey(ctx)
+	return b.macaroonService.GetLocalUsersThirdPartyKey(ctx)
 }
 
+// GetExternalUsersThirdPartyKey returns the third party key pair used with the external users bakery.
 func (b *managedServices) GetExternalUsersThirdPartyKey(ctx context.Context) (*bakery.KeyPair, error) {
-	return b.bakeryConfigService.GetExternalUsersThirdPartyKey(ctx)
+	return b.macaroonService.GetExternalUsersThirdPartyKey(ctx)
+}
+
+// GetKeyContext (dbrootkeystore.GetKeyContext) gets the key
+// with a given id.
+//
+// To satisfy dbrootkeystore.ContextBacking specification,
+// if not key is found, a bakery.ErrNotFound error is returned.
+func (b *managedServices) GetKeyContext(ctx context.Context, id []byte) (dbrootkeystore.RootKey, error) {
+	return b.macaroonService.GetKeyContext(ctx, id)
+}
+
+// FindLatestKeyContext (dbrootkeystore.FindLatestKeyContext) returns
+// the most recently created root key k following all
+// the conditions:
+//
+// k.Created >= createdAfter
+// k.Expires >= expiresAfter
+// k.Expires <= expiresBefore
+//
+// To satisfy dbrootkeystore.FindLatestKeyContext specification,
+// if no such key is found, the zero root key is returned with a
+// nil error
+func (b *managedServices) FindLatestKeyContext(ctx context.Context, createdAfter, expiresAfter, expiresBefore time.Time) (dbrootkeystore.RootKey, error) {
+	return b.macaroonService.FindLatestKeyContext(ctx, createdAfter, expiresAfter, expiresBefore)
+}
+
+// InsertKeyContext (dbrootkeystore.InsertKeyContext) inserts
+// the given root key into state. If a key with matching
+// id already exists, return a macaroonerrors.KeyAlreadyExists error.
+func (b *managedServices) InsertKeyContext(ctx context.Context, key dbrootkeystore.RootKey) error {
+	return b.macaroonService.InsertKeyContext(ctx, key)
+}
+
+// The following 3 methods ensure that our managedServices implements dbrootkeystore.Backing
+// Unfortunately this is required for the time being, since the backing in NewExpirableStorage
+// needs to implement both dbrootkeystore.Backing and dbrootkeystore.ContextBacking. This will
+// change once we update an upstream dependency
+
+// GetKey is a stub method required to implement dbrootkeystore.Backing. Do not use
+func (*managedServices) GetKey(id []byte) (dbrootkeystore.RootKey, error) {
+	return dbrootkeystore.RootKey{}, errors.NotImplementedf("GetKey")
+}
+
+// FindLatestKey is a stub method required to implement dbrootkeystore.Backing. Do not use
+func (*managedServices) FindLatestKey(createdAfter, expiresAfter, expiresBefore time.Time) (dbrootkeystore.RootKey, error) {
+	return dbrootkeystore.RootKey{}, errors.NotImplementedf("FindLatestKey")
+}
+
+// InsertKey is a stub method required to implement dbrootkeystore.Backing. Do not use
+func (*managedServices) InsertKey(key dbrootkeystore.RootKey) error {
+	return errors.NotImplementedf("InsertKey")
 }
 
 // Kill is part of the worker.Worker interface.

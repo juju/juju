@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver/bakeryutil"
 	"github.com/juju/juju/core/permission"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
-	"github.com/juju/juju/state/bakerystorage"
 )
 
 // OfferBakery is a bakery service for offer access.
@@ -73,7 +72,7 @@ func NewOfferBakeryForTest(bakery authentication.ExpirableStorageBakery, clk clo
 func NewLocalOfferBakery(
 	location string,
 	offersThirdPartyKey *bakery.KeyPair,
-	store bakerystorage.ExpirableStorage,
+	store internalmacaroon.ExpirableStorage,
 	checker bakery.FirstPartyCaveatChecker,
 ) (*OfferBakery, error) {
 	locator := bakeryutil.BakeryThirdPartyLocator{PublicKey: offersThirdPartyKey.Public}
@@ -104,7 +103,7 @@ type JaaSOfferBakery struct {
 	location               string
 	currrentAccessEndpoint string
 	bakeryConfigService    BakeryConfigService
-	store                  bakerystorage.ExpirableStorage
+	store                  internalmacaroon.ExpirableStorage
 	checker                bakery.FirstPartyCaveatChecker
 }
 
@@ -176,7 +175,7 @@ func NewJaaSOfferBakery(
 	ctx context.Context,
 	loginTokenRefreshURL, location string,
 	bakeryConfigService BakeryConfigService,
-	store bakerystorage.ExpirableStorage,
+	store internalmacaroon.ExpirableStorage,
 	checker bakery.FirstPartyCaveatChecker,
 ) (*JaaSOfferBakery, error) {
 	offerBakery := &JaaSOfferBakery{

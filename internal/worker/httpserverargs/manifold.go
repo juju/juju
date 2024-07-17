@@ -74,7 +74,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		statePool:               statePool,
 		controllerConfigService: controllerServiceFactory.ControllerConfig(),
 		accessService:           controllerServiceFactory.Access(),
-		bakeryConfigService:     controllerServiceFactory.Macaroon(),
+		macaroonService:         controllerServiceFactory.Macaroon(),
 		mux:                     apiserverhttp.NewMux(),
 		clock:                   clock,
 		newStateAuthenticatorFn: config.NewStateAuthenticator,

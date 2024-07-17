@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -55,6 +56,12 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
+// MacaroonService defines the method required to manage macaroons.
+type MacaroonService interface {
+	dbrootkeystore.ContextBacking
+	BakeryConfigService
+}
+
 type BakeryConfigService interface {
 	GetLocalUsersKey(context.Context) (*bakery.KeyPair, error)
 	GetLocalUsersThirdPartyKey(context.Context) (*bakery.KeyPair, error)
@@ -65,15 +72,14 @@ type BakeryConfigService interface {
 func NewAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
-	systemState *state.State,
 	controllerModelUUID string,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
-	bakeryConfigService BakeryConfigService,
+	macaroonService MacaroonService,
 	agentAuthFactory AgentAuthenticatorFactory,
 	clock clock.Clock,
 ) (*Authenticator, error) {
-	authContext, err := newAuthContext(ctx, systemState, controllerModelUUID, controllerConfigService, accessService, bakeryConfigService, agentAuthFactory, clock)
+	authContext, err := newAuthContext(ctx, controllerModelUUID, controllerConfigService, accessService, macaroonService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

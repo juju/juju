@@ -119,7 +119,6 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 	authenticator, err := stateauthenticator.NewAuthenticator(
 		context.Background(),
 		pool,
-		st,
 		st.ModelUUID(),
 		sf.ControllerConfig(),
 		sf.Access(),
