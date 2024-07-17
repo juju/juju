@@ -171,12 +171,12 @@ func (b *managedServices) GetUserByName(ctx context.Context, name string) (coreu
 	return b.accessService.GetUserByName(b.tomb.Context(ctx), name)
 }
 
-// ReadUserAccessForTarget returns the access that
+// ReadUserAccessLevelForTarget returns the access that
 // the input user subject has for the input target.
-func (b *managedServices) ReadUserAccessForTarget(
+func (b *managedServices) ReadUserAccessLevelForTarget(
 	ctx context.Context, subject string, target permission.ID,
-) (permission.UserAccess, error) {
-	return b.accessService.ReadUserAccessForTarget(b.tomb.Context(ctx), subject, target)
+) (permission.Access, error) {
+	return b.accessService.ReadUserAccessLevelForTarget(b.tomb.Context(ctx), subject, target)
 }
 
 // UpdateLastModelLogin updates the last login time for the user with the

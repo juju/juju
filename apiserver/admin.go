@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/pinger"
 	"github.com/juju/juju/core/trace"
 	jujuversion "github.com/juju/juju/core/version"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/rpcreflect"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -449,7 +450,9 @@ func (a *admin) checkUserPermissions(
 	}
 
 	controllerAccess, err := authInfo.SubjectPermissions(ctx, a.root.state.ControllerTag())
-	if err != nil {
+	if errors.Is(err, accesserrors.AccessNotFound) || errors.Is(err, accesserrors.UserNotFound) {
+		controllerAccess = permission.NoAccess
+	} else if err != nil {
 		return nil, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", userTag.Id())
 	}
 

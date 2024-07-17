@@ -181,69 +181,6 @@ func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
 	c.Assert(userGetter.objects[0], gc.DeepEquals, target)
 }
 
-type fakeEveryoneUserAccess struct {
-	user     permission.Access
-	everyone permission.Access
-}
-
-func (f *fakeEveryoneUserAccess) call(subject names.UserTag, object names.Tag) (permission.Access, error) {
-	if subject.Id() == permission.EveryoneTagName {
-		return f.everyone, nil
-	}
-	return f.user, nil
-}
-
-func (r *PermissionSuite) TestEveryoneAtExternal(c *gc.C) {
-	testCases := []struct {
-		title            string
-		userGetterAccess permission.Access
-		everyoneAccess   permission.Access
-		user             names.UserTag
-		target           names.Tag
-		access           permission.Access
-		expected         bool
-	}{
-		{
-			title:            "user has lesser permissions than everyone",
-			userGetterAccess: permission.LoginAccess,
-			everyoneAccess:   permission.SuperuserAccess,
-			user:             names.NewUserTag("validuser@external"),
-			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
-			access:           permission.SuperuserAccess,
-			expected:         true,
-		},
-		{
-			title:            "user has greater permissions than everyone",
-			userGetterAccess: permission.SuperuserAccess,
-			everyoneAccess:   permission.LoginAccess,
-			user:             names.NewUserTag("validuser@external"),
-			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
-			access:           permission.SuperuserAccess,
-			expected:         true,
-		},
-		{
-			title:            "everibody not considered if user is local",
-			userGetterAccess: permission.LoginAccess,
-			everyoneAccess:   permission.SuperuserAccess,
-			user:             names.NewUserTag("validuser"),
-			target:           names.NewControllerTag("beef1beef2-0000-0000-000011112222"),
-			access:           permission.SuperuserAccess,
-			expected:         false,
-		},
-	}
-
-	for i, t := range testCases {
-		userGetter := &fakeEveryoneUserAccess{
-			user:     t.userGetterAccess,
-			everyone: t.everyoneAccess,
-		}
-		c.Logf(`HasPermission "everyone" test n %d: %s`, i, t.title)
-		hasPermission, err := common.HasPermission(userGetter.call, t.user, t.access, t.target)
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(hasPermission, gc.Equals, t.expected)
-	}
-}
-
 func (r *PermissionSuite) TestHasModelAdminSuperUser(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

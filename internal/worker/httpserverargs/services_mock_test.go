@@ -184,41 +184,41 @@ func (c *MockAccessServiceGetUserByNameCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
-// ReadUserAccessForTarget mocks base method.
-func (m *MockAccessService) ReadUserAccessForTarget(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.UserAccess, error) {
+// ReadUserAccessLevelForTarget mocks base method.
+func (m *MockAccessService) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.Access, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadUserAccessForTarget", arg0, arg1, arg2)
-	ret0, _ := ret[0].(permission.UserAccess)
+	ret := m.ctrl.Call(m, "ReadUserAccessLevelForTarget", arg0, arg1, arg2)
+	ret0, _ := ret[0].(permission.Access)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ReadUserAccessForTarget indicates an expected call of ReadUserAccessForTarget.
-func (mr *MockAccessServiceMockRecorder) ReadUserAccessForTarget(arg0, arg1, arg2 any) *MockAccessServiceReadUserAccessForTargetCall {
+// ReadUserAccessLevelForTarget indicates an expected call of ReadUserAccessLevelForTarget.
+func (mr *MockAccessServiceMockRecorder) ReadUserAccessLevelForTarget(arg0, arg1, arg2 any) *MockAccessServiceReadUserAccessLevelForTargetCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadUserAccessForTarget", reflect.TypeOf((*MockAccessService)(nil).ReadUserAccessForTarget), arg0, arg1, arg2)
-	return &MockAccessServiceReadUserAccessForTargetCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadUserAccessLevelForTarget", reflect.TypeOf((*MockAccessService)(nil).ReadUserAccessLevelForTarget), arg0, arg1, arg2)
+	return &MockAccessServiceReadUserAccessLevelForTargetCall{Call: call}
 }
 
-// MockAccessServiceReadUserAccessForTargetCall wrap *gomock.Call
-type MockAccessServiceReadUserAccessForTargetCall struct {
+// MockAccessServiceReadUserAccessLevelForTargetCall wrap *gomock.Call
+type MockAccessServiceReadUserAccessLevelForTargetCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAccessServiceReadUserAccessForTargetCall) Return(arg0 permission.UserAccess, arg1 error) *MockAccessServiceReadUserAccessForTargetCall {
+func (c *MockAccessServiceReadUserAccessLevelForTargetCall) Return(arg0 permission.Access, arg1 error) *MockAccessServiceReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAccessServiceReadUserAccessForTargetCall) Do(f func(context.Context, string, permission.ID) (permission.UserAccess, error)) *MockAccessServiceReadUserAccessForTargetCall {
+func (c *MockAccessServiceReadUserAccessLevelForTargetCall) Do(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockAccessServiceReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAccessServiceReadUserAccessForTargetCall) DoAndReturn(f func(context.Context, string, permission.ID) (permission.UserAccess, error)) *MockAccessServiceReadUserAccessForTargetCall {
+func (c *MockAccessServiceReadUserAccessLevelForTargetCall) DoAndReturn(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockAccessServiceReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

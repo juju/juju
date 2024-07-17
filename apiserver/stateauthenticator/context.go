@@ -53,12 +53,11 @@ type AccessService interface {
 	// UpdateLastModelLogin updates the last login time for the user with the
 	// given name.
 	UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error
-
-	// ReadUserAccessForTarget returns the access that
+	// ReadUserAccessLevelForTarget returns the access that
 	// the input user subject has for the input target.
-	ReadUserAccessForTarget(
+	ReadUserAccessLevelForTarget(
 		ctx context.Context, subject string, target corepermission.ID,
-	) (corepermission.UserAccess, error)
+	) (corepermission.Access, error)
 }
 
 // AgentAuthenticatorFactory is a factory for creating authenticators, which

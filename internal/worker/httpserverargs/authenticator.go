@@ -42,9 +42,9 @@ type AccessService interface {
 	// given name on the given model.
 	UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error
 
-	// ReadUserAccessForTarget returns the access that
+	// ReadUserAccessLevelForTarget returns the access that
 	// the input user subject has for the input target.
-	ReadUserAccessForTarget(ctx context.Context, subject string, target permission.ID) (permission.UserAccess, error)
+	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
 }
 
 type MacaroonService interface {

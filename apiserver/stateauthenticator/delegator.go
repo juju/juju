@@ -35,13 +35,11 @@ func (p *PermissionDelegator) SubjectPermissions(
 		return permission.NoAccess, errors.Trace(err)
 	}
 
-	// TODO(aflynn) why is this not ReadUserAccessLevelForTarget? We just throw
-	// away the access.
-	access, err := p.AccessService.ReadUserAccessForTarget(ctx, userID, permissionID)
+	access, err := p.AccessService.ReadUserAccessLevelForTarget(ctx, userID, permissionID)
 	if err != nil {
 		return permission.NoAccess, errors.Trace(err)
 	}
-	return access.Access, nil
+	return access, nil
 }
 
 func (p *PermissionDelegator) PermissionError(_ names.Tag, _ permission.Access) error {
