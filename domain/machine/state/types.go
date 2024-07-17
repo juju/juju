@@ -74,24 +74,6 @@ type instanceID struct {
 	ID string `db:"instance_id"`
 }
 
-// machineInstanceStatus represents the struct to be used for the status columns
-// of the machine_status and the machine_cloud_instance_status tables) within
-// the sqlair statements in the machine domain.
-type machineInstanceStatus struct {
-	Status  int        `db:"status"`
-	Message string     `db:"message"`
-	Updated *time.Time `db:"updated_at"`
-}
-
-// machineInstanceStatusData represents the struct to be used for the status
-// data columns of the machine_status_data and the
-// machine_cloud_instance_status_data tables within the sqlair statements in the
-// machine domain.
-type machineInstanceStatusData struct {
-	Key  string `db:"key"`
-	Data string `db:"data"`
-}
-
 // machineStatusData represents the struct to be used for the status and status
 // data columns of status and status_data tables for both machine and machine
 // cloud instances within the sqlair statements in the machine domain.
@@ -124,7 +106,7 @@ type machineIsController struct {
 
 // toCoreMachineStatusValue converts an internal status used by machines (per
 // the machine_status_value table) into a core type status.Status.
-func (s *machineInstanceStatus) toCoreMachineStatusValue() status.Status {
+func (s *machineStatusWithData) toCoreMachineStatusValue() status.Status {
 	var out status.Status
 	switch s.Status {
 	case 0:

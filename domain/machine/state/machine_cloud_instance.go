@@ -264,7 +264,6 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 		return status.StatusInfo{}, errors.Trace(err)
 	}
 
-	// var instanceStatusData []machineInstanceStatusData
 	var instanceStatusWithData machineStatusData
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine uuid
