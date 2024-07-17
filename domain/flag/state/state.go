@@ -62,7 +62,7 @@ ON CONFLICT (name) DO UPDATE SET value = excluded.value,
 		return nil
 	})
 	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 
 	s.logger.Debugf("set flag %q to %v", flagName, value)
@@ -96,7 +96,7 @@ WHERE  name = $dbFlag.name;
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return false, errors.Trace(domain.CoerceError(err))
+		return false, errors.Trace(err)
 	}
 	return flag.Value, nil
 }

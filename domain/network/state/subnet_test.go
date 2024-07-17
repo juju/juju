@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
+	networkerrors "github.com/juju/juju/domain/network/errors"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
@@ -586,7 +587,7 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	err = st.DeleteSubnet(ctx.Background(), subnetUUID0.String())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.GetSubnet(ctx.Background(), subnetUUID0.String())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("subnet \"%s\" not found", subnetUUID0.String()))
+	c.Assert(err, jc.ErrorIs, networkerrors.SubnetNotFound)
 	subnets, err := st.GetAllSubnets(ctx.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subnets, gc.HasLen, 2)
@@ -594,7 +595,7 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	err = st.DeleteSubnet(ctx.Background(), subnetUUID1.String())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.GetSubnet(ctx.Background(), subnetUUID1.String())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("subnet \"%s\" not found", subnetUUID1.String()))
+	c.Assert(err, jc.ErrorIs, networkerrors.SubnetNotFound)
 	subnets, err = st.GetAllSubnets(ctx.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subnets, gc.HasLen, 1)
@@ -602,7 +603,7 @@ func (s *stateSuite) TestDeleteSubnet(c *gc.C) {
 	err = st.DeleteSubnet(ctx.Background(), subnetUUID2.String())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = st.GetSubnet(ctx.Background(), subnetUUID2.String())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("subnet \"%s\" not found", subnetUUID2.String()))
+	c.Assert(err, jc.ErrorIs, networkerrors.SubnetNotFound)
 	subnets, err = st.GetAllSubnets(ctx.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(subnets, gc.HasLen, 0)

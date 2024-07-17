@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -49,10 +48,16 @@ WHERE key IN ($S[:])
 
 	keyValues := []keyValue{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, sqlKeys).GetAll(&keyValues)
+		err := tx.Query(ctx, stmt, sqlKeys).GetAll(&keyValues)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		return nil
 	})
 
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if err != nil {
 		return nil, fmt.Errorf(
 			"cannot get controller config for keys %v: %w",
 			keys, err,

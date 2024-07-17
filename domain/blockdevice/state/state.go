@@ -83,10 +83,9 @@ WHERE  machine.name = $M.name
 	)
 	machineParam := sqlair.M{"name": machineId}
 	err = tx.Query(ctx, stmt, machineParam).GetAll(&dbRows, &dbDeviceLinks, &dbFilesystemTypes)
-	if err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil, nil
-		}
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
 		return nil, errors.Annotatef(err, "loading block devices for machine %q", machineId)
 	}
 	result, _, err := dbRows.toBlockDevicesAndMachines(dbDeviceLinks, dbFilesystemTypes, nil)
@@ -329,14 +328,14 @@ func RemoveMachineBlockDevices(ctx context.Context, tx *sqlair.TX, machineUUID s
 	// deleting from block_device. In practice, it would be at
 	// most no more than up to 1000 rows in the extreme case.
 
-	linkDeleteQuery := fmt.Sprintf(`
+	linkDeleteQuery := `
 DELETE 
 FROM  block_device_link_device
 WHERE block_device_uuid IN (
     SELECT DISTINCT uuid
     FROM            block_device bd
     WHERE           bd.machine_uuid = $M.machine_uuid
-)`)
+)`
 
 	deleteStmt, err := sqlair.Prepare(linkDeleteQuery, sqlair.M{})
 	if err != nil {
@@ -346,11 +345,11 @@ WHERE block_device_uuid IN (
 		return errors.Annotate(err, "deleting block device link devices")
 	}
 
-	deleteQuery := fmt.Sprintf(`
+	deleteQuery := `
 DELETE
 FROM  block_device
 WHERE machine_uuid = $M.machine_uuid
-`)
+`
 
 	deleteStmt, err = sqlair.Prepare(deleteQuery, sqlair.M{})
 	if err != nil {

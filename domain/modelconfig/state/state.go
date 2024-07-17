@@ -45,13 +45,16 @@ func (st *State) AgentVersion(ctx context.Context) (string, error) {
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt).Get(&rval)
+		err := tx.Query(ctx, stmt).Get(&rval)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("agent version %w", errors.NotFound)
+		} else if err != nil {
+			return fmt.Errorf("retrieving current agent version: %w", err)
+		}
+		return nil
 	})
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", fmt.Errorf("agent version %w", errors.NotFound)
-	} else if err != nil {
-		return "", fmt.Errorf("retrieving current agent version: %w", domain.CoerceError(err))
+	if err != nil {
+		return "", errors.Trace(err)
 	}
 
 	return rval.TargetAgentVersion, nil
@@ -301,7 +304,7 @@ func (st *State) SpaceExists(ctx context.Context, spaceName string) (bool, error
 		if err := row.Scan(&res); errors.Is(err, sql.ErrNoRows) {
 			return nil
 		} else if err != nil {
-			return domain.CoerceError(errors.Annotatef(err, "checking space %q exists", spaceName))
+			return errors.Annotatef(err, "checking space %q exists", spaceName)
 		}
 		exists = true
 		return nil

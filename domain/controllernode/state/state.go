@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 )
 
 // State represents database interactions dealing with controller nodes.
@@ -57,7 +58,7 @@ WHERE       controller_id = $dbControllerNode.controller_id`, controllerNode)
 		for _, cID := range insert {
 			controllerNode.ControllerID = cID
 			if err := tx.Query(ctx, insertStmt, controllerNode).Run(); err != nil {
-				return errors.Annotatef(domain.CoerceError(err), "inserting controller node %q", cID)
+				return errors.Annotatef(err, "inserting controller node %q", cID)
 			}
 		}
 
@@ -106,7 +107,7 @@ AND    (dqlite_node_id != $dbControllerNode.dqlite_node_id OR bind_address != $d
 
 	return errors.Trace(db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, controllerNode).Run()
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}))
 }
 
@@ -129,13 +130,16 @@ WHERE  namespace = $dbNamespace.namespace`, dbNamespace)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, db *sqlair.TX) error {
-		return db.Query(ctx, stmt, dbNamespace).Get(&dbNamespace)
+		err := db.Query(ctx, stmt, dbNamespace).Get(&dbNamespace)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("namespace %q %w", namespace, controllernodeerrors.NotFound)
+		} else if err != nil {
+			return fmt.Errorf("selecting namespace %q: %w", namespace, err)
+		}
+		return nil
 	})
-
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return "", fmt.Errorf("namespace %q %w", namespace, errors.NotFound)
-	} else if err != nil {
-		return "", fmt.Errorf("selecting namespace %q: %w", namespace, domain.CoerceError(err))
+	if err != nil {
+		return "", errors.Trace(err)
 	}
 
 	return namespace, nil

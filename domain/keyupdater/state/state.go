@@ -76,7 +76,7 @@ FROM user_public_ssh_key
 		} else if err != nil {
 			return fmt.Errorf(
 				"cannot get authorised keys for machine %q: %w",
-				name, domain.CoerceError(err),
+				name, err,
 			)
 		}
 
@@ -84,7 +84,7 @@ FROM user_public_ssh_key
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf(
 				"cannot get authorised keys for machine %q: %w",
-				name, domain.CoerceError(err),
+				name, err,
 			)
 		}
 		return nil
@@ -121,11 +121,14 @@ FROM user_public_ssh_key
 
 	authorisedKeys := []authorisedKey{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt).GetAll(&authorisedKeys)
+		err := tx.Query(ctx, stmt).GetAll(&authorisedKeys)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return fmt.Errorf("cannot get authorised keys for model: %w", domain.CoerceError(err))
+		}
+		return nil
 	})
-
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, fmt.Errorf("cannot get authorised keys for model: %w", domain.CoerceError(err))
+	if err != nil {
+		return nil, err
 	}
 
 	rval := make([]string, 0, len(authorisedKeys))

@@ -50,13 +50,17 @@ WHERE path = $dbMetadata.path`, metadata)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, metadata).Get(&metadata)
+		err := tx.Query(ctx, stmt, metadata).Get(&metadata)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return objectstoreerrors.ErrNotFound
+			}
+			return errors.Trace(err)
+		}
+		return nil
 	})
 	if err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return coreobjectstore.Metadata{}, objectstoreerrors.ErrNotFound
-		}
-		return coreobjectstore.Metadata{}, errors.Annotatef(domain.CoerceError(err), "retrieving metadata %s", path)
+		return coreobjectstore.Metadata{}, errors.Annotatef(err, "retrieving metadata %s", path)
 	}
 	return metadata.ToCoreObjectStoreMetadata(), nil
 }
@@ -80,7 +84,7 @@ LEFT JOIN object_store_metadata m ON p.metadata_uuid = m.uuid`, dbMetadata{})
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt).GetAll(&metadata)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Annotate(domain.CoerceError(err), "retrieving metadata")
+			return errors.Annotate(err, "retrieving metadata")
 		}
 		return nil
 	})
@@ -173,7 +177,7 @@ AND    size = $dbMetadata.size`, dbMetadata, dbMetadataPath)
 		if database.IsErrConstraintPrimaryKey(err) {
 			return objectstoreerrors.ErrHashAlreadyExists
 		}
-		return errors.Annotatef(domain.CoerceError(err), "adding path %s", metadata.Path)
+		return errors.Annotatef(err, "adding path %s", metadata.Path)
 	}
 	return nil
 }
@@ -236,7 +240,7 @@ AND NOT EXISTS (
 		return nil
 	})
 	if err != nil {
-		return errors.Annotatef(domain.CoerceError(err), "removing path %s", path)
+		return errors.Annotatef(err, "removing path %s", path)
 	}
 	return nil
 }

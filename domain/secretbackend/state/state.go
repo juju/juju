@@ -69,7 +69,7 @@ WHERE  uuid = $M.uuid`, sqlair.M{}, ModelSecretBackend{})
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return secretbackend.ModelSecretBackend{}, errors.Trace(domain.CoerceError(err))
+		return secretbackend.ModelSecretBackend{}, errors.Trace(err)
 	}
 	return secretbackend.ModelSecretBackend{
 		ControllerUUID:    m.ControllerUUID,
@@ -106,7 +106,7 @@ func (s *State) CreateSecretBackend(ctx context.Context, params secretbackend.Cr
 		if database.IsErrConstraintUnique(err) {
 			return "", fmt.Errorf("%w: secret backend with name %q", secretbackenderrors.AlreadyExists, params.Name)
 		}
-		return "", domain.CoerceError(err)
+		return "", err
 	}
 	return params.ID, nil
 }
@@ -148,7 +148,7 @@ func (s *State) UpdateSecretBackend(ctx context.Context, params secretbackend.Up
 		_, err = s.upsertSecretBackend(ctx, tx, upsertParams)
 		return errors.Trace(err)
 	})
-	return params.ID, domain.CoerceError(err)
+	return params.ID, err
 }
 
 func (s *State) upsertSecretBackend(ctx context.Context, tx *sqlair.TX, params upsertSecretBackendParams) (string, error) {
@@ -259,7 +259,7 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 		}
 		return nil
 	})
-	return domain.CoerceError(err)
+	return err
 }
 
 // ListSecretBackends returns a list of all secret backends which contain secrets.
@@ -459,7 +459,7 @@ func (s *State) GetSecretBackend(ctx context.Context, params secretbackend.Backe
 		sb, err = s.getSecretBackend(ctx, tx, params)
 		return errors.Trace(err)
 	})
-	return sb, domain.CoerceError(err)
+	return sb, err
 }
 
 // SecretBackendRotated updates the next rotation time for the secret backend.
@@ -506,7 +506,7 @@ WHERE uuid = $M.uuid`, sqlair.M{}, SecretBackendRotationRow{})
 		}
 		return nil
 	})
-	return domain.CoerceError(err)
+	return err
 }
 
 // SetModelSecretBackend sets the secret backend for the given model,
@@ -567,7 +567,7 @@ WHERE  model_uuid = $ModelSecretBackend.uuid`
 		}
 		return nil
 	})
-	return domain.CoerceError(err)
+	return err
 }
 
 // GetControllerModelCloudAndCredential returns the cloud and cloud credential for the
@@ -608,7 +608,7 @@ WHERE  name = 'controller'
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return cloud.Cloud{}, cloud.Credential{}, domain.CoerceError(err)
+		return cloud.Cloud{}, cloud.Credential{}, err
 	}
 	return cld, cred, nil
 }

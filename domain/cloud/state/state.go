@@ -65,7 +65,7 @@ WHERE cloud.name = $M.cloudName
 	} else if err != nil {
 		return false, fmt.Errorf(
 			"determining if cloud %q supports auth type %q: %w",
-			cloudName, authType.String(), domain.CoerceError(err),
+			cloudName, authType.String(), err,
 		)
 	}
 
@@ -93,7 +93,7 @@ AND auth_type.type = $M.authType
 	} else if err != nil {
 		return false, fmt.Errorf(
 			"determining if cloud %q supports auth type %q: %w",
-			cloudName, authType.String(), domain.CoerceError(err),
+			cloudName, authType.String(), err,
 		)
 	}
 
@@ -183,7 +183,7 @@ func GetCloudForID(
 	if errors.Is(err, sql.ErrNoRows) {
 		return cloud.Cloud{}, fmt.Errorf("%w for uuid %q", clouderrors.NotFound, id)
 	} else if err != nil {
-		return cloud.Cloud{}, fmt.Errorf("getting cloud %q: %w", id, domain.CoerceError(err))
+		return cloud.Cloud{}, fmt.Errorf("getting cloud %q: %w", id, err)
 	}
 
 	cld := cloud.Cloud{
@@ -334,12 +334,12 @@ ON CONFLICT(cloud_uuid, key) DO UPDATE
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("cloud %q %w%w", cloudName, errors.NotFound, errors.Hide(err))
 		} else if err != nil {
-			return fmt.Errorf("fetching cloud %q: %w", cloudName, domain.CoerceError(err))
+			return fmt.Errorf("fetching cloud %q: %w", cloudName, err)
 		}
 
 		if len(removeAttrs) > 0 {
 			if err := tx.Query(ctx, deleteStmt, Attrs(removeAttrs), cld).Run(); err != nil {
-				return fmt.Errorf("removing cloud default keys for %q: %w", cloudName, domain.CoerceError(err))
+				return fmt.Errorf("removing cloud default keys for %q: %w", cloudName, err)
 			}
 		}
 
@@ -348,7 +348,7 @@ ON CONFLICT(cloud_uuid, key) DO UPDATE
 			if database.IsErrConstraintNotNull(err) {
 				return fmt.Errorf("missing cloud %q %w%w", cloudName, errors.NotValid, errors.Hide(err))
 			} else if err != nil {
-				return fmt.Errorf("updating cloud default keys %q: %w", cloudName, domain.CoerceError(err))
+				return fmt.Errorf("updating cloud default keys %q: %w", cloudName, err)
 			}
 		}
 
@@ -395,7 +395,7 @@ WHERE   cloud.name = $Cloud.name
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return nil
 			}
-			return fmt.Errorf("fetching cloud %q region defaults: %w", cloudName, domain.CoerceError(err))
+			return fmt.Errorf("fetching cloud %q region defaults: %w", cloudName, err)
 		}
 
 		for _, regionDefaultValue := range regionDefaultValues {
@@ -465,7 +465,7 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 		if err := tx.Query(ctx, selectStmt, Cloud{Name: cloudName}, cloudRegion).Get(&cloudRegion); errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("cloud %q region %q %w%w", cloudName, regionName, errors.NotFound, errors.Hide(err))
 		} else if err != nil {
-			return fmt.Errorf("fetching cloud %q region %q: %w", cloudName, regionName, domain.CoerceError(err))
+			return fmt.Errorf("fetching cloud %q region %q: %w", cloudName, regionName, err)
 		}
 
 		if len(removeAttrs) > 0 {
@@ -474,7 +474,7 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 					"removing cloud %q region %q default keys: %w",
 					cloudName,
 					regionName,
-					domain.CoerceError(err),
+					err,
 				)
 			}
 		}
@@ -494,7 +494,7 @@ ON CONFLICT(region_uuid, key) DO UPDATE
 					"updating cloud %q region %q default keys: %w",
 					cloudName,
 					regionName,
-					domain.CoerceError(err),
+					err,
 				)
 			}
 		}
@@ -561,7 +561,7 @@ func LoadClouds(ctx context.Context, st domain.Preparer, tx *sqlair.TX, name str
 		}
 	}
 	if err := iter.Close(); err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	var uuids []string
@@ -608,7 +608,7 @@ WHERE  cloud_uuid IN ($CloudUUIDs[:])
 	var dbCloudCACerts []CloudCACert
 	err = tx.Query(ctx, loadCACertStmt, CloudUUIDs(cloudUUIDs)).GetAll(&dbCloudCACerts)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	var result = map[string][]string{}
@@ -638,7 +638,7 @@ WHERE  cloud_uuid IN ($CloudUUIDs[:])
 	var dbRegions []CloudRegion
 	err = tx.Query(ctx, loadRegionsStmt, CloudUUIDs(cloudUUIDS)).GetAll(&dbRegions)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	var result = map[string][]cloud.Region{}
@@ -667,7 +667,7 @@ func (st *State) UpdateCloud(ctx context.Context, cloud cloud.Cloud) error {
 
 	selectUUIDStmt, err := st.Prepare("SELECT &Cloud.uuid FROM cloud WHERE name = $Cloud.name", Cloud{})
 	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Get the cloud UUID
@@ -676,7 +676,7 @@ func (st *State) UpdateCloud(ctx context.Context, cloud cloud.Cloud) error {
 		if err != nil && errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf("%q %w", cloud.Name, clouderrors.NotFound)
 		} else if err != nil {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 		cloudUUID := dbCloud.ID
 
@@ -761,7 +761,7 @@ ON CONFLICT(uuid) DO UPDATE SET name=excluded.name,
 	if database.IsErrConstraintCheck(err) {
 		return fmt.Errorf("%w cloud name cannot be empty%w", errors.NotValid, errors.Hide(err))
 	} else if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 	return nil
 }
@@ -779,7 +779,7 @@ func loadAuthTypes(ctx context.Context, tx *sqlair.TX) (map[string]int, error) {
 	var authTypes []AuthType
 	err = tx.Query(ctx, stmt).GetAll(&authTypes)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 	for _, authType := range authTypes {
 		dbAuthTypes[authType.Type] = authType.ID
@@ -814,7 +814,7 @@ AND          auth_type_id NOT IN ($AuthTypeIds[:])
 	}
 
 	if err := tx.Query(ctx, deleteQuery, authTypeIds, sqlair.M{"cloud_uuid": cloudUUID}).Run(); err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 
 	insertStmt, err := sqlair.Prepare(`
@@ -829,7 +829,7 @@ ON CONFLICT(cloud_uuid, auth_type_id) DO NOTHING;
 	for _, a := range authTypeIds {
 		cloudAuthType := CloudAuthType{CloudUUID: cloudUUID, AuthTypeID: a}
 		if err := tx.Query(ctx, insertStmt, cloudAuthType).Run(); err != nil {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 	}
 	return nil
@@ -956,7 +956,7 @@ AND    ot.type = $dbAddUserPermission.object_type
 	} else if err != nil && (database.IsErrConstraintForeignKey(err) || errors.Is(err, sqlair.ErrNoRows)) {
 		return fmt.Errorf("%q %w", ownerName, accesserrors.UserNotFound)
 	} else if err != nil {
-		return errors.Annotatef(domain.CoerceError(err), "adding permission %q for %q on %q", string(permission.AdminAccess), ownerName, cloudName)
+		return errors.Annotatef(err, "adding permission %q for %q on %q", string(permission.AdminAccess), ownerName, cloudName)
 	}
 
 	return nil
@@ -984,7 +984,7 @@ func dbCloudFromCloud(ctx context.Context, tx *sqlair.TX, cloudUUID string, clou
 		return nil, errors.NotValidf("cloud type %q", cloud.Type)
 	}
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 	return cld, nil
 }
@@ -1093,7 +1093,7 @@ func (st *State) WatchCloud(
 		if err := row.Scan(&uuid); errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("cloud %q %w%w", cloudName, errors.NotFound, errors.Hide(err))
 		} else if err != nil {
-			return fmt.Errorf("fetching cloud %q: %w", cloudName, domain.CoerceError(err))
+			return fmt.Errorf("fetching cloud %q: %w", cloudName, err)
 		}
 		return nil
 	})

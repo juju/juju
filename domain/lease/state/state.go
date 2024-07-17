@@ -104,7 +104,7 @@ AND    l.name = $Lease.name`, lease)
 		}
 		return nil
 	})
-	return result, errors.Trace(domain.CoerceError(err))
+	return result, errors.Trace(err)
 }
 
 // ClaimLease (lease.Store) claims the lease indicated by the input key,
@@ -140,7 +140,7 @@ WHERE  type = $Lease.type;`, lease)
 	if database.IsErrConstraintUnique(err) {
 		return corelease.ErrHeld
 	}
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // ExtendLease (lease.Store) ensures the input lease will be held for at least
@@ -190,7 +190,7 @@ WHERE  uuid = (
 		}
 		return errors.Trace(err)
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // RevokeLease (lease.Store) deletes the lease from the store,
@@ -235,7 +235,7 @@ WHERE  uuid = (
 		}
 		return errors.Trace(err)
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // LeaseGroup (lease.Store) returns all leases
@@ -283,7 +283,7 @@ AND    l.model_uuid = $Lease.model_uuid;`, lease)
 		}
 		return nil
 	})
-	return result, errors.Trace(domain.CoerceError(err))
+	return result, errors.Trace(err)
 }
 
 // PinLease (lease.Store) adds the input entity into the lease_pin table
@@ -327,7 +327,7 @@ AND    l.name = $Lease.name;`, leasePin, lease)
 	if database.IsErrConstraintUnique(err) {
 		return nil
 	}
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // UnpinLease (lease.Store) removes the record indicated by the input
@@ -368,7 +368,7 @@ WHERE  uuid = (
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return errors.Trace(tx.Query(ctx, stmt, lease, leasePin).Run())
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // Pinned (lease.Store) returns all leases that are currently pinned,
@@ -421,7 +421,7 @@ ORDER BY l.uuid;`, Lease{}, LeasePin{})
 		}
 		return nil
 	})
-	return result, errors.Trace(domain.CoerceError(err))
+	return result, errors.Trace(err)
 }
 
 // ExpireLeases (lease.Store) deletes all leases that have expired, from the
@@ -493,5 +493,5 @@ DELETE FROM lease WHERE uuid in (
 
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }

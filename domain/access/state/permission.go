@@ -79,7 +79,7 @@ func (st *PermissionState) CreatePermission(ctx context.Context, newPermissionUU
 		return nil
 	})
 	if err != nil {
-		return corepermission.UserAccess{}, errors.Trace(domain.CoerceError(err))
+		return corepermission.UserAccess{}, errors.Trace(err)
 	}
 
 	userAccess.Access = spec.Access
@@ -138,7 +138,7 @@ func (st *PermissionState) DeletePermission(ctx context.Context, subject string,
 		err := st.deletePermission(ctx, tx, subject, target)
 		return errors.Annotatef(err, "delete permission")
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // UpsertPermission updates the permission on the target for the given
@@ -187,7 +187,7 @@ func (st *PermissionState) UpsertPermission(ctx context.Context, args access.Upd
 		}
 	})
 	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 
 	return nil
@@ -231,7 +231,7 @@ AND     p.grant_on = $permInOut.grant_on
 			GrantOn: target.Key,
 		}
 		err = tx.Query(ctx, readStmt, in).Get(&readUser, &permUser)
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("%w for %q on %q", accesserrors.PermissionNotFound, subject, target.Key)
 		} else if err != nil {
 			return errors.Annotatef(err, "getting permission for %q on %q", subject, target.Key)
@@ -240,7 +240,7 @@ AND     p.grant_on = $permInOut.grant_on
 		return nil
 	})
 	if err != nil {
-		return userAccess, errors.Trace(domain.CoerceError(err))
+		return userAccess, errors.Trace(err)
 	}
 
 	return readUser.toUserAccess(permUser), nil
@@ -260,7 +260,7 @@ func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, sub
 		return err
 	})
 	if err != nil {
-		return userAccessType, errors.Trace(domain.CoerceError(err))
+		return userAccessType, errors.Trace(err)
 	}
 	return userAccessType, nil
 }
@@ -296,7 +296,7 @@ WHERE  u.removed = false
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, queryStmt, uName).GetAll(&permissions, &users)
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(accesserrors.UserNotFound, "%q", subject)
 		} else if err != nil {
 			return errors.Annotatef(err, "getting user with name %q", subject)
@@ -304,7 +304,7 @@ WHERE  u.removed = false
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	userAccess := make([]corepermission.UserAccess, len(permissions))
@@ -350,7 +350,7 @@ func (st *PermissionState) ReadAllUserAccessForTarget(ctx context.Context, targe
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	userAccess := make([]corepermission.UserAccess, len(permissions))
@@ -414,7 +414,7 @@ AND     u.removed = false
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, readStmt, uName).GetAll(&permissions, &actualUser)
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(accesserrors.PermissionNotFound, "for %q on %q", subject, objectType)
 		} else if err != nil {
 			return errors.Annotatef(err, "getting permissions for %q on %q", subject, objectType)
@@ -422,7 +422,7 @@ AND     u.removed = false
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	userAccess := make([]corepermission.UserAccess, len(permissions))
@@ -469,7 +469,7 @@ AND    m.cloud_credential_name = $input.cred_name
 	var results []access.CredentialOwnerModelAccess
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, readStmt, in).GetAll(&results)
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(accesserrors.PermissionNotFound, "for %q on %q", key.Owner, key.Cloud)
 		} else if err != nil {
 			return errors.Annotatef(err, "getting permissions for %q on %q", key.Owner, key.Cloud)
@@ -477,7 +477,7 @@ AND    m.cloud_credential_name = $input.cred_name
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	return results, nil
@@ -503,7 +503,7 @@ WHERE  u.removed = false
 		return result, errors.Annotate(err, "preparing select getUser query")
 	}
 	err = tx.Query(ctx, selectUserStmt, uName).Get(&result)
-	if err != nil && errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return result, errors.Annotatef(accesserrors.UserNotFound, "%q", name)
 	} else if err != nil {
 		return result, errors.Annotatef(err, "getting user with name %q", name)
@@ -539,7 +539,7 @@ WHERE  u.removed = false
 	}
 
 	err = tx.Query(ctx, selectUserStmt, userUUIDSlice).GetAll(&results)
-	if err != nil && errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.Annotatef(accesserrors.UserNotFound, "%q", userUUIDs)
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "getting user with name %q", userUUIDs)
@@ -590,7 +590,7 @@ WHERE   name = $M.grant_on
 
 	m := sqlair.M{}
 	err = tx.Query(ctx, targetExistsStmt, sqlair.M{"grant_on": target.Key}).Get(&m)
-	if err != nil && errors.Is(err, sqlair.ErrNoRows) {
+	if errors.Is(err, sqlair.ErrNoRows) {
 		return fmt.Errorf("%q %w", target, accesserrors.PermissionTargetInvalid)
 	} else if err != nil {
 		return errors.Annotatef(err, "verifying %q target exists", target)
@@ -638,10 +638,9 @@ AND     u.removed = false
 	inOut := inputOut{Name: name}
 
 	err = tx.Query(ctx, stmt, inOut).Get(&inOut)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", errors.Annotatef(accesserrors.UserNotFound, "active user %q", name)
-		}
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", errors.Annotatef(accesserrors.UserNotFound, "active user %q", name)
+	} else if err != nil {
 		return "", errors.Annotatef(err, "getting user %q", name)
 	}
 	return inOut.UUID, nil
@@ -741,7 +740,7 @@ AND     u.removed = false
 		Name:    apiUser,
 	}
 	err = tx.Query(ctx, authStmt, in).GetAll(&readPerm)
-	if err != nil && errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return apiUserUUID, errors.Annotatef(accesserrors.PermissionNotValid, "on %q", grantOn)
 	} else if err != nil {
 		return apiUserUUID, errors.Annotatef(err, "verifying authorization of %q", grantOn)
@@ -765,7 +764,7 @@ func (st *PermissionState) grantPermission(ctx context.Context, tx *sqlair.TX, s
 	if errors.Is(err, accesserrors.AccessNotFound) {
 		newUUID, err := uuid.NewUUID()
 		if err != nil {
-
+			return errors.Annotate(err, "generating new UUID")
 		}
 		spec := args.AccessSpec
 		perm := dbPermission{

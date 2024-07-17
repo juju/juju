@@ -57,13 +57,16 @@ WHERE uuid = $M.model_id
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, args).Get(&rval)
+		err := tx.Query(ctx, stmt, args).Get(&rval)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w for id %q", modelerrors.NotFound, modelID)
+		} else if err != nil {
+			return fmt.Errorf("cannot get agent version for model with ID %q: %w", modelID, err)
+		}
+		return nil
 	})
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return version.Zero, fmt.Errorf("%w for id %q", modelerrors.NotFound, modelID)
-	} else if err != nil {
-		return version.Zero, fmt.Errorf("cannot get agent version for model with ID %q: %w", modelID, domain.CoerceError(err))
+	if err != nil {
+		return version.Zero, errors.Trace(err)
 	}
 
 	vers, err := version.Parse(rval.TargetAgentVersion)

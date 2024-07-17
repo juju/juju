@@ -126,7 +126,7 @@ WHERE m.uuid = ?
 	})
 
 	if err != nil {
-		return nil, domain.CoerceError(err)
+		return nil, err
 	}
 	return rval, nil
 }
@@ -157,17 +157,20 @@ WHERE m.uuid = ?
 		cloudType string
 	)
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, stmt, uuid).Scan(&modelName, &cloudType)
+		err := tx.QueryRowContext(ctx, stmt, uuid).Scan(&modelName, &cloudType)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
+		} else if err != nil {
+			return fmt.Errorf(
+				"getting model metadata defaults for uuid %q: %w",
+				uuid,
+				err,
+			)
+		}
+		return nil
 	})
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
-	} else if err != nil {
-		return nil, fmt.Errorf(
-			"getting model metadata defaults for uuid %q: %w",
-			uuid,
-			domain.CoerceError(err),
-		)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return map[string]string{

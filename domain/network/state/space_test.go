@@ -116,7 +116,7 @@ func (s *stateSuite) TestAddSpaceFailDuplicateName(c *gc.C) {
 	c.Check(name, gc.Equals, "space0")
 	// Fails when trying to add a new space with the same name.
 	err = st.AddSpace(ctx.Background(), spaceUUID.String(), "space0", "bar", subnets)
-	c.Assert(err, jc.ErrorIs, networkerrors.ErrSpaceAlreadyExists)
+	c.Assert(err, jc.ErrorIs, networkerrors.SpaceAlreadyExists)
 }
 
 func (s *stateSuite) TestAddSpaceEmptyProviderID(c *gc.C) {
@@ -239,7 +239,7 @@ func (s *stateSuite) TestRetrieveSpaceByUUIDNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	_, err := st.GetSpace(ctx.Background(), "unknown0")
-	c.Assert(err, jc.ErrorIs, networkerrors.ErrSpaceNotFound)
+	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *stateSuite) TestRetrieveSpaceByName(c *gc.C) {
@@ -268,7 +268,7 @@ func (s *stateSuite) TestRetrieveSpaceByNameNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	_, err := st.GetSpaceByName(ctx.Background(), "unknown0")
-	c.Assert(err, jc.ErrorIs, networkerrors.ErrSpaceNotFound)
+	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *stateSuite) TestRetrieveSpaceByUUIDWithoutSubnet(c *gc.C) {
@@ -378,7 +378,7 @@ func (s *stateSuite) TestUpdateSpaceFailNotFound(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
 	err := st.UpdateSpace(ctx.Background(), "unknownSpace", "newSpaceName0")
-	c.Assert(err, jc.ErrorIs, networkerrors.ErrSpaceNotFound)
+	c.Assert(err, jc.ErrorIs, networkerrors.SpaceNotFound)
 }
 
 func (s *stateSuite) TestDeleteSpace(c *gc.C) {

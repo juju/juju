@@ -64,7 +64,7 @@ WHERE  ctrl.uuid = $Controller.uuid`
 	}); errors.Is(err, sqlair.ErrNoRows) || len(rows) == 0 {
 		return nil, errors.NotFoundf("external controller %q", controllerUUID)
 	} else if err != nil {
-		return nil, errors.Annotate(domain.CoerceError(err), "querying external controller")
+		return nil, errors.Annotate(err, "querying external controller")
 	}
 
 	return &rows.ToControllerInfo()[0], nil
@@ -105,7 +105,7 @@ WHERE  ctrl.uuid IN (
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, dbModelUUIDs).GetAll(&resultControllerInfos)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 		return nil
 	}); err != nil {
@@ -180,7 +180,7 @@ VALUES ($Controller.*)
 	}
 
 	if err := tx.Query(ctx, upsertControllerStmt, externalController).Run(); err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 
 	cIDs := ControllerUUIDs(ci.Addrs)
@@ -196,7 +196,7 @@ AND    address NOT IN ($ControllerUUIDs[:])
 	}
 
 	if err := tx.Query(ctx, deleteUnusedAddressesStmt, externalController, cIDs).Run(); err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 
 	if len(ci.Addrs) > 0 {
@@ -224,7 +224,7 @@ VALUES ($Address.*)
 		}
 
 		if err := tx.Query(ctx, insertNewAddressesStmt, externContAddrs).Run(); err != nil {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 	}
 
@@ -251,7 +251,7 @@ VALUES ($Model.*)
 		}
 
 		if err := tx.Query(ctx, upsertModelStmt, externModels).Run(); err != nil {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 	}
 
@@ -285,7 +285,7 @@ WHERE  controller_uuid = $Controller.uuid`, controller, Model{})
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, stmt, controller).GetAll(&models)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 
 		return nil

@@ -49,7 +49,7 @@ func (st *RootKeyState) GetKey(ctx context.Context, id []byte) (macaroon.RootKey
 		if database.IsErrNotFound(err) {
 			return errors.Annotatef(macaroonerrors.KeyNotFound, "key with id %s", string(id))
 		}
-		return domain.CoerceError(err)
+		return err
 	})
 	return macaroon.RootKey{
 		ID:      result.ID,
@@ -98,14 +98,17 @@ ORDER BY created_at DESC
 		if database.IsErrNotFound(err) {
 			return macaroonerrors.KeyNotFound
 		}
-		return domain.CoerceError(err)
+		return err
 	})
+	if err != nil {
+		return macaroon.RootKey{}, errors.Trace(err)
+	}
 	return macaroon.RootKey{
 		ID:      result.ID,
 		Created: result.Created,
 		Expires: result.Expires,
 		RootKey: result.RootKey,
-	}, errors.Trace(err)
+	}, nil
 }
 
 // InsertKey inserts the given root key into dqlite. If a key with matching
@@ -131,7 +134,7 @@ func (st *RootKeyState) InsertKey(ctx context.Context, key macaroon.RootKey) err
 		if database.IsErrConstraintPrimaryKey(err) {
 			return errors.Annotatef(macaroonerrors.KeyAlreadyExists, "key with id %s", string(key.ID))
 		}
-		return domain.CoerceError(err)
+		return err
 	})
 	return errors.Trace(err)
 }

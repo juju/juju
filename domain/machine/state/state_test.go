@@ -194,7 +194,7 @@ func (s *stateSuite) TestGetMachineLifeSuccess(c *gc.C) {
 // machine is not found.
 func (s *stateSuite) TestGetMachineLifeNotFound(c *gc.C) {
 	_, err := s.state.GetMachineLife(context.Background(), "666")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
 }
 
 func (s *stateSuite) TestListAllMachines(c *gc.C) {
@@ -435,7 +435,7 @@ func (s *stateSuite) TestSetMachineLifeSuccess(c *gc.C) {
 // provided machine doesn't exist.
 func (s *stateSuite) TestSetMachineLifeNotFoundError(c *gc.C) {
 	err := s.state.SetMachineLife(context.Background(), "666", life.Dead)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
 }
 
 // TestListAllMachinesEmpty asserts that AllMachineNames returns an empty list
@@ -494,5 +494,5 @@ WHERE name = $1;
 // machine is not found.
 func (s *stateSuite) TestIsControllerNotFound(c *gc.C) {
 	_, err := s.state.IsController(context.Background(), "666")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
 }

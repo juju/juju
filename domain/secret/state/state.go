@@ -55,7 +55,7 @@ func (st State) GetModelUUID(ctx context.Context) (string, error) {
 		modelUUID, err = st.getModelUUID(ctx, tx)
 		return err
 	})
-	return modelUUID, errors.Trace(domain.CoerceError(err))
+	return modelUUID, errors.Trace(err)
 }
 
 func (st State) getModelUUID(ctx context.Context, tx *sqlair.TX) (string, error) {
@@ -119,7 +119,7 @@ func (st State) CreateUserSecret(
 
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // checkSecretUserLabelExists returns an error if a user
@@ -138,7 +138,7 @@ WHERE  label = $secretOwner.label`
 	}
 	err = tx.Query(ctx, checkExistsStmt, dbSecretOwner).Get(&dbSecretOwner)
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 	if err == nil {
 		return fmt.Errorf("secret with label %q already exists%w", label, errors.Hide(secreterrors.SecretLabelAlreadyExists))
@@ -208,7 +208,7 @@ func (st State) CreateCharmApplicationSecret(
 		}
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // checkApplicationSecretLabelExists returns function which checks if
@@ -242,7 +242,7 @@ FROM (
 		dbSecretOwner := secretApplicationOwner{Label: label, ApplicationUUID: app_uuid}
 		err = tx.Query(ctx, checkExistsStmt, dbSecretOwner).Get(&dbSecretOwner)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 		if err == nil {
 			return fmt.Errorf(
@@ -312,7 +312,7 @@ func (st State) CreateCharmUnitSecret(
 		}
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // UpdateSecret creates a secret with the specified parameters, returning an
@@ -335,7 +335,7 @@ func (st State) UpdateSecret(ctx context.Context, uri *coresecrets.URI, secret d
 		}
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // checkUnitSecretLabelExists returns function which checks if a
@@ -371,7 +371,7 @@ FROM (
 		dbSecretOwner := secretUnitOwner{Label: label, UnitUUID: unit_uuid}
 		err = tx.Query(ctx, checkExistsStmt, dbSecretOwner).Get(&dbSecretOwner)
 		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 		if err == nil {
 			return fmt.Errorf(
@@ -1076,7 +1076,7 @@ func (st State) ListSecrets(ctx context.Context, uri *coresecrets.URI,
 		}
 		return nil
 	}); err != nil {
-		return nil, nil, errors.Trace(domain.CoerceError(err))
+		return nil, nil, errors.Trace(err)
 	}
 	if revision != nil && len(secrets) == 0 {
 		return nil, nil, revisionNotFoundErr
@@ -1099,7 +1099,7 @@ func (st State) GetSecret(ctx context.Context, uri *coresecrets.URI) (*coresecre
 		secrets, err = st.listSecretsAnyOwner(ctx, tx, uri)
 		return errors.Annotatef(err, "querying secret for %q", uri.ID)
 	}); err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	if len(secrets) == 0 {
@@ -1140,7 +1140,7 @@ GROUP BY sr.secret_id`, input, result)
 		}
 		return errors.Trace(err)
 	}); err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 	info := &domainsecret.RotationExpiryInfo{
 		RotatePolicy:   coresecrets.RotatePolicy(result.RotatePolicy),
@@ -1178,7 +1178,7 @@ WHERE  sm.secret_id = $secretID.id`, secretID{}, secretInfo{})
 		}
 		return errors.Trace(err)
 	}); err != nil {
-		return coresecrets.RotateNever, errors.Trace(domain.CoerceError(err))
+		return coresecrets.RotateNever, errors.Trace(err)
 	}
 	return coresecrets.RotatePolicy(info.RotatePolicy), nil
 }
@@ -1280,7 +1280,7 @@ func (st State) ListCharmSecrets(ctx context.Context,
 		}
 		return nil
 	}); err != nil {
-		return nil, nil, errors.Trace(domain.CoerceError(err))
+		return nil, nil, errors.Trace(err)
 	}
 
 	return secrets, revisionResult, nil
@@ -1417,7 +1417,7 @@ FROM   secret_metadata sm
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	return dbSecrets.toSecretMetadataForDrain(dbsecretRevs)
@@ -1510,7 +1510,7 @@ JOIN (
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	return dbSecrets.toSecretMetadataForDrain(dbsecretRevs)
@@ -1549,7 +1549,7 @@ WHERE  mso.label = $M.label
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	if len(dbSecrets) == 0 {
@@ -1611,7 +1611,7 @@ AND    suc.unit_uuid = $secretUnitConsumer.unit_uuid
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	if len(dbConsumers) == 0 {
@@ -1673,7 +1673,7 @@ WHERE  secret_id = $secretID.id%s
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 	return dbSecretRevisions.toValueRefs(), nil
 }
@@ -1937,7 +1937,7 @@ WHERE  ref.secret_id = $secretRef.secret_id`
 		return nil
 	})
 	if err != nil {
-		return nil, 0, errors.Trace(domain.CoerceError(err))
+		return nil, 0, errors.Trace(err)
 	}
 	if len(dbSecretConsumers) == 0 {
 		return nil, latestRevision, fmt.Errorf("secret consumer for %q and unit %q%w", uri.ID, unitName, secreterrors.SecretConsumerNotFound)
@@ -2029,7 +2029,7 @@ ON CONFLICT DO NOTHING`
 
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // GetSecretRemoteConsumer returns the secret consumer info from a cross model consumer
@@ -2101,7 +2101,7 @@ WHERE  rev.secret_id = $secretInfo.secret_id`
 		return nil
 	})
 	if err != nil {
-		return nil, 0, errors.Trace(domain.CoerceError(err))
+		return nil, 0, errors.Trace(err)
 	}
 	if len(dbSecretConsumers) == 0 {
 		return nil, latestRevision, fmt.Errorf(
@@ -2154,7 +2154,7 @@ ON CONFLICT(secret_id, unit_name) DO UPDATE SET
 
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // UpdateRemoteSecretRevision records the latest revision
@@ -2203,7 +2203,7 @@ ON CONFLICT(secret_id) DO UPDATE SET
 		}
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // GrantAccess grants access to the secret for the specified subject with the specified scope.
@@ -2268,7 +2268,7 @@ AND    (sp.subject_type_id <> $secretPermission.subject_type_id
 
 		return st.grantAccess(ctx, tx, perm)
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 const (
@@ -2430,7 +2430,7 @@ AND    subject_uuid = $secretPermission.subject_uuid`
 		err = tx.Query(ctx, deleteStmt, perm).Run()
 		return errors.Annotatef(err, "deleting secret grant for %q on %q", params.SubjectID, uri)
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // GetSecretAccess returns the access to the secret for the specified accessor.
@@ -2478,7 +2478,7 @@ AND    subject_id = $secretAccessor.subject_id`
 		}
 		return errors.Annotatef(err, "looking up secret grant for %q on %q", params.SubjectID, uri)
 	})
-	return role, errors.Trace(domain.CoerceError(err))
+	return role, errors.Trace(err)
 }
 
 // GetSecretAccessScope returns the access scope for the specified accessor's
@@ -2526,7 +2526,7 @@ AND    subject_id = $secretAccessor.subject_id`
 		return errors.Annotatef(err, "looking up secret access scope for %q on %q", params.SubjectID, uri)
 	})
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 	return &domainsecret.AccessScope{
 		ScopeTypeID: result.ScopeTypeID,
@@ -2585,7 +2585,7 @@ AND    subject_type_id != $M.remote_application_type`
 		return errors.Annotatef(err, "looking up secret grants for %q", uri)
 	})
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 	return accessors.toSecretGrants(accessScopes)
 }
@@ -2675,7 +2675,7 @@ AND    (subject_type_id = $secretAccessorType.unit_type_id AND subject_id IN ($u
 		revisionResult, err = dbSecrets.toSecretRevisionRef(dbValueRefs)
 		return errors.Trace(err)
 	}); err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 	return revisionResult, nil
 }
@@ -2714,7 +2714,7 @@ HAVING   suc.current_revision < MAX(sr.revision)`
 			return errors.Trace(err)
 		})
 		if err != nil {
-			return nil, errors.Trace(domain.CoerceError(err))
+			return nil, errors.Trace(err)
 		}
 
 		result := make([]string, len(revUUIDs))
@@ -2769,7 +2769,7 @@ HAVING suc.current_revision < MAX(sr.revision)`
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	secretURIs := make([]string, len(dbConsumers))
@@ -2817,7 +2817,7 @@ HAVING   suc.current_revision < sr.latest_revision`
 			return errors.Trace(err)
 		})
 		if err != nil {
-			return nil, errors.Trace(domain.CoerceError(err))
+			return nil, errors.Trace(err)
 		}
 
 		result := make([]string, len(referenceIDs))
@@ -2874,7 +2874,7 @@ HAVING suc.current_revision < sr.latest_revision`
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	secretURIs := make([]string, len(consumers))
@@ -2932,7 +2932,7 @@ HAVING sruc.current_revision < MAX(sr.revision)`
 			return errors.Trace(err)
 		})
 		if err != nil {
-			return nil, errors.Trace(domain.CoerceError(err))
+			return nil, errors.Trace(err)
 		}
 		revUUIDs := make([]string, len(revisionUUIDs))
 		for i, rev := range revisionUUIDs {
@@ -2992,7 +2992,7 @@ HAVING sruc.current_revision < MAX(sr.revision)`
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 	modelUUID, err := st.GetModelUUID(ctx)
 	if err != nil {
@@ -3139,7 +3139,7 @@ FROM secret_revision_obsolete sro
 		}
 		return errors.Trace(err)
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 type (
@@ -3157,7 +3157,7 @@ func (st State) DeleteSecret(ctx context.Context, uri *coresecrets.URI, revs []i
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return st.deleteSecretRevisions(ctx, tx, uri, revs)
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // DeleteObsoleteUserSecretRevisions deletes the obsolete user secret revisions.
@@ -3208,7 +3208,7 @@ WHERE  sm.auto_prune = true AND sro.obsolete = true`
 		}
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // deleteSecretRevisions deletes the specified secret revisions, or all if revs is nil.
@@ -3377,7 +3377,7 @@ func (st State) SecretRotated(ctx context.Context, uri *coresecrets.URI, next ti
 		err := st.upsertSecretNextRotateTime(ctx, tx, uri, next)
 		return errors.Trace(err)
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 func (st State) getSecretsRotationChanges(
@@ -3459,7 +3459,7 @@ GROUP BY sro.secret_id`
 	})
 
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 	result := make([]domainsecret.RotationInfo, len(data))
 	for i, d := range data {
@@ -3586,7 +3586,7 @@ GROUP BY sr.secret_id`
 	})
 
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 	result := make([]domainsecret.ExpiryInfo, len(data))
 	for i, d := range data {
@@ -3661,7 +3661,7 @@ WHERE  sm.auto_prune = true AND sro.obsolete = true`
 		return errors.Trace(err)
 	})
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 	return result.toRevIDs(), nil
 }

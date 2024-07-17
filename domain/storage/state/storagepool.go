@@ -40,16 +40,16 @@ func (st StoragePoolState) CreateStoragePool(ctx context.Context, pool domainsto
 func CreateStoragePools(ctx context.Context, db coredatabase.TxnRunner, pools []domainstorage.StoragePoolDetails) error {
 	selectUUIDStmt, err := sqlair.Prepare("SELECT &StoragePool.uuid FROM storage_pool WHERE name = $StoragePool.name", StoragePool{})
 	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 
 	storagePoolUpserter, err := storagePoolUpserter()
 	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 	poolAttributesUpdater, err := poolAttributesUpdater()
 	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 
 	poolsUUIDs := make([]string, len(pools))
@@ -61,7 +61,7 @@ func CreateStoragePools(ctx context.Context, db coredatabase.TxnRunner, pools []
 			dbPool := StoragePool{Name: pool.Name}
 			err := tx.Query(ctx, selectUUIDStmt, dbPool).Get(&dbPool)
 			if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Trace(domain.CoerceError(err))
+				return errors.Trace(err)
 			}
 			if err == nil {
 				return fmt.Errorf("storage pool %q %w", pool.Name, storageerrors.PoolAlreadyExists)
@@ -79,7 +79,7 @@ func CreateStoragePools(ctx context.Context, db coredatabase.TxnRunner, pools []
 		return nil
 	})
 
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 type upsertStoragePoolFunc func(ctx context.Context, tx *sqlair.TX, poolUUID string, name string, providerType string) error
@@ -222,7 +222,7 @@ WHERE  storage_pool.uuid = (select uuid FROM storage_pool WHERE name = $M.name)
 		}
 		return errors.Annotate(err, "deleting storage pool")
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // ReplaceStoragePool replaces an existing storage pool, returning an error
@@ -235,16 +235,16 @@ func (st StoragePoolState) ReplaceStoragePool(ctx context.Context, pool domainst
 
 	selectUUIDStmt, err := st.Prepare("SELECT &StoragePool.uuid FROM storage_pool WHERE name = $StoragePool.name", StoragePool{})
 	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 
 	storagePoolUpserter, err := storagePoolUpserter()
 	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 	poolAttributesUpdater, err := poolAttributesUpdater()
 	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -267,7 +267,7 @@ func (st StoragePoolState) ReplaceStoragePool(ctx context.Context, pool domainst
 		return nil
 	})
 
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 type loadStoragePoolsFunc func(ctx context.Context, tx *sqlair.TX) ([]domainstorage.StoragePoolDetails, error)
@@ -329,7 +329,7 @@ func (st StoragePoolState) ListStoragePools(ctx context.Context, names domainsto
 		result, err = storagePoolsLoader(ctx, tx)
 		return errors.Trace(err)
 	})
-	return result, errors.Trace(domain.CoerceError(err))
+	return result, errors.Trace(err)
 }
 
 func buildStoragePoolsFilter(wantNames domainstorage.Names, wantProviders domainstorage.Providers) (string, []any) {
@@ -385,5 +385,5 @@ func GetStoragePoolByName(ctx context.Context, db coredatabase.TxnRunner, name s
 	if len(storagePools) > 1 {
 		return domainstorage.StoragePoolDetails{}, errors.Errorf("expected 1 storage pool, got %d", len(storagePools))
 	}
-	return storagePools[0], errors.Trace(domain.CoerceError(err))
+	return storagePools[0], errors.Trace(err)
 }

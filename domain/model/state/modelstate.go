@@ -65,12 +65,19 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, modelTriggerStmt)
-		if err != nil && !internaldatabase.IsErrError(err) {
-			return fmt.Errorf("deleting model trigger %q: %w", uuid, err)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return modelerrors.NotFound
+			} else if !internaldatabase.IsErrError(err) {
+				return fmt.Errorf("deleting model trigger %q: %w", uuid, err)
+			}
 		}
 
 		result, err := tx.ExecContext(ctx, modelStmt, uuid)
 		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return modelerrors.NotFound
+			}
 			return fmt.Errorf("deleting model %q: %w", uuid, err)
 		}
 		if affected, err := result.RowsAffected(); err != nil {
@@ -81,9 +88,6 @@ func (s *ModelState) Delete(ctx context.Context, uuid coremodel.UUID) error {
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return modelerrors.NotFound
-		}
 		return errors.Trace(err)
 	}
 
@@ -132,14 +136,14 @@ FROM model
 			&model.CredentialOwner,
 			&model.CredentialName,
 		); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("getting model read only information %w", modelerrors.NotFound)
+			}
 			return fmt.Errorf("scanning model: %w", err)
 		}
 		return row.Err()
 	})
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return coremodel.ReadOnlyModel{}, fmt.Errorf("getting model read only information %w", modelerrors.NotFound)
-		}
 		return coremodel.ReadOnlyModel{}, errors.Trace(err)
 	}
 

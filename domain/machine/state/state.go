@@ -74,14 +74,12 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		result := sqlair.M{}
 		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
-		if err != nil {
-			if !errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(err, "querying machine %q", machineName)
-			}
-		}
 		// For now, we just care if the minimal machine row already exists.
 		if err == nil {
 			return nil
+		}
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(err, "querying machine %q", machineName)
 		}
 
 		if err := tx.Query(ctx, createNodeStmt, createParams).Run(); err != nil {
@@ -144,11 +142,10 @@ DELETE FROM net_node WHERE uuid IN
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&machineUUIDParam)
-		// Machine already deleted is a no op.
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return nil
-		}
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return machineerrors.NotFound
+			}
 			return errors.Annotatef(err, "looking up UUID for machine %q", mName)
 		}
 
@@ -210,6 +207,9 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 		result := machineLife{}
 		err := tx.Query(ctx, lifeStmt, machineNameParam).Get(&result)
 		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return machineerrors.NotFound
+			}
 			return errors.Annotatef(err, "looking up life for machine %q", mName)
 		}
 
@@ -217,12 +217,10 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 
 		return nil
 	})
-
-	if err != nil && errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.NotFoundf("machine %q", mName)
+	if err != nil {
+		return nil, errors.Annotatef(err, "getting life status for machine %q", mName)
 	}
-
-	return &lifeResult, errors.Annotatef(err, "getting life status for machines %q", mName)
+	return &lifeResult, nil
 }
 
 // GetMachineStatus returns the status of the specified machine.
@@ -417,7 +415,7 @@ func (st *State) SetMachineLife(ctx context.Context, mName machine.Name, life li
 		err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUIDoutput)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.NotFoundf("machine not found %q", mName)
+				return machineerrors.NotFound
 			}
 			return errors.Annotatef(err, "querying UUID for machine %q", mName)
 		}
@@ -451,15 +449,18 @@ func (st *State) IsController(ctx context.Context, mName machine.Name) (bool, er
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
 		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return machineerrors.NotFound
+			}
 			return errors.Annotatef(err, "querying if machine %q is a controller", mName)
 		}
 		return nil
 	})
-	if err != nil && errors.Is(err, sqlair.ErrNoRows) {
-		return false, errors.NotFoundf("machine %q", mName)
+	if err != nil {
+		return false, errors.Annotatef(err, "checking if machine %q is a controller", mName)
 	}
 
-	return result.IsController, errors.Annotatef(err, "checking if machine %q is a controller", mName)
+	return result.IsController, nil
 }
 
 // AllMachineNames retrieves the names of all machines in the model.
@@ -477,14 +478,24 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 
 	var results []machineName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, queryStmt).GetAll(&results)
+		err := tx.Query(ctx, queryStmt).GetAll(&results)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
+			return errors.Annotate(err, "querying all machines")
+		}
+		return nil
 	})
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, errors.Annotate(err, "querying all machines")
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	// Transform the results ([]machineName) into a slice of machine.Name.
-	machineNames := transform.Slice[machineName, machine.Name](results, func(r machineName) machine.Name { return r.Name })
+	machineNames := transform.Slice[machineName, machine.Name](
+		results,
+		func(r machineName) machine.Name { return r.Name },
+	)
 
 	return machineNames, nil
 }

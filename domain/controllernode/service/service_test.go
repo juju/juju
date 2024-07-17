@@ -6,11 +6,12 @@ package service
 import (
 	"context"
 
-	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
+
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 )
 
 type serviceSuite struct {
@@ -47,7 +48,7 @@ func (s *serviceSuite) TestIsModelKnownToController(c *gc.C) {
 
 	exp := s.state.EXPECT()
 	gomock.InOrder(
-		exp.SelectDatabaseNamespace(gomock.Any(), fakeID).Return("", errors.NotFound),
+		exp.SelectDatabaseNamespace(gomock.Any(), fakeID).Return("", controllernodeerrors.NotFound),
 		exp.SelectDatabaseNamespace(gomock.Any(), knownID).Return(knownID, nil),
 	)
 

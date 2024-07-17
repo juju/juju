@@ -4,6 +4,8 @@
 package domain
 
 import (
+	"context"
+	"database/sql"
 	"sync"
 
 	"github.com/canonical/sqlair"
@@ -17,7 +19,7 @@ import (
 type StateBase struct {
 	dbMutex sync.RWMutex
 	getDB   database.TxnRunnerFactory
-	db      database.TxnRunner
+	db      *txnRunner
 
 	// statements is a cache of sqlair statements keyed by the query string.
 	statementMutex sync.RWMutex
@@ -55,10 +57,11 @@ func (st *StateBase) DB() (database.TxnRunner, error) {
 		return nil, errors.New("nil getDB")
 	}
 
-	var err error
-	if st.db, err = st.getDB(); err != nil {
+	db, err := st.getDB()
+	if err != nil {
 		return nil, errors.Annotate(err, "invoking getDB")
 	}
+	st.db = &txnRunner{runner: db}
 	return st.db, nil
 }
 
@@ -94,4 +97,25 @@ func (st *StateBase) Prepare(query string, typeSamples ...any) (*sqlair.Statemen
 
 	st.statements[query] = stmt
 	return stmt, nil
+}
+
+// txnRunner is a wrapper around a database.TxnRunner that implements the
+// database.TxnRunner interface.
+// It is used to coerce the error returned by the database.TxnRunner into a
+type txnRunner struct {
+	runner database.TxnRunner
+}
+
+// Txn manages the application of a SQLair transaction within which the
+// input function is executed. See https://github.com/canonical/sqlair.
+// The input context can be used by the caller to cancel this process.
+func (r *txnRunner) Txn(ctx context.Context, fn func(context.Context, *sqlair.TX) error) error {
+	return CoerceError(r.runner.Txn(ctx, fn))
+}
+
+// StdTxn manages the application of a standard library transaction within
+// which the input function is executed.
+// The input context can be used by the caller to cancel this process.
+func (r *txnRunner) StdTxn(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
+	return CoerceError(r.runner.StdTxn(ctx, fn))
 }
