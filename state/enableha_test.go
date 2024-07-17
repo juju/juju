@@ -525,8 +525,9 @@ func (s *EnableHASuite) TestForceDestroyFromHA(c *gc.C) {
 	err = m0.ForceDestroy(dontWait)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m0.Refresh(), jc.ErrorIsNil)
-	// Could this actually get all the way to Dead?
-	c.Check(m0.Life(), gc.Equals, state.Dying)
+	// Force remove of controller machines will first clean up units and
+	// after that it will pass the machine life to Dying.
+	c.Check(m0.Life(), gc.Equals, state.Alive)
 	c.Assert(node.Refresh(), jc.ErrorIsNil)
 	c.Assert(node.WantsVote(), jc.IsFalse)
 }
