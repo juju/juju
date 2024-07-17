@@ -535,3 +535,57 @@ func (s *stateSuite) TestIsControllerNotFound(c *gc.C) {
 	_, err := s.state.IsMachineController(context.Background(), "666")
 	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
 }
+
+// TestGetMachineParentUUIDSuccess asserts the happy path of
+// GetMachineParentUUID at the state layer.
+func (s *stateSuite) TestGetMachineParentUUIDSuccess(c *gc.C) {
+	// Create the parent machine first.
+	err := s.state.CreateMachine(context.Background(), "666", "1", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create the machine with the created parent.
+	err = s.state.CreateMachineWithParent(context.Background(), "667", "666", "2", "456")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the parent UUID of the machine.
+	parentUUID, err := s.state.GetMachineParentUUID(context.Background(), "667")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(parentUUID, gc.Equals, "123")
+}
+
+// TestGetMachineParentUUIDNotFound asserts that a NotFound error is returned
+// when the machine is not found.
+func (s *stateSuite) TestGetMachineParentUUIDNotFound(c *gc.C) {
+	_, err := s.state.GetMachineParentUUID(context.Background(), "666")
+	c.Assert(err, jc.ErrorIs, errors.NotFound)
+}
+
+// TestGetMachineParentUUIDNoParent asserts that a NotFound error is returned
+// when the machine has no parent.
+func (s *stateSuite) TestGetMachineParentUUIDNoParent(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.GetMachineParentUUID(context.Background(), "666")
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineHasNoParent)
+}
+
+// TestGetMachineParentUUIDGrandParentNotAllowed asserts that a
+// GrandParentNotAllowed error is returned when a grandparent is detected for a
+// machine.
+func (s *stateSuite) TestGetMachineParentUUIDGrandParentNotAllowed(c *gc.C) {
+	// Create the parent machine first.
+	err := s.state.CreateMachine(context.Background(), "666", "1", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create the machine with the created parent.
+	err = s.state.CreateMachineWithParent(context.Background(), "667", "666", "2", "456")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create the machine with the created parent.
+	err = s.state.CreateMachineWithParent(context.Background(), "668", "667", "3", "789")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.GetMachineParentUUID(context.Background(), "668")
+	c.Assert(err, jc.ErrorIs, machineerrors.GrandParentNotAllowed)
+}

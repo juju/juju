@@ -583,3 +583,70 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 
 	return machineNames, nil
 }
+
+// GetMachineParentUUID returns the parent UUID of the specified machine.
+// It returns a NotFound if the machine does not exist.
+// It returns a MachineHasNoParent if the machine has no parent.
+func (st *State) GetMachineParentUUID(ctx context.Context, mName machine.Name) (string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	// Prepare query for machine UUID.
+	machineNameParam := machineName{Name: mName}
+	machineUUIDoutput := machineUUID{}
+	query := `SELECT uuid AS &machineUUID.* FROM machine WHERE name = $machineName.name`
+	queryStmt, err := st.Prepare(query, machineNameParam, machineUUIDoutput)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	// Prepare query for parent UUID.
+	parentUUID := ""
+	parentUUIDParam := machineParent{}
+	parentQuery := `
+SELECT parent_uuid AS &machineParent.parent_uuid
+FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
+	parentQueryStmt, err := st.Prepare(parentQuery, machineUUIDoutput, parentUUIDParam)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Query for the machine UUID.
+		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&machineUUIDoutput)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.NotFoundf("machine %q", mName)
+			}
+			return errors.Annotatef(err, "querying UUID for machine %q", mName)
+		}
+
+		// Query for the parent UUID.
+		err = tx.Query(ctx, parentQueryStmt, machineUUIDoutput).Get(&parentUUIDParam)
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Annotatef(machineerrors.MachineHasNoParent, "machine %q", mName)
+			}
+			return errors.Annotatef(err, "querying parent UUID for machine %q", mName)
+		}
+
+		parentUUID = parentUUIDParam.ParentUUID
+
+		// Protect against a grandparent
+		machineUUIDoutput.UUID = parentUUID
+		err = tx.Query(ctx, parentQueryStmt, machineUUIDoutput).Get(&parentUUIDParam)
+		// No error means we found a grandparent.
+		if err == nil {
+			return errors.Annotatef(machineerrors.GrandParentNotAllowed, "machine %q", mName)
+		} else if !errors.Is(err, sqlair.ErrNoRows) {
+			// Return error if the query failed for any reason other than not
+			// found.
+			return errors.Annotatef(err, "querying for grandparent UUID for machine %q", mName)
+		}
+
+		return nil
+	})
+	return parentUUID, errors.Annotatef(err, "getting parent UUID for machine %q", mName)
+}

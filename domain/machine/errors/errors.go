@@ -30,4 +30,12 @@ const (
 	// MachineAlreadyExists describes an error that occurs when creating a
 	// machine if a machine with the same name already exists.
 	MachineAlreadyExists = errors.ConstError("machine already exists")
+
+	// MachineHasNoParent describes an error that occurs when a machine has no
+	// parent.
+	MachineHasNoParent = errors.ConstError("machine has no parent")
+
+	// GrandParentNotAllowed describes an error that occurs when a parent is
+	// detected for a parent of a machine.
+	GrandParentNotAllowed = errors.ConstError("grandparent not allowed")
 )
