@@ -1,6 +1,6 @@
-test_authorizedkeys() {
-	if [ "$(skip 'test_authorizedkeys')" ]; then
-		echo "==> TEST SKIPPED: authorizedkeys"
+test_authorized_keys() {
+	if [ "$(skip 'test_authorized_keys')" ]; then
+		echo "==> TEST SKIPPED: authorized_keys"
 		return
 	fi
 
@@ -9,7 +9,7 @@ test_authorizedkeys() {
 	echo "==> Checking for dependencies"
 	check_dependencies juju
 
-	log_file="${TEST_DIR}/authorisedkeys.log"
+	log_file="${TEST_DIR}/authorised_keys.log"
 
 	ensure "authorisedkeys" "$log_file"
 
