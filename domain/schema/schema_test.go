@@ -500,7 +500,13 @@ func (s *schemaSuite) TestControllerTriggers(c *gc.C) {
 		"trg_secret_backend_immutable_update",
 		"trg_secret_backend_immutable_delete",
 	)
-	c.Assert(readEntityNames(c, s.DB(), "trigger"), jc.SameContents, expected.Union(additional).SortedValues())
+	got := readEntityNames(c, s.DB(), "trigger")
+	wanted := expected.Union(additional)
+	c.Assert(got, jc.SameContents, wanted.SortedValues(), gc.Commentf(
+		"additive: %v, deletion: %v",
+		set.NewStrings(got...).Difference(wanted).SortedValues(),
+		wanted.Difference(set.NewStrings(got...)).SortedValues(),
+	))
 }
 
 func (s *schemaSuite) TestModelTriggers(c *gc.C) {
@@ -512,6 +518,10 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_log_block_device_delete",
 		"trg_log_block_device_insert",
 		"trg_log_block_device_update",
+
+		"trg_log_charm_delete",
+		"trg_log_charm_insert",
+		"trg_log_charm_update",
 
 		"trg_log_model_config_delete",
 		"trg_log_model_config_insert",
@@ -594,7 +604,13 @@ func (s *schemaSuite) TestModelTriggers(c *gc.C) {
 		"trg_secret_permission_immutable_update",
 	)
 
-	c.Assert(readEntityNames(c, s.DB(), "trigger"), jc.SameContents, expected.Union(additional).SortedValues())
+	got := readEntityNames(c, s.DB(), "trigger")
+	wanted := expected.Union(additional)
+	c.Assert(got, jc.SameContents, wanted.SortedValues(), gc.Commentf(
+		"additive: %v, deletion: %v",
+		set.NewStrings(got...).Difference(wanted).SortedValues(),
+		wanted.Difference(set.NewStrings(got...)).SortedValues(),
+	))
 }
 
 func (s *schemaSuite) assertChangeLogCount(c *gc.C, editType int, namespaceID tableNamespaceID, expectedCount int) {
