@@ -28,9 +28,9 @@ type ControllerConfigService interface {
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
-// UserService is the interface that wraps the methods required to
-// authenticate a user.
-type UserService interface {
+// AccessService defines a interface for interacting the users and permissions
+// of a controller.
+type AccessService interface {
 	// GetUserByAuth returns the user with the given name and password.
 	GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error)
 
@@ -58,7 +58,7 @@ type NewStateAuthenticatorFunc func(
 	ctx context.Context,
 	statePool *state.StatePool,
 	controllerConfigService ControllerConfigService,
-	userService UserService,
+	accessService AccessService,
 	bakeryConfigService BakeryConfigService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
@@ -73,7 +73,7 @@ func NewStateAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
 	controllerConfigService ControllerConfigService,
-	userService UserService,
+	accessService AccessService,
 	bakeryConfigService BakeryConfigService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
@@ -84,7 +84,7 @@ func NewStateAuthenticator(
 		return nil, errors.Trace(err)
 	}
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
-	stateAuthenticator, err := stateauthenticator.NewAuthenticator(ctx, statePool, systemState, controllerConfigService, userService, bakeryConfigService, agentAuthFactory, clock)
+	stateAuthenticator, err := stateauthenticator.NewAuthenticator(ctx, statePool, systemState, controllerConfigService, accessService, bakeryConfigService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
