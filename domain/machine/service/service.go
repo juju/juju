@@ -20,7 +20,18 @@ import (
 // State describes retrieval and persistence methods for machines.
 type State interface {
 	// CreateMachine persists the input machine entity.
+	// It returns the uuid of the created machine.
+	// It returns a MachineAlreadyExists error if a machine with the same name
+	// already exists.
 	CreateMachine(context.Context, coremachine.Name, string, string) error
+
+	// CreateMachineWithparent persists the input machine entity, associating it
+	// with the parent machine.
+	// It returns the uuid of the created machine.
+	// It returns a NotFound error if the parent machine does not exist.
+	// It returns a MachineAlreadyExists error if a machine with the same name
+	// already exists.
+	CreateMachineWithParent(context.Context, coremachine.Name, coremachine.Name, string, string) error
 
 	// DeleteMachine deletes the input machine entity.
 	DeleteMachine(context.Context, coremachine.Name) error
@@ -115,22 +126,50 @@ func NewService(st State) *Service {
 }
 
 // CreateMachine creates the specified machine.
+// It returns the uuid of the created machine.
 func (s *Service) CreateMachine(ctx context.Context, machineName coremachine.Name) (string, error) {
 	// Make a new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
 	// the state layer we don't keep regenerating.
-	nodeUUID, err := uuid.NewUUID()
+	nodeUUID, machineUUID, err := createUUIDs()
 	if err != nil {
 		return "", errors.Annotatef(err, "creating machine %q", machineName)
+	}
+
+	err = s.st.CreateMachine(ctx, machineName, nodeUUID, machineUUID)
+
+	return machineUUID, errors.Annotatef(err, "creating machine %q", machineName)
+}
+
+// CreateMachineWirhParent creates the specified machine with the specified
+// parent.
+// It returns the uuid of the created machine.
+// It returns a NotFound error if the parent machine does not exist.
+func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, parentName machine.Name) (string, error) {
+	// Make a new UUIDs for the net-node and the machine.
+	// We want to do this in the service layer so that if retries are invoked at
+	// the state layer we don't keep regenerating.
+	nodeUUID, machineUUID, err := createUUIDs()
+	if err != nil {
+		return "", errors.Annotatef(err, "creating machine %q with parent %q", machineName, parentName)
+	}
+
+	err = s.st.CreateMachineWithParent(ctx, machineName, parentName, nodeUUID, machineUUID)
+
+	return machineUUID, errors.Annotatef(err, "creating machine %q with parent %q", machineName, parentName)
+}
+
+// createUUIDs generates a new UUID for the machine and the net-node.
+func createUUIDs() (string, string, error) {
+	nodeUUID, err := uuid.NewUUID()
+	if err != nil {
+		return "", "", errors.Annotate(err, "generating net-node UUID")
 	}
 	machineUUID, err := uuid.NewUUID()
 	if err != nil {
-		return "", errors.Annotatef(err, "creating machine %q", machineName)
+		return "", "", errors.Annotate(err, "generating machine UUID")
 	}
-
-	err = s.st.CreateMachine(ctx, machineName, nodeUUID.String(), machineUUID.String())
-
-	return machineUUID.String(), errors.Annotatef(err, "creating machine %q", machineName)
+	return nodeUUID.String(), machineUUID.String(), nil
 }
 
 // DeleteMachine deletes the specified machine.

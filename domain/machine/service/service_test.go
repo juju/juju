@@ -33,6 +33,7 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+// TestCreateMachineSuccess asserts the happy path of the CreateMachine service.
 func (s *serviceSuite) TestCreateMachineSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -55,6 +56,70 @@ func (s *serviceSuite) TestCreateMachineError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `creating machine "666": boom`)
 }
 
+// TestCreateMachineAlreadyExists asserts that the state layer returns a
+// MachineAlreadyExists Error if a machine is already found with the given
+// machineName, and that error is preserved and passed on to the service layer
+// to be handled there.
+func (s *serviceSuite) TestCreateMachineAlreadyExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().CreateMachine(gomock.Any(), cmachine.Name("666"), gomock.Any(), gomock.Any()).Return(machineerrors.MachineAlreadyExists)
+
+	_, err := NewService(s.state).CreateMachine(context.Background(), cmachine.Name("666"))
+	c.Check(err, jc.ErrorIs, machineerrors.MachineAlreadyExists)
+}
+
+// TestCreateMachineWithParentSuccess asserts the happy path of the
+// CreateMachineWithParent service.
+func (s *serviceSuite) TestCreateMachineWithParentSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), cmachine.Name("666"), cmachine.Name("parent"), gomock.Any(), gomock.Any()).Return(nil)
+
+	_, err := NewService(s.state).CreateMachineWithParent(context.Background(), cmachine.Name("666"), cmachine.Name("parent"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// TestCreateMachineWithParentError asserts that an error coming from the state
+// layer is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestCreateMachineWithParentError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), cmachine.Name("666"), cmachine.Name("parent"), gomock.Any(), gomock.Any()).Return(rErr)
+
+	_, err := NewService(s.state).CreateMachineWithParent(context.Background(), cmachine.Name("666"), cmachine.Name("parent"))
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Assert(err, gc.ErrorMatches, `creating machine "666" with parent "parent": boom`)
+}
+
+// TestCreateMachineWithParentParentNotFound asserts that the state layer
+// returns a NotFound Error if a machine is not found with the given parent
+// machineName, and that error is preserved and passed on to the service layer
+// to be handled there.
+func (s *serviceSuite) TestCreateMachineWithParentParentNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), cmachine.Name("666"), cmachine.Name("parent"), gomock.Any(), gomock.Any()).Return(errors.NotFound)
+
+	_, err := NewService(s.state).CreateMachineWithParent(context.Background(), cmachine.Name("666"), cmachine.Name("parent"))
+	c.Check(err, jc.ErrorIs, errors.NotFound)
+}
+
+// TestCreateMachineWithParentMachineAlreadyExists asserts that the state layer
+// returns a MachineAlreadyExists Error if a machine is already found with the
+// given machineName, and that error is preserved and passed on to the service
+// layer to be handled there.
+func (s *serviceSuite) TestCreateMachineWithParentMachineAlreadyExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().CreateMachineWithParent(gomock.Any(), cmachine.Name("666"), cmachine.Name("parent"), gomock.Any(), gomock.Any()).Return(machineerrors.MachineAlreadyExists)
+
+	_, err := NewService(s.state).CreateMachineWithParent(context.Background(), cmachine.Name("666"), cmachine.Name("parent"))
+	c.Check(err, jc.ErrorIs, machineerrors.MachineAlreadyExists)
+}
+
+// TestDeleteMachineSuccess asserts the happy path of the DeleteMachine service.
 func (s *serviceSuite) TestDeleteMachineSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 

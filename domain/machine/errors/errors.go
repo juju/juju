@@ -26,4 +26,8 @@ const (
 	// GrandParentNotSupported describes an error that occurs when the operation
 	// found a grandparent machine, as it is not currently supported.
 	GrandParentNotSupported = errors.ConstError("grandparent machine are not supported currently")
+
+	// MachineAlreadyExists describes an error that occurs when creating a
+	// machine if a machine with the same name already exists.
+	MachineAlreadyExists = errors.ConstError("machine already exists")
 )
