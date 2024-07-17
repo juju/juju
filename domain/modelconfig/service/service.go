@@ -303,17 +303,6 @@ func (s *Service) UpdateModelConfig(
 	return nil
 }
 
-// dummySecretsBackendProvider implements validators.SecretBackendProvider and
-// always returns true.
-// TODO (tlm): These needs to be swapped out with an actual checker when we have
-// secrets in dqlite
-type dummySecretsBackendProvider struct{}
-
-// HasSecretsBackend implements validators.SecretBackendProvider
-func (*dummySecretsBackendProvider) HasSecretsBackend(_ string) (bool, error) {
-	return true, nil
-}
-
 // spaceValidator implements validators.SpaceProvider.
 type spaceValidator struct {
 	st SpaceValidatorState
@@ -330,7 +319,6 @@ func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (bool, 
 // - Agent version is not being changed.
 // - CharmhubURL is not being changed.
 // - Network space exists.
-// - Secret backend exists.
 // - There is no changes to authorized keys.
 func (s *Service) updateModelConfigValidator(
 	additional ...config.Validator,
@@ -342,7 +330,6 @@ func (s *Service) updateModelConfigValidator(
 			validators.SpaceChecker(&spaceValidator{
 				st: s.st,
 			}),
-			validators.SecretBackendChecker(&dummySecretsBackendProvider{}),
 			validators.AuthorizedKeysChange(),
 			s.modelValidator,
 		},

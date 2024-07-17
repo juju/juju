@@ -848,6 +848,44 @@ func (c *MockServiceFactoryModelInfoCall) DoAndReturn(f func() *service12.ModelS
 	return c
 }
 
+// ModelSecretBackend mocks base method.
+func (m *MockServiceFactory) ModelSecretBackend() *service19.ModelSecretBackendService {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelSecretBackend")
+	ret0, _ := ret[0].(*service19.ModelSecretBackendService)
+	return ret0
+}
+
+// ModelSecretBackend indicates an expected call of ModelSecretBackend.
+func (mr *MockServiceFactoryMockRecorder) ModelSecretBackend() *MockServiceFactoryModelSecretBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelSecretBackend", reflect.TypeOf((*MockServiceFactory)(nil).ModelSecretBackend))
+	return &MockServiceFactoryModelSecretBackendCall{Call: call}
+}
+
+// MockServiceFactoryModelSecretBackendCall wrap *gomock.Call
+type MockServiceFactoryModelSecretBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockServiceFactoryModelSecretBackendCall) Return(arg0 *service19.ModelSecretBackendService) *MockServiceFactoryModelSecretBackendCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockServiceFactoryModelSecretBackendCall) Do(f func() *service19.ModelSecretBackendService) *MockServiceFactoryModelSecretBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockServiceFactoryModelSecretBackendCall) DoAndReturn(f func() *service19.ModelSecretBackendService) *MockServiceFactoryModelSecretBackendCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // Network mocks base method.
 func (m *MockServiceFactory) Network() *service16.WatchableService {
 	m.ctrl.T.Helper()

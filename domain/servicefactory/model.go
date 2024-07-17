@@ -31,6 +31,8 @@ import (
 	objectstorestate "github.com/juju/juju/domain/objectstore/state"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	secretstate "github.com/juju/juju/domain/secret/state"
+	secretbackendservice "github.com/juju/juju/domain/secretbackend/service"
+	secretbackendstate "github.com/juju/juju/domain/secretbackend/state"
 	storageservice "github.com/juju/juju/domain/storage/service"
 	storagestate "github.com/juju/juju/domain/storage/state"
 	unitservice "github.com/juju/juju/domain/unit/service"
@@ -166,6 +168,18 @@ func (s *ModelFactory) Secret(adminConfigGetter secretservice.BackendAdminConfig
 		logger.Child("service"),
 		domain.NewWatcherFactory(s.modelDB, logger.Child("watcherfactory")),
 		adminConfigGetter,
+	)
+}
+
+// ModelSecretBackend returns the model secret backend service.
+func (s *ModelFactory) ModelSecretBackend() *secretbackendservice.ModelSecretBackendService {
+	logger := s.logger.Child("modelsecretbackend")
+	state := secretbackendstate.NewState(
+		changestream.NewTxnRunnerFactory(s.controllerDB),
+		logger.Child("state"),
+	)
+	return secretbackendservice.NewModelSecretBackendService(
+		s.modelUUID, state,
 	)
 }
 

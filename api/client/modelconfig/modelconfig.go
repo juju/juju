@@ -103,3 +103,48 @@ func (c *Client) Sequences() (map[string]int, error) {
 	}
 	return result.Sequences, nil
 }
+
+// GetModelSecretBackend returns the secret backend name for the specified model,
+// returning an error satisfying [modelerrors.NotFound] if the model provided does not exist.
+func (c *Client) GetModelSecretBackend(ctx context.Context) (string, error) {
+	if c.facade.BestAPIVersion() < 4 {
+		return "", errors.NotSupportedf("getting model secret backend")
+	}
+
+	var result params.StringResult
+	err := c.facade.FacadeCall(ctx, "GetModelSecretBackend", nil, &result)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	if result.Error != nil {
+		return "", params.TranslateWellKnownError(result.Error)
+	}
+	return result.Result, nil
+}
+
+// SetModelSecretBackend sets the secret backend config for the specified model,
+// returning an error satisfying [secretbackenderrors.NotFound] if the backend provided does not exist,
+// returning an error satisfying [modelerrors.NotFound] if the model provided does not exist,
+// returning an error satisfying [secretbackenderrors.NotValid] if the backend name provided is not valid.
+func (c *Client) SetModelSecretBackend(ctx context.Context, secretBackendName string) error {
+	if c.facade.BestAPIVersion() < 4 {
+		return errors.NotSupportedf("setting model secret backend")
+	}
+
+	var result params.ErrorResult
+	err := c.facade.FacadeCall(ctx, "SetModelSecretBackend", params.SetModelSecretBackendArg{
+		SecretBackendName: secretBackendName,
+	}, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if result.Error != nil {
+		return params.TranslateWellKnownError(result.Error)
+	}
+	return nil
+}
+
+// BestAPIVersion returns the best API version supported by the client.
+func (c *Client) BestAPIVersion() int {
+	return c.facade.BestAPIVersion()
+}

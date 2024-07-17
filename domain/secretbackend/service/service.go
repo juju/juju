@@ -95,8 +95,8 @@ func (s *Service) GetSecretBackendConfigForAdmin(ctx context.Context, modelUUID 
 		}
 		info.Configs[b.ID] = provider.ModelBackendConfig{
 			ControllerUUID: m.ControllerUUID,
-			ModelUUID:      m.ID.String(),
-			ModelName:      m.Name,
+			ModelUUID:      m.ModelID.String(),
+			ModelName:      m.ModelName,
 			BackendConfig: provider.BackendConfig{
 				BackendType: b.BackendType,
 				Config:      cfg,
@@ -698,11 +698,6 @@ func (s *Service) RotateBackendToken(ctx context.Context, backendID string) erro
 	s.logger.Debugf("updating token rotation for %q, next: %s", backendInfo.Name, nextRotateTime)
 	err = s.st.SecretBackendRotated(ctx, backendID, nextRotateTime)
 	return errors.Trace(err)
-}
-
-// SetModelSecretBackend sets the secret backend for the given model UUID.
-func (s *Service) SetModelSecretBackend(ctx context.Context, modelUUID coremodel.UUID, backendName string) error {
-	return s.st.SetModelSecretBackend(ctx, modelUUID, backendName)
 }
 
 // GetRevisionsToDrain looks at the supplied revisions and returns any which should be

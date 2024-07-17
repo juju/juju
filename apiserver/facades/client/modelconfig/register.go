@@ -5,6 +5,7 @@ package modelconfig
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -16,12 +17,23 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("ModelConfig", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newFacadeV3(ctx)
+		facade, err := makeFacadeV3(stdCtx, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("registering model config client facade: %w", err)
+		}
+		return facade, nil
 	}, reflect.TypeOf((*ModelConfigAPIV3)(nil)))
+	registry.MustRegister("ModelConfig", 4, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		facade, err := makeFacade(stdCtx, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("registering model config client facade: %w", err)
+		}
+		return facade, nil
+	}, reflect.TypeOf((*ModelConfigAPI)(nil)))
 }
 
-// newFacadeV3 is used for API registration.
-func newFacadeV3(ctx facade.ModelContext) (*ModelConfigAPIV3, error) {
+// makeFacade is used for API registration.
+func makeFacade(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAPI, error) {
 	auth := ctx.Auth()
 
 	model, err := ctx.State().Model()
@@ -30,9 +42,26 @@ func newFacadeV3(ctx facade.ModelContext) (*ModelConfigAPIV3, error) {
 	}
 
 	serviceFactory := ctx.ServiceFactory()
-	backendService := serviceFactory.SecretBackend()
+	modelSecretBackend := serviceFactory.ModelSecretBackend()
 
 	configService := serviceFactory.Config()
 	configSchemaSourceGetter := environs.ProviderConfigSchemaSource(ctx.ServiceFactory().Cloud())
-	return NewModelConfigAPI(NewStateBackend(model, configSchemaSourceGetter), backendService, configService, auth)
+	modelInfo, err := serviceFactory.ModelInfo().GetModelInfo(stdCtx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewModelConfigAPI(
+		modelInfo.UUID,
+		NewStateBackend(model, configSchemaSourceGetter),
+		modelSecretBackend, configService, auth,
+	)
+}
+
+// makeFacadeV3 is used for API registration.
+func makeFacadeV3(stdCtx context.Context, ctx facade.ModelContext) (*ModelConfigAPIV3, error) {
+	api, err := makeFacade(stdCtx, ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ModelConfigAPIV3{api}, nil
 }

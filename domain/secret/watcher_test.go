@@ -279,7 +279,7 @@ func (s *watcherSuite) TestWatchObsoleteForUnitsOwned(c *gc.C) {
 	wCSingleUnit.AssertNoChange()
 }
 
-func (s *watcherSuite) TestWatchObsoleteForUserSecrets(c *gc.C) {
+func (s *watcherSuite) TestWatchObsoleteUserSecretsToPrune(c *gc.C) {
 	ctx := context.Background()
 	svc, st := s.setupServiceAndState(c)
 
@@ -314,14 +314,13 @@ func (s *watcherSuite) TestWatchObsoleteForUserSecrets(c *gc.C) {
 
 	// create revision 2, and obsolete revision 1. An event is fired because the auto prune is turned on for uri2.
 	createNewRevision(c, st, uri2)
-	wc.AssertAtLeastOneChange()
+	wc.AssertNChanges(2)
 
 	err = st.UpdateSecret(context.Background(), uri1, secret.UpsertSecretParams{
 		AutoPrune: ptr(true),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-
-	wc.AssertNChanges(2)
+	wc.AssertOneChange()
 
 	// Pretend that the agent restarted and the watcher is re-created.
 	w1, err := svc.WatchObsoleteUserSecretsToPrune(ctx)

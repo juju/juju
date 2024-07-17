@@ -97,7 +97,6 @@ func (s *PrepareSuite) assertPrepare(c *gc.C, skipVerify bool) {
 		},
 		Config: map[string]interface{}{
 			"firewall-mode":             "instance",
-			"secret-backend":            "auto",
 			"ssl-hostname-verification": true,
 			"logging-config":            "<root>=INFO",
 			"authorized-keys":           testing.FakeAuthKeys,

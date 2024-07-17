@@ -177,6 +177,11 @@ func (s *TestingServiceFactory) SecretBackend() *secretbackendservice.WatchableS
 	return nil
 }
 
+// ModelSecretBackend returns the model secret backend service.
+func (s *TestingServiceFactory) ModelSecretBackend() *secretbackendservice.ModelSecretBackendService {
+	return nil
+}
+
 // Application returns the block device service.
 func (s *TestingServiceFactory) Application(storage.ProviderRegistry) *applicationservice.Service {
 	if s.applicationServiceGetter == nil {

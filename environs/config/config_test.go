@@ -828,7 +828,6 @@ func (s *ConfigSuite) TestAllAttrs(c *gc.C) {
 		"proxy-ssh":                  false,
 		"development":                false,
 		"test-mode":                  false,
-		"secret-backend":             "auto",
 	}
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)

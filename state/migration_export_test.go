@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"math/rand"
 	"time"
@@ -30,7 +29,6 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	domainstorage "github.com/juju/juju/domain/storage"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
 	charmresource "github.com/juju/juju/internal/charm/resource"
 	"github.com/juju/juju/internal/featureflag"
@@ -2142,16 +2140,8 @@ func (s *MigrationExportSuite) TestSecrets(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.Model.UpdateModelConfig(state.NoopConfigSchemaSource, map[string]interface{}{config.SecretBackendKey: "myvault"}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-	mCfg, err := s.Model.ModelConfig(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(mCfg.SecretBackend(), jc.DeepEquals, "myvault")
-
 	model, err := s.State.Export(map[string]string{}, state.NewObjectStore(c, s.State.ModelUUID()))
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(model.SecretBackendID(), gc.Equals, backendID)
 
 	allSecrets := model.Secrets()
 	c.Assert(allSecrets, gc.HasLen, 1)

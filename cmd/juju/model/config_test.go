@@ -191,6 +191,18 @@ func (s *ConfigCommandSuite) TestSetCharmhubURL(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `"charmhub-url" must be set via "add-model"`)
 }
 
+func (s *ConfigCommandSuite) TestSetSecretBackend(c *gc.C) {
+	s.fake.bestVersion = 4
+	_, err := s.run(c, "secret-backend=myvault")
+	c.Assert(err, gc.ErrorMatches, `"secret-backend" has been removed from model config, use the new command "model-secret-backend" instead`)
+}
+
+func (s *ConfigCommandSuite) TestGetSecretBackend(c *gc.C) {
+	s.fake.bestVersion = 4
+	_, err := s.run(c, "secret-backend")
+	c.Assert(err, gc.ErrorMatches, `"secret-backend" has been removed from model config, use the new command "model-secret-backend" instead`)
+}
+
 func (s *ConfigCommandSuite) TestSetAndReset(c *gc.C) {
 	_, err := s.run(c, "--reset", "special", "foo=bar")
 	c.Assert(err, jc.ErrorIsNil)

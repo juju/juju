@@ -11,12 +11,14 @@ import (
 type ModelSecretBackend struct {
 	// ControllerUUID is the uuid of the controller.
 	ControllerUUID string
-	// ID is the unique identifier for the model.
-	ID coremodel.UUID
-	// Name is the name of the model.
-	Name string
-	// Type is the type of the model.
-	Type coremodel.ModelType
+	// ModelID is the unique identifier for the model.
+	ModelID coremodel.UUID
+	// ModelName is the name of the model.
+	ModelName string
+	// ModelType is the type of the model.
+	ModelType coremodel.ModelType
 	// SecretBackendID is the unique identifier for the secret backend configured for the model.
 	SecretBackendID string
+	// SecretBackendName is the name of the secret backend configured for the model.
+	SecretBackendName string
 }

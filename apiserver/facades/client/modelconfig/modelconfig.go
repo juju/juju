@@ -9,11 +9,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
+	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/rpc/params"
@@ -21,11 +23,13 @@ import (
 
 // ModelConfigAPI provides the base implementation of the methods.
 type ModelConfigAPI struct {
-	backend        Backend
-	backendService SecretBackendService
-	configService  ModelConfigService
-	auth           facade.Authorizer
-	check          *common.BlockChecker
+	backend                   Backend
+	modelSecretBackendService ModelSecretBackendService
+	configService             ModelConfigService
+	auth                      facade.Authorizer
+	check                     *common.BlockChecker
+
+	modelID coremodel.UUID
 }
 
 // ModelConfigAPIV3 is currently the latest.
@@ -35,22 +39,23 @@ type ModelConfigAPIV3 struct {
 
 // NewModelConfigAPI creates a new instance of the ModelConfig Facade.
 func NewModelConfigAPI(
+	modelID coremodel.UUID,
 	backend Backend,
-	backendService SecretBackendService,
+	modelSecretBackendService ModelSecretBackendService,
 	configService ModelConfigService,
 	authorizer facade.Authorizer,
-) (*ModelConfigAPIV3, error) {
+) (*ModelConfigAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	client := &ModelConfigAPI{
-		backend:        backend,
-		backendService: backendService,
-		configService:  configService,
-		auth:           authorizer,
-		check:          common.NewBlockChecker(backend),
-	}
-	return &ModelConfigAPIV3{client}, nil
+	return &ModelConfigAPI{
+		modelID:                   modelID,
+		backend:                   backend,
+		modelSecretBackendService: modelSecretBackendService,
+		configService:             configService,
+		auth:                      authorizer,
+		check:                     common.NewBlockChecker(backend),
+	}, nil
 }
 
 func (c *ModelConfigAPI) checkCanWrite() error {
@@ -284,4 +289,41 @@ func (c *ModelConfigAPI) Sequences(ctx context.Context) (params.ModelSequencesRe
 
 	result.Sequences = values
 	return result, nil
+}
+
+// GetModelSecretBackend isn't implemented in the ModelConfigAPIV3 facade.
+func (s *ModelConfigAPIV3) GetModelSecretBackend(struct{}) {}
+
+// GetModelSecretBackend returns the secret backend for the model,
+// returning an error satisfying [authentication.ErrorEntityMissingPermission] if the user does not have read access to the model,
+// returning [params.CodeModelNotFound] if the model does not exist.
+func (s *ModelConfigAPI) GetModelSecretBackend(ctx context.Context) (params.StringResult, error) {
+	result := params.StringResult{}
+	if err := s.auth.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelID.String())); err != nil {
+		return result, errors.Trace(err)
+	}
+
+	name, err := s.modelSecretBackendService.GetModelSecretBackend(ctx)
+	if err != nil {
+		result.Error = apiservererrors.ServerError(err)
+	} else {
+		result.Result = name
+	}
+	return result, nil
+}
+
+// SetModelSecretBackend isn't implemented in the ModelConfigAPIV3 facade.
+func (s *ModelConfigAPIV3) SetModelSecretBackend(_, _ struct{}) {}
+
+// SetModelSecretBackend sets the secret backend for the model,
+// returning an error satisfying [authentication.ErrorEntityMissingPermission] if the user does not have write access to the model,
+// returning [params.CodeModelNotFound] if the model does not exist,
+// returning [params.CodeSecretBackendNotFound] if the secret backend does not exist,
+// returning [params.CodeSecretBackendNotValid] if the secret backend name is not valid.
+func (s *ModelConfigAPI) SetModelSecretBackend(ctx context.Context, arg params.SetModelSecretBackendArg) (params.ErrorResult, error) {
+	if err := s.auth.HasPermission(permission.WriteAccess, names.NewModelTag(s.modelID.String())); err != nil {
+		return params.ErrorResult{}, errors.Trace(err)
+	}
+	err := s.modelSecretBackendService.SetModelSecretBackend(ctx, arg.SecretBackendName)
+	return params.ErrorResult{Error: apiservererrors.ServerError(err)}, nil
 }

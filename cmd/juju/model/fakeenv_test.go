@@ -38,10 +38,11 @@ func (s *fakeEnvSuite) SetUpTest(c *gc.C) {
 }
 
 type fakeEnvAPI struct {
-	values    map[string]interface{}
-	defaults  config.ConfigValues
-	err       error
-	resetKeys []string
+	values      map[string]interface{}
+	defaults    config.ConfigValues
+	err         error
+	resetKeys   []string
+	bestVersion int
 }
 
 func (f *fakeEnvAPI) Close() error {
@@ -81,6 +82,10 @@ func (f *fakeEnvAPI) ModelSet(config map[string]interface{}) error {
 func (f *fakeEnvAPI) ModelUnset(keys ...string) error {
 	f.resetKeys = keys
 	return f.err
+}
+
+func (f *fakeEnvAPI) BestAPIVersion() int {
+	return f.bestVersion
 }
 
 // ModelDefaults related fake environment for testing.

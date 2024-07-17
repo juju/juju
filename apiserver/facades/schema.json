@@ -24841,8 +24841,8 @@
     },
     {
         "Name": "ModelConfig",
-        "Description": "ModelConfigAPIV3 is currently the latest.",
-        "Version": 3,
+        "Description": "ModelConfigAPI provides the base implementation of the methods.",
+        "Version": 4,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -24861,6 +24861,15 @@
                         }
                     },
                     "description": "GetModelConstraints returns the constraints for the model."
+                },
+                "GetModelSecretBackend": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringResult"
+                        }
+                    },
+                    "description": "GetModelSecretBackend returns the secret backend for the model,\nreturning an error satisfying [authentication.ErrorEntityMissingPermission] if the user does not have read access to the model,\nreturning [params.CodeModelNotFound] if the model does not exist."
                 },
                 "ModelGet": {
                     "type": "object",
@@ -24906,6 +24915,18 @@
                         }
                     },
                     "description": "SetModelConstraints sets the constraints for the model."
+                },
+                "SetModelSecretBackend": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetModelSecretBackendArg"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResult"
+                        }
+                    },
+                    "description": "SetModelSecretBackend sets the secret backend for the model,\nreturning an error satisfying [authentication.ErrorEntityMissingPermission] if the user does not have write access to the model,\nreturning [params.CodeModelNotFound] if the model does not exist,\nreturning [params.CodeSecretBackendNotFound] if the secret backend does not exist,\nreturning [params.CodeSecretBackendNotValid] if the secret backend name is not valid."
                 }
             },
             "definitions": {
@@ -24925,6 +24946,40 @@
                         "value",
                         "source"
                     ]
+                },
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "ErrorResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
                 },
                 "GetConstraintsResults": {
                     "type": "object",
@@ -25019,6 +25074,33 @@
                     "required": [
                         "application",
                         "constraints"
+                    ]
+                },
+                "SetModelSecretBackendArg": {
+                    "type": "object",
+                    "properties": {
+                        "secret-backend-name": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "secret-backend-name"
+                    ]
+                },
+                "StringResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
                     ]
                 },
                 "Value": {

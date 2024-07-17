@@ -8,6 +8,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	modelerrors "github.com/juju/juju/domain/model/errors"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
+	secretbackenderrors "github.com/juju/juju/domain/secretbackend/errors"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
 )
@@ -47,6 +50,15 @@ func (*errorSuite) TestTranslateWellKnownError(c *gc.C) {
 		{params.CodeForbidden, params.Error{Code: params.CodeForbidden, Message: "look a Forbidden error"}, errors.Forbidden},
 		{params.CodeQuotaLimitExceeded, params.Error{Code: params.CodeQuotaLimitExceeded, Message: "look a QuotaLimitExceeded error"}, errors.QuotaLimitExceeded},
 		{params.CodeNotYetAvailable, params.Error{Code: params.CodeNotYetAvailable, Message: "look a NotYetAvailable error"}, errors.NotYetAvailable},
+		{params.CodeModelNotFound, params.Error{Code: params.CodeModelNotFound, Message: "model not found"}, modelerrors.NotFound},
+		{params.CodeSecretNotFound, params.Error{Code: params.CodeSecretNotFound, Message: "secret not found"}, secreterrors.SecretNotFound},
+		{params.CodeSecretRevisionNotFound, params.Error{Code: params.CodeSecretRevisionNotFound, Message: "secret not found"}, secreterrors.SecretRevisionNotFound},
+		{params.CodeSecretConsumerNotFound, params.Error{Code: params.CodeSecretConsumerNotFound, Message: "secret not found"}, secreterrors.SecretConsumerNotFound},
+		{params.CodeSecretBackendNotFound, params.Error{Code: params.CodeSecretBackendNotFound, Message: "secret backend not found"}, secretbackenderrors.NotFound},
+		{params.CodeSecretBackendAlreadyExists, params.Error{Code: params.CodeSecretBackendAlreadyExists, Message: "secret backend not found"}, secretbackenderrors.AlreadyExists},
+		{params.CodeSecretBackendNotSupported, params.Error{Code: params.CodeSecretBackendNotSupported, Message: "secret backend not found"}, secretbackenderrors.NotSupported},
+		{params.CodeSecretBackendNotValid, params.Error{Code: params.CodeSecretBackendNotValid, Message: "secret backend not found"}, secretbackenderrors.NotValid},
+		{params.CodeSecretBackendForbidden, params.Error{Code: params.CodeSecretBackendForbidden, Message: "secret backend not found"}, secretbackenderrors.Forbidden},
 	}
 
 	for _, v := range tests {

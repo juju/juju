@@ -192,9 +192,6 @@ func (s *stateSuite) createModelWithName(c *gc.C, modelType coremodel.ModelType,
 
 	err = modelSt.Activate(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
-	c.Assert(err, jc.ErrorIsNil)
 	return modelUUID
 }
 
@@ -1299,10 +1296,10 @@ WHERE model_uuid = ?`
 }
 
 func (s *stateSuite) TestSetModelSecretBackendBackendNotFound(c *gc.C) {
-	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
+	modelUUID := s.createModel(c, coremodel.IAAS)
+	err := s.state.SetModelSecretBackend(context.Background(), modelUUID, "non-existing-backend-name")
 	c.Assert(err, jc.ErrorIs, backenderrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, `secret backend not found: "my-backend"`)
+	c.Assert(err, gc.ErrorMatches, `cannot get secret backend "non-existing-backend-name": secret backend not found`)
 }
 
 func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
@@ -1325,7 +1322,7 @@ func (s *stateSuite) TestSetModelSecretBackendModelNotFound(c *gc.C) {
 	modelUUID := modeltesting.GenModelUUID(c)
 	err = s.state.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(`model not found: model %q`, modelUUID))
+	c.Assert(err, gc.ErrorMatches, `cannot set secret backend "my-backend" for model "`+modelUUID.String()+`": model not found`)
 }
 
 func (s *stateSuite) TestGetModelSecretBackendDetails(c *gc.C) {
@@ -1334,11 +1331,12 @@ func (s *stateSuite) TestGetModelSecretBackendDetails(c *gc.C) {
 	result, err := s.state.GetModelSecretBackendDetails(context.Background(), modelUUID)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, secretbackend.ModelSecretBackend{
-		ControllerUUID:  s.controllerUUID,
-		ID:              modelUUID,
-		Name:            "my-model",
-		Type:            "iaas",
-		SecretBackendID: s.vaultBackendID,
+		ControllerUUID:    s.controllerUUID,
+		ModelID:           modelUUID,
+		ModelName:         "my-model",
+		ModelType:         "iaas",
+		SecretBackendID:   s.vaultBackendID,
+		SecretBackendName: "my-backend",
 	})
 }
 

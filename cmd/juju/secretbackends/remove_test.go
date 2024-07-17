@@ -13,14 +13,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/secretbackends"
-	"github.com/juju/juju/cmd/juju/secretbackends/mocks"
 	"github.com/juju/juju/jujuclient"
 )
 
 type RemoveSuite struct {
 	jujutesting.IsolationSuite
 	store                   *jujuclient.MemStore
-	removeSecretBackendsAPI *mocks.MockRemoveSecretBackendsAPI
+	removeSecretBackendsAPI *secretbackends.MockRemoveSecretBackendsAPI
 }
 
 var _ = gc.Suite(&RemoveSuite{})
@@ -36,7 +35,7 @@ func (s *RemoveSuite) SetUpTest(c *gc.C) {
 func (s *RemoveSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.removeSecretBackendsAPI = mocks.NewMockRemoveSecretBackendsAPI(ctrl)
+	s.removeSecretBackendsAPI = secretbackends.NewMockRemoveSecretBackendsAPI(ctrl)
 
 	return ctrl
 }
