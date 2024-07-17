@@ -120,6 +120,7 @@ func TestingAPIHandler(c *gc.C, pool *state.StatePool, st *state.State, sf servi
 		context.Background(),
 		pool,
 		st,
+		st.ModelUUID(),
 		sf.ControllerConfig(),
 		sf.Access(),
 		sf.Macaroon(),

@@ -121,6 +121,7 @@ func (OpenLoginAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery
 func newAuthContext(
 	ctx context.Context,
 	st *state.State,
+	controllerModelUUID string,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
 	bakeryConfigService BakeryConfigService,
@@ -148,7 +149,7 @@ func newAuthContext(
 		func(ctx context.Context, cond, arg string) error { return nil },
 	)
 
-	location := "juju model " + st.ModelUUID()
+	location := "juju model " + controllerModelUUID
 	var err error
 	ctxt.localUserThirdPartyBakeryKey, err = bakeryConfigService.GetLocalUsersThirdPartyKey(ctx)
 	if err != nil {

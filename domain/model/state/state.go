@@ -637,10 +637,11 @@ func (s *State) Delete(
 		return errors.Trace(err)
 	}
 
-	deleteSecretBackend := "DELETE FROM model_secret_backend WHERE model_uuid = ?"
-	deleteModelAgent := "DELETE FROM model_agent WHERE model_uuid = ?"
+	deleteSecretBackend := `DELETE FROM model_secret_backend WHERE model_uuid = ?`
+	deleteModelAgent := `DELETE FROM model_agent WHERE model_uuid = ?`
 	deletePermissionStmt := `DELETE FROM permission WHERE grant_on = ?;`
-	deleteModel := "DELETE FROM model WHERE uuid = ?"
+	deleteModelLogin := `DELETE FROM model_last_login WHERE model_uuid = ?`
+	deleteModel := `DELETE FROM model WHERE uuid = ?`
 	return db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		if err := unregisterModelNamespace(ctx, tx, uuid); err != nil {
 			return fmt.Errorf("un-registering model %q database namespaces: %w", uuid, err)
@@ -659,6 +660,11 @@ func (s *State) Delete(
 		_, err = tx.ExecContext(ctx, deletePermissionStmt, uuid)
 		if err != nil {
 			return fmt.Errorf("deleting permissions for model %q: %w", uuid, err)
+		}
+
+		_, err = tx.ExecContext(ctx, deleteModelLogin, uuid)
+		if err != nil {
+			return fmt.Errorf("deleting model logins for model %q: %w", uuid, err)
 		}
 
 		res, err := tx.ExecContext(ctx, deleteModel, uuid)

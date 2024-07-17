@@ -57,6 +57,7 @@ type BakeryConfigService interface {
 type NewStateAuthenticatorFunc func(
 	ctx context.Context,
 	statePool *state.StatePool,
+	controllerModelUUID string,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
 	bakeryConfigService BakeryConfigService,
@@ -72,6 +73,7 @@ type NewStateAuthenticatorFunc func(
 func NewStateAuthenticator(
 	ctx context.Context,
 	statePool *state.StatePool,
+	controllerModelUUID string,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
 	bakeryConfigService BakeryConfigService,
@@ -84,7 +86,7 @@ func NewStateAuthenticator(
 		return nil, errors.Trace(err)
 	}
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
-	stateAuthenticator, err := stateauthenticator.NewAuthenticator(ctx, statePool, systemState, controllerConfigService, accessService, bakeryConfigService, agentAuthFactory, clock)
+	stateAuthenticator, err := stateauthenticator.NewAuthenticator(ctx, statePool, systemState, controllerModelUUID, controllerConfigService, accessService, bakeryConfigService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

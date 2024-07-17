@@ -164,6 +164,8 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
+	userState.UpdateLastModelLogin(context.Background(), m.userName, m.uuid)
+
 	err = modelSt.Activate(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
 }
