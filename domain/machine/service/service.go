@@ -10,7 +10,9 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
+	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -46,10 +48,25 @@ type State interface {
 	// If the machine is not provisioned, it returns a NotProvisionedError.
 	InstanceId(context.Context, machine.Name) (string, error)
 
-	// InstanceStatus returns the cloud specific instance status for this
+	// GetInstanceStatus returns the cloud specific instance status for this
 	// machine.
-	// If the machine is not provisioned, it returns a NotProvisionedError.
-	InstanceStatus(context.Context, machine.Name) (string, error)
+	// It returns NotFound if the machine does not exist.
+	// It returns a StatusNotSet if the instance status is not set.
+	GetInstanceStatus(context.Context, machine.Name) (status.StatusInfo, error)
+
+	// SetInstanceStatus sets the cloud specific instance status for this
+	// machine.
+	// It returns NotFound if the machine does not exist.
+	SetInstanceStatus(context.Context, machine.Name, status.StatusInfo) error
+
+	// GetMachineStatus returns the status of the specified machine.
+	// It returns NotFound if the machine does not exist.
+	// It returns a StatusNotSet if the status is not set.
+	GetMachineStatus(context.Context, machine.Name) (status.StatusInfo, error)
+
+	// SetMachineStatus sets the status of the specified machine.
+	// It returns NotFound if the machine does not exist.
+	SetMachineStatus(context.Context, machine.Name, status.StatusInfo) error
 
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
@@ -154,15 +171,58 @@ func (s *Service) InstanceId(ctx context.Context, machineName machine.Name) (str
 	return instanceId, nil
 }
 
-// InstanceStatus returns the cloud specific instance status for this
+// GetInstanceStatus returns the cloud specific instance status for this
 // machine.
-// If the machine is not provisioned, it returns a NotProvisionedError.
-func (s *Service) InstanceStatus(ctx context.Context, machineName machine.Name) (string, error) {
-	instanceStatus, err := s.st.InstanceStatus(ctx, machineName)
+// It returns NotFound if the machine does not exist.
+// It returns a StatusNotSet if the instance status is not set.
+// Idempotent.
+func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
+	instanceStatus, err := s.st.GetInstanceStatus(ctx, machineName)
 	if err != nil {
-		return "", errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineName)
+		return status.StatusInfo{}, errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineName)
 	}
 	return instanceStatus, nil
+}
+
+// SetInstanceStatus sets the cloud specific instance status for this
+// machine.
+// It returns NotFound if the machine does not exist.
+// It returns InvalidStatus if the given status is not a known status value.
+func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) error {
+	if !status.Status.KnownInstanceStatus() {
+		return machineerrors.InvalidStatus
+	}
+	err := s.st.SetInstanceStatus(ctx, machineName, status)
+	if err != nil {
+		return errors.Annotatef(err, "setting cloud instance status for machine %q", machineName)
+	}
+	return nil
+}
+
+// GetMachineStatus returns the status of the specified machine.
+// It returns NotFound if the machine does not exist.
+// It returns a StatusNotSet if the status is not set.
+// Idempotent.
+func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
+	machineStatus, err := s.st.GetMachineStatus(ctx, machineName)
+	if err != nil {
+		return status.StatusInfo{}, errors.Annotatef(err, "retrieving machine status for machine %q", machineName)
+	}
+	return machineStatus, nil
+}
+
+// SetMachineStatus sets the status of the specified machine.
+// It returns NotFound if the machine does not exist.
+// It returns InvalidStatus if the given status is not a known status value.
+func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) error {
+	if !status.Status.KnownMachineStatus() {
+		return machineerrors.InvalidStatus
+	}
+	err := s.st.SetMachineStatus(ctx, machineName, status)
+	if err != nil {
+		return errors.Annotatef(err, "setting machine status for machine %q", machineName)
+	}
+	return nil
 }
 
 // IsController returns whether the machine is a controller machine.

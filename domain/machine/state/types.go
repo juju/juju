@@ -4,8 +4,11 @@
 package state
 
 import (
+	"time"
+
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
 )
 
@@ -65,11 +68,24 @@ type machineLife struct {
 	LifeID life.Life `db:"life_id"`
 }
 
-// instanceID represents the struct to be used for the insatnce_id column within
+// instanceID represents the struct to be used for the instance_id column within
 // the sqlair statements in the machine domain.
 type instanceID struct {
 	ID string `db:"instance_id"`
 }
+
+// machineStatusData represents the struct to be used for the status and status
+// data columns of status and status_data tables for both machine and machine
+// cloud instances within the sqlair statements in the machine domain.
+type machineStatusWithData struct {
+	Status  int        `db:"status"`
+	Message string     `db:"message"`
+	Updated *time.Time `db:"updated_at"`
+	Key     string     `db:"key"`
+	Data    string     `db:"data"`
+}
+
+type machineStatusData []machineStatusWithData
 
 // machineName represents the struct to be used for the name column
 // within the sqlair statements in the machine domain.
@@ -86,4 +102,77 @@ type machineUUID struct {
 // machineIsController represents the struct to be used for the is_controller column within the sqlair statements in the machine domain.
 type machineIsController struct {
 	IsController bool `db:"is_controller"`
+}
+
+// toCoreMachineStatusValue converts an internal status used by machines (per
+// the machine_status_value table) into a core type status.Status.
+func (s *machineStatusWithData) toCoreMachineStatusValue() status.Status {
+	var out status.Status
+	switch s.Status {
+	case 0:
+		out = status.Error
+	case 1:
+		out = status.Started
+	case 2:
+		out = status.Pending
+	case 3:
+		out = status.Stopped
+	case 4:
+		out = status.Down
+	}
+	return out
+}
+
+// fromCoreMachineStatusValue converts a status.Status to an internal status
+// used by machines (per the machine_status_value table).
+func fromCoreMachineStatusValue(s status.Status) int {
+	var internalStatus int
+	switch s {
+	case status.Error:
+		internalStatus = 0
+	case status.Started:
+		internalStatus = 1
+	case status.Pending:
+		internalStatus = 2
+	case status.Stopped:
+		internalStatus = 3
+	case status.Down:
+		internalStatus = 4
+	}
+	return internalStatus
+}
+
+// toCoreInstanceStatusValue converts an internal status used by machine cloud
+// instances (per the instance_status_values table) into a core type
+// status.Status.
+func (s *machineStatusWithData) toCoreInstanceStatusValue() status.Status {
+	var out status.Status
+	switch s.Status {
+	case 0:
+		out = status.Empty
+	case 1:
+		out = status.Allocating
+	case 2:
+		out = status.Running
+	case 3:
+		out = status.ProvisioningError
+	}
+	return out
+}
+
+// fromCoreInstanceStatusValue converts a status.Status to an internal status
+// used by machine cloud instances (per the instance_status_value table).
+func fromCoreInstanceStatusValue(s status.Status) int {
+	var internalStatus int
+	switch s {
+	case status.Empty:
+		internalStatus = 0
+	case status.Allocating:
+		internalStatus = 1
+	case status.Running:
+		internalStatus = 2
+	case status.ProvisioningError:
+		internalStatus = 3
+	}
+	return internalStatus
 }

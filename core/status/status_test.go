@@ -139,3 +139,94 @@ func (s *StatusSuite) TestDerivedStatusPriority(c *gc.C) {
 		c.Check(value.Status, gc.Equals, t.expected)
 	}
 }
+
+// TestKnownInstanceStatus asserts that the KnownInstanceStatus method checks
+// for the correct statuses for instances.
+func (s *StatusSuite) TestKnownInstanceStatus(c *gc.C) {
+	for _, t := range []struct {
+		status status.Status
+		known  bool
+	}{
+		{status.Active, false},
+		{status.Attached, false},
+		{status.Attaching, false},
+		{status.Available, false},
+		{status.Blocked, false},
+		{status.Broken, false},
+		{status.Busy, false},
+		{status.Destroying, false},
+		{status.Detached, false},
+		{status.Detaching, false},
+		{status.Down, false},
+		{status.Empty, false},
+		{status.Executing, false},
+		{status.Failed, false},
+		{status.Idle, false},
+		{status.Joined, false},
+		{status.Joining, false},
+		{status.Lost, false},
+		{status.Maintenance, false},
+		{status.Rebooting, false},
+		{status.Suspended, false},
+		{status.Suspending, false},
+		{status.Started, false},
+		{status.Stopped, false},
+		{status.Terminated, false},
+		{status.Waiting, false},
+		{status.Unset, false},
+
+		{status.Pending, true},
+		{status.ProvisioningError, true},
+		{status.Allocating, true},
+		{status.Provisioning, true},
+		{status.Running, true},
+		{status.Error, true},
+		{status.Unknown, true},
+	} {
+		c.Check(t.status.KnownInstanceStatus(), gc.Equals, t.known, gc.Commentf("checking status %q", t.status))
+	}
+}
+
+// TestKnownMachineStatus asserts that the KnownMachineStatus method checks for the correct statuses for machines.
+func (s *StatusSuite) TestKnownMachineStatus(c *gc.C) {
+	for _, t := range []struct {
+		status status.Status
+		known  bool
+	}{
+		{status.Active, false},
+		{status.Applied, false},
+		{status.Attached, false},
+		{status.Attaching, false},
+		{status.Available, false},
+		{status.Blocked, false},
+		{status.Broken, false},
+		{status.Busy, false},
+		{status.Destroying, false},
+		{status.Detached, false},
+		{status.Detaching, false},
+		{status.Empty, false},
+		{status.Executing, false},
+		{status.Failed, false},
+		{status.Idle, false},
+		{status.Joined, false},
+		{status.Joining, false},
+		{status.Lost, false},
+		{status.Maintenance, false},
+		{status.ProvisioningError, false},
+		{status.Rebooting, false},
+		{status.Suspended, false},
+		{status.Suspending, false},
+		{status.Terminated, false},
+		{status.Waiting, false},
+		{status.Unset, false},
+		{status.Unknown, false},
+
+		{status.Error, true},
+		{status.Started, true},
+		{status.Pending, true},
+		{status.Stopped, true},
+		{status.Down, true},
+	} {
+		c.Check(t.status.KnownMachineStatus(), gc.Equals, t.known, gc.Commentf("checking status %q", t.status))
+	}
+}
