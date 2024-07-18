@@ -35,7 +35,7 @@ func KeyFromTag(tag names.CloudCredentialTag) Key {
 
 	return Key{
 		Cloud: tag.Cloud().Id(),
-		Owner: tag.Owner().Name(),
+		Owner: tag.Owner().Id(),
 		Name:  tag.Name(),
 	}
 }

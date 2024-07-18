@@ -432,7 +432,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 			},
 		}
 
-		lastConn, err := c.accessService.LastModelLogin(ctx, c.apiUser.Name(), coremodel.UUID(model.UUID()))
+		lastConn, err := c.accessService.LastModelLogin(ctx, c.apiUser.Id(), coremodel.UUID(model.UUID()))
 		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
 			userModel.LastConnection = nil
 		} else if errors.Is(err, modelerrors.NotFound) {

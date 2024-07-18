@@ -201,7 +201,7 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 			continue
 		}
 
-		err = api.accessService.RemoveUser(ctx, userTag.Name())
+		err = api.accessService.RemoveUser(ctx, userTag.Id())
 		if err != nil {
 			deletions.Results[i].Error = apiservererrors.ServerError(
 				errors.Annotatef(err, "failed to delete user %q", userTag.Name()))
@@ -261,9 +261,9 @@ func (api *UserManagerAPI) enableUser(ctx context.Context, args params.Entities,
 		}
 
 		if action == "enable" {
-			err = api.accessService.EnableUserAuthentication(ctx, userTag.Name())
+			err = api.accessService.EnableUserAuthentication(ctx, userTag.Id())
 		} else {
-			err = api.accessService.DisableUserAuthentication(ctx, userTag.Name())
+			err = api.accessService.DisableUserAuthentication(ctx, userTag.Id())
 		}
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s user: %s", action, err))
@@ -329,7 +329,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 				return results, errors.Trace(err)
 			}
 			for _, user := range users {
-				userTag := names.NewLocalUserTag(user.Name)
+				userTag := names.NewUserTag(user.Name)
 				results.Results = append(results.Results, infoForUser(userTag, user))
 			}
 			return results, nil
@@ -349,7 +349,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 			return results, errors.Trace(err)
 		}
 
-		userTag := names.NewLocalUserTag(user.Name)
+		userTag := names.NewUserTag(user.Name)
 		results.Results = append(results.Results, infoForUser(userTag, user))
 
 		return results, nil
@@ -486,7 +486,7 @@ func (api *UserManagerAPI) setPassword(ctx context.Context, arg params.EntityPas
 	pass := auth.NewPassword(arg.Password)
 	defer pass.Destroy()
 
-	if err := api.accessService.SetPassword(ctx, userTag.Name(), pass); err != nil {
+	if err := api.accessService.SetPassword(ctx, userTag.Id(), pass); err != nil {
 		return errors.Annotate(err, "failed to set password")
 	}
 
@@ -524,7 +524,7 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		}
 
 		if isSuperUser && api.apiUserTag != userTag {
-			key, err := api.accessService.ResetPassword(ctx, userTag.Name())
+			key, err := api.accessService.ResetPassword(ctx, userTag.Id())
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
@@ -547,5 +547,5 @@ func (api *UserManagerAPI) getLocalUserByTag(ctx context.Context, tag string) (c
 	if !userTag.IsLocal() {
 		return coreuser.User{}, errors.Errorf("%q is not a local user", userTag)
 	}
-	return api.accessService.GetUserByName(ctx, userTag.Name())
+	return api.accessService.GetUserByName(ctx, userTag.Id())
 }

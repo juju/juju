@@ -307,7 +307,7 @@ func (m *ModelManagerAPI) createModelNew(
 		return coremodel.UUID(""), errors.Annotatef(apiservererrors.ErrPerm, "%q permission does not permit creation of models for different owners", permission.AddModelAccess)
 	}
 
-	user, err := m.accessService.GetUserByName(ctx, ownerTag.Name())
+	user, err := m.accessService.GetUserByName(ctx, ownerTag.Id())
 	if err != nil {
 		// TODO handle error properly
 		return coremodel.UUID(""), errors.Trace(err)
@@ -816,7 +816,7 @@ func (m *ModelManagerAPI) ListModelSummaries(ctx context.Context, req params.Mod
 	}
 
 	for _, mi := range modelInfos {
-		lastConnection, err := m.accessService.LastModelLogin(ctx, userTag.Name(), coremodel.UUID(mi.UUID))
+		lastConnection, err := m.accessService.LastModelLogin(ctx, userTag.Id(), coremodel.UUID(mi.UUID))
 		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
 			mi.UserLastConnection = nil
 		} else if errors.Is(err, modelerrors.NotFound) {
@@ -957,7 +957,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (p
 		return result, errors.Trace(err)
 	}
 
-	ctrlUser, err := m.accessService.GetUserByName(ctx, userTag.Name())
+	ctrlUser, err := m.accessService.GetUserByName(ctx, userTag.Id())
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -984,7 +984,7 @@ func (m *ModelManagerAPI) ListModels(ctx context.Context, user params.Entity) (p
 		}
 
 		var lastConnection *time.Time
-		lc, err := m.accessService.LastModelLogin(ctx, userTag.Name(), mi.UUID)
+		lc, err := m.accessService.LastModelLogin(ctx, userTag.Id(), mi.UUID)
 		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
 			lastConnection = nil
 		} else if errors.Is(err, modelerrors.NotFound) {

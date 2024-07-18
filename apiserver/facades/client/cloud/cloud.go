@@ -107,8 +107,8 @@ func NewCloudAPI(
 }
 
 func (api *CloudAPI) canAccessCloud(ctx context.Context, cloud string, user names.UserTag, access permission.Access) (bool, error) {
-	id := permission.ID{ObjectType: permission.Cloud, Key: cloud}
-	perm, err := api.cloudAccessService.ReadUserAccessLevelForTarget(ctx, user.Id(), id)
+	targetID := permission.ID{ObjectType: permission.Cloud, Key: cloud}
+	perm, err := api.cloudAccessService.ReadUserAccessLevelForTarget(ctx, user.Id(), targetID)
 	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}
@@ -606,7 +606,7 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
 	}
 
-	err = api.cloudService.CreateCloud(ctx, api.apiUser.Name(), aCloud)
+	err = api.cloudService.CreateCloud(ctx, api.apiUser.Id(), aCloud)
 	if err != nil {
 		return errors.Annotatef(err, "creating cloud %q", cloudArgs.Name)
 	}

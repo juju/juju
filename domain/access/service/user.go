@@ -128,6 +128,10 @@ func (s *UserService) AddUser(ctx context.Context, arg AddUserArg) (user.UUID, [
 		return "", nil, errors.Annotatef(accesserrors.UserNameNotValid, "%q", arg.Name)
 	}
 
+	if !names.NewUserTag(arg.Name).IsLocal() {
+		return "", nil, fmt.Errorf("cannot add external user %q", arg.Name)
+	}
+
 	if err := arg.CreatorUUID.Validate(); err != nil {
 		return "", nil, errors.Annotatef(err, "validating creator UUID %q", arg.CreatorUUID)
 	}
