@@ -116,6 +116,10 @@ type State interface {
 
 	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
 	ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error)
+
+	// MarkMachineForRemoval marks the given machine for removal.
+	// It returns a MachineNotFound error if the machine does not exist.
+	MarkMachineForRemoval(context.Context, coremachine.Name) error
 }
 
 // Service provides the API for working with machines.
@@ -321,4 +325,10 @@ func (s *Service) GetMachineParentUUID(ctx context.Context, machineName coremach
 func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error) {
 	rebootRequired, err := s.st.ShouldRebootOrShutdown(ctx, uuid)
 	return rebootRequired, errors.Annotatef(err, "getting if the machine with uuid %q need to reboot or shutdown", uuid)
+}
+
+// MarkMachineForRemoval marks the given machine for removal.
+// It returns a MachineNotFound error if the machine does not exist.
+func (s *Service) MarkMachineForRemoval(ctx context.Context, machineName coremachine.Name) error {
+	return errors.Annotatef(s.st.MarkMachineForRemoval(ctx, machineName), "marking machine %q for removal", machineName)
 }

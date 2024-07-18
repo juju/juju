@@ -607,3 +607,33 @@ func (s *stateSuite) TestGetMachineParentUUIDNoParent(c *gc.C) {
 	_, err = s.state.GetMachineParentUUID(context.Background(), "666")
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineHasNoParent)
 }
+
+// TestMarkMachineForRemovalSuccess asserts the happy path of
+// MarkMachineForRemoval at the state layer.
+func (s *stateSuite) TestMarkMachineForRemovalSuccess(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.MarkMachineForRemoval(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+
+	var mark bool
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, "SELECT mark_for_removal FROM machine WHERE name=?", "666").Scan(&mark)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(mark, gc.Equals, true)
+}
+
+// TestMarkMachineForRemovalNotFound asserts that a NotFound error is returned
+// when the machine is not found.
+// TODO(cderici): use machineerrors.MachineNotFound on rebase after #17759
+// lands.
+func (s *stateSuite) TestMarkMachineForRemovalNotFound(c *gc.C) {
+	err := s.state.MarkMachineForRemoval(context.Background(), "666")
+	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
+}

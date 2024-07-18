@@ -667,3 +667,65 @@ FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 	})
 	return parentUUID, errors.Annotatef(err, "getting parent UUID for machine %q", mName)
 }
+
+// MarkMachineForRemoval marks the specified machine for removal.
+// It returns NotFound if the machine does not exist.
+// TODO(cderici): use machineerrors.MachineNotFound on rebase after #17759
+// lands.
+func (st *State) MarkMachineForRemoval(ctx context.Context, mName machine.Name) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prepare query for machine mark_for_removal field to check
+	// i) if the machine exists,
+	// ii) if it's already marked for removal (then this is a no-op).
+	machineNameParam := machineName{Name: mName}
+	markForRemovalOut := machineMarkForRemoval{}
+	markForRemovalRetrieveQuery := `SELECT &machineMarkForRemoval.* FROM machine WHERE name = $machineName.name`
+	markForRemovalRetrieveStmt, err := st.Prepare(markForRemovalRetrieveQuery, machineNameParam, markForRemovalOut)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prepare query for updating mark_for_removal column in machine table for
+	// the given machine.
+	markForRemovalUpdateQuery := `
+UPDATE machine
+SET mark_for_removal = true
+WHERE name = $machineName.name`
+	markForRemovalStmt, err := st.Prepare(markForRemovalUpdateQuery, machineNameParam)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Query for the mark of the given machine.
+		// Return NotFound if the machine doesn't exist.
+		err := tx.Query(ctx, markForRemovalRetrieveStmt, machineNameParam).Get(&markForRemovalOut)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(machineerrors.NotFound, "machine %q", mName)
+		}
+		if err != nil {
+			return errors.Annotatef(err, "querying mark for removal for machine %q", mName)
+		}
+
+		// If it's already marked, then this is a no-op.
+		if markForRemovalOut.Mark {
+			return nil
+		}
+
+		// Run query for updating the mark_for_removal column.
+		return tx.Query(ctx, markForRemovalStmt, machineNameParam).Run()
+	})
+
+	if errors.Is(err, sqlair.ErrNoRows) {
+		return errors.Annotatef(machineerrors.NotFound, "machine %q", mName)
+	}
+	if err != nil {
+		return errors.Annotatef(err, "marking machine %q for removal", mName)
+	}
+	return nil
+>>>>>>> 08c3d64f61 (feat(machine): add MarkForRemoval in the machine domain)
+}
