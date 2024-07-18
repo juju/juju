@@ -3004,7 +3004,7 @@ HAVING sruc.current_revision < MAX(sr.revision)`
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		// We need to set the source model UUID to mark it as a remote secret for comsumer side to use.
+		// We need to set the source model UUID to mark it as a remote secret for consumer side to use.
 		uri.SourceUUID = modelUUID
 		secretURIs[i] = uri.String()
 	}
@@ -3013,7 +3013,7 @@ HAVING sruc.current_revision < MAX(sr.revision)`
 
 type dbSecretIDs []string
 
-// InitialWatchStatementForObsolete returns the initial watch statement
+// InitialWatchStatementForObsoleteRevision returns the initial watch statement
 // and the table name for watching obsolete revisions.
 func (st State) InitialWatchStatementForObsoleteRevision(
 	appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners,

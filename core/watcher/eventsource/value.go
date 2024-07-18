@@ -30,14 +30,18 @@ type ValueWatcher struct {
 // NewValueWatcher returns a new watcher that receives changes from the input
 // base watcher's db/queue when change-log events occur for a specific changeValue
 // from the input namespace.
-func NewValueWatcher(base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType) *ValueWatcher {
+func NewValueWatcher(
+	base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType,
+) *ValueWatcher {
 	return NewValueMapperWatcher(base, namespace, changeValue, changeMask, defaultMapper)
 }
 
 // NewValueMapperWatcher returns a new watcher that receives changes from
 // the input base watcher's db/queue when mapper accepts the change-log
 // events for a specific changeValue from the input namespace.
-func NewValueMapperWatcher(base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType, mapper Mapper) *ValueWatcher {
+func NewValueMapperWatcher(
+	base *BaseWatcher, namespace, changeValue string, changeMask changestream.ChangeType, mapper Mapper,
+) *ValueWatcher {
 	w := &ValueWatcher{
 		BaseWatcher: base,
 		out:         make(chan struct{}),
@@ -61,7 +65,9 @@ func NewNamespaceNotifyWatcher(base *BaseWatcher, namespace string, changeMask c
 
 // NewNamespaceNotifyMapperWatcher returns a new watcher that receives changes from
 // the input base watcher's db/queue when changes in the namespace occur.
-func NewNamespaceNotifyMapperWatcher(base *BaseWatcher, namespace string, changeMask changestream.ChangeType, mapper Mapper) *ValueWatcher {
+func NewNamespaceNotifyMapperWatcher(
+	base *BaseWatcher, namespace string, changeMask changestream.ChangeType, mapper Mapper,
+) *ValueWatcher {
 	w := &ValueWatcher{
 		BaseWatcher: base,
 		out:         make(chan struct{}),
@@ -102,7 +108,7 @@ func (w *ValueWatcher) loop() error {
 
 	w.drainInitialEvent(in)
 
-	// Cache the context so we don't have to call it on every iteration.
+	// Cache the context, so we don't have to call it on every iteration.
 	ctx := w.tomb.Context(context.Background())
 
 	for {
