@@ -18,7 +18,6 @@ import (
 	blockdevice "github.com/juju/juju/domain/blockdevice/state"
 	"github.com/juju/juju/domain/life"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
-	"github.com/juju/juju/internal/database"
 )
 
 // State describes retrieval and persistence methods for storage.
@@ -187,7 +186,7 @@ DELETE FROM net_node WHERE uuid IN
 
 // InitialWatchStatement returns the table and the initial watch statement
 // for the machines.
-func (s *State) InitialWatchStatement() (string, string) {
+func (st *State) InitialWatchStatement() (string, string) {
 	return "machine", "SELECT name FROM machine"
 }
 
@@ -488,84 +487,4 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 	machineNames := transform.Slice[machineName, machine.Name](results, func(r machineName) machine.Name { return r.Name })
 
 	return machineNames, nil
-}
-
-type machineReboot struct {
-	UUID string `db:"uuid"`
-}
-
-// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
-//
-// Reboot requests are handled through the "machine_requires_reboot" table which contains only
-// machine UUID for which a reboot has been requested.
-// This function is idempotent.
-func (st *State) RequireMachineReboot(ctx context.Context, uuid string) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	setRebootFlag := `INSERT INTO machine_requires_reboot (machine_uuid) VALUES ($machineReboot.uuid)`
-	setRebootFlagStmt, err := sqlair.Prepare(setRebootFlag, machineReboot{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, setRebootFlagStmt, machineReboot{uuid}).Run()
-	})
-	if database.IsErrConstraintPrimaryKey(err) {
-		// if the same uuid is added twice, do nothing (idempotency)
-		return nil
-	}
-	return errors.Annotatef(err, "requiring reboot of machine %q", uuid)
-}
-
-// CancelMachineReboot cancels the reboot of the machine referenced by its UUID if it has
-// previously been required.
-//
-// It basically removes the uuid from the "machine_requires_reboot" table if present.
-// This function is idempotent.
-func (st *State) CancelMachineReboot(ctx context.Context, uuid string) error {
-	db, err := st.DB()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	unsetRebootFlag := `DELETE FROM machine_requires_reboot WHERE machine_uuid = $machineReboot.uuid`
-	unsetRebootFlagStmt, err := sqlair.Prepare(unsetRebootFlag, machineReboot{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, unsetRebootFlagStmt, machineReboot{uuid}).Run()
-	})
-	return errors.Annotatef(err, "cancelling reboot of machine %q", uuid)
-}
-
-// IsMachineRebootRequired checks if the specified machine requires a reboot.
-//
-// It queries the "machine_requires_reboot" table for the machine UUID to determine if a reboot is required.
-// Returns a boolean value indicating if a reboot is required, and an error if any occur during the process.
-func (st *State) IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error) {
-	db, err := st.DB()
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-
-	var isRebootRequired bool
-	isRebootFlag := `SELECT machine_uuid as &machineReboot.uuid  FROM machine_requires_reboot WHERE machine_uuid = $machineReboot.uuid`
-	isRebootFlagStmt, err := sqlair.Prepare(isRebootFlag, machineReboot{})
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var results machineReboot
-		err := tx.Query(ctx, isRebootFlagStmt, machineReboot{uuid}).Get(&results)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-			return errors.Trace(err)
-		}
-		isRebootRequired = !errors.Is(err, sqlair.ErrNoRows)
-		return nil
-	})
-
-	return isRebootRequired, errors.Annotatef(err, "requiring reboot of machine %q", uuid)
 }

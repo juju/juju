@@ -13,9 +13,10 @@ import (
 	gc "gopkg.in/check.v1"
 
 	cmachine "github.com/juju/juju/core/machine"
+	"github.com/juju/juju/core/status"
 	corestatus "github.com/juju/juju/core/status"
-	status "github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
+	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 )
 
@@ -457,4 +458,53 @@ func (s *serviceSuite) TestIsMachineRebootError(c *gc.C) {
 	_, err := NewService(s.state).IsMachineRebootRequired(context.Background(), "u-u-i-d")
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `checking if machine with uuid "u-u-i-d" is requiring a reboot: boom`)
+}
+
+// TestMachineShouldRebootOrShutdownDoNothing asserts that the reboot action is preserved from the state
+// layer through the service layer.
+func (s *serviceSuite) TestMachineShouldRebootOrShutdownDoNothing(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(machine.ShouldDoNothing, nil)
+
+	needReboot, err := NewService(s.state).ShouldRebootOrShutdown(context.Background(), "u-u-i-d")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(needReboot, gc.Equals, machine.ShouldDoNothing)
+}
+
+// TestMachineShouldRebootOrShutdownReboot asserts that the reboot action is preserved from the state
+// layer through the service layer.
+func (s *serviceSuite) TestMachineShouldRebootOrShutdownReboot(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(machine.ShouldReboot, nil)
+
+	needReboot, err := NewService(s.state).ShouldRebootOrShutdown(context.Background(), "u-u-i-d")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(needReboot, gc.Equals, machine.ShouldReboot)
+}
+
+// TestMachineShouldRebootOrShutdownShutdown asserts that the reboot action is preserved from the state
+// layer through the service layer.
+func (s *serviceSuite) TestMachineShouldRebootOrShutdownShutdown(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(machine.ShouldShutdown, nil)
+
+	needReboot, err := NewService(s.state).ShouldRebootOrShutdown(context.Background(), "u-u-i-d")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(needReboot, gc.Equals, machine.ShouldShutdown)
+}
+
+// TestMachineShouldRebootOrShutdownError asserts that if the state layer returns an Error,
+// this error will be preserved and passed to the service layer
+func (s *serviceSuite) TestMachineShouldRebootOrShutdownError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().ShouldRebootOrShutdown(gomock.Any(), "u-u-i-d").Return(machine.ShouldDoNothing, rErr)
+
+	_, err := NewService(s.state).ShouldRebootOrShutdown(context.Background(), "u-u-i-d")
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Assert(err, gc.ErrorMatches, `getting if the machine with uuid "u-u-i-d" need to reboot or shutdown: boom`)
 }
