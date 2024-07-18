@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/arch"
 )
 
 //go:generate go run go.uber.org/mock/mockgen -package mocks -destination mocks/manifests_mock.go github.com/juju/juju/docker/registry/internal ArchitectureGetter
@@ -28,10 +30,23 @@ type manifestsResponseV2 struct {
 	Config        manifestsResponseV2Config `json:"config"`
 }
 
+type manifestResponseV2Platform struct {
+	Architecture string `json:"architecture"`
+}
+
+type manifestResponseV2Manifest struct {
+	Platform manifestResponseV2Platform `json:"platform"`
+}
+
+type manifestsResponseListV2 struct {
+	SchemaVersion int                          `json:"schemaVersion"`
+	Manifests     []manifestResponseV2Manifest `json:"manifests"`
+}
+
 // ManifestsResult is the result of GetManifests.
 type ManifestsResult struct {
-	Architecture string
-	Digest       string
+	Architectures []string
+	Digest        string
 }
 
 // BlobsResponse is the result of GetBlobs.
@@ -45,38 +60,38 @@ type ArchitectureGetter interface {
 	GetBlobs(imageName, digest string) (*BlobsResponse, error)
 }
 
-// GetArchitecture returns the archtecture of the image for the specified tag.
-func (c baseClient) GetArchitecture(imageName, tag string) (string, error) {
-	return getArchitecture(imageName, tag, c)
+// GetArchitectures returns the architectures of the image for the specified tag.
+func (c *baseClient) GetArchitectures(imageName, tag string) ([]string, error) {
+	return getArchitectures(imageName, tag, c)
 }
 
-func getArchitecture(imageName, tag string, client ArchitectureGetter) (string, error) {
+func getArchitectures(imageName, tag string, client ArchitectureGetter) ([]string, error) {
 	manifests, err := client.GetManifests(imageName, tag)
 	if err != nil {
-		return "", errors.Annotatef(err, "can not get manifests for %s:%s", imageName, tag)
+		return nil, errors.Annotatef(err, "can not get manifests for %s:%s", imageName, tag)
 	}
-	if manifests.Architecture == "" && manifests.Digest == "" {
-		return "", errors.New(fmt.Sprintf("faild to get manifests for %q %q", imageName, tag))
+	if len(manifests.Architectures) == 0 && manifests.Digest == "" {
+		return nil, errors.New(fmt.Sprintf("faild to get manifests for %q %q", imageName, tag))
 	}
-	if manifests.Architecture != "" {
-		return manifests.Architecture, nil
+	if len(manifests.Architectures) > 0 {
+		return manifests.Architectures, nil
 	}
 	blobs, err := client.GetBlobs(imageName, manifests.Digest)
 	if err != nil {
-		return "", errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return blobs.Architecture, nil
+	return []string{arch.NormaliseArch(blobs.Architecture)}, nil
 }
 
 // GetManifests returns the manifests of the image for the specified tag.
-func (c baseClient) GetManifests(imageName, tag string) (*ManifestsResult, error) {
+func (c *baseClient) GetManifests(imageName, tag string) (*ManifestsResult, error) {
 	repo := getRepositoryOnly(c.ImageRepoDetails().Repository)
 	url := c.url("/%s/%s/manifests/%s", repo, imageName, tag)
 	return c.GetManifestsCommon(url)
 }
 
 // GetManifestsCommon returns manifests result for the provided url.
-func (c baseClient) GetManifestsCommon(url string) (*ManifestsResult, error) {
+func (c *baseClient) GetManifestsCommon(url string) (*ManifestsResult, error) {
 	resp, err := c.client.Get(url)
 	if err != nil {
 		return nil, errors.Trace(unwrapNetError(err))
@@ -86,8 +101,9 @@ func (c baseClient) GetManifestsCommon(url string) (*ManifestsResult, error) {
 }
 
 const (
-	manifestContentTypeV1 = "application/vnd.docker.distribution.manifest.v1"
-	manifestContentTypeV2 = "application/vnd.docker.distribution.manifest.v2"
+	manifestContentTypeV1     = "application/vnd.docker.distribution.manifest.v1"
+	manifestContentTypeV2     = "application/vnd.docker.distribution.manifest.v2"
+	manifestContentTypeListV2 = "application/vnd.docker.distribution.manifest.list.v2"
 )
 
 func processManifestsResponse(resp *http.Response) (*ManifestsResult, error) {
@@ -107,27 +123,37 @@ func processManifestsResponse(resp *http.Response) (*ManifestsResult, error) {
 		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 			return nil, errors.Trace(err)
 		}
-		return &ManifestsResult{Architecture: data.Architecture}, nil
+		return &ManifestsResult{Architectures: []string{arch.NormaliseArch(data.Architecture)}}, nil
 	case manifestContentTypeV2:
 		var data manifestsResponseV2
 		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
 			return nil, errors.Trace(err)
 		}
 		return &ManifestsResult{Digest: data.Config.Digest}, nil
+	case manifestContentTypeListV2:
+		var data manifestsResponseListV2
+		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+			return nil, errors.Trace(err)
+		}
+		archs := make([]string, len(data.Manifests))
+		for i, manifest := range data.Manifests {
+			archs[i] = arch.NormaliseArch(manifest.Platform.Architecture)
+		}
+		return &ManifestsResult{Architectures: archs}, nil
 	default:
 		return nil, notSupportedAPIVersionError
 	}
 }
 
-// GetBlobs gets the archtecture of the image for the specified tag via blobs API.
-func (c baseClient) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
+// GetBlobs gets the architecture of the image for the specified tag via blobs API.
+func (c *baseClient) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
 	repo := getRepositoryOnly(c.ImageRepoDetails().Repository)
 	url := c.url("/%s/%s/blobs/%s", repo, imageName, digest)
 	return c.GetBlobsCommon(url)
 }
 
 // GetBlobsCommon returns blobs result for the provided url.
-func (c baseClient) GetBlobsCommon(url string) (*BlobsResponse, error) {
+func (c *baseClient) GetBlobsCommon(url string) (*BlobsResponse, error) {
 	resp, err := c.client.Get(url)
 	logger.Tracef("getting blobs for %q, err %v", url, err)
 	if err != nil {

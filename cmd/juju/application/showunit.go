@@ -25,10 +25,24 @@ or related unit may be shown, or just the application data.
 `
 
 const showUnitExamples = `
+To show information about a unit:
+
     juju show-unit mysql/0
+
+To show information about multiple units:
+
     juju show-unit mysql/0 wordpress/1
+
+To show only the application relation data for a unit:
+
     juju show-unit mysql/0 --app
+
+To show only the relation data for a specific endpoint:
+
     juju show-unit mysql/0 --endpoint db
+
+To show only the relation data for a specific related unit:
+
     juju show-unit mysql/0 --related-unit wordpress/2
 `
 
@@ -61,6 +75,10 @@ func (c *showUnitCommand) Info() *cmd.Info {
 		Purpose:  "Displays information about a unit.",
 		Doc:      showUnitDoc,
 		Examples: showUnitExamples,
+		SeeAlso: []string{
+			"add-unit",
+			"remove-unit",
+		},
 	}
 	return jujucmd.Info(showCmd)
 }

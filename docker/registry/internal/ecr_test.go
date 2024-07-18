@@ -336,10 +336,10 @@ func (s *elasticContainerRegistrySuite) assertGetManifestsSchemaVersion1(c *gc.C
 func (s *elasticContainerRegistrySuite) TestGetManifestsSchemaVersion1(c *gc.C) {
 	s.assertGetManifestsSchemaVersion1(c,
 		`
-{ "schemaVersion": 1, "name": "jujuqa/jujud-operator", "tag": "2.9.13", "architecture": "amd64"}
+{ "schemaVersion": 1, "name": "jujuqa/jujud-operator", "tag": "2.9.13", "architecture": "ppc64le"}
 `[1:],
 		`application/vnd.docker.distribution.manifest.v1+prettyjws`,
-		&internal.ManifestsResult{Architecture: "amd64"},
+		&internal.ManifestsResult{Architectures: []string{"ppc64el"}},
 	)
 }
 
@@ -358,6 +358,23 @@ func (s *elasticContainerRegistrySuite) TestGetManifestsSchemaVersion2(c *gc.C) 
 `[1:],
 		`application/vnd.docker.distribution.manifest.v2+prettyjws`,
 		&internal.ManifestsResult{Digest: "sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1"},
+	)
+}
+
+func (s *elasticContainerRegistrySuite) TestGetManifestsSchemaVersion2List(c *gc.C) {
+	s.assertGetManifestsSchemaVersion1(c,
+		`
+{
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+    "manifests": [
+        {"platform": {"architecture": "amd64"}},
+        {"platform": {"architecture": "ppc64le"}}
+    ]
+}
+`[1:],
+		`application/vnd.docker.distribution.manifest.list.v2+prettyjws`,
+		&internal.ManifestsResult{Architectures: []string{"amd64", "ppc64el"}},
 	)
 }
 
