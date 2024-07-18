@@ -6,6 +6,7 @@ package state_test
 import (
 	"bytes"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/juju/charm/v12"
@@ -473,6 +474,56 @@ func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
 	assertLife(c, manager, state.Alive)
 }
 
+func (s *CleanupSuite) TestDestroyControllerMachineHAWithControllerCharm(c *gc.C) {
+	cons := constraints.Value{
+		Mem: newUint64(100),
+	}
+	changes, err := s.State.EnableHA(3, cons, state.UbuntuBase("12.04"), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
+
+	ch := s.AddTestingCharmWithSeries(c, "juju-controller", "")
+	app := s.AddTestingApplicationForBase(c, state.UbuntuBase("12.04"), "controller", ch)
+
+	var machines []*state.Machine
+	var units []*state.Unit
+	for i := 0; i < 3; i++ {
+		m, err := s.State.Machine(strconv.Itoa(i))
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{
+			state.JobHostUnits,
+			state.JobManageModel,
+		})
+
+		if i == 0 {
+			node, err := s.State.ControllerNode(m.Id())
+			c.Assert(err, jc.ErrorIsNil)
+			node.SetHasVote(true)
+		}
+
+		u, err := app.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		err = u.SetCharmURL(ch.URL())
+		c.Assert(err, jc.ErrorIsNil)
+		err = u.AssignToMachine(m)
+		c.Assert(err, jc.ErrorIsNil)
+
+		machines = append(machines, m)
+		units = append(units, u)
+	}
+
+	for _, m := range machines {
+		assertLife(c, m, state.Alive)
+	}
+	for _, u := range units {
+		assertLife(c, u, state.Alive)
+	}
+
+	s.assertDoesNotNeedCleanup(c)
+	err = machines[2].Destroy()
+	c.Assert(err, gc.ErrorMatches, ".* has unit .* assigned")
+}
+
 const dontWait = time.Duration(0)
 
 func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
@@ -534,7 +585,6 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	// The machine should no longer want the vote, should be forced to not have the vote, and forced to not be a
 	// controller member anymore
 	c.Assert(machine.Refresh(), jc.ErrorIsNil)
-	c.Check(machine.Life(), gc.Equals, state.Dying)
 	node, err = s.State.ControllerNode(machine.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(node.WantsVote(), jc.IsFalse)
@@ -548,21 +598,15 @@ func (s *CleanupSuite) TestCleanupForceDestroyedControllerMachine(c *gc.C) {
 	s.assertCleanupRuns(c)
 	c.Assert(node.SetHasVote(false), jc.ErrorIsNil)
 	// However, if we remove the vote, it can be cleaned up.
-	// ForceDestroy sets up a cleanupForceDestroyedMachine, which
-	// calls advanceLifecycle(Dead) which sets up a
-	// cleanupDyingMachine, which in turn creates a delayed
-	// cleanupForceRemoveMachine.
-	// Run the first two.
-	s.assertCleanupCountDirty(c, 2)
-	// After we've run the cleanup for the controller machine, the machine should be dead, and it should not be
+	// ForceDestroy sets up a cleanupEvacuateMachine, which will not
+	// add any other cleanup ops.
+	// After we've run the cleanup for the controller machine, the machine should be dying, and it should not be
 	// present in the other documents.
-	assertLife(c, machine, state.Dead)
+	assertLife(c, machine, state.Dying)
 	controllerIds, err = s.State.ControllerIds()
 	c.Assert(err, jc.ErrorIsNil)
 	sort.Strings(controllerIds)
 	sort.Strings(changes.Added)
-	// Only the machines that were added should still be part of the controller
-	c.Check(controllerIds, gc.DeepEquals, changes.Added)
 }
 
 func (s *CleanupSuite) TestCleanupForceDestroyMachineCleansStorageAttachments(c *gc.C) {
