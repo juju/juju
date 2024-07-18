@@ -13,7 +13,6 @@ CREATE TABLE machine (
     agent_started_at DATETIME,
     hostname TEXT,
     is_controller BOOLEAN,
-    mark_for_removal BOOLEAN,
     CONSTRAINT fk_machine_net_node
     FOREIGN KEY (net_node_uuid)
     REFERENCES net_node (uuid),
@@ -123,4 +122,17 @@ CREATE TABLE machine_status_data (
     FOREIGN KEY (machine_uuid)
     REFERENCES machine (uuid),
     PRIMARY KEY (machine_uuid, "key")
+);
+
+-- machine_removals table is a table which represents machines that are marked
+-- for removal.
+-- Being added to this table means that the machine is marked for removal,
+-- however, we keep a mark_for_removal column to allow for more granularity in
+-- behavior if needed.
+CREATE TABLE machine_removals (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    mark_for_removal BOOLEAN NOT NULL,
+    CONSTRAINT fk_machine_removals_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
 );

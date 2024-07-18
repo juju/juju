@@ -611,7 +611,7 @@ func (s *stateSuite) TestGetMachineParentUUIDNoParent(c *gc.C) {
 // TestMarkMachineForRemovalSuccess asserts the happy path of
 // MarkMachineForRemoval at the state layer.
 func (s *stateSuite) TestMarkMachineForRemovalSuccess(c *gc.C) {
-	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.MarkMachineForRemoval(context.Background(), "666")
@@ -619,7 +619,7 @@ func (s *stateSuite) TestMarkMachineForRemovalSuccess(c *gc.C) {
 
 	var mark bool
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT mark_for_removal FROM machine WHERE name=?", "666").Scan(&mark)
+		err := tx.QueryRowContext(ctx, "SELECT mark_for_removal FROM machine_removals WHERE machine_uuid=?", "123").Scan(&mark)
 		if err != nil {
 			return errors.Trace(err)
 		}

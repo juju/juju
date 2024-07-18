@@ -93,10 +93,11 @@ type machineName struct {
 	Name machine.Name `db:"name"`
 }
 
-// machineMarkForRemoval represents the struct to be used for the
-// mark_for_removal column within the sqlair statements in the machine domain.
+// machineMarkForRemoval represents the struct to be used for the columns of the
+// machine_removals table within the sqlair statements in the machine domain.
 type machineMarkForRemoval struct {
-	Mark bool `db:"mark_for_removal"`
+	UUID string `db:"machine_uuid"`
+	Mark bool   `db:"mark_for_removal"`
 }
 
 // machineUUID represents the struct to be used for the machine_uuid column

@@ -678,51 +678,39 @@ func (st *State) MarkMachineForRemoval(ctx context.Context, mName machine.Name) 
 		return errors.Trace(err)
 	}
 
-	// Prepare query for machine mark_for_removal field to check
-	// i) if the machine exists,
-	// ii) if it's already marked for removal (then this is a no-op).
+	// Prepare query for getting the machine UUID.
 	machineNameParam := machineName{Name: mName}
-	markForRemovalOut := machineMarkForRemoval{}
-	markForRemovalRetrieveQuery := `SELECT &machineMarkForRemoval.* FROM machine WHERE name = $machineName.name`
-	markForRemovalRetrieveStmt, err := st.Prepare(markForRemovalRetrieveQuery, machineNameParam, markForRemovalOut)
+	markForRemovalWithUUID := machineMarkForRemoval{}
+	machineUUIDQuery := `SELECT uuid AS &machineMarkForRemoval.machine_uuid FROM machine WHERE name = $machineName.name`
+	machineUUIDStmt, err := st.Prepare(machineUUIDQuery, machineNameParam, markForRemovalWithUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// Prepare query for updating mark_for_removal column in machine table for
-	// the given machine.
+	// Prepare query for adding the machine to the machine_removals table.
+	markForRemovalWithUUID.Mark = true
 	markForRemovalUpdateQuery := `
-UPDATE machine
-SET mark_for_removal = true
-WHERE name = $machineName.name`
-	markForRemovalStmt, err := st.Prepare(markForRemovalUpdateQuery, machineNameParam)
+INSERT INTO machine_removals (machine_uuid, mark_for_removal)
+VALUES ($machineMarkForRemoval.*)`
+	markForRemovalStmt, err := st.Prepare(markForRemovalUpdateQuery, markForRemovalWithUUID)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Query for the mark of the given machine.
-		// Return NotFound if the machine doesn't exist.
-		err := tx.Query(ctx, markForRemovalRetrieveStmt, machineNameParam).Get(&markForRemovalOut)
+		// Query for the machine UUID.
+		err := tx.Query(ctx, machineUUIDStmt, machineNameParam).Get(&markForRemovalWithUUID)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(machineerrors.NotFound, "machine %q", mName)
 		}
 		if err != nil {
-			return errors.Annotatef(err, "querying mark for removal for machine %q", mName)
-		}
-
-		// If it's already marked, then this is a no-op.
-		if markForRemovalOut.Mark {
-			return nil
+			return errors.Annotatef(err, "querying UUID for machine %q", mName)
 		}
 
 		// Run query for updating the mark_for_removal column.
-		return tx.Query(ctx, markForRemovalStmt, machineNameParam).Run()
+		return tx.Query(ctx, markForRemovalStmt, markForRemovalWithUUID).Run()
 	})
 
-	if errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Annotatef(machineerrors.NotFound, "machine %q", mName)
-	}
 	if err != nil {
 		return errors.Annotatef(err, "marking machine %q for removal", mName)
 	}
@@ -739,14 +727,14 @@ func (st *State) AllMachineRemovals(ctx context.Context) ([]string, error) {
 	}
 
 	// Prepare query for uuids of all machines marked for removal.
-	machineUUIDOut := machineUUID{}
-	machinesMarkedForRemovalQuery := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE mark_for_removal = true`
-	machinesMarkedForRemovalStmt, err := st.Prepare(machinesMarkedForRemovalQuery, machineUUIDOut)
+	markForRemovalParam := machineMarkForRemoval{}
+	machinesMarkedForRemovalQuery := `SELECT &machineMarkForRemoval.* FROM machine_removals WHERE mark_for_removal = true`
+	machinesMarkedForRemovalStmt, err := st.Prepare(machinesMarkedForRemovalQuery, markForRemovalParam)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	var results []machineUUID
+	var results []machineMarkForRemoval
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Run query to get all machines marked for removal.
 		err := tx.Query(ctx, machinesMarkedForRemovalStmt).GetAll(&results)
@@ -762,9 +750,9 @@ func (st *State) AllMachineRemovals(ctx context.Context) ([]string, error) {
 	}
 
 	// Transform the results ([]machineUUID) into a slice of machine UUIDs.
-	machineUUIDs := transform.Slice[machineUUID, string](
+	machineUUIDs := transform.Slice[machineMarkForRemoval, string](
 		results,
-		func(r machineUUID) string { return r.UUID },
+		func(r machineMarkForRemoval) string { return r.UUID },
 	)
 
 	return machineUUIDs, nil
