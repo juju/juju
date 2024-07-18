@@ -12,7 +12,9 @@ import (
 	"github.com/juju/version/v2"
 
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/logger"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/model"
 	modelerrors "github.com/juju/juju/domain/model/errors"
@@ -24,15 +26,18 @@ import (
 // database state.
 type ModelState struct {
 	*domain.StateBase
+	logger logger.Logger
 }
 
 // NewModelState returns a new State for interacting with the underlying model
 // database state.
 func NewModelState(
 	factory database.TxnRunnerFactory,
+	logger logger.Logger,
 ) *ModelState {
 	return &ModelState{
 		StateBase: domain.NewStateBase(factory),
+		logger:    logger,
 	}
 }
 
@@ -121,6 +126,7 @@ FROM model
 		rawControllerUUID string
 		model             coremodel.ReadOnlyModel
 		agentVersion      string
+		credOwnerName     string
 	)
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, stmt)
@@ -133,7 +139,7 @@ FROM model
 			&model.Cloud,
 			&model.CloudType,
 			&model.CloudRegion,
-			&model.CredentialOwner,
+			&credOwnerName,
 			&model.CredentialName,
 		); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -145,6 +151,15 @@ FROM model
 	})
 	if err != nil {
 		return coremodel.ReadOnlyModel{}, errors.Trace(err)
+	}
+
+	if credOwnerName != "" {
+		model.CredentialOwner, err = user.NewName(credOwnerName)
+		if err != nil {
+			return coremodel.ReadOnlyModel{}, errors.Trace(err)
+		}
+	} else {
+		s.logger.Infof("model %s: cloud credential owner name is empty", model.Name)
 	}
 
 	model.AgentVersion, err = version.Parse(agentVersion)
@@ -186,7 +201,7 @@ INSERT INTO model (uuid, controller_uuid, name, type, target_agent_version, clou
 		args.Cloud,
 		args.CloudType,
 		args.CloudRegion,
-		args.CredentialOwner,
+		args.CredentialOwner.Name(),
 		args.CredentialName,
 	)
 	if err != nil {

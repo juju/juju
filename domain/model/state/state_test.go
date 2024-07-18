@@ -48,7 +48,7 @@ type stateSuite struct {
 
 	uuid     coremodel.UUID
 	userUUID user.UUID
-	userName string
+	userName user.Name
 }
 
 var _ = gc.Suite(&stateSuite{})
@@ -60,7 +60,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	// owner.
 	userUUID, err := user.NewUUID()
 	m.userUUID = userUUID
-	m.userName = "test-user"
+	m.userName = usertesting.GenNewName(c, "test-user")
 	c.Assert(err, jc.ErrorIsNil)
 	m.uuid = modeltesting.GenModelUUID(c)
 	m.controllerUUID = m.SeedControllerTable(c, m.uuid)
@@ -69,7 +69,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 		context.Background(),
 		m.userUUID,
 		m.userName,
-		m.userName,
+		m.userName.Name(),
 		false,
 		m.userUUID,
 		permission.AccessSpec{
@@ -125,7 +125,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "my-cloud",
-			Owner: "test-user",
+			Owner: usertesting.GenNewName(c, "test-user"),
 			Name:  "foobar",
 		},
 		cred,
@@ -134,7 +134,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "other-cloud",
-			Owner: "test-user",
+			Owner: usertesting.GenNewName(c, "test-user"),
 			Name:  "foobar",
 		},
 		cred,
@@ -155,7 +155,7 @@ func (m *stateSuite) SetUpTest(c *gc.C) {
 			CloudRegion:  "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          "my-test-model",
@@ -196,7 +196,7 @@ func (m *stateSuite) TestCloudTypeMissing(c *gc.C) {
 func (m *stateSuite) TestModelCloudNameAndCredential(c *gc.C) {
 	st := NewState(m.TxnRunnerFactory())
 	// We are relying on the model setup as part of this suite.
-	cloudName, credentialID, err := st.ModelCloudNameAndCredential(context.Background(), "my-test-model", "test-user")
+	cloudName, credentialID, err := st.ModelCloudNameAndCredential(context.Background(), "my-test-model", usertesting.GenNewName(c, "test-user"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cloudName, gc.Equals, "my-cloud")
 	c.Check(credentialID, gc.Equals, corecredential.Key{
@@ -218,7 +218,7 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 		context.Background(),
 		userUUID,
 		coremodel.ControllerModelOwnerUsername,
-		coremodel.ControllerModelOwnerUsername,
+		coremodel.ControllerModelOwnerUsername.Name(),
 		false,
 		userUUID,
 		permission.AccessSpec{
@@ -276,7 +276,7 @@ func (m *stateSuite) TestModelCloudNameAndCredentialController(c *gc.C) {
 func (m *stateSuite) TestModelCloudNameAndCredentialNotFound(c *gc.C) {
 	st := NewState(m.TxnRunnerFactory())
 	// We are relying on the model setup as part of this suite.
-	cloudName, credentialID, err := st.ModelCloudNameAndCredential(context.Background(), "does-not-exist", "test-user")
+	cloudName, credentialID, err := st.ModelCloudNameAndCredential(context.Background(), "does-not-exist", usertesting.GenNewName(c, "test-user"))
 	c.Assert(err, jc.ErrorIs, modelerrors.NotFound)
 	c.Check(cloudName, gc.Equals, "")
 	c.Check(credentialID.IsZero(), jc.IsTrue)
@@ -296,12 +296,12 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 		CloudRegion:  "my-region",
 		Credential: corecredential.Key{
 			Cloud: "my-cloud",
-			Owner: "test-user",
+			Owner: usertesting.GenNewName(c, "test-user"),
 			Name:  "foobar",
 		},
 		Name:      "my-test-model",
 		Owner:     m.userUUID,
-		OwnerName: "test-user",
+		OwnerName: usertesting.GenNewName(c, "test-user"),
 		ModelType: coremodel.IAAS,
 		Life:      life.Alive,
 	})
@@ -429,7 +429,7 @@ func (m *stateSuite) TestCreateWithEmptyRegion(c *gc.C) {
 			Owner: m.userUUID,
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			SecretBackend: juju.BackendName,
@@ -459,7 +459,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 			Owner:       m.userUUID,
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			SecretBackend: juju.BackendName,
@@ -478,7 +478,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionUsesControllerRegion(c *gc.C) {
 			Owner: m.userUUID,
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			SecretBackend: juju.BackendName,
@@ -510,7 +510,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 			Owner:       m.userUUID,
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			SecretBackend: juju.BackendName,
@@ -536,7 +536,7 @@ func (m *stateSuite) TestCreateWithEmptyRegionDoesNotUseControllerRegionForDiffe
 			Owner: m.userUUID,
 			Credential: corecredential.Key{
 				Cloud: "other-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			SecretBackend: juju.BackendName,
@@ -618,7 +618,7 @@ func (m *stateSuite) TestCreateModelVerifyPermissionSet(c *gc.C) {
 			CloudRegion:  "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          "listtest1",
@@ -683,7 +683,7 @@ func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "my-cloud2",
-			Owner: "test-user",
+			Owner: usertesting.GenNewName(c, "test-user"),
 			Name:  "foobar1",
 		},
 		cred,
@@ -696,7 +696,7 @@ func (m *stateSuite) TestUpdateCredentialForDifferentCloud(c *gc.C) {
 		m.uuid,
 		corecredential.Key{
 			Cloud: "my-cloud2",
-			Owner: "test-user",
+			Owner: usertesting.GenNewName(c, "test-user"),
 			Name:  "foobar1",
 		},
 	)
@@ -731,7 +731,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 	_, err = credSt.UpsertCloudCredential(
 		context.Background(), corecredential.Key{
 			Cloud: "minikube",
-			Owner: "test-user",
+			Owner: usertesting.GenNewName(c, "test-user"),
 			Name:  "foobar",
 		},
 		cred,
@@ -748,7 +748,7 @@ func (m *stateSuite) TestSetModelCloudCredentialWithoutRegion(c *gc.C) {
 			Cloud: "minikube",
 			Credential: corecredential.Key{
 				Cloud: "minikube",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          "controller",
@@ -816,7 +816,7 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 			CloudRegion:  "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          "listtest1",
@@ -839,7 +839,7 @@ func (m *stateSuite) TestListModelIDs(c *gc.C) {
 			CloudRegion:  "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          "listtest2",
@@ -929,7 +929,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 			CloudRegion:  "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          "owned1",
@@ -951,7 +951,7 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 			CloudRegion:  "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          "owned2",
@@ -978,10 +978,10 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
 			Owner:       m.userUUID,
-			OwnerName:   "test-user",
+			OwnerName:   usertesting.GenNewName(c, "test-user"),
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Life: life.Alive,
@@ -993,10 +993,10 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
 			Owner:       m.userUUID,
-			OwnerName:   "test-user",
+			OwnerName:   usertesting.GenNewName(c, "test-user"),
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Life: life.Alive,
@@ -1008,10 +1008,10 @@ func (m *stateSuite) TestModelsOwnedByUser(c *gc.C) {
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
 			Owner:       m.userUUID,
-			OwnerName:   "test-user",
+			OwnerName:   usertesting.GenNewName(c, "test-user"),
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Life: life.Alive,
@@ -1043,10 +1043,10 @@ func (m *stateSuite) TestAllModels(c *gc.C) {
 			CloudRegion: "my-region",
 			ModelType:   coremodel.IAAS,
 			Owner:       m.userUUID,
-			OwnerName:   "test-user",
+			OwnerName:   usertesting.GenNewName(c, "test-user"),
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Life: life.Alive,
@@ -1070,7 +1070,7 @@ func (m *stateSuite) TestSecretBackendNotFoundForModelCreate(c *gc.C) {
 			CloudRegion:  "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          "secretfailure",
@@ -1086,13 +1086,13 @@ func (m *stateSuite) TestSecretBackendNotFoundForModelCreate(c *gc.C) {
 // back an error that satisfies [modelerrors.NotFound].
 func (m *stateSuite) TestGetModelByNameNotFound(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
-	_, err := modelSt.GetModelByName(context.Background(), "nonuser", "my-test-model")
+	_, err := modelSt.GetModelByName(context.Background(), usertesting.GenNewName(c, "nonuser"), "my-test-model")
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 
 	_, err = modelSt.GetModelByName(context.Background(), m.userName, "noexist")
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 
-	_, err = modelSt.GetModelByName(context.Background(), "nouser", "noexist")
+	_, err = modelSt.GetModelByName(context.Background(), usertesting.GenNewName(c, "nouser"), "noexist")
 	c.Check(err, jc.ErrorIs, modelerrors.NotFound)
 }
 
@@ -1113,7 +1113,7 @@ func (m *stateSuite) TestGetModelByName(c *gc.C) {
 		CloudRegion:  "my-region",
 		Credential: corecredential.Key{
 			Cloud: "my-cloud",
-			Owner: "test-user",
+			Owner: usertesting.GenNewName(c, "test-user"),
 			Name:  "foobar",
 		},
 		Owner:     m.userUUID,
@@ -1142,7 +1142,7 @@ func (m *stateSuite) TestCleanupBrokenModel(c *gc.C) {
 			CloudRegion:  "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          "broken-model",
@@ -1166,7 +1166,7 @@ func (m *stateSuite) TestCleanupBrokenModel(c *gc.C) {
 			CloudRegion:  "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          "broken-model",
@@ -1196,7 +1196,7 @@ func (m *stateSuite) TestGetControllerModel(c *gc.C) {
 		CloudRegion:  "my-region",
 		Credential: corecredential.Key{
 			Cloud: "my-cloud",
-			Owner: "test-user",
+			Owner: usertesting.GenNewName(c, "test-user"),
 			Name:  "foobar",
 		},
 		Owner:     m.userUUID,
@@ -1209,7 +1209,7 @@ func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
 	// Add a second model (one was added in SetUpTest).
 	modelUUID := m.createTestModel(c, modelSt, "my-test-model-2", m.userUUID)
 
-	models, err := modelSt.ListModelSummariesForUser(context.Background(), "test-user")
+	models, err := modelSt.ListModelSummariesForUser(context.Background(), usertesting.GenNewName(c, "test-user"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(models), gc.Equals, 2)
@@ -1228,14 +1228,14 @@ func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
 			CloudType:   "ec2",
 			CloudCredentialKey: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			ControllerUUID: m.controllerUUID,
 			IsController:   true,
 			AgentVersion:   version.Current,
 			ModelType:      coremodel.IAAS,
-			OwnerName:      "test-user",
+			OwnerName:      usertesting.GenNewName(c, "test-user"),
 			Life:           life.Alive,
 		}}, {
 		UserLastConnection: nil,
@@ -1248,14 +1248,14 @@ func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
 			CloudType:   "ec2",
 			CloudCredentialKey: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			ControllerUUID: m.controllerUUID,
 			IsController:   false,
 			AgentVersion:   version.Current,
 			ModelType:      coremodel.IAAS,
-			OwnerName:      "test-user",
+			OwnerName:      usertesting.GenNewName(c, "test-user"),
 			Life:           life.Alive,
 		}},
 	}
@@ -1272,7 +1272,7 @@ func (m *stateSuite) TestListModelSummariesForUser(c *gc.C) {
 func (m *stateSuite) TestListModelSummariesForUserModelNotFound(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 
-	_, err := modelSt.ListModelSummariesForUser(context.Background(), "wrong-user")
+	_, err := modelSt.ListModelSummariesForUser(context.Background(), usertesting.GenNewName(c, "wrong-user"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -1280,7 +1280,7 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 	modelSt := NewState(m.TxnRunnerFactory())
 	accessSt := accessstate.NewState(m.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 
-	userUUID := m.createTestUser(c, accessSt, "new-user")
+	userUUID := m.createTestUser(c, accessSt, usertesting.GenNewName(c, "new-user"))
 	modelUUID := m.createTestModel(c, modelSt, "new-model", userUUID)
 
 	models, err := modelSt.ListAllModelSummaries(context.Background())
@@ -1300,14 +1300,14 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 			CloudType:   "ec2",
 			CloudCredentialKey: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			ControllerUUID: m.controllerUUID,
 			IsController:   true,
 			AgentVersion:   version.Current,
 			ModelType:      coremodel.IAAS,
-			OwnerName:      "test-user",
+			OwnerName:      usertesting.GenNewName(c, "test-user"),
 			Life:           life.Alive,
 		},
 		{
@@ -1318,27 +1318,27 @@ func (m *stateSuite) TestListAllModelSummaries(c *gc.C) {
 			CloudType:   "ec2",
 			CloudCredentialKey: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			ControllerUUID: m.controllerUUID,
 			IsController:   false,
 			AgentVersion:   version.Current,
 			ModelType:      coremodel.IAAS,
-			OwnerName:      "new-user",
+			OwnerName:      usertesting.GenNewName(c, "new-user"),
 			Life:           life.Alive,
 		},
 	})
 }
 
-func (m *stateSuite) createTestUser(c *gc.C, userState *accessstate.State, name string) user.UUID {
+func (m *stateSuite) createTestUser(c *gc.C, userState *accessstate.State, name user.Name) user.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	err = userState.AddUser(
 		context.Background(),
 		userUUID,
 		name,
-		name,
+		name.Name(),
 		false,
 		m.userUUID,
 		permission.AccessSpec{
@@ -1365,7 +1365,7 @@ func (m *stateSuite) createTestModel(c *gc.C, modelSt *State, name string, creat
 			CloudRegion:  "my-region",
 			Credential: corecredential.Key{
 				Cloud: "my-cloud",
-				Owner: "test-user",
+				Owner: usertesting.GenNewName(c, "test-user"),
 				Name:  "foobar",
 			},
 			Name:          name,

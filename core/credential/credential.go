@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -19,7 +20,7 @@ type Key struct {
 	Cloud string
 
 	// Owner is the owner of the credential. Key is valid when this value is set.
-	Owner string
+	Owner user.Name
 
 	// Name is the name of the credential. It is valid when this value is set.
 	Name string
@@ -35,12 +36,12 @@ func KeyFromTag(tag names.CloudCredentialTag) Key {
 
 	return Key{
 		Cloud: tag.Cloud().Id(),
-		Owner: tag.Owner().Id(),
+		Owner: user.NameFromTag(tag.Owner()),
 		Name:  tag.Name(),
 	}
 }
 
-// IsZero returns true if the [Key] struct is it's zero value with no values set.
+// IsZero returns true if the [Key] struct is its zero value with no values set.
 func (k Key) IsZero() bool {
 	return k == Key{}
 }
@@ -72,7 +73,7 @@ func (k Key) Validate() error {
 	if k.Name == "" {
 		return fmt.Errorf("%w name cannot be empty", errors.NotValid)
 	}
-	if k.Owner == "" {
+	if k.Owner.IsZero() {
 		return fmt.Errorf("%w owner cannot be empty", errors.NotValid)
 	}
 	return nil

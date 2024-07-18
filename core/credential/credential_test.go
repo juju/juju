@@ -9,6 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -25,7 +27,7 @@ func (s *typeSuite) TestCredentialKeyIsZero(c *gc.C) {
 func (s *typeSuite) TestCredentialKeyIsNotZero(c *gc.C) {
 	tests := []Key{
 		{
-			Owner: "wallyworld",
+			Owner: usertesting.GenNewName(c, "wallyworld"),
 		},
 		{
 			Cloud: "somecloud",
@@ -35,7 +37,7 @@ func (s *typeSuite) TestCredentialKeyIsNotZero(c *gc.C) {
 		},
 		{
 			Cloud: "somecloud",
-			Owner: "wallyworld",
+			Owner: usertesting.GenNewName(c, "wallyworld"),
 			Name:  "somecred",
 		},
 	}
@@ -54,7 +56,7 @@ func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
 			Key: Key{
 				Cloud: "",
 				Name:  "wallyworld",
-				Owner: "wallyworld",
+				Owner: usertesting.GenNewName(c, "wallyworld"),
 			},
 			Err: errors.NotValid,
 		},
@@ -62,7 +64,7 @@ func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
 			Key: Key{
 				Cloud: "my-cloud",
 				Name:  "",
-				Owner: "wallyworld",
+				Owner: usertesting.GenNewName(c, "wallyworld"),
 			},
 			Err: errors.NotValid,
 		},
@@ -70,7 +72,7 @@ func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
 			Key: Key{
 				Cloud: "my-cloud",
 				Name:  "wallyworld",
-				Owner: "",
+				Owner: user.Name{},
 			},
 			Err: errors.NotValid,
 		},
@@ -78,7 +80,7 @@ func (s *typeSuite) TestCredentialKeyValidate(c *gc.C) {
 			Key: Key{
 				Cloud: "my-cloud",
 				Name:  "wallyworld",
-				Owner: "wallyworld",
+				Owner: usertesting.GenNewName(c, "wallyworld"),
 			},
 			Err: nil,
 		},

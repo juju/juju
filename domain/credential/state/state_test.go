@@ -22,6 +22,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
@@ -38,7 +39,7 @@ import (
 type credentialSuite struct {
 	changestreamtesting.ControllerSuite
 	userUUID       user.UUID
-	userName       string
+	userName       user.Name
 	controllerUUID string
 }
 
@@ -49,7 +50,7 @@ func (s *credentialSuite) SetUpTest(c *gc.C) {
 
 	s.controllerUUID = s.SeedControllerUUID(c)
 
-	s.userName = "test-user"
+	s.userName = usertesting.GenNewName(c, "test-user")
 	s.userUUID = s.addOwner(c, s.userName)
 
 	s.addCloud(c, s.userName, cloud.Cloud{
@@ -59,7 +60,7 @@ func (s *credentialSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *credentialSuite) addOwner(c *gc.C, name string) user.UUID {
+func (s *credentialSuite) addOwner(c *gc.C, name user.Name) user.UUID {
 	userUUID, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
@@ -82,7 +83,7 @@ func (s *credentialSuite) addOwner(c *gc.C, name string) user.UUID {
 	return userUUID
 }
 
-func (s *credentialSuite) addCloud(c *gc.C, userName string, cloud cloud.Cloud) string {
+func (s *credentialSuite) addCloud(c *gc.C, userName user.Name, cloud cloud.Cloud) string {
 	cloudSt := dbcloud.NewState(s.TxnRunnerFactory())
 	ctx := context.Background()
 	cloudUUID := uuid.MustNewUUID().String()
@@ -248,7 +249,7 @@ func (s *credentialSuite) TestCloudCredentialsEmpty(c *gc.C) {
 
 func (s *credentialSuite) TestCloudCredentials(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
-	s.addOwner(c, "mary")
+	s.addOwner(c, usertesting.GenNewName(c, "mary"))
 
 	cred1Info := credential.CloudCredentialInfo{
 		AuthType: string(cloud.AccessKeyAuthType),
@@ -270,7 +271,7 @@ func (s *credentialSuite) TestCloudCredentials(c *gc.C) {
 	}
 	_, err = st.UpsertCloudCredential(ctx, corecredential.Key{Cloud: "stratus", Owner: s.userName, Name: "bobcred2"}, cred2Info)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = st.UpsertCloudCredential(ctx, corecredential.Key{Cloud: "stratus", Owner: "mary", Name: "foobar"}, cred2Info)
+	_, err = st.UpsertCloudCredential(ctx, corecredential.Key{Cloud: "stratus", Owner: usertesting.GenNewName(c, "mary"), Name: "foobar"}, cred2Info)
 	c.Assert(err, jc.ErrorIsNil)
 
 	cred1Info.Label = "bobcred1"
@@ -439,10 +440,10 @@ func (s *credentialSuite) TestAllCloudCredentials(c *gc.C) {
 	two := s.createCloudCredential(c, st, keyTwo)
 
 	// We need to add mary here so that they are a valid user.
-	s.addOwner(c, "mary")
+	s.addOwner(c, usertesting.GenNewName(c, "mary"))
 
 	// Added to make sure it is not returned.
-	keyThree := corecredential.Key{Cloud: "cumulus", Owner: "mary", Name: "foobar"}
+	keyThree := corecredential.Key{Cloud: "cumulus", Owner: usertesting.GenNewName(c, "mary"), Name: "foobar"}
 	s.addCloud(c, keyThree.Owner, cloud.Cloud{
 		Name:      keyThree.Cloud,
 		Type:      "ec2",

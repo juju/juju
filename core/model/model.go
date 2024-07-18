@@ -83,7 +83,7 @@ type Model struct {
 	Owner user.UUID
 
 	// OwnerName is the name of the owner in the Juju controller.
-	OwnerName string
+	OwnerName user.Name
 }
 
 // UUID represents a model unique identifier.

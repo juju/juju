@@ -3,8 +3,8 @@
 
 package user
 
-const (
-	// AdminUsername is the default username that we give to the default admin
+var (
+	// AdminUserName is the default username that we give to the default admin
 	// user that is created as part of every Juju bootstrap.
-	AdminUserName = "admin"
+	AdminUserName = Name{name: "admin"}
 )

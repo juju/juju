@@ -83,6 +83,7 @@ const AdminSecret = "dummy-secret"
 var (
 	// AdminUser is the default admin user for a controller.
 	AdminUser = names.NewUserTag("admin")
+	AdminName = coreuser.NameFromTag(AdminUser)
 
 	// DefaultCloudRegion is the default cloud region for a controller model.
 	DefaultCloudRegion = "dummy-region"
@@ -621,7 +622,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
-		return cloudstate.CreateCloud(ctx, tx, "admin", cloudUUID.String(), cloud.Cloud{
+		return cloudstate.CreateCloud(ctx, tx, AdminName, cloudUUID.String(), cloud.Cloud{
 			Name:      "caascloud",
 			Type:      "kubernetes",
 			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.AccessKeyAuthType, cloud.UserPassAuthType},
@@ -631,7 +632,7 @@ func (s *ApiServerSuite) SeedCAASCloud(c *gc.C) {
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		return credentialstate.CreateCredential(ctx, tx, credUUID.String(), corecredential.Key{
 			Cloud: "caascloud",
-			Owner: "admin",
+			Owner: AdminName,
 			Name:  "dummy-credential",
 		}, cred)
 	})

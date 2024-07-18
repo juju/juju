@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -23,6 +22,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	coreusertesting "github.com/juju/juju/core/user/testing"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	usertesting "github.com/juju/juju/domain/access/testing"
 	"github.com/juju/juju/internal/auth"
@@ -49,14 +49,14 @@ func (s *userServiceSuite) service() *Service {
 // username that is not valid we get an error that satisfies
 // usererrors.UserNameNotValid back.
 func (s *userServiceSuite) TestAddUserNameNotValid(c *gc.C) {
-	_, _, err := s.service().AddUser(context.Background(), AddUserArg{Name: usertesting.InvalidUsernames[0]})
+	_, _, err := s.service().AddUser(context.Background(), AddUserArg{Name: user.Name{}})
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
 // TestAddUserExternalUser is testing that if we try and add an external user we
 // get an error.
 func (s *userServiceSuite) TestAddUserExternalUser(c *gc.C) {
-	_, _, err := s.service().AddUser(context.Background(), AddUserArg{Name: "alastair@external"})
+	_, _, err := s.service().AddUser(context.Background(), AddUserArg{Name: coreusertesting.GenNewName(c, "alastair@external")})
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
@@ -72,7 +72,7 @@ func (s *userServiceSuite) TestAddUserAlreadyExists(c *gc.C) {
 	s.state.EXPECT().AddUserWithActivationKey(a, stringerNotEmpty{}, a, a, a, a, a).Return(usererrors.UserAlreadyExists)
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
-		Name:        "valid",
+		Name:        coreusertesting.GenNewName(c, "valid"),
 		CreatorUUID: newUUID(c),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
@@ -94,7 +94,7 @@ func (s *userServiceSuite) TestAddUserCreatorUUIDNotFound(c *gc.C) {
 	s.state.EXPECT().AddUserWithActivationKey(a, stringerNotEmpty{}, a, a, a, a, a).Return(usererrors.UserCreatorUUIDNotFound)
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
-		Name:        "valid",
+		Name:        coreusertesting.GenNewName(c, "valid"),
 		CreatorUUID: newUUID(c),
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
@@ -122,14 +122,15 @@ func (s *userServiceSuite) TestAddUserWithPassword(c *gc.C) {
 		},
 	}
 
+	name := coreusertesting.GenNewName(c, "valid")
 	s.state.EXPECT().AddUserWithPasswordHash(
-		gomock.Any(), userUUID, "valid", "display", creatorUUID, perms, gomock.Any(), gomock.Any()).Return(nil)
+		gomock.Any(), userUUID, name, "display", creatorUUID, perms, gomock.Any(), gomock.Any()).Return(nil)
 
 	pass := auth.NewPassword("password")
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		UUID:        userUUID,
-		Name:        "valid",
+		Name:        name,
 		DisplayName: "display",
 		Password:    &pass,
 		CreatorUUID: creatorUUID,
@@ -152,7 +153,7 @@ func (s *userServiceSuite) TestAddUserWithPasswordNotValid(c *gc.C) {
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		UUID:        userUUID,
-		Name:        "valid",
+		Name:        coreusertesting.GenNewName(c, "valid"),
 		DisplayName: "display",
 		Password:    &badPass,
 		CreatorUUID: creatorUUID,
@@ -178,7 +179,7 @@ func (s *userServiceSuite) TestAddUserWithPermissionInvalid(c *gc.C) {
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		UUID:        userUUID,
-		Name:        "valid",
+		Name:        coreusertesting.GenNewName(c, "valid"),
 		DisplayName: "display",
 		Password:    &pass,
 		CreatorUUID: creatorUUID,
@@ -190,16 +191,16 @@ func (s *userServiceSuite) TestAddUserWithPermissionInvalid(c *gc.C) {
 func (s *userServiceSuite) TestRemoveUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().RemoveUser(gomock.Any(), "user").Return(nil)
+	s.state.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "user")).Return(nil)
 
-	err := s.service().RemoveUser(context.Background(), "user")
+	err := s.service().RemoveUser(context.Background(), coreusertesting.GenNewName(c, "user"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TestRemoveUserInvalidUsername is testing that if we supply RemoveUser with
 // invalid usernames we get back an error.
 func (s *userServiceSuite) TestRemoveUserInvalidUsername(c *gc.C) {
-	err := s.service().RemoveUser(context.Background(), usertesting.InvalidUsernames[0])
+	err := s.service().RemoveUser(context.Background(), user.Name{})
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
@@ -209,9 +210,9 @@ func (s *userServiceSuite) TestRemoveUserInvalidUsername(c *gc.C) {
 func (s *userServiceSuite) TestRemoveUserNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().RemoveUser(gomock.Any(), "missing").Return(usererrors.UserNotFound)
+	s.state.EXPECT().RemoveUser(gomock.Any(), coreusertesting.GenNewName(c, "missing")).Return(usererrors.UserNotFound)
 
-	err := s.service().RemoveUser(context.Background(), "missing")
+	err := s.service().RemoveUser(context.Background(), coreusertesting.GenNewName(c, "missing"))
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
@@ -222,14 +223,14 @@ func (s *userServiceSuite) TestSetPassword(c *gc.C) {
 	a := gomock.Any()
 	s.state.EXPECT().SetPasswordHash(a, a, a, a).Return(nil)
 
-	err := s.service().SetPassword(context.Background(), "user", auth.NewPassword("password"))
+	err := s.service().SetPassword(context.Background(), coreusertesting.GenNewName(c, "user"), auth.NewPassword("password"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 // TestSetPasswordInvalidUsername is testing that if we supply SetPassword with
 // invalid usernames we get back an error.
 func (s *userServiceSuite) TestSetPasswordInvalidUsername(c *gc.C) {
-	err := s.service().SetPassword(context.Background(), usertesting.InvalidUsernames[0], auth.NewPassword("password"))
+	err := s.service().SetPassword(context.Background(), user.Name{}, auth.NewPassword("password"))
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
@@ -241,14 +242,14 @@ func (s *userServiceSuite) TestSetPasswordUserNotFound(c *gc.C) {
 	a := gomock.Any()
 	s.state.EXPECT().SetPasswordHash(a, a, a, a).Return(usererrors.UserNotFound)
 
-	err := s.service().SetPassword(context.Background(), "user", auth.NewPassword("password"))
+	err := s.service().SetPassword(context.Background(), coreusertesting.GenNewName(c, "user"), auth.NewPassword("password"))
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
 // TestSetPasswordInvalid is asserting that if pass invalid passwords to
 // SetPassword the correct errors are returned.
 func (s *userServiceSuite) TestSetPasswordInvalid(c *gc.C) {
-	err := s.service().SetPassword(context.Background(), "username", auth.NewPassword(""))
+	err := s.service().SetPassword(context.Background(), coreusertesting.GenNewName(c, "username"), auth.NewPassword(""))
 	c.Assert(err, jc.ErrorIs, auth.ErrPasswordNotValid)
 }
 
@@ -256,9 +257,9 @@ func (s *userServiceSuite) TestSetPasswordInvalid(c *gc.C) {
 func (s *userServiceSuite) TestResetPassword(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().SetActivationKey(gomock.Any(), "name", gomock.Any()).Return(nil)
+	s.state.EXPECT().SetActivationKey(gomock.Any(), coreusertesting.GenNewName(c, "name"), gomock.Any()).Return(nil)
 
-	key, err := s.service().ResetPassword(context.Background(), "name")
+	key, err := s.service().ResetPassword(context.Background(), coreusertesting.GenNewName(c, "name"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(key, gc.Not(gc.Equals), "")
 }
@@ -266,7 +267,7 @@ func (s *userServiceSuite) TestResetPassword(c *gc.C) {
 // TestResetPasswordInvalidUsername is testing that if we supply ResetPassword
 // with invalid usernames we get back an error.
 func (s *userServiceSuite) TestResetPasswordInvalidUsername(c *gc.C) {
-	_, err := s.service().ResetPassword(context.Background(), usertesting.InvalidUsernames[0])
+	_, err := s.service().ResetPassword(context.Background(), user.Name{})
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
@@ -275,9 +276,9 @@ func (s *userServiceSuite) TestResetPasswordInvalidUsername(c *gc.C) {
 func (s *userServiceSuite) TestResetPasswordUserNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().SetActivationKey(gomock.Any(), "name", gomock.Any()).Return(usererrors.UserNotFound)
+	s.state.EXPECT().SetActivationKey(gomock.Any(), coreusertesting.GenNewName(c, "name"), gomock.Any()).Return(usererrors.UserNotFound)
 
-	_, err := s.service().ResetPassword(context.Background(), "name")
+	_, err := s.service().ResetPassword(context.Background(), coreusertesting.GenNewName(c, "name"))
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
@@ -303,12 +304,12 @@ func (s *userServiceSuite) TestGetUser(c *gc.C) {
 	uuid := newUUID(c)
 	s.state.EXPECT().GetUser(gomock.Any(), uuid).Return(user.User{
 		UUID: uuid,
-		Name: "user",
+		Name: coreusertesting.GenNewName(c, "user"),
 	}, nil)
 
 	u, err := s.service().GetUser(context.Background(), uuid)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(u.Name, gc.Equals, "user")
+	c.Check(u.Name, gc.Equals, coreusertesting.GenNewName(c, "user"))
 }
 
 // TestGetUserByName tests the happy path for GetUserByName.
@@ -316,12 +317,12 @@ func (s *userServiceSuite) TestGetUserByName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := newUUID(c)
-	s.state.EXPECT().GetUserByName(gomock.Any(), "name").Return(user.User{
+	s.state.EXPECT().GetUserByName(gomock.Any(), coreusertesting.GenNewName(c, "name")).Return(user.User{
 		UUID: uuid,
-		Name: "user",
+		Name: coreusertesting.GenNewName(c, "user"),
 	}, nil)
 
-	u, err := s.service().GetUserByName(context.Background(), "name")
+	u, err := s.service().GetUserByName(context.Background(), coreusertesting.GenNewName(c, "name"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(u.UUID, gc.Equals, uuid)
 }
@@ -331,9 +332,9 @@ func (s *userServiceSuite) TestGetUserByName(c *gc.C) {
 func (s *userServiceSuite) TestGetUserByNameNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().GetUserByName(gomock.Any(), "user").Return(user.User{}, usererrors.UserNotFound)
+	s.state.EXPECT().GetUserByName(gomock.Any(), coreusertesting.GenNewName(c, "user")).Return(user.User{}, usererrors.UserNotFound)
 
-	_, err := s.service().GetUserByName(context.Background(), "user")
+	_, err := s.service().GetUserByName(context.Background(), coreusertesting.GenNewName(c, "user"))
 	c.Assert(err, jc.ErrorIs, usererrors.UserNotFound)
 }
 
@@ -344,19 +345,19 @@ func (s *userServiceSuite) TestGetAllUsers(c *gc.C) {
 	s.state.EXPECT().GetAllUsers(gomock.Any(), true).Return([]user.User{
 		{
 			UUID: newUUID(c),
-			Name: "user0",
+			Name: coreusertesting.GenNewName(c, "user0"),
 		},
 		{
 			UUID: newUUID(c),
-			Name: "user1",
+			Name: coreusertesting.GenNewName(c, "user1"),
 		},
 	}, nil)
 
 	users, err := s.service().GetAllUsers(context.Background(), true)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(users, gc.HasLen, 2)
-	c.Check(users[0].Name, gc.Equals, "user0")
-	c.Check(users[1].Name, gc.Equals, "user1")
+	c.Check(users[0].Name, gc.Equals, coreusertesting.GenNewName(c, "user0"))
+	c.Check(users[1].Name, gc.Equals, coreusertesting.GenNewName(c, "user1"))
 }
 
 // TestGetUserByNameInvalidUsername is here to assert that when we ask for a user with
@@ -364,7 +365,7 @@ func (s *userServiceSuite) TestGetAllUsers(c *gc.C) {
 // here that the service doesn't let invalid usernames flow through to the state
 // layer.
 func (s *userServiceSuite) TestGetUserByNameInvalidUsername(c *gc.C) {
-	_, err := s.service().GetUserByName(context.Background(), usertesting.InvalidUsernames[0])
+	_, err := s.service().GetUserByName(context.Background(), user.Name{})
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
@@ -373,12 +374,12 @@ func (s *userServiceSuite) TestGetUserByAuth(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	uuid := newUUID(c)
-	s.state.EXPECT().GetUserByAuth(gomock.Any(), "name", auth.NewPassword("pass")).Return(user.User{
+	s.state.EXPECT().GetUserByAuth(gomock.Any(), coreusertesting.GenNewName(c, "name"), auth.NewPassword("pass")).Return(user.User{
 		UUID: uuid,
-		Name: "user",
+		Name: coreusertesting.GenNewName(c, "user"),
 	}, nil)
 
-	u, err := s.service().GetUserByAuth(context.Background(), "name", auth.NewPassword("pass"))
+	u, err := s.service().GetUserByAuth(context.Background(), coreusertesting.GenNewName(c, "name"), auth.NewPassword("pass"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(u.UUID, gc.Equals, uuid)
 }
@@ -387,9 +388,9 @@ func (s *userServiceSuite) TestGetUserByAuth(c *gc.C) {
 func (s *userServiceSuite) TestEnableUserAuthentication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().EnableUserAuthentication(gomock.Any(), "name")
+	s.state.EXPECT().EnableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "name"))
 
-	err := s.service().EnableUserAuthentication(context.Background(), "name")
+	err := s.service().EnableUserAuthentication(context.Background(), coreusertesting.GenNewName(c, "name"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -397,9 +398,9 @@ func (s *userServiceSuite) TestEnableUserAuthentication(c *gc.C) {
 func (s *userServiceSuite) TestDisableUserAuthentication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().DisableUserAuthentication(gomock.Any(), "name")
+	s.state.EXPECT().DisableUserAuthentication(gomock.Any(), coreusertesting.GenNewName(c, "name"))
 
-	err := s.service().DisableUserAuthentication(context.Background(), "name")
+	err := s.service().DisableUserAuthentication(context.Background(), coreusertesting.GenNewName(c, "name"))
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -415,8 +416,8 @@ func (s *userServiceSuite) TestSetPasswordWithActivationKey(c *gc.C) {
 	_, err := rand.Read(key)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().GetActivationKey(gomock.Any(), "name").Return(key, nil)
-	s.state.EXPECT().SetPasswordHash(gomock.Any(), "name", gomock.Any(), gomock.Any()).Return(nil)
+	s.state.EXPECT().GetActivationKey(gomock.Any(), coreusertesting.GenNewName(c, "name")).Return(key, nil)
+	s.state.EXPECT().SetPasswordHash(gomock.Any(), coreusertesting.GenNewName(c, "name"), gomock.Any(), gomock.Any()).Return(nil)
 
 	// Create a nonce for the activation box.
 	nonce := make([]byte, activationBoxNonceLength)
@@ -434,7 +435,7 @@ func (s *userServiceSuite) TestSetPasswordWithActivationKey(c *gc.C) {
 
 	box := s.sealBox(key, nonce, payloadBytes)
 
-	_, err = s.service().SetPasswordWithActivationKey(context.Background(), "name", nonce, box)
+	_, err = s.service().SetPasswordWithActivationKey(context.Background(), coreusertesting.GenNewName(c, "name"), nonce, box)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -450,7 +451,7 @@ func (s *userServiceSuite) TestSetPasswordWithActivationKeyWithInvalidKey(c *gc.
 	_, err := rand.Read(key)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.state.EXPECT().GetActivationKey(gomock.Any(), "name").Return(key, nil)
+	s.state.EXPECT().GetActivationKey(gomock.Any(), coreusertesting.GenNewName(c, "name")).Return(key, nil)
 
 	// Create a nonce for the activation box.
 	nonce := make([]byte, activationBoxNonceLength)
@@ -472,7 +473,7 @@ func (s *userServiceSuite) TestSetPasswordWithActivationKeyWithInvalidKey(c *gc.
 	_, err = rand.Read(nonce)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.service().SetPasswordWithActivationKey(context.Background(), "name", nonce, box)
+	_, err = s.service().SetPasswordWithActivationKey(context.Background(), coreusertesting.GenNewName(c, "name"), nonce, box)
 	c.Assert(err, jc.ErrorIs, usererrors.ActivationKeyNotValid)
 }
 
@@ -498,24 +499,28 @@ func FuzzGetUser(f *testing.F) {
 		state := NewMockState(ctrl)
 		defer ctrl.Finish()
 
-		state.EXPECT().GetUserByName(gomock.Any(), username).Return(
+		name, err := user.NewName(username)
+		if err != nil {
+			t.Logf("bad user name %s", name)
+			return
+		}
+
+		state.EXPECT().GetUserByName(gomock.Any(), name).Return(
 			user.User{
-				Name: username,
+				Name: name,
 			},
 			nil,
 		).AnyTimes()
 
-		usr, err := NewService(state).GetUserByName(context.Background(), username)
-		if err != nil && !errors.Is(err, usererrors.UserNameNotValid) {
+		usr, err := NewService(state).GetUserByName(context.Background(), name)
+		if err != nil {
 			t.Errorf("unexpected error %v when fuzzing GetUser with %q",
 				err, username,
 			)
-		} else if errors.Is(err, usererrors.UserNameNotValid) {
-			return
 		}
 
-		if usr.Name != username {
-			t.Errorf("GetUser() user.name %q != %q", usr.Name, username)
+		if usr.Name != name {
+			t.Errorf("GetUser() user.name %q != %q", usr.Name, name)
 		}
 	})
 }
@@ -524,18 +529,10 @@ func FuzzGetUser(f *testing.F) {
 func (s *userServiceSuite) TestUpdateLastModelLogin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	modelUUID := modeltesting.GenModelUUID(c)
-	s.state.EXPECT().UpdateLastModelLogin(gomock.Any(), "name", modelUUID)
+	s.state.EXPECT().UpdateLastModelLogin(gomock.Any(), coreusertesting.GenNewName(c, "name"), modelUUID)
 
-	err := s.service().UpdateLastModelLogin(context.Background(), "name", modelUUID)
+	err := s.service().UpdateLastModelLogin(context.Background(), coreusertesting.GenNewName(c, "name"), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-// TestUpdateLastModelLogin tests a bad username for UpdateLastModelLogin.
-func (s *userServiceSuite) TestUpdateLastModelLoginBadUsername(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	modelUUID := modeltesting.GenModelUUID(c)
-	err := s.service().UpdateLastModelLogin(context.Background(), "13987*($*($&(*&%(", modelUUID)
-	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
 // TestLastModelLogin tests the happy path for LastModelLogin.
@@ -543,34 +540,42 @@ func (s *userServiceSuite) TestLastModelLogin(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	modelUUID := modeltesting.GenModelUUID(c)
 	t := time.Now()
-	s.state.EXPECT().LastModelLogin(gomock.Any(), "name", modelUUID).Return(t, nil)
+	s.state.EXPECT().LastModelLogin(gomock.Any(), coreusertesting.GenNewName(c, "name"), modelUUID).Return(t, nil)
 
-	lastConnection, err := s.service().LastModelLogin(context.Background(), "name", modelUUID)
+	lastConnection, err := s.service().LastModelLogin(context.Background(), coreusertesting.GenNewName(c, "name"), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(lastConnection, gc.Equals, t)
 }
 
-// TestLastModelLoginBadUsername tests a bad username for LastModelLogin.
-func (s *userServiceSuite) TestLastModelLoginBadUsername(c *gc.C) {
+// TestUpdateLastModelLogin tests a bad username for UpdateLastModelLogin.
+func (s *userServiceSuite) TestUpdateLastModelLoginBadUsername(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	_, err := s.service().LastModelLogin(context.Background(), "1&(*£*(", "")
+	modelUUID := modeltesting.GenModelUUID(c)
+	err := s.service().UpdateLastModelLogin(context.Background(), user.Name{}, modelUUID)
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
 // TestLastModelLoginBadUUID tests a bad UUID given to LastModelLogin.
 func (s *userServiceSuite) TestLastModelLoginBadUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	_, err := s.service().LastModelLogin(context.Background(), "name", "bad-uuid")
+	_, err := s.service().LastModelLogin(context.Background(), coreusertesting.GenNewName(c, "name"), "bad-uuid")
 	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+// TestLastModelLoginBadUsername tests a bad username for LastModelLogin.
+func (s *userServiceSuite) TestLastModelLoginBadUsername(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	_, err := s.service().LastModelLogin(context.Background(), user.Name{}, "")
+	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
 func (s *userServiceSuite) TestGetModelUsers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.state.EXPECT().GetModelUsers(gomock.Any(), "apiUser", coremodel.UUID(jujutesting.ModelTag.Id())).Return(nil, nil)
+	s.state.EXPECT().GetModelUsers(gomock.Any(), coreusertesting.GenNewName(c, "apiUser"), coremodel.UUID(jujutesting.ModelTag.Id())).Return(nil, nil)
 
 	_, err := NewService(s.state).GetModelUsers(
 		context.Background(),
-		"apiUser",
+		coreusertesting.GenNewName(c, "apiUser"),
 		coremodel.UUID(jujutesting.ModelTag.Id()),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -581,7 +586,7 @@ func (s *userServiceSuite) TestGetModelUsersApiUserError(c *gc.C) {
 
 	_, err := NewService(s.state).GetModelUsers(
 		context.Background(),
-		"",
+		user.Name{},
 		coremodel.UUID(jujutesting.ModelTag.Id()),
 	)
 	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
@@ -593,7 +598,7 @@ func (s *userServiceSuite) TestGetModelUsersModelUUIDError(c *gc.C) {
 
 	_, err := NewService(s.state).GetModelUsers(
 		context.Background(),
-		"apiUser",
+		coreusertesting.GenNewName(c, "apiUser"),
 		coremodel.UUID("bad-model-tag"),
 	)
 	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)

@@ -23,6 +23,8 @@ import (
 	corelife "github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/environs/config"
 	_ "github.com/juju/juju/internal/provider/azure"
@@ -168,12 +170,12 @@ func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	lastLoginTime := time.Now()
-	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), "admin").Return([]coremodel.UserModelSummary{{
+	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), coreuser.AdminUserName).Return([]coremodel.UserModelSummary{{
 		UserLastConnection: &lastLoginTime,
 		UserAccess:         permission.AdminAccess,
 		ModelSummary: coremodel.ModelSummary{
 			Name:           "testmodel",
-			OwnerName:      "admin",
+			OwnerName:      coreuser.AdminUserName,
 			UUID:           coremodel.UUID(testing.ModelTag.Id()),
 			ModelType:      coremodel.IAAS,
 			CloudType:      "ec2",
@@ -183,7 +185,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummaries(c *gc.C) {
 			CloudRegion:    "dummy-region",
 			CloudCredentialKey: credential.Key{
 				Cloud: "dummy",
-				Owner: "bob",
+				Owner: usertesting.GenNewName(c, "bob"),
 				Name:  "some-credential",
 			},
 			Life:         corelife.Alive,
@@ -231,7 +233,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.mockModelService.EXPECT().ListAllModelSummaries(gomock.Any()).Return([]coremodel.ModelSummary{{
 		Name:           "testmodel",
-		OwnerName:      "admin",
+		OwnerName:      coreuser.AdminUserName,
 		UUID:           coremodel.UUID(testing.ModelTag.Id()),
 		ModelType:      coremodel.IAAS,
 		CloudType:      "ec2",
@@ -241,7 +243,7 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesAll(c *gc.C) {
 		CloudRegion:    "dummy-region",
 		CloudCredentialKey: credential.Key{
 			Cloud: "dummy",
-			Owner: "bob",
+			Owner: usertesting.GenNewName(c, "bob"),
 			Name:  "some-credential",
 		},
 		Life:         corelife.Alive,
@@ -303,14 +305,14 @@ func (s *ListModelsWithInfoSuite) TestListModelSummariesInvalidUser(c *gc.C) {
 func (s *ListModelsWithInfoSuite) TestListModelSummariesDomainError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	errMsg := "captain error for ModelSummariesForUser"
-	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), "admin").Return(nil, errors.New(errMsg))
+	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), coreuser.AdminUserName).Return(nil, errors.New(errMsg))
 	_, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, gc.ErrorMatches, errMsg)
 }
 
 func (s *ListModelsWithInfoSuite) TestListModelSummariesNoModelsForUser(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), "admin").Return(nil, nil)
+	s.mockModelService.EXPECT().ListModelSummariesForUser(gomock.Any(), coreuser.AdminUserName).Return(nil, nil)
 	results, err := s.api.ListModelSummaries(stdcontext.Background(), params.ModelSummariesRequest{UserTag: s.adminUser.String()})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)

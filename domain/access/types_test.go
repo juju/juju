@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
+	usertesting "github.com/juju/juju/core/user/testing"
 )
 
 type typesSuite struct{}
@@ -18,10 +19,10 @@ var _ = gc.Suite(&typesSuite{})
 func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
 	argsToTest := []UpdatePermissionArgs{
 		{}, { // Missing Subject
-			ApiUser: "admin",
+			ApiUser: usertesting.GenNewName(c, "admin"),
 		}, { // Missing Target
-			ApiUser: "admin",
-			Subject: "testme",
+			ApiUser: usertesting.GenNewName(c, "admin"),
+			Subject: usertesting.GenNewName(c, "testme"),
 		}, { // Target and Access don't mesh
 			AccessSpec: permission.AccessSpec{
 				Access: permission.AddModelAccess,
@@ -30,8 +31,8 @@ func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
 					Key:        "aws",
 				},
 			},
-			ApiUser: "admin",
-			Subject: "testme",
+			ApiUser: usertesting.GenNewName(c, "admin"),
+			Subject: usertesting.GenNewName(c, "testme"),
 		}, { // Invalid Change
 			AccessSpec: permission.AccessSpec{
 				Access: permission.AddModelAccess,
@@ -40,9 +41,9 @@ func (s *typesSuite) TestUpsertPermissionArgsValidationFail(c *gc.C) {
 					Key:        "aws",
 				},
 			},
-			ApiUser: "admin",
+			ApiUser: usertesting.GenNewName(c, "admin"),
 			Change:  "testing",
-			Subject: "testme",
+			Subject: usertesting.GenNewName(c, "testme"),
 		}}
 	for i, args := range argsToTest {
 		c.Logf("Test %d", i)

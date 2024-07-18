@@ -34,6 +34,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
@@ -67,12 +68,12 @@ type UpgradeService interface {
 type ControllerAccessService interface {
 	// ReadUserAccessLevelForTarget returns the access level for the provided
 	// subject (user) for controller.
-	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
+	ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target permission.ID) (permission.Access, error)
 	// UpdatePermission updates the access level for a user for the controller.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
 	// LastModelLogin gets the time the specified user last connected to the
 	// model.
-	LastModelLogin(context.Context, string, coremodel.UUID) (time.Time, error)
+	LastModelLogin(context.Context, user.Name, coremodel.UUID) (time.Time, error)
 }
 
 // ModelExporter exports a model to a description.Model.
@@ -432,7 +433,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 			},
 		}
 
-		lastConn, err := c.accessService.LastModelLogin(ctx, c.apiUser.Id(), coremodel.UUID(model.UUID()))
+		lastConn, err := c.accessService.LastModelLogin(ctx, user.NameFromTag(c.apiUser), coremodel.UUID(model.UUID()))
 		if errors.Is(err, accesserrors.UserNeverAccessedModel) {
 			userModel.LastConnection = nil
 		} else if errors.Is(err, modelerrors.NotFound) {
@@ -649,8 +650,8 @@ func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Enti
 
 	users := req.Entities
 	results.Results = make([]params.UserAccessResult, len(users))
-	for i, user := range users {
-		userTag, err := names.ParseUserTag(user.Tag)
+	for i, userEntity := range users {
+		userTag, err := names.ParseUserTag(userEntity.Tag)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -666,7 +667,7 @@ func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Enti
 				Key:        c.controllerTag.Id(),
 			},
 		}
-		accessLevel, err := c.accessService.ReadUserAccessLevelForTarget(ctx, userTag.Id(), spec.Target)
+		accessLevel, err := c.accessService.ReadUserAccessLevelForTarget(ctx, user.NameFromTag(userTag), spec.Target)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -821,9 +822,9 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 			},
 			AddUser:  true,
 			External: &external,
-			ApiUser:  c.apiUser.Id(),
+			ApiUser:  user.NameFromTag(c.apiUser),
 			Change:   permission.AccessChange(string(arg.Action)),
-			Subject:  targetUserTag.Id(),
+			Subject:  user.NameFromTag(targetUserTag),
 		}
 		err = c.accessService.UpdatePermission(ctx, updateArgs)
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -1062,7 +1063,7 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State,
 	}
 	ul.users = set.NewStrings()
 	for _, u := range users {
-		ul.users.Add(u.UserName)
+		ul.users.Add(u.UserName.Name())
 	}
 
 	// Retrieve agent version for the model.

@@ -70,7 +70,7 @@ type ModelService interface {
 
 	// ListModelSummariesForUser returns a slice of model summaries for a given
 	// user. If no models are found an empty slice is returned.
-	ListModelSummariesForUser(ctx context.Context, userName string) ([]coremodel.UserModelSummary, error)
+	ListModelSummariesForUser(ctx context.Context, userName coreuser.Name) ([]coremodel.UserModelSummary, error)
 
 	// ListAllModelSummaries returns a slice of model summaries for all models
 	// known to the controller.
@@ -128,22 +128,22 @@ type CredentialService interface {
 // of a controller.
 type AccessService interface {
 	// GetUserByName returns a User for the given name.
-	GetUserByName(context.Context, string) (coreuser.User, error)
+	GetUserByName(context.Context, coreuser.Name) (coreuser.User, error)
 	// ReadUserAccessLevelForTarget returns the Access level for the given
 	// subject (user) on the given target (model).
-	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error)
+	ReadUserAccessLevelForTarget(ctx context.Context, subject coreuser.Name, target corepermission.ID) (corepermission.Access, error)
 	// UpdatePermission updates the access level for a user of the model.
 	UpdatePermission(ctx context.Context, args access.UpdatePermissionArgs) error
 	// LastModelLogin will return the last login time of the specified
 	// user. An accesserrors.UserNeverAccessedModel error will be returned if
 	// there is no record of the user logging in to this model.
-	LastModelLogin(context.Context, string, coremodel.UUID) (time.Time, error)
+	LastModelLogin(context.Context, coreuser.Name, coremodel.UUID) (time.Time, error)
 	// GetModelUsers will retrieve basic information about all users with
 	// permissions on the given model UUID.
 	// If the model cannot be found it will return modelerrors.NotFound.
 	// If no permissions can be found on the model it will return
 	// accesserrors.PermissionNotValid.
-	GetModelUsers(ctx context.Context, apiUser string, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
+	GetModelUsers(ctx context.Context, apiUser coreuser.Name, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
 }
 
 // NetworkService is the interface that is used to interact with the

@@ -15,6 +15,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 )
 
 // Register is called to expose a package of facades onto a given registry.
@@ -45,7 +46,7 @@ func newUserManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*UserMa
 
 	accessService := ctx.ServiceFactory().Access()
 
-	apiUser, err := accessService.GetUserByName(stdCtx, apiUserTag.Id())
+	apiUser, err := accessService.GetUserByName(stdCtx, coreuser.NameFromTag(apiUserTag))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -27,6 +27,8 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
@@ -263,7 +265,7 @@ func (s *serverSuite) bootstrapHasPermissionTest(c *gc.C) (state.Entity, names.C
 
 	accessService := s.ControllerServiceFactory(c).Access()
 	userUUID, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
-		Name:        uTag.Id(),
+		Name:        user.NameFromTag(uTag),
 		DisplayName: "Foo Bar",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
@@ -315,9 +317,9 @@ func (s *serverSuite) TestAPIHandlerHasPermissionSuperUser(c *gc.C) {
 				Key:        s.ControllerUUID,
 			},
 		},
-		ApiUser: "admin",
+		ApiUser: user.AdminUserName,
 		Change:  permission.Grant,
-		Subject: u.Tag().Id(),
+		Subject: usertesting.GenNewName(c, u.Tag().Id()),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

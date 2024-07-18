@@ -84,7 +84,7 @@ func (c *MockUserServiceAddUserCall) DoAndReturn(f func(context.Context, service
 }
 
 // GetUserByAuth mocks base method.
-func (m *MockUserService) GetUserByAuth(arg0 context.Context, arg1 string, arg2 auth.Password) (user.User, error) {
+func (m *MockUserService) GetUserByAuth(arg0 context.Context, arg1 user.Name, arg2 auth.Password) (user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserByAuth", arg0, arg1, arg2)
 	ret0, _ := ret[0].(user.User)
@@ -111,19 +111,19 @@ func (c *MockUserServiceGetUserByAuthCall) Return(arg0 user.User, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUserServiceGetUserByAuthCall) Do(f func(context.Context, string, auth.Password) (user.User, error)) *MockUserServiceGetUserByAuthCall {
+func (c *MockUserServiceGetUserByAuthCall) Do(f func(context.Context, user.Name, auth.Password) (user.User, error)) *MockUserServiceGetUserByAuthCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserServiceGetUserByAuthCall) DoAndReturn(f func(context.Context, string, auth.Password) (user.User, error)) *MockUserServiceGetUserByAuthCall {
+func (c *MockUserServiceGetUserByAuthCall) DoAndReturn(f func(context.Context, user.Name, auth.Password) (user.User, error)) *MockUserServiceGetUserByAuthCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUserByName mocks base method.
-func (m *MockUserService) GetUserByName(arg0 context.Context, arg1 string) (user.User, error) {
+func (m *MockUserService) GetUserByName(arg0 context.Context, arg1 user.Name) (user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserByName", arg0, arg1)
 	ret0, _ := ret[0].(user.User)
@@ -150,19 +150,19 @@ func (c *MockUserServiceGetUserByNameCall) Return(arg0 user.User, arg1 error) *M
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUserServiceGetUserByNameCall) Do(f func(context.Context, string) (user.User, error)) *MockUserServiceGetUserByNameCall {
+func (c *MockUserServiceGetUserByNameCall) Do(f func(context.Context, user.Name) (user.User, error)) *MockUserServiceGetUserByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserServiceGetUserByNameCall) DoAndReturn(f func(context.Context, string) (user.User, error)) *MockUserServiceGetUserByNameCall {
+func (c *MockUserServiceGetUserByNameCall) DoAndReturn(f func(context.Context, user.Name) (user.User, error)) *MockUserServiceGetUserByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RemoveUser mocks base method.
-func (m *MockUserService) RemoveUser(arg0 context.Context, arg1 string) error {
+func (m *MockUserService) RemoveUser(arg0 context.Context, arg1 user.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveUser", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -188,13 +188,13 @@ func (c *MockUserServiceRemoveUserCall) Return(arg0 error) *MockUserServiceRemov
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUserServiceRemoveUserCall) Do(f func(context.Context, string) error) *MockUserServiceRemoveUserCall {
+func (c *MockUserServiceRemoveUserCall) Do(f func(context.Context, user.Name) error) *MockUserServiceRemoveUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserServiceRemoveUserCall) DoAndReturn(f func(context.Context, string) error) *MockUserServiceRemoveUserCall {
+func (c *MockUserServiceRemoveUserCall) DoAndReturn(f func(context.Context, user.Name) error) *MockUserServiceRemoveUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -223,7 +223,7 @@ func (m *MockPermissionService) EXPECT() *MockPermissionServiceMockRecorder {
 }
 
 // AddUserPermission mocks base method.
-func (m *MockPermissionService) AddUserPermission(arg0 context.Context, arg1 string, arg2 permission.Access) error {
+func (m *MockPermissionService) AddUserPermission(arg0 context.Context, arg1 user.Name, arg2 permission.Access) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddUserPermission", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -249,13 +249,13 @@ func (c *MockPermissionServiceAddUserPermissionCall) Return(arg0 error) *MockPer
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockPermissionServiceAddUserPermissionCall) Do(f func(context.Context, string, permission.Access) error) *MockPermissionServiceAddUserPermissionCall {
+func (c *MockPermissionServiceAddUserPermissionCall) Do(f func(context.Context, user.Name, permission.Access) error) *MockPermissionServiceAddUserPermissionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockPermissionServiceAddUserPermissionCall) DoAndReturn(f func(context.Context, string, permission.Access) error) *MockPermissionServiceAddUserPermissionCall {
+func (c *MockPermissionServiceAddUserPermissionCall) DoAndReturn(f func(context.Context, user.Name, permission.Access) error) *MockPermissionServiceAddUserPermissionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

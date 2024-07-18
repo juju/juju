@@ -26,10 +26,10 @@ type ControllerConfigService interface {
 // UserService defines the methods required to get user details.
 type UserService interface {
 	// GetUserByName returns the user with the given name.
-	GetUserByName(context.Context, string) (user.User, error)
+	GetUserByName(context.Context, user.Name) (user.User, error)
 	// SetPasswordWithActivationKey will use the activation key from the user. To
 	// then apply the payload password.
-	SetPasswordWithActivationKey(ctx context.Context, name string, nonce, box []byte) (userservice.Sealer, error)
+	SetPasswordWithActivationKey(ctx context.Context, name user.Name, nonce, box []byte) (userservice.Sealer, error)
 }
 
 // MacaroonService defines the method required to manage macaroons.
@@ -60,5 +60,5 @@ type AccessService interface {
 	// for the given user on the given target.
 	// If the access level of a user cannot be found then
 	// accesserrors.AccessNotFound is returned.
-	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
+	ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target permission.ID) (permission.Access, error)
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	corelogger "github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/credential/service"
@@ -106,9 +107,9 @@ func NewCloudAPI(
 	}, nil
 }
 
-func (api *CloudAPI) canAccessCloud(ctx context.Context, cloud string, user names.UserTag, access permission.Access) (bool, error) {
-	targetID := permission.ID{ObjectType: permission.Cloud, Key: cloud}
-	perm, err := api.cloudAccessService.ReadUserAccessLevelForTarget(ctx, user.Id(), targetID)
+func (api *CloudAPI) canAccessCloud(ctx context.Context, cloud string, user user.Name, access permission.Access) (bool, error) {
+	id := permission.ID{ObjectType: permission.Cloud, Key: cloud}
+	perm, err := api.cloudAccessService.ReadUserAccessLevelForTarget(ctx, user, id)
 	if errors.Is(err, errors.NotFound) {
 		return false, nil
 	}
@@ -137,7 +138,7 @@ func (api *CloudAPI) Clouds(ctx context.Context) (params.CloudsResult, error) {
 	for _, aCloud := range clouds {
 		// Ensure user has permission to see the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, aCloud.Name, api.apiUser, permission.AddModelAccess)
+			canAccess, err := api.canAccessCloud(ctx, aCloud.Name, user.NameFromTag(api.apiUser), permission.AddModelAccess)
 			if err != nil {
 				return result, err
 			}
@@ -170,7 +171,7 @@ func (api *CloudAPI) Cloud(ctx context.Context, args params.Entities) (params.Cl
 		}
 		// Ensure user has permission to see the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, tag.Id(), api.apiUser, permission.AddModelAccess)
+			canAccess, err := api.canAccessCloud(ctx, tag.Id(), user.NameFromTag(api.apiUser), permission.AddModelAccess)
 			if err != nil {
 				return nil, err
 			}
@@ -229,7 +230,7 @@ func (api *CloudAPI) getCloudInfo(ctx context.Context, tag names.CloudTag) (*par
 	isAdmin := err == nil
 	// If not a controller admin, check for cloud admin.
 	if !isAdmin {
-		isAdmin, err = api.canAccessCloud(ctx, tag.Id(), api.apiUser, permission.AdminAccess)
+		isAdmin, err = api.canAccessCloud(ctx, tag.Id(), user.NameFromTag(api.apiUser), permission.AdminAccess)
 		if err != nil && !errors.Is(err, errors.NotFound) {
 			return nil, errors.Trace(err)
 		}
@@ -296,7 +297,7 @@ func (api *CloudAPI) ListCloudInfo(ctx context.Context, req params.ListCloudsReq
 		return result, nil
 	}
 
-	cloudAccess, err := api.cloudAccessService.ReadAllAccessForUserAndObjectType(ctx, userTag.Id(), permission.Cloud)
+	cloudAccess, err := api.cloudAccessService.ReadAllAccessForUserAndObjectType(ctx, user.NameFromTag(userTag), permission.Cloud)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -307,7 +308,7 @@ func (api *CloudAPI) ListCloudInfo(ctx context.Context, req params.ListCloudsReq
 	}
 
 	for _, ca := range cloudAccess {
-		cld, ok := cloudsByName[ca.UserName]
+		cld, ok := cloudsByName[ca.UserName.Name()]
 		if !ok {
 			continue
 		}
@@ -344,7 +345,7 @@ func (api *CloudAPI) UserCredentials(ctx context.Context, args params.UserClouds
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		cloudCredentials, err := api.credentialService.CloudCredentialsForOwner(ctx, userTag.Id(), cloudTag.Id())
+		cloudCredentials, err := api.credentialService.CloudCredentialsForOwner(ctx, user.NameFromTag(userTag), cloudTag.Id())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -541,7 +542,7 @@ func (api *CloudAPI) Credential(ctx context.Context, args params.Entities) (para
 			schemaCache[cloudName] = schema
 			return schema, nil
 		}
-		cloudCredentials, err := api.credentialService.CloudCredentialsForOwner(ctx, credentialTag.Owner().Id(), credentialTag.Cloud().Id())
+		cloudCredentials, err := api.credentialService.CloudCredentialsForOwner(ctx, user.NameFromTag(credentialTag.Owner()), credentialTag.Cloud().Id())
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -606,7 +607,7 @@ func (api *CloudAPI) AddCloud(ctx context.Context, cloudArgs params.AddCloudArgs
 		aCloud.Regions = []cloud.Region{{Name: cloud.DefaultCloudRegion}}
 	}
 
-	err = api.cloudService.CreateCloud(ctx, api.apiUser.Id(), aCloud)
+	err = api.cloudService.CreateCloud(ctx, user.NameFromTag(api.apiUser), aCloud)
 	if err != nil {
 		return errors.Annotatef(err, "creating cloud %q", cloudArgs.Name)
 	}
@@ -650,7 +651,7 @@ func (api *CloudAPI) RemoveClouds(ctx context.Context, args params.Entities) (pa
 		}
 		// Ensure user has permission to remove the cloud.
 		if !isAdmin {
-			canAccess, err := api.canAccessCloud(ctx, tag.Id(), api.apiUser, permission.AdminAccess)
+			canAccess, err := api.canAccessCloud(ctx, tag.Id(), user.NameFromTag(api.apiUser), permission.AdminAccess)
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue
@@ -742,7 +743,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 
 	var result []params.CredentialContentResult
 	if len(args.Credentials) == 0 {
-		credentials, err := api.credentialService.AllCloudCredentialsForOwner(ctx, api.apiUser.Id())
+		credentials, err := api.credentialService.AllCloudCredentialsForOwner(ctx, user.NameFromTag(api.apiUser))
 		if err != nil {
 			return params.CredentialContentResults{}, errors.Trace(err)
 		}
@@ -753,7 +754,7 @@ func (api *CloudAPI) internalCredentialContents(ctx context.Context, args params
 		// Helper to construct credential ID from cloud and name.
 		credKey := func(cloudName, credentialName string) credential.Key {
 			return credential.Key{
-				Cloud: cloudName, Owner: api.apiUser.Id(), Name: credentialName}
+				Cloud: cloudName, Owner: user.NameFromTag(api.apiUser), Name: credentialName}
 		}
 
 		result = make([]params.CredentialContentResult, len(args.Credentials))
@@ -811,9 +812,9 @@ func (api *CloudAPI) ModifyCloudAccess(ctx context.Context, args params.ModifyCl
 				Access: permission.Access(arg.Access),
 			},
 			AddUser: false,
-			ApiUser: api.apiUser.Id(),
+			ApiUser: user.NameFromTag(api.apiUser),
 			Change:  permission.AccessChange(arg.Action),
-			Subject: userTag.Id(),
+			Subject: user.NameFromTag(userTag),
 		}
 		result.Results[i].Error = apiservererrors.ServerError(
 			api.cloudAccessService.UpdatePermission(ctx, updateArgs))

@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/permission"
+	usertesting "github.com/juju/juju/core/user/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/internal/auth"
 )
@@ -29,7 +30,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 
 func (s *bootstrapSuite) TestAddUserWithPassword(c *gc.C) {
 	ctx := context.Background()
-	uuid, addAdminUser := AddUserWithPassword("admin", auth.NewPassword("password"), permission.AccessSpec{
+	uuid, addAdminUser := AddUserWithPassword(usertesting.GenNewName(c, "admin"), auth.NewPassword("password"), permission.AccessSpec{
 		Access: permission.SuperuserAccess,
 		Target: permission.ID{
 			ObjectType: permission.Controller,

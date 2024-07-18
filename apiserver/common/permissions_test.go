@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/testing"
 )
@@ -27,13 +28,13 @@ type PermissionSuite struct {
 var _ = gc.Suite(&PermissionSuite{})
 
 type fakeUserAccess struct {
-	userNames []string
+	userNames []user.Name
 	targets   []permission.ID
 	access    permission.Access
 	err       error
 }
 
-func (f *fakeUserAccess) call(ctx context.Context, userName string, target permission.ID) (permission.Access, error) {
+func (f *fakeUserAccess) call(ctx context.Context, userName user.Name, target permission.ID) (permission.Access, error) {
 	f.userNames = append(f.userNames, userName)
 	f.targets = append(f.targets, target)
 	return f.access, f.err
@@ -166,17 +167,17 @@ func (r *PermissionSuite) TestHasPermission(c *gc.C) {
 }
 
 func (r *PermissionSuite) TestUserGetterErrorReturns(c *gc.C) {
-	user := names.NewUserTag("validuser")
+	userTag := names.NewUserTag("validuser")
 	target := names.NewModelTag("beef1beef2-0000-0000-000011112222")
 	userGetter := &fakeUserAccess{
 		access: permission.NoAccess,
 		err:    accesserrors.PermissionNotFound,
 	}
-	hasPermission, err := common.HasPermission(context.Background(), userGetter.call, user, permission.ReadAccess, target)
+	hasPermission, err := common.HasPermission(context.Background(), userGetter.call, userTag, permission.ReadAccess, target)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(hasPermission, jc.IsFalse)
 	c.Assert(userGetter.userNames, gc.HasLen, 1)
-	c.Assert(userGetter.userNames[0], gc.DeepEquals, user.Name())
+	c.Assert(userGetter.userNames[0], gc.DeepEquals, user.NameFromTag(userTag))
 	c.Assert(userGetter.targets, gc.HasLen, 1)
 	c.Assert(userGetter.targets[0], gc.DeepEquals, permission.ID{ObjectType: permission.Model, Key: target.Id()})
 }

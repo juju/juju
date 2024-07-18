@@ -5,11 +5,13 @@ package permission
 
 import (
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/user"
 )
 
-// EveryoneTagName represents a special user that is has the base permission
+// EveryoneUserName represents a special user that is has the base permission
 // level of all external users.
-const EveryoneTagName = "everyone@external"
+var EveryoneUserName, _ = user.NewName("everyone@external")
 
 // AccessSpec defines the attributes that can be set when adding a new
 // access.
@@ -54,7 +56,7 @@ func (a AccessSpec) RevokeAccess() Access {
 // user access.
 type UserAccessSpec struct {
 	AccessSpec
-	User string
+	User user.Name
 }
 
 // Validate validates that the access and target specified in the
@@ -62,7 +64,7 @@ type UserAccessSpec struct {
 // empty string. If any of these are untrue, a NotValid error is
 // returned.
 func (u UserAccessSpec) Validate() error {
-	if u.User == "" {
+	if u.User.IsZero() {
 		return errors.NotValidf("empty user")
 	}
 	if err := u.AccessSpec.Validate(); err != nil {

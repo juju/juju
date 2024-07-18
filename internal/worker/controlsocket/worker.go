@@ -59,14 +59,14 @@ type UserService interface {
 	// usererrors.UserNameNotValid will be returned.
 	//
 	// GetUserByName will not return users that have been previously removed.
-	GetUserByName(ctx context.Context, name string) (user.User, error)
+	GetUserByName(ctx context.Context, name user.Name) (user.User, error)
 
 	// GetUserByAuth will find and return the user with UUID. If there is no
 	// user for the name and password, then an error that satisfies
 	// usererrors.NotFound will be returned. If supplied with an invalid user name
 	// then an error that satisfies usererrors.UserNameNotValid will be returned.
 	// It will not return users that have been previously removed.
-	GetUserByAuth(ctx context.Context, name string, password auth.Password) (user.User, error)
+	GetUserByAuth(ctx context.Context, name user.Name, password auth.Password) (user.User, error)
 
 	// RemoveUser marks the user as removed and removes any credentials or
 	// activation codes for the current users. Once a user is removed they are no
@@ -74,14 +74,14 @@ type UserService interface {
 	// The following error types are possible from this function:
 	// - usererrors.UserNameNotValid: When the username supplied is not valid.
 	// - usererrors.NotFound: If no user by the given UUID exists.
-	RemoveUser(ctx context.Context, name string) error
+	RemoveUser(ctx context.Context, name user.Name) error
 }
 
 // PermissionService is the interface for the permission service.
 type PermissionService interface {
 	// AddUserPermission adds a user to the model with the given access.
 	// If the user already has the given access, this is a no-op.
-	AddUserPermission(ctx context.Context, username string, access permission.Access) error
+	AddUserPermission(ctx context.Context, username user.Name, access permission.Access) error
 }
 
 // Config represents configuration for the controlsocket worker.
@@ -125,6 +125,8 @@ type Worker struct {
 	userService       UserService
 	permissionService PermissionService
 	logger            logger.Logger
+
+	userCreatorName user.Name
 }
 
 // NewWorker returns a controlsocket worker with the given config.
@@ -133,10 +135,16 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
+	userCreatorName, err := user.NewName(userCreator)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w := &Worker{
 		userService:       config.UserService,
 		permissionService: config.PermissionService,
 		logger:            config.Logger,
+		userCreatorName:   userCreatorName,
 	}
 	sl, err := config.NewSocketListener(socketlistener.Config{
 		Logger:           config.Logger,
@@ -208,19 +216,19 @@ func (w *Worker) handleAddMetricsUser(resp http.ResponseWriter, req *http.Reques
 }
 
 func (w *Worker) addMetricsUser(ctx context.Context, username string, password auth.Password) (int, error) {
-	err := validateMetricsUsername(username)
+	validatedName, err := validateMetricsUsername(username)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
 
-	creatorUser, err := w.userService.GetUserByName(ctx, userCreator)
+	creatorUser, err := w.userService.GetUserByName(ctx, w.userCreatorName)
 	if err != nil {
 		return http.StatusInternalServerError, errors.Annotatef(err, "retrieving creator user %q: %v", userCreator, err)
 	}
 
 	_, _, err = w.userService.AddUser(ctx, service.AddUserArg{
-		Name:        username,
-		DisplayName: username,
+		Name:        validatedName,
+		DisplayName: validatedName.Name(),
 		Password:    &password,
 		CreatorUUID: creatorUser.UUID,
 	})
@@ -230,7 +238,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 	switch {
 	case errors.Is(err, usererrors.UserAlreadyExists):
 		// Retrieve existing user
-		user, err := w.userService.GetUserByAuth(ctx, username, password)
+		user, err := w.userService.GetUserByAuth(ctx, validatedName, password)
 		if err != nil {
 			return http.StatusInternalServerError,
 				fmt.Errorf("retrieving existing user %q: %v", username, err)
@@ -243,7 +251,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		if user.Disabled {
 			return http.StatusForbidden, errors.Forbiddenf("user %q is disabled", user.Name)
 		}
-		if user.CreatorName != userCreator {
+		if user.CreatorName != w.userCreatorName {
 			return http.StatusConflict, errors.AlreadyExistsf("user %q (created by %q)", user.Name, user.CreatorName)
 		}
 
@@ -258,7 +266,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 				return
 			}
 
-			err := w.userService.RemoveUser(ctx, username)
+			err := w.userService.RemoveUser(ctx, validatedName)
 			if err != nil {
 				// Best we can do here is log an error.
 				w.logger.Warningf("add metrics user failed, but could not clean up user %q: %v",
@@ -270,7 +278,7 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		return http.StatusInternalServerError, errors.Annotatef(err, "creating user %q: %v", username, err)
 	}
 
-	err = w.permissionService.AddUserPermission(ctx, username, permission.ReadAccess)
+	err = w.permissionService.AddUserPermission(ctx, validatedName, permission.ReadAccess)
 	if err != nil && !errors.Is(err, errors.AlreadyExists) {
 		return http.StatusInternalServerError, errors.Annotatef(err, "adding user %q to model %q: %v", username, bootstrap.ControllerModelName, err)
 	}
@@ -291,24 +299,24 @@ func (w *Worker) handleRemoveMetricsUser(resp http.ResponseWriter, req *http.Req
 }
 
 func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, error) {
-	err := validateMetricsUsername(username)
+	validatedName, err := validateMetricsUsername(username)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
 
 	// We shouldn't mess with users that weren't created by us.
-	user, err := w.userService.GetUserByName(ctx, username)
+	user, err := w.userService.GetUserByName(ctx, validatedName)
 	if errors.Is(err, usererrors.UserNotFound) {
 		// succeed as no-op
 		return http.StatusOK, nil
 	} else if err != nil {
 		return http.StatusInternalServerError, err
 	}
-	if user.CreatorName != userCreator {
+	if user.CreatorName != w.userCreatorName {
 		return http.StatusForbidden, errors.Forbiddenf("cannot remove user %q created by %q", user.Name, user.CreatorName)
 	}
 
-	err = w.userService.RemoveUser(ctx, username)
+	err = w.userService.RemoveUser(ctx, validatedName)
 	// Any "not found" errors should have been caught above, so fail here.
 	if err != nil {
 		return http.StatusInternalServerError, err
@@ -317,16 +325,21 @@ func (w *Worker) removeMetricsUser(ctx context.Context, username string) (int, e
 	return http.StatusOK, nil
 }
 
-func validateMetricsUsername(username string) error {
+func validateMetricsUsername(username string) (user.Name, error) {
 	if username == "" {
-		return errors.BadRequestf("missing username")
+		return user.Name{}, errors.BadRequestf("missing username")
 	}
 
 	if !strings.HasPrefix(username, jujuMetricsUserPrefix) {
-		return errors.BadRequestf("metrics username %q should have prefix %q", username, jujuMetricsUserPrefix)
+		return user.Name{}, errors.BadRequestf("metrics username %q should have prefix %q", username, jujuMetricsUserPrefix)
 	}
 
-	return nil
+	name, err := user.NewName(username)
+	if err != nil {
+		return user.Name{}, errors.Wrap(err, errors.BadRequest)
+	}
+
+	return name, nil
 }
 
 func (w *Worker) writeResponse(resp http.ResponseWriter, statusCode int, body any) {

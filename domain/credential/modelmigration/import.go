@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/credential/service"
 	"github.com/juju/juju/domain/credential/state"
 )
@@ -66,11 +67,15 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 		return nil
 	}
 
+	name, err := user.NewName(cred.Owner())
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// Need to add credential or make sure an existing credential
 	// matches.
 	key := credential.Key{
 		Cloud: cred.Cloud(),
-		Owner: cred.Owner(),
+		Owner: name,
 		Name:  cred.Name(),
 	}
 	if err := key.Validate(); err != nil {

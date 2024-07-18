@@ -118,14 +118,14 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 	c.Assert(cleanup, gc.NotNil)
 }
 
-// TestSeedAuthorizedNilKeys is asserting that if we add a nill slice of
+// TestSeedAuthorizedNilKeys is asserting that if we add a nil slice of
 // authorized keys to the controller model that it is safe. This test is here
 // assert that we don't break. Specifically because this functionality is being
 // added after the fact and may not always be set.
 func (s *workerSuite) TestSeedAuthorizedNilKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.userService.EXPECT().GetUserByName(gomock.Any(), "admin").Return(
+	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "admin")).Return(
 		user.User{
 			UUID: s.adminUserID,
 		},
@@ -379,11 +379,11 @@ func (s *workerSuite) expectControllerConfig() {
 }
 
 func (s *workerSuite) expectUser(c *gc.C) {
-	s.userService.EXPECT().GetUserByName(gomock.Any(), "admin").Return(user.User{
+	s.userService.EXPECT().GetUserByName(gomock.Any(), usertesting.GenNewName(c, "admin")).Return(user.User{
 		UUID: s.adminUserID,
 	}, nil).Times(2)
 	s.userService.EXPECT().AddUser(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, u accessservice.AddUserArg) (user.UUID, []byte, error) {
-		c.Check(u.Name, gc.Equals, "juju-metrics")
+		c.Check(u.Name, gc.Equals, usertesting.GenNewName(c, "juju-metrics"))
 		return usertesting.GenUserUUID(c), nil, nil
 	})
 }

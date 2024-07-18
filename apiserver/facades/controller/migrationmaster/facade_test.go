@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
+	usertesting "github.com/juju/juju/core/user/testing"
 	jujuversion "github.com/juju/juju/core/version"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
@@ -180,7 +181,7 @@ func (s *Suite) TestModelInfo(c *gc.C) {
 	s.modelInfoService.EXPECT().GetModelInfo(gomock.Any()).Return(model.ReadOnlyModel{
 		UUID:            "model-uuid",
 		Name:            "model-name",
-		CredentialOwner: "owner",
+		CredentialOwner: usertesting.GenNewName(c, "owner"),
 	}, nil)
 
 	modelDescription := description.NewModel(description.ModelArgs{})

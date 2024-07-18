@@ -323,7 +323,7 @@ func (e *exporter) modelUsers() error {
 		return errors.Trace(err)
 	}
 	for _, user := range users {
-		lastConn := lastConnections[strings.ToLower(user.UserName)]
+		lastConn := lastConnections[strings.ToLower(user.UserName.Name())]
 		arg := description.UserArgs{
 			Name:           user.UserTag,
 			DisplayName:    user.DisplayName,

@@ -27,6 +27,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
+	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
@@ -344,7 +345,7 @@ func (s *toolsSuite) TestMigrateToolsForUser(c *gc.C) {
 	userService := s.ControllerServiceFactory(c).Access()
 	userTag := names.NewUserTag("bobbrown")
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
-		Name:        userTag.Name(),
+		Name:        coreuser.NameFromTag(userTag),
 		DisplayName: "Bob Brown",
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("hunter2")),

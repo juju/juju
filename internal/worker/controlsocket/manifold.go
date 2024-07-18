@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/password"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/internal/socketlistener"
@@ -127,14 +128,10 @@ type permissionService struct {
 	state *state.State
 }
 
-func (p permissionService) AddUserPermission(ctx context.Context, username string, access permission.Access) error {
+func (p permissionService) AddUserPermission(ctx context.Context, username user.Name, access permission.Access) error {
 	model, err := p.state.Model()
 	if err != nil {
 		return errors.Annotate(err, "getting model")
-	}
-
-	if !names.IsValidUserName(username) {
-		return errors.NotValidf("invalid username %q", username)
 	}
 
 	// This password doesn't matter, as we don't read from the state user.
@@ -143,13 +140,13 @@ func (p permissionService) AddUserPermission(ctx context.Context, username strin
 		return errors.Annotatef(err, "generating random password")
 	}
 
-	_, err = p.state.AddUser(username, username, metricsPassword, userCreator)
+	_, err = p.state.AddUser(username.Name(), username.Name(), metricsPassword, userCreator)
 	if err != nil {
 		return errors.Annotate(err, "adding user")
 	}
 
 	_, err = model.AddUser(state.UserAccessSpec{
-		User:      names.NewUserTag(username),
+		User:      names.NewUserTag(username.Name()),
 		CreatedBy: names.NewUserTag("controller@juju"),
 		Access:    access,
 	})

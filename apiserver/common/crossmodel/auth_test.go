@@ -27,6 +27,7 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	usertesting "github.com/juju/juju/core/user/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/rpc/params"
@@ -131,15 +132,15 @@ func (s *authSuite) TestCheckLocalAccessRequest(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	uuid := uuid.MustNewUUID()
 	st := &mockState{}
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "mary", permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Model,
 		Key:        uuid.String(),
 	}).Return(permission.NoAccess, nil)
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "mary", permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        coretesting.ControllerTag.Id(),
 	}).Return(permission.NoAccess, nil)
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "mary", permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Offer,
 		Key:        "mysql-uuid",
 	}).Return(permission.ConsumeAccess, nil)
@@ -168,7 +169,7 @@ func (s *authSuite) TestCheckLocalAccessRequestControllerAdmin(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	uuid := uuid.MustNewUUID()
 	st := &mockState{}
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "mary", permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        coretesting.ControllerTag.Id(),
 	}).Return(permission.SuperuserAccess, nil)
@@ -191,11 +192,11 @@ func (s *authSuite) TestCheckLocalAccessRequestModelAdmin(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	uuid := uuid.MustNewUUID()
 	st := &mockState{}
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "mary", permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        coretesting.ControllerTag.Id(),
 	}).Return(permission.NoAccess, nil)
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "mary", permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Model,
 		Key:        uuid.String(),
 	}).Return(permission.AdminAccess, nil)
@@ -218,15 +219,15 @@ func (s *authSuite) TestCheckLocalAccessRequestNoPermission(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	uuid := uuid.MustNewUUID()
 	st := &mockState{}
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "mary", permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        coretesting.ControllerTag.Id(),
 	}).Return(permission.NoAccess, nil)
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "mary", permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Model,
 		Key:        uuid.String(),
 	}).Return(permission.NoAccess, nil)
-	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), "mary", permission.ID{
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), usertesting.GenNewName(c, "mary"), permission.ID{
 		ObjectType: permission.Offer,
 		Key:        "mysql-uuid",
 	}).Return(permission.NoAccess, nil)

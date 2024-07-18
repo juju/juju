@@ -16,7 +16,7 @@ type AddUserArg struct {
 	UUID user.UUID
 
 	// Name is the identifying name for the user.
-	Name string
+	Name user.Name
 
 	// Display name is the user's short name for display.
 	DisplayName string

@@ -133,7 +133,7 @@ func (api *OffersAPIv5) makeAddOfferArgsFromParams(user names.UserTag, backend B
 		ApplicationDescription: addOfferParams.ApplicationDescription,
 		Endpoints:              addOfferParams.Endpoints,
 		Owner:                  user.Id(),
-		HasRead:                []string{permission.EveryoneTagName},
+		HasRead:                []string{permission.EveryoneUserName.Name()},
 	}
 	if result.OfferName == "" {
 		result.OfferName = result.ApplicationName

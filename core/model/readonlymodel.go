@@ -6,6 +6,7 @@ package model
 import (
 	"github.com/juju/version/v2"
 
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -38,7 +39,7 @@ type ReadOnlyModel struct {
 	CloudRegion string
 
 	// CredentialOwner is the owner of the model.
-	CredentialOwner string
+	CredentialOwner user.Name
 
 	// Credential name is the name of the credential to use for the model.
 	CredentialName string

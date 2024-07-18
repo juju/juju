@@ -43,7 +43,7 @@ func NewUserState(factory database.TxnRunnerFactory) *UserState {
 func (st *UserState) AddUser(
 	ctx context.Context,
 	uuid user.UUID,
-	name string,
+	name user.Name,
 	displayName string,
 	external bool,
 	creatorUUID user.UUID,
@@ -66,7 +66,7 @@ func (st *UserState) AddUser(
 func (st *UserState) AddUserWithPasswordHash(
 	ctx context.Context,
 	uuid user.UUID,
-	name string,
+	name user.Name,
 	displayName string,
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
@@ -91,7 +91,7 @@ func (st *UserState) AddUserWithPasswordHash(
 func (st *UserState) AddUserWithActivationKey(
 	ctx context.Context,
 	uuid user.UUID,
-	name string,
+	name user.Name,
 	displayName string,
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
@@ -149,7 +149,11 @@ WHERE  u.removed = false
 	var usrs []user.User
 	for _, result := range results {
 		if !result.Disabled || includeDisabled {
-			usrs = append(usrs, result.toCoreUser())
+			coreUser, err := result.toCoreUser()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			usrs = append(usrs, coreUser)
 		}
 	}
 
@@ -192,9 +196,8 @@ WHERE  u.uuid = $M.uuid`
 			return errors.Annotatef(err, "getting user with uuid %q", uuid)
 		}
 
-		usr = result.toCoreUser()
-
-		return nil
+		usr, err = result.toCoreUser()
+		return errors.Trace(err)
 	})
 	if err != nil {
 		return user.User{}, errors.Annotatef(err, "getting user with uuid %q", uuid)
@@ -207,8 +210,8 @@ WHERE  u.uuid = $M.uuid`
 // If the user does not exist an error that satisfies [accesserrors.UserNotFound] will
 // be returned.
 // Exported for use in credential.
-func GetUserUUIDByName(ctx context.Context, tx *sqlair.TX, name string) (user.UUID, error) {
-	uName := userName{Name: name}
+func GetUserUUIDByName(ctx context.Context, tx *sqlair.TX, name user.Name) (user.UUID, error) {
+	uName := userName{Name: name.Name()}
 
 	stmt := `
 SELECT user.uuid AS &M.userUUID
@@ -239,13 +242,13 @@ AND user.removed = false`
 // GetUserByName will retrieve the user with authentication information
 // (last login, disabled) specified by name from the database. If the user does
 // not exist an error that satisfies accesserrors.UserNotFound will be returned.
-func (st *UserState) GetUserByName(ctx context.Context, name string) (user.User, error) {
+func (st *UserState) GetUserByName(ctx context.Context, name user.Name) (user.User, error) {
 	db, err := st.DB()
 	if err != nil {
 		return user.User{}, errors.Annotate(err, "getting DB access")
 	}
 
-	uName := userName{Name: name}
+	uName := userName{Name: name.Name()}
 
 	var usr user.User
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
@@ -275,9 +278,8 @@ AND    u.removed = false`
 			return errors.Annotatef(err, "getting user with name %q", name)
 		}
 
-		usr = result.toCoreUser()
-
-		return nil
+		usr, err = result.toCoreUser()
+		return errors.Trace(err)
 	})
 	if err != nil {
 		return user.User{}, errors.Annotatef(err, "getting user with name %q", name)
@@ -290,13 +292,13 @@ AND    u.removed = false`
 // information specified by UUID and password from the database.
 // If the user does not exist an error that satisfies accesserrors.UserNotFound
 // will be returned, otherwise unauthorized will be returned.
-func (st *UserState) GetUserByAuth(ctx context.Context, name string, password auth.Password) (user.User, error) {
+func (st *UserState) GetUserByAuth(ctx context.Context, name user.Name, password auth.Password) (user.User, error) {
 	db, err := st.DB()
 	if err != nil {
 		return user.User{}, errors.Annotate(err, "getting DB access")
 	}
 
-	uName := userName{Name: name}
+	uName := userName{Name: name.Name()}
 
 	getUserWithAuthQuery := `
 SELECT (
@@ -342,7 +344,8 @@ AND    removed = false
 		return user.User{}, errors.Annotatef(accesserrors.UserUnauthorized, "%q", name)
 	}
 
-	return result.toCoreUser(), nil
+	coreUser, err := result.toCoreUser()
+	return coreUser, errors.Trace(err)
 }
 
 // RemoveUser marks the user as removed. This obviates the ability of a user
@@ -350,7 +353,7 @@ AND    removed = false
 // RemoveUser will also remove any credentials and activation codes for the
 // user. If no user exists for the given user name then an error that satisfies
 // accesserrors.UserNotFound will be returned.
-func (st *UserState) RemoveUser(ctx context.Context, name string) error {
+func (st *UserState) RemoveUser(ctx context.Context, name user.Name) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting DB access")
@@ -406,7 +409,7 @@ func (st *UserState) RemoveUser(ctx context.Context, name string) error {
 // SetActivationKey removes any active passwords for the user and sets the
 // activation key. If no user is found for the supplied user name an error
 // is returned that satisfies accesserrors.UserNotFound.
-func (st *UserState) SetActivationKey(ctx context.Context, name string, activationKey []byte) error {
+func (st *UserState) SetActivationKey(ctx context.Context, name user.Name, activationKey []byte) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting DB access")
@@ -441,7 +444,7 @@ func (st *UserState) SetActivationKey(ctx context.Context, name string, activati
 // GetActivationKey retrieves the activation key for the user with the supplied
 // user name. If the user does not exist an error that satisfies
 // accesserrors.UserNotFound will be returned.
-func (st *UserState) GetActivationKey(ctx context.Context, name string) ([]byte, error) {
+func (st *UserState) GetActivationKey(ctx context.Context, name user.Name) ([]byte, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting DB access")
@@ -488,7 +491,7 @@ SELECT (*) AS (&dbActivationKey.*) FROM user_activation_key WHERE user_uuid = $M
 // SetPasswordHash removes any active activation keys and sets the user
 // password hash and salt. If no user is found for the supplied user name an error
 // is returned that satisfies accesserrors.UserNotFound.
-func (st *UserState) SetPasswordHash(ctx context.Context, name string, passwordHash string, salt []byte) error {
+func (st *UserState) SetPasswordHash(ctx context.Context, name user.Name, passwordHash string, salt []byte) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting DB access")
@@ -524,7 +527,7 @@ func (st *UserState) SetPasswordHash(ctx context.Context, name string, passwordH
 // EnableUserAuthentication will enable the user with the supplied name.
 // If the user does not exist an error that satisfies
 // accesserrors.UserNotFound will be returned.
-func (st *UserState) EnableUserAuthentication(ctx context.Context, name string) error {
+func (st *UserState) EnableUserAuthentication(ctx context.Context, name user.Name) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting DB access")
@@ -565,7 +568,7 @@ UPDATE SET disabled = false`
 
 // DisableUserAuthentication will disable the user with the supplied user name. If the user does
 // not exist an error that satisfies accesserrors.UserNotFound will be returned.
-func (st *UserState) DisableUserAuthentication(ctx context.Context, name string) error {
+func (st *UserState) DisableUserAuthentication(ctx context.Context, name user.Name) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting DB access")
@@ -613,7 +616,7 @@ func AddUserWithPassword(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid user.UUID,
-	name string,
+	name user.Name,
 	displayName string,
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
@@ -637,14 +640,14 @@ func AddUser(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid user.UUID,
-	name string,
+	name user.Name,
 	displayName string,
 	external bool,
 	creatorUuid user.UUID,
 ) error {
 	user := dbUser{
 		UUID:        uuid.String(),
-		Name:        name,
+		Name:        name.Name(),
 		DisplayName: displayName,
 		External:    external,
 		CreatorUUID: creatorUuid.String(),
@@ -696,7 +699,7 @@ func AddUserWithPermission(
 	ctx context.Context,
 	tx *sqlair.TX,
 	uuid user.UUID,
-	name string,
+	name user.Name,
 	displayName string,
 	external bool,
 	creatorUuid user.UUID,
@@ -730,7 +733,7 @@ func AddUserWithPermission(
 // - accesserrors.UserNameNotValid: When the username is not valid.
 // - accesserrors.UserNotFound: When the user cannot be found.
 // - modelerrors.NotFound: If no model by the given modelUUID exists.
-func (st *UserState) UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error {
+func (st *UserState) UpdateLastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Annotate(err, "getting DB access")
@@ -786,7 +789,7 @@ ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET
 // - modelerrors.NotFound: If no model by the given modelUUID exists.
 // - accesserrors.UserNeverAccessedModel: If there is no record of the user
 // accessing the model.
-func (st *UserState) LastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) (time.Time, error) {
+func (st *UserState) LastModelLogin(ctx context.Context, name user.Name, modelUUID coremodel.UUID) (time.Time, error) {
 	db, err := st.DB()
 	if err != nil {
 		return time.Time{}, errors.Annotate(err, "getting DB access")
@@ -855,7 +858,7 @@ ORDER BY time DESC LIMIT 1;
 func ensureUserAuthentication(
 	ctx context.Context,
 	tx *sqlair.TX,
-	name string,
+	name user.Name,
 ) error {
 	defineUserAuthenticationQuery := `
 INSERT INTO user_authentication (user_uuid, disabled) 
@@ -872,7 +875,7 @@ WHERE      disabled = false`
 	}
 
 	var outcome sqlair.Outcome
-	err = tx.Query(ctx, insertDefineUserAuthenticationStmt, sqlair.M{"name": name, "disabled": false}).Get(&outcome)
+	err = tx.Query(ctx, insertDefineUserAuthenticationStmt, sqlair.M{"name": name.Name(), "disabled": false}).Get(&outcome)
 	if internaldatabase.IsErrConstraintForeignKey(err) {
 		return errors.Annotatef(accesserrors.UserNotFound, "%q", name)
 	} else if err != nil {
@@ -895,7 +898,7 @@ WHERE      disabled = false`
 // accesserrors.UserNotFound will be returned. If the user does not have their
 // authentication enabled an error that satisfies
 // accesserrors.UserAuthenticationDisabled will be returned.
-func setPasswordHash(ctx context.Context, tx *sqlair.TX, name string, passwordHash string, salt []byte) error {
+func setPasswordHash(ctx context.Context, tx *sqlair.TX, name user.Name, passwordHash string, salt []byte) error {
 	err := ensureUserAuthentication(ctx, tx, name)
 	if err != nil {
 		return errors.Annotatef(err, "setting password hash for user %q", name)
@@ -915,7 +918,7 @@ ON CONFLICT(user_uuid) DO UPDATE SET password_hash = excluded.password_hash, pas
 	}
 
 	err = tx.Query(ctx, insertSetPasswordHashStmt, sqlair.M{
-		"name":          name,
+		"name":          name.Name(),
 		"password_hash": passwordHash,
 		"password_salt": salt},
 	).Run()
@@ -930,7 +933,7 @@ ON CONFLICT(user_uuid) DO UPDATE SET password_hash = excluded.password_hash, pas
 // If the user does not exist an error that satisfies accesserrors.UserNotFound will
 // be returned. If the user does not have their authentication enabled an error
 // that satisfies accesserrors.UserAuthenticationDisabled will be returned.
-func setActivationKey(ctx context.Context, tx *sqlair.TX, name string, activationKey []byte) error {
+func setActivationKey(ctx context.Context, tx *sqlair.TX, name user.Name, activationKey []byte) error {
 	err := ensureUserAuthentication(ctx, tx, name)
 	if err != nil {
 		return errors.Annotatef(err, "setting activation key for user %q", name)
@@ -949,7 +952,7 @@ ON CONFLICT(user_uuid) DO UPDATE SET activation_key = excluded.activation_key`
 		return errors.Annotate(err, "preparing insert setActivationKey query")
 	}
 
-	err = tx.Query(ctx, insertSetActivationKeyStmt, sqlair.M{"name": name, "activation_key": activationKey}).Run()
+	err = tx.Query(ctx, insertSetActivationKeyStmt, sqlair.M{"name": name.Name(), "activation_key": activationKey}).Run()
 	if err != nil {
 		return errors.Annotatef(err, "setting activation key for user %q", name)
 	}
@@ -958,10 +961,10 @@ ON CONFLICT(user_uuid) DO UPDATE SET activation_key = excluded.activation_key`
 }
 
 func (st *UserState) uuidForName(
-	ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, name string,
+	ctx context.Context, tx *sqlair.TX, stmt *sqlair.Statement, name user.Name,
 ) (user.UUID, error) {
 	var dbUUID userUUID
-	err := tx.Query(ctx, stmt, userName{Name: name}).Get(&dbUUID)
+	err := tx.Query(ctx, stmt, userName{Name: name.Name()}).Get(&dbUUID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", errors.Annotatef(accesserrors.UserNotFound, "active user %q", name)

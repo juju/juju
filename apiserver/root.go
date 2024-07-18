@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/providertracker"
 	"github.com/juju/juju/core/trace"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher/registry"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/internal/migration"
@@ -384,11 +385,11 @@ func (r *apiHandler) HasPermission(ctx context.Context, operation permission.Acc
 func (r *apiHandler) EntityHasPermission(
 	ctx context.Context, entity names.Tag, operation permission.Access, target names.Tag,
 ) error {
-	var userAccessFunc common.UserAccessFunc = func(ctx context.Context, userName string, target permission.ID) (permission.Access, error) {
+	var userAccessFunc common.UserAccessFunc = func(ctx context.Context, userName user.Name, target permission.ID) (permission.Access, error) {
 		if r.authInfo.Delegator == nil {
 			return permission.NoAccess, fmt.Errorf("permissions %w for auth info", errors.NotImplemented)
 		}
-		return r.authInfo.Delegator.SubjectPermissions(ctx, userName, target)
+		return r.authInfo.Delegator.SubjectPermissions(ctx, userName.Name(), target)
 	}
 	has, err := common.HasPermission(ctx, userAccessFunc, entity, operation, target)
 	if err != nil {
