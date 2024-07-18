@@ -23,12 +23,12 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/core/crossmodel"
-	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/objectstore"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
+	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/state"
 )
@@ -655,7 +655,7 @@ type mockVerifier struct {
 }
 
 func (m mockVerifier) VerifyMacaroon(ctx context.Context, ms macaroon.Slice) ([]bakery.Op, []string, error) {
-	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, ms)
+	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, ms)
 	var conditions []string
 	for k, v := range declared {
 		conditions = append(conditions, fmt.Sprintf("declared %v %v", k, v))

@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/common/crossmodel"
-	"github.com/juju/juju/core/macaroon"
+	"github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/state"
 )
 

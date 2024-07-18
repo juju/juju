@@ -16,9 +16,9 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
-	coremacaroon "github.com/juju/juju/core/macaroon"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/environs"
+	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/internal/servicefactory"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -78,7 +78,7 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 		}
 		return
 	}
-	cookie, err := httpbakery.NewCookie(coremacaroon.MacaroonNamespace, macaroon.Slice{m})
+	cookie, err := httpbakery.NewCookie(internalmacaroon.MacaroonNamespace, macaroon.Slice{m})
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)

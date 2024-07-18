@@ -21,8 +21,8 @@ import (
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/bakeryutil"
-	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/permission"
+	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/state/bakerystorage"
 )
 
@@ -215,12 +215,12 @@ func (o *JaaSOfferBakery) GetConsumeOfferCaveats(offerUUID, sourceModelUUID, use
 
 // InferDeclaredFromMacaroon returns the declared attributes from the macaroon.
 func (o *OfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) map[string]string {
-	return checkers.InferDeclared(coremacaroon.MacaroonNamespace, mac)
+	return checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
 }
 
 // InferDeclaredFromMacaroon returns the declared attributes from the macaroon.
 func (o *JaaSOfferBakery) InferDeclaredFromMacaroon(mac macaroon.Slice, requiredValues map[string]string) map[string]string {
-	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, mac)
+	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
 	authlogger.Debugf("check macaroons with declared attrs: %v", declared)
 	// We only need to inject relationKey for jaas flow
 	// because the relation key injected in juju discharge

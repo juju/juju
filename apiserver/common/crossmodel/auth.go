@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/rpc/params"
 )
 
@@ -41,7 +41,7 @@ const (
 
 // RelationInfoFromMacaroons returns any relation and offer in the macaroons' declared caveats.
 func RelationInfoFromMacaroons(mac macaroon.Slice) (string, string, bool) {
-	declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, mac)
+	declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, mac)
 	relKey, ok1 := declared[relationKey]
 	offerUUID, ok2 := declared[offeruuidKey]
 	return relKey, offerUUID, ok1 && ok2

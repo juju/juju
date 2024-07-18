@@ -22,11 +22,11 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/bakeryutil"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
-	coremacaroon "github.com/juju/juju/core/macaroon"
 	coremodel "github.com/juju/juju/core/model"
 	corepermission "github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/internal/auth"
+	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/state"
 )
 
@@ -141,8 +141,8 @@ func newAuthContext(
 	// Create a bakery for discharging third-party caveats for
 	// local user authentication. This service does not persist keys;
 	// its macaroons should be very short-lived.
-	checker := checkers.New(coremacaroon.MacaroonNamespace)
-	checker.Register("is-authenticated-user", coremacaroon.MacaroonURI,
+	checker := checkers.New(internalmacaroon.MacaroonNamespace)
+	checker.Register("is-authenticated-user", internalmacaroon.MacaroonURI,
 		// Having a macaroon with an is-authenticated-user
 		// caveat is proof that the user is "logged in".
 		// "is-authenticated-user",
