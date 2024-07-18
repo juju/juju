@@ -152,7 +152,7 @@ func (s *Service) CreateMachine(ctx context.Context, machineName coremachine.Nam
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
 // It returns a NotFound error if the parent machine does not exist.
-func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, parentName machine.Name) (string, error) {
+func (s *Service) CreateMachineWithParent(ctx context.Context, machineName, parentName coremachine.Name) (string, error) {
 	// Make a new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
 	// the state layer we don't keep regenerating.
