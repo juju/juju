@@ -153,10 +153,10 @@ VALUES ($machineParent.machine_uuid, $machineParent.parent_uuid)
 			// Query for the parent uuid.
 			// Reusing the machineUUIDout variable for the parent.
 			err := tx.Query(ctx, machineUUIDStmt, parentNameParam).Get(&machineUUIDout)
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Annotatef(machineerrors.MachineNotFound, "parent machine %q for %q", args.parentName, mName)
+			}
 			if err != nil {
-				if errors.Is(err, sqlair.ErrNoRows) {
-					return errors.Annotatef(machineerrors.MachineNotFound, "parent machine %q for %q", args.parentName, mName)
-				}
 				return errors.Annotatef(err, "querying parent machine %q for machine %q", args.parentName, mName)
 			}
 
@@ -221,10 +221,10 @@ DELETE FROM net_node WHERE uuid IN
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&machineUUIDParam)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return machineerrors.MachineNotFound
-			}
 			return errors.Annotatef(err, "looking up UUID for machine %q", mName)
 		}
 
@@ -291,10 +291,10 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		result := machineLife{}
 		err := tx.Query(ctx, lifeStmt, machineNameParam).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return machineerrors.MachineNotFound
-			}
 			return errors.Annotatef(err, "looking up life for machine %q", mName)
 		}
 
@@ -359,10 +359,10 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 
 		// Query for the machine cloud instance status and status data combined
 		err = tx.Query(ctx, statusCombinedQueryStmt, machineUUIDout).GetAll(&machineStatusWithAllData)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(machineerrors.StatusNotSet, "machine: %q", mName)
+		}
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(machineerrors.StatusNotSet, "machine: %q", mName)
-			}
 			return errors.Annotatef(err, "querying machine status for machine %q", mName)
 		}
 
@@ -444,10 +444,10 @@ VALUES ($machineUUID.uuid, $machineStatusWithData.key, $machineStatusWithData.da
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine uuid.
 		err := tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&mUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
+		}
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
-			}
 			return errors.Annotatef(err, "querying uuid for machine %q", mName)
 		}
 
@@ -498,10 +498,10 @@ func (st *State) SetMachineLife(ctx context.Context, mName machine.Name, life li
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for machine uuid, return MachineNotFound if machine doesn't exist.
 		err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUIDoutput)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return machineerrors.MachineNotFound
-			}
 			return errors.Annotatef(err, "querying UUID for machine %q", mName)
 		}
 
@@ -533,10 +533,10 @@ func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (b
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return machineerrors.MachineNotFound
+		}
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return machineerrors.MachineNotFound
-			}
 			return errors.Annotatef(err, "querying if machine %q is a controller", mName)
 		}
 		return nil
@@ -564,10 +564,10 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 	var results []machineName
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, queryStmt).GetAll(&results)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return nil
-			}
 			return errors.Annotate(err, "querying all machines")
 		}
 		return nil
@@ -617,19 +617,19 @@ FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		// Query for the machine UUID.
 		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&machineUUIDoutput)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
+		}
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
-			}
 			return errors.Annotatef(err, "querying UUID for machine %q", mName)
 		}
 
 		// Query for the parent UUID.
 		err = tx.Query(ctx, parentQueryStmt, machineUUIDoutput).Get(&parentUUIDParam)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(machineerrors.MachineHasNoParent, "machine %q", mName)
+		}
 		if err != nil {
-			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.Annotatef(machineerrors.MachineHasNoParent, "machine %q", mName)
-			}
 			return errors.Annotatef(err, "querying parent UUID for machine %q", mName)
 		}
 
@@ -641,7 +641,8 @@ FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 		// No error means we found a grandparent.
 		if err == nil {
 			return errors.Annotatef(machineerrors.GrandParentNotAllowed, "machine %q", mName)
-		} else if !errors.Is(err, sqlair.ErrNoRows) {
+		}
+		if !errors.Is(err, sqlair.ErrNoRows) {
 			// Return error if the query failed for any reason other than not
 			// found.
 			return errors.Annotatef(err, "querying for grandparent UUID for machine %q", mName)
