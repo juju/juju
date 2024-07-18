@@ -61,13 +61,16 @@ func (st *State) getAnnotationsForModel(ctx context.Context, id annotations.ID, 
 	// Running transactions for getting annotations
 	var annotationsResults []Annotation
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, getAnnotationsStmt).GetAll(&annotationsResults)
-	})
-	if err != nil {
+		err := tx.Query(ctx, getAnnotationsStmt).GetAll(&annotationsResults)
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// No errors, we return empty map if no annotation is found
-			return nil, nil
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
 		}
+		return nil
+	})
+	if err != nil {
 		return nil, errors.Annotatef(err, "loading annotations for ID: %q", id.Name)
 	}
 
@@ -116,15 +119,18 @@ func (st *State) getAnnotationsForID(ctx context.Context, id annotations.ID, get
 			return fmt.Errorf("unable to find UUID for ID: %q %w", id.Name, errors.NotFound)
 		}
 		// Querying for annotations
-		return tx.Query(ctx, getAnnotationsStmt, sqlair.M{
+		err := tx.Query(ctx, getAnnotationsStmt, sqlair.M{
 			"uuid": uuid,
 		}).GetAll(&annotationsResults)
-	})
-	if err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			// No errors, we return empty map if no annotation is found
-			return nil, nil
+			return nil
+		} else if err != nil {
+			return errors.Trace(err)
 		}
+		return nil
+	})
+	if err != nil {
 		return nil, errors.Annotatef(err, "loading annotations for ID: %q", id.Name)
 	}
 

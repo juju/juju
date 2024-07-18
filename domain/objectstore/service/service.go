@@ -13,7 +13,6 @@ import (
 	coreobjectstore "github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain"
 )
 
 // State describes retrieval and persistence methods for the coreobjectstore.
@@ -67,7 +66,7 @@ func (s *Service) GetMetadata(ctx context.Context, path string) (coreobjectstore
 func (s *Service) ListMetadata(ctx context.Context) ([]coreobjectstore.Metadata, error) {
 	metadata, err := s.st.ListMetadata(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("retrieving metadata: %w", domain.CoerceError(err))
+		return nil, fmt.Errorf("retrieving metadata: %w", err)
 	}
 	m := make([]coreobjectstore.Metadata, len(metadata))
 	for i, v := range metadata {

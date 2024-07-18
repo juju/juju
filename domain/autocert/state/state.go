@@ -12,6 +12,7 @@ import (
 
 	coreDB "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	autocerterrors "github.com/juju/juju/domain/autocert/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -56,7 +57,7 @@ VALUES ($dbAutocert.*)
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, q, autocert).Run(); err != nil {
-			return errors.Trace(domain.CoerceError(err))
+			return errors.Trace(err)
 		}
 		return nil
 	})
@@ -82,12 +83,14 @@ WHERE  name = $dbAutocert.name`
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, s, autocert).Get(&autocert))
-	}); err != nil {
+		err := tx.Query(ctx, s, autocert).Get(&autocert)
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.Annotatef(errors.NotFound, "autocert %s", name)
+			return errors.Annotatef(autocerterrors.NotFound, "autocert %s", name)
 		}
-		return nil, errors.Annotate(domain.CoerceError(err), "querying autocert cache")
+		return errors.Trace(err)
+	}); err != nil {
+
+		return nil, errors.Annotate(err, "querying autocert cache")
 	}
 
 	return []byte(autocert.Data), nil
@@ -100,15 +103,33 @@ func (st *State) Delete(ctx context.Context, name string) error {
 		return errors.Trace(err)
 	}
 
-	certToDelete := dbAutocert{Name: name}
-	stmt, err := st.Prepare(`DELETE FROM autocert_cache WHERE name = $dbAutocert.name`, certToDelete)
+	autocert := dbAutocert{Name: name}
+
+	q := `
+SELECT (name) AS (&dbAutocert.*)
+FROM   autocert_cache 
+WHERE  name = $dbAutocert.name`
+	s, err := st.Prepare(q, autocert)
+	if err != nil {
+		return errors.Annotatef(err, "preparing autocert select statement")
+	}
+
+	stmt, err := st.Prepare(`DELETE FROM autocert_cache WHERE name = $dbAutocert.name`, autocert)
 	if err != nil {
 		return errors.Annotatef(err, "preparing autocert cache delete statement")
 	}
 
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		if err := tx.Query(ctx, stmt, certToDelete).Run(); err != nil {
-			return errors.Trace(domain.CoerceError(err))
+		// First check if the autocert exists.
+		err := tx.Query(ctx, s, autocert).Get(&autocert)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(autocerterrors.NotFound, "autocert %s", name)
+		} else if err != nil {
+			return errors.Trace(err)
+		}
+
+		if err := tx.Query(ctx, stmt, autocert).Run(); err != nil {
+			return errors.Trace(err)
 		}
 		return nil
 	})

@@ -5,7 +5,6 @@ package state
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/canonical/sqlair"
@@ -71,7 +70,7 @@ WHERE s.algorithm = $userPublicKeyInsert.algorithm
 		return fmt.Errorf(
 			"preparing insert statement for adding user %q public keys: %w",
 			userId,
-			domain.CoerceError(err),
+			err,
 		)
 	}
 
@@ -103,7 +102,7 @@ WHERE s.algorithm = $userPublicKeyInsert.algorithm
 	} else if err != nil {
 		return fmt.Errorf(
 			"cannot add %d keys for user %q: %w",
-			len(publicKeys), userId, domain.CoerceError(err),
+			len(publicKeys), userId, err,
 		)
 	}
 
@@ -146,7 +145,7 @@ WHERE s.algorithm = $userPublicKeyInsert.algorithm
 		return fmt.Errorf(
 			"preparing insert statement for adding user %q public keys: %w",
 			userId,
-			domain.CoerceError(err),
+			err,
 		)
 	}
 
@@ -178,7 +177,7 @@ WHERE s.algorithm = $userPublicKeyInsert.algorithm
 	if err != nil {
 		return fmt.Errorf(
 			"cannot add %d keys for user %q: %w",
-			len(publicKeys), userId, domain.CoerceError(err),
+			len(publicKeys), userId, err,
 		)
 	}
 	return err
@@ -204,19 +203,22 @@ WHERE user_id = $userId.user_id
 	if err != nil {
 		return nil, fmt.Errorf(
 			"preparing select statement for getting public keys of user %q: %w",
-			id, domain.CoerceError(err),
+			id, err,
 		)
 	}
 
-	userId := userId{id.String()}
+	userId := userId{UserId: id.String()}
 	publicKeys := []publicKey{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, userId).GetAll(&publicKeys)
+		err := tx.Query(ctx, stmt, userId).GetAll(&publicKeys)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		return nil
 	})
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	} else if err != nil {
+	if err != nil {
 		return nil, fmt.Errorf(
 			"cannot get public keys for user %q: %w", id, err,
 		)
@@ -254,7 +256,7 @@ AND (comment IN ($S[:])
 	if err != nil {
 		return fmt.Errorf(
 			"preparing delete statement for removing public keys for user %q: %w",
-			id, domain.CoerceError(err),
+			id, err,
 		)
 	}
 

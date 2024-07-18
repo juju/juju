@@ -42,7 +42,7 @@ func (st *State) AddSpace(
 ) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 	space := Space{UUID: uuid, Name: name}
 	insertSpaceStmt, err := st.Prepare(`
@@ -63,7 +63,7 @@ VALUES ($ProviderSpace.*)`, providerSpace)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, insertSpaceStmt, space).Run(); err != nil {
 			if database.IsErrConstraintUnique(err) {
-				return fmt.Errorf("inserting space uuid %q into space table: %w with err: %w", uuid, networkerrors.ErrSpaceAlreadyExists, err)
+				return fmt.Errorf("inserting space uuid %q into space table: %w with err: %w", uuid, networkerrors.SpaceAlreadyExists, err)
 			}
 			return errors.Annotatef(err, "inserting space uuid %q into space table", uuid)
 		}
@@ -88,7 +88,7 @@ VALUES ($ProviderSpace.*)`, providerSpace)
 		}
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // GetSpace returns the space by UUID.
@@ -113,13 +113,14 @@ WHERE  uuid = $Space.uuid;`, SpaceSubnetRow{}, space)
 	var spaceRows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, spacesStmt, space).GetAll(&spaceRows)
-		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return fmt.Errorf("space not found with %s: %w", uuid, networkerrors.SpaceNotFound)
+			}
 			return errors.Annotatef(err, "retrieving space %q", uuid)
 		}
 		return err
-	}); errors.Is(err, sqlair.ErrNoRows) {
-		return nil, fmt.Errorf("space not found with %s: %w", uuid, networkerrors.ErrSpaceNotFound)
-	} else if err != nil {
+	}); err != nil {
 		return nil, errors.Annotate(err, "querying spaces")
 	}
 
@@ -152,11 +153,16 @@ WHERE  name = $Space.name;`
 
 	var rows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, s, space).GetAll(&rows))
-	}); errors.Is(err, sqlair.ErrNoRows) {
-		return nil, fmt.Errorf("space not found with %s: %w", name, networkerrors.ErrSpaceNotFound)
-	} else if err != nil {
-		return nil, errors.Annotate(domain.CoerceError(err), "querying spaces by name")
+		err := errors.Trace(tx.Query(ctx, s, space).GetAll(&rows))
+		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return fmt.Errorf("space not found with %s: %w", name, networkerrors.SpaceNotFound)
+			}
+			return errors.Annotate(err, "querying spaces by name")
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return &rows.ToSpaceInfos()[0], nil
@@ -182,12 +188,15 @@ FROM   v_space_subnet
 
 	var rows SpaceSubnetRows
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(tx.Query(ctx, s).GetAll(&rows))
-	}); errors.Is(err, sqlair.ErrNoRows) {
-		return nil, nil
-	} else if err != nil {
-		st.logger.Errorf("querying all spaces, %v", err)
-		return nil, errors.Annotate(domain.CoerceError(err), "querying all spaces")
+		if err := tx.Query(ctx, s).GetAll(&rows); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return nil
+			}
+			return errors.Annotate(err, "querying all spaces")
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	return rows.ToSpaceInfos(), nil
@@ -201,7 +210,7 @@ func (st *State) UpdateSpace(
 ) error {
 	db, err := st.DB()
 	if err != nil {
-		return errors.Trace(domain.CoerceError(err))
+		return errors.Trace(err)
 	}
 
 	space := Space{
@@ -226,11 +235,11 @@ WHERE  uuid = $Space.uuid;`, space)
 			return errors.Trace(err)
 		}
 		if affected == 0 {
-			return fmt.Errorf("space not found with %s: %w", uuid, networkerrors.ErrSpaceNotFound)
+			return fmt.Errorf("space not found with %s: %w", uuid, networkerrors.SpaceNotFound)
 		}
 		return nil
 	})
-	return domain.CoerceError(err)
+	return err
 }
 
 // DeleteSpace deletes the space identified by the passed uuid.
@@ -284,10 +293,10 @@ WHERE  space_uuid = $Space.uuid;`, space)
 			return errors.Trace(err)
 		}
 		if delSpaceAffected != 1 {
-			return networkerrors.ErrSpaceNotFound
+			return networkerrors.SpaceNotFound
 		}
 
 		return nil
 	})
-	return domain.CoerceError(err)
+	return err
 }

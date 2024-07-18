@@ -64,7 +64,7 @@ VALUES ($Info.*)`, info)
 	if database.IsErrConstraintUnique(err) {
 		return "", upgradeerrors.AlreadyExists
 	} else if err != nil {
-		return "", errors.Trace(domain.CoerceError(err))
+		return "", errors.Trace(err)
 	}
 
 	return domainupgrade.UUID(upgradeUUID.String()), nil
@@ -126,7 +126,7 @@ VALUES ($ControllerNodeInfo.*);
 		}
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // AllProvisionedControllersReady returns true if and only if all controllers
@@ -164,7 +164,7 @@ AND    upgrade_node.controller_node_id IS NULL;
 		return nil
 	})
 	if err != nil {
-		return false, errors.Trace(domain.CoerceError(err))
+		return false, errors.Trace(err)
 	}
 	return allReady, nil
 }
@@ -220,7 +220,7 @@ WHERE  uuid = $Info.uuid
 		}
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // SetDBUpgradeCompleted marks the database upgrade as completed.
@@ -237,7 +237,7 @@ func (st *State) SetDBUpgradeCompleted(ctx context.Context, upgradeUUID domainup
 		}
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // SetDBUpgradeFailed marks the database upgrade as failed.
@@ -254,7 +254,7 @@ func (st *State) SetDBUpgradeFailed(ctx context.Context, upgradeUUID domainupgra
 		}
 		return nil
 	})
-	return errors.Trace(domain.CoerceError(err))
+	return errors.Trace(err)
 }
 
 // SetControllerDone marks the supplied controllerID as having completed its
@@ -375,7 +375,7 @@ WHERE state_type_id < $Info.state_type_id
 		}
 		return nil
 	})
-	return domainupgrade.UUID(info.UUID), errors.Trace(domain.CoerceError(err))
+	return domainupgrade.UUID(info.UUID), errors.Trace(err)
 }
 
 // UpgradeInfo returns the upgrade info for the provided upgradeUUID. It returns
@@ -403,7 +403,7 @@ WHERE uuid = $Info.uuid
 		return err
 	})
 	if err != nil {
-		return upgrade.Info{}, errors.Trace(domain.CoerceError(err))
+		return upgrade.Info{}, errors.Trace(err)
 	}
 
 	result, err := info.ToUpgradeInfo()

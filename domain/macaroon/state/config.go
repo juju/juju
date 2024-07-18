@@ -13,6 +13,7 @@ import (
 
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	macroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	internaldatabase "github.com/juju/juju/internal/database"
 )
 
@@ -43,14 +44,14 @@ func (st *BakeryConfigState) InitialiseBakeryConfig(
 	}
 
 	cfg := FullConfig{
-		LocalUsersPrivateKey:              &keyScanner{localUsersKey.Private.Key},
-		LocalUsersPublicKey:               &keyScanner{localUsersKey.Public.Key},
-		LocalUsersThirdPartyPrivateKey:    &keyScanner{localUsersThirdPartyKey.Private.Key},
-		LocalUsersThirdPartyPublicKey:     &keyScanner{localUsersThirdPartyKey.Public.Key},
-		ExternalUsersThirdPartyPrivateKey: &keyScanner{externalUsersThirdPartyKey.Private.Key},
-		ExternalUsersThirdPartyPublicKey:  &keyScanner{externalUsersThirdPartyKey.Public.Key},
-		OffersThirdPartyPrivateKey:        &keyScanner{offersThirdPartyKey.Private.Key},
-		OffersThirdPartyPublicKey:         &keyScanner{offersThirdPartyKey.Public.Key},
+		LocalUsersPrivateKey:              &keyScanner{key: localUsersKey.Private.Key},
+		LocalUsersPublicKey:               &keyScanner{key: localUsersKey.Public.Key},
+		LocalUsersThirdPartyPrivateKey:    &keyScanner{key: localUsersThirdPartyKey.Private.Key},
+		LocalUsersThirdPartyPublicKey:     &keyScanner{key: localUsersThirdPartyKey.Public.Key},
+		ExternalUsersThirdPartyPrivateKey: &keyScanner{key: externalUsersThirdPartyKey.Private.Key},
+		ExternalUsersThirdPartyPublicKey:  &keyScanner{key: externalUsersThirdPartyKey.Public.Key},
+		OffersThirdPartyPrivateKey:        &keyScanner{key: offersThirdPartyKey.Private.Key},
+		OffersThirdPartyPublicKey:         &keyScanner{key: offersThirdPartyKey.Public.Key},
 	}
 
 	initialiseConfigStmt, err := st.Prepare("INSERT INTO bakery_config (*) VALUES ($FullConfig.*)", FullConfig{})
@@ -60,9 +61,9 @@ func (st *BakeryConfigState) InitialiseBakeryConfig(
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, initialiseConfigStmt, cfg).Run()
 		if internaldatabase.IsErrConstraintUnique(err) {
-			return BakeryConfigAlreadyInitialised
+			return macroonerrors.BakeryConfigAlreadyInitialised
 		}
-		return domain.CoerceError(err)
+		return err
 	})
 	return errors.Trace(err)
 }
@@ -82,13 +83,13 @@ func (st *BakeryConfigState) GetLocalUsersKey(ctx context.Context) (*bakery.KeyP
 	var keyPair LocalUsersKeyPair
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, loadKeyStmt).Get(&keyPair)
+		if errors.Is(err, sql.ErrNoRows) {
+			return macroonerrors.NotInitialised
+		}
 		return err
 	})
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.NotYetAvailablef("bakery config not yet initialised")
-	}
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	return &bakery.KeyPair{
@@ -112,13 +113,14 @@ func (st *BakeryConfigState) GetLocalUsersThirdPartyKey(ctx context.Context) (*b
 	var keyPair LocalUsersThirdPartyKeyPair
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, loadKeyStmt).Get(&keyPair)
+		if errors.Is(err, sql.ErrNoRows) {
+			return macroonerrors.NotInitialised
+		}
 		return err
 	})
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.NotYetAvailablef("bakery config not yet initialised")
-	}
+
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	return &bakery.KeyPair{
@@ -142,13 +144,14 @@ func (st *BakeryConfigState) GetExternalUsersThirdPartyKey(ctx context.Context) 
 	var keyPair ExternalUsersThirdPartyKeyPair
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, loadKeyStmt).Get(&keyPair)
+		if errors.Is(err, sql.ErrNoRows) {
+			return macroonerrors.NotInitialised
+		}
 		return err
 	})
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.NotYetAvailablef("bakery config not yet initialised")
-	}
+
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	return &bakery.KeyPair{
@@ -172,13 +175,13 @@ func (st *BakeryConfigState) GetOffersThirdPartyKey(ctx context.Context) (*baker
 	var keyPair OffersThirdPartyKeyPair
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err := tx.Query(ctx, loadKeyStmt).Get(&keyPair)
+		if errors.Is(err, sql.ErrNoRows) {
+			return macroonerrors.NotInitialised
+		}
 		return err
 	})
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, errors.NotYetAvailablef("bakery config not yet initialised")
-	}
 	if err != nil {
-		return nil, errors.Trace(domain.CoerceError(err))
+		return nil, errors.Trace(err)
 	}
 
 	return &bakery.KeyPair{

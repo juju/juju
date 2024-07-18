@@ -151,11 +151,11 @@ AND owner_name = $M.owner
 		}
 
 		if err := upsertCredential(ctx, tx, credentialID, key, credential); err != nil {
-			return domain.CoerceError(fmt.Errorf("updating credential: %w", err))
+			return fmt.Errorf("updating credential: %w", err)
 		}
 
 		if err := updateCredentialAttributes(ctx, tx, credentialID, credential.Attributes); err != nil {
-			return domain.CoerceError(fmt.Errorf("updating credential %q attributes: %w", key.Name, err))
+			return fmt.Errorf("updating credential %q attributes: %w", key.Name, err)
 		}
 
 		// TODO(wallyworld) - update model status (suspended etc)
@@ -554,7 +554,7 @@ WHERE uuid = $M.id
 	if errors.Is(err, sql.ErrNoRows) {
 		return credential.CloudCredentialResult{}, fmt.Errorf("%w for id %q", credentialerrors.NotFound, id)
 	} else if err != nil {
-		return credential.CloudCredentialResult{}, fmt.Errorf("getting cloud credential for id %q: %w", id, domain.CoerceError(err))
+		return credential.CloudCredentialResult{}, fmt.Errorf("getting cloud credential for id %q: %w", id, err)
 	}
 
 	rval := credential.CloudCredentialResult{
@@ -697,12 +697,15 @@ FROM   v_model m
 	var info []sqlair.M
 	result := make(map[coremodel.UUID]string)
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, args).GetAll(&info)
+		err := tx.Query(ctx, stmt, args).GetAll(&info)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		return nil
 	})
 	if err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return result, nil
-		}
 		return nil, errors.Trace(err)
 	}
 	for _, m := range info {

@@ -185,7 +185,7 @@ WHERE  u.uuid = $M.uuid`
 
 		var result dbUser
 		err = tx.Query(ctx, selectGetUserStmt, sqlair.M{"uuid": uuid.String()}).Get(&result)
-		if err != nil && errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return errors.Annotatef(accesserrors.UserNotFound, "%q", uuid)
 		} else if err != nil {
 			return errors.Annotatef(err, "getting user with uuid %q", uuid)
@@ -744,7 +744,7 @@ ON CONFLICT(model_uuid, user_uuid) DO UPDATE SET
 				// uuidForName query would have failed, so it must be the model.
 				return modelerrors.NotFound
 			}
-			return domain.CoerceError(err)
+			return errors.Trace(err)
 		}
 		return nil
 	})
@@ -805,7 +805,7 @@ ORDER BY time DESC LIMIT 1;
 			}
 			return accesserrors.UserNeverAccessedModel
 		} else if err != nil {
-			return domain.CoerceError(errors.Annotatef(err, "running query getLastModelLoginTime"))
+			return errors.Annotatef(err, "running query getLastModelLoginTime")
 		}
 
 		lastConnection = result.Time
@@ -941,7 +941,7 @@ func (st *UserState) uuidForName(
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", errors.Annotatef(accesserrors.UserNotFound, "active user %q", name)
 		}
-		return "", errors.Annotatef(domain.CoerceError(err), "getting user %q", name)
+		return "", errors.Annotatef(err, "getting user %q", name)
 	}
 
 	uuid := user.UUID(dbUUID.UUID)

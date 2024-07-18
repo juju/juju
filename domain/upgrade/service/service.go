@@ -14,7 +14,6 @@ import (
 	coreupgrade "github.com/juju/juju/core/upgrade"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/upgrade"
 	upgradeerrors "github.com/juju/juju/domain/upgrade/errors"
 )
@@ -66,7 +65,7 @@ func (s *Service) SetControllerReady(ctx context.Context, upgradeUUID upgrade.UU
 		return errors.Trace(err)
 	}
 	err := s.st.SetControllerReady(ctx, upgradeUUID, controllerID)
-	return domain.CoerceError(err)
+	return err
 }
 
 // StartUpgrade starts the current upgrade if it exists

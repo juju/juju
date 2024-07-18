@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/version"
-	jujuversion "github.com/juju/juju/core/version"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	accessstate "github.com/juju/juju/domain/access/state"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
@@ -286,7 +285,7 @@ func (m *stateSuite) TestGetModel(c *gc.C) {
 	modelInfo, err := modelSt.GetModel(context.Background(), m.uuid)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(modelInfo, gc.Equals, coremodel.Model{
-		AgentVersion: jujuversion.Current,
+		AgentVersion: version.Current,
 		UUID:         m.uuid,
 		Cloud:        "my-cloud",
 		CloudType:    "ec2",

@@ -66,7 +66,7 @@ AND charm_origin.revision = $charmNameRevision.revision;
 		id = corecharm.ID(result.UUID)
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return "", fmt.Errorf("failed to run transaction: %w", err)
 	}
 	return id, nil
 }
@@ -103,7 +103,7 @@ WHERE uuid = $charmID.uuid;
 		isController = result.Name == "juju-controller"
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return false, fmt.Errorf("failed to run transaction: %w", err)
 	}
 	return isController, nil
 }
@@ -140,7 +140,7 @@ WHERE uuid = $charmID.uuid;
 		isSubordinate = result.Subordinate
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return false, fmt.Errorf("failed to run transaction: %w", err)
 	}
 	return isSubordinate, nil
 }
@@ -185,7 +185,7 @@ WHERE uuid = $charmID.uuid;
 		supportsContainers = num > 0
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return false, fmt.Errorf("failed to run transaction: %w", err)
 	}
 	return supportsContainers, nil
 }
@@ -224,7 +224,7 @@ WHERE uuid = $charmID.uuid;
 		isAvailable = result.Available
 		return nil
 	}); err != nil {
-		return false, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return false, fmt.Errorf("failed to run transaction: %w", err)
 	}
 	return isAvailable, nil
 }
@@ -275,7 +275,7 @@ WHERE charm_uuid = $charmID.uuid;
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return fmt.Errorf("failed to run transaction: %w", err)
 	}
 
 	return nil
@@ -344,7 +344,7 @@ WHERE uuid = $charmID.uuid;
 
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return "", fmt.Errorf("failed to run transaction: %w", err)
 	}
 
 	return newID, nil
@@ -430,7 +430,7 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 
 		return nil
 	}); err != nil {
-		return charm.Metadata{}, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return charm.Metadata{}, fmt.Errorf("failed to run transaction: %w", err)
 	}
 
 	return decodeMetadata(metadata, decodeMetadataArgs{
@@ -479,7 +479,7 @@ ORDER BY array_index ASC;
 		}
 		return nil
 	}); err != nil {
-		return charm.Manifest{}, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return charm.Manifest{}, fmt.Errorf("failed to run transaction: %w", err)
 	}
 
 	return decodeManifest(manifests)
@@ -517,7 +517,7 @@ WHERE uuid = $charmID.uuid;
 		}
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return nil, fmt.Errorf("failed to run transaction: %w", err)
 	}
 
 	return profile.LXDProfile, nil
@@ -569,7 +569,7 @@ WHERE charm_uuid = $charmID.uuid;
 		}
 		return nil
 	}); err != nil {
-		return charm.Config{}, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return charm.Config{}, fmt.Errorf("failed to run transaction: %w", err)
 	}
 
 	return decodeConfig(configs)
@@ -621,7 +621,7 @@ WHERE charm_uuid = $charmID.uuid;
 		}
 		return nil
 	}); err != nil {
-		return charm.Actions{}, fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return charm.Actions{}, fmt.Errorf("failed to run transaction: %w", err)
 	}
 
 	return decodeActions(actions), nil
@@ -699,7 +699,7 @@ func (s *State) SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, 
 
 		return nil
 	}); err != nil {
-		return "", fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return "", fmt.Errorf("failed to run transaction: %w", err)
 	}
 
 	return id, nil
@@ -788,7 +788,7 @@ func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+		return fmt.Errorf("failed to run transaction: %w", err)
 	}
 
 	return nil

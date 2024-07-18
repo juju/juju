@@ -7,11 +7,11 @@ import (
 	"context"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/internal/changestream/testing"
+	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
+	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
 var (
@@ -22,7 +22,7 @@ var (
 )
 
 type configStateSuite struct {
-	testing.ControllerSuite
+	schematesting.ControllerSuite
 }
 
 var _ = gc.Suite(&configStateSuite{})
@@ -39,7 +39,7 @@ func (s *configStateSuite) TestInitialiseMultipleTimesFails(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.InitialiseBakeryConfig(context.Background(), testKey1, testKey2, testKey3, testKey4)
-	c.Assert(err, jc.ErrorIs, BakeryConfigAlreadyInitialised)
+	c.Assert(err, jc.ErrorIs, macaroonerrors.BakeryConfigAlreadyInitialised)
 }
 
 func (s *configStateSuite) TestGetKeys(c *gc.C) {
@@ -67,14 +67,14 @@ func (s *configStateSuite) TestGetKeys(c *gc.C) {
 func (s *configStateSuite) TestGetKeysUninitialised(c *gc.C) {
 	st := NewState(s.TxnRunnerFactory())
 	_, err := st.GetLocalUsersKey(context.Background())
-	c.Check(err, jc.ErrorIs, errors.NotYetAvailable)
+	c.Check(err, jc.ErrorIs, macaroonerrors.NotInitialised)
 
 	_, err = st.GetLocalUsersThirdPartyKey(context.Background())
-	c.Check(err, jc.ErrorIs, errors.NotYetAvailable)
+	c.Check(err, jc.ErrorIs, macaroonerrors.NotInitialised)
 
 	_, err = st.GetExternalUsersThirdPartyKey(context.Background())
-	c.Check(err, jc.ErrorIs, errors.NotYetAvailable)
+	c.Check(err, jc.ErrorIs, macaroonerrors.NotInitialised)
 
 	_, err = st.GetOffersThirdPartyKey(context.Background())
-	c.Check(err, jc.ErrorIs, errors.NotYetAvailable)
+	c.Check(err, jc.ErrorIs, macaroonerrors.NotInitialised)
 }

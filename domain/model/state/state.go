@@ -16,7 +16,6 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
-	coreuser "github.com/juju/juju/core/user"
 	"github.com/juju/juju/domain"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	clouderrors "github.com/juju/juju/domain/cloud/errors"
@@ -82,7 +81,7 @@ WHERE c.name = ?
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", fmt.Errorf("%w for name %q", clouderrors.NotFound, name)
 		} else if err != nil {
-			return "", fmt.Errorf("determining type for cloud %q: %w", name, domain.CoerceError(err))
+			return "", fmt.Errorf("determining type for cloud %q: %w", name, err)
 		}
 		return cloudType, nil
 	}
@@ -245,7 +244,7 @@ AND owner_name = ?
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, q, modelName, username)
 
-		return row.Scan(
+		err := row.Scan(
 			&modelIdStr,
 			&model.Name,
 			&agentVersion,
@@ -260,22 +259,25 @@ AND owner_name = ?
 			&model.Life,
 		)
 
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf(
+				"%w for user %q and name %q",
+				modelerrors.NotFound,
+				username,
+				modelName,
+			)
+		} else if err != nil {
+			return fmt.Errorf(
+				"cannot find model for user %q and name %q: %w",
+				username,
+				modelName,
+				err,
+			)
+		}
+		return nil
 	})
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return coremodel.Model{}, fmt.Errorf(
-			"%w for user %q and name %q",
-			modelerrors.NotFound,
-			username,
-			modelName,
-		)
-	} else if err != nil {
-		return coremodel.Model{}, fmt.Errorf(
-			"cannot find model for user %q and name %q: %w",
-			username,
-			modelName,
-			domain.CoerceError(err),
-		)
+	if err != nil {
+		return coremodel.Model{}, errors.Trace(err)
 	}
 
 	model.AgentVersion, err = version.Parse(agentVersion)
@@ -342,7 +344,7 @@ WHERE uuid = ?
 	if errors.Is(err, sql.ErrNoRows) {
 		return modelType, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
 	} else if err != nil {
-		return modelType, fmt.Errorf("getting model type for uuid %q: %w", uuid, domain.CoerceError(err))
+		return modelType, fmt.Errorf("getting model type for uuid %q: %w", uuid, err)
 	}
 	return modelType, nil
 }
@@ -404,7 +406,7 @@ WHERE uuid = ?
 	if errors.Is(err, sql.ErrNoRows) {
 		return coremodel.Model{}, fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
 	} else if err != nil {
-		return coremodel.Model{}, fmt.Errorf("getting model %q: %w", uuid, domain.CoerceError(err))
+		return coremodel.Model{}, fmt.Errorf("getting model %q: %w", uuid, err)
 	}
 
 	model.AgentVersion, err = version.Parse(agentVersion)
@@ -848,7 +850,7 @@ FROM v_model
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("getting all models: %w", domain.CoerceError(err))
+		return nil, fmt.Errorf("getting all models: %w", err)
 	}
 
 	return rval, nil
@@ -965,7 +967,7 @@ OR uuid IN (SELECT grant_on
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("getting models owned by user %q: %w", userID, domain.CoerceError(err))
+		return nil, fmt.Errorf("getting models owned by user %q: %w", userID, err)
 	}
 
 	return rval, nil
@@ -1000,21 +1002,21 @@ AND owner_name = ?
 	)
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		row := tx.QueryRowContext(ctx, stmt, modelName, modelOwnerName)
-		if err := row.Scan(&cloudName, &credentialKey.Name, &credentialKey.Owner, &credentialKey.Cloud); err != nil {
-			return err
+		err := row.Scan(&cloudName, &credentialKey.Name, &credentialKey.Owner, &credentialKey.Cloud)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w for name %q and owner %q",
+				modelerrors.NotFound, modelName, modelOwnerName,
+			)
+		} else if err != nil {
+			return fmt.Errorf(
+				"getting cloud name and credential for model %q with owner %q: %w",
+				modelName, modelOwnerName, err,
+			)
 		}
 		return nil
 	})
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", credential.Key{}, fmt.Errorf("%w for name %q and owner %q",
-			modelerrors.NotFound, modelName, modelOwnerName,
-		)
-	} else if err != nil {
-		return "", credential.Key{}, fmt.Errorf(
-			"getting cloud name and credential for model %q with owner %q: %w",
-			modelName, modelOwnerName, domain.CoerceError(err),
-		)
+	if err != nil {
+		return "", credential.Key{}, errors.Trace(err)
 	}
 
 	return cloudName, credentialKey, nil
@@ -1038,17 +1040,20 @@ WHERE m.uuid = ?
 `
 	var namespace sql.NullString
 	err = db.StdTxn(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		return tx.QueryRowContext(ctx, q, id).Scan(&id, &namespace)
+		err := tx.QueryRowContext(ctx, q, id).Scan(&id, &namespace)
+		if errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("%w for id %q", modelerrors.NotFound, id)
+		} else if err != nil {
+			return fmt.Errorf(
+				"getting database namespace for model %q: %w",
+				id,
+				err,
+			)
+		}
+		return nil
 	})
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", fmt.Errorf("%w for id %q", modelerrors.NotFound, id)
-	} else if err != nil {
-		return "", fmt.Errorf(
-			"getting database namespace for model %q: %w",
-			id,
-			domain.CoerceError(err),
-		)
+	if err != nil {
+		return "", errors.Trace(err)
 	}
 
 	if !namespace.Valid {
@@ -1086,7 +1091,7 @@ func registerModelNamespace(
 	} else if jujudb.IsErrConstraintForeignKey(err) {
 		return "", fmt.Errorf("%w for uuid %q", modelerrors.NotFound, uuid)
 	} else if err != nil {
-		return "", fmt.Errorf("associating database namespace with model %q, %w", uuid, domain.CoerceError(err))
+		return "", fmt.Errorf("associating database namespace with model %q, %w", uuid, err)
 	}
 
 	return uuid.String(), nil
@@ -1282,7 +1287,7 @@ func unregisterModelNamespace(
 	q := "DELETE from model_namespace WHERE model_uuid = ?"
 	_, err := tx.ExecContext(ctx, q, uuid.String())
 	if err != nil {
-		return fmt.Errorf("un-registering model %q database namespace: %w", uuid, domain.CoerceError(err))
+		return fmt.Errorf("un-registering model %q database namespace: %w", uuid, err)
 	}
 
 	return nil
@@ -1379,7 +1384,7 @@ func addAdminPermissions(
 	ctx context.Context,
 	tx *sql.Tx,
 	modelUUID coremodel.UUID,
-	ownerUUID coreuser.UUID,
+	ownerUUID user.UUID,
 ) error {
 	permUUID, err := internaluuid.NewUUID()
 	if err != nil {

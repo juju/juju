@@ -7,10 +7,10 @@ import (
 	"context"
 
 	"github.com/juju/collections/set"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -85,6 +85,6 @@ func (s *stateSuite) TestSelectDatabaseNamespace(c *gc.C) {
 	c.Check(namespace, gc.Equals, "simon!!")
 
 	namespace, err = st.SelectDatabaseNamespace(context.Background(), "SIMon!!")
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, controllernodeerrors.NotFound)
 	c.Check(namespace, gc.Equals, "")
 }

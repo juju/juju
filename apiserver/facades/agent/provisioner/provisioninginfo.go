@@ -365,7 +365,7 @@ func (api *ProvisionerAPI) machineSpaceTopology(
 	for _, spaceName := range spaceNames {
 		subnetsAndZones, err := api.subnetsAndZonesForSpace(ctx, machineID, spaceName)
 		if err != nil {
-			if errors.Is(err, networkerrors.ErrSpaceNotFound) {
+			if errors.Is(err, networkerrors.SpaceNotFound) {
 				return topology, errors.NotFoundf("space with name %q", spaceName)
 			}
 			return topology, errors.Trace(err)

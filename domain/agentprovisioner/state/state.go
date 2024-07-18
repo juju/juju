@@ -65,14 +65,19 @@ WHERE key in ($S[:])
 
 	result := make([]modelConfigRow, 0, len(keys))
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return tx.Query(ctx, stmt, &input).GetAll(&result)
+		err := tx.Query(ctx, stmt, &input).GetAll(&result)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf(
+				"getting model config key values: %w",
+				domain.CoerceError(err),
+			)
+		}
+		return nil
 	})
-
-	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return nil, fmt.Errorf(
-			"getting model config key values: %w",
-			domain.CoerceError(err),
-		)
+	if err != nil {
+		return nil, err
 	}
 
 	rval := make(map[string]string, len(result))

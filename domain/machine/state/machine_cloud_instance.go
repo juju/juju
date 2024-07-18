@@ -47,7 +47,7 @@ WHERE  machine_uuid = $instanceData.machine_uuid`
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, errors.Annotatef(errors.NotFound, "machine cloud instance for machine %q", machineUUID)
 		}
-		return nil, errors.Annotatef(domain.CoerceError(err), "querying machine cloud instance for machine %q", machineUUID)
+		return nil, errors.Annotatef(err, "querying machine cloud instance for machine %q", machineUUID)
 	}
 	return row.toHardwareCharacteristics(), nil
 }
@@ -97,11 +97,11 @@ VALUES ($instanceTag.*)
 			VirtType:             hardwareCharacteristics.VirtType,
 		}
 		if err := tx.Query(ctx, setInstanceDataStmt, instanceData).Run(); err != nil {
-			return errors.Annotatef(domain.CoerceError(err), "inserting machine cloud instance for machine %q", machineUUID)
+			return errors.Annotatef(err, "inserting machine cloud instance for machine %q", machineUUID)
 		}
 		if instanceTags := tagsFromHardwareCharacteristics(machineUUID, &hardwareCharacteristics); len(instanceTags) > 0 {
 			if err := tx.Query(ctx, setInstanceTagStmt, instanceTags).Run(); err != nil {
-				return errors.Annotatef(domain.CoerceError(err), "inserting instance tags for machine %q", machineUUID)
+				return errors.Annotatef(err, "inserting instance tags for machine %q", machineUUID)
 			}
 		}
 		return nil
@@ -205,9 +205,12 @@ WHERE m.name = $machineName.name;
 
 	var instanceId string
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		result := instanceID{}
+		var result instanceID
 		err := tx.Query(ctx, queryStmt, machineIDParam).Get(&result)
 		if err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return errors.Annotatef(machineerrors.NotProvisioned, "machine: %q", mName)
+			}
 			return errors.Annotatef(err, "querying instance for machine %q", mName)
 		}
 
@@ -215,9 +218,6 @@ WHERE m.name = $machineName.name;
 		return nil
 	})
 	if err != nil {
-		if errors.Is(err, sqlair.ErrNoRows) {
-			return "", errors.Annotatef(machineerrors.NotProvisioned, "machine: %q", mName)
-		}
 		return "", errors.Trace(err)
 	}
 	return instanceId, nil

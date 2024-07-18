@@ -23,38 +23,43 @@ type rootKeyStateSuite struct {
 var _ = gc.Suite(&rootKeyStateSuite{})
 
 var (
+	// Ensure we use one time for all the tests, so that we can reliably compare
+	// the time without worrying about the time changing from one test to
+	// another, causing intermittent failure.
+	now = time.Now()
+
 	key0 = macaroon.RootKey{
 		ID:      []byte("0"),
-		Created: time.Now(),
-		Expires: time.Now().Add(2 * time.Second),
+		Created: now,
+		Expires: now.Add(2 * time.Second),
 		RootKey: []byte("key0"),
 	}
 
 	key1 = macaroon.RootKey{
 		ID:      []byte("1"),
-		Created: time.Now().Add(2 * time.Second),
-		Expires: time.Now().Add(4 * time.Second),
+		Created: now.Add(2 * time.Second),
+		Expires: now.Add(4 * time.Second),
 		RootKey: []byte("key1"),
 	}
 
 	key2 = macaroon.RootKey{
 		ID:      []byte("2"),
-		Created: time.Now().Add(4 * time.Second),
-		Expires: time.Now().Add(8 * time.Second),
+		Created: now.Add(4 * time.Second),
+		Expires: now.Add(8 * time.Second),
 		RootKey: []byte("key2"),
 	}
 
 	key3 = macaroon.RootKey{
 		ID:      []byte("3"),
-		Created: time.Now().Add(6 * time.Second),
-		Expires: time.Now().Add(6 * time.Second),
+		Created: now.Add(6 * time.Second),
+		Expires: now.Add(6 * time.Second),
 		RootKey: []byte("key3"),
 	}
 
 	key4 = macaroon.RootKey{
 		ID:      []byte("4"),
-		Created: time.Now().Add(-time.Second),
-		Expires: time.Now().Add(-time.Second),
+		Created: now.Add(-time.Second),
+		Expires: now.Add(-time.Second),
 		RootKey: []byte("key4"),
 	}
 )
@@ -103,7 +108,7 @@ func (s *rootKeyStateSuite) TestFindLatestKeyExpiresAfter(c *gc.C) {
 	ctx := context.Background()
 	addAllKeys(c, st)
 
-	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Now().Add(7*time.Second), time.Unix(math.MaxInt64, 0))
+	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), now.Add(7*time.Second), time.Unix(math.MaxInt64, 0))
 	c.Assert(err, jc.ErrorIsNil)
 	compareRootKeys(c, key2, res)
 }
@@ -126,15 +131,15 @@ func (s *rootKeyStateSuite) TestFindLatestKeyExpiresBefore(c *gc.C) {
 	ctx := context.Background()
 	addAllKeys(c, st)
 
-	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Now().Add(5*time.Second))
+	res, err := st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(5*time.Second))
 	c.Assert(err, jc.ErrorIsNil)
 	compareRootKeys(c, key1, res)
 
-	res, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Now().Add(3*time.Second))
+	res, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(3*time.Second))
 	c.Assert(err, jc.ErrorIsNil)
 	compareRootKeys(c, key0, res)
 
-	_, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Now().Add(-2*time.Second))
+	_, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), now.Add(-2*time.Second))
 	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
 }
 
@@ -167,8 +172,8 @@ func addAllKeys(c *gc.C, st *State) {
 }
 
 func compareRootKeys(c *gc.C, k1, k2 macaroon.RootKey) {
-	c.Assert(k1.ID, gc.DeepEquals, k2.ID)
-	c.Assert(k1.RootKey, gc.DeepEquals, k2.RootKey)
-	c.Assert(k1.Created.Compare(k2.Created), gc.Equals, 0)
-	c.Assert(k1.Expires.Compare(k2.Expires), gc.Equals, 0)
+	c.Check(k1.ID, gc.DeepEquals, k2.ID)
+	c.Check(k1.RootKey, gc.DeepEquals, k2.RootKey)
+	c.Check(k1.Created.Compare(k2.Created), gc.Equals, 0)
+	c.Check(k1.Expires.Compare(k2.Expires), gc.Equals, 0)
 }

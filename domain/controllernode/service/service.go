@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+
+	controllernodeerrors "github.com/juju/juju/domain/controllernode/errors"
 )
 
 // State describes retrieval and persistence
@@ -52,7 +54,7 @@ func (s *Service) IsKnownDatabaseNamespace(ctx context.Context, namespace string
 
 	ns, err := s.st.SelectDatabaseNamespace(ctx, namespace)
 	if err != nil {
-		if !errors.Is(err, errors.NotFound) {
+		if !errors.Is(err, controllernodeerrors.NotFound) {
 			return false, errors.Annotatef(err, "determining namespace existence")
 		}
 	}
