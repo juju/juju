@@ -9,10 +9,10 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/machine"
+	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
-	domainmachine "github.com/juju/juju/domain/machine"
+	"github.com/juju/juju/domain/machine"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
 	"github.com/juju/juju/internal/uuid"
 )
@@ -20,10 +20,10 @@ import (
 // State describes retrieval and persistence methods for machines.
 type State interface {
 	// CreateMachine persists the input machine entity.
-	CreateMachine(context.Context, machine.Name, string, string) error
+	CreateMachine(context.Context, coremachine.Name, string, string) error
 
 	// DeleteMachine deletes the input machine entity.
-	DeleteMachine(context.Context, machine.Name) error
+	DeleteMachine(context.Context, coremachine.Name) error
 
 	// InitialWatchStatement returns the table and the initial watch statement
 	// for the machines.
@@ -31,15 +31,15 @@ type State interface {
 
 	// GetMachineLife returns the life status of the specified machine.
 	// It returns a NotFound if the given machine doesn't exist.
-	GetMachineLife(context.Context, machine.Name) (*life.Life, error)
+	GetMachineLife(context.Context, coremachine.Name) (*life.Life, error)
 
 	// SetMachineLife sets the life status of the specified machine.
 	// It returns a NotFound if the provided machine doesn't exist.
-	SetMachineLife(context.Context, machine.Name, life.Life) error
+	SetMachineLife(context.Context, coremachine.Name, life.Life) error
 
 	// AllMachineNames retrieves the names of all machines in the model.
 	// If there's no machine, it returns an empty slice.
-	AllMachineNames(context.Context) ([]machine.Name, error)
+	AllMachineNames(context.Context) ([]coremachine.Name, error)
 
 	// InitialWatchInstanceStatement returns the table and the initial watch statement
 	// for the machine cloud instances.
@@ -47,27 +47,27 @@ type State interface {
 
 	// InstanceId returns the cloud specific instance id for this machine.
 	// If the machine is not provisioned, it returns a NotProvisionedError.
-	InstanceId(context.Context, machine.Name) (string, error)
+	InstanceId(context.Context, coremachine.Name) (string, error)
 
 	// GetInstanceStatus returns the cloud specific instance status for this
 	// machine.
 	// It returns NotFound if the machine does not exist.
 	// It returns a StatusNotSet if the instance status is not set.
-	GetInstanceStatus(context.Context, machine.Name) (status.StatusInfo, error)
+	GetInstanceStatus(context.Context, coremachine.Name) (status.StatusInfo, error)
 
 	// SetInstanceStatus sets the cloud specific instance status for this
 	// machine.
 	// It returns NotFound if the machine does not exist.
-	SetInstanceStatus(context.Context, machine.Name, status.StatusInfo) error
+	SetInstanceStatus(context.Context, coremachine.Name, status.StatusInfo) error
 
 	// GetMachineStatus returns the status of the specified machine.
 	// It returns NotFound if the machine does not exist.
 	// It returns a StatusNotSet if the status is not set.
-	GetMachineStatus(context.Context, machine.Name) (status.StatusInfo, error)
+	GetMachineStatus(context.Context, coremachine.Name) (status.StatusInfo, error)
 
 	// SetMachineStatus sets the status of the specified machine.
 	// It returns NotFound if the machine does not exist.
-	SetMachineStatus(context.Context, machine.Name, status.StatusInfo) error
+	SetMachineStatus(context.Context, coremachine.Name, status.StatusInfo) error
 
 	// HardwareCharacteristics returns the hardware characteristics struct with
 	// data retrieved from the machine cloud instance table.
@@ -83,7 +83,7 @@ type State interface {
 
 	// IsController returns whether the machine is a controller machine.
 	// It returns a NotFound if the given machine doesn't exist.
-	IsController(context.Context, machine.Name) (bool, error)
+	IsController(context.Context, coremachine.Name) (bool, error)
 
 	// RequireMachineReboot sets the machine referenced by its UUID as requiring a reboot.
 	RequireMachineReboot(ctx context.Context, uuid string) error
@@ -95,7 +95,7 @@ type State interface {
 	IsMachineRebootRequired(ctx context.Context, uuid string) (bool, error)
 
 	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
-	ShouldRebootOrShutdown(ctx context.Context, uuid string) (domainmachine.RebootAction, error)
+	ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error)
 }
 
 // Service provides the API for working with machines.
@@ -111,7 +111,7 @@ func NewService(st State) *Service {
 }
 
 // CreateMachine creates the specified machine.
-func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (string, error) {
+func (s *Service) CreateMachine(ctx context.Context, machineName coremachine.Name) (string, error) {
 	// Make a new UUIDs for the net-node and the machine.
 	// We want to do this in the service layer so that if retries are invoked at
 	// the state layer we don't keep regenerating.
@@ -130,21 +130,21 @@ func (s *Service) CreateMachine(ctx context.Context, machineName machine.Name) (
 }
 
 // DeleteMachine deletes the specified machine.
-func (s *Service) DeleteMachine(ctx context.Context, machineName machine.Name) error {
+func (s *Service) DeleteMachine(ctx context.Context, machineName coremachine.Name) error {
 	err := s.st.DeleteMachine(ctx, machineName)
 	return errors.Annotatef(err, "deleting machine %q", machineName)
 }
 
 // GetLife returns the GetMachineLife status of the specified machine.
 // It returns a NotFound if the given machine doesn't exist.
-func (s *Service) GetMachineLife(ctx context.Context, machineName machine.Name) (*life.Life, error) {
+func (s *Service) GetMachineLife(ctx context.Context, machineName coremachine.Name) (*life.Life, error) {
 	life, err := s.st.GetMachineLife(ctx, machineName)
 	return life, errors.Annotatef(err, "getting life status for machine %q", machineName)
 }
 
 // SetMachineLife sets the life status of the specified machine.
 // It returns a NotFound if the provided machine doesn't exist.
-func (s *Service) SetMachineLife(ctx context.Context, machineName machine.Name, life life.Life) error {
+func (s *Service) SetMachineLife(ctx context.Context, machineName coremachine.Name, life life.Life) error {
 	err := s.st.SetMachineLife(ctx, machineName, life)
 	return errors.Annotatef(err, "setting life status for machine %q", machineName)
 }
@@ -152,12 +152,12 @@ func (s *Service) SetMachineLife(ctx context.Context, machineName machine.Name, 
 // EnsureDeadMachine sets the provided machine's life status to Dead.
 // No error is returned if the provided machine doesn't exist, just nothing gets
 // updated.
-func (s *Service) EnsureDeadMachine(ctx context.Context, machineName machine.Name) error {
+func (s *Service) EnsureDeadMachine(ctx context.Context, machineName coremachine.Name) error {
 	return s.SetMachineLife(ctx, machineName, life.Dead)
 }
 
 // AllMachineNames returns the names of all machines in the model.
-func (s *Service) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
+func (s *Service) AllMachineNames(ctx context.Context) ([]coremachine.Name, error) {
 	machines, err := s.st.AllMachineNames(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving all machines")
@@ -167,7 +167,7 @@ func (s *Service) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 
 // InstanceId returns the cloud specific instance id for this machine.
 // If the machine is not provisioned, it returns a NotProvisionedError.
-func (s *Service) InstanceId(ctx context.Context, machineName machine.Name) (string, error) {
+func (s *Service) InstanceId(ctx context.Context, machineName coremachine.Name) (string, error) {
 	instanceId, err := s.st.InstanceId(ctx, machineName)
 	if err != nil {
 		return "", errors.Annotatef(err, "retrieving cloud instance id for machine %q", machineName)
@@ -180,7 +180,7 @@ func (s *Service) InstanceId(ctx context.Context, machineName machine.Name) (str
 // It returns NotFound if the machine does not exist.
 // It returns a StatusNotSet if the instance status is not set.
 // Idempotent.
-func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
+func (s *Service) GetInstanceStatus(ctx context.Context, machineName coremachine.Name) (status.StatusInfo, error) {
 	instanceStatus, err := s.st.GetInstanceStatus(ctx, machineName)
 	if err != nil {
 		return status.StatusInfo{}, errors.Annotatef(err, "retrieving cloud instance status for machine %q", machineName)
@@ -192,7 +192,7 @@ func (s *Service) GetInstanceStatus(ctx context.Context, machineName machine.Nam
 // machine.
 // It returns NotFound if the machine does not exist.
 // It returns InvalidStatus if the given status is not a known status value.
-func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) error {
+func (s *Service) SetInstanceStatus(ctx context.Context, machineName coremachine.Name, status status.StatusInfo) error {
 	if !status.Status.KnownInstanceStatus() {
 		return machineerrors.InvalidStatus
 	}
@@ -207,7 +207,7 @@ func (s *Service) SetInstanceStatus(ctx context.Context, machineName machine.Nam
 // It returns NotFound if the machine does not exist.
 // It returns a StatusNotSet if the status is not set.
 // Idempotent.
-func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name) (status.StatusInfo, error) {
+func (s *Service) GetMachineStatus(ctx context.Context, machineName coremachine.Name) (status.StatusInfo, error) {
 	machineStatus, err := s.st.GetMachineStatus(ctx, machineName)
 	if err != nil {
 		return status.StatusInfo{}, errors.Annotatef(err, "retrieving machine status for machine %q", machineName)
@@ -218,7 +218,7 @@ func (s *Service) GetMachineStatus(ctx context.Context, machineName machine.Name
 // SetMachineStatus sets the status of the specified machine.
 // It returns NotFound if the machine does not exist.
 // It returns InvalidStatus if the given status is not a known status value.
-func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name, status status.StatusInfo) error {
+func (s *Service) SetMachineStatus(ctx context.Context, machineName coremachine.Name, status status.StatusInfo) error {
 	if !status.Status.KnownMachineStatus() {
 		return machineerrors.InvalidStatus
 	}
@@ -231,7 +231,7 @@ func (s *Service) SetMachineStatus(ctx context.Context, machineName machine.Name
 
 // IsController returns whether the machine is a controller machine.
 // It returns a NotFound if the given machine doesn't exist.
-func (s *Service) IsController(ctx context.Context, machineName machine.Name) (bool, error) {
+func (s *Service) IsController(ctx context.Context, machineName coremachine.Name) (bool, error) {
 	isController, err := s.st.IsController(ctx, machineName)
 	if err != nil {
 		return false, errors.Annotatef(err, "checking if machine %q is a controller", machineName)
@@ -256,7 +256,7 @@ func (s *Service) IsMachineRebootRequired(ctx context.Context, uuid string) (boo
 }
 
 // ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
-func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (domainmachine.RebootAction, error) {
+func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error) {
 	rebootRequired, err := s.st.ShouldRebootOrShutdown(ctx, uuid)
 	return rebootRequired, errors.Annotatef(err, "getting if the machine with uuid %q need to reboot or shutdown", uuid)
 }
