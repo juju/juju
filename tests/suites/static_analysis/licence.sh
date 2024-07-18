@@ -11,7 +11,7 @@ test_licence() {
 	fi
 	if ! which go-licenses >/dev/null 2>&1; then
 		echo "==> TEST SKIPPED: static licence analysis (go-licenses not installed)"
-		exit 0
+		return
 	fi
 
 	(
