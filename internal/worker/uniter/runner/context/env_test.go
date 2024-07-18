@@ -205,7 +205,6 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 		"LANG=C.UTF-8",
 		"PATH=path-to-tools:foo:bar",
 		"TERM=tmux-256color",
-		"PATH=path-to-tools:foo:bar",
 	}
 
 	environmenter := context.NewRemoteEnvironmenter(
