@@ -168,7 +168,7 @@ func (s *keyManagerSuite) TestListKeysForUserNotFound(c *gc.C) {
 // and fail for various reasons.
 //
 // We are also asserting that the results are passed back in the same order that
-// they are recieved.
+// they are received.
 func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -564,7 +564,7 @@ func (s *keyManagerSuite) TestDeleteKeysModelAdmin(c *gc.C) {
 }
 
 // TestDeleteKeysNonAuthorised is asserting that user that is not authorised for
-// writing to a model cannot not remove keys from the model and recieves an
+// writing to a model cannot not remove keys from the model and receives an
 // unauthorized error.
 func (s *keyManagerSuite) TestDeleteKeysNonAuthorised(c *gc.C) {
 	s.apiUser = names.NewUserTag("tlm")

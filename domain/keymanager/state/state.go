@@ -235,6 +235,52 @@ WHERE user_id = $userId.user_id
 	return rval, nil
 }
 
+// GetPublicKeysDataForUser is responsible for returning all of the public keys
+// raw data for the user id in this model. If the user does not exist no error
+// is returned.
+func (s *State) GetPublicKeysDataForUser(
+	ctx context.Context,
+	id user.UUID,
+) ([]string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT (public_key) AS (&publicKeyData.*)
+FROM user_public_ssh_key
+WHERE user_id = $userId.user_id
+`, userId{}, publicKeyData{})
+
+	if err != nil {
+		return nil, fmt.Errorf(
+			"preparing select statement for getting public keys data of user %q: %w",
+			id, domain.CoerceError(err),
+		)
+	}
+
+	userId := userId{id.String()}
+	publicKeys := []publicKeyData{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt, userId).GetAll(&publicKeys)
+	})
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf(
+			"cannot get public keys data for user %q: %w", id, err,
+		)
+	}
+
+	rval := make([]string, 0, len(publicKeys))
+	for _, pk := range publicKeys {
+		rval = append(rval, pk.PublicKey)
+	}
+	return rval, nil
+}
+
 // DeletePublicKeysForUser is responsible for removing the keys from the users
 // list of public keys where the keyIds represent one of the keys fingerprint,
 // public key data or comment. If no user exists for the given id a nill error

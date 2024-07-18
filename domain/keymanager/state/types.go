@@ -13,10 +13,16 @@ type userPublicKeyInsert struct {
 	UserId                   string `db:"user_id"`
 }
 
-// publicKey represents a single row the user public key table.
+// publicKey represents a single row from the user public key table.
 type publicKey struct {
 	Fingerprint string `db:"fingerprint"`
 	PublicKey   string `db:"public_key"`
+}
+
+// publicKeyData represents a single raw public key from the user public key
+// table.
+type publicKeyData struct {
+	PublicKey string `db:"public_key"`
 }
 
 // userId represents a user id for associating public keys with.

@@ -70,7 +70,7 @@ func (s *stateSuite) TestAddPublicKeyForUser(c *gc.C) {
 	err := state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd)
 	c.Check(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -86,7 +86,7 @@ func (s *stateSuite) TestAddPublicKeyForUserIfNotFound(c *gc.C) {
 	err := state.AddPublicKeyForUserIfNotFound(context.Background(), s.userId, keysToAdd)
 	c.Check(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -105,7 +105,7 @@ func (s *stateSuite) TestAddExistingPublicKey(c *gc.C) {
 	err = state.AddPublicKeysForUser(context.Background(), s.userId, keysToAdd[:1])
 	c.Check(err, jc.ErrorIs, keyerrors.PublicKeyAlreadyExists)
 
-	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -125,7 +125,7 @@ func (s *stateSuite) TestAddExistingPublicKeyIfNotFound(c *gc.C) {
 	err = state.AddPublicKeyForUserIfNotFound(context.Background(), s.userId, keysToAdd[:1])
 	c.Check(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -220,7 +220,7 @@ func (s *stateSuite) TestDeletePublicKeysForComment(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -241,7 +241,7 @@ func (s *stateSuite) TestDeletePublicKeysForFingerprint(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -262,7 +262,7 @@ func (s *stateSuite) TestDeletePublicKeysForKeyData(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -284,7 +284,7 @@ func (s *stateSuite) TestDeletePublicKeysForCombination(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
@@ -307,7 +307,7 @@ func (s *stateSuite) TestDeleteSamePublicKeyByTwoMethods(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	keys, err := state.GetPublicKeysForUser(context.Background(), s.userId)
+	keys, err := state.GetPublicKeysDataForUser(context.Background(), s.userId)
 	c.Assert(err, jc.ErrorIsNil)
 	slices.Sort(keys)
 	slices.Sort(testingPublicKeys)
