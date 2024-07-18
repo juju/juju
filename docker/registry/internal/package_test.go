@@ -16,15 +16,14 @@ func TestPackage(t *testing.T) {
 }
 
 type (
-	AzureContainerRegistry         = azureContainerRegistry
-	BaseClient                     = baseClient
-	Dockerhub                      = dockerhub
-	GoogleContainerRegistry        = googleContainerRegistry
-	GithubContainerRegistry        = githubContainerRegistry
-	GitlabContainerRegistry        = gitlabContainerRegistry
-	QuayContainerRegistry          = quayContainerRegistry
-	ElasticContainerRegistry       = elasticContainerRegistry
-	ElasticContainerRegistryPublic = elasticContainerRegistryPublic
+	AzureContainerRegistry   = azureContainerRegistry
+	BaseClient               = baseClient
+	Dockerhub                = dockerhub
+	GoogleContainerRegistry  = googleContainerRegistry
+	GithubContainerRegistry  = githubContainerRegistry
+	GitlabContainerRegistry  = gitlabContainerRegistry
+	QuayContainerRegistry    = quayContainerRegistry
+	ElasticContainerRegistry = elasticContainerRegistry
 )
 
 var (
@@ -34,7 +33,7 @@ var (
 	NewTokenTransport                  = newTokenTransport
 	NewElasticContainerRegistryForTest = newElasticContainerRegistryForTest
 	NewAzureContainerRegistry          = newAzureContainerRegistry
-	GetArchitecture                    = getArchitecture
+	GetArchitectures                   = getArchitectures
 	UnwrapNetError                     = unwrapNetError
 )
 
