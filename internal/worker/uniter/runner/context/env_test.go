@@ -134,17 +134,32 @@ func (s *EnvSuite) setSecret(ctx *context.HookContext) (expectVars []string) {
 	}
 }
 
-func (s *EnvSuite) setNotice(ctx *context.HookContext) (expectVars []string) {
+func (s *EnvSuite) setWorkload(ctx *context.HookContext) (expectVars []string) {
 	workload := "wrk"
+	context.SetEnvironmentHookContextWorkload(ctx, workload)
+	return []string{
+		"JUJU_WORKLOAD_NAME=" + workload,
+	}
+}
+
+func (s *EnvSuite) setNotice(ctx *context.HookContext) (expectVars []string) {
 	id := "1"
 	typ := "custom"
 	key := "a.com/b"
-	context.SetEnvironmentHookContextNotice(ctx, workload, id, typ, key)
+	context.SetEnvironmentHookContextNotice(ctx, id, typ, key)
 	return []string{
-		"JUJU_WORKLOAD_NAME=" + workload,
 		"JUJU_NOTICE_ID=" + id,
 		"JUJU_NOTICE_TYPE=" + typ,
 		"JUJU_NOTICE_KEY=" + key,
+	}
+}
+
+// setCheck sets the context for a check hook.
+func (s *EnvSuite) setCheck(ctx *context.HookContext) (expectVars []string) {
+	name := "http-check"
+	context.SetEnvironmentHookContextCheck(ctx, name)
+	return []string{
+		"JUJU_PEBBLE_CHECK_NAME=" + name,
 	}
 }
 
@@ -193,7 +208,7 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 	}
 
 	environmenter := context.NewRemoteEnvironmenter(
-		func() []string { return []string{"KUBERNETES_SERVICE=test"} },
+		func() []string { return []string{} },
 		func(k string) string {
 			switch k {
 			case "PATH":
@@ -203,8 +218,6 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 		},
 		func(k string) (string, bool) {
 			switch k {
-			case "KUBERNETES_SERVICE":
-				return "test", true
 			case "PATH":
 				return "foo:bar", true
 			}
@@ -212,19 +225,22 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 		},
 	)
 
+	//ctx, contextVars := s.getContext(false, state, unit)
 	hookContext, contextVars := s.getHookContext(c, false, state, unit)
 	paths, pathsVars := s.getPaths()
 	actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, []string{"KUBERNETES_SERVICE=test"})
+	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
 	relationVars := s.setDepartingRelation(hookContext)
 	secretVars := s.setSecret(hookContext)
 	storageVars := s.setStorage(hookContext)
+	workloadVars := s.setWorkload(hookContext)
 	noticeVars := s.setNotice(hookContext)
+	checkVars := s.setCheck(hookContext)
 	actualVars, err = hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, noticeVars, []string{"KUBERNETES_SERVICE=test"})
+	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, workloadVars, noticeVars, checkVars)
 }
 
 func (s *EnvSuite) TestContextDependentDoesNotIncludeUnSet(c *gc.C) {

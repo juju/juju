@@ -144,18 +144,49 @@ func (s *ContextFactorySuite) TestWorkloadHookContext(c *gc.C) {
 	defer ctrl.Finish()
 	s.setupContextFactory(c, ctrl)
 
-	hi := hook.Info{
-		Kind:         hooks.PebbleReady,
-		WorkloadName: "test",
+	infos := []hook.Info{
+		{
+			Kind:         hooks.PebbleReady,
+			WorkloadName: "test",
+		},
+		{
+			Kind:         hooks.PebbleCustomNotice,
+			WorkloadName: "test",
+			NoticeID:     "123",
+			NoticeType:   "custom",
+			NoticeKey:    "example.com/bar",
+		},
+		{
+			Kind:         hooks.PebbleCheckFailed,
+			WorkloadName: "test",
+			CheckName:    "http-check",
+		},
+		{
+			Kind:         hooks.PebbleCheckRecovered,
+			WorkloadName: "test",
+			CheckName:    "http-check",
+		},
 	}
-	ctx, err := s.factory.HookContext(stdcontext.Background(), hi)
-	c.Assert(err, jc.ErrorIsNil)
-	s.AssertCoreContext(c, ctx)
-	s.AssertWorkloadContext(c, ctx, "test")
-	s.AssertNotActionContext(c, ctx)
-	s.AssertNotRelationContext(c, ctx)
-	s.AssertNotStorageContext(c, ctx)
-	s.AssertNotSecretContext(c, ctx)
+	for _, hi := range infos {
+		ctx, err := s.factory.HookContext(stdcontext.Background(), hi)
+		c.Assert(err, jc.ErrorIsNil)
+		s.AssertCoreContext(c, ctx)
+		s.AssertWorkloadContext(c, ctx, "test")
+		s.AssertNotActionContext(c, ctx)
+		s.AssertNotRelationContext(c, ctx)
+		s.AssertNotStorageContext(c, ctx)
+		s.AssertNotSecretContext(c, ctx)
+		switch hi.Kind {
+		case hooks.PebbleCustomNotice:
+			actualNoticeKey, _ := ctx.WorkloadNoticeKey()
+			c.Assert(actualNoticeKey, gc.Equals, "example.com/bar")
+			actualNoticeType, _ := ctx.WorkloadNoticeType()
+			c.Assert(actualNoticeType, gc.Equals, "custom")
+		case hooks.PebbleCheckFailed, hooks.PebbleCheckRecovered:
+			actualCheckName, _ := ctx.WorkloadCheckName()
+			c.Assert(actualCheckName, gc.Equals, "http-check")
+		}
+	}
 }
 
 func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {

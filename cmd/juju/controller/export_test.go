@@ -29,10 +29,15 @@ func NewListControllersCommandForTest(testStore jujuclient.ClientStore, api func
 
 // NewShowControllerCommandForTest returns a showControllerCommand with the clientstore provided
 // as specified.
-func NewShowControllerCommandForTest(testStore jujuclient.ClientStore, api func(string) ControllerAccessAPI) *showControllerCommand {
+func NewShowControllerCommandForTest(
+	testStore jujuclient.ClientStore,
+	api func(string) ControllerAccessAPI,
+	modelConfigAPI func(controllerName string) ModelConfigAPI,
+) *showControllerCommand {
 	return &showControllerCommand{
-		store: testStore,
-		api:   api,
+		store:          testStore,
+		api:            api,
+		modelConfigAPI: modelConfigAPI,
 	}
 }
 
@@ -100,14 +105,16 @@ func NewDestroyCommandForTest(
 	api destroyControllerAPI,
 	store jujuclient.ClientStore,
 	apierr error,
+	controllerModelConfigAPI modelConfigAPI,
 	environsDestroy func(string, environs.ControllerDestroyer, envcontext.ProviderCallContext, jujuclient.ControllerStore) error,
 
 ) cmd.Command {
 	cmd := &destroyCommand{
 		destroyCommandBase: destroyCommandBase{
-			api:             api,
-			apierr:          apierr,
-			environsDestroy: environsDestroy,
+			api:                      api,
+			apierr:                   apierr,
+			controllerModelConfigAPI: controllerModelConfigAPI,
+			environsDestroy:          environsDestroy,
 		},
 	}
 	cmd.SetClientStore(store)
@@ -124,15 +131,17 @@ func NewKillCommandForTest(
 	api destroyControllerAPI,
 	store jujuclient.ClientStore,
 	apierr error,
+	controllerModelConfigAPI modelConfigAPI,
 	clock clock.Clock,
 	apiOpen api.OpenFunc,
 	environsDestroy func(string, environs.ControllerDestroyer, envcontext.ProviderCallContext, jujuclient.ControllerStore) error,
 ) cmd.Command {
 	kill := &killCommand{
 		destroyCommandBase: destroyCommandBase{
-			api:             api,
-			apierr:          apierr,
-			environsDestroy: environsDestroy,
+			api:                      api,
+			apierr:                   apierr,
+			controllerModelConfigAPI: controllerModelConfigAPI,
+			environsDestroy:          environsDestroy,
 		},
 		clock: clock,
 	}

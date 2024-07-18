@@ -119,7 +119,7 @@ func (n *pebbleNoticer) run(containerName string) (err error) {
 
 		// Send any notices as Juju events.
 		for _, notice := range notices {
-			err := n.processNotice(containerName, notice)
+			err := n.processNotice(containerName, notice, pebbleClient)
 			if err != nil {
 				// Avoid wrapping or tracing this error, as processNotice can
 				// return tomb.ErrDying, and tomb doesn't use errors.Is yet.
@@ -132,11 +132,60 @@ func (n *pebbleNoticer) run(containerName string) (err error) {
 	}
 }
 
-func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notice) error {
+func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notice, pebbleClient PebbleClient) error {
 	var eventType container.WorkloadEventType
+	var event container.WorkloadEvent
 	switch notice.Type {
 	case client.CustomNotice:
 		eventType = container.CustomNoticeEvent
+		event = container.WorkloadEvent{
+			Type:         eventType,
+			WorkloadName: containerName,
+			NoticeID:     notice.ID,
+			NoticeType:   string(notice.Type),
+			NoticeKey:    notice.Key,
+		}
+	case client.ChangeUpdateNotice:
+		data := notice.LastData
+		kind := data["kind"]
+		// Since the charm is triggering most Pebble changes, there is little
+		// value in feeding events based on those changes back to the charm.
+		// As such, we do not send events for all change-updated notices (see
+		// OP045 for more background). However, perform-check and recover-check
+		// change kinds reflect changes in the workload state, so are useful to
+		// charms.
+		if kind != "perform-check" && kind != "recover-check" {
+			n.logger.Debugf("container %q: ignoring %s notice, kind %s", containerName, notice.Type, kind)
+			return nil
+		}
+		// We always look for the final status (Done, Error), because the status
+		// might have changed since the notice was updated and now. We know that
+		// the notice for the change will never update from Done/Error to
+		// anything else, so cannot miss the change entirely.
+		chg, err := pebbleClient.Change(notice.Key)
+		if err != nil {
+			return errors.Annotatef(err, "failed to get change %q", notice.Key)
+		}
+
+		// Although we determine that a check has reached the failure threshold
+		// (or is again succeeding) via a Pebble notice, we consider that an
+		// implementation detail and provide specific hook types. We have a pair
+		// of hooks as this reflects a change of (workload) state, rather than
+		// a change of data. See OP046 for more background.
+		switch {
+		case kind == "perform-check" && chg.Status == "Error":
+			eventType = container.CheckFailedEvent
+		case kind == "recover-check" && chg.Status == "Done":
+			eventType = container.CheckRecoveredEvent
+		default:
+			n.logger.Debugf("container %q: ignoring %s, status %s", containerName, kind, chg.Status)
+			return nil
+		}
+		event = container.WorkloadEvent{
+			Type:         eventType,
+			WorkloadName: containerName,
+			CheckName:    data["check-name"],
+		}
 	default:
 		n.logger.Debugf("container %q: ignoring %s notice", containerName, notice.Type)
 		return nil
@@ -145,13 +194,7 @@ func (n *pebbleNoticer) processNotice(containerName string, notice *client.Notic
 	n.logger.Debugf("container %q: processing %s notice, key %q", containerName, notice.Type, notice.Key)
 
 	errChan := make(chan error, 1)
-	eventID := n.workloadEvents.AddWorkloadEvent(container.WorkloadEvent{
-		Type:         eventType,
-		WorkloadName: containerName,
-		NoticeID:     notice.ID,
-		NoticeType:   string(notice.Type),
-		NoticeKey:    notice.Key,
-	}, func(err error) {
+	eventID := n.workloadEvents.AddWorkloadEvent(event, func(err error) {
 		errChan <- errors.Trace(err)
 	})
 	defer n.workloadEvents.RemoveWorkloadEvent(eventID)

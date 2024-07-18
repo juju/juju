@@ -120,6 +120,7 @@ type fakePebbleClient struct {
 	closed      bool
 	clock       *testclock.Clock
 	noticeAdded chan *pebbleclient.Notice
+	changes     map[string]*pebbleclient.Change
 }
 
 func (c *fakePebbleClient) SysInfo() (*pebbleclient.SysInfo, error) {
@@ -182,4 +183,23 @@ func noticeMatches(notice *pebbleclient.Notice, opts *pebbleclient.NoticesOption
 		return false
 	}
 	return true
+}
+
+// AddChange adds a change for Change to return.
+func (c *fakePebbleClient) AddChange(checkC *gc.C, change *pebbleclient.Change) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
+	if c.changes == nil {
+		c.changes = make(map[string]*pebbleclient.Change)
+	}
+	c.changes[change.ID] = change
+}
+
+// Change returns a change by ID, or a NotFound error if it doesn't exist.
+func (c *fakePebbleClient) Change(id string) (*pebbleclient.Change, error) {
+	change, exists := c.changes[id]
+	if exists {
+		return change, nil
+	}
+	return nil, errors.NotFoundf("change %s", id)
 }

@@ -302,6 +302,9 @@ type HookContext struct {
 	// noticeKey is the Pebble notice key associated with the hook.
 	noticeKey string
 
+	// checkName is the Pebble check name associated with the hook.
+	checkName string
+
 	// secretURI is the reference to the secret relevant to the hook.
 	secretURI string
 
@@ -1369,6 +1372,9 @@ func (c *HookContext) HookVars(
 				"JUJU_NOTICE_KEY="+c.noticeKey,
 			)
 		}
+		if c.checkName != "" {
+			vars = append(vars, "JUJU_PEBBLE_CHECK_NAME="+c.checkName)
+		}
 	}
 
 	if c.secretURI != "" {
@@ -1755,6 +1761,30 @@ func (c *HookContext) WorkloadName() (string, error) {
 		return "", errors.NotFoundf("workload name")
 	}
 	return c.workloadName, nil
+}
+
+// WorkloadNoticeType returns the type of the notice for workload notice hooks.
+func (ctx *HookContext) WorkloadNoticeType() (string, error) {
+	if ctx.noticeType == "" {
+		return "", errors.NotFoundf("workload notice type")
+	}
+	return ctx.noticeType, nil
+}
+
+// WorkloadNoticeKey returns the key of the notice for workload notice hooks.
+func (ctx *HookContext) WorkloadNoticeKey() (string, error) {
+	if ctx.noticeKey == "" {
+		return "", errors.NotFoundf("workload notice key")
+	}
+	return ctx.noticeKey, nil
+}
+
+// WorkloadCheckName returns the name of the check for workload check hooks.
+func (ctx *HookContext) WorkloadCheckName() (string, error) {
+	if ctx.checkName == "" {
+		return "", errors.NotFoundf("workload check name")
+	}
+	return ctx.checkName, nil
 }
 
 // SecretURI returns the secret URI for secret hooks.

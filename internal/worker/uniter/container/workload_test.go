@@ -133,3 +133,85 @@ func (s *workloadSuite) TestWorkloadCustomNoticeHook(c *gc.C) {
 		NoticeKey:    "example.com/foo",
 	})
 }
+
+// TestWorkloadCheckFailedHook tests that a workload check failed event
+// is correctly translated into a hook operation.
+func (s *workloadSuite) TestWorkloadCheckFailedHook(c *gc.C) {
+	events := container.NewWorkloadEvents()
+	expectedErr := errors.Errorf("expected error")
+	handler := func(err error) {
+		c.Assert(err, gc.Equals, expectedErr)
+	}
+	containerResolver := container.NewWorkloadHookResolver(
+		loggertesting.WrapCheckLog(c),
+		events,
+		events.RemoveWorkloadEvent)
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+			Step: operation.Pending,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		WorkloadEvents: []string{
+			events.AddWorkloadEvent(container.WorkloadEvent{
+				Type:         container.CheckFailedEvent,
+				WorkloadName: "test",
+				CheckName:    "http-check",
+			}, handler),
+		},
+	}
+	opFactory := &mockOperations{}
+	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op, gc.NotNil)
+	op = operation.Unwrap(op)
+	hookOp, ok := op.(*mockRunHookOp)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(hookOp.hookInfo, gc.DeepEquals, hook.Info{
+		Kind:         "pebble-check-failed",
+		WorkloadName: "test",
+		CheckName:    "http-check",
+	})
+}
+
+// TestWorkloadCheckRecoveredHook tests that a workload check recovered event
+// is correctly translated into a hook operation.
+func (s *workloadSuite) TestWorkloadCheckRecoveredHook(c *gc.C) {
+	events := container.NewWorkloadEvents()
+	expectedErr := errors.Errorf("expected error")
+	handler := func(err error) {
+		c.Assert(err, gc.Equals, expectedErr)
+	}
+	containerResolver := container.NewWorkloadHookResolver(
+		loggertesting.WrapCheckLog(c),
+		events,
+		events.RemoveWorkloadEvent)
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+			Step: operation.Pending,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		WorkloadEvents: []string{
+			events.AddWorkloadEvent(container.WorkloadEvent{
+				Type:         container.CheckRecoveredEvent,
+				WorkloadName: "test",
+				CheckName:    "http-check",
+			}, handler),
+		},
+	}
+	opFactory := &mockOperations{}
+	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op, gc.NotNil)
+	op = operation.Unwrap(op)
+	hookOp, ok := op.(*mockRunHookOp)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(hookOp.hookInfo, gc.DeepEquals, hook.Info{
+		Kind:         "pebble-check-recovered",
+		WorkloadName: "test",
+		CheckName:    "http-check",
+	})
+}

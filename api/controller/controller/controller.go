@@ -86,18 +86,6 @@ func (c *Client) CloudSpec(modelTag names.ModelTag) (environscloudspec.CloudSpec
 	return api.CloudSpec(context.Background())
 }
 
-// ModelConfig returns all model settings for the
-// controller model.
-func (c *Client) ModelConfig() (map[string]interface{}, error) {
-	result := params.ModelConfigResults{}
-	err := c.facade.FacadeCall(context.TODO(), "ModelConfig", nil, &result)
-	values := make(map[string]interface{})
-	for name, val := range result.Config {
-		values[name] = val.Value
-	}
-	return values, err
-}
-
 // HostedConfig contains the model config and the cloud spec for that
 // model such that direct access to the provider can be used.
 type HostedConfig struct {

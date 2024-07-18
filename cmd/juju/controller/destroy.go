@@ -19,6 +19,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/api/base"
+	"github.com/juju/juju/api/client/modelconfig"
 	controllerapi "github.com/juju/juju/api/controller/controller"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -144,7 +145,6 @@ var destroySysMsgDetails = `
 // that the destroy command calls.
 type destroyControllerAPI interface {
 	Close() error
-	ModelConfig() (map[string]interface{}, error)
 	HostedModelConfigs() ([]controllerapi.HostedConfig, error)
 	CloudSpec(names.ModelTag) (environscloudspec.CloudSpec, error)
 	DestroyController(controllerapi.DestroyControllerParams) error
@@ -152,6 +152,11 @@ type destroyControllerAPI interface {
 	ModelStatus(ctx context.Context, models ...names.ModelTag) ([]base.ModelStatus, error)
 	AllModels() ([]base.UserModel, error)
 	ControllerConfig(context.Context) (controller.Config, error)
+}
+
+type modelConfigAPI interface {
+	Close() error
+	ModelGet() (map[string]interface{}, error)
 }
 
 // Info implements Command.Info.
@@ -243,8 +248,14 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = api.Close() }()
 
+	controllerModelConfigAPI, err := c.getControllerModelConfigAPI()
+	if err != nil {
+		return fmt.Errorf("cannot connect to model config API: %w", err)
+	}
+	defer func() { _ = controllerModelConfigAPI.Close() }()
+
 	// Obtain controller environ so we can clean up afterwards.
-	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api)
+	controllerEnviron, err := c.getControllerEnviron(ctx, store, controllerName, api, controllerModelConfigAPI)
 	if err != nil {
 		return errors.Annotate(err, "getting controller environ")
 	}
@@ -532,6 +543,8 @@ type destroyCommandBase struct {
 	api    destroyControllerAPI
 	apierr error
 
+	controllerModelConfigAPI modelConfigAPI
+
 	environsDestroy func(string, environs.ControllerDestroyer, envcontext.ProviderCallContext, jujuclient.ControllerStore) error
 }
 
@@ -549,6 +562,17 @@ func (c *destroyCommandBase) getControllerAPI() (destroyControllerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 	return controllerapi.NewClient(root), nil
+}
+
+func (c *destroyCommandBase) getControllerModelConfigAPI() (modelConfigAPI, error) {
+	if c.controllerModelConfigAPI != nil {
+		return c.controllerModelConfigAPI, nil
+	}
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return modelconfig.NewClient(root), nil
 }
 
 // SetFlags implements Command.SetFlags.
@@ -579,13 +603,14 @@ func (c *destroyCommandBase) getControllerEnviron(
 	store jujuclient.ClientStore,
 	controllerName string,
 	sysAPI destroyControllerAPI,
+	controllerModelConfigAPI modelConfigAPI,
 ) (environs.BootstrapEnviron, error) {
 	// TODO: (hml) 2018-08-01
 	// We should try to destroy via the API first, from store is a
 	// fall back position.
 	env, err := c.getControllerEnvironFromStore(ctx, store, controllerName)
 	if errors.Is(err, errors.NotFound) {
-		return c.getControllerEnvironFromAPI(ctx, sysAPI)
+		return c.getControllerEnvironFromAPI(ctx, sysAPI, controllerModelConfigAPI)
 	} else if err != nil {
 		return nil, errors.Annotate(err, "getting environ using bootstrap config from client store")
 	}
@@ -645,13 +670,14 @@ func (c *destroyCommandBase) getControllerEnvironFromStore(
 func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	ctx stdcontext.Context,
 	api destroyControllerAPI,
+	controllerModelConfigAPI modelConfigAPI,
 ) (environs.Environ, error) {
 	if api == nil {
 		return nil, errors.New(
 			"unable to get bootstrap information from client store or API",
 		)
 	}
-	attrs, err := api.ModelConfig()
+	attrs, err := controllerModelConfigAPI.ModelGet()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting model config from API")
 	}
