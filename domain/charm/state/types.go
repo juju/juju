@@ -81,6 +81,7 @@ type setCharmMetadata struct {
 	Assumes        []byte `db:"assumes"`
 	RunAsID        int    `db:"run_as_id"`
 	LXDProfile     []byte `db:"lxd_profile"`
+	ArchivePath    string `db:"archive_path"`
 }
 
 // charmTag is used to get the tags of a charm.
@@ -372,4 +373,9 @@ type setCharmAction struct {
 	Parallel       bool   `db:"parallel"`
 	ExecutionGroup string `db:"execution_group"`
 	Params         []byte `db:"params"`
+}
+
+// charmArchivePath is used to get the archive path of a charm.
+type charmArchivePath struct {
+	ArchivePath string `db:"archive_path"`
 }

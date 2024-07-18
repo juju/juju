@@ -73,6 +73,11 @@ type State interface {
 	// If the charm does not exist, a NotFound error is returned.
 	GetCharmLXDProfile(ctx context.Context, charmID corecharm.ID) ([]byte, error)
 
+	// GetCharmArchivePath returns the archive storage path for the charm using
+	// the charm ID.
+	// If the charm does not exist, a NotFound error is returned.
+	GetCharmArchivePath(ctx context.Context, charmID corecharm.ID) (string, error)
+
 	// IsCharmAvailable returns whether the charm is available for use.
 	// If the charm does not exist, a NotFound error is returned.
 	IsCharmAvailable(ctx context.Context, charmID corecharm.ID) (bool, error)
@@ -264,6 +269,21 @@ func (s *Service) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (inte
 		return internalcharm.LXDProfile{}, errors.Trace(err)
 	}
 	return decoded, nil
+}
+
+// GetCharmArchivePath returns the archive storage path for the charm using the
+// charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *Service) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
+	if err := id.Validate(); err != nil {
+		return "", fmt.Errorf("charm id: %w", err)
+	}
+
+	path, err := s.st.GetCharmArchivePath(ctx, id)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return path, nil
 }
 
 // IsCharmAvailable returns whether the charm is available for use. This

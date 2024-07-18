@@ -358,6 +358,44 @@ WHERE uuid = $charmID.uuid;
 	return newID, nil
 }
 
+// GetCharmArchivePath returns the archive storage path for the charm using
+// the charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *State) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	ident := charmID{UUID: id.String()}
+
+	query := `
+SELECT charm.* AS &charmArchivePath.*
+FROM charm
+WHERE uuid = $charmID.uuid;
+`
+
+	stmt, err := s.Prepare(query, charmArchivePath{}, ident)
+	if err != nil {
+		return "", fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	var archivePath charmArchivePath
+	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, stmt, ident).Get(&archivePath); err != nil {
+			if errors.Is(err, sqlair.ErrNoRows) {
+				return charmerrors.NotFound
+			}
+			return fmt.Errorf("failed to get charm archive path: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("failed to run transaction: %w", domain.CoerceError(err))
+	}
+
+	return archivePath.ArchivePath, nil
+}
+
 // GetCharmMetadata returns the metadata for the charm using the charm ID.
 // If the charm does not exist, a NotFound error is returned.
 func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Metadata, error) {
@@ -1202,7 +1240,7 @@ func (s *State) setCharmMetadata(
 	archivePath string) error {
 	ident := charmID{UUID: id.String()}
 
-	encodedMetadata, err := encodeMetadata(id, metadata, lxdProfile)
+	encodedMetadata, err := encodeMetadata(id, metadata, lxdProfile, archivePath)
 	if err != nil {
 		return fmt.Errorf("failed to encode charm metadata: %w", err)
 	}

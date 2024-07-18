@@ -2067,6 +2067,30 @@ func (s *stateSuite) TestGetCharmActionsEmpty(c *gc.C) {
 	})
 }
 
+func (s *stateSuite) TestSetCharmThenGetCharmArchivePath(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id, err := st.SetCharm(context.Background(), charm.Charm{
+		Metadata: charm.Metadata{
+			Name: "ubuntu",
+		},
+	}, setStateArgs())
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.GetCharmArchivePath(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, "archive")
+}
+
+func (s *stateSuite) TestGetCharmArchivePathNotFound(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+
+	id := charmtesting.GenCharmID(c)
+
+	_, err := st.GetCharmArchivePath(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
 func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) error {
 	_, err := tx.ExecContext(ctx, `
 INSERT INTO charm (uuid, name, description, summary, subordinate, min_juju_version, run_as_id, assumes) 

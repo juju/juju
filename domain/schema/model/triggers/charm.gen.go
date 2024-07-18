@@ -33,7 +33,8 @@ WHEN
 	(NEW.min_juju_version != OLD.min_juju_version OR (NEW.min_juju_version IS NOT NULL AND OLD.min_juju_version IS NULL) OR (NEW.min_juju_version IS NULL AND OLD.min_juju_version IS NOT NULL)) OR
 	(NEW.run_as_id != OLD.run_as_id OR (NEW.run_as_id IS NOT NULL AND OLD.run_as_id IS NULL) OR (NEW.run_as_id IS NULL AND OLD.run_as_id IS NOT NULL)) OR
 	(NEW.assumes != OLD.assumes OR (NEW.assumes IS NOT NULL AND OLD.assumes IS NULL) OR (NEW.assumes IS NULL AND OLD.assumes IS NOT NULL)) OR
-	(NEW.lxd_profile != OLD.lxd_profile OR (NEW.lxd_profile IS NOT NULL AND OLD.lxd_profile IS NULL) OR (NEW.lxd_profile IS NULL AND OLD.lxd_profile IS NOT NULL)) 
+	(NEW.lxd_profile != OLD.lxd_profile OR (NEW.lxd_profile IS NOT NULL AND OLD.lxd_profile IS NULL) OR (NEW.lxd_profile IS NULL AND OLD.lxd_profile IS NOT NULL)) OR
+	(NEW.archive_path != OLD.archive_path OR (NEW.archive_path IS NOT NULL AND OLD.archive_path IS NULL) OR (NEW.archive_path IS NULL AND OLD.archive_path IS NOT NULL)) 
 BEGIN
     INSERT INTO change_log (edit_type_id, namespace_id, changed, created_at)
     VALUES (2, %[2]d, OLD.%[1]s, DATETIME('now'));

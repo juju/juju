@@ -200,6 +200,36 @@ func (s *serviceSuite) TestGetCharmMetadataInvalidUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
+func (s *serviceSuite) TestGetCharmArchivePath(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmArchivePath(gomock.Any(), id).Return("archive-path", nil)
+
+	path, err := s.service.GetCharmArchivePath(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(path, gc.Equals, "archive-path")
+}
+
+func (s *serviceSuite) TestGetCharmArchivePathNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmArchivePath(gomock.Any(), id).Return("archive-path", charmerrors.NotFound)
+
+	_, err := s.service.GetCharmArchivePath(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *serviceSuite) TestGetCharmArchivePathInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmArchivePath(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
 func (s *serviceSuite) TestSetCharmAvailable(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
