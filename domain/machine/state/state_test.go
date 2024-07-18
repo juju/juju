@@ -619,11 +619,7 @@ func (s *stateSuite) TestMarkMachineForRemovalSuccess(c *gc.C) {
 
 	var mark bool
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT mark_for_removal FROM machine_removals WHERE machine_uuid=?", "123").Scan(&mark)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
+		return tx.QueryRowContext(ctx, "SELECT mark_for_removal FROM machine_removals WHERE machine_uuid=?", "123").Scan(&mark)
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(mark, gc.Equals, true)

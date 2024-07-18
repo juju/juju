@@ -711,11 +711,7 @@ VALUES ($machineMarkForRemoval.*)`
 		return tx.Query(ctx, markForRemovalStmt, markForRemovalWithUUID).Run()
 	})
 
-	if err != nil {
-		return errors.Annotatef(err, "marking machine %q for removal", mName)
-	}
-	return nil
->>>>>>> 08c3d64f61 (feat(machine): add MarkForRemoval in the machine domain)
+	return errors.Annotatef(err, "marking machine %q for removal", mName)
 }
 
 // AllMachineRemovals returns the UUIDs of all of the machines that need to be
