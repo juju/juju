@@ -163,16 +163,6 @@ func (s *EnvSuite) setCheck(ctx *context.HookContext) (expectVars []string) {
 	}
 }
 
-func (s *EnvSuite) setRelation(ctx *context.HookContext) (expectVars []string) {
-	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app", "")
-	return []string{
-		"JUJU_RELATION=an-endpoint",
-		"JUJU_RELATION_ID=an-endpoint:22",
-		"JUJU_REMOTE_UNIT=that-unit/456",
-		"JUJU_REMOTE_APP=that-app",
-	}
-}
-
 func (s *EnvSuite) setDepartingRelation(ctx *context.HookContext) (expectVars []string) {
 	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app", "that-unit/456")
 	return []string{
@@ -236,190 +226,22 @@ func (s *EnvSuite) TestHostEnv(c *gc.C) {
 		},
 	)
 
-	ctx, contextVars := s.getContext(false, state, unit)
-	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths, false, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
-
-	relationVars := s.setDepartingRelation(ctx)
-	secretVars := s.setSecret(ctx)
-	storageVars := s.setStorage(ctx)
-	workloadVars := s.setWorkload(ctx)
-	noticeVars := s.setNotice(ctx)
-	checkVars := s.setCheck(ctx)
-	actualVars, err = ctx.HookVars(paths, false, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, workloadVars, noticeVars, checkVars)
-}
-
-func (s *EnvSuite) TestEnvCentos(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	state := mocks.NewMockState(ctrl)
-	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
-		Kind:     params.StorageKindBlock,
-		Location: "/dev/sdb",
-	}, nil).AnyTimes()
-	unit := mocks.NewMockHookUnit(ctrl)
-	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
-
-	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.CentOS })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-
-	// TERM is different for centos7.
-	for _, testBase := range []base.Base{base.MustParseBaseFromString("centos@7"), base.MustParseBaseFromString("centos@8")} {
-		s.PatchValue(&jujuos.HostBase, func() (base.Base, error) { return testBase, nil })
-		centosVars := []string{
-			"LANG=C.UTF-8",
-			"PATH=path-to-tools:foo:bar",
-		}
-
-		if testBase.Channel.Track == "7" {
-			centosVars = append(centosVars, "TERM=screen-256color")
-		} else {
-			centosVars = append(centosVars, "TERM=tmux-256color")
-		}
-
-		environmenter := context.NewRemoteEnvironmenter(
-			func() []string { return []string{} },
-			func(k string) string {
-				switch k {
-				case "PATH":
-					return "foo:bar"
-				}
-				return ""
-			},
-			func(k string) (string, bool) {
-				switch k {
-				case "PATH":
-					return "foo:bar", true
-				}
-				return "", false
-			},
-		)
-
-		ctx, contextVars := s.getContext(false, state, unit)
-		paths, pathsVars := s.getPaths()
-		actualVars, err := ctx.HookVars(paths, false, environmenter)
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars)
-
-		relationVars := s.setRelation(ctx)
-		secretVars := s.setSecret(ctx)
-		actualVars, err = ctx.HookVars(paths, false, environmenter)
-		c.Assert(err, jc.ErrorIsNil)
-		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars, relationVars, secretVars)
-	}
-}
-
-func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	state := mocks.NewMockState(ctrl)
-	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
-		Kind:     params.StorageKindBlock,
-		Location: "/dev/sdb",
-	}, nil).AnyTimes()
-	unit := mocks.NewMockHookUnit(ctrl)
-	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
-
-	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.GenericLinux })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-
-	genericLinuxVars := []string{
-		"LANG=C.UTF-8",
-		"PATH=path-to-tools:foo:bar",
-		"TERM=screen",
-	}
-
-	environmenter := context.NewRemoteEnvironmenter(
-		func() []string { return []string{} },
-		func(k string) string {
-			switch k {
-			case "PATH":
-				return "foo:bar"
-			}
-			return ""
-		},
-		func(k string) (string, bool) {
-			switch k {
-			case "PATH":
-				return "foo:bar", true
-			}
-			return "", false
-		},
-	)
-
-	ctx, contextVars := s.getContext(false, state, unit)
-	paths, pathsVars := s.getPaths()
-	actualVars, err := ctx.HookVars(paths, false, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars)
-
-	relationVars := s.setRelation(ctx)
-	secretVars := s.setSecret(ctx)
-	actualVars, err = ctx.HookVars(paths, false, environmenter)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars, secretVars)
-}
-
-func (s *EnvSuite) TestHostEnv(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-
-	state := mocks.NewMockState(ctrl)
-	state.EXPECT().StorageAttachment(names.NewStorageTag("data/0"), names.NewUnitTag("this-unit/123")).Return(params.StorageAttachment{
-		Kind:     params.StorageKindBlock,
-		Location: "/dev/sdb",
-	}, nil).AnyTimes()
-	unit := mocks.NewMockHookUnit(ctrl)
-	unit.EXPECT().Tag().Return(names.NewUnitTag("this-unit/123")).AnyTimes()
-
-	s.PatchValue(&jujuos.HostOS, func() ostype.OSType { return ostype.GenericLinux })
-	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
-
-	genericLinuxVars := []string{
-		"LANG=C.UTF-8",
-		"PATH=path-to-tools:foo:bar",
-		"TERM=screen",
-	}
-
-	environmenter := context.NewRemoteEnvironmenter(
-		func() []string { return []string{"KUBERNETES_SERVICE=test"} },
-		func(k string) string {
-			switch k {
-			case "PATH":
-				return "foo:bar"
-			}
-			return ""
-		},
-		func(k string) (string, bool) {
-			switch k {
-			case "KUBERNETES_SERVICE":
-				return "test", true
-			case "PATH":
-				return "foo:bar", true
-			}
-			return "", false
-		},
-	)
-
+	//ctx, contextVars := s.getContext(false, state, unit)
 	hookContext, contextVars := s.getHookContext(c, false, state, unit)
 	paths, pathsVars := s.getPaths()
 	actualVars, err := hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, []string{"KUBERNETES_SERVICE=test"})
+	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
 	relationVars := s.setDepartingRelation(hookContext)
 	secretVars := s.setSecret(hookContext)
 	storageVars := s.setStorage(hookContext)
+	workloadVars := s.setWorkload(hookContext)
 	noticeVars := s.setNotice(hookContext)
+	checkVars := s.setCheck(hookContext)
 	actualVars, err = hookContext.HookVars(stdcontext.Background(), paths, false, environmenter)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, noticeVars, []string{"KUBERNETES_SERVICE=test"})
+	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars, secretVars, storageVars, workloadVars, noticeVars, checkVars)
 }
 
 func (s *EnvSuite) TestContextDependentDoesNotIncludeUnSet(c *gc.C) {

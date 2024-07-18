@@ -143,7 +143,7 @@ func (s *workloadSuite) TestWorkloadCheckFailedHook(c *gc.C) {
 		c.Assert(err, gc.Equals, expectedErr)
 	}
 	containerResolver := container.NewWorkloadHookResolver(
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 		events,
 		events.RemoveWorkloadEvent)
 	localState := resolver.LocalState{
@@ -162,7 +162,7 @@ func (s *workloadSuite) TestWorkloadCheckFailedHook(c *gc.C) {
 		},
 	}
 	opFactory := &mockOperations{}
-	op, err := containerResolver.NextOp(localState, remoteState, opFactory)
+	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op, gc.NotNil)
 	op = operation.Unwrap(op)
@@ -184,7 +184,7 @@ func (s *workloadSuite) TestWorkloadCheckRecoveredHook(c *gc.C) {
 		c.Assert(err, gc.Equals, expectedErr)
 	}
 	containerResolver := container.NewWorkloadHookResolver(
-		loggo.GetLogger("test"),
+		loggertesting.WrapCheckLog(c),
 		events,
 		events.RemoveWorkloadEvent)
 	localState := resolver.LocalState{
@@ -203,7 +203,7 @@ func (s *workloadSuite) TestWorkloadCheckRecoveredHook(c *gc.C) {
 		},
 	}
 	opFactory := &mockOperations{}
-	op, err := containerResolver.NextOp(localState, remoteState, opFactory)
+	op, err := containerResolver.NextOp(context.Background(), localState, remoteState, opFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op, gc.NotNil)
 	op = operation.Unwrap(op)

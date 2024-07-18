@@ -65,9 +65,6 @@ var validateTests = []struct {
 		hook.Info{Kind: hooks.PebbleCheckRecovered, WorkloadName: "test"},
 		`"pebble-check-recovered" hook requires a check name`,
 	}, {
-		hook.Info{Kind: hooks.PreSeriesUpgrade},
-		`"pre-series-upgrade" hook requires a target base`,
-	}, {
 		hook.Info{Kind: hooks.SecretRotate},
 		`"secret-rotate" hook requires a secret URI`,
 	}, {

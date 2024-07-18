@@ -305,10 +305,6 @@ type HookContext struct {
 	// checkName is the Pebble check name associated with the hook.
 	checkName string
 
-	// baseUpgradeTarget is the base that the unit's machine is to be
-	// updated to when Juju is issued the `upgrade-machine` command.
-	baseUpgradeTarget string
-
 	// secretURI is the reference to the secret relevant to the hook.
 	secretURI string
 
