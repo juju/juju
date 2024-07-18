@@ -123,6 +123,7 @@ func (c *importFilesystemCommand) Info() *cmd.Info {
 		Doc:      importFilesystemCommandDoc,
 		Args:     importFilesystemCommandAgs,
 		Examples: importFilesystemCommandExamples,
+		SeeAlso:  []string{"storage"},
 	})
 }
 
