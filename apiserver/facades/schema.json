@@ -18742,7 +18742,7 @@
     {
         "Name": "Controller",
         "Description": "ControllerAPI provides the Controller API.",
-        "Version": 11,
+        "Version": 12,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -18892,15 +18892,6 @@
                         }
                     },
                     "description": "ListBlockedModels returns a list of all models on the controller\nwhich have a block in place.  The resulting slice is sorted by model\nname, then owner. Callers must be controller administrators to retrieve the\nlist."
-                },
-                "ModelConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/ModelConfigResults"
-                        }
-                    },
-                    "description": "ModelConfig returns the model config for the controller model.\n\nDeprecated: this facade method will be removed in 4.0 when this facade is\nconverted to a multi-model facade. Please use the ModelConfig facade's\nModelGet method instead:\n[github.com/juju/juju/apiserver/facades/client/modelconfig.ModelConfigAPI.ModelGet]"
                 },
                 "ModelStatus": {
                     "type": "object",
@@ -19089,23 +19080,6 @@
                         }
                     },
                     "additionalProperties": false
-                },
-                "ConfigValue": {
-                    "type": "object",
-                    "properties": {
-                        "source": {
-                            "type": "string"
-                        },
-                        "value": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "value",
-                        "source"
-                    ]
                 },
                 "ControllerAPIInfoResult": {
                     "type": "object",
@@ -19591,23 +19565,6 @@
                         }
                     },
                     "additionalProperties": false
-                },
-                "ModelConfigResults": {
-                    "type": "object",
-                    "properties": {
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/ConfigValue"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "config"
-                    ]
                 },
                 "ModelFilesystemInfo": {
                     "type": "object",
