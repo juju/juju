@@ -521,12 +521,12 @@ func (s *workerSuite) expectAssignLXDProfiles() {
 }
 
 func (s *workerSuite) expectSetCharmProfiles(machine int, rev int) {
-	s.machine[machine].EXPECT().SetCharmProfiles([]string{"default", "juju-testing", fmt.Sprintf("juju-testing-one-%d", rev)})
+	s.machine[machine].EXPECT().SetCharmProfiles([]string{fmt.Sprintf("juju-testing-one-%d", rev)})
 }
 
 func (s *workerSuite) expectRemoveAllCharmProfiles(machine int) {
 	profiles := []string{"default", "juju-testing"}
-	s.machine[machine].EXPECT().SetCharmProfiles(profiles)
+	s.machine[machine].EXPECT().SetCharmProfiles([]string{})
 	s.broker.EXPECT().AssignLXDProfiles("juju-23423-0", profiles, gomock.Any()).Return(profiles, nil)
 }
 
@@ -741,7 +741,7 @@ func (s *workerContainerSuite) expectAssignLXDProfiles() {
 }
 
 func (s *workerContainerSuite) expectContainerSetCharmProfiles() {
-	s.lxdContainer.EXPECT().SetCharmProfiles([]string{"default", "juju-testing-one-3"})
+	s.lxdContainer.EXPECT().SetCharmProfiles([]string{"juju-testing-one-3"})
 }
 
 // notifyContainers returns a suite behaviour that will cause the instance mutator

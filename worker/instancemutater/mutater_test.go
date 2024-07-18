@@ -47,11 +47,12 @@ func (s *mutaterSuite) TestProcessMachineProfileChanges(c *gc.C) {
 
 	startingProfiles := []string{"default", "juju-testme"}
 	finishingProfiles := append(startingProfiles, "juju-testme-lxd-profile-1")
+	charmProfiles := []string{"juju-testme-lxd-profile-1"}
 
 	s.expectRefreshLifeAliveStatusIdle()
 	s.expectLXDProfileNames(startingProfiles, nil)
 	s.expectAssignLXDProfiles(finishingProfiles, nil)
-	s.expectSetCharmProfiles(finishingProfiles)
+	s.expectSetCharmProfiles(charmProfiles)
 	s.expectModificationStatusApplied()
 
 	info := s.info(startingProfiles, 1, true)

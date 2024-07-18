@@ -243,7 +243,7 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 	}
 	if verified {
 		m.logger.Infof("no changes necessary to machine-%s lxd profiles (%v)", m.id, expectedProfiles)
-		return report(m.machineApi.SetCharmProfiles(currentProfiles))
+		return report(m.machineApi.SetCharmProfiles(lxdprofile.FilterLXDProfileNames(currentProfiles)))
 	}
 
 	// Adding a wrench to test charm not running hooks before profile can be applied.
@@ -265,7 +265,7 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 		return report(err)
 	}
 
-	return report(m.machineApi.SetCharmProfiles(currentProfiles))
+	return report(m.machineApi.SetCharmProfiles(lxdprofile.FilterLXDProfileNames(currentProfiles)))
 }
 
 func (m MutaterMachine) gatherProfileData(info *instancemutater.UnitProfileInfo) ([]lxdprofile.ProfilePost, error) {
