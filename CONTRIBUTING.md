@@ -305,8 +305,7 @@ Conventional commits
 --------------------
 
 Once you have written some code and have tested the changes, the next step is to
-`git commit` it. For commit messages Juju follows the conventional commits guidelines specified [in this
-document](https://docs.google.com/document/d/1SYUo9G7qZ_jdoVXpUVamS5VCgHmtZ0QA-wZxKoMS-C0/).
+`git commit` it. For commit messages Juju follows [conventional commits guidelines](doc/conventional-commits.md).
 In short the commits should be of the following form:
 ```
 <type>(optional <scope>): <description>
