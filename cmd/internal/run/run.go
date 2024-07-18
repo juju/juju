@@ -228,7 +228,7 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 
 	_, _ = ctx.Stdout.Write(result.Stdout)
 	_, _ = ctx.Stderr.Write(result.Stderr)
-	return cmd.NewRcPassthroughError(result.Code)
+	return utils.NewRcPassthroughError(result.Code)
 }
 
 func (c *RunCommand) getSocket(op *caas.OperatorClientInfo) (sockets.Socket, error) {

@@ -130,7 +130,7 @@ func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	if exitError, ok := err.(*exec.ExitError); ok && exitError != nil {
 		status := exitError.ProcessState.Sys().(syscall.WaitStatus)
 		if status.Exited() {
-			return cmd.NewRcPassthroughError(status.ExitStatus())
+			return utils.NewRcPassthroughError(status.ExitStatus())
 		}
 	}
 	return err
