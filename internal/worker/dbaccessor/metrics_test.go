@@ -28,6 +28,7 @@ func (s *metricsSuite) TestMetricsAreCollected(c *gc.C) {
 		defer close(done)
 		collector.DBDuration.WithLabelValues("foo", "success").Observe(0.1)
 		collector.DBRequests.WithLabelValues("foo").Inc()
+		collector.DBErrors.WithLabelValues("foo", "bar").Inc()
 		collector.TxnRequests.WithLabelValues("foo").Inc()
 		collector.TxnRetries.WithLabelValues("foo").Inc()
 	}()
@@ -55,6 +56,9 @@ juju_db_duration_seconds_bucket{namespace="foo",result="success",le="10"} 1
 juju_db_duration_seconds_bucket{namespace="foo",result="success",le="+Inf"} 1
 juju_db_duration_seconds_sum{namespace="foo",result="success"} 0.1
 juju_db_duration_seconds_count{namespace="foo",result="success"} 1
+# HELP juju_db_errors_total Total number of db errors.
+# TYPE juju_db_errors_total counter
+juju_db_errors_total{error="bar",namespace="foo"} 1
 # HELP juju_db_requests_total Number of active db requests.
 # TYPE juju_db_requests_total gauge
 juju_db_requests_total{namespace="foo"} 1
@@ -70,6 +74,7 @@ juju_db_txn_retries_total{namespace="foo"} 1
 		collector, expected,
 		"juju_db_requests_total",
 		"juju_db_duration_seconds",
+		"juju_db_errors_total",
 		"juju_db_txn_requests_total",
 		"juju_db_txn_retries_total",
 	)

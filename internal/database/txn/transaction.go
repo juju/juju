@@ -265,6 +265,7 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 // known database errors.
 func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Context, func() error) error {
 	return func(ctx context.Context, fn func() error) error {
+		var metrics Metrics
 		err := retry.Call(retry.CallArgs{
 			Func: fn,
 			IsFatalError: func(err error) bool {
@@ -275,6 +276,18 @@ func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Con
 
 				// If the error is potentially retryable then keep going.
 				if IsErrRetryable(err) {
+					// Late bind the metrics from the context. This is because
+					// we don't want to create a metrics object if we don't
+					// need to.
+					if metrics == nil {
+						metrics = MetricsFromContext(ctx)
+					}
+
+					// Record the error for the metrics. We could potentially
+					// record the error type here, but it's not clear what
+					// value that would provide.
+					metrics.RecordError(sqliteRetryableError)
+
 					if log.IsLevelEnabled(logger.TRACE) {
 						log.Tracef("retrying transaction: %v", err)
 					}
