@@ -16,6 +16,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/version"
 	"github.com/juju/juju/domain/model"
 	modelstate "github.com/juju/juju/domain/model/state"
@@ -82,7 +83,7 @@ func CreateTestModel(
 	credId, err := corecredential.NewID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	userName := "test-user" + name
+	userName := usertesting.GenNewName(c, "test-user"+name)
 	runner, err := txnRunner()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -92,7 +93,7 @@ func CreateTestModel(
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, userUUID.String(), name, userName, false, false, userUUID, time.Now())
+		`, userUUID.String(), userName.Name(), userName.Name(), false, false, userUUID, time.Now())
 		if err != nil {
 			return err
 		}
@@ -144,7 +145,7 @@ func CreateTestModel(
 			Cloud:        name,
 			Credential: corecredential.Key{
 				Cloud: name,
-				Owner: name,
+				Owner: userName,
 				Name:  "foobar",
 			},
 			Name:          name,

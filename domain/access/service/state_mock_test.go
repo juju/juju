@@ -48,7 +48,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 }
 
 // AddUser mocks base method.
-func (m *MockState) AddUser(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 bool, arg5 user.UUID, arg6 permission.AccessSpec) error {
+func (m *MockState) AddUser(arg0 context.Context, arg1 user.UUID, arg2 user.Name, arg3 string, arg4 bool, arg5 user.UUID, arg6 permission.AccessSpec) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddUser", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
@@ -74,19 +74,19 @@ func (c *MockStateAddUserCall) Return(arg0 error) *MockStateAddUserCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddUserCall) Do(f func(context.Context, user.UUID, string, string, bool, user.UUID, permission.AccessSpec) error) *MockStateAddUserCall {
+func (c *MockStateAddUserCall) Do(f func(context.Context, user.UUID, user.Name, string, bool, user.UUID, permission.AccessSpec) error) *MockStateAddUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddUserCall) DoAndReturn(f func(context.Context, user.UUID, string, string, bool, user.UUID, permission.AccessSpec) error) *MockStateAddUserCall {
+func (c *MockStateAddUserCall) DoAndReturn(f func(context.Context, user.UUID, user.Name, string, bool, user.UUID, permission.AccessSpec) error) *MockStateAddUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddUserWithActivationKey mocks base method.
-func (m *MockState) AddUserWithActivationKey(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 []byte) error {
+func (m *MockState) AddUserWithActivationKey(arg0 context.Context, arg1 user.UUID, arg2 user.Name, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddUserWithActivationKey", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
@@ -112,19 +112,19 @@ func (c *MockStateAddUserWithActivationKeyCall) Return(arg0 error) *MockStateAdd
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddUserWithActivationKeyCall) Do(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, []byte) error) *MockStateAddUserWithActivationKeyCall {
+func (c *MockStateAddUserWithActivationKeyCall) Do(f func(context.Context, user.UUID, user.Name, string, user.UUID, permission.AccessSpec, []byte) error) *MockStateAddUserWithActivationKeyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddUserWithActivationKeyCall) DoAndReturn(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, []byte) error) *MockStateAddUserWithActivationKeyCall {
+func (c *MockStateAddUserWithActivationKeyCall) DoAndReturn(f func(context.Context, user.UUID, user.Name, string, user.UUID, permission.AccessSpec, []byte) error) *MockStateAddUserWithActivationKeyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddUserWithPasswordHash mocks base method.
-func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 string, arg7 []byte) error {
+func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2 user.Name, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 string, arg7 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddUserWithPasswordHash", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].(error)
@@ -150,13 +150,13 @@ func (c *MockStateAddUserWithPasswordHashCall) Return(arg0 error) *MockStateAddU
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddUserWithPasswordHashCall) Do(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, string, []byte) error) *MockStateAddUserWithPasswordHashCall {
+func (c *MockStateAddUserWithPasswordHashCall) Do(f func(context.Context, user.UUID, user.Name, string, user.UUID, permission.AccessSpec, string, []byte) error) *MockStateAddUserWithPasswordHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddUserWithPasswordHashCall) DoAndReturn(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, string, []byte) error) *MockStateAddUserWithPasswordHashCall {
+func (c *MockStateAddUserWithPasswordHashCall) DoAndReturn(f func(context.Context, user.UUID, user.Name, string, user.UUID, permission.AccessSpec, string, []byte) error) *MockStateAddUserWithPasswordHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -240,7 +240,7 @@ func (c *MockStateCreatePermissionCall) DoAndReturn(f func(context.Context, uuid
 }
 
 // DeletePermission mocks base method.
-func (m *MockState) DeletePermission(arg0 context.Context, arg1 string, arg2 permission.ID) error {
+func (m *MockState) DeletePermission(arg0 context.Context, arg1 user.Name, arg2 permission.ID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeletePermission", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -266,19 +266,19 @@ func (c *MockStateDeletePermissionCall) Return(arg0 error) *MockStateDeletePermi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDeletePermissionCall) Do(f func(context.Context, string, permission.ID) error) *MockStateDeletePermissionCall {
+func (c *MockStateDeletePermissionCall) Do(f func(context.Context, user.Name, permission.ID) error) *MockStateDeletePermissionCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDeletePermissionCall) DoAndReturn(f func(context.Context, string, permission.ID) error) *MockStateDeletePermissionCall {
+func (c *MockStateDeletePermissionCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) error) *MockStateDeletePermissionCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // DisableUserAuthentication mocks base method.
-func (m *MockState) DisableUserAuthentication(arg0 context.Context, arg1 string) error {
+func (m *MockState) DisableUserAuthentication(arg0 context.Context, arg1 user.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DisableUserAuthentication", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -304,19 +304,19 @@ func (c *MockStateDisableUserAuthenticationCall) Return(arg0 error) *MockStateDi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateDisableUserAuthenticationCall) Do(f func(context.Context, string) error) *MockStateDisableUserAuthenticationCall {
+func (c *MockStateDisableUserAuthenticationCall) Do(f func(context.Context, user.Name) error) *MockStateDisableUserAuthenticationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateDisableUserAuthenticationCall) DoAndReturn(f func(context.Context, string) error) *MockStateDisableUserAuthenticationCall {
+func (c *MockStateDisableUserAuthenticationCall) DoAndReturn(f func(context.Context, user.Name) error) *MockStateDisableUserAuthenticationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // EnableUserAuthentication mocks base method.
-func (m *MockState) EnableUserAuthentication(arg0 context.Context, arg1 string) error {
+func (m *MockState) EnableUserAuthentication(arg0 context.Context, arg1 user.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnableUserAuthentication", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -342,19 +342,19 @@ func (c *MockStateEnableUserAuthenticationCall) Return(arg0 error) *MockStateEna
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateEnableUserAuthenticationCall) Do(f func(context.Context, string) error) *MockStateEnableUserAuthenticationCall {
+func (c *MockStateEnableUserAuthenticationCall) Do(f func(context.Context, user.Name) error) *MockStateEnableUserAuthenticationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateEnableUserAuthenticationCall) DoAndReturn(f func(context.Context, string) error) *MockStateEnableUserAuthenticationCall {
+func (c *MockStateEnableUserAuthenticationCall) DoAndReturn(f func(context.Context, user.Name) error) *MockStateEnableUserAuthenticationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetActivationKey mocks base method.
-func (m *MockState) GetActivationKey(arg0 context.Context, arg1 string) ([]byte, error) {
+func (m *MockState) GetActivationKey(arg0 context.Context, arg1 user.Name) ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetActivationKey", arg0, arg1)
 	ret0, _ := ret[0].([]byte)
@@ -381,13 +381,13 @@ func (c *MockStateGetActivationKeyCall) Return(arg0 []byte, arg1 error) *MockSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetActivationKeyCall) Do(f func(context.Context, string) ([]byte, error)) *MockStateGetActivationKeyCall {
+func (c *MockStateGetActivationKeyCall) Do(f func(context.Context, user.Name) ([]byte, error)) *MockStateGetActivationKeyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetActivationKeyCall) DoAndReturn(f func(context.Context, string) ([]byte, error)) *MockStateGetActivationKeyCall {
+func (c *MockStateGetActivationKeyCall) DoAndReturn(f func(context.Context, user.Name) ([]byte, error)) *MockStateGetActivationKeyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -432,7 +432,7 @@ func (c *MockStateGetAllUsersCall) DoAndReturn(f func(context.Context, bool) ([]
 }
 
 // GetModelUsers mocks base method.
-func (m *MockState) GetModelUsers(arg0 context.Context, arg1 string, arg2 model.UUID) ([]access.ModelUserInfo, error) {
+func (m *MockState) GetModelUsers(arg0 context.Context, arg1 user.Name, arg2 model.UUID) ([]access.ModelUserInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelUsers", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]access.ModelUserInfo)
@@ -459,13 +459,13 @@ func (c *MockStateGetModelUsersCall) Return(arg0 []access.ModelUserInfo, arg1 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetModelUsersCall) Do(f func(context.Context, string, model.UUID) ([]access.ModelUserInfo, error)) *MockStateGetModelUsersCall {
+func (c *MockStateGetModelUsersCall) Do(f func(context.Context, user.Name, model.UUID) ([]access.ModelUserInfo, error)) *MockStateGetModelUsersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetModelUsersCall) DoAndReturn(f func(context.Context, string, model.UUID) ([]access.ModelUserInfo, error)) *MockStateGetModelUsersCall {
+func (c *MockStateGetModelUsersCall) DoAndReturn(f func(context.Context, user.Name, model.UUID) ([]access.ModelUserInfo, error)) *MockStateGetModelUsersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -510,7 +510,7 @@ func (c *MockStateGetUserCall) DoAndReturn(f func(context.Context, user.UUID) (u
 }
 
 // GetUserByAuth mocks base method.
-func (m *MockState) GetUserByAuth(arg0 context.Context, arg1 string, arg2 auth.Password) (user.User, error) {
+func (m *MockState) GetUserByAuth(arg0 context.Context, arg1 user.Name, arg2 auth.Password) (user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserByAuth", arg0, arg1, arg2)
 	ret0, _ := ret[0].(user.User)
@@ -537,19 +537,19 @@ func (c *MockStateGetUserByAuthCall) Return(arg0 user.User, arg1 error) *MockSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUserByAuthCall) Do(f func(context.Context, string, auth.Password) (user.User, error)) *MockStateGetUserByAuthCall {
+func (c *MockStateGetUserByAuthCall) Do(f func(context.Context, user.Name, auth.Password) (user.User, error)) *MockStateGetUserByAuthCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUserByAuthCall) DoAndReturn(f func(context.Context, string, auth.Password) (user.User, error)) *MockStateGetUserByAuthCall {
+func (c *MockStateGetUserByAuthCall) DoAndReturn(f func(context.Context, user.Name, auth.Password) (user.User, error)) *MockStateGetUserByAuthCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUserByName mocks base method.
-func (m *MockState) GetUserByName(arg0 context.Context, arg1 string) (user.User, error) {
+func (m *MockState) GetUserByName(arg0 context.Context, arg1 user.Name) (user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserByName", arg0, arg1)
 	ret0, _ := ret[0].(user.User)
@@ -576,19 +576,19 @@ func (c *MockStateGetUserByNameCall) Return(arg0 user.User, arg1 error) *MockSta
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateGetUserByNameCall) Do(f func(context.Context, string) (user.User, error)) *MockStateGetUserByNameCall {
+func (c *MockStateGetUserByNameCall) Do(f func(context.Context, user.Name) (user.User, error)) *MockStateGetUserByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateGetUserByNameCall) DoAndReturn(f func(context.Context, string) (user.User, error)) *MockStateGetUserByNameCall {
+func (c *MockStateGetUserByNameCall) DoAndReturn(f func(context.Context, user.Name) (user.User, error)) *MockStateGetUserByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // LastModelLogin mocks base method.
-func (m *MockState) LastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) (time.Time, error) {
+func (m *MockState) LastModelLogin(arg0 context.Context, arg1 user.Name, arg2 model.UUID) (time.Time, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LastModelLogin", arg0, arg1, arg2)
 	ret0, _ := ret[0].(time.Time)
@@ -615,19 +615,19 @@ func (c *MockStateLastModelLoginCall) Return(arg0 time.Time, arg1 error) *MockSt
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateLastModelLoginCall) Do(f func(context.Context, string, model.UUID) (time.Time, error)) *MockStateLastModelLoginCall {
+func (c *MockStateLastModelLoginCall) Do(f func(context.Context, user.Name, model.UUID) (time.Time, error)) *MockStateLastModelLoginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateLastModelLoginCall) DoAndReturn(f func(context.Context, string, model.UUID) (time.Time, error)) *MockStateLastModelLoginCall {
+func (c *MockStateLastModelLoginCall) DoAndReturn(f func(context.Context, user.Name, model.UUID) (time.Time, error)) *MockStateLastModelLoginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReadAllAccessForUserAndObjectType mocks base method.
-func (m *MockState) ReadAllAccessForUserAndObjectType(arg0 context.Context, arg1 string, arg2 permission.ObjectType) ([]permission.UserAccess, error) {
+func (m *MockState) ReadAllAccessForUserAndObjectType(arg0 context.Context, arg1 user.Name, arg2 permission.ObjectType) ([]permission.UserAccess, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadAllAccessForUserAndObjectType", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]permission.UserAccess)
@@ -654,13 +654,13 @@ func (c *MockStateReadAllAccessForUserAndObjectTypeCall) Return(arg0 []permissio
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateReadAllAccessForUserAndObjectTypeCall) Do(f func(context.Context, string, permission.ObjectType) ([]permission.UserAccess, error)) *MockStateReadAllAccessForUserAndObjectTypeCall {
+func (c *MockStateReadAllAccessForUserAndObjectTypeCall) Do(f func(context.Context, user.Name, permission.ObjectType) ([]permission.UserAccess, error)) *MockStateReadAllAccessForUserAndObjectTypeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateReadAllAccessForUserAndObjectTypeCall) DoAndReturn(f func(context.Context, string, permission.ObjectType) ([]permission.UserAccess, error)) *MockStateReadAllAccessForUserAndObjectTypeCall {
+func (c *MockStateReadAllAccessForUserAndObjectTypeCall) DoAndReturn(f func(context.Context, user.Name, permission.ObjectType) ([]permission.UserAccess, error)) *MockStateReadAllAccessForUserAndObjectTypeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -705,7 +705,7 @@ func (c *MockStateReadAllUserAccessForTargetCall) DoAndReturn(f func(context.Con
 }
 
 // ReadAllUserAccessForUser mocks base method.
-func (m *MockState) ReadAllUserAccessForUser(arg0 context.Context, arg1 string) ([]permission.UserAccess, error) {
+func (m *MockState) ReadAllUserAccessForUser(arg0 context.Context, arg1 user.Name) ([]permission.UserAccess, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadAllUserAccessForUser", arg0, arg1)
 	ret0, _ := ret[0].([]permission.UserAccess)
@@ -732,19 +732,19 @@ func (c *MockStateReadAllUserAccessForUserCall) Return(arg0 []permission.UserAcc
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateReadAllUserAccessForUserCall) Do(f func(context.Context, string) ([]permission.UserAccess, error)) *MockStateReadAllUserAccessForUserCall {
+func (c *MockStateReadAllUserAccessForUserCall) Do(f func(context.Context, user.Name) ([]permission.UserAccess, error)) *MockStateReadAllUserAccessForUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateReadAllUserAccessForUserCall) DoAndReturn(f func(context.Context, string) ([]permission.UserAccess, error)) *MockStateReadAllUserAccessForUserCall {
+func (c *MockStateReadAllUserAccessForUserCall) DoAndReturn(f func(context.Context, user.Name) ([]permission.UserAccess, error)) *MockStateReadAllUserAccessForUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReadUserAccessForTarget mocks base method.
-func (m *MockState) ReadUserAccessForTarget(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.UserAccess, error) {
+func (m *MockState) ReadUserAccessForTarget(arg0 context.Context, arg1 user.Name, arg2 permission.ID) (permission.UserAccess, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadUserAccessForTarget", arg0, arg1, arg2)
 	ret0, _ := ret[0].(permission.UserAccess)
@@ -771,19 +771,19 @@ func (c *MockStateReadUserAccessForTargetCall) Return(arg0 permission.UserAccess
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateReadUserAccessForTargetCall) Do(f func(context.Context, string, permission.ID) (permission.UserAccess, error)) *MockStateReadUserAccessForTargetCall {
+func (c *MockStateReadUserAccessForTargetCall) Do(f func(context.Context, user.Name, permission.ID) (permission.UserAccess, error)) *MockStateReadUserAccessForTargetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateReadUserAccessForTargetCall) DoAndReturn(f func(context.Context, string, permission.ID) (permission.UserAccess, error)) *MockStateReadUserAccessForTargetCall {
+func (c *MockStateReadUserAccessForTargetCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) (permission.UserAccess, error)) *MockStateReadUserAccessForTargetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReadUserAccessLevelForTarget mocks base method.
-func (m *MockState) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.Access, error) {
+func (m *MockState) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 user.Name, arg2 permission.ID) (permission.Access, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadUserAccessLevelForTarget", arg0, arg1, arg2)
 	ret0, _ := ret[0].(permission.Access)
@@ -810,19 +810,19 @@ func (c *MockStateReadUserAccessLevelForTargetCall) Return(arg0 permission.Acces
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateReadUserAccessLevelForTargetCall) Do(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockStateReadUserAccessLevelForTargetCall {
+func (c *MockStateReadUserAccessLevelForTargetCall) Do(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockStateReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateReadUserAccessLevelForTargetCall) DoAndReturn(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockStateReadUserAccessLevelForTargetCall {
+func (c *MockStateReadUserAccessLevelForTargetCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockStateReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReadUserAccessLevelForTargetAddingMissingUser mocks base method.
-func (m *MockState) ReadUserAccessLevelForTargetAddingMissingUser(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.Access, error) {
+func (m *MockState) ReadUserAccessLevelForTargetAddingMissingUser(arg0 context.Context, arg1 user.Name, arg2 permission.ID) (permission.Access, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadUserAccessLevelForTargetAddingMissingUser", arg0, arg1, arg2)
 	ret0, _ := ret[0].(permission.Access)
@@ -849,19 +849,19 @@ func (c *MockStateReadUserAccessLevelForTargetAddingMissingUserCall) Return(arg0
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateReadUserAccessLevelForTargetAddingMissingUserCall) Do(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockStateReadUserAccessLevelForTargetAddingMissingUserCall {
+func (c *MockStateReadUserAccessLevelForTargetAddingMissingUserCall) Do(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockStateReadUserAccessLevelForTargetAddingMissingUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateReadUserAccessLevelForTargetAddingMissingUserCall) DoAndReturn(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockStateReadUserAccessLevelForTargetAddingMissingUserCall {
+func (c *MockStateReadUserAccessLevelForTargetAddingMissingUserCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockStateReadUserAccessLevelForTargetAddingMissingUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RemoveUser mocks base method.
-func (m *MockState) RemoveUser(arg0 context.Context, arg1 string) error {
+func (m *MockState) RemoveUser(arg0 context.Context, arg1 user.Name) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveUser", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -887,19 +887,19 @@ func (c *MockStateRemoveUserCall) Return(arg0 error) *MockStateRemoveUserCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateRemoveUserCall) Do(f func(context.Context, string) error) *MockStateRemoveUserCall {
+func (c *MockStateRemoveUserCall) Do(f func(context.Context, user.Name) error) *MockStateRemoveUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateRemoveUserCall) DoAndReturn(f func(context.Context, string) error) *MockStateRemoveUserCall {
+func (c *MockStateRemoveUserCall) DoAndReturn(f func(context.Context, user.Name) error) *MockStateRemoveUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetActivationKey mocks base method.
-func (m *MockState) SetActivationKey(arg0 context.Context, arg1 string, arg2 []byte) error {
+func (m *MockState) SetActivationKey(arg0 context.Context, arg1 user.Name, arg2 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetActivationKey", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -925,19 +925,19 @@ func (c *MockStateSetActivationKeyCall) Return(arg0 error) *MockStateSetActivati
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetActivationKeyCall) Do(f func(context.Context, string, []byte) error) *MockStateSetActivationKeyCall {
+func (c *MockStateSetActivationKeyCall) Do(f func(context.Context, user.Name, []byte) error) *MockStateSetActivationKeyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetActivationKeyCall) DoAndReturn(f func(context.Context, string, []byte) error) *MockStateSetActivationKeyCall {
+func (c *MockStateSetActivationKeyCall) DoAndReturn(f func(context.Context, user.Name, []byte) error) *MockStateSetActivationKeyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetPasswordHash mocks base method.
-func (m *MockState) SetPasswordHash(arg0 context.Context, arg1, arg2 string, arg3 []byte) error {
+func (m *MockState) SetPasswordHash(arg0 context.Context, arg1 user.Name, arg2 string, arg3 []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetPasswordHash", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -963,19 +963,19 @@ func (c *MockStateSetPasswordHashCall) Return(arg0 error) *MockStateSetPasswordH
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateSetPasswordHashCall) Do(f func(context.Context, string, string, []byte) error) *MockStateSetPasswordHashCall {
+func (c *MockStateSetPasswordHashCall) Do(f func(context.Context, user.Name, string, []byte) error) *MockStateSetPasswordHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateSetPasswordHashCall) DoAndReturn(f func(context.Context, string, string, []byte) error) *MockStateSetPasswordHashCall {
+func (c *MockStateSetPasswordHashCall) DoAndReturn(f func(context.Context, user.Name, string, []byte) error) *MockStateSetPasswordHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // UpdateLastModelLogin mocks base method.
-func (m *MockState) UpdateLastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) error {
+func (m *MockState) UpdateLastModelLogin(arg0 context.Context, arg1 user.Name, arg2 model.UUID) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateLastModelLogin", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -1001,13 +1001,13 @@ func (c *MockStateUpdateLastModelLoginCall) Return(arg0 error) *MockStateUpdateL
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateUpdateLastModelLoginCall) Do(f func(context.Context, string, model.UUID) error) *MockStateUpdateLastModelLoginCall {
+func (c *MockStateUpdateLastModelLoginCall) Do(f func(context.Context, user.Name, model.UUID) error) *MockStateUpdateLastModelLoginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateUpdateLastModelLoginCall) DoAndReturn(f func(context.Context, string, model.UUID) error) *MockStateUpdateLastModelLoginCall {
+func (c *MockStateUpdateLastModelLoginCall) DoAndReturn(f func(context.Context, user.Name, model.UUID) error) *MockStateUpdateLastModelLoginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

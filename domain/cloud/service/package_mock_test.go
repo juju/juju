@@ -15,6 +15,7 @@ import (
 
 	cloud "github.com/juju/juju/cloud"
 	changestream "github.com/juju/juju/core/changestream"
+	user "github.com/juju/juju/core/user"
 	watcher "github.com/juju/juju/core/watcher"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -82,7 +83,7 @@ func (c *MockStateCloudCall) DoAndReturn(f func(context.Context, string) (*cloud
 }
 
 // CreateCloud mocks base method.
-func (m *MockState) CreateCloud(arg0 context.Context, arg1, arg2 string, arg3 cloud.Cloud) error {
+func (m *MockState) CreateCloud(arg0 context.Context, arg1 user.Name, arg2 string, arg3 cloud.Cloud) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateCloud", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -108,13 +109,13 @@ func (c *MockStateCreateCloudCall) Return(arg0 error) *MockStateCreateCloudCall 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateCreateCloudCall) Do(f func(context.Context, string, string, cloud.Cloud) error) *MockStateCreateCloudCall {
+func (c *MockStateCreateCloudCall) Do(f func(context.Context, user.Name, string, cloud.Cloud) error) *MockStateCreateCloudCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateCreateCloudCall) DoAndReturn(f func(context.Context, string, string, cloud.Cloud) error) *MockStateCreateCloudCall {
+func (c *MockStateCreateCloudCall) DoAndReturn(f func(context.Context, user.Name, string, cloud.Cloud) error) *MockStateCreateCloudCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

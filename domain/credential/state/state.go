@@ -15,6 +15,7 @@ import (
 	corecredential "github.com/juju/juju/core/credential"
 	coredatabase "github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/user"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/domain"
 	userstate "github.com/juju/juju/domain/access/state"
@@ -39,7 +40,7 @@ func credentialKeyMap(key corecredential.Key) sqlair.M {
 	return sqlair.M{
 		"credential_name": key.Name,
 		"cloud_name":      key.Cloud,
-		"owner":           key.Owner,
+		"owner":           key.Owner.Name(),
 	}
 }
 
@@ -387,7 +388,7 @@ AND    cloud_credential.cloud_uuid = (
 
 // CloudCredentialsForOwner returns the owner's cloud credentials for a given cloud,
 // keyed by credential name.
-func (st *State) CloudCredentialsForOwner(ctx context.Context, owner, cloudName string) (map[string]credential.CloudCredentialResult, error) {
+func (st *State) CloudCredentialsForOwner(ctx context.Context, owner user.Name, cloudName string) (map[string]credential.CloudCredentialResult, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -440,7 +441,7 @@ func (st *State) CloudCredential(ctx context.Context, key corecredential.Key) (c
 type credentialAttrs map[string]string
 
 // LoadCloudCredentials loads cloud credentials from the database.
-func LoadCloudCredentials(ctx context.Context, st domain.Preparer, tx *sqlair.TX, name, cloudName, owner string) ([]credential.CloudCredentialResult, error) {
+func LoadCloudCredentials(ctx context.Context, st domain.Preparer, tx *sqlair.TX, name, cloudName string, owner user.Name) ([]credential.CloudCredentialResult, error) {
 	credQuery := `
 SELECT (cc.uuid, cc.name,
        cc.revoked, cc.invalid, 
@@ -459,7 +460,7 @@ FROM   cloud_credential cc
 	condition, args := database.SqlairClauseAnd(map[string]any{
 		"cc.name":      name,
 		"cloud.name":   cloudName,
-		"user.name":    owner,
+		"user.name":    owner.Name(),
 		"user.removed": false,
 	})
 	types := []any{
@@ -576,7 +577,7 @@ WHERE uuid = $M.id
 
 // AllCloudCredentialsForOwner returns all cloud credentials stored on the controller
 // for a given owner.
-func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner string) (map[corecredential.Key]credential.CloudCredentialResult, error) {
+func (st *State) AllCloudCredentialsForOwner(ctx context.Context, owner user.Name) (map[corecredential.Key]credential.CloudCredentialResult, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -685,7 +686,7 @@ FROM   v_model m
 	condition, args := database.SqlairClauseAnd(map[string]any{
 		"m.cloud_credential_name": key.Name,
 		"m.cloud_name":            key.Cloud,
-		"m.owner_name":            key.Owner,
+		"m.owner_name":            key.Owner.Name(),
 	})
 	query = query + "WHERE " + condition
 

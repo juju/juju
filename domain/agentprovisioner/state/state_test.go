@@ -17,6 +17,7 @@ import (
 	modelconfigstate "github.com/juju/juju/domain/modelconfig/state"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -105,7 +106,7 @@ func (s *suite) TestGetModelConfigKeyValuesGetNoKeys(c *gc.C) {
 func (s *suite) TestModelID(c *gc.C) {
 	// Create a read-only model
 	modelID := modeltesting.GenModelUUID(c)
-	modelSt := modelstate.NewModelState(s.TxnRunnerFactory())
+	modelSt := modelstate.NewModelState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
 	err := modelSt.Create(context.Background(), model.ReadOnlyModelCreationArgs{
 		UUID:           modelID,
 		AgentVersion:   version.Number{Major: 4, Minor: 21, Patch: 67},

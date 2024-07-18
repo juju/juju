@@ -25,6 +25,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	coreos "github.com/juju/juju/core/os"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	ccbootstrap "github.com/juju/juju/domain/controllerconfig/bootstrap"
@@ -223,7 +224,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 	// Add initial Admin user to the database. This will return Admin user UUID
 	// and a function to insert it into the database.
 	adminUserUUID, addAdminUser := userbootstrap.AddUserWithPassword(
-		b.adminUser.Name(),
+		user.NameFromTag(b.adminUser),
 		auth.NewPassword(info.Password),
 		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
@@ -261,7 +262,7 @@ func (b *AgentBootstrap) Initialize(ctx stdcontext.Context) (_ *state.Controller
 		// The admin user needs to be added before everything else that
 		// requires being owned by a Juju user.
 		addAdminUser,
-		cloudbootstrap.InsertCloud(b.adminUser.Name(), stateParams.ControllerCloud),
+		cloudbootstrap.InsertCloud(user.NameFromTag(b.adminUser), stateParams.ControllerCloud),
 		credbootstrap.InsertCredential(credential.KeyFromTag(cloudCredTag), cloudCred),
 		cloudbootstrap.SetCloudDefaults(stateParams.ControllerCloud.Name, stateParams.ControllerInheritedConfig),
 		secretbackendbootstrap.CreateDefaultBackends(model.ModelType(modelType)),

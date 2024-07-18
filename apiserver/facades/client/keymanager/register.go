@@ -44,7 +44,10 @@ func makeFacadeV1(stdCtx context.Context, ctx facade.ModelContext) (*KeyManagerA
 		return nil, fmt.Errorf("retrieving controller config: %w", err)
 	}
 
-	authedUser := ctx.Auth().GetAuthTag()
+	authedUser, ok := ctx.Auth().GetAuthTag().(names.UserTag)
+	if !ok {
+		return nil, fmt.Errorf("expected authed entity to be user, got %s", ctx.Auth().GetAuthTag())
+	}
 
 	keyImporterHTTPClient, err := ctx.HTTPClient(facade.HTTPClientPurposeUserSSHImport)
 	if err != nil {
@@ -73,7 +76,7 @@ func newKeyManagerAPI(
 	check BlockChecker,
 	controllerUUID string,
 	modelID coremodel.UUID,
-	authedUser names.Tag,
+	authedUser names.UserTag,
 ) *KeyManagerAPI {
 	return &KeyManagerAPI{
 		keyManagerService: keyManagerService,

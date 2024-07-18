@@ -30,24 +30,26 @@ import (
 // AccessService defines the methods to operate with the database.
 type AccessService interface {
 	GetAllUsers(ctx context.Context, includeDisabled bool) ([]coreuser.User, error)
-	GetUserByName(ctx context.Context, name string) (coreuser.User, error)
+	GetUserByName(ctx context.Context, name coreuser.Name) (coreuser.User, error)
 	AddUser(ctx context.Context, arg service.AddUserArg) (coreuser.UUID, []byte, error)
-	EnableUserAuthentication(ctx context.Context, name string) error
-	DisableUserAuthentication(ctx context.Context, name string) error
-	SetPassword(ctx context.Context, name string, password auth.Password) error
-	ResetPassword(ctx context.Context, name string) ([]byte, error)
-	RemoveUser(ctx context.Context, name string) error
+	EnableUserAuthentication(ctx context.Context, name coreuser.Name) error
+	DisableUserAuthentication(ctx context.Context, name coreuser.Name) error
+	SetPassword(ctx context.Context, name coreuser.Name, password auth.Password) error
+	ResetPassword(ctx context.Context, name coreuser.Name) ([]byte, error)
+	RemoveUser(ctx context.Context, name coreuser.Name) error
 
+	// ReadUserAccessLevelForTarget returns the access level that the
+	// input user has been on the input target entity.
 	// If the access level of a user cannot be found then
 	// accesserrors.AccessNotFound is returned.
-	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
+	ReadUserAccessLevelForTarget(ctx context.Context, subject coreuser.Name, target permission.ID) (permission.Access, error)
 
 	// GetModelUsers will retrieve basic information about all users with
 	// permissions on the given model UUID.
 	// If the model cannot be found it will return modelerrors.NotFound.
 	// If no permissions can be found on the model it will return
 	// accesserrors.PermissionNotValid.
-	GetModelUsers(ctx context.Context, apiUser string, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
+	GetModelUsers(ctx context.Context, apiUser coreuser.Name, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -136,8 +138,13 @@ func (api *UserManagerAPI) addOneUser(ctx context.Context, arg params.AddUser) p
 	}
 	// End legacy block.
 
+	name, err := coreuser.NewName(arg.Username)
+	if err != nil {
+		return params.AddUserResult{Error: apiservererrors.ServerError(errors.Annotate(err, "creating user"))}
+	}
+
 	addUserArg := service.AddUserArg{
-		Name:        arg.Username,
+		Name:        name,
 		DisplayName: arg.DisplayName,
 		CreatorUUID: api.apiUser.UUID,
 		Permission: permission.AccessSpec{
@@ -206,7 +213,7 @@ func (api *UserManagerAPI) RemoveUser(ctx context.Context, entities params.Entit
 			continue
 		}
 
-		err = api.accessService.RemoveUser(ctx, userTag.Id())
+		err = api.accessService.RemoveUser(ctx, coreuser.NameFromTag(userTag))
 		if err != nil {
 			deletions.Results[i].Error = apiservererrors.ServerError(
 				errors.Annotatef(err, "failed to delete user %q", userTag.Name()))
@@ -266,9 +273,9 @@ func (api *UserManagerAPI) enableUser(ctx context.Context, args params.Entities,
 		}
 
 		if action == "enable" {
-			err = api.accessService.EnableUserAuthentication(ctx, userTag.Id())
+			err = api.accessService.EnableUserAuthentication(ctx, coreuser.NameFromTag(userTag))
 		} else {
-			err = api.accessService.DisableUserAuthentication(ctx, userTag.Id())
+			err = api.accessService.DisableUserAuthentication(ctx, coreuser.NameFromTag(userTag))
 		}
 		if err != nil {
 			result.Results[i].Error = apiservererrors.ServerError(errors.Errorf("failed to %s user: %s", action, err))
@@ -295,7 +302,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 				return results, errors.Trace(err)
 			}
 			for _, user := range users {
-				userTag := names.NewUserTag(user.Name)
+				userTag := names.NewUserTag(user.Name.Name())
 				results.Results = append(results.Results, api.infoForUser(ctx, userTag, user))
 			}
 			return results, nil
@@ -305,17 +312,17 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 		// check if the auth tag is a user tag, and if so, get the users filtered
 		// by the user name.
 		tag := api.authorizer.GetAuthTag()
-		if _, ok := tag.(names.UserTag); !ok {
+		userTag, ok := tag.(names.UserTag)
+		if !ok {
 			return results, apiservererrors.ErrPerm
 		}
 
 		// Get users filtered by the apiUser name as a creator
-		user, err := api.accessService.GetUserByName(ctx, tag.Id())
+		user, err := api.accessService.GetUserByName(ctx, coreuser.NameFromTag(userTag))
 		if err != nil {
 			return results, errors.Trace(err)
 		}
 
-		userTag := names.NewUserTag(user.Name)
 		results.Results = append(results.Results, api.infoForUser(ctx, userTag, user))
 
 		return results, nil
@@ -334,7 +341,7 @@ func (api *UserManagerAPI) UserInfo(ctx context.Context, request params.UserInfo
 		}
 
 		// Get User
-		user, err := api.accessService.GetUserByName(ctx, userTag.Id())
+		user, err := api.accessService.GetUserByName(ctx, coreuser.NameFromTag(userTag))
 		if err != nil {
 			results.Results = append(results.Results, params.UserInfoResult{Error: apiservererrors.ServerError(err)})
 			continue
@@ -355,9 +362,9 @@ func (api *UserManagerAPI) infoForUser(ctx context.Context, tag names.UserTag, u
 	}
 	result := params.UserInfoResult{
 		Result: &params.UserInfo{
-			Username:       user.Name,
+			Username:       user.Name.Name(),
 			DisplayName:    user.DisplayName,
-			CreatedBy:      user.CreatorName,
+			CreatedBy:      user.CreatorName.Name(),
 			DateCreated:    user.CreatedAt,
 			LastConnection: lastLogin,
 			Disabled:       user.Disabled,
@@ -370,7 +377,7 @@ func (api *UserManagerAPI) infoForUser(ctx context.Context, tag names.UserTag, u
 		return result
 	}
 
-	access, err := api.accessService.ReadUserAccessLevelForTarget(ctx, tag.Id(), permission.ID{
+	access, err := api.accessService.ReadUserAccessLevelForTarget(ctx, coreuser.NameFromTag(tag), permission.ID{
 		ObjectType: permission.Controller,
 		Key:        api.controllerUUID,
 	})
@@ -469,7 +476,7 @@ func (api *UserManagerAPI) setPassword(ctx context.Context, arg params.EntityPas
 	pass := auth.NewPassword(arg.Password)
 	defer pass.Destroy()
 
-	if err := api.accessService.SetPassword(ctx, userTag.Id(), pass); err != nil {
+	if err := api.accessService.SetPassword(ctx, coreuser.NameFromTag(userTag), pass); err != nil {
 		return errors.Annotate(err, "failed to set password")
 	}
 
@@ -507,7 +514,7 @@ func (api *UserManagerAPI) ResetPassword(ctx context.Context, args params.Entiti
 		}
 
 		if isSuperUser && api.apiUserTag != userTag {
-			key, err := api.accessService.ResetPassword(ctx, userTag.Id())
+			key, err := api.accessService.ResetPassword(ctx, coreuser.NameFromTag(userTag))
 			if err != nil {
 				result.Results[i].Error = apiservererrors.ServerError(err)
 				continue

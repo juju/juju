@@ -15,6 +15,7 @@ import (
 	"github.com/juju/names/v5"
 	"gopkg.in/macaroon.v2"
 
+	coreuser "github.com/juju/juju/core/user"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/environs"
 	internalmacaroon "github.com/juju/juju/internal/macaroon"
@@ -132,7 +133,7 @@ func (h *registerUserHandler) processPost(
 	}
 
 	// Decrypt the ciphertext with the user's activation key (if it has one).
-	sealer, err := userService.SetPasswordWithActivationKey(req.Context(), userTag.Id(), loginRequest.Nonce, loginRequest.PayloadCiphertext)
+	sealer, err := userService.SetPasswordWithActivationKey(req.Context(), coreuser.NameFromTag(userTag), loginRequest.Nonce, loginRequest.PayloadCiphertext)
 	if err != nil {
 		if errors.Is(err, usererrors.ActivationKeyNotValid) {
 			return names.UserTag{}, nil, errors.NotValidf("activation key")

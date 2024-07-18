@@ -383,7 +383,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		// We shouldn't attempt to dial peers until we have some.
 		dialOpts.Direct = true
 
-		adminTag := names.NewLocalUserTag(coreuser.AdminUserName)
+		adminTag := names.NewLocalUserTag(coreuser.AdminUserName.Name())
 		bootstrap, err := c.BootstrapAgent(agentbootstrap.AgentBootstrapArgs{
 			AgentConfig:               agentConfig,
 			BootstrapEnviron:          env,

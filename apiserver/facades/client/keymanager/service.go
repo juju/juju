@@ -38,5 +38,5 @@ type KeyManagerService interface {
 type UserService interface {
 	// GetUserByName find thes the Juju identified by their username and returns
 	// the internal user representation matching that username.
-	GetUserByName(context.Context, string) (user.User, error)
+	GetUserByName(context.Context, user.Name) (user.User, error)
 }

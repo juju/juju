@@ -33,7 +33,7 @@ type dummyState struct {
 	clouds              map[string]dummyStateCloud
 	models              map[coremodel.UUID]coremodel.Model
 	nonActivatedModels  map[coremodel.UUID]coremodel.Model
-	users               map[user.UUID]string
+	users               map[user.UUID]user.Name
 	secretBackends      []string
 	controllerModelUUID coremodel.UUID
 }
@@ -166,7 +166,7 @@ func (d *dummyState) GetControllerModel(
 
 func (d *dummyState) GetModelByName(
 	_ context.Context,
-	userName string,
+	userName user.Name,
 	modelName string,
 ) (coremodel.Model, error) {
 	for _, model := range d.models {
@@ -238,7 +238,7 @@ func (d *dummyState) ListModelIDs(
 func (d *dummyState) ModelCloudNameAndCredential(
 	_ context.Context,
 	modelName string,
-	ownerName string,
+	ownerName user.Name,
 ) (string, credential.Key, error) {
 	var ownerUUID user.UUID
 	for k, v := range d.users {
@@ -281,7 +281,7 @@ func (d *dummyState) UpdateCredential(
 	return nil
 }
 
-func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName string) ([]coremodel.UserModelSummary, error) {
+func (d *dummyState) ListModelSummariesForUser(_ context.Context, userName user.Name) ([]coremodel.UserModelSummary, error) {
 	var rval []coremodel.UserModelSummary
 	for _, m := range d.models {
 		if m.OwnerName == userName {

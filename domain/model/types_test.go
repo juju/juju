@@ -76,7 +76,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				Cloud:       "my-cloud",
 				CloudRegion: "my-region",
 				Credential: credential.Key{
-					Owner: "wallyworld",
+					Owner: usertesting.GenNewName(c, "wallyworld"),
 				},
 				Name:  "my-awesome-model",
 				Owner: userUUID,
@@ -100,7 +100,7 @@ func (*typesSuite) TestModelCreationArgsValidation(c *gc.C) {
 				CloudRegion: "my-region",
 				Credential: credential.Key{
 					Cloud: "cloud",
-					Owner: "wallyworld",
+					Owner: usertesting.GenNewName(c, "wallyworld"),
 					Name:  "mycred",
 				},
 				Name:  "my-awesome-model",
@@ -140,7 +140,7 @@ func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
 					CloudRegion: "my-region",
 					Credential: credential.Key{
 						Cloud: "cloud",
-						Owner: "wallyworld",
+						Owner: usertesting.GenNewName(c, "wallyworld"),
 						Name:  "mycred",
 					},
 					Name:  "my-awesome-model",
@@ -157,7 +157,7 @@ func (*typesSuite) TestModelImportArgsValidation(c *gc.C) {
 					CloudRegion: "my-region",
 					Credential: credential.Key{
 						Cloud: "cloud",
-						Owner: "wallyworld",
+						Owner: usertesting.GenNewName(c, "wallyworld"),
 						Name:  "mycred",
 					},
 					Name:  "my-awesome-model",

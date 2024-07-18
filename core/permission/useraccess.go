@@ -7,12 +7,14 @@ import (
 	"time"
 
 	"github.com/juju/names/v5"
+
+	"github.com/juju/juju/core/user"
 )
 
 // TODO hml 2024-02-05
 // Replace CreatedBy, UserTag and Object with non Tag types once
 // the cut over the permission domain is complete. Is UserTag still
-// necessary if UserName exists?
+// necessary if Name exists?
 
 // UserAccess represents a user access to a target whereas the user
 // could represent a remote user or a user across multiple models the
@@ -38,7 +40,7 @@ type UserAccess struct {
 	// DisplayName is the name we are showing for this user.
 	DisplayName string
 	// UserName is the actual username for this access.
-	UserName string
+	UserName user.Name
 }
 
 // IsEmptyUserAccess returns true if the passed UserAccess instance

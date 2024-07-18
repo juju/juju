@@ -21,24 +21,30 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/domain/access"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
 
-const remoteUser = "testuser@somewhere"
-
 var _ = gc.Suite(&macaroonLoginSuite{})
 
 type macaroonLoginSuite struct {
+	remoteUser user.Name
 	jujutesting.MacaroonSuite
 }
 
+func (s *macaroonLoginSuite) SetUpTest(c *gc.C) {
+	s.remoteUser = usertesting.GenNewName(c, "testuser@somewhere")
+	s.MacaroonSuite.SetUpTest(c)
+}
+
 func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
-	s.AddModelUser(c, remoteUser)
-	s.AddControllerUser(c, remoteUser, permission.LoginAccess)
+	s.AddModelUser(c, s.remoteUser)
+	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
 	s.DischargerLogin = func() string {
-		return remoteUser
+		return s.remoteUser.Name()
 	}
 	workingTransport := http.DefaultTransport
 	failingTransport := errorTransport{
@@ -114,7 +120,7 @@ func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult,
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *gc.C) {
 	s.DischargerLogin = func() string {
-		return remoteUser
+		return s.remoteUser.Name()
 	}
 	info := s.APIInfo(c)
 	// Log in to the controller, not the model.
@@ -125,10 +131,10 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerNoAccess(c *gc.C) {
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C) {
-	s.AddControllerUser(c, permission.EveryoneTagName, permission.LoginAccess)
+	s.AddControllerUser(c, permission.EveryoneUserName, permission.LoginAccess)
 
 	s.DischargerLogin = func() string {
-		return remoteUser
+		return s.remoteUser.Name()
 	}
 	info := s.APIInfo(c)
 	// Log in to the controller, not the model.
@@ -137,7 +143,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerLoginAccess(c *gc.C)
 	result, err := s.login(c, info)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
-	c.Check(result.UserInfo.Identity, gc.Equals, names.NewUserTag(remoteUser).String())
+	c.Check(result.UserInfo.Identity, gc.Equals, names.NewUserTag(s.remoteUser.Name()).String())
 	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "login")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "")
 	c.Check(result.Servers, gc.DeepEquals, params.FromProviderHostsPorts(parseHostPortsFromAddress(c, info.Addrs...)))
@@ -154,11 +160,11 @@ func parseHostPortsFromAddress(c *gc.C, addresses ...string) []network.ProviderH
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToControllerSuperuserAccess(c *gc.C) {
-	s.AddControllerUser(c, permission.EveryoneTagName, permission.SuperuserAccess)
-	var remoteUserTag = names.NewUserTag(remoteUser)
+	s.AddControllerUser(c, permission.EveryoneUserName, permission.SuperuserAccess)
+	var remoteUserTag = names.NewUserTag(s.remoteUser.Name())
 
 	s.DischargerLogin = func() string {
-		return remoteUser
+		return s.remoteUser.Name()
 	}
 	info := s.APIInfo(c)
 	// Log in to the controller, not the model.
@@ -176,9 +182,9 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelNoExplicitAccess(c *gc.C)
 	// If we have a remote user which the controller knows nothing about,
 	// and the macaroon is discharged successfully, and the user is attempting
 	// to log into a model, that is permission denied.
-	s.AddControllerUser(c, permission.EveryoneTagName, permission.LoginAccess)
+	s.AddControllerUser(c, permission.EveryoneUserName, permission.LoginAccess)
 	s.DischargerLogin = func() string {
-		return remoteUser
+		return s.remoteUser.Name()
 	}
 	info := s.APIInfo(c)
 
@@ -200,11 +206,11 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 	external := true
 	accessService := s.ControllerServiceFactory(c).Access()
 	err := accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
-		Subject:  remoteUser,
+		Subject:  s.remoteUser,
 		Change:   permission.Grant,
 		External: &external,
 		AddUser:  true,
-		ApiUser:  "admin",
+		ApiUser:  user.AdminUserName,
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
 				ObjectType: permission.Model,
@@ -216,7 +222,7 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.DischargerLogin = func() string {
-		return remoteUser
+		return s.remoteUser.Name()
 	}
 
 	_, err = s.login(c, s.ControllerModelApiInfo())
@@ -228,27 +234,27 @@ func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.
 }
 
 func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithControllerAccess(c *gc.C) {
-	s.AddModelUser(c, remoteUser)
-	s.AddControllerUser(c, remoteUser, permission.SuperuserAccess)
+	s.AddModelUser(c, s.remoteUser)
+	s.AddControllerUser(c, s.remoteUser, permission.SuperuserAccess)
 
 	s.DischargerLogin = func() string {
-		return remoteUser
+		return s.remoteUser.Name()
 	}
 	info := s.APIInfo(c)
 
 	result, err := s.login(c, info)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.UserInfo, gc.NotNil)
-	c.Check(result.UserInfo.Identity, gc.Equals, names.NewUserTag(remoteUser).String())
+	c.Check(result.UserInfo.Identity, gc.Equals, names.NewUserTag(s.remoteUser.Name()).String())
 	c.Check(result.UserInfo.ControllerAccess, gc.Equals, "superuser")
 	c.Check(result.UserInfo.ModelAccess, gc.Equals, "write")
 }
 
 func (s *macaroonLoginSuite) TestLoginToModelSuccess(c *gc.C) {
-	s.AddModelUser(c, remoteUser)
-	s.AddControllerUser(c, remoteUser, permission.LoginAccess)
+	s.AddModelUser(c, s.remoteUser)
+	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
 	s.DischargerLogin = func() string {
-		return remoteUser
+		return s.remoteUser.Name()
 	}
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	client, err := api.Open(s.APIInfo(c), api.DialOpts{})
@@ -256,7 +262,7 @@ func (s *macaroonLoginSuite) TestLoginToModelSuccess(c *gc.C) {
 	defer client.Close()
 
 	// The auth tag has been correctly returned by the server.
-	c.Assert(client.AuthTag(), gc.Equals, names.NewUserTag(remoteUser))
+	c.Assert(client.AuthTag(), gc.Equals, names.NewUserTag(s.remoteUser.Name()))
 }
 
 func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
@@ -269,8 +275,8 @@ func (s *macaroonLoginSuite) TestFailedToObtainDischargeLogin(c *gc.C) {
 }
 
 func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
-	s.AddModelUser(c, remoteUser)
-	s.AddControllerUser(c, remoteUser, permission.LoginAccess)
+	s.AddModelUser(c, s.remoteUser)
+	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
 
 	catcher := api.UrlCatcher{}
 	s.PatchValue(&api.WebsocketDial, catcher.RecordLocation)
@@ -278,7 +284,7 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 	dischargeCount := 0
 	s.DischargerLogin = func() string {
 		dischargeCount++
-		return remoteUser
+		return s.remoteUser.Name()
 	}
 
 	// First log into the regular API.
@@ -299,8 +305,8 @@ func (s *macaroonLoginSuite) TestConnectStream(c *gc.C) {
 }
 
 func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
-	s.AddModelUser(c, remoteUser)
-	s.AddControllerUser(c, remoteUser, permission.LoginAccess)
+	s.AddModelUser(c, s.remoteUser)
+	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
 
 	// This is really a test for ConnectStream, but to test ConnectStream's
 	// discharge failing logic, we need an actual endpoint to test against,
@@ -311,7 +317,7 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 		if dischargeError {
 			return ""
 		}
-		return remoteUser
+		return s.remoteUser.Name()
 	}
 
 	// Make an API connection that uses a cookie jar
@@ -340,8 +346,8 @@ func (s *macaroonLoginSuite) TestConnectStreamFailedDischarge(c *gc.C) {
 }
 
 func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
-	s.AddModelUser(c, remoteUser)
-	s.AddControllerUser(c, remoteUser, permission.LoginAccess)
+	s.AddModelUser(c, s.remoteUser)
+	s.AddControllerUser(c, s.remoteUser, permission.LoginAccess)
 
 	// If the connection was created with already-discharged macaroons
 	// (rather than acquiring them through the discharge dance), they
@@ -354,7 +360,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.DischargerLogin = func() string {
-		return remoteUser
+		return s.remoteUser.Name()
 	}
 
 	info := s.APIInfo(c)

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/user"
 )
 
 type userAccessDoc struct {
@@ -119,7 +120,7 @@ func NewModelUserAccess(st *State, userDoc userAccessDoc) (permission.UserAccess
 	if err != nil {
 		return permission.UserAccess{}, errors.Annotate(err, "obtaining model permission")
 	}
-	return newUserAccess(perm, userDoc, names.NewModelTag(userDoc.ObjectUUID)), nil
+	return newUserAccess(perm, userDoc, names.NewModelTag(userDoc.ObjectUUID))
 }
 
 // NewControllerUserAccess returns a new permission.UserAccess for the given userDoc and
@@ -129,7 +130,7 @@ func NewControllerUserAccess(st *State, userDoc userAccessDoc) (permission.UserA
 	if err != nil {
 		return permission.UserAccess{}, errors.Annotate(err, "obtaining controller permission")
 	}
-	return newUserAccess(perm, userDoc, names.NewControllerTag(userDoc.ObjectUUID)), nil
+	return newUserAccess(perm, userDoc, names.NewControllerTag(userDoc.ObjectUUID))
 }
 
 // UserPermission returns the access permission for the passed subject and target.
@@ -152,7 +153,11 @@ func (st *State) UserPermission(subject names.UserTag, target names.Tag) (permis
 	}
 }
 
-func newUserAccess(perm *userPermission, userDoc userAccessDoc, object names.Tag) permission.UserAccess {
+func newUserAccess(perm *userPermission, userDoc userAccessDoc, object names.Tag) (permission.UserAccess, error) {
+	userName, err := user.NewName(userDoc.UserName)
+	if err != nil {
+		return permission.UserAccess{}, err
+	}
 	return permission.UserAccess{
 		UserID:      userDoc.ID,
 		UserTag:     names.NewUserTag(userDoc.UserName),
@@ -161,8 +166,8 @@ func newUserAccess(perm *userPermission, userDoc userAccessDoc, object names.Tag
 		CreatedBy:   names.NewUserTag(userDoc.CreatedBy),
 		DateCreated: userDoc.DateCreated.UTC(),
 		DisplayName: userDoc.DisplayName,
-		UserName:    userDoc.UserName,
-	}
+		UserName:    userName,
+	}, nil
 }
 
 func (st *State) userMayHaveAccess(tag names.UserTag) error {

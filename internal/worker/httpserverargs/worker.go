@@ -162,12 +162,12 @@ func (b *managedServices) ControllerConfig(ctx context.Context) (controller.Conf
 }
 
 // GetUserByAuth is part of the AccessService interface.
-func (b *managedServices) GetUserByAuth(ctx context.Context, name string, password auth.Password) (coreuser.User, error) {
+func (b *managedServices) GetUserByAuth(ctx context.Context, name coreuser.Name, password auth.Password) (coreuser.User, error) {
 	return b.accessService.GetUserByAuth(b.tomb.Context(ctx), name, password)
 }
 
 // GetUserByName is part of the AccessService interface.
-func (b *managedServices) GetUserByName(ctx context.Context, name string) (coreuser.User, error) {
+func (b *managedServices) GetUserByName(ctx context.Context, name coreuser.Name) (coreuser.User, error) {
 	return b.accessService.GetUserByName(b.tomb.Context(ctx), name)
 }
 
@@ -175,14 +175,14 @@ func (b *managedServices) GetUserByName(ctx context.Context, name string) (coreu
 // the given user on the given target. If the user is external and does not yet
 // exist, it is created.
 func (b *managedServices) ReadUserAccessLevelForTargetAddingMissingUser(
-	ctx context.Context, subject string, target permission.ID,
+	ctx context.Context, subject coreuser.Name, target permission.ID,
 ) (permission.Access, error) {
 	return b.accessService.ReadUserAccessLevelForTargetAddingMissingUser(b.tomb.Context(ctx), subject, target)
 }
 
 // UpdateLastModelLogin updates the last login time for the user with the
 // given name.
-func (b *managedServices) UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error {
+func (b *managedServices) UpdateLastModelLogin(ctx context.Context, name coreuser.Name, modelUUID coremodel.UUID) error {
 	return b.accessService.UpdateLastModelLogin(b.tomb.Context(ctx), name, modelUUID)
 }
 

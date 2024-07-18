@@ -74,8 +74,8 @@ func (st *PermissionState) CreatePermission(ctx context.Context, newPermissionUU
 			return errors.Trace(err)
 		}
 
-		userAccess = user.toCoreUserAccess()
-		return nil
+		userAccess, err = user.toCoreUserAccess()
+		return errors.Trace(err)
 	})
 	if err != nil {
 		return corepermission.UserAccess{}, errors.Trace(err)
@@ -127,7 +127,7 @@ func AddUserPermission(ctx context.Context, tx *sqlair.TX, spec AddUserPermissio
 // If the specified subject does not exist, a accesserrors.NotFound is
 // returned.
 // If the permission does not exist, no error is returned.
-func (st *PermissionState) DeletePermission(ctx context.Context, subject string, target corepermission.ID) error {
+func (st *PermissionState) DeletePermission(ctx context.Context, subject user.Name, target corepermission.ID) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -199,14 +199,14 @@ func (st *PermissionState) UpsertPermission(ctx context.Context, args access.Upd
 // given user on the given target.
 // accesserrors.PermissionNotFound is returned the users permission cannot be
 // found on the target.
-func (st *PermissionState) ReadUserAccessForTarget(ctx context.Context, subject string, target corepermission.ID) (corepermission.UserAccess, error) {
+func (st *PermissionState) ReadUserAccessForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.UserAccess, error) {
 	db, err := st.DB()
 	if err != nil {
 		return corepermission.UserAccess{}, errors.Trace(err)
 	}
 
 	user := dbPermissionUser{
-		Name: subject,
+		Name: subject.Name(),
 	}
 	perm := dbPermission{
 		GrantOn: target.Key,
@@ -236,7 +236,7 @@ AND     u.removed = false
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return errors.Annotatef(accesserrors.UserNotFound, "looking for permissions for %q on %q", subject, target.Key)
 		} else if err != nil {
-			return errors.Annotatef(err, "getting permission for %q on %q", subject, target.Key)
+			return errors.Annotatef(err, "getting permission for %q on %q", subject.Name(), target.Key)
 		}
 
 		if user.External {
@@ -264,7 +264,7 @@ AND     u.removed = false
 // for the given user on the given target.
 // If the access level of a user cannot be found then
 // accesserrors.AccessNotFound is returned.
-func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error) {
+func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
 	userAccess := corepermission.NoAccess
 	db, err := st.DB()
 	if err != nil {
@@ -272,7 +272,7 @@ func (st *PermissionState) ReadUserAccessLevelForTarget(ctx context.Context, sub
 	}
 
 	user := dbPermissionUser{
-		Name: subject,
+		Name: subject.Name(),
 	}
 	perm := dbPermission{
 		GrantOn: target.Key,
@@ -329,12 +329,11 @@ AND     u.removed = false
 // exist, it is created. An accesserrors.AccessNotFound error is returned if no
 // access can be found for this user, and (only in the case of external users),
 // the everyone@external user.
-func (st *PermissionState) ReadUserAccessLevelForTargetAddingMissingUser(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error) {
-	tag := names.NewUserTag(subject)
+func (st *PermissionState) ReadUserAccessLevelForTargetAddingMissingUser(ctx context.Context, subject user.Name, target corepermission.ID) (corepermission.Access, error) {
 	userAccess, err := st.ReadUserAccessLevelForTarget(ctx, subject, target)
 	if err == nil {
 		return userAccess, nil
-	} else if !(errors.Is(err, accesserrors.AccessNotFound) && !tag.IsLocal()) {
+	} else if !(errors.Is(err, accesserrors.AccessNotFound) && !subject.IsLocal()) {
 		// If there is an access not found error and the user is external,
 		// continue. Otherwise, return the error.
 		return userAccess, errors.Trace(err)
@@ -344,7 +343,7 @@ func (st *PermissionState) ReadUserAccessLevelForTargetAddingMissingUser(ctx con
 		return userAccess, errors.Trace(err)
 	}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		everyoneExternal, err := st.findUserByName(ctx, tx, corepermission.EveryoneTagName)
+		everyoneExternal, err := st.findUserByName(ctx, tx, corepermission.EveryoneUserName)
 		if errors.Is(err, accesserrors.UserNotFound) || errors.Is(err, accesserrors.UserAuthenticationDisabled) {
 			return fmt.Errorf("%w for %q on %q", accesserrors.AccessNotFound, subject, target.Key)
 		}
@@ -352,7 +351,7 @@ func (st *PermissionState) ReadUserAccessLevelForTargetAddingMissingUser(ctx con
 		if err != nil {
 			return errors.Annotate(err, "generating user UUID")
 		}
-		err = AddUser(ctx, tx, userUUID, subject, subject, true, user.UUID(everyoneExternal.UUID))
+		err = AddUser(ctx, tx, userUUID, subject, subject.Name(), true, user.UUID(everyoneExternal.UUID))
 		if err != nil {
 			return errors.Annotatef(err, "adding exteranl user %q", subject)
 		}
@@ -361,12 +360,12 @@ func (st *PermissionState) ReadUserAccessLevelForTargetAddingMissingUser(ctx con
 	if err != nil {
 		return userAccess, errors.Trace(err)
 	}
-	return st.ReadUserAccessLevelForTarget(ctx, corepermission.EveryoneTagName, target)
+	return st.ReadUserAccessLevelForTarget(ctx, corepermission.EveryoneUserName, target)
 }
 
 // ReadAllUserAccessForUser returns a slice of the user access the given
 // subject's (user) has for any access type.
-func (st *PermissionState) ReadAllUserAccessForUser(ctx context.Context, subject string) ([]corepermission.UserAccess, error) {
+func (st *PermissionState) ReadAllUserAccessForUser(ctx context.Context, subject user.Name) ([]corepermission.UserAccess, error) {
 	db, err := st.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -386,7 +385,7 @@ WHERE  u.removed = false
        AND u.name = $userName.name
 `
 
-	uName := userName{Name: subject}
+	uName := userName{Name: subject.Name()}
 
 	queryStmt, err := st.Prepare(query, uName, dbPermissionUser{}, dbPermission{})
 	if err != nil {
@@ -483,7 +482,7 @@ AND     (p.uuid IS NOT NULL) OR (u.external AND ee.uuid IS NOT NULL)
 	}
 	var userAccess []corepermission.UserAccess
 	for i, user := range users {
-		if user.Name == corepermission.EveryoneTagName {
+		if user.Name == corepermission.EveryoneUserName.Name() {
 			continue
 		}
 		ua, err := st.generateUserAccess(user, permissions[i], dbPermission(everyoneExternals[i]))
@@ -500,7 +499,7 @@ AND     (p.uuid IS NOT NULL) OR (u.external AND ee.uuid IS NOT NULL)
 // (user) specified and of the given access type.
 // E.G. All clouds the user has access to.
 func (st *PermissionState) ReadAllAccessForUserAndObjectType(
-	ctx context.Context, subject string, objectType corepermission.ObjectType,
+	ctx context.Context, subject user.Name, objectType corepermission.ObjectType,
 ) ([]corepermission.UserAccess, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -536,7 +535,7 @@ AND    u.disabled = false
 AND    u.removed = false
 `, view)
 
-	uName := userName{Name: subject}
+	uName := userName{Name: subject.Name()}
 
 	readStmt, err := st.Prepare(readQuery, uName, dbPermission{}, dbPermissionUser{})
 	if err != nil {
@@ -547,9 +546,9 @@ AND    u.removed = false
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		err = tx.Query(ctx, readStmt, uName).GetAll(&permissions, &users)
 		if errors.Is(err, sqlair.ErrNoRows) || len(users) == 0 {
-			return errors.Annotatef(accesserrors.PermissionNotFound, "for %q on %q", subject, objectType)
+			return errors.Annotatef(accesserrors.PermissionNotFound, "for %q on %q", subject.Name(), objectType)
 		} else if err != nil {
-			return errors.Annotatef(err, "getting permissions for %q on %q", subject, objectType)
+			return errors.Annotatef(err, "getting permissions for %q on %q", subject.Name(), objectType)
 		}
 
 		if users[0].External {
@@ -611,7 +610,7 @@ AND    m.cloud_credential_name = $input.cred_name
 	}
 
 	in := input{
-		OwnerName: key.Owner,
+		OwnerName: key.Owner.Name(),
 		CloudName: key.Cloud,
 		CredName:  key.Name,
 	}
@@ -634,10 +633,10 @@ AND    m.cloud_credential_name = $input.cred_name
 
 // findUserByName finds the user provided exists, hasn't been removed and is not
 // disabled. Return data needed to fill in corePermission.UserAccess.
-func (st *PermissionState) findUserByName(ctx context.Context, tx *sqlair.TX, name string) (dbPermissionUser, error) {
+func (st *PermissionState) findUserByName(ctx context.Context, tx *sqlair.TX, name user.Name) (dbPermissionUser, error) {
 	var result dbPermissionUser
 
-	uName := userName{Name: name}
+	uName := userName{Name: name.Name()}
 
 	getUserQuery := `
 SELECT (u.uuid, u.name, u.display_name, u.external, u.created_at, u.disabled) AS (&dbPermissionUser.*),
@@ -726,7 +725,7 @@ func objectTag(id corepermission.ID) (result names.Tag) {
 // userUUID returns the UUID for the associated name
 // if the user is active.
 func (st *PermissionState) userUUID(
-	ctx context.Context, tx *sqlair.TX, name string,
+	ctx context.Context, tx *sqlair.TX, name user.Name,
 ) (string, error) {
 	type inputOut struct {
 		Name string `db:"name"`
@@ -744,7 +743,7 @@ AND     u.removed = false
 	if err != nil {
 		return "", errors.Annotate(err, "preparing user exist statement")
 	}
-	inOut := inputOut{Name: name}
+	inOut := inputOut{Name: name.Name()}
 
 	err = tx.Query(ctx, stmt, inOut).Get(&inOut)
 	if errors.Is(err, sqlair.ErrNoRows) {
@@ -760,7 +759,7 @@ AND     u.removed = false
 // the user has admin permissions on the grantOn, the permission changes can be
 // made. If the apiUser has permissions, return their UUID.
 func (st *PermissionState) authorizedOnTarget(
-	ctx context.Context, tx *sqlair.TX, apiUser string, grantOn string,
+	ctx context.Context, tx *sqlair.TX, apiUser user.Name, grantOn string,
 ) (user.UUID, error) {
 	var apiUserUUID user.UUID
 	// Does the apiUser have superuser access?
@@ -782,7 +781,7 @@ AND     u.removed = false
 	var readPerm []dbPermission
 	in := permInOut{
 		GrantOn: grantOn,
-		Name:    apiUser,
+		Name:    apiUser.Name(),
 	}
 	err = tx.Query(ctx, authStmt, in).GetAll(&readPerm)
 	if errors.Is(err, sqlair.ErrNoRows) {
@@ -804,7 +803,7 @@ AND     u.removed = false
 
 func (st *PermissionState) grantPermission(ctx context.Context, tx *sqlair.TX, subjectUUID string, args access.UpdatePermissionArgs) error {
 	inOut := permInOut{
-		Name:    args.Subject,
+		Name:    args.Subject.Name(),
 		GrantOn: args.AccessSpec.Target.Key,
 	}
 
@@ -852,7 +851,7 @@ AND     p.grant_on = $permInOut.grant_on
 	if aSpec.EqualOrGreaterThan(grantAccess) {
 		return fmt.Errorf("user %q already has %q %w", args.Subject, grantAccess, accesserrors.PermissionAccessGreater)
 	}
-	if err := st.updatePermission(ctx, tx, args.Subject, args.AccessSpec.Target.Key, grantAccess.String()); err != nil {
+	if err := st.updatePermission(ctx, tx, args.Subject.Name(), args.AccessSpec.Target.Key, grantAccess.String()); err != nil {
 		return errors.Annotatef(err, "updating current access during grant")
 	}
 	return nil
@@ -864,13 +863,13 @@ func (st *PermissionState) revokePermission(ctx context.Context, tx *sqlair.TX, 
 		err := st.deletePermission(ctx, tx, args.Subject, args.AccessSpec.Target)
 		return errors.Annotatef(err, "revoking %q", args.AccessSpec.Access)
 	}
-	if err := st.updatePermission(ctx, tx, args.Subject, args.AccessSpec.Target.Key, newAccess.String()); err != nil {
+	if err := st.updatePermission(ctx, tx, args.Subject.Name(), args.AccessSpec.Target.Key, newAccess.String()); err != nil {
 		return errors.Annotatef(err, "updating current access during revoke")
 	}
 	return nil
 }
 
-func (st *PermissionState) deletePermission(ctx context.Context, tx *sqlair.TX, subject string, target corepermission.ID) error {
+func (st *PermissionState) deletePermission(ctx context.Context, tx *sqlair.TX, subject user.Name, target corepermission.ID) error {
 	// The combination of grant_to and grant_on are guaranteed to be
 	// unique, thus it is all that is deleted to select the row to be
 	// deleted.
@@ -889,12 +888,12 @@ AND    grant_to IN (
 	}
 
 	in := permInOut{
-		Name:    subject,
+		Name:    subject.Name(),
 		GrantOn: target.Key,
 	}
 	err = tx.Query(ctx, deletePermissionStmt, in).Run()
 	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
-		return errors.Annotatef(err, "deleting permission of %q on %q", subject, target.Key)
+		return errors.Annotatef(err, "deleting permission of %q on %q", subject.Name(), target.Key)
 	}
 	return nil
 }
@@ -934,7 +933,7 @@ AND    grant_to IN (
 
 func (st *PermissionState) baseExternalAccessForTarget(ctx context.Context, tx *sqlair.TX, target corepermission.ID) (dbPermission, error) {
 	user := dbPermissionUser{
-		Name: corepermission.EveryoneTagName,
+		Name: corepermission.EveryoneUserName.Name(),
 	}
 	perm := dbPermission{
 		GrantOn: target.Key,
@@ -960,7 +959,7 @@ AND     u.removed = false
 
 func (st *PermissionState) baseExternalAccess(ctx context.Context, tx *sqlair.TX) ([]dbPermission, error) {
 	user := dbPermissionUser{
-		Name: corepermission.EveryoneTagName,
+		Name: corepermission.EveryoneUserName.Name(),
 	}
 	var perms []dbPermission
 
@@ -1002,11 +1001,11 @@ func baseExternalAccessGreater(external dbPermission, userAccess corepermission.
 func (st *PermissionState) generateUserAccess(user dbPermissionUser, perm dbPermission, everyoneExternal dbPermission) (corepermission.UserAccess, error) {
 	if user.External && everyoneExternal.AccessType != "" {
 		if baseExternalAccessGreater(everyoneExternal, corepermission.Access(perm.AccessType)) {
-			return everyoneExternal.toUserAccess(user), nil
+			return everyoneExternal.toUserAccess(user)
 		}
 	}
 	if perm.AccessType != "" {
-		return perm.toUserAccess(user), nil
+		return perm.toUserAccess(user)
 	}
 	return corepermission.UserAccess{}, fmt.Errorf("%w for %q on %q", accesserrors.PermissionNotFound, user.Name, perm.GrantOn)
 }
@@ -1045,7 +1044,11 @@ func (st *PermissionState) generateAllUserAccess(user dbPermissionUser, userPerm
 	} else {
 		for _, p := range userPerms {
 			if p.AccessType != string(corepermission.NoAccess) {
-				userAccess = append(userAccess, p.toUserAccess(user))
+				ua, err := p.toUserAccess(user)
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				userAccess = append(userAccess, ua)
 			}
 		}
 	}

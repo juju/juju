@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
+	usertesting "github.com/juju/juju/core/user/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -205,7 +206,7 @@ func (s *trackerWorkerSuite) expectModel(c *gc.C) coremodel.UUID {
 		Name:            "model",
 		Type:            coremodel.IAAS,
 		Cloud:           "cloud",
-		CredentialOwner: "owner",
+		CredentialOwner: usertesting.GenNewName(c, "owner"),
 		CredentialName:  "name",
 	}, nil)
 
@@ -220,7 +221,7 @@ func (s *trackerWorkerSuite) newCloudSpec(c *gc.C) *config.Config {
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
 	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.Key{
 		Cloud: "cloud",
-		Owner: "owner",
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "name",
 	}).Return(cloud.Credential{}, nil)
 
@@ -240,7 +241,7 @@ func (s *trackerWorkerSuite) expectEnvironSetSpecUpdate(c *gc.C) {
 	s.cloudService.EXPECT().Cloud(gomock.Any(), "cloud").Return(&cloud.Cloud{}, nil)
 	s.credentialService.EXPECT().CloudCredential(gomock.Any(), credential.Key{
 		Cloud: "cloud",
-		Owner: "owner",
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "name",
 	}).Return(cloud.Credential{
 		Revoked: true,
@@ -299,7 +300,7 @@ func (s *trackerWorkerSuite) expectCredentialWatcher(c *gc.C) chan struct{} {
 
 	s.credentialService.EXPECT().WatchCredential(gomock.Any(), credential.Key{
 		Cloud: "cloud",
-		Owner: "owner",
+		Owner: usertesting.GenNewName(c, "owner"),
 		Name:  "name",
 	}).Return(watcher, nil)
 

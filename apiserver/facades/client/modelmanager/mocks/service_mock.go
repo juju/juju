@@ -48,7 +48,7 @@ func (m *MockAccessService) EXPECT() *MockAccessServiceMockRecorder {
 }
 
 // GetModelUsers mocks base method.
-func (m *MockAccessService) GetModelUsers(arg0 context.Context, arg1 string, arg2 model.UUID) ([]access.ModelUserInfo, error) {
+func (m *MockAccessService) GetModelUsers(arg0 context.Context, arg1 user.Name, arg2 model.UUID) ([]access.ModelUserInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetModelUsers", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]access.ModelUserInfo)
@@ -75,19 +75,19 @@ func (c *MockAccessServiceGetModelUsersCall) Return(arg0 []access.ModelUserInfo,
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAccessServiceGetModelUsersCall) Do(f func(context.Context, string, model.UUID) ([]access.ModelUserInfo, error)) *MockAccessServiceGetModelUsersCall {
+func (c *MockAccessServiceGetModelUsersCall) Do(f func(context.Context, user.Name, model.UUID) ([]access.ModelUserInfo, error)) *MockAccessServiceGetModelUsersCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAccessServiceGetModelUsersCall) DoAndReturn(f func(context.Context, string, model.UUID) ([]access.ModelUserInfo, error)) *MockAccessServiceGetModelUsersCall {
+func (c *MockAccessServiceGetModelUsersCall) DoAndReturn(f func(context.Context, user.Name, model.UUID) ([]access.ModelUserInfo, error)) *MockAccessServiceGetModelUsersCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // GetUserByName mocks base method.
-func (m *MockAccessService) GetUserByName(arg0 context.Context, arg1 string) (user.User, error) {
+func (m *MockAccessService) GetUserByName(arg0 context.Context, arg1 user.Name) (user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetUserByName", arg0, arg1)
 	ret0, _ := ret[0].(user.User)
@@ -114,19 +114,19 @@ func (c *MockAccessServiceGetUserByNameCall) Return(arg0 user.User, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAccessServiceGetUserByNameCall) Do(f func(context.Context, string) (user.User, error)) *MockAccessServiceGetUserByNameCall {
+func (c *MockAccessServiceGetUserByNameCall) Do(f func(context.Context, user.Name) (user.User, error)) *MockAccessServiceGetUserByNameCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAccessServiceGetUserByNameCall) DoAndReturn(f func(context.Context, string) (user.User, error)) *MockAccessServiceGetUserByNameCall {
+func (c *MockAccessServiceGetUserByNameCall) DoAndReturn(f func(context.Context, user.Name) (user.User, error)) *MockAccessServiceGetUserByNameCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // LastModelLogin mocks base method.
-func (m *MockAccessService) LastModelLogin(arg0 context.Context, arg1 string, arg2 model.UUID) (time.Time, error) {
+func (m *MockAccessService) LastModelLogin(arg0 context.Context, arg1 user.Name, arg2 model.UUID) (time.Time, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LastModelLogin", arg0, arg1, arg2)
 	ret0, _ := ret[0].(time.Time)
@@ -153,19 +153,19 @@ func (c *MockAccessServiceLastModelLoginCall) Return(arg0 time.Time, arg1 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAccessServiceLastModelLoginCall) Do(f func(context.Context, string, model.UUID) (time.Time, error)) *MockAccessServiceLastModelLoginCall {
+func (c *MockAccessServiceLastModelLoginCall) Do(f func(context.Context, user.Name, model.UUID) (time.Time, error)) *MockAccessServiceLastModelLoginCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAccessServiceLastModelLoginCall) DoAndReturn(f func(context.Context, string, model.UUID) (time.Time, error)) *MockAccessServiceLastModelLoginCall {
+func (c *MockAccessServiceLastModelLoginCall) DoAndReturn(f func(context.Context, user.Name, model.UUID) (time.Time, error)) *MockAccessServiceLastModelLoginCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ReadUserAccessLevelForTarget mocks base method.
-func (m *MockAccessService) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.Access, error) {
+func (m *MockAccessService) ReadUserAccessLevelForTarget(arg0 context.Context, arg1 user.Name, arg2 permission.ID) (permission.Access, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadUserAccessLevelForTarget", arg0, arg1, arg2)
 	ret0, _ := ret[0].(permission.Access)
@@ -192,13 +192,13 @@ func (c *MockAccessServiceReadUserAccessLevelForTargetCall) Return(arg0 permissi
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAccessServiceReadUserAccessLevelForTargetCall) Do(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockAccessServiceReadUserAccessLevelForTargetCall {
+func (c *MockAccessServiceReadUserAccessLevelForTargetCall) Do(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockAccessServiceReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAccessServiceReadUserAccessLevelForTargetCall) DoAndReturn(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockAccessServiceReadUserAccessLevelForTargetCall {
+func (c *MockAccessServiceReadUserAccessLevelForTargetCall) DoAndReturn(f func(context.Context, user.Name, permission.ID) (permission.Access, error)) *MockAccessServiceReadUserAccessLevelForTargetCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -528,7 +528,7 @@ func (c *MockModelServiceListAllModelsCall) DoAndReturn(f func(context.Context) 
 }
 
 // ListModelSummariesForUser mocks base method.
-func (m *MockModelService) ListModelSummariesForUser(arg0 context.Context, arg1 string) ([]model.UserModelSummary, error) {
+func (m *MockModelService) ListModelSummariesForUser(arg0 context.Context, arg1 user.Name) ([]model.UserModelSummary, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ListModelSummariesForUser", arg0, arg1)
 	ret0, _ := ret[0].([]model.UserModelSummary)
@@ -555,13 +555,13 @@ func (c *MockModelServiceListModelSummariesForUserCall) Return(arg0 []model.User
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockModelServiceListModelSummariesForUserCall) Do(f func(context.Context, string) ([]model.UserModelSummary, error)) *MockModelServiceListModelSummariesForUserCall {
+func (c *MockModelServiceListModelSummariesForUserCall) Do(f func(context.Context, user.Name) ([]model.UserModelSummary, error)) *MockModelServiceListModelSummariesForUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockModelServiceListModelSummariesForUserCall) DoAndReturn(f func(context.Context, string) ([]model.UserModelSummary, error)) *MockModelServiceListModelSummariesForUserCall {
+func (c *MockModelServiceListModelSummariesForUserCall) DoAndReturn(f func(context.Context, user.Name) ([]model.UserModelSummary, error)) *MockModelServiceListModelSummariesForUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

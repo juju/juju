@@ -292,8 +292,13 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 		return errors.Annotatef(err, "generating metrics password")
 	}
 	password := auth.NewPassword(pass)
+
+	metricsName, err := user.NewName("juju-metrics")
+	if err != nil {
+		return errors.Trace(err)
+	}
 	_, _, err = w.cfg.UserService.AddUser(ctx, userservice.AddUserArg{
-		Name:        "juju-metrics",
+		Name:        metricsName,
 		DisplayName: "Juju Metrics",
 		Password:    &password,
 		CreatorUUID: adminUser.UUID,
