@@ -32,11 +32,11 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/facades"
-	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/network"
 	jujuversion "github.com/juju/juju/core/version"
 	jujuhttp "github.com/juju/juju/internal/http"
 	internallogger "github.com/juju/juju/internal/logger"
+	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	jujuproxy "github.com/juju/juju/internal/proxy"
 	proxy "github.com/juju/juju/internal/proxy/config"
 	"github.com/juju/juju/rpc"
@@ -446,7 +446,7 @@ func (c *conn) addCookiesToHeader(h http.Header) error {
 		// logtransfer connection for a migration.)
 		// See https://bugs.launchpad.net/juju/+bug/1650451
 		for _, macaroon := range c.macaroons {
-			cookie, err := httpbakery.NewCookie(coremacaroon.MacaroonNamespace, macaroon)
+			cookie, err := httpbakery.NewCookie(internalmacaroon.MacaroonNamespace, macaroon)
 			if err != nil {
 				return errors.Trace(err)
 			}

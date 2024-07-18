@@ -25,12 +25,12 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/logger"
 	corelogger "github.com/juju/juju/core/logger"
-	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/secrets"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 	"github.com/juju/juju/internal/charm"
+	internalmacaroon "github.com/juju/juju/internal/macaroon"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
@@ -574,7 +574,7 @@ func (api *CrossModelRelationsAPIv3) WatchConsumedSecretsChanges(ctx context.Con
 			continue
 		}
 		if offerUUID == "" {
-			declared := checkers.InferDeclared(coremacaroon.MacaroonNamespace, arg.Macaroons)
+			declared := checkers.InferDeclared(internalmacaroon.MacaroonNamespace, arg.Macaroons)
 			offerUUID = declared["offer-uuid"]
 		}
 
