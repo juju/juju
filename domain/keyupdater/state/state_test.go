@@ -90,11 +90,11 @@ func (s *stateSuite) SetUpTest(c *gc.C) {
 
 // TestAuthorisedKeysForUnknownMachine is assertint that if we ask for
 // authorised keys for a machine that doesn't exist we get back a
-// [machineerrors.NotFound] error.
+// [machineerrors.MachineNotFound] error.
 func (s *stateSuite) TestAuthorisedKeysForUnknownMachine(c *gc.C) {
 	state := NewState(s.TxnRunnerFactory())
 	_, err := state.AuthorisedKeysForMachine(context.Background(), coremachine.Name("100"))
-	c.Check(err, jc.ErrorIs, machineerrors.NotFound)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestEmptyAuthorisedKeysForMachine tests that if there are no authorised keys

@@ -100,7 +100,7 @@ func (s *stateSuite) TestCreateMachineWithParentSuccess(c *gc.C) {
 // when the parent machine is not found.
 func (s *stateSuite) TestCreateMachineWithParentNotFound(c *gc.C) {
 	err := s.state.CreateMachineWithParent(context.Background(), "667", "666", "4", "2")
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestCreateMachineWithparentAlreadyExists asserts that a MachineAlreadyExists
@@ -233,7 +233,7 @@ func (s *stateSuite) TestGetMachineLifeSuccess(c *gc.C) {
 // machine is not found.
 func (s *stateSuite) TestGetMachineLifeNotFound(c *gc.C) {
 	_, err := s.state.GetMachineLife(context.Background(), "666")
-	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *stateSuite) TestListAllMachines(c *gc.C) {
@@ -305,7 +305,7 @@ func (s *stateSuite) TestGetMachineStatusSuccessWithData(c *gc.C) {
 // when the machine is not found.
 func (s *stateSuite) TestGetMachineStatusNotFoundError(c *gc.C) {
 	_, err := s.state.GetMachineStatus(context.Background(), "666")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestGetMachineStatusNotSetError asserts that a StatusNotSet error is returned
@@ -355,7 +355,7 @@ func (s *stateSuite) TestSetMachineStatusSuccessWithData(c *gc.C) {
 // when the machine is not found.
 func (s *stateSuite) TestSetMachineStatusNotFoundError(c *gc.C) {
 	err := s.state.SetMachineStatus(context.Background(), "666", status.StatusInfo{})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestMachineStatusValues asserts the keys and values in the
@@ -474,7 +474,7 @@ func (s *stateSuite) TestSetMachineLifeSuccess(c *gc.C) {
 // provided machine doesn't exist.
 func (s *stateSuite) TestSetMachineLifeNotFoundError(c *gc.C) {
 	err := s.state.SetMachineLife(context.Background(), "666", life.Dead)
-	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestListAllMachinesEmpty asserts that AllMachineNames returns an empty list
@@ -557,7 +557,7 @@ func (s *stateSuite) TestGetMachineParentUUIDSuccess(c *gc.C) {
 // when the machine is not found.
 func (s *stateSuite) TestGetMachineParentUUIDNotFound(c *gc.C) {
 	_, err := s.state.GetMachineParentUUID(context.Background(), "666")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestGetMachineParentUUIDNoParent asserts that a NotFound error is returned

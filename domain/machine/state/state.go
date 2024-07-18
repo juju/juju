@@ -50,7 +50,7 @@ func (st *State) CreateMachine(ctx context.Context, machineName machine.Name, no
 // parent.
 // Adds a row to machine table, as well as a row to the net_node table, and adds
 // a row to the machine_parent table for associating with the specified parent.
-// It returns a NotFound error if the parent machine does not exist.
+// It returns a MachineNotFound error if the parent machine does not exist.
 // It returns a MachineAlreadyExists error if a machine with the same name
 // already exists.
 func (st *State) CreateMachineWithParent(ctx context.Context, machineName, parentName machine.Name, nodeUUID, machineUUID string) error {
@@ -131,7 +131,8 @@ VALUES ($machineParent.machine_uuid, $machineParent.parent_uuid)
 		// No error means we found the machine with the given name.
 		if err == nil {
 			return errors.Annotatef(machineerrors.MachineAlreadyExists, "machine %q", mName)
-		} else if !errors.Is(err, sqlair.ErrNoRows) {
+		}
+		if !errors.Is(err, sqlair.ErrNoRows) {
 			// Return error if the query failed for any reason other than not
 			// found.
 			return errors.Annotatef(err, "querying machine %q", mName)
@@ -154,7 +155,7 @@ VALUES ($machineParent.machine_uuid, $machineParent.parent_uuid)
 			err := tx.Query(ctx, machineUUIDStmt, parentNameParam).Get(&machineUUIDout)
 			if err != nil {
 				if errors.Is(err, sqlair.ErrNoRows) {
-					return errors.NotFoundf("parent machine %q for %q", args.parentName, mName)
+					return errors.Annotatef(machineerrors.MachineNotFound, "parent machine %q for %q", args.parentName, mName)
 				}
 				return errors.Annotatef(err, "querying parent machine %q for machine %q", args.parentName, mName)
 			}
@@ -222,7 +223,7 @@ DELETE FROM net_node WHERE uuid IN
 		err = tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&machineUUIDParam)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return machineerrors.NotFound
+				return machineerrors.MachineNotFound
 			}
 			return errors.Annotatef(err, "looking up UUID for machine %q", mName)
 		}
@@ -272,7 +273,7 @@ func (st *State) InitialWatchStatement() (string, string) {
 }
 
 // GetMachineLife returns the life status of the specified machine.
-// It returns a NotFound if the given machine doesn't exist.
+// It returns a MachineNotFound if the given machine doesn't exist.
 func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.Life, error) {
 	db, err := st.DB()
 	if err != nil {
@@ -292,7 +293,7 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 		err := tx.Query(ctx, lifeStmt, machineNameParam).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return machineerrors.NotFound
+				return machineerrors.MachineNotFound
 			}
 			return errors.Annotatef(err, "looking up life for machine %q", mName)
 		}
@@ -308,7 +309,7 @@ func (st *State) GetMachineLife(ctx context.Context, mName machine.Name) (*life.
 }
 
 // GetMachineStatus returns the status of the specified machine.
-// It returns NotFound if the machine does not exist.
+// It returns MachineNotFound if the machine does not exist.
 // It returns a StatusNotSet if the status is not set.
 // Idempotent.
 func (st *State) GetMachineStatus(ctx context.Context, mName machine.Name) (status.StatusInfo, error) {
@@ -351,7 +352,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 		err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUIDout)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.NotFoundf("machine %q", mName)
+				return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
 			}
 			return errors.Annotatef(err, "querying uuid for machine %q", mName)
 		}
@@ -391,7 +392,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 }
 
 // SetMachineStatus sets the status of the specified machine.
-// It returns NotFound if the machine does not exist.
+// It returns MachineNotFound if the machine does not exist.
 func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newStatus status.StatusInfo) error {
 	db, err := st.DB()
 	if err != nil {
@@ -445,7 +446,7 @@ VALUES ($machineUUID.uuid, $machineStatusWithData.key, $machineStatusWithData.da
 		err := tx.Query(ctx, queryMachineStmt, machineNameParam).Get(&mUUID)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.NotFoundf("machine %q", mName)
+				return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
 			}
 			return errors.Annotatef(err, "querying uuid for machine %q", mName)
 		}
@@ -470,7 +471,7 @@ VALUES ($machineUUID.uuid, $machineStatusWithData.key, $machineStatusWithData.da
 }
 
 // SetMachineLife sets the life status of the specified machine.
-// It returns a NotFound if the provided machine doesn't exist.
+// It returns a MachineNotFound if the provided machine doesn't exist.
 func (st *State) SetMachineLife(ctx context.Context, mName machine.Name, life life.Life) error {
 	db, err := st.DB()
 	if err != nil {
@@ -495,11 +496,11 @@ func (st *State) SetMachineLife(ctx context.Context, mName machine.Name, life li
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		// Query for machine uuid, return NotFound if machine doesn't exist.
+		// Query for machine uuid, return MachineNotFound if machine doesn't exist.
 		err := tx.Query(ctx, uuidQueryStmt, machineNameParam).Get(&machineUUIDoutput)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return machineerrors.NotFound
+				return machineerrors.MachineNotFound
 			}
 			return errors.Annotatef(err, "querying UUID for machine %q", mName)
 		}
@@ -534,7 +535,7 @@ func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (b
 		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&result)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return machineerrors.NotFound
+				return machineerrors.MachineNotFound
 			}
 			return errors.Annotatef(err, "querying if machine %q is a controller", mName)
 		}
@@ -585,7 +586,7 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 }
 
 // GetMachineParentUUID returns the parent UUID of the specified machine.
-// It returns a NotFound if the machine does not exist.
+// It returns a MachineNotFound if the machine does not exist.
 // It returns a MachineHasNoParent if the machine has no parent.
 func (st *State) GetMachineParentUUID(ctx context.Context, mName machine.Name) (string, error) {
 	db, err := st.DB()
@@ -618,7 +619,7 @@ FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 		err := tx.Query(ctx, queryStmt, machineNameParam).Get(&machineUUIDoutput)
 		if err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return errors.NotFoundf("machine %q", mName)
+				return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
 			}
 			return errors.Annotatef(err, "querying UUID for machine %q", mName)
 		}

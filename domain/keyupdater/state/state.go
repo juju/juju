@@ -29,7 +29,7 @@ func (s *State) AllPublicKeysQuery() string {
 
 // AuthorisedKeysForMachine returns a list of authorised public ssh keys for a
 // machine name. If no machine exists for the given machine name an error
-// satisfying [machineerrors.NotFound] will be returned.
+// satisfying [machineerrors.MachineNotFound] will be returned.
 func (s *State) AuthorisedKeysForMachine(
 	ctx context.Context,
 	name coremachine.Name,
@@ -71,7 +71,7 @@ FROM user_public_ssh_key
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return fmt.Errorf(
 				"cannot get authorised keys for machine %q: %w",
-				name, machineerrors.NotFound,
+				name, machineerrors.MachineNotFound,
 			)
 		} else if err != nil {
 			return fmt.Errorf(

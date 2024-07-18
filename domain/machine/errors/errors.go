@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	// NotFound describes an error that occurs when the machine being operated
-	// on does not exist.
-	NotFound = errors.ConstError("machine not found")
+	// MachineNotFound describes an error that occurs when the machine being
+	// operated on does not exist.
+	MachineNotFound = errors.ConstError("machine not found")
 
 	// NotProvisioned describes an error that occurs when the machine being
 	// operated on is not provisioned yet.
