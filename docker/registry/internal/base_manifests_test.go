@@ -74,13 +74,13 @@ func (s *baseSuite) assertGetManifestsSchemaVersion1(c *gc.C, responseData, cont
 func (s *baseSuite) TestGetManifestsSchemaVersion1(c *gc.C) {
 	s.assertGetManifestsSchemaVersion1(c,
 		`
-{ "schemaVersion": 1, "name": "jujuqa/jujud-operator", "tag": "2.9.13", "architecture": "amd64"}
+{ "schemaVersion": 1, "name": "jujuqa/jujud-operator", "tag": "2.9.13", "architecture": "ppc64le"}
 `[1:],
 		`application/vnd.docker.distribution.manifest.v1+prettyjws`,
 		http.StatusOK,
 		func(result *internal.ManifestsResult, err error) {
 			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(result, jc.DeepEquals, &internal.ManifestsResult{Architecture: "amd64"})
+			c.Assert(result, jc.DeepEquals, &internal.ManifestsResult{Architectures: []string{"ppc64el"}})
 		},
 	)
 }
@@ -103,6 +103,27 @@ func (s *baseSuite) TestGetManifestsSchemaVersion2(c *gc.C) {
 		func(result *internal.ManifestsResult, err error) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(result, jc.DeepEquals, &internal.ManifestsResult{Digest: "sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1"})
+		},
+	)
+}
+
+func (s *baseSuite) TestGetManifestsSchemaVersion2List(c *gc.C) {
+	s.assertGetManifestsSchemaVersion1(c,
+		`
+{
+    "schemaVersion": 2,
+    "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+    "manifests": [
+        {"platform": {"architecture": "amd64"}},
+        {"platform": {"architecture": "ppc64le"}}
+    ]
+}
+`[1:],
+		`application/vnd.docker.distribution.manifest.list.v2+prettyjws`,
+		http.StatusOK,
+		func(result *internal.ManifestsResult, err error) {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(result, jc.DeepEquals, &internal.ManifestsResult{Architectures: []string{"amd64", "ppc64el"}})
 		},
 	)
 }
@@ -191,14 +212,12 @@ func (s *baseSuite) TestGetArchitectureV1(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	client := mocks.NewMockArchitectureGetter(ctrl)
 
-	gomock.InOrder(
-		client.EXPECT().GetManifests("jujud-operator", "2.9.12").Return(
-			&internal.ManifestsResult{Architecture: "amd64"}, nil,
-		),
+	client.EXPECT().GetManifests("jujud-operator", "2.9.12").Return(
+		&internal.ManifestsResult{Architectures: []string{"amd64", "arm64"}}, nil,
 	)
-	arch, err := internal.GetArchitecture("jujud-operator", "2.9.12", client)
+	arch, err := internal.GetArchitectures("jujud-operator", "2.9.12", client)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(arch, jc.DeepEquals, "amd64")
+	c.Assert(arch, jc.DeepEquals, []string{"amd64", "arm64"})
 }
 
 func (s *baseSuite) TestGetArchitectureV2(c *gc.C) {
@@ -210,23 +229,21 @@ func (s *baseSuite) TestGetArchitectureV2(c *gc.C) {
 			&internal.ManifestsResult{Digest: "sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1"}, nil,
 		),
 		client.EXPECT().GetBlobs("jujud-operator", "sha256:f0609d8a844f7271411c1a9c5d7a898fd9f9c5a4844e3bc7db6d725b54671ac1").Return(
-			&internal.BlobsResponse{Architecture: "amd64"}, nil,
+			&internal.BlobsResponse{Architecture: "ppc64le"}, nil,
 		),
 	)
-	arch, err := internal.GetArchitecture("jujud-operator", "2.9.12", client)
+	arch, err := internal.GetArchitectures("jujud-operator", "2.9.12", client)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(arch, jc.DeepEquals, "amd64")
+	c.Assert(arch, jc.DeepEquals, []string{"ppc64el"})
 }
 
 func (s *baseSuite) TestGetArchitectureInvalidResponse(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	client := mocks.NewMockArchitectureGetter(ctrl)
 
-	gomock.InOrder(
-		client.EXPECT().GetManifests("jujud-operator", "2.9.12").Return(
-			&internal.ManifestsResult{}, nil,
-		),
+	client.EXPECT().GetManifests("jujud-operator", "2.9.12").Return(
+		&internal.ManifestsResult{}, nil,
 	)
-	_, err := internal.GetArchitecture("jujud-operator", "2.9.12", client)
+	_, err := internal.GetArchitectures("jujud-operator", "2.9.12", client)
 	c.Assert(err, gc.ErrorMatches, `faild to get manifests for "jujud-operator" "2.9.12"`)
 }

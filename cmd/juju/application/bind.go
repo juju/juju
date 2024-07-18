@@ -84,6 +84,11 @@ func (c *bindCommand) Info() *cmd.Info {
 		Purpose:  "Change bindings for a deployed application.",
 		Doc:      bindCmdDoc,
 		Examples: bindCmdExamples,
+		SeeAlso: []string{
+			"spaces",
+			"show-space",
+			"show-application",
+		},
 	})
 }
 

@@ -32,6 +32,12 @@ You may abort this command and it will continue to run asynchronously.
 Results may be checked by 'juju show-task'.
 `
 
+const examples = `
+    juju collect-metrics myapp
+
+    juju collect-metrics myapp/0
+`
+
 const (
 	// commandTimeout represents the timeout for executing the command itself
 	commandTimeout = 3 * time.Second
@@ -55,10 +61,12 @@ func NewCollectMetricsCommand() cmd.Command {
 // Info implements Command.Info.
 func (c *collectMetricsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "collect-metrics",
-		Args:    "[application or unit]",
-		Purpose: "Collect metrics on the given unit/application.",
-		Doc:     collectMetricsDoc,
+		Name:     "collect-metrics",
+		Args:     "[application or unit]",
+		Purpose:  "Collect metrics on the given unit/application.",
+		Doc:      collectMetricsDoc,
+		Examples: examples,
+		SeeAlso:  []string{"metrics"},
 	})
 }
 

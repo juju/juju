@@ -17,11 +17,12 @@ const versionDoc = `
 Print only the Juju CLI client version.`
 
 const versionExamplesDoc = `
-To see the version of Juju running on a particular controller, use
-  juju show-controller
+    juju version
 
-To see the version of Juju running on a particular model, use
-  juju show-model`
+Print all version information:
+
+    juju version --all
+`
 
 // versionDetail is populated with version information from juju/juju/cmd
 // and passed into each SuperCommand. It can be printed using `juju version --all`.

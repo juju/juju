@@ -47,6 +47,7 @@ func (c *MetricsCommand) Info() *cmd.Info {
 		Args:    "[tag1[...tagN]]",
 		Purpose: "Retrieve metrics collected by specified entities.",
 		Doc:     metricsDoc,
+		SeeAlso: []string{"collect-metrics"},
 	})
 }
 
