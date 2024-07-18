@@ -6,6 +6,7 @@ package testing
 import (
 	"github.com/juju/juju/core/model"
 	accessservice "github.com/juju/juju/domain/access/service"
+	agentprovisionerservice "github.com/juju/juju/domain/agentprovisioner/service"
 	annotationservice "github.com/juju/juju/domain/annotation/service"
 	applicationservice "github.com/juju/juju/domain/application/service"
 	autocertcacheservice "github.com/juju/juju/domain/autocert/service"
@@ -16,6 +17,7 @@ import (
 	credentialservice "github.com/juju/juju/domain/credential/service"
 	externalcontrollerservice "github.com/juju/juju/domain/externalcontroller/service"
 	flagservice "github.com/juju/juju/domain/flag/service"
+	keyupdaterservice "github.com/juju/juju/domain/keyupdater/service"
 	macaroonservice "github.com/juju/juju/domain/macaroon/service"
 	machineservice "github.com/juju/juju/domain/machine/service"
 	modelservice "github.com/juju/juju/domain/model/service"
@@ -44,6 +46,11 @@ type TestingServiceFactory struct {
 // function to obtain a controller database.
 func NewTestingServiceFactory() *TestingServiceFactory {
 	return &TestingServiceFactory{}
+}
+
+// AgentProvisioner returns the agent provisioner service.
+func (s *TestingServiceFactory) AgentProvisioner() *agentprovisionerservice.Service {
+	return nil
 }
 
 // AutocertCache returns the autocert cache service.
@@ -219,5 +226,10 @@ func (s *TestingServiceFactory) WithUnitService(getter func() *unitservice.Servi
 // the model service. As this is only for read-only model information, we
 // can rename it to the more obscure version.
 func (s *TestingServiceFactory) ModelInfo() *modelservice.ModelService {
+	return nil
+}
+
+// KeyUpdater returns the block device service.
+func (s *TestingServiceFactory) KeyUpdater() *keyupdaterservice.Service {
 	return nil
 }

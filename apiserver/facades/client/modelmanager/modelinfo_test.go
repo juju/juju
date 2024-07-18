@@ -1266,11 +1266,6 @@ func (m *mockModel) LastModelConnection(user names.UserTag) (time.Time, error) {
 	return time.Time{}, m.NextErr()
 }
 
-func (m *mockModel) AutoConfigureContainerNetworking(environ environs.BootstrapEnviron, _ config.ConfigSchemaSourceGetter) error {
-	m.MethodCall(m, "AutoConfigureContainerNetworking", environ)
-	return m.NextErr()
-}
-
 func (m *mockModel) getModelDetails() state.ModelSummary {
 	cred, _ := m.CloudCredentialTag()
 	return state.ModelSummary{

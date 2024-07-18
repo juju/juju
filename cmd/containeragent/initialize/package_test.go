@@ -60,6 +60,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/machinelock",
 		"core/migration",
 		"core/model",
+		"core/modelconfig",
 		"core/network",
 		"core/objectstore",
 		"core/os",

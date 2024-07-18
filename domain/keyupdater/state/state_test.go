@@ -163,3 +163,28 @@ func (s *stateSuite) TestAllPublicKeysQuery(c *gc.C) {
 	slices.Sort(testingPublicKeys)
 	c.Check(keys, jc.DeepEquals, testingPublicKeys)
 }
+
+// TestAllAuthorisedKeys asserts that State.AllAuthorisedKeys returns all
+// authorised keys from the database.
+func (s *stateSuite) TestAllAuthorisedKeys(c *gc.C) {
+	keyManagerState := keymanagerstate.NewState(s.TxnRunnerFactory())
+	keysToAdd := generatePublicKeys(c, testingPublicKeys)
+	userID := usertesting.GenUserUUID(c)
+
+	err := keyManagerState.AddPublicKeysForUser(context.Background(), userID, keysToAdd)
+	c.Check(err, jc.ErrorIsNil)
+
+	state := NewState(s.TxnRunnerFactory())
+	keys, err := state.AllAuthorisedKeys(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(keys, jc.SameContents, testingPublicKeys)
+}
+
+// TestAllAuthorisedKeys asserts that State.AllAuthorisedKeys returns nothing
+// when there are no authorised keys in the database.
+func (s *stateSuite) TestAllAuthorisedKeysEmpty(c *gc.C) {
+	state := NewState(s.TxnRunnerFactory())
+	keys, err := state.AllAuthorisedKeys(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(keys, jc.DeepEquals, []string{})
+}

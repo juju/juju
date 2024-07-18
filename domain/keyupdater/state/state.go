@@ -102,6 +102,40 @@ FROM user_public_ssh_key
 	return rval, nil
 }
 
+// AllAuthorisedKeys returns all authorised keys for the model.
+func (s *State) AllAuthorisedKeys(ctx context.Context) ([]string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	stmt, err := s.Prepare(`
+SELECT public_key AS &authorisedKey.*
+FROM user_public_ssh_key
+`, authorisedKey{})
+	if err != nil {
+		return nil, fmt.Errorf(
+			"preparing select statement for getting authorised keys: %w", err,
+		)
+	}
+
+	authorisedKeys := []authorisedKey{}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, stmt).GetAll(&authorisedKeys)
+	})
+
+	if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+		return nil, fmt.Errorf("cannot get authorised keys for model: %w", domain.CoerceError(err))
+	}
+
+	rval := make([]string, 0, len(authorisedKeys))
+	for _, authKey := range authorisedKeys {
+		rval = append(rval, authKey.PublicKey)
+	}
+
+	return rval, nil
+}
+
 // NewState constructs a new state for interacting with the underlying
 // authorised keys of a model.
 func NewState(factory database.TxnRunnerFactory) *State {

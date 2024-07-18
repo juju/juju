@@ -12,6 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/internal/network"
@@ -21,7 +22,7 @@ type bridgePolicySuite struct {
 	baseSuite
 
 	netBondReconfigureDelay   int
-	containerNetworkingMethod string
+	containerNetworkingMethod containermanager.NetworkingMethod
 
 	spaces corenetwork.SpaceInfos
 	guest  *MockContainer

@@ -671,14 +671,6 @@ func (m *ModelManagerAPI) newIAASModel(
 	}
 	defer st.Close()
 
-	if err = model.AutoConfigureContainerNetworking(env, m.configSchemaSource); err != nil {
-		if errors.Is(err, errors.NotSupported) {
-			logger.Debugf("Not performing container networking autoconfiguration on a non-networking environment")
-		} else {
-			return nil, errors.Annotate(err, "Failed to perform container networking autoconfiguration")
-		}
-	}
-
 	return model, nil
 }
 

@@ -96,7 +96,7 @@ var configSchema = environschema.Fields{
 		Group:       environschema.EnvironGroup,
 	},
 	// TODO (jack-w-shaw) integrate this into mode
-	"development": {
+	DevelopmentKey: {
 		Description: "Whether the model is in development mode",
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
@@ -111,12 +111,12 @@ var configSchema = environschema.Fields{
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
-	"enable-os-refresh-update": {
+	EnableOSRefreshUpdateKey: {
 		Description: `Whether newly provisioned instances should run their respective OS's update capability.`,
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
 	},
-	"enable-os-upgrade": {
+	EnableOSUpgradeKey: {
 		Description: `Whether newly provisioned instances should run their respective OS's upgrade capability.`,
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
@@ -278,7 +278,7 @@ global or per instance security groups.`,
 		Type:        environschema.Tattrs,
 		Group:       environschema.EnvironGroup,
 	},
-	"ssl-hostname-verification": {
+	SSLHostnameVerificationKey: {
 		Description: "Whether SSL hostname verification is enabled (default true)",
 		Type:        environschema.Tbool,
 		Group:       environschema.EnvironGroup,
@@ -355,8 +355,8 @@ CIDRs specifying what ingress can be applied to offers in this model.`,
 		Type:        environschema.Tint,
 		Group:       environschema.EnvironGroup,
 	},
-	ContainerNetworkingMethod: {
-		Description: "Method of container networking setup - one of fan, provider, local",
+	ContainerNetworkingMethodKey: {
+		Description: `Method of container networking setup - one of "provider", "local", or "" (auto-configure).`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},

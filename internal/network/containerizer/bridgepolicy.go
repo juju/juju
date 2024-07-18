@@ -13,8 +13,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/core/containermanager"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/network"
 	"github.com/juju/juju/state"
@@ -49,7 +49,7 @@ type BridgePolicy struct {
 	// It's one of:
 	//  - provider
 	//  - local
-	containerNetworkingMethod string
+	containerNetworkingMethod containermanager.NetworkingMethod
 
 	// networkService provides the network domain functionality.
 	networkService NetworkService
@@ -57,8 +57,11 @@ type BridgePolicy struct {
 
 // NewBridgePolicy returns a new BridgePolicy for the input environ config
 // getter and state indirection.
-func NewBridgePolicy(ctx context.Context, cfgGetter environs.ConfigGetter, networkService NetworkService) (*BridgePolicy, error) {
-	cfg := cfgGetter.Config()
+func NewBridgePolicy(ctx context.Context,
+	networkService NetworkService,
+	netBondReconfigureDelay int,
+	containerNetworkingMethod containermanager.NetworkingMethod,
+) (*BridgePolicy, error) {
 
 	allSpaces, err := networkService.GetAllSpaces(ctx)
 	if err != nil {
@@ -72,8 +75,8 @@ func NewBridgePolicy(ctx context.Context, cfgGetter environs.ConfigGetter, netwo
 	return &BridgePolicy{
 		allSpaces:                 allSpaces,
 		allSubnets:                allSubnets,
-		netBondReconfigureDelay:   cfg.NetBondReconfigureDelay(),
-		containerNetworkingMethod: cfg.ContainerNetworkingMethod(),
+		netBondReconfigureDelay:   netBondReconfigureDelay,
+		containerNetworkingMethod: containerNetworkingMethod,
 		networkService:            networkService,
 	}, nil
 }
@@ -98,7 +101,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 	for spaceID, devices := range devicesPerSpace {
 		for _, device := range devices {
 			if device.Type() == corenetwork.BridgeDevice {
-				if p.containerNetworkingMethod != "local" && skippedDeviceNames.Contains(device.Name()) {
+				if p.containerNetworkingMethod != containermanager.NetworkingMethodLocal && skippedDeviceNames.Contains(device.Name()) {
 					continue
 				}
 				addInfo := p.allSpaces.GetByID(spaceID)
@@ -208,7 +211,7 @@ func (p *BridgePolicy) findSpacesAndDevicesForContainer(
 	// networking method is "provider", we need to patch the type of these
 	// devices so they appear as bridges to allow the bridge policy logic
 	// to make use of them.
-	if p.containerNetworkingMethod == "provider" {
+	if p.containerNetworkingMethod == containermanager.NetworkingMethodProvider {
 		for spaceID, devsInSpace := range devicesPerSpace {
 			for devIdx, dev := range devsInSpace {
 				if dev.VirtualPortType() != corenetwork.OvsPort {
@@ -397,7 +400,7 @@ func (p *BridgePolicy) spaceNamesForPrinting(ids set.Strings) string {
 // If the machine is in multiple spaces, we return an error with the possible
 // spaces that the user can use to constrain connectivity.
 func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (corenetwork.SpaceInfos, error) {
-	if p.containerNetworkingMethod == "local" {
+	if p.containerNetworkingMethod == containermanager.NetworkingMethodLocal {
 		alphaInfo := p.allSpaces.GetByID(corenetwork.AlphaSpaceId)
 		return corenetwork.SpaceInfos{*alphaInfo}, nil
 	}
@@ -518,7 +521,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(
 	// Check if we are missing the default space and can fill it in with a local bridge
 	if len(missingSpaces) == 1 &&
 		missingSpaces.ContainsID(corenetwork.AlphaSpaceId) &&
-		p.containerNetworkingMethod == "local" {
+		p.containerNetworkingMethod == containermanager.NetworkingMethodLocal {
 
 		localBridgeName := network.DefaultLXDBridge
 

@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/environs"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -113,7 +112,6 @@ type Model interface {
 	ControllerUUID() string
 	LastModelConnection(user names.UserTag) (time.Time, error)
 	AddUser(state.UserAccessSpec) (permission.UserAccess, error)
-	AutoConfigureContainerNetworking(environs.BootstrapEnviron, config.ConfigSchemaSourceGetter) error
 	SetCloudCredential(tag names.CloudCredentialTag) (bool, error)
 }
 

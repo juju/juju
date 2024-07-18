@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/base"
+	"github.com/juju/juju/core/containermanager"
 	"github.com/juju/juju/internal/container/lxd/mocks"
 	lxdtesting "github.com/juju/juju/internal/container/lxd/testing"
 	"github.com/juju/juju/internal/packaging/commands"
@@ -75,7 +76,7 @@ func getMockRunCommandWithRetry(calledCmds *[]string) func(string, manager.Retry
 	}
 }
 
-func (s *initialiserTestSuite) containerInitialiser(svr lxd.InstanceServer, lxdIsRunning bool, containerNetworkingMethod string) *containerInitialiser {
+func (s *initialiserTestSuite) containerInitialiser(svr lxd.InstanceServer, lxdIsRunning bool, containerNetworkingMethod containermanager.NetworkingMethod) *containerInitialiser {
 	result := NewContainerInitialiser(lxdSnapChannel, containerNetworkingMethod).(*containerInitialiser)
 	result.configureLxdProxies = func(proxy.Settings, func() (bool, error), func() (*Server, error)) error { return nil }
 	result.newLocalServer = func() (*Server, error) { return NewServer(svr) }

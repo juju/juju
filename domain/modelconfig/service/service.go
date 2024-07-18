@@ -231,7 +231,7 @@ func (s *Service) SetModelConfig(
 		return fmt.Errorf("constructing new model config with model defaults: %w", err)
 	}
 
-	_, err = s.modelValidator.Validate(ctx, setCfg, nil)
+	_, err = s.validatorForSetModelConfig().Validate(ctx, setCfg, nil)
 	if err != nil {
 		return fmt.Errorf("validating model config to set for model: %w", err)
 	}
@@ -258,6 +258,7 @@ func (s *Service) SetModelConfig(
 // - The networking space chosen is valid and can be used.
 // - The secret backend is valid and can be used.
 // - Authorized keys are not changed.
+// - Container networking method is not being changed.
 func (s *Service) UpdateModelConfig(
 	ctx context.Context,
 	updateAttrs map[string]any,
@@ -286,7 +287,7 @@ func (s *Service) UpdateModelConfig(
 		return fmt.Errorf("making updated model configuration: %w", err)
 	}
 
-	_, err = s.updateModelConfigValidator().Validate(ctx, newCfg, currCfg)
+	_, err = s.validatorForUpdateModelConfig().Validate(ctx, newCfg, currCfg)
 	if err != nil {
 		return fmt.Errorf("validating updated model configuration: %w", err)
 	}
@@ -314,13 +315,35 @@ func (v *spaceValidator) HasSpace(ctx context.Context, spaceName string) (bool, 
 	return v.st.SpaceExists(ctx, spaceName)
 }
 
-// updateModelConfigValidator returns a config validator to use on model config
+// validatorForSetModelConfig returns a config validator to use on model config
+// when it is being set initially. The validator returned will check that:
+// - Network space exists.
+// - Secret backend exists.
+// - Container networking method is valid.
+func (s *Service) validatorForSetModelConfig(
+	additional ...config.Validator,
+) config.Validator {
+	agg := &config.AggregateValidator{
+		Validators: []config.Validator{
+			validators.SpaceChecker(&spaceValidator{
+				st: s.st,
+			}),
+			validators.ContainerNetworkingMethodValue(),
+			s.modelValidator,
+		},
+	}
+	agg.Validators = append(agg.Validators, additional...)
+	return agg
+}
+
+// validatorForUpdateModelConfig returns a config validator to use on model config
 // when it is being updated. The validator returned will check that:
 // - Agent version is not being changed.
 // - CharmhubURL is not being changed.
 // - Network space exists.
 // - There is no changes to authorized keys.
-func (s *Service) updateModelConfigValidator(
+// - Container networking method is not being changed.
+func (s *Service) validatorForUpdateModelConfig(
 	additional ...config.Validator,
 ) config.Validator {
 	agg := &config.AggregateValidator{
@@ -331,6 +354,7 @@ func (s *Service) updateModelConfigValidator(
 				st: s.st,
 			}),
 			validators.AuthorizedKeysChange(),
+			validators.ContainerNetworkingMethodChange(),
 			s.modelValidator,
 		},
 	}
