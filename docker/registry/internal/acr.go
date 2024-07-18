@@ -33,16 +33,16 @@ func normalizeRepoDetailsAzure(repoDetails *docker.ImageRepoDetails) error {
 	return nil
 }
 
-func (c *azureContainerRegistry) String() string {
+func (c azureContainerRegistry) String() string {
 	return "azurecr.io"
 }
 
 // Match checks if the repository details matches current provider format.
-func (c *azureContainerRegistry) Match() bool {
+func (c azureContainerRegistry) Match() bool {
 	return strings.Contains(c.repoDetails.ServerAddress, "azurecr.io")
 }
 
-func (c *azureContainerRegistry) WrapTransport(...TransportWrapper) error {
+func (c azureContainerRegistry) WrapTransport(...TransportWrapper) error {
 	if c.repoDetails.BasicAuthConfig.Empty() {
 		return errors.NewNotValid(nil, fmt.Sprintf(`username and password are required for registry %q`, c.repoDetails.Repository))
 	}
@@ -57,9 +57,9 @@ func (c azureContainerRegistry) Tags(imageName string) (versions tools.Versions,
 	return c.fetchTags(url, &response)
 }
 
-// GetArchitecture returns the archtecture of the image for the specified tag.
-func (c azureContainerRegistry) GetArchitecture(imageName, tag string) (string, error) {
-	return getArchitecture(imageName, tag, c)
+// GetArchitectures returns the architectures of the image for the specified tag.
+func (c azureContainerRegistry) GetArchitectures(imageName, tag string) ([]string, error) {
+	return getArchitectures(imageName, tag, c)
 }
 
 // GetManifests returns the manifests of the image for the specified tag.

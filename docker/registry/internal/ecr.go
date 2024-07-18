@@ -183,31 +183,31 @@ func (c *elasticContainerRegistry) WrapTransport(...TransportWrapper) (err error
 }
 
 // Ping pings the ecr endpoint.
-func (c elasticContainerRegistry) Ping() error {
+func (c *elasticContainerRegistry) Ping() error {
 	// No ping endpoint available for ecr.
 	return nil
 }
 
 // Tags fetches tags for an OCI image.
-func (c elasticContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
+func (c *elasticContainerRegistry) Tags(imageName string) (versions tools.Versions, err error) {
 	url := c.url("/%s/tags/list", imageName)
 	var response tagsResponseV2
 	return c.fetchTags(url, &response)
 }
 
-// GetArchitecture returns the archtecture of the image for the specified tag.
-func (c elasticContainerRegistry) GetArchitecture(imageName, tag string) (string, error) {
-	return getArchitecture(imageName, tag, c)
+// GetArchitectures returns the architectures of the image for the specified tag.
+func (c *elasticContainerRegistry) GetArchitectures(imageName, tag string) ([]string, error) {
+	return getArchitectures(imageName, tag, c)
 }
 
 // GetManifests returns the manifests of the image for the specified tag.
-func (c elasticContainerRegistry) GetManifests(imageName, tag string) (*ManifestsResult, error) {
+func (c *elasticContainerRegistry) GetManifests(imageName, tag string) (*ManifestsResult, error) {
 	url := c.url("/%s/manifests/%s", imageName, tag)
 	return c.GetManifestsCommon(url)
 }
 
 // GetBlobs gets the archtecture of the image for the specified tag via blobs API.
-func (c elasticContainerRegistry) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
+func (c *elasticContainerRegistry) GetBlobs(imageName, digest string) (*BlobsResponse, error) {
 	url := c.url("/%s/blobs/%s", imageName, digest)
 	return c.GetBlobsCommon(url)
 }

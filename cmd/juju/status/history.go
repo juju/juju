@@ -62,12 +62,46 @@ The statuses are available for the following types.
  The default is unit.
 `, supportedHistoryKindDescs())
 
+const statusHistoryExamples = `
+Show the status history for the specified unit:
+
+    juju show-status-log mysql/0
+
+Show the status history for the specified unit with the last 30 logs:
+
+    juju show-status-log mysql/0 -n 30
+
+Show the status history for the specified unit with the logs for the past 2 days:
+
+    juju show-status-log mysql/0 -days 2
+
+Show the status history for the specified unit with the logs for any date after 2020-01-01:
+
+    juju show-status-log mysql/0 --from-date 2020-01-01
+
+Show the status history for the specified application:
+
+    juju show-status-log -type application wordpress
+
+Show the status history for the specified machine:
+
+    juju show-status-log 0
+
+Show the status history for the model:
+
+    juju show-status-log -type model
+`
+
 func (c *statusHistoryCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-status-log",
-		Args:    "<entity name>",
-		Purpose: "Output past statuses for the specified entity.",
-		Doc:     statusHistoryDoc,
+		Name:     "show-status-log",
+		Args:     "<entity name>",
+		Purpose:  "Output past statuses for the specified entity.",
+		Doc:      statusHistoryDoc,
+		Examples: statusHistoryExamples,
+		SeeAlso: []string{
+			"status",
+		},
 	})
 }
 

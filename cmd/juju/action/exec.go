@@ -123,13 +123,27 @@ those arguments. For example:
 
 `
 
+const example = `
+
+    juju exec --all -- hostname -f
+
+    juju exec --unit hello/0 env
+
+    juju exec --unit controller/0 juju-engine-report
+`
+
 // Info implements Command.Info.
 func (c *execCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
-		Name:    "exec",
-		Args:    "<commands>",
-		Purpose: "Run the commands on the remote targets specified.",
-		Doc:     execDoc,
+		Name:     "exec",
+		Args:     "<commands>",
+		Purpose:  "Run the commands on the remote targets specified.",
+		Doc:      execDoc,
+		Examples: example,
+		SeeAlso: []string{
+			"run",
+			"ssh",
+		},
 	})
 	return info
 }
