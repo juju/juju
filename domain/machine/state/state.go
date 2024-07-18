@@ -729,3 +729,43 @@ WHERE name = $machineName.name`
 	return nil
 >>>>>>> 08c3d64f61 (feat(machine): add MarkForRemoval in the machine domain)
 }
+
+// AllMachineRemovals returns the UUIDs of all of the machines that need to be
+// removed but need provider-level cleanup.
+func (st *State) AllMachineRemovals(ctx context.Context) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Prepare query for uuids of all machines marked for removal.
+	machineUUIDOut := machineUUID{}
+	machinesMarkedForRemovalQuery := `SELECT uuid AS &machineUUID.uuid FROM machine WHERE mark_for_removal = true`
+	machinesMarkedForRemovalStmt, err := st.Prepare(machinesMarkedForRemovalQuery, machineUUIDOut)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var results []machineUUID
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Run query to get all machines marked for removal.
+		err := tx.Query(ctx, machinesMarkedForRemovalStmt).GetAll(&results)
+		// No errors if there's no machine marked for removal.
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Annotate(err, "querying all machines marked for removal")
+	}
+
+	// Transform the results ([]machineUUID) into a slice of machine UUIDs.
+	machineUUIDs := transform.Slice[machineUUID, string](
+		results,
+		func(r machineUUID) string { return r.UUID },
+	)
+
+	return machineUUIDs, nil
+}

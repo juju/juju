@@ -664,3 +664,28 @@ func (s *serviceSuite) TestMarkMachineForRemovalError(c *gc.C) {
 	err := NewService(s.state).MarkMachineForRemoval(context.Background(), cmachine.Name("666"))
 	c.Check(err, jc.ErrorIs, rErr)
 }
+
+// TestAllMachineRemovalsSuccess asserts the happy path of the
+// AllMachineRemovals service.
+func (s *serviceSuite) TestAllMachineRemovalsSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().AllMachineRemovals(gomock.Any()).Return([]string{"666"}, nil)
+
+	machineRemovals, err := NewService(s.state).AllMachineRemovals(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(machineRemovals, gc.DeepEquals, []string{"666"})
+}
+
+// TestAllMachineRemovalsError asserts that an error coming from the state layer
+// is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestAllMachineRemovalsError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().AllMachineRemovals(gomock.Any()).Return(nil, rErr)
+
+	machineRemovals, err := NewService(s.state).AllMachineRemovals(context.Background())
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Check(machineRemovals, gc.IsNil)
+}

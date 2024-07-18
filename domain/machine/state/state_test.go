@@ -637,3 +637,26 @@ func (s *stateSuite) TestMarkMachineForRemovalNotFound(c *gc.C) {
 	err := s.state.MarkMachineForRemoval(context.Background(), "666")
 	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
 }
+
+// TestAllMachineRemovalsSuccess asserts the happy path of AllMachineRemovals at
+// the state layer.
+func (s *stateSuite) TestAllMachineRemovalsSuccess(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.MarkMachineForRemoval(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+
+	machines, err := s.state.AllMachineRemovals(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(machines[0], gc.Equals, "123")
+}
+
+// TestAllMachineRemovalsEmpty asserts that AllMachineRemovals returns an empty
+// list if there are no machines marked for removal.
+func (s *stateSuite) TestAllMachineRemovalsEmpty(c *gc.C) {
+	machines, err := s.state.AllMachineRemovals(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 0)
+}
