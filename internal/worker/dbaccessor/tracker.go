@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/domain/schema"
 	"github.com/juju/juju/internal/database"
 	"github.com/juju/juju/internal/database/pragma"
+	"github.com/juju/juju/internal/database/txn"
 )
 
 const (
@@ -88,9 +89,10 @@ type trackedDBWorker struct {
 	mutex sync.RWMutex
 	db    *sqlair.DB
 
-	clock   clock.Clock
-	logger  logger.Logger
-	metrics *Collector
+	clock        clock.Clock
+	logger       logger.Logger
+	metrics      *Collector
+	dbTxnMetrics txn.Metrics
 
 	pingDBFunc func(context.Context, *sql.DB) error
 
@@ -105,7 +107,9 @@ func NewTrackedDBWorker(
 }
 
 func newTrackedDBWorker(
-	ctx context.Context, internalStates chan string, dbApp DBApp, namespace string, opts ...TrackedDBWorkerOption,
+	ctx context.Context, internalStates chan string,
+	dbApp DBApp, namespace string,
+	opts ...TrackedDBWorkerOption,
 ) (TrackedDB, error) {
 	w := &trackedDBWorker{
 		internalStates: internalStates,
@@ -119,6 +123,9 @@ func newTrackedDBWorker(
 	for _, opt := range opts {
 		opt(w)
 	}
+
+	// Set the db transaction metrics for the namespace.
+	w.dbTxnMetrics = w.metrics.DBMetricsForNamespace(namespace)
 
 	db, err := w.dbApp.Open(ctx, w.namespace)
 	if err != nil {
@@ -216,6 +223,9 @@ func (w *trackedDBWorker) run(ctx context.Context, fn func(*sqlair.DB) error) er
 
 	// Tie the tomb to the context for the retry semantics.
 	ctx = corecontext.WithSourceableError(w.tomb.Context(ctx), w)
+
+	// Inject the metrics into the context for the txn.
+	ctx = txn.WithMetrics(ctx, w.dbTxnMetrics)
 
 	// Retry the so long as the tomb and the context are valid.
 	return database.Retry(ctx, func() (err error) {

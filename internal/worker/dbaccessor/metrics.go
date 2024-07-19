@@ -3,7 +3,11 @@
 
 package dbaccessor
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/juju/juju/internal/database/txn"
+)
 
 const (
 	dbaccessorMetricsNamespace   = "juju"
@@ -14,6 +18,8 @@ const (
 type Collector struct {
 	DBRequests  *prometheus.GaugeVec
 	DBDuration  *prometheus.HistogramVec
+	DBErrors    *prometheus.CounterVec
+	DBSuccess   *prometheus.CounterVec
 	TxnRequests *prometheus.CounterVec
 	TxnRetries  *prometheus.CounterVec
 }
@@ -33,6 +39,18 @@ func NewMetricsCollector() *Collector {
 			Name:      "duration_seconds",
 			Help:      "Total time spent in db requests.",
 		}, []string{"namespace", "result"}),
+		DBErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: dbaccessorMetricsNamespace,
+			Subsystem: dbaccessorSubsystemNamespace,
+			Name:      "errors_total",
+			Help:      "Total number of db errors.",
+		}, []string{"namespace", "error"}),
+		DBSuccess: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: dbaccessorMetricsNamespace,
+			Subsystem: dbaccessorSubsystemNamespace,
+			Name:      "success_total",
+			Help:      "Total number of successful db operations.",
+		}, []string{"namespace"}),
 		TxnRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: dbaccessorMetricsNamespace,
 			Subsystem: dbaccessorSubsystemNamespace,
@@ -52,6 +70,8 @@ func NewMetricsCollector() *Collector {
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.DBRequests.Describe(ch)
 	c.DBDuration.Describe(ch)
+	c.DBErrors.Describe(ch)
+	c.DBSuccess.Describe(ch)
 	c.TxnRequests.Describe(ch)
 	c.TxnRetries.Describe(ch)
 }
@@ -60,6 +80,32 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.DBRequests.Collect(ch)
 	c.DBDuration.Collect(ch)
+	c.DBErrors.Collect(ch)
+	c.DBSuccess.Collect(ch)
 	c.TxnRequests.Collect(ch)
 	c.TxnRetries.Collect(ch)
+}
+
+// DBMetricsForNamespace returns a Metrics implementation for the given
+// namespace.
+func (c *Collector) DBMetricsForNamespace(namespace string) txn.Metrics {
+	return dbMetrics{
+		collector: c,
+		namespace: namespace,
+	}
+}
+
+type dbMetrics struct {
+	collector *Collector
+	namespace string
+}
+
+// RecordError records an error of the given error type.
+func (m dbMetrics) RecordError(errorType txn.MetricErrorType) {
+	m.collector.DBErrors.WithLabelValues(m.namespace, string(errorType)).Inc()
+}
+
+// RecordSuccess records a successful operation.
+func (m dbMetrics) RecordSuccess() {
+	m.collector.DBSuccess.WithLabelValues(m.namespace).Inc()
 }
