@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
-	"github.com/juju/juju/domain"
 	domainsecretbackend "github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/domain/secretbackend/state"
 	internaldatabase "github.com/juju/juju/internal/database"
@@ -36,7 +35,7 @@ func CreateDefaultBackends(modelType coremodel.ModelType) internaldatabase.Boots
 			}
 			return nil
 		})
-		return domain.CoerceError(err)
+		return errors.Trace(err)
 	}
 }
 
@@ -45,7 +44,7 @@ func createBackend(ctx context.Context, tx *sqlair.TX, backendName string, backe
 	if err != nil {
 		return errors.Trace(err)
 	}
-	upsertBackendStmt, err := sqlair.Prepare(`
+	insertBackendStmt, err := sqlair.Prepare(`
 INSERT INTO secret_backend
     (uuid, name, backend_type_id)
 VALUES ($SecretBackend.*)`, state.SecretBackend{})
@@ -53,7 +52,7 @@ VALUES ($SecretBackend.*)`, state.SecretBackend{})
 		return errors.Trace(err)
 	}
 
-	err = tx.Query(ctx, upsertBackendStmt, state.SecretBackend{
+	err = tx.Query(ctx, insertBackendStmt, state.SecretBackend{
 		ID:                  backendUUID.String(),
 		Name:                backendName,
 		BackendTypeID:       backendType,
