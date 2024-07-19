@@ -199,32 +199,24 @@ func (p vaultProvider) RestrictedConfig(
 		// Because we may run into a situation that the worker creates a secret in the vault but gets killed/restarted
 		// before it can update the secret to the new backend, we need to allow the worker to update the content
 		// after it's coming up again.
-		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["update"]}`, mountPath)
-		policyName := mountPath + "-update"
-		err = sys.PutPolicyWithContext(ctx, policyName, rule)
-		if err != nil {
-			return nil, errors.Annotatef(err, "creating update policy for model %q for the drain worker", mountPath)
+		if err := ensurePolicy(ctx, sys, &policies, mountPath, "update"); err != nil {
+			return nil, errors.Trace(err)
 		}
-		policies = append(policies, policyName)
-	}
-	if adminUser {
+
+		// For drain worker, we need to be able to create a new secret.
+		if err := ensurePolicy(ctx, sys, &policies, mountPath, "create"); err != nil {
+			return nil, errors.Trace(err)
+		}
+	} else if adminUser {
 		// For admin users, all secrets for the model can be read.
-		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["read"]}`, mountPath)
-		policyName := mountPath + "-read"
-		err = sys.PutPolicyWithContext(ctx, policyName, rule)
-		if err != nil {
-			return nil, errors.Annotatef(err, "creating read policy for model %q", mountPath)
+		if err := ensurePolicy(ctx, sys, &policies, mountPath, "read"); err != nil {
+			return nil, errors.Trace(err)
 		}
-		policies = append(policies, policyName)
 	} else {
 		// Agents can create new secrets in the model.
-		rule := fmt.Sprintf(`path "%s/*" {capabilities = ["create"]}`, mountPath)
-		policyName := mountPath + "-create"
-		err = sys.PutPolicyWithContext(ctx, policyName, rule)
-		if err != nil {
-			return nil, errors.Annotatef(err, "creating create policy for model %q", mountPath)
+		if err := ensurePolicy(ctx, sys, &policies, mountPath, "create"); err != nil {
+			return nil, errors.Trace(err)
 		}
-		policies = append(policies, policyName)
 	}
 	// Any secrets owned by the agent can be updated/deleted etc.
 	logger.Debugf("owned secrets: %#v", owned)
@@ -262,6 +254,17 @@ func (p vaultProvider) RestrictedConfig(
 	cfg := adminCfg.BackendConfig
 	cfg.Config[TokenKey] = s.Auth.ClientToken
 	return &cfg, nil
+}
+
+func ensurePolicy(ctx context.Context, sys *api.Sys, policies *[]string, mountPath, capability string) error {
+	rule := fmt.Sprintf(`path "%s/*" {capabilities = [%q]}`, mountPath, capability)
+	policyName := fmt.Sprintf("%s-%s", mountPath, capability)
+	err := sys.PutPolicyWithContext(ctx, policyName, rule)
+	if err != nil {
+		return errors.Annotatef(err, "creating create policy for model %q", mountPath)
+	}
+	*policies = append(*policies, policyName)
+	return nil
 }
 
 // NewVaultClient is patched for testing.
