@@ -232,17 +232,17 @@ func (s *stateSuite) TestSetAnnotationsUnsetModel(c *gc.C) {
 func (s *stateSuite) TestUUIDQueryForID(c *gc.C) {
 	// machine
 	kindQuery, kindQueryParam, _ := uuidQueryForID(annotations.ID{Kind: annotations.KindMachine, Name: "my-machine"})
-	c.Check(kindQuery, gc.Equals, `SELECT &M.uuid FROM machine WHERE name = $M.entity_id`)
+	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM machine WHERE name = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "my-machine"})
 
 	// application
 	kindQuery, kindQueryParam, _ = uuidQueryForID(annotations.ID{Kind: annotations.KindApplication, Name: "appname"})
-	c.Check(kindQuery, gc.Equals, `SELECT &M.uuid FROM application WHERE name = $M.entity_id`)
+	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM application WHERE name = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "appname"})
 
 	// charm
 	kindQuery, kindQueryParam, _ = uuidQueryForID(annotations.ID{Kind: annotations.KindCharm, Name: "charmurl"})
-	c.Check(kindQuery, gc.Equals, `SELECT &M.uuid FROM v_charm_url WHERE url = $M.entity_id`)
+	c.Check(kindQuery, gc.Equals, `SELECT &annotationUUID.uuid FROM v_charm_url WHERE url = $M.entity_id`)
 	c.Check(kindQueryParam, gc.DeepEquals, sqlair.M{"entity_id": "charmurl"})
 }
 
