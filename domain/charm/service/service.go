@@ -73,6 +73,11 @@ type State interface {
 	// If the charm does not exist, a NotFound error is returned.
 	GetCharmLXDProfile(ctx context.Context, charmID corecharm.ID) ([]byte, error)
 
+	// GetCharmArchivePath returns the archive storage path for the charm using
+	// the charm ID.
+	// If the charm does not exist, a NotFound error is returned.
+	GetCharmArchivePath(ctx context.Context, charmID corecharm.ID) (string, error)
+
 	// IsCharmAvailable returns whether the charm is available for use.
 	// If the charm does not exist, a NotFound error is returned.
 	IsCharmAvailable(ctx context.Context, charmID corecharm.ID) (bool, error)
@@ -88,7 +93,7 @@ type State interface {
 
 	// SetCharm persists the charm metadata, actions, config and manifest to
 	// state.
-	SetCharm(ctx context.Context, charm charm.Charm) (corecharm.ID, error)
+	SetCharm(ctx context.Context, charm charm.Charm, state charm.SetStateArgs) (corecharm.ID, error)
 
 	// DeleteCharm removes the charm from the state.
 	// If the charm does not exist, a NotFound error is returned.
@@ -266,6 +271,21 @@ func (s *Service) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) (inte
 	return decoded, nil
 }
 
+// GetCharmArchivePath returns the archive storage path for the charm using the
+// charm ID.
+// If the charm does not exist, a NotFound error is returned.
+func (s *Service) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
+	if err := id.Validate(); err != nil {
+		return "", fmt.Errorf("charm id: %w", err)
+	}
+
+	path, err := s.st.GetCharmArchivePath(ctx, id)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return path, nil
+}
+
 // IsCharmAvailable returns whether the charm is available for use. This
 // indicates if the charm has been uploaded to the controller.
 // This will return true if the charm is available, and false otherwise.
@@ -315,13 +335,31 @@ func (s *Service) ReserveCharmRevision(ctx context.Context, id corecharm.ID, rev
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *Service) SetCharm(ctx context.Context, charm internalcharm.Charm) (corecharm.ID, error) {
-	ch, err := encodeCharm(charm)
+func (s *Service) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, error) {
+	meta := args.Charm.Meta()
+	if meta == nil {
+		return "", charmerrors.MetadataNotValid
+	} else if meta.Name == "" {
+		return "", charmerrors.NameNotValid
+	}
+
+	source, err := encodeCharmSource(args.Source)
+	if err != nil {
+		return "", fmt.Errorf("encode charm source: %w", err)
+	}
+
+	ch, err := encodeCharm(args.Charm)
 	if err != nil {
 		return "", fmt.Errorf("encode charm: %w", err)
 	}
 
-	charmID, err := s.st.SetCharm(ctx, ch)
+	charmID, err := s.st.SetCharm(ctx, ch, charm.SetStateArgs{
+		Source:      source,
+		Revision:    args.Revision,
+		Hash:        args.Hash,
+		ArchivePath: args.ArchivePath,
+		Version:     args.Version,
+	})
 	if err != nil {
 		return "", errors.Trace(err)
 	}

@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	"github.com/juju/juju/domain/charm"
 	domaincharm "github.com/juju/juju/domain/charm"
 	charmerrors "github.com/juju/juju/domain/charm/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -201,6 +200,36 @@ func (s *serviceSuite) TestGetCharmMetadataInvalidUUID(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
+func (s *serviceSuite) TestGetCharmArchivePath(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmArchivePath(gomock.Any(), id).Return("archive-path", nil)
+
+	path, err := s.service.GetCharmArchivePath(context.Background(), id)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(path, gc.Equals, "archive-path")
+}
+
+func (s *serviceSuite) TestGetCharmArchivePathNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	id := charmtesting.GenCharmID(c)
+
+	s.state.EXPECT().GetCharmArchivePath(gomock.Any(), id).Return("archive-path", charmerrors.NotFound)
+
+	_, err := s.service.GetCharmArchivePath(context.Background(), id)
+	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+}
+
+func (s *serviceSuite) TestGetCharmArchivePathInvalidUUID(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := s.service.GetCharmArchivePath(context.Background(), "")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
+}
+
 func (s *serviceSuite) TestSetCharmAvailable(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -276,20 +305,58 @@ func (s *serviceSuite) TestSetCharm(c *gc.C) {
 
 	id := charmtesting.GenCharmID(c)
 
-	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{})
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+	}).Times(2)
 	s.charm.EXPECT().Manifest().Return(&internalcharm.Manifest{})
 	s.charm.EXPECT().Actions().Return(&internalcharm.Actions{})
 	s.charm.EXPECT().Config().Return(&internalcharm.Config{})
 
-	s.state.EXPECT().SetCharm(gomock.Any(), charm.Charm{
-		Metadata: charm.Metadata{
+	s.state.EXPECT().SetCharm(gomock.Any(), domaincharm.Charm{
+		Metadata: domaincharm.Metadata{
+			Name:  "foo",
 			RunAs: "default",
 		},
+	}, domaincharm.SetStateArgs{
+		Source:   domaincharm.LocalSource,
+		Revision: 1,
 	}).Return(id, nil)
 
-	got, err := s.service.SetCharm(context.Background(), s.charm)
+	got, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:    s.charm,
+		Source:   internalcharm.Local,
+		Revision: 1,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(got, gc.DeepEquals, id)
+}
+
+func (s *serviceSuite) TestSetCharmNoName(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{})
+
+	_, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:    s.charm,
+		Source:   internalcharm.Local,
+		Revision: 1,
+	})
+	c.Assert(err, jc.ErrorIs, charmerrors.NameNotValid)
+}
+
+func (s *serviceSuite) TestSetCharmInvalidSource(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
+		Name: "foo",
+	})
+
+	_, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+		Charm:    s.charm,
+		Source:   "charmstore",
+		Revision: 1,
+	})
+	c.Assert(err, jc.ErrorIs, charmerrors.CharmSourceNotValid)
 }
 
 func (s *serviceSuite) TestDeleteCharm(c *gc.C) {

@@ -42,6 +42,22 @@ type charmIDName struct {
 	Name string `db:"name"`
 }
 
+// setCharmHash is used to set the hash of a charm.
+type setCharmHash struct {
+	CharmUUID  string `db:"charm_uuid"`
+	HashKindID int    `db:"hash_kind_id"`
+	Hash       string `db:"hash"`
+}
+
+// setCharmSourceRevisionVersion is used to set the source, revision and
+// version of a charm.
+type setCharmSourceRevisionVersion struct {
+	CharmUUID string `db:"charm_uuid"`
+	SourceID  int    `db:"source_id"`
+	Revision  int    `db:"revision"`
+	Version   string `db:"version"`
+}
+
 // charmMetadata is used to get the metadata of a charm.
 type charmMetadata struct {
 	Name           string `db:"name"`
@@ -65,6 +81,7 @@ type setCharmMetadata struct {
 	Assumes        []byte `db:"assumes"`
 	RunAsID        int    `db:"run_as_id"`
 	LXDProfile     []byte `db:"lxd_profile"`
+	ArchivePath    string `db:"archive_path"`
 }
 
 // charmTag is used to get the tags of a charm.
@@ -356,4 +373,9 @@ type setCharmAction struct {
 	Parallel       bool   `db:"parallel"`
 	ExecutionGroup string `db:"execution_group"`
 	Params         []byte `db:"params"`
+}
+
+// charmArchivePath is used to get the archive path of a charm.
+type charmArchivePath struct {
+	ArchivePath string `db:"archive_path"`
 }
