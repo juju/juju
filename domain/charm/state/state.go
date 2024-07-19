@@ -46,32 +46,34 @@ func (s *State) GetCharmIDByRevision(ctx context.Context, name string, revision 
 		return "", errors.Trace(err)
 	}
 
+	var ident charmID
+	args := charmNameRevision{
+		Name:     name,
+		Revision: revision,
+	}
+
 	query := `
-SELECT charm.uuid AS &charmID.*
+SELECT &charmID.*
 FROM charm
 INNER JOIN charm_origin
 ON charm.uuid = charm_origin.charm_uuid
 WHERE charm.name = $charmNameRevision.name
 AND charm_origin.revision = $charmNameRevision.revision;
 `
-	stmt, err := s.Prepare(query, charmID{}, charmNameRevision{})
+	stmt, err := s.Prepare(query, ident, args)
 	if err != nil {
 		return "", fmt.Errorf("failed to prepare query: %w", err)
 	}
 
 	var id corecharm.ID
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var result charmID
-		if err := tx.Query(ctx, stmt, charmNameRevision{
-			Name:     name,
-			Revision: revision,
-		}).Get(&result); err != nil {
+		if err := tx.Query(ctx, stmt, args).Get(&ident); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return charmerrors.NotFound
 			}
 			return fmt.Errorf("failed to get charm ID: %w", err)
 		}
-		id = corecharm.ID(result.UUID)
+		id = corecharm.ID(ident.UUID)
 		return nil
 	}); err != nil {
 		return "", fmt.Errorf("failed to run transaction: %w", err)
@@ -87,6 +89,7 @@ func (s *State) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, e
 		return false, errors.Trace(err)
 	}
 
+	var result charmName
 	ident := charmID{UUID: id.String()}
 
 	query := `
@@ -94,14 +97,13 @@ SELECT name AS &charmName.name
 FROM charm
 WHERE uuid = $charmID.uuid;
 `
-	stmt, err := s.Prepare(query, ident, charmName{})
+	stmt, err := s.Prepare(query, ident, result)
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare query: %w", err)
 	}
 
 	var isController bool
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var result charmName
 		if err := tx.Query(ctx, stmt, ident).Get(&result); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return charmerrors.NotFound
@@ -124,6 +126,7 @@ func (s *State) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool, 
 		return false, errors.Trace(err)
 	}
 
+	var result charmSubordinate
 	ident := charmID{UUID: id.String()}
 
 	query := `
@@ -131,14 +134,13 @@ SELECT subordinate AS &charmSubordinate.subordinate
 FROM charm
 WHERE uuid = $charmID.uuid;
 `
-	stmt, err := s.Prepare(query, ident, charmSubordinate{})
+	stmt, err := s.Prepare(query, ident, result)
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare query: %w", err)
 	}
 
 	var isSubordinate bool
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var result charmSubordinate
 		if err := tx.Query(ctx, stmt, ident).Get(&result); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return charmerrors.NotFound
@@ -206,6 +208,7 @@ func (s *State) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, er
 		return false, errors.Trace(err)
 	}
 
+	var result charmAvailable
 	ident := charmID{UUID: id.String()}
 
 	query := `
@@ -215,14 +218,13 @@ INNER JOIN charm_state
 ON charm.uuid = charm_state.charm_uuid
 WHERE uuid = $charmID.uuid;
 `
-	stmt, err := s.Prepare(query, ident, charmAvailable{})
+	stmt, err := s.Prepare(query, ident, result)
 	if err != nil {
 		return false, fmt.Errorf("failed to prepare query: %w", err)
 	}
 
 	var isAvailable bool
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var result charmAvailable
 		if err := tx.Query(ctx, stmt, ident).Get(&result); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return charmerrors.NotFound
@@ -248,7 +250,7 @@ func (s *State) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
 	ident := charmID{UUID: id.String()}
 
 	selectQuery := `
-SELECT charm.uuid AS &charmID.*
+SELECT &charmID.*
 FROM charm
 WHERE uuid = $charmID.uuid;
 	`
@@ -298,22 +300,23 @@ func (s *State) ReserveCharmRevision(ctx context.Context, id corecharm.ID, revis
 		return "", errors.Trace(err)
 	}
 
+	var charmResult charmIDName
 	ident := charmID{UUID: id.String()}
 
 	selectQuery := `
-SELECT charm.* AS &charmIDName.*
+SELECT &charmIDName.*
 FROM charm 
 LEFT JOIN charm_state
 ON charm.uuid = charm_state.charm_uuid
 WHERE uuid = $charmID.uuid;
 `
-	selectStmt, err := s.Prepare(selectQuery, charmIDName{}, ident)
+	selectStmt, err := s.Prepare(selectQuery, charmResult, ident)
 	if err != nil {
 		return "", fmt.Errorf("failed to prepare query: %w", err)
 	}
 
 	insertCharmQuery := `INSERT INTO charm (*) VALUES ($charmIDName.*);`
-	insertCharmStmt, err := s.Prepare(insertCharmQuery, charmIDName{})
+	insertCharmStmt, err := s.Prepare(insertCharmQuery, charmResult)
 	if err != nil {
 		return "", fmt.Errorf("failed to prepare query: %w", err)
 	}
@@ -330,7 +333,6 @@ WHERE uuid = $charmID.uuid;
 	}
 
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		var charmResult charmIDName
 		if err := tx.Query(ctx, selectStmt, ident).Get(&charmResult); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
 				return charmerrors.NotFound
@@ -367,20 +369,20 @@ func (s *State) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (strin
 		return "", errors.Trace(err)
 	}
 
+	var archivePath charmArchivePath
 	ident := charmID{UUID: id.String()}
 
 	query := `
-SELECT charm.* AS &charmArchivePath.*
+SELECT &charmArchivePath.*
 FROM charm
 WHERE uuid = $charmID.uuid;
 `
 
-	stmt, err := s.Prepare(query, charmArchivePath{}, ident)
+	stmt, err := s.Prepare(query, archivePath, ident)
 	if err != nil {
 		return "", fmt.Errorf("failed to prepare query: %w", err)
 	}
 
-	var archivePath charmArchivePath
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, ident).Get(&archivePath); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
@@ -863,17 +865,17 @@ SELECT &charmMetadata.*
 FROM v_charm
 WHERE uuid = $charmID.uuid;
 `
-	stmt, err := s.Prepare(query, charmMetadata{}, ident)
+	var metadata charmMetadata
+	stmt, err := s.Prepare(query, metadata, ident)
 	if err != nil {
-		return charmMetadata{}, fmt.Errorf("failed to prepare query: %w", err)
+		return metadata, fmt.Errorf("failed to prepare query: %w", err)
 	}
 
-	var metadata charmMetadata
 	if err := tx.Query(ctx, stmt, ident).Get(&metadata); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return charmMetadata{}, charmerrors.NotFound
+			return metadata, charmerrors.NotFound
 		}
-		return charmMetadata{}, fmt.Errorf("failed to select charm metadata: %w", err)
+		return metadata, fmt.Errorf("failed to select charm metadata: %w", err)
 	}
 
 	return metadata, nil
@@ -1166,14 +1168,15 @@ LEFT JOIN charm_origin ON charm.uuid = charm_origin.charm_uuid
 WHERE charm.name = $charmNameRevision.name AND charm_origin.revision = $charmNameRevision.revision
 
 	`
-	selectStmt, err := s.Prepare(selectQuery, charmID{}, charmNameRevision{})
+	var result charmID
+	selectStmt, err := s.Prepare(selectQuery, result, charmNameRevision{})
 	if err != nil {
 		return fmt.Errorf("failed to prepare query: %w", err)
 	}
 	if err := tx.Query(ctx, selectStmt, charmNameRevision{
 		Name:     name,
 		Revision: revision,
-	}).Get(&charmID{}); err != nil {
+	}).Get(&result); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
 			return nil
 		}
@@ -1185,18 +1188,19 @@ WHERE charm.name = $charmNameRevision.name AND charm_origin.revision = $charmNam
 
 func (s *State) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID, hash string) error {
 	ident := charmID{UUID: id.String()}
+	args := setCharmHash{
+		CharmUUID:  ident.UUID,
+		HashKindID: sha256HashKind,
+		Hash:       hash,
+	}
 
 	query := `INSERT INTO charm_hash (*) VALUES ($setCharmHash.*);`
-	stmt, err := s.Prepare(query, setCharmHash{})
+	stmt, err := s.Prepare(query, args)
 	if err != nil {
 		return fmt.Errorf("failed to prepare query: %w", err)
 	}
 
-	if err := tx.Query(ctx, stmt, setCharmHash{
-		CharmUUID:  ident.UUID,
-		HashKindID: sha256HashKind,
-		Hash:       hash,
-	}).Run(); err != nil {
+	if err := tx.Query(ctx, stmt, args).Run(); err != nil {
 		return fmt.Errorf("failed to insert charm hash: %w", err)
 	}
 
@@ -1213,18 +1217,20 @@ func (s *State) setCharmInitialOrigin(
 		return fmt.Errorf("failed to encode charm origin source: %w", err)
 	}
 
-	query := `INSERT INTO charm_origin (*) VALUES ($setCharmSourceRevisionVersion.*);`
-	stmt, err := s.Prepare(query, setCharmSourceRevisionVersion{})
-	if err != nil {
-		return fmt.Errorf("failed to prepare query: %w", err)
-	}
-
-	if err := tx.Query(ctx, stmt, setCharmSourceRevisionVersion{
+	args := setCharmSourceRevisionVersion{
 		CharmUUID: ident.UUID,
 		SourceID:  encodedOriginSource,
 		Revision:  revision,
 		Version:   version,
-	}).Run(); err != nil {
+	}
+
+	query := `INSERT INTO charm_origin (*) VALUES ($setCharmSourceRevisionVersion.*);`
+	stmt, err := s.Prepare(query, args)
+	if err != nil {
+		return fmt.Errorf("failed to prepare query: %w", err)
+	}
+
+	if err := tx.Query(ctx, stmt, args).Run(); err != nil {
 		return fmt.Errorf("failed to insert charm origin: %w", err)
 	}
 
