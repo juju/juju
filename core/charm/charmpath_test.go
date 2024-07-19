@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -31,7 +32,7 @@ func (s *charmPathSuite) cloneCharmDir(path, name string) string {
 
 func (s *charmPathSuite) TestNoPath(c *gc.C) {
 	_, _, err := corecharm.NewCharmAtPath("")
-	c.Assert(err, gc.ErrorMatches, "empty charm path")
+	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
 func (s *charmPathSuite) TestInvalidPath(c *gc.C) {
@@ -61,17 +62,14 @@ func (s *charmPathSuite) TestRelativePath(c *gc.C) {
 
 func (s *charmPathSuite) TestNoCharmAtPath(c *gc.C) {
 	_, _, err := corecharm.NewCharmAtPath(c.MkDir())
-	c.Assert(err, gc.ErrorMatches, "charm not found.*")
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
-func (s *charmPathSuite) TestCharm(c *gc.C) {
+func (s *charmPathSuite) TestCharmFromDirectoryNotSupported(c *gc.C) {
 	charmDir := filepath.Join(s.repoPath, "dummy")
 	s.cloneCharmDir(s.repoPath, "dummy")
-	ch, url, err := corecharm.NewCharmAtPath(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ch.Meta().Name, gc.Equals, "dummy")
-	c.Assert(ch.Revision(), gc.Equals, 1)
-	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:dummy-1"))
+	_, _, err := corecharm.NewCharmAtPath(charmDir)
+	c.Assert(err, jc.ErrorIs, errors.NotSupported)
 }
 
 func (s *charmPathSuite) TestCharmArchive(c *gc.C) {
@@ -98,8 +96,18 @@ func (s *charmPathSuite) TestCharmArchive(c *gc.C) {
 
 func (s *charmPathSuite) TestCharmWithManifest(c *gc.C) {
 	repo := testcharms.RepoForSeries("focal")
-	charmDir := repo.CharmDir("cockroach")
-	ch, url, err := corecharm.NewCharmAtPath(charmDir.Path)
+	chDir := repo.CharmDir("cockroach")
+
+	dir := c.MkDir()
+	archivePath := filepath.Join(dir, "archive.charm")
+	file, err := os.Create(archivePath)
+	c.Assert(err, jc.ErrorIsNil)
+	defer file.Close()
+
+	err = chDir.ArchiveTo(file)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ch, url, err := corecharm.NewCharmAtPath(archivePath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "cockroachdb")
 	c.Assert(ch.Revision(), gc.Equals, 0)
@@ -107,10 +115,23 @@ func (s *charmPathSuite) TestCharmWithManifest(c *gc.C) {
 }
 
 func (s *charmPathSuite) TestFindsSymlinks(c *gc.C) {
-	realPath := testcharms.Repo.ClonedDirPath(c.MkDir(), "dummy")
+	charmDir := filepath.Join(s.repoPath, "dummy")
+	s.cloneCharmDir(s.repoPath, "dummy")
+	chDir, err := charm.ReadCharmDir(charmDir)
+	c.Assert(err, jc.ErrorIsNil)
+
+	dir := c.MkDir()
+	archivePath := filepath.Join(dir, "archive.charm")
+	file, err := os.Create(archivePath)
+	c.Assert(err, jc.ErrorIsNil)
+	defer file.Close()
+
+	err = chDir.ArchiveTo(file)
+	c.Assert(err, jc.ErrorIsNil)
+
 	charmsPath := c.MkDir()
 	linkPath := filepath.Join(charmsPath, "dummy")
-	err := os.Symlink(realPath, linkPath)
+	err = os.Symlink(archivePath, linkPath)
 	c.Assert(err, gc.IsNil)
 
 	ch, url, err := corecharm.NewCharmAtPath(filepath.Join(charmsPath, "dummy"))
@@ -118,6 +139,6 @@ func (s *charmPathSuite) TestFindsSymlinks(c *gc.C) {
 	c.Assert(ch.Revision(), gc.Equals, 1)
 	c.Assert(ch.Meta().Name, gc.Equals, "dummy")
 	c.Assert(ch.Config().Options["title"].Default, gc.Equals, "My Title")
-	c.Assert(ch.(*charm.CharmDir).Path, gc.Equals, linkPath)
+	c.Assert(ch.(*charm.CharmArchive).Path, gc.Equals, linkPath)
 	c.Assert(url, gc.DeepEquals, charm.MustParseURL("local:dummy-1"))
 }

@@ -17,28 +17,34 @@ import (
 
 // NewCharmAtPath returns the charm represented by this path,
 // and a URL that describes it.
+// Deploying from a directory is no longer supported.
 func NewCharmAtPath(path string) (charm.Charm, *charm.URL, error) {
 	if path == "" {
-		return nil, nil, errors.New("empty charm path")
+		return nil, nil, errors.NotValidf("empty charm path")
 	}
-	_, err := os.Stat(path)
-	if isNotExistsError(err) {
+
+	if info, err := os.Stat(path); isNotExistsError(err) {
 		return nil, nil, os.ErrNotExist
 	} else if err == nil && !isValidCharmOrBundlePath(path) {
 		return nil, nil, InvalidPath(path)
+	} else if info.IsDir() {
+		return nil, nil, errors.NotSupportedf("deploying from directory")
 	}
-	ch, err := charm.ReadCharm(path)
+
+	ch, err := charm.ReadCharmArchive(path)
 	if err != nil {
 		if isNotExistsError(err) {
 			return nil, nil, CharmNotFound(path)
 		}
 		return nil, nil, err
 	}
-	name := ch.Meta().Name
+	if err := charm.CheckMeta(ch); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
 	url := &charm.URL{
 		Schema:   "local",
-		Name:     name,
+		Name:     ch.Meta().Name,
 		Revision: ch.Revision(),
 	}
 	return ch, url, nil

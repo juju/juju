@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"syscall"
 
@@ -48,6 +47,8 @@ var dummyArchiveMembersCommon = []string{
 	"src",
 	"src/hello.c",
 	".notignored",
+	"build",
+	"build/ignored",
 }
 
 var dummyArchiveMembers = append(dummyArchiveMembersCommon, "actions.yaml")
@@ -205,35 +206,6 @@ func (s *CharmArchiveSuite) TestExpandTo(c *gc.C) {
 	dir, err := charm.ReadCharmDir(path)
 	c.Assert(err, jc.ErrorIsNil)
 	checkDummy(c, dir, path)
-}
-
-func (s *CharmArchiveSuite) TestReadCharmArchiveWithVersion(c *gc.C) {
-	clonedPath := cloneDir(c, charmDirPath(c, "versioned"))
-	_, err := os.Create(filepath.Join(clonedPath, ".git"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	// NOTE(achilleasa) Initially, I tried using PatchExecutableAsEchoArgs
-	// but it doesn't work as expected on my bionic box so I reverted to
-	// the following less elegant approach to stubbing git output.
-	var gitOutput string
-	switch runtime.GOOS {
-	case "windows":
-		gitOutput = "@echo off\r\necho c0ffee"
-	default:
-		gitOutput = "#!/bin/bash -norc\necho c0ffee"
-	}
-	testing.PatchExecutable(c, s, "git", gitOutput)
-
-	// Read cloned path and archive it; the archive should now include
-	// the version fetched from our mocked call to git
-	cd, err := charm.ReadCharmDir(clonedPath)
-	c.Assert(err, jc.ErrorIsNil)
-	path := archivePath(c, cd)
-
-	// Read back the archive and verify the correct version
-	archive, err := charm.ReadCharmArchive(path)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(archive.Version(), gc.Equals, "c0ffee")
 }
 
 func (s *CharmArchiveSuite) prepareCharmArchive(c *gc.C, charmDir *charm.CharmDir, archivePath string) {

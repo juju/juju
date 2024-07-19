@@ -8,8 +8,4 @@ description: |
 
     juju trust trust-checker
     juju trust trust-checker --remove
-series:
-  - jammy
-  - focal
-  - bionic
-  - xenial
+

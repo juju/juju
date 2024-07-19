@@ -211,7 +211,7 @@ type predeployedLocalCharm struct {
 
 // String returns a string description of the deployer.
 func (d *predeployedLocalCharm) String() string {
-	str := fmt.Sprintf("deploy predeployed local charm: %s", d.userCharmURL.String())
+	str := fmt.Sprintf("deploy pre-deployed local charm: %s", d.userCharmURL.String())
 	origin := d.id.Origin
 	if isEmptyOrigin(origin, commoncharm.OriginLocal) {
 		return str

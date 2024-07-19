@@ -6,7 +6,6 @@ package charm_test
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -14,16 +13,12 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/loggo/v2"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/v4"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/internal/charm"
-	internallogger "github.com/juju/juju/internal/logger"
-	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type CharmDirSuite struct {
@@ -121,170 +116,6 @@ func (s *CharmDirSuite) TestArchiveTo(c *gc.C) {
 	s.assertArchiveTo(c, baseDir, charmDir)
 }
 
-func (s *CharmDirSuite) TestArchiveToWithIgnoredFiles(c *gc.C) {
-	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
-	dir, err := charm.ReadCharmDir(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add a directory/files that should be ignored
-	nestedGitDir := filepath.Join(dir.Path, ".git/nested")
-	err = os.MkdirAll(nestedGitDir, 0700)
-	c.Assert(err, jc.ErrorIsNil)
-
-	f, err := os.Create(filepath.Join(nestedGitDir, "foo"))
-	c.Assert(err, jc.ErrorIsNil)
-	_ = f.Close()
-
-	// Ensure that we cannot spoof the version or revision files
-	err = os.WriteFile(filepath.Join(dir.Path, "version"), []byte("spoofed version"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-	err = os.WriteFile(filepath.Join(dir.Path, "revision"), []byte("42"), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var b bytes.Buffer
-	err = dir.ArchiveTo(&b)
-	c.Assert(err, jc.ErrorIsNil)
-
-	archive, err := charm.ReadCharmArchiveBytes(b.Bytes())
-	c.Assert(err, jc.ErrorIsNil)
-
-	manifest, err := archive.ArchiveMembers()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(manifest, jc.DeepEquals, set.NewStrings(dummyArchiveMembers...))
-
-	c.Assert(archive.Version(), gc.Not(gc.Equals), "spoofed version")
-	c.Assert(archive.Revision(), gc.Not(gc.Equals), 42)
-}
-
-func (s *CharmDirSuite) TestArchiveToWithJujuignore(c *gc.C) {
-	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
-
-	jujuignore := `
-# Ignore directory named "bar" anywhere in the charm
-bar/
-
-# Retain "tox" but ignore everything inside it EXCEPT "keep"
-tox/**
-!tox/keep
-`
-	// Add .jujuignore
-	err := os.WriteFile(filepath.Join(charmDir, ".jujuignore"), []byte(jujuignore), 0644)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Add directory/files that should be ignored based on jujuignore rules
-	nestedDir := filepath.Join(charmDir, "foo/bar/baz")
-	err = os.MkdirAll(nestedDir, 0700)
-	c.Assert(err, jc.ErrorIsNil)
-
-	toxDir := filepath.Join(charmDir, "tox")
-	err = os.MkdirAll(filepath.Join(toxDir, "data"), 0700)
-	c.Assert(err, jc.ErrorIsNil)
-
-	f, err := os.Create(filepath.Join(toxDir, "keep"))
-	c.Assert(err, jc.ErrorIsNil)
-	_ = f.Close()
-
-	f, err = os.Create(filepath.Join(toxDir, "ignore"))
-	c.Assert(err, jc.ErrorIsNil)
-	_ = f.Close()
-
-	dir, err := charm.ReadCharmDir(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	var b bytes.Buffer
-	err = dir.ArchiveTo(&b)
-	c.Assert(err, jc.ErrorIsNil)
-
-	archive, err := charm.ReadCharmArchiveBytes(b.Bytes())
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Based on the .jujuignore rules, we should retain "foo/bar" and
-	// "tox/keep" but nothing else
-	retained := []string{"foo", "tox", "tox/keep"}
-	expContents := set.NewStrings(append(retained, dummyArchiveMembers...)...)
-
-	manifest, err := archive.ArchiveMembers()
-	c.Log(manifest.Difference(expContents))
-	c.Log(expContents.Difference(manifest))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(manifest, jc.DeepEquals, expContents)
-}
-
-func (s *CharmSuite) TestArchiveToWithVersionString(c *gc.C) {
-	baseDir := c.MkDir()
-	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
-	testing.PatchExecutableAsEchoArgs(c, s, "git")
-
-	// create an empty .execName file inside tempDir
-	vcsPath := filepath.Join(charmDir, ".git")
-	_, err := os.Create(vcsPath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	dir, err := charm.ReadCharmDir(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	path := filepath.Join(baseDir, "archive.charm")
-	file, err := os.Create(path)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = dir.ArchiveTo(file)
-	_ = file.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	args := []string{"describe", "--dirty", "--always"}
-	testing.AssertEchoArgs(c, "git", args...)
-
-	zipr, err := zip.OpenReader(path)
-	c.Assert(err, jc.ErrorIsNil)
-	defer zipr.Close()
-
-	var verf *zip.File
-	for _, f := range zipr.File {
-		if f.Name == "version" {
-			verf = f
-		}
-	}
-
-	c.Assert(verf, gc.NotNil)
-	reader, err := verf.Open()
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := io.ReadAll(reader)
-	_ = reader.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	obtainedData := string(data)
-	obtainedData = strings.TrimSuffix(obtainedData, "\n")
-
-	expectedArg := "git"
-	for _, arg := range args {
-		expectedArg = fmt.Sprintf("%s %s", expectedArg, utils.ShQuote(arg))
-	}
-	c.Assert(obtainedData, gc.Equals, expectedArg)
-}
-
-func (s *CharmSuite) TestMaybeGenerateVersionStringHasAVersionFile(c *gc.C) {
-	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
-	versionFile := filepath.Join(charmDir, "version")
-	f, err := os.Create(versionFile)
-	c.Assert(err, jc.ErrorIsNil)
-	defer f.Close()
-
-	expectedVersionNumber := "123456789abc"
-	_, err = f.WriteString(expectedVersionNumber)
-	c.Assert(err, jc.ErrorIsNil)
-
-	dir, err := charm.ReadCharmDir(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	versionReader := charm.DefaultVersionReader(loggertesting.WrapCheckLog(c))
-	version, vcsType, err := dir.MaybeGenerateVersionString(context.Background(), versionReader)
-	c.Assert(version, gc.Equals, expectedVersionNumber)
-
-	c.Assert(vcsType, gc.Equals, "versionFile")
-
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *CharmSuite) TestReadCharmDirNoLogging(c *gc.C) {
 	var tw loggo.TestWriter
 	err := loggo.RegisterWriter("versionstring-test", &tw)
@@ -298,53 +129,6 @@ func (s *CharmSuite) TestReadCharmDirNoLogging(c *gc.C) {
 
 	noLogging := jc.SimpleMessages{}
 	c.Assert(tw.Log(), jc.LogMatches, noLogging)
-}
-
-func (s *CharmSuite) TestArchiveToWithVersionStringError(c *gc.C) {
-	baseDir := c.MkDir()
-	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
-
-	// create an empty .execName file inside tempDir
-	vcsPath := filepath.Join(charmDir, ".git")
-	_, err := os.Create(vcsPath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	dir, err := charm.ReadCharmDir(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	path := filepath.Join(baseDir, "archive.charm")
-	file, err := os.Create(path)
-	c.Assert(err, jc.ErrorIsNil)
-
-	testing.PatchExecutableThrowError(c, s, "git", 128)
-	var tw loggo.TestWriter
-	err = loggo.RegisterWriter("versionstring-test", &tw)
-	c.Assert(err, jc.ErrorIsNil)
-	defer loggo.RemoveWriter("versionstring-test")
-
-	msg := fmt.Sprintf("failed reading version from %q: git version string generation failed: exit status 128\nThis means that the charm version won't show in juju status.", dir.Path)
-
-	versionReader := charm.DefaultVersionReader(loggertesting.WrapCheckLog(c))
-	_, _, err = dir.MaybeGenerateVersionString(context.Background(), versionReader)
-	c.Assert(err, gc.ErrorMatches, msg)
-
-	err = dir.ArchiveTo(file)
-	_ = file.Close()
-	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
-		Level: loggo.WARNING, Message: msg,
-	}})
-
-	zipr, err := zip.OpenReader(path)
-	c.Assert(err, jc.ErrorIsNil)
-	defer zipr.Close()
-
-	for _, f := range zipr.File {
-		if f.Name == "version" {
-			c.Fatal("unexpected version in charm archive")
-		}
-	}
 }
 
 func (s *CharmDirSuite) TestArchiveToWithSymlinkedRootDir(c *gc.C) {
@@ -395,8 +179,6 @@ func (s *CharmDirSuite) assertArchiveTo(c *gc.C, baseDir, charmDir string) {
 			symf = f
 		case "empty/":
 			emptyf = f
-		case "build/ignored":
-			c.Errorf("archive includes build/*: %s", f.Name)
 		case ".ignored", ".dir/ignored":
 			c.Errorf("archive includes .* entries: %s", f.Name)
 		}
@@ -586,169 +368,4 @@ func (s *CharmDirSuite) TestDirSetDiskRevision(c *gc.C) {
 	dir, err = charm.ReadCharmDir(charmDir)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(dir.Revision(), gc.Equals, 42)
-}
-
-func (s *CharmSuite) TestMaybeGenerateVersionStringError(c *gc.C) {
-	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
-
-	testing.PatchExecutableThrowError(c, s, "git", 128)
-	vcsPath := filepath.Join(charmDir, ".git")
-	_, err := os.Create(vcsPath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	dir, err := charm.ReadCharmDir(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	versionReader := charm.DefaultVersionReader(loggertesting.WrapCheckLog(c))
-	version, vcsType, err := dir.MaybeGenerateVersionString(context.Background(), versionReader)
-	c.Assert(err, jc.ErrorIs, charm.ErrVersionGenerationFailed)
-	c.Assert(version, gc.Equals, "")
-	c.Assert(vcsType, gc.Equals, "git")
-}
-
-func (s *CharmSuite) assertGenerateVersionString(c *gc.C, execName string, args []string) {
-	// Read the charmDir from the testing folder and clone all contents.
-	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
-
-	testing.PatchExecutableAsEchoArgs(c, s, execName)
-
-	// create an empty .execName file inside tempDir
-	vcsPath := filepath.Join(charmDir, "."+execName)
-	_, err := os.Create(vcsPath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	dir, err := charm.ReadCharmDir(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	versionReader := charm.DefaultVersionReader(loggertesting.WrapCheckLog(c))
-	version, vcsType, err := dir.MaybeGenerateVersionString(context.Background(), versionReader)
-	c.Assert(err, jc.ErrorIsNil)
-
-	version = strings.Trim(version, "\n")
-	version = strings.Replace(version, "'", "", -1)
-	expectedVersion := strings.Join(append([]string{execName}, args...), " ")
-	c.Assert(version, gc.Equals, expectedVersion)
-	c.Assert(vcsType, gc.Equals, execName)
-
-	testing.AssertEchoArgs(c, execName, args...)
-}
-
-// TestGitMaybeGenerateVersionString verifies if the version string can be generated
-// in case of git revision control directory
-func (s *CharmSuite) TestGitMaybeGenerateVersionString(c *gc.C) {
-	s.assertGenerateVersionString(c, "git", []string{"describe", "--dirty", "--always"})
-}
-
-// TestBazaarMaybeGenerateVersionString verifies if the version string can be generated
-// in case of bazaar revision control directory.
-func (s *CharmSuite) TestBazaarMaybeGenerateVersionString(c *gc.C) {
-	s.assertGenerateVersionString(c, "bzr", []string{"version-info"})
-}
-
-// TestHgMaybeGenerateVersionString verifies if the version string can be generated
-// in case of Mecurial revision control directory.
-func (s *CharmSuite) TestHgMaybeGenerateVersionString(c *gc.C) {
-	s.assertGenerateVersionString(c, "hg", []string{"id", "-n"})
-}
-
-func (s *CharmSuite) assertGenerateVersionStringCancelled(c *gc.C, execName string) {
-	// Read the charmDir from the testing folder and clone all contents.
-	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
-
-	testing.PatchExecutableAsEchoArgs(c, s, execName)
-
-	// create an empty .execName file inside tempDir
-	vcsPath := filepath.Join(charmDir, "."+execName)
-	_, err := os.Create(vcsPath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	dir, err := charm.ReadCharmDir(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	versionReader := charm.DefaultVersionReader(loggertesting.WrapCheckLog(c))
-	_, vcsType, err := dir.MaybeGenerateVersionString(ctx, versionReader)
-	c.Assert(err, gc.NotNil)
-	c.Check(vcsType, gc.Equals, execName)
-}
-
-func (s *CharmSuite) TestGitMaybeGenerateVersionStringCancelled(c *gc.C) {
-	s.assertGenerateVersionStringCancelled(c, "git")
-}
-
-func (s *CharmSuite) TestBazaarMaybeGenerateVersionStringCancelled(c *gc.C) {
-	s.assertGenerateVersionStringCancelled(c, "bzr")
-}
-
-func (s *CharmSuite) TestHgMaybeGenerateVersionStringCancelled(c *gc.C) {
-	s.assertGenerateVersionStringCancelled(c, "hg")
-}
-
-// TestNoVCSMaybeGenerateVersionString verifies that version string not generated
-// in case of not a revision control directory.
-func (s *CharmSuite) TestNoVCSMaybeGenerateVersionString(c *gc.C) {
-	// Read the charmDir from the testing folder and clone the contents.
-	charmDir := cloneDir(c, charmDirPath(c, "dummy"))
-
-	dir, err := charm.ReadCharmDir(charmDir)
-	c.Assert(err, jc.ErrorIsNil)
-
-	versionReader := charm.DefaultVersionReader(loggertesting.WrapCheckLog(c))
-	versionString, vcsType, err := dir.MaybeGenerateVersionString(context.Background(), versionReader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(versionString, gc.Equals, "")
-	c.Assert(vcsType, gc.Equals, "")
-}
-
-// TestMaybeGenerateVersionStringUsesAbsolutePathGitVersion verifies that using
-// a relative path still works.
-func (s *CharmSuite) TestMaybeGenerateVersionStringUsesAbsolutePathGitVersion(c *gc.C) {
-	testing.PatchExecutableAsEchoArgs(c, s, "git")
-
-	// Read the relativePath from the testing folder.
-	relativePath := charmDirPath(c, "dummy")
-	dir, err := charm.ReadCharmDir(relativePath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	versionReader := charm.GitVersionReader(loggertesting.WrapCheckLog(c))
-	versionString, vcsType, err := dir.MaybeGenerateVersionString(context.Background(), versionReader)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(versionString, gc.Not(gc.Equals), "")
-	c.Assert(vcsType, gc.Equals, "git")
-}
-
-// TestMaybeGenerateVersionStringLogsAbsolutePath verifies that the absolute path gets logged.
-func (s *CharmSuite) TestMaybeGenerateVersionStringLogsAbsolutePath(c *gc.C) {
-	var tw loggo.TestWriter
-	ctx := loggo.DefaultContext()
-	err := ctx.AddWriter("versionstring-test", &tw)
-	c.Assert(err, jc.ErrorIsNil)
-
-	logger := ctx.GetLogger("juju.testing")
-	lvl, _ := loggo.ParseLevel("TRACE")
-	logger.SetLogLevel(lvl)
-	defer func() { _, _ = loggo.RemoveWriter("versionstring-test") }()
-	defer loggo.ResetLogging()
-
-	testing.PatchExecutableThrowError(c, s, "git", 128)
-
-	// Read the relativePath from the testing folder.
-	relativePath := charmDirPath(c, "dummy")
-	absPath, err := filepath.Abs(relativePath)
-	c.Assert(err, jc.ErrorIsNil)
-
-	dir, err := charm.ReadCharmDir(relativePath, charm.WithLogger(internallogger.WrapLoggo(logger)))
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedMsg := fmt.Sprintf("charm is not versioned, charm path %q", absPath)
-
-	versionReader := charm.DefaultVersionReader(internallogger.WrapLoggo(logger))
-	versionString, vcsType, err := dir.MaybeGenerateVersionString(context.Background(), versionReader)
-	c.Assert(len(tw.Log()), gc.Equals, 1)
-	c.Assert(tw.Log()[0].Message, gc.Matches, expectedMsg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(versionString, gc.Matches, "")
-	c.Assert(vcsType, gc.Equals, "")
 }

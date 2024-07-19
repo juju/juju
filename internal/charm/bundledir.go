@@ -73,7 +73,7 @@ func (dir *BundleDir) ContainsOverlays() bool {
 }
 
 func (dir *BundleDir) ArchiveTo(w io.Writer) error {
-	return writeArchive(w, dir.Path, -1, "", nil, nil, dir.logger)
+	return writeArchive(w, dir.Path, -1, "", nil, dir.logger)
 }
 
 // join builds a path rooted at the bundle's expanded directory
