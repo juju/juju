@@ -235,16 +235,12 @@ func (c *CommandBase) NewAPIRootWithDialOpts(
 	} else {
 		u := names.NewUserTag(accountDetails.User)
 		if !u.IsLocal() {
-			if len(accountDetails.Macaroons) == 0 {
-				accountDetails = &jujuclient.AccountDetails{}
-			} else {
-				// If the account has macaroon set, use those to login
-				// to avoid an unnecessary auth round trip.
-				// Used for embedded commands.
-				accountDetails = &jujuclient.AccountDetails{
-					User:      u.Id(),
-					Macaroons: accountDetails.Macaroons,
-				}
+			// If the account has macaroon set, use those to login
+			// to avoid an unnecessary auth round trip.
+			// Used for embedded commands.
+			accountDetails = &jujuclient.AccountDetails{
+				User:      u.Id(),
+				Macaroons: accountDetails.Macaroons,
 			}
 		}
 	}
