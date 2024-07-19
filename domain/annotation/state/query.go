@@ -28,7 +28,7 @@ func getAnnotationQueryForID(id annotations.ID) (string, error) {
 	return fmt.Sprintf(`
 SELECT (key, value) AS (&Annotation.*)
 FROM annotation_%s
-WHERE uuid = $M.uuid`, kindName), nil
+WHERE uuid = $annotationUUID.uuid`, kindName), nil
 }
 
 // setAnnotationQueryForID provides a query for the given id, based on pre-computed queries for
@@ -38,8 +38,8 @@ func setAnnotationQueryForID(id annotations.ID) (string, error) {
 	if id.Kind == annotations.KindModel {
 		return `
 INSERT INTO annotation_model (key, value)
-VALUES ($M.key, $M.value)
-	ON CONFLICT(key) DO UPDATE SET value=$M.value`, nil
+VALUES ($Annotation.*)
+	ON CONFLICT(key) DO UPDATE SET value=$Annotation.value`, nil
 	}
 
 	kindName, err := kindNameFromID(id)
@@ -48,8 +48,8 @@ VALUES ($M.key, $M.value)
 	}
 	return fmt.Sprintf(`
 INSERT INTO annotation_%s (uuid, key, value)
-VALUES ($M.uuid, $M.key, $M.value)
-	ON CONFLICT(uuid, key) DO UPDATE SET value=$M.value`, kindName), nil
+VALUES ($annotationUUID.uuid, $Annotation.key, $Annotation.value)
+	ON CONFLICT(uuid, key) DO UPDATE SET value=$Annotation.value`, kindName), nil
 }
 
 // deleteAnnotationQueryForID provides a query for the given id, based on pre-computed queries for
@@ -64,7 +64,7 @@ func deleteAnnotationsQueryForID(id annotations.ID) (string, error) {
 		}
 		return fmt.Sprintf(`
 DELETE FROM annotation_%s
-WHERE uuid = $M.uuid`, kindName), nil
+WHERE uuid = $annotationUUID.uuid`, kindName), nil
 	}
 }
 
@@ -96,7 +96,7 @@ func uuidQueryForID(id annotations.ID) (string, sqlair.M, error) {
 		selector = "url"
 	}
 
-	query := fmt.Sprintf(`SELECT &M.uuid FROM %s WHERE %s = $M.entity_id`, kindName, selector)
+	query := fmt.Sprintf(`SELECT &annotationUUID.uuid FROM %s WHERE %s = $M.entity_id`, kindName, selector)
 	return query, sqlair.M{"entity_id": id.Name}, nil
 }
 
