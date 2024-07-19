@@ -134,8 +134,8 @@ func (s *ModelFactory) Application(registry storage.ProviderRegistry) *applicati
 		applicationstate.NewState(changestream.NewTxnRunnerFactory(s.modelDB),
 			s.logger.Child("application"),
 		),
-		s.logger.Child("application"),
 		registry,
+		s.logger.Child("application"),
 	)
 }
 

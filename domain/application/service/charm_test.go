@@ -15,43 +15,43 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	domaincharm "github.com/juju/juju/domain/charm"
-	charmerrors "github.com/juju/juju/domain/charm/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/state/watcher/watchertest"
 )
 
-type serviceSuite struct {
+type charmServiceSuite struct {
 	testing.IsolationSuite
 
-	state *MockState
+	state *MockCharmState
 	charm *MockCharm
 
-	service *Service
+	service *CharmService
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = gc.Suite(&charmServiceSuite{})
 
-func (s *serviceSuite) TestGetCharmID(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
 		Name: "foo",
 	})
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *serviceSuite) TestGetCharmIDInvalidName(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmIDInvalidName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetCharmID(context.Background(), domaincharm.GetCharmArgs{
 		Name: "Foo",
 	})
-	c.Assert(err, jc.ErrorIs, charmerrors.NameNotValid)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *serviceSuite) TestGetCharmIDWithRevision(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmIDWithRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -68,7 +68,7 @@ func (s *serviceSuite) TestGetCharmIDWithRevision(c *gc.C) {
 	c.Check(result, gc.Equals, id)
 }
 
-func (s *serviceSuite) TestIsControllerCharm(c *gc.C) {
+func (s *charmServiceSuite) TestIsControllerCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -80,25 +80,25 @@ func (s *serviceSuite) TestIsControllerCharm(c *gc.C) {
 	c.Check(result, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestIsControllerCharmNotFound(c *gc.C) {
+func (s *charmServiceSuite) TestIsControllerCharmCharmNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().IsControllerCharm(gomock.Any(), id).Return(false, charmerrors.NotFound)
+	s.state.EXPECT().IsControllerCharm(gomock.Any(), id).Return(false, applicationerrors.CharmNotFound)
 
 	_, err := s.service.IsControllerCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *serviceSuite) TestIsControllerCharmInvalidUUID(c *gc.C) {
+func (s *charmServiceSuite) TestIsControllerCharmInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.IsControllerCharm(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *serviceSuite) TestIsCharmAvailable(c *gc.C) {
+func (s *charmServiceSuite) TestIsCharmAvailable(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -110,25 +110,25 @@ func (s *serviceSuite) TestIsCharmAvailable(c *gc.C) {
 	c.Check(result, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestIsCharmAvailableNotFound(c *gc.C) {
+func (s *charmServiceSuite) TestIsCharmAvailableCharmNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(false, charmerrors.NotFound)
+	s.state.EXPECT().IsCharmAvailable(gomock.Any(), id).Return(false, applicationerrors.CharmNotFound)
 
 	_, err := s.service.IsCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *serviceSuite) TestIsCharmAvailableInvalidUUID(c *gc.C) {
+func (s *charmServiceSuite) TestIsCharmAvailableInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.IsCharmAvailable(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *serviceSuite) TestSupportsContainers(c *gc.C) {
+func (s *charmServiceSuite) TestSupportsContainers(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -140,25 +140,25 @@ func (s *serviceSuite) TestSupportsContainers(c *gc.C) {
 	c.Check(result, jc.IsTrue)
 }
 
-func (s *serviceSuite) TestSupportsContainersNotFound(c *gc.C) {
+func (s *charmServiceSuite) TestSupportsContainersCharmNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().SupportsContainers(gomock.Any(), id).Return(false, charmerrors.NotFound)
+	s.state.EXPECT().SupportsContainers(gomock.Any(), id).Return(false, applicationerrors.CharmNotFound)
 
 	_, err := s.service.SupportsContainers(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *serviceSuite) TestSupportsContainersInvalidUUID(c *gc.C) {
+func (s *charmServiceSuite) TestSupportsContainersInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.SupportsContainers(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *serviceSuite) TestGetCharmMetadata(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmMetadata(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	// Conversion of the metadata tests is done in the types package.
@@ -182,25 +182,25 @@ func (s *serviceSuite) TestGetCharmMetadata(c *gc.C) {
 	})
 }
 
-func (s *serviceSuite) TestGetCharmMetadataNotFound(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmMetadataCharmNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmMetadata(gomock.Any(), id).Return(domaincharm.Metadata{}, charmerrors.NotFound)
+	s.state.EXPECT().GetCharmMetadata(gomock.Any(), id).Return(domaincharm.Metadata{}, applicationerrors.CharmNotFound)
 
 	_, err := s.service.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *serviceSuite) TestGetCharmMetadataInvalidUUID(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmMetadataInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetCharmMetadata(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *serviceSuite) TestGetCharmArchivePath(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmArchivePath(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -212,25 +212,25 @@ func (s *serviceSuite) TestGetCharmArchivePath(c *gc.C) {
 	c.Check(path, gc.Equals, "archive-path")
 }
 
-func (s *serviceSuite) TestGetCharmArchivePathNotFound(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmArchivePathCharmNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().GetCharmArchivePath(gomock.Any(), id).Return("archive-path", charmerrors.NotFound)
+	s.state.EXPECT().GetCharmArchivePath(gomock.Any(), id).Return("archive-path", applicationerrors.CharmNotFound)
 
 	_, err := s.service.GetCharmArchivePath(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *serviceSuite) TestGetCharmArchivePathInvalidUUID(c *gc.C) {
+func (s *charmServiceSuite) TestGetCharmArchivePathInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.GetCharmArchivePath(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *serviceSuite) TestSetCharmAvailable(c *gc.C) {
+func (s *charmServiceSuite) TestSetCharmAvailable(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -241,25 +241,25 @@ func (s *serviceSuite) TestSetCharmAvailable(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestSetCharmAvailableNotFound(c *gc.C) {
+func (s *charmServiceSuite) TestSetCharmAvailableCharmNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().SetCharmAvailable(gomock.Any(), id).Return(charmerrors.NotFound)
+	s.state.EXPECT().SetCharmAvailable(gomock.Any(), id).Return(applicationerrors.CharmNotFound)
 
 	err := s.service.SetCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *serviceSuite) TestSetCharmAvailableInvalidUUID(c *gc.C) {
+func (s *charmServiceSuite) TestSetCharmAvailableInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	err := s.service.SetCharmAvailable(context.Background(), "")
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *serviceSuite) TestReserveCharmRevision(c *gc.C) {
+func (s *charmServiceSuite) TestReserveCharmRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id1 := charmtesting.GenCharmID(c)
@@ -272,35 +272,35 @@ func (s *serviceSuite) TestReserveCharmRevision(c *gc.C) {
 	c.Check(result, gc.Equals, id2)
 }
 
-func (s *serviceSuite) TestReserveCharmRevisionNotFound(c *gc.C) {
+func (s *charmServiceSuite) TestReserveCharmRevisionCharmNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id1 := charmtesting.GenCharmID(c)
 	id2 := charmtesting.GenCharmID(c)
 
-	s.state.EXPECT().ReserveCharmRevision(gomock.Any(), id1, 21).Return(id2, charmerrors.NotFound)
+	s.state.EXPECT().ReserveCharmRevision(gomock.Any(), id1, 21).Return(id2, applicationerrors.CharmNotFound)
 
 	_, err := s.service.ReserveCharmRevision(context.Background(), id1, 21)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *serviceSuite) TestReserveCharmRevisionInvalidUUID(c *gc.C) {
+func (s *charmServiceSuite) TestReserveCharmRevisionInvalidUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	_, err := s.service.ReserveCharmRevision(context.Background(), "", 21)
 	c.Assert(err, jc.ErrorIs, errors.NotValid)
 }
 
-func (s *serviceSuite) TestReserveCharmRevisionInvalidRevision(c *gc.C) {
+func (s *charmServiceSuite) TestReserveCharmRevisionInvalidRevision(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := s.service.ReserveCharmRevision(context.Background(), id, -1)
-	c.Assert(err, jc.ErrorIs, charmerrors.RevisionNotValid)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmRevisionNotValid)
 }
 
-func (s *serviceSuite) TestSetCharm(c *gc.C) {
+func (s *charmServiceSuite) TestSetCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -331,7 +331,7 @@ func (s *serviceSuite) TestSetCharm(c *gc.C) {
 	c.Check(got, gc.DeepEquals, id)
 }
 
-func (s *serviceSuite) TestSetCharmNoName(c *gc.C) {
+func (s *charmServiceSuite) TestSetCharmNoName(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{})
@@ -341,10 +341,10 @@ func (s *serviceSuite) TestSetCharmNoName(c *gc.C) {
 		Source:   internalcharm.Local,
 		Revision: 1,
 	})
-	c.Assert(err, jc.ErrorIs, charmerrors.NameNotValid)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNameNotValid)
 }
 
-func (s *serviceSuite) TestSetCharmInvalidSource(c *gc.C) {
+func (s *charmServiceSuite) TestSetCharmInvalidSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{
@@ -356,10 +356,10 @@ func (s *serviceSuite) TestSetCharmInvalidSource(c *gc.C) {
 		Source:   "charmstore",
 		Revision: 1,
 	})
-	c.Assert(err, jc.ErrorIs, charmerrors.CharmSourceNotValid)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmSourceNotValid)
 }
 
-func (s *serviceSuite) TestDeleteCharm(c *gc.C) {
+func (s *charmServiceSuite) TestDeleteCharm(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	id := charmtesting.GenCharmID(c)
@@ -370,13 +370,13 @@ func (s *serviceSuite) TestDeleteCharm(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *charmServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.state = NewMockState(ctrl)
+	s.state = NewMockCharmState(ctrl)
 	s.charm = NewMockCharm(ctrl)
 
-	s.service = NewService(s.state, loggertesting.WrapCheckLog(c))
+	s.service = NewCharmService(s.state, loggertesting.WrapCheckLog(c))
 
 	return ctrl
 }
@@ -384,10 +384,10 @@ func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
 type watchableServiceSuite struct {
 	testing.IsolationSuite
 
-	state          *MockState
+	state          *MockCharmState
 	watcherFactory *MockWatcherFactory
 
-	service *WatchableService
+	service *WatchableCharmService
 }
 
 var _ = gc.Suite(&watchableServiceSuite{})
@@ -409,10 +409,10 @@ func (s *watchableServiceSuite) TestWatchCharms(c *gc.C) {
 func (s *watchableServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.state = NewMockState(ctrl)
+	s.state = NewMockCharmState(ctrl)
 	s.watcherFactory = NewMockWatcherFactory(ctrl)
 
-	s.service = NewWatchableService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
+	s.service = NewWatchableCharmService(s.state, s.watcherFactory, loggertesting.WrapCheckLog(c))
 
 	return ctrl
 }

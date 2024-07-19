@@ -15,19 +15,20 @@ import (
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coredatabase "github.com/juju/juju/core/database"
+	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/charm"
-	charmerrors "github.com/juju/juju/domain/charm/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
-type stateSuite struct {
+type charmStateSuite struct {
 	schematesting.ModelSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = gc.Suite(&charmStateSuite{})
 
-func (s *stateSuite) TestGetCharmIDByRevision(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmIDByRevision(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
@@ -47,8 +48,8 @@ func (s *stateSuite) TestGetCharmIDByRevision(c *gc.C) {
 	c.Check(charmID, gc.Equals, id)
 }
 
-func (s *stateSuite) TestSetCharmGetCharmIDByRevision(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmGetCharmIDByRevision(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "foo",
@@ -70,24 +71,24 @@ func (s *stateSuite) TestSetCharmGetCharmIDByRevision(c *gc.C) {
 	c.Check(charmID, gc.Equals, id)
 }
 
-func (s *stateSuite) TestGetCharmIDByRevisionWithNoCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmIDByRevisionWithNoCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	_, err := st.GetCharmIDByRevision(context.Background(), "foo", 0)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestIsControllerCharmWithNoCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestIsControllerCharmWithNoCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.IsControllerCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestIsControllerCharmWithControllerCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestIsControllerCharmWithControllerCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
@@ -103,8 +104,8 @@ func (s *stateSuite) TestIsControllerCharmWithControllerCharm(c *gc.C) {
 	c.Check(result, jc.IsTrue)
 }
 
-func (s *stateSuite) TestIsControllerCharmWithNoControllerCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestIsControllerCharmWithNoControllerCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
@@ -120,17 +121,17 @@ func (s *stateSuite) TestIsControllerCharmWithNoControllerCharm(c *gc.C) {
 	c.Check(result, jc.IsFalse)
 }
 
-func (s *stateSuite) TestIsSubordinateCharmWithNoCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestIsSubordinateCharmWithNoCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.IsSubordinateCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestIsSubordinateCharmWithSubordinateCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestIsSubordinateCharmWithSubordinateCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
@@ -146,8 +147,8 @@ func (s *stateSuite) TestIsSubordinateCharmWithSubordinateCharm(c *gc.C) {
 	c.Check(result, jc.IsTrue)
 }
 
-func (s *stateSuite) TestIsSubordinateCharmWithNoSubordinateCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestIsSubordinateCharmWithNoSubordinateCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
@@ -163,17 +164,17 @@ func (s *stateSuite) TestIsSubordinateCharmWithNoSubordinateCharm(c *gc.C) {
 	c.Check(result, jc.IsFalse)
 }
 
-func (s *stateSuite) TestSupportsContainersWithNoCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSupportsContainersWithNoCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.SupportsContainers(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestSupportsContainersWithContainers(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSupportsContainersWithContainers(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
@@ -195,8 +196,8 @@ func (s *stateSuite) TestSupportsContainersWithContainers(c *gc.C) {
 	c.Check(result, jc.IsTrue)
 }
 
-func (s *stateSuite) TestSupportsContainersWithNoContainers(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSupportsContainersWithNoContainers(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
@@ -212,17 +213,17 @@ func (s *stateSuite) TestSupportsContainersWithNoContainers(c *gc.C) {
 	c.Check(result, jc.IsFalse)
 }
 
-func (s *stateSuite) TestIsCharmAvailableWithNoCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestIsCharmAvailableWithNoCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.IsCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestIsCharmAvailableWithAvailable(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestIsCharmAvailableWithAvailable(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
@@ -241,8 +242,8 @@ func (s *stateSuite) TestIsCharmAvailableWithAvailable(c *gc.C) {
 	c.Check(result, jc.IsTrue)
 }
 
-func (s *stateSuite) TestIsCharmAvailableWithNotAvailable(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestIsCharmAvailableWithNotAvailable(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
@@ -261,17 +262,17 @@ func (s *stateSuite) TestIsCharmAvailableWithNotAvailable(c *gc.C) {
 	c.Check(result, jc.IsFalse)
 }
 
-func (s *stateSuite) TestSetCharmAvailableWithNoCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmAvailableWithNoCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	err := st.SetCharmAvailable(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestSetCharmAvailable(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmAvailable(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
@@ -297,17 +298,17 @@ func (s *stateSuite) TestSetCharmAvailable(c *gc.C) {
 	c.Check(result, jc.IsTrue)
 }
 
-func (s *stateSuite) TestReserveCharmRevisionWithNoCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestReserveCharmRevisionWithNoCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.ReserveCharmRevision(context.Background(), id, 1)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestReserveCharmRevision(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestReserveCharmRevision(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
@@ -331,17 +332,17 @@ func (s *stateSuite) TestReserveCharmRevision(c *gc.C) {
 	c.Check(result, jc.IsFalse)
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithNoCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithNoCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestGetCharmMetadata(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadata(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -366,8 +367,8 @@ func (s *stateSuite) TestGetCharmMetadata(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithTagsAndCategories(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithTagsAndCategories(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -412,8 +413,8 @@ VALUES (?, 0, 'foo'), (?, 1, 'foo'), (?, 2,'bar')
 	})
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithTerms(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithTerms(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -448,8 +449,8 @@ VALUES (?, 0, 'alpha'), (?, 1, 'beta'), (?, 2, 'beta')
 	})
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithRelation(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithRelation(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -517,8 +518,8 @@ VALUES
 	})
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithExtraBindings(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithExtraBindings(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -560,8 +561,8 @@ VALUES
 	})
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithStorageWithNoProperties(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithStorageWithNoProperties(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -632,8 +633,8 @@ INSERT INTO charm_storage (
 	})
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithStorageWithProperties(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithStorageWithProperties(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -720,8 +721,8 @@ INSERT INTO charm_storage_property (
 	})
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithDevices(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithDevices(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -778,8 +779,8 @@ INSERT INTO charm_device (
 	})
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithPayloadClasses(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithPayloadClasses(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -827,8 +828,8 @@ INSERT INTO charm_payload (
 	})
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithResources(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithResources(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -882,8 +883,8 @@ INSERT INTO charm_resource (
 	})
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithContainersWithNoMounts(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithContainersWithNoMounts(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -932,8 +933,8 @@ INSERT INTO charm_container (
 	})
 }
 
-func (s *stateSuite) TestGetCharmMetadataWithContainersWithMounts(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmMetadataWithContainersWithMounts(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -1013,17 +1014,17 @@ INSERT INTO charm_container_mount (
 	})
 }
 
-func (s *stateSuite) TestDeleteCharm(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestDeleteCharm(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	err := st.DeleteCharm(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestSetCharmTwice(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmTwice(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1047,11 +1048,11 @@ func (s *stateSuite) TestSetCharmTwice(c *gc.C) {
 	_, err = st.SetCharm(context.Background(), charm.Charm{
 		Metadata: expected,
 	}, setStateArgs())
-	c.Assert(err, jc.ErrorIs, charmerrors.AlreadyExists)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmAlreadyExists)
 }
 
-func (s *stateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1094,8 +1095,8 @@ func (s *stateSuite) TestSetCharmAllowsSameNameButDifferentRevision(c *gc.C) {
 	c.Check(got, gc.DeepEquals, expected)
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadata(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadata(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1120,11 +1121,11 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1151,11 +1152,11 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithTagsAndCategories(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1181,11 +1182,11 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithTerms(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, err = st.GetCharmMetadata(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1243,8 +1244,8 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithRelations(c *gc.C) {
 	assertTableEmpty(c, s.TxnRunner(), "charm_relation")
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1280,8 +1281,8 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithExtraBindings(c *gc.C) 
 	assertTableEmpty(c, s.TxnRunner(), "charm_extra_binding")
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoProperties(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoProperties(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1333,8 +1334,8 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithNoProperties
 	assertTableEmpty(c, s.TxnRunner(), "charm_storage")
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithProperties(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithProperties(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1389,8 +1390,8 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithStorageWithProperties(c
 	assertTableEmpty(c, s.TxnRunner(), "charm_storage_property")
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1434,8 +1435,8 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithDevices(c *gc.C) {
 	assertTableEmpty(c, s.TxnRunner(), "charm_device")
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithPayloadClasses(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithPayloadClasses(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1473,8 +1474,8 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithPayloadClasses(c *gc.C)
 	assertTableEmpty(c, s.TxnRunner(), "charm_payload")
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1516,8 +1517,8 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithResources(c *gc.C) {
 	assertTableEmpty(c, s.TxnRunner(), "charm_resource")
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithNoMounts(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithNoMounts(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1555,8 +1556,8 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithNoMounts(
 	assertTableEmpty(c, s.TxnRunner(), "charm_container")
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMounts(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMounts(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Metadata{
 		Name:           "ubuntu",
@@ -1615,8 +1616,8 @@ func (s *stateSuite) TestSetCharmThenGetCharmMetadataWithContainersWithMounts(c 
 	assertTableEmpty(c, s.TxnRunner(), "charm_container_mount")
 }
 
-func (s *stateSuite) TestGetCharmManifest(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmManifest(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -1690,8 +1691,8 @@ INSERT INTO charm_manifest_base (
 	assertTableEmpty(c, s.TxnRunner(), "charm_manifest_base")
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Manifest{
 		Bases: []charm.Base{
@@ -1740,17 +1741,17 @@ func (s *stateSuite) TestSetCharmThenGetCharmManifest(c *gc.C) {
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 	assertTableEmpty(c, s.TxnRunner(), "charm_manifest_base")
 }
-func (s *stateSuite) TestGetCharmManifestNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmManifestCharmNotFound(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmManifest(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestGetCharmLXDProfile(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmLXDProfile(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -1782,17 +1783,17 @@ WHERE uuid = ?
 	assertTableEmpty(c, s.TxnRunner(), "charm")
 }
 
-func (s *stateSuite) TestGetCharmLXDProfileNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmLXDProfileCharmNotFound(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmLXDProfile(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestGetCharmConfig(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmConfig(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -1862,8 +1863,8 @@ INSERT INTO charm_config (
 	})
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmConfig(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmConfig(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Config{
 		Options: map[string]charm.Option{
@@ -1919,17 +1920,17 @@ func (s *stateSuite) TestSetCharmThenGetCharmConfig(c *gc.C) {
 	assertTableEmpty(c, s.TxnRunner(), "charm_config")
 }
 
-func (s *stateSuite) TestGetCharmConfigNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmConfigCharmNotFound(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmConfig(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestGetCharmConfigEmpty(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmConfigEmpty(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -1949,8 +1950,8 @@ func (s *stateSuite) TestGetCharmConfigEmpty(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestGetCharmActions(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmActions(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -1998,8 +1999,8 @@ INSERT INTO charm_action (
 	})
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmActions(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmActions(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	expected := charm.Actions{
 		Actions: map[string]charm.Action{
@@ -2037,17 +2038,17 @@ func (s *stateSuite) TestSetCharmThenGetCharmActions(c *gc.C) {
 	assertTableEmpty(c, s.TxnRunner(), "charm_action")
 }
 
-func (s *stateSuite) TestGetCharmActionsNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmActionsCharmNotFound(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmActions(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
-func (s *stateSuite) TestGetCharmActionsEmpty(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmActionsEmpty(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 	uuid := id.String()
@@ -2067,8 +2068,8 @@ func (s *stateSuite) TestGetCharmActionsEmpty(c *gc.C) {
 	})
 }
 
-func (s *stateSuite) TestSetCharmThenGetCharmArchivePath(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestSetCharmThenGetCharmArchivePath(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id, err := st.SetCharm(context.Background(), charm.Charm{
 		Metadata: charm.Metadata{
@@ -2082,13 +2083,13 @@ func (s *stateSuite) TestSetCharmThenGetCharmArchivePath(c *gc.C) {
 	c.Check(got, gc.DeepEquals, "archive")
 }
 
-func (s *stateSuite) TestGetCharmArchivePathNotFound(c *gc.C) {
-	st := NewState(s.TxnRunnerFactory())
+func (s *charmStateSuite) TestGetCharmArchivePathCharmNotFound(c *gc.C) {
+	st := NewCharmState(domain.NewStateBase(s.TxnRunnerFactory()))
 
 	id := charmtesting.GenCharmID(c)
 
 	_, err := st.GetCharmArchivePath(context.Background(), id)
-	c.Assert(err, jc.ErrorIs, charmerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, applicationerrors.CharmNotFound)
 }
 
 func insertCharmState(ctx context.Context, c *gc.C, tx *sql.Tx, uuid string) error {
@@ -2163,8 +2164,4 @@ func setStateArgs() charm.SetStateArgs {
 		ArchivePath: "archive",
 		Version:     "deadbeef",
 	}
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }

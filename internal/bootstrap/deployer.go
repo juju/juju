@@ -122,6 +122,9 @@ type Application interface {
 type Charm interface {
 	Meta() *charm.Meta
 	Manifest() *charm.Manifest
+	Actions() *charm.Actions
+	Config() *charm.Config
+	Revision() int
 	URL() string
 }
 

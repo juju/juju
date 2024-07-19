@@ -11,10 +11,9 @@ import (
 	"github.com/juju/errors"
 
 	corecharm "github.com/juju/juju/core/charm"
-	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/charm"
-	charmerrors "github.com/juju/juju/domain/charm/errors"
 )
 
 // hashKind is the type of hash to store.
@@ -25,22 +24,22 @@ const (
 	sha256HashKind hashKind = 0
 )
 
-// State is used to access the database.
-type State struct {
+// CharmState is used to access the database.
+type CharmState struct {
 	*domain.StateBase
 }
 
-// NewState creates a state to access the database.
-func NewState(factory coredatabase.TxnRunnerFactory) *State {
-	return &State{
-		StateBase: domain.NewStateBase(factory),
+// NewCharmState creates a state to access the database.
+func NewCharmState(base *domain.StateBase) *CharmState {
+	return &CharmState{
+		StateBase: base,
 	}
 }
 
 // GetCharmIDByRevision returns the charm ID by the natural key, for a
 // specific revision.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) GetCharmIDByRevision(ctx context.Context, name string, revision int) (corecharm.ID, error) {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) GetCharmIDByRevision(ctx context.Context, name string, revision int) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -69,7 +68,7 @@ AND charm_origin.revision = $charmNameRevision.revision;
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, args).Get(&ident); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 			return fmt.Errorf("failed to get charm ID: %w", err)
 		}
@@ -82,8 +81,8 @@ AND charm_origin.revision = $charmNameRevision.revision;
 }
 
 // IsControllerCharm returns whether the charm is a controller charm.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error) {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) IsControllerCharm(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -106,7 +105,7 @@ WHERE uuid = $charmID.uuid;
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, ident).Get(&result); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 			return fmt.Errorf("failed to get charm ID: %w", err)
 		}
@@ -119,8 +118,8 @@ WHERE uuid = $charmID.uuid;
 }
 
 // IsSubordinateCharm returns whether the charm is a subordinate charm.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool, error) {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) IsSubordinateCharm(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -143,7 +142,7 @@ WHERE uuid = $charmID.uuid;
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, ident).Get(&result); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 			return fmt.Errorf("failed to get charm ID: %w", err)
 		}
@@ -156,8 +155,8 @@ WHERE uuid = $charmID.uuid;
 }
 
 // SupportsContainers returns whether the charm supports containers.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) SupportsContainers(ctx context.Context, id corecharm.ID) (bool, error) {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) SupportsContainers(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -182,7 +181,7 @@ WHERE uuid = $charmID.uuid;
 		var result []charmID
 		if err := tx.Query(ctx, stmt, ident).GetAll(&result); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 			return fmt.Errorf("failed to get charm ID: %w", err)
 		}
@@ -201,8 +200,8 @@ WHERE uuid = $charmID.uuid;
 }
 
 // IsCharmAvailable returns whether the charm is available for use.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error) {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) IsCharmAvailable(ctx context.Context, id corecharm.ID) (bool, error) {
 	db, err := s.DB()
 	if err != nil {
 		return false, errors.Trace(err)
@@ -227,7 +226,7 @@ WHERE uuid = $charmID.uuid;
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, ident).Get(&result); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 			return fmt.Errorf("failed to get charm ID: %w", err)
 		}
@@ -240,8 +239,8 @@ WHERE uuid = $charmID.uuid;
 }
 
 // SetCharmAvailable sets the charm as available for use.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) SetCharmAvailable(ctx context.Context, id corecharm.ID) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -275,7 +274,7 @@ WHERE charm_uuid = $charmID.uuid;
 		var result charmID
 		if err := tx.Query(ctx, selectStmt, ident).Get(&result); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 			return fmt.Errorf("failed to set charm available: %w", err)
 		}
@@ -294,7 +293,7 @@ WHERE charm_uuid = $charmID.uuid;
 // ReserveCharmRevision defines a placeholder for a new charm revision.
 // The original charm will need to exist, the returning charm ID will be
 // the new charm ID for the revision.
-func (s *State) ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error) {
+func (s *CharmState) ReserveCharmRevision(ctx context.Context, id corecharm.ID, revision int) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -335,7 +334,7 @@ WHERE uuid = $charmID.uuid;
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, selectStmt, ident).Get(&charmResult); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 			return fmt.Errorf("failed to reserve charm revision: %w", err)
 		}
@@ -362,8 +361,8 @@ WHERE uuid = $charmID.uuid;
 
 // GetCharmArchivePath returns the archive storage path for the charm using
 // the charm ID.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) GetCharmArchivePath(ctx context.Context, id corecharm.ID) (string, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -386,7 +385,7 @@ WHERE uuid = $charmID.uuid;
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, ident).Get(&archivePath); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 			return fmt.Errorf("failed to get charm archive path: %w", err)
 		}
@@ -399,8 +398,8 @@ WHERE uuid = $charmID.uuid;
 }
 
 // GetCharmMetadata returns the metadata for the charm using the charm ID.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Metadata, error) {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Metadata, error) {
 	db, err := s.DB()
 	if err != nil {
 		return charm.Metadata{}, errors.Trace(err)
@@ -496,8 +495,8 @@ func (s *State) GetCharmMetadata(ctx context.Context, id corecharm.ID) (charm.Me
 }
 
 // GetCharmManifest returns the manifest for the charm using the charm ID.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Manifest, error) {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) GetCharmManifest(ctx context.Context, id corecharm.ID) (charm.Manifest, error) {
 	db, err := s.DB()
 	if err != nil {
 		return charm.Manifest{}, errors.Trace(err)
@@ -521,7 +520,7 @@ ORDER BY array_index ASC;
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, ident).GetAll(&manifests); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 			return fmt.Errorf("failed to get charm manifest: %w", err)
 		}
@@ -535,8 +534,8 @@ ORDER BY array_index ASC;
 
 // GetCharmLXDProfile returns the LXD profile for the charm using the
 // charm ID.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte, error) {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) GetCharmLXDProfile(ctx context.Context, id corecharm.ID) ([]byte, error) {
 	db, err := s.DB()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -559,7 +558,7 @@ WHERE uuid = $charmID.uuid;
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, stmt, ident).Get(&profile); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 			return fmt.Errorf("failed to get charm lxd profile: %w", err)
 		}
@@ -572,8 +571,8 @@ WHERE uuid = $charmID.uuid;
 }
 
 // GetCharmConfig returns the config for the charm using the charm ID.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Config, error) {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) GetCharmConfig(ctx context.Context, id corecharm.ID) (charm.Config, error) {
 	db, err := s.DB()
 	if err != nil {
 		return charm.Config{}, errors.Trace(err)
@@ -605,7 +604,7 @@ WHERE charm_uuid = $charmID.uuid;
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 		}
 
@@ -624,8 +623,8 @@ WHERE charm_uuid = $charmID.uuid;
 }
 
 // GetCharmActions returns the actions for the charm using the charm ID.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Actions, error) {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) GetCharmActions(ctx context.Context, id corecharm.ID) (charm.Actions, error) {
 	db, err := s.DB()
 	if err != nil {
 		return charm.Actions{}, errors.Trace(err)
@@ -657,7 +656,7 @@ WHERE charm_uuid = $charmID.uuid;
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, charmStmt, ident).Get(&ident); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 		}
 
@@ -677,7 +676,7 @@ WHERE charm_uuid = $charmID.uuid;
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *State) SetCharm(ctx context.Context, charm charm.Charm, charmArgs charm.SetStateArgs) (corecharm.ID, error) {
+func (s *CharmState) SetCharm(ctx context.Context, charm charm.Charm, charmArgs charm.SetStateArgs) (corecharm.ID, error) {
 	db, err := s.DB()
 	if err != nil {
 		return "", errors.Trace(err)
@@ -797,8 +796,8 @@ type deleteStatement struct {
 }
 
 // DeleteCharm removes the charm from the state.
-// If the charm does not exist, a NotFound error is returned.
-func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
+// If the charm does not exist, a [errors.CharmNotFound] error is returned.
+func (s *CharmState) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 	db, err := s.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -833,7 +832,7 @@ func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 	if err := db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		if err := tx.Query(ctx, selectQuery, charmID{UUID: id.String()}).Get(&charmID{}); err != nil {
 			if errors.Is(err, sqlair.ErrNoRows) {
-				return charmerrors.NotFound
+				return applicationerrors.CharmNotFound
 			}
 		}
 
@@ -859,7 +858,7 @@ func (s *State) DeleteCharm(ctx context.Context, id corecharm.ID) error {
 
 // getCharmMetadata returns the metadata for the charm using the charm ID.
 // This is the core metadata for the charm.
-func (s *State) getCharmMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (charmMetadata, error) {
+func (s *CharmState) getCharmMetadata(ctx context.Context, tx *sqlair.TX, ident charmID) (charmMetadata, error) {
 	query := `
 SELECT &charmMetadata.*
 FROM v_charm
@@ -873,7 +872,7 @@ WHERE uuid = $charmID.uuid;
 
 	if err := tx.Query(ctx, stmt, ident).Get(&metadata); err != nil {
 		if errors.Is(err, sqlair.ErrNoRows) {
-			return metadata, charmerrors.NotFound
+			return metadata, applicationerrors.CharmNotFound
 		}
 		return metadata, fmt.Errorf("failed to select charm metadata: %w", err)
 	}
@@ -888,7 +887,7 @@ WHERE uuid = $charmID.uuid;
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Tags are expected to be unique, no duplicates are expected.
-func (s *State) getCharmTags(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmTag, error) {
+func (s *CharmState) getCharmTags(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmTag, error) {
 	query := `
 SELECT &charmTag.*
 FROM charm_tag
@@ -918,7 +917,7 @@ ORDER BY array_index ASC;
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Categories are expected to be unique, no duplicates are expected.
-func (s *State) getCharmCategories(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmCategory, error) {
+func (s *CharmState) getCharmCategories(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmCategory, error) {
 	query := `
 SELECT &charmCategory.*
 FROM charm_category
@@ -948,7 +947,7 @@ ORDER BY array_index ASC;
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Terms are expected to be unique, no duplicates are expected.
-func (s *State) getCharmTerms(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmTerm, error) {
+func (s *CharmState) getCharmTerms(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmTerm, error) {
 	query := `
 SELECT &charmTerm.*
 FROM charm_term
@@ -976,7 +975,7 @@ ORDER BY array_index ASC;
 // is required to separate the relations into provides, requires and peers.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *State) getCharmRelations(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmRelation, error) {
+func (s *CharmState) getCharmRelations(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmRelation, error) {
 	query := `
 SELECT &charmRelation.*
 FROM v_charm_relation
@@ -1004,7 +1003,7 @@ WHERE charm_uuid = $charmID.uuid;
 // gains support for scalar types, this can be changed.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *State) getCharmExtraBindings(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmExtraBinding, error) {
+func (s *CharmState) getCharmExtraBindings(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmExtraBinding, error) {
 	query := `
 SELECT &charmExtraBinding.*
 FROM charm_extra_binding
@@ -1031,7 +1030,7 @@ WHERE charm_uuid = $charmID.uuid;
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
 // Charm properties are expected to be unique, no duplicates are expected.
-func (s *State) getCharmStorage(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmStorage, error) {
+func (s *CharmState) getCharmStorage(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmStorage, error) {
 	query := `
 SELECT &charmStorage.*
 FROM v_charm_storage
@@ -1058,7 +1057,7 @@ ORDER BY property_index ASC;
 // getCharmDevices returns the devices for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *State) getCharmDevices(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmDevice, error) {
+func (s *CharmState) getCharmDevices(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmDevice, error) {
 	query := `
 SELECT &charmDevice.*
 FROM charm_device
@@ -1084,7 +1083,7 @@ WHERE charm_uuid = $charmID.uuid;
 // getCharmPayloads returns the payloads for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *State) getCharmPayloads(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmPayload, error) {
+func (s *CharmState) getCharmPayloads(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmPayload, error) {
 	query := `
 SELECT &charmPayload.*
 FROM charm_payload
@@ -1110,7 +1109,7 @@ WHERE charm_uuid = $charmID.uuid;
 // getCharmResources returns the resources for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *State) getCharmResources(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmResource, error) {
+func (s *CharmState) getCharmResources(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmResource, error) {
 	query := `
 SELECT &charmResource.*
 FROM v_charm_resource
@@ -1136,7 +1135,7 @@ WHERE charm_uuid = $charmID.uuid;
 // getCharmContainers returns the containers for the charm using the charm ID.
 // If the charm does not exist, no error is returned. It is expected that
 // the caller will handle this case.
-func (s *State) getCharmContainers(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmContainer, error) {
+func (s *CharmState) getCharmContainers(ctx context.Context, tx *sqlair.TX, ident charmID) ([]charmContainer, error) {
 	query := `
 SELECT &charmContainer.*
 FROM v_charm_container
@@ -1160,7 +1159,7 @@ ORDER BY array_index ASC;
 	return result, nil
 }
 
-func (s *State) checkSetCharmExists(ctx context.Context, tx *sqlair.TX, id corecharm.ID, name string, revision int) error {
+func (s *CharmState) checkSetCharmExists(ctx context.Context, tx *sqlair.TX, id corecharm.ID, name string, revision int) error {
 	selectQuery := `
 SELECT charm.uuid AS &charmID.*
 FROM charm
@@ -1183,10 +1182,10 @@ WHERE charm.name = $charmNameRevision.name AND charm_origin.revision = $charmNam
 		return fmt.Errorf("failed to check charm exists: %w", err)
 	}
 
-	return charmerrors.AlreadyExists
+	return applicationerrors.CharmAlreadyExists
 }
 
-func (s *State) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID, hash string) error {
+func (s *CharmState) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID, hash string) error {
 	ident := charmID{UUID: id.String()}
 	args := setCharmHash{
 		CharmUUID:  ident.UUID,
@@ -1207,7 +1206,7 @@ func (s *State) setCharmHash(ctx context.Context, tx *sqlair.TX, id corecharm.ID
 	return nil
 }
 
-func (s *State) setCharmInitialOrigin(
+func (s *CharmState) setCharmInitialOrigin(
 	ctx context.Context, tx *sqlair.TX, id corecharm.ID,
 	source charm.CharmSource, revision int, version string) error {
 	ident := charmID{UUID: id.String()}
@@ -1237,7 +1236,7 @@ func (s *State) setCharmInitialOrigin(
 	return nil
 }
 
-func (s *State) setCharmMetadata(
+func (s *CharmState) setCharmMetadata(
 	ctx context.Context,
 	tx *sqlair.TX,
 	id corecharm.ID,
@@ -1264,7 +1263,7 @@ func (s *State) setCharmMetadata(
 	return nil
 }
 
-func (s *State) setCharmTags(ctx context.Context, tx *sqlair.TX, id corecharm.ID, tags []string) error {
+func (s *CharmState) setCharmTags(ctx context.Context, tx *sqlair.TX, id corecharm.ID, tags []string) error {
 	// If there are no tags, we don't need to do anything.
 	if len(tags) == 0 {
 		return nil
@@ -1283,7 +1282,7 @@ func (s *State) setCharmTags(ctx context.Context, tx *sqlair.TX, id corecharm.ID
 	return nil
 }
 
-func (s *State) setCharmCategories(ctx context.Context, tx *sqlair.TX, id corecharm.ID, categories []string) error {
+func (s *CharmState) setCharmCategories(ctx context.Context, tx *sqlair.TX, id corecharm.ID, categories []string) error {
 	// If there are no categories, we don't need to do anything.
 	if len(categories) == 0 {
 		return nil
@@ -1302,7 +1301,7 @@ func (s *State) setCharmCategories(ctx context.Context, tx *sqlair.TX, id corech
 	return nil
 }
 
-func (s *State) setCharmTerms(ctx context.Context, tx *sqlair.TX, id corecharm.ID, terms []string) error {
+func (s *CharmState) setCharmTerms(ctx context.Context, tx *sqlair.TX, id corecharm.ID, terms []string) error {
 	// If there are no terms, we don't need to do anything.
 	if len(terms) == 0 {
 		return nil
@@ -1321,7 +1320,7 @@ func (s *State) setCharmTerms(ctx context.Context, tx *sqlair.TX, id corecharm.I
 	return nil
 }
 
-func (s *State) setCharmRelations(ctx context.Context, tx *sqlair.TX, id corecharm.ID, metadata charm.Metadata) error {
+func (s *CharmState) setCharmRelations(ctx context.Context, tx *sqlair.TX, id corecharm.ID, metadata charm.Metadata) error {
 	encodedRelations, err := encodeRelations(id, metadata)
 	if err != nil {
 		return fmt.Errorf("failed to encode charm relations: %w", err)
@@ -1345,7 +1344,7 @@ func (s *State) setCharmRelations(ctx context.Context, tx *sqlair.TX, id corecha
 	return nil
 }
 
-func (s *State) setCharmExtraBindings(ctx context.Context, tx *sqlair.TX, id corecharm.ID, extraBindings map[string]charm.ExtraBinding) error {
+func (s *CharmState) setCharmExtraBindings(ctx context.Context, tx *sqlair.TX, id corecharm.ID, extraBindings map[string]charm.ExtraBinding) error {
 	// If there is no extraBindings, we don't need to do anything.
 	if len(extraBindings) == 0 {
 		return nil
@@ -1364,7 +1363,7 @@ func (s *State) setCharmExtraBindings(ctx context.Context, tx *sqlair.TX, id cor
 	return nil
 }
 
-func (s *State) setCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm.ID, storage map[string]charm.Storage) error {
+func (s *CharmState) setCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm.ID, storage map[string]charm.Storage) error {
 	// If there is no storage, we don't need to do anything.
 	if len(storage) == 0 {
 		return nil
@@ -1400,7 +1399,7 @@ func (s *State) setCharmStorage(ctx context.Context, tx *sqlair.TX, id corecharm
 	return nil
 }
 
-func (s *State) setCharmDevices(ctx context.Context, tx *sqlair.TX, id corecharm.ID, devices map[string]charm.Device) error {
+func (s *CharmState) setCharmDevices(ctx context.Context, tx *sqlair.TX, id corecharm.ID, devices map[string]charm.Device) error {
 	// If there are no devices, we don't need to do anything.
 	if len(devices) == 0 {
 		return nil
@@ -1419,7 +1418,7 @@ func (s *State) setCharmDevices(ctx context.Context, tx *sqlair.TX, id corecharm
 	return nil
 }
 
-func (s *State) setCharmPayloads(ctx context.Context, tx *sqlair.TX, id corecharm.ID, payloads map[string]charm.PayloadClass) error {
+func (s *CharmState) setCharmPayloads(ctx context.Context, tx *sqlair.TX, id corecharm.ID, payloads map[string]charm.PayloadClass) error {
 	// If there are no payloads, we don't need to do anything.
 	if len(payloads) == 0 {
 		return nil
@@ -1438,7 +1437,7 @@ func (s *State) setCharmPayloads(ctx context.Context, tx *sqlair.TX, id corechar
 	return nil
 }
 
-func (s *State) setCharmResources(ctx context.Context, tx *sqlair.TX, id corecharm.ID, resources map[string]charm.Resource) error {
+func (s *CharmState) setCharmResources(ctx context.Context, tx *sqlair.TX, id corecharm.ID, resources map[string]charm.Resource) error {
 	// If there are no resources, we don't need to do anything.
 	if len(resources) == 0 {
 		return nil
@@ -1462,7 +1461,7 @@ func (s *State) setCharmResources(ctx context.Context, tx *sqlair.TX, id corecha
 	return nil
 }
 
-func (s *State) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corecharm.ID, containers map[string]charm.Container) error {
+func (s *CharmState) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corecharm.ID, containers map[string]charm.Container) error {
 	// If there are no containers, we don't need to do anything.
 	if len(containers) == 0 {
 		return nil
@@ -1499,7 +1498,7 @@ func (s *State) setCharmContainers(ctx context.Context, tx *sqlair.TX, id corech
 	return nil
 }
 
-func (s *State) setCharmActions(ctx context.Context, tx *sqlair.TX, id corecharm.ID, actions charm.Actions) error {
+func (s *CharmState) setCharmActions(ctx context.Context, tx *sqlair.TX, id corecharm.ID, actions charm.Actions) error {
 	// If there are no resources, we don't need to do anything.
 	if len(actions.Actions) == 0 {
 		return nil
@@ -1518,7 +1517,7 @@ func (s *State) setCharmActions(ctx context.Context, tx *sqlair.TX, id corecharm
 	return nil
 }
 
-func (s *State) setCharmConfig(ctx context.Context, tx *sqlair.TX, id corecharm.ID, config charm.Config) error {
+func (s *CharmState) setCharmConfig(ctx context.Context, tx *sqlair.TX, id corecharm.ID, config charm.Config) error {
 	// If there are no resources, we don't need to do anything.
 	if len(config.Options) == 0 {
 		return nil
@@ -1542,7 +1541,7 @@ func (s *State) setCharmConfig(ctx context.Context, tx *sqlair.TX, id corecharm.
 	return nil
 }
 
-func (s *State) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corecharm.ID, manifest charm.Manifest) error {
+func (s *CharmState) setCharmManifest(ctx context.Context, tx *sqlair.TX, id corecharm.ID, manifest charm.Manifest) error {
 	// If there are no resources, we don't need to do anything.
 	if len(manifest.Bases) == 0 {
 		return nil
