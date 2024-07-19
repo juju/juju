@@ -1583,7 +1583,7 @@ func (task *provisionerTask) gatherCharmLXDProfiles(
 		return nil, errors.Trace(err)
 	}
 
-	return lxdprofile.LXDProfileNames(profileNames), nil
+	return lxdprofile.FilterLXDProfileNames(profileNames), nil
 }
 
 // markMachineFailedInAZ moves the machine in zone from MachineIds to FailedMachineIds
