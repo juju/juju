@@ -665,27 +665,27 @@ func (s *serviceSuite) TestMarkMachineForRemovalError(c *gc.C) {
 	c.Check(err, jc.ErrorIs, rErr)
 }
 
-// TestAllMachineRemovalsSuccess asserts the happy path of the
-// AllMachineRemovals service.
-func (s *serviceSuite) TestAllMachineRemovalsSuccess(c *gc.C) {
+// TestGetAllMachineRemovalsSuccess asserts the happy path of the
+// GetAllMachineRemovals service.
+func (s *serviceSuite) TestGetAllMachineRemovalsSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().AllMachineRemovals(gomock.Any()).Return([]string{"666"}, nil)
+	s.state.EXPECT().GetAllMachineRemovals(gomock.Any()).Return([]string{"666"}, nil)
 
-	machineRemovals, err := NewService(s.state).AllMachineRemovals(context.Background())
+	machineRemovals, err := NewService(s.state).GetAllMachineRemovals(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(machineRemovals, gc.DeepEquals, []string{"666"})
 }
 
-// TestAllMachineRemovalsError asserts that an error coming from the state layer
-// is preserved, passed over to the service layer to be maintained there.
-func (s *serviceSuite) TestAllMachineRemovalsError(c *gc.C) {
+// TestGetAllMachineRemovalsError asserts that an error coming from the state
+// layer is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestGetAllMachineRemovalsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().AllMachineRemovals(gomock.Any()).Return(nil, rErr)
+	s.state.EXPECT().GetAllMachineRemovals(gomock.Any()).Return(nil, rErr)
 
-	machineRemovals, err := NewService(s.state).AllMachineRemovals(context.Background())
+	machineRemovals, err := NewService(s.state).GetAllMachineRemovals(context.Background())
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Check(machineRemovals, gc.IsNil)
 }

@@ -118,6 +118,30 @@ type machineParent struct {
 	ParentUUID  string `db:"parent_uuid"`
 }
 
+// uuidSliceTransform is a function that is used to transform a slice of
+// machineUUID into a slice of string.
+func (s machineMarkForRemoval) uuidSliceTransform() string {
+	return s.UUID
+}
+
+// nameSliceTransform is a function that is used to transform a slice of
+// machineName into a slice of machine.Name.
+func (s machineName) nameSliceTransform() machine.Name {
+	return s.Name
+}
+
+// dataMapTransformFunc is a function that is used to transform a slice of
+// machineStatusWithData into a map.
+func (s machineStatusWithData) dataMapTransformFunc() (string, interface{}) {
+	return s.Key, s.Data
+}
+
+// dataSliceTransformFunc is a function that is used to transform a map into a
+// slice of machineStatusWithData.
+func dataSliceTransformFunc(key string, value interface{}) []machineStatusWithData {
+	return []machineStatusWithData{{Key: key, Data: value.(string)}}
+}
+
 // toCoreMachineStatusValue converts an internal status used by machines (per
 // the machine_status_value table) into a core type status.Status.
 func (s *machineStatusWithData) toCoreMachineStatusValue() status.Status {
