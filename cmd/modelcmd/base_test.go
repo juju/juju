@@ -13,9 +13,11 @@ import (
 	"github.com/juju/cmd/v3"
 	"github.com/juju/cmd/v3/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/names/v5"
 	cookiejar "github.com/juju/persistent-cookiejar"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
@@ -24,6 +26,7 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/cmd/modelcmd/mocks"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -187,6 +190,42 @@ To access it run 'juju switch bar:admin/badmodel'.`,
 		c.Assert(err, gc.Not(gc.IsNil))
 		c.Assert(err.Error(), gc.Equals, spec.expErr)
 	}
+}
+
+func (s *BaseCommandSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	return ctrl
+}
+
+func (s *BaseCommandSuite) TestNewAPIRootExternalUser(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	conn := mocks.NewMockConnection(ctrl)
+	apiOpen := func(info *api.Info, opts api.DialOpts) (api.Connection, error) {
+		return conn, nil
+	}
+	externalName := "alastair@external"
+	conn.EXPECT().AuthTag().Return(names.NewUserTag(externalName)).MinTimes(1)
+	conn.EXPECT().APIHostPorts()
+	conn.EXPECT().ServerVersion()
+	conn.EXPECT().Addr()
+	conn.EXPECT().IPAddr()
+	conn.EXPECT().PublicDNSName()
+	conn.EXPECT().ControllerAccess().MinTimes(1)
+
+	s.store.Accounts["foo"] = jujuclient.AccountDetails{
+		User: externalName,
+	}
+
+	baseCmd := new(modelcmd.ModelCommandBase)
+	baseCmd.SetClientStore(s.store)
+	baseCmd.SetAPIOpen(apiOpen)
+	modelcmd.InitContexts(&cmd.Context{Stderr: io.Discard}, baseCmd)
+	modelcmd.SetRunStarted(baseCmd)
+
+	c.Assert(baseCmd.SetModelIdentifier("foo:admin/badmodel", false), jc.ErrorIsNil)
+
+	_, err := baseCmd.NewAPIRoot()
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type NewGetBootstrapConfigParamsFuncSuite struct {
