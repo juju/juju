@@ -220,7 +220,7 @@ func (s *downloadSuite) TestRunWithInvalidStdout(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `expected a charm or bundle name, followed by hyphen to pipe to stdout`)
 
 	err = cmdtesting.InitCommand(command, []string{"test", "--resources", "-"})
-	c.Check(err, gc.ErrorMatches, `cannot pipe to stdout and download resources: pass --no-resources to download to stdout`)
+	c.Check(err, gc.ErrorMatches, `cannot pipe to stdout and download resources: do not pass --resources to download to stdout`)
 }
 
 func (s *downloadSuite) TestRunWithRevision(c *gc.C) {

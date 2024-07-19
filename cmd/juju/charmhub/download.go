@@ -73,7 +73,6 @@ type downloadCommand struct {
 	pipeToStdout  bool
 	noProgress    bool
 	resources     bool
-	noResources   bool
 }
 
 // Info returns help related download about the command, it implements
@@ -106,7 +105,6 @@ func (c *downloadCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.archivePath, "filepath", "", "filepath location of the charm to download to")
 	f.BoolVar(&c.noProgress, "no-progress", false, "disable the progress bar")
 	f.BoolVar(&c.resources, "resources", false, "download the resources associated with the charm (will be DEPRECATED and default behaviour in 4.0)")
-	f.BoolVar(&c.noResources, "no-resources", false, "disable downloading the resources associated with the charm")
 }
 
 // Init initializes the download command, including validating the provided
@@ -138,8 +136,8 @@ func (c *downloadCommand) Init(args []string) error {
 		c.pipeToStdout = true
 	}
 
-	if c.pipeToStdout && c.resources && !c.noResources {
-		return errors.Errorf("cannot pipe to stdout and download resources: pass --no-resources to download to stdout")
+	if c.pipeToStdout && c.resources {
+		return errors.Errorf("cannot pipe to stdout and download resources: do not pass --resources to download to stdout")
 	}
 
 	curl, err := c.validateCharmOrBundle(args[0])
@@ -288,7 +286,7 @@ Calculated: %s`, c.charmOrBundle, entitySHA, calculatedHash)
 	}
 
 	rscPaths := make(map[string]string)
-	if c.resources && !c.noResources {
+	if c.resources {
 		dir := filepath.Dir(path)
 
 		for _, resource := range entity.Resources {
@@ -327,7 +325,7 @@ Calculated: %s`, c.charmOrBundle, resource.Name, resource.Download.HashSHA256, r
 		path = fmt.Sprintf("./%s", path)
 	}
 
-	if c.resources && !c.noResources && len(entity.Resources) > 0 {
+	if c.resources && len(entity.Resources) > 0 {
 		resourceArgs := []string{}
 		for _, resource := range entity.Resources {
 			rscPath := rscPaths[resource.Name]
