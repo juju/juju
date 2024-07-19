@@ -29,6 +29,10 @@ type State interface {
 	// for the machines.
 	InitialWatchStatement() (string, string)
 
+	// InitialWatchModelMachinesStatement returns the table and the initial watch
+	// statement for watching life changes of non-container machines.
+	InitialWatchModelMachinesStatement() (string, string)
+
 	// GetMachineLife returns the life status of the specified machine.
 	// It returns a NotFound if the given machine doesn't exist.
 	GetMachineLife(context.Context, coremachine.Name) (*life.Life, error)
@@ -135,7 +139,7 @@ func (s *Service) DeleteMachine(ctx context.Context, machineName coremachine.Nam
 	return errors.Annotatef(err, "deleting machine %q", machineName)
 }
 
-// GetLife returns the GetMachineLife status of the specified machine.
+// GetMachineLife returns the GetMachineLife status of the specified machine.
 // It returns a NotFound if the given machine doesn't exist.
 func (s *Service) GetMachineLife(ctx context.Context, machineName coremachine.Name) (*life.Life, error) {
 	life, err := s.st.GetMachineLife(ctx, machineName)

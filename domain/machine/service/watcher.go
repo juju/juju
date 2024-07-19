@@ -7,12 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/juju/juju/core/machine"
 	"strings"
 
 	"github.com/juju/collections/transform"
+
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/eventsource"
 )
