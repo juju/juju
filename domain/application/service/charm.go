@@ -425,7 +425,7 @@ func encodeCharm(ch internalcharm.Charm) (charm.Charm, []string, error) {
 	}
 
 	var profile []byte
-	if lxdProfile, ok := ch.(internalcharm.LXDProfiler); ok {
+	if lxdProfile, ok := ch.(internalcharm.LXDProfiler); ok && lxdProfile != nil {
 		profile, err = encodeLXDProfile(lxdProfile.LXDProfile())
 		if err != nil {
 			return charm.Charm{}, warnings, fmt.Errorf("encode lxd profile: %w", err)

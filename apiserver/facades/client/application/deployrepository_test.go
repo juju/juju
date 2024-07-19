@@ -1181,10 +1181,9 @@ func (s *deployRepositorySuite) TestDeployFromRepositoryAPI(c *gc.C) {
 	}
 	s.state.EXPECT().ReadSequence("metadata-name").Return(0, nil)
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
-	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", applicationservice.AddApplicationParams{
-		Charm:   s.charm,
+	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", s.charm, applicationservice.AddApplicationArgs{
 		Storage: nil,
-	}, applicationservice.AddUnitParams{UnitName: ptr("metadata-name/0")})
+	}, applicationservice.AddUnitArg{UnitName: ptr("metadata-name/0")})
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI(c)
 
 	obtainedInfo, resources, errs := deployFromRepositoryAPI.DeployFromRepository(context.Background(), arg)
@@ -1314,10 +1313,9 @@ func (s *deployRepositorySuite) TestAddPendingResourcesForDeployFromRepositoryAP
 	}
 	s.state.EXPECT().ReadSequence("metadata-name").Return(0, nil)
 	s.state.EXPECT().AddApplication(addApplicationArgsMatcher{c: c, expectedArgs: addAppArgs}, gomock.Any()).Return(s.application, nil)
-	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", applicationservice.AddApplicationParams{
-		Charm:   s.charm,
+	s.applicationService.EXPECT().CreateApplication(gomock.Any(), "metadata-name", s.charm, applicationservice.AddApplicationArgs{
 		Storage: nil,
-	}, applicationservice.AddUnitParams{UnitName: ptr("metadata-name/0")})
+	}, applicationservice.AddUnitArg{UnitName: ptr("metadata-name/0")})
 
 	deployFromRepositoryAPI := s.getDeployFromRepositoryAPI(c)
 

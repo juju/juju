@@ -494,6 +494,7 @@ CREATE TABLE charm_action (
 CREATE TABLE charm_manifest_base (
     charm_uuid TEXT NOT NULL,
     array_index INT NOT NULL,
+    nested_array_index INT NOT NULL,
     os_id INT DEFAULT 0,
     track TEXT,
     risk TEXT NOT NULL,
@@ -508,13 +509,14 @@ CREATE TABLE charm_manifest_base (
     CONSTRAINT fk_charm_manifest_base_architecture
     FOREIGN KEY (architecture_id)
     REFERENCES architecture (id),
-    PRIMARY KEY (charm_uuid, array_index, os_id, track, risk, branch, architecture_id)
+    PRIMARY KEY (charm_uuid, array_index, nested_array_index, os_id, track, risk, branch, architecture_id)
 );
 
 CREATE VIEW v_charm_manifest AS
 SELECT
     cmb.charm_uuid,
     cmb.array_index,
+    cmb.nested_array_index,
     cmb.track,
     cmb.risk,
     cmb.branch,

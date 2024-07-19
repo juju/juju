@@ -11,9 +11,11 @@ import (
 	"github.com/juju/collections/transform"
 	"github.com/juju/errors"
 
+	coreapplication "github.com/juju/juju/core/application"
+	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/logger"
-	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	"github.com/juju/juju/domain/life"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -23,22 +25,113 @@ import (
 
 // ApplicationState describes retrieval and persistence methods for storage.
 type ApplicationState struct {
-	*domain.StateBase
+	*commonStateBase
 	logger logger.Logger
 }
 
 // NewApplicationState returns a new state reference.
-func NewApplicationState(base *domain.StateBase, logger logger.Logger) *ApplicationState {
+func NewApplicationState(base *commonStateBase, logger logger.Logger) *ApplicationState {
 	return &ApplicationState{
-		StateBase: base,
-		logger:    logger,
+		commonStateBase: base,
+		logger:          logger,
 	}
+}
+
+// CreateApplication creates an application, whilst inserting a charm into the
+// database.
+func (st *ApplicationState) CreateApplication(ctx context.Context, name string, charm charm.Charm, units ...application.AddUnitArg) (coreapplication.ID, error) {
+	db, err := st.DB()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	appID, err := coreapplication.NewID()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	charmID, err := corecharm.NewID()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	createApplication := `
+INSERT INTO application (uuid, charm_uuid, name, life_id)
+VALUES ($M.application_uuid, $M.charm_uuid, $M.name, $M.life_id)
+`
+	createApplicationStmt, err := st.Prepare(createApplication, sqlair.M{})
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	upsertUnitFunc, err := st.upsertUnitFuncGetter()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Check if the application already exists.
+		if err := st.checkApplicationExists(ctx, tx, name); err != nil {
+			return fmt.Errorf("checking if application %q exists: %w", name, err)
+		}
+
+		// Insert the charm.
+		if err := st.setCharm(ctx, tx, charmID, charm, ""); err != nil {
+			return errors.Annotate(err, "setting charm")
+		}
+
+		// If the application doesn't exist, create it.
+		err := tx.Query(ctx, createApplicationStmt, sqlair.M{
+			"application_uuid": appID.String(),
+			"charm_uuid":       charmID.String(),
+			"name":             name,
+			"life_id":          life.Alive,
+		}).Run()
+		if err != nil {
+			return errors.Annotatef(err, "creating row for application %q", name)
+		}
+
+		if len(units) == 0 {
+			return nil
+		}
+
+		for _, u := range units {
+			if err := upsertUnitFunc(ctx, tx, name, u); err != nil {
+				return fmt.Errorf("adding unit for application %q: %w", name, err)
+			}
+		}
+
+		return nil
+	})
+	return appID, errors.Annotatef(err, "creating application %q", name)
+}
+
+func (st *ApplicationState) checkApplicationExists(ctx context.Context, tx *sqlair.TX, name string) error {
+	var appID applicationID
+	appName := applicationName{Name: name}
+	query := `
+SELECT application.uuid AS &applicationID.*
+FROM application 
+WHERE name = $applicationName.name
+`
+	existsQueryStmt, err := st.Prepare(query, appID, appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := tx.Query(ctx, existsQueryStmt, appName).Get(&appID); err != nil {
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("checking if application %q exists: %w", name, err)
+	}
+	return applicationerrors.ApplicationAlreadyExists
 }
 
 // UpsertApplication creates or updates the specified application,
 // also adding any units if specified.
 // TODO - this just creates a minimal row for now.
-func (st *ApplicationState) UpsertApplication(ctx context.Context, name string, units ...application.AddUnitParams) error {
+func (st *ApplicationState) UpsertApplication(ctx context.Context, name string, units ...application.AddUnitArg) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -164,7 +257,7 @@ func (st *ApplicationState) DeleteApplication(ctx context.Context, name string) 
 
 // AddUnits adds the specified units to the application.
 // TODO - this just creates a minimal row for now.
-func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitParams) error {
+func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string, args ...application.AddUnitArg) error {
 	db, err := st.DB()
 	if err != nil {
 		return errors.Trace(err)
@@ -186,7 +279,7 @@ func (st *ApplicationState) AddUnits(ctx context.Context, applicationName string
 }
 
 // upsertUnitFunc is a function which adds a unit in the specified transaction.
-type upsertUnitFunc func(ctx context.Context, tx *sqlair.TX, appName string, params application.AddUnitParams) error
+type upsertUnitFunc func(ctx context.Context, tx *sqlair.TX, appName string, params application.AddUnitArg) error
 
 // upsertUnitFuncGetter returns a function which can be called as many times
 // as needed to add units, ensuring that statement preparation is only done once.
@@ -219,7 +312,7 @@ VALUES ($M.unit_uuid, $M.net_node_uuid, $M.name, $M.life_id, $M.application_uuid
 		return nil, errors.Trace(err)
 	}
 
-	return func(ctx context.Context, tx *sqlair.TX, applicationName string, args application.AddUnitParams) error {
+	return func(ctx context.Context, tx *sqlair.TX, applicationName string, args application.AddUnitArg) error {
 		// TODO - we are mirroring what's in mongo, hence the unit name is known.
 		// In future we'll need to use a sequence to get a new unit id.
 		if args.UnitName == nil {

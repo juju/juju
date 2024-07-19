@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/core/arch"
 	"github.com/juju/juju/core/base"
 	"github.com/juju/juju/core/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 )
 
 var (
@@ -68,6 +69,25 @@ func (s *ControllerSuite) TestPopulateControllerCharmCharmhubCharm(c *gc.C) {
 	s.expectLocalCharmNotFound()
 	s.expectCharmhubDeployment(origin)
 	s.expectAddApplication(origin)
+	s.expectCompletion()
+
+	err := PopulateControllerCharm(context.Background(), s.deployer)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ControllerSuite) TestPopulateControllerAlreadyExists(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	origin := charm.Origin{
+		Source: charm.CharmHub,
+		ID:     "deadbeef",
+	}
+
+	s.expectControllerAddress()
+	s.expectCharmInfo()
+	s.expectLocalCharmNotFound()
+	s.expectCharmhubDeployment(origin)
+	s.deployer.EXPECT().AddControllerApplication(gomock.Any(), "juju-controller", origin, "10.0.0.1").Return(s.unit, applicationerrors.ApplicationAlreadyExists)
 	s.expectCompletion()
 
 	err := PopulateControllerCharm(context.Background(), s.deployer)

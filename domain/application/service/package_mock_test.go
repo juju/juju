@@ -13,10 +13,11 @@ import (
 	context "context"
 	reflect "reflect"
 
+	application "github.com/juju/juju/core/application"
 	changestream "github.com/juju/juju/core/changestream"
 	charm "github.com/juju/juju/core/charm"
 	watcher "github.com/juju/juju/core/watcher"
-	application "github.com/juju/juju/domain/application"
+	application0 "github.com/juju/juju/domain/application"
 	charm0 "github.com/juju/juju/domain/application/charm"
 	storage "github.com/juju/juju/domain/storage"
 	gomock "go.uber.org/mock/gomock"
@@ -46,7 +47,7 @@ func (m *MockApplicationState) EXPECT() *MockApplicationStateMockRecorder {
 }
 
 // AddUnits mocks base method.
-func (m *MockApplicationState) AddUnits(arg0 context.Context, arg1 string, arg2 ...application.AddUnitParams) error {
+func (m *MockApplicationState) AddUnits(arg0 context.Context, arg1 string, arg2 ...application0.AddUnitArg) error {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
@@ -77,13 +78,57 @@ func (c *MockApplicationStateAddUnitsCall) Return(arg0 error) *MockApplicationSt
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateAddUnitsCall) Do(f func(context.Context, string, ...application.AddUnitParams) error) *MockApplicationStateAddUnitsCall {
+func (c *MockApplicationStateAddUnitsCall) Do(f func(context.Context, string, ...application0.AddUnitArg) error) *MockApplicationStateAddUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateAddUnitsCall) DoAndReturn(f func(context.Context, string, ...application.AddUnitParams) error) *MockApplicationStateAddUnitsCall {
+func (c *MockApplicationStateAddUnitsCall) DoAndReturn(f func(context.Context, string, ...application0.AddUnitArg) error) *MockApplicationStateAddUnitsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// CreateApplication mocks base method.
+func (m *MockApplicationState) CreateApplication(arg0 context.Context, arg1 string, arg2 charm0.Charm, arg3 ...application0.AddUnitArg) (application.ID, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{arg0, arg1, arg2}
+	for _, a := range arg3 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "CreateApplication", varargs...)
+	ret0, _ := ret[0].(application.ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateApplication indicates an expected call of CreateApplication.
+func (mr *MockApplicationStateMockRecorder) CreateApplication(arg0, arg1, arg2 any, arg3 ...any) *MockApplicationStateCreateApplicationCall {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{arg0, arg1, arg2}, arg3...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateApplication", reflect.TypeOf((*MockApplicationState)(nil).CreateApplication), varargs...)
+	return &MockApplicationStateCreateApplicationCall{Call: call}
+}
+
+// MockApplicationStateCreateApplicationCall wrap *gomock.Call
+type MockApplicationStateCreateApplicationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockApplicationStateCreateApplicationCall) Return(arg0 application.ID, arg1 error) *MockApplicationStateCreateApplicationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockApplicationStateCreateApplicationCall) Do(f func(context.Context, string, charm0.Charm, ...application0.AddUnitArg) (application.ID, error)) *MockApplicationStateCreateApplicationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockApplicationStateCreateApplicationCall) DoAndReturn(f func(context.Context, string, charm0.Charm, ...application0.AddUnitArg) (application.ID, error)) *MockApplicationStateCreateApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -205,7 +250,7 @@ func (c *MockApplicationStateStorageDefaultsCall) DoAndReturn(f func(context.Con
 }
 
 // UpsertApplication mocks base method.
-func (m *MockApplicationState) UpsertApplication(arg0 context.Context, arg1 string, arg2 ...application.AddUnitParams) error {
+func (m *MockApplicationState) UpsertApplication(arg0 context.Context, arg1 string, arg2 ...application0.AddUnitArg) error {
 	m.ctrl.T.Helper()
 	varargs := []any{arg0, arg1}
 	for _, a := range arg2 {
@@ -236,13 +281,13 @@ func (c *MockApplicationStateUpsertApplicationCall) Return(arg0 error) *MockAppl
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationStateUpsertApplicationCall) Do(f func(context.Context, string, ...application.AddUnitParams) error) *MockApplicationStateUpsertApplicationCall {
+func (c *MockApplicationStateUpsertApplicationCall) Do(f func(context.Context, string, ...application0.AddUnitArg) error) *MockApplicationStateUpsertApplicationCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationStateUpsertApplicationCall) DoAndReturn(f func(context.Context, string, ...application.AddUnitParams) error) *MockApplicationStateUpsertApplicationCall {
+func (c *MockApplicationStateUpsertApplicationCall) DoAndReturn(f func(context.Context, string, ...application0.AddUnitArg) error) *MockApplicationStateUpsertApplicationCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

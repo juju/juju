@@ -46,7 +46,7 @@ type MachineService interface {
 
 // ApplicationService instances save an application to dqlite state.
 type ApplicationService interface {
-	CreateApplication(ctx context.Context, name string, params applicationservice.AddApplicationParams, units ...applicationservice.AddUnitParams) error
+	CreateApplication(ctx context.Context, name string, charm charm.Charm, params applicationservice.AddApplicationArgs, units ...applicationservice.AddUnitArg) error
 }
 
 // Import the database agnostic model representation into the database.

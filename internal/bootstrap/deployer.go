@@ -400,9 +400,12 @@ func (b *baseDeployer) AddControllerApplication(ctx context.Context, curl string
 		return nil, errors.Trace(err)
 	}
 	unitName := bootstrap.ControllerApplicationName + "/0"
-	err = b.applicationService.CreateApplication(ctx, bootstrap.ControllerApplicationName, applicationservice.AddApplicationParams{
-		Charm: ch,
-	}, applicationservice.AddUnitParams{UnitName: &unitName})
+	_, err = b.applicationService.CreateApplication(ctx,
+		bootstrap.ControllerApplicationName,
+		ch,
+		applicationservice.AddApplicationArgs{},
+		applicationservice.AddUnitArg{UnitName: &unitName},
+	)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

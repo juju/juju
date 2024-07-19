@@ -43,10 +43,11 @@ func (i *importSuite) TestApplicationSave(c *gc.C) {
 		gomock.Any(),
 		"prometheus",
 		gomock.Any(),
-		[]service.AddUnitParams{{
+		gomock.Any(),
+		[]service.AddUnitArg{{
 			UnitName: ptrString("prometheus/0"),
 		}},
-	).Return(nil)
+	).Return("", nil)
 
 	importOp := importOperation{
 		service: i.importService,

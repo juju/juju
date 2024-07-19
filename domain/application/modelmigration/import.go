@@ -9,10 +9,12 @@ import (
 
 	"github.com/juju/description/v8"
 
+	coreapplication "github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/logger"
 	"github.com/juju/juju/core/modelmigration"
 	"github.com/juju/juju/domain/application/service"
 	"github.com/juju/juju/domain/application/state"
+	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/storage"
 )
 
@@ -43,7 +45,7 @@ type importOperation struct {
 // from another controller model to this controller.
 type ImportService interface {
 	// CreateApplication registers the existence of an application in the model.
-	CreateApplication(context.Context, string, service.AddApplicationParams, ...service.AddUnitParams) error
+	CreateApplication(context.Context, string, internalcharm.Charm, service.AddApplicationArgs, ...service.AddUnitArg) (coreapplication.ID, error)
 }
 
 // Name returns the name of this operation.
@@ -62,14 +64,14 @@ func (i *importOperation) Setup(scope modelmigration.Scope) error {
 
 func (i *importOperation) Execute(ctx context.Context, model description.Model) error {
 	for _, app := range model.Applications() {
-		unitArgs := make([]service.AddUnitParams, 0, len(app.Units()))
+		unitArgs := make([]service.AddUnitArg, 0, len(app.Units()))
 		for _, unit := range app.Units() {
 			name := unit.Name()
-			unitArgs = append(unitArgs, service.AddUnitParams{UnitName: &name})
+			unitArgs = append(unitArgs, service.AddUnitArg{UnitName: &name})
 		}
 
-		err := i.service.CreateApplication(
-			ctx, app.Name(), service.AddApplicationParams{}, unitArgs...,
+		_, err := i.service.CreateApplication(
+			ctx, app.Name(), &stubCharm{}, service.AddApplicationArgs{}, unitArgs...,
 		)
 		if err != nil {
 			return fmt.Errorf(
@@ -80,4 +82,14 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 	}
 
 	return nil
+}
+
+type stubCharm struct {
+	internalcharm.Charm
+}
+
+func (s stubCharm) Meta() *internalcharm.Meta {
+	return &internalcharm.Meta{
+		Name: "stub",
+	}
 }

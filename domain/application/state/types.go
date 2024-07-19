@@ -10,6 +10,16 @@ type KeyValue struct {
 	Value string `db:"value"`
 }
 
+// applicationID is used to get the ID of an application.
+type applicationID struct {
+	ID string `db:"uuid"`
+}
+
+// applicationName is used to get the name of an application.
+type applicationName struct {
+	Name string `db:"name"`
+}
+
 // These structs represent the persistent charm schema in the database.
 
 // charmID represents a single charm row from the charm table, that only
@@ -317,6 +327,7 @@ type setCharmMount struct {
 type charmManifest struct {
 	CharmUUID    string `db:"charm_uuid"`
 	Index        int    `db:"array_index"`
+	NestedIndex  int    `db:"nested_array_index"`
 	Track        string `db:"track"`
 	Risk         string `db:"risk"`
 	Branch       string `db:"branch"`
@@ -329,6 +340,7 @@ type charmManifest struct {
 type setCharmManifest struct {
 	CharmUUID      string `db:"charm_uuid"`
 	Index          int    `db:"array_index"`
+	NestedIndex    int    `db:"nested_array_index"`
 	Track          string `db:"track"`
 	Risk           string `db:"risk"`
 	Branch         string `db:"branch"`

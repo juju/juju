@@ -117,6 +117,7 @@ func encodeManifest(id corecharm.ID, manifest charm.Manifest) ([]setCharmManifes
 			result = append(result, setCharmManifest{
 				CharmUUID:      id.String(),
 				Index:          index,
+				NestedIndex:    0,
 				OSID:           encodedOS,
 				ArchitectureID: defaultArchitectureID,
 				Track:          base.Channel.Track,
@@ -126,7 +127,7 @@ func encodeManifest(id corecharm.ID, manifest charm.Manifest) ([]setCharmManifes
 			continue
 		}
 
-		for _, architecture := range base.Architectures {
+		for i, architecture := range base.Architectures {
 			encodedArch, err := encodeManifestArchitecture(architecture)
 			if err != nil {
 				return nil, fmt.Errorf("cannot encode architecture: %w", err)
@@ -134,6 +135,7 @@ func encodeManifest(id corecharm.ID, manifest charm.Manifest) ([]setCharmManifes
 			result = append(result, setCharmManifest{
 				CharmUUID:      id.String(),
 				Index:          index,
+				NestedIndex:    i,
 				OSID:           encodedOS,
 				ArchitectureID: encodedArch,
 				Track:          base.Channel.Track,

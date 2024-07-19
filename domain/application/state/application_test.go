@@ -30,7 +30,7 @@ var _ = gc.Suite(&applicationStateSuite{})
 func (s *applicationStateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewApplicationState(domain.NewStateBase(s.TxnRunnerFactory()), loggertesting.WrapCheckLog(c))
+	s.state = NewApplicationState(&commonStateBase{StateBase: domain.NewStateBase(s.TxnRunnerFactory())}, loggertesting.WrapCheckLog(c))
 }
 
 func (s *applicationStateSuite) TestCreateApplicationNoUnits(c *gc.C) {
@@ -50,7 +50,7 @@ func (s *applicationStateSuite) TestCreateApplicationNoUnits(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	err := s.state.UpsertApplication(context.Background(), "666", u)
@@ -83,7 +83,7 @@ func (s *applicationStateSuite) TestUpdateApplication(c *gc.C) {
 	err := s.state.UpsertApplication(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	err = s.state.UpsertApplication(context.Background(), "666", u)
@@ -134,7 +134,7 @@ func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	err := s.state.UpsertApplication(context.Background(), "666", u)
@@ -160,7 +160,7 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 	err := s.state.UpsertApplication(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	err = s.state.AddUnits(context.Background(), "666", u)
@@ -190,7 +190,7 @@ func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 }
 
 func (s *applicationStateSuite) TestAddUnitsMissingApplication(c *gc.C) {
-	u := application.AddUnitParams{
+	u := application.AddUnitArg{
 		UnitName: ptr("foo/666"),
 	}
 	err := s.state.AddUnits(context.Background(), "666", u)

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/domain/secret/state"
 	"github.com/juju/juju/internal/changestream/testing"
+	"github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	coretesting "github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/internal/uuid"
@@ -55,9 +56,11 @@ func (s *watcherSuite) setupUnits(c *gc.C, appName string) {
 	svc := applicationservice.NewService(st, nil, logger)
 
 	unitName := fmt.Sprintf("%s/0", appName)
-	err := svc.CreateApplication(context.Background(),
-		appName, applicationservice.AddApplicationParams{},
-		applicationservice.AddUnitParams{UnitName: &unitName},
+	_, err := svc.CreateApplication(context.Background(),
+		appName,
+		&stubCharm{},
+		applicationservice.AddApplicationArgs{},
+		applicationservice.AddUnitArg{UnitName: &unitName},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }
@@ -748,4 +751,14 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	)
 
 	wc1.AssertNoChange()
+}
+
+type stubCharm struct {
+	charm.Charm
+}
+
+func (m *stubCharm) Meta() *charm.Meta {
+	return &charm.Meta{
+		Name: "foo",
+	}
 }
