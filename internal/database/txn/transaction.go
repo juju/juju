@@ -265,28 +265,33 @@ func (t *RetryingTxnRunner) run(ctx context.Context, fn func(context.Context) er
 // known database errors.
 func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Context, func() error) error {
 	return func(ctx context.Context, fn func() error) error {
-		var metrics Metrics
+		metrics := MetricsFromContext(ctx)
 		err := retry.Call(retry.CallArgs{
-			Func: fn,
+			Func: func() error {
+				err := fn()
+
+				// Record the success if there is no error.
+				if err == nil {
+					metrics.RecordSuccess()
+					return nil
+				}
+
+				// Recording of the error is done in the IsFatalError function.
+				return errors.Trace(err)
+			},
 			IsFatalError: func(err error) bool {
 				// No point in re-trying or logging a no-row error.
 				if errors.Is(err, sql.ErrNoRows) {
+					metrics.RecordError(noRowsError)
 					return true
 				}
 
 				// If the error is potentially retryable then keep going.
 				if IsErrRetryable(err) {
-					// Late bind the metrics from the context. This is because
-					// we don't want to create a metrics object if we don't
-					// need to.
-					if metrics == nil {
-						metrics = MetricsFromContext(ctx)
-					}
-
 					// Record the error for the metrics. We could potentially
 					// record the error type here, but it's not clear what
 					// value that would provide.
-					metrics.RecordError(sqliteRetryableError)
+					metrics.RecordError(retryableError)
 
 					if log.IsLevelEnabled(logger.TRACE) {
 						log.Tracef("retrying transaction: %v", err)
@@ -294,6 +299,7 @@ func defaultRetryStrategy(clock clock.Clock, log logger.Logger) func(context.Con
 					return false
 				}
 
+				metrics.RecordError(unknownError)
 				return true
 			},
 			Attempts:    250,

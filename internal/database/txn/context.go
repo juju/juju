@@ -16,11 +16,15 @@ const (
 type MetricErrorType string
 
 const (
-	sqliteRetryableError MetricErrorType = "sqlite-retryable-error"
+	noRowsError    MetricErrorType = "dqlite-no-rows"
+	retryableError MetricErrorType = "dqlite-retryable-error"
+	unknownError   MetricErrorType = "unknown-error"
 )
 
 // Metrics is the interface that must be implemented by the metrics collector.
 type Metrics interface {
+	// RecordSuccess records a successful operation.
+	RecordSuccess()
 	// RecordError records an error of the given error type.
 	RecordError(MetricErrorType)
 }
@@ -41,5 +45,7 @@ func MetricsFromContext(ctx context.Context) Metrics {
 }
 
 type noopsMetrics struct{}
+
+func (noopsMetrics) RecordSuccess() {}
 
 func (noopsMetrics) RecordError(MetricErrorType) {}

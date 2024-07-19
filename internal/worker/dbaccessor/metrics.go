@@ -19,6 +19,7 @@ type Collector struct {
 	DBRequests  *prometheus.GaugeVec
 	DBDuration  *prometheus.HistogramVec
 	DBErrors    *prometheus.CounterVec
+	DBSuccess   *prometheus.CounterVec
 	TxnRequests *prometheus.CounterVec
 	TxnRetries  *prometheus.CounterVec
 }
@@ -44,6 +45,12 @@ func NewMetricsCollector() *Collector {
 			Name:      "errors_total",
 			Help:      "Total number of db errors.",
 		}, []string{"namespace", "error"}),
+		DBSuccess: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: dbaccessorMetricsNamespace,
+			Subsystem: dbaccessorSubsystemNamespace,
+			Name:      "success_total",
+			Help:      "Total number of successful db operations.",
+		}, []string{"namespace"}),
 		TxnRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: dbaccessorMetricsNamespace,
 			Subsystem: dbaccessorSubsystemNamespace,
@@ -64,6 +71,7 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	c.DBRequests.Describe(ch)
 	c.DBDuration.Describe(ch)
 	c.DBErrors.Describe(ch)
+	c.DBSuccess.Describe(ch)
 	c.TxnRequests.Describe(ch)
 	c.TxnRetries.Describe(ch)
 }
@@ -73,6 +81,7 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	c.DBRequests.Collect(ch)
 	c.DBDuration.Collect(ch)
 	c.DBErrors.Collect(ch)
+	c.DBSuccess.Collect(ch)
 	c.TxnRequests.Collect(ch)
 	c.TxnRetries.Collect(ch)
 }
@@ -94,4 +103,9 @@ type dbMetrics struct {
 // RecordError records an error of the given error type.
 func (m dbMetrics) RecordError(errorType txn.MetricErrorType) {
 	m.collector.DBErrors.WithLabelValues(m.namespace, string(errorType)).Inc()
+}
+
+// RecordSuccess records a successful operation.
+func (m dbMetrics) RecordSuccess() {
+	m.collector.DBSuccess.WithLabelValues(m.namespace).Inc()
 }
