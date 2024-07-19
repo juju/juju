@@ -108,32 +108,22 @@ different set of workers to a machine agent.
 There are a number of *clients* which interact with Juju using the Juju
 API. These include the `juju` command line tool and Juju Dashboard.
 
-
-## The Data Store (aka "state")
+## The Domain
 
 There's a lot of *detail* to cover, but there's not much to say from an architectural
-standpoint. We use a mongodb replicaset to support HA; we use the `mgo` package from
-`labix.org` to implement multi-document transactions; we make use of the transaction
-log to detect changes to particular documents, and convert them into business-object-
-level events that get sent over the API to interested parties.
+standpoint. We use DQLite to store the domain state and support HA.
 
-The mongodb databases run on machines we refer to as *controllers*, and are only
-accessed by agents running on those machines; it's important to keep it locked down
-(and, honestly, to lock it down further and better than we currently have).
+The domain package consists of several component packages, stored in two SQL schemas,
+one for the controller level and one for the model level. Each component provides a
+state layer to deal with the database and a service layer to provide access to the client.
 
-There's some documentation on how to work with [the state package](hacking-state.md);
+Each DQLite instance is embedded in a controller instance, and this controller instance
+is the only instance which is allowed to access to its database instance.
+
+There's some documentation on how to work with the `domain` pacakge:
 and plenty more on the [state entities](lifecycles.md) and the details of their
 [creation](entity-creation.md) and [destruction](death-and-destruction.md) from various
 perspectives; but there's not a lot more to say in this context.
-
-It *is* important to understand that the transaction-log watching is not an ideal
-solution, and we'll be retiring it at some point, in favour of an in-memory model
-of state and a pub-sub system for watchers; we *know* it's a scalability problem,
-but we're not devoting resources to it until it becomes more pressing.
-
-Code for dealing with mongodb is found primarily in the `state`, `state/watcher`,
-`replicaset`, and `worker/peergrouper` packages.
-
 
 ## API
 
