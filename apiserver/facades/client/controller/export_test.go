@@ -24,5 +24,5 @@ func NewControllerAPIForTest(backend Backend) *ControllerAPI {
 }
 
 var (
-	NewControllerAPIv11 = newControllerAPIv11
+	NewControllerAPIv11 = makeControllerAPIv11
 )

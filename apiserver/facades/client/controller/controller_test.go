@@ -305,7 +305,10 @@ func (s *controllerSuite) TestListBlockedModelsNoBlocks(c *gc.C) {
 }
 
 func (s *controllerSuite) TestModelConfig(c *gc.C) {
-	cfg, err := s.controller.ModelConfig()
+	controller, err := controller.NewControllerAPIv11(s.context)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cfg, err := controller.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg.Config["name"], jc.DeepEquals, params.ConfigValue{Value: "controller"})
 }

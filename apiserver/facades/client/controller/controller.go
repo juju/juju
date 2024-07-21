@@ -64,9 +64,13 @@ type ControllerAPI struct {
 	multiwatcherFactory multiwatcher.Factory
 }
 
+type ControllerAPIv11 struct {
+	*ControllerAPI
+}
+
 // LatestAPI is used for testing purposes to create the latest
 // controller API.
-var LatestAPI = newControllerAPIv11
+var LatestAPI = makeControllerAPI
 
 // TestingAPI is an escape hatch for requesting a controller API that won't
 // allow auth to correctly happen for ModelStatus. I'm not convicned this
@@ -435,7 +439,7 @@ func (c *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 // converted to a multi-model facade. Please use the ModelConfig facade's
 // ModelGet method instead:
 // [github.com/juju/juju/apiserver/facades/client/modelconfig.ModelConfigAPI.ModelGet]
-func (c *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
+func (c *ControllerAPIv11) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 	if err := c.checkIsSuperUser(); err != nil {
 		return result, errors.Trace(err)
