@@ -88,6 +88,13 @@ Note: If you choose (2b): You will need to specify:
 (ii) the username/password required to access the private OCI image.
 
 `
+	attachExample = `
+    juju attach-resource mysql resource-name=foo
+
+    juju attach-resource ubuntu-k8s ubuntu_image=ubuntu
+
+    juju attach-resource redis-k8s redis-image=redis
+`
 )
 
 // Info implements cmd.Command.Info

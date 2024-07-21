@@ -61,7 +61,7 @@ func (s *destroyControllerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: jujutesting.AdminUser,
 	}
-	testController, err := controller.NewControllerAPIv11(
+	testController, err := controller.LatestAPI(
 		context.Background(),
 		facadetest.ModelContext{
 			State_:          s.ControllerModel(c).State(),

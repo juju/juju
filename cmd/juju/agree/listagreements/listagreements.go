@@ -39,10 +39,10 @@ In other words, some applications may only be installed if a user agrees to
 accept some terms defined by the charm. 
 
 This command lists the terms that the user has agreed to.
+`
 
-See also:
-    agree
-
+const listAgreementsExamples = `
+    juju agreements
 `
 
 // NewListAgreementsCommand returns a new command that can be
@@ -73,10 +73,14 @@ func (c *listAgreementsCommand) SetFlags(f *gnuflag.FlagSet) {
 // Info implements Command.Info.
 func (c *listAgreementsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "agreements",
-		Purpose: "List user's agreements.",
-		Doc:     listAgreementsDoc,
-		Aliases: []string{"list-agreements"},
+		Name:     "agreements",
+		Purpose:  "List user's agreements.",
+		Doc:      listAgreementsDoc,
+		Aliases:  []string{"list-agreements"},
+		Examples: listAgreementsExamples,
+		SeeAlso: []string{
+			"agree",
+		},
 	})
 }
 

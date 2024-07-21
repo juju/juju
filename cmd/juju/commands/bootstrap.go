@@ -148,17 +148,20 @@ GKE or EKS.
 
 When bootstrapping to a k8s cluster Juju does not recognise, there's no
 guarantee a load balancer is available, so Juju defaults to a controller
-service type of ClusterIP. This may not be suitable, so there's 3 bootstrap
+service type of ClusterIP. This may not be suitable, so there are three bootstrap
 options available to tell Juju how to set up the controller service. Part of
 the solution may require a load balancer for the cluster to be set up manually
 first, or perhaps an external k8s service via a FQDN will be used
 (this is a cluster specific implementation decision which Juju needs to be
-informed about so it can set things up correctly). The 3 relevant bootstrap
+informed about so it can set things up correctly). The three relevant bootstrap
 options are (see list of bootstrap config items below for a full explanation):
 
 - controller-service-type
 - controller-external-name
 - controller-external-ips
+
+Juju advertises those addresses to other controllers, so they must be resolveable from
+other controllers for cross-model (cross-controller, actually) relations to work.
 
 If a storage pool is specified using --storage-pool, this will be created
 in the controller model.

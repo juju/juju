@@ -23,6 +23,10 @@ If --filename is not used, the archive is downloaded to a temporary
 location and the filename is printed to stdout.
 `
 
+const examples = `
+    juju download-backup /full/path/to/backup/on/controller
+`
+
 // NewDownloadCommand returns a commant used to download backups.
 func NewDownloadCommand() cmd.Command {
 	return modelcmd.Wrap(&downloadCommand{})
@@ -40,10 +44,14 @@ type downloadCommand struct {
 // Info implements Command.Info.
 func (c *downloadCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "download-backup",
-		Args:    "/full/path/to/backup/on/controller",
-		Purpose: "Download a backup archive file.",
-		Doc:     downloadDoc,
+		Name:     "download-backup",
+		Args:     "/full/path/to/backup/on/controller",
+		Purpose:  "Download a backup archive file.",
+		Doc:      downloadDoc,
+		Examples: examples,
+		SeeAlso: []string{
+			"create-backup",
+		},
 	})
 }
 

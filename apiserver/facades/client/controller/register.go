@@ -5,6 +5,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/errors"
@@ -15,12 +16,24 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("Controller", 11, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newControllerAPIv11(stdCtx, ctx)
+		api, err := makeControllerAPIv11(stdCtx, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("creating Controller facade v11: %w", err)
+		}
+		return api, nil
+	}, reflect.TypeOf((*ControllerAPIv11)(nil)))
+
+	registry.MustRegister("Controller", 12, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
+		api, err := makeControllerAPI(stdCtx, ctx)
+		if err != nil {
+			return nil, fmt.Errorf("creating Controller facade v12: %w", err)
+		}
+		return api, nil
 	}, reflect.TypeOf((*ControllerAPI)(nil)))
 }
 
 // newControllerAPIv11 creates a new ControllerAPIv11
-func newControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*ControllerAPI, error) {
+func makeControllerAPI(stdCtx context.Context, ctx facade.ModelContext) (*ControllerAPI, error) {
 
 	var (
 		st             = ctx.State()
@@ -56,4 +69,16 @@ func newControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*Cont
 		ctx.ObjectStore(),
 		leadership,
 	)
+}
+
+// makeControllerAPIv11 creates a new ControllerAPIv11
+func makeControllerAPIv11(stdCtx context.Context, ctx facade.ModelContext) (*ControllerAPIv11, error) {
+	controllerAPI, err := makeControllerAPI(stdCtx, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ControllerAPIv11{
+		ControllerAPI: controllerAPI,
+	}, nil
 }

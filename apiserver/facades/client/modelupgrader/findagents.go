@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/arch"
 	coreos "github.com/juju/juju/core/os"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/internal/cloudconfig/podcfg"
@@ -125,6 +126,11 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	wantArch := args.Arch
+	if wantArch == "" {
+		wantArch = arch.DefaultArchitecture
+	}
 	for _, tag := range tags {
 		number := tag.AgentVersion()
 		if args.MajorVersion > 0 {
@@ -149,21 +155,21 @@ func (m *ModelUpgraderAPI) agentVersionsForCAAS(
 				continue
 			}
 		}
-		arch, err := reg.GetArchitecture(imageName, number.String())
+		arches, err := reg.GetArchitectures(imageName, number.String())
 		if errors.Is(err, errors.NotFound) {
 			continue
 		}
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get architecture for %s:%s", imageName, number.String())
 		}
-		if args.Arch != "" && arch != args.Arch {
+		if !set.NewStrings(arches...).Contains(wantArch) {
 			continue
 		}
 		tools := coretools.Tools{
 			Version: version.Binary{
 				Number:  number,
 				Release: coreos.HostOSTypeName(),
-				Arch:    arch,
+				Arch:    wantArch,
 			},
 		}
 		result = append(result, &tools)

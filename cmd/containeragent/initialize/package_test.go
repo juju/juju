@@ -114,6 +114,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"internal/rpcreflect",
 		"internal/scriptrunner",
 		"internal/service/common",
+		"internal/service/pebble/identity",
 		"internal/service/pebble/plan",
 		"internal/service/snap",
 		"internal/service/systemd",

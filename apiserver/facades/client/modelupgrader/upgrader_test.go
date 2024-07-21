@@ -767,7 +767,15 @@ func (s *modelUpgradeSuite) TestFindToolsIAAS(c *gc.C) {
 	})
 }
 
+func (s *modelUpgradeSuite) TestFindToolsCAASReleasedDefault(c *gc.C) {
+	s.assertFindToolsCAASReleased(c, "", "amd64")
+}
+
 func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
+	s.assertFindToolsCAASReleased(c, "arm64", "arm64")
+}
+
+func (s *modelUpgradeSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expectArch string) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
@@ -779,6 +787,9 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
 		{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
 		{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
 		{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+		{Version: version.MustParseBinary("2.9.9-ubuntu-arm64")},
+		{Version: version.MustParseBinary("2.9.10-ubuntu-arm64")},
+		{Version: version.MustParseBinary("2.9.11-ubuntu-arm64")},
 	}
 	s.PatchValue(&coreos.HostOS, func() ostype.OSType { return ostype.Ubuntu })
 
@@ -788,6 +799,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
 			common.FindAgentsParams{
 				MajorVersion: 2, MinorVersion: 9,
 				ModelType: state.ModelTypeCAAS,
+				Arch:      wantArch,
 			},
 		).Return(simpleStreams, nil),
 		s.registryProvider.EXPECT().Tags("jujud-operator").Return(coretools.Versions{
@@ -798,21 +810,21 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleased(c *gc.C) {
 			image.NewImageInfo(version.MustParse("2.9.11")),
 			image.NewImageInfo(version.MustParse("2.9.12")), // skip: it's not released in simplestream yet.
 		}, nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.9").Return("amd64", nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10.1").Return("amd64", nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.9").Return([]string{"amd64", "arm64"}, nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.10.1").Return([]string{"amd64", "arm64"}, nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.10").Return([]string{"amd64", "arm64"}, nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.11").Return([]string{"amd64", "arm64"}, nil),
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
 	api := s.newFacade(c)
-	result, err := api.FindAgents(stdcontext.Background(), common.FindAgentsParams{MajorVersion: 2, MinorVersion: 9, ModelType: state.ModelTypeCAAS})
+	result, err := api.FindAgents(stdcontext.Background(), common.FindAgentsParams{MajorVersion: 2, MinorVersion: 9, ModelType: state.ModelTypeCAAS, Arch: wantArch})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, coretools.Versions{
-		&coretools.Tools{Version: version.MustParseBinary("2.9.9-ubuntu-amd64")},
-		&coretools.Tools{Version: version.MustParseBinary("2.9.10.1-ubuntu-amd64")},
-		&coretools.Tools{Version: version.MustParseBinary("2.9.10-ubuntu-amd64")},
-		&coretools.Tools{Version: version.MustParseBinary("2.9.11-ubuntu-amd64")},
+		&coretools.Tools{Version: version.MustParseBinary("2.9.9-ubuntu-" + expectArch)},
+		&coretools.Tools{Version: version.MustParseBinary("2.9.10.1-ubuntu-" + expectArch)},
+		&coretools.Tools{Version: version.MustParseBinary("2.9.10-ubuntu-" + expectArch)},
+		&coretools.Tools{Version: version.MustParseBinary("2.9.11-ubuntu-" + expectArch)},
 	})
 }
 
@@ -843,7 +855,7 @@ func (s *modelUpgradeSuite) TestFindToolsCAASReleasedExact(c *gc.C) {
 			image.NewImageInfo(version.MustParse("2.9.11")),
 			image.NewImageInfo(version.MustParse("2.9.12")),
 		}, nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.10").Return([]string{"amd64"}, nil),
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 
@@ -886,11 +898,11 @@ func (s *modelUpgradeSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 			image.NewImageInfo(version.MustParse("2.9.12")),
 			image.NewImageInfo(version.MustParse("2.9.13")), // skip: it's not released in simplestream yet.
 		}, nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.9").Return("amd64", nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10.1").Return("amd64", nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.10").Return("amd64", nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.11").Return("amd64", nil),
-		s.registryProvider.EXPECT().GetArchitecture("jujud-operator", "2.9.12").Return("", errors.NotFoundf("2.9.12")), // This can only happen on a non-official registry account.
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.9").Return([]string{"amd64", "arm64"}, nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.10.1").Return([]string{"amd64", "arm64"}, nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.10").Return([]string{"amd64", "arm64"}, nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.11").Return([]string{"amd64", "arm64"}, nil),
+		s.registryProvider.EXPECT().GetArchitectures("jujud-operator", "2.9.12").Return(nil, errors.NotFoundf("2.9.12")), // This can only happen on a non-official registry account.
 		s.registryProvider.EXPECT().Close().Return(nil),
 	)
 

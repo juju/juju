@@ -70,6 +70,12 @@ func (c *listSecretsCommand) Info() *cmd.Info {
 		Doc:      listSecretsDoc,
 		Examples: listSecretsExamples,
 		Aliases:  []string{"list-secrets"},
+		SeeAlso: []string{
+			"add-secret",
+			"remove-secret",
+			"show-secret",
+			"update-secret",
+		},
 	})
 }
 

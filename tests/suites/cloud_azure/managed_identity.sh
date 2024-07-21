@@ -48,6 +48,7 @@ run_custom_managed_identity() {
 	identity_name=jmid
 	cred_name=${AZURE_CREDENTIAL_NAME:-credentials}
 	subscription=$(juju show-credential --client azure "${cred_name}" | yq .client-credentials.azure."${cred_name}".content.subscription-id)
+	az account set -s "${subscription}"
 
 	add_clean_func "run_cleanup_azure"
 	az group create --name "${group}" --location westus

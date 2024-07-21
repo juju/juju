@@ -6,7 +6,6 @@ package application_test
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -37,7 +36,6 @@ import (
 	k8swatchertest "github.com/juju/juju/caas/kubernetes/provider/watcher/test"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/paths"
 	coreresources "github.com/juju/juju/core/resources"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/storage"
@@ -452,350 +450,6 @@ func (s *applicationSuite) assertDelete(c *gc.C, app caas.Application) {
 	c.Assert(statefulSets.Items, gc.IsNil)
 }
 
-func getPodSpec() corev1.PodSpec {
-	jujuDataDir := paths.DataDir(paths.OSUnixLike)
-	return corev1.PodSpec{
-		ServiceAccountName:            "gitlab",
-		AutomountServiceAccountToken:  pointer.BoolPtr(true),
-		ImagePullSecrets:              []corev1.LocalObjectReference{{Name: "gitlab-nginx-secret"}},
-		TerminationGracePeriodSeconds: pointer.Int64Ptr(30),
-		InitContainers: []corev1.Container{{
-			Name:            "charm-init",
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           "operator/image-path:1.1.1",
-			WorkingDir:      jujuDataDir,
-			Command:         []string{"/opt/containeragent"},
-			Args: []string{
-				"init",
-				"--containeragent-pebble-dir", "/containeragent/pebble",
-				"--charm-modified-version", "9001",
-				"--data-dir", "/var/lib/juju",
-				"--bin-dir", "/charm/bin",
-				"--profile-dir", "/containeragent/etc/profile.d",
-			},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "JUJU_CONTAINER_NAMES",
-					Value: "gitlab,nginx",
-				},
-				{
-					Name: "JUJU_K8S_POD_NAME",
-					ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.name",
-						},
-					},
-				},
-				{
-					Name: "JUJU_K8S_POD_UUID",
-					ValueFrom: &corev1.EnvVarSource{
-						FieldRef: &corev1.ObjectFieldSelector{
-							FieldPath: "metadata.uid",
-						},
-					},
-				},
-			},
-			EnvFrom: []corev1.EnvFromSource{
-				{
-					SecretRef: &corev1.SecretEnvSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "gitlab-application-config",
-						},
-					},
-				},
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "charm-data",
-					MountPath: jujuDataDir,
-					SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-				},
-				{
-					Name:      "charm-data",
-					MountPath: "/charm/bin",
-					SubPath:   "charm/bin",
-				},
-				{
-					Name:      "charm-data",
-					MountPath: "/charm/containers",
-					SubPath:   "charm/containers",
-				},
-				{
-					Name:      "charm-data",
-					MountPath: "/containeragent/pebble",
-					SubPath:   "containeragent/pebble",
-				},
-				{
-					Name:      "charm-data",
-					MountPath: "/containeragent/etc/profile.d",
-					SubPath:   "containeragent/etc/profile.d",
-				},
-			},
-		}},
-		Containers: []corev1.Container{{
-			Name:            "charm",
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           "ubuntu@22.04",
-			WorkingDir:      jujuDataDir,
-			Command:         []string{"/charm/bin/pebble"},
-			Args: []string{
-				"run",
-				"--http", ":38812",
-				"--verbose",
-			},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "JUJU_CONTAINER_NAMES",
-					Value: "gitlab,nginx",
-				},
-				{
-					Name:  constants.EnvAgentHTTPProbePort,
-					Value: constants.AgentHTTPProbePort,
-				},
-			},
-			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v1/health?level=alive",
-						Port: intstr.Parse("38812"),
-					},
-				},
-				InitialDelaySeconds: 30,
-				TimeoutSeconds:      1,
-				PeriodSeconds:       5,
-				SuccessThreshold:    1,
-				FailureThreshold:    3,
-			},
-			ReadinessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v1/health?level=ready",
-						Port: intstr.Parse("38812"),
-					},
-				},
-				InitialDelaySeconds: 30,
-				TimeoutSeconds:      1,
-				PeriodSeconds:       5,
-				SuccessThreshold:    1,
-				FailureThreshold:    1,
-			},
-			StartupProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v1/health?level=alive",
-						Port: intstr.Parse("38812"),
-					},
-				},
-				InitialDelaySeconds: 30,
-				TimeoutSeconds:      1,
-				PeriodSeconds:       5,
-				SuccessThreshold:    1,
-				FailureThreshold:    1,
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "charm-data",
-					MountPath: "/charm/bin",
-					SubPath:   "charm/bin",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "charm-data",
-					MountPath: jujuDataDir,
-					SubPath:   strings.TrimPrefix(jujuDataDir, "/"),
-				},
-				{
-					Name:      "charm-data",
-					MountPath: "/charm/containers",
-					SubPath:   "charm/containers",
-				},
-				{
-					Name:      "charm-data",
-					MountPath: "/var/lib/pebble/default",
-					SubPath:   "containeragent/pebble",
-				},
-				{
-					Name:      "charm-data",
-					MountPath: "/var/log/juju",
-					SubPath:   "containeragent/var/log/juju",
-				},
-				{
-					Name:      "charm-data",
-					MountPath: paths.JujuIntrospect(paths.OSUnixLike),
-					SubPath:   "charm/bin/containeragent",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "charm-data",
-					MountPath: paths.JujuExec(paths.OSUnixLike),
-					SubPath:   "charm/bin/containeragent",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "charm-data",
-					MountPath: "/etc/profile.d/juju-introspection.sh",
-					SubPath:   "containeragent/etc/profile.d/juju-introspection.sh",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "gitlab-database-appuuid",
-					MountPath: "path/to/here",
-				},
-			},
-			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  int64Ptr(0),
-				RunAsGroup: int64Ptr(0),
-			},
-		}, {
-			Name:            "gitlab",
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           "docker.io/library/gitlab:latest",
-			Command:         []string{"/charm/bin/pebble"},
-			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38813", "--verbose"},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "JUJU_CONTAINER_NAME",
-					Value: "gitlab",
-				},
-				{
-					Name:  "PEBBLE_SOCKET",
-					Value: "/charm/container/pebble.socket",
-				},
-				{
-					Name:  "PEBBLE",
-					Value: "/charm/container/pebble",
-				},
-				{
-					Name:  "PEBBLE_COPY_ONCE",
-					Value: "/var/lib/pebble/default",
-				},
-			},
-			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v1/health?level=alive",
-						Port: intstr.FromInt(38813),
-					},
-				},
-				InitialDelaySeconds: 30,
-				TimeoutSeconds:      1,
-				PeriodSeconds:       5,
-				SuccessThreshold:    1,
-				FailureThreshold:    3,
-			},
-			ReadinessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v1/health?level=ready",
-						Port: intstr.FromInt(38813),
-					},
-				},
-				InitialDelaySeconds: 30,
-				TimeoutSeconds:      1,
-				PeriodSeconds:       5,
-				SuccessThreshold:    1,
-				FailureThreshold:    1,
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "charm-data",
-					MountPath: "/charm/bin/pebble",
-					SubPath:   "charm/bin/pebble",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "charm-data",
-					MountPath: "/charm/container",
-					SubPath:   "charm/containers/gitlab",
-				},
-				{
-					Name:      "gitlab-database-appuuid",
-					MountPath: "path/to/here",
-				},
-			},
-			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  int64Ptr(0),
-				RunAsGroup: int64Ptr(0),
-			},
-		}, {
-			Name:            "nginx",
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Image:           "docker.io/library/nginx:latest",
-			Command:         []string{"/charm/bin/pebble"},
-			Args:            []string{"run", "--create-dirs", "--hold", "--http", ":38814", "--verbose"},
-			Env: []corev1.EnvVar{
-				{
-					Name:  "JUJU_CONTAINER_NAME",
-					Value: "nginx",
-				},
-				{
-					Name:  "PEBBLE_SOCKET",
-					Value: "/charm/container/pebble.socket",
-				},
-				{
-					Name:  "PEBBLE",
-					Value: "/charm/container/pebble",
-				},
-				{
-					Name:  "PEBBLE_COPY_ONCE",
-					Value: "/var/lib/pebble/default",
-				},
-			},
-			LivenessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v1/health?level=alive",
-						Port: intstr.FromInt(38814),
-					},
-				},
-				InitialDelaySeconds: 30,
-				TimeoutSeconds:      1,
-				PeriodSeconds:       5,
-				SuccessThreshold:    1,
-				FailureThreshold:    3,
-			},
-			ReadinessProbe: &corev1.Probe{
-				ProbeHandler: corev1.ProbeHandler{
-					HTTPGet: &corev1.HTTPGetAction{
-						Path: "/v1/health?level=ready",
-						Port: intstr.FromInt(38814),
-					},
-				},
-				InitialDelaySeconds: 30,
-				TimeoutSeconds:      1,
-				PeriodSeconds:       5,
-				SuccessThreshold:    1,
-				FailureThreshold:    1,
-			},
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "charm-data",
-					MountPath: "/charm/bin/pebble",
-					SubPath:   "charm/bin/pebble",
-					ReadOnly:  true,
-				},
-				{
-					Name:      "charm-data",
-					MountPath: "/charm/container",
-					SubPath:   "charm/containers/nginx",
-				},
-			},
-			SecurityContext: &corev1.SecurityContext{
-				RunAsUser:  int64Ptr(0),
-				RunAsGroup: int64Ptr(0),
-			},
-		}},
-		Volumes: []corev1.Volume{
-			{
-				Name: "charm-data",
-				VolumeSource: corev1.VolumeSource{
-					EmptyDir: &corev1.EmptyDirVolumeSource{},
-				},
-			},
-		},
-	}
-}
-
 func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
@@ -850,7 +504,7 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
 							Annotations: map[string]string{"juju.is/version": "3.5-beta1"},
 						},
-						Spec: getPodSpec(),
+						Spec: getPodSpec31(),
 					},
 					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
 						{
@@ -884,10 +538,10 @@ func (s *applicationSuite) TestEnsureStateful(c *gc.C) {
 	s.assertDelete(c, app)
 }
 
-func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
+func (s *applicationSuite) TestEnsureStatefulRootless35(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
-		c, app, false, constraints.Value{}, true, true, "", func() {
+		c, app, false, constraints.Value{}, true, true, "3.5-beta1", func() {
 			svc, err := s.client.CoreV1().Services("test").Get(context.Background(), "gitlab-endpoints", metav1.GetOptions{})
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(svc, gc.DeepEquals, &corev1.Service{
@@ -911,7 +565,7 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 				},
 			})
 
-			podSpec := getPodSpec()
+			podSpec := getPodSpec35()
 			podSpec.SecurityContext = &corev1.PodSecurityContext{
 				FSGroup:            int64Ptr(170),
 				SupplementalGroups: []int64{170},
@@ -991,6 +645,95 @@ func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
 	s.assertDelete(c, app)
 }
 
+func (s *applicationSuite) TestEnsureStatefulRootless(c *gc.C) {
+	app, _ := s.getApp(c, caas.DeploymentStateful, false)
+	s.assertEnsure(
+		c, app, false, constraints.Value{}, true, true, "3.6-beta2", func() {
+			svc, err := s.client.CoreV1().Services("test").Get(context.TODO(), "gitlab-endpoints", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(svc, gc.DeepEquals, &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gitlab-endpoints",
+					Namespace: "test",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       "gitlab",
+						"app.kubernetes.io/managed-by": "juju",
+					},
+					Annotations: map[string]string{
+						"juju.is/version": "3.6-beta2",
+						"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Selector:                 map[string]string{"app.kubernetes.io/name": "gitlab"},
+					Type:                     corev1.ServiceTypeClusterIP,
+					ClusterIP:                "None",
+					PublishNotReadyAddresses: true,
+				},
+			})
+
+			podSpec := getPodSpec36()
+			ss, err := s.client.AppsV1().StatefulSets("test").Get(context.TODO(), "gitlab", metav1.GetOptions{})
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(ss, jc.DeepEquals, &appsv1.StatefulSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gitlab",
+					Namespace: "test",
+					Labels: map[string]string{
+						"app.kubernetes.io/name":       "gitlab",
+						"app.kubernetes.io/managed-by": "juju",
+					},
+					Annotations: map[string]string{
+						"juju.is/version":  "3.6-beta2",
+						"app.juju.is/uuid": "appuuid",
+					},
+				},
+				Spec: appsv1.StatefulSetSpec{
+					Replicas: pointer.Int32Ptr(3),
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app.kubernetes.io/name": "gitlab",
+						},
+					},
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels:      map[string]string{"app.kubernetes.io/name": "gitlab"},
+							Annotations: map[string]string{"juju.is/version": "3.6-beta2"},
+						},
+						Spec: podSpec,
+					},
+					VolumeClaimTemplates: []corev1.PersistentVolumeClaim{
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "gitlab-database-appuuid",
+								Labels: map[string]string{
+									"storage.juju.is/name":         "database",
+									"app.kubernetes.io/managed-by": "juju",
+								},
+								Annotations: map[string]string{
+									"foo":                  "bar",
+									"storage.juju.is/name": "database",
+								}},
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: pointer.StringPtr("test-workload-storage"),
+								AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+								Resources: corev1.VolumeResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceStorage: k8sresource.MustParse("100Mi"),
+									},
+								},
+							},
+						},
+					},
+					PodManagementPolicy: appsv1.ParallelPodManagement,
+					ServiceName:         "gitlab-endpoints",
+				},
+			})
+		},
+	)
+	s.assertDelete(c, app)
+}
+
 func (s *applicationSuite) TestEnsureTrusted(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 	s.assertEnsure(
@@ -1010,7 +753,7 @@ func (s *applicationSuite) TestEnsureUntrusted(c *gc.C) {
 func (s *applicationSuite) TestEnsureStatefulPrivateImageRepo(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 
-	podSpec := getPodSpec()
+	podSpec := getPodSpec31()
 	podSpec.ImagePullSecrets = append(
 		[]corev1.LocalObjectReference{
 			{Name: constants.CAASImageRepoSecretName},
@@ -1136,7 +879,7 @@ func (s *applicationSuite) TestEnsureStateless(c *gc.C) {
 				},
 			})
 
-			podSpec := getPodSpec()
+			podSpec := getPodSpec31()
 			podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
 				Name: "gitlab-database-appuuid",
 				VolumeSource: corev1.VolumeSource{
@@ -1209,7 +952,7 @@ func (s *applicationSuite) TestEnsureDaemon(c *gc.C) {
 				},
 			})
 
-			podSpec := getPodSpec()
+			podSpec := getPodSpec31()
 			podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
 				Name: "gitlab-database-appuuid",
 				VolumeSource: corev1.VolumeSource{
@@ -2244,7 +1987,7 @@ func (s *applicationSuite) TestUnits(c *gc.C) {
 	app, _ := s.getApp(c, caas.DeploymentStateful, false)
 
 	for i := 0; i < 9; i++ {
-		podSpec := getPodSpec()
+		podSpec := getPodSpec31()
 		podSpec.Volumes = append(podSpec.Volumes,
 			corev1.Volume{
 				Name: "gitlab-database-appuuid",
@@ -2976,7 +2719,7 @@ func (s *applicationSuite) TestEnsureConstraints(c *gc.C) {
 				},
 			})
 
-			ps := getPodSpec()
+			ps := getPodSpec31()
 			ps.NodeSelector = map[string]string{
 				"kubernetes.io/arch": "arm64",
 			}

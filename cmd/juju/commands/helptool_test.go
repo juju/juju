@@ -96,6 +96,9 @@ Examples:
 For help on a specific tool, supply the name of that tool, for example:
 
         juju help-tool unit-get
+
+See also:
+ - help
 `)
 }
 
