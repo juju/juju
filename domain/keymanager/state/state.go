@@ -266,7 +266,7 @@ WHERE user_id = $userId.user_id
 		return tx.Query(ctx, stmt, userId).GetAll(&publicKeys)
 	})
 
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, sqlair.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, fmt.Errorf(
