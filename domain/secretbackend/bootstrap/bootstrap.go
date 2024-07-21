@@ -27,11 +27,9 @@ func CreateDefaultBackends(modelType coremodel.ModelType) internaldatabase.Boots
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if modelType == coremodel.CAAS {
-				err := createBackend(ctx, tx, kubernetes.BackendName, domainsecretbackend.BackendTypeKubernetes)
-				if err != nil {
-					return errors.Trace(err)
-				}
+			err = createBackend(ctx, tx, kubernetes.BackendName, domainsecretbackend.BackendTypeKubernetes)
+			if err != nil {
+				return errors.Trace(err)
 			}
 			return nil
 		})
