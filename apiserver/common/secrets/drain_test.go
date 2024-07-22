@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/common/secrets/mocks"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/core/model"
-	coremodel "github.com/juju/juju/core/model"
 	coresecrets "github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/watcher/watchertest"
 	secretservice "github.com/juju/juju/domain/secret/service"
@@ -320,10 +319,8 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
 
 	changeChan := make(chan struct{}, 1)
 	changeChan <- struct{}{}
-	modelUUID := coremodel.UUID(coretesting.ModelTag.Id())
 	w := watchertest.NewMockNotifyWatcher(changeChan)
 	s.secretBackendService.EXPECT().WatchModelSecretBackendChanged(gomock.Any(), model.UUID(coretesting.ModelTag.Id())).Return(w, nil)
-	s.secretBackendService.EXPECT().GetModelSecretBackendID(gomock.Any(), modelUUID).Return("backend-id", nil).Times(2)
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("11", nil)
 

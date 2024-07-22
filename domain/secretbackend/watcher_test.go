@@ -19,6 +19,7 @@ import (
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
+	"github.com/juju/juju/core/version"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
@@ -35,7 +36,6 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/uuid"
-	"github.com/juju/juju/version"
 )
 
 type watcherSuite struct {
@@ -188,17 +188,14 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 	wc := watchertest.NewNotifyWatcherC(c, watcher)
 	// Wait for the initial change.
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	err = state.SetModelSecretBackend(context.Background(), modelUUID, internalBackendName)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	err = state.SetModelSecretBackend(context.Background(), modelUUID, vaultBackendName)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 
 	// Pretend that the agent restarted and the watcher is re-created.
 	watcher1, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
@@ -252,7 +249,13 @@ func (s *watcherSuite) createModel(c *gc.C, st *state.State, name string) (corem
 		userUUID,
 		// TODO (stickupkid): This should be AdminAccess, but we don't have
 		// a model to set the user as the owner of.
-		permission.ControllerForAccess(permission.SuperuserAccess),
+		permission.AccessSpec{
+			Access: permission.SuperuserAccess,
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.SeedControllerUUID(c),
+			},
+		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 

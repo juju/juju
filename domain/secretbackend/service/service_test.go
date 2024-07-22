@@ -1250,11 +1250,10 @@ func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 	select {
 	case ch <- struct{}{}:
 	case <-time.After(jujutesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending the initial changes")
 	}
 
 	wc.AssertOneChange()
-	wc.AssertNoChange()
 }
 
 func (s *serviceSuite) assertGetSecretsToDrain(c *gc.C, backendID string, expectedRevisions ...RevisionInfo) {

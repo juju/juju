@@ -16,7 +16,3 @@ import (
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
-
-var (
-	NewSecretBackendModelConfigWatcher = newSecretBackendModelConfigWatcher
-)

@@ -958,15 +958,12 @@ ON CONFLICT(revision_uuid) DO UPDATE SET
 	return nil
 }
 
-func (st State) upsertSecretValueRef(
+func (st State) insertSecretValueRef(
 	ctx context.Context, tx *sqlair.TX, revisionUUID string, valueRef *coresecrets.ValueRef,
 ) error {
 	insertQuery := `
 INSERT INTO secret_value_ref (*)
-VALUES ($secretValueRef.*)
-ON CONFLICT(revision_uuid) DO UPDATE SET
-    backend_uuid=excluded.backend_uuid,
-    revision_id=excluded.revision_id`
+VALUES ($secretValueRef.*)`
 
 	insertStmt, err := st.Prepare(insertQuery, secretValueRef{})
 	if err != nil {
@@ -974,6 +971,32 @@ ON CONFLICT(revision_uuid) DO UPDATE SET
 	}
 
 	err = tx.Query(ctx, insertStmt, secretValueRef{
+		RevisionUUID: revisionUUID,
+		BackendUUID:  valueRef.BackendID,
+		RevisionID:   valueRef.RevisionID,
+	}).Run()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (st State) upsertSecretValueRef(
+	ctx context.Context, tx *sqlair.TX, revisionUUID string, valueRef *coresecrets.ValueRef,
+) error {
+	upsertQuery := `
+INSERT INTO secret_value_ref (*)
+VALUES ($secretValueRef.*)
+ON CONFLICT(revision_uuid) DO UPDATE SET
+    backend_uuid=excluded.backend_uuid,
+    revision_id=excluded.revision_id`
+
+	upsertStmt, err := st.Prepare(upsertQuery, secretValueRef{})
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = tx.Query(ctx, upsertStmt, secretValueRef{
 		RevisionUUID: revisionUUID,
 		BackendUUID:  valueRef.BackendID,
 		RevisionID:   valueRef.RevisionID,
@@ -3508,7 +3531,7 @@ WHERE  secret_id = $secretRevision.secret_id
 
 	deleteValueRefQ, err := st.Prepare(`
 DELETE FROM secret_value_ref
-WHERE revision_uuid = $secretValueRef.revision_uuid`, secretValueRef{})
+WHERE revision_uuid = $revisionUUID.uuid`, revisionUUID{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -3523,11 +3546,11 @@ WHERE revision_uuid = $secretContent.revision_uuid`, secretContent{})
 			return errors.Trace(err)
 		}
 		if valueRef != nil {
-			if err := st.upsertSecretValueRef(ctx, tx, revSelectResult.UUID, valueRef); err != nil {
+			if err := st.insertSecretValueRef(ctx, tx, revSelectResult.UUID, valueRef); err != nil {
 				return errors.Trace(err)
 			}
 		} else {
-			if err = tx.Query(ctx, deleteValueRefQ, secretValueRef{RevisionUUID: revSelectResult.UUID}).Run(); err != nil {
+			if err = tx.Query(ctx, deleteValueRefQ, revisionUUID{UUID: revSelectResult.UUID}).Run(); err != nil {
 				return errors.Trace(err)
 			}
 		}
