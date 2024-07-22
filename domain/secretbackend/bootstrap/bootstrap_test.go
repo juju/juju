@@ -27,10 +27,14 @@ func (s *bootstrapSuite) TestCreateDefaultBackendsIAAS(c *gc.C) {
 		name   string
 		typeID int
 	)
-	row := s.DB().QueryRow("SELECT name, backend_type_id FROM secret_backend where backend_type_id = ?", 0) // 0 = controller
+	row := s.DB().QueryRow("SELECT name, backend_type_id FROM secret_backend where backend_type_id = ?", 0) // 0 = internal
 	c.Assert(row.Scan(&name, &typeID), jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "internal")
 	c.Assert(typeID, gc.Equals, 0)
+	row = s.DB().QueryRow("SELECT name, backend_type_id FROM secret_backend where backend_type_id = ?", 1) // 1 = kubernetes
+	c.Assert(row.Scan(&name, &typeID), jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, "kubernetes")
+	c.Assert(typeID, gc.Equals, 1)
 }
 
 func (s *bootstrapSuite) TestCreateDefaultBackendsCAAS(c *gc.C) {
@@ -41,7 +45,11 @@ func (s *bootstrapSuite) TestCreateDefaultBackendsCAAS(c *gc.C) {
 		name   string
 		typeID int
 	)
-	row := s.DB().QueryRow("SELECT name, backend_type_id FROM secret_backend where backend_type_id = ?", 1) // 1 = kubernetes
+	row := s.DB().QueryRow("SELECT name, backend_type_id FROM secret_backend where backend_type_id = ?", 0) // 0 = internal
+	c.Assert(row.Scan(&name, &typeID), jc.ErrorIsNil)
+	c.Assert(name, gc.Equals, "internal")
+	c.Assert(typeID, gc.Equals, 0)
+	row = s.DB().QueryRow("SELECT name, backend_type_id FROM secret_backend where backend_type_id = ?", 1) // 1 = kubernetes
 	c.Assert(row.Scan(&name, &typeID), jc.ErrorIsNil)
 	c.Assert(name, gc.Equals, "kubernetes")
 	c.Assert(typeID, gc.Equals, 1)

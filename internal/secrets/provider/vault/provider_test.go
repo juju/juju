@@ -329,8 +329,8 @@ func (s *providerSuite) TestBackendConfigForDrain(c *gc.C) {
 	}
 
 	accessor := secrets.Accessor{
-		Kind: secrets.UnitAccessor,
-		ID:   "gitlab/0",
+		Kind: secrets.ModelAccessor,
+		ID:   coretesting.ModelTag.Id(),
 	}
 	cfg, err := p.RestrictedConfig(context.Background(), adminCfg, true, true, accessor, ownedRevs, readRevs)
 	c.Assert(err, jc.ErrorIsNil)
