@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/internal/database/app"
 	"github.com/juju/juju/internal/database/client"
 	"github.com/juju/juju/internal/database/pragma"
+	"github.com/juju/juju/internal/uuid"
 )
 
 // includeSQLOutput is used to enable the output of all SQL queries hitting the
@@ -48,6 +49,10 @@ type DqliteSuite struct {
 	// Verbose indicates whether the suite should print all the sql
 	// hitting the db.
 	Verbose bool
+
+	// UseTCP when true, SetUpTest will use a random TCP port.
+	// When false, it will use a random UNIX abstract domain socket.
+	UseTCP bool
 
 	dbPath   string
 	rootPath string
@@ -73,10 +78,16 @@ func (s *DqliteSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.dbPath = path
 
-	port := FindTCPPort(c)
+	endpoint := ""
 
-	url := fmt.Sprintf("%s:%d", "127.0.0.1", port)
-	c.Logf("Opening dqlite db with: %v", url)
+	if s.UseTCP {
+		port := FindTCPPort(c)
+		endpoint = fmt.Sprintf("%s:%d", "127.0.0.1", port)
+		c.Logf("Opening dqlite db with: %v", endpoint)
+	} else {
+		endpoint = "@" + uuid.MustNewUUID().String()
+		c.Logf("Opening dqlite db on abstract domain socket: %q", endpoint)
+	}
 
 	// Depending on the verbosity of the test suite, we want to
 	// also print all the sql hitting the db.
@@ -89,7 +100,7 @@ func (s *DqliteSuite) SetUpTest(c *gc.C) {
 	})
 
 	s.dqlite, err = app.New(s.dbPath,
-		app.WithAddress(url),
+		app.WithAddress(endpoint),
 		app.WithTracing(client.LogDebug),
 		app.WithLogFunc(func(level client.LogLevel, msg string, args ...any) {
 			switch level {
