@@ -22,6 +22,7 @@ import (
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/arch"
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/core/constraints"
@@ -277,6 +278,70 @@ func (s *MigrationImportSuite) TestModelUsers(c *gc.C) {
 	allUsers, err := newModel.Users()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(allUsers, gc.HasLen, 3)
+}
+
+// TestEmptyCredential checks that when the model uses an empty credential
+// that it doesn't matter if the attributes on the source or target controller's
+// credential is empty/not-nil, they are both equal. This tests that the controller
+// can handle an old or a manually edited credential when it has an empty attribute map
+// and is compared to the source controller's nil attribute map (or vice versa).
+func (s *MigrationImportSuite) TestEmptyCredential(c *gc.C) {
+	credTag := names.NewCloudCredentialTag(s.Model.CloudName() + "/" + s.Model.Owner().Id() + "/empty")
+	cred := cloud.NewEmptyCredential()
+	err := s.State.UpdateCloudCredential(credTag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+	ok, err := s.Model.SetCloudCredential(credTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, jc.IsTrue)
+	newModel, _ := s.importModel(c, s.State, func(m map[string]interface{}) {
+		// Check the the exported credential is omitted.
+		c.Assert(m["cloud-credential"].(map[any]any)["attributes"], gc.IsNil)
+		// Force the credential to a non-nil empty map to test nil-map empty-map
+		// credential check.
+		m["cloud-credential"].(map[any]any)["attributes"] = map[string]string{}
+	})
+	newCredTag, ok := newModel.CloudCredentialTag()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(newCredTag.Name(), gc.Equals, "empty")
+}
+
+// TestCredentialAttributeMatching checks that the credentials for the target controller
+// and the model being imported compare the correct credential attributes.
+func (s *MigrationImportSuite) TestCredentialAttributeMatching(c *gc.C) {
+	// Create foo credential for the "target" controller.
+	err := s.State.UpdateCloudCredential(
+		names.NewCloudCredentialTag(s.Model.CloudName()+"/"+s.Model.Owner().Id()+"/bar"),
+		cloud.NewCredential(cloud.EmptyAuthType, map[string]string{
+			"foo": "d09f00d",
+		}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create bar credential for the "source" controller
+	credTag := names.NewCloudCredentialTag(s.Model.CloudName() + "/" + s.Model.Owner().Id() + "/foo")
+	cred := cloud.NewCredential(cloud.EmptyAuthType, map[string]string{
+		"foo": "bar",
+	})
+	err = s.State.UpdateCloudCredential(credTag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+	ok, err := s.Model.SetCloudCredential(credTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ok, jc.IsTrue)
+
+	newModel, _ := s.importModel(c, s.State, func(m map[string]interface{}) {
+		// Swap out for the bar credential.
+		cred := m["cloud-credential"].(map[any]any)
+		c.Assert(cred["name"], gc.Equals, "foo")
+		c.Assert(cred["attributes"], gc.DeepEquals, map[any]any{
+			"foo": "bar",
+		})
+		cred["name"] = "bar"
+		cred["attributes"] = map[any]any{
+			"foo": "d09f00d",
+		}
+	})
+	newCredTag, ok := newModel.CloudCredentialTag()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(newCredTag.Name(), gc.Equals, "bar")
 }
 
 func (s *MigrationImportSuite) TestSLA(c *gc.C) {
