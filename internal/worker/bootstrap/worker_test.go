@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/workertest"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/core/user"
 	usertesting "github.com/juju/juju/core/user/testing"
 	accessservice "github.com/juju/juju/domain/access/service"
+	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/bootstrap"
@@ -59,7 +61,7 @@ func (s *workerSuite) TestKilled(c *gc.C) {
 	s.expectSetAPIHostPorts()
 	s.expectStateServingInfo()
 	s.expectReloadSpaces()
-	s.expectInitialiseBakeryConfig()
+	s.expectInitialiseBakeryConfig(nil)
 
 	w := s.newWorker(c)
 	defer workertest.DirtyKill(c, w)
@@ -102,6 +104,27 @@ func (s *workerSuite) TestSeedAgentBinary(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 	c.Assert(cleanup, gc.NotNil)
+}
+
+func (s *workerSuite) TestSeedBakeryConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	w := &bootstrapWorker{
+		cfg: WorkerConfig{
+			BakeryConfigService: s.bakeryConfigService,
+		},
+	}
+
+	s.expectInitialiseBakeryConfig(nil)
+	err := w.seedMacaroonConfig(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.expectInitialiseBakeryConfig(macaroonerrors.BakeryConfigAlreadyInitialised)
+	err = w.seedMacaroonConfig(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.expectInitialiseBakeryConfig(errors.Errorf("boom"))
+	err = w.seedMacaroonConfig(context.Background())
+	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 
 func (s *workerSuite) TestFilterHostPortsEmptyManagementSpace(c *gc.C) {
@@ -338,8 +361,8 @@ func (s *workerSuite) expectReloadSpaces() {
 	s.networkService.EXPECT().ReloadSpaces(gomock.Any())
 }
 
-func (s *workerSuite) expectInitialiseBakeryConfig() {
-	s.bakeryConfigService.EXPECT().InitialiseBakeryConfig(gomock.Any())
+func (s *workerSuite) expectInitialiseBakeryConfig(err error) {
+	s.bakeryConfigService.EXPECT().InitialiseBakeryConfig(gomock.Any()).Return(err)
 }
 
 func (s *workerSuite) expectObjectStoreGetter(num int) {
