@@ -405,7 +405,7 @@ parts:
       github.com/juju/juju/core/version.build: ""
     go-static: true
     go-strip: true
-    go-buildtags: ["libsqlite3", "dqlite"]
+    go-buildtags: ["libsqlite3", "dqlite", "notest"]
     go-cgo-enabled: "1"
     go-cgo-cc: "musl-gcc"
     go-cgo-cflags: "-I/usr/local/musl/include"
@@ -444,6 +444,7 @@ parts:
       github.com/juju/juju/core/version.build: ""
     go-static: true
     go-strip: true
+    go-buildtags: ["notest"]
     override-build: |
       snapcraftctl build
 
