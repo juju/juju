@@ -203,9 +203,9 @@ func strsliceptr(s []string) *[]string {
 }
 
 func (s *stateSuite) TestInstanceIdSuccess(c *gc.C) {
-	s.ensureInstance(c, "666")
+	machineUUID := s.ensureInstance(c, "666")
 
-	instanceId, err := s.state.InstanceId(context.Background(), "666")
+	instanceId, err := s.state.InstanceID(context.Background(), machineUUID)
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(instanceId, gc.Equals, "123")
 }
@@ -214,7 +214,7 @@ func (s *stateSuite) TestInstanceIdError(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.state.InstanceId(context.Background(), "666")
+	_, err = s.state.InstanceID(context.Background(), "666")
 	c.Check(err, jc.ErrorIs, machineerrors.NotProvisioned)
 }
 

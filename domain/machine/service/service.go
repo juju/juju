@@ -61,9 +61,9 @@ type State interface {
 	// for the machine cloud instances.
 	InitialWatchInstanceStatement() (string, string)
 
-	// InstanceId returns the cloud specific instance id for this machine.
+	// InstanceID returns the cloud specific instance id for this machine.
 	// If the machine is not provisioned, it returns a NotProvisionedError.
-	InstanceId(context.Context, coremachine.Name) (string, error)
+	InstanceID(context.Context, string) (string, error)
 
 	// GetInstanceStatus returns the cloud specific instance status for this
 	// machine.
@@ -243,12 +243,12 @@ func (s *Service) AllMachineNames(ctx context.Context) ([]coremachine.Name, erro
 	return machines, nil
 }
 
-// InstanceId returns the cloud specific instance id for this machine.
+// InstanceID returns the cloud specific instance id for this machine.
 // If the machine is not provisioned, it returns a NotProvisionedError.
-func (s *Service) InstanceId(ctx context.Context, machineName coremachine.Name) (string, error) {
-	instanceId, err := s.st.InstanceId(ctx, machineName)
+func (s *Service) InstanceID(ctx context.Context, machineUUID string) (string, error) {
+	instanceId, err := s.st.InstanceID(ctx, machineUUID)
 	if err != nil {
-		return "", errors.Annotatef(err, "retrieving cloud instance id for machine %q", machineName)
+		return "", errors.Annotatef(err, "retrieving cloud instance id for machine %q", machineUUID)
 	}
 	return instanceId, nil
 }

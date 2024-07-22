@@ -264,9 +264,9 @@ func (s *serviceSuite) TestListAllMachinesError(c *gc.C) {
 func (s *serviceSuite) TestInstanceIdSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().InstanceId(gomock.Any(), cmachine.Name("666")).Return("123", nil)
+	s.state.EXPECT().InstanceID(gomock.Any(), "deadbeef-0bad-400d-8000-4b1d0d06f00d").Return("123", nil)
 
-	instanceId, err := NewService(s.state).InstanceId(context.Background(), "666")
+	instanceId, err := NewService(s.state).InstanceID(context.Background(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(instanceId, gc.Equals, "123")
 }
@@ -277,9 +277,9 @@ func (s *serviceSuite) TestInstanceIdError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
-	s.state.EXPECT().InstanceId(gomock.Any(), cmachine.Name("666")).Return("", rErr)
+	s.state.EXPECT().InstanceID(gomock.Any(), "deadbeef-0bad-400d-8000-4b1d0d06f00d").Return("", rErr)
 
-	instanceId, err := NewService(s.state).InstanceId(context.Background(), "666")
+	instanceId, err := NewService(s.state).InstanceID(context.Background(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Check(instanceId, gc.Equals, "")
 }
@@ -291,9 +291,9 @@ func (s *serviceSuite) TestInstanceIdError(c *gc.C) {
 func (s *serviceSuite) TestInstanceIdNotProvisionedError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().InstanceId(gomock.Any(), cmachine.Name("666")).Return("", errors.NotProvisioned)
+	s.state.EXPECT().InstanceID(gomock.Any(), "deadbeef-0bad-400d-8000-4b1d0d06f00d").Return("", errors.NotProvisioned)
 
-	instanceId, err := NewService(s.state).InstanceId(context.Background(), "666")
+	instanceId, err := NewService(s.state).InstanceID(context.Background(), "deadbeef-0bad-400d-8000-4b1d0d06f00d")
 	c.Check(err, jc.ErrorIs, errors.NotProvisioned)
 	c.Check(instanceId, gc.Equals, "")
 }
