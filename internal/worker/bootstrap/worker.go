@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	userservice "github.com/juju/juju/domain/access/service"
+	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 	domainstorage "github.com/juju/juju/domain/storage"
 	storageerrors "github.com/juju/juju/domain/storage/errors"
 	storageservice "github.com/juju/juju/domain/storage/service"
@@ -279,7 +280,11 @@ func (w *bootstrapWorker) loop() error {
 }
 
 func (w *bootstrapWorker) seedMacaroonConfig(ctx context.Context) error {
-	return w.cfg.BakeryConfigService.InitialiseBakeryConfig(ctx)
+	err := w.cfg.BakeryConfigService.InitialiseBakeryConfig(ctx)
+	if errors.Is(err, macaroonerrors.BakeryConfigAlreadyInitialised) {
+		return nil
+	}
+	return errors.Trace(err)
 }
 
 func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
