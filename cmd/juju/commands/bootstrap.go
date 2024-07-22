@@ -273,43 +273,80 @@ func (c *bootstrapCommand) Info() *cmd.Info {
 		},
 		Purpose: usageBootstrapSummary,
 	}
-	if details := c.configDetails(); len(details) > 0 {
-		if output, err := common.FormatConfigSchema(details); err == nil {
-			info.Doc = fmt.Sprintf("%s%s\n%s%s",
-				usageBootstrapDetailsPartOne,
-				usageBootstrapConfigTxt,
-				output,
-				usageBootstrapDetailsPartTwo)
-			return jujucmd.Info(info)
-		}
-	}
-	info.Doc = strings.TrimSpace(fmt.Sprintf("%s%s",
-		usageBootstrapDetailsPartOne,
-		usageBootstrapDetailsPartTwo))
+	configKeys := c.configDetails()
 
+	info.Doc = fmt.Sprintf("%s%s\n%s%s",
+		usageBootstrapDetailsPartOne,
+		usageBootstrapConfigTxt,
+		configKeys.Format(),
+		usageBootstrapDetailsPartTwo)
 	return jujucmd.Info(info)
 }
 
-func (c *bootstrapCommand) configDetails() map[string]interface{} {
-	result := map[string]interface{}{}
-	addAll := func(m map[string]interface{}) {
-		for k, v := range m {
-			result[k] = v
-		}
+// ConfigCategoryKeys represents the collection of keys supported by the
+// --config option during bootstrap grouped by the domain category the keys
+// apply to within Juju.
+type ConfigCategoryKeys struct {
+	// BootstrapKeys describes the set of keys supported by --config as
+	// bootstrap only config keys.
+	BootstrapKeys map[string]common.PrintConfigSchema
+
+	// ControllerKeys describes the set of keys supported by --config as
+	// configuration items that will be applied to the controller during
+	// bootstrap.
+	ControllerKeys map[string]common.PrintConfigSchema
+
+	// ModelKeys describes the set of keys supported by --config as
+	// configuration items that will be applied to the controllers model during
+	// bootstrap.
+	ModelKeys map[string]common.PrintConfigSchema
+}
+
+// Format is responsible for returning a formatted categorised string of all
+// the --config keys supported by bootstrap. This is used directly when
+// generating help docs.
+func (c ConfigCategoryKeys) Format() string {
+	builder := strings.Builder{}
+
+	if c.BootstrapKeys != nil {
+		fmt.Fprint(&builder, "Bootstrap configuration keys:\n\n")
+		output, _ := common.FormatConfigSchema(c.BootstrapKeys)
+		fmt.Fprintln(&builder, output)
 	}
+
+	if c.ControllerKeys != nil {
+		fmt.Fprint(&builder, "Controller configuration keys:\n\n")
+		output, _ := common.FormatConfigSchema(c.ControllerKeys)
+		fmt.Fprint(&builder, output)
+	}
+
+	if c.ModelKeys != nil {
+		fmt.Fprint(&builder, "Model configuration keys (affecting the controller model):\n\n")
+		output, _ := common.FormatConfigSchema(c.ModelKeys)
+		fmt.Fprint(&builder, output)
+	}
+
+	return builder.String()
+}
+
+func (c *bootstrapCommand) configDetails() ConfigCategoryKeys {
+	categoryKeys := ConfigCategoryKeys{}
+
 	if modelCgf, err := cmdmodel.ConfigDetails(); err == nil {
-		addAll(modelCgf)
+		categoryKeys.ModelKeys = modelCgf
 	}
 	if controllerCgf, err := cmdcontroller.ConfigDetailsAll(); err == nil {
-		addAll(controllerCgf)
+		categoryKeys.ControllerKeys = controllerCgf
 	}
+
+	categoryKeys.BootstrapKeys = make(map[string]common.PrintConfigSchema, len(bootstrap.BootstrapConfigSchema))
 	for key, attr := range bootstrap.BootstrapConfigSchema {
-		result[key] = common.PrintConfigSchema{
+		categoryKeys.BootstrapKeys[key] = common.PrintConfigSchema{
 			Description: attr.Description,
 			Type:        string(attr.Type),
 		}
 	}
-	return result
+	return categoryKeys
 }
 
 func (c *bootstrapCommand) setControllerName(controllerName string) {
@@ -335,7 +372,7 @@ func (c *bootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.AgentVersionParam, "agent-version", "", "Version of agent binaries to use for Juju agents")
 	f.StringVar(&c.CredentialName, "credential", "", "Credentials to use when bootstrapping")
 	f.Var(&c.config, "config",
-		"Specify a controller configuration file, or one or more configuration\n    options\n    (--config config.yaml [--config key=value ...])")
+		"Specify a controller configuration file, or one or more configuration options. Model config keys only affect the controller model.\n    (--config config.yaml [--config key=value ...])")
 	f.Var(&c.modelDefaults, "model-default",
 		"Specify a configuration file, or one or more configuration\n    options to be set for all models, unless otherwise specified\n    (--model-default config.yaml [--model-default key=value ...])")
 	f.Var(&c.storagePool, "storage-pool",
