@@ -21,10 +21,13 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/jujuc"
 	runnertesting "github.com/juju/juju/worker/uniter/runner/testing"
 )
 
@@ -227,6 +230,7 @@ func (s *RunHookSuite) TestRunHookDispatchingHookHandler(c *gc.C) {
 
 type MockContext struct {
 	context.Context
+	id              string
 	actionData      *context.ActionData
 	actionDataErr   error
 	actionParams    map[string]interface{}
@@ -237,6 +241,10 @@ type MockContext struct {
 	flushFailure    error
 	flushResult     error
 	modelType       model.ModelType
+}
+
+func (ctx *MockContext) Id() string {
+	return ctx.id
 }
 
 func (ctx *MockContext) GetLogger(module string) loggo.Logger {
@@ -320,6 +328,85 @@ func (s *RunMockContextSuite) assertRecordedPid(c *gc.C, expectPid int) {
 	c.Assert(err, jc.ErrorIsNil)
 	expectContent := fmt.Sprintf("%d", expectPid)
 	c.Assert(strings.TrimRight(string(content), "\r\n"), gc.Equals, expectContent)
+}
+
+func (s *RunMockContextSuite) TestBadContextId(c *gc.C) {
+	params := map[string]interface{}{
+		"command":          "echo 1",
+		"timeout":          0,
+		"workload-context": true,
+	}
+	ctx := &MockContext{
+		id:        "foo-context",
+		modelType: model.CAAS,
+		actionData: &context.ActionData{
+			Params: params,
+		},
+		actionParams:  params,
+		actionResults: map[string]interface{}{},
+	}
+	start := make(chan struct{})
+	done := make(chan struct{})
+	result := make(chan error)
+	execCount := 0
+	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
+		execCount++
+		switch execCount {
+		case 1:
+			return &exec.ExecResponse{}, nil
+		case 2:
+			close(start)
+
+			select {
+			case <-done:
+			case <-time.After(testing.LongWait):
+				c.Fatalf("timed out waiting to complete")
+			}
+			return &exec.ExecResponse{}, nil
+		}
+		return nil, nil
+	}
+	go func() {
+		defer close(done)
+		select {
+		case <-start:
+		case <-time.After(testing.LongWait):
+			c.Fatalf("timed out waiting to start")
+		}
+		socket := s.paths.GetJujucServerSocket(false)
+
+		client, err := sockets.Dial(socket)
+		c.Assert(err, jc.ErrorIsNil)
+		defer client.Close()
+
+		req := jujuc.Request{
+			ContextId:   "whatever",
+			Dir:         c.MkDir(),
+			CommandName: "remote",
+		}
+
+		var resp exec.ExecResponse
+		err = client.Call("Jujuc.Main", req, &resp)
+
+		go func() {
+			result <- err
+		}()
+	}()
+	_, err := runner.NewRunner(ctx, s.paths, execFunc, runner.WithTokenGenerator(localTokenGenerator{})).RunAction("juju-run")
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case err := <-result:
+		c.Assert(err, gc.ErrorMatches, `.*wrong context ID; got "whatever"`)
+	case <-time.After(5 * time.Second):
+		c.Fatal("timed out waiting for jujuc to finish")
+	}
+}
+
+type localTokenGenerator struct{}
+
+func (localTokenGenerator) Generate(remote bool) (string, error) {
+	return "", nil
 }
 
 func (s *RunMockContextSuite) TestRunHookFlushSuccess(c *gc.C) {
