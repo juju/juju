@@ -12,8 +12,8 @@ import (
 
 	corecharm "github.com/juju/juju/core/charm"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/charm"
 )
 
 // hashKind is the type of hash to store.

@@ -6,7 +6,7 @@ package service
 import (
 	"fmt"
 
-	"github.com/juju/juju/domain/charm"
+	"github.com/juju/juju/domain/application/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 

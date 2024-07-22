@@ -16,8 +16,8 @@ import (
 	charmtesting "github.com/juju/juju/core/charm/testing"
 	coredatabase "github.com/juju/juju/core/database"
 	"github.com/juju/juju/domain"
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 

@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	"github.com/juju/juju/domain/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"

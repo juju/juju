@@ -9,6 +9,7 @@
 // is the instance manifest of the charm and the unit is the running instance
 // of the application.
 //
-// Charm types are stored in the charm domain, to ensure that the charm is
-// handled correctly and that the charm is correctly represented in the domain.
+// Charm types are stored in the application/charm package, to ensure that the
+// charm is handled correctly and that the charm is correctly represented in
+// the domain.
 package application

@@ -15,8 +15,8 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	charmtesting "github.com/juju/juju/core/charm/testing"
+	domaincharm "github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
-	domaincharm "github.com/juju/juju/domain/charm"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/state/watcher/watchertest"
