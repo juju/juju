@@ -719,7 +719,7 @@ func (runner *runner) startJujucServer(token string, rMode runMode) (*jujuc.Serv
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
 		if ctxId != runner.context.Id() {
-			return nil, errors.Errorf("expected context id %q, got %q", runner.context.Id(), ctxId)
+			return nil, errors.Errorf("wrong context ID; got %q", ctxId)
 		}
 		return jujuc.NewCommand(runner.context, cmdName)
 	}
