@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/domain/charm"
+	"github.com/juju/juju/domain/application/charm"
 )
 
 func decodeConfig(configs []charmConfig) (charm.Config, error) {

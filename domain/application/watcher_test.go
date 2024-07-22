@@ -1,7 +1,7 @@
 // Copyright 2023 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charm_test
+package application_test
 
 import (
 	"context"
@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/core/database"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
-	"github.com/juju/juju/domain/charm"
-	"github.com/juju/juju/domain/charm/service"
-	"github.com/juju/juju/domain/charm/state"
+	"github.com/juju/juju/domain/application/charm"
+	"github.com/juju/juju/domain/application/service"
+	"github.com/juju/juju/domain/application/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	internalcharm "github.com/juju/juju/internal/charm"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -31,10 +31,11 @@ var _ = gc.Suite(&watcherSuite{})
 func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "charm")
 
-	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }),
+	svc := service.NewWatchableService(state.NewState(func() (database.TxnRunner, error) { return factory() }, loggertesting.WrapCheckLog(c)),
 		domain.NewWatcherFactory(factory,
 			loggertesting.WrapCheckLog(c),
 		),
+		nil,
 		loggertesting.WrapCheckLog(c),
 	)
 	watcher, err := svc.WatchCharms()

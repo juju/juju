@@ -6,8 +6,8 @@ package service
 import (
 	"fmt"
 
-	"github.com/juju/juju/domain/charm"
-	charmerrors "github.com/juju/juju/domain/charm/errors"
+	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 )
 
@@ -82,7 +82,7 @@ func decodeManifestRisk(risk charm.ChannelRisk) (internalcharm.Risk, error) {
 
 func encodeManifest(manifest *internalcharm.Manifest) (charm.Manifest, error) {
 	if manifest == nil {
-		return charm.Manifest{}, charmerrors.ManifestNotValid
+		return charm.Manifest{}, applicationerrors.CharmManifestNotValid
 	}
 
 	bases, err := encodeManifestBases(manifest.Bases)

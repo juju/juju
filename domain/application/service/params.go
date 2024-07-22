@@ -8,15 +8,10 @@ import (
 	"github.com/juju/juju/internal/storage"
 )
 
-// Charm represents an application's charm.
-type Charm interface {
-	Meta() *charm.Meta
-}
-
 // AddApplicationParams contain parameters for adding an application to the model.
 type AddApplicationParams struct {
 	// Charm is the application's charm.
-	Charm Charm
+	Charm charm.Charm
 	// Storage contains the application's storage directives.
 	Storage map[string]storage.Directive
 }
@@ -42,7 +37,7 @@ type UpdateCharmParams struct {
 	// Charm is the new charm to use for the application. New units
 	// will be started with this charm, and existing units will be
 	// upgraded to use it.
-	Charm Charm
+	Charm charm.Charm
 
 	// Storage contains the storage directives to add or update when
 	// upgrading the charm.

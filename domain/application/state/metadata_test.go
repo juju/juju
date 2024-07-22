@@ -12,7 +12,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	charmtesting "github.com/juju/juju/core/charm/testing"
-	"github.com/juju/juju/domain/charm"
+	"github.com/juju/juju/domain/application/charm"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 

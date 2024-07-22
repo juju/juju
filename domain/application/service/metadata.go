@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/domain/charm"
-	charmerrors "github.com/juju/juju/domain/charm/errors"
+	"github.com/juju/juju/domain/application/charm"
+	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/charm/assumes"
 	"github.com/juju/juju/internal/charm/resource"
@@ -342,7 +342,7 @@ func decodeMetadataAssumes(bytes []byte) (*assumes.ExpressionTree, error) {
 
 func encodeMetadata(metadata *internalcharm.Meta) (charm.Metadata, error) {
 	if metadata == nil {
-		return charm.Metadata{}, charmerrors.MetadataNotValid
+		return charm.Metadata{}, applicationerrors.CharmMetadataNotValid
 	}
 
 	provides, err := encodeMetadataRelation(metadata.Provides)

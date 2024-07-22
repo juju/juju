@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/domain"
 	"github.com/juju/juju/domain/application"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	schematesting "github.com/juju/juju/domain/schema/testing"
@@ -18,25 +19,21 @@ import (
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
-type stateSuite struct {
+type applicationStateSuite struct {
 	schematesting.ModelSuite
 
-	state *State
+	state *ApplicationState
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = gc.Suite(&applicationStateSuite{})
 
-func (s *stateSuite) SetUpTest(c *gc.C) {
+func (s *applicationStateSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
-	s.state = NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	s.state = NewApplicationState(domain.NewStateBase(s.TxnRunnerFactory()), loggertesting.WrapCheckLog(c))
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
-func (s *stateSuite) TestCreateApplicationNoUnits(c *gc.C) {
+func (s *applicationStateSuite) TestCreateApplicationNoUnits(c *gc.C) {
 	err := s.state.UpsertApplication(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -52,7 +49,7 @@ func (s *stateSuite) TestCreateApplicationNoUnits(c *gc.C) {
 	c.Assert(name, gc.Equals, "666")
 }
 
-func (s *stateSuite) TestCreateApplication(c *gc.C) {
+func (s *applicationStateSuite) TestCreateApplication(c *gc.C) {
 	u := application.AddUnitParams{
 		UnitName: ptr("foo/666"),
 	}
@@ -82,7 +79,7 @@ func (s *stateSuite) TestCreateApplication(c *gc.C) {
 	c.Assert(unitID, gc.Equals, "foo/666")
 }
 
-func (s *stateSuite) TestUpdateApplication(c *gc.C) {
+func (s *applicationStateSuite) TestUpdateApplication(c *gc.C) {
 	err := s.state.UpsertApplication(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -115,7 +112,7 @@ func (s *stateSuite) TestUpdateApplication(c *gc.C) {
 	c.Assert(unitID, gc.Equals, "foo/666")
 }
 
-func (s *stateSuite) TestDeleteApplication(c *gc.C) {
+func (s *applicationStateSuite) TestDeleteApplication(c *gc.C) {
 	err := s.state.UpsertApplication(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -136,7 +133,7 @@ func (s *stateSuite) TestDeleteApplication(c *gc.C) {
 	c.Assert(appCount, gc.Equals, 0)
 }
 
-func (s *stateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
+func (s *applicationStateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
 	u := application.AddUnitParams{
 		UnitName: ptr("foo/666"),
 	}
@@ -159,7 +156,7 @@ func (s *stateSuite) TestDeleteApplicationWithUnits(c *gc.C) {
 	c.Assert(appCount, gc.Equals, 1)
 }
 
-func (s *stateSuite) TestAddUnits(c *gc.C) {
+func (s *applicationStateSuite) TestAddUnits(c *gc.C) {
 	err := s.state.UpsertApplication(context.Background(), "666")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -192,7 +189,7 @@ func (s *stateSuite) TestAddUnits(c *gc.C) {
 	c.Assert(unitID, gc.Equals, "foo/666")
 }
 
-func (s *stateSuite) TestAddUnitsMissingApplication(c *gc.C) {
+func (s *applicationStateSuite) TestAddUnitsMissingApplication(c *gc.C) {
 	u := application.AddUnitParams{
 		UnitName: ptr("foo/666"),
 	}
@@ -200,13 +197,13 @@ func (s *stateSuite) TestAddUnitsMissingApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, applicationerrors.ApplicationNotFound)
 }
 
-func (s *stateSuite) TestStorageDefaultsNone(c *gc.C) {
+func (s *applicationStateSuite) TestStorageDefaultsNone(c *gc.C) {
 	defaults, err := s.state.StorageDefaults(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(defaults, jc.DeepEquals, domainstorage.StorageDefaults{})
 }
 
-func (s *stateSuite) TestStorageDefaults(c *gc.C) {
+func (s *applicationStateSuite) TestStorageDefaults(c *gc.C) {
 	db := s.DB()
 	_, err := db.ExecContext(context.Background(), "INSERT INTO model_config (key, value) VALUES (?, ?)",
 		"storage-default-block-source", "ebs-fast")

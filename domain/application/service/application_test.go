@@ -22,25 +22,25 @@ import (
 	dummystorage "github.com/juju/juju/internal/storage/provider/dummy"
 )
 
-type serviceSuite struct {
+type applicationServiceSuite struct {
 	testing.IsolationSuite
 
-	state   *MockState
+	state   *MockApplicationState
 	charm   *MockCharm
-	service *Service
+	service *ApplicationService
 }
 
-var _ = gc.Suite(&serviceSuite{})
+var _ = gc.Suite(&applicationServiceSuite{})
 
-func (s *serviceSuite) setupMocks(c *gc.C) *gomock.Controller {
+func (s *applicationServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.state = NewMockState(ctrl)
+	s.state = NewMockApplicationState(ctrl)
 	s.charm = NewMockCharm(ctrl)
 	registry := storage.ChainedProviderRegistry{
 		dummystorage.StorageProviders(),
 		provider.CommonStorageProviders(),
 	}
-	s.service = NewService(s.state, loggertesting.WrapCheckLog(c), registry)
+	s.service = NewApplicationService(s.state, registry, loggertesting.WrapCheckLog(c))
 
 	return ctrl
 }
@@ -49,7 +49,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func (s *serviceSuite) TestCreateApplication(c *gc.C) {
+func (s *applicationServiceSuite) TestCreateApplication(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	u := application.AddUnitParams{
@@ -68,7 +68,7 @@ func (s *serviceSuite) TestCreateApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestCreateWithStorageBlock(c *gc.C) {
+func (s *applicationServiceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	u := application.AddUnitParams{
@@ -100,7 +100,7 @@ func (s *serviceSuite) TestCreateWithStorageBlock(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.C) {
+func (s *applicationServiceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	u := application.AddUnitParams{
@@ -135,7 +135,7 @@ func (s *serviceSuite) TestCreateWithStorageBlockDefaultSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
+func (s *applicationServiceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	u := application.AddUnitParams{
@@ -167,7 +167,7 @@ func (s *serviceSuite) TestCreateWithStorageFilesystem(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestCreateWithStorageFilesystemDefaultSource(c *gc.C) {
+func (s *applicationServiceSuite) TestCreateWithStorageFilesystemDefaultSource(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	u := application.AddUnitParams{
@@ -201,7 +201,7 @@ func (s *serviceSuite) TestCreateWithStorageFilesystemDefaultSource(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestCreateWithSharedStorageMissingDirectives(c *gc.C) {
+func (s *applicationServiceSuite) TestCreateWithSharedStorageMissingDirectives(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -225,7 +225,7 @@ func (s *serviceSuite) TestCreateWithSharedStorageMissingDirectives(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `adding default storage directives: no storage directive specified for shared charm storage "data"`)
 }
 
-func (s *serviceSuite) TestCreateWithStorageValidates(c *gc.C) {
+func (s *applicationServiceSuite) TestCreateWithStorageValidates(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().StorageDefaults(gomock.Any()).Return(domainstorage.StorageDefaults{}, nil)
@@ -253,7 +253,7 @@ func (s *serviceSuite) TestCreateWithStorageValidates(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid storage directives: charm "mine" has no store called "logs"`)
 }
 
-func (s *serviceSuite) TestCreateApplicationError(c *gc.C) {
+func (s *applicationServiceSuite) TestCreateApplicationError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
@@ -268,7 +268,7 @@ func (s *serviceSuite) TestCreateApplicationError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `saving application "666": boom`)
 }
 
-func (s *serviceSuite) TestDeleteApplicationSuccess(c *gc.C) {
+func (s *applicationServiceSuite) TestDeleteApplicationSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	s.state.EXPECT().DeleteApplication(gomock.Any(), "666").Return(nil)
@@ -277,7 +277,7 @@ func (s *serviceSuite) TestDeleteApplicationSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestDeleteApplicationError(c *gc.C) {
+func (s *applicationServiceSuite) TestDeleteApplicationError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	rErr := errors.New("boom")
@@ -288,7 +288,7 @@ func (s *serviceSuite) TestDeleteApplicationError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `deleting application "666": boom`)
 }
 
-func (s *serviceSuite) TestAddUnits(c *gc.C) {
+func (s *applicationServiceSuite) TestAddUnits(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	u := application.AddUnitParams{
@@ -303,7 +303,7 @@ func (s *serviceSuite) TestAddUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *serviceSuite) TestAddUpsertCAASUnit(c *gc.C) {
+func (s *applicationServiceSuite) TestAddUpsertCAASUnit(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
 	u := application.AddUnitParams{

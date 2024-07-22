@@ -54,8 +54,8 @@ func (i *importOperation) Name() string {
 func (i *importOperation) Setup(scope modelmigration.Scope) error {
 	i.service = service.NewService(
 		state.NewState(scope.ModelDB(), i.logger),
-		i.logger,
 		i.registry,
+		i.logger,
 	)
 	return nil
 }

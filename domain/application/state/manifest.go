@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	corecharm "github.com/juju/juju/core/charm"
-	"github.com/juju/juju/domain/charm"
+	"github.com/juju/juju/domain/application/charm"
 )
 
 const (
