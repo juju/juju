@@ -141,7 +141,7 @@ run_user_secrets() {
 
 	# revision 1 should be pruned.
 	# revision 2 is still been used by hello-kubecon app, so it should not be pruned.
-	# revision 3 is the latest revision, so it should not be pruned.	
+	# revision 3 is the latest revision, so it should not be pruned.
 	attempt=0
 	until [[ $(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length") -eq 2 ]]; do
 		if [[ ${attempt} -ge 30 ]]; then

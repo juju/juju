@@ -1362,30 +1362,6 @@ func (s *serviceSuite) TestGetRevisionsToDrainExternal(c *gc.C) {
 	)
 }
 
-func (s *serviceSuite) TestGetModelSecretBackendID(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	svc := newService(
-		s.mockState, s.logger, s.clock,
-		func(backendType string) (provider.SecretBackendProvider, error) {
-			if backendType != vault.BackendType {
-				return s.mockRegistry, nil
-			}
-			return providerWithConfig{
-				SecretBackendProvider: s.mockRegistry,
-			}, nil
-		},
-	)
-
-	s.mockState.EXPECT().GetModelSecretBackendDetails(gomock.Any(), coremodel.UUID(jujutesting.ModelTag.Id())).Return(
-		secretbackend.ModelSecretBackend{
-			SecretBackendID: "backend-id",
-		}, nil)
-	result, err := svc.GetModelSecretBackendID(context.Background(), coremodel.UUID(jujutesting.ModelTag.Id()))
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.Equals, "backend-id")
-
-}
-
 func (s *serviceSuite) TestBackendConfigInfoLeaderUnit(c *gc.C) {
 	s.assertBackendConfigInfoLeaderUnit(c, []string{"backend-id"})
 }

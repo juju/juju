@@ -22,14 +22,8 @@ type SecretService interface {
 	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params secretservice.ChangeSecretBackendParams) error
 }
 
-// SecretBackendGetter instances provide a method to get the secret backend the model.
-type SecretBackendGetter interface {
-	GetModelSecretBackendID(ctx context.Context, modelUUID coremodel.UUID) (string, error)
-}
-
 // SecretBackendService instances provide secret backend service apis.
 type SecretBackendService interface {
-	GetModelSecretBackendID(ctx context.Context, modelUUID coremodel.UUID) (string, error)
 	GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.UUID, revs []secrets.SecretExternalRevision) ([]backendservice.RevisionInfo, error)
 	WatchModelSecretBackendChanged(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error)
 }

@@ -731,15 +731,6 @@ func (s *Service) GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.U
 	return result, nil
 }
 
-// GetSecretBackendID returns the secret backend ID for the given model.
-func (s *Service) GetModelSecretBackendID(ctx context.Context, modelUUID coremodel.UUID) (string, error) {
-	detail, err := s.st.GetModelSecretBackendDetails(ctx, modelUUID)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return detail.SecretBackendID, nil
-}
-
 // WatchableService defines a service that can be watched for changes.
 type WatchableService struct {
 	Service
