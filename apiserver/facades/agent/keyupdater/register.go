@@ -26,7 +26,7 @@ func Register(registry facade.FacadeRegistry) {
 func newKeyUpdaterAPI(
 	authorizer facade.Authorizer,
 	keyUpdaterService KeyUpdaterService,
-	watcherRegistery facade.WatcherRegistry,
+	watcherRegistry facade.WatcherRegistry,
 ) (*KeyUpdaterAPI, error) {
 	// Only machine agents have access to the keyupdater service.
 	if !authorizer.AuthMachineAgent() {
@@ -39,6 +39,6 @@ func newKeyUpdaterAPI(
 	return &KeyUpdaterAPI{
 		getCanRead:        getCanRead,
 		keyUpdaterService: keyUpdaterService,
-		watcherRegistery:  watcherRegistery,
+		watcherRegistry:   watcherRegistry,
 	}, nil
 }

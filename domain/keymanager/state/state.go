@@ -247,11 +247,13 @@ func (s *State) GetPublicKeysDataForUser(
 		return nil, errors.Trace(err)
 	}
 
+	userId := userId{id.String()}
+
 	stmt, err := s.Prepare(`
 SELECT (public_key) AS (&publicKeyData.*)
 FROM user_public_ssh_key
 WHERE user_id = $userId.user_id
-`, userId{}, publicKeyData{})
+`, userId, publicKeyData{})
 
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -260,7 +262,6 @@ WHERE user_id = $userId.user_id
 		)
 	}
 
-	userId := userId{id.String()}
 	publicKeys := []publicKeyData{}
 	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
 		return tx.Query(ctx, stmt, userId).GetAll(&publicKeys)

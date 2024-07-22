@@ -25,15 +25,19 @@ import (
 type KeyUpdaterAPI struct {
 	getCanRead        common.GetAuthFunc
 	keyUpdaterService KeyUpdaterService
-	watcherRegistery  facade.WatcherRegistry
+	watcherRegistry   facade.WatcherRegistry
 }
 
 // WatchAuthorisedKeys starts a watcher to track changes to the authorised ssh
 // keys for the specified machines.
-// The current implementation relies on global authorised keys being stored in
-// the model config and also the Juju system ssh key coming from the controllers
-// config. This will change as new user management and authorisation
-// functionality is added.
+// The following param error codes can be expected:
+// - [params.CodeTagInvalid] When a tag provided does not parse and is
+// considered invalid.
+// - [params.CodeTagKindNotSupported] When a tag has been supplied that is not a
+// machine tag.
+// - [params.CodeUnathorized] When the caller does not have permissions to get
+// the authorised keys for a requested tag.
+// - [params.CodeMachineInvalidID] When one of the machine tags id is invalid.
 func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.Entities) (params.NotifyWatchResults, error) {
 	results := make([]params.NotifyWatchResult, len(arg.Entities))
 	if len(arg.Entities) == 0 {
@@ -71,7 +75,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 		if !canRead(tag) {
 			results[i].Error = apiservererrors.ParamsError(
 				params.CodeUnauthorized,
-				"does not have permission to read authorised keys for %q",
+				"%q does not have permission to read authorized keys",
 				tag,
 			)
 			continue
@@ -105,7 +109,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 		}
 
 		results[i].NotifyWatcherId, _, err = internal.EnsureRegisterWatcher[struct{}](
-			ctx, api.watcherRegistery, notifyWatcher,
+			ctx, api.watcherRegistry, notifyWatcher,
 		)
 		if err != nil {
 			return params.NotifyWatchResults{}, fmt.Errorf(
@@ -127,7 +131,8 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 // machine tag.
 // - [params.CodeUnathorized] When the caller does not have permissions to get
 // the authorised keys for a requested tag.
-// - [params.CodeMachineInvalidID] When one of the machine tags id is invalid.
+// - [params.CodeMachineInvalidID] When one of the machine tag's translates to a
+// invalid machine id.
 // - [params.CodeMachineNotFound] When one of the machine's does not exist.
 func (api *KeyUpdaterAPI) AuthorisedKeys(
 	ctx context.Context,

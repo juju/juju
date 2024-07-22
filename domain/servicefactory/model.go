@@ -141,8 +141,8 @@ func (s *ModelFactory) Application(registry storage.ProviderRegistry) *applicati
 	)
 }
 
-// KeyManager returns the models user public ssh key manager. Use this service
-// when wanting to modify a users public ssh keys within a model.
+// KeyManager returns the model's user public ssh key manager. Use this service
+// when wanting to modify a user's public ssh keys within a model.
 func (s *ModelFactory) KeyManager(
 	importer keymanagerservice.PublicKeyImporter,
 ) *keymanagerservice.Service {

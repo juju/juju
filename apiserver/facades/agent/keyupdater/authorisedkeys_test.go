@@ -139,7 +139,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 
 // TestAuthorisedKeysForNoone is asserting that if we ask for authorised keys
 // for zero machines we back an empty result with no errors.
-func (s *authorisedKeysSuite) TestAuthorisedKeysForNoone(c *gc.C) {
+func (s *authorisedKeysSuite) TestAuthorisedKeysForNone(c *gc.C) {
 	endPoint, err := newKeyUpdaterAPI(
 		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
 	)
