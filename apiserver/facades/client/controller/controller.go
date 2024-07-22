@@ -111,9 +111,13 @@ type ControllerAPI struct {
 	controllerTag names.ControllerTag
 }
 
+type ControllerAPIv11 struct {
+	*ControllerAPI
+}
+
 // LatestAPI is used for testing purposes to create the latest
 // controller API.
-var LatestAPI = newControllerAPIv11
+var LatestAPI = makeControllerAPI
 
 // NewControllerAPI creates a new api server endpoint for operations
 // on a controller.
@@ -503,7 +507,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 // converted to a multi-model facade. Please use the ModelConfig facade's
 // ModelGet method instead:
 // [github.com/juju/juju/apiserver/facades/client/modelconfig.ModelConfigAPI.ModelGet]
-func (c *ControllerAPI) ModelConfig(ctx context.Context) (params.ModelConfigResults, error) {
+func (c *ControllerAPIv11) ModelConfig(ctx context.Context) (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
 	if err := c.checkIsSuperUser(); err != nil {
 		return result, errors.Trace(err)

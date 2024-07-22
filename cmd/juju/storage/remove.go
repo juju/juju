@@ -75,6 +75,14 @@ func (c *removeStorageCommand) Info() *cmd.Info {
 		Doc:      removeStorageCommandDoc,
 		Args:     removeStorageCommandArgs,
 		Examples: removeStorageCommandExamples,
+		SeeAlso: []string{
+			"add-storage",
+			"attach-storage",
+			"detach-storage",
+			"list-storage",
+			"show-storage",
+			"storage",
+		},
 	})
 }
 

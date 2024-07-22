@@ -66,6 +66,24 @@ juju expose apache2 --endpoints logs --to-cidrs 192.168.0.0/24
 
 `[1:]
 
+const example = `
+To expose an application:
+
+    juju expose apache2
+
+To expose an application to one or multiple spaces:
+
+    juju expose apache2 --to-spaces public
+
+To expose an application to one or multiple endpoints:
+
+    juju expose apache2 --endpoints logs
+	
+To expose an application to one or multiple CIDRs:
+
+    juju expose apache2 --to-cidrs 10.0.0.0/24
+`
+
 // NewExposeCommand returns a command to expose applications.
 func NewExposeCommand() modelcmd.ModelCommand {
 	return modelcmd.Wrap(&exposeCommand{})
@@ -85,10 +103,11 @@ type exposeCommand struct {
 
 func (c *exposeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "expose",
-		Args:    "<application name>",
-		Purpose: usageExposeSummary,
-		Doc:     usageExposeDetails,
+		Name:     "expose",
+		Args:     "<application name>",
+		Purpose:  usageExposeSummary,
+		Doc:      usageExposeDetails,
+		Examples: example,
 		SeeAlso: []string{
 			"unexpose",
 		},

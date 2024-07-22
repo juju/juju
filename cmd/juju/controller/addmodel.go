@@ -112,6 +112,12 @@ func (c *addModelCommand) Info() *cmd.Info {
 		Purpose:  "Adds a workload model.",
 		Doc:      strings.TrimSpace(addModelHelpDoc),
 		Examples: addModelHelpExamples,
+		SeeAlso: []string{
+			"model-config",
+			"model-defaults",
+			"add-credential",
+			"autoload-credentials",
+		},
 	})
 }
 

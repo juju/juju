@@ -33,6 +33,10 @@ separated when more than one ID is desired.
 
 `
 
+const showCommandExample = `
+    juju show-storage storage-id
+`
+
 // showCommand attempts to release storage instance.
 type showCommand struct {
 	StorageCommandBase
@@ -53,10 +57,17 @@ func (c *showCommand) Init(args []string) (err error) {
 // Info implements Command.Info.
 func (c *showCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "show-storage",
-		Args:    "<storage ID> [...]",
-		Purpose: "Shows storage instance information.",
-		Doc:     showCommandDoc,
+		Name:     "show-storage",
+		Args:     "<storage ID> [...]",
+		Purpose:  "Shows storage instance information.",
+		Doc:      showCommandDoc,
+		Examples: showCommandExample,
+		SeeAlso: []string{
+			"storage",
+			"attach-storage",
+			"detach-storage",
+			"remove-storage",
+		},
 	})
 }
 

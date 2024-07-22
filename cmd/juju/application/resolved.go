@@ -29,12 +29,22 @@ type resolvedCommand struct {
 	All       bool
 }
 
+const resolvedCommandExamples = `
+
+	juju resolved mysql/0
+
+	juju resolved mysql/0 mysql/1
+
+	juju resolved --all
+`
+
 func (c *resolvedCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "resolved",
-		Args:    "[<unit> ...]",
-		Purpose: "Marks unit errors resolved and re-executes failed hooks.",
-		Aliases: []string{"resolve"},
+		Name:     "resolved",
+		Args:     "[<unit> ...]",
+		Purpose:  "Marks unit errors resolved and re-executes failed hooks.",
+		Aliases:  []string{"resolve"},
+		Examples: resolvedCommandExamples,
 	})
 }
 

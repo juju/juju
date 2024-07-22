@@ -194,12 +194,12 @@ func commonURLGetter(version APIVersion, url url.URL, pathTemplate string, args 
 	return url.String()
 }
 
-func (c baseClient) url(pathTemplate string, args ...interface{}) string {
+func (c *baseClient) url(pathTemplate string, args ...interface{}) string {
 	return commonURLGetter(c.APIVersion(), *c.baseURL, pathTemplate, args...)
 }
 
 // Ping pings the baseClient endpoint.
-func (c baseClient) Ping() error {
+func (c *baseClient) Ping() error {
 	url := c.url("/")
 	logger.Debugf("baseClient ping %q", url)
 	resp, err := c.client.Get(url)
@@ -209,7 +209,7 @@ func (c baseClient) Ping() error {
 	return errors.Trace(unwrapNetError(err))
 }
 
-func (c baseClient) ImageRepoDetails() (o docker.ImageRepoDetails) {
+func (c *baseClient) ImageRepoDetails() (o docker.ImageRepoDetails) {
 	if c.repoDetails != nil {
 		return *c.repoDetails
 	}
@@ -224,7 +224,7 @@ func (c *baseClient) Close() error {
 	return nil
 }
 
-func (c baseClient) getPaginatedJSON(url string, response interface{}) (string, error) {
+func (c *baseClient) getPaginatedJSON(url string, response interface{}) (string, error) {
 	resp, err := c.client.Get(url)
 	logger.Tracef("getPaginatedJSON for %q, err %v", url, err)
 	if err != nil {

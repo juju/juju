@@ -79,41 +79,41 @@ func (c *MockRegistryCloseCall) DoAndReturn(f func() error) *MockRegistryCloseCa
 	return c
 }
 
-// GetArchitecture mocks base method.
-func (m *MockRegistry) GetArchitecture(arg0, arg1 string) (string, error) {
+// GetArchitectures mocks base method.
+func (m *MockRegistry) GetArchitectures(arg0, arg1 string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetArchitecture", arg0, arg1)
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "GetArchitectures", arg0, arg1)
+	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetArchitecture indicates an expected call of GetArchitecture.
-func (mr *MockRegistryMockRecorder) GetArchitecture(arg0, arg1 any) *MockRegistryGetArchitectureCall {
+// GetArchitectures indicates an expected call of GetArchitectures.
+func (mr *MockRegistryMockRecorder) GetArchitectures(arg0, arg1 any) *MockRegistryGetArchitecturesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetArchitecture", reflect.TypeOf((*MockRegistry)(nil).GetArchitecture), arg0, arg1)
-	return &MockRegistryGetArchitectureCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetArchitectures", reflect.TypeOf((*MockRegistry)(nil).GetArchitectures), arg0, arg1)
+	return &MockRegistryGetArchitecturesCall{Call: call}
 }
 
-// MockRegistryGetArchitectureCall wrap *gomock.Call
-type MockRegistryGetArchitectureCall struct {
+// MockRegistryGetArchitecturesCall wrap *gomock.Call
+type MockRegistryGetArchitecturesCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockRegistryGetArchitectureCall) Return(arg0 string, arg1 error) *MockRegistryGetArchitectureCall {
+func (c *MockRegistryGetArchitecturesCall) Return(arg0 []string, arg1 error) *MockRegistryGetArchitecturesCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockRegistryGetArchitectureCall) Do(f func(string, string) (string, error)) *MockRegistryGetArchitectureCall {
+func (c *MockRegistryGetArchitecturesCall) Do(f func(string, string) ([]string, error)) *MockRegistryGetArchitecturesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockRegistryGetArchitectureCall) DoAndReturn(f func(string, string) (string, error)) *MockRegistryGetArchitectureCall {
+func (c *MockRegistryGetArchitecturesCall) DoAndReturn(f func(string, string) ([]string, error)) *MockRegistryGetArchitecturesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

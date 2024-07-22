@@ -58,6 +58,10 @@ func (c *listKeysCommand) Info() *cmd.Info {
 		Doc:      usageListSSHKeysDetails,
 		Aliases:  []string{"list-ssh-keys"},
 		Examples: usageListSSHKeysExamples,
+		SeeAlso: []string{
+			"add-ssh-key",
+			"remove-ssh-key",
+		},
 	})
 }
 

@@ -34,5 +34,5 @@ func SetPrecheckResult(p patcher, err error) {
 }
 
 var (
-	NewControllerAPIv11 = newControllerAPIv11
+	NewControllerAPIv11 = makeControllerAPIv11
 )

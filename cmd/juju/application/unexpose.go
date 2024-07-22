@@ -26,24 +26,15 @@ the "juju expose" command, they can be unexposed by running the "juju unexpose"
 command.  
 
 If no additional options are specified, the command will unexpose the
-application (if exposed). For example, to unexpose the apache2 application,
-you can run:
-
-juju unexpose apache2
+application (if exposed).
 
 The --endpoints option may be used to restrict the effect of this command to 
-the list of ports opened for a comma-delimited list of endpoints. For instance,
-to only unexpose the ports opened by apache2 for the "www" endpoint, you can 
-run:
-
-juju unexpose apache2 --endpoints www
+the list of ports opened for a comma-delimited list of endpoints.
 
 Note that when the --endpoints option is provided, the application will still
 remain exposed if any other of its endpoints are still exposed. However, if
 none of its endpoints remain exposed, the application will be instead unexposed. 
-
-See also: 
-    expose`[1:]
+`[1:]
 
 // NewUnexposeCommand returns a command to unexpose applications.
 func NewUnexposeCommand() modelcmd.ModelCommand {
@@ -59,12 +50,26 @@ type unexposeCommand struct {
 	api ApplicationExposeAPI
 }
 
+const unexposeCommandExample = `
+    juju unexpose apache2
+
+To unexpose only the ports that charms have opened for the "www", or "www" and "logs" endpoints:
+
+    juju unexpose apache2 --endpoints www
+
+    juju unexpose apache2 --endpoints www,logs
+`
+
 func (c *unexposeCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "unexpose",
-		Args:    "<application name>",
-		Purpose: usageUnexposeSummary,
-		Doc:     usageUnexposeDetails,
+		Name:     "unexpose",
+		Args:     "<application name>",
+		Purpose:  usageUnexposeSummary,
+		Doc:      usageUnexposeDetails,
+		Examples: unexposeCommandExample,
+		SeeAlso: []string{
+			"expose",
+		},
 	})
 }
 

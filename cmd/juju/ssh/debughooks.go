@@ -89,6 +89,10 @@ func (c *debugHooksCommand) Info() *cmd.Info {
 		Doc:      debugHooksDoc,
 		Examples: usageDebugHooksExamples,
 		Aliases:  []string{"debug-hook"},
+		SeeAlso: []string{
+			"ssh",
+			"debug-code",
+		},
 	})
 }
 

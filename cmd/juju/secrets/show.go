@@ -70,6 +70,11 @@ func (c *showSecretsCommand) Info() *cmd.Info {
 		Purpose:  "Shows details for a specific secret.",
 		Doc:      showSecretsDoc,
 		Examples: showSecretsExamples,
+		SeeAlso: []string{
+			"add-secret",
+			"update-secret",
+			"remove-secret",
+		},
 	})
 }
 

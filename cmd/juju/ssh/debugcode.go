@@ -79,6 +79,10 @@ func (c *debugCodeCommand) Info() *cmd.Info {
 		Purpose:  "Launch a tmux session to debug hooks and/or actions.",
 		Doc:      debugCodeDoc,
 		Examples: usageDebugCodeExamples,
+		SeeAlso: []string{
+			"ssh",
+			"debug-hooks",
+		},
 	})
 }
 

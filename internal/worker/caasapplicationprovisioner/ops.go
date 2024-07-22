@@ -214,13 +214,9 @@ func appAlive(ctx context.Context, appName string, app caas.Application,
 	case charm.RunAsRoot:
 		config.CharmUser = caas.RunAsRoot
 	case charm.RunAsSudoer:
-		// TODO(pebble): once pebble supports auth, allow running as non-root.
-		//config.CharmUser = caas.RunAsSudoer
-		config.CharmUser = caas.RunAsRoot
+		config.CharmUser = caas.RunAsSudoer
 	case charm.RunAsNonRoot:
-		// TODO(pebble): once pebble supports auth, allow running as non-root.
-		//config.CharmUser = caas.RunAsNonRoot
-		config.CharmUser = caas.RunAsRoot
+		config.CharmUser = caas.RunAsNonRoot
 	default:
 		return errors.NotValidf("unknown RunAs for CharmUser: %q", ch.Meta().CharmUser)
 	}
