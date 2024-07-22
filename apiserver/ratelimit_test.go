@@ -111,7 +111,6 @@ func (s *rateLimitSuite) infoForNewUser(c *gc.C, info *api.Info, name string) *a
 	userTag := names.NewUserTag(name)
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("hunter2")),
 		Permission: permission.AccessSpec{

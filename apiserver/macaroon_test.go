@@ -21,7 +21,7 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/access"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
 )
@@ -197,13 +197,15 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccessAndAllo
 func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.C, allowModelAccess bool) {
 	apiserver.SetAllowModelAccess(s.Server, allowModelAccess)
 
+	external := true
 	accessService := s.ControllerServiceFactory(c).Access()
-	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
-		Name:        remoteUser,
-		DisplayName: "Remote User",
-		External:    true,
-		CreatorUUID: s.AdminUserUUID,
-		Permission: permission.AccessSpec{
+	err := accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
+		Subject:  remoteUser,
+		Change:   permission.Grant,
+		External: &external,
+		AddUser:  true,
+		ApiUser:  "admin",
+		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
 				ObjectType: permission.Model,
 				Key:        s.ControllerModelUUID(),

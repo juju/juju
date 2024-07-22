@@ -62,7 +62,6 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        "foobar",
 		DisplayName: "Foo Bar",
-		External:    false,
 		Password:    &pass,
 		CreatorUUID: s.apiUser.UUID,
 		Permission: permission.AccessSpec{
@@ -100,7 +99,6 @@ func (s *userManagerSuite) TestAddUserWithSecretKey(c *gc.C) {
 	s.accessService.EXPECT().AddUser(gomock.Any(), service.AddUserArg{
 		Name:        "foobar",
 		DisplayName: "Foo Bar",
-		External:    false,
 		CreatorUUID: s.apiUser.UUID,
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,
@@ -168,7 +166,7 @@ func (s *userManagerSuite) TestDisableUser(c *gc.C) {
 	exp.DisableUserAuthentication(gomock.Any(), "alex").Return(nil)
 	exp.DisableUserAuthentication(gomock.Any(), "barb").Return(nil)
 	exp.DisableUserAuthentication(gomock.Any(), "ellie").Return(errors.NotFound)
-	exp.DisableUserAuthentication(gomock.Any(), "fred").Return(errors.NotFound)
+	exp.DisableUserAuthentication(gomock.Any(), "fred@remote").Return(errors.NotFound)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -220,7 +218,7 @@ func (s *userManagerSuite) TestEnableUser(c *gc.C) {
 	exp.EnableUserAuthentication(gomock.Any(), "alex").Return(nil)
 	exp.EnableUserAuthentication(gomock.Any(), "barb").Return(nil)
 	exp.EnableUserAuthentication(gomock.Any(), "ellie").Return(errors.NotFound)
-	exp.EnableUserAuthentication(gomock.Any(), "fred").Return(errors.NotFound)
+	exp.EnableUserAuthentication(gomock.Any(), "fred@remote").Return(errors.NotFound)
 
 	args := params.Entities{
 		Entities: []params.Entity{

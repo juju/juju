@@ -16,7 +16,6 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
 	"github.com/juju/worker/v4/catacomb"
 
@@ -219,11 +218,9 @@ func (w *Worker) addMetricsUser(ctx context.Context, username string, password a
 		return http.StatusInternalServerError, errors.Annotatef(err, "retrieving creator user %q: %v", userCreator, err)
 	}
 
-	external := !names.NewUserTag(username).IsLocal()
 	_, _, err = w.userService.AddUser(ctx, service.AddUserArg{
 		Name:        username,
 		DisplayName: username,
-		External:    external,
 		Password:    &password,
 		CreatorUUID: creatorUser.UUID,
 	})

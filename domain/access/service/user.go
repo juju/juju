@@ -124,12 +124,10 @@ func (s *UserService) GetUserByAuth(
 //     and the creator does not exist.
 //   - auth.ErrPasswordNotValid: If the password supplied is not valid.
 func (s *UserService) AddUser(ctx context.Context, arg AddUserArg) (user.UUID, []byte, error) {
-	if !names.IsValidUser(arg.Name) {
+	// IsValidUserName does not allow external user names, e.g. bob@external.
+	// This is intentional.
+	if !names.IsValidUserName(arg.Name) {
 		return "", nil, errors.Annotatef(accesserrors.UserNameNotValid, "%q", arg.Name)
-	}
-
-	if !names.NewUserTag(arg.Name).IsLocal() {
-		return "", nil, fmt.Errorf("cannot add external user %q", arg.Name)
 	}
 
 	if err := arg.CreatorUUID.Validate(); err != nil {
@@ -178,7 +176,7 @@ func (s *UserService) addUserWithPassword(ctx context.Context, arg AddUserArg) e
 		return errors.Trace(err)
 	}
 
-	err = s.st.AddUserWithPasswordHash(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.External, arg.CreatorUUID, arg.Permission, hash, salt)
+	err = s.st.AddUserWithPasswordHash(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.CreatorUUID, arg.Permission, hash, salt)
 	return errors.Trace(err)
 }
 
@@ -188,7 +186,7 @@ func (s *UserService) addUserWithActivationKey(ctx context.Context, arg AddUserA
 		return nil, errors.Trace(err)
 	}
 
-	if err = s.st.AddUserWithActivationKey(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.External, arg.CreatorUUID, arg.Permission, key); err != nil {
+	if err = s.st.AddUserWithActivationKey(ctx, arg.UUID, arg.Name, arg.DisplayName, arg.CreatorUUID, arg.Permission, key); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return key, nil

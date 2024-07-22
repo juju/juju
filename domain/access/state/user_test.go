@@ -123,7 +123,7 @@ func (s *userStateSuite) TestBootstrapAddUserWithPassword(c *gc.C) {
 	err = s.TxnRunner().Txn(context.Background(), func(ctx context.Context, tx *sqlair.TX) error {
 		err = AddUserWithPassword(
 			context.Background(), tx, adminUUID,
-			"admin", "admin", false,
+			"admin", "admin",
 			adminUUID, s.controllerLoginAccess(), "passwordHash", salt,
 		)
 		return err
@@ -250,7 +250,7 @@ func (s *userStateSuite) TestAddUserWithInvalidPermissions(c *gc.C) {
 
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
-		"admin", "admin", false,
+		"admin", "admin",
 		adminUUID,
 		permission.AccessSpec{
 			Access: permission.ReadAccess,
@@ -277,7 +277,7 @@ func (s *userStateSuite) TestGetUser(c *gc.C) {
 
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
-		"admin", "admin", false,
+		"admin", "admin",
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -320,7 +320,6 @@ func (s *userStateSuite) TestGetRemovedUser(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), userToRemoveUUID,
 		"userToRemove", "userToRemove",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -369,7 +368,6 @@ func (s *userStateSuite) TestGetUserByName(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -460,7 +458,6 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 		context.Background(),
 		admin2UUID,
 		"admin", "admin2",
-		false,
 		admin2UUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -502,7 +499,6 @@ func (s *userStateSuite) TestGetUserWithAuthInfoByName(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -539,7 +535,6 @@ func (s *userStateSuite) TestGetUserByAuth(c *gc.C) {
 		context.Background(),
 		adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		passwordHash, salt)
@@ -568,7 +563,6 @@ func (s *userStateSuite) TestGetUserByAuthWithInvalidSalt(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", []byte{},
@@ -599,7 +593,6 @@ func (s *userStateSuite) TestGetUserByAuthDisabled(c *gc.C) {
 		context.Background(),
 		adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		passwordHash, salt)
@@ -637,7 +630,6 @@ func (s *userStateSuite) TestGetUserByAuthUnauthorized(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		passwordHash, salt,
@@ -745,7 +737,6 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), admin1UUID,
 		"admin1", "admin1",
-		false,
 		admin1UUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -762,7 +753,6 @@ func (s *userStateSuite) TestGetAllUsersWihAuthInfo(c *gc.C) {
 	err = st.AddUserWithActivationKey(
 		context.Background(), admin2UUID,
 		"admin2", "admin2",
-		false,
 		admin2UUID,
 		s.controllerLoginAccess(),
 		admin2ActivationKey,
@@ -827,7 +817,6 @@ func (s *userStateSuite) TestUserWithAuthInfo(c *gc.C) {
 		context.Background(),
 		uuid,
 		name, name,
-		false,
 		uuid,
 		s.controllerLoginAccess(),
 		"passwordHash", salt)
@@ -860,7 +849,6 @@ func (s *userStateSuite) TestSetPasswordHash(c *gc.C) {
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		newActivationKey,
@@ -928,7 +916,6 @@ func (s *userStateSuite) TestSetPasswordHashTwice(c *gc.C) {
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		newActivationKey,
@@ -979,7 +966,6 @@ func (s *userStateSuite) TestAddUserWithPasswordHash(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -1018,7 +1004,6 @@ func (s *userStateSuite) TestAddUserWithPasswordWhichCreatorDoesNotExist(c *gc.C
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		nonExistedCreatorUuid,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -1040,7 +1025,6 @@ func (s *userStateSuite) TestAddUserWithActivationKey(c *gc.C) {
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		adminActivationKey,
@@ -1095,7 +1079,6 @@ func (s *userStateSuite) TestAddUserWithActivationKeyWhichCreatorDoesNotExist(c 
 	err = st.AddUserWithActivationKey(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		nonExistedCreatorUuid,
 		s.controllerLoginAccess(),
 		newActivationKey,
@@ -1118,7 +1101,6 @@ func (s *userStateSuite) TestSetActivationKey(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -1174,7 +1156,6 @@ func (s *userStateSuite) TestDisableUserAuthentication(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -1217,7 +1198,6 @@ func (s *userStateSuite) TestEnableUserAuthentication(c *gc.C) {
 	err = st.AddUserWithPasswordHash(
 		context.Background(), adminUUID,
 		"admin", "admin",
-		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,
@@ -1393,7 +1373,6 @@ func (s *userStateSuite) addTestUser(c *gc.C, st *UserState, name string) (strin
 	err = st.AddUserWithPasswordHash(
 		context.Background(), userUUID,
 		name, name,
-		false,
 		userUUID,
 		s.controllerLoginAccess(),
 		"passwordHash", salt,

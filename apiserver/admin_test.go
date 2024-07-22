@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	jujuversion "github.com/juju/juju/core/version"
+	"github.com/juju/juju/domain/access"
 	accessservice "github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
@@ -180,7 +181,6 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
@@ -221,7 +221,6 @@ func (s *loginSuite) TestLoginAsDeletedUser(c *gc.C) {
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
@@ -451,7 +450,6 @@ func (s *loginSuite) infoForNewUser(c *gc.C, info *api.Info) *api.Info {
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
@@ -715,7 +713,6 @@ func (s *loginSuite) TestOtherModel(c *gc.C) {
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
@@ -892,7 +889,6 @@ func (s *loginSuite) loginLocalUser(c *gc.C, info *api.Info) (names.UserTag, par
 	_, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Charlie Brown",
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(pass)),
 		Permission: permission.AccessSpec{
@@ -994,7 +990,6 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 	userUUID, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        userName,
 		DisplayName: "Bob Brown",
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
 		Permission: permission.AccessSpec{
@@ -1040,22 +1035,21 @@ func (s *loginSuite) TestLoginUpdatesLastLoginAndConnection(c *gc.C) {
 }
 
 func (s *loginSuite) setEveryoneAccess(c *gc.C, accessLevel permission.Access) {
-	_, _, err := s.ControllerServiceFactory(c).Access().AddUser(
-		context.Background(),
-		accessservice.AddUserArg{
-			Name:        permission.EveryoneTagName,
-			DisplayName: permission.EveryoneTagName,
-			External:    true,
-			CreatorUUID: s.AdminUserUUID,
-			Permission: permission.AccessSpec{
-				Access: accessLevel,
-				Target: permission.ID{
-					ObjectType: permission.Controller,
-					Key:        s.ControllerUUID,
-				},
+	external := true
+	err := s.ControllerServiceFactory(c).Access().UpdatePermission(context.Background(), access.UpdatePermissionArgs{
+		Subject:  permission.EveryoneTagName,
+		Change:   permission.Grant,
+		External: &external,
+		AddUser:  true,
+		ApiUser:  "admin",
+		AccessSpec: permission.AccessSpec{
+			Target: permission.ID{
+				ObjectType: permission.Controller,
+				Key:        s.ControllerUUID,
 			},
+			Access: accessLevel,
 		},
-	)
+	})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1148,7 +1142,6 @@ func (s *loginV3Suite) TestClientLoginToControllerNoAccessToControllerModel(c *g
 	uuid, _, err := accessService.AddUser(context.Background(), accessservice.AddUserArg{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("password")),
 		Permission: permission.AccessSpec{

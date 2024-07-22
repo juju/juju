@@ -70,7 +70,6 @@ func (s *pubsubSuite) TestRejectsUserLogins(c *gc.C) {
 	_, _, err := userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Bob Brown",
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword("hunter2")),
 		Permission: permission.AccessSpec{

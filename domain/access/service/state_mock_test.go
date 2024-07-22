@@ -86,17 +86,17 @@ func (c *MockStateAddUserCall) DoAndReturn(f func(context.Context, user.UUID, st
 }
 
 // AddUserWithActivationKey mocks base method.
-func (m *MockState) AddUserWithActivationKey(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 bool, arg5 user.UUID, arg6 permission.AccessSpec, arg7 []byte) error {
+func (m *MockState) AddUserWithActivationKey(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUserWithActivationKey", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	ret := m.ctrl.Call(m, "AddUserWithActivationKey", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddUserWithActivationKey indicates an expected call of AddUserWithActivationKey.
-func (mr *MockStateMockRecorder) AddUserWithActivationKey(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 any) *MockStateAddUserWithActivationKeyCall {
+func (mr *MockStateMockRecorder) AddUserWithActivationKey(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockStateAddUserWithActivationKeyCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithActivationKey", reflect.TypeOf((*MockState)(nil).AddUserWithActivationKey), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithActivationKey", reflect.TypeOf((*MockState)(nil).AddUserWithActivationKey), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	return &MockStateAddUserWithActivationKeyCall{Call: call}
 }
 
@@ -112,29 +112,29 @@ func (c *MockStateAddUserWithActivationKeyCall) Return(arg0 error) *MockStateAdd
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddUserWithActivationKeyCall) Do(f func(context.Context, user.UUID, string, string, bool, user.UUID, permission.AccessSpec, []byte) error) *MockStateAddUserWithActivationKeyCall {
+func (c *MockStateAddUserWithActivationKeyCall) Do(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, []byte) error) *MockStateAddUserWithActivationKeyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddUserWithActivationKeyCall) DoAndReturn(f func(context.Context, user.UUID, string, string, bool, user.UUID, permission.AccessSpec, []byte) error) *MockStateAddUserWithActivationKeyCall {
+func (c *MockStateAddUserWithActivationKeyCall) DoAndReturn(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, []byte) error) *MockStateAddUserWithActivationKeyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddUserWithPasswordHash mocks base method.
-func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 bool, arg5 user.UUID, arg6 permission.AccessSpec, arg7 string, arg8 []byte) error {
+func (m *MockState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 string, arg7 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUserWithPasswordHash", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	ret := m.ctrl.Call(m, "AddUserWithPasswordHash", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddUserWithPasswordHash indicates an expected call of AddUserWithPasswordHash.
-func (mr *MockStateMockRecorder) AddUserWithPasswordHash(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 any) *MockStateAddUserWithPasswordHashCall {
+func (mr *MockStateMockRecorder) AddUserWithPasswordHash(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 any) *MockStateAddUserWithPasswordHashCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPasswordHash", reflect.TypeOf((*MockState)(nil).AddUserWithPasswordHash), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPasswordHash", reflect.TypeOf((*MockState)(nil).AddUserWithPasswordHash), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	return &MockStateAddUserWithPasswordHashCall{Call: call}
 }
 
@@ -150,13 +150,13 @@ func (c *MockStateAddUserWithPasswordHashCall) Return(arg0 error) *MockStateAddU
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockStateAddUserWithPasswordHashCall) Do(f func(context.Context, user.UUID, string, string, bool, user.UUID, permission.AccessSpec, string, []byte) error) *MockStateAddUserWithPasswordHashCall {
+func (c *MockStateAddUserWithPasswordHashCall) Do(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, string, []byte) error) *MockStateAddUserWithPasswordHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockStateAddUserWithPasswordHashCall) DoAndReturn(f func(context.Context, user.UUID, string, string, bool, user.UUID, permission.AccessSpec, string, []byte) error) *MockStateAddUserWithPasswordHashCall {
+func (c *MockStateAddUserWithPasswordHashCall) DoAndReturn(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, string, []byte) error) *MockStateAddUserWithPasswordHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -1034,17 +1034,17 @@ func (c *MockUserStateAddUserCall) DoAndReturn(f func(context.Context, user.UUID
 }
 
 // AddUserWithActivationKey mocks base method.
-func (m *MockUserState) AddUserWithActivationKey(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 bool, arg5 user.UUID, arg6 permission.AccessSpec, arg7 []byte) error {
+func (m *MockUserState) AddUserWithActivationKey(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUserWithActivationKey", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	ret := m.ctrl.Call(m, "AddUserWithActivationKey", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddUserWithActivationKey indicates an expected call of AddUserWithActivationKey.
-func (mr *MockUserStateMockRecorder) AddUserWithActivationKey(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 any) *MockUserStateAddUserWithActivationKeyCall {
+func (mr *MockUserStateMockRecorder) AddUserWithActivationKey(arg0, arg1, arg2, arg3, arg4, arg5, arg6 any) *MockUserStateAddUserWithActivationKeyCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithActivationKey", reflect.TypeOf((*MockUserState)(nil).AddUserWithActivationKey), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithActivationKey", reflect.TypeOf((*MockUserState)(nil).AddUserWithActivationKey), arg0, arg1, arg2, arg3, arg4, arg5, arg6)
 	return &MockUserStateAddUserWithActivationKeyCall{Call: call}
 }
 
@@ -1060,29 +1060,29 @@ func (c *MockUserStateAddUserWithActivationKeyCall) Return(arg0 error) *MockUser
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUserStateAddUserWithActivationKeyCall) Do(f func(context.Context, user.UUID, string, string, bool, user.UUID, permission.AccessSpec, []byte) error) *MockUserStateAddUserWithActivationKeyCall {
+func (c *MockUserStateAddUserWithActivationKeyCall) Do(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, []byte) error) *MockUserStateAddUserWithActivationKeyCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserStateAddUserWithActivationKeyCall) DoAndReturn(f func(context.Context, user.UUID, string, string, bool, user.UUID, permission.AccessSpec, []byte) error) *MockUserStateAddUserWithActivationKeyCall {
+func (c *MockUserStateAddUserWithActivationKeyCall) DoAndReturn(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, []byte) error) *MockUserStateAddUserWithActivationKeyCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // AddUserWithPasswordHash mocks base method.
-func (m *MockUserState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 bool, arg5 user.UUID, arg6 permission.AccessSpec, arg7 string, arg8 []byte) error {
+func (m *MockUserState) AddUserWithPasswordHash(arg0 context.Context, arg1 user.UUID, arg2, arg3 string, arg4 user.UUID, arg5 permission.AccessSpec, arg6 string, arg7 []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddUserWithPasswordHash", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	ret := m.ctrl.Call(m, "AddUserWithPasswordHash", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddUserWithPasswordHash indicates an expected call of AddUserWithPasswordHash.
-func (mr *MockUserStateMockRecorder) AddUserWithPasswordHash(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8 any) *MockUserStateAddUserWithPasswordHashCall {
+func (mr *MockUserStateMockRecorder) AddUserWithPasswordHash(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7 any) *MockUserStateAddUserWithPasswordHashCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPasswordHash", reflect.TypeOf((*MockUserState)(nil).AddUserWithPasswordHash), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddUserWithPasswordHash", reflect.TypeOf((*MockUserState)(nil).AddUserWithPasswordHash), arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 	return &MockUserStateAddUserWithPasswordHashCall{Call: call}
 }
 
@@ -1098,13 +1098,13 @@ func (c *MockUserStateAddUserWithPasswordHashCall) Return(arg0 error) *MockUserS
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUserStateAddUserWithPasswordHashCall) Do(f func(context.Context, user.UUID, string, string, bool, user.UUID, permission.AccessSpec, string, []byte) error) *MockUserStateAddUserWithPasswordHashCall {
+func (c *MockUserStateAddUserWithPasswordHashCall) Do(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, string, []byte) error) *MockUserStateAddUserWithPasswordHashCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUserStateAddUserWithPasswordHashCall) DoAndReturn(f func(context.Context, user.UUID, string, string, bool, user.UUID, permission.AccessSpec, string, []byte) error) *MockUserStateAddUserWithPasswordHashCall {
+func (c *MockUserStateAddUserWithPasswordHashCall) DoAndReturn(f func(context.Context, user.UUID, string, string, user.UUID, permission.AccessSpec, string, []byte) error) *MockUserStateAddUserWithPasswordHashCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

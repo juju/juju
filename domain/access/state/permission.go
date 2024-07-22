@@ -991,10 +991,6 @@ func (st *PermissionState) generateUserAccess(user dbPermissionUser, perm dbPerm
 	if perm.AccessType != "" {
 		return perm.toUserAccess(user), nil
 	}
-	fmt.Println("in generateUserAccess")
-	fmt.Println(user)
-	fmt.Println(perm)
-	fmt.Println(everyoneExternal)
 	return corepermission.UserAccess{}, fmt.Errorf("%w for %q on %q", accesserrors.PermissionNotFound, user.Name, perm.GrantOn)
 }
 
@@ -1035,7 +1031,6 @@ func (st *PermissionState) resolveExternalUser(ctx context.Context, tx *sqlair.T
 	if !externalUserName(subject) {
 		return dbPermissionUser{}, false, nil
 	}
-	fmt.Println("resolving external")
 
 	user = dbPermissionUser{
 		Name: corepermission.EveryoneTagName,

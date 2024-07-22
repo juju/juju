@@ -27,27 +27,6 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.controllerUUID = s.SeedControllerUUID(c)
 }
 
-func (s *bootstrapSuite) TestAddUser(c *gc.C) {
-	ctx := context.Background()
-	uuid, addAdminUser := AddUser("admin", permission.AccessSpec{
-		Access: permission.SuperuserAccess,
-		Target: permission.ID{
-			ObjectType: permission.Controller,
-			Key:        s.controllerUUID,
-		},
-	})
-	err := addAdminUser(ctx, s.TxnRunner(), s.NoopTxnRunner())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(uuid.Validate(), jc.ErrorIsNil)
-
-	// Check that the user was created.
-	var name string
-	row := s.DB().QueryRow(`
-SELECT name FROM user WHERE name = ?`, "admin")
-	c.Assert(row.Scan(&name), jc.ErrorIsNil)
-	c.Assert(name, gc.Equals, "admin")
-}
-
 func (s *bootstrapSuite) TestAddUserWithPassword(c *gc.C) {
 	ctx := context.Background()
 	uuid, addAdminUser := AddUserWithPassword("admin", auth.NewPassword("password"), permission.AccessSpec{

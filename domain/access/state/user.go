@@ -68,7 +68,6 @@ func (st *UserState) AddUserWithPasswordHash(
 	uuid user.UUID,
 	name string,
 	displayName string,
-	external bool,
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
 	passwordHash string,
@@ -80,7 +79,7 @@ func (st *UserState) AddUserWithPasswordHash(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(AddUserWithPassword(ctx, tx, uuid, name, displayName, external, creatorUUID, permission, passwordHash, salt))
+		return errors.Trace(AddUserWithPassword(ctx, tx, uuid, name, displayName, creatorUUID, permission, passwordHash, salt))
 	})
 }
 
@@ -94,7 +93,6 @@ func (st *UserState) AddUserWithActivationKey(
 	uuid user.UUID,
 	name string,
 	displayName string,
-	external bool,
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
 	activationKey []byte,
@@ -105,7 +103,7 @@ func (st *UserState) AddUserWithActivationKey(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = AddUser(ctx, tx, uuid, name, displayName, external, creatorUUID, permission)
+		err = AddUser(ctx, tx, uuid, name, displayName, false, creatorUUID, permission)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -617,13 +615,12 @@ func AddUserWithPassword(
 	uuid user.UUID,
 	name string,
 	displayName string,
-	external bool,
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
 	passwordHash string,
 	salt []byte,
 ) error {
-	err := AddUser(ctx, tx, uuid, name, displayName, external, creatorUUID, permission)
+	err := AddUser(ctx, tx, uuid, name, displayName, false, creatorUUID, permission)
 	if err != nil {
 		return errors.Annotatef(err, "adding user with uuid %q", uuid)
 	}

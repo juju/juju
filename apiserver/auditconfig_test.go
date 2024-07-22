@@ -232,7 +232,6 @@ func (s *auditConfigSuite) createModelAdminUser(c *gc.C, userTag names.UserTag, 
 	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: userTag.Name(),
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(password)),
 		Permission: permission.AccessSpec{

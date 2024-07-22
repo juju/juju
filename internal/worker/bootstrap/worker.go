@@ -310,7 +310,6 @@ func (w *bootstrapWorker) seedInitialUsers(ctx context.Context) error {
 	_, _, err = w.cfg.UserService.AddUser(ctx, userservice.AddUserArg{
 		Name:        "juju-metrics",
 		DisplayName: "Juju Metrics",
-		External:    false,
 		Password:    &password,
 		CreatorUUID: adminUser.UUID,
 		Permission: permission.AccessSpec{

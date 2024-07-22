@@ -424,7 +424,6 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	_, _, err = accessService.AddUser(context.Background(), service.AddUserArg{
 		Name:        userTag.Name(),
 		DisplayName: "Bob Brown",
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Password:    ptr(auth.NewPassword(userPassword)),
 		Permission: permission.AccessSpec{

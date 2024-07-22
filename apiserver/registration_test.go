@@ -53,7 +53,6 @@ func (s *registrationSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.userUUID, _, err = s.userService.AddUser(context.Background(), service.AddUserArg{
 		Name:        "bob",
-		External:    false,
 		CreatorUUID: s.AdminUserUUID,
 		Permission: permission.AccessSpec{
 			Access: permission.LoginAccess,

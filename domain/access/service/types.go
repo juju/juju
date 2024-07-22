@@ -9,7 +9,6 @@ import (
 	"github.com/juju/juju/internal/auth"
 )
 
-// AddUserArg represents the arguments for creating a single user.
 type AddUserArg struct {
 	// UUID is an optional unique identifier for the user.
 	// If it is empty, one will be generated during creation.
@@ -20,9 +19,6 @@ type AddUserArg struct {
 
 	// Display name is the user's short name for display.
 	DisplayName string
-
-	// External indicates if the user has a non-local domain.
-	External bool
 
 	// Password is an optional password for the user.
 	// If it is empty, a one-time key is generated for the user's first login.
