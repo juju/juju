@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	machineerrors "github.com/juju/juju/domain/machine/errors"
+	"github.com/juju/juju/internal/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/testing"
 )
 
 type authorisedKeysSuite struct {
@@ -78,7 +78,7 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
 
 // TestWatchAuthorisedKeys is asserting that for machines the caller is allowed
 // to watch we get back a valid watcher id. For machines that cannot be watched
-// by the caller an unathorised error is returned.
+// by the caller an unauthorised error is returned.
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
@@ -152,7 +152,7 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNoone(c *gc.C) {
 
 // TestAuthorisedKeys is asserting that the caller can get back authorised keys
 // for the authenticated machine. For any other machines that the caller is not
-// authenticated for we back unathorised errors.
+// authenticated for we back unauthorised errors.
 func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	endPoint, err := newKeyUpdaterAPI(
