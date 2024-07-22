@@ -101,8 +101,9 @@ func NewModelUpgraderAPI(
 	}, nil
 }
 
-func (m *ModelUpgraderAPI) canUpgrade(model names.ModelTag) error {
+func (m *ModelUpgraderAPI) canUpgrade(ctx context.Context, model names.ModelTag) error {
 	err := m.authorizer.HasPermission(
+		ctx,
 		permission.SuperuserAccess,
 		m.controllerTag,
 	)
@@ -113,7 +114,7 @@ func (m *ModelUpgraderAPI) canUpgrade(model names.ModelTag) error {
 		return nil
 	}
 
-	return m.authorizer.HasPermission(permission.WriteAccess, model)
+	return m.authorizer.HasPermission(ctx, permission.WriteAccess, model)
 }
 
 // ConfigSource describes a type that is able to provide config.
@@ -142,7 +143,7 @@ func (m *ModelUpgraderAPI) UpgradeModel(ctx stdcontext.Context, arg params.Upgra
 	if err != nil {
 		return result, errors.Trace(err)
 	}
-	if err := m.canUpgrade(modelTag); err != nil {
+	if err := m.canUpgrade(ctx, modelTag); err != nil {
 		return result, err
 	}
 

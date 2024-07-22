@@ -34,6 +34,7 @@ type ModelConfigService interface {
 
 // createAPI returns a new image metadata API facade.
 func createAPI(
+	ctx context.Context,
 	st metadataAccess,
 	modelConfigService ModelConfigService,
 	newEnviron func() (environs.Environ, error),
@@ -43,7 +44,7 @@ func createAPI(
 	if !authorizer.AuthClient() {
 		return nil, apiservererrors.ErrPerm
 	}
-	err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	err := authorizer.HasPermission(ctx, permission.SuperuserAccess, st.ControllerTag())
 	if err != nil {
 		return nil, err
 	}

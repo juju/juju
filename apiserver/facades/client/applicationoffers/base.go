@@ -36,20 +36,22 @@ type BaseAPI struct {
 }
 
 // checkAdmin ensures that the specified in user is a model or controller admin.
-func (api *BaseAPI) checkAdmin(user names.UserTag, modelID model.UUID, backend Backend) error {
-	err := api.Authorizer.EntityHasPermission(user, permission.SuperuserAccess, backend.ControllerTag())
+func (api *BaseAPI) checkAdmin(
+	ctx context.Context, user names.UserTag, modelID model.UUID, backend Backend,
+) error {
+	err := api.Authorizer.EntityHasPermission(ctx, user, permission.SuperuserAccess, backend.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	} else if err == nil {
 		return nil
 	}
 
-	return api.Authorizer.EntityHasPermission(user, permission.AdminAccess, names.NewModelTag(modelID.String()))
+	return api.Authorizer.EntityHasPermission(ctx, user, permission.AdminAccess, names.NewModelTag(modelID.String()))
 }
 
 // checkControllerAdmin ensures that the logged in user is a controller admin.
-func (api *BaseAPI) checkControllerAdmin() error {
-	return api.Authorizer.HasPermission(permission.SuperuserAccess, api.ControllerModel.ControllerTag())
+func (api *BaseAPI) checkControllerAdmin(ctx context.Context) error {
+	return api.Authorizer.HasPermission(ctx, permission.SuperuserAccess, api.ControllerModel.ControllerTag())
 }
 
 // modelForName looks up the model details for the named model and returns
@@ -111,7 +113,7 @@ func (api *BaseAPI) applicationOffersFromModel(
 	// If requireAdmin is true, the user must be a controller superuser
 	// or model admin to proceed.
 	var isAdmin bool
-	err = api.checkAdmin(user, modelInfo.UUID, backend)
+	err = api.checkAdmin(ctx, user, modelInfo.UUID, backend)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, err
 	}

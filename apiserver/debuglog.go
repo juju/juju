@@ -105,7 +105,7 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			socket.sendError(errors.Annotate(err, "authentication failed"))
 			return
 		}
-		if err := h.authorizer.Authorize(authInfo); err != nil {
+		if err := h.authorizer.Authorize(req.Context(), authInfo); err != nil {
 			socket.sendError(errors.Annotate(err, "authorization failed"))
 			return
 		}

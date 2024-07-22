@@ -48,7 +48,7 @@ type CharmInfoAPI struct {
 	state      State
 }
 
-func checkCanRead(authorizer facade.Authorizer, state State) error {
+func checkCanRead(ctx context.Context, authorizer facade.Authorizer, state State) error {
 	model, err := state.Model()
 	if err != nil {
 		return errors.Trace(err)
@@ -56,7 +56,7 @@ func checkCanRead(authorizer facade.Authorizer, state State) error {
 	if authorizer.AuthController() {
 		return nil
 	}
-	return errors.Trace(authorizer.HasPermission(permission.ReadAccess, model.ModelTag()))
+	return errors.Trace(authorizer.HasPermission(ctx, permission.ReadAccess, model.ModelTag()))
 }
 
 // NewCharmInfoAPI provides the signature required for facade registration.
@@ -70,7 +70,7 @@ func NewCharmInfoAPI(st State, authorizer facade.Authorizer) (*CharmInfoAPI, err
 // CharmInfo returns information about the requested charm.
 // NOTE: thumper 2016-06-29, this is not a bulk call and probably should be.
 func (a *CharmInfoAPI) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm, error) {
-	if err := checkCanRead(a.authorizer, a.state); err != nil {
+	if err := checkCanRead(ctx, a.authorizer, a.state); err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 
@@ -98,7 +98,7 @@ func NewApplicationCharmInfoAPI(st State, authorizer facade.Authorizer) (*Applic
 
 // ApplicationCharmInfo fetches charm information for an application.
 func (a *ApplicationCharmInfoAPI) ApplicationCharmInfo(ctx context.Context, args params.Entity) (params.Charm, error) {
-	if err := checkCanRead(a.authorizer, a.state); err != nil {
+	if err := checkCanRead(ctx, a.authorizer, a.state); err != nil {
 		return params.Charm{}, errors.Trace(err)
 	}
 

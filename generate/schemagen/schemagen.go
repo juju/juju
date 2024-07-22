@@ -277,7 +277,7 @@ func (a authorizer) AuthController() bool {
 	return a.kind == kindControllerMachine
 }
 
-func (a authorizer) HasPermission(operation permission.Access, target names.Tag) error {
+func (a authorizer) HasPermission(ctx stdcontext.Context, operation permission.Access, target names.Tag) error {
 	return nil
 }
 

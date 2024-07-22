@@ -357,8 +357,8 @@ func (r *apiHandler) ConnectedModel() string {
 // to provide a permission error. All permissions errors returned satisfy
 // errors.Is(err, ErrorEntityMissingPermission) to distinguish before errors and
 // no permissions errors. If error is nil then the user has permission.
-func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag) error {
-	return r.EntityHasPermission(r.GetAuthTag(), operation, target)
+func (r *apiHandler) HasPermission(ctx context.Context, operation permission.Access, target names.Tag) error {
+	return r.EntityHasPermission(ctx, r.GetAuthTag(), operation, target)
 }
 
 // EntityHasPermission is responsible for reporting if the supplied entity is
@@ -368,12 +368,14 @@ func (r *apiHandler) HasPermission(operation permission.Access, target names.Tag
 // to provide a permission error. All permissions errors returned satisfy
 // errors.Is(err, ErrorEntityMissingPermission) to distinguish before errors and
 // no permissions errors. If error is nil then the user has permission.
-func (r *apiHandler) EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) error {
+func (r *apiHandler) EntityHasPermission(
+	ctx context.Context, entity names.Tag, operation permission.Access, target names.Tag,
+) error {
 	var userAccessFunc common.UserAccessFunc = func(entity names.UserTag, subject names.Tag) (permission.Access, error) {
 		if r.authInfo.Delegator == nil {
 			return permission.NoAccess, fmt.Errorf("permissions %w for auth info", errors.NotImplemented)
 		}
-		return r.authInfo.Delegator.SubjectPermissions(authentication.TagToEntity(entity), subject)
+		return r.authInfo.Delegator.SubjectPermissions(ctx, authentication.TagToEntity(entity), subject)
 	}
 	has, err := common.HasPermission(userAccessFunc, entity, operation, target)
 	if err != nil {

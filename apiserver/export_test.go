@@ -291,7 +291,7 @@ type Patcher interface {
 }
 
 func AssertHasPermission(c *gc.C, handler *apiHandler, access permission.Access, tag names.Tag, expect bool) {
-	err := handler.HasPermission(access, tag)
+	err := handler.HasPermission(context.Background(), access, tag)
 	c.Assert(err == nil, gc.Equals, expect)
 	if expect {
 		c.Assert(err, jc.ErrorIsNil)

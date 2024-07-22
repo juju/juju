@@ -76,6 +76,7 @@ func (s *ListModelsWithInfoSuite) SetUpTest(c *gc.C) {
 
 	s.cred = cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
+		stdcontext.Background(),
 		s.st, nil, &mockState{},
 		s.controllerUUID,
 		modelmanager.Services{
@@ -101,6 +102,7 @@ func (s *ListModelsWithInfoSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockAccessService = mocks.NewMockAccessService(ctrl)
 	api, err := modelmanager.NewModelManagerAPI(
+		stdcontext.Background(),
 		s.st, nil, &mockState{},
 		s.controllerUUID,
 		modelmanager.Services{
@@ -138,6 +140,7 @@ func (s *ListModelsWithInfoSuite) createModel(c *gc.C, user names.UserTag) *mock
 func (s *ListModelsWithInfoSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	s.authoriser.Tag = user
 	modelmanager, err := modelmanager.NewModelManagerAPI(
+		stdcontext.Background(),
 		s.st, nil, &mockState{},
 		s.controllerUUID,
 		modelmanager.Services{

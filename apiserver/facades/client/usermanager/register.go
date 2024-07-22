@@ -34,10 +34,10 @@ func newUserManagerAPI(stdCtx context.Context, ctx facade.ModelContext) (*UserMa
 	// Since we know this is a user tag (because AuthClient is true),
 	// we just do the type assertion to the UserTag.
 	apiUserTag, _ := authorizer.GetAuthTag().(names.UserTag)
-	// Pretty much all of the user manager methods have special casing for admin
+	// Pretty much all the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
 	st := ctx.State()
-	err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	err := authorizer.HasPermission(stdCtx, permission.SuperuserAccess, st.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, errors.Trace(err)
 	}

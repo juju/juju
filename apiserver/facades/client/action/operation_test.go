@@ -4,6 +4,7 @@
 package action_test
 
 import (
+	"context"
 	"strconv"
 	"time"
 
@@ -38,7 +39,7 @@ func (s *operationSuite) setupOperations(c *gc.C) {
 			{Receiver: s.mysqlUnit.Tag().String(), Name: "anotherfakeaction", Parameters: map[string]interface{}{}},
 		}}
 
-	r, err := s.action.EnqueueOperation(arg)
+	r, err := s.action.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
 
@@ -68,10 +69,10 @@ func (s *operationSuite) TestListOperationsStatusFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.EnqueueOperation(arg)
+	_, err := s.action.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(context.Background(), params.OperationQueryArgs{
 		Status: []string{"running"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -117,10 +118,10 @@ func (s *operationSuite) TestListOperationsNameFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.EnqueueOperation(arg)
+	_, err := s.action.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(context.Background(), params.OperationQueryArgs{
 		ActionNames: []string{"anotherfakeaction"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -149,10 +150,10 @@ func (s *operationSuite) TestListOperationsAppFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.mysqlUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.EnqueueOperation(arg)
+	_, err := s.action.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(context.Background(), params.OperationQueryArgs{
 		Applications: []string{"wordpress"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -187,10 +188,10 @@ func (s *operationSuite) TestListOperationsUnitFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.EnqueueOperation(arg)
+	_, err := s.action.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(context.Background(), params.OperationQueryArgs{
 		Units:  []string{"wordpress/0"},
 		Status: []string{"pending"},
 	})
@@ -221,10 +222,10 @@ func (s *operationSuite) TestListOperationsMachineFilter(c *gc.C) {
 				"timeout": 1,
 			}},
 		}}
-	_, err := s.action.EnqueueOperation(arg)
+	_, err := s.action.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(context.Background(), params.OperationQueryArgs{
 		Machines: []string{"0"},
 		Status:   []string{"pending"},
 	})
@@ -252,10 +253,10 @@ func (s *operationSuite) TestListOperationsAppAndUnitFilter(c *gc.C) {
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
 		}}
-	_, err := s.action.EnqueueOperation(arg)
+	_, err := s.action.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(context.Background(), params.OperationQueryArgs{
 		Applications: []string{"mysql"},
 		Units:        []string{"wordpress/0"},
 		Status:       []string{"running"},
@@ -298,7 +299,7 @@ func (s *operationSuite) TestListOperationsAppAndUnitFilter(c *gc.C) {
 
 func (s *operationSuite) TestOperations(c *gc.C) {
 	s.setupOperations(c)
-	operations, err := s.action.Operations(params.Entities{
+	operations, err := s.action.Operations(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: "operation-1"}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -391,7 +392,7 @@ func (s *enqueueSuite) TestEnqueueOperation(c *gc.C) {
 			},
 		}}
 
-	r, err := api.EnqueueOperation(arg)
+	r, err := api.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
 	c.Assert(r.Actions[0].Status, gc.Equals, "running")
@@ -434,7 +435,7 @@ func (s *enqueueSuite) TestEnqueueOperationFail(c *gc.C) {
 			{Receiver: "mysql/leader", Name: expectedName, Parameters: map[string]interface{}{}},
 		}}
 
-	r, err := api.EnqueueOperation(arg)
+	r, err := api.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
 	c.Logf("%s", pretty.Sprint(r.Actions))
@@ -481,7 +482,7 @@ func (s *enqueueSuite) TestEnqueueOperationLeadership(c *gc.C) {
 			},
 		}}
 
-	r, err := api.EnqueueOperation(arg)
+	r, err := api.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
 	c.Assert(r.Actions[0].Status, gc.Equals, "running")
@@ -495,7 +496,7 @@ func (s *enqueueSuite) TestEnqueueOperationLeadership(c *gc.C) {
 func (s *enqueueSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.Authorizer = facademocks.NewMockAuthorizer(ctrl)
-	s.Authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	s.Authorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	s.Authorizer.EXPECT().AuthClient().Return(true)
 
 	s.model = action.NewMockModel(ctrl)

@@ -68,7 +68,7 @@ func (s *BasicAuthHandlerSuite) AuthenticateLoginRequest(
 	panic("should not be called")
 }
 
-func (s *BasicAuthHandlerSuite) Authorize(authInfo authentication.AuthInfo) error {
+func (s *BasicAuthHandlerSuite) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
 	s.stub.MethodCall(s, "Authorize", authInfo)
 	return s.stub.NextErr()
 }

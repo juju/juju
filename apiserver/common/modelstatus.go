@@ -46,7 +46,7 @@ func (c *ModelStatusAPI) ModelStatus(ctx context.Context, req params.Entities) (
 	models := req.Entities
 	status := make([]params.ModelStatus, len(models))
 	for i, model := range models {
-		modelStatus, err := c.modelStatus(model.Tag)
+		modelStatus, err := c.modelStatus(ctx, model.Tag)
 		if err != nil {
 			status[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -56,7 +56,7 @@ func (c *ModelStatusAPI) ModelStatus(ctx context.Context, req params.Entities) (
 	return params.ModelStatusResults{Results: status}, nil
 }
 
-func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
+func (c *ModelStatusAPI) modelStatus(ctx context.Context, tag string) (params.ModelStatus, error) {
 	var status params.ModelStatus
 	modelTag, err := names.ParseModelTag(tag)
 	if err != nil {
@@ -76,7 +76,7 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 	if err != nil {
 		return status, errors.Trace(err)
 	}
-	isAdmin, err := HasModelAdmin(c.authorizer, c.backend.ControllerTag(), model.ModelTag())
+	isAdmin, err := HasModelAdmin(ctx, c.authorizer, c.backend.ControllerTag(), model.ModelTag())
 	if err != nil {
 		return status, errors.Trace(err)
 	}

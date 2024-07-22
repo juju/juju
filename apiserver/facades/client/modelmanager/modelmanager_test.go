@@ -219,6 +219,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	}
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
+		context.Background(),
 		s.st, s.modelExporter, s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
@@ -238,6 +239,7 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	s.api = api
 	caasCred := cloud.NewCredential(cloud.UserPassAuthType, nil)
 	caasApi, err := modelmanager.NewModelManagerAPI(
+		context.Background(),
 		s.caasSt, s.modelExporter, s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
@@ -275,6 +277,7 @@ func (s *modelManagerSuite) setAPIUser(c *gc.C, user names.UserTag) {
 		return s.caasBroker, nil
 	}
 	mm, err := modelmanager.NewModelManagerAPI(
+		context.Background(),
 		s.st, s.modelExporter, s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
@@ -730,6 +733,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 	defer ctrl.Finish()
 
 	api, err := modelmanager.NewModelManagerAPI(
+		context.Background(),
 		s.st, s.modelExporter, s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
@@ -1000,6 +1004,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	newEnviron := common.EnvironFuncForModel(model, serviceFactory.Cloud(), serviceFactory.Credential(), configGetter)
 	toolsFinder := common.NewToolsFinder(s.controllerConfigService, configGetter, st, urlGetter, newEnviron, s.store)
 	modelmanager, err := modelmanager.NewModelManagerAPI(
+		context.Background(),
 		mockCredentialShim{st}, nil, ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
@@ -1029,6 +1034,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	endPoint, err := modelmanager.NewModelManagerAPI(
+		context.Background(),
 		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
@@ -1057,6 +1063,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	endPoint, err := modelmanager.NewModelManagerAPI(
+		context.Background(),
 		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
@@ -1292,6 +1299,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
+		context.Background(),
 		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
@@ -1356,6 +1364,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	serviceFactory := s.ControllerServiceFactory(c)
 
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
+		context.Background(),
 		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
@@ -1408,6 +1417,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 
 	backend := common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), model, s.StatePool())
 	s.modelmanager, err = modelmanager.NewModelManagerAPI(
+		context.Background(),
 		mockCredentialShim{backend},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),
@@ -1511,6 +1521,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 	anAuthoriser.Tag = user
 	st := common.NewUserAwareModelManagerBackend(s.ConfigSchemaSourceGetter(c), model, s.StatePool(), user)
 	endPoint, err := modelmanager.NewModelManagerAPI(
+		context.Background(),
 		mockCredentialShim{st},
 		nil,
 		common.NewModelManagerBackend(s.ConfigSchemaSourceGetter(c), s.ControllerModel(c), s.StatePool()),

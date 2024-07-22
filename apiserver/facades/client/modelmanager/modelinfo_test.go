@@ -185,6 +185,7 @@ func (s *modelInfoSuite) getAPI(c *gc.C) (*modelmanager.ModelManagerAPI, *gomock
 	s.mockSecretBackendService = mocks.NewMockSecretBackendService(ctrl)
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
+		context.Background(),
 		s.st, nil, s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{
@@ -217,6 +218,7 @@ func (s *modelInfoSuite) getAPIWithUser(c *gc.C, user names.UserTag) (*modelmana
 	s.authorizer.Tag = user
 	cred := cloud.NewEmptyCredential()
 	api, err := modelmanager.NewModelManagerAPI(
+		context.Background(),
 		s.st, nil, s.ctlrSt,
 		s.controllerUUID,
 		modelmanager.Services{

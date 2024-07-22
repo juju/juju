@@ -59,11 +59,11 @@ type Leadership interface {
 type Authorizer interface {
 	// CanRead checks to see if a read is possible. Returns an error if a read
 	// is not possible.
-	CanRead() error
+	CanRead(context.Context) error
 
 	// CanWrite checks to see if a write is possible. Returns an error if a
 	// write is not possible.
-	CanWrite() error
+	CanWrite(context.Context) error
 
 	// AuthClient returns true if the entity is an external user.
 	AuthClient() bool
@@ -215,7 +215,7 @@ func (mm *MachineManagerAPI) AddMachines(ctx context.Context, args params.AddMac
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
 	}
-	if err := mm.authorizer.CanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(ctx); err != nil {
 		return results, err
 	}
 	if err := mm.check.ChangeAllowed(ctx); err != nil {
@@ -380,7 +380,7 @@ func (mm *MachineManagerAPI) saveMachineInfo(ctx context.Context, machineName st
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
 func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params.ProvisioningScriptParams) (params.ProvisioningScriptResult, error) {
-	if err := mm.authorizer.CanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(ctx); err != nil {
 		return params.ProvisioningScriptResult{}, err
 	}
 
@@ -440,7 +440,7 @@ func (mm *MachineManagerAPI) ProvisioningScript(ctx context.Context, args params
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
 func (mm *MachineManagerAPI) RetryProvisioning(ctx context.Context, p params.RetryProvisioningArgs) (params.ErrorResults, error) {
-	if err := mm.authorizer.CanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(ctx); err != nil {
 		return params.ErrorResults{}, err
 	}
 
@@ -514,7 +514,7 @@ func (mm *MachineManagerAPI) DestroyMachineWithParams(ctx context.Context, args 
 }
 
 func (mm *MachineManagerAPI) destroyMachine(ctx context.Context, args params.Entities, force, keep, dryRun bool, maxWait time.Duration) (params.DestroyMachineResults, error) {
-	if err := mm.authorizer.CanWrite(); err != nil {
+	if err := mm.authorizer.CanWrite(ctx); err != nil {
 		return params.DestroyMachineResults{}, err
 	}
 	if err := mm.check.RemoveAllowed(ctx); err != nil {
@@ -697,14 +697,14 @@ type ModelAuthorizer struct {
 
 // CanRead checks to see if a read is possible. Returns an error if a read is
 // not possible.
-func (a ModelAuthorizer) CanRead() error {
-	return a.checkAccess(permission.ReadAccess)
+func (a ModelAuthorizer) CanRead(ctx context.Context) error {
+	return a.checkAccess(ctx, permission.ReadAccess)
 }
 
 // CanWrite checks to see if a write is possible. Returns an error if a write
 // is not possible.
-func (a ModelAuthorizer) CanWrite() error {
-	return a.checkAccess(permission.WriteAccess)
+func (a ModelAuthorizer) CanWrite(ctx context.Context) error {
+	return a.checkAccess(ctx, permission.WriteAccess)
 }
 
 // AuthClient returns true if the entity is an external user.
@@ -712,6 +712,6 @@ func (a ModelAuthorizer) AuthClient() bool {
 	return a.Authorizer.AuthClient()
 }
 
-func (a ModelAuthorizer) checkAccess(access permission.Access) error {
-	return a.Authorizer.HasPermission(access, a.ModelTag)
+func (a ModelAuthorizer) checkAccess(ctx context.Context, access permission.Access) error {
+	return a.Authorizer.HasPermission(ctx, access, a.ModelTag)
 }

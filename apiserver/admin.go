@@ -343,7 +343,7 @@ func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*aut
 	}
 
 	var lastConnection *time.Time
-	if err := a.fillLoginDetails(authInfo, result, lastConnection); err != nil {
+	if err := a.fillLoginDetails(ctx, authInfo, result, lastConnection); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return result, nil
@@ -414,11 +414,11 @@ func (a *admin) handleAuthError(err error) error {
 	return err
 }
 
-func (a *admin) fillLoginDetails(authInfo authentication.AuthInfo, result *authResult, lastConnection *time.Time) error {
+func (a *admin) fillLoginDetails(ctx context.Context, authInfo authentication.AuthInfo, result *authResult, lastConnection *time.Time) error {
 	// Send back user info if user
 	if result.userLogin {
 		var err error
-		result.userInfo, err = a.checkUserPermissions(authInfo, result.controllerOnlyLogin)
+		result.userInfo, err = a.checkUserPermissions(ctx, authInfo, result.controllerOnlyLogin)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -440,7 +440,11 @@ func (a *admin) fillLoginDetails(authInfo authentication.AuthInfo, result *authR
 	return nil
 }
 
-func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controllerOnlyLogin bool) (*params.AuthUserInfo, error) {
+func (a *admin) checkUserPermissions(
+	ctx context.Context,
+	authInfo authentication.AuthInfo,
+	controllerOnlyLogin bool,
+) (*params.AuthUserInfo, error) {
 	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
 	if !ok {
 		return nil, fmt.Errorf("establishing user tag from authenticated user entity")
@@ -464,7 +468,7 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 		// delegator or the service itself.
 		accessService := a.srv.shared.serviceFactoryGetter.FactoryForModel(a.srv.shared.controllerModelID).Access()
 		everyoneGroupUser, err := accessService.ReadUserAccessForTarget(
-			context.TODO(),
+			ctx,
 			common.EveryoneTagName,
 			permission.ID{
 				ObjectType: permission.Controller,
@@ -477,7 +481,7 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 		everyoneGroupAccess = everyoneGroupUser.Access
 	}
 
-	controllerAccess, err := authInfo.SubjectPermissions(a.root.state.ControllerTag())
+	controllerAccess, err := authInfo.SubjectPermissions(ctx, a.root.state.ControllerTag())
 	if errors.Is(err, accesserrors.PermissionNotFound) || errors.Is(err, accesserrors.UserNotFound) {
 		controllerAccess = everyoneGroupAccess
 	} else if err != nil {
@@ -491,7 +495,7 @@ func (a *admin) checkUserPermissions(authInfo authentication.AuthInfo, controlle
 		// admin.
 
 		var err error
-		modelAccess, err = authInfo.SubjectPermissions(a.root.model.ModelTag())
+		modelAccess, err = authInfo.SubjectPermissions(ctx, a.root.model.ModelTag())
 		if err != nil {
 			if controllerAccess != permission.SuperuserAccess {
 				return nil, errors.Wrap(err, apiservererrors.ErrPerm)

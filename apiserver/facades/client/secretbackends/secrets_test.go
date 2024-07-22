@@ -53,7 +53,7 @@ func (s *SecretsSuite) TestAddSecretBackends(c *gc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
 	addedConfig := map[string]interface{}{
 		"endpoint": "http://vault",
 	}
@@ -102,7 +102,7 @@ func (s *SecretsSuite) TestAddSecretBackendsPermissionDenied(c *gc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	_, err := facade.AddSecretBackends(context.Background(), params.AddSecretBackendArgs{})
@@ -122,7 +122,7 @@ func (s *SecretsSuite) assertListSecretBackends(c *gc.C, reveal bool) {
 	defer ctrl.Finish()
 
 	if reveal {
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
 	}
 	s.mockBackendService.EXPECT().BackendSummaryInfo(gomock.Any(), reveal, "myvault").
 		Return([]*secretbackendservice.SecretBackendInfo{
@@ -193,7 +193,7 @@ func (s *SecretsSuite) TestListSecretBackendsPermissionDeniedReveal(c *gc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	_, err := facade.ListSecretBackends(context.Background(), params.ListSecretBackendsArgs{Reveal: true})
@@ -204,7 +204,7 @@ func (s *SecretsSuite) TestUpdateSecretBackends(c *gc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
 
 	s.mockBackendService.EXPECT().UpdateSecretBackend(gomock.Any(),
 		secretbackendservice.UpdateSecretBackendParams{
@@ -259,7 +259,7 @@ func (s *SecretsSuite) TestUpdateSecretBackendsPermissionDenied(c *gc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	_, err := facade.UpdateSecretBackends(context.Background(), params.UpdateSecretBackendArgs{})
@@ -270,7 +270,7 @@ func (s *SecretsSuite) TestRemoveSecretBackends(c *gc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(nil)
 
 	gomock.InOrder(
 		s.mockBackendService.EXPECT().DeleteSecretBackend(gomock.Any(),
@@ -306,7 +306,7 @@ func (s *SecretsSuite) TestRemoveSecretBackendsPermissionDenied(c *gc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	_, err := facade.RemoveSecretBackends(context.Background(), params.RemoveSecretBackendArgs{})

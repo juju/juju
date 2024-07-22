@@ -723,9 +723,9 @@ func (s *storageSuite) TestListStorageAsAdminOnNotOwnedModel(c *gc.C) {
 	// Sanity check before running test:
 	// Ensure that the user has NO read access to the model but SuperuserAccess
 	// to the controller it belongs to.
-	err := s.authorizer.HasPermission(permission.ReadAccess, s.state.ModelTag())
+	err := s.authorizer.HasPermission(context.Background(), permission.ReadAccess, s.state.ModelTag())
 	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
-	err = s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
+	err = s.authorizer.HasPermission(context.Background(), permission.SuperuserAccess, s.state.ControllerTag())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// ListStorageDetails should not fail
@@ -743,9 +743,9 @@ func (s *storageSuite) TestListStorageAsNonAdminOnNotOwnedModel(c *gc.C) {
 	// Sanity check before running test:
 	// Ensure that the user has NO read access to the model and NO SuperuserAccess
 	// to the controller it belongs to.
-	err := s.authorizer.HasPermission(permission.ReadAccess, s.state.ModelTag())
+	err := s.authorizer.HasPermission(context.Background(), permission.ReadAccess, s.state.ModelTag())
 	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
-	err = s.authorizer.HasPermission(permission.SuperuserAccess, s.state.ControllerTag())
+	err = s.authorizer.HasPermission(context.Background(), permission.SuperuserAccess, s.state.ControllerTag())
 	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
 
 	// ListStorageDetails should fail with perm error

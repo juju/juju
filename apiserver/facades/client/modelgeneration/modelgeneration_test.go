@@ -241,7 +241,7 @@ func (s *modelGenerationSuite) setupModelGenerationAPI(c *gc.C) *gomock.Controll
 
 	mockAuthorizer := facademocks.NewMockAuthorizer(ctrl)
 	aExp := mockAuthorizer.EXPECT()
-	aExp.HasPermission(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	aExp.HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	aExp.GetAuthTag().Return(names.NewUserTag("test-user"))
 	aExp.AuthClient().Return(true)
 

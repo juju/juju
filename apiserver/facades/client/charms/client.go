@@ -63,13 +63,13 @@ func (a *API) CharmInfo(ctx context.Context, args params.CharmURL) (params.Charm
 	return a.charmInfoAPI.CharmInfo(ctx, args)
 }
 
-func (a *API) checkCanRead() error {
-	err := a.authorizer.HasPermission(permission.ReadAccess, a.tag)
+func (a *API) checkCanRead(ctx context.Context) error {
+	err := a.authorizer.HasPermission(ctx, permission.ReadAccess, a.tag)
 	return err
 }
 
-func (a *API) checkCanWrite() error {
-	err := a.authorizer.HasPermission(permission.SuperuserAccess, a.backendState.ControllerTag())
+func (a *API) checkCanWrite(ctx context.Context) error {
+	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, a.backendState.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -78,7 +78,7 @@ func (a *API) checkCanWrite() error {
 		return nil
 	}
 
-	return a.authorizer.HasPermission(permission.WriteAccess, a.tag)
+	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.tag)
 }
 
 // NewCharmsAPI is only used for testing.
@@ -107,7 +107,7 @@ func NewCharmsAPI(
 // be filtered to return only the charms with supplied names.
 func (a *API) List(ctx context.Context, args params.CharmsList) (params.CharmsListResult, error) {
 	a.logger.Tracef("List %+v", args)
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return params.CharmsListResult{}, errors.Trace(err)
 	}
 
@@ -153,7 +153,7 @@ func (a *API) GetDownloadInfos(ctx context.Context, args params.CharmURLAndOrigi
 }
 
 func (a *API) getDownloadInfo(ctx context.Context, arg params.CharmURLAndOrigin) (params.DownloadInfoResult, error) {
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return params.DownloadInfoResult{}, apiservererrors.ServerError(err)
 	}
 
@@ -244,7 +244,7 @@ func (a *API) addCharmWithAuthorization(ctx context.Context, args params.AddChar
 		return params.CharmOriginResult{}, errors.BadRequestf("base required for Charmhub charms")
 	}
 
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return params.CharmOriginResult{}, err
 	}
 
@@ -318,7 +318,7 @@ func (a *API) queueAsyncCharmDownload(ctx context.Context, args params.AddCharmW
 // preferred channel.  Channel provided via CharmOrigin.
 func (a *API) ResolveCharms(ctx context.Context, args params.ResolveCharmsWithChannel) (params.ResolveCharmWithChannelResults, error) {
 	a.logger.Tracef("ResolveCharms %+v", args)
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return params.ResolveCharmWithChannelResults{}, errors.Trace(err)
 	}
 	result := params.ResolveCharmWithChannelResults{
@@ -445,7 +445,7 @@ func (a *API) getCharmRepository(ctx context.Context, src corecharm.Source) (cor
 // CheckCharmPlacement checks if a charm is allowed to be placed with in a
 // given application.
 func (a *API) CheckCharmPlacement(ctx context.Context, args params.ApplicationCharmPlacements) (params.ErrorResults, error) {
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
@@ -585,7 +585,7 @@ func (a *API) getMachineArch(machine charmsinterfaces.Machine) (arch.Arch, error
 
 // ListCharmResources returns a series of resources for a given charm.
 func (a *API) ListCharmResources(ctx context.Context, args params.CharmURLAndOrigins) (params.CharmResourcesResults, error) {
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return params.CharmResourcesResults{}, errors.Trace(err)
 	}
 	results := params.CharmResourcesResults{

@@ -196,17 +196,17 @@ func (c *MockAuthorizerAuthClientCall) DoAndReturn(f func() bool) *MockAuthorize
 }
 
 // CanRead mocks base method.
-func (m *MockAuthorizer) CanRead() error {
+func (m *MockAuthorizer) CanRead(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CanRead")
+	ret := m.ctrl.Call(m, "CanRead", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CanRead indicates an expected call of CanRead.
-func (mr *MockAuthorizerMockRecorder) CanRead() *MockAuthorizerCanReadCall {
+func (mr *MockAuthorizerMockRecorder) CanRead(arg0 any) *MockAuthorizerCanReadCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanRead", reflect.TypeOf((*MockAuthorizer)(nil).CanRead))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanRead", reflect.TypeOf((*MockAuthorizer)(nil).CanRead), arg0)
 	return &MockAuthorizerCanReadCall{Call: call}
 }
 
@@ -222,29 +222,29 @@ func (c *MockAuthorizerCanReadCall) Return(arg0 error) *MockAuthorizerCanReadCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAuthorizerCanReadCall) Do(f func() error) *MockAuthorizerCanReadCall {
+func (c *MockAuthorizerCanReadCall) Do(f func(context.Context) error) *MockAuthorizerCanReadCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAuthorizerCanReadCall) DoAndReturn(f func() error) *MockAuthorizerCanReadCall {
+func (c *MockAuthorizerCanReadCall) DoAndReturn(f func(context.Context) error) *MockAuthorizerCanReadCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // CanWrite mocks base method.
-func (m *MockAuthorizer) CanWrite() error {
+func (m *MockAuthorizer) CanWrite(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CanWrite")
+	ret := m.ctrl.Call(m, "CanWrite", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // CanWrite indicates an expected call of CanWrite.
-func (mr *MockAuthorizerMockRecorder) CanWrite() *MockAuthorizerCanWriteCall {
+func (mr *MockAuthorizerMockRecorder) CanWrite(arg0 any) *MockAuthorizerCanWriteCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanWrite", reflect.TypeOf((*MockAuthorizer)(nil).CanWrite))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CanWrite", reflect.TypeOf((*MockAuthorizer)(nil).CanWrite), arg0)
 	return &MockAuthorizerCanWriteCall{Call: call}
 }
 
@@ -260,13 +260,13 @@ func (c *MockAuthorizerCanWriteCall) Return(arg0 error) *MockAuthorizerCanWriteC
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAuthorizerCanWriteCall) Do(f func() error) *MockAuthorizerCanWriteCall {
+func (c *MockAuthorizerCanWriteCall) Do(f func(context.Context) error) *MockAuthorizerCanWriteCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAuthorizerCanWriteCall) DoAndReturn(f func() error) *MockAuthorizerCanWriteCall {
+func (c *MockAuthorizerCanWriteCall) DoAndReturn(f func(context.Context) error) *MockAuthorizerCanWriteCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

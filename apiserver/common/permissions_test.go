@@ -4,6 +4,8 @@
 package common_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -247,9 +249,9 @@ func (r *PermissionSuite) TestHasModelAdminSuperUser(c *gc.C) {
 	defer ctrl.Finish()
 
 	auth := mocks.NewMockAuthorizer(ctrl)
-	auth.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil)
+	auth.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil)
 
-	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
+	has, err := common.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(has, jc.IsTrue)
 }
@@ -259,10 +261,10 @@ func (r *PermissionSuite) TestHasModelAdminYes(c *gc.C) {
 	defer ctrl.Finish()
 
 	auth := mocks.NewMockAuthorizer(ctrl)
-	auth.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
-	auth.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
+	auth.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
+	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(nil)
 
-	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
+	has, err := common.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(has, jc.IsTrue)
 }
@@ -272,10 +274,10 @@ func (r *PermissionSuite) TestHasModelAdminNo(c *gc.C) {
 	defer ctrl.Finish()
 
 	auth := mocks.NewMockAuthorizer(ctrl)
-	auth.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
-	auth.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(authentication.ErrorEntityMissingPermission)
+	auth.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
+	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(authentication.ErrorEntityMissingPermission)
 
-	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
+	has, err := common.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(has, jc.IsFalse)
 }
@@ -285,11 +287,11 @@ func (r *PermissionSuite) TestHasModelAdminError(c *gc.C) {
 	defer ctrl.Finish()
 
 	auth := mocks.NewMockAuthorizer(ctrl)
-	auth.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
+	auth.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
 	someError := errors.New("error")
-	auth.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(someError)
+	auth.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(someError)
 
-	has, err := common.HasModelAdmin(auth, testing.ControllerTag, testing.ModelTag)
+	has, err := common.HasModelAdmin(context.Background(), auth, testing.ControllerTag, testing.ModelTag)
 	c.Assert(err, jc.ErrorIs, someError)
 	c.Assert(has, jc.IsFalse)
 }

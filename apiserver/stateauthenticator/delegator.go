@@ -22,7 +22,7 @@ type PermissionDelegator struct {
 // SubjectPermissions ensures that the input entity is a user,
 // then returns that user's access to the input subject.
 func (p *PermissionDelegator) SubjectPermissions(
-	entity authentication.Entity, target names.Tag,
+	ctx context.Context, entity authentication.Entity, target names.Tag,
 ) (permission.Access, error) {
 	userTag, ok := entity.Tag().(names.UserTag)
 	if !ok {
@@ -35,7 +35,7 @@ func (p *PermissionDelegator) SubjectPermissions(
 		return permission.NoAccess, errors.Trace(err)
 	}
 
-	access, err := p.AccessService.ReadUserAccessForTarget(context.TODO(), userID, permissionID)
+	access, err := p.AccessService.ReadUserAccessForTarget(ctx, userID, permissionID)
 	if err != nil {
 		return permission.NoAccess, errors.Trace(err)
 	}

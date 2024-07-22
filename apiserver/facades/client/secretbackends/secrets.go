@@ -29,8 +29,8 @@ type SecretBackendsAPI struct {
 	backendService SecretBackendService
 }
 
-func (s *SecretBackendsAPI) checkCanAdmin() error {
-	return s.authorizer.HasPermission(permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID))
+func (s *SecretBackendsAPI) checkCanAdmin(ctx context.Context) error {
+	return s.authorizer.HasPermission(ctx, permission.SuperuserAccess, names.NewControllerTag(s.controllerUUID))
 }
 
 // AddSecretBackends adds new secret backends.
@@ -38,7 +38,7 @@ func (s *SecretBackendsAPI) AddSecretBackends(ctx context.Context, args params.A
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	if err := s.checkCanAdmin(); err != nil {
+	if err := s.checkCanAdmin(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
@@ -67,7 +67,7 @@ func (s *SecretBackendsAPI) UpdateSecretBackends(ctx context.Context, args param
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	if err := s.checkCanAdmin(); err != nil {
+	if err := s.checkCanAdmin(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
@@ -96,7 +96,7 @@ func (s *SecretBackendsAPI) UpdateSecretBackends(ctx context.Context, args param
 // ListSecretBackends lists available secret backends.
 func (s *SecretBackendsAPI) ListSecretBackends(ctx context.Context, arg params.ListSecretBackendsArgs) (params.ListSecretBackendsResults, error) {
 	if arg.Reveal {
-		if err := s.checkCanAdmin(); err != nil {
+		if err := s.checkCanAdmin(ctx); err != nil {
 			return params.ListSecretBackendsResults{}, errors.Trace(err)
 		}
 	}
@@ -130,7 +130,7 @@ func (s *SecretBackendsAPI) RemoveSecretBackends(ctx context.Context, args param
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	if err := s.checkCanAdmin(); err != nil {
+	if err := s.checkCanAdmin(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {

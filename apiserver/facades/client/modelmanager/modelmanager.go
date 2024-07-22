@@ -98,6 +98,7 @@ type ModelManagerAPI struct {
 // NewModelManagerAPI creates a new api server endpoint for managing
 // models.
 func NewModelManagerAPI(
+	ctx context.Context,
 	st StateBackend,
 	modelExporter ModelExporter,
 	ctlrSt common.ModelManagerBackend,
@@ -118,7 +119,7 @@ func NewModelManagerAPI(
 	apiUser, _ := authorizer.GetAuthTag().(names.UserTag)
 	// Pretty much all of the user manager methods have special casing for admin
 	// users, so look once when we start and remember if the user is an admin.
-	err := authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	err := authorizer.HasPermission(ctx, permission.SuperuserAccess, st.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return nil, errors.Trace(err)
 	}
@@ -167,8 +168,8 @@ func (m *ModelManagerAPI) authCheck(user names.UserTag) error {
 	return apiservererrors.ErrPerm
 }
 
-func (m *ModelManagerAPI) hasWriteAccess(modelTag names.ModelTag) (bool, error) {
-	err := m.authorizer.HasPermission(permission.WriteAccess, modelTag)
+func (m *ModelManagerAPI) hasWriteAccess(ctx context.Context, modelTag names.ModelTag) (bool, error) {
+	err := m.authorizer.HasPermission(ctx, permission.WriteAccess, modelTag)
 	return err == nil, err
 }
 
@@ -281,7 +282,7 @@ func (m *ModelManagerAPI) createModelNew(
 	}
 	creationArgs.Cloud = cloudTag.Id()
 
-	err = m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
+	err = m.authorizer.HasPermission(ctx, permission.SuperuserAccess, m.state.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return coremodel.UUID(""), errors.Trace(err)
 	}
@@ -403,7 +404,7 @@ func (m *ModelManagerAPI) CreateModel(ctx context.Context, args params.ModelCrea
 		cloudRegionName = controllerModel.CloudRegion()
 	}
 
-	err = m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
+	err = m.authorizer.HasPermission(ctx, permission.SuperuserAccess, m.state.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -681,7 +682,7 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 	}
 
 	if !m.isAdmin {
-		if err := m.authorizer.HasPermission(permission.AdminAccess, modelTag); err != nil {
+		if err := m.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag); err != nil {
 			return nil, err
 		}
 	}
@@ -719,14 +720,14 @@ func (m *ModelManagerAPI) dumpModel(ctx context.Context, args params.Entity, sim
 	return bytes, nil
 }
 
-func (m *ModelManagerAPI) dumpModelDB(args params.Entity) (map[string]interface{}, error) {
+func (m *ModelManagerAPI) dumpModelDB(ctx context.Context, args params.Entity) (map[string]interface{}, error) {
 	modelTag, err := names.ParseModelTag(args.Tag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	if !m.isAdmin {
-		if err := m.authorizer.HasPermission(permission.AdminAccess, modelTag); err != nil {
+		if err := m.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag); err != nil {
 			return nil, err
 		}
 	}
@@ -778,7 +779,7 @@ func (m *ModelManagerAPI) DumpModelsDB(ctx context.Context, args params.Entities
 		Results: make([]params.MapResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		dumped, err := m.dumpModelDB(entity)
+		dumped, err := m.dumpModelDB(ctx, entity)
 		if err != nil {
 			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -1028,7 +1029,7 @@ func (m *ModelManagerAPI) DestroyModels(ctx context.Context, args params.Destroy
 			return errors.Trace(err)
 		}
 		if !m.isAdmin {
-			if err := m.authorizer.HasPermission(permission.AdminAccess, stModel.ModelTag()); err != nil {
+			if err := m.authorizer.HasPermission(ctx, permission.AdminAccess, stModel.ModelTag()); err != nil {
 				return err
 			}
 		}
@@ -1200,7 +1201,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 	// admin.
 	modelAdmin := m.isAdmin
 	if !m.isAdmin {
-		err = m.authorizer.HasPermission(permission.AdminAccess, tag)
+		err = m.authorizer.HasPermission(ctx, permission.AdminAccess, tag)
 		modelAdmin = err == nil
 	}
 
@@ -1233,7 +1234,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 
 	canSeeMachinesAndSecrets := modelAdmin
 	if !canSeeMachinesAndSecrets {
-		canSeeMachinesAndSecrets, err = m.hasWriteAccess(tag)
+		canSeeMachinesAndSecrets, err = m.hasWriteAccess(ctx, tag)
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return params.ModelInfo{}, errors.Trace(err)
 		}
@@ -1312,7 +1313,7 @@ func (m *ModelManagerAPI) ModifyModelAccess(ctx context.Context, args params.Mod
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
 
-	err := m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
+	err := m.authorizer.HasPermission(ctx, permission.SuperuserAccess, m.state.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -1330,7 +1331,7 @@ func (m *ModelManagerAPI) ModifyModelAccess(ctx context.Context, args params.Mod
 			result.Results[i].Error = apiservererrors.ServerError(errors.Annotate(err, "could not modify model access"))
 			continue
 		}
-		err = m.authorizer.HasPermission(permission.AdminAccess, modelTag)
+		err = m.authorizer.HasPermission(ctx, permission.AdminAccess, modelTag)
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return result, errors.Trace(err)
 		}
@@ -1496,7 +1497,7 @@ func (m *ModelManagerAPI) ChangeModelCredential(ctx context.Context, args params
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	err := m.authorizer.HasPermission(permission.SuperuserAccess, m.state.ControllerTag())
+	err := m.authorizer.HasPermission(ctx, permission.SuperuserAccess, m.state.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -1506,7 +1507,7 @@ func (m *ModelManagerAPI) ChangeModelCredential(ctx context.Context, args params
 		if controllerAdmin {
 			return nil
 		}
-		return m.authorizer.HasPermission(permission.AdminAccess, tag)
+		return m.authorizer.HasPermission(ctx, permission.AdminAccess, tag)
 	}
 
 	replaceModelCredential := func(arg params.ChangeModelCredentialParams) error {

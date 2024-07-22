@@ -367,7 +367,7 @@ func (s *serverSuite) TestAPIHandlerMissingPermissionLoginToken(c *gc.C) {
 	st := s.ControllerModel(c).State()
 	handler, _ := apiserver.TestingAPIHandlerWithToken(c, s.StatePool(), st, serviceFactory, token, delegator)
 	defer handler.Kill()
-	err = handler.HasPermission(permission.AdminAccess, coretesting.ModelTag)
+	err = handler.HasPermission(context.Background(), permission.AdminAccess, coretesting.ModelTag)
 	var reqError *errors.AccessRequiredError
 	c.Assert(jujuerrors.As(err, &reqError), jc.IsTrue)
 	c.Assert(reqError, jc.DeepEquals, &errors.AccessRequiredError{

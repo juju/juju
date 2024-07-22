@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"context"
 	"net/http"
 
 	"github.com/juju/errors"
@@ -56,7 +55,7 @@ func (h introspectionHandler) checkAuth(r *http.Request) error {
 			return "", errors.Trace(err)
 		}
 
-		access, err := accessService.ReadUserAccessForTarget(context.TODO(), subject.Id(), pID)
+		access, err := accessService.ReadUserAccessForTarget(r.Context(), subject.Id(), pID)
 		return access.Access, errors.Trace(err)
 	}
 

@@ -4,6 +4,8 @@
 package common
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -102,12 +104,13 @@ func GetPermission(accessGetter UserAccessFunc, userTag names.UserTag, target na
 // A user has model access if they are a controller superuser,
 // or if they have been explicitly granted admin access to the model.
 func HasModelAdmin(
+	ctx context.Context,
 	authorizer facade.Authorizer,
 	controllerTag names.ControllerTag,
 	modelTag names.ModelTag,
 ) (bool, error) {
 	// superusers have admin for all models.
-	err := authorizer.HasPermission(permission.SuperuserAccess, controllerTag)
+	err := authorizer.HasPermission(ctx, permission.SuperuserAccess, controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return false, err
 	}
@@ -116,7 +119,7 @@ func HasModelAdmin(
 		return true, nil
 	}
 
-	err = authorizer.HasPermission(permission.AdminAccess, modelTag)
+	err = authorizer.HasPermission(ctx, permission.AdminAccess, modelTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return false, err
 	}
