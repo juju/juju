@@ -565,7 +565,7 @@ func (s startUniter) step(c *gc.C, ctx *testContext) {
 		MachineLock:          processLock,
 		UpdateStatusSignal:   ctx.updateStatusHookTicker.ReturnTimer(),
 		NewOperationExecutor: operationExecutor,
-		NewProcessRunner: func(context runnercontext.Context, paths runnercontext.Paths, remoteExecutor runner.ExecFunc) runner.Runner {
+		NewProcessRunner: func(context runnercontext.Context, paths runnercontext.Paths, remoteExecutor runner.ExecFunc, options ...runner.Option) runner.Runner {
 			ctx.runner.ctx = context
 			return ctx.runner
 		},
