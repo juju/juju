@@ -5,7 +5,10 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/juju/collections/set"
+	corearch "github.com/juju/juju/core/arch"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -28,15 +31,15 @@ func decodeManifest(manifest charm.Manifest) (internalcharm.Manifest, error) {
 }
 
 func decodeManifestBases(bases []charm.Base) ([]internalcharm.Base, error) {
-	var decodeed []internalcharm.Base
+	var decoded []internalcharm.Base
 	for _, base := range bases {
-		decodeedBase, err := decodeManifestBase(base)
+		decodedBase, err := decodeManifestBase(base)
 		if err != nil {
 			return nil, fmt.Errorf("decode base: %w", err)
 		}
-		decodeed = append(decodeed, decodeedBase)
+		decoded = append(decoded, decodedBase)
 	}
-	return decodeed, nil
+	return decoded, nil
 }
 
 func decodeManifestBase(base charm.Base) (internalcharm.Base, error) {
@@ -80,44 +83,74 @@ func decodeManifestRisk(risk charm.ChannelRisk) (internalcharm.Risk, error) {
 	}
 }
 
-func encodeManifest(manifest *internalcharm.Manifest) (charm.Manifest, error) {
+func encodeManifest(manifest *internalcharm.Manifest) (charm.Manifest, []string, error) {
 	if manifest == nil {
-		return charm.Manifest{}, applicationerrors.CharmManifestNotValid
+		return charm.Manifest{}, nil, applicationerrors.CharmManifestNotValid
 	}
 
-	bases, err := encodeManifestBases(manifest.Bases)
+	bases, warnings, err := encodeManifestBases(manifest.Bases)
 	if err != nil {
-		return charm.Manifest{}, fmt.Errorf("encode bases: %w", err)
+		return charm.Manifest{}, warnings, fmt.Errorf("encode bases: %w", err)
 	}
 
 	return charm.Manifest{
 		Bases: bases,
-	}, nil
+	}, warnings, nil
 }
 
-func encodeManifestBases(bases []internalcharm.Base) ([]charm.Base, error) {
+func encodeManifestBases(bases []internalcharm.Base) ([]charm.Base, []string, error) {
 	var encoded []charm.Base
+	var unsupportedArches []string
 	for _, base := range bases {
-		encodedBase, err := encodeManifestBase(base)
+		encodedBase, unsupported, err := encodeManifestBase(base)
 		if err != nil {
-			return nil, fmt.Errorf("encode base: %w", err)
+			return nil, unsupportedArches, fmt.Errorf("encode base: %w", err)
 		}
 		encoded = append(encoded, encodedBase)
+		unsupportedArches = append(unsupportedArches, unsupported...)
 	}
-	return encoded, nil
+	return encoded, unsupportedArches, nil
 }
 
-func encodeManifestBase(base internalcharm.Base) (charm.Base, error) {
+func encodeManifestBase(base internalcharm.Base) (charm.Base, []string, error) {
 	channel, err := encodeManifestChannel(base.Channel)
 	if err != nil {
-		return charm.Base{}, fmt.Errorf("encode channel: %w", err)
+		return charm.Base{}, nil, fmt.Errorf("encode channel: %w", err)
+	}
+
+	arches := set.NewStrings()
+	unsupported := set.NewStrings()
+	for _, arch := range base.Architectures {
+		// Ignore empty architectures (this should be done at the wire protocol
+		// level, but we do it here as well to be safe).
+		if arch == "" {
+			continue
+		}
+
+		// Normalise the architecture, to ensure that it is in the correct
+		// format.
+		arch = corearch.NormaliseArch(arch)
+
+		// If the architecture is not supported, add it to the list of
+		if !corearch.IsSupportedArch(arch) {
+			unsupported.Add(arch)
+			continue
+		}
+
+		arches.Add(arch)
+	}
+
+	var warnings []string
+	if unsupported.Size() > 0 {
+		arches := strings.Join(unsupported.SortedValues(), ", ")
+		warnings = append(warnings, fmt.Sprintf("unsupported architectures: %s for %q with channel: %q", arches, base.Name, base.Channel.String()))
 	}
 
 	return charm.Base{
 		Name:          base.Name,
 		Channel:       channel,
-		Architectures: base.Architectures,
-	}, nil
+		Architectures: arches.SortedValues(),
+	}, warnings, nil
 }
 
 func encodeManifestChannel(channel internalcharm.Channel) (charm.Channel, error) {

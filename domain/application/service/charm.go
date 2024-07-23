@@ -335,22 +335,24 @@ func (s *CharmService) ReserveCharmRevision(ctx context.Context, id corecharm.ID
 
 // SetCharm persists the charm metadata, actions, config and manifest to
 // state.
-func (s *CharmService) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, error) {
+// If there are any non-blocking issues with the charm metadata, actions,
+// config or manifest, a set of warnings will be returned.
+func (s *CharmService) SetCharm(ctx context.Context, args charm.SetCharmArgs) (corecharm.ID, []string, error) {
 	meta := args.Charm.Meta()
 	if meta == nil {
-		return "", applicationerrors.CharmMetadataNotValid
+		return "", nil, applicationerrors.CharmMetadataNotValid
 	} else if meta.Name == "" {
-		return "", applicationerrors.CharmNameNotValid
+		return "", nil, applicationerrors.CharmNameNotValid
 	}
 
 	source, err := encodeCharmSource(args.Source)
 	if err != nil {
-		return "", fmt.Errorf("encode charm source: %w", err)
+		return "", nil, fmt.Errorf("encode charm source: %w", err)
 	}
 
-	ch, err := encodeCharm(args.Charm)
+	ch, warnings, err := encodeCharm(args.Charm)
 	if err != nil {
-		return "", fmt.Errorf("encode charm: %w", err)
+		return "", warnings, fmt.Errorf("encode charm: %w", err)
 	}
 
 	charmID, err := s.st.SetCharm(ctx, ch, charm.SetStateArgs{
@@ -361,10 +363,10 @@ func (s *CharmService) SetCharm(ctx context.Context, args charm.SetCharmArgs) (c
 		Version:     args.Version,
 	})
 	if err != nil {
-		return "", errors.Trace(err)
+		return "", warnings, errors.Trace(err)
 	}
 
-	return charmID, nil
+	return charmID, warnings, nil
 }
 
 // DeleteCharm removes the charm from the state.
@@ -401,32 +403,32 @@ func (s *WatchableCharmService) WatchCharms() (watcher.StringsWatcher, error) {
 
 // encodeCharm encodes a charm to the service representation.
 // Returns an error if the charm metadata cannot be encoded.
-func encodeCharm(ch internalcharm.Charm) (charm.Charm, error) {
+func encodeCharm(ch internalcharm.Charm) (charm.Charm, []string, error) {
 	metadata, err := encodeMetadata(ch.Meta())
 	if err != nil {
-		return charm.Charm{}, fmt.Errorf("encode metadata: %w", err)
+		return charm.Charm{}, nil, fmt.Errorf("encode metadata: %w", err)
 	}
 
-	manifest, err := encodeManifest(ch.Manifest())
+	manifest, warnings, err := encodeManifest(ch.Manifest())
 	if err != nil {
-		return charm.Charm{}, fmt.Errorf("encode manifest: %w", err)
+		return charm.Charm{}, warnings, fmt.Errorf("encode manifest: %w", err)
 	}
 
 	actions, err := encodeActions(ch.Actions())
 	if err != nil {
-		return charm.Charm{}, fmt.Errorf("encode actions: %w", err)
+		return charm.Charm{}, warnings, fmt.Errorf("encode actions: %w", err)
 	}
 
 	config, err := encodeConfig(ch.Config())
 	if err != nil {
-		return charm.Charm{}, fmt.Errorf("encode config: %w", err)
+		return charm.Charm{}, warnings, fmt.Errorf("encode config: %w", err)
 	}
 
 	var profile []byte
 	if lxdProfile, ok := ch.(internalcharm.LXDProfiler); ok {
 		profile, err = encodeLXDProfile(lxdProfile.LXDProfile())
 		if err != nil {
-			return charm.Charm{}, fmt.Errorf("encode lxd profile: %w", err)
+			return charm.Charm{}, warnings, fmt.Errorf("encode lxd profile: %w", err)
 		}
 	}
 
@@ -436,7 +438,7 @@ func encodeCharm(ch internalcharm.Charm) (charm.Charm, error) {
 		Actions:    actions,
 		Config:     config,
 		LXDProfile: profile,
-	}, nil
+	}, warnings, nil
 }
 
 func encodeCharmSource(source internalcharm.Schema) (charm.CharmSource, error) {

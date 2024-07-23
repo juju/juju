@@ -59,7 +59,7 @@ var manifestTestCases = [...]struct {
 	},
 }
 
-func (s *metadataSuite) TestConvertManifest(c *gc.C) {
+func (s *manifestSuite) TestConvertManifest(c *gc.C) {
 	for _, tc := range manifestTestCases {
 		c.Logf("Running test case %q", tc.name)
 
@@ -68,8 +68,40 @@ func (s *metadataSuite) TestConvertManifest(c *gc.C) {
 		c.Check(result, gc.DeepEquals, tc.output)
 
 		// Ensure that the conversion is idempotent.
-		converted, err := encodeManifest(&result)
+		converted, warnings, err := encodeManifest(&result)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(converted, jc.DeepEquals, tc.input)
+		c.Check(warnings, gc.HasLen, 0)
 	}
+}
+
+func (s *manifestSuite) TestConvertManifestWarnings(c *gc.C) {
+	converted, warnings, err := encodeManifest(&internalcharm.Manifest{
+		Bases: []internalcharm.Base{
+			{
+				Name: "ubuntu",
+				Channel: internalcharm.Channel{
+					Track:  "latest",
+					Risk:   internalcharm.Stable,
+					Branch: "foo",
+				},
+				Architectures: []string{"amd64", "i386", "arm64"},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(converted, jc.DeepEquals, charm.Manifest{
+		Bases: []charm.Base{
+			{
+				Name: "ubuntu",
+				Channel: charm.Channel{
+					Track:  "latest",
+					Risk:   charm.RiskStable,
+					Branch: "foo",
+				},
+				Architectures: []string{"amd64", "arm64"},
+			},
+		},
+	})
+	c.Check(warnings, gc.DeepEquals, []string{`unsupported architectures: i386 for "ubuntu" with channel: "latest/stable/foo"`})
 }

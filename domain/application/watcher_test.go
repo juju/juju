@@ -47,7 +47,7 @@ func (s *watcherSuite) TestWatchCharm(c *gc.C) {
 
 	var id corecharm.ID
 	harness.AddTest(func(c *gc.C) {
-		id, err = svc.SetCharm(context.Background(), charm.SetCharmArgs{
+		id, _, err = svc.SetCharm(context.Background(), charm.SetCharmArgs{
 			Charm:    &stubCharm{},
 			Source:   internalcharm.CharmHub,
 			Revision: 1,

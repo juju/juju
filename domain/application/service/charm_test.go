@@ -322,12 +322,13 @@ func (s *charmServiceSuite) TestSetCharm(c *gc.C) {
 		Revision: 1,
 	}).Return(id, nil)
 
-	got, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	got, warnings, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
 		Charm:    s.charm,
 		Source:   internalcharm.Local,
 		Revision: 1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Check(warnings, gc.HasLen, 0)
 	c.Check(got, gc.DeepEquals, id)
 }
 
@@ -336,7 +337,7 @@ func (s *charmServiceSuite) TestSetCharmNoName(c *gc.C) {
 
 	s.charm.EXPECT().Meta().Return(&internalcharm.Meta{})
 
-	_, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
 		Charm:    s.charm,
 		Source:   internalcharm.Local,
 		Revision: 1,
@@ -351,7 +352,7 @@ func (s *charmServiceSuite) TestSetCharmInvalidSource(c *gc.C) {
 		Name: "foo",
 	})
 
-	_, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
+	_, _, err := s.service.SetCharm(context.Background(), domaincharm.SetCharmArgs{
 		Charm:    s.charm,
 		Source:   "charmstore",
 		Revision: 1,
