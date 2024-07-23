@@ -23,7 +23,6 @@ import (
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
 	*common.LifeGetter
-	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	*common.StatusGetter
 
@@ -60,12 +59,7 @@ func NewInstancePollerAPI(
 		sti,
 		accessMachine,
 	)
-	// WatchModelMachines() is allowed with unrestricted access.
-	machinesWatcher := common.NewModelMachinesWatcher(
-		sti,
-		resources,
-		authorizer,
-	)
+
 	// InstanceId() is supported for machines.
 	instanceIdGetter := common.NewInstanceIdGetter(
 		sti,
@@ -79,7 +73,6 @@ func NewInstancePollerAPI(
 
 	return &InstancePollerAPI{
 		LifeGetter:              lifeGetter,
-		ModelMachinesWatcher:    machinesWatcher,
 		InstanceIdGetter:        instanceIdGetter,
 		StatusGetter:            statusGetter,
 		networkService:          networkService,

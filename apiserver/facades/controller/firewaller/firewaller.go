@@ -48,7 +48,6 @@ type FirewallerAPI struct {
 	*common.ModelWatcher
 	*common.AgentEntityWatcher
 	*common.UnitsWatcher
-	*common.ModelMachinesWatcher
 	*common.InstanceIdGetter
 	ControllerConfigAPI
 	cloudspec.CloudSpecer
@@ -118,12 +117,6 @@ func NewStateFirewallerAPI(
 		resources,
 		accessMachine,
 	)
-	// WatchModelMachines() is allowed with unrestricted access.
-	machinesWatcher := common.NewModelMachinesWatcher(
-		st,
-		resources,
-		authorizer,
-	)
 	// InstanceId() is supported for machines.
 	instanceIdGetter := common.NewInstanceIdGetter(
 		st,
@@ -135,7 +128,6 @@ func NewStateFirewallerAPI(
 		ModelWatcher:            modelWatcher,
 		AgentEntityWatcher:      entityWatcher,
 		UnitsWatcher:            unitsWatcher,
-		ModelMachinesWatcher:    machinesWatcher,
 		InstanceIdGetter:        instanceIdGetter,
 		CloudSpecer:             cloudSpecAPI,
 		ControllerConfigAPI:     controllerConfigAPI,

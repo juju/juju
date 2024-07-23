@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/core/instance"
+	corelife "github.com/juju/juju/core/life"
 	coremachine "github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/domain/life"
@@ -137,15 +138,18 @@ func (s *Service) DeleteMachine(ctx context.Context, machineName coremachine.Nam
 
 // GetLife returns the GetMachineLife status of the specified machine.
 // It returns a NotFound if the given machine doesn't exist.
-func (s *Service) GetMachineLife(ctx context.Context, machineName coremachine.Name) (*life.Life, error) {
+func (s *Service) GetMachineLife(ctx context.Context, machineName coremachine.Name) (corelife.Value, error) {
 	life, err := s.st.GetMachineLife(ctx, machineName)
-	return life, errors.Annotatef(err, "getting life status for machine %q", machineName)
+	if err != nil {
+		return "", errors.Annotatef(err, "getting life status for machine %q", machineName)
+	}
+	return life.ToCoreLife(), errors.Annotatef(err, "getting life status for machine %q", machineName)
 }
 
 // SetMachineLife sets the life status of the specified machine.
 // It returns a NotFound if the provided machine doesn't exist.
-func (s *Service) SetMachineLife(ctx context.Context, machineName coremachine.Name, life life.Life) error {
-	err := s.st.SetMachineLife(ctx, machineName, life)
+func (s *Service) SetMachineLife(ctx context.Context, machineName coremachine.Name, l corelife.Value) error {
+	err := s.st.SetMachineLife(ctx, machineName, life.FromCoreLife(l))
 	return errors.Annotatef(err, "setting life status for machine %q", machineName)
 }
 
@@ -153,7 +157,8 @@ func (s *Service) SetMachineLife(ctx context.Context, machineName coremachine.Na
 // No error is returned if the provided machine doesn't exist, just nothing gets
 // updated.
 func (s *Service) EnsureDeadMachine(ctx context.Context, machineName coremachine.Name) error {
-	return s.SetMachineLife(ctx, machineName, life.Dead)
+	err := s.st.SetMachineLife(ctx, machineName, life.Dead)
+	return errors.Annotatef(err, "setting life status for machine %q to Dead", machineName)
 }
 
 // AllMachineNames returns the names of all machines in the model.

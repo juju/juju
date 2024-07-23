@@ -46,6 +46,14 @@ type FirewallerAPI interface {
 	WatchSubnets() (watcher.StringsWatcher, error)
 }
 
+// MachineService defines the methods that the worker assumes from the Machine
+// service.
+type MachineService interface {
+	// WatchMachines returns a StringsWatcher that notifies of the changes
+	// in the machines table for the model.
+	WatchMachines(context.Context) (watcher.StringsWatcher, error)
+}
+
 // CrossModelFirewallerFacade exposes firewaller functionality on the
 // remote offering model to a worker.
 type CrossModelFirewallerFacade interface {

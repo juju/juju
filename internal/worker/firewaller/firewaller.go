@@ -53,7 +53,8 @@ type Config struct {
 	Clock  clock.Clock
 	Logger logger.Logger
 
-	CredentialAPI common.CredentialAPI
+	CredentialAPI  common.CredentialAPI
+	MachineService MachineService
 
 	// These are used to coordinate gomock tests.
 
@@ -95,6 +96,9 @@ func (cfg Config) Validate() error {
 	if cfg.CredentialAPI == nil {
 		return errors.NotValidf("nil Credential Facade")
 	}
+	if cfg.MachineService == nil {
+		return errors.NotValidf("nil MachineService")
+	}
 	return nil
 }
 
@@ -134,6 +138,7 @@ type Firewaller struct {
 	relationWorkerRunner       *worker.Runner
 	clk                        clock.Clock
 	logger                     logger.Logger
+	machineService             MachineService
 
 	cloudCallContextFunc common.CloudCallContextFunc
 
@@ -171,6 +176,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		localRelationsChange:       make(chan *remoteRelationNetworkChange),
 		clk:                        clk,
 		logger:                     cfg.Logger,
+		machineService:             cfg.MachineService,
 		relationWorkerRunner: worker.NewRunner(worker.RunnerParams{
 			Clock:  clk,
 			Logger: cfg.Logger,
@@ -208,9 +214,9 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 	return fw, nil
 }
 
-func (fw *Firewaller) setUp() error {
+func (fw *Firewaller) setUp(ctx stdcontext.Context) error {
 	var err error
-	fw.machinesWatcher, err = fw.firewallerApi.WatchModelMachines()
+	fw.machinesWatcher, err = fw.machineService.WatchMachines(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -264,7 +270,7 @@ func (fw *Firewaller) loop() error {
 	ctx, cancel := fw.scopedContext()
 	defer cancel()
 
-	if err := fw.setUp(); err != nil {
+	if err := fw.setUp(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	var (

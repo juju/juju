@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	corelife "github.com/juju/juju/core/life"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 )
 
@@ -39,4 +40,23 @@ func (s *lifeSuite) TestLifeDBValues(c *gc.C) {
 		Dying: "dying",
 		Dead:  "dead",
 	})
+}
+
+// TestToCoreLife ensures that the conversion from domain life to core life
+// is correct.
+func (s *lifeSuite) TestToCoreLife(c *gc.C) {
+	a := Alive
+	dy := Dying
+	d := Dead
+	c.Check((&a).ToCoreLife(), gc.Equals, corelife.Alive)
+	c.Check((&dy).ToCoreLife(), gc.Equals, corelife.Dying)
+	c.Check((&d).ToCoreLife(), gc.Equals, corelife.Dead)
+}
+
+// TestFromCoreLife ensures the correctness of the conversion from core life
+// into a domain life.
+func (s *lifeSuite) TestFromCoreLife(c *gc.C) {
+	c.Check(FromCoreLife(corelife.Alive), gc.Equals, Alive)
+	c.Check(FromCoreLife(corelife.Dying), gc.Equals, Dying)
+	c.Check(FromCoreLife(corelife.Dead), gc.Equals, Dead)
 }

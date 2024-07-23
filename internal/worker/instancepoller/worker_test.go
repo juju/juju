@@ -71,11 +71,12 @@ func (s *configSuite) TestConfigValidation(c *gc.C) {
 	defer ctrl.Finish()
 
 	origCfg := Config{
-		Clock:         testclock.NewClock(time.Now()),
-		Facade:        newMockFacadeAPI(ctrl, nil),
-		Environ:       mocks.NewMockEnviron(ctrl),
-		Logger:        loggertesting.WrapCheckLog(c),
-		CredentialAPI: mocks.NewMockCredentialAPI(ctrl),
+		Clock:          testclock.NewClock(time.Now()),
+		Facade:         newMockFacadeAPI(ctrl, nil),
+		Environ:        mocks.NewMockEnviron(ctrl),
+		Logger:         loggertesting.WrapCheckLog(c),
+		CredentialAPI:  mocks.NewMockCredentialAPI(ctrl),
+		MachineService: mocks.NewMockMachineService(ctrl),
 	}
 	c.Assert(origCfg.Validate(), jc.ErrorIsNil)
 
@@ -98,6 +99,10 @@ func (s *configSuite) TestConfigValidation(c *gc.C) {
 	testCfg = origCfg
 	testCfg.CredentialAPI = nil
 	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil CredentialAPI.*")
+
+	testCfg = origCfg
+	testCfg.MachineService = nil
+	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil MachineService.*")
 }
 
 type pollGroupEntrySuite struct{}
@@ -199,8 +204,8 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *gc.C) {
 	// The machine is alive, has an instance status of "provisioning" and
 	// is aware of its network addresses.
 	machine.EXPECT().Id().Return("0").AnyTimes()
-	machine.EXPECT().Life().Return(life.Alive)
 	machine.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Provisioning)}, nil)
+	machine.EXPECT().Life().Return(life.Alive)
 
 	// The provider reports the instance status as running and also indicates
 	// that network addresses have been *changed*.
@@ -330,6 +335,7 @@ func (s *workerSuite) TestDeadMachineGetsRemoved(c *gc.C) {
 
 	machineTag := names.NewMachineTag("0")
 	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().Id().Return("0").AnyTimes()
 
 	// Add machine to short poll group
 	updWorker.appendToShortPollGroup(machineTag, machine)
@@ -611,25 +617,31 @@ func (s *workerSuite) assertWorkerCompletesLoops(c *gc.C, w *updaterWorker, numL
 }
 
 type workerMocks struct {
-	clock     *testclock.Clock
-	facadeAPI *mockFacadeAPI
-	environ   *mocks.MockEnviron
+	clock          *testclock.Clock
+	facadeAPI      *mockFacadeAPI
+	environ        *mocks.MockEnviron
+	machineService *mocks.MockMachineService
 }
 
 func (s *workerSuite) startWorker(c *gc.C, ctrl *gomock.Controller) (worker.Worker, workerMocks) {
 	workerMainLoopEnteredCh := make(chan struct{}, 1)
+	machineService := mocks.NewMockMachineService(ctrl)
 	mocked := workerMocks{
-		clock:     testclock.NewClock(time.Now()),
-		facadeAPI: newMockFacadeAPI(ctrl, workerMainLoopEnteredCh),
-		environ:   mocks.NewMockEnviron(ctrl),
+		clock:          testclock.NewClock(time.Now()),
+		facadeAPI:      newMockFacadeAPI(ctrl, workerMainLoopEnteredCh),
+		environ:        mocks.NewMockEnviron(ctrl),
+		machineService: machineService,
 	}
 
+	machineService.EXPECT().WatchMachines(gomock.Any()).Return(mocked.facadeAPI.sw, nil)
+
 	w, err := NewWorker(Config{
-		Clock:         mocked.clock,
-		Facade:        mocked.facadeAPI,
-		Environ:       mocked.environ,
-		CredentialAPI: mocks.NewMockCredentialAPI(ctrl),
-		Logger:        loggertesting.WrapCheckLog(c),
+		Clock:          mocked.clock,
+		Facade:         mocked.facadeAPI,
+		Environ:        mocked.environ,
+		CredentialAPI:  mocks.NewMockCredentialAPI(ctrl),
+		Logger:         loggertesting.WrapCheckLog(c),
+		MachineService: mocked.machineService,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

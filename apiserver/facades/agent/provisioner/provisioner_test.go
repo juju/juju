@@ -19,17 +19,18 @@ import (
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade/facadetest"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner"
 	"github.com/juju/juju/apiserver/facades/agent/provisioner/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machine"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/domain/life"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/envcontext"
 	environtesting "github.com/juju/juju/environs/testing"
@@ -685,13 +686,13 @@ func (s *withoutControllerSuite) TestEnsureDead(c *gc.C) {
 	// Verify the changes.
 	obtainedLife, err := s.serviceFactory.Machine().GetMachineLife(context.Background(), machine.Name(s.machines[0].Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*obtainedLife, gc.Equals, life.Dead)
+	c.Check(obtainedLife, gc.Equals, life.Dead)
 	obtainedLife, err = s.serviceFactory.Machine().GetMachineLife(context.Background(), machine.Name(s.machines[1].Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*obtainedLife, gc.Equals, life.Dead)
+	c.Check(obtainedLife, gc.Equals, life.Dead)
 	obtainedLife, err = s.serviceFactory.Machine().GetMachineLife(context.Background(), machine.Name(s.machines[2].Id()))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(*obtainedLife, gc.Equals, life.Dead)
+	c.Check(obtainedLife, gc.Equals, life.Dead)
 }
 
 func (s *withoutControllerSuite) assertLife(c *gc.C, index int, expectLife state.Life) {
@@ -1458,9 +1459,23 @@ func (s *withoutControllerSuite) TestInstanceId(c *gc.C) {
 }
 
 func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	got, err := s.provisioner.WatchModelMachines(context.Background())
+	mockRegistry := facademocks.NewMockWatcherRegistry(ctrl)
+	bProvisioner, err := provisioner.NewProvisionerAPIV11(context.Background(), facadetest.ModelContext{
+		Auth_:            s.authorizer,
+		State_:           s.ControllerModel(c).State(),
+		StatePool_:       s.StatePool(),
+		Resources_:       s.resources,
+		ServiceFactory_:  s.serviceFactory,
+		Logger_:          loggertesting.WrapCheckLog(c),
+		WatcherRegistry_: mockRegistry,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	mockRegistry.EXPECT().Register(gomock.Any()).Return("1", nil)
+
+	got, err := bProvisioner.WatchModelMachines(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	want := params.StringsWatchResult{
 		StringsWatcherId: "1",
@@ -1468,16 +1483,6 @@ func (s *withoutControllerSuite) TestWatchModelMachines(c *gc.C) {
 	}
 	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
 	c.Assert(got.Changes, jc.SameContents, want.Changes)
-
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned"
-	// in the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
-	wc.AssertNoChange()
 
 	// Make sure WatchModelMachines fails with a machine agent login.
 	anAuthorizer := s.authorizer

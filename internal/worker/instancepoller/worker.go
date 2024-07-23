@@ -4,7 +4,7 @@
 package instancepoller
 
 import (
-	stdcontext "context"
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -57,17 +57,24 @@ type Machine interface {
 	InstanceStatus() (params.StatusResult, error)
 	SetInstanceStatus(status.Status, string, map[string]interface{}) error
 	String() string
-	Refresh(ctx stdcontext.Context) error
+	Refresh(ctx context.Context) error
 	Status() (params.StatusResult, error)
 	Life() life.Value
 	IsManual() (bool, error)
 }
 
+// MachineService defines the methods that the worker assumes from the Machine
+// service.
+type MachineService interface {
+	// WatchMachines returns a StringsWatcher that notifies of the changes
+	// in the machines table for the model.
+	WatchMachines(context.Context) (watcher.StringsWatcher, error)
+}
+
 // FacadeAPI specifies the api-server methods needed by the instance
 // poller.
 type FacadeAPI interface {
-	WatchModelMachines() (watcher.StringsWatcher, error)
-	Machine(ctx stdcontext.Context, tag names.MachineTag) (Machine, error)
+	Machine(ctx context.Context, tag names.MachineTag) (Machine, error)
 }
 
 // Config encapsulates the configuration options for instantiating a new
@@ -78,7 +85,8 @@ type Config struct {
 	Environ Environ
 	Logger  logger.Logger
 
-	CredentialAPI common.CredentialAPI
+	CredentialAPI  common.CredentialAPI
+	MachineService MachineService
 }
 
 // Validate checks whether the worker configuration settings are valid.
@@ -97,6 +105,9 @@ func (config Config) Validate() error {
 	}
 	if config.CredentialAPI == nil {
 		return errors.NotValidf("nil CredentialAPI")
+	}
+	if config.MachineService == nil {
+		return errors.NotValidf("nil MachineService")
 	}
 	return nil
 }
@@ -142,6 +153,8 @@ type updaterWorker struct {
 	// Hook function which tests can use to be notified when the worker
 	// has processed a full loop iteration.
 	loopCompletedHook func()
+
+	machineService MachineService
 }
 
 // NewWorker returns a worker that keeps track of
@@ -159,6 +172,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		},
 		instanceIDToGroupEntry: make(map[instance.Id]*pollGroupEntry),
 		callContextFunc:        common.NewCloudCallContextFunc(config.CredentialAPI),
+		machineService:         config.MachineService,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &u.catacomb,
@@ -181,7 +195,7 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() error {
-	watch, err := u.config.Facade.WatchModelMachines()
+	watch, err := u.machineService.WatchMachines(context.Background())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -207,7 +221,7 @@ func (u *updaterWorker) loop() error {
 
 			for i := range ids {
 				tag := names.NewMachineTag(ids[i])
-				if err := u.queueMachineForPolling(stdcontext.TODO(), tag); err != nil {
+				if err := u.queueMachineForPolling(context.TODO(), tag); err != nil {
 					return err
 				}
 			}
@@ -229,7 +243,7 @@ func (u *updaterWorker) loop() error {
 	}
 }
 
-func (u *updaterWorker) queueMachineForPolling(ctx stdcontext.Context, tag names.MachineTag) error {
+func (u *updaterWorker) queueMachineForPolling(ctx context.Context, tag names.MachineTag) error {
 	// If we are already polling this machine, check whether it is still alive
 	// and remove it from its poll group if it is now dead.
 	if entry, groupType := u.lookupPolledMachine(tag); entry != nil {
@@ -352,7 +366,7 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 		return nil
 	}
 
-	ctx := stdcontext.Background()
+	ctx := context.Background()
 	infoList, err := u.config.Environ.Instances(u.callContextFunc(ctx), instList)
 	if err != nil {
 		switch errors.Cause(err) {
@@ -460,8 +474,7 @@ func (u *updaterWorker) resolveInstanceID(entry *pollGroupEntry) error {
 // addresses based on the information collected from the provider. It returns
 // the *instance* status and the number of provider addresses currently
 // known for the machine.
-func (u *updaterWorker) processProviderInfo(
-	entry *pollGroupEntry, info instances.Instance, providerInterfaces network.InterfaceInfos,
+func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instances.Instance, providerInterfaces network.InterfaceInfos,
 ) (status.Status, int, error) {
 	curStatus, err := entry.m.InstanceStatus()
 	if err != nil {
@@ -475,7 +488,7 @@ func (u *updaterWorker) processProviderInfo(
 	}
 
 	// Check for status changes
-	providerStatus := info.Status(u.callContextFunc(stdcontext.Background()))
+	providerStatus := info.Status(u.callContextFunc(context.Background()))
 	curInstStatus := instance.Status{
 		Status:  status.Status(curStatus.Status),
 		Message: curStatus.Info,

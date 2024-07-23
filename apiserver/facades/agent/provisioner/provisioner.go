@@ -169,7 +169,7 @@ func MakeProvisionerAPI(stdCtx context.Context, ctx facade.ModelContext) (*Provi
 		LifeGetter:           common.NewLifeGetter(st, getAuthFunc),
 		APIAddresser:         common.NewAPIAddresser(systemState, resources),
 		MongoModelWatcher:    common.NewMongoModelWatcher(model, resources),
-		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer),
+		ModelMachinesWatcher: common.NewModelMachinesWatcher(st, resources, authorizer, ctx.WatcherRegistry(), ctx.ServiceFactory().Machine()),
 		ControllerConfigAPI: common.NewControllerConfigAPI(
 			st,
 			serviceFactory.ControllerConfig(),

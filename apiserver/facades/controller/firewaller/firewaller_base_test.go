@@ -211,34 +211,6 @@ func (s *firewallerBaseSuite) testInstanceId(
 	})
 }
 
-func (s *firewallerBaseSuite) testWatchModelMachines(
-	c *gc.C,
-	facade interface {
-		WatchModelMachines(context.Context) (params.StringsWatchResult, error)
-	},
-) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	got, err := facade.WatchModelMachines(context.Background())
-	c.Assert(err, jc.ErrorIsNil)
-	want := params.StringsWatchResult{
-		StringsWatcherId: "1",
-		Changes:          []string{"0", "1", "2"},
-	}
-	c.Assert(got.StringsWatcherId, gc.Equals, want.StringsWatcherId)
-	c.Assert(got.Changes, jc.SameContents, want.Changes)
-
-	// Verify the resources were registered and stop them when done.
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer workertest.CleanKill(c, resource)
-
-	// Check that the Watch has consumed the initial event ("returned"
-	// in the Watch call)
-	wc := statetesting.NewStringsWatcherC(c, resource.(state.StringsWatcher))
-	wc.AssertNoChange()
-}
-
 const (
 	cannotWatchUnits = false
 )
