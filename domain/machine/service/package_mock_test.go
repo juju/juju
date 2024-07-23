@@ -430,6 +430,45 @@ func (c *MockStateInitialWatchInstanceStatementCall) DoAndReturn(f func() (strin
 	return c
 }
 
+// InitialWatchModelMachinesStatement mocks base method.
+func (m *MockState) InitialWatchModelMachinesStatement() (string, string) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitialWatchModelMachinesStatement")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(string)
+	return ret0, ret1
+}
+
+// InitialWatchModelMachinesStatement indicates an expected call of InitialWatchModelMachinesStatement.
+func (mr *MockStateMockRecorder) InitialWatchModelMachinesStatement() *MockStateInitialWatchModelMachinesStatementCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitialWatchModelMachinesStatement", reflect.TypeOf((*MockState)(nil).InitialWatchModelMachinesStatement))
+	return &MockStateInitialWatchModelMachinesStatementCall{Call: call}
+}
+
+// MockStateInitialWatchModelMachinesStatementCall wrap *gomock.Call
+type MockStateInitialWatchModelMachinesStatementCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateInitialWatchModelMachinesStatementCall) Return(arg0, arg1 string) *MockStateInitialWatchModelMachinesStatementCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateInitialWatchModelMachinesStatementCall) Do(f func() (string, string)) *MockStateInitialWatchModelMachinesStatementCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateInitialWatchModelMachinesStatementCall) DoAndReturn(f func() (string, string)) *MockStateInitialWatchModelMachinesStatementCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // InitialWatchStatement mocks base method.
 func (m *MockState) InitialWatchStatement() (string, string) {
 	m.ctrl.T.Helper()

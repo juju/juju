@@ -97,7 +97,7 @@ func ModelDDL() *schema.Schema {
 		triggers.ChangeLogTriggersForSecretRevision("uuid", tableSecretRevision),
 		triggers.ChangeLogTriggersForSecretReference("secret_id", tableSecretReference),
 		triggers.ChangeLogTriggersForSubnet("uuid", tableSubnet),
-		triggers.ChangeLogTriggersForMachine("name", tableMachine),
+		triggers.ChangeLogTriggersForMachine("uuid", tableMachine),
 		triggers.ChangeLogTriggersForMachineCloudInstance("machine_uuid", tableMachineCloudInstance),
 		triggers.ChangeLogTriggersForUserPublicSshKey("id", tableUserPublicSSHKey),
 		triggers.ChangeLogTriggersForCharm("uuid", tableCharm),

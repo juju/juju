@@ -129,7 +129,7 @@ func (w *NamespaceWatcher) loop() error {
 			}
 
 			// We have changes. Tick over to dispatch mode.
-			changes = transform.Slice(subChanges, func(c changestream.ChangeEvent) string { return c.Changed() })
+			changes = transform.Slice(changed, func(c changestream.ChangeEvent) string { return c.Changed() })
 			in = nil
 			out = w.out
 		case out <- changes:
