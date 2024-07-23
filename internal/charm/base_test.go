@@ -33,21 +33,6 @@ func (s *baseSuite) TestParseBase(c *gc.C) {
 			parsedBase: charm.Base{},
 			err:        `base string must contain exactly one @. "ubuntu" not valid`,
 		}, {
-			str:        "windows",
-			parsedBase: charm.Base{},
-			err:        `base string must contain exactly one @. "windows" not valid`,
-		}, {
-			str:        "mythicalos@channel",
-			parsedBase: charm.Base{},
-			err:        `invalid base string "mythicalos@channel": os "mythicalos" not valid`,
-		}, {
-			str:        "ubuntu@20.04/stable",
-			parsedBase: charm.Base{Name: strings.ToLower(os.Ubuntu.String()), Channel: mustParseChannel("20.04/stable")},
-		}, {
-			str:        "windows@win10/stable",
-			parsedBase: charm.Base{},
-			err:        `invalid base string "windows@win10/stable": os "windows" not valid`,
-		}, {
 			str:        "ubuntu@20.04/edge",
 			parsedBase: charm.Base{Name: strings.ToLower(os.Ubuntu.String()), Channel: mustParseChannel("20.04/edge")},
 		},
@@ -58,7 +43,7 @@ func (s *baseSuite) TestParseBase(c *gc.C) {
 		if v.err != "" {
 			c.Check(err, gc.ErrorMatches, v.err, comment)
 		} else {
-			c.Check(err, jc.ErrorIsNil, comment)
+			c.Assert(err, jc.ErrorIsNil, comment)
 		}
 		c.Check(s, jc.DeepEquals, v.parsedBase, comment)
 	}
@@ -70,25 +55,8 @@ func (s *baseSuite) TestParseBaseWithArchitectures(c *gc.C) {
 		baseString string
 		archs      []string
 		parsedBase charm.Base
-		err        string
 	}{
 		{
-			baseString: "ubuntu@",
-			str:        "ubuntu on amd64",
-			archs:      []string{"amd64"},
-			parsedBase: charm.Base{},
-			err:        `invalid base string "ubuntu@" with architectures "amd64": channel not valid`,
-		}, {
-			baseString: "ubuntu@",
-			str:        "ubuntu",
-			parsedBase: charm.Base{},
-			err:        `invalid base string "ubuntu@": channel not valid`,
-		}, {
-			baseString: "mythicalos@channel",
-			str:        "mythicalos",
-			parsedBase: charm.Base{},
-			err:        `invalid base string "mythicalos@channel": os "mythicalos" not valid`,
-		}, {
 			baseString: "ubuntu@20.04/stable",
 			archs:      []string{arch.AMD64, "ppc64"},
 			str:        "ubuntu@20.04/stable on amd64, ppc64el",
@@ -96,22 +64,14 @@ func (s *baseSuite) TestParseBaseWithArchitectures(c *gc.C) {
 				Name:          strings.ToLower(os.Ubuntu.String()),
 				Channel:       mustParseChannel("20.04/stable"),
 				Architectures: []string{arch.AMD64, arch.PPC64EL}},
-		}, {
-			baseString: "ubuntu@24.04/stable",
-			archs:      []string{"testme"},
-			str:        "ubuntu@24.04/stable",
-			parsedBase: charm.Base{},
-			err:        `invalid base string "ubuntu@24.04/stable" with architectures "testme": architecture "testme" not valid`,
 		},
 	}
 	for i, v := range tests {
 		comment := gc.Commentf("test %d", i)
 		s, err := charm.ParseBase(v.baseString, v.archs...)
-		if v.err != "" {
-			c.Check(err, gc.ErrorMatches, v.err, comment)
-		} else {
-			c.Check(err, jc.ErrorIsNil, comment)
-		}
+
+		c.Assert(err, jc.ErrorIsNil, comment)
+
 		c.Check(s, jc.DeepEquals, v.parsedBase, comment)
 	}
 }

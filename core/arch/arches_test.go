@@ -47,7 +47,6 @@ func (s *archSuite) TestNormaliseArch(c *gc.C) {
 		{raw: "x86_64", arch: "amd64"},
 		{raw: "arm64", arch: "arm64"},
 		{raw: "aarch64", arch: "arm64"},
-		{raw: "arm64", arch: "arm64"},
 		{raw: "ppc64el", arch: "ppc64el"},
 		{raw: "ppc64le", arch: "ppc64el"},
 		{raw: "s390x", arch: "s390x"},

@@ -8,7 +8,9 @@ import (
 	"strings"
 
 	"github.com/juju/collections/set"
+
 	corearch "github.com/juju/juju/core/arch"
+	"github.com/juju/juju/core/os/ostype"
 	"github.com/juju/juju/domain/application/charm"
 	applicationerrors "github.com/juju/juju/domain/application/errors"
 	internalcharm "github.com/juju/juju/internal/charm"
@@ -113,6 +115,17 @@ func encodeManifestBases(bases []internalcharm.Base) ([]charm.Base, []string, er
 }
 
 func encodeManifestBase(base internalcharm.Base) (charm.Base, []string, error) {
+	if base.Name == "" {
+		return charm.Base{}, nil, applicationerrors.CharmBaseNameNotValid
+	}
+	// Juju only supports Ubuntu bases.
+	baseType, err := ostype.ParseOSType(base.Name)
+	if err != nil {
+		return charm.Base{}, nil, fmt.Errorf("parse base name: %w", err)
+	} else if baseType != ostype.Ubuntu {
+		return charm.Base{}, nil, applicationerrors.CharmBaseNameNotSupported
+	}
+
 	channel, err := encodeManifestChannel(base.Channel)
 	if err != nil {
 		return charm.Base{}, nil, fmt.Errorf("encode channel: %w", err)

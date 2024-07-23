@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"github.com/juju/os/v2"
 
 	"github.com/juju/juju/core/arch"
 )
@@ -26,19 +25,9 @@ func (b Base) Validate() error {
 	if b.Name == "" {
 		return errors.NotValidf("base without name")
 	}
-
-	if b.Name != strings.ToLower(os.Ubuntu.String()) {
-		return errors.NotValidf("os %q", b.Name)
-	}
 	if b.Channel.Empty() {
 		return errors.NotValidf("channel")
 	}
-	for _, v := range b.Architectures {
-		if !arch.IsSupportedArch(v) {
-			return errors.NotValidf("architecture %q", v)
-		}
-	}
-
 	return nil
 }
 
