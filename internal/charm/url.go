@@ -13,7 +13,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/mgo/v3/bson"
-	"github.com/juju/utils/v4/arch"
+
+	"github.com/juju/juju/core/arch"
 )
 
 // Schema represents the different types of valid schemas.

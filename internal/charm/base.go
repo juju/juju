@@ -9,7 +9,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/os/v2"
-	"github.com/juju/utils/v4/arch"
+
+	"github.com/juju/juju/core/arch"
 )
 
 // Base represents an OS/Channel.
