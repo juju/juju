@@ -965,16 +965,17 @@ func (st State) insertSecretValueRef(
 INSERT INTO secret_value_ref (*)
 VALUES ($secretValueRef.*)`
 
-	insertStmt, err := st.Prepare(insertQuery, secretValueRef{})
+	input := secretValueRef{
+		RevisionUUID: revisionUUID,
+		BackendUUID:  valueRef.BackendID,
+		RevisionID:   valueRef.RevisionID,
+	}
+	insertStmt, err := st.Prepare(insertQuery, input)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = tx.Query(ctx, insertStmt, secretValueRef{
-		RevisionUUID: revisionUUID,
-		BackendUUID:  valueRef.BackendID,
-		RevisionID:   valueRef.RevisionID,
-	}).Run()
+	err = tx.Query(ctx, insertStmt, input).Run()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -3531,13 +3532,13 @@ WHERE  secret_id = $secretRevision.secret_id
 
 	deleteValueRefQ, err := st.Prepare(`
 DELETE FROM secret_value_ref
-WHERE revision_uuid = $revisionUUID.uuid`, revisionUUID{})
+WHERE revision_uuid = $revisionUUID.uuid`, revSelectResult)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	deleteDataQ, err := st.Prepare(`
 DELETE FROM secret_content
-WHERE revision_uuid = $secretContent.revision_uuid`, secretContent{})
+WHERE revision_uuid = $revisionUUID.uuid`, revSelectResult)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -3550,7 +3551,7 @@ WHERE revision_uuid = $secretContent.revision_uuid`, secretContent{})
 				return errors.Trace(err)
 			}
 		} else {
-			if err = tx.Query(ctx, deleteValueRefQ, revisionUUID{UUID: revSelectResult.UUID}).Run(); err != nil {
+			if err = tx.Query(ctx, deleteValueRefQ, revSelectResult).Run(); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -3559,7 +3560,7 @@ WHERE revision_uuid = $secretContent.revision_uuid`, secretContent{})
 				return errors.Trace(err)
 			}
 		} else {
-			if err = tx.Query(ctx, deleteDataQ, secretContent{RevisionUUID: revSelectResult.UUID}).Run(); err != nil {
+			if err = tx.Query(ctx, deleteDataQ, revSelectResult).Run(); err != nil {
 				return errors.Trace(err)
 			}
 		}

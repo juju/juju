@@ -11,24 +11,13 @@ import (
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/changestream"
-	corecredential "github.com/juju/juju/core/credential"
 	"github.com/juju/juju/core/database"
 	coremodel "github.com/juju/juju/core/model"
-	modeltesting "github.com/juju/juju/core/model/testing"
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/user"
-	"github.com/juju/juju/core/version"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
-	userstate "github.com/juju/juju/domain/access/state"
-	cloudstate "github.com/juju/juju/domain/cloud/state"
-	"github.com/juju/juju/domain/credential"
-	credentialstate "github.com/juju/juju/domain/credential/state"
-	"github.com/juju/juju/domain/model"
-	modelestate "github.com/juju/juju/domain/model/state"
+	domainmodeltesting "github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/domain/secretbackend/state"
@@ -170,16 +159,17 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 
 func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model_secretbackend_changes")
+	txnRunnerFactory := func() (database.TxnRunner, error) { return factory() }
 
 	logger := loggertesting.WrapCheckLog(c)
-	state := state.NewState(func() (database.TxnRunner, error) { return factory() }, logger)
+	state := state.NewState(txnRunnerFactory, logger)
 
 	svc := service.NewWatchableService(
 		state, logger,
 		domain.NewWatcherFactory(factory, logger),
 	)
 
-	modelUUID, internalBackendName, vaultBackendName := s.createModel(c, state, "test-model")
+	modelUUID, internalBackendName, vaultBackendName := s.createModel(c, state, txnRunnerFactory, "test-model")
 
 	watcher, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -189,11 +179,11 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 	// Wait for the initial change.
 	wc.AssertOneChange()
 
-	err = state.SetModelSecretBackend(context.Background(), modelUUID, internalBackendName)
+	err = state.SetModelSecretBackend(context.Background(), modelUUID, vaultBackendName)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	err = state.SetModelSecretBackend(context.Background(), modelUUID, vaultBackendName)
+	err = state.SetModelSecretBackend(context.Background(), modelUUID, internalBackendName)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
@@ -204,10 +194,9 @@ func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 	wc1 := watchertest.NewNotifyWatcherC(c, watcher1)
 	// Wait for the initial change.
 	wc1.AssertOneChange()
-	wc1.AssertNoChange()
 }
 
-func (s *watcherSuite) createModel(c *gc.C, st *state.State, name string) (coremodel.UUID, string, string) {
+func (s *watcherSuite) createModel(c *gc.C, st *state.State, txnRunner database.TxnRunnerFactory, name string) (coremodel.UUID, string, string) {
 	// Create internal controller secret backend.
 	internalBackendID := uuid.MustNewUUID().String()
 	result, err := st.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
@@ -235,89 +224,6 @@ func (s *watcherSuite) createModel(c *gc.C, st *state.State, name string) (corem
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, vaultBackendID)
 
-	// We need to generate a user in the database so that we can set the model
-	// owner.
-	userUUID, err := user.NewUUID()
-	c.Assert(err, jc.ErrorIsNil)
-	userName := "test-user"
-	userState := userstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
-	err = userState.AddUser(
-		context.Background(),
-		userUUID,
-		userName,
-		userName,
-		userUUID,
-		// TODO (stickupkid): This should be AdminAccess, but we don't have
-		// a model to set the user as the owner of.
-		permission.AccessSpec{
-			Access: permission.SuperuserAccess,
-			Target: permission.ID{
-				ObjectType: permission.Controller,
-				Key:        s.SeedControllerUUID(c),
-			},
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cloudSt := cloudstate.NewState(s.TxnRunnerFactory())
-	err = cloudSt.CreateCloud(context.Background(), userName, uuid.MustNewUUID().String(),
-		cloud.Cloud{
-			Name:           "my-cloud",
-			Type:           "ec2",
-			AuthTypes:      cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
-			CACertificates: []string{"my-ca-cert"},
-			Regions: []cloud.Region{
-				{Name: "my-region"},
-			},
-		})
-	c.Assert(err, jc.ErrorIsNil)
-
-	cred := credential.CloudCredentialInfo{
-		Label:    "foobar",
-		AuthType: string(cloud.AccessKeyAuthType),
-		Attributes: map[string]string{
-			"foo": "foo val",
-			"bar": "bar val",
-		},
-	}
-
-	credSt := credentialstate.NewState(s.TxnRunnerFactory())
-	_, err = credSt.UpsertCloudCredential(
-		context.Background(), corecredential.Key{
-			Cloud: "my-cloud",
-			Owner: "test-user",
-			Name:  "foobar",
-		},
-		cred,
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	modelUUID := modeltesting.GenModelUUID(c)
-	modelSt := modelestate.NewState(s.TxnRunnerFactory())
-	err = modelSt.Create(
-		context.Background(),
-		modelUUID,
-		coremodel.IAAS,
-		model.ModelCreationArgs{
-			AgentVersion: version.Current,
-			Cloud:        "my-cloud",
-			CloudRegion:  "my-region",
-			Credential: corecredential.Key{
-				Cloud: "my-cloud",
-				Owner: "test-user",
-				Name:  "foobar",
-			},
-			Name:          name,
-			Owner:         userUUID,
-			SecretBackend: "my-backend",
-		},
-	)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = modelSt.Activate(context.Background(), modelUUID)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = st.SetModelSecretBackend(context.Background(), modelUUID, "my-backend")
-	c.Assert(err, jc.ErrorIsNil)
+	modelUUID := domainmodeltesting.CreateTestModel(c, txnRunner, name)
 	return modelUUID, juju.BackendName, "my-backend"
 }

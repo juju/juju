@@ -989,7 +989,7 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	select {
 	case ch <- []string{backendID1, backendID2}:
 	case <-time.After(jujutesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending the initial changes")
 	}
 
 	wC.AssertChanges(
@@ -1232,7 +1232,14 @@ func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 		},
 	)
 	modelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
-	ch := make(chan struct{}, 1)
+	ch := make(chan struct{})
+	go func() {
+		// send the initial change.
+		ch <- struct{}{}
+		// send the 1st change.
+		ch <- struct{}{}
+	}()
+
 	mockNotifyWatcher := NewMockNotifyWatcher(ctrl)
 	mockNotifyWatcher.EXPECT().Changes().Return(ch).AnyTimes()
 	mockNotifyWatcher.EXPECT().Wait().Return(nil).AnyTimes()
@@ -1247,13 +1254,7 @@ func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
 
 	wc := watchertest.NewNotifyWatcherC(c, w)
 
-	select {
-	case ch <- struct{}{}:
-	case <-time.After(jujutesting.ShortWait):
-		c.Fatalf("timed out waiting for sending the initial changes")
-	}
-
-	wc.AssertOneChange()
+	wc.AssertNChanges(2)
 }
 
 func (s *serviceSuite) assertGetSecretsToDrain(c *gc.C, backendID string, expectedRevisions ...RevisionInfo) {
