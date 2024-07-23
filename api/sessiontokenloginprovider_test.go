@@ -6,8 +6,10 @@ package api_test
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -16,15 +18,16 @@ import (
 	"github.com/juju/juju/api/base"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
-type sessionTokenLoginProviderProviderSuite struct {
+type sessionTokenLoginProviderSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&sessionTokenLoginProviderProviderSuite{})
+var _ = gc.Suite(&sessionTokenLoginProviderSuite{})
 
-func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *gc.C) {
+func (s *sessionTokenLoginProviderSuite) TestSessionTokenLogin(c *gc.C) {
 	info := s.APIInfo(c)
 
 	sessionToken := "test-session-token"
@@ -121,13 +124,11 @@ func (s *sessionTokenLoginProviderProviderSuite) TestSessionTokenLogin(c *gc.C) 
 
 	c.Check(output.String(), gc.Equals, "Please visit http://localhost:8080/test-verification and enter code 1234567 to log in.\n")
 	c.Check(obtainedSessionToken, gc.Equals, sessionToken)
-	token, err := lp.Token()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(token, gc.Equals, sessionToken)
 }
 
-func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c *gc.C) {
-	info := s.APIInfo(c)
+func (s *sessionTokenLoginProviderSuite) TestInvalidSessionTokenLogin(c *gc.C) {
+	info := api.Info{}
 
 	expectedErr := &params.Error{
 		Message: "unauthorized",
@@ -152,4 +153,42 @@ func (s *sessionTokenLoginProviderProviderSuite) TestInvalidSessionTokenLogin(c 
 		),
 	})
 	c.Assert(err, jc.ErrorIs, expectedErr)
+}
+
+// A separate suite for tests that don't need to communicate with a controller.
+type sessionTokenLoginProviderBasicSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&sessionTokenLoginProviderBasicSuite{})
+
+func (s *sessionTokenLoginProviderBasicSuite) TestSessionTokenAuthHeader(c *gc.C) {
+	var output bytes.Buffer
+	testCases := []struct {
+		desc     string
+		lp       api.LoginProvider
+		expected http.Header
+		err      string
+	}{
+		{
+			desc:     "Non-empty session token is valid",
+			expected: jujuhttp.BasicAuthHeader("", "test-token"),
+			lp:       api.NewSessionTokenLoginProvider("test-token", &output, nil),
+		},
+		{
+			desc: "Empty session token returns error",
+			lp:   api.NewSessionTokenLoginProvider("", &output, nil),
+			err:  "login provider token not available",
+		},
+	}
+	for i, tC := range testCases {
+		c.Logf("test %d: %s", i, tC.desc)
+		header, err := tC.lp.AuthHeader()
+		if tC.err != "" {
+			c.Assert(err, gc.ErrorMatches, tC.err)
+		} else {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Check(tC.expected, gc.DeepEquals, header)
+		}
+	}
 }

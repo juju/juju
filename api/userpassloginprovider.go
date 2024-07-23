@@ -5,6 +5,8 @@ package api
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"runtime/debug"
@@ -13,11 +15,13 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
 	"github.com/juju/featureflag"
+	jujuhttp "github.com/juju/http/v2"
 	"github.com/juju/names/v5"
 	"github.com/juju/utils/v3"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
+	coremacaroon "github.com/juju/juju/core/macaroon"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/params"
@@ -36,7 +40,7 @@ func NewUserpassLoginProvider(
 	cookieURL *url.URL,
 ) *userpassLoginProvider {
 	return &userpassLoginProvider{
-		tag:          tag,
+		tag:          tagToString(tag),
 		password:     password,
 		nonce:        nonce,
 		macaroons:    macaroons,
@@ -45,11 +49,19 @@ func NewUserpassLoginProvider(
 	}
 }
 
+// tagToString returns the value of a tag's String method, or "" if the tag is nil.
+func tagToString(tag names.Tag) string {
+	if tag == nil {
+		return ""
+	}
+	return tag.String()
+}
+
 // userpassLoginProvider provides the default juju login provider that
 // authenticates the entity with the given name and password or macaroons. The
 // nonce should be empty unless logging in as a machine agent.
 type userpassLoginProvider struct {
-	tag          names.Tag
+	tag          string
 	password     string
 	nonce        string
 	macaroons    []macaroon.Slice
@@ -57,10 +69,70 @@ type userpassLoginProvider struct {
 	cookieURL    *url.URL
 }
 
-// Token implements the [LoginProvider.Token] method.
-// Returns the user's password.
-func (p *userpassLoginProvider) Token() (string, error) {
-	return p.password, nil
+// AuthHeader implements the [LoginProvider.AuthHeader] method.
+// Returns an HTTP header with basic auth if a user tag is provided.
+// The header will also include any macaroons as cookies.
+func (p *userpassLoginProvider) AuthHeader() (http.Header, error) {
+	var requestHeader http.Header
+	if p.tag != "" {
+		// Note that password may be empty here; we still
+		// want to pass the tag along. An empty password
+		// indicates that we're using macaroon authentication.
+		requestHeader = jujuhttp.BasicAuthHeader(p.tag, p.password)
+	} else {
+		requestHeader = make(http.Header)
+	}
+	if p.nonce != "" {
+		requestHeader.Set(params.MachineNonceHeader, p.nonce)
+	}
+	// Add any cookies because they will not be sent to websocket
+	// connections by default.
+	err := p.addCookiesToHeader(requestHeader)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return requestHeader, nil
+}
+
+// addCookiesToHeader adds any macaroons associated with the
+// API host to the given header. This is necessary because
+// otherwise cookies are not sent to websocket endpoints.
+func (p *userpassLoginProvider) addCookiesToHeader(h http.Header) error {
+	// Note: The go-macaroon-bakery accepts macaroons either as encoded header
+	// values or as cookies. Here we opt to add them as cookies.
+	// See https://github.com/go-macaroon-bakery/macaroon-bakery/blob/v3/httpbakery/client.go#L683
+	// and apiserver/stateauthenticator/auth.go LoginRequest
+
+	// net/http only allows adding cookies to a request,
+	// but when it sends a request to a non-http endpoint,
+	// it doesn't add the cookies, so make a request, starting
+	// with the given header, add the cookies to use, then
+	// throw away the request but keep the header.
+	req := &http.Request{
+		Header: h,
+	}
+	var cookies []*http.Cookie
+	if p.bakeryClient != nil {
+		cookies = p.bakeryClient.Client.Jar.Cookies(p.cookieURL)
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+	}
+	if len(cookies) == 0 && len(p.macaroons) > 0 {
+		// These macaroons must have been added directly rather than
+		// obtained from a request. Add them. (For example in the
+		// logtransfer connection for a migration.)
+		// See https://bugs.launchpad.net/juju/+bug/1650451
+		for _, macaroon := range p.macaroons {
+			cookie, err := httpbakery.NewCookie(coremacaroon.MacaroonNamespace, macaroon)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			req.AddCookie(cookie)
+		}
+	}
+	h.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
+	return nil
 }
 
 // Login implements the LoginProvider.Login method.
@@ -70,7 +142,7 @@ func (p *userpassLoginProvider) Token() (string, error) {
 func (p *userpassLoginProvider) Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:       tagToString(p.tag),
+		AuthTag:       p.tag,
 		Credentials:   p.password,
 		Nonce:         p.nonce,
 		Macaroons:     p.macaroons,
@@ -184,6 +256,6 @@ func (p *userpassLoginProvider) Login(ctx context.Context, caller base.APICaller
 	// Edge case for username/password login. Ensure the result has a tag set.
 	// Currently no tag is returned when performing a login as a machine rather than a user.
 	// Ideally the server would respond with the tag used as part of the request.
-	loginResult.EnsureTag(p.tag)
-	return loginResult, nil
+	err = loginResult.EnsureTag(p.tag)
+	return loginResult, err
 }

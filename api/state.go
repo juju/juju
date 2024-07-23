@@ -91,13 +91,6 @@ type state struct {
 	// access it safely.
 	loggedIn int32
 
-	// tag, password, macaroons and nonce hold the cached login
-	// credentials. These are only valid if loggedIn is 1.
-	tag       string
-	password  string
-	macaroons []macaroon.Slice
-	nonce     string
-
 	// loginProvider holds the provider used for login.
 	loginProvider LoginProvider
 
@@ -194,12 +187,6 @@ func (st *state) setLoginResult(p *LoginResultParams) error {
 // AuthTag returns the tag of the authorized user of the state API connection.
 func (st *state) AuthTag() names.Tag {
 	return st.authTag
-}
-
-// LoginToken returns a token appropriate for basic auth as determined by the
-// underlying login provider.
-func (st *state) LoginToken() (string, error) {
-	return st.loginProvider.Token()
 }
 
 // ControllerAccess returns the access level of authorized user to the model.

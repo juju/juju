@@ -5,8 +5,10 @@ package api
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
@@ -32,10 +34,10 @@ type clientCredentialsLoginProvider struct {
 	clientSecret string
 }
 
-// Token implements [LoginProvider.Token]
-// returning the client secret used for logging in to a Juju controller.
-func (p *clientCredentialsLoginProvider) Token() (string, error) {
-	return p.clientSecret, nil
+// AuthHeader implements the [LoginProvider.AuthHeader] method.
+// Returning an HTTP header with basic auth set.
+func (p *clientCredentialsLoginProvider) AuthHeader() (http.Header, error) {
+	return jujuhttp.BasicAuthHeader(p.clientID, p.clientSecret), nil
 }
 
 // Login implements the LoginProvider.Login method.

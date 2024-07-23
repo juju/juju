@@ -5,6 +5,7 @@ package loginprovider_test
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -23,7 +24,9 @@ var _ = gc.Suite(&tryInOrderLoginProviderSuite{})
 func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *gc.C) {
 	p1 := &mockLoginProvider{err: errors.New("provider 1 error")}
 	p2 := &mockLoginProvider{err: errors.New("provider 2 error")}
-	p3 := &mockLoginProvider{token: "successful-login-token"}
+	header := http.Header{}
+	header.Add("test", "foo")
+	p3 := &mockLoginProvider{header: header, token: "successful-login-token"}
 
 	logger := loggo.GetLogger("juju.cmd.loginprovider")
 	lp := loginprovider.NewTryInOrderLoginProvider(logger, p1, p2)
@@ -31,22 +34,23 @@ func (s *tryInOrderLoginProviderSuite) TestInOrderLoginProvider(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "provider 2 error")
 
 	lp = loginprovider.NewTryInOrderLoginProvider(logger, p1, p2, p3)
-	_, err = lp.Token()
+	_, err = lp.AuthHeader()
 	c.Check(err, gc.ErrorMatches, api.ErrorLoginFirst.Error())
 	_, err = lp.Login(context.Background(), nil)
 	c.Check(err, jc.ErrorIsNil)
-	token, err := lp.Token()
+	got, err := lp.AuthHeader()
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(token, gc.Equals, "successful-login-token")
+	c.Check(got, gc.DeepEquals, header)
 }
 
 type mockLoginProvider struct {
-	err   error
-	token string
+	err    error
+	token  string
+	header http.Header
 }
 
-func (p *mockLoginProvider) Token() (string, error) {
-	return p.token, nil
+func (p *mockLoginProvider) AuthHeader() (http.Header, error) {
+	return p.header, nil
 }
 
 func (p *mockLoginProvider) Login(ctx context.Context, caller base.APICaller) (*api.LoginResultParams, error) {

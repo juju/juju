@@ -11,8 +11,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 
 	"github.com/juju/errors"
+	jujuhttp "github.com/juju/http/v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/rpc/params"
@@ -54,14 +56,14 @@ type sessionTokenLoginProvider struct {
 	updateAccountDetailsFunc func(string) error
 }
 
-// Token implements the [LoginProvider.Token] method.
-// Returns the session token obtained after performing the login flow.
-// Returns an ErrorTokenNotAvailable error if no token available.
-func (p *sessionTokenLoginProvider) Token() (string, error) {
+// AuthHeader implements the [LoginProvider.AuthHeader] method.
+// Returns an HTTP header with basic auth set.
+// Returns an ErrorLoginFirst error if no token is available.
+func (p *sessionTokenLoginProvider) AuthHeader() (http.Header, error) {
 	if p.sessionToken == "" {
-		return "", ErrorTokenNotAvailable
+		return nil, ErrorLoginFirst
 	}
-	return p.sessionToken, nil
+	return jujuhttp.BasicAuthHeader("", p.sessionToken), nil
 }
 
 // Login implements the LoginProvider.Login method.

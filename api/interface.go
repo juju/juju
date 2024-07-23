@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"net"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -30,10 +31,6 @@ import (
 const AnonymousUsername = "jujuanonymous"
 
 const (
-	// ErrorTokenNotAvailable describes an error case where the [LoginProvider] is not able to offer a token
-	// as this stage yet.
-	ErrorTokenNotAvailable = errors.ConstError("login provider token not available")
-
 	// ErrorLoginFirst indicates that login has not taken place yet.
 	ErrorLoginFirst = errors.ConstError("login provider needs to be logged in")
 )
@@ -152,10 +149,15 @@ type LoginResultParams struct {
 // EnsureTag should be used when a login provider needs to ensure
 // a login result has a tag set, particularly in cases where the
 // server doesn't return a user identity.
-func (l *LoginResultParams) EnsureTag(tag names.Tag) {
+func (l *LoginResultParams) EnsureTag(tag string) error {
 	if l.tag == nil {
+		tag, err := names.ParseTag(tag)
+		if err != nil {
+			return err
+		}
 		l.tag = tag
 	}
+	return nil
 }
 
 // NewLoginResultParams constructs a LoginResultParams from a Juju login response.
@@ -194,11 +196,13 @@ func NewLoginResultParams(result params.LoginResult) (*LoginResultParams, error)
 type LoginProvider interface {
 	// Login performs log in when connecting to the controller.
 	Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error)
-	// Token returns the string used for authentication. Some providers may only obtain
-	// a token after login has completed.
+	// AuthHeader returns an HTTP header used for authentication.
 	// This is normally used as part of basic authentication in scenarios where a client
 	// makes use of a StreamConnector like when fetching logs using `juju debug-log`.
-	Token() (string, error)
+	// Can return [ErrorLoginFirst] when the provider requires an RPC login before basic auth
+	// can be performed.
+	// Other errors are also possible indicating an internal error in the provider.
+	AuthHeader() (http.Header, error)
 }
 
 // DialOpts holds configuration parameters that control the
