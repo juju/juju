@@ -79,7 +79,7 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
 	err := s.State.AddCloud(cloud.Cloud{
 		Name:      "stratus",
 		Type:      "low",
-		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType},
+		AuthTypes: cloud.AuthTypes{cloud.AccessKeyAuthType, cloud.UserPassAuthType, cloud.EmptyAuthType},
 	}, s.Owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -111,8 +111,15 @@ func (s *CloudCredentialsSuite) TestUpdateCloudCredentialsExisting(c *gc.C) {
 	expected.Cloud = "stratus"
 	expected.Name = "foobar"
 	expected.Revoked = true
-
 	c.Assert(out, jc.DeepEquals, expected)
+
+	// Pass an empty map to check it is returned as a nil map.
+	cred = cloud.NewCredential(cloud.EmptyAuthType, map[string]string{})
+	err = s.State.UpdateCloudCredential(tag, cred)
+	c.Assert(err, jc.ErrorIsNil)
+	out, err = s.State.CloudCredential(tag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(out.Attributes, gc.IsNil)
 }
 
 func assertCredentialCreated(c *gc.C, testSuite ConnSuite) (string, *state.User, names.CloudCredentialTag) {
