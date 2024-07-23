@@ -32,7 +32,7 @@ def get_branch_config(config_file):
             line = line.split('#')[0].strip()
             bzr_match = re.match(r'(\S+)\s+'
                                  'lp:([^;]+)'
-                                 '(?:;revno=(\d+))?', line)
+                                 '(?:;revno=(\\d+))?', line)
             if bzr_match:
                 name, branch, revno = bzr_match.group(1, 2, 3)
                 if revno is None:
@@ -42,7 +42,7 @@ def get_branch_config(config_file):
                 branches[name] = (branch, revspec)
                 continue
             dir_match = re.match(r'(\S+)\s+'
-                                 '\(directory\)', line)
+                                 '\\(directory\\)', line)
             if dir_match:
                 name = dir_match.group(1)
                 branches[name] = None
