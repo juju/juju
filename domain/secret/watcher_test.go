@@ -753,12 +753,28 @@ func (s *watcherSuite) TestWatchSecretsRevisionExpiryChanges(c *gc.C) {
 	wc1.AssertNoChange()
 }
 
-type stubCharm struct {
-	charm.Charm
-}
+type stubCharm struct{}
+
+var _ charm.Charm = (*stubCharm)(nil)
 
 func (m *stubCharm) Meta() *charm.Meta {
 	return &charm.Meta{
 		Name: "foo",
 	}
+}
+
+func (m *stubCharm) Manifest() *charm.Manifest {
+	return &charm.Manifest{}
+}
+
+func (m *stubCharm) Config() *charm.Config {
+	return &charm.Config{}
+}
+
+func (m *stubCharm) Actions() *charm.Actions {
+	return &charm.Actions{}
+}
+
+func (m *stubCharm) Revision() int {
+	return 1
 }

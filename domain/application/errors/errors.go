@@ -28,6 +28,9 @@ const (
 	// not valid.
 	ApplicationNameNotValid = errors.ConstError("application name not valid")
 
+	// CharmNotValid describes an error that occurs when the charm is not valid.
+	CharmNotValid = errors.ConstError("charm not valid")
+
 	// CharmNameNotValid describes an error that occurs when attempting to get
 	// a charm using an invalid name.
 	CharmNameNotValid = errors.ConstError("charm name not valid")

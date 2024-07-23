@@ -322,8 +322,15 @@ func (s *stateSuite) ensureMachine(c *gc.C, id, uuid string) {
 func (s *stateSuite) ensureApplication(c *gc.C, name, uuid string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-		INSERT INTO application (uuid, name, life_id)
-		VALUES (?, ?, "0")`, uuid, name)
+INSERT INTO charm (uuid, name)
+VALUES (?, ?)`, uuid, "myapp")
+		if err != nil {
+			return err
+		}
+
+		_, err = tx.ExecContext(ctx, `
+INSERT INTO application (uuid, charm_uuid, name, life_id)
+VALUES (?, ?, ?, "0")`, uuid, uuid, name)
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)

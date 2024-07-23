@@ -173,8 +173,8 @@ func (s *configSuite) TestEncodeConfigType(c *gc.C) {
 }
 
 func (s *configSuite) TestEncodeConfigDefaultValue(c *gc.C) {
-	_, err := encodeConfigDefaultValue(int64(0))
-	c.Assert(err, gc.ErrorMatches, `unknown config default value type int64`)
+	_, err := encodeConfigDefaultValue(int32(0))
+	c.Assert(err, gc.ErrorMatches, `unknown config default value type int32`)
 }
 
 var configTypeTestCases = [...]struct {

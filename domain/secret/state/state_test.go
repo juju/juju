@@ -52,8 +52,8 @@ func (s *stateSuite) setupModel(c *gc.C) string {
 	modelUUID := uuid.MustNewUUID()
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type)
-			VALUES (?, ?, ?, "test", "iaas", "fluffy", "ec2")
+INSERT INTO model (uuid, controller_uuid, target_agent_version, name, type, cloud, cloud_type)
+VALUES (?, ?, ?, "test", "iaas", "fluffy", "ec2")
 		`, modelUUID.String(), coretesting.ControllerTag.Id(), jujuversion.Current.String())
 		return err
 	})
@@ -486,11 +486,18 @@ func (s *stateSuite) TestListSecretsByURI(c *gc.C) {
 
 func (s *stateSuite) setupUnits(c *gc.C, appName string) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		applicationUUID := uuid.MustNewUUID().String()
+		charmUUID := uuid.MustNewUUID().String()
 		_, err := tx.ExecContext(context.Background(), `
-INSERT INTO application (uuid, name, life_id)
-VALUES (?, ?, ?)
-`, applicationUUID, appName, life.Alive)
+INSERT INTO charm (uuid, name)
+VALUES (?, ?);
+`, charmUUID, appName)
+		c.Assert(err, jc.ErrorIsNil)
+
+		applicationUUID := uuid.MustNewUUID().String()
+		_, err = tx.ExecContext(context.Background(), `
+INSERT INTO application (uuid, charm_uuid, name, life_id)
+VALUES (?, ?, ?, ?)
+`, applicationUUID, charmUUID, appName, life.Alive)
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Do 2 units.

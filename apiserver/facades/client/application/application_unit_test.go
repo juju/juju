@@ -1999,7 +1999,6 @@ func (s *ApplicationSuite) TestAddUnits(c *gc.C) {
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), machine.Name("99"))
 	s.applicationService.EXPECT().AddUnits(
 		gomock.Any(), "postgresql",
-		gomock.Any(), gomock.Any(),
 		applicationservice.AddUnitArg{UnitName: &unitName},
 	)
 
@@ -2043,7 +2042,6 @@ func (s *ApplicationSuite) TestAddUnitsAttachStorage(c *gc.C) {
 	s.machineService.EXPECT().CreateMachine(gomock.Any(), machine.Name("99"))
 	s.applicationService.EXPECT().AddUnits(
 		gomock.Any(), "postgresql",
-		gomock.Any(), gomock.Any(),
 		applicationservice.AddUnitArg{UnitName: &unitName},
 	)
 

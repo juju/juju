@@ -764,15 +764,16 @@ func (s *schemaSuite) TestModelChangeLogTriggersForSecretTables(c *gc.C) {
 	s.assertChangeLogCount(c, 2, tableSecretReference, 1)
 	s.assertChangeLogCount(c, 4, tableSecretReference, 1)
 
+	charmUUID := utils.MustNewUUID().String()
+	s.assertExecSQL(c, "INSERT INTO charm (uuid, name) VALUES (?, 'mysql');", "", charmUUID)
+
 	appUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
-INSERT INTO application (uuid, name, life_id, password_hash_algorithm_id, password_hash) 
-VALUES (?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, "", appUUID)
+INSERT INTO application (uuid, charm_uuid, name, life_id, password_hash_algorithm_id, password_hash) 
+VALUES (?, ?, 'mysql', 0, 0, 'K68fQBBdlQH+MZqOxGP99DJaKl30Ra3z9XL2JiU2eMk=');`, "", appUUID, charmUUID)
 
 	netNodeUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `INSERT INTO net_node (uuid) VALUES (?);`, "", netNodeUUID)
-	charmUUID := utils.MustNewUUID().String()
-	s.assertExecSQL(c, "INSERT INTO charm (uuid, name) VALUES (?, 'mysql');", "", charmUUID)
 	unitUUID := utils.MustNewUUID().String()
 	s.assertExecSQL(c, `
 INSERT INTO unit (uuid, life_id, name, application_uuid, net_node_uuid, charm_uuid, resolve_kind_id) 
