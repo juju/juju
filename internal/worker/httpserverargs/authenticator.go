@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 
@@ -46,6 +47,11 @@ type AccessService interface {
 	ReadUserAccessForTarget(ctx context.Context, subject string, target permission.ID) (permission.UserAccess, error)
 }
 
+type MacaroonService interface {
+	dbrootkeystore.ContextBacking
+	BakeryConfigService
+}
+
 type BakeryConfigService interface {
 	GetLocalUsersKey(context.Context) (*bakery.KeyPair, error)
 	GetLocalUsersThirdPartyKey(context.Context) (*bakery.KeyPair, error)
@@ -60,7 +66,7 @@ type NewStateAuthenticatorFunc func(
 	controllerModelUUID string,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
-	bakeryConfigService BakeryConfigService,
+	macaroonService MacaroonService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
@@ -76,7 +82,7 @@ func NewStateAuthenticator(
 	controllerModelUUID string,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
-	bakeryConfigService BakeryConfigService,
+	macaroonService MacaroonService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
@@ -86,7 +92,7 @@ func NewStateAuthenticator(
 		return nil, errors.Trace(err)
 	}
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(systemState, nil)
-	stateAuthenticator, err := stateauthenticator.NewAuthenticator(ctx, statePool, systemState, controllerModelUUID, controllerConfigService, accessService, bakeryConfigService, agentAuthFactory, clock)
+	stateAuthenticator, err := stateauthenticator.NewAuthenticator(ctx, statePool, controllerModelUUID, controllerConfigService, accessService, macaroonService, agentAuthFactory, clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

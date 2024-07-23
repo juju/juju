@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	corelogger "github.com/juju/juju/core/logger"
 	internallogger "github.com/juju/juju/internal/logger"
-	"github.com/juju/juju/state/bakerystorage"
+	internalmacaroon "github.com/juju/juju/internal/macaroon"
 )
 
 // BakeryThirdPartyLocator is an implementation of
@@ -39,7 +39,7 @@ type ExpirableStorageBakery struct {
 	*bakery.Bakery
 	Location string
 	Key      *bakery.KeyPair
-	Store    bakerystorage.ExpirableStorage
+	Store    internalmacaroon.ExpirableStorage
 	Locator  bakery.ThirdPartyLocator
 }
 

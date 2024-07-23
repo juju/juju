@@ -83,13 +83,13 @@ func (s *ManifoldSuite) newStateAuthenticator(
 	statePool *state.StatePool,
 	modelUUID string,
 	controllerConfig httpserverargs.ControllerConfigService,
-	userService httpserverargs.AccessService,
-	bakerystorage httpserverargs.BakeryConfigService,
+	accessService httpserverargs.AccessService,
+	macaroonService httpserverargs.MacaroonService,
 	mux *apiserverhttp.Mux,
 	clock clock.Clock,
 	abort <-chan struct{},
 ) (macaroon.LocalMacaroonAuthenticator, error) {
-	s.stub.MethodCall(s, "NewStateAuthenticator", ctx, statePool, controllerConfig, userService, mux, clock, abort)
+	s.stub.MethodCall(s, "NewStateAuthenticator", ctx, statePool, controllerConfig, accessService, mux, clock, abort)
 	if err := s.stub.NextErr(); err != nil {
 		return nil, err
 	}

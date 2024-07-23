@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
+	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
@@ -30,7 +31,13 @@ type UserService interface {
 	SetPasswordWithActivationKey(ctx context.Context, name string, nonce, box []byte) (userservice.Sealer, error)
 }
 
-// BakeryConfigService manages macaroon bakery storage.
+// MacaroonService defines the method required to manage macaroons.
+type MacaroonService interface {
+	dbrootkeystore.ContextBacking
+	BakeryConfigService
+}
+
+// BakeryConfigService manages macaroon bakery config storage.
 type BakeryConfigService interface {
 	// GetOffersThirdPartyKey returns the key pair used with the cross-model
 	// offers bakery.

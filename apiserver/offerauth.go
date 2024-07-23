@@ -11,6 +11,7 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
@@ -48,7 +49,7 @@ func newOfferAuthContext(
 	pool *state.StatePool,
 	modelInfoService ModelInfoService,
 	controllerConfigService ControllerConfigService,
-	bakeryConfigService BakeryConfigService,
+	macaroonService MacaroonService,
 ) (*crossmodel.AuthContext, error) {
 	// Create a bakery service for discharging third-party caveats for
 	// local offer access authentication. This service does not persist keys;
@@ -66,12 +67,12 @@ func newOfferAuthContext(
 	checker := checkers.New(macaroon.MacaroonNamespace)
 
 	// Create a bakery service for local offer access authentication. This service
-	// persists keys into MongoDB in a TTL collection.
-	store, err := st.NewBakeryStorage()
+	// persists keys into DQLite in a TTL collection.
+	store, err := macaroon.NewExpirableStorage(macaroonService, macaroon.DefaultExpiration, clock.WallClock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	key, err := bakeryConfigService.GetOffersThirdPartyKey(ctx)
+	key, err := macaroonService.GetOffersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -84,7 +85,7 @@ func newOfferAuthContext(
 	loginTokenRefreshURL := controllerConfig.LoginTokenRefreshURL()
 	if loginTokenRefreshURL != "" {
 		offerBakery, err := crossmodel.NewJaaSOfferBakery(
-			ctx, loginTokenRefreshURL, location, bakeryConfigService, store, checker,
+			ctx, loginTokenRefreshURL, location, macaroonService, store, checker,
 		)
 		if err != nil {
 			return nil, errors.Trace(err)

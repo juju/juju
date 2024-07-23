@@ -74,10 +74,9 @@ type AgentAuthenticatorFactory interface {
 // authContext holds authentication context shared
 // between all API endpoints.
 type authContext struct {
-	st                      *state.State
 	controllerConfigService ControllerConfigService
-	bakeryConfigService     BakeryConfigService
 	accessService           AccessService
+	macaroonService         MacaroonService
 
 	clock            clock.Clock
 	agentAuthFactory AgentAuthenticatorFactory
@@ -120,20 +119,18 @@ func (OpenLoginAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery
 // newAuthContext creates a new authentication context for st.
 func newAuthContext(
 	ctx context.Context,
-	st *state.State,
 	controllerModelUUID string,
 	controllerConfigService ControllerConfigService,
 	accessService AccessService,
-	bakeryConfigService BakeryConfigService,
+	macaroonService MacaroonService,
 	agentAuthFactory AgentAuthenticatorFactory,
-	clock clock.Clock,
+	ctxClock clock.Clock,
 ) (*authContext, error) {
 	ctxt := &authContext{
-		st:                      st,
-		clock:                   clock,
+		clock:                   ctxClock,
 		controllerConfigService: controllerConfigService,
 		accessService:           accessService,
-		bakeryConfigService:     bakeryConfigService,
+		macaroonService:         macaroonService,
 		localUserInteractions:   authentication.NewInteractions(),
 		agentAuthFactory:        agentAuthFactory,
 	}
@@ -151,7 +148,7 @@ func newAuthContext(
 
 	location := "juju model " + controllerModelUUID
 	var err error
-	ctxt.localUserThirdPartyBakeryKey, err = bakeryConfigService.GetLocalUsersThirdPartyKey(ctx)
+	ctxt.localUserThirdPartyBakeryKey, err = macaroonService.GetLocalUsersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "generating key for local user third party bakery key")
 	}
@@ -164,15 +161,16 @@ func newAuthContext(
 	})
 
 	// Create a bakery service for local user authentication. This service
-	// persists keys into MongoDB in a TTL collection.
-	store, err := st.NewBakeryStorage()
+	// persists keys into DQLite in a TTL collection.
+	store, err := internalmacaroon.NewExpirableStorage(macaroonService, internalmacaroon.DefaultExpiration, clock.WallClock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
 	locator := bakeryutil.BakeryThirdPartyLocator{
 		PublicKey: ctxt.localUserThirdPartyBakeryKey.Public,
 	}
-	localUserBakeryKey, err := bakeryConfigService.GetLocalUsersKey(ctx)
+	localUserBakeryKey, err := macaroonService.GetLocalUsersKey(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "generating key for local user bakery key")
 	}
@@ -322,9 +320,8 @@ func (a authenticator) localUserAuth() *authentication.LocalUserAuthenticator {
 func (ctxt *authContext) externalMacaroonAuth(ctx context.Context, identClient identchecker.IdentityClient) (authentication.EntityAuthenticator, error) {
 	ctxt.macaroonAuthOnce.Do(func() {
 		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctx, externalMacaroonAuthenticatorConfig{
-			st:                      ctxt.st,
 			controllerConfigService: ctxt.controllerConfigService,
-			bakeryConfigService:     ctxt.bakeryConfigService,
+			macaroonService:         ctxt.macaroonService,
 			clock:                   ctxt.clock,
 			expiryTime:              externalLoginExpiryTime,
 			identClient:             identClient,
@@ -337,9 +334,8 @@ func (ctxt *authContext) externalMacaroonAuth(ctx context.Context, identClient i
 }
 
 type externalMacaroonAuthenticatorConfig struct {
-	st                      *state.State
 	controllerConfigService ControllerConfigService
-	bakeryConfigService     BakeryConfigService
+	macaroonService         MacaroonService
 	clock                   clock.Clock
 	expiryTime              time.Duration
 	identClient             identchecker.IdentityClient
@@ -358,7 +354,7 @@ func newExternalMacaroonAuth(ctx context.Context, cfg externalMacaroonAuthentica
 		return nil, errMacaroonAuthNotConfigured
 	}
 	idPK := controllerCfg.IdentityPublicKey()
-	key, err := cfg.bakeryConfigService.GetExternalUsersThirdPartyKey(ctx)
+	key, err := cfg.macaroonService.GetExternalUsersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -376,12 +372,10 @@ func newExternalMacaroonAuth(ctx context.Context, cfg externalMacaroonAuthentica
 		Clock:            cfg.clock,
 		IdentityLocation: idURL,
 	}
-
-	store, err := cfg.st.NewBakeryStorage()
+	store, err := internalmacaroon.NewExpirableStorage(cfg.macaroonService, cfg.expiryTime, clock.WallClock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	store = store.ExpireAfter(cfg.expiryTime)
 	if cfg.identClient == nil {
 		cfg.identClient = &auth
 	}

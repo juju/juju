@@ -6,7 +6,6 @@ package state
 import (
 	"github.com/juju/mgo/v3"
 
-	"github.com/juju/juju/state/bakerystorage"
 	"github.com/juju/juju/state/cloudimagemetadata"
 )
 
@@ -148,8 +147,7 @@ func allCollections() CollectionSchema {
 
 		// This collection holds storage items for a macaroon bakery.
 		bakeryStorageItemsC: {
-			global:  true,
-			indexes: bakerystorage.MongoIndexes(),
+			global: true,
 		},
 
 		// This collection is basically a standard SQL intersection table; it
