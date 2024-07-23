@@ -1868,7 +1868,7 @@ class ModelClient:
             raise
         log.info('backup file {}'.format(output))
         backup_file_pattern = re.compile(
-            '(juju-backup-[0-9-]+\.(t|tar.)gz)'.encode('ascii'))
+            '(juju-backup-[0-9-]+\\.(t|tar.)gz)'.encode('ascii'))
         match = backup_file_pattern.search(output)
         if match is None:
             raise Exception("The backup file was not found in output: %s" %
@@ -2273,7 +2273,7 @@ class ModelClient:
             child.expect(self.REGION_ENDPOINT_PROMPT)
             child.sendline(values['endpoint'])
             match = child.expect([
-                u"Enter another region\? \([yY]/[nN]\):",
+                u"Enter another region\\? \\([yY]/[nN]\\):",
                 u"Can't validate endpoint"
             ])
             if match == 1:
@@ -2285,7 +2285,7 @@ class ModelClient:
 
     def handle_vsphere(self, child, cloud):
         match = child.expect([u"Enter a name for your .* cloud:",
-                              u'Enter the (vCenter address or URL|API endpoint url for the cloud \[\]):'])
+                              u'Enter the (vCenter address or URL|API endpoint url for the cloud \\[\\]):'])
         if match == 0:
             raise NameNotAccepted('Cloud name not accepted.')
         if match == 1:
@@ -2301,7 +2301,7 @@ class ModelClient:
                 raise InvalidEndpoint()
             child.sendline(name)
             child.expect(
-                u'Enter another (datacenter|region)\? \([yY]/[nN]\):')
+                u'Enter another (datacenter|region)\\? \\([yY]/[nN]\\):')
             if num + 1 < len(cloud['regions']):
                 child.sendline('y')
             else:
@@ -2410,7 +2410,7 @@ def register_user_interactively(client, token, controller_name):
         child.sendline(password)
         child.expect(u'Confirm password:')
         child.sendline(password)
-        child.expect(u'Enter a name for this controller( \[.*\])?:')
+        child.expect(u'Enter a name for this controller( \\[.*\\])?:')
         child.sendline(controller_name)
 
         def login_if_need(session):
