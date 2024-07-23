@@ -5,6 +5,7 @@ package keyupdater
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/common"
@@ -15,19 +16,21 @@ import (
 // Register is called to expose a package of facades onto a given registry.
 func Register(registry facade.FacadeRegistry) {
 	registry.MustRegister("KeyUpdater", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-		return newKeyUpdaterAPI(
-			ctx.Auth(),
-			ctx.ServiceFactory().KeyUpdater(),
-			ctx.WatcherRegistry(),
-		)
+		api, err := makeKeyUpdaterAPI(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("making KeyUpdater api: %w", err)
+		}
+		return api, nil
 	}, reflect.TypeOf((*KeyUpdaterAPI)(nil)))
 }
 
-func newKeyUpdaterAPI(
-	authorizer facade.Authorizer,
-	keyUpdaterService KeyUpdaterService,
-	watcherRegistry facade.WatcherRegistry,
+// makeKeyUpdaterAPI is responsible for making a new KeyUpdaterAPI from a model
+// context.
+func makeKeyUpdaterAPI(
+	ctx facade.ModelContext,
 ) (*KeyUpdaterAPI, error) {
+	authorizer := ctx.Auth()
+
 	// Only machine agents have access to the keyupdater service.
 	if !authorizer.AuthMachineAgent() {
 		return nil, apiservererrors.ErrPerm
@@ -38,7 +41,7 @@ func newKeyUpdaterAPI(
 	}
 	return &KeyUpdaterAPI{
 		getCanRead:        getCanRead,
-		keyUpdaterService: keyUpdaterService,
-		watcherRegistry:   watcherRegistry,
+		keyUpdaterService: ctx.ServiceFactory().KeyUpdater(),
+		watcherRegistry:   ctx.WatcherRegistry(),
 	}, nil
 }
