@@ -220,7 +220,7 @@ var configTypeTestCases = [...]struct {
 	},
 }
 
-func (s *configSuite) TestEncodeThenDecodeDefaultValue(c *gc.C) {
+func (s *configSuite) TestDecodeThenEncodeDefaultValue(c *gc.C) {
 	for _, tc := range configTypeTestCases {
 		c.Logf("Running test case %q", tc.name)
 
@@ -231,6 +231,63 @@ func (s *configSuite) TestEncodeThenDecodeDefaultValue(c *gc.C) {
 		encoded, err := encodeConfigDefaultValue(decoded)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(encoded, gc.DeepEquals, tc.input)
+	}
+}
+
+var encodeConfigTypeTestCases = [...]struct {
+	name   string
+	input  any
+	output *string
+}{
+	{
+		name:   "string",
+		input:  "deadbeef",
+		output: ptr("deadbeef"),
+	},
+	{
+		name:   "int",
+		input:  int(42),
+		output: ptr("42"),
+	},
+	{
+		name:   "int64",
+		input:  int64(42),
+		output: ptr("42"),
+	},
+	{
+		name:   "float64",
+		input:  float64(42.1),
+		output: ptr("42.1"),
+	},
+	{
+		name:   "float64",
+		input:  float64(42.0),
+		output: ptr("42"),
+	},
+	{
+		name:   "float64",
+		input:  float64(42),
+		output: ptr("42"),
+	},
+	{
+		name:   "bool",
+		input:  true,
+		output: ptr("true"),
+	},
+	{
+		name:   "nil",
+		input:  nil,
+		output: nil,
+	},
+}
+
+func (s *configSuite) TestEncodeDefaultValue(c *gc.C) {
+	for _, tc := range encodeConfigTypeTestCases {
+		c.Logf("Running test case %q", tc.name)
+
+		encoded, err := encodeConfigDefaultValue(tc.input)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(encoded, gc.DeepEquals, tc.output)
 	}
 }
 

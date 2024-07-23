@@ -118,6 +118,8 @@ func encodeConfigDefaultValue(value any) (*string, error) {
 		return ptr(v), nil
 	case int:
 		return ptr(strconv.Itoa(v)), nil
+	case int64:
+		return ptr(strconv.FormatInt(v, 10)), nil
 	case float64:
 		return ptr(strconv.FormatFloat(v, 'f', -1, 64)), nil
 	case bool:
