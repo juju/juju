@@ -262,6 +262,42 @@ DELETE FROM secret_backend WHERE uuid = $M.uuid`, sqlair.M{})
 	return err
 }
 
+// ListSecretBackendIDs returns a list of all secret backend ids.
+func (s *State) ListSecretBackendIDs(ctx context.Context) ([]string, error) {
+	db, err := s.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	stmt, err := s.Prepare(`
+SELECT
+    b.uuid AS &SecretBackendRow.uuid
+FROM secret_backend b`, SecretBackendRow{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var rows SecretBackendRows
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&rows)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("querying secret backends: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("cannot list secret backend ids: %w", err)
+	}
+
+	result := make([]string, len(rows))
+	for i, r := range rows {
+		result[i] = r.ID
+	}
+	return result, errors.Trace(err)
+}
+
 // ListSecretBackends returns a list of all secret backends which contain secrets.
 func (s *State) ListSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackend, error) {
 	db, err := s.DB()

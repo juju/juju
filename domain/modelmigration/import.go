@@ -16,6 +16,7 @@ import (
 	modelconfig "github.com/juju/juju/domain/modelconfig/modelmigration"
 	modelconfigservice "github.com/juju/juju/domain/modelconfig/service"
 	network "github.com/juju/juju/domain/network/modelmigration"
+	secret "github.com/juju/juju/domain/secret/modelmigration"
 	storage "github.com/juju/juju/domain/storage/modelmigration"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -48,4 +49,5 @@ func ImportOperations(
 	blockdevice.RegisterImport(coordinator, logger.Child("blockdevice"))
 	// TODO(storage) - we need to break out storage pools and import BEFORE applications.
 	storage.RegisterImport(coordinator, registry, logger.Child("storage"))
+	secret.RegisterImport(coordinator, logger.Child("secret"))
 }

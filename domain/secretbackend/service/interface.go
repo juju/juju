@@ -24,6 +24,7 @@ type State interface {
 	UpdateSecretBackend(ctx context.Context, params secretbackend.UpdateSecretBackendParams) (string, error)
 	DeleteSecretBackend(ctx context.Context, _ secretbackend.BackendIdentifier, deleteInUse bool) error
 	ListSecretBackends(ctx context.Context) ([]*secretbackend.SecretBackend, error)
+	ListSecretBackendIDs(ctx context.Context) ([]string, error)
 	ListSecretBackendsForModel(ctx context.Context, modelUUID coremodel.UUID, includeEmpty bool) ([]*secretbackend.SecretBackend, error)
 	GetSecretBackend(context.Context, secretbackend.BackendIdentifier) (*secretbackend.SecretBackend, error)
 	SecretBackendRotated(ctx context.Context, backendID string, next time.Time) error

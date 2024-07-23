@@ -10,6 +10,7 @@ import (
 	externalcontroller "github.com/juju/juju/domain/externalcontroller/modelmigration"
 	modelconfig "github.com/juju/juju/domain/modelconfig/modelmigration"
 	network "github.com/juju/juju/domain/network/modelmigration"
+	secret "github.com/juju/juju/domain/secret/modelmigration"
 	storage "github.com/juju/juju/domain/storage/modelmigration"
 	internalstorage "github.com/juju/juju/internal/storage"
 )
@@ -30,4 +31,5 @@ func ExportOperations(
 	// When machines are handled, they need to be done before block devices.
 	blockdevice.RegisterExport(coordinator, logger.Child("blockdevice"))
 	storage.RegisterExport(coordinator, registry, logger.Child("storage"))
+	secret.RegisterExport(coordinator, logger.Child("secret"))
 }
