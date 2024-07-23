@@ -39,7 +39,7 @@ var configTestCases = [...]struct {
 				Key:          "string",
 				Type:         "string",
 				Description:  "description",
-				DefaultValue: "default",
+				DefaultValue: ptr("default"),
 			},
 		},
 		output: charm.Config{
@@ -59,7 +59,7 @@ var configTestCases = [...]struct {
 				Key:          "secret",
 				Type:         "secret",
 				Description:  "description",
-				DefaultValue: "default",
+				DefaultValue: ptr("default"),
 			},
 		},
 		output: charm.Config{
@@ -79,7 +79,7 @@ var configTestCases = [...]struct {
 				Key:          "int",
 				Type:         "int",
 				Description:  "description",
-				DefaultValue: "1",
+				DefaultValue: ptr("1"),
 			},
 		},
 		output: charm.Config{
@@ -99,7 +99,7 @@ var configTestCases = [...]struct {
 				Key:          "float",
 				Type:         "float",
 				Description:  "description",
-				DefaultValue: "4.2",
+				DefaultValue: ptr("4.2"),
 			},
 		},
 		output: charm.Config{
@@ -119,7 +119,7 @@ var configTestCases = [...]struct {
 				Key:          "boolean",
 				Type:         "boolean",
 				Description:  "description",
-				DefaultValue: "true",
+				DefaultValue: ptr("true"),
 			},
 		},
 		output: charm.Config{
@@ -128,6 +128,24 @@ var configTestCases = [...]struct {
 					Type:        charm.OptionBool,
 					Description: "description",
 					Default:     true,
+				},
+			},
+		},
+	},
+	{
+		name: "nil",
+		input: []charmConfig{
+			{
+				Key:         "string",
+				Type:        "string",
+				Description: "description",
+			},
+		},
+		output: charm.Config{
+			Options: map[string]charm.Option{
+				"string": {
+					Type:        charm.OptionString,
+					Description: "description",
 				},
 			},
 		},
@@ -162,38 +180,43 @@ func (s *configSuite) TestEncodeConfigDefaultValue(c *gc.C) {
 var configTypeTestCases = [...]struct {
 	name   string
 	kind   charm.OptionType
-	input  string
+	input  *string
 	output any
 }{
 	{
 		name:   "string",
 		kind:   charm.OptionString,
-		input:  "deadbeef",
+		input:  ptr("deadbeef"),
 		output: "deadbeef",
 	},
 	{
 		name:   "int",
 		kind:   charm.OptionInt,
-		input:  "42",
+		input:  ptr("42"),
 		output: 42,
 	},
 	{
 		name:   "float",
 		kind:   charm.OptionFloat,
-		input:  "42.3",
+		input:  ptr("42.3"),
 		output: 42.3,
 	},
 	{
 		name:   "bool",
 		kind:   charm.OptionBool,
-		input:  "true",
+		input:  ptr("true"),
 		output: true,
 	},
 	{
 		name:   "secret",
 		kind:   charm.OptionSecret,
-		input:  "ssh",
+		input:  ptr("ssh"),
 		output: "ssh",
+	},
+	{
+		name:   "nil",
+		input:  nil,
+		output: nil,
 	},
 }
 
@@ -212,7 +235,7 @@ func (s *configSuite) TestEncodeThenDecodeDefaultValue(c *gc.C) {
 }
 
 func (s *configSuite) TestDecodeConfigTypeError(c *gc.C) {
-	_, err := decodeConfigDefaultValue(charm.OptionType("invalid"), "")
+	_, err := decodeConfigDefaultValue(charm.OptionType("invalid"), ptr(""))
 	c.Assert(err, gc.Not(jc.ErrorIsNil))
 }
 

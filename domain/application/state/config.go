@@ -23,7 +23,7 @@ func decodeConfig(configs []charmConfig) (charm.Config, error) {
 
 		defaultValue, err := decodeConfigDefaultValue(optionType, config.DefaultValue)
 		if err != nil {
-			return charm.Config{}, fmt.Errorf("cannot decode config default value %q: %w", config.DefaultValue, err)
+			return charm.Config{}, fmt.Errorf("cannot decode config default value %v: %w", config.DefaultValue, err)
 		}
 
 		result.Options[config.Key] = charm.Option{
@@ -52,16 +52,20 @@ func decodeConfigType(t string) (charm.OptionType, error) {
 	}
 }
 
-func decodeConfigDefaultValue(t charm.OptionType, value string) (any, error) {
+func decodeConfigDefaultValue(t charm.OptionType, value *string) (any, error) {
+	if value == nil {
+		return nil, nil
+	}
+
 	switch t {
 	case charm.OptionString, charm.OptionSecret:
-		return value, nil
+		return *value, nil
 	case charm.OptionInt:
-		return strconv.Atoi(value)
+		return strconv.Atoi(*value)
 	case charm.OptionFloat:
-		return strconv.ParseFloat(value, 64)
+		return strconv.ParseFloat(*value, 64)
 	case charm.OptionBool:
-		return strconv.ParseBool(value)
+		return strconv.ParseBool(*value)
 	default:
 		return nil, fmt.Errorf("unknown config type %q", t)
 	}
@@ -108,17 +112,23 @@ func encodeConfigType(t charm.OptionType) (int, error) {
 	}
 }
 
-func encodeConfigDefaultValue(value any) (string, error) {
+func encodeConfigDefaultValue(value any) (*string, error) {
 	switch v := value.(type) {
 	case string:
-		return v, nil
+		return ptr(v), nil
 	case int:
-		return strconv.Itoa(v), nil
+		return ptr(strconv.Itoa(v)), nil
 	case float64:
-		return strconv.FormatFloat(v, 'f', -1, 64), nil
+		return ptr(strconv.FormatFloat(v, 'f', -1, 64)), nil
 	case bool:
-		return strconv.FormatBool(v), nil
+		return ptr(strconv.FormatBool(v)), nil
+	case nil:
+		return nil, nil
 	default:
-		return "", fmt.Errorf("unknown config default value type %T", value)
+		return nil, fmt.Errorf("unknown config default value type %T", value)
 	}
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }

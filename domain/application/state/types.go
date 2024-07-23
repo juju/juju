@@ -357,20 +357,20 @@ type charmLXDProfile struct {
 // charmConfig is used to get the config of a charm.
 // This is a row based struct that is normalised form of a map of config.
 type charmConfig struct {
-	CharmUUID    string `db:"charm_uuid"`
-	Key          string `db:"key"`
-	Type         string `db:"type"`
-	DefaultValue string `db:"default_value"`
-	Description  string `db:"description"`
+	CharmUUID    string  `db:"charm_uuid"`
+	Key          string  `db:"key"`
+	Type         string  `db:"type"`
+	DefaultValue *string `db:"default_value"`
+	Description  string  `db:"description"`
 }
 
 // setCharmConfig is used to set the config of a charm.
 type setCharmConfig struct {
-	CharmUUID    string `db:"charm_uuid"`
-	Key          string `db:"key"`
-	TypeID       int    `db:"type_id"`
-	DefaultValue string `db:"default_value"`
-	Description  string `db:"description"`
+	CharmUUID    string  `db:"charm_uuid"`
+	Key          string  `db:"key"`
+	TypeID       int     `db:"type_id"`
+	DefaultValue *string `db:"default_value"`
+	Description  string  `db:"description"`
 }
 
 // charmAction is used to get the actions of a charm.
