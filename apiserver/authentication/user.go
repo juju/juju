@@ -199,7 +199,7 @@ func (u *LocalUserAuthenticator) handleDischargeRequiredError(ctx context.Contex
 	logger.Debugf("local-login macaroon authentication failed: %v", cause)
 
 	// The root keys for these macaroons are stored in MongoDB.
-	// Expire the documents after after a set amount of time.
+	// Expire the documents after a set amount of time.
 	expiryTime := u.Clock.Now().Add(localLoginExpiryTime)
 	bakery, err := u.Bakery.ExpireStorageAfter(localLoginExpiryTime)
 	if err != nil {

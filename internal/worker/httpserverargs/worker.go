@@ -171,12 +171,13 @@ func (b *managedServices) GetUserByName(ctx context.Context, name string) (coreu
 	return b.accessService.GetUserByName(b.tomb.Context(ctx), name)
 }
 
-// ReadUserAccessLevelForTarget returns the access that
-// the input user subject has for the input target.
-func (b *managedServices) ReadUserAccessLevelForTarget(
+// ReadUserAccessLevelForTargetAddingMissingUser returns the user access level for
+// the given user on the given target. If the user is external and does not yet
+// exist, it is created.
+func (b *managedServices) ReadUserAccessLevelForTargetAddingMissingUser(
 	ctx context.Context, subject string, target permission.ID,
 ) (permission.Access, error) {
-	return b.accessService.ReadUserAccessLevelForTarget(b.tomb.Context(ctx), subject, target)
+	return b.accessService.ReadUserAccessLevelForTargetAddingMissingUser(b.tomb.Context(ctx), subject, target)
 }
 
 // UpdateLastModelLogin updates the last login time for the user with the

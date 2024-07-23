@@ -125,7 +125,9 @@ func (s *UserService) GetUserByAuth(
 //   - auth.ErrPasswordNotValid: If the password supplied is not valid.
 func (s *UserService) AddUser(ctx context.Context, arg AddUserArg) (user.UUID, []byte, error) {
 	// IsValidUserName does not allow external user names, e.g. bob@external.
-	// This is intentional.
+	// This is intentional, external users can only be added via
+	// UpdatePermissions since they should never be able to log in with a
+	// username or activation key.
 	if !names.IsValidUserName(arg.Name) {
 		return "", nil, errors.Annotatef(accesserrors.UserNameNotValid, "%q", arg.Name)
 	}

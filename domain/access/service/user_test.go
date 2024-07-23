@@ -56,7 +56,7 @@ func (s *userServiceSuite) TestAddUserNameNotValid(c *gc.C) {
 // get an error.
 func (s *userServiceSuite) TestAddUserExternalUser(c *gc.C) {
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{Name: "alastair@external"})
-	c.Assert(err, gc.ErrorMatches, "cannot add external user .*")
+	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
 // TestAddUserAlreadyExists is testing that we cannot add a user with a username
@@ -68,7 +68,7 @@ func (s *userServiceSuite) TestAddUserAlreadyExists(c *gc.C) {
 	// The matcher used below verifies that we generated a
 	// UUID when one was not suppied in the AddUserArg.
 	a := gomock.Any()
-	s.state.EXPECT().AddUserWithActivationKey(a, stringerNotEmpty{}, a, a, a, a, a, a).Return(usererrors.UserAlreadyExists)
+	s.state.EXPECT().AddUserWithActivationKey(a, stringerNotEmpty{}, a, a, a, a, a).Return(usererrors.UserAlreadyExists)
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
@@ -90,7 +90,7 @@ func (s *userServiceSuite) TestAddUserCreatorUUIDNotFound(c *gc.C) {
 	// The matcher used below verifies that we generated a
 	// UUID when one was not supplied in the AddUserArg.
 	a := gomock.Any()
-	s.state.EXPECT().AddUserWithActivationKey(a, stringerNotEmpty{}, a, a, a, a, a, a).Return(usererrors.UserCreatorUUIDNotFound)
+	s.state.EXPECT().AddUserWithActivationKey(a, stringerNotEmpty{}, a, a, a, a, a).Return(usererrors.UserCreatorUUIDNotFound)
 
 	_, _, err := s.service().AddUser(context.Background(), AddUserArg{
 		Name:        "valid",
@@ -122,7 +122,7 @@ func (s *userServiceSuite) TestAddUserWithPassword(c *gc.C) {
 	}
 
 	s.state.EXPECT().AddUserWithPasswordHash(
-		gomock.Any(), userUUID, "valid", "display", false, creatorUUID, perms, gomock.Any(), gomock.Any()).Return(nil)
+		gomock.Any(), userUUID, "valid", "display", creatorUUID, perms, gomock.Any(), gomock.Any()).Return(nil)
 
 	pass := auth.NewPassword("password")
 

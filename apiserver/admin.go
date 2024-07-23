@@ -450,7 +450,7 @@ func (a *admin) checkUserPermissions(
 	}
 
 	controllerAccess, err := authInfo.SubjectPermissions(ctx, a.root.state.ControllerTag())
-	if errors.Is(err, accesserrors.AccessNotFound) || errors.Is(err, accesserrors.UserNotFound) {
+	if errors.Is(err, accesserrors.PermissionNotFound) || errors.Is(err, accesserrors.UserNotFound) {
 		controllerAccess = permission.NoAccess
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "obtaining ControllerUser for logged in user %s", userTag.Id())
