@@ -205,18 +205,13 @@ func toChangeSecretBackendParams(accessor secretservice.SecretAccessor, token le
 
 // WatchSecretBackendChanged sets up a watcher to notify of changes to the secret backend.
 func (s *SecretsDrainAPI) WatchSecretBackendChanged(ctx context.Context) (params.NotifyWatchResult, error) {
-	backendWatcher, err := s.secretService.WatchSecretBackendChanged(ctx)
+	w, err := s.secretBackendService.WatchModelSecretBackendChanged(ctx, s.modelUUID)
 	if err != nil {
 		return params.NotifyWatchResult{
 			Error: apiservererrors.ServerError(err),
 		}, nil
 	}
-	w, err := newSecretBackendModelConfigWatcher(ctx, s.secretService, backendWatcher, s.logger)
-	if err != nil {
-		return params.NotifyWatchResult{
-			Error: apiservererrors.ServerError(err),
-		}, nil
-	}
+
 	id, _, err := internal.EnsureRegisterWatcher[struct{}](ctx, s.watcherRegistry, w)
 	if err != nil {
 		return params.NotifyWatchResult{

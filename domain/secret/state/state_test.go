@@ -3643,3 +3643,89 @@ func (s *stateSuite) TestGetObsoleteUserSecretRevisionsReadyToPrune(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.SameContents, []string{uri.ID + "/1"})
 }
+
+func (s *stateSuite) TestChangeSecretBackend(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	s.setupUnits(c, "mysql")
+	uriCharm := coresecrets.NewURI()
+	uriUser := coresecrets.NewURI()
+
+	dataInput := coresecrets.SecretData{"foo": "bar", "hello": "world"}
+	valueRefInput := &coresecrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "revision-id",
+	}
+
+	err := st.CreateCharmApplicationSecret(ctx, 1, uriCharm, "mysql", domainsecret.UpsertSecretParams{Data: dataInput})
+	c.Assert(err, jc.ErrorIsNil)
+	data, valueRef, err := st.GetSecretValue(ctx, uriCharm, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, jc.DeepEquals, dataInput)
+	c.Assert(valueRef, gc.IsNil)
+
+	err = st.CreateUserSecret(ctx, 1, uriUser, domainsecret.UpsertSecretParams{Data: dataInput})
+	c.Assert(err, jc.ErrorIsNil)
+	data, valueRef, err = st.GetSecretValue(ctx, uriUser, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, jc.DeepEquals, dataInput)
+	c.Assert(valueRef, gc.IsNil)
+
+	// Change the backend failed.
+	err = st.ChangeSecretBackend(ctx, uriCharm, 1, nil, nil)
+	c.Assert(err, gc.ErrorMatches, "either valueRef or data must be set")
+	err = st.ChangeSecretBackend(ctx, uriCharm, 1, valueRefInput, dataInput)
+	c.Assert(err, gc.ErrorMatches, "both valueRef and data cannot be set")
+
+	// change to external backend.
+	err = st.ChangeSecretBackend(ctx, uriCharm, 1, valueRefInput, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	data, valueRef, err = st.GetSecretValue(ctx, uriCharm, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.IsNil)
+	c.Assert(valueRef, gc.DeepEquals, valueRefInput)
+
+	// change back to internal backend.
+	err = st.ChangeSecretBackend(ctx, uriCharm, 1, nil, dataInput)
+	c.Assert(err, jc.ErrorIsNil)
+	data, valueRef, err = st.GetSecretValue(ctx, uriCharm, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, jc.DeepEquals, dataInput)
+	c.Assert(valueRef, gc.IsNil)
+
+	// change to external backend for the user secret.
+	err = st.ChangeSecretBackend(ctx, uriUser, 1, valueRefInput, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	data, valueRef, err = st.GetSecretValue(ctx, uriUser, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, gc.IsNil)
+	c.Assert(valueRef, gc.DeepEquals, valueRefInput)
+
+	// change back to internal backend for the user secret.
+	err = st.ChangeSecretBackend(ctx, uriUser, 1, nil, dataInput)
+	c.Assert(err, jc.ErrorIsNil)
+	data, valueRef, err = st.GetSecretValue(ctx, uriUser, 1)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, jc.DeepEquals, dataInput)
+	c.Assert(valueRef, gc.IsNil)
+}
+
+func (s *stateSuite) TestChangeSecretBackendFailed(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+	ctx := context.Background()
+
+	s.setupUnits(c, "mysql")
+	uriCharm := coresecrets.NewURI()
+
+	dataInput := coresecrets.SecretData{"foo": "bar", "hello": "world"}
+	valueRefInput := &coresecrets.ValueRef{
+		BackendID:  "backend-id",
+		RevisionID: "revision-id",
+	}
+
+	err := st.ChangeSecretBackend(ctx, uriCharm, 1, nil, nil)
+	c.Assert(err, gc.ErrorMatches, "either valueRef or data must be set")
+	err = st.ChangeSecretBackend(ctx, uriCharm, 1, valueRefInput, dataInput)
+	c.Assert(err, gc.ErrorMatches, "both valueRef and data cannot be set")
+}

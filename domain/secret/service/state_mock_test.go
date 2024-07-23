@@ -43,6 +43,44 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// ChangeSecretBackend mocks base method.
+func (m *MockState) ChangeSecretBackend(arg0 context.Context, arg1 *secrets.URI, arg2 int, arg3 *secrets.ValueRef, arg4 secrets.SecretData) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChangeSecretBackend", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ChangeSecretBackend indicates an expected call of ChangeSecretBackend.
+func (mr *MockStateMockRecorder) ChangeSecretBackend(arg0, arg1, arg2, arg3, arg4 any) *MockStateChangeSecretBackendCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSecretBackend", reflect.TypeOf((*MockState)(nil).ChangeSecretBackend), arg0, arg1, arg2, arg3, arg4)
+	return &MockStateChangeSecretBackendCall{Call: call}
+}
+
+// MockStateChangeSecretBackendCall wrap *gomock.Call
+type MockStateChangeSecretBackendCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateChangeSecretBackendCall) Return(arg0 error) *MockStateChangeSecretBackendCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateChangeSecretBackendCall) Do(f func(context.Context, *secrets.URI, int, *secrets.ValueRef, secrets.SecretData) error) *MockStateChangeSecretBackendCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateChangeSecretBackendCall) DoAndReturn(f func(context.Context, *secrets.URI, int, *secrets.ValueRef, secrets.SecretData) error) *MockStateChangeSecretBackendCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateCharmApplicationSecret mocks base method.
 func (m *MockState) CreateCharmApplicationSecret(arg0 context.Context, arg1 int, arg2 *secrets.URI, arg3 string, arg4 secret.UpsertSecretParams) error {
 	m.ctrl.T.Helper()

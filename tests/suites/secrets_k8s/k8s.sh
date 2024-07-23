@@ -142,8 +142,15 @@ run_user_secrets() {
 	# revision 1 should be pruned.
 	# revision 2 is still been used by hello-kubecon app, so it should not be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
-	# TODO: enable once the auto-prune is implemented in DQlite.
-	# check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '2'
+	attempt=0
+	until [[ $(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length") -eq 2 ]]; do
+		if [[ ${attempt} -ge 30 ]]; then
+			echo "Failed: expected revision 1 to be pruned."
+			exit 1
+		fi
+		sleep 2
+		attempt=$((attempt + 1))
+	done
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 2 | yq .${secret_short_uri}.content)" "owned-by: $model_name-2"
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
@@ -153,8 +160,7 @@ run_user_secrets() {
 
 	# revision 2 should be pruned.
 	# revision 3 is the latest revision, so it should not be pruned.
-	# TODO: enable once the auto-prune is implemented in DQlite.
-	# check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '1'
+	check_contains "$(juju --show-log show-secret $secret_uri --revisions | yq ".${secret_short_uri}.revisions | length")" '1'
 	check_contains "$(juju --show-log show-secret $secret_uri --reveal --revision 3 | yq .${secret_short_uri}.content)" "owned-by: $model_name-3"
 
 	juju --show-log revoke-secret $secret_uri hello-kubecon
@@ -187,7 +193,7 @@ run_secret_drain() {
 	check_contains "$(microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello')" "${unit_owned_short_uri}-1"
 	check_contains "$(microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello')" "${app_owned_short_uri}-1"
 
-	juju model-config secret-backend="$vault_backend_name"
+	juju model-secret-backend "$vault_backend_name"
 
 	attempt=0
 	until [[ $(microk8s kubectl -n "$model_name" get secrets -l 'app.juju.is/created-by=hello' -o json | jq '.items | length') -eq 0 ]]; do
@@ -202,7 +208,7 @@ run_secret_drain() {
 	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
 	check_contains "$(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length)" 2
 
-	juju model-config secret-backend=auto
+	juju model-secret-backend auto
 
 	attempt=0
 	until [[ "$(microk8s kubectl -n $model_name get secrets -l 'app.juju.is/created-by=hello')" =~ ${unit_owned_short_uri}-1 ]]; do
@@ -252,7 +258,7 @@ run_user_secret_drain() {
 
 	check_contains "$(microk8s kubectl -n "$model_name" get secrets -l "app.juju.is/created-by=$model_uuid" -o jsonpath='{.items[*].metadata.name}')" "${secret_short_uri}-1"
 
-	juju model-config secret-backend="$vault_backend_name"
+	juju model-secret-backend "$vault_backend_name"
 
 	# ensure the user secret is removed from k8s backend.
 	attempt=0
@@ -271,7 +277,7 @@ run_user_secret_drain() {
 	# ensure the application can still read the user secret.
 	check_contains "$(juju exec --unit hello/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
 
-	juju model-config secret-backend=auto
+	juju model-secret-backend auto
 
 	# ensure the user secret is drained back to k8s backend.
 	attempt=0
@@ -357,8 +363,7 @@ test_secret_drain() {
 
 		cd .. || exit
 
-		# TODO: drain is not implemented in DQlite yet.
-		# run "run_secret_drain"
+		run "run_secret_drain"
 	)
 }
 
@@ -373,7 +378,6 @@ test_user_secret_drain() {
 
 		cd .. || exit
 
-		# TODO: drain is not implemented in DQlite yet.
-		# run "run_user_secret_drain"
+		run "run_user_secret_drain"
 	)
 }

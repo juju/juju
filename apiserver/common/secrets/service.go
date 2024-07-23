@@ -19,17 +19,11 @@ type SecretService interface {
 		ctx context.Context, owners ...secretservice.CharmSecretOwner,
 	) ([]*secrets.SecretMetadataForDrain, error)
 	ListUserSecretsToDrain(ctx context.Context) ([]*secrets.SecretMetadataForDrain, error)
-	WatchSecretBackendChanged(ctx context.Context) (watcher.NotifyWatcher, error)
-	GetSecretBackendID(ctx context.Context) (string, error)
 	ChangeSecretBackend(ctx context.Context, uri *secrets.URI, revision int, params secretservice.ChangeSecretBackendParams) error
-}
-
-// SecretBackendGetter instances provide a method to get the secret backend the model.
-type SecretBackendGetter interface {
-	GetSecretBackendID(ctx context.Context) (string, error)
 }
 
 // SecretBackendService instances provide secret backend service apis.
 type SecretBackendService interface {
 	GetRevisionsToDrain(ctx context.Context, modelUUID coremodel.UUID, revs []secrets.SecretExternalRevision) ([]backendservice.RevisionInfo, error)
+	WatchModelSecretBackendChanged(ctx context.Context, modelUUID coremodel.UUID) (watcher.NotifyWatcher, error)
 }

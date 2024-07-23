@@ -6,7 +6,7 @@ run_secrets_vault() {
 	model_name='model-secrets-vault'
 	juju add-secret-backend myvault vault endpoint="$VAULT_ADDR" token="$VAULT_TOKEN"
 	add_model "$model_name"
-	juju --show-log model-config secret-backend=myvault -m "$model_name"
+	juju --show-log model-secret-backend myvault -m "$model_name"
 
 	check_secrets
 	run_user_secrets "$model_name"
@@ -36,7 +36,7 @@ run_secret_drain() {
 	juju show-secret --reveal "$secret_owned_by_unit"
 	juju show-secret --reveal "$secret_owned_by_app"
 
-	juju model-config secret-backend="$vault_backend_name"
+	juju model-secret-backend "$vault_backend_name"
 
 	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
@@ -50,7 +50,7 @@ run_secret_drain() {
 		attempt=$((attempt + 1))
 	done
 
-	juju model-config secret-backend=auto
+	juju model-secret-backend auto
 
 	attempt=0
 	until [[ $(vault kv list -format json "${model_name}-${model_uuid: -6}" | jq length) -eq 0 ]]; do
@@ -79,7 +79,7 @@ run_user_secret_drain() {
 
 	model_name='model-user-secrets-drain'
 	add_model "$model_name"
-	juju --show-log model-config secret-backend="$vault_backend_name" -m "$model_name"
+	juju --show-log model-secret-backend "$vault_backend_name" -m "$model_name"
 	model_uuid=$(juju show-model $model_name --format json | jq -r ".[\"${model_name}\"][\"model-uuid\"]")
 
 	juju --show-log deploy easyrsa
@@ -96,7 +96,7 @@ run_user_secret_drain() {
 	check_contains "$(juju exec --unit easyrsa/0 -- secret-get $secret_short_uri)" "owned-by: $model_name-1"
 
 	# change the secret backend to internal.
-	juju model-config secret-backend=auto
+	juju model-secret-backend auto
 
 	another_secret_uri=$(juju --show-log add-secret anothersecret owned-by="$model_name-2" --info "this is another user secret")
 	juju show-secret --reveal "$another_secret_uri"
@@ -113,7 +113,7 @@ run_user_secret_drain() {
 	done
 
 	# change the secret backend to vault.
-	juju model-config secret-backend="$vault_backend_name"
+	juju model-secret-backend "$vault_backend_name"
 
 	# ensure the user secrets are in the vault backend.
 	attempt=0
@@ -198,8 +198,7 @@ test_secret_drain() {
 
 		cd .. || exit
 
-		# TODO: drain is not implemented in DQlite yet.
-		# run "run_secret_drain"
+		run "run_secret_drain"
 	)
 }
 
@@ -214,8 +213,7 @@ test_user_secret_drain() {
 
 		cd .. || exit
 
-		# TODO: drain is not implemented in DQlite yet.
-		# run "run_user_secret_drain"
+		run "run_user_secret_drain"
 	)
 }
 

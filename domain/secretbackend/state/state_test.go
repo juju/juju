@@ -1389,7 +1389,7 @@ func (s *stateSuite) TestGetModelCloudAndCredentialNotFound(c *gc.C) {
 }
 
 func (s *stateSuite) TestInitialWatchStatement(c *gc.C) {
-	table, q := s.state.InitialWatchStatement()
+	table, q := s.state.InitialWatchStatementForSecretBackendRotationChanges()
 	c.Assert(table, gc.Equals, "secret_backend_rotation")
 	c.Assert(q, gc.Equals, `SELECT backend_uuid FROM secret_backend_rotation`)
 }

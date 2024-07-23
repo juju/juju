@@ -320,8 +320,7 @@ func (s *secretsDrainSuite) TestWatchSecretBackendChanged(c *gc.C) {
 	changeChan := make(chan struct{}, 1)
 	changeChan <- struct{}{}
 	w := watchertest.NewMockNotifyWatcher(changeChan)
-	s.secretService.EXPECT().WatchSecretBackendChanged(gomock.Any()).Return(w, nil)
-	s.secretService.EXPECT().GetSecretBackendID(gomock.Any()).Return("backend-id", nil).Times(2)
+	s.secretBackendService.EXPECT().WatchModelSecretBackendChanged(gomock.Any(), model.UUID(coretesting.ModelTag.Id())).Return(w, nil)
 
 	s.watcherRegistry.EXPECT().Register(gomock.Any()).Return("11", nil)
 

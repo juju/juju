@@ -964,7 +964,7 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 		c.Assert(selectAll, gc.Equals, "SELECT * FROM table")
 		return nil
 	})
-	s.mockState.EXPECT().InitialWatchStatement().Return("table", "SELECT * FROM table")
+	s.mockState.EXPECT().InitialWatchStatementForSecretBackendRotationChanges().Return("table", "SELECT * FROM table")
 	s.mockWatcherFactory.EXPECT().NewNamespaceWatcher("table", changestream.All, gomock.Any()).Return(s.mockStringWatcher, nil)
 	s.mockState.EXPECT().GetSecretBackendRotateChanges(gomock.Any(), backendID1, backendID2).Return([]watcher.SecretBackendRotateChange{
 		{
@@ -989,7 +989,7 @@ func (s *serviceSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	select {
 	case ch <- []string{backendID1, backendID2}:
 	case <-time.After(jujutesting.ShortWait):
-		c.Fatalf("timed out waiting for the initial changes")
+		c.Fatalf("timed out waiting for sending the initial changes")
 	}
 
 	wC.AssertChanges(
@@ -1217,6 +1217,44 @@ func (s *serviceSuite) TestSetModelSecretBackendIAASAuto(c *gc.C) {
 
 	err := svc.SetModelSecretBackend(context.Background(), "auto")
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serviceSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
+	ctrl := s.setupMocks(c)
+	defer ctrl.Finish()
+
+	svc := newWatchableService(
+		s.mockState, s.logger, s.mockWatcherFactory, s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+	modelUUID := coremodel.UUID(jujutesting.ModelTag.Id())
+	ch := make(chan struct{})
+	go func() {
+		// send the initial change.
+		ch <- struct{}{}
+		// send the 1st change.
+		ch <- struct{}{}
+	}()
+
+	mockNotifyWatcher := NewMockNotifyWatcher(ctrl)
+	mockNotifyWatcher.EXPECT().Changes().Return(ch).AnyTimes()
+	mockNotifyWatcher.EXPECT().Wait().Return(nil).AnyTimes()
+	mockNotifyWatcher.EXPECT().Kill().AnyTimes()
+
+	s.mockWatcherFactory.EXPECT().NewValueWatcher("model_secret_backend", modelUUID.String(), changestream.Update).Return(mockNotifyWatcher, nil)
+
+	w, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w, gc.NotNil)
+	defer workertest.CleanKill(c, w)
+
+	wc := watchertest.NewNotifyWatcherC(c, w)
+
+	wc.AssertNChanges(2)
 }
 
 func (s *serviceSuite) assertGetSecretsToDrain(c *gc.C, backendID string, expectedRevisions ...RevisionInfo) {

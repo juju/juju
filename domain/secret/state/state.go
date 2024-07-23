@@ -958,22 +958,46 @@ ON CONFLICT(revision_uuid) DO UPDATE SET
 	return nil
 }
 
-func (st State) upsertSecretValueRef(
+func (st State) insertSecretValueRef(
 	ctx context.Context, tx *sqlair.TX, revisionUUID string, valueRef *coresecrets.ValueRef,
 ) error {
 	insertQuery := `
+INSERT INTO secret_value_ref (*)
+VALUES ($secretValueRef.*)`
+
+	input := secretValueRef{
+		RevisionUUID: revisionUUID,
+		BackendUUID:  valueRef.BackendID,
+		RevisionID:   valueRef.RevisionID,
+	}
+	insertStmt, err := st.Prepare(insertQuery, input)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = tx.Query(ctx, insertStmt, input).Run()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (st State) upsertSecretValueRef(
+	ctx context.Context, tx *sqlair.TX, revisionUUID string, valueRef *coresecrets.ValueRef,
+) error {
+	upsertQuery := `
 INSERT INTO secret_value_ref (*)
 VALUES ($secretValueRef.*)
 ON CONFLICT(revision_uuid) DO UPDATE SET
     backend_uuid=excluded.backend_uuid,
     revision_id=excluded.revision_id`
 
-	insertStmt, err := st.Prepare(insertQuery, secretValueRef{})
+	upsertStmt, err := st.Prepare(upsertQuery, secretValueRef{})
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	err = tx.Query(ctx, insertStmt, secretValueRef{
+	err = tx.Query(ctx, upsertStmt, secretValueRef{
 		RevisionUUID: revisionUUID,
 		BackendUUID:  valueRef.BackendID,
 		RevisionID:   valueRef.RevisionID,
@@ -3474,6 +3498,75 @@ GROUP BY sro.secret_id`
 		result[i].URI = uri
 	}
 	return result, nil
+}
+
+// ChangeSecretBackend changes the secret backend for the specified secret.
+func (st State) ChangeSecretBackend(
+	ctx context.Context, uri *coresecrets.URI, revision int,
+	valueRef *coresecrets.ValueRef, data coresecrets.SecretData,
+) error {
+	if valueRef != nil && len(data) > 0 {
+		return errors.New("both valueRef and data cannot be set")
+	}
+	if valueRef == nil && len(data) == 0 {
+		return errors.New("either valueRef or data must be set")
+	}
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	revSelectInput := secretRevision{
+		SecretID: uri.ID,
+		Revision: revision,
+	}
+	revSelectResult := revisionUUID{}
+	revSelectQ, err := st.Prepare(`
+SELECT uuid AS &revisionUUID.uuid
+FROM   secret_revision
+WHERE  secret_id = $secretRevision.secret_id
+       AND revision = $secretRevision.revision`, revSelectInput, revSelectResult)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	deleteValueRefQ, err := st.Prepare(`
+DELETE FROM secret_value_ref
+WHERE revision_uuid = $revisionUUID.uuid`, revSelectResult)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	deleteDataQ, err := st.Prepare(`
+DELETE FROM secret_content
+WHERE revision_uuid = $revisionUUID.uuid`, revSelectResult)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		if err := tx.Query(ctx, revSelectQ, revSelectInput).Get(&revSelectResult); err != nil {
+			return errors.Trace(err)
+		}
+		if valueRef != nil {
+			if err := st.insertSecretValueRef(ctx, tx, revSelectResult.UUID, valueRef); err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			if err = tx.Query(ctx, deleteValueRefQ, revSelectResult).Run(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		if len(data) > 0 {
+			if err := st.updateSecretContent(ctx, tx, revSelectResult.UUID, data); err != nil {
+				return errors.Trace(err)
+			}
+		} else {
+			if err = tx.Query(ctx, deleteDataQ, revSelectResult).Run(); err != nil {
+				return errors.Trace(err)
+			}
+		}
+		return errors.Trace(err)
+	})
+	return errors.Trace(domain.CoerceError(err))
 }
 
 // InitialWatchStatementForSecretsRotationChanges returns the initial watch statement

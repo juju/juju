@@ -13,14 +13,17 @@ import (
 
 	"github.com/juju/juju/core/changestream"
 	"github.com/juju/juju/core/database"
+	coremodel "github.com/juju/juju/core/model"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/domain"
+	domainmodeltesting "github.com/juju/juju/domain/model/state/testing"
 	"github.com/juju/juju/domain/secretbackend"
 	"github.com/juju/juju/domain/secretbackend/service"
 	"github.com/juju/juju/domain/secretbackend/state"
 	changestreamtesting "github.com/juju/juju/internal/changestream/testing"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
+	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -152,4 +155,75 @@ func (s *watcherSuite) TestWatchSecretBackendRotationChanges(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `secret backend not found: "`+backendID2+`"`)
 
 	wC.AssertNoChange()
+}
+
+func (s *watcherSuite) TestWatchModelSecretBackendChanged(c *gc.C) {
+	factory := changestream.NewWatchableDBFactoryForNamespace(s.GetWatchableDB, "model_secretbackend_changes")
+	txnRunnerFactory := func() (database.TxnRunner, error) { return factory() }
+
+	logger := loggertesting.WrapCheckLog(c)
+	state := state.NewState(txnRunnerFactory, logger)
+
+	svc := service.NewWatchableService(
+		state, logger,
+		domain.NewWatcherFactory(factory, logger),
+	)
+
+	modelUUID, internalBackendName, vaultBackendName := s.createModel(c, state, txnRunnerFactory, "test-model")
+
+	watcher, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, watcher)
+
+	wc := watchertest.NewNotifyWatcherC(c, watcher)
+	// Wait for the initial change.
+	wc.AssertOneChange()
+
+	err = state.SetModelSecretBackend(context.Background(), modelUUID, vaultBackendName)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	err = state.SetModelSecretBackend(context.Background(), modelUUID, internalBackendName)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	// Pretend that the agent restarted and the watcher is re-created.
+	watcher1, err := svc.WatchModelSecretBackendChanged(context.Background(), modelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, watcher1)
+	wc1 := watchertest.NewNotifyWatcherC(c, watcher1)
+	// Wait for the initial change.
+	wc1.AssertOneChange()
+}
+
+func (s *watcherSuite) createModel(c *gc.C, st *state.State, txnRunner database.TxnRunnerFactory, name string) (coremodel.UUID, string, string) {
+	// Create internal controller secret backend.
+	internalBackendID := uuid.MustNewUUID().String()
+	result, err := st.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
+		BackendIdentifier: secretbackend.BackendIdentifier{
+			ID:   internalBackendID,
+			Name: juju.BackendName,
+		},
+		BackendType: juju.BackendType,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, internalBackendID)
+
+	vaultBackendID := uuid.MustNewUUID().String()
+	result, err = st.CreateSecretBackend(context.Background(), secretbackend.CreateSecretBackendParams{
+		BackendIdentifier: secretbackend.BackendIdentifier{
+			ID:   vaultBackendID,
+			Name: "my-backend",
+		},
+		BackendType: "vault",
+		Config: map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, vaultBackendID)
+
+	modelUUID := domainmodeltesting.CreateTestModel(c, txnRunner, name)
+	return modelUUID, juju.BackendName, "my-backend"
 }

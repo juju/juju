@@ -684,8 +684,9 @@ func (s *State) getModelCloudAndCredential(
 	return cld, cloud.NewNamedCredential(credResult.Label, cloud.AuthType(credResult.AuthType), credResult.Attributes, credResult.Revoked), nil
 }
 
-// InitialWatchStatement returns the initial watch statement and the table name to watch.
-func (s *State) InitialWatchStatement() (string, string) {
+// InitialWatchStatementForSecretBackendRotationChanges returns the initial watch statement and the table name to watch for
+// secret backend rotation changes.
+func (s *State) InitialWatchStatementForSecretBackendRotationChanges() (string, string) {
 	return "secret_backend_rotation", "SELECT backend_uuid FROM secret_backend_rotation"
 }
 
