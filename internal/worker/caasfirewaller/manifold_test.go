@@ -54,10 +54,10 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 	s.client = mocks.NewMockClient(s.ctrl)
 
 	s.getter = s.newGetter(nil)
-	s.manifold = caasfirewaller.Manifold(s.validConfig(c))
+	s.manifold = caasfirewaller.Manifold(s.validConfig())
 }
 
-func (s *manifoldSuite) validConfig(c *gc.C) caasfirewaller.ManifoldConfig {
+func (s *manifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
 	return caasfirewaller.ManifoldConfig{
 		APICallerName:  "api-caller",
 		BrokerName:     "broker",
@@ -96,37 +96,37 @@ func (s *manifoldSuite) newGetter(overlay map[string]interface{}) dependency.Get
 }
 
 func (s *manifoldSuite) TestMissingControllerUUID(c *gc.C) {
-	config := s.validConfig(c)
+	config := s.validConfig()
 	config.ControllerUUID = ""
 	s.checkConfigInvalid(c, config, "empty ControllerUUID not valid")
 }
 
 func (s *manifoldSuite) TestMissingModelUUID(c *gc.C) {
-	config := s.validConfig(c)
+	config := s.validConfig()
 	config.ModelUUID = ""
 	s.checkConfigInvalid(c, config, "empty ModelUUID not valid")
 }
 
 func (s *manifoldSuite) TestMissingAPICallerName(c *gc.C) {
-	config := s.validConfig(c)
+	config := s.validConfig()
 	config.APICallerName = ""
 	s.checkConfigInvalid(c, config, "empty APICallerName not valid")
 }
 
 func (s *manifoldSuite) TestMissingBrokerName(c *gc.C) {
-	config := s.validConfig(c)
+	config := s.validConfig()
 	config.BrokerName = ""
 	s.checkConfigInvalid(c, config, "empty BrokerName not valid")
 }
 
 func (s *manifoldSuite) TestMissingNewWorker(c *gc.C) {
-	config := s.validConfig(c)
+	config := s.validConfig()
 	config.NewWorker = nil
 	s.checkConfigInvalid(c, config, "nil NewWorker not valid")
 }
 
 func (s *manifoldSuite) TestMissingLogger(c *gc.C) {
-	config := s.validConfig(c)
+	config := s.validConfig()
 	config.Logger = nil
 	s.checkConfigInvalid(c, config, "nil Logger not valid")
 }

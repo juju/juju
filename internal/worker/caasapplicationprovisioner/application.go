@@ -114,7 +114,7 @@ func (a *appWorker) loop() error {
 
 	// If the application no longer exists, return immediately. If it's in
 	// Dead state, ensure it's deleted and terminated.
-	appLife, err := a.facade.Life(a.name)
+	appLife, err := a.facade.Life(ctx, a.name)
 	if errors.Is(err, errors.NotFound) {
 		a.logger.Debugf("application %q no longer exists", a.name)
 		return nil
@@ -124,11 +124,11 @@ func (a *appWorker) loop() error {
 	a.life = appLife
 	if appLife == life.Dead {
 		if !a.statusOnly {
-			err = a.ops.AppDying(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
+			err = a.ops.AppDying(ctx, a.name, app, a.life, a.facade, a.unitFacade, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", a.name)
 			}
-			err = a.ops.AppDead(a.name, app, a.broker, a.facade, a.unitFacade, a.clock, a.logger)
+			err = a.ops.AppDead(ctx, a.name, app, a.broker, a.facade, a.unitFacade, a.clock, a.logger)
 			if err != nil {
 				return errors.Annotatef(err, "deleting application %q", a.name)
 			}
@@ -148,7 +148,7 @@ func (a *appWorker) loop() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		err = a.facade.SetPassword(a.name, a.password)
+		err = a.facade.SetPassword(ctx, a.name, a.password)
 		if err != nil {
 			return errors.Annotate(err, "failed to set application api passwords")
 		}
@@ -159,7 +159,7 @@ func (a *appWorker) loop() error {
 	var replicaChanges watcher.NotifyChannel
 	var lastReportedStatus map[string]status.StatusInfo
 
-	appScaleWatcher, err := a.unitFacade.WatchApplicationScale(a.name)
+	appScaleWatcher, err := a.unitFacade.WatchApplicationScale(ctx, a.name)
 	if err != nil {
 		return errors.Annotatef(err, "creating application %q scale watcher", a.name)
 	}
@@ -167,7 +167,7 @@ func (a *appWorker) loop() error {
 		return errors.Annotatef(err, "failed to watch for application %q scale changes", a.name)
 	}
 
-	appTrustWatcher, err := a.unitFacade.WatchApplicationTrustHash(a.name)
+	appTrustWatcher, err := a.unitFacade.WatchApplicationTrustHash(ctx, a.name)
 	if err != nil {
 		return errors.Annotatef(err, "creating application %q trust watcher", a.name)
 	}
@@ -176,7 +176,7 @@ func (a *appWorker) loop() error {
 	}
 
 	var appUnitsWatcher watcher.StringsWatcher
-	appUnitsWatcher, err = a.facade.WatchUnits(a.name)
+	appUnitsWatcher, err = a.facade.WatchUnits(ctx, a.name)
 	if err != nil {
 		return errors.Annotatef(err, "creating application %q units watcher", a.name)
 	}
@@ -201,7 +201,7 @@ func (a *appWorker) loop() error {
 	)
 
 	handleChange := func() error {
-		appLife, err = a.facade.Life(a.name)
+		appLife, err = a.facade.Life(ctx, a.name)
 		if errors.Is(err, errors.NotFound) {
 			appLife = life.Dead
 		} else if err != nil {
@@ -211,14 +211,14 @@ func (a *appWorker) loop() error {
 
 		if initial {
 			initial = false
-			ps, err := a.facade.ProvisioningState(a.name)
+			ps, err := a.facade.ProvisioningState(ctx, a.name)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			if ps != nil && ps.Scaling {
 				if a.statusOnly {
 					// Clear provisioning state for status only app.
-					err = a.facade.SetProvisioningState(a.name, params.CAASApplicationProvisioningState{})
+					err = a.facade.SetProvisioningState(ctx, a.name, params.CAASApplicationProvisioningState{})
 					if err != nil {
 						return errors.Trace(err)
 					}
@@ -231,7 +231,7 @@ func (a *appWorker) loop() error {
 		switch appLife {
 		case life.Alive:
 			if appProvisionChanges == nil {
-				appProvisionWatcher, err := a.facade.WatchProvisioningInfo(a.name)
+				appProvisionWatcher, err := a.facade.WatchProvisioningInfo(ctx, a.name)
 				if err != nil {
 					return errors.Annotatef(err, "failed to watch facade for changes to application provisioning %q", a.name)
 				}
@@ -272,18 +272,18 @@ func (a *appWorker) loop() error {
 			}
 		case life.Dying:
 			if !a.statusOnly {
-				err = a.ops.AppDying(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
+				err = a.ops.AppDying(ctx, a.name, app, a.life, a.facade, a.unitFacade, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
 			}
 		case life.Dead:
 			if !a.statusOnly {
-				err = a.ops.AppDying(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
+				err = a.ops.AppDying(ctx, a.name, app, a.life, a.facade, a.unitFacade, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
-				err = a.ops.AppDead(a.name, app, a.broker, a.facade, a.unitFacade, a.clock, a.logger)
+				err = a.ops.AppDead(ctx, a.name, app, a.broker, a.facade, a.unitFacade, a.clock, a.logger)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -313,7 +313,7 @@ func (a *appWorker) loop() error {
 				scaleChan = nil
 				break
 			}
-			err := a.ops.EnsureScale(a.name, app, a.life, a.facade, a.unitFacade, a.logger)
+			err := a.ops.EnsureScale(ctx, a.name, app, a.life, a.facade, a.unitFacade, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				if scaleTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring scale", maxRetries)
@@ -343,7 +343,7 @@ func (a *appWorker) loop() error {
 				trustChan = nil
 				break
 			}
-			err := a.ops.EnsureTrust(a.name, app, a.unitFacade, a.logger)
+			err := a.ops.EnsureTrust(ctx, a.name, app, a.unitFacade, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				if trustTries >= maxRetries {
 					return errors.Annotatef(err, "more than %d retries ensuring trust", maxRetries)
@@ -369,7 +369,7 @@ func (a *appWorker) loop() error {
 				reconcileDeadChan = nil
 				break
 			}
-			err := a.ops.ReconcileDeadUnitScale(a.name, app, a.facade, a.logger)
+			err := a.ops.ReconcileDeadUnitScale(ctx, a.name, app, a.facade, a.logger)
 			if errors.Is(err, errors.NotFound) {
 				reconcileDeadChan = a.clock.After(retryDelay)
 				shouldRefresh = false
@@ -406,13 +406,13 @@ func (a *appWorker) loop() error {
 			}
 		case <-appChanges:
 			// Respond to changes in provider application.
-			lastReportedStatus, err = a.ops.UpdateState(a.name, app, lastReportedStatus, a.broker, a.facade, a.unitFacade, a.logger)
+			lastReportedStatus, err = a.ops.UpdateState(ctx, a.name, app, lastReportedStatus, a.broker, a.facade, a.unitFacade, a.logger)
 			if err != nil {
 				return errors.Trace(err)
 			}
 		case <-replicaChanges:
 			// Respond to changes in replicas of the application.
-			lastReportedStatus, err = a.ops.UpdateState(a.name, app, lastReportedStatus, a.broker, a.facade, a.unitFacade, a.logger)
+			lastReportedStatus, err = a.ops.UpdateState(ctx, a.name, app, lastReportedStatus, a.broker, a.facade, a.unitFacade, a.logger)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -423,7 +423,7 @@ func (a *appWorker) loop() error {
 			return nil
 		}
 		if shouldRefresh {
-			if err = a.ops.RefreshApplicationStatus(a.name, app, appLife, a.facade, a.logger); err != nil {
+			if err = a.ops.RefreshApplicationStatus(ctx, a.name, app, appLife, a.facade, a.logger); err != nil {
 				return errors.Annotatef(err, "refreshing application status for %q", a.name)
 			}
 		}

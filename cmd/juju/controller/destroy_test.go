@@ -74,7 +74,7 @@ func (f *fakeDestroyAPI) Close() error {
 	return f.NextErr()
 }
 
-func (f *fakeDestroyAPI) CloudSpec(tag names.ModelTag) (environscloudspec.CloudSpec, error) {
+func (f *fakeDestroyAPI) CloudSpec(ctx context.Context, tag names.ModelTag) (environscloudspec.CloudSpec, error) {
 	f.MethodCall(f, "CloudSpec", tag)
 	if err := f.NextErr(); err != nil {
 		return environscloudspec.CloudSpec{}, err
@@ -90,7 +90,7 @@ func (f *fakeDestroyAPI) ControllerConfig(_ context.Context) (jujucontroller.Con
 	return testing.FakeControllerConfig(), nil
 }
 
-func (f *fakeDestroyAPI) HostedModelConfigs() ([]apicontroller.HostedConfig, error) {
+func (f *fakeDestroyAPI) HostedModelConfigs(ctx context.Context) ([]apicontroller.HostedConfig, error) {
 	f.MethodCall(f, "HostedModelConfigs")
 	if err := f.NextErr(); err != nil {
 		return nil, err
@@ -98,12 +98,12 @@ func (f *fakeDestroyAPI) HostedModelConfigs() ([]apicontroller.HostedConfig, err
 	return f.hostedConfig, nil
 }
 
-func (f *fakeDestroyAPI) DestroyController(args apicontroller.DestroyControllerParams) error {
+func (f *fakeDestroyAPI) DestroyController(ctx context.Context, args apicontroller.DestroyControllerParams) error {
 	f.MethodCall(f, "DestroyController", args)
 	return f.NextErr()
 }
 
-func (f *fakeDestroyAPI) ListBlockedModels() ([]params.ModelBlockInfo, error) {
+func (f *fakeDestroyAPI) ListBlockedModels(ctx context.Context) ([]params.ModelBlockInfo, error) {
 	f.MethodCall(f, "ListBlockedModels")
 	return f.blocks, f.NextErr()
 }
@@ -117,7 +117,7 @@ func (f *fakeDestroyAPI) ModelStatus(_ context.Context, tags ...names.ModelTag) 
 	return status, f.NextErr()
 }
 
-func (f *fakeDestroyAPI) AllModels() ([]base.UserModel, error) {
+func (f *fakeDestroyAPI) AllModels(ctx context.Context) ([]base.UserModel, error) {
 	f.MethodCall(f, "AllModels")
 	return f.allModels, f.NextErr()
 }

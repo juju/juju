@@ -26,7 +26,7 @@ import (
 
 // ControllerAPI is used to get dashboard info from the controller.
 type ControllerAPI interface {
-	DashboardConnectionInfo(controller.ProxierFactory) (controller.DashboardConnectionInfo, error)
+	DashboardConnectionInfo(context.Context, controller.ProxierFactory) (controller.DashboardConnectionInfo, error)
 	Close() error
 }
 
@@ -134,7 +134,7 @@ func (c *dashboardCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "creating default proxy factory to support dashboard connection")
 	}
 
-	res, err := api.DashboardConnectionInfo(factory)
+	res, err := api.DashboardConnectionInfo(ctx, factory)
 	if errors.Is(err, errors.NotFound) {
 		return errors.New(dashboardNotAvailableMessage)
 	} else if err != nil {

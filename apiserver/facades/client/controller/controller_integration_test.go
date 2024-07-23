@@ -4,6 +4,8 @@
 package controller_test
 
 import (
+	"context"
+
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/controller/controller"
@@ -34,7 +36,7 @@ func (s *ControllerIntegrationSuite) SetUpTest(c *gc.C) {
 func (s *ControllerIntegrationSuite) TestWatchModelSummaries(c *gc.C) {
 
 	// TODO(dqlite) - implement me
-	watcher, err := s.client.WatchModelSummaries()
+	watcher, err := s.client.WatchModelSummaries(context.Background())
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.NotNil)
 	//c.Assert(err, jc.ErrorIsNil)
@@ -61,7 +63,7 @@ func (s *ControllerIntegrationSuite) TestWatchModelSummaries(c *gc.C) {
 func (s *ControllerIntegrationSuite) TestWatchAllModelSummaries(c *gc.C) {
 
 	// TODO(dqlite) - implement me
-	watcher, err := s.client.WatchAllModelSummaries()
+	watcher, err := s.client.WatchAllModelSummaries(context.Background())
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.NotNil)
 	//defer func() {

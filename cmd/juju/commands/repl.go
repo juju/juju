@@ -194,7 +194,7 @@ func (c *replCommand) getPrompt() (prompt string, err error) {
 		}
 	}()
 
-	store := modelcmd.QualifyingClientStore{c.store}
+	store := modelcmd.QualifyingClientStore{ClientStore: c.store}
 
 	controllerName, err := modelcmd.DetermineCurrentController(store)
 	if err != nil && !errors.Is(err, errors.NotFound) {

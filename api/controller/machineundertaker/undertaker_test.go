@@ -4,6 +4,8 @@
 package machineundertaker_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
@@ -46,7 +48,7 @@ func (s *undertakerSuite) TestAllMachineRemovals(c *gc.C) {
 		return nil
 	}
 	api := makeAPI(c, caller)
-	results, err := api.AllMachineRemovals()
+	results, err := api.AllMachineRemovals(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, []names.MachineTag{
 		names.NewMachineTag("23"),
@@ -59,7 +61,7 @@ func (s *undertakerSuite) TestAllMachineRemovals_Error(c *gc.C) {
 		return errors.New("restless year")
 	}
 	api := makeAPI(c, caller)
-	results, err := api.AllMachineRemovals()
+	results, err := api.AllMachineRemovals(context.Background())
 	c.Assert(err, gc.ErrorMatches, "restless year")
 	c.Assert(results, gc.IsNil)
 }
@@ -71,7 +73,7 @@ func (s *undertakerSuite) TestAllMachineRemovals_BadTag(c *gc.C) {
 		return nil
 	}
 	api := makeAPI(c, caller)
-	results, err := api.AllMachineRemovals()
+	results, err := api.AllMachineRemovals(context.Background())
 	c.Assert(err, gc.ErrorMatches, `"application-burp" is not a valid machine tag`)
 	c.Assert(results, gc.IsNil)
 }
@@ -87,7 +89,7 @@ func (s *undertakerSuite) TestAllMachineRemovals_ErrorResult(c *gc.C) {
 		return nil
 	}
 	api := makeAPI(c, caller)
-	results, err := api.AllMachineRemovals()
+	results, err := api.AllMachineRemovals(context.Background())
 	c.Assert(err, gc.ErrorMatches, "everythingisterrible")
 	c.Assert(results, gc.IsNil)
 }
@@ -105,7 +107,7 @@ func (s *undertakerSuite) TestAllMachineRemovals_TooManyResults(c *gc.C) {
 		return nil
 	}
 	api := makeAPI(c, caller)
-	results, err := api.AllMachineRemovals()
+	results, err := api.AllMachineRemovals(context.Background())
 	c.Assert(err, gc.ErrorMatches, "expected one result, got 2")
 	c.Assert(results, gc.IsNil)
 }
@@ -117,7 +119,7 @@ func (s *undertakerSuite) TestAllMachineRemovals_TooFewResults(c *gc.C) {
 		return nil
 	}
 	api := makeAPI(c, caller)
-	results, err := api.AllMachineRemovals()
+	results, err := api.AllMachineRemovals(context.Background())
 	c.Assert(err, gc.ErrorMatches, "expected one result, got 0")
 	c.Assert(results, gc.IsNil)
 }
@@ -147,7 +149,7 @@ func (*undertakerSuite) TestGetInfo(c *gc.C) {
 		return nil
 	}
 	api := makeAPI(c, caller)
-	results, err := api.GetProviderInterfaceInfo(names.NewMachineTag("100"))
+	results, err := api.GetProviderInterfaceInfo(context.Background(), names.NewMachineTag("100"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, []network.ProviderInterfaceInfo{{
 		InterfaceName:   "hamster huey",
@@ -165,7 +167,7 @@ func (*undertakerSuite) TestGetInfo_GenericError(c *gc.C) {
 		return errors.New("gooey kablooey")
 	}
 	api := makeAPI(c, caller)
-	results, err := api.GetProviderInterfaceInfo(names.NewMachineTag("100"))
+	results, err := api.GetProviderInterfaceInfo(context.Background(), names.NewMachineTag("100"))
 	c.Assert(err, gc.ErrorMatches, "gooey kablooey")
 	c.Assert(results, gc.IsNil)
 }
@@ -193,7 +195,7 @@ func (*undertakerSuite) TestGetInfo_TooMany(c *gc.C) {
 		return nil
 	}
 	api := makeAPI(c, caller)
-	results, err := api.GetProviderInterfaceInfo(names.NewMachineTag("100"))
+	results, err := api.GetProviderInterfaceInfo(context.Background(), names.NewMachineTag("100"))
 	c.Assert(err, gc.ErrorMatches, "expected one result, got 2")
 	c.Assert(results, gc.IsNil)
 }
@@ -214,7 +216,7 @@ func (*undertakerSuite) TestGetInfo_BadMachine(c *gc.C) {
 		return nil
 	}
 	api := makeAPI(c, caller)
-	results, err := api.GetProviderInterfaceInfo(names.NewMachineTag("100"))
+	results, err := api.GetProviderInterfaceInfo(context.Background(), names.NewMachineTag("100"))
 	c.Assert(err, gc.ErrorMatches, "expected interface info for machine-100 but got machine-101")
 	c.Assert(results, gc.IsNil)
 }
@@ -230,7 +232,7 @@ func (*undertakerSuite) TestCompleteRemoval(c *gc.C) {
 		return errors.New("gooey kablooey")
 	}
 	api := makeAPI(c, caller)
-	err := api.CompleteRemoval(names.NewMachineTag("100"))
+	err := api.CompleteRemoval(context.Background(), names.NewMachineTag("100"))
 	c.Assert(err, gc.ErrorMatches, "gooey kablooey")
 }
 
@@ -244,7 +246,7 @@ func (*undertakerSuite) TestWatchMachineRemovals_CallFailed(c *gc.C) {
 		return errors.New("oopsy")
 	}
 	api := makeAPI(c, caller)
-	w, err := api.WatchMachineRemovals()
+	w, err := api.WatchMachineRemovals(context.Background())
 	c.Check(w, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "oopsy")
 }
@@ -260,7 +262,7 @@ func (*undertakerSuite) TestWatchMachineRemovals_ErrorInWatcher(c *gc.C) {
 		return nil
 	}
 	api := makeAPI(c, caller)
-	w, err := api.WatchMachineRemovals()
+	w, err := api.WatchMachineRemovals(context.Background())
 	c.Check(w, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "blammo")
 }
@@ -278,7 +280,7 @@ func (*undertakerSuite) TestWatchMachineRemovals_TooMany(c *gc.C) {
 		return nil
 	}
 	api := makeAPI(c, caller)
-	w, err := api.WatchMachineRemovals()
+	w, err := api.WatchMachineRemovals(context.Background())
 	c.Check(w, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "expected one result, got 2")
 }
@@ -304,7 +306,7 @@ func (*undertakerSuite) TestWatchMachineRemovals_Success(c *gc.C) {
 
 	api, err := machineundertaker.NewAPI(testing.APICallerFunc(caller), newWatcher)
 	c.Check(err, jc.ErrorIsNil)
-	w, err := api.WatchMachineRemovals()
+	w, err := api.WatchMachineRemovals(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(w, gc.Equals, expectWatcher)
 }

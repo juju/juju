@@ -4,6 +4,8 @@
 package caasenvironupgrader_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -37,7 +39,7 @@ func (*WorkerSuite) TestNewWorker(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckKill(c, w)
 	mockFacade.CheckCalls(c, []testing.StubCall{
-		{"SetModelStatus", []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
+		{FuncName: "SetModelStatus", Args: []interface{}{coretesting.ModelTag, status.Available, "", nilData}},
 	})
 	mockGateUnlocker.CheckCallNames(c, "Unlock")
 }
@@ -48,7 +50,7 @@ type mockFacade struct {
 
 var nilData map[string]interface{}
 
-func (f *mockFacade) SetModelStatus(tag names.ModelTag, status status.Status, info string, data map[string]interface{}) error {
+func (f *mockFacade) SetModelStatus(ctx context.Context, tag names.ModelTag, status status.Status, info string, data map[string]interface{}) error {
 	f.MethodCall(f, "SetModelStatus", tag, status, info, data)
 	return f.NextErr()
 }

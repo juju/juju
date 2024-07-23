@@ -43,17 +43,17 @@ func (m *MockFacade) EXPECT() *MockFacadeMockRecorder {
 }
 
 // Prune mocks base method.
-func (m *MockFacade) Prune(arg0 time.Duration, arg1 int) error {
+func (m *MockFacade) Prune(arg0 context.Context, arg1 time.Duration, arg2 int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Prune", arg0, arg1)
+	ret := m.ctrl.Call(m, "Prune", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Prune indicates an expected call of Prune.
-func (mr *MockFacadeMockRecorder) Prune(arg0, arg1 any) *MockFacadePruneCall {
+func (mr *MockFacadeMockRecorder) Prune(arg0, arg1, arg2 any) *MockFacadePruneCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prune", reflect.TypeOf((*MockFacade)(nil).Prune), arg0, arg1)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prune", reflect.TypeOf((*MockFacade)(nil).Prune), arg0, arg1, arg2)
 	return &MockFacadePruneCall{Call: call}
 }
 
@@ -69,13 +69,13 @@ func (c *MockFacadePruneCall) Return(arg0 error) *MockFacadePruneCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadePruneCall) Do(f func(time.Duration, int) error) *MockFacadePruneCall {
+func (c *MockFacadePruneCall) Do(f func(context.Context, time.Duration, int) error) *MockFacadePruneCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadePruneCall) DoAndReturn(f func(time.Duration, int) error) *MockFacadePruneCall {
+func (c *MockFacadePruneCall) DoAndReturn(f func(context.Context, time.Duration, int) error) *MockFacadePruneCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

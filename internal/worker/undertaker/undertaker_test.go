@@ -335,33 +335,33 @@ func (s *UndertakerSuite) TestExitOnModelChanged(c *gc.C) {
 	defer ctrl.Finish()
 
 	facade := NewMockFacade(ctrl)
-	facade.EXPECT().SetStatus(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	facade.EXPECT().SetStatus(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 	modelChanged := make(chan struct{}, 1)
 	modelChanged <- struct{}{}
 	modelResources := make(chan struct{}, 1)
 	modelResources <- struct{}{}
-	facade.EXPECT().WatchModel().DoAndReturn(func() (watcher.NotifyWatcher, error) {
+	facade.EXPECT().WatchModel(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		return watchertest.NewMockNotifyWatcher(modelChanged), nil
 	})
-	facade.EXPECT().WatchModelResources().DoAndReturn(func() (watcher.NotifyWatcher, error) {
+	facade.EXPECT().WatchModelResources(gomock.Any()).DoAndReturn(func(context.Context) (watcher.NotifyWatcher, error) {
 		return watchertest.NewMockNotifyWatcher(modelResources), nil
 	})
 	facade.EXPECT().ModelConfig(gomock.Any()).Return(nil, nil)
 
 	gomock.InOrder(
-		facade.EXPECT().ModelInfo().Return(params.UndertakerModelInfoResult{
+		facade.EXPECT().ModelInfo(gomock.Any()).Return(params.UndertakerModelInfoResult{
 			Result: params.UndertakerModelInfo{
 				Life:           life.Dying,
 				ForceDestroyed: false,
 			},
 		}, nil),
-		facade.EXPECT().ProcessDyingModel().Return(nil),
+		facade.EXPECT().ProcessDyingModel(gomock.Any()).Return(nil),
 		facade.EXPECT().CloudSpec(gomock.Any()).DoAndReturn(func(_ context.Context) (cloudspec.CloudSpec, error) {
 			modelChanged <- struct{}{}
 			return cloudspec.CloudSpec{}, nil
 		}),
-		facade.EXPECT().ModelInfo().Return(params.UndertakerModelInfoResult{
+		facade.EXPECT().ModelInfo(gomock.Any()).Return(params.UndertakerModelInfoResult{
 			Result: params.UndertakerModelInfo{
 				Life:           life.Dying,
 				ForceDestroyed: true, // changed from false to true to cause worker to exit.

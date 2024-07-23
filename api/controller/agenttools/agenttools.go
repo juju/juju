@@ -30,6 +30,6 @@ func NewFacade(caller base.APICaller, options ...Option) *Facade {
 }
 
 // UpdateToolsVersion calls UpdateToolsAvailable in the server.
-func (f *Facade) UpdateToolsVersion() error {
-	return f.facade.FacadeCall(context.TODO(), "UpdateToolsAvailable", nil, nil)
+func (f *Facade) UpdateToolsVersion(ctx context.Context) error {
+	return f.facade.FacadeCall(ctx, "UpdateToolsAvailable", nil, nil)
 }

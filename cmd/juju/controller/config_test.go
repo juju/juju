@@ -275,7 +275,7 @@ func (f *fakeControllerAPI) ControllerConfig(context.Context) (jujucontroller.Co
 	return result, nil
 }
 
-func (f *fakeControllerAPI) ConfigSet(values map[string]interface{}) error {
+func (f *fakeControllerAPI) ConfigSet(ctx context.Context, values map[string]interface{}) error {
 	if f.values == nil {
 		f.values = values
 	} else {

@@ -64,7 +64,7 @@ func (s *undertakerSuite) TestErrorGettingRemovals(c *gc.C) {
 func (*undertakerSuite) TestMaybeReleaseAddresses_NoNetworking(c *gc.C) {
 	api := fakeAPI{Stub: &testing.Stub{}}
 	u := machineundertaker.Undertaker{API: &api, Logger: loggertesting.WrapCheckLog(c)}
-	err := u.MaybeReleaseAddresses(names.NewMachineTag("3"))
+	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("3"))
 	c.Assert(err, jc.ErrorIsNil)
 	api.CheckCallNames(c)
 }
@@ -77,7 +77,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotContainer(c *gc.C) {
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
-	err := u.MaybeReleaseAddresses(names.NewMachineTag("4"))
+	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4"))
 	c.Assert(err, jc.ErrorIsNil)
 	api.CheckCallNames(c)
 }
@@ -91,7 +91,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorGettingInfo(c *gc.C) {
 		Releaser: &releaser,
 		Logger:   loggertesting.WrapCheckLog(c),
 	}
-	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/2"))
+	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/2"))
 	c.Assert(err, gc.ErrorMatches, "a funny thing happened on the way")
 }
 
@@ -106,7 +106,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *gc.C) {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
-	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
+	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, jc.ErrorIsNil)
 	releaser.CheckCallNames(c)
 }
@@ -130,7 +130,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *gc.C) {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
-	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
+	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, jc.ErrorIsNil)
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
 		[]network.ProviderInterfaceInfo{{InterfaceName: "chloe"}},
@@ -156,7 +156,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *gc.C) {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
-	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
+	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, gc.ErrorMatches, "something unexpected")
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
 		[]network.ProviderInterfaceInfo{{InterfaceName: "chloe"}},
@@ -181,7 +181,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *gc.C) {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
-	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
+	err := u.MaybeReleaseAddresses(context.Background(), names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, jc.ErrorIsNil)
 	releaser.CheckCall(c, 0, "ReleaseContainerAddresses",
 		[]network.ProviderInterfaceInfo{{InterfaceName: "chloe"}},
@@ -207,7 +207,7 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *gc.C) {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
-	err := u.Handle(nil)
+	err := u.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(releaser.Calls(), gc.HasLen, 1)
@@ -238,7 +238,7 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *gc.C) {
 			return envcontext.WithoutCredentialInvalidator(ctx)
 		},
 	}
-	err := u.Handle(nil)
+	err := u.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(releaser.Calls(), gc.HasLen, 1)
@@ -256,7 +256,7 @@ func (*undertakerSuite) TestHandle_ErrorOnRemoval(c *gc.C) {
 	}
 	api.SetErrors(nil, errors.New("couldn't remove machine 3"))
 	u := machineundertaker.Undertaker{API: &api, Logger: loggertesting.WrapCheckLog(c)}
-	err := u.Handle(nil)
+	err := u.Handle(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	checkRemovalsMatch(c, api.Stub, "3", "4/lxd/4")
 }
@@ -317,12 +317,12 @@ type fakeAPI struct {
 	interfaces map[string][]network.ProviderInterfaceInfo
 }
 
-func (a *fakeAPI) WatchMachineRemovals() (watcher.NotifyWatcher, error) {
+func (a *fakeAPI) WatchMachineRemovals(context.Context) (watcher.NotifyWatcher, error) {
 	a.Stub.AddCall("WatchMachineRemovals")
 	return a.watcher, a.Stub.NextErr()
 }
 
-func (a *fakeAPI) AllMachineRemovals() ([]names.MachineTag, error) {
+func (a *fakeAPI) AllMachineRemovals(context.Context) ([]names.MachineTag, error) {
 	a.Stub.AddCall("AllMachineRemovals")
 	result := make([]names.MachineTag, len(a.removals))
 	for i := range a.removals {
@@ -331,12 +331,12 @@ func (a *fakeAPI) AllMachineRemovals() ([]names.MachineTag, error) {
 	return result, a.Stub.NextErr()
 }
 
-func (a *fakeAPI) GetProviderInterfaceInfo(machine names.MachineTag) ([]network.ProviderInterfaceInfo, error) {
+func (a *fakeAPI) GetProviderInterfaceInfo(ctx context.Context, machine names.MachineTag) ([]network.ProviderInterfaceInfo, error) {
 	a.Stub.AddCall("GetProviderInterfaceInfo", machine)
 	return a.interfaces[machine.Id()], a.Stub.NextErr()
 }
 
-func (a *fakeAPI) CompleteRemoval(machine names.MachineTag) error {
+func (a *fakeAPI) CompleteRemoval(ctx context.Context, machine names.MachineTag) error {
 	a.Stub.AddCall("CompleteRemoval", machine)
 	return a.Stub.NextErr()
 }

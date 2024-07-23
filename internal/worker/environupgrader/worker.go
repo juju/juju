@@ -29,10 +29,10 @@ var ErrModelRemoved = errors.New("model has been removed")
 
 // Facade exposes capabilities required by the worker.
 type Facade interface {
-	ModelEnvironVersion(tag names.ModelTag) (int, error)
-	ModelTargetEnvironVersion(tag names.ModelTag) (int, error)
-	SetModelEnvironVersion(tag names.ModelTag, v int) error
-	SetModelStatus(names.ModelTag, status.Status, string, map[string]interface{}) error
+	ModelEnvironVersion(ctx context.Context, tag names.ModelTag) (int, error)
+	ModelTargetEnvironVersion(ctx context.Context, tag names.ModelTag) (int, error)
+	SetModelEnvironVersion(ctx context.Context, tag names.ModelTag, v int) error
+	SetModelStatus(context.Context, names.ModelTag, status.Status, string, map[string]interface{}) error
 	WatchModelEnvironVersion(ctx context.Context, tag names.ModelTag) (watcher.NotifyWatcher, error)
 }
 
@@ -99,7 +99,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	targetVersion, err := config.Facade.ModelTargetEnvironVersion(config.ModelTag)
+	targetVersion, err := config.Facade.ModelTargetEnvironVersion(ctx, config.ModelTag)
 	if err != nil {
 		if params.IsCodeNotFound(err) {
 			return nil, ErrModelRemoved
@@ -107,7 +107,7 @@ func NewWorker(ctx context.Context, config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	if config.Environ != nil {
-		return newUpgradeWorker(config, targetVersion)
+		return newUpgradeWorker(ctx, config, targetVersion)
 	}
 	return newWaitWorker(ctx, config, targetVersion)
 }
@@ -155,6 +155,9 @@ func (ww *waitWorker) Wait() error {
 }
 
 func (ww *waitWorker) loop() error {
+	ctx, cancel := ww.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		case <-ww.catacomb.Dying():
@@ -163,7 +166,7 @@ func (ww *waitWorker) loop() error {
 			if !ok {
 				return ww.catacomb.ErrDying()
 			}
-			currentVersion, err := ww.facade.ModelEnvironVersion(ww.modelTag)
+			currentVersion, err := ww.facade.ModelEnvironVersion(ctx, ww.modelTag)
 			if err != nil {
 				if params.IsCodeNotFound(err) {
 					return ErrModelRemoved
@@ -178,10 +181,14 @@ func (ww *waitWorker) loop() error {
 	}
 }
 
+func (ww *waitWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return stdcontext.WithCancel(ww.catacomb.Context(stdcontext.Background()))
+}
+
 // newUpgradeWorker returns a worker that runs the upgrade steps, updates the
 // model's environ version, and unlocks the gate.
-func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
-	currentVersion, err := config.Facade.ModelEnvironVersion(config.ModelTag)
+func newUpgradeWorker(ctx context.Context, config Config, targetVersion int) (worker.Worker, error) {
+	currentVersion, err := config.Facade.ModelEnvironVersion(ctx, config.ModelTag)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -193,10 +200,10 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 		// context.Context for cancellation, and cancelling it if
 		// the abort channel is signalled.
 		setVersion := func(v int) error {
-			return config.Facade.SetModelEnvironVersion(config.ModelTag, v)
+			return config.Facade.SetModelEnvironVersion(ctx, config.ModelTag, v)
 		}
 		setStatus := func(s status.Status, info string) error {
-			return config.Facade.SetModelStatus(config.ModelTag, s, info, nil)
+			return config.Facade.SetModelStatus(ctx, config.ModelTag, s, info, nil)
 		}
 		if targetVersion > currentVersion {
 			if err := setStatus(status.Busy, fmt.Sprintf(

@@ -4,6 +4,7 @@
 package charmrevision_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -131,7 +132,7 @@ func newMockRevisionUpdater() mockRevisionUpdater {
 	}
 }
 
-func (mock mockRevisionUpdater) UpdateLatestRevisions() error {
+func (mock mockRevisionUpdater) UpdateLatestRevisions(ctx context.Context) error {
 	mock.stub.AddCall("UpdateLatestRevisions")
 	mock.calls <- struct{}{}
 	return mock.stub.NextErr()

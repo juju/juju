@@ -4,6 +4,7 @@
 package action_test
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -32,6 +33,6 @@ func (s *prunerSuite) TestPrune(c *gc.C) {
 	mockFacadeCaller.EXPECT().FacadeCall(gomock.Any(), "Prune", args, nil).Return(nil)
 
 	client := action.NewPrunerFromCaller(mockFacadeCaller)
-	err := client.Prune(time.Hour, 666)
+	err := client.Prune(context.Background(), time.Hour, 666)
 	c.Assert(err, jc.ErrorIsNil)
 }

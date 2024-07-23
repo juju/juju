@@ -54,9 +54,9 @@ func entities(tags ...names.Tag) params.Entities {
 
 // WatchApplications returns a StringsWatcher that notifies of
 // changes to the lifecycles of CAAS applications in the current model.
-func (c *Client) WatchApplications() (watcher.StringsWatcher, error) {
+func (c *Client) WatchApplications(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	if err := c.facade.FacadeCall(context.TODO(), "WatchApplications", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchApplications", nil, &result); err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
@@ -79,7 +79,7 @@ func (c *Client) WatchApplication(ctx context.Context, appName string) (watcher.
 // WatchApplicationScale returns a NotifyWatcher that notifies of
 // changes to the lifecycles of units of the specified
 // CAAS application in the current model.
-func (c *Client) WatchApplicationScale(application string) (watcher.NotifyWatcher, error) {
+func (c *Client) WatchApplicationScale(ctx context.Context, application string) (watcher.NotifyWatcher, error) {
 	applicationTag, err := applicationTag(application)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -87,7 +87,7 @@ func (c *Client) WatchApplicationScale(application string) (watcher.NotifyWatche
 	args := entities(applicationTag)
 
 	var results params.NotifyWatchResults
-	if err := c.facade.FacadeCall(context.TODO(), "WatchApplicationsScale", args, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchApplicationsScale", args, &results); err != nil {
 		return nil, err
 	}
 	if n := len(results.Results); n != 1 {
@@ -101,12 +101,12 @@ func (c *Client) WatchApplicationScale(application string) (watcher.NotifyWatche
 }
 
 // ApplicationScale returns the scale for the specified application.
-func (c *Client) ApplicationScale(applicationName string) (int, error) {
+func (c *Client) ApplicationScale(ctx context.Context, applicationName string) (int, error) {
 	var results params.IntResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "ApplicationsScale", args, &results)
+	err := c.facade.FacadeCall(ctx, "ApplicationsScale", args, &results)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}
@@ -117,12 +117,12 @@ func (c *Client) ApplicationScale(applicationName string) (int, error) {
 }
 
 // ApplicationTrust returns the trust value for the specified application.
-func (c *Client) ApplicationTrust(applicationName string) (bool, error) {
+func (c *Client) ApplicationTrust(ctx context.Context, applicationName string) (bool, error) {
 	var results params.BoolResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "ApplicationsTrust", args, &results)
+	err := c.facade.FacadeCall(ctx, "ApplicationsTrust", args, &results)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -134,7 +134,7 @@ func (c *Client) ApplicationTrust(applicationName string) (bool, error) {
 
 // WatchApplicationTrustHash returns a StringsWatcher that notifies of
 // changes to the application's trust hash.
-func (c *Client) WatchApplicationTrustHash(application string) (watcher.StringsWatcher, error) {
+func (c *Client) WatchApplicationTrustHash(ctx context.Context, application string) (watcher.StringsWatcher, error) {
 	applicationTag, err := applicationTag(application)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -142,7 +142,7 @@ func (c *Client) WatchApplicationTrustHash(application string) (watcher.StringsW
 	args := entities(applicationTag)
 
 	var results params.StringsWatchResults
-	if err := c.facade.FacadeCall(context.TODO(), "WatchApplicationsTrustHash", args, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchApplicationsTrustHash", args, &results); err != nil {
 		return nil, err
 	}
 	if n := len(results.Results); n != 1 {
@@ -166,10 +166,10 @@ func maybeNotFound(err *params.Error) error {
 
 // UpdateApplicationService updates the state model to reflect the state of the application's
 // service as reported by the cloud.
-func (c *Client) UpdateApplicationService(arg params.UpdateApplicationServiceArg) error {
+func (c *Client) UpdateApplicationService(ctx context.Context, arg params.UpdateApplicationServiceArg) error {
 	var result params.ErrorResults
 	args := params.UpdateApplicationServiceArgs{Args: []params.UpdateApplicationServiceArg{arg}}
-	if err := c.facade.FacadeCall(context.TODO(), "UpdateApplicationsService", args, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "UpdateApplicationsService", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if len(result.Results) != len(args.Args) {

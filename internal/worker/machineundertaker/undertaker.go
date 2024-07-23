@@ -21,10 +21,10 @@ import (
 // Facade defines the interface we require from the machine undertaker
 // facade.
 type Facade interface {
-	WatchMachineRemovals() (watcher.NotifyWatcher, error)
-	AllMachineRemovals() ([]names.MachineTag, error)
-	GetProviderInterfaceInfo(names.MachineTag) ([]network.ProviderInterfaceInfo, error)
-	CompleteRemoval(names.MachineTag) error
+	WatchMachineRemovals(stdcontext.Context) (watcher.NotifyWatcher, error)
+	AllMachineRemovals(stdcontext.Context) ([]names.MachineTag, error)
+	GetProviderInterfaceInfo(stdcontext.Context, names.MachineTag) ([]network.ProviderInterfaceInfo, error)
+	CompleteRemoval(stdcontext.Context, names.MachineTag) error
 }
 
 // AddressReleaser defines the interface we need from the environment
@@ -63,15 +63,15 @@ func NewWorker(api Facade, env environs.Environ, credentialAPI common.Credential
 
 // SetUp (part of watcher.NotifyHandler) starts watching for machine
 // removals.
-func (u *Undertaker) SetUp(_ stdcontext.Context) (watcher.NotifyWatcher, error) {
+func (u *Undertaker) SetUp(ctx stdcontext.Context) (watcher.NotifyWatcher, error) {
 	u.Logger.Infof("setting up machine undertaker")
-	return u.API.WatchMachineRemovals()
+	return u.API.WatchMachineRemovals(ctx)
 }
 
 // Handle (part of watcher.NotifyHandler) cleans up provider resources
 // and removes machines that have been marked for removal.
-func (u *Undertaker) Handle(_ stdcontext.Context) error {
-	removals, err := u.API.AllMachineRemovals()
+func (u *Undertaker) Handle(ctx stdcontext.Context) error {
+	removals, err := u.API.AllMachineRemovals(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -79,12 +79,12 @@ func (u *Undertaker) Handle(_ stdcontext.Context) error {
 	// TODO(babbageclunk): shuffle the removals so if there's a
 	// problem with one others can still get past?
 	for _, machine := range removals {
-		err := u.MaybeReleaseAddresses(machine)
+		err := u.MaybeReleaseAddresses(ctx, machine)
 		if err != nil {
 			u.Logger.Errorf("couldn't release addresses for %s: %s", machine, err)
 			continue
 		}
-		err = u.API.CompleteRemoval(machine)
+		err = u.API.CompleteRemoval(ctx, machine)
 		if err != nil {
 			u.Logger.Errorf("couldn't complete removal for %s: %s", machine, err)
 		} else {
@@ -97,7 +97,7 @@ func (u *Undertaker) Handle(_ stdcontext.Context) error {
 // MaybeReleaseAddresses releases any addresses that have been
 // allocated to this machine by the provider (if the provider supports
 // that).
-func (u *Undertaker) MaybeReleaseAddresses(machine names.MachineTag) error {
+func (u *Undertaker) MaybeReleaseAddresses(ctx stdcontext.Context, machine names.MachineTag) error {
 	if u.Releaser == nil {
 		// This environ doesn't support releasing addresses.
 		return nil
@@ -106,7 +106,7 @@ func (u *Undertaker) MaybeReleaseAddresses(machine names.MachineTag) error {
 		// At the moment, only containers need their addresses releasing.
 		return nil
 	}
-	interfaceInfos, err := u.API.GetProviderInterfaceInfo(machine)
+	interfaceInfos, err := u.API.GetProviderInterfaceInfo(ctx, machine)
 	if err != nil {
 		return errors.Trace(err)
 	}

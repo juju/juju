@@ -34,14 +34,14 @@ type workerSuite struct {
 
 var _ = gc.Suite(&workerSuite{})
 
-func (s *workerSuite) getWorkerNewer(c *gc.C, calls ...*gomock.Call) (func(string), *gomock.Controller) {
+func (s *workerSuite) getWorkerNewer(c *gc.C) (func(string), *gomock.Controller) {
 	ctrl := gomock.NewController(c)
 	s.logger = loggertesting.WrapCheckLog(c)
 	s.facade = mocks.NewMockSecretsFacade(ctrl)
 
 	s.changedCh = make(chan struct{}, 1)
 	s.done = make(chan struct{})
-	s.facade.EXPECT().WatchRevisionsToPrune().Return(watchertest.NewMockNotifyWatcher(s.changedCh), nil)
+	s.facade.EXPECT().WatchRevisionsToPrune(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(s.changedCh), nil)
 
 	start := func(expectedErr string) {
 		w, err := secretspruner.NewWorker(secretspruner.Config{

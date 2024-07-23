@@ -106,7 +106,7 @@ const (
 )
 
 // GetSecretAccessScope gets access details for a secret from a cross model controller.
-func (c *Client) GetSecretAccessScope(uri *coresecrets.URI, appToken string, unitId int) (string, error) {
+func (c *Client) GetSecretAccessScope(ctx context.Context, uri *coresecrets.URI, appToken string, unitId int) (string, error) {
 	if uri == nil {
 		return "", errors.NotValidf("empty secret URI")
 	}
@@ -122,7 +122,7 @@ func (c *Client) GetSecretAccessScope(uri *coresecrets.URI, appToken string, uni
 		var results params.StringResults
 
 		if err := c.facade.FacadeCall(
-			context.TODO(),
+			ctx,
 			"GetSecretAccessScope", args, &results,
 		); err != nil {
 			return "", errors.Trace(err)
@@ -192,7 +192,7 @@ func (c *Client) GetRemoteSecretContentInfo(ctx context.Context, uri *coresecret
 		var results params.SecretContentResults
 
 		if err := c.facade.FacadeCall(
-			context.TODO(),
+			ctx,
 			"GetSecretContentInfo", args, &results,
 		); err != nil {
 			return nil, nil, 0, false, errors.Trace(err)

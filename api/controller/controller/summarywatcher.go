@@ -36,10 +36,10 @@ func newSummaryWatcher(objType string, caller base.APICaller, id *string) *Summa
 // Next returns a slice of ModelAbstracts. A new abstract is returned for a
 // model if any part of the abstract changes. No indication is given however to
 // which bit has changed. It will block until there is information to return.
-func (watcher *SummaryWatcher) Next() ([]params.ModelAbstract, error) {
+func (watcher *SummaryWatcher) Next(ctx context.Context) ([]params.ModelAbstract, error) {
 	var info params.SummaryWatcherNextResults
 	err := watcher.caller.APICall(
-		context.TODO(),
+		ctx,
 		watcher.objType,
 		watcher.caller.BestFacadeVersion(watcher.objType),
 		*watcher.id,
@@ -50,9 +50,9 @@ func (watcher *SummaryWatcher) Next() ([]params.ModelAbstract, error) {
 }
 
 // Stop shutdowns down a summary watcher.
-func (watcher *SummaryWatcher) Stop() error {
+func (watcher *SummaryWatcher) Stop(ctx context.Context) error {
 	return watcher.caller.APICall(
-		context.TODO(),
+		ctx,
 		watcher.objType,
 		watcher.caller.BestFacadeVersion(watcher.objType),
 		*watcher.id,

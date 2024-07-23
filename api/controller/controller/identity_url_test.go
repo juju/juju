@@ -4,6 +4,8 @@
 package controller_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -22,7 +24,7 @@ func (s *Suite) TestIdentityProviderURLCallError(c *gc.C) {
 		},
 	}
 	client := controller.NewClient(apiCaller)
-	result, err := client.IdentityProviderURL()
+	result, err := client.IdentityProviderURL(context.Background())
 	c.Check(result, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "boom")
 }
@@ -44,7 +46,7 @@ func (s *Suite) TestIdentityProviderURL(c *gc.C) {
 	}
 
 	client := controller.NewClient(apiCaller)
-	result, err := client.IdentityProviderURL()
+	result, err := client.IdentityProviderURL(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.Equals, expURL)
 }
@@ -66,6 +68,6 @@ func (s *Suite) TestIdentityProviderURLWithErrorResult(c *gc.C) {
 	}
 
 	client := controller.NewClient(apiCaller)
-	_, err := client.IdentityProviderURL()
+	_, err := client.IdentityProviderURL(context.Background())
 	c.Assert(err, gc.ErrorMatches, "version error")
 }

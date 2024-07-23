@@ -4,6 +4,7 @@
 package block
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -113,7 +114,7 @@ func (c *listCommand) listForController(ctx *cmd.Context) (err error) {
 	}
 	defer api.Close()
 
-	result, err := api.ListBlockedModels()
+	result, err := api.ListBlockedModels(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -145,7 +146,7 @@ type blockListAPI interface {
 // that the blocks command calls.
 type controllerListAPI interface {
 	Close() error
-	ListBlockedModels() ([]params.ModelBlockInfo, error)
+	ListBlockedModels(context.Context) ([]params.ModelBlockInfo, error)
 }
 
 // BlockInfo defines the serialization behaviour of the block information.
@@ -184,7 +185,7 @@ func formatBlocks(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{TabWriter: tw}
 	w.Println("Disabled commands", "Message")
 	for _, info := range blocks {
 		w.Println(info.Commands, info.Message)
@@ -240,7 +241,7 @@ func FormatTabularBlockedModels(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{TabWriter: tw}
 	w.Println("Name", "Model UUID", "Owner", "Disabled commands")
 	for _, model := range models {
 		w.Println(model.Name, model.UUID, model.Owner, strings.Join(model.CommandSets, ", "))

@@ -4,6 +4,7 @@
 package toolsversionchecker
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -18,7 +19,7 @@ type VersionCheckerParams struct {
 }
 
 type Facade interface {
-	UpdateToolsVersion() error
+	UpdateToolsVersion(ctx context.Context) error
 }
 
 // New returns a worker that periodically wakes up to try to find out and
@@ -30,8 +31,8 @@ var New = func(api Facade, params *VersionCheckerParams) worker.Worker {
 		params: params,
 	}
 
-	f := func(stop <-chan struct{}) error {
-		return w.doCheck()
+	f := func(ctx context.Context) error {
+		return w.doCheck(ctx)
 	}
 	return jworker.NewPeriodicWorker(f, params.CheckInterval, jworker.NewTimer)
 }
@@ -41,7 +42,7 @@ type toolsVersionWorker struct {
 	params *VersionCheckerParams
 }
 
-func (w *toolsVersionWorker) doCheck() error {
-	err := w.api.UpdateToolsVersion()
+func (w *toolsVersionWorker) doCheck(ctx context.Context) error {
+	err := w.api.UpdateToolsVersion(ctx)
 	return errors.Annotate(err, "cannot update agent binaries information")
 }

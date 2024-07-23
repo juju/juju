@@ -50,7 +50,7 @@ func (s *Suite) TestDestroyController(c *gc.C) {
 	force := true
 	maxWait := time.Minute
 	timeout := time.Hour
-	err := client.DestroyController(controller.DestroyControllerParams{
+	err := client.DestroyController(context.Background(), controller.DestroyControllerParams{
 		DestroyModels:  true,
 		DestroyStorage: &destroyStorage,
 		Force:          &force,
@@ -60,7 +60,7 @@ func (s *Suite) TestDestroyController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"Controller.DestroyController", []interface{}{params.DestroyControllerArgs{
+		{FuncName: "Controller.DestroyController", Args: []interface{}{params.DestroyControllerArgs{
 			DestroyModels:  true,
 			DestroyStorage: &destroyStorage,
 			Force:          &force,
@@ -78,7 +78,7 @@ func (s *Suite) TestDestroyControllerError(c *gc.C) {
 		},
 	}
 	client := controller.NewClient(apiCaller)
-	err := client.DestroyController(controller.DestroyControllerParams{})
+	err := client.DestroyController(context.Background(), controller.DestroyControllerParams{})
 	c.Assert(err, gc.ErrorMatches, "nope")
 }
 
@@ -98,11 +98,11 @@ func (s *Suite) checkInitiateMigration(c *gc.C, spec controller.MigrationSpec) {
 			MigrationId: "id",
 		}},
 	})
-	id, err := client.InitiateMigration(spec)
+	id, err := client.InitiateMigration(context.Background(), spec)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(id, gc.Equals, "id")
 	stub.CheckCalls(c, []jujutesting.StubCall{
-		{"Controller.InitiateMigration", []interface{}{specToArgs(spec)}},
+		{FuncName: "Controller.InitiateMigration", Args: []interface{}{specToArgs(spec)}},
 	})
 }
 
@@ -137,7 +137,7 @@ func (s *Suite) TestInitiateMigrationError(c *gc.C) {
 			Error: apiservererrors.ServerError(errors.New("boom")),
 		}},
 	})
-	id, err := client.InitiateMigration(makeSpec())
+	id, err := client.InitiateMigration(context.Background(), makeSpec())
 	c.Check(id, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "boom")
 }
@@ -149,7 +149,7 @@ func (s *Suite) TestInitiateMigrationResultMismatch(c *gc.C) {
 			{MigrationId: "wtf"},
 		},
 	})
-	id, err := client.InitiateMigration(makeSpec())
+	id, err := client.InitiateMigration(context.Background(), makeSpec())
 	c.Check(id, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "unexpected number of results returned")
 }
@@ -159,7 +159,7 @@ func (s *Suite) TestInitiateMigrationCallError(c *gc.C) {
 		return errors.New("boom")
 	})
 	client := controller.NewClient(apiCaller)
-	id, err := client.InitiateMigration(makeSpec())
+	id, err := client.InitiateMigration(context.Background(), makeSpec())
 	c.Check(id, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "boom")
 }
@@ -168,7 +168,7 @@ func (s *Suite) TestInitiateMigrationValidationError(c *gc.C) {
 	client, stub := makeInitiateMigrationClient(params.InitiateMigrationResults{})
 	spec := makeSpec()
 	spec.ModelUUID = "not-a-uuid"
-	id, err := client.InitiateMigration(spec)
+	id, err := client.InitiateMigration(context.Background(), spec)
 	c.Check(id, gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, "client-side validation failed: model UUID not valid")
 	c.Check(stub.Calls(), gc.HasLen, 0) // API call shouldn't have happened
@@ -179,7 +179,7 @@ func (s *Suite) TestHostedModelConfigs_CallError(c *gc.C) {
 		return errors.New("boom")
 	})
 	client := controller.NewClient(apiCaller)
-	config, err := client.HostedModelConfigs()
+	config, err := client.HostedModelConfigs(context.Background())
 	c.Check(config, gc.HasLen, 0)
 	c.Check(err, gc.ErrorMatches, "boom")
 }
@@ -221,7 +221,7 @@ func (s *Suite) TestHostedModelConfigs_FormatResults(c *gc.C) {
 		return nil
 	})
 	client := controller.NewClient(apiCaller)
-	config, err := client.HostedModelConfigs()
+	config, err := client.HostedModelConfigs(context.Background())
 	c.Assert(config, gc.HasLen, 3)
 	c.Assert(err, jc.ErrorIsNil)
 	first := config[0]
@@ -303,7 +303,7 @@ func (s *Suite) TestModelStatus(c *gc.C) {
 			c.Check(id, gc.Equals, "")
 			c.Check(request, gc.Equals, "ModelStatus")
 			c.Check(arg, jc.DeepEquals, params.Entities{
-				[]params.Entity{
+				Entities: []params.Entity{
 					{Tag: coretesting.ModelTag.String()},
 					{Tag: coretesting.ModelTag.String()},
 				},
@@ -371,7 +371,7 @@ func (s *Suite) TestConfigSet(c *gc.C) {
 		},
 	}
 	client := controller.NewClient(apiCaller)
-	err := client.ConfigSet(map[string]interface{}{
+	err := client.ConfigSet(context.Background(), map[string]interface{}{
 		"some-setting": 345,
 	})
 	c.Assert(err, gc.ErrorMatches, "ruth mundy")
@@ -390,7 +390,7 @@ func (s *Suite) TestWatchModelSummaries(c *gc.C) {
 		},
 	}
 	client := controller.NewClient(apiCaller)
-	watcher, err := client.WatchModelSummaries()
+	watcher, err := client.WatchModelSummaries(context.Background())
 	c.Assert(err, gc.ErrorMatches, "some error")
 	c.Assert(watcher, gc.IsNil)
 }
@@ -408,7 +408,7 @@ func (s *Suite) TestWatchAllModelSummaries(c *gc.C) {
 		},
 	}
 	client := controller.NewClient(apiCaller)
-	watcher, err := client.WatchAllModelSummaries()
+	watcher, err := client.WatchAllModelSummaries(context.Background())
 	c.Assert(err, gc.ErrorMatches, "some error")
 	c.Assert(watcher, gc.IsNil)
 }
@@ -431,7 +431,7 @@ func (s *Suite) TestDashboardConnectionInfo(c *gc.C) {
 			return nil
 		})
 	client := controller.NewClient(apiCaller)
-	connectionInfo, err := client.DashboardConnectionInfo(proxyfactory.NewFactory())
+	connectionInfo, err := client.DashboardConnectionInfo(context.Background(), proxyfactory.NewFactory())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(connectionInfo.SSHTunnel, gc.NotNil)
 }
@@ -459,7 +459,7 @@ func (s *Suite) TestAllModels(c *gc.C) {
 	})
 
 	client := controller.NewClient(apiCaller)
-	m, err := client.AllModels()
+	m, err := client.AllModels(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m, jc.DeepEquals, []base.UserModel{{
 		Name:           "test",
@@ -513,7 +513,7 @@ func (s *Suite) TestListBlockedModels(c *gc.C) {
 	})
 
 	client := controller.NewClient(apiCaller)
-	results, err := client.ListBlockedModels()
+	results, err := client.ListBlockedModels(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, []params.ModelBlockInfo{
 		{
@@ -539,7 +539,7 @@ func (s *Suite) TestRemoveBlocks(c *gc.C) {
 	})
 
 	client := controller.NewClient(apiCaller)
-	err := client.RemoveBlocks()
+	err := client.RemoveBlocks(context.Background())
 	c.Assert(err, gc.ErrorMatches, "some error")
 }
 
@@ -564,7 +564,7 @@ func (s *Suite) TestGetControllerAccess(c *gc.C) {
 	})
 
 	client := controller.NewClient(apiCaller)
-	access, err := client.GetControllerAccess("fred")
+	access, err := client.GetControllerAccess(context.Background(), "fred")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(access, gc.Equals, permission.SuperuserAccess)
 }

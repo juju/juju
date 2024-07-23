@@ -49,7 +49,7 @@ func newMockRelationsFacade(stub *testing.Stub) *mockRelationsFacade {
 	}
 }
 
-func (m *mockRelationsFacade) WatchRemoteApplications() (watcher.StringsWatcher, error) {
+func (m *mockRelationsFacade) WatchRemoteApplications(ctx context.Context) (watcher.StringsWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "WatchRemoteApplications")
@@ -90,7 +90,7 @@ func (m *mockRelationsFacade) updateRelationLife(key string, life life.Value) (*
 	return w, ok
 }
 
-func (m *mockRelationsFacade) WatchRemoteApplicationRelations(application string) (watcher.StringsWatcher, error) {
+func (m *mockRelationsFacade) WatchRemoteApplicationRelations(ctx context.Context, application string) (watcher.StringsWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "WatchRemoteApplicationRelations", application)
@@ -101,7 +101,7 @@ func (m *mockRelationsFacade) WatchRemoteApplicationRelations(application string
 	return m.remoteApplicationRelationsWatchers[application], nil
 }
 
-func (m *mockRelationsFacade) ExportEntities(entities []names.Tag) ([]params.TokenResult, error) {
+func (m *mockRelationsFacade) ExportEntities(ctx context.Context, entities []names.Tag) ([]params.TokenResult, error) {
 	m.stub.MethodCall(m, "ExportEntities", entities)
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
@@ -115,17 +115,17 @@ func (m *mockRelationsFacade) ExportEntities(entities []names.Tag) ([]params.Tok
 	return result, nil
 }
 
-func (m *mockRelationsFacade) ImportRemoteEntity(entity names.Tag, token string) error {
+func (m *mockRelationsFacade) ImportRemoteEntity(ctx context.Context, entity names.Tag, token string) error {
 	m.stub.MethodCall(m, "ImportRemoteEntity", entity, token)
 	return m.stub.NextErr()
 }
 
-func (m *mockRelationsFacade) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
+func (m *mockRelationsFacade) SaveMacaroon(ctx context.Context, entity names.Tag, mac *macaroon.Macaroon) error {
 	m.stub.MethodCall(m, "SaveMacaroon", entity, mac)
 	return m.stub.NextErr()
 }
 
-func (m *mockRelationsFacade) GetToken(entity names.Tag) (string, error) {
+func (m *mockRelationsFacade) GetToken(ctx context.Context, entity names.Tag) (string, error) {
 	m.stub.MethodCall(m, "GetToken", entity)
 	if err := m.stub.NextErr(); err != nil {
 		return "", err
@@ -133,7 +133,7 @@ func (m *mockRelationsFacade) GetToken(entity names.Tag) (string, error) {
 	return "token-" + entity.Id(), nil
 }
 
-func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.RemoteApplicationResult, error) {
+func (m *mockRelationsFacade) RemoteApplications(ctx context.Context, names []string) ([]params.RemoteApplicationResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "RemoteApplications", names)
@@ -167,7 +167,7 @@ func (m *mockRelationsFacade) RemoteApplications(names []string) ([]params.Remot
 	return result, nil
 }
 
-func (m *mockRelationsFacade) ConsumeRemoteSecretChanges(changes []watcher.SecretRevisionChange) error {
+func (m *mockRelationsFacade) ConsumeRemoteSecretChanges(ctx context.Context, changes []watcher.SecretRevisionChange) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "ConsumeRemoteSecretChanges", changes)
@@ -180,7 +180,7 @@ type relationEndpointInfo struct {
 	remoteEndpointName   string
 }
 
-func (m *mockRelationsFacade) Relations(keys []string) ([]params.RemoteRelationResult, error) {
+func (m *mockRelationsFacade) Relations(ctx context.Context, keys []string) ([]params.RemoteRelationResult, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "Relations", keys)
@@ -215,7 +215,7 @@ func (m *mockRelationsFacade) remoteRelationWatcher(key string) (*mockRemoteRela
 	return w, ok
 }
 
-func (m *mockRelationsFacade) WatchLocalRelationChanges(relationKey string) (apiwatcher.RemoteRelationWatcher, error) {
+func (m *mockRelationsFacade) WatchLocalRelationChanges(ctx context.Context, relationKey string) (apiwatcher.RemoteRelationWatcher, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stub.MethodCall(m, "WatchLocalRelationChanges", relationKey)
@@ -226,7 +226,7 @@ func (m *mockRelationsFacade) WatchLocalRelationChanges(relationKey string) (api
 	return m.remoteRelationWatchers[relationKey], nil
 }
 
-func (m *mockRelationsFacade) ConsumeRemoteRelationChange(change params.RemoteRelationChangeEvent) error {
+func (m *mockRelationsFacade) ConsumeRemoteRelationChange(ctx context.Context, change params.RemoteRelationChangeEvent) error {
 	m.stub.MethodCall(m, "ConsumeRemoteRelationChange", change)
 	if err := m.stub.NextErr(); err != nil {
 		return err
@@ -234,7 +234,7 @@ func (m *mockRelationsFacade) ConsumeRemoteRelationChange(change params.RemoteRe
 	return nil
 }
 
-func (m *mockRelationsFacade) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
+func (m *mockRelationsFacade) ControllerAPIInfoForModel(ctx context.Context, modelUUID string) (*api.Info, error) {
 	m.stub.MethodCall(m, "ControllerAPIInfoForModel", modelUUID)
 	if err := m.stub.NextErr(); err != nil {
 		return nil, err
@@ -242,12 +242,12 @@ func (m *mockRelationsFacade) ControllerAPIInfoForModel(modelUUID string) (*api.
 	return m.controllerInfo[modelUUID], nil
 }
 
-func (m *mockRelationsFacade) SetRemoteApplicationStatus(applicationName string, status status.Status, message string) error {
+func (m *mockRelationsFacade) SetRemoteApplicationStatus(ctx context.Context, applicationName string, status status.Status, message string) error {
 	m.stub.MethodCall(m, "SetRemoteApplicationStatus", applicationName, status.String(), message)
 	return nil
 }
 
-func (m *mockRelationsFacade) UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error {
+func (m *mockRelationsFacade) UpdateControllerForModel(ctx context.Context, controller crossmodel.ControllerInfo, modelUUID string) error {
 	m.stub.MethodCall(m, "UpdateControllerForModel", controller, modelUUID)
 	if err := m.stub.NextErr(); err != nil {
 		return err

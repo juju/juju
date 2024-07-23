@@ -79,18 +79,18 @@ func (c *MockSecretsFacadeDeleteObsoleteUserSecretRevisionsCall) DoAndReturn(f f
 }
 
 // WatchRevisionsToPrune mocks base method.
-func (m *MockSecretsFacade) WatchRevisionsToPrune() (watcher.Watcher[struct{}], error) {
+func (m *MockSecretsFacade) WatchRevisionsToPrune(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchRevisionsToPrune")
+	ret := m.ctrl.Call(m, "WatchRevisionsToPrune", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchRevisionsToPrune indicates an expected call of WatchRevisionsToPrune.
-func (mr *MockSecretsFacadeMockRecorder) WatchRevisionsToPrune() *MockSecretsFacadeWatchRevisionsToPruneCall {
+func (mr *MockSecretsFacadeMockRecorder) WatchRevisionsToPrune(arg0 any) *MockSecretsFacadeWatchRevisionsToPruneCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRevisionsToPrune", reflect.TypeOf((*MockSecretsFacade)(nil).WatchRevisionsToPrune))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchRevisionsToPrune", reflect.TypeOf((*MockSecretsFacade)(nil).WatchRevisionsToPrune), arg0)
 	return &MockSecretsFacadeWatchRevisionsToPruneCall{Call: call}
 }
 
@@ -106,13 +106,13 @@ func (c *MockSecretsFacadeWatchRevisionsToPruneCall) Return(arg0 watcher.Watcher
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretsFacadeWatchRevisionsToPruneCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockSecretsFacadeWatchRevisionsToPruneCall {
+func (c *MockSecretsFacadeWatchRevisionsToPruneCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockSecretsFacadeWatchRevisionsToPruneCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretsFacadeWatchRevisionsToPruneCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockSecretsFacadeWatchRevisionsToPruneCall {
+func (c *MockSecretsFacadeWatchRevisionsToPruneCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockSecretsFacadeWatchRevisionsToPruneCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

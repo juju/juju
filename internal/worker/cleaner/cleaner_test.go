@@ -4,6 +4,7 @@
 package cleaner_test
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -57,7 +58,7 @@ func (s *CleanerSuite) AssertEmpty(c *gc.C) {
 }
 
 func (s *CleanerSuite) TestCleaner(c *gc.C) {
-	cln, err := cleaner.NewCleaner(s.mockState, s.mockClock, s.logger)
+	cln, err := cleaner.NewCleaner(context.Background(), s.mockState, s.mockClock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Stop(cln), jc.ErrorIsNil) }()
 
@@ -71,7 +72,7 @@ func (s *CleanerSuite) TestCleaner(c *gc.C) {
 }
 
 func (s *CleanerSuite) TestCleanerPeriodic(c *gc.C) {
-	cln, err := cleaner.NewCleaner(s.mockState, s.mockClock, s.logger)
+	cln, err := cleaner.NewCleaner(context.Background(), s.mockState, s.mockClock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() { c.Assert(worker.Stop(cln), jc.ErrorIsNil) }()
 
@@ -93,7 +94,7 @@ func (s *CleanerSuite) TestCleanerPeriodic(c *gc.C) {
 
 func (s *CleanerSuite) TestWatchCleanupsError(c *gc.C) {
 	s.mockState.err = []error{errors.New("hello")}
-	_, err := cleaner.NewCleaner(s.mockState, s.mockClock, s.logger)
+	_, err := cleaner.NewCleaner(context.Background(), s.mockState, s.mockClock, s.logger)
 	c.Assert(err, gc.ErrorMatches, "hello")
 
 	s.AssertReceived(c, "WatchCleanups")
@@ -102,7 +103,7 @@ func (s *CleanerSuite) TestWatchCleanupsError(c *gc.C) {
 
 func (s *CleanerSuite) TestCleanupError(c *gc.C) {
 	s.mockState.err = []error{nil, errors.New("hello")}
-	cln, err := cleaner.NewCleaner(s.mockState, s.mockClock, s.logger)
+	cln, err := cleaner.NewCleaner(context.Background(), s.mockState, s.mockClock, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.AssertReceived(c, "WatchCleanups")
@@ -171,12 +172,12 @@ func (m *cleanerMock) getError() (e error) {
 	return
 }
 
-func (m *cleanerMock) Cleanup() error {
+func (m *cleanerMock) Cleanup(context.Context) error {
 	m.calls <- "Cleanup"
 	return m.getError()
 }
 
-func (m *cleanerMock) WatchCleanups() (watcher.NotifyWatcher, error) {
+func (m *cleanerMock) WatchCleanups(context.Context) (watcher.NotifyWatcher, error) {
 	m.calls <- "WatchCleanups"
 	return m.watcher, m.getError()
 }

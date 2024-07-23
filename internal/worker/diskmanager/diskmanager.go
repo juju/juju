@@ -46,8 +46,8 @@ var DefaultListBlockDevices ListBlockDevicesFunc
 // attached to the machine, and records them in state.
 var NewWorker = func(l ListBlockDevicesFunc, b BlockDeviceSetter) worker.Worker {
 	var old []blockdevice.BlockDevice
-	f := func(stop <-chan struct{}) error {
-		return doWork(context.TODO(), l, b, &old)
+	f := func(ctx context.Context) error {
+		return doWork(ctx, l, b, &old)
 	}
 	return jworker.NewPeriodicWorker(f, listBlockDevicesPeriod, jworker.NewTimer)
 }

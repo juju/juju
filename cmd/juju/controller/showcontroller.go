@@ -100,12 +100,12 @@ func (c *showControllerCommand) SetClientStore(store jujuclient.ClientStore) {
 
 // ControllerAccessAPI defines a subset of the api/controller/Client API.
 type ControllerAccessAPI interface {
-	GetControllerAccess(user string) (permission.Access, error)
+	GetControllerAccess(ctx context.Context, user string) (permission.Access, error)
 	ModelStatus(ctx context.Context, models ...names.ModelTag) ([]base.ModelStatus, error)
-	AllModels() ([]base.UserModel, error)
-	MongoVersion() (string, error)
-	IdentityProviderURL() (string, error)
-	ControllerVersion() (controller.ControllerVersion, error)
+	AllModels(ctx context.Context) ([]base.UserModel, error)
+	MongoVersion(ctx context.Context) (string, error)
+	IdentityProviderURL(ctx context.Context) (string, error)
+	ControllerVersion(ctx context.Context) (controller.ControllerVersion, error)
 	Close() error
 }
 
@@ -187,7 +187,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 			controllerVersion = c.controllerModelVersion(modelConfigClient, ctx)
 		}
 
-		ver, err := client.ControllerVersion()
+		ver, err := client.ControllerVersion(ctx)
 		if err != nil && !errors.Is(err, errors.NotSupported) {
 			details.Errors = append(details.Errors, err.Error())
 			agentGitCommit = "(error)"
@@ -209,7 +209,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		// has Superuser access we default to an empty model list which
 		// allows us to display non-model controller details.
 		if permission.Access(access).EqualOrGreaterControllerAccessThan(permission.SuperuserAccess) {
-			if allModels, err = client.AllModels(); err != nil {
+			if allModels, err = client.AllModels(ctx); err != nil {
 				details.Errors = append(details.Errors, err.Error())
 			} else {
 				// Update client store.
@@ -218,7 +218,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 				}
 			}
 			// Fetch mongoVersion if the apiserver supports it
-			mongoVersion, err = client.MongoVersion()
+			mongoVersion, err = client.MongoVersion(ctx)
 			if err != nil && !errors.Is(err, errors.NotSupported) {
 				details.Errors = append(details.Errors, err.Error())
 				mongoVersion = "(error)"
@@ -226,7 +226,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 		}
 
 		// Fetch identityURL if the apiserver supports it
-		identityURL, err := client.IdentityProviderURL()
+		identityURL, err := client.IdentityProviderURL(ctx)
 		if err != nil && !errors.Is(err, errors.NotSupported) {
 			details.Errors = append(details.Errors, err.Error())
 			identityURL = "(error)"
@@ -276,7 +276,7 @@ func (c *showControllerCommand) Run(ctx *cmd.Context) error {
 
 func (c *showControllerCommand) userAccess(client ControllerAccessAPI, ctx *cmd.Context, user string) string {
 	var access string
-	userAccess, err := client.GetControllerAccess(user)
+	userAccess, err := client.GetControllerAccess(ctx, user)
 	if err == nil {
 		access = string(userAccess)
 	} else {

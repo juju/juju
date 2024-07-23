@@ -14,9 +14,9 @@ import (
 // IdentityProviderURL returns the URL of the configured external identity
 // provider for this controller or an empty string if no external identity
 // provider has been configured when the controller was bootstrapped.
-func (c *Client) IdentityProviderURL() (string, error) {
+func (c *Client) IdentityProviderURL(ctx context.Context) (string, error) {
 	var result params.StringResult
-	err := c.facade.FacadeCall(context.TODO(), "IdentityProviderURL", nil, &result)
+	err := c.facade.FacadeCall(ctx, "IdentityProviderURL", nil, &result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

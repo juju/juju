@@ -4,6 +4,8 @@
 package environupgrader_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -43,7 +45,7 @@ func (s *EnvironUpgraderSuite) TestModelEnvironVersion(c *gc.C) {
 	})
 
 	client := environupgrader.NewClient(apiCaller)
-	version, err := client.ModelEnvironVersion(modelTag)
+	version, err := client.ModelEnvironVersion(context.Background(), modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(version, gc.Equals, 1)
 }
@@ -59,7 +61,7 @@ func (s *EnvironUpgraderSuite) TestModelEnvironVersionError(c *gc.C) {
 	})
 
 	client := environupgrader.NewClient(apiCaller)
-	_, err := client.ModelEnvironVersion(modelTag)
+	_, err := client.ModelEnvironVersion(context.Background(), modelTag)
 	c.Assert(err, gc.ErrorMatches, "foo")
 }
 
@@ -72,7 +74,7 @@ func (s *EnvironUpgraderSuite) TestModelEnvironArityMismatch(c *gc.C) {
 	})
 
 	client := environupgrader.NewClient(apiCaller)
-	_, err := client.ModelEnvironVersion(modelTag)
+	_, err := client.ModelEnvironVersion(context.Background(), modelTag)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
@@ -95,7 +97,7 @@ func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 	})
 
 	client := environupgrader.NewClient(apiCaller)
-	version, err := client.ModelTargetEnvironVersion(modelTag)
+	version, err := client.ModelTargetEnvironVersion(context.Background(), modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(version, gc.Equals, 1)
 }
@@ -111,7 +113,7 @@ func (s *EnvironUpgraderSuite) TestModelTargetEnvironVersionError(c *gc.C) {
 	})
 
 	client := environupgrader.NewClient(apiCaller)
-	_, err := client.ModelTargetEnvironVersion(modelTag)
+	_, err := client.ModelTargetEnvironVersion(context.Background(), modelTag)
 	c.Assert(err, gc.ErrorMatches, "foo")
 }
 
@@ -124,7 +126,7 @@ func (s *EnvironUpgraderSuite) TestModelTargetEnvironArityMismatch(c *gc.C) {
 	})
 
 	client := environupgrader.NewClient(apiCaller)
-	_, err := client.ModelTargetEnvironVersion(modelTag)
+	_, err := client.ModelTargetEnvironVersion(context.Background(), modelTag)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
@@ -148,7 +150,7 @@ func (s *EnvironUpgraderSuite) TestSetModelEnvironVersion(c *gc.C) {
 	})
 
 	client := environupgrader.NewClient(apiCaller)
-	err := client.SetModelEnvironVersion(modelTag, 1)
+	err := client.SetModelEnvironVersion(context.Background(), modelTag, 1)
 	c.Assert(err, gc.ErrorMatches, "foo")
 }
 
@@ -161,7 +163,7 @@ func (s *EnvironUpgraderSuite) TestSetModelEnvironVersionArityMismatch(c *gc.C) 
 	})
 
 	client := environupgrader.NewClient(apiCaller)
-	err := client.SetModelEnvironVersion(modelTag, 1)
+	err := client.SetModelEnvironVersion(context.Background(), modelTag, 1)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
@@ -189,7 +191,7 @@ func (s *EnvironUpgraderSuite) TestSetModelStatus(c *gc.C) {
 	})
 
 	client := environupgrader.NewClient(apiCaller)
-	err := client.SetModelStatus(modelTag, "foo", "bar", map[string]interface{}{
+	err := client.SetModelStatus(context.Background(), modelTag, "foo", "bar", map[string]interface{}{
 		"baz": "qux",
 	})
 	c.Assert(err, gc.ErrorMatches, "foo")
@@ -204,6 +206,6 @@ func (s *EnvironUpgraderSuite) TestSetModelStatusArityMismatch(c *gc.C) {
 	})
 
 	client := environupgrader.NewClient(apiCaller)
-	err := client.SetModelStatus(modelTag, "foo", "bar", nil)
+	err := client.SetModelStatus(context.Background(), modelTag, "foo", "bar", nil)
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }

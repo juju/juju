@@ -635,7 +635,7 @@ type fakeController struct {
 	emptyModelStatus  bool
 }
 
-func (c *fakeController) GetControllerAccess(user string) (permission.Access, error) {
+func (c *fakeController) GetControllerAccess(ctx context.Context, user string) (permission.Access, error) {
 	return c.access, nil
 }
 
@@ -656,11 +656,11 @@ func (c *fakeController) ModelStatus(_ context.Context, models ...names.ModelTag
 	return result, nil
 }
 
-func (c *fakeController) MongoVersion() (string, error) {
+func (c *fakeController) MongoVersion(ctx context.Context) (string, error) {
 	return "3.5.12", nil
 }
 
-func (c *fakeController) AllModels() (result []base.UserModel, _ error) {
+func (c *fakeController) AllModels(ctx context.Context) (result []base.UserModel, _ error) {
 	models := map[string][]base.UserModel{
 		"aws-test": {
 			{Name: "controller", UUID: "ghi", Owner: "admin", Type: model.IAAS},
@@ -681,11 +681,11 @@ func (c *fakeController) AllModels() (result []base.UserModel, _ error) {
 	return all, nil
 }
 
-func (c *fakeController) IdentityProviderURL() (string, error) {
+func (c *fakeController) IdentityProviderURL(ctx context.Context) (string, error) {
 	return c.identityURL, nil
 }
 
-func (c *fakeController) ControllerVersion() (apicontroller.ControllerVersion, error) {
+func (c *fakeController) ControllerVersion(ctx context.Context) (apicontroller.ControllerVersion, error) {
 	return c.controllerVersion, nil
 }
 

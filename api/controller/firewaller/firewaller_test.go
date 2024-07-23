@@ -4,6 +4,8 @@
 package firewaller_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -42,7 +44,7 @@ func (s *firewallerSuite) TestModelFirewallRules(c *gc.C) {
 	})
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.ModelFirewallRules()
+	_, err = client.ModelFirewallRules(context.Background())
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -64,7 +66,7 @@ func (s *firewallerSuite) TestWatchModelFirewallRules(c *gc.C) {
 	})
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.WatchModelFirewallRules()
+	_, err = client.WatchModelFirewallRules(context.Background())
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -86,7 +88,7 @@ func (s *firewallerSuite) TestWatchModelMachines(c *gc.C) {
 	})
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.WatchModelMachines()
+	_, err = client.WatchModelMachines(context.Background())
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -110,7 +112,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	})
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.WatchOpenedPorts()
+	_, err = client.WatchOpenedPorts(context.Background())
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -135,7 +137,7 @@ func (s *firewallerSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
 	})
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.WatchEgressAddressesForRelation(relationTag)
+	_, err = client.WatchEgressAddressesForRelation(context.Background(), relationTag)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -160,7 +162,7 @@ func (s *firewallerSuite) TestWatchInressAddressesForRelation(c *gc.C) {
 	})
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.WatchIngressAddressesForRelation(relationTag)
+	_, err = client.WatchIngressAddressesForRelation(context.Background(), relationTag)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -184,7 +186,7 @@ func (s *firewallerSuite) TestControllerAPIInfoForModel(c *gc.C) {
 	})
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.ControllerAPIInfoForModel(coretesting.ModelTag.Id())
+	_, err = client.ControllerAPIInfoForModel(context.Background(), coretesting.ModelTag.Id())
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -209,7 +211,7 @@ func (s *firewallerSuite) TestMacaroonForRelation(c *gc.C) {
 	})
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = client.MacaroonForRelation("mysql:db wordpress:db")
+	_, err = client.MacaroonForRelation(context.Background(), "mysql:db wordpress:db")
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -238,7 +240,7 @@ func (s *firewallerSuite) TestSetRelationStatus(c *gc.C) {
 	})
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	err = client.SetRelationStatus("mysql:db wordpress:db", relation.Suspended, "a message")
+	err = client.SetRelationStatus(context.Background(), "mysql:db wordpress:db", relation.Suspended, "a message")
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
 }
@@ -283,7 +285,7 @@ func (s *firewallerSuite) TestAllSpaceInfos(c *gc.C) {
 
 	client, err := firewaller.NewClient(apiCaller)
 	c.Assert(err, jc.ErrorIsNil)
-	got, err := client.AllSpaceInfos()
+	got, err := client.AllSpaceInfos(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
 	c.Assert(got, gc.DeepEquals, expSpaceInfos)

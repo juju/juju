@@ -4,6 +4,7 @@
 package singular_test
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -25,7 +26,7 @@ type fixture struct {
 	testing.Stub
 }
 
-func newFixture(c *gc.C, errs ...error) *fixture {
+func newFixture(errs ...error) *fixture {
 	fix := &fixture{}
 	fix.Stub.SetErrors(errs...)
 	return fix
@@ -36,7 +37,7 @@ type testFunc func(*singular.FlagWorker, *testclock.Clock, func())
 func (fix *fixture) Run(c *gc.C, test testFunc) {
 	facade := newStubFacade(&fix.Stub)
 	clock := testclock.NewClock(time.Now())
-	flagWorker, err := singular.NewFlagWorker(singular.FlagConfig{
+	flagWorker, err := singular.NewFlagWorker(context.Background(), singular.FlagConfig{
 		Facade:   facade,
 		Clock:    clock,
 		Duration: time.Minute,
@@ -100,12 +101,12 @@ func (facade *stubFacade) unblock() {
 	}
 }
 
-func (facade *stubFacade) Claim(duration time.Duration) error {
+func (facade *stubFacade) Claim(ctx context.Context, duration time.Duration) error {
 	facade.stub.AddCall("Claim", duration)
 	return facade.stub.NextErr()
 }
 
-func (facade *stubFacade) Wait() error {
+func (facade *stubFacade) Wait(ctx context.Context) error {
 	facade.stub.AddCall("Wait")
 	<-facade.block
 	return facade.stub.NextErr()

@@ -95,9 +95,9 @@ func (c *Client) Machine(ctx context.Context, tag names.MachineTag) (*Machine, e
 // WatchModelMachines returns a StringsWatcher that notifies of
 // changes to the life cycles of the top level machines in the current
 // model.
-func (c *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
+func (c *Client) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall(context.TODO(), "WatchModelMachines", nil, &result)
+	err := c.facade.FacadeCall(ctx, "WatchModelMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -110,7 +110,7 @@ func (c *Client) WatchModelMachines() (watcher.StringsWatcher, error) {
 
 // WatchOpenedPorts returns a StringsWatcher that notifies of
 // changes to the opened ports for the current model.
-func (c *Client) WatchOpenedPorts() (watcher.StringsWatcher, error) {
+func (c *Client) WatchOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
 	modelTag, ok := c.ModelTag()
 	if !ok {
 		return nil, errors.New("API connection is controller-only (should never happen)")
@@ -119,7 +119,7 @@ func (c *Client) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: modelTag.String()}},
 	}
-	if err := c.facade.FacadeCall(context.TODO(), "WatchOpenedPorts", args, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchOpenedPorts", args, &results); err != nil {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
@@ -135,9 +135,9 @@ func (c *Client) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 
 // ModelFirewallRules returns the firewall rules that this model is
 // configured to open
-func (c *Client) ModelFirewallRules() (firewall.IngressRules, error) {
+func (c *Client) ModelFirewallRules(ctx context.Context) (firewall.IngressRules, error) {
 	var results params.IngressRulesResult
-	if err := c.facade.FacadeCall(context.TODO(), "ModelFirewallRules", nil, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ModelFirewallRules", nil, &results); err != nil {
 		return nil, err
 	}
 	if results.Error != nil {
@@ -152,9 +152,9 @@ func (c *Client) ModelFirewallRules() (firewall.IngressRules, error) {
 
 // WatchModelFirewallRules returns a NotifyWatcher that notifies of
 // potential changes to a model's configured firewall rules
-func (c *Client) WatchModelFirewallRules() (watcher.NotifyWatcher, error) {
+func (c *Client) WatchModelFirewallRules(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall(context.TODO(), "WatchModelFirewallRules", nil, &result)
+	err := c.facade.FacadeCall(ctx, "WatchModelFirewallRules", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -182,10 +182,10 @@ func (c *Client) Relation(ctx context.Context, tag names.RelationTag) (*Relation
 // from which connections will originate to the provider side of the relation, change.
 // Each event contains the entire set of addresses which the provider side is required
 // to allow for access from the other side of the relation.
-func (c *Client) WatchEgressAddressesForRelation(relationTag names.RelationTag) (watcher.StringsWatcher, error) {
-	args := params.Entities{[]params.Entity{{Tag: relationTag.String()}}}
+func (c *Client) WatchEgressAddressesForRelation(ctx context.Context, relationTag names.RelationTag) (watcher.StringsWatcher, error) {
+	args := params.Entities{Entities: []params.Entity{{Tag: relationTag.String()}}}
 	var results params.StringsWatchResults
-	err := c.facade.FacadeCall(context.TODO(), "WatchEgressAddressesForRelations", args, &results)
+	err := c.facade.FacadeCall(ctx, "WatchEgressAddressesForRelations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -204,10 +204,10 @@ func (c *Client) WatchEgressAddressesForRelation(relationTag names.RelationTag) 
 // from which connections will originate for the relation, change.
 // Each event contains the entire set of addresses which are required
 // for ingress into this model from the other requirer side of the relation.
-func (c *Client) WatchIngressAddressesForRelation(relationTag names.RelationTag) (watcher.StringsWatcher, error) {
-	args := params.Entities{[]params.Entity{{Tag: relationTag.String()}}}
+func (c *Client) WatchIngressAddressesForRelation(ctx context.Context, relationTag names.RelationTag) (watcher.StringsWatcher, error) {
+	args := params.Entities{Entities: []params.Entity{{Tag: relationTag.String()}}}
 	var results params.StringsWatchResults
-	err := c.facade.FacadeCall(context.TODO(), "WatchIngressAddressesForRelations", args, &results)
+	err := c.facade.FacadeCall(ctx, "WatchIngressAddressesForRelations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -223,11 +223,11 @@ func (c *Client) WatchIngressAddressesForRelation(relationTag names.RelationTag)
 }
 
 // ControllerAPIInfoForModels returns the controller api connection details for the specified model.
-func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
+func (c *Client) ControllerAPIInfoForModel(ctx context.Context, modelUUID string) (*api.Info, error) {
 	modelTag := names.NewModelTag(modelUUID)
-	args := params.Entities{[]params.Entity{{Tag: modelTag.String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: modelTag.String()}}}
 	var results params.ControllerAPIInfoResults
-	err := c.facade.FacadeCall(context.TODO(), "ControllerAPIInfoForModels", args, &results)
+	err := c.facade.FacadeCall(ctx, "ControllerAPIInfoForModels", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -246,11 +246,11 @@ func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) 
 }
 
 // MacaroonForRelation returns the macaroon to use when publishing changes for the relation.
-func (c *Client) MacaroonForRelation(relationKey string) (*macaroon.Macaroon, error) {
+func (c *Client) MacaroonForRelation(ctx context.Context, relationKey string) (*macaroon.Macaroon, error) {
 	relationTag := names.NewRelationTag(relationKey)
-	args := params.Entities{[]params.Entity{{Tag: relationTag.String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: relationTag.String()}}}
 	var results params.MacaroonResults
-	err := c.facade.FacadeCall(context.TODO(), "MacaroonForRelations", args, &results)
+	err := c.facade.FacadeCall(ctx, "MacaroonForRelations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -265,14 +265,14 @@ func (c *Client) MacaroonForRelation(relationKey string) (*macaroon.Macaroon, er
 }
 
 // SetRelationStatus sets the status for a given relation.
-func (c *Client) SetRelationStatus(relationKey string, status relation.Status, message string) error {
+func (c *Client) SetRelationStatus(ctx context.Context, relationKey string, status relation.Status, message string) error {
 	relationTag := names.NewRelationTag(relationKey)
 	args := params.SetStatus{Entities: []params.EntityStatusArgs{
 		{Tag: relationTag.String(), Status: status.String(), Info: message},
 	}}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "SetRelationsStatus", args, &results)
+	err := c.facade.FacadeCall(ctx, "SetRelationsStatus", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -281,9 +281,9 @@ func (c *Client) SetRelationStatus(relationKey string, status relation.Status, m
 
 // AllSpaceInfos returns the details about the known spaces and their
 // associated subnets.
-func (c *Client) AllSpaceInfos() (network.SpaceInfos, error) {
+func (c *Client) AllSpaceInfos(ctx context.Context) (network.SpaceInfos, error) {
 	var result params.SpaceInfos
-	err := c.facade.FacadeCall(context.TODO(), "SpaceInfos", params.SpaceInfosParams{}, &result)
+	err := c.facade.FacadeCall(ctx, "SpaceInfos", params.SpaceInfosParams{}, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -292,9 +292,9 @@ func (c *Client) AllSpaceInfos() (network.SpaceInfos, error) {
 
 // WatchSubnets returns a StringsWatcher that notifies of changes to the model
 // subnets.
-func (c *Client) WatchSubnets() (watcher.StringsWatcher, error) {
+func (c *Client) WatchSubnets(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall(context.TODO(), "WatchSubnets", nil, &result)
+	err := c.facade.FacadeCall(ctx, "WatchSubnets", nil, &result)
 	if err != nil {
 		return nil, err
 	}

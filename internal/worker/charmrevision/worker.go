@@ -4,6 +4,7 @@
 package charmrevision
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -28,7 +29,7 @@ type RevisionUpdater interface {
 	// the worker, not directly on the apiserver; as this functionality needs
 	// to change/mature, please migrate responsibilities down to the worker
 	// and grow this interface to match.
-	UpdateLatestRevisions() error
+	UpdateLatestRevisions(ctx context.Context) error
 }
 
 // Config defines the operation of a charm revision updater worker.
@@ -86,6 +87,9 @@ type revisionUpdateWorker struct {
 }
 
 func (ruw *revisionUpdateWorker) loop() error {
+	ctx, cancel := ruw.scopedContext()
+	defer cancel()
+
 	for {
 		select {
 		case <-ruw.tomb.Dying():
@@ -97,7 +101,7 @@ func (ruw *revisionUpdateWorker) loop() error {
 		// update then claim the lease and run the checks.
 		case <-ruw.config.Clock.After(jitter(ruw.config.Period)):
 			ruw.config.Logger.Debugf("%v elapsed, performing work", ruw.config.Period)
-			err := ruw.config.RevisionUpdater.UpdateLatestRevisions()
+			err := ruw.config.RevisionUpdater.UpdateLatestRevisions(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -117,4 +121,8 @@ func (ruw *revisionUpdateWorker) Kill() {
 // Wait is part of the worker.Worker interface.
 func (ruw *revisionUpdateWorker) Wait() error {
 	return ruw.tomb.Wait()
+}
+
+func (ruw *revisionUpdateWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(ruw.tomb.Context(context.Background()))
 }

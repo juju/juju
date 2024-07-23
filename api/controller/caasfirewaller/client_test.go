@@ -23,11 +23,11 @@ import (
 )
 
 type clientCommmon interface {
-	WatchApplications() (watcher.StringsWatcher, error)
+	WatchApplications(context.Context) (watcher.StringsWatcher, error)
 	WatchApplication(context.Context, string) (watcher.NotifyWatcher, error)
-	IsExposed(string) (bool, error)
-	ApplicationConfig(string) (config.ConfigAttributes, error)
-	Life(string) (life.Value, error)
+	IsExposed(context.Context, string) (bool, error)
+	ApplicationConfig(context.Context, string) (config.ConfigAttributes, error)
+	Life(context.Context, string) (life.Value, error)
 }
 
 type firewallerSuite struct {
@@ -65,7 +65,7 @@ func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {
 	})
 
 	client := caasfirewaller.NewClient(apiCaller)
-	watcher, err := client.WatchOpenedPorts()
+	watcher, err := client.WatchOpenedPorts(context.Background())
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
@@ -97,7 +97,7 @@ func (s *firewallerSuite) TestGetOpenedPorts(c *gc.C) {
 	})
 
 	client := caasfirewaller.NewClient(apiCaller)
-	result, err := client.GetOpenedPorts("gitlab")
+	result, err := client.GetOpenedPorts(context.Background(), "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, network.GroupedPortRanges{
 		"": []network.PortRange{
@@ -131,7 +131,7 @@ func (s *firewallerSuite) TestIsExposed(c *gc.C) {
 	})
 
 	client := s.newFunc(apiCaller)
-	exposed, err := client.IsExposed("gitlab")
+	exposed, err := client.IsExposed(context.Background(), "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exposed, jc.IsTrue)
 }
@@ -148,7 +148,7 @@ func (s *firewallerSuite) TestIsExposedError(c *gc.C) {
 	})
 
 	client := s.newFunc(apiCaller)
-	_, err := client.IsExposed("gitlab")
+	_, err := client.IsExposed(context.Background(), "gitlab")
 	c.Assert(err, gc.ErrorMatches, "bletch")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -157,7 +157,7 @@ func (s *firewallerSuite) TestIsExposedInvalidEntityame(c *gc.C) {
 	client := s.newFunc(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
-	_, err := client.IsExposed("")
+	_, err := client.IsExposed(context.Background(), "")
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
@@ -183,7 +183,7 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 	})
 
 	client := s.newFunc(apiCaller)
-	lifeValue, err := client.Life(tag.Id())
+	lifeValue, err := client.Life(context.Background(), tag.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(lifeValue, gc.Equals, life.Alive)
 }
@@ -200,7 +200,7 @@ func (s *firewallerSuite) TestLifeError(c *gc.C) {
 	})
 
 	client := s.newFunc(apiCaller)
-	_, err := client.Life("gitlab")
+	_, err := client.Life(context.Background(), "gitlab")
 	c.Assert(err, gc.ErrorMatches, "bletch")
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
@@ -209,7 +209,7 @@ func (s *firewallerSuite) TestLifeInvalidEntityame(c *gc.C) {
 	client := s.newFunc(basetesting.APICallerFunc(func(_ string, _ int, _, _ string, _, _ interface{}) error {
 		return errors.New("should not be called")
 	}))
-	_, err := client.Life("")
+	_, err := client.Life(context.Background(), "")
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
@@ -227,7 +227,7 @@ func (s *firewallerSuite) TestWatchApplications(c *gc.C) {
 	})
 
 	client := s.newFunc(apiCaller)
-	watcher, err := client.WatchApplications()
+	watcher, err := client.WatchApplications(context.Background())
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
@@ -279,7 +279,7 @@ func (s *firewallerSuite) TestApplicationConfig(c *gc.C) {
 	})
 
 	client := s.newFunc(apiCaller)
-	cfg, err := client.ApplicationConfig("gitlab")
+	cfg, err := client.ApplicationConfig(context.Background(), "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg, jc.DeepEquals, config.ConfigAttributes{"foo": "bar"})
 }

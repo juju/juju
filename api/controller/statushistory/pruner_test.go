@@ -4,6 +4,7 @@
 package statushistory
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -37,7 +38,7 @@ func (s *prunerSuite) TestPrune(c *gc.C) {
 		},
 	)
 	client := NewClient(apiCaller)
-	err := client.Prune(time.Hour, 666)
+	err := client.Prune(context.Background(), time.Hour, 666)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

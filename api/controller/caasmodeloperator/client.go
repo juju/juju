@@ -46,9 +46,9 @@ type ModelOperatorProvisioningInfo struct {
 
 // ModelOperatorProvisioningInfo returns the information needed for a given model
 // when provisioning into a caas env
-func (c *Client) ModelOperatorProvisioningInfo() (ModelOperatorProvisioningInfo, error) {
+func (c *Client) ModelOperatorProvisioningInfo(ctx context.Context) (ModelOperatorProvisioningInfo, error) {
 	var result params.ModelOperatorInfo
-	if err := c.facade.FacadeCall(context.TODO(), "ModelOperatorProvisioningInfo", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ModelOperatorProvisioningInfo", nil, &result); err != nil {
 		return ModelOperatorProvisioningInfo{}, err
 	}
 	d := result.ImageDetails
@@ -78,7 +78,7 @@ func (c *Client) ModelOperatorProvisioningInfo() (ModelOperatorProvisioningInfo,
 }
 
 // SetPasswords sets the supplied passwords on their corresponding models
-func (c *Client) SetPassword(password string) error {
+func (c *Client) SetPassword(ctx context.Context, password string) error {
 	var result params.ErrorResults
 	modelTag, modelCon := c.facade.RawAPICaller().ModelTag()
 	if !modelCon {
@@ -91,7 +91,7 @@ func (c *Client) SetPassword(password string) error {
 			Password: password,
 		}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "SetPasswords", args, &result)
+	err := c.facade.FacadeCall(ctx, "SetPasswords", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -33,9 +33,9 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 
 // WatchRevisionsToPrune returns a watcher that triggers on secret
 // obsolete revision changes.
-func (c *Client) WatchRevisionsToPrune() (watcher.NotifyWatcher, error) {
+func (c *Client) WatchRevisionsToPrune(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := c.facade.FacadeCall(context.TODO(), "WatchRevisionsToPrune", nil, &result)
+	err := c.facade.FacadeCall(ctx, "WatchRevisionsToPrune", nil, &result)
 	if err != nil {
 		return nil, err
 	}

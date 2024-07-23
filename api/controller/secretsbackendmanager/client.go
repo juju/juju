@@ -36,9 +36,9 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 
 // WatchTokenRotationChanges returns a watcher that triggers on secret
 // backend rotation changes.
-func (c *Client) WatchTokenRotationChanges() (watcher.SecretBackendRotateWatcher, error) {
+func (c *Client) WatchTokenRotationChanges(ctx context.Context) (watcher.SecretBackendRotateWatcher, error) {
 	var result params.SecretBackendRotateWatchResult
-	err := c.facade.FacadeCall(context.TODO(), "WatchSecretBackendsRotateChanges", nil, &result)
+	err := c.facade.FacadeCall(ctx, "WatchSecretBackendsRotateChanges", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -50,9 +50,9 @@ func (c *Client) WatchTokenRotationChanges() (watcher.SecretBackendRotateWatcher
 }
 
 // RotateBackendTokens rotates the tokens for the specified secret backends.
-func (c *Client) RotateBackendTokens(backendIDs ...string) error {
+func (c *Client) RotateBackendTokens(ctx context.Context, backendIDs ...string) error {
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "RotateBackendTokens", params.RotateSecretBackendArgs{
+	err := c.facade.FacadeCall(ctx, "RotateBackendTokens", params.RotateSecretBackendArgs{
 		BackendIDs: backendIDs,
 	}, &results)
 	if err != nil {

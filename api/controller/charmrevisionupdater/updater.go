@@ -29,9 +29,9 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 
 // UpdateLatestRevisions retrieves charm revision info from a repository
 // and updates the revision info in state.
-func (st *Client) UpdateLatestRevisions() error {
+func (st *Client) UpdateLatestRevisions(ctx context.Context) error {
 	result := new(params.ErrorResult)
-	err := st.facade.FacadeCall(context.TODO(), "UpdateLatestRevisions", nil, result)
+	err := st.facade.FacadeCall(ctx, "UpdateLatestRevisions", nil, result)
 	if err != nil {
 		return err
 	}

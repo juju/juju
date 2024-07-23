@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	watcher "github.com/juju/juju/core/watcher"
@@ -41,17 +42,17 @@ func (m *MockCharmDownloaderAPI) EXPECT() *MockCharmDownloaderAPIMockRecorder {
 }
 
 // DownloadApplicationCharms mocks base method.
-func (m *MockCharmDownloaderAPI) DownloadApplicationCharms(arg0 []names.ApplicationTag) error {
+func (m *MockCharmDownloaderAPI) DownloadApplicationCharms(arg0 context.Context, arg1 []names.ApplicationTag) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadApplicationCharms", arg0)
+	ret := m.ctrl.Call(m, "DownloadApplicationCharms", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DownloadApplicationCharms indicates an expected call of DownloadApplicationCharms.
-func (mr *MockCharmDownloaderAPIMockRecorder) DownloadApplicationCharms(arg0 any) *MockCharmDownloaderAPIDownloadApplicationCharmsCall {
+func (mr *MockCharmDownloaderAPIMockRecorder) DownloadApplicationCharms(arg0, arg1 any) *MockCharmDownloaderAPIDownloadApplicationCharmsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadApplicationCharms", reflect.TypeOf((*MockCharmDownloaderAPI)(nil).DownloadApplicationCharms), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadApplicationCharms", reflect.TypeOf((*MockCharmDownloaderAPI)(nil).DownloadApplicationCharms), arg0, arg1)
 	return &MockCharmDownloaderAPIDownloadApplicationCharmsCall{Call: call}
 }
 
@@ -67,30 +68,30 @@ func (c *MockCharmDownloaderAPIDownloadApplicationCharmsCall) Return(arg0 error)
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmDownloaderAPIDownloadApplicationCharmsCall) Do(f func([]names.ApplicationTag) error) *MockCharmDownloaderAPIDownloadApplicationCharmsCall {
+func (c *MockCharmDownloaderAPIDownloadApplicationCharmsCall) Do(f func(context.Context, []names.ApplicationTag) error) *MockCharmDownloaderAPIDownloadApplicationCharmsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmDownloaderAPIDownloadApplicationCharmsCall) DoAndReturn(f func([]names.ApplicationTag) error) *MockCharmDownloaderAPIDownloadApplicationCharmsCall {
+func (c *MockCharmDownloaderAPIDownloadApplicationCharmsCall) DoAndReturn(f func(context.Context, []names.ApplicationTag) error) *MockCharmDownloaderAPIDownloadApplicationCharmsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchApplicationsWithPendingCharms mocks base method.
-func (m *MockCharmDownloaderAPI) WatchApplicationsWithPendingCharms() (watcher.Watcher[[]string], error) {
+func (m *MockCharmDownloaderAPI) WatchApplicationsWithPendingCharms(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchApplicationsWithPendingCharms")
+	ret := m.ctrl.Call(m, "WatchApplicationsWithPendingCharms", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchApplicationsWithPendingCharms indicates an expected call of WatchApplicationsWithPendingCharms.
-func (mr *MockCharmDownloaderAPIMockRecorder) WatchApplicationsWithPendingCharms() *MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall {
+func (mr *MockCharmDownloaderAPIMockRecorder) WatchApplicationsWithPendingCharms(arg0 any) *MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationsWithPendingCharms", reflect.TypeOf((*MockCharmDownloaderAPI)(nil).WatchApplicationsWithPendingCharms))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchApplicationsWithPendingCharms", reflect.TypeOf((*MockCharmDownloaderAPI)(nil).WatchApplicationsWithPendingCharms), arg0)
 	return &MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall{Call: call}
 }
 
@@ -106,13 +107,13 @@ func (c *MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall) Return(ar
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall) Do(f func() (watcher.Watcher[[]string], error)) *MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall {
+func (c *MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall {
+func (c *MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockCharmDownloaderAPIWatchApplicationsWithPendingCharmsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

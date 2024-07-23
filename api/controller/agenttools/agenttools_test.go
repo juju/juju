@@ -4,6 +4,8 @@
 package agenttools_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -35,7 +37,7 @@ func (s *AgentToolsSuite) TestUpdateToolsVersion(c *gc.C) {
 			return nil
 		})
 	client := agenttools.NewFacade(apiCaller)
-	err := client.UpdateToolsVersion()
+	err := client.UpdateToolsVersion(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(called, jc.IsTrue)
 }

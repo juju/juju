@@ -32,17 +32,17 @@ type Client struct {
 // NewClient creates a new `Client` based on an existing authenticated API
 // connection.
 func NewClient(caller base.APICaller, options ...Option) *Client {
-	return &Client{base.NewFacadeCaller(caller, "EnvironUpgrader", options...)}
+	return &Client{facade: base.NewFacadeCaller(caller, "EnvironUpgrader", options...)}
 }
 
 // ModelEnvironVersion returns the current version of the environ corresponding
 // to the specified model.
-func (c *Client) ModelEnvironVersion(tag names.ModelTag) (int, error) {
+func (c *Client) ModelEnvironVersion(ctx context.Context, tag names.ModelTag) (int, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.IntResults
-	err := c.facade.FacadeCall(context.TODO(), "ModelEnvironVersion", &args, &results)
+	err := c.facade.FacadeCall(ctx, "ModelEnvironVersion", &args, &results)
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
@@ -57,12 +57,12 @@ func (c *Client) ModelEnvironVersion(tag names.ModelTag) (int, error) {
 
 // ModelTargetEnvironVersion returns the target version of the environ
 // corresponding to the specified model.
-func (c *Client) ModelTargetEnvironVersion(tag names.ModelTag) (int, error) {
+func (c *Client) ModelTargetEnvironVersion(ctx context.Context, tag names.ModelTag) (int, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.IntResults
-	err := c.facade.FacadeCall(context.TODO(), "ModelTargetEnvironVersion", &args, &results)
+	err := c.facade.FacadeCall(ctx, "ModelTargetEnvironVersion", &args, &results)
 	if err != nil {
 		return -1, errors.Trace(err)
 	}
@@ -77,7 +77,7 @@ func (c *Client) ModelTargetEnvironVersion(tag names.ModelTag) (int, error) {
 
 // SetModelEnvironVersion sets the current version of the environ corresponding
 // to the specified model.
-func (c *Client) SetModelEnvironVersion(tag names.ModelTag, v int) error {
+func (c *Client) SetModelEnvironVersion(ctx context.Context, tag names.ModelTag, v int) error {
 	args := params.SetModelEnvironVersions{
 		Models: []params.SetModelEnvironVersion{{
 			ModelTag: tag.String(),
@@ -85,7 +85,7 @@ func (c *Client) SetModelEnvironVersion(tag names.ModelTag, v int) error {
 		}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "SetModelEnvironVersion", &args, &results)
+	err := c.facade.FacadeCall(ctx, "SetModelEnvironVersion", &args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -99,14 +99,14 @@ func (c *Client) WatchModelEnvironVersion(ctx context.Context, tag names.ModelTa
 }
 
 // SetModelStatus sets the status of a model.
-func (c *Client) SetModelStatus(tag names.ModelTag, status status.Status, info string, data map[string]interface{}) error {
+func (c *Client) SetModelStatus(ctx context.Context, tag names.ModelTag, status status.Status, info string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
 			{Tag: tag.String(), Status: status.String(), Info: info, Data: data},
 		},
 	}
-	if err := c.facade.FacadeCall(context.TODO(), "SetModelStatus", args, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "SetModelStatus", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	return result.OneError()

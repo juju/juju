@@ -4,6 +4,8 @@
 package singular
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 	"github.com/juju/worker/v4"
@@ -25,8 +27,8 @@ func NewFacade(apiCaller base.APICaller, claimant names.Tag, entity names.Tag) (
 
 // NewWorker calls NewFlagWorker but returns a more convenient type. It's
 // a suitable default value for ManifoldConfig.NewWorker.
-func NewWorker(config FlagConfig) (worker.Worker, error) {
-	worker, err := NewFlagWorker(config)
+func NewWorker(ctx context.Context, config FlagConfig) (worker.Worker, error) {
+	worker, err := NewFlagWorker(ctx, config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

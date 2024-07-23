@@ -1281,7 +1281,7 @@ func (f *stubMasterFacade) queueMinionReports(r coremigration.MinionReports) {
 	f.triggerMinionReports()
 }
 
-func (f *stubMasterFacade) Watch() (watcher.NotifyWatcher, error) {
+func (f *stubMasterFacade) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	f.stub.AddCall("facade.Watch")
 	if f.watchErr != nil {
 		return nil, f.watchErr
@@ -1289,7 +1289,7 @@ func (f *stubMasterFacade) Watch() (watcher.NotifyWatcher, error) {
 	return newMockWatcher(f.watcherChanges), nil
 }
 
-func (f *stubMasterFacade) MigrationStatus() (coremigration.MigrationStatus, error) {
+func (f *stubMasterFacade) MigrationStatus(ctx context.Context) (coremigration.MigrationStatus, error) {
 	f.stub.AddCall("facade.MigrationStatus")
 	if f.statusErr != nil {
 		return coremigration.MigrationStatus{}, f.statusErr
@@ -1302,7 +1302,7 @@ func (f *stubMasterFacade) MigrationStatus() (coremigration.MigrationStatus, err
 	return out, nil
 }
 
-func (f *stubMasterFacade) WatchMinionReports() (watcher.NotifyWatcher, error) {
+func (f *stubMasterFacade) WatchMinionReports(ctx context.Context) (watcher.NotifyWatcher, error) {
 	f.stub.AddCall("facade.WatchMinionReports")
 	if f.minionReportsWatchErr != nil {
 		return nil, f.minionReportsWatchErr
@@ -1310,7 +1310,7 @@ func (f *stubMasterFacade) WatchMinionReports() (watcher.NotifyWatcher, error) {
 	return newMockWatcher(f.minionReportsChanges), nil
 }
 
-func (f *stubMasterFacade) MinionReports() (coremigration.MinionReports, error) {
+func (f *stubMasterFacade) MinionReports(ctx context.Context) (coremigration.MinionReports, error) {
 	f.stub.AddCall("facade.MinionReports")
 	if f.minionReportsErr != nil {
 		return coremigration.MinionReports{}, f.minionReportsErr
@@ -1324,17 +1324,17 @@ func (f *stubMasterFacade) MinionReports() (coremigration.MinionReports, error) 
 	return r, nil
 }
 
-func (f *stubMasterFacade) MinionReportTimeout() (time.Duration, error) {
+func (f *stubMasterFacade) MinionReportTimeout(ctx context.Context) (time.Duration, error) {
 	f.stub.AddCall("facade.MinionReportTimeout")
 	return f.minionReportTimeout, nil
 }
 
-func (f *stubMasterFacade) Prechecks() error {
+func (f *stubMasterFacade) Prechecks(ctx context.Context) error {
 	f.stub.AddCall("facade.Prechecks")
 	return f.prechecksErr
 }
 
-func (f *stubMasterFacade) ModelInfo() (coremigration.ModelInfo, error) {
+func (f *stubMasterFacade) ModelInfo(ctx context.Context) (coremigration.ModelInfo, error) {
 	f.stub.AddCall("facade.ModelInfo")
 	if f.modelInfoErr != nil {
 		return coremigration.ModelInfo{}, f.modelInfoErr
@@ -1348,7 +1348,7 @@ func (f *stubMasterFacade) ModelInfo() (coremigration.ModelInfo, error) {
 	}, nil
 }
 
-func (f *stubMasterFacade) SourceControllerInfo() (coremigration.SourceControllerInfo, []string, error) {
+func (f *stubMasterFacade) SourceControllerInfo(ctx context.Context) (coremigration.SourceControllerInfo, []string, error) {
 	f.stub.AddCall("facade.SourceControllerInfo")
 	return coremigration.SourceControllerInfo{
 		ControllerTag:   sourceControllerTag,
@@ -1358,7 +1358,7 @@ func (f *stubMasterFacade) SourceControllerInfo() (coremigration.SourceControlle
 	}, []string{"related-model-uuid"}, nil
 }
 
-func (f *stubMasterFacade) Export() (coremigration.SerializedModel, error) {
+func (f *stubMasterFacade) Export(ctx context.Context) (coremigration.SerializedModel, error) {
 	f.stub.AddCall("facade.Export")
 	if f.exportErr != nil {
 		return coremigration.SerializedModel{}, f.exportErr
@@ -1373,7 +1373,7 @@ func (f *stubMasterFacade) Export() (coremigration.SerializedModel, error) {
 	}, nil
 }
 
-func (f *stubMasterFacade) ProcessRelations(controllerAlias string) error {
+func (f *stubMasterFacade) ProcessRelations(ctx context.Context, controllerAlias string) error {
 	f.stub.AddCall("facade.ProcessRelations", controllerAlias)
 	if f.processRelationsErr != nil {
 		return f.processRelationsErr
@@ -1381,17 +1381,17 @@ func (f *stubMasterFacade) ProcessRelations(controllerAlias string) error {
 	return nil
 }
 
-func (f *stubMasterFacade) SetPhase(phase coremigration.Phase) error {
+func (f *stubMasterFacade) SetPhase(ctx context.Context, phase coremigration.Phase) error {
 	f.stub.AddCall("facade.SetPhase", phase)
 	return nil
 }
 
-func (f *stubMasterFacade) SetStatusMessage(message string) error {
+func (f *stubMasterFacade) SetStatusMessage(ctx context.Context, message string) error {
 	f.statuses = append(f.statuses, message)
 	return nil
 }
 
-func (f *stubMasterFacade) Reap() error {
+func (f *stubMasterFacade) Reap(ctx context.Context) error {
 	f.stub.AddCall("facade.Reap")
 	return nil
 }

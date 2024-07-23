@@ -34,7 +34,7 @@ type ManifoldConfig struct {
 	Entity   names.Tag
 
 	NewFacade func(base.APICaller, names.Tag, names.Tag) (Facade, error)
-	NewWorker func(FlagConfig) (worker.Worker, error)
+	NewWorker func(context.Context, FlagConfig) (worker.Worker, error)
 }
 
 // Validate ensures the required values are set.
@@ -55,7 +55,7 @@ func (config *ManifoldConfig) Validate() error {
 }
 
 // start is a method on ManifoldConfig because it's more readable than a closure.
-func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -68,7 +68,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	flag, err := config.NewWorker(FlagConfig{
+	flag, err := config.NewWorker(ctx, FlagConfig{
 		Clock:    config.Clock,
 		Facade:   facade,
 		Duration: config.Duration,

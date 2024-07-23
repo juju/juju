@@ -63,7 +63,7 @@ func (s *CrossControllerSuite) TestGetRemoteSecretContentInfo(c *gc.C) {
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.SecretContentResults{})
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
-			[]params.SecretContentResult{{
+			Results: []params.SecretContentResult{{
 				Content: params.SecretContentParams{
 					ValueRef: &params.SecretValueRef{
 						BackendID:  "backend-id",
@@ -113,7 +113,7 @@ func (s *CrossControllerSuite) TestControllerInfoError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		attemptCount++
 		*(result.(*params.SecretContentResults)) = params.SecretContentResults{
-			[]params.SecretContentResult{{
+			Results: []params.SecretContentResult{{
 				Error: &params.Error{Message: "boom"},
 			}},
 		}
@@ -143,14 +143,14 @@ func (s *CrossControllerSuite) TestGetSecretAccessScope(c *gc.C) {
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringResults{})
 		*(result.(*params.StringResults)) = params.StringResults{
-			[]params.StringResult{{
+			Results: []params.StringResult{{
 				Result: "scope-token",
 			}},
 		}
 		return nil
 	})
 	client := crossmodelsecrets.NewClient(apiCaller)
-	scope, err := client.GetSecretAccessScope(uri, "app-token", 666)
+	scope, err := client.GetSecretAccessScope(context.Background(), uri, "app-token", 666)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(scope, gc.Equals, "scope-token")
 }

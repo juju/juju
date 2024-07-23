@@ -61,13 +61,13 @@ func (u *Unit) Application() (*Application, error) {
 
 // AssignedMachine returns the tag of this unit's assigned machine (if
 // any), or a CodeNotAssigned error.
-func (u *Unit) AssignedMachine() (names.MachineTag, error) {
+func (u *Unit) AssignedMachine(ctx context.Context) (names.MachineTag, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	emptyTag := names.NewMachineTag("")
-	err := u.client.facade.FacadeCall(context.TODO(), "GetAssignedMachine", args, &results)
+	err := u.client.facade.FacadeCall(ctx, "GetAssignedMachine", args, &results)
 	if err != nil {
 		return emptyTag, err
 	}

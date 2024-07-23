@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"time"
@@ -443,12 +444,12 @@ type fakeMigrateAPI struct {
 	identityURL string
 }
 
-func (a *fakeMigrateAPI) InitiateMigration(spec controller.MigrationSpec) (string, error) {
+func (a *fakeMigrateAPI) InitiateMigration(ctx context.Context, spec controller.MigrationSpec) (string, error) {
 	a.specSeen = &spec
 	return "uuid:0", nil
 }
 
-func (a *fakeMigrateAPI) IdentityProviderURL() (string, error) {
+func (a *fakeMigrateAPI) IdentityProviderURL(context.Context) (string, error) {
 	return a.identityURL, nil
 }
 

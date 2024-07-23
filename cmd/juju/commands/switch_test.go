@@ -93,10 +93,10 @@ func (s *SwitchSimpleSuite) TestSwitchWritesCurrentController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, " -> a-controller (controller)\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
-		{"CurrentController", nil},
-		{"ControllerByName", []interface{}{"a-controller"}},
-		{"CurrentModel", []interface{}{"a-controller"}},
-		{"SetCurrentController", []interface{}{"a-controller"}},
+		{FuncName: "CurrentController", Args: nil},
+		{FuncName: "ControllerByName", Args: []interface{}{"a-controller"}},
+		{FuncName: "CurrentModel", Args: []interface{}{"a-controller"}},
+		{FuncName: "SetCurrentController", Args: []interface{}{"a-controller"}},
 	})
 }
 
@@ -125,12 +125,12 @@ func (s *SwitchSimpleSuite) TestSwitchSameController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "same (controller) (no change)\n")
 	s.stubStore.CheckCalls(c, []testing.StubCall{
-		{"CurrentController", nil},
-		{"ControllerByName", []interface{}{"same"}},
-		{"CurrentModel", []interface{}{"same"}},
-		{"ControllerByName", []interface{}{"same"}},
-		{"CurrentModel", []interface{}{"same"}},
-		{"SetCurrentController", []interface{}{"same"}},
+		{FuncName: "CurrentController", Args: nil},
+		{FuncName: "ControllerByName", Args: []interface{}{"same"}},
+		{FuncName: "CurrentModel", Args: []interface{}{"same"}},
+		{FuncName: "ControllerByName", Args: []interface{}{"same"}},
+		{FuncName: "CurrentModel", Args: []interface{}{"same"}},
+		{FuncName: "SetCurrentController", Args: []interface{}{"same"}},
 	})
 }
 
@@ -272,8 +272,8 @@ func (s *SwitchSimpleSuite) TestSwitchUnknownNoCurrentController(c *gc.C) {
 	_, err := s.run(c, "unknown")
 	c.Assert(err, gc.ErrorMatches, `"unknown" is not the name of a model or controller`)
 	s.stubStore.CheckCalls(c, []testing.StubCall{
-		{"CurrentController", nil},
-		{"ControllerByName", []interface{}{"unknown"}},
+		{FuncName: "CurrentController", Args: nil},
+		{FuncName: "ControllerByName", Args: []interface{}{"unknown"}},
 	})
 }
 

@@ -4,6 +4,8 @@
 package charmdownloader
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"go.uber.org/mock/gomock"
@@ -31,10 +33,10 @@ func (s *charmDownloaderSuite) TestAsyncDownloadTrigger(c *gc.C) {
 		return changeCh
 	}).AnyTimes()
 
-	s.api.EXPECT().WatchApplicationsWithPendingCharms().DoAndReturn(func() (watcher.StringsWatcher, error) {
+	s.api.EXPECT().WatchApplicationsWithPendingCharms(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		return s.watcher, nil
 	})
-	s.api.EXPECT().DownloadApplicationCharms([]names.ApplicationTag{
+	s.api.EXPECT().DownloadApplicationCharms(gomock.Any(), []names.ApplicationTag{
 		names.NewApplicationTag("ufo"),
 		names.NewApplicationTag("cons"),
 		names.NewApplicationTag("piracy"),

@@ -141,7 +141,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 
 func (c *listControllersCommand) refreshControllerDetails(ctx context.Context, client ControllerAccessAPI, controllerName string) error {
 	// First, get all the models the user can see, and their details.
-	allModels, err := client.AllModels()
+	allModels, err := client.AllModels(ctx)
 	if err != nil {
 		return err
 	}

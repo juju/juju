@@ -71,7 +71,7 @@ func newTimedStatusUpdater(ctx *cmd.Context, api destroyControllerAPI, controlle
 }
 
 func newData(ctx context.Context, api destroyControllerAPI, controllerModelUUID string) (environmentStatus, error) {
-	models, err := api.AllModels()
+	models, err := api.AllModels(ctx)
 	if err != nil {
 		return environmentStatus{
 			Controller:   ctrData{},

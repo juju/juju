@@ -4,6 +4,7 @@
 package secretbackendrotate
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -18,8 +19,8 @@ import (
 
 // SecretBackendManagerFacade instances provide a watcher for secret rotation changes.
 type SecretBackendManagerFacade interface {
-	WatchTokenRotationChanges() (watcher.SecretBackendRotateWatcher, error)
-	RotateBackendTokens(info ...string) error
+	WatchTokenRotationChanges(context.Context) (watcher.SecretBackendRotateWatcher, error)
+	RotateBackendTokens(ctx context.Context, info ...string) error
 }
 
 // Config defines the operation of the Worker.
@@ -93,7 +94,10 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	changes, err := w.config.SecretBackendManagerFacade.WatchTokenRotationChanges()
+	ctx, cancel := w.scopeContext()
+	defer cancel()
+
+	changes, err := w.config.SecretBackendManagerFacade.WatchTokenRotationChanges(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -114,14 +118,14 @@ func (w *Worker) loop() (err error) {
 			}
 			w.handleTokenRotateChanges(ch)
 		case now := <-timeout:
-			if err := w.rotate(now); err != nil {
+			if err := w.rotate(ctx, now); err != nil {
 				return errors.Annotatef(err, "rotating secret backends")
 			}
 		}
 	}
 }
 
-func (w *Worker) rotate(now time.Time) error {
+func (w *Worker) rotate(ctx context.Context, now time.Time) error {
 	w.config.Logger.Debugf("processing secret backend token rotation at %s", now)
 
 	var toRotate []string
@@ -138,7 +142,7 @@ func (w *Worker) rotate(now time.Time) error {
 		}
 	}
 
-	if err := w.config.SecretBackendManagerFacade.RotateBackendTokens(toRotate...); err != nil {
+	if err := w.config.SecretBackendManagerFacade.RotateBackendTokens(ctx, toRotate...); err != nil {
 		return errors.Annotatef(err, "cannot rotate secret backend tokens for backend ids %q", toRotate)
 	}
 	w.computeNextRotateTime()
@@ -216,4 +220,8 @@ func (w *Worker) computeNextRotateTime() {
 		}
 		w.timer.Reset(nextDuration)
 	}
+}
+
+func (w *Worker) scopeContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

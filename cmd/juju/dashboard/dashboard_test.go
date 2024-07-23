@@ -4,6 +4,7 @@
 package dashboard_test
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -39,7 +40,7 @@ type mockControllerAPI struct {
 	err  error
 }
 
-func (m *mockControllerAPI) DashboardConnectionInfo(_ controller.ProxierFactory) (controller.DashboardConnectionInfo, error) {
+func (m *mockControllerAPI) DashboardConnectionInfo(_ context.Context, _ controller.ProxierFactory) (controller.DashboardConnectionInfo, error) {
 	return m.info, m.err
 }
 

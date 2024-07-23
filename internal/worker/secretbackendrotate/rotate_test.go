@@ -4,6 +4,7 @@
 package secretbackendrotate_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -72,13 +73,13 @@ func (s *workerSuite) testValidateConfig(c *gc.C, f func(*secretbackendrotate.Co
 }
 
 func (s *workerSuite) expectWorker() {
-	s.facade.EXPECT().WatchTokenRotationChanges().Return(s.rotateWatcher, nil)
+	s.facade.EXPECT().WatchTokenRotationChanges(gomock.Any()).Return(s.rotateWatcher, nil)
 	s.rotateWatcher.EXPECT().Changes().AnyTimes().Return(s.rotateConfigChanges)
 	s.rotateWatcher.EXPECT().Kill().MaxTimes(1)
 	s.rotateWatcher.EXPECT().Wait().Return(nil).MinTimes(1)
 
-	s.facade.EXPECT().RotateBackendTokens(gomock.Any()).DoAndReturn(
-		func(ids ...string) error {
+	s.facade.EXPECT().RotateBackendTokens(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, ids ...string) error {
 			s.rotatedTokens <- ids
 			return nil
 		},

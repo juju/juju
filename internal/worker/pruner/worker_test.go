@@ -4,6 +4,7 @@
 package pruner_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -183,7 +184,7 @@ func newFakeFacade() *fakeFacade {
 }
 
 // Prune implements Facade
-func (f *fakeFacade) Prune(maxAge time.Duration, maxHistoryMB int) error {
+func (f *fakeFacade) Prune(ctx context.Context, maxAge time.Duration, maxHistoryMB int) error {
 	select {
 	case f.pruned <- pruneParams{maxAge: maxAge, maxHistoryMB: maxHistoryMB}:
 	case <-time.After(coretesting.LongWait):

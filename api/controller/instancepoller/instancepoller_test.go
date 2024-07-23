@@ -78,7 +78,7 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *gc.C) {
 	apiCaller := successAPICaller(c, "WatchModelMachineStartTimes", nil, expectResult)
 
 	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchModelMachines()
+	w, err := api.WatchModelMachines(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(numWatcherCalls, gc.Equals, 1)
@@ -88,7 +88,7 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *gc.C) {
 func (s *InstancePollerSuite) TestWatchModelMachineStartTimesClientError(c *gc.C) {
 	apiCaller := clientErrorAPICaller(c, "WatchModelMachineStartTimes", nil)
 	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchModelMachines()
+	w, err := api.WatchModelMachines(context.Background())
 	c.Assert(err, gc.ErrorMatches, "client error!")
 	c.Assert(w, gc.IsNil)
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
@@ -101,7 +101,7 @@ func (s *InstancePollerSuite) TestWatchModelMachineStartTimesServerError(c *gc.C
 	apiCaller := successAPICaller(c, "WatchModelMachineStartTimes", nil, expectedResults)
 
 	api := instancepoller.NewAPI(apiCaller)
-	w, err := api.WatchModelMachines()
+	w, err := api.WatchModelMachines(context.Background())
 	c.Assert(err, gc.ErrorMatches, "server boom!")
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 	c.Assert(w, gc.IsNil)

@@ -140,7 +140,7 @@ func (s *workerSuite) TestQueueingNewMachineAddsItToShortPollGroup(c *gc.C) {
 	// non-manual machine.
 	machineTag := names.NewMachineTag("0")
 	nonManualMachine := mocks.NewMockMachine(ctrl)
-	nonManualMachine.EXPECT().IsManual().Return(false, nil)
+	nonManualMachine.EXPECT().IsManual(gomock.Any()).Return(false, nil)
 	mocked.facadeAPI.addMachine(machineTag, nonManualMachine)
 
 	// Queue machine.
@@ -200,7 +200,7 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *gc.C) {
 	// is aware of its network addresses.
 	machine.EXPECT().Id().Return("0").AnyTimes()
 	machine.EXPECT().Life().Return(life.Alive)
-	machine.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Provisioning)}, nil)
+	machine.EXPECT().InstanceStatus(gomock.Any()).Return(params.StatusResult{Status: string(status.Provisioning)}, nil)
 
 	// The provider reports the instance status as running and also indicates
 	// that network addresses have been *changed*.
@@ -210,10 +210,10 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *gc.C) {
 	// When we process the instance info we expect the machine instance
 	// status and list of network addresses to be updated so they match
 	// the values reported by the provider.
-	machine.EXPECT().SetInstanceStatus(status.Running, "Running wild", nil).Return(nil)
-	machine.EXPECT().SetProviderNetworkConfig(testNetIfs).Return(testAddrs, true, nil)
+	machine.EXPECT().SetInstanceStatus(gomock.Any(), status.Running, "Running wild", nil).Return(nil)
+	machine.EXPECT().SetProviderNetworkConfig(gomock.Any(), testNetIfs).Return(testAddrs, true, nil)
 
-	providerStatus, addrCount, err := updWorker.processProviderInfo(entry, instInfo, testNetIfs)
+	providerStatus, addrCount, err := updWorker.processProviderInfo(context.Background(), entry, instInfo, testNetIfs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(providerStatus, gc.Equals, status.Running)
 	c.Assert(addrCount, gc.Equals, len(testAddrs))
@@ -392,15 +392,15 @@ func (s *workerSuite) TestQueuingOfManualMachines(c *gc.C) {
 	// changed to "running".
 	machineTag0 := names.NewMachineTag("0")
 	machine0 := mocks.NewMockMachine(ctrl)
-	machine0.EXPECT().IsManual().Return(true, nil)
-	machine0.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Provisioning)}, nil)
-	machine0.EXPECT().SetInstanceStatus(status.Running, "Manually provisioned machine", nil).Return(nil)
+	machine0.EXPECT().IsManual(gomock.Any()).Return(true, nil)
+	machine0.EXPECT().InstanceStatus(gomock.Any()).Return(params.StatusResult{Status: string(status.Provisioning)}, nil)
+	machine0.EXPECT().SetInstanceStatus(gomock.Any(), status.Running, "Manually provisioned machine", nil).Return(nil)
 	mocked.facadeAPI.addMachine(machineTag0, machine0)
 
 	machineTag1 := names.NewMachineTag("1")
 	machine1 := mocks.NewMockMachine(ctrl)
-	machine1.EXPECT().IsManual().Return(true, nil)
-	machine1.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Running)}, nil)
+	machine1.EXPECT().IsManual(gomock.Any()).Return(true, nil)
+	machine1.EXPECT().InstanceStatus(gomock.Any()).Return(params.StatusResult{Status: string(status.Running)}, nil)
 	mocked.facadeAPI.addMachine(machineTag1, machine1)
 
 	// Emit change for both machines.
@@ -425,7 +425,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 	// has a "created" machine status and a "running" instance status.
 	machineTag0 := names.NewMachineTag("0")
 	machine0 := mocks.NewMockMachine(ctrl)
-	machine0.EXPECT().InstanceId().Return(instance.Id(""), apiservererrors.ServerError(errors.NotProvisionedf("not there")))
+	machine0.EXPECT().InstanceId(gomock.Any()).Return(instance.Id(""), apiservererrors.ServerError(errors.NotProvisionedf("not there")))
 	machine0.EXPECT().Id().Return("0")
 	machine0.EXPECT().String().Return("machine-0").AnyTimes()
 	updWorker.appendToShortPollGroup(machineTag0, machine0)
@@ -433,10 +433,10 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 	machineTag1 := names.NewMachineTag("1")
 	machine1 := mocks.NewMockMachine(ctrl)
 	machine1.EXPECT().Life().Return(life.Alive)
-	machine1.EXPECT().InstanceId().Return(instance.Id("b4dc0ffee"), nil)
-	machine1.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Running)}, nil)
-	machine1.EXPECT().Status().Return(params.StatusResult{Status: string(status.Started)}, nil)
-	machine1.EXPECT().SetProviderNetworkConfig(testNetIfs).Return(testAddrs, false, nil)
+	machine1.EXPECT().InstanceId(gomock.Any()).Return(instance.Id("b4dc0ffee"), nil)
+	machine1.EXPECT().InstanceStatus(gomock.Any()).Return(params.StatusResult{Status: string(status.Running)}, nil)
+	machine1.EXPECT().Status(gomock.Any()).Return(params.StatusResult{Status: string(status.Started)}, nil)
+	machine1.EXPECT().SetProviderNetworkConfig(gomock.Any(), testNetIfs).Return(testAddrs, false, nil)
 	machine1.EXPECT().String().Return("machine-1").AnyTimes()
 	updWorker.appendToShortPollGroup(machineTag1, machine1)
 
@@ -475,7 +475,7 @@ func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *gc.C) {
 	// Allow instance ID to be resolved but have the provider's Instances
 	// call fail with a partial instance list.
 	instID := instance.Id("d3adc0de")
-	machine.EXPECT().InstanceId().Return(instID, nil)
+	machine.EXPECT().InstanceId(gomock.Any()).Return(instID, nil)
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
 		[]instances.Instance{}, environs.ErrPartialInstances,
 	)
@@ -506,7 +506,7 @@ func (s *workerSuite) TestShortPollMachineNotKnownByProviderIntervalBackoff(c *g
 	// Allow instance ID to be resolved but have the provider's Instances
 	// call fail with a partial instance list.
 	instID := instance.Id("d3adc0de")
-	machine.EXPECT().InstanceId().Return(instID, nil)
+	machine.EXPECT().InstanceId(gomock.Any()).Return(instID, nil)
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
 		[]instances.Instance{nil}, environs.ErrPartialInstances,
 	)
@@ -545,7 +545,7 @@ func (s *workerSuite) TestLongPollNoMachineInGroupKnownByProvider(c *gc.C) {
 	// call fail with ErrNoInstances. This is probably rare but can happen
 	// and shouldn't cause the worker to exit with an error!
 	instID := instance.Id("d3adc0de")
-	machine.EXPECT().InstanceId().Return(instID, nil)
+	machine.EXPECT().InstanceId(gomock.Any()).Return(instID, nil)
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
 		nil, environs.ErrNoInstances,
 	)
@@ -575,7 +575,7 @@ func (s *workerSuite) TestShortPollNoMachineInGroupKnownByProviderIntervalBackof
 	// call fail with ErrNoInstances. This is probably rare but can happen
 	// and shouldn't cause the worker to exit with an error!
 	instID := instance.Id("d3adc0de")
-	machine.EXPECT().InstanceId().Return(instID, nil)
+	machine.EXPECT().InstanceId(gomock.Any()).Return(instID, nil)
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
 		nil, environs.ErrNoInstances,
 	)
@@ -682,7 +682,9 @@ func (api *mockFacadeAPI) assertEnqueueChange(c *gc.C, values []string) {
 }
 func (api *mockFacadeAPI) addMachine(tag names.MachineTag, m Machine) { api.machineMap[tag] = m }
 
-func (api *mockFacadeAPI) WatchModelMachines() (watcher.StringsWatcher, error) { return api.sw, nil }
+func (api *mockFacadeAPI) WatchModelMachines(context.Context) (watcher.StringsWatcher, error) {
+	return api.sw, nil
+}
 func (api *mockFacadeAPI) Machine(_ context.Context, tag names.MachineTag) (Machine, error) {
 	if found := api.machineMap[tag]; found != nil {
 		return found, nil

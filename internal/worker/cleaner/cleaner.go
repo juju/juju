@@ -4,6 +4,7 @@
 package cleaner
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -23,8 +24,8 @@ import (
 const period = 30 * time.Second
 
 type StateCleaner interface {
-	Cleanup() error
-	WatchCleanups() (watcher.NotifyWatcher, error)
+	Cleanup(ctx context.Context) error
+	WatchCleanups(ctx context.Context) (watcher.NotifyWatcher, error)
 }
 
 // Cleaner is responsible for cleaning up the state.
@@ -39,8 +40,8 @@ type Cleaner struct {
 // NewCleaner returns a worker.Worker that runs state.Cleanup()
 // periodically, and whenever the CleanupWatcher signals documents
 // marked for deletion.
-func NewCleaner(st StateCleaner, clock clock.Clock, logger logger.Logger) (worker.Worker, error) {
-	watcher, err := st.WatchCleanups()
+func NewCleaner(ctx context.Context, st StateCleaner, clock clock.Clock, logger logger.Logger) (worker.Worker, error) {
+	watcher, err := st.WatchCleanups(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -61,6 +62,9 @@ func NewCleaner(st StateCleaner, clock clock.Clock, logger logger.Logger) (worke
 }
 
 func (c *Cleaner) loop() error {
+	ctx, cancel := c.scopedContext()
+	defer cancel()
+
 	timer := c.clock.NewTimer(period)
 	defer timer.Stop()
 	for {
@@ -73,7 +77,7 @@ func (c *Cleaner) loop() error {
 			}
 		case <-timer.Chan():
 		}
-		err := c.st.Cleanup()
+		err := c.st.Cleanup(ctx)
 		if err != nil {
 			// We don't exit if a cleanup fails, we just
 			// retry after when the timer fires. This
@@ -94,4 +98,8 @@ func (c *Cleaner) Kill() {
 // Wait is part of the worker.Worker interface.
 func (c *Cleaner) Wait() error {
 	return c.catacomb.Wait()
+}
+
+func (c *Cleaner) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(c.catacomb.Context(context.Background()))
 }

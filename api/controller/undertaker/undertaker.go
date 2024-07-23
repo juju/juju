@@ -53,32 +53,32 @@ func NewClient(caller base.APICaller, newWatcher NewWatcherFunc, options ...Opti
 }
 
 // ModelInfo returns information on the model needed by the undertaker worker.
-func (c *Client) ModelInfo() (params.UndertakerModelInfoResult, error) {
+func (c *Client) ModelInfo(ctx context.Context) (params.UndertakerModelInfoResult, error) {
 	result := params.UndertakerModelInfoResult{}
-	err := c.entityFacadeCall("ModelInfo", &result)
+	err := c.entityFacadeCall(ctx, "ModelInfo", &result)
 	return result, errors.Trace(err)
 }
 
 // ProcessDyingModel checks if a dying model has any machines or applications.
 // If there are none, the model's life is changed from dying to dead.
-func (c *Client) ProcessDyingModel() error {
-	return c.entityFacadeCall("ProcessDyingModel", nil)
+func (c *Client) ProcessDyingModel(ctx context.Context) error {
+	return c.entityFacadeCall(ctx, "ProcessDyingModel", nil)
 }
 
 // RemoveModel removes any records of this model from Juju.
-func (c *Client) RemoveModel() error {
-	return c.entityFacadeCall("RemoveModel", nil)
+func (c *Client) RemoveModel(ctx context.Context) error {
+	return c.entityFacadeCall(ctx, "RemoveModel", nil)
 }
 
 // SetStatus sets the status of the model.
-func (c *Client) SetStatus(status status.Status, message string, data map[string]interface{}) error {
+func (c *Client) SetStatus(ctx context.Context, status status.Status, message string, data map[string]interface{}) error {
 	args := params.SetStatus{
 		Entities: []params.EntityStatusArgs{
-			{c.modelTag.String(), status.String(), message, data},
+			{Tag: c.modelTag.String(), Status: status.String(), Info: message, Data: data},
 		},
 	}
 	var results params.ErrorResults
-	if err := c.caller.FacadeCall(context.TODO(), "SetStatus", args, &results); err != nil {
+	if err := c.caller.FacadeCall(ctx, "SetStatus", args, &results); err != nil {
 		return errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -90,18 +90,18 @@ func (c *Client) SetStatus(status status.Status, message string, data map[string
 	return nil
 }
 
-func (c *Client) entityFacadeCall(name string, results interface{}) error {
+func (c *Client) entityFacadeCall(ctx context.Context, name string, results interface{}) error {
 	args := params.Entities{
-		Entities: []params.Entity{{c.modelTag.String()}},
+		Entities: []params.Entity{{Tag: c.modelTag.String()}},
 	}
-	return c.caller.FacadeCall(context.TODO(), name, args, results)
+	return c.caller.FacadeCall(ctx, name, args, results)
 }
 
 // WatchModelResources starts a watcher for changes to the model's
 // machines and applications.
-func (c *Client) WatchModelResources() (watcher.NotifyWatcher, error) {
+func (c *Client) WatchModelResources(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
-	err := c.entityFacadeCall("WatchModelResources", &results)
+	err := c.entityFacadeCall(ctx, "WatchModelResources", &results)
 	if err != nil {
 		return nil, err
 	}
@@ -117,9 +117,9 @@ func (c *Client) WatchModelResources() (watcher.NotifyWatcher, error) {
 }
 
 // WatchModel starts a watcher for changes to the model.
-func (c *Client) WatchModel() (watcher.NotifyWatcher, error) {
+func (c *Client) WatchModel(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
-	err := c.entityFacadeCall("WatchModel", &results)
+	err := c.entityFacadeCall(ctx, "WatchModel", &results)
 	if err != nil {
 		return nil, err
 	}

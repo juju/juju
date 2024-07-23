@@ -145,7 +145,7 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 
 	// Initial event.
 	if s.withModelFirewaller {
-		s.firewaller.EXPECT().ModelFirewallRules().AnyTimes().DoAndReturn(func() (firewall.IngressRules, error) {
+		s.firewaller.EXPECT().ModelFirewallRules(gomock.Any()).AnyTimes().DoAndReturn(func() (firewall.IngressRules, error) {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			return s.modelIngressRules, nil
@@ -275,14 +275,14 @@ func (s *firewallerBaseSuite) addModelMachine(ctrl *gomock.Controller, manual bo
 		}
 		return life.Alive
 	}).AnyTimes()
-	m.EXPECT().IsManual().Return(manual, nil).MinTimes(1)
+	m.EXPECT().IsManual(gomock.Any()).Return(manual, nil).MinTimes(1)
 
 	var unitsCh chan []string
 	if !manual {
 		// Added machine watches units.
 		unitsCh = make(chan []string, 5)
 		unitWatch := watchertest.NewMockStringsWatcher(unitsCh)
-		m.EXPECT().WatchUnits().Return(unitWatch, nil).AnyTimes()
+		m.EXPECT().WatchUnits(gomock.Any()).Return(unitWatch, nil).AnyTimes()
 		// Initial event.
 		unitsCh <- nil
 	}
@@ -298,7 +298,7 @@ func (s *firewallerBaseSuite) addApplication(ctrl *gomock.Controller, appName st
 	app.EXPECT().Watch(gomock.Any()).Return(appWatch, nil).AnyTimes()
 	app.EXPECT().Name().Return(appName).AnyTimes()
 	app.EXPECT().Tag().Return(names.NewApplicationTag(appName)).AnyTimes()
-	app.EXPECT().ExposeInfo().Return(exposed, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(exposed, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
 	return app
 }
@@ -313,10 +313,10 @@ func (s *firewallerBaseSuite) addUnit(c *gc.C, ctrl *gomock.Controller, app *moc
 	u.EXPECT().Life().Return(life.Alive)
 	u.EXPECT().Tag().Return(unitTag).AnyTimes()
 	u.EXPECT().Application().Return(app, nil).AnyTimes()
-	u.EXPECT().AssignedMachine().Return(m.Tag(), nil).AnyTimes()
+	u.EXPECT().AssignedMachine(gomock.Any()).Return(m.Tag(), nil).AnyTimes()
 
 	// Add the unit to the machine.
-	m.EXPECT().OpenedMachinePortRanges().DoAndReturn(func() (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error) {
+	m.EXPECT().OpenedMachinePortRanges(gomock.Any()).DoAndReturn(func(context.Context) (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		c.Logf("get OpenedMachinePortRanges for %q: %v", m.Tag().Id(), s.unitPortRanges.ByUnitEndpoint())
@@ -372,24 +372,24 @@ func (s *firewallerBaseSuite) newFirewaller(c *gc.C, ctrl *gomock.Controller) wo
 	}
 
 	mWatcher := watchertest.NewMockStringsWatcher(s.machinesCh)
-	s.firewaller.EXPECT().WatchModelMachines().Return(mWatcher, nil)
+	s.firewaller.EXPECT().WatchModelMachines(gomock.Any()).Return(mWatcher, nil)
 
 	opWatcher := watchertest.NewMockStringsWatcher(s.openedPortsCh)
-	s.firewaller.EXPECT().WatchOpenedPorts().Return(opWatcher, nil)
+	s.firewaller.EXPECT().WatchOpenedPorts(gomock.Any()).Return(opWatcher, nil)
 
 	remoteRelWatcher := watchertest.NewMockStringsWatcher(s.remoteRelCh)
-	s.remoteRelations.EXPECT().WatchRemoteRelations().Return(remoteRelWatcher, nil)
+	s.remoteRelations.EXPECT().WatchRemoteRelations(gomock.Any()).Return(remoteRelWatcher, nil)
 
 	subnetsWatcher := watchertest.NewMockStringsWatcher(s.subnetsCh)
-	s.firewaller.EXPECT().WatchSubnets().Return(subnetsWatcher, nil)
+	s.firewaller.EXPECT().WatchSubnets(gomock.Any()).Return(subnetsWatcher, nil)
 
 	if s.withModelFirewaller {
 		fwRulesWatcher := watchertest.NewMockNotifyWatcher(s.modelFwRulesCh)
-		s.firewaller.EXPECT().WatchModelFirewallRules().Return(fwRulesWatcher, nil)
+		s.firewaller.EXPECT().WatchModelFirewallRules(gomock.Any()).Return(fwRulesWatcher, nil)
 	}
 
 	initialised := make(chan bool)
-	s.firewaller.EXPECT().AllSpaceInfos().DoAndReturn(func() (network.SpaceInfos, error) {
+	s.firewaller.EXPECT().AllSpaceInfos(gomock.Any()).DoAndReturn(func(context.Context) (network.SpaceInfos, error) {
 		defer close(initialised)
 		return nil, nil
 	})
@@ -468,7 +468,7 @@ func closePorts(existing, rules firewall.IngressRules) firewall.IngressRules {
 // startInstance starts a new instance for the given machine.
 func (s *firewallerBaseSuite) startInstance(c *gc.C, ctrl *gomock.Controller, m *mocks.MockMachine) *mocks.MockEnvironInstance {
 	instId := instance.Id("inst-" + m.Tag().Id())
-	m.EXPECT().InstanceId().Return(instId, nil).AnyTimes()
+	m.EXPECT().InstanceId(gomock.Any()).Return(instId, nil).AnyTimes()
 	inst := mocks.NewMockEnvironInstance(ctrl)
 	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).AnyTimes()
 
@@ -782,7 +782,7 @@ func (s *InstanceModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
 	// Expose service.
-	app.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
 	s.applicationsCh <- struct{}{}
 
@@ -832,7 +832,7 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
 	// Expose service.
-	app.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
 	s.applicationsCh <- struct{}{}
 
@@ -843,7 +843,7 @@ func (s *InstanceModeSuite) TestSetClearExposedApplication(c *gc.C) {
 	s.assertIngressRules(c, m.Tag().Id(), rules)
 
 	// ClearExposed closes the ports again.
-	app.EXPECT().ExposeInfo().Return(false, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(false, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
 	s.applicationsCh <- struct{}{}
 
@@ -912,7 +912,7 @@ func (s *InstanceModeSuite) TestRemoveApplication(c *gc.C) {
 	u.EXPECT().Life().Return(life.Dead)
 	unitsCh <- []string{u.Tag().Id()}
 
-	app.EXPECT().ExposeInfo().Return(false, nil, errors.NotFoundf(app.Name())).MaxTimes(1)
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(false, nil, errors.NotFoundf(app.Name())).MaxTimes(1)
 	s.applicationsCh <- struct{}{}
 
 	s.waitForMachineFlush(c)
@@ -954,7 +954,7 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	unitsCh1 <- []string{u1.Tag().Id()}
 
 	removed1 := make(chan bool)
-	app1.EXPECT().ExposeInfo().DoAndReturn(func() (bool, map[string]params.ExposedEndpoint, error) {
+	app1.EXPECT().ExposeInfo(gomock.Any()).DoAndReturn(func(context.Context) (bool, map[string]params.ExposedEndpoint, error) {
 		defer close(removed1)
 		return false, nil, errors.NotFoundf(app1.Name())
 	})
@@ -963,7 +963,7 @@ func (s *InstanceModeSuite) TestRemoveMultipleApplications(c *gc.C) {
 	u2.EXPECT().Life().Return(life.Dead)
 	unitsCh2 <- []string{u2.Tag().Id()}
 
-	app2.EXPECT().ExposeInfo().Return(false, nil, errors.NotFoundf(app1.Name())).MaxTimes(1)
+	app2.EXPECT().ExposeInfo(gomock.Any()).Return(false, nil, errors.NotFoundf(app1.Name())).MaxTimes(1)
 	s.applicationsCh <- struct{}{}
 
 	s.assertIngressRules(c, m1.Tag().Id(), nil)
@@ -1001,7 +1001,7 @@ func (s *InstanceModeSuite) TestDeadMachine(c *gc.C) {
 	u.EXPECT().Life().Return(life.Dead).AnyTimes()
 	unitsCh <- []string{u.Tag().Id()}
 
-	app.EXPECT().ExposeInfo().Return(false, nil, errors.NotFoundf(app.Name())).AnyTimes()
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(false, nil, errors.NotFoundf(app.Name())).AnyTimes()
 	s.applicationsCh <- struct{}{}
 	s.waitForMachineFlush(c)
 
@@ -1059,7 +1059,7 @@ func (s *InstanceModeSuite) TestStartWithStateOpenPortsBroken(c *gc.C) {
 	u, m, _ := s.addUnit(c, ctrl, app)
 
 	instId := instance.Id("inst-" + m.Tag().Id())
-	m.EXPECT().InstanceId().Return(instId, nil).AnyTimes()
+	m.EXPECT().InstanceId(gomock.Any()).Return(instId, nil).AnyTimes()
 	inst := mocks.NewMockEnvironInstance(ctrl)
 	s.envInstances.EXPECT().Instances(gomock.Any(), []instance.Id{instId}).Return([]instances.Instance{inst}, nil).AnyTimes()
 	s.machinesCh <- []string{m.Tag().Id()}
@@ -1145,7 +1145,7 @@ func (s *InstanceModeSuite) TestConfigureModelFirewall(c *gc.C) {
 func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *gc.C) (chan []string, *macaroon.Macaroon) {
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
-	s.remoteRelations.EXPECT().Relations([]string{"wordpress:db remote-mysql:server"}).Return(
+	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"wordpress:db remote-mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
 			Result: &params.RemoteRelation{
 				Life:            "alive",
@@ -1162,7 +1162,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *gc.C
 				SourceModelUUID:       coretesting.ModelTag.Id(),
 			},
 		}}, nil).MinTimes(1)
-	s.remoteRelations.EXPECT().RemoteApplications([]string{"remote-mysql"}).Return(
+	s.remoteRelations.EXPECT().RemoteApplications(gomock.Any(), []string{"remote-mysql"}).Return(
 		[]params.RemoteApplicationResult{{
 			Result: &params.RemoteApplication{
 				Name:            "remote-mysql",
@@ -1176,18 +1176,18 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(c *gc.C
 			},
 		}}, nil).MinTimes(1)
 	relTag := names.NewRelationTag("wordpress:db remote-mysql:server")
-	s.remoteRelations.EXPECT().GetToken(relTag).Return("rel-token", nil).MinTimes(1)
+	s.remoteRelations.EXPECT().GetToken(gomock.Any(), relTag).Return("rel-token", nil).MinTimes(1)
 
-	s.firewaller.EXPECT().ControllerAPIInfoForModel(coretesting.ModelTag.Id()).Return(
+	s.firewaller.EXPECT().ControllerAPIInfoForModel(gomock.Any(), coretesting.ModelTag.Id()).Return(
 		&api.Info{
 			Addrs:  []string{"1.2.3.4:1234"},
 			CACert: coretesting.CACert,
 		}, nil).AnyTimes()
-	s.firewaller.EXPECT().MacaroonForRelation(relTag.Id()).Return(mac, nil).MinTimes(1)
+	s.firewaller.EXPECT().MacaroonForRelation(gomock.Any(), relTag.Id()).Return(mac, nil).MinTimes(1)
 
 	localEgressCh := make(chan []string, 1)
 	remoteEgressWatch := watchertest.NewMockStringsWatcher(localEgressCh)
-	s.firewaller.EXPECT().WatchEgressAddressesForRelation(relTag).Return(remoteEgressWatch, nil).MinTimes(1)
+	s.firewaller.EXPECT().WatchEgressAddressesForRelation(gomock.Any(), relTag).Return(remoteEgressWatch, nil).MinTimes(1)
 	s.crossmodelFirewaller.EXPECT().Close().Return(nil).MinTimes(1)
 
 	s.remoteRelCh <- []string{"wordpress:db remote-mysql:server"}
@@ -1308,7 +1308,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
-	s.remoteRelations.EXPECT().Relations([]string{"remote-wordpress:db mysql:server"}).Return(
+	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"remote-wordpress:db mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
 			Result: &params.RemoteRelation{
 				Life:            "alive",
@@ -1325,7 +1325,7 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 				SourceModelUUID:       coretesting.ModelTag.Id(),
 			},
 		}}, nil)
-	s.remoteRelations.EXPECT().RemoteApplications([]string{"remote-wordpress"}).Return(
+	s.remoteRelations.EXPECT().RemoteApplications(gomock.Any(), []string{"remote-wordpress"}).Return(
 		[]params.RemoteApplicationResult{{
 			Result: &params.RemoteApplication{
 				Name:            "remote-wordpress",
@@ -1339,14 +1339,14 @@ func (s *InstanceModeSuite) TestRemoteRelationProviderRoleConsumingSide(c *gc.C)
 			},
 		}}, nil)
 	relTag := names.NewRelationTag("remote-wordpress:db mysql:server")
-	s.remoteRelations.EXPECT().GetToken(relTag).Return("rel-token", nil)
+	s.remoteRelations.EXPECT().GetToken(gomock.Any(), relTag).Return("rel-token", nil)
 
-	s.firewaller.EXPECT().ControllerAPIInfoForModel(coretesting.ModelTag.Id()).Return(
+	s.firewaller.EXPECT().ControllerAPIInfoForModel(gomock.Any(), coretesting.ModelTag.Id()).Return(
 		&api.Info{
 			Addrs:  []string{"1.2.3.4:1234"},
 			CACert: coretesting.CACert,
 		}, nil).AnyTimes()
-	s.firewaller.EXPECT().MacaroonForRelation(relTag.Id()).Return(mac, nil)
+	s.firewaller.EXPECT().MacaroonForRelation(gomock.Any(), relTag.Id()).Return(mac, nil)
 
 	watched := make(chan bool, 2)
 
@@ -1385,7 +1385,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 
 	mac, err := jujutesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
-	s.remoteRelations.EXPECT().Relations([]string{"wordpress:db remote-mysql:server"}).Return(
+	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"wordpress:db remote-mysql:server"}).Return(
 		[]params.RemoteRelationResult{{
 			Result: &params.RemoteRelation{
 				Life:            "alive",
@@ -1402,7 +1402,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 				SourceModelUUID:       coretesting.ModelTag.Id(),
 			},
 		}}, nil).MinTimes(1)
-	s.remoteRelations.EXPECT().RemoteApplications([]string{"remote-mysql"}).Return(
+	s.remoteRelations.EXPECT().RemoteApplications(gomock.Any(), []string{"remote-mysql"}).Return(
 		[]params.RemoteApplicationResult{{
 			Result: &params.RemoteApplication{
 				Name:            "remote-mysql",
@@ -1416,18 +1416,18 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 			},
 		}}, nil).MinTimes(1)
 	relTag := names.NewRelationTag("wordpress:db remote-mysql:server")
-	s.remoteRelations.EXPECT().GetToken(relTag).Return("rel-token", nil).MinTimes(1)
+	s.remoteRelations.EXPECT().GetToken(gomock.Any(), relTag).Return("rel-token", nil).MinTimes(1)
 
-	s.firewaller.EXPECT().ControllerAPIInfoForModel(coretesting.ModelTag.Id()).Return(
+	s.firewaller.EXPECT().ControllerAPIInfoForModel(gomock.Any(), coretesting.ModelTag.Id()).Return(
 		&api.Info{
 			Addrs:  []string{"1.2.3.4:1234"},
 			CACert: coretesting.CACert,
 		}, nil).AnyTimes()
-	s.firewaller.EXPECT().MacaroonForRelation(relTag.Id()).Return(mac, nil).MinTimes(1)
+	s.firewaller.EXPECT().MacaroonForRelation(gomock.Any(), relTag.Id()).Return(mac, nil).MinTimes(1)
 
 	localEgressCh := make(chan []string, 1)
 	remoteEgressWatch := watchertest.NewMockStringsWatcher(localEgressCh)
-	s.firewaller.EXPECT().WatchEgressAddressesForRelation(relTag).Return(remoteEgressWatch, nil).MinTimes(1)
+	s.firewaller.EXPECT().WatchEgressAddressesForRelation(gomock.Any(), relTag).Return(remoteEgressWatch, nil).MinTimes(1)
 	s.crossmodelFirewaller.EXPECT().Close().Return(nil).MinTimes(1)
 
 	s.remoteRelCh <- []string{"wordpress:db remote-mysql:server"}
@@ -1446,7 +1446,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressRejected(c *gc.C) {
 	s.crossmodelFirewaller.EXPECT().PublishIngressNetworkChange(gomock.Any(), event).DoAndReturn(func(_ context.Context, _ params.IngressNetworksChangeEvent) error {
 		return &params.Error{Code: params.CodeForbidden, Message: "error"}
 	})
-	s.firewaller.EXPECT().SetRelationStatus(relTag.Id(), relation.Error, "error").DoAndReturn(func(string, relation.Status, string) error {
+	s.firewaller.EXPECT().SetRelationStatus(gomock.Any(), relTag.Id(), relation.Error, "error").DoAndReturn(func(context.Context, string, relation.Status, string) error {
 		updated <- true
 		return nil
 	})
@@ -1491,9 +1491,9 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ctrl *gomock.Controller,
 		RemoteEndpointName:    "db",
 		SourceModelUUID:       coretesting.ModelTag.Id(),
 	}
-	s.remoteRelations.EXPECT().Relations([]string{"remote-wordpress:db mysql:server"}).Return(
+	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"remote-wordpress:db mysql:server"}).Return(
 		[]params.RemoteRelationResult{{Result: &remoteRelParams}}, nil)
-	s.remoteRelations.EXPECT().RemoteApplications([]string{"remote-wordpress"}).Return(
+	s.remoteRelations.EXPECT().RemoteApplications(gomock.Any(), []string{"remote-wordpress"}).Return(
 		[]params.RemoteApplicationResult{{
 			Result: &params.RemoteApplication{
 				Name:            "remote-wordpress",
@@ -1507,11 +1507,11 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ctrl *gomock.Controller,
 			},
 		}}, nil).MinTimes(1)
 	relTag := names.NewRelationTag("remote-wordpress:db mysql:server")
-	s.remoteRelations.EXPECT().GetToken(relTag).Return("rel-token", nil).MinTimes(1)
+	s.remoteRelations.EXPECT().GetToken(gomock.Any(), relTag).Return("rel-token", nil).MinTimes(1)
 
 	localIngressCh := make(chan []string, 1)
 	remoteIngressWatch := watchertest.NewMockStringsWatcher(localIngressCh)
-	s.firewaller.EXPECT().WatchIngressAddressesForRelation(relTag).Return(remoteIngressWatch, nil).MinTimes(1)
+	s.firewaller.EXPECT().WatchIngressAddressesForRelation(gomock.Any(), relTag).Return(remoteIngressWatch, nil).MinTimes(1)
 
 	// No port changes yet.
 	s.waitForMachineFlush(c)
@@ -1537,14 +1537,14 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ctrl *gomock.Controller,
 
 	// And again when relation is suspended.
 	remoteRelParams.Suspended = true
-	s.remoteRelations.EXPECT().Relations([]string{"remote-wordpress:db mysql:server"}).Return(
+	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"remote-wordpress:db mysql:server"}).Return(
 		[]params.RemoteRelationResult{{Result: &remoteRelParams}}, nil)
 	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
 	s.assertIngressRules(c, m.Tag().Id(), nil)
 
 	// And again when relation is resumed.
 	remoteRelParams.Suspended = false
-	s.remoteRelations.EXPECT().Relations([]string{"remote-wordpress:db mysql:server"}).Return(
+	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"remote-wordpress:db mysql:server"}).Return(
 		[]params.RemoteRelationResult{{Result: &remoteRelParams}}, nil)
 	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
 	localIngressCh <- ingress
@@ -1556,7 +1556,7 @@ func (s *InstanceModeSuite) assertIngressCidrs(c *gc.C, ctrl *gomock.Controller,
 	localIngressCh <- nil
 	s.waitForMachineFlush(c)
 	s.assertIngressRules(c, m.Tag().Id(), nil)
-	s.remoteRelations.EXPECT().Relations([]string{"remote-wordpress:db mysql:server"}).Return(
+	s.remoteRelations.EXPECT().Relations(gomock.Any(), []string{"remote-wordpress:db mysql:server"}).Return(
 		[]params.RemoteRelationResult{{Error: &params.Error{Code: params.CodeNotFound}}}, nil)
 	s.remoteRelCh <- []string{"remote-wordpress:db mysql:server"}
 }
@@ -1636,7 +1636,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *gc.C) 
 	defer workertest.CleanKill(c, fw)
 
 	// Create a space with a single subnet.
-	s.firewaller.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{{
+	s.firewaller.EXPECT().AllSpaceInfos(gomock.Any()).Return(network.SpaceInfos{{
 		ID:   "sp-1",
 		Name: "myspace",
 		Subnets: network.SubnetInfos{{
@@ -1661,7 +1661,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *gc.C) 
 		network.MustParsePortRange("1337/udp"),
 	})
 
-	app.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: []string{"10.0.0.0/24"}},
 		"url": {
 			ExposeToCIDRs:  []string{"192.168.0.0/24", "192.168.1.0/24"},
@@ -1696,7 +1696,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpoints(c *gc.C) 
 	})
 
 	// Change the expose settings and remove the entry for the wildcard endpoint
-	app.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		"url": {
 			ExposeToCIDRs:  []string{"192.168.0.0/24", "192.168.1.0/24"},
 			ExposeToSpaces: []string{"sp-1"},
@@ -1727,7 +1727,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 	defer workertest.CleanKill(c, fw)
 
 	// Create two spaces and add a subnet to each one
-	s.firewaller.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{{
+	s.firewaller.EXPECT().AllSpaceInfos(gomock.Any()).Return(network.SpaceInfos{{
 		ID:   "sp-1",
 		Name: "myspace",
 		Subnets: network.SubnetInfos{{
@@ -1758,7 +1758,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 	})
 
 	// Expose app to space-1
-	app.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		allEndpoints: {
 			ExposeToSpaces: []string{"sp-1"},
 		},
@@ -1772,7 +1772,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceT
 	})
 
 	// Trigger a space topology change by moving subnet-2 into space 1
-	s.firewaller.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{{
+	s.firewaller.EXPECT().AllSpaceInfos(gomock.Any()).Return(network.SpaceInfos{{
 		ID:   "sp-1",
 		Name: "myspace",
 		Subnets: network.SubnetInfos{{
@@ -1809,7 +1809,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 	defer workertest.CleanKill(c, fw)
 
 	// Create two spaces and add a subnet to each one
-	s.firewaller.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{{
+	s.firewaller.EXPECT().AllSpaceInfos(gomock.Any()).Return(network.SpaceInfos{{
 		ID:   "sp-1",
 		Name: "myspace",
 		Subnets: network.SubnetInfos{{
@@ -1840,7 +1840,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 	})
 
 	// Expose app to space-1
-	app.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		allEndpoints: {
 			ExposeToSpaces: []string{"sp-1"},
 		},
@@ -1854,7 +1854,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceD
 	})
 
 	// Simulate the deletion of a space, with subnets moving back to alpha.
-	s.firewaller.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{{
+	s.firewaller.EXPECT().AllSpaceInfos(gomock.Any()).Return(network.SpaceInfos{{
 		ID:   "sp-2",
 		Name: "myspace2",
 		Subnets: network.SubnetInfos{{
@@ -1879,7 +1879,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 	defer workertest.CleanKill(c, fw)
 
 	// Create a space with a single subnet.
-	s.firewaller.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{{
+	s.firewaller.EXPECT().AllSpaceInfos(gomock.Any()).Return(network.SpaceInfos{{
 		ID:   "sp-1",
 		Name: "myspace",
 		Subnets: network.SubnetInfos{{
@@ -1904,7 +1904,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 	})
 
 	// Expose app to space-1.
-	app.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToSpaces: []string{"sp-1"}},
 		"url":        {ExposeToSpaces: []string{"sp-1"}},
 	}, nil)
@@ -1919,7 +1919,7 @@ func (s *InstanceModeSuite) TestExposedApplicationWithExposedEndpointsWhenSpaceH
 
 	// Move endpoint back to alpha space. This will leave space-1 with no
 	// endpoints.
-	s.firewaller.EXPECT().AllSpaceInfos().Return(network.SpaceInfos{{
+	s.firewaller.EXPECT().AllSpaceInfos(gomock.Any()).Return(network.SpaceInfos{{
 		ID:      "sp-1",
 		Name:    "myspace",
 		Subnets: network.SubnetInfos{},
@@ -1949,7 +1949,7 @@ func (s *InstanceModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 	})
 
 	// Expose app to space-1.
-	app.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: []string{"10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64"}},
 	}, nil)
 
@@ -2059,7 +2059,7 @@ func (s *GlobalModeSuite) TestStartWithUnexposedApplication(c *gc.C) {
 	s.assertEnvironPorts(c, nil)
 
 	// Expose service.
-	app.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
 	s.applicationsCh <- struct{}{}
 
@@ -2104,7 +2104,7 @@ func (s *GlobalModeSuite) TestRestart(c *gc.C) {
 
 	// Start firewaller and check port.
 	u.EXPECT().Life().Return(life.Alive)
-	app.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
 
 	fw = s.newFirewaller(c, ctrl)
@@ -2146,7 +2146,7 @@ func (s *GlobalModeSuite) TestRestartUnexposedApplication(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.firewallerStarted = false
 
-	app.EXPECT().ExposeInfo().Return(false, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(false, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
 
 	// Start firewaller and check port.
@@ -2194,7 +2194,7 @@ func (s *GlobalModeSuite) TestRestartPortCount(c *gc.C) {
 		network.MustParsePortRange("80/tcp"),
 	})
 
-	app1.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app1.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: []string{firewall.AllNetworksIPV4CIDR}}}, nil)
 	u1.EXPECT().Life().Return(life.Alive)
 	u2.EXPECT().Life().Return(life.Alive)
@@ -2252,7 +2252,7 @@ func (s *GlobalModeSuite) TestExposeToIPV6CIDRsOnIPV4OnlyProvider(c *gc.C) {
 	})
 
 	// Expose app to space-1.
-	app.EXPECT().ExposeInfo().Return(true, map[string]params.ExposedEndpoint{
+	app.EXPECT().ExposeInfo(gomock.Any()).Return(true, map[string]params.ExposedEndpoint{
 		allEndpoints: {ExposeToCIDRs: []string{"10.0.0.0/24", "2002::1234:abcd:ffff:c0a8:101/64"}},
 	}, nil)
 
@@ -2310,7 +2310,7 @@ func (s *firewallerBaseSuite) mustOpenPortRanges(c *gc.C, u *mocks.MockUnit, end
 		return
 	}
 
-	m, err := u.AssignedMachine()
+	m, err := u.AssignedMachine(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	if s.firewallerStarted {
@@ -2332,7 +2332,7 @@ func (s *firewallerBaseSuite) mustClosePortRanges(c *gc.C, u *mocks.MockUnit, en
 		return
 	}
 
-	m, err := u.AssignedMachine()
+	m, err := u.AssignedMachine(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	if s.firewallerStarted {

@@ -47,18 +47,18 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 }
 
 // InstanceId mocks base method.
-func (m *MockMachine) InstanceId() (instance.Id, error) {
+func (m *MockMachine) InstanceId(arg0 context.Context) (instance.Id, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InstanceId")
+	ret := m.ctrl.Call(m, "InstanceId", arg0)
 	ret0, _ := ret[0].(instance.Id)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // InstanceId indicates an expected call of InstanceId.
-func (mr *MockMachineMockRecorder) InstanceId() *MockMachineInstanceIdCall {
+func (mr *MockMachineMockRecorder) InstanceId(arg0 any) *MockMachineInstanceIdCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMachine)(nil).InstanceId))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMachine)(nil).InstanceId), arg0)
 	return &MockMachineInstanceIdCall{Call: call}
 }
 
@@ -74,30 +74,30 @@ func (c *MockMachineInstanceIdCall) Return(arg0 instance.Id, arg1 error) *MockMa
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineInstanceIdCall) Do(f func() (instance.Id, error)) *MockMachineInstanceIdCall {
+func (c *MockMachineInstanceIdCall) Do(f func(context.Context) (instance.Id, error)) *MockMachineInstanceIdCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineInstanceIdCall) DoAndReturn(f func() (instance.Id, error)) *MockMachineInstanceIdCall {
+func (c *MockMachineInstanceIdCall) DoAndReturn(f func(context.Context) (instance.Id, error)) *MockMachineInstanceIdCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // IsManual mocks base method.
-func (m *MockMachine) IsManual() (bool, error) {
+func (m *MockMachine) IsManual(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsManual")
+	ret := m.ctrl.Call(m, "IsManual", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // IsManual indicates an expected call of IsManual.
-func (mr *MockMachineMockRecorder) IsManual() *MockMachineIsManualCall {
+func (mr *MockMachineMockRecorder) IsManual(arg0 any) *MockMachineIsManualCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManual", reflect.TypeOf((*MockMachine)(nil).IsManual))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManual", reflect.TypeOf((*MockMachine)(nil).IsManual), arg0)
 	return &MockMachineIsManualCall{Call: call}
 }
 
@@ -113,13 +113,13 @@ func (c *MockMachineIsManualCall) Return(arg0 bool, arg1 error) *MockMachineIsMa
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineIsManualCall) Do(f func() (bool, error)) *MockMachineIsManualCall {
+func (c *MockMachineIsManualCall) Do(f func(context.Context) (bool, error)) *MockMachineIsManualCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineIsManualCall) DoAndReturn(f func() (bool, error)) *MockMachineIsManualCall {
+func (c *MockMachineIsManualCall) DoAndReturn(f func(context.Context) (bool, error)) *MockMachineIsManualCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -163,9 +163,9 @@ func (c *MockMachineLifeCall) DoAndReturn(f func() life.Value) *MockMachineLifeC
 }
 
 // OpenedMachinePortRanges mocks base method.
-func (m *MockMachine) OpenedMachinePortRanges() (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error) {
+func (m *MockMachine) OpenedMachinePortRanges(arg0 context.Context) (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "OpenedMachinePortRanges")
+	ret := m.ctrl.Call(m, "OpenedMachinePortRanges", arg0)
 	ret0, _ := ret[0].(map[names.UnitTag]network.GroupedPortRanges)
 	ret1, _ := ret[1].(map[names.UnitTag]network.GroupedPortRanges)
 	ret2, _ := ret[2].(error)
@@ -173,9 +173,9 @@ func (m *MockMachine) OpenedMachinePortRanges() (map[names.UnitTag]network.Group
 }
 
 // OpenedMachinePortRanges indicates an expected call of OpenedMachinePortRanges.
-func (mr *MockMachineMockRecorder) OpenedMachinePortRanges() *MockMachineOpenedMachinePortRangesCall {
+func (mr *MockMachineMockRecorder) OpenedMachinePortRanges(arg0 any) *MockMachineOpenedMachinePortRangesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedMachinePortRanges", reflect.TypeOf((*MockMachine)(nil).OpenedMachinePortRanges))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedMachinePortRanges", reflect.TypeOf((*MockMachine)(nil).OpenedMachinePortRanges), arg0)
 	return &MockMachineOpenedMachinePortRangesCall{Call: call}
 }
 
@@ -191,13 +191,13 @@ func (c *MockMachineOpenedMachinePortRangesCall) Return(arg0, arg1 map[names.Uni
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineOpenedMachinePortRangesCall) Do(f func() (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error)) *MockMachineOpenedMachinePortRangesCall {
+func (c *MockMachineOpenedMachinePortRangesCall) Do(f func(context.Context) (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error)) *MockMachineOpenedMachinePortRangesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineOpenedMachinePortRangesCall) DoAndReturn(f func() (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error)) *MockMachineOpenedMachinePortRangesCall {
+func (c *MockMachineOpenedMachinePortRangesCall) DoAndReturn(f func(context.Context) (map[names.UnitTag]network.GroupedPortRanges, map[names.UnitTag]network.GroupedPortRanges, error)) *MockMachineOpenedMachinePortRangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -241,18 +241,18 @@ func (c *MockMachineTagCall) DoAndReturn(f func() names.MachineTag) *MockMachine
 }
 
 // WatchUnits mocks base method.
-func (m *MockMachine) WatchUnits() (watcher.Watcher[[]string], error) {
+func (m *MockMachine) WatchUnits(arg0 context.Context) (watcher.Watcher[[]string], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchUnits")
+	ret := m.ctrl.Call(m, "WatchUnits", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[[]string])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchUnits indicates an expected call of WatchUnits.
-func (mr *MockMachineMockRecorder) WatchUnits() *MockMachineWatchUnitsCall {
+func (mr *MockMachineMockRecorder) WatchUnits(arg0 any) *MockMachineWatchUnitsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnits", reflect.TypeOf((*MockMachine)(nil).WatchUnits))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnits", reflect.TypeOf((*MockMachine)(nil).WatchUnits), arg0)
 	return &MockMachineWatchUnitsCall{Call: call}
 }
 
@@ -268,13 +268,13 @@ func (c *MockMachineWatchUnitsCall) Return(arg0 watcher.Watcher[[]string], arg1 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineWatchUnitsCall) Do(f func() (watcher.Watcher[[]string], error)) *MockMachineWatchUnitsCall {
+func (c *MockMachineWatchUnitsCall) Do(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachineWatchUnitsCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineWatchUnitsCall) DoAndReturn(f func() (watcher.Watcher[[]string], error)) *MockMachineWatchUnitsCall {
+func (c *MockMachineWatchUnitsCall) DoAndReturn(f func(context.Context) (watcher.Watcher[[]string], error)) *MockMachineWatchUnitsCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -342,18 +342,18 @@ func (c *MockUnitApplicationCall) DoAndReturn(f func() (firewaller.Application, 
 }
 
 // AssignedMachine mocks base method.
-func (m *MockUnit) AssignedMachine() (names.MachineTag, error) {
+func (m *MockUnit) AssignedMachine(arg0 context.Context) (names.MachineTag, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AssignedMachine")
+	ret := m.ctrl.Call(m, "AssignedMachine", arg0)
 	ret0, _ := ret[0].(names.MachineTag)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AssignedMachine indicates an expected call of AssignedMachine.
-func (mr *MockUnitMockRecorder) AssignedMachine() *MockUnitAssignedMachineCall {
+func (mr *MockUnitMockRecorder) AssignedMachine(arg0 any) *MockUnitAssignedMachineCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedMachine", reflect.TypeOf((*MockUnit)(nil).AssignedMachine))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedMachine", reflect.TypeOf((*MockUnit)(nil).AssignedMachine), arg0)
 	return &MockUnitAssignedMachineCall{Call: call}
 }
 
@@ -369,13 +369,13 @@ func (c *MockUnitAssignedMachineCall) Return(arg0 names.MachineTag, arg1 error) 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockUnitAssignedMachineCall) Do(f func() (names.MachineTag, error)) *MockUnitAssignedMachineCall {
+func (c *MockUnitAssignedMachineCall) Do(f func(context.Context) (names.MachineTag, error)) *MockUnitAssignedMachineCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockUnitAssignedMachineCall) DoAndReturn(f func() (names.MachineTag, error)) *MockUnitAssignedMachineCall {
+func (c *MockUnitAssignedMachineCall) DoAndReturn(f func(context.Context) (names.MachineTag, error)) *MockUnitAssignedMachineCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -556,9 +556,9 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 }
 
 // ExposeInfo mocks base method.
-func (m *MockApplication) ExposeInfo() (bool, map[string]params.ExposedEndpoint, error) {
+func (m *MockApplication) ExposeInfo(arg0 context.Context) (bool, map[string]params.ExposedEndpoint, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExposeInfo")
+	ret := m.ctrl.Call(m, "ExposeInfo", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(map[string]params.ExposedEndpoint)
 	ret2, _ := ret[2].(error)
@@ -566,9 +566,9 @@ func (m *MockApplication) ExposeInfo() (bool, map[string]params.ExposedEndpoint,
 }
 
 // ExposeInfo indicates an expected call of ExposeInfo.
-func (mr *MockApplicationMockRecorder) ExposeInfo() *MockApplicationExposeInfoCall {
+func (mr *MockApplicationMockRecorder) ExposeInfo(arg0 any) *MockApplicationExposeInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExposeInfo", reflect.TypeOf((*MockApplication)(nil).ExposeInfo))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExposeInfo", reflect.TypeOf((*MockApplication)(nil).ExposeInfo), arg0)
 	return &MockApplicationExposeInfoCall{Call: call}
 }
 
@@ -584,13 +584,13 @@ func (c *MockApplicationExposeInfoCall) Return(arg0 bool, arg1 map[string]params
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockApplicationExposeInfoCall) Do(f func() (bool, map[string]params.ExposedEndpoint, error)) *MockApplicationExposeInfoCall {
+func (c *MockApplicationExposeInfoCall) Do(f func(context.Context) (bool, map[string]params.ExposedEndpoint, error)) *MockApplicationExposeInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockApplicationExposeInfoCall) DoAndReturn(f func() (bool, map[string]params.ExposedEndpoint, error)) *MockApplicationExposeInfoCall {
+func (c *MockApplicationExposeInfoCall) DoAndReturn(f func(context.Context) (bool, map[string]params.ExposedEndpoint, error)) *MockApplicationExposeInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

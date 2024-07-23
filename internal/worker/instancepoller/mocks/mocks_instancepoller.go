@@ -186,18 +186,18 @@ func (c *MockMachineIdCall) DoAndReturn(f func() string) *MockMachineIdCall {
 }
 
 // InstanceId mocks base method.
-func (m *MockMachine) InstanceId() (instance.Id, error) {
+func (m *MockMachine) InstanceId(arg0 context.Context) (instance.Id, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InstanceId")
+	ret := m.ctrl.Call(m, "InstanceId", arg0)
 	ret0, _ := ret[0].(instance.Id)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // InstanceId indicates an expected call of InstanceId.
-func (mr *MockMachineMockRecorder) InstanceId() *MockMachineInstanceIdCall {
+func (mr *MockMachineMockRecorder) InstanceId(arg0 any) *MockMachineInstanceIdCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMachine)(nil).InstanceId))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMachine)(nil).InstanceId), arg0)
 	return &MockMachineInstanceIdCall{Call: call}
 }
 
@@ -213,30 +213,30 @@ func (c *MockMachineInstanceIdCall) Return(arg0 instance.Id, arg1 error) *MockMa
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineInstanceIdCall) Do(f func() (instance.Id, error)) *MockMachineInstanceIdCall {
+func (c *MockMachineInstanceIdCall) Do(f func(context.Context) (instance.Id, error)) *MockMachineInstanceIdCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineInstanceIdCall) DoAndReturn(f func() (instance.Id, error)) *MockMachineInstanceIdCall {
+func (c *MockMachineInstanceIdCall) DoAndReturn(f func(context.Context) (instance.Id, error)) *MockMachineInstanceIdCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // InstanceStatus mocks base method.
-func (m *MockMachine) InstanceStatus() (params.StatusResult, error) {
+func (m *MockMachine) InstanceStatus(arg0 context.Context) (params.StatusResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "InstanceStatus")
+	ret := m.ctrl.Call(m, "InstanceStatus", arg0)
 	ret0, _ := ret[0].(params.StatusResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // InstanceStatus indicates an expected call of InstanceStatus.
-func (mr *MockMachineMockRecorder) InstanceStatus() *MockMachineInstanceStatusCall {
+func (mr *MockMachineMockRecorder) InstanceStatus(arg0 any) *MockMachineInstanceStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceStatus", reflect.TypeOf((*MockMachine)(nil).InstanceStatus))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceStatus", reflect.TypeOf((*MockMachine)(nil).InstanceStatus), arg0)
 	return &MockMachineInstanceStatusCall{Call: call}
 }
 
@@ -252,30 +252,30 @@ func (c *MockMachineInstanceStatusCall) Return(arg0 params.StatusResult, arg1 er
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineInstanceStatusCall) Do(f func() (params.StatusResult, error)) *MockMachineInstanceStatusCall {
+func (c *MockMachineInstanceStatusCall) Do(f func(context.Context) (params.StatusResult, error)) *MockMachineInstanceStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineInstanceStatusCall) DoAndReturn(f func() (params.StatusResult, error)) *MockMachineInstanceStatusCall {
+func (c *MockMachineInstanceStatusCall) DoAndReturn(f func(context.Context) (params.StatusResult, error)) *MockMachineInstanceStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // IsManual mocks base method.
-func (m *MockMachine) IsManual() (bool, error) {
+func (m *MockMachine) IsManual(arg0 context.Context) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsManual")
+	ret := m.ctrl.Call(m, "IsManual", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // IsManual indicates an expected call of IsManual.
-func (mr *MockMachineMockRecorder) IsManual() *MockMachineIsManualCall {
+func (mr *MockMachineMockRecorder) IsManual(arg0 any) *MockMachineIsManualCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManual", reflect.TypeOf((*MockMachine)(nil).IsManual))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsManual", reflect.TypeOf((*MockMachine)(nil).IsManual), arg0)
 	return &MockMachineIsManualCall{Call: call}
 }
 
@@ -291,13 +291,13 @@ func (c *MockMachineIsManualCall) Return(arg0 bool, arg1 error) *MockMachineIsMa
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineIsManualCall) Do(f func() (bool, error)) *MockMachineIsManualCall {
+func (c *MockMachineIsManualCall) Do(f func(context.Context) (bool, error)) *MockMachineIsManualCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineIsManualCall) DoAndReturn(f func() (bool, error)) *MockMachineIsManualCall {
+func (c *MockMachineIsManualCall) DoAndReturn(f func(context.Context) (bool, error)) *MockMachineIsManualCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
@@ -379,17 +379,17 @@ func (c *MockMachineRefreshCall) DoAndReturn(f func(context.Context) error) *Moc
 }
 
 // SetInstanceStatus mocks base method.
-func (m *MockMachine) SetInstanceStatus(arg0 status.Status, arg1 string, arg2 map[string]any) error {
+func (m *MockMachine) SetInstanceStatus(arg0 context.Context, arg1 status.Status, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetInstanceStatus", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetInstanceStatus", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetInstanceStatus indicates an expected call of SetInstanceStatus.
-func (mr *MockMachineMockRecorder) SetInstanceStatus(arg0, arg1, arg2 any) *MockMachineSetInstanceStatusCall {
+func (mr *MockMachineMockRecorder) SetInstanceStatus(arg0, arg1, arg2, arg3 any) *MockMachineSetInstanceStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceStatus", reflect.TypeOf((*MockMachine)(nil).SetInstanceStatus), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceStatus", reflect.TypeOf((*MockMachine)(nil).SetInstanceStatus), arg0, arg1, arg2, arg3)
 	return &MockMachineSetInstanceStatusCall{Call: call}
 }
 
@@ -405,21 +405,21 @@ func (c *MockMachineSetInstanceStatusCall) Return(arg0 error) *MockMachineSetIns
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineSetInstanceStatusCall) Do(f func(status.Status, string, map[string]any) error) *MockMachineSetInstanceStatusCall {
+func (c *MockMachineSetInstanceStatusCall) Do(f func(context.Context, status.Status, string, map[string]any) error) *MockMachineSetInstanceStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineSetInstanceStatusCall) DoAndReturn(f func(status.Status, string, map[string]any) error) *MockMachineSetInstanceStatusCall {
+func (c *MockMachineSetInstanceStatusCall) DoAndReturn(f func(context.Context, status.Status, string, map[string]any) error) *MockMachineSetInstanceStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetProviderNetworkConfig mocks base method.
-func (m *MockMachine) SetProviderNetworkConfig(arg0 network.InterfaceInfos) (network.ProviderAddresses, bool, error) {
+func (m *MockMachine) SetProviderNetworkConfig(arg0 context.Context, arg1 network.InterfaceInfos) (network.ProviderAddresses, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetProviderNetworkConfig", arg0)
+	ret := m.ctrl.Call(m, "SetProviderNetworkConfig", arg0, arg1)
 	ret0, _ := ret[0].(network.ProviderAddresses)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(error)
@@ -427,9 +427,9 @@ func (m *MockMachine) SetProviderNetworkConfig(arg0 network.InterfaceInfos) (net
 }
 
 // SetProviderNetworkConfig indicates an expected call of SetProviderNetworkConfig.
-func (mr *MockMachineMockRecorder) SetProviderNetworkConfig(arg0 any) *MockMachineSetProviderNetworkConfigCall {
+func (mr *MockMachineMockRecorder) SetProviderNetworkConfig(arg0, arg1 any) *MockMachineSetProviderNetworkConfigCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProviderNetworkConfig", reflect.TypeOf((*MockMachine)(nil).SetProviderNetworkConfig), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProviderNetworkConfig", reflect.TypeOf((*MockMachine)(nil).SetProviderNetworkConfig), arg0, arg1)
 	return &MockMachineSetProviderNetworkConfigCall{Call: call}
 }
 
@@ -445,30 +445,30 @@ func (c *MockMachineSetProviderNetworkConfigCall) Return(arg0 network.ProviderAd
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineSetProviderNetworkConfigCall) Do(f func(network.InterfaceInfos) (network.ProviderAddresses, bool, error)) *MockMachineSetProviderNetworkConfigCall {
+func (c *MockMachineSetProviderNetworkConfigCall) Do(f func(context.Context, network.InterfaceInfos) (network.ProviderAddresses, bool, error)) *MockMachineSetProviderNetworkConfigCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineSetProviderNetworkConfigCall) DoAndReturn(f func(network.InterfaceInfos) (network.ProviderAddresses, bool, error)) *MockMachineSetProviderNetworkConfigCall {
+func (c *MockMachineSetProviderNetworkConfigCall) DoAndReturn(f func(context.Context, network.InterfaceInfos) (network.ProviderAddresses, bool, error)) *MockMachineSetProviderNetworkConfigCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // Status mocks base method.
-func (m *MockMachine) Status() (params.StatusResult, error) {
+func (m *MockMachine) Status(arg0 context.Context) (params.StatusResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Status")
+	ret := m.ctrl.Call(m, "Status", arg0)
 	ret0, _ := ret[0].(params.StatusResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Status indicates an expected call of Status.
-func (mr *MockMachineMockRecorder) Status() *MockMachineStatusCall {
+func (mr *MockMachineMockRecorder) Status(arg0 any) *MockMachineStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockMachine)(nil).Status))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockMachine)(nil).Status), arg0)
 	return &MockMachineStatusCall{Call: call}
 }
 
@@ -484,13 +484,13 @@ func (c *MockMachineStatusCall) Return(arg0 params.StatusResult, arg1 error) *Mo
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineStatusCall) Do(f func() (params.StatusResult, error)) *MockMachineStatusCall {
+func (c *MockMachineStatusCall) Do(f func(context.Context) (params.StatusResult, error)) *MockMachineStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineStatusCall) DoAndReturn(f func() (params.StatusResult, error)) *MockMachineStatusCall {
+func (c *MockMachineStatusCall) DoAndReturn(f func(context.Context) (params.StatusResult, error)) *MockMachineStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

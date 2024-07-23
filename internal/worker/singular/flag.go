@@ -4,6 +4,7 @@
 package singular
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock"
@@ -15,8 +16,8 @@ import (
 
 // Facade exposes the capabilities required by a FlagWorker.
 type Facade interface {
-	Claim(duration time.Duration) error
-	Wait() error
+	Claim(ctx context.Context, duration time.Duration) error
+	Wait(ctx context.Context) error
 }
 
 // FlagConfig holds a FlagWorker's dependencies and resources.
@@ -54,11 +55,11 @@ type FlagWorker struct {
 	valid    bool
 }
 
-func NewFlagWorker(config FlagConfig) (*FlagWorker, error) {
+func NewFlagWorker(ctx context.Context, config FlagConfig) (*FlagWorker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	valid, err := claim(config)
+	valid, err := claim(ctx, config)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -101,22 +102,29 @@ func (flag *FlagWorker) Check() bool {
 
 // run invokes a suitable runFunc, depending on the value of .valid.
 func (flag *FlagWorker) run() error {
+	ctx, cancel := flag.scopedContext()
+	defer cancel()
+
 	runFunc := waitVacant
 	if flag.valid {
 		runFunc = keepOccupied
 	}
-	err := runFunc(flag.config, flag.catacomb.Dying())
+	err := runFunc(ctx, flag.config, flag.catacomb.Dying())
 	return errors.Trace(err)
 }
 
+func (flag *FlagWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(flag.catacomb.Context(context.Background()))
+}
+
 // keepOccupied is a runFunc that tries to keep a flag valid.
-func keepOccupied(config FlagConfig, abort <-chan struct{}) error {
+func keepOccupied(ctx context.Context, config FlagConfig, abort <-chan struct{}) error {
 	for {
 		select {
 		case <-abort:
 			return nil
 		case <-sleep(config):
-			success, err := claim(config)
+			success, err := claim(ctx, config)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -129,8 +137,8 @@ func keepOccupied(config FlagConfig, abort <-chan struct{}) error {
 
 // claim claims model ownership on behalf of a controller, and returns
 // true if the attempt succeeded.
-func claim(config FlagConfig) (bool, error) {
-	err := config.Facade.Claim(config.Duration)
+func claim(ctx context.Context, config FlagConfig) (bool, error) {
+	err := config.Facade.Claim(ctx, config.Duration)
 	cause := errors.Cause(err)
 	switch cause {
 	case nil:
@@ -149,8 +157,8 @@ func sleep(config FlagConfig) <-chan time.Time {
 // wait is a runFunc that ignores its abort chan and always returns an error;
 // either because of a failed api call, or a successful one, which indicates
 // that no lease is held; hence, that the worker should be bounced.
-func waitVacant(config FlagConfig, _ <-chan struct{}) error {
-	if err := config.Facade.Wait(); err != nil {
+func waitVacant(ctx context.Context, config FlagConfig, _ <-chan struct{}) error {
+	if err := config.Facade.Wait(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	return ErrRefresh

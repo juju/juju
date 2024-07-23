@@ -947,7 +947,7 @@ var runMigrationPrechecks = func(
 		return errors.Annotate(err, "connect to target controller")
 	}
 	defer targetConn.Close()
-	dstUserList, err := getTargetControllerUsers(targetConn)
+	dstUserList, err := getTargetControllerUsers(ctx, targetConn)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -956,7 +956,7 @@ var runMigrationPrechecks = func(
 	}
 	client := migrationtarget.NewClient(targetConn)
 	if targetInfo.CACert == "" {
-		targetInfo.CACert, err = client.CACert()
+		targetInfo.CACert, err = client.CACert(ctx)
 		if err != nil {
 			if !params.IsCodeNotImplemented(err) {
 				return errors.Annotatef(err, "cannot retrieve CA certificate")
@@ -966,7 +966,7 @@ var runMigrationPrechecks = func(
 			return errors.New("controller API version is too old")
 		}
 	}
-	err = client.Prechecks(modelInfo)
+	err = client.Prechecks(ctx, modelInfo)
 	return errors.Annotate(err, "target prechecks failed 2")
 }
 
@@ -1098,7 +1098,7 @@ func makeModelInfo(ctx context.Context, st, ctlrSt *state.State,
 	}, ul, nil
 }
 
-func getTargetControllerUsers(conn api.Connection) (userList, error) {
+func getTargetControllerUsers(ctx context.Context, conn api.Connection) (userList, error) {
 	ul := userList{}
 
 	userClient := usermanager.NewClient(conn)
@@ -1113,7 +1113,7 @@ func getTargetControllerUsers(conn api.Connection) (userList, error) {
 	}
 
 	ctrlClient := controllerclient.NewClient(conn)
-	ul.identityURL, err = ctrlClient.IdentityProviderURL()
+	ul.identityURL, err = ctrlClient.IdentityProviderURL(ctx)
 	if err != nil {
 		return ul, errors.Trace(err)
 	}

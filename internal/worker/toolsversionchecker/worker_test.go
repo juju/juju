@@ -4,6 +4,7 @@
 package toolsversionchecker_test
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -23,7 +24,7 @@ type facade struct {
 	called chan string
 }
 
-func (f *facade) UpdateToolsVersion() error {
+func (f *facade) UpdateToolsVersion(ctx context.Context) error {
 	f.called <- "UpdateToolsVersion"
 	return nil
 }

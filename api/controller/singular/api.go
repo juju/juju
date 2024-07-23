@@ -63,7 +63,7 @@ type API struct {
 // Claim attempts to claim responsibility for administration of the entity
 // for the supplied duration. If the claim is denied, it will return
 // lease.ErrClaimDenied.
-func (api *API) Claim(duration time.Duration) error {
+func (api *API) Claim(ctx context.Context, duration time.Duration) error {
 	args := params.SingularClaims{
 		Claims: []params.SingularClaim{{
 			EntityTag:   api.entity.String(),
@@ -72,7 +72,7 @@ func (api *API) Claim(duration time.Duration) error {
 		}},
 	}
 	var results params.ErrorResults
-	err := api.facadeCaller.FacadeCall(context.TODO(), "Claim", args, &results)
+	err := api.facadeCaller.FacadeCall(ctx, "Claim", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -91,14 +91,14 @@ func (api *API) Claim(duration time.Duration) error {
 // entity. It should probably be doing something watchy rather than blocky,
 // but it's following the lease manager implementation underlying the original
 // leadership approach and it doesn't seem worth rewriting all that.
-func (api *API) Wait() error {
+func (api *API) Wait(ctx context.Context) error {
 	args := params.Entities{
 		Entities: []params.Entity{{
 			Tag: api.entity.String(),
 		}},
 	}
 	var results params.ErrorResults
-	err := api.facadeCaller.FacadeCall(context.TODO(), "Wait", args, &results)
+	err := api.facadeCaller.FacadeCall(ctx, "Wait", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
