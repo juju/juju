@@ -11,8 +11,8 @@ run_relation_list_app() {
 	ensure "${model_name}" "${file}"
 
 	echo "Deploy 2 departer instances"
-	juju deploy ./testcharms/charms/dummy-sink
-	juju deploy ./testcharms/charms/dummy-source
+	juju deploy ./testcharms/charms/dummy-sink --series bionic
+	juju deploy ./testcharms/charms/dummy-source --series bionic
 
 	echo "Establish relation"
 	juju relate dummy-sink dummy-source
