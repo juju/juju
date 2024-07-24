@@ -156,6 +156,89 @@ func (s *rootKeyStateSuite) TestFindLatestKeyEquality(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, errors.KeyNotFound)
 }
 
+func (s *rootKeyStateSuite) TestRemoveKeysExpiredBeforeNow(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	addAllKeys(c, st)
+
+	err := st.RemoveKeysExpiredBefore(ctx, now)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetKey(ctx, key0.ID)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key1.ID)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key2.ID)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key3.ID)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key4.ID)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+}
+
+func (s *rootKeyStateSuite) TestRemoveKeysExpiredBeforeNowPlus5(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	addAllKeys(c, st)
+
+	err := st.RemoveKeysExpiredBefore(ctx, now.Add(5*time.Second))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetKey(ctx, key0.ID)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key1.ID)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key2.ID)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key3.ID)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key4.ID)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+}
+
+func (s *rootKeyStateSuite) TestRemoveKeysExpiredAll(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	addAllKeys(c, st)
+
+	err := st.RemoveKeysExpiredBefore(ctx, now.Add(10*time.Second))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetKey(ctx, key0.ID)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key1.ID)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key2.ID)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key3.ID)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+	_, err = st.GetKey(ctx, key4.ID)
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+
+	_, err = st.FindLatestKey(ctx, time.Unix(0, 0), time.Unix(0, 0), time.Unix(math.MaxInt64, 0))
+	c.Check(err, jc.ErrorIs, errors.KeyNotFound)
+}
+
+func (s *rootKeyStateSuite) TestRemoveKeysExpiredNone(c *gc.C) {
+	st := NewState(s.TxnRunnerFactory())
+	ctx := context.Background()
+	addAllKeys(c, st)
+
+	err := st.RemoveKeysExpiredBefore(ctx, now.Add(-10*time.Second))
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = st.GetKey(ctx, key0.ID)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key1.ID)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key2.ID)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key3.ID)
+	c.Check(err, jc.ErrorIsNil)
+	_, err = st.GetKey(ctx, key4.ID)
+	c.Check(err, jc.ErrorIsNil)
+}
+
 func addAllKeys(c *gc.C, st *State) {
 	ctx := context.Background()
 

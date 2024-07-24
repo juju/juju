@@ -351,3 +351,41 @@ func (c *MockStateInsertKeyCall) DoAndReturn(f func(context.Context, macaroon.Ro
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// RemoveKeysExpiredBefore mocks base method.
+func (m *MockState) RemoveKeysExpiredBefore(arg0 context.Context, arg1 time.Time) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveKeysExpiredBefore", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveKeysExpiredBefore indicates an expected call of RemoveKeysExpiredBefore.
+func (mr *MockStateMockRecorder) RemoveKeysExpiredBefore(arg0, arg1 any) *MockStateRemoveKeysExpiredBeforeCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveKeysExpiredBefore", reflect.TypeOf((*MockState)(nil).RemoveKeysExpiredBefore), arg0, arg1)
+	return &MockStateRemoveKeysExpiredBeforeCall{Call: call}
+}
+
+// MockStateRemoveKeysExpiredBeforeCall wrap *gomock.Call
+type MockStateRemoveKeysExpiredBeforeCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateRemoveKeysExpiredBeforeCall) Return(arg0 error) *MockStateRemoveKeysExpiredBeforeCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateRemoveKeysExpiredBeforeCall) Do(f func(context.Context, time.Time) error) *MockStateRemoveKeysExpiredBeforeCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateRemoveKeysExpiredBeforeCall) DoAndReturn(f func(context.Context, time.Time) error) *MockStateRemoveKeysExpiredBeforeCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

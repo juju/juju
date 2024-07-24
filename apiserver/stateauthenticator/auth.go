@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/httpcontext"
 	"github.com/juju/juju/controller"
 	coremodel "github.com/juju/juju/core/model"
+	domainmacaroon "github.com/juju/juju/domain/macaroon"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
 )
@@ -60,6 +61,9 @@ type ControllerConfigService interface {
 type MacaroonService interface {
 	dbrootkeystore.ContextBacking
 	BakeryConfigService
+
+	// RemoveExpiredKeys removes all root keys from state which have expired
+	RemoveExpiredKeys(ctx context.Context, clk domainmacaroon.Clock) error
 }
 
 type BakeryConfigService interface {

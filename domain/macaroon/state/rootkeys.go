@@ -138,3 +138,26 @@ func (st *RootKeyState) InsertKey(ctx context.Context, key macaroon.RootKey) err
 	})
 	return errors.Trace(err)
 }
+
+// RemoveKeysExpiredBefore removes all root keys from state with an expiry
+// before the provided cutoff time
+func (st *RootKeyState) RemoveKeysExpiredBefore(ctx context.Context, cutoff time.Time) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	m := sqlair.M{
+		"cutoff": cutoff,
+	}
+
+	removeExpiredStmt, err := st.Prepare("DELETE FROM macaroon_root_key WHERE expires_at < $M.cutoff", m)
+	if err != nil {
+		return errors.Annotatef(err, "preparing remove expired root key statement")
+	}
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		return tx.Query(ctx, removeExpiredStmt, m).Run()
+	})
+
+	return errors.Trace(err)
+}

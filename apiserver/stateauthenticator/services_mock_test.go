@@ -21,6 +21,7 @@ import (
 	model "github.com/juju/juju/core/model"
 	permission "github.com/juju/juju/core/permission"
 	user "github.com/juju/juju/core/user"
+	macaroon "github.com/juju/juju/domain/macaroon"
 	auth "github.com/juju/juju/internal/auth"
 	state "github.com/juju/juju/state"
 	gomock "go.uber.org/mock/gomock"
@@ -518,6 +519,44 @@ func (c *MockMacaroonServiceInsertKeyContextCall) Do(f func(context.Context, dbr
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockMacaroonServiceInsertKeyContextCall) DoAndReturn(f func(context.Context, dbrootkeystore.RootKey) error) *MockMacaroonServiceInsertKeyContextCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// RemoveExpiredKeys mocks base method.
+func (m *MockMacaroonService) RemoveExpiredKeys(arg0 context.Context, arg1 macaroon.Clock) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveExpiredKeys", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveExpiredKeys indicates an expected call of RemoveExpiredKeys.
+func (mr *MockMacaroonServiceMockRecorder) RemoveExpiredKeys(arg0, arg1 any) *MockMacaroonServiceRemoveExpiredKeysCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveExpiredKeys", reflect.TypeOf((*MockMacaroonService)(nil).RemoveExpiredKeys), arg0, arg1)
+	return &MockMacaroonServiceRemoveExpiredKeysCall{Call: call}
+}
+
+// MockMacaroonServiceRemoveExpiredKeysCall wrap *gomock.Call
+type MockMacaroonServiceRemoveExpiredKeysCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockMacaroonServiceRemoveExpiredKeysCall) Return(arg0 error) *MockMacaroonServiceRemoveExpiredKeysCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockMacaroonServiceRemoveExpiredKeysCall) Do(f func(context.Context, macaroon.Clock) error) *MockMacaroonServiceRemoveExpiredKeysCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockMacaroonServiceRemoveExpiredKeysCall) DoAndReturn(f func(context.Context, macaroon.Clock) error) *MockMacaroonServiceRemoveExpiredKeysCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

@@ -14,3 +14,9 @@ type RootKey struct {
 	Expires time.Time
 	RootKey []byte
 }
+
+// Clock provides a clock interface used by the macaroon service
+type Clock interface {
+	// Now returns the current clock time.
+	Now() time.Time
+}

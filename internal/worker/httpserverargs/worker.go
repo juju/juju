@@ -21,6 +21,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	domainmacaroon "github.com/juju/juju/domain/macaroon"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/state"
 )
@@ -229,6 +230,11 @@ func (b *managedServices) FindLatestKeyContext(ctx context.Context, createdAfter
 // id already exists, return a macaroonerrors.KeyAlreadyExists error.
 func (b *managedServices) InsertKeyContext(ctx context.Context, key dbrootkeystore.RootKey) error {
 	return b.macaroonService.InsertKeyContext(ctx, key)
+}
+
+// RemoveExpiredKeys removes all root keys from state which have expired.
+func (b *managedServices) RemoveExpiredKeys(ctx context.Context, clk domainmacaroon.Clock) error {
+	return b.macaroonService.RemoveExpiredKeys(ctx, clk)
 }
 
 // Kill is part of the worker.Worker interface.

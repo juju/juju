@@ -78,6 +78,7 @@ func (*importSuite) TestImports(c *gc.C) {
 		"core/version",
 		"core/watcher",
 		"domain/secret/errors",
+		"domain/macaroon",
 		"domain/model/errors",
 		"domain/secretbackend/errors",
 		"environs/cloudspec",

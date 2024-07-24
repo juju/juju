@@ -63,6 +63,48 @@ func assertZeroExpiration(c *gc.C, expireableStorage internalmacaroon.ExpirableS
 	c.Assert(err, jc.ErrorIs, bakery.ErrNotFound)
 }
 
+func (s *expirableStorageSuite) TestExpiredRootKeyRemovedGet(c *gc.C) {
+	err := s.macaroonService.InsertKeyContext(context.Background(), dbrootkeystore.RootKey{
+		Id:      []byte("id"),
+		Created: time.Now(),
+		Expires: time.Now().Add(-time.Second),
+		RootKey: []byte("key"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	key, err := s.macaroonService.GetKeyContext(context.Background(), []byte("id"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(key.RootKey, gc.DeepEquals, []byte("key"))
+
+	expireableStorage := internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, clock.WallClock)
+	_, err = expireableStorage.Get(context.Background(), []byte("id"))
+	c.Assert(err, jc.ErrorIs, bakery.ErrNotFound)
+
+	_, err = s.macaroonService.GetKeyContext(context.Background(), []byte("id"))
+	c.Assert(err, jc.ErrorIs, bakery.ErrNotFound)
+}
+
+func (s *expirableStorageSuite) TestExpiredRootKeyRemovedRootKey(c *gc.C) {
+	err := s.macaroonService.InsertKeyContext(context.Background(), dbrootkeystore.RootKey{
+		Id:      []byte("id"),
+		Created: time.Now(),
+		Expires: time.Now().Add(-time.Second),
+		RootKey: []byte("key"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	key, err := s.macaroonService.GetKeyContext(context.Background(), []byte("id"))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(key.RootKey, gc.DeepEquals, []byte("key"))
+
+	expireableStorage := internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, clock.WallClock)
+	_, _, err = expireableStorage.RootKey(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.macaroonService.GetKeyContext(context.Background(), []byte("id"))
+	c.Assert(err, jc.ErrorIs, bakery.ErrNotFound)
+}
+
 func (s *expirableStorageSuite) TestCheckNewMacaroon(c *gc.C) {
 	expireableStorage := internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, clock.WallClock)
 

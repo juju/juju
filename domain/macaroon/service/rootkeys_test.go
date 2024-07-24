@@ -111,3 +111,29 @@ func (s *rootKeyServiceSuite) TestInsertKeyContextError(c *gc.C) {
 	err := srv.InsertKeyContext(context.Background(), key)
 	c.Assert(err, gc.Equals, boom)
 }
+
+func (s *rootKeyServiceSuite) TestRemoveExpiredKeys(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	clk := clockVal(&epoch)
+
+	s.st.EXPECT().RemoveKeysExpiredBefore(gomock.Any(), epoch)
+	srv := NewRootKeyService(s.st)
+
+	err := srv.RemoveExpiredKeys(context.Background(), clk)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+var epoch = time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+func clockVal(t *time.Time) macaroon.Clock {
+	return clockFunc(func() time.Time {
+		return *t
+	})
+}
+
+type clockFunc func() time.Time
+
+func (f clockFunc) Now() time.Time {
+	return f()
+}

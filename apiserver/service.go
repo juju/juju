@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/user"
 	userservice "github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/macaroon"
 )
 
 // ControllerConfigService defines the methods required to get the controller
@@ -35,6 +36,8 @@ type UserService interface {
 type MacaroonService interface {
 	dbrootkeystore.ContextBacking
 	BakeryConfigService
+
+	RemoveExpiredKeys(ctx context.Context, clk macaroon.Clock) error
 }
 
 // BakeryConfigService manages macaroon bakery config storage.

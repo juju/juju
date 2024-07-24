@@ -35,6 +35,10 @@ type RootKeyState interface {
 	// InsertKey inserts the given root key into state. If a key with matching
 	// id already exists, return a macaroonerrors.KeyAlreadyExists error.
 	InsertKey(ctx context.Context, key macaroon.RootKey) error
+
+	// RemoveKeysExpiredBefore removes all root keys from state with an expiry
+	// before the provided cutoff time
+	RemoveKeysExpiredBefore(ctx context.Context, cutoff time.Time) error
 }
 
 // RootKeyService provides the API for macaroon root key storage
@@ -105,4 +109,10 @@ func decodeRootKey(k macaroon.RootKey) dbrootkeystore.RootKey {
 		Expires: k.Expires,
 		RootKey: k.RootKey,
 	}
+}
+
+// RemoveExpiredKeys removes all root keys from state which have expired.
+func (s *RootKeyService) RemoveExpiredKeys(ctx context.Context, clk macaroon.Clock) error {
+	now := clk.Now()
+	return errors.Trace(s.st.RemoveKeysExpiredBefore(ctx, now))
 }

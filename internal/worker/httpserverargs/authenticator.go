@@ -19,6 +19,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	domainmacaroon "github.com/juju/juju/domain/macaroon"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/state"
 )
@@ -50,6 +51,8 @@ type AccessService interface {
 type MacaroonService interface {
 	dbrootkeystore.ContextBacking
 	BakeryConfigService
+
+	RemoveExpiredKeys(ctx context.Context, clk domainmacaroon.Clock) error
 }
 
 type BakeryConfigService interface {
