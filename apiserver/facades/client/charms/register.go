@@ -51,12 +51,20 @@ func makeFacadeBase(stdCtx context.Context, ctx facade.ModelContext) (*API, erro
 	if err != nil {
 		return nil, fmt.Errorf("getting model info: %w", err)
 	}
+	charmhubHTTPClient, err := ctx.HTTPClient(facade.CharmhubHTTPClient)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"getting charm hub http client: %w",
+			err,
+		)
+	}
+
 	return &API{
 		charmInfoAPI:       charmInfoAPI,
 		authorizer:         authorizer,
 		backendState:       newStateShim(st),
 		modelConfigService: ctx.ServiceFactory().Config(),
-		charmhubHTTPClient: ctx.HTTPClient(facade.CharmhubHTTPClient),
+		charmhubHTTPClient: charmhubHTTPClient,
 		newRepoFactory: func(cfg services.CharmRepoFactoryConfig) corecharm.RepositoryFactory {
 			return services.NewCharmRepoFactory(cfg)
 		},

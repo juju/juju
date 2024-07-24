@@ -4,6 +4,9 @@
 package facadetest
 
 import (
+	"fmt"
+
+	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/apiserver/facade"
@@ -35,6 +38,7 @@ type ModelContext struct {
 	LeadershipReader_      leadership.Reader
 	SingularClaimer_       lease.Claimer
 	CharmhubHTTPClient_    facade.HTTPClient
+	SSHImporterHTTPClient_ facade.HTTPClient
 	ServiceFactory_        servicefactory.ServiceFactory
 	ServiceFactoryGetter_  servicefactory.ServiceFactoryGetter
 	ModelExporter_         facade.ModelExporter
@@ -158,14 +162,35 @@ func (c ModelContext) SingularClaimer() (lease.Claimer, error) {
 	return c.SingularClaimer_, nil
 }
 
-// HTTPClient implements facade.ModelContext.
-func (c ModelContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {
+// HTTPClient returns an HTTP client to use for the given purpose. The following
+// errors can be expected:
+// - [ErrorHTTPClientPurposeInvalid] when the requested purpose is not
+// understood by the context.
+// - [ErrorHTTPClientForPurposeNotFound] when no http client can be found for
+// the requested [HTTPClientPurpose].
+func (c ModelContext) HTTPClient(purpose facade.HTTPClientPurpose) (facade.HTTPClient, error) {
+	var client facade.HTTPClient
+
 	switch purpose {
 	case facade.CharmhubHTTPClient:
-		return c.CharmhubHTTPClient_
+		client = c.CharmhubHTTPClient_
+	case facade.HTTPClientPurposeUserSSHImport:
+		client = c.SSHImporterHTTPClient_
 	default:
-		return nil
+		return nil, fmt.Errorf(
+			"cannot get http client for purpose %q, purpose is not understood by the facade context%w",
+			purpose, errors.Hide(facade.ErrorHTTPClientPurposeInvalid),
+		)
 	}
+
+	if client == nil {
+		return nil, fmt.Errorf(
+			"cannot get http client for purpose %q: http client not found%w",
+			purpose, errors.Hide(facade.ErrorHTTPClientForPurposeNotFound),
+		)
+	}
+
+	return client, nil
 }
 
 // ServiceFactory implements facade.ModelContext.

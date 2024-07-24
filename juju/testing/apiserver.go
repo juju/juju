@@ -663,6 +663,7 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 		UpgradeComplete:            func() bool { return true },
 		LogSink:                    noopLogSink{},
 		CharmhubHTTPClient:         &http.Client{},
+		SSHImporterHTTPClient:      &http.Client{},
 		DBGetter:                   stubDBGetter{},
 		ServiceFactoryGetter:       nil,
 		TracerGetter:               &stubTracerGetter{},

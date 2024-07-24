@@ -277,6 +277,9 @@ type ManifoldsConfig struct {
 	// CharmhubHTTPClient is the HTTP client used for Charmhub API requests.
 	CharmhubHTTPClient HTTPClient
 
+	// SSHImporterHTTPClient is the HTTP client used for ssh import operations.
+	SSHImporterHTTPClient HTTPClient
+
 	// S3HTTPClient is the HTTP client used for S3 API requests.
 	S3HTTPClient HTTPClient
 
@@ -645,18 +648,19 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		apiServerName: ifBootstrapComplete(apiserver.Manifold(apiserver.ManifoldConfig{
-			AgentName:              agentName,
-			AuthenticatorName:      httpServerArgsName,
-			ClockName:              clockName,
-			StateName:              stateName,
-			LogSinkName:            logSinkName,
-			MuxName:                httpServerArgsName,
-			LeaseManagerName:       leaseManagerName,
-			UpgradeGateName:        upgradeStepsGateName,
-			AuditConfigUpdaterName: auditConfigUpdaterName,
-			CharmhubHTTPClientName: charmhubHTTPClientName,
-			TraceName:              traceName,
-			ObjectStoreName:        objectStoreName,
+			AgentName:                 agentName,
+			AuthenticatorName:         httpServerArgsName,
+			ClockName:                 clockName,
+			StateName:                 stateName,
+			LogSinkName:               logSinkName,
+			MuxName:                   httpServerArgsName,
+			LeaseManagerName:          leaseManagerName,
+			UpgradeGateName:           upgradeStepsGateName,
+			AuditConfigUpdaterName:    auditConfigUpdaterName,
+			CharmhubHTTPClientName:    charmhubHTTPClientName,
+			SSHImporterHTTPClientName: sshImporterHTTPClientName,
+			TraceName:                 traceName,
+			ObjectStoreName:           objectStoreName,
 
 			// Note that although there is a transient dependency on dbaccessor
 			// via changestream, the direct dependency supplies the capability
@@ -688,6 +692,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 			Output: engine.ValueWorkerOutput,
 		}),
+
+		sshImporterHTTPClientName: dependency.Manifold{
+			Start: func(_ context.Context, _ dependency.Getter) (worker.Worker, error) {
+				return engine.NewValueWorker(config.SSHImporterHTTPClient)
+			},
+			Output: engine.ValueWorkerOutput,
+		},
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:                       agentName,
@@ -1353,8 +1364,9 @@ const (
 
 	brokerTrackerName = "broker-tracker"
 
-	charmhubHTTPClientName = "charmhub-http-client"
-	s3HTTPClientName       = "s3-http-client"
+	charmhubHTTPClientName    = "charmhub-http-client"
+	s3HTTPClientName          = "s3-http-client"
+	sshImporterHTTPClientName = "ssh-importer-http-client"
 
 	controlSocketName = "control-socket"
 )

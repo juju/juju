@@ -125,6 +125,7 @@ func (s *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"service-factory",
 			"ssh-authkeys-updater",
 			"ssh-identity-writer",
+			"ssh-importer-http-client",
 			"state-config-watcher",
 			"state-converter",
 			"state",
@@ -201,6 +202,7 @@ func (s *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"secret-backend-rotate",
 			"service-factory",
 			"ssh-identity-writer",
+			"ssh-importer-http-client",
 			"state-config-watcher",
 			"state",
 			"termination-signal-handler",
@@ -286,6 +288,7 @@ func (s *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"s3-http-client",
 		"service-factory",
 		"service-factory",
+		"ssh-importer-http-client",
 		"state-config-watcher",
 		"state",
 		"termination-signal-handler",
@@ -534,6 +537,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"query-logger",
 		"s3-http-client",
 		"service-factory",
+		"ssh-importer-http-client",
 		"state",
 		"state-config-watcher",
 		"trace",
@@ -762,6 +766,7 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"query-logger",
 		"s3-http-client",
 		"service-factory",
+		"ssh-importer-http-client",
 		"state",
 		"state-config-watcher",
 		"trace",
@@ -1160,6 +1165,8 @@ var expectedMachineManifoldsWithDependenciesIAAS = map[string][]string{
 		"upgrade-steps-gate",
 	},
 
+	"ssh-importer-http-client": {},
+
 	"state": {
 		"agent",
 		"change-stream",
@@ -1336,6 +1343,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"query-logger",
 		"s3-http-client",
 		"service-factory",
+		"ssh-importer-http-client",
 		"state",
 		"state-config-watcher",
 		"trace",
@@ -1499,6 +1507,7 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"provider-service-factory",
 		"query-logger",
 		"s3-http-client",
+		"ssh-importer-http-client",
 		"service-factory",
 		"state",
 		"state-config-watcher",
@@ -1810,6 +1819,8 @@ var expectedMachineManifoldsWithDependenciesCAAS = map[string][]string{
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 	},
+
+	"ssh-importer-http-client": {},
 
 	"state": {
 		"agent",

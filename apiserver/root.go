@@ -865,15 +865,35 @@ func (ctx *facadeContext) LeadershipReader() (leadership.Reader, error) {
 	return leadershipReader{reader: reader}, nil
 }
 
-func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) facade.HTTPClient {
+// HTTPClient returns an HTTP client to use for the given purpose. The following
+// errors can be expected:
+// - [ErrorHTTPClientPurposeInvalid] when the requested purpose is not
+// understood by the context.
+// - [ErrorHTTPClientForPurposeNotFound] when no http client can be found for
+// the requested [HTTPClientPurpose].
+func (ctx *facadeContext) HTTPClient(purpose facade.HTTPClientPurpose) (facade.HTTPClient, error) {
+	var client facade.HTTPClient
+
 	switch purpose {
 	case facade.CharmhubHTTPClient:
-		return ctx.r.shared.charmhubHTTPClient
+		client = ctx.r.shared.charmhubHTTPClient
+	case facade.HTTPClientPurposeUserSSHImport:
+		client = ctx.r.shared.sshImporterHTTPClient
 	default:
-		// TODO (stickupkid): This feels like it should at least log an
-		// info/warning about missing purpose.
-		return nil
+		return nil, fmt.Errorf(
+			"cannot get http client for purpose %q, purpose is not understood by the facade context%w",
+			purpose, errors.Hide(facade.ErrorHTTPClientPurposeInvalid),
+		)
 	}
+
+	if client == nil {
+		return nil, fmt.Errorf(
+			"cannot get http client for purpose %q: http client not found%w",
+			purpose, errors.Hide(facade.ErrorHTTPClientForPurposeNotFound),
+		)
+	}
+
+	return client, nil
 }
 
 var storageRegistryGetter = func(ctx *facadeContext) func() (storage.ProviderRegistry, error) {

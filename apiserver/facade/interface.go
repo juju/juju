@@ -153,8 +153,13 @@ type ModelContext interface {
 	// RequestRecorder defines a metrics collector for outbound requests.
 	RequestRecorder() RequestRecorder
 
-	// HTTPClient returns an HTTP client to use for the given purpose.
-	HTTPClient(purpose HTTPClientPurpose) HTTPClient
+	// HTTPClient returns an HTTP client to use for the given purpose. The
+	// following errors can be expected:
+	// - [ErrorHTTPClientPurposeInvalid] when the requested purpose is not
+	// understood by the context.
+	// - [ErrorHTTPClientForPurposeNotFound] when no http client can be found
+	// for the requested [HTTPClientPurpose].
+	HTTPClient(HTTPClientPurpose) (HTTPClient, error)
 
 	// MachineTag returns the current machine tag.
 	MachineTag() names.Tag

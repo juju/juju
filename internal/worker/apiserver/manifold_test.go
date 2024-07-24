@@ -61,6 +61,7 @@ type ManifoldSuite struct {
 	upgradeGate             stubGateWaiter
 	logSink                 corelogger.ModelLogger
 	charmhubHTTPClient      *http.Client
+	sshImporterHTTPClient   *http.Client
 	dbGetter                stubWatchableDBGetter
 	dbDeleter               stubDBDeleter
 	serviceFactoryGetter    *stubServiceFactoryGetter
@@ -90,6 +91,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.leaseManager = &lease.Manager{}
 	s.logSink = &mockModelLogger{}
 	s.charmhubHTTPClient = &http.Client{}
+	s.sshImporterHTTPClient = &http.Client{}
 	s.stub.ResetCalls()
 	s.serviceFactoryGetter = &stubServiceFactoryGetter{}
 	s.dbDeleter = stubDBDeleter{}
@@ -108,6 +110,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		LeaseManagerName:                  "lease-manager",
 		LogSinkName:                       "log-sink",
 		CharmhubHTTPClientName:            "charmhub-http-client",
+		SSHImporterHTTPClientName:         "sshimporter-http-client",
 		ServiceFactoryName:                "service-factory",
 		TraceName:                         "trace",
 		ObjectStoreName:                   "object-store",
@@ -130,21 +133,22 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 
 func (s *ManifoldSuite) newGetter(overlay map[string]interface{}) dependency.Getter {
 	resources := map[string]interface{}{
-		"agent":                s.agent,
-		"authenticator":        s.authenticator,
-		"clock":                s.clock,
-		"mux":                  s.mux,
-		"state":                &s.state,
-		"upgrade":              &s.upgradeGate,
-		"auditconfig-updater":  s.auditConfig.get,
-		"lease-manager":        s.leaseManager,
-		"log-sink":             s.logSink,
-		"charmhub-http-client": s.charmhubHTTPClient,
-		"change-stream":        s.dbGetter,
-		"db-accessor":          s.dbDeleter,
-		"service-factory":      s.serviceFactoryGetter,
-		"trace":                s.tracerGetter,
-		"object-store":         s.objectStoreGetter,
+		"agent":                   s.agent,
+		"authenticator":           s.authenticator,
+		"clock":                   s.clock,
+		"mux":                     s.mux,
+		"state":                   &s.state,
+		"upgrade":                 &s.upgradeGate,
+		"auditconfig-updater":     s.auditConfig.get,
+		"lease-manager":           s.leaseManager,
+		"log-sink":                s.logSink,
+		"charmhub-http-client":    s.charmhubHTTPClient,
+		"sshimporter-http-client": s.sshImporterHTTPClient,
+		"change-stream":           s.dbGetter,
+		"db-accessor":             s.dbDeleter,
+		"service-factory":         s.serviceFactoryGetter,
+		"trace":                   s.tracerGetter,
+		"object-store":            s.objectStoreGetter,
 	}
 	for k, v := range overlay {
 		resources[k] = v
@@ -175,8 +179,8 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 var expectedInputs = []string{
 	"agent", "authenticator", "clock", "mux",
 	"state", "upgrade", "auditconfig-updater", "lease-manager",
-	"charmhub-http-client", "change-stream", "service-factory",
-	"trace", "object-store", "log-sink", "db-accessor",
+	"charmhub-http-client", "sshimporter-http-client", "change-stream",
+	"service-factory", "trace", "object-store", "log-sink", "db-accessor",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -243,6 +247,7 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		Hub:                        &s.hub,
 		LogSink:                    s.logSink,
 		CharmhubHTTPClient:         s.charmhubHTTPClient,
+		SSHImporterHTTPClient:      s.sshImporterHTTPClient,
 		DBGetter:                   s.dbGetter,
 		DBDeleter:                  s.dbDeleter,
 		ServiceFactoryGetter:       s.serviceFactoryGetter,
