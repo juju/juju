@@ -561,6 +561,27 @@ func (s *serviceSuite) TestBackendSummaryInfoWithFilterNamesNotFound(c *gc.C) {
 	)
 }
 
+func (s *serviceSuite) TestBackendIDs(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	backends := []string{vaultBackendID, "another-vault-id"}
+	s.mockState.EXPECT().ListSecretBackendIDs(gomock.Any()).Return(backends, nil)
+
+	svc := newService(
+		s.mockState, s.logger, s.clock,
+		func(backendType string) (provider.SecretBackendProvider, error) {
+			if backendType != vault.BackendType {
+				return s.mockRegistry, nil
+			}
+			return providerWithConfig{
+				SecretBackendProvider: s.mockRegistry,
+			}, nil
+		},
+	)
+	result, err := svc.ListBackendIDs(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, []string{vaultBackendID, "another-vault-id"})
+}
+
 func (s *serviceSuite) TestPingSecretBackend(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	svc := newService(

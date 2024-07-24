@@ -1710,7 +1710,6 @@ SELECT (sr.*) AS (&secretRevision.*),
        (svr.*) AS (&secretValueRef.*),
        (sre.*) AS (&secretRevisionExpire.*)
 FROM   secret_revision sr
-       LEFT JOIN secret_revision_obsolete sro ON sro.revision_uuid = sr.uuid
        LEFT JOIN secret_revision_expire sre ON sre.revision_uuid = sr.uuid
        LEFT JOIN secret_value_ref svr ON svr.revision_uuid = sr.uuid
 WHERE  secret_id = $secretRevision.secret_id
@@ -1721,7 +1720,7 @@ WHERE  secret_id = $secretRevision.secret_id
 		want.Revision = *revision
 	}
 
-	queryStmt, err := st.Prepare(query, secretRevision{}, secretRevisionObsolete{}, secretRevisionExpire{}, secretValueRef{})
+	queryStmt, err := st.Prepare(query, secretRevision{}, secretRevisionExpire{}, secretValueRef{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

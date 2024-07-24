@@ -43,6 +43,15 @@ type Service struct {
 	registry SecretProviderRegistry
 }
 
+// NewService creates a new Service for interacting with the secret backend state.
+func NewService(
+	st State, logger logger.Logger,
+) *Service {
+	return newService(
+		st, logger, clock.WallClock, provider.Provider,
+	)
+}
+
 func newService(
 	st State, logger logger.Logger,
 	clk clock.Clock,
@@ -372,6 +381,15 @@ func (s *Service) BackendSummaryInfoForModel(ctx context.Context, modelUUID core
 		})
 	}
 	return s.composeBackendInfoResults(ctx, backendInfos, false)
+}
+
+// ListBackendIDs returns the IDs of all the secret backends.
+func (s *Service) ListBackendIDs(ctx context.Context) ([]string, error) {
+	result, err := s.st.ListSecretBackendIDs(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return result, nil
 }
 
 // BackendSummaryInfo returns a summary of the secret backends.

@@ -142,3 +142,34 @@ type CharmSecretOwner struct {
 	Kind CharmSecretOwnerKind
 	ID   string
 }
+
+// SecretExport defines all the secret data from a model
+// which is exported/imported as part of model migration.
+type SecretExport struct {
+	// Secrets is a slice of the core secret metadata.
+	Secrets []*secrets.SecretMetadata
+	// Revisions are the secret revisions keyed by secret ID.
+	Revisions map[string][]*secrets.SecretRevisionMetadata
+	// Content are the locally stored secret content keyed by secret ID.
+	Content map[string]map[int]secrets.SecretData
+	// Consumers are the secret consumers keyed by secret ID.
+	Consumers map[string][]ConsumerInfo
+	// RemoteConsumers are the secret remote consumers keyed by secret ID.
+	RemoteConsumers map[string][]ConsumerInfo
+	// Access are the secret access details keyed by secret ID.
+	Access map[string][]SecretAccess
+	// RemoteSecrets is a slice of references to cross model secrets.
+	RemoteSecrets []RemoteSecret
+}
+
+// ConsumerInfo holds information about the consumer of a secret.
+type ConsumerInfo struct {
+	secrets.SecretConsumerMetadata
+	Accessor SecretAccessor
+}
+
+// RemoteSecret holds information about a cross model secret.
+type RemoteSecret struct {
+	URI *secrets.URI
+	ConsumerInfo
+}
