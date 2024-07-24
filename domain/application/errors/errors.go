@@ -43,4 +43,12 @@ const (
 	// CharmManifestNotValid describes an error that occurs when the charm manifest
 	// is not valid.
 	CharmManifestNotValid = errors.ConstError("charm manifest not valid")
+
+	// CharmBaseNameNotValid describes an error that occurs when the charm base
+	// name is not valid.
+	CharmBaseNameNotValid = errors.ConstError("charm base name not valid")
+
+	// CharmBaseNameNotSupported describes an error that occurs when the charm
+	// base name is not supported.
+	CharmBaseNameNotSupported = errors.ConstError("charm base name not supported")
 )

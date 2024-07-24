@@ -50,11 +50,11 @@ func (a Arches) String() string {
 
 // The following constants define the machine architectures supported by Juju.
 const (
-	AMD64   = "amd64"
-	ARM64   = "arm64"
-	PPC64EL = "ppc64el"
-	S390X   = "s390x"
-	RISCV64 = "riscv64"
+	AMD64   Arch = "amd64"
+	ARM64   Arch = "arm64"
+	PPC64EL Arch = "ppc64el"
+	S390X   Arch = "s390x"
+	RISCV64 Arch = "riscv64"
 )
 
 // AllSupportedArches records the machine architectures recognised by Juju.
@@ -69,7 +69,7 @@ var AllSupportedArches = []string{
 // UnsupportedArches records the machine architectures not supported by Juju.
 // Note: don't make const to prevent referencing it.
 var UnsupportedArches = []string{
-	"i386", "armhf", "ppc",
+	"i386", "arm", "armhf", "ppc",
 }
 
 // archREs maps regular expressions for matching
@@ -79,7 +79,7 @@ var archREs = []struct {
 	arch string
 }{
 	{Regexp: regexp.MustCompile("amd64|x86_64"), arch: AMD64},
-	{Regexp: regexp.MustCompile("aarch64"), arch: ARM64},
+	{Regexp: regexp.MustCompile("arm64|aarch64"), arch: ARM64},
 	{Regexp: regexp.MustCompile("ppc64|ppc64el|ppc64le"), arch: PPC64EL},
 	{Regexp: regexp.MustCompile("s390x"), arch: S390X},
 	{Regexp: regexp.MustCompile("riscv64|risc$|risc-[vV]64"), arch: RISCV64},
