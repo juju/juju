@@ -231,26 +231,6 @@ func (b *managedServices) InsertKeyContext(ctx context.Context, key dbrootkeysto
 	return b.macaroonService.InsertKeyContext(ctx, key)
 }
 
-// The following 3 methods ensure that our managedServices implements dbrootkeystore.Backing
-// Unfortunately this is required for the time being, since the backing in NewExpirableStorage
-// needs to implement both dbrootkeystore.Backing and dbrootkeystore.ContextBacking. This will
-// change once we update an upstream dependency
-
-// GetKey is a stub method required to implement dbrootkeystore.Backing. Do not use
-func (*managedServices) GetKey(id []byte) (dbrootkeystore.RootKey, error) {
-	return dbrootkeystore.RootKey{}, errors.NotImplementedf("GetKey")
-}
-
-// FindLatestKey is a stub method required to implement dbrootkeystore.Backing. Do not use
-func (*managedServices) FindLatestKey(createdAfter, expiresAfter, expiresBefore time.Time) (dbrootkeystore.RootKey, error) {
-	return dbrootkeystore.RootKey{}, errors.NotImplementedf("FindLatestKey")
-}
-
-// InsertKey is a stub method required to implement dbrootkeystore.Backing. Do not use
-func (*managedServices) InsertKey(key dbrootkeystore.RootKey) error {
-	return errors.NotImplementedf("InsertKey")
-}
-
 // Kill is part of the worker.Worker interface.
 func (b *managedServices) Kill() {
 	b.tomb.Kill(nil)

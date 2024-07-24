@@ -33,7 +33,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-goose/goose/v5 v5.0.0-20230421180421-abaee9096e3a
 	github.com/go-logr/logr v1.4.1
-	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.1
+	github.com/go-macaroon-bakery/macaroon-bakery/v3 v3.0.2
 	github.com/google/gnostic-models v0.6.8
 	github.com/google/go-querystring v1.1.0
 	github.com/google/uuid v1.6.0

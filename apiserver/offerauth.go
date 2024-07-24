@@ -68,10 +68,7 @@ func newOfferAuthContext(
 
 	// Create a bakery service for local offer access authentication. This service
 	// persists keys into DQLite in a TTL collection.
-	store, err := macaroon.NewExpirableStorage(macaroonService, macaroon.DefaultExpiration, clock.WallClock)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	store := macaroon.NewExpirableStorage(macaroonService, macaroon.DefaultExpiration, clock.WallClock)
 	key, err := macaroonService.GetOffersThirdPartyKey(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)

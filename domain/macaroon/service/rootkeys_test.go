@@ -18,7 +18,6 @@ import (
 	macaroonerrors "github.com/juju/juju/domain/macaroon/errors"
 )
 
-var _ dbrootkeystore.Backing = &RootKeyService{}
 var _ dbrootkeystore.ContextBacking = &RootKeyService{}
 
 type rootKeyServiceSuite struct {
@@ -39,21 +38,6 @@ func (s *rootKeyServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.st = NewMockState(ctrl)
 	return ctrl
-}
-
-func (s *rootKeyServiceSuite) TestStubMethods(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	srv := NewRootKeyService(s.st)
-
-	_, err := srv.GetKey([]byte("0"))
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
-
-	_, err = srv.FindLatestKey(time.Now(), time.Now(), time.Now())
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
-
-	err = srv.InsertKey(dbrootkeystore.RootKey{})
-	c.Assert(err, jc.ErrorIs, errors.NotImplemented)
 }
 
 func (s *rootKeyServiceSuite) TestGetKeyContext(c *gc.C) {

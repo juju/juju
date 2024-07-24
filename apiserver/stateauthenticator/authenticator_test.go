@@ -31,7 +31,7 @@ type agentAuthenticatorSuite struct {
 	agentAuthenticatorFactory *MockAgentAuthenticatorFactory
 	controllerConfigService   *MockControllerConfigService
 	accessService             *MockAccessService
-	macaroonService           MacaroonService
+	macaroonService           *MockMacaroonService
 }
 
 var _ = gc.Suite(&agentAuthenticatorSuite{})
@@ -136,13 +136,9 @@ func (s *agentAuthenticatorSuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.accessService = NewMockAccessService(ctrl)
 
-	macaroonService := NewMockMacaroonService(ctrl)
-	macaroonService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
-	macaroonService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
-	s.macaroonService = &backingShim{
-		MockMacaroonService: macaroonService,
-		c:                   c,
-	}
+	s.macaroonService = NewMockMacaroonService(ctrl)
+	s.macaroonService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
+	s.macaroonService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
 
 	authenticator, err := NewAuthenticator(context.Background(), s.StatePool, testing.ModelTag.Id(), s.controllerConfigService, s.accessService, s.macaroonService, s.agentAuthenticatorFactory, clock.WallClock)
 	c.Assert(err, jc.ErrorIsNil)

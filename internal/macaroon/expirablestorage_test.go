@@ -36,8 +36,7 @@ func (s *expirableStorageSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *expirableStorageSuite) TestNewExpirableStorage(c *gc.C) {
-	expireableStorage, err := internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	expireableStorage := internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, clock.WallClock)
 
 	key1, id, err := expireableStorage.RootKey(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
@@ -48,12 +47,10 @@ func (s *expirableStorageSuite) TestNewExpirableStorage(c *gc.C) {
 }
 
 func (s *expirableStorageSuite) TestNewExpirableStorageExpired(c *gc.C) {
-	expireableStorage, err := internalmacaroon.NewExpirableStorage(s.macaroonService, 0, clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	expireableStorage := internalmacaroon.NewExpirableStorage(s.macaroonService, 0, clock.WallClock)
 	assertZeroExpiration(c, expireableStorage)
 
-	expireableStorage, err = internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	expireableStorage = internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, clock.WallClock)
 	expireableStorage = expireableStorage.ExpireAfter(0)
 	assertZeroExpiration(c, expireableStorage)
 }
@@ -67,8 +64,7 @@ func assertZeroExpiration(c *gc.C, expireableStorage internalmacaroon.ExpirableS
 }
 
 func (s *expirableStorageSuite) TestCheckNewMacaroon(c *gc.C) {
-	expireableStorage, err := internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	expireableStorage := internalmacaroon.NewExpirableStorage(s.macaroonService, time.Minute, clock.WallClock)
 
 	b := bakery.New(bakery.BakeryParams{
 		RootKeyStore: expireableStorage,
@@ -85,8 +81,7 @@ func (s *expirableStorageSuite) TestCheckNewMacaroon(c *gc.C) {
 }
 
 func (s *expirableStorageSuite) TestExpiryTime(c *gc.C) {
-	expireableStorage, err := internalmacaroon.NewExpirableStorage(s.macaroonService, 5*time.Millisecond, clock.WallClock)
-	c.Assert(err, jc.ErrorIsNil)
+	expireableStorage := internalmacaroon.NewExpirableStorage(s.macaroonService, 5*time.Millisecond, clock.WallClock)
 
 	b := bakery.New(bakery.BakeryParams{
 		RootKeyStore: expireableStorage,
@@ -206,8 +201,7 @@ func (s *expirableStorageSuite) TestRootKeyUsesKeysValidWithPolicy(c *gc.C) {
 		err := s.macaroonService.InsertKeyContext(context.Background(), test.key)
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf(test.about))
 
-		store, err := internalmacaroon.NewExpirableStorage(s.macaroonService, test.policy.ExpiryDuration, clockVal(&now))
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf(test.about))
+		store := internalmacaroon.NewExpirableStorage(s.macaroonService, test.policy.ExpiryDuration, clockVal(&now))
 		key, id, err := store.RootKey(context.Background())
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf(test.about))
 		if test.expect {
@@ -228,8 +222,7 @@ func (s *expirableStorageSuite) TestRootKeyUsesKeysValidWithPolicy(c *gc.C) {
 func (s *expirableStorageSuite) TestRootKey(c *gc.C) {
 	now := epoch
 
-	store, err := internalmacaroon.NewExpirableStorage(s.macaroonService, 5*time.Minute, clockVal(&now))
-	c.Assert(err, jc.ErrorIsNil)
+	store := internalmacaroon.NewExpirableStorage(s.macaroonService, 5*time.Minute, clockVal(&now))
 	key, id, err := store.RootKey(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key, gc.HasLen, 24)
@@ -244,8 +237,7 @@ func (s *expirableStorageSuite) TestRootKey(c *gc.C) {
 	c.Assert(id1, gc.DeepEquals, id)
 
 	// A different store instance should get the same root key.
-	store1, err := internalmacaroon.NewExpirableStorage(s.macaroonService, 5*time.Minute, clockVal(&now))
-	c.Assert(err, jc.ErrorIsNil)
+	store1 := internalmacaroon.NewExpirableStorage(s.macaroonService, 5*time.Minute, clockVal(&now))
 	key1, id1, err = store1.RootKey(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(key1, gc.DeepEquals, key)
@@ -326,8 +318,7 @@ func (s *expirableStorageSuite) TestPreferredRootKeyFromDatabase(c *gc.C) {
 			err := s.macaroonService.InsertKeyContext(context.Background(), key)
 			c.Assert(err, jc.ErrorIsNil, gc.Commentf(test.about))
 		}
-		store, err := internalmacaroon.NewExpirableStorage(s.macaroonService, test.expiryDuration, clockVal(&now))
-		c.Assert(err, jc.ErrorIsNil, gc.Commentf(test.about))
+		store := internalmacaroon.NewExpirableStorage(s.macaroonService, test.expiryDuration, clockVal(&now))
 		now = test.now
 		_, id, err := store.RootKey(context.Background())
 		c.Assert(err, jc.ErrorIsNil, gc.Commentf(test.about))
@@ -340,8 +331,7 @@ func (s *expirableStorageSuite) TestPreferredRootKeyFromDatabase(c *gc.C) {
 func (s *expirableStorageSuite) TestGet(c *gc.C) {
 	now := epoch
 
-	store, err := internalmacaroon.NewExpirableStorage(s.macaroonService, 30*time.Minute, clockVal(&now))
-	c.Assert(err, jc.ErrorIsNil)
+	store := internalmacaroon.NewExpirableStorage(s.macaroonService, 30*time.Minute, clockVal(&now))
 	type idKey struct {
 		id  string
 		key []byte
