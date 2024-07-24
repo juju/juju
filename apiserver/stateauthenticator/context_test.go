@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/checkers"
-	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakerytest"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/clock/testclock"
@@ -35,7 +34,7 @@ type macaroonCommonSuite struct {
 	clock                   *testclock.Clock
 	controllerConfigService *MockControllerConfigService
 	accessService           *MockAccessService
-	macaroonService         MacaroonService
+	macaroonService         *MockMacaroonService
 
 	controllerConfig map[string]interface{}
 }
@@ -50,48 +49,16 @@ func (s *macaroonCommonSuite) TearDownTest(c *gc.C) {
 	}
 }
 
-// backingShim is used to ensure macaroonService implement dbrootkeystore.Backing,
-// but also checks this interface is never used. Unfortunately our service needs to
-// implement these dues to percularities with the store constructor.
-//
-// TODO(jack-w-shaw): Remove this shim once https://github.com/go-macaroon-bakery/macaroon-bakery/pull/301
-// has been released.
-type backingShim struct {
-	*MockMacaroonService
-	c *gc.C
-}
-
-var _ dbrootkeystore.Backing = &backingShim{}
-
-func (b *backingShim) GetKey(_ []byte) (dbrootkeystore.RootKey, error) {
-	b.c.Fatal("Call to contextless backing method GetKey not allowed")
-	return dbrootkeystore.RootKey{}, nil
-}
-
-func (b *backingShim) FindLatestKey(_, _, _ time.Time) (dbrootkeystore.RootKey, error) {
-	b.c.Fatal("Call to contextless backing method FindLatestKey not allowed")
-	return dbrootkeystore.RootKey{}, nil
-}
-
-func (b *backingShim) InsertKey(_ dbrootkeystore.RootKey) error {
-	b.c.Fatal("Call to contextless backing method InsertKey not allowed")
-	return nil
-}
-
 func (s *macaroonCommonSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.controllerConfigService = NewMockControllerConfigService(ctrl)
 	s.controllerConfigService.EXPECT().ControllerConfig(gomock.Any()).Return(s.controllerConfig, nil).AnyTimes()
 
-	macaroonService := NewMockMacaroonService(ctrl)
-	macaroonService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
-	macaroonService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
-	macaroonService.EXPECT().GetExternalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).AnyTimes()
-	s.macaroonService = &backingShim{
-		MockMacaroonService: macaroonService,
-		c:                   c,
-	}
+	s.macaroonService = NewMockMacaroonService(ctrl)
+	s.macaroonService.EXPECT().GetLocalUsersKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
+	s.macaroonService.EXPECT().GetLocalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).MinTimes(1)
+	s.macaroonService.EXPECT().GetExternalUsersThirdPartyKey(gomock.Any()).Return(bakery.MustGenerateKey(), nil).AnyTimes()
 
 	agentAuthFactory := authentication.NewAgentAuthenticatorFactory(nil, loggertesting.WrapCheckLog(c))
 

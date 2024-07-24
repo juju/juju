@@ -33,12 +33,12 @@ import (
 // code with the 'third-party' (Canonical controlled) go-macaroon-bakery code.
 //
 // Particularly much of go-macaroon-bakery depends on injecting an implementation
-// of an interface defined within the library (dbrootkeystore.Backing). The ways
-// in which this interface is then used is an implementation detal of the
+// of an interface defined within the library (dbrootkeystore.ContextBacking). The
+// way in which this interface is then used is an implementation detail of the
 // macaroon-bakery.
 //
 // This means that mocks are not fit for purpose, as we end up making assertions
-// against third part implementation details. A stateful fake wis another option,
+// against third part implementation details. A stateful fake was another option,
 // but would be quite complex and error prone. Using our own DQLite-backed macaroon
 // root key service is the best option
 type macaroonAuthSuite struct {

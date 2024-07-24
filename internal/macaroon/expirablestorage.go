@@ -9,7 +9,6 @@ import (
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery/dbrootkeystore"
-	"github.com/juju/errors"
 )
 
 // ExpirableStorage extends bakery.Storage with the ExpireAfter method,
@@ -27,32 +26,20 @@ var DefaultExpiration = 24 * time.Hour
 
 // NewExpirableStorage returns an implementation of bakery.Storage
 // that stores all items in DQLite with an expiry time.
-func NewExpirableStorage(backing dbrootkeystore.ContextBacking, expireAfter time.Duration, clock dbrootkeystore.Clock) (ExpirableStorage, error) {
-	// TODO(jack-w-shaw): Until https://github.com/go-macaroon-bakery/macaroon-bakery/pull/301
-	// has been released, unfortunately our backing needs to implement dbrootkeystore.Backing,
-	// even though only dbrootkeystore.ContextBacking is used.
-	//
-	// Once a new macaroon-bakery version has been released, we can use NewContextStore
-	// instead of NewStore and drop this conversion. We can also drop the error from the
-	// signature then as well.
-	b, ok := backing.(dbrootkeystore.Backing)
-	if !ok {
-		return nil, errors.Errorf("backing must implement dbrootkeystore.Backing")
-	}
-	store := dbrootkeystore.NewRootKeys(5, clock).NewStore(b, dbrootkeystore.Policy{
+func NewExpirableStorage(backing dbrootkeystore.ContextBacking, expireAfter time.Duration, clock dbrootkeystore.Clock) ExpirableStorage {
+	store := dbrootkeystore.NewRootKeys(5, clock).NewContextStore(backing, dbrootkeystore.Policy{
 		ExpiryDuration: expireAfter,
 	})
 	return &storage{
 		RootKeyStore: store,
-		backing:      b,
+		backing:      backing,
 		clock:        clock,
-	}, nil
-
+	}
 }
 
 type storage struct {
 	bakery.RootKeyStore
-	backing dbrootkeystore.Backing
+	backing dbrootkeystore.ContextBacking
 	clock   dbrootkeystore.Clock
 }
 
@@ -79,13 +66,5 @@ func (s *storage) RootKey(ctx context.Context) ([]byte, []byte, error) {
 // ExpireAfter (ExpirableStorage) returns a new ExpirableStorage that will expire
 // added items after the specified duration.
 func (s *storage) ExpireAfter(expireAfter time.Duration) ExpirableStorage {
-	// Once NewExpirableStorage drops the error from it's signature, we can use that
-	// here instead of duplicating code.
-	store := dbrootkeystore.NewRootKeys(5, s.clock).NewStore(s.backing, dbrootkeystore.Policy{
-		ExpiryDuration: expireAfter,
-	})
-	return &storage{
-		RootKeyStore: store,
-		backing:      s.backing,
-	}
+	return NewExpirableStorage(s.backing, expireAfter, s.clock)
 }

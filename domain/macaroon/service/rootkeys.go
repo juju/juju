@@ -38,17 +38,7 @@ type RootKeyState interface {
 }
 
 // RootKeyService provides the API for macaroon root key storage
-//
-// RootKeyService satisfies dbrootkeystore.Backing and dbrootkeystore.ContextBacking
-// https://github.com/go-macaroon-bakery/macaroon-bakery/blob/f9b21e15a2ed91756aa172972c7178992c7fe6d1/bakery/dbrootkeystore/rootkey.go#L48-L95
-//
-// This means RootKeyService can be used to construct a bakery.RootKeyStore.
-//
-// NOTE: We implement dbrootkeystore.Backing with stub methods. This is because
-// RootKeyStore only requires a ContextBacking, but due to pecularities with
-// the RootKeyStore constructor, we also need to implement Backing.
-// TODO(jack-w-shaw): Once https://github.com/go-macaroon-bakery/macaroon-bakery/pull/301
-// has been released, use NewContextStore & drop Backing stub methods
+// We can use RootKeyService to construct a bakery.RootKeyStore.
 type RootKeyService struct {
 	st RootKeyState
 }
@@ -58,11 +48,6 @@ func NewRootKeyService(st RootKeyState) *RootKeyService {
 	return &RootKeyService{
 		st: st,
 	}
-}
-
-// GetKey is a stub method required to implement dbrootstore.Backing. Do not use
-func (s *RootKeyService) GetKey(id []byte) (dbrootkeystore.RootKey, error) {
-	return dbrootkeystore.RootKey{}, errors.NotImplementedf("GetKey")
 }
 
 // GetKeyContext (dbrootkeystore.GetKeyContext) gets the key
@@ -76,11 +61,6 @@ func (s *RootKeyService) GetKeyContext(ctx context.Context, id []byte) (dbrootke
 		return dbrootkeystore.RootKey{}, bakery.ErrNotFound
 	}
 	return decodeRootKey(key), nil
-}
-
-// FindLatestKey is a stub method required to implement dbrootstore.Backing. Do not use
-func (s *RootKeyService) FindLatestKey(createdAfter, expiresAfter, expiresBefore time.Time) (dbrootkeystore.RootKey, error) {
-	return dbrootkeystore.RootKey{}, errors.NotImplementedf("FindLatestKey")
 }
 
 // FindLatestKeyContext (dbrootkeystore.FindLatestKeyContext) returns
@@ -100,11 +80,6 @@ func (s *RootKeyService) FindLatestKeyContext(ctx context.Context, createdAfter,
 		return dbrootkeystore.RootKey{}, nil
 	}
 	return decodeRootKey(key), err
-}
-
-// InsertKey is a stub method required to implement dbrootstore.Backing. Do not use
-func (s *RootKeyService) InsertKey(key dbrootkeystore.RootKey) error {
-	return errors.NotImplementedf("InsertKey")
 }
 
 // InsertKeyContext (dbrootkeystore.InsertKeyContext) inserts

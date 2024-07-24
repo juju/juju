@@ -162,11 +162,7 @@ func newAuthContext(
 
 	// Create a bakery service for local user authentication. This service
 	// persists keys into DQLite in a TTL collection.
-	store, err := internalmacaroon.NewExpirableStorage(macaroonService, internalmacaroon.DefaultExpiration, clock.WallClock)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
+	store := internalmacaroon.NewExpirableStorage(macaroonService, internalmacaroon.DefaultExpiration, clock.WallClock)
 	locator := bakeryutil.BakeryThirdPartyLocator{
 		PublicKey: ctxt.localUserThirdPartyBakeryKey.Public,
 	}
@@ -372,10 +368,7 @@ func newExternalMacaroonAuth(ctx context.Context, cfg externalMacaroonAuthentica
 		Clock:            cfg.clock,
 		IdentityLocation: idURL,
 	}
-	store, err := internalmacaroon.NewExpirableStorage(cfg.macaroonService, cfg.expiryTime, clock.WallClock)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	store := internalmacaroon.NewExpirableStorage(cfg.macaroonService, cfg.expiryTime, clock.WallClock)
 	if cfg.identClient == nil {
 		cfg.identClient = &auth
 	}
