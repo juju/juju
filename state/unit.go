@@ -619,9 +619,10 @@ func (op *DestroyUnitOperation) Done(err error) error {
 		}
 		op.AddError(errors.Errorf("force erase unit's %q history proceeded despite encountering ERROR %v", op.unit.globalKey(), err))
 	}
-	if err := op.deleteSecrets(); err != nil {
-		logger.Errorf("cannot delete secrets for unit %q: %v", op.unit, err)
-	}
+	// Reimplement in dqlite.
+	//if err := op.deleteSecrets(); err != nil {
+	//	logger.Errorf("cannot delete secrets for unit %q: %v", op.unit, err)
+	//}
 	return nil
 }
 
@@ -644,20 +645,6 @@ func (op *DestroyUnitOperation) eraseHistory() error {
 		if op.FatalError(one) {
 			return one
 		}
-	}
-	return nil
-}
-
-func (op *DestroyUnitOperation) deleteSecrets() error {
-	ownedURIs, err := op.unit.st.referencedSecrets(op.unit.Tag(), "owner-tag")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, err := op.unit.st.deleteSecrets(ownedURIs); err != nil {
-		return errors.Annotatef(err, "deleting owned secrets for %q", op.unit.Name())
-	}
-	if err := op.unit.st.RemoveSecretConsumer(op.unit.Tag()); err != nil {
-		return errors.Annotatef(err, "deleting secret consumer records for %q", op.unit.Name())
 	}
 	return nil
 }

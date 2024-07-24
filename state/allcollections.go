@@ -521,59 +521,7 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid"},
 			}},
 		},
-
-		secretMetadataC: {
-			indexes: []mgo.Index{{
-				Key: []string{"owner-tag", "label", "model-uuid"},
-			}},
-		},
-
-		secretRevisionsC: {
-			indexes: []mgo.Index{{
-				Key: []string{"revision", "_id"},
-			}},
-		},
-
-		secretConsumersC: {
-			indexes: []mgo.Index{{
-				Key: []string{"consumer-tag", "label", "model-uuid"},
-			}},
-		},
-
-		secretRemoteConsumersC: {
-			indexes: []mgo.Index{{
-				Key: []string{"consumer-tag", "model-uuid"},
-			}},
-		},
-
-		secretPermissionsC: {
-			indexes: []mgo.Index{{
-				Key: []string{"subject-tag", "scope-tag", "model-uuid"},
-			}},
-		},
-
-		secretRotateC: {
-			indexes: []mgo.Index{{
-				Key: []string{"owner-tag", "model-uuid"},
-			}},
-		},
-
-		secretBackendsC: {
-			global: true,
-			indexes: []mgo.Index{{
-				Key: []string{"name"},
-			}},
-		},
-
-		secretBackendsRotateC: {
-			global: true,
-			indexes: []mgo.Index{{
-				Key: []string{"model-uuid"},
-			}},
-		},
-
 		// ----------------------
-
 		// Raw-access collections
 		// ======================
 
@@ -665,16 +613,6 @@ const (
 	offerConnectionsC   = "applicationOfferConnections"
 	remoteEntitiesC     = "remoteEntities"
 	relationNetworksC   = "relationNetworks"
-
-	// Secrets
-	secretMetadataC        = "secretMetadata"
-	secretRevisionsC       = "secretRevisions"
-	secretConsumersC       = "secretConsumers"
-	secretRemoteConsumersC = "secretRemoteConsumers"
-	secretPermissionsC     = "secretPermissions"
-	secretRotateC          = "secretRotate"
-	secretBackendsC        = "secretBackends"
-	secretBackendsRotateC  = "secretBackendsRotate"
 )
 
 // watcherIgnoreList contains all the collections in mongo that should not be watched by the

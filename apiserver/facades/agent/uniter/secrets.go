@@ -13,10 +13,10 @@ import (
 	apiServerErrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/leadership"
 	coresecrets "github.com/juju/juju/core/secrets"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // SecretService provides core secrets operations.
@@ -40,7 +40,7 @@ func (u *UniterAPI) createSecrets(ctx context.Context, args params.CreateSecretA
 	for i, arg := range args.Args {
 		id, err := u.createSecret(ctx, arg)
 		result.Results[i].Result = id
-		if errors.Is(err, state.LabelExists) {
+		if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
 			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
 		}
 		result.Results[i].Error = apiServerErrors.ServerError(err)
@@ -124,7 +124,7 @@ func (u *UniterAPI) updateSecrets(ctx context.Context, args params.UpdateSecretA
 	}
 	for i, arg := range args.Args {
 		err := u.updateSecret(ctx, arg)
-		if errors.Is(err, state.LabelExists) {
+		if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
 			err = errors.AlreadyExistsf("secret with label %q", *arg.Label)
 		}
 		result.Results[i].Error = apiServerErrors.ServerError(err)

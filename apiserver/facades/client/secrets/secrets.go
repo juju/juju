@@ -16,12 +16,12 @@ import (
 	"github.com/juju/juju/core/permission"
 	coresecrets "github.com/juju/juju/core/secrets"
 	domainsecret "github.com/juju/juju/domain/secret"
+	secreterrors "github.com/juju/juju/domain/secret/errors"
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/internal/secrets/provider/juju"
 	"github.com/juju/juju/internal/secrets/provider/kubernetes"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 // SecretsAPI is the backend for the Secrets facade.
@@ -241,7 +241,7 @@ func (s *SecretsAPI) CreateSecrets(ctx context.Context, args params.CreateSecret
 	for i, arg := range args.Args {
 		id, err := s.createSecret(ctx, arg)
 		result.Results[i].Result = id
-		if errors.Is(err, state.LabelExists) {
+		if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
 			err = errors.AlreadyExistsf("secret with name %q", *arg.Label)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)
@@ -312,7 +312,7 @@ func (s *SecretsAPI) UpdateSecrets(ctx context.Context, args params.UpdateUserSe
 	}
 	for i, arg := range args.Args {
 		err := s.updateSecret(ctx, arg)
-		if errors.Is(err, state.LabelExists) {
+		if errors.Is(err, secreterrors.SecretLabelAlreadyExists) {
 			err = errors.AlreadyExistsf("secret with name %q", *arg.Label)
 		}
 		result.Results[i].Error = apiservererrors.ServerError(err)

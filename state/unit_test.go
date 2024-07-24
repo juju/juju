@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo/v2"
-	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn/v3"
 	"github.com/juju/worker/v4/workertest"
@@ -24,7 +23,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -1944,109 +1942,6 @@ func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
 	newUS := state.NewUnitState()
 	newUS.SetCharmState(map[string]string{"foo": "bar"})
 	err = s.unit.SetState(newUS, state.UnitStateSizeLimits{})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
-func (s *UnitSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
-	store := state.NewSecrets(s.State)
-	uri := secrets.NewURI()
-	cp := state.CreateSecretParams{
-		Version: 1,
-		Owner:   s.application.Tag(),
-		UpdateSecretParams: state.UpdateSecretParams{
-			LeaderToken: &fakeToken{},
-			Data:        map[string]string{"foo": "bar"},
-		},
-	}
-	_, err := store.CreateSecret(uri, cp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make a relation for the access scope.
-	endpoint1, err := s.application.Endpoint("juju-info")
-	c.Assert(err, jc.ErrorIsNil)
-	application2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
-			Name: "logging",
-		}),
-	})
-	endpoint2, err := application2.Endpoint("info")
-	c.Assert(err, jc.ErrorIsNil)
-	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
-		Endpoints: []state.Endpoint{endpoint1, endpoint2},
-	})
-
-	unit := s.Factory.MakeUnit(c, nil)
-	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
-		LeaderToken: &fakeToken{},
-		Scope:       rel.Tag(),
-		Subject:     unit.Tag(),
-		Role:        secrets.RoleView,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	access, err := s.State.SecretAccess(uri, unit.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, secrets.RoleView)
-
-	err = unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	access, err = s.State.SecretAccess(uri, unit.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, secrets.RoleNone)
-}
-
-func (s *UnitSuite) TestDestroyAlsoDeletesOwnedSecrets(c *gc.C) {
-	store := state.NewSecrets(s.State)
-	uri := secrets.NewURI()
-	cp := state.CreateSecretParams{
-		Version: 1,
-		Owner:   s.unit.Tag(),
-		UpdateSecretParams: state.UpdateSecretParams{
-			LeaderToken: &fakeToken{},
-			Label:       ptr("label"),
-			Data:        map[string]string{"foo": "bar"},
-		},
-	}
-	_, err := store.CreateSecret(uri, cp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = store.GetSecret(uri)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-
-	// Create again, no label clash.
-	s.unit, err = s.application.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	cp.Owner = s.unit.Tag()
-	_, err = store.CreateSecret(uri, cp)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *UnitSuite) TestDestroyAlsoDeletesConsumerInfo(c *gc.C) {
-	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	_, err := mysql.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-
-	store := state.NewSecrets(s.State)
-	uri := secrets.NewURI()
-	cp := state.CreateSecretParams{
-		Version: 1,
-		Owner:   names.NewUnitTag("mysql/0"),
-		UpdateSecretParams: state.UpdateSecretParams{
-			LeaderToken: &fakeToken{},
-			Label:       ptr("label"),
-			Data:        map[string]string{"foo": "bar"},
-		},
-	}
-	_, err = store.CreateSecret(uri, cp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.SaveSecretConsumer(uri, s.unit.UnitTag(), &secrets.SecretConsumerMetadata{CurrentRevision: 666})
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.unit.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.GetSecretConsumer(uri, s.unit.Tag())
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 }
 

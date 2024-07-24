@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
-	"github.com/juju/juju/core/secrets"
 	coretesting "github.com/juju/juju/internal/testing"
 )
 
@@ -107,21 +106,4 @@ func MustCloseUnitPortRanges(c *gc.C, st *State, machine *Machine, unitName, end
 		unitPortRanges.Close(endpointName, pr)
 	}
 	c.Assert(st.ApplyOperation(machPortRanges.Changes()), jc.ErrorIsNil)
-}
-
-func (st *State) ReadBackendRefCount(backendID string) (int, error) {
-	refCountCollection, ccloser := st.db().GetCollection(globalRefcountsC)
-	defer ccloser()
-
-	key := secretBackendRefCountKey(backendID)
-	return nsRefcounts.read(refCountCollection, key)
-}
-
-func (st *State) IsSecretRevisionObsolete(c *gc.C, uri *secrets.URI, rev int) bool {
-	col, closer := st.db().GetCollection(secretRevisionsC)
-	defer closer()
-	var doc secretRevisionDoc
-	err := col.FindId(secretRevisionKey(uri, rev)).One(&doc)
-	c.Assert(err, jc.ErrorIsNil)
-	return doc.Obsolete
 }

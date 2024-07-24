@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/payloads"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/internal/charm"
 	"github.com/juju/juju/internal/featureflag"
 	internallogger "github.com/juju/juju/internal/logger"
@@ -137,9 +136,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 		EnvironVersion:     dbModel.EnvironVersion(),
 		Blocks:             blocks,
 	}
-	if args.SecretBackendID, err = export.secretBackendID(); err != nil {
-		return nil, errors.Trace(err)
-	}
 	export.model = description.NewModel(args)
 	// We used to export the model credential here but that is now done
 	// using the new domain/credential exporter. We still need to set the
@@ -209,13 +205,6 @@ func (st *State) exportImpl(cfg ExportConfig, leaders map[string]string, store o
 	if err := export.storage(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := export.secrets(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	if err := export.remoteSecrets(); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// If we are doing a partial export, it doesn't really make sense
 	// to validate the model.
 	fullExport := ExportConfig{}
@@ -1586,179 +1575,6 @@ func (e *exporter) operations() error {
 			Id:                op.Id(),
 		}
 		e.model.AddOperation(arg)
-	}
-	return nil
-}
-
-func (e *exporter) secretBackendID() (string, error) {
-	// TODO: remove once we implement the model migration for secrets in dqlite.
-	return "", nil
-}
-
-func ownerTagFromSecretOwner(owner secrets.Owner) (names.Tag, error) {
-	switch owner.Kind {
-	case secrets.UnitOwner:
-		return names.NewUnitTag(owner.ID), nil
-	case secrets.ApplicationOwner:
-		return names.NewApplicationTag(owner.ID), nil
-	case secrets.ModelOwner:
-		return names.NewModelTag(owner.ID), nil
-	}
-	return nil, errors.NotValidf("owner kind %q", owner.Kind)
-}
-
-func (e *exporter) secrets() error {
-	if e.cfg.SkipSecrets {
-		return nil
-	}
-	store := NewSecrets(e.st)
-
-	allSecrets, err := store.ListSecrets(SecretsFilter{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	e.logger.Debugf("read %d secrets", len(allSecrets))
-	allRevisions, err := store.allSecretRevisions()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	revisionArgsByID := make(map[string][]description.SecretRevisionArgs)
-	for _, rev := range allRevisions {
-		id, _ := splitSecretRevision(e.st.localID(rev.DocID))
-		revArg := description.SecretRevisionArgs{
-			Number:        rev.Revision,
-			Created:       rev.CreateTime,
-			Updated:       rev.UpdateTime,
-			ExpireTime:    rev.ExpireTime,
-			Obsolete:      rev.Obsolete,
-			PendingDelete: rev.PendingDelete,
-		}
-		if len(rev.Data) > 0 {
-			revArg.Content = make(secrets.SecretData)
-			for k, v := range rev.Data {
-				revArg.Content[k] = fmt.Sprintf("%v", v)
-			}
-		}
-		if rev.ValueRef != nil {
-			revArg.ValueRef = &description.SecretValueRefArgs{
-				BackendID:  rev.ValueRef.BackendID,
-				RevisionID: rev.ValueRef.RevisionID,
-			}
-		}
-		revisionArgsByID[id] = append(revisionArgsByID[id], revArg)
-	}
-	allPermissions, err := store.allSecretPermissions()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	accessArgsByID := make(map[string]map[string]description.SecretAccessArgs)
-	for _, perm := range allPermissions {
-		id := strings.Split(e.st.localID(perm.DocID), "#")[0]
-		accessArg := description.SecretAccessArgs{
-			Scope: perm.Scope,
-			Role:  perm.Role,
-		}
-		access, ok := accessArgsByID[id]
-		if !ok {
-			access = make(map[string]description.SecretAccessArgs)
-			accessArgsByID[id] = access
-		}
-		access[perm.Subject] = accessArg
-	}
-	allConsumers, err := store.allLocalSecretConsumers()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	consumersByID := make(map[string][]description.SecretConsumerArgs)
-	for _, info := range allConsumers {
-		consumer, err := names.ParseTag(info.ConsumerTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		id := strings.Split(e.st.localID(info.DocID), "#")[0]
-		consumerArg := description.SecretConsumerArgs{
-			Consumer:        consumer,
-			Label:           info.Label,
-			CurrentRevision: info.CurrentRevision,
-		}
-		consumersByID[id] = append(consumersByID[id], consumerArg)
-	}
-
-	allRemoteConsumers, err := store.allSecretRemoteConsumers()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	remoteConsumersByID := make(map[string][]description.SecretRemoteConsumerArgs)
-	for _, info := range allRemoteConsumers {
-		consumer, err := names.ParseTag(info.ConsumerTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		id := strings.Split(e.st.localID(info.DocID), "#")[0]
-		remoteConsumerArg := description.SecretRemoteConsumerArgs{
-			Consumer:        consumer,
-			CurrentRevision: info.CurrentRevision,
-		}
-		remoteConsumersByID[id] = append(remoteConsumersByID[id], remoteConsumerArg)
-	}
-
-	for _, md := range allSecrets {
-		owner, err := ownerTagFromSecretOwner(md.Owner)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		arg := description.SecretArgs{
-			ID:                     md.URI.ID,
-			Version:                md.Version,
-			Description:            md.Description,
-			Label:                  md.Label,
-			RotatePolicy:           md.RotatePolicy.String(),
-			AutoPrune:              md.AutoPrune,
-			Owner:                  owner,
-			Created:                md.CreateTime,
-			Updated:                md.UpdateTime,
-			NextRotateTime:         md.NextRotateTime,
-			LatestRevisionChecksum: md.LatestRevisionChecksum,
-			Revisions:              revisionArgsByID[md.URI.ID],
-			ACL:                    accessArgsByID[md.URI.ID],
-			Consumers:              consumersByID[md.URI.ID],
-			RemoteConsumers:        remoteConsumersByID[md.URI.ID],
-		}
-		e.model.AddSecret(arg)
-	}
-	return nil
-}
-
-func (e *exporter) remoteSecrets() error {
-	if e.cfg.SkipSecrets {
-		return nil
-	}
-	store := NewSecrets(e.st)
-
-	allConsumers, err := store.allRemoteSecretConsumers()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	e.logger.Debugf("read %d remote secret consumers", len(allConsumers))
-	for _, info := range allConsumers {
-		consumer, err := names.ParseTag(info.ConsumerTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		id := strings.Split(e.st.localID(info.DocID), "#")[0]
-		uri, err := secrets.ParseURI(id)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		arg := description.RemoteSecretArgs{
-			ID:              uri.ID,
-			SourceUUID:      uri.SourceUUID,
-			Consumer:        consumer,
-			Label:           info.Label,
-			CurrentRevision: info.CurrentRevision,
-			LatestRevision:  info.LatestRevision,
-		}
-		e.model.AddRemoteSecret(arg)
 	}
 	return nil
 }

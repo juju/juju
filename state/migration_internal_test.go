@@ -78,14 +78,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		offerConnectionsC,
 		relationNetworksC,
 		remoteEntitiesC,
-
-		// secrets
-		secretMetadataC,
-		secretRevisionsC,
-		secretRotateC,
-		secretConsumersC,
-		secretRemoteConsumersC,
-		secretPermissionsC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -188,10 +180,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// running within a unit. This is a new feature that is not
 		// backwards compatible with older controllers.
 		unitStatesC,
-
-		// Secret backends are per controller.
-		secretBackendsC,
-		secretBackendsRotateC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -814,71 +802,4 @@ func (s *MigrationSuite) AssertExportedFields(c *gc.C, doc interface{}, fields s
 	// doc without thinking about the migration implications.
 	c.Check(unknown, gc.HasLen, 0)
 	c.Assert(removed, gc.HasLen, 0)
-}
-
-func (s *MigrationSuite) TestSecretMetadataDocFields(c *gc.C) {
-	ignored := set.NewStrings(
-		"DocID",
-
-		// These are not exported but instead
-		// calculated from the revisions.
-		"LatestRevision",
-		"LatestExpireTime",
-	)
-	migrated := set.NewStrings(
-		"Version",
-		"OwnerTag",
-		"Description",
-		"Label",
-		"RotatePolicy",
-		"LatestRevisionChecksum",
-		"AutoPrune",
-		"CreateTime",
-		"UpdateTime",
-	)
-	s.AssertExportedFields(c, secretMetadataDoc{}, migrated.Union(ignored))
-}
-
-func (s *MigrationSuite) TestSecretRevisionDocFields(c *gc.C) {
-	ignored := set.NewStrings(
-		"DocID",
-		"TxnRevno",
-	)
-	migrated := set.NewStrings(
-		"Revision",
-		"CreateTime",
-		"UpdateTime",
-		"ExpireTime",
-		"Obsolete",
-		"ValueRef",
-		"Data",
-		"OwnerTag",
-		"PendingDelete",
-	)
-	s.AssertExportedFields(c, secretRevisionDoc{}, migrated.Union(ignored))
-}
-
-func (s *MigrationSuite) TestSecretRotationDocFields(c *gc.C) {
-	ignored := set.NewStrings(
-		"DocID",
-		"TxnRevno",
-	)
-	migrated := set.NewStrings(
-		"NextRotateTime",
-		"OwnerTag",
-	)
-	s.AssertExportedFields(c, secretRotationDoc{}, migrated.Union(ignored))
-}
-
-func (s *MigrationSuite) TestSecretConsumerDocFields(c *gc.C) {
-	ignored := set.NewStrings(
-		"DocID",
-	)
-	migrated := set.NewStrings(
-		"ConsumerTag",
-		"Label",
-		"CurrentRevision",
-		"LatestRevision",
-	)
-	s.AssertExportedFields(c, secretConsumerDoc{}, migrated.Union(ignored))
 }

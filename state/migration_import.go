@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/collections/transform"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
@@ -197,15 +196,6 @@ func (ctrl *Controller) Import(
 	if err := restore.storage(); err != nil {
 		return nil, nil, errors.Annotate(err, "storage")
 	}
-	if err := restore.secretBackend(); err != nil {
-		return nil, nil, errors.Annotate(err, "secret backend")
-	}
-	if err := restore.secrets(); err != nil {
-		return nil, nil, errors.Annotate(err, "secrets")
-	}
-	if err := restore.remoteSecrets(); err != nil {
-		return nil, nil, errors.Annotate(err, "remote secrets")
-	}
 
 	// NOTE: at the end of the import make sure that the mode of the model
 	// is set to "imported" not "active" (or whatever we call it). This way
@@ -235,10 +225,9 @@ func modelConfig(attrs map[string]interface{}) (*config.Config, error) {
 // Running the state migration visits all the migrations and exits upon seeing
 // the first error from the migration.
 type ImportStateMigration struct {
-	src                 description.Model
-	dst                 Database
-	knownSecretBackends set.Strings
-	migrations          []func() error
+	src        description.Model
+	dst        Database
+	migrations []func() error
 }
 
 // Add adds a migration to execute at a later time
@@ -2448,65 +2437,4 @@ func (i *importer) addFilesystemAttachmentOp(fsID string, attachment description
 			Info:   info,
 		},
 	}
-}
-
-func (i *importer) secretBackend() error {
-	// TODO: remove once we implement the model migration for secrets in dqlite.
-	return nil
-}
-
-func (i *importer) secrets() error {
-	i.logger.Debugf("importing secrets")
-	backends := NewSecretBackends(i.st)
-	allBackends, err := backends.ListSecretBackends()
-	if err != nil {
-		return errors.Annotate(err, "loading secret backends")
-	}
-
-	knownBackends := set.NewStrings()
-	for _, b := range allBackends {
-		knownBackends.Add(b.ID)
-	}
-
-	migration := &ImportStateMigration{
-		src:                 i.model,
-		dst:                 i.st.db(),
-		knownSecretBackends: knownBackends,
-	}
-	migration.Add(func() error {
-		m := ImportSecrets{}
-		return m.Execute(&secretStateShim{
-			stateModelNamspaceShim: stateModelNamspaceShim{
-				Model: migration.src,
-				st:    i.st,
-			},
-		}, migration.dst, migration.knownSecretBackends)
-	})
-	if err := migration.Run(); err != nil {
-		return errors.Trace(err)
-	}
-	i.logger.Debugf("importing secrets succeeded")
-	return nil
-}
-
-func (i *importer) remoteSecrets() error {
-	i.logger.Debugf("importing remote secret references")
-	migration := &ImportStateMigration{
-		src: i.model,
-		dst: i.st.db(),
-	}
-	migration.Add(func() error {
-		m := ImportRemoteSecrets{}
-		return m.Execute(&secretStateShim{
-			stateModelNamspaceShim: stateModelNamspaceShim{
-				Model: migration.src,
-				st:    i.st,
-			},
-		}, migration.dst)
-	})
-	if err := migration.Run(); err != nil {
-		return errors.Trace(err)
-	}
-	i.logger.Debugf("importing remote secret references succeeded")
-	return nil
 }
