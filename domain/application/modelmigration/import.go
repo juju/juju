@@ -70,8 +70,18 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			unitArgs = append(unitArgs, service.AddUnitArg{UnitName: &name})
 		}
 
-		_, err := i.service.CreateApplication(
-			ctx, app.Name(), &stubCharm{}, service.AddApplicationArgs{}, unitArgs...,
+		// TODO (stickupkid): This is a temporary solution until we have a
+		// charms in the description model.
+		url, err := internalcharm.ParseURL(app.CharmURL())
+		if err != nil {
+			return fmt.Errorf("parse charm URL %q: %w", app.CharmURL(), err)
+		}
+
+		_, err = i.service.CreateApplication(
+			ctx, app.Name(), &stubCharm{
+				name:     url.Name,
+				revision: url.Revision,
+			}, service.AddApplicationArgs{}, unitArgs...,
 		)
 		if err != nil {
 			return fmt.Errorf(
@@ -85,11 +95,30 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 }
 
 type stubCharm struct {
-	internalcharm.Charm
+	name     string
+	revision int
 }
+
+var _ internalcharm.Charm = stubCharm{}
 
 func (s stubCharm) Meta() *internalcharm.Meta {
 	return &internalcharm.Meta{
-		Name: "stub",
+		Name: s.name,
 	}
+}
+
+func (s stubCharm) Actions() *internalcharm.Actions {
+	return &internalcharm.Actions{}
+}
+
+func (s stubCharm) Config() *internalcharm.Config {
+	return &internalcharm.Config{}
+}
+
+func (s stubCharm) Manifest() *internalcharm.Manifest {
+	return &internalcharm.Manifest{}
+}
+
+func (s stubCharm) Revision() int {
+	return s.revision
 }
