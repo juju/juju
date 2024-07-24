@@ -508,11 +508,14 @@ func (r *Relation) removeOps(ignoreApplication string, departingUnitName string,
 	ops = append(ops, tokenOps...)
 	offerOps := removeOfferConnectionsForRelationOps(r.Id())
 	ops = append(ops, offerOps...)
-	secretPermissionsOps, err := r.st.removeScopedSecretPermissionOps(r.Tag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, secretPermissionsOps...)
+
+	// Reimplement in dqlite.
+	//secretPermissionsOps, err := r.st.removeScopedSecretPermissionOps(r.Tag())
+	//if err != nil {
+	//	return nil, errors.Trace(err)
+	//}
+	//ops = append(ops, secretPermissionsOps...)
+
 	// This cleanup does not need to be forced.
 	cleanupOp := newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil

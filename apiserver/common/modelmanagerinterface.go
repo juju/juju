@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/description/v6"
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	environscloudspec "github.com/juju/juju/environs/cloudspec"
@@ -81,11 +79,6 @@ type ModelManagerBackend interface {
 	DumpAll() (map[string]interface{}, error)
 	Close() error
 	HAPrimaryMachine() (names.MachineTag, error)
-
-	// Secrets methods.
-	ListModelSecrets(bool) (map[string]set.Strings, error)
-	ListSecretBackends() ([]*secrets.SecretBackend, error)
-	GetSecretBackendByID(string) (*secrets.SecretBackend, error)
 }
 
 // Model defines methods provided by a state.Model instance.
@@ -275,21 +268,6 @@ func (st modelManagerStateShim) ControllerNodes() ([]ControllerNode, error) {
 
 func (st modelManagerStateShim) IsController() bool {
 	return st.State.IsController()
-}
-
-func (st modelManagerStateShim) ListModelSecrets(all bool) (map[string]set.Strings, error) {
-	secretsState := state.NewSecrets(st.State)
-	return secretsState.ListModelSecrets(all)
-}
-
-func (st modelManagerStateShim) ListSecretBackends() ([]*secrets.SecretBackend, error) {
-	backendState := state.NewSecretBackends(st.State)
-	return backendState.ListSecretBackends()
-}
-
-func (st modelManagerStateShim) GetSecretBackendByID(id string) (*secrets.SecretBackend, error) {
-	backendState := state.NewSecretBackends(st.State)
-	return backendState.GetSecretBackendByID(id)
 }
 
 var _ Model = (*modelShim)(nil)

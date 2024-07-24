@@ -428,9 +428,11 @@ func (op *DestroyApplicationOperation) Done(err error) error {
 		if !op.Removed {
 			return nil
 		}
-		if err := op.deleteSecrets(); err != nil {
-			logger.Errorf("cannot delete secrets for application %q: %v", op.app, err)
-		}
+
+		// Reimplement in dqlite.
+		//if err := op.deleteSecrets(); err != nil {
+		//	logger.Errorf("cannot delete secrets for application %q: %v", op.app, err)
+		//}
 		return nil
 	}
 	connected, err2 := applicationHasConnectedOffers(op.app.st, op.app.Name())
@@ -463,21 +465,6 @@ func (op *DestroyApplicationOperation) eraseHistory() error {
 		if op.FatalError(one) {
 			return one
 		}
-	}
-	return nil
-}
-
-func (op *DestroyApplicationOperation) deleteSecrets() error {
-	ownedURIs, err := op.app.st.referencedSecrets(op.app.Tag(), "owner-tag")
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if _, err := op.app.st.deleteSecrets(ownedURIs); err != nil {
-		return errors.Annotatef(err, "deleting owned secrets for %q", op.app.Name())
-	}
-	// TODO(juju4) - remove
-	if err := op.app.st.RemoveSecretConsumer(op.app.Tag()); err != nil {
-		return errors.Annotatef(err, "deleting secret consumer records for %q", op.app.Name())
 	}
 	return nil
 }
@@ -771,28 +758,30 @@ func (a *Application) removeOps(asserts bson.D, op *ForcedOperation) ([]txn.Op, 
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, removeOfferOps...)
-	// Remove secret permissions.
-	secretScopedPermissionsOps, err := a.st.removeScopedSecretPermissionOps(a.Tag())
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, secretScopedPermissionsOps...)
-	secretConsumerPermissionsOps, err := a.st.removeConsumerSecretPermissionOps(a.Tag())
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, secretConsumerPermissionsOps...)
-	secretLabelOps, err := a.st.removeOwnerSecretLabelsOps(a.ApplicationTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, secretLabelOps...)
 
-	secretLabelOps, err = a.st.removeConsumerSecretLabelsOps(a.ApplicationTag())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	ops = append(ops, secretLabelOps...)
+	// Reimplement in dqlite.
+	// Remove secret permissions.
+	//secretScopedPermissionsOps, err := a.st.removeScopedSecretPermissionOps(a.Tag())
+	//if op.FatalError(err) {
+	//	return nil, errors.Trace(err)
+	//}
+	//ops = append(ops, secretScopedPermissionsOps...)
+	//secretConsumerPermissionsOps, err := a.st.removeConsumerSecretPermissionOps(a.Tag())
+	//if op.FatalError(err) {
+	//	return nil, errors.Trace(err)
+	//}
+	//ops = append(ops, secretConsumerPermissionsOps...)
+	//secretLabelOps, err := a.st.removeOwnerSecretLabelsOps(a.ApplicationTag())
+	//if err != nil {
+	//	return nil, errors.Trace(err)
+	//}
+	//ops = append(ops, secretLabelOps...)
+	//
+	//secretLabelOps, err = a.st.removeConsumerSecretLabelsOps(a.ApplicationTag())
+	//if err != nil {
+	//	return nil, errors.Trace(err)
+	//}
+	//ops = append(ops, secretLabelOps...)
 
 	// Note that appCharmDecRefOps might not catch the final decref
 	// when run in a transaction that decrefs more than once. So we
@@ -2789,22 +2778,24 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 	if op.FatalError(err) {
 		return nil, errors.Trace(err)
 	}
-	secretScopedPermissionsOps, err := a.st.removeScopedSecretPermissionOps(u.Tag())
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
-	secretConsumerPermissionsOps, err := a.st.removeConsumerSecretPermissionOps(u.Tag())
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
-	secretOwnerLabelOps, err := a.st.removeOwnerSecretLabelsOps(u.Tag())
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
-	secretConsumerLabelOps, err := a.st.removeConsumerSecretLabelsOps(u.Tag())
-	if op.FatalError(err) {
-		return nil, errors.Trace(err)
-	}
+
+	// Reimplement in dqlite.
+	//secretScopedPermissionsOps, err := a.st.removeScopedSecretPermissionOps(u.Tag())
+	//if op.FatalError(err) {
+	//	return nil, errors.Trace(err)
+	//}
+	//secretConsumerPermissionsOps, err := a.st.removeConsumerSecretPermissionOps(u.Tag())
+	//if op.FatalError(err) {
+	//	return nil, errors.Trace(err)
+	//}
+	//secretOwnerLabelOps, err := a.st.removeOwnerSecretLabelsOps(u.Tag())
+	//if op.FatalError(err) {
+	//	return nil, errors.Trace(err)
+	//}
+	//secretConsumerLabelOps, err := a.st.removeConsumerSecretLabelsOps(u.Tag())
+	//if op.FatalError(err) {
+	//	return nil, errors.Trace(err)
+	//}
 
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
@@ -2829,10 +2820,6 @@ func (a *Application) removeUnitOps(store objectstore.ObjectStore, u *Unit, asse
 	ops = append(ops, appPortsOps...)
 	ops = append(ops, resOps...)
 	ops = append(ops, hostOps...)
-	ops = append(ops, secretScopedPermissionsOps...)
-	ops = append(ops, secretConsumerPermissionsOps...)
-	ops = append(ops, secretOwnerLabelOps...)
-	ops = append(ops, secretConsumerLabelOps...)
 
 	m, err := a.st.Model()
 	if err != nil {

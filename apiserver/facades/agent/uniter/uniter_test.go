@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/internal/charm"
@@ -3380,115 +3379,117 @@ func (s *uniterSuite) TestOpenedPortRangesByEndpoint(c *gc.C) {
 
 func (s *uniterSuite) TestCommitHookChangesWithSecrets(c *gc.C) {
 	c.Skip("TODO(secrets) - wire up new secret service mock to test")
-	s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
-	s.leadershipChecker.isLeader = true
-	st := s.ControllerModel(c).State()
-	store := state.NewSecrets(st)
-	uri2 := secrets.NewURI()
-	_, err := store.CreateSecret(uri2, state.CreateSecretParams{
-		UpdateSecretParams: state.UpdateSecretParams{
+	/*
+		s.addRelatedApplication(c, "wordpress", "logging", s.wordpressUnit)
+		s.leadershipChecker.isLeader = true
+		st := s.ControllerModel(c).State()
+		store := state.NewSecrets(st)
+		uri2 := secrets.NewURI()
+		_, err := store.CreateSecret(uri2, state.CreateSecretParams{
+			UpdateSecretParams: state.UpdateSecretParams{
+				LeaderToken: &token{isLeader: true},
+				Data:        map[string]string{"foo2": "bar"},
+			},
+			Owner: s.wordpress.Tag(),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		err = st.GrantSecretAccess(uri2, state.SecretAccessParams{
 			LeaderToken: &token{isLeader: true},
-			Data:        map[string]string{"foo2": "bar"},
-		},
-		Owner: s.wordpress.Tag(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.GrantSecretAccess(uri2, state.SecretAccessParams{
-		LeaderToken: &token{isLeader: true},
-		Scope:       s.wordpress.Tag(),
-		Subject:     s.wordpress.Tag(),
-		Role:        secrets.RoleManage,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	uri3 := secrets.NewURI()
-	_, err = store.CreateSecret(uri3, state.CreateSecretParams{
-		UpdateSecretParams: state.UpdateSecretParams{
+			Scope:       s.wordpress.Tag(),
+			Subject:     s.wordpress.Tag(),
+			Role:        secrets.RoleManage,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		uri3 := secrets.NewURI()
+		_, err = store.CreateSecret(uri3, state.CreateSecretParams{
+			UpdateSecretParams: state.UpdateSecretParams{
+				LeaderToken: &token{isLeader: true},
+				Data:        map[string]string{"foo3": "bar"},
+			},
+			Owner: s.wordpress.Tag(),
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		err = st.GrantSecretAccess(uri3, state.SecretAccessParams{
 			LeaderToken: &token{isLeader: true},
-			Data:        map[string]string{"foo3": "bar"},
-		},
-		Owner: s.wordpress.Tag(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	err = st.GrantSecretAccess(uri3, state.SecretAccessParams{
-		LeaderToken: &token{isLeader: true},
-		Scope:       s.wordpress.Tag(),
-		Subject:     s.wordpress.Tag(),
-		Role:        secrets.RoleManage,
-	})
-	c.Assert(err, jc.ErrorIsNil)
+			Scope:       s.wordpress.Tag(),
+			Subject:     s.wordpress.Tag(),
+			Role:        secrets.RoleManage,
+		})
+		c.Assert(err, jc.ErrorIsNil)
 
-	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
-	uri := secrets.NewURI()
-	err = b.AddSecretCreates([]apiuniter.SecretCreateArg{{
-		SecretUpsertArg: apiuniter.SecretUpsertArg{
-			URI:      uri,
-			Label:    ptr("foobar"),
-			Value:    secrets.NewSecretValue(map[string]string{"foo": "bar"}),
-			Checksum: "checksum",
-		},
-		Owner: secrets.Owner{Kind: secrets.ApplicationOwner, ID: s.wordpress.Name()},
-	}})
-	c.Assert(err, jc.ErrorIsNil)
-	b.AddSecretUpdates([]apiuniter.SecretUpsertArg{{
-		URI:          uri,
-		RotatePolicy: ptr(secrets.RotateDaily),
-		Description:  ptr("a secret"),
-		Label:        ptr("foobar"),
-		Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
-		Checksum:     "checksum2",
-	}, {
-		URI:      uri3,
-		Value:    secrets.NewSecretValue(map[string]string{"foo3": "bar3"}),
-		Checksum: "checksum3",
-	}})
-	b.AddTrackLatest([]string{uri3.ID})
-	b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{URI: uri3, Revision: ptr(1)}})
-	b.AddSecretGrants([]apiuniter.SecretGrantRevokeArgs{{
-		URI:             uri,
-		ApplicationName: ptr(s.mysql.Name()),
-		Role:            secrets.RoleView,
-	}, {
-		URI:             uri2,
-		ApplicationName: ptr(s.mysql.Name()),
-		Role:            secrets.RoleView,
-	}})
-	b.AddSecretRevokes([]apiuniter.SecretGrantRevokeArgs{{
-		URI:             uri2,
-		ApplicationName: ptr(s.mysql.Name()),
-	}})
-	req, _ := b.Build()
+		b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+		uri := secrets.NewURI()
+		err = b.AddSecretCreates([]apiuniter.SecretCreateArg{{
+			SecretUpsertArg: apiuniter.SecretUpsertArg{
+				URI:      uri,
+				Label:    ptr("foobar"),
+				Value:    secrets.NewSecretValue(map[string]string{"foo": "bar"}),
+				Checksum: "checksum",
+			},
+			Owner: secrets.Owner{Kind: secrets.ApplicationOwner, ID: s.wordpress.Name()},
+		}})
+		c.Assert(err, jc.ErrorIsNil)
+		b.AddSecretUpdates([]apiuniter.SecretUpsertArg{{
+			URI:          uri,
+			RotatePolicy: ptr(secrets.RotateDaily),
+			Description:  ptr("a secret"),
+			Label:        ptr("foobar"),
+			Value:        secrets.NewSecretValue(map[string]string{"foo": "bar2"}),
+			Checksum:     "checksum2",
+		}, {
+			URI:      uri3,
+			Value:    secrets.NewSecretValue(map[string]string{"foo3": "bar3"}),
+			Checksum: "checksum3",
+		}})
+		b.AddTrackLatest([]string{uri3.ID})
+		b.AddSecretDeletes([]apiuniter.SecretDeleteArg{{URI: uri3, Revision: ptr(1)}})
+		b.AddSecretGrants([]apiuniter.SecretGrantRevokeArgs{{
+			URI:             uri,
+			ApplicationName: ptr(s.mysql.Name()),
+			Role:            secrets.RoleView,
+		}, {
+			URI:             uri2,
+			ApplicationName: ptr(s.mysql.Name()),
+			Role:            secrets.RoleView,
+		}})
+		b.AddSecretRevokes([]apiuniter.SecretGrantRevokeArgs{{
+			URI:             uri2,
+			ApplicationName: ptr(s.mysql.Name()),
+		}})
+		req, _ := b.Build()
 
-	result, err := s.uniter.CommitHookChanges(context.Background(), req)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: nil},
-		},
-	})
+		result, err := s.uniter.CommitHookChanges(context.Background(), req)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(result, gc.DeepEquals, params.ErrorResults{
+			Results: []params.ErrorResult{
+				{Error: nil},
+			},
+		})
 
-	// Verify state
-	_, _, err = store.GetSecretValue(uri3, 1)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	md, err := store.GetSecret(uri)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(md.Description, gc.Equals, "a secret")
-	c.Assert(md.Label, gc.Equals, "foobar")
-	c.Assert(md.LatestRevisionChecksum, gc.Equals, "checksum2")
-	c.Assert(md.RotatePolicy, gc.Equals, secrets.RotateDaily)
-	val, _, err := store.GetSecretValue(uri, 2)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
-	access, err := st.SecretAccess(uri, s.mysql.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, secrets.RoleView)
-	access, err = st.SecretAccess(uri2, s.mysql.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, secrets.RoleNone)
+		// Verify state
+		_, _, err = store.GetSecretValue(uri3, 1)
+		c.Assert(err, jc.ErrorIs, errors.NotFound)
+		md, err := store.GetSecret(uri)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(md.Description, gc.Equals, "a secret")
+		c.Assert(md.Label, gc.Equals, "foobar")
+		c.Assert(md.LatestRevisionChecksum, gc.Equals, "checksum2")
+		c.Assert(md.RotatePolicy, gc.Equals, secrets.RotateDaily)
+		val, _, err := store.GetSecretValue(uri, 2)
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(val.EncodedValues(), jc.DeepEquals, map[string]string{"foo": "bar2"})
+		access, err := st.SecretAccess(uri, s.mysql.Tag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(access, gc.Equals, secrets.RoleView)
+		access, err = st.SecretAccess(uri2, s.mysql.Tag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(access, gc.Equals, secrets.RoleNone)
 
-	info, err := st.GetSecretConsumer(uri3, s.wordpressUnit.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.CurrentRevision, gc.Equals, 2)
-	c.Assert(info.LatestRevision, gc.Equals, 2)
+		info, err := st.GetSecretConsumer(uri3, s.wordpressUnit.Tag())
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(info.CurrentRevision, gc.Equals, 2)
+		c.Assert(info.LatestRevision, gc.Equals, 2)
+	*/
 }
 
 func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {

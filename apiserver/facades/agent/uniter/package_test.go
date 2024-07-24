@@ -254,10 +254,6 @@ func (f *fakeLeadershipChecker) LeadershipCheck(applicationName, unitName string
 	return &token{isLeader: f.isLeader, unit: unitName, application: applicationName}
 }
 
-func ptr[T any](v T) *T {
-	return &v
-}
-
 type leadershipRevoker struct {
 	revoked set.Strings
 }

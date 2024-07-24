@@ -8,16 +8,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/worker/v4/workertest"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	coretesting "github.com/juju/juju/internal/testing"
-	"github.com/juju/juju/internal/testing/factory"
 	"github.com/juju/juju/internal/uuid"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
@@ -768,97 +765,6 @@ func (s *remoteApplicationSuite) assertDestroyWithReferencedRelation(c *gc.C, re
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
 	err = rel0.Refresh()
 	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
-func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretConsumerInfo(c *gc.C) {
-	ch := s.AddTestingCharm(c, "wordpress")
-	app := s.AddTestingApplication(c, "another", ch)
-	store := state.NewSecrets(s.State)
-	uri := secrets.NewURI()
-	cp := state.CreateSecretParams{
-		Version: 1,
-		Owner:   app.Tag(),
-		UpdateSecretParams: state.UpdateSecretParams{
-			LeaderToken: &fakeToken{},
-			Label:       ptr("label"),
-			Data:        map[string]string{"foo": "bar"},
-		},
-	}
-	_, err := store.CreateSecret(uri, cp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.SaveSecretRemoteConsumer(uri, s.application.Tag(), &secrets.SecretConsumerMetadata{CurrentRevision: 666})
-	c.Assert(err, jc.ErrorIsNil)
-
-	unit := names.NewUnitTag(s.application.Name() + "/666")
-	err = s.State.SaveSecretRemoteConsumer(uri, unit, &secrets.SecretConsumerMetadata{CurrentRevision: 667})
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.State.GetSecretRemoteConsumer(uri, s.application.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.GetSecretRemoteConsumer(uri, unit)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.application.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	_, err = s.State.GetSecretRemoteConsumer(uri, s.application.Tag())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-	_, err = s.State.GetSecretRemoteConsumer(uri, unit)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
-func (s *remoteApplicationSuite) TestDestroyAlsoDeletesSecretPermissions(c *gc.C) {
-	wpEP := []charm.Relation{
-		{Name: "db", Interface: "mysql", Role: charm.RoleRequirer, Scope: charm.ScopeGlobal},
-	}
-
-	wp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name: "remote-wordpress", OfferUUID: "offer-uuid", SourceModel: s.Model.ModelTag(),
-		Endpoints:       wpEP,
-		IsConsumerProxy: true,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	mysql := s.Factory.MakeApplication(c, &factory.ApplicationParams{Name: "mysqldb"})
-
-	store := state.NewSecrets(s.State)
-	uri := secrets.NewURI()
-	cp := state.CreateSecretParams{
-		Version: 1,
-		Owner:   mysql.Tag(),
-		UpdateSecretParams: state.UpdateSecretParams{
-			LeaderToken: &fakeToken{},
-			Label:       ptr("label"),
-			Data:        map[string]string{"foo": "bar"},
-		},
-	}
-	_, err = store.CreateSecret(uri, cp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(state.Endpoint{
-		ApplicationName: "remote-wordpress",
-		Relation:        wpEP[0],
-	}, mysqlEP)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
-		LeaderToken: &fakeToken{},
-		Scope:       rel.Tag(),
-		Subject:     wp.Tag(),
-		Role:        secrets.RoleView,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	access, err := s.State.SecretAccess(uri, wp.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, secrets.RoleView)
-
-	_, err = wp.DestroyWithForce(true, time.Duration(0))
-	c.Assert(err, jc.ErrorIsNil)
-	access, err = s.State.SecretAccess(uri, wp.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, secrets.RoleNone)
 }
 
 func (s *remoteApplicationSuite) TestDestroyRemovesStatusHistory(c *gc.C) {

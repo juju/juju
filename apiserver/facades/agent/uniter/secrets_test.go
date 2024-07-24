@@ -23,7 +23,6 @@ import (
 	secretservice "github.com/juju/juju/domain/secret/service"
 	"github.com/juju/juju/internal/secrets"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type UniterSecretsSuite struct {
@@ -147,7 +146,7 @@ func (s *UniterSecretsSuite) TestCreateCharmSecretDuplicateLabel(c *gc.C) {
 	}
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.secretService.EXPECT().CreateCharmSecret(gomock.Any(), gomock.Any(), p).Return(
-		fmt.Errorf("dup label %w", state.LabelExists),
+		fmt.Errorf("dup label %w", secreterrors.SecretLabelAlreadyExists),
 	)
 
 	results, err := s.facade.createSecrets(context.Background(), params.CreateSecretArgs{

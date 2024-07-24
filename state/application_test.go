@@ -33,7 +33,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/network/firewall"
 	resourcetesting "github.com/juju/juju/core/resources/testing"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	jujuversion "github.com/juju/juju/core/version"
 	domainstorage "github.com/juju/juju/domain/storage"
@@ -2766,110 +2765,6 @@ func (s *ApplicationSuite) TestRemoveApplicationMachine(c *gc.C) {
 
 	c.Assert(unit.Refresh(), jc.ErrorIs, errors.NotFound)
 	assertLife(c, machine, state.Dying)
-}
-
-func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesSecretPermissions(c *gc.C) {
-	store := state.NewSecrets(s.State)
-	uri := secrets.NewURI()
-	cp := state.CreateSecretParams{
-		Version: 1,
-		Owner:   s.mysql.Tag(),
-		UpdateSecretParams: state.UpdateSecretParams{
-			LeaderToken: &fakeToken{},
-			Data:        map[string]string{"foo": "bar"},
-		},
-	}
-	_, err := store.CreateSecret(uri, cp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Make a relation for the access scope.
-	endpoint1, err := s.mysql.Endpoint("juju-info")
-	c.Assert(err, jc.ErrorIsNil)
-	application2 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
-		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
-			Name: "logging",
-		}),
-	})
-	endpoint2, err := application2.Endpoint("info")
-	c.Assert(err, jc.ErrorIsNil)
-	rel := s.Factory.MakeRelation(c, &factory.RelationParams{
-		Endpoints: []state.Endpoint{endpoint1, endpoint2},
-	})
-
-	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
-		LeaderToken: &fakeToken{},
-		Scope:       rel.Tag(),
-		Subject:     s.mysql.Tag(),
-		Role:        secrets.RoleView,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	access, err := s.State.SecretAccess(uri, s.mysql.Tag())
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, secrets.RoleView)
-
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.SecretAccess(uri, s.mysql.Tag())
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-}
-
-func (s *ApplicationSuite) TestDestroyRemoveAlsoDeletesOwnedSecrets(c *gc.C) {
-	store := state.NewSecrets(s.State)
-	uri := secrets.NewURI()
-	cp := state.CreateSecretParams{
-		Version: 1,
-		Owner:   s.mysql.Tag(),
-		UpdateSecretParams: state.UpdateSecretParams{
-			LeaderToken: &fakeToken{},
-			Label:       ptr("label"),
-			Data:        map[string]string{"foo": "bar"},
-		},
-	}
-	_, err := store.CreateSecret(uri, cp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = store.GetSecret(uri)
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
-
-	// Create again, no label clash.
-	s.AddTestingApplication(c, "mysql", s.charm)
-	_, err = store.CreateSecret(uri, cp)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *ApplicationSuite) TestDestroyNoRemoveKeepsOwnedSecrets(c *gc.C) {
-	// Create a relation so destroy does not remove.
-	_, err := s.mysql.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	mysqlep, err := s.mysql.Endpoint("server")
-	c.Assert(err, jc.ErrorIsNil)
-	wpch := s.AddTestingCharm(c, "wordpress")
-	wp := s.AddTestingApplication(c, "wordpress", wpch)
-	wpep, err := wp.Endpoint("db")
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddRelation(mysqlep, wpep)
-	c.Assert(err, jc.ErrorIsNil)
-
-	store := state.NewSecrets(s.State)
-	uri := secrets.NewURI()
-	cp := state.CreateSecretParams{
-		Version: 1,
-		Owner:   s.mysql.Tag(),
-		UpdateSecretParams: state.UpdateSecretParams{
-			LeaderToken: &fakeToken{},
-			Label:       ptr("label"),
-			Data:        map[string]string{"foo": "bar"},
-		},
-	}
-	_, err = store.CreateSecret(uri, cp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.mysql.Destroy(state.NewObjectStore(c, s.State.ModelUUID()))
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = store.GetSecret(uri)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ApplicationSuite) TestApplicationCleanupRemovesStorageConstraints(c *gc.C) {

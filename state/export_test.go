@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/objectstore"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/resources"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/envcontext"
@@ -49,7 +48,6 @@ const (
 	MachinesC         = machinesC
 	ModelEntityRefsC  = modelEntityRefsC
 	ApplicationsC     = applicationsC
-	EndpointBindingsC = endpointBindingsC
 	ControllersC      = controllersC
 	UsersC            = usersC
 	StorageInstancesC = storageInstancesC
@@ -61,13 +59,11 @@ const (
 var (
 	BinarystorageNew              = &binarystorageNew
 	MachineIdLessThan             = machineIdLessThan
-	ApplicationGlobalKey          = applicationGlobalKey
 	CloudGlobalKey                = cloudGlobalKey
 	ModelGlobalKey                = modelGlobalKey
 	NewEntityWatcher              = newEntityWatcher
 	ApplicationHasConnectedOffers = applicationHasConnectedOffers
 	NewActionNotificationWatcher  = newActionNotificationWatcher
-	SecretOwnerFromTag            = secretOwnerFromTag
 )
 
 type (
@@ -178,24 +174,6 @@ func ApplicationOffersRefCount(st *State, appName string) (int, error) {
 	defer closer()
 
 	key := applicationOffersRefCountKey(appName)
-	return nsRefcounts.read(refcounts, key)
-}
-
-func IncSecretConsumerRefCount(st *State, uri *secrets.URI, inc int) error {
-	refCountCollection, ccloser := st.db().GetCollection(refcountsC)
-	defer ccloser()
-	incOp, err := nsRefcounts.CreateOrIncRefOp(refCountCollection, uri.ID, inc)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return st.db().RunTransaction([]txn.Op{incOp})
-}
-
-func SecretBackendRefCount(st *State, backendID string) (int, error) {
-	refcounts, closer := st.db().GetCollection(globalRefcountsC)
-	defer closer()
-
-	key := secretBackendRefCountKey(backendID)
 	return nsRefcounts.read(refcounts, key)
 }
 
@@ -996,26 +974,6 @@ func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 func ApplicationPortOps(st *State, a description.Application) ([]txn.Op, error) {
 	resolver := &importer{st: st}
 	return []txn.Op{resolver.applicationPortsOp(a)}, nil
-}
-
-func GetSecretNextRotateTime(c *gc.C, st *State, id string) time.Time {
-	secretRotateCollection, closer := st.db().GetCollection(secretRotateC)
-	defer closer()
-
-	var doc secretRotationDoc
-	err := secretRotateCollection.FindId(id).One(&doc)
-	c.Assert(err, jc.ErrorIsNil)
-	return doc.NextRotateTime.UTC()
-}
-
-func GetSecretBackendNextRotateInfo(c *gc.C, st *State, id string) (string, time.Time) {
-	secretBackendRotateCollection, closer := st.db().GetCollection(secretBackendsRotateC)
-	defer closer()
-
-	var doc secretBackendRotationDoc
-	err := secretBackendRotateCollection.FindId(id).One(&doc)
-	c.Assert(err, jc.ErrorIsNil)
-	return doc.Name, doc.NextRotateTime.UTC()
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

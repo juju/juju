@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/secrets"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/internal/charm"
 	coretesting "github.com/juju/juju/internal/testing"
@@ -692,41 +691,6 @@ func (s *RelationSuite) TestRemoveAlsoDeletesRemoteOfferConnections(c *gc.C) {
 	rc, err = s.State.RemoteConnectionStatus("offer-uuid")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rc.TotalConnectionCount(), gc.Equals, 0)
-}
-
-func (s *RelationSuite) TestRemoveAlsoDeletesSecretPermissions(c *gc.C) {
-	relation := s.Factory.MakeRelation(c, nil)
-	app, err := s.State.Application(relation.Endpoints()[0].ApplicationName)
-	c.Assert(err, jc.ErrorIsNil)
-	store := state.NewSecrets(s.State)
-	uri := secrets.NewURI()
-	cp := state.CreateSecretParams{
-		Version: 1,
-		Owner:   app.Tag(),
-		UpdateSecretParams: state.UpdateSecretParams{
-			LeaderToken: &fakeToken{},
-			Data:        map[string]string{"foo": "bar"},
-		},
-	}
-	_, err = store.CreateSecret(uri, cp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	subject := names.NewApplicationTag("wordpress")
-	err = s.State.GrantSecretAccess(uri, state.SecretAccessParams{
-		LeaderToken: &fakeToken{},
-		Scope:       relation.Tag(),
-		Subject:     subject,
-		Role:        secrets.RoleView,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	access, err := s.State.SecretAccess(uri, subject)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, secrets.RoleView)
-
-	state.RemoveRelation(c, relation, false)
-	access, err = s.State.SecretAccess(uri, subject)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(access, gc.Equals, secrets.RoleNone)
 }
 
 func (s *RelationSuite) TestRemoveNoFeatureFlag(c *gc.C) {

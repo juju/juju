@@ -1109,6 +1109,10 @@ func (s *CleanupSuite) TestCleanupCAASUnitWithStorage(c *gc.C) {
 	})
 }
 
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func(*state.State, *state.Application) error) {
 	objectStore := state.NewObjectStore(c, s.State.ModelUUID())
 
