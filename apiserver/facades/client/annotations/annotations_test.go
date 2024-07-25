@@ -35,7 +35,7 @@ var _ = gc.Suite(&annotationSuite{})
 func (s *annotationSuite) TestGetAnnotations(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, names.NewModelTag(s.uuid)).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.uuid)).Return(nil)
 	s.annotationService.EXPECT().GetAnnotations(gomock.Any(), annotations.ID{
 		Kind: annotations.KindModel,
 		Name: s.uuid,
@@ -52,7 +52,7 @@ func (s *annotationSuite) TestGetAnnotations(c *gc.C) {
 func (s *annotationSuite) TestGetAnnotationsBulk(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, names.NewModelTag(s.uuid)).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.uuid)).Return(nil)
 	s.annotationService.EXPECT().GetAnnotations(gomock.Any(), annotations.ID{
 		Kind: annotations.KindModel,
 		Name: s.uuid,
@@ -87,7 +87,7 @@ func (s *annotationSuite) TestGetAnnotationsBulk(c *gc.C) {
 func (s *annotationSuite) TestGetAnnotationsNoPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, names.NewModelTag(s.uuid)).Return(errors.New("boom"))
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.uuid)).Return(errors.New("boom"))
 
 	results := s.annotationsAPI.Get(context.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewModelTag(s.uuid).String()}},
@@ -102,7 +102,7 @@ func (s *annotationSuite) TestGetAnnotationsNoPermission(c *gc.C) {
 func (s *annotationSuite) TestGetAnnotationsNoError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, names.NewModelTag(s.uuid)).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.uuid)).Return(nil)
 	s.annotationService.EXPECT().GetAnnotations(context.Background(), annotations.ID{
 		Kind: annotations.KindModel,
 		Name: s.uuid,
@@ -124,7 +124,7 @@ func (s *annotationSuite) TestGetAnnotationsNoError(c *gc.C) {
 func (s *annotationSuite) TestSetAnnotations(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, names.NewModelTag(s.uuid)).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.uuid)).Return(nil)
 	s.annotationService.EXPECT().SetAnnotations(gomock.Any(), annotations.ID{
 		Kind: annotations.KindModel,
 		Name: s.uuid,
@@ -142,7 +142,7 @@ func (s *annotationSuite) TestSetAnnotations(c *gc.C) {
 func (s *annotationSuite) TestSetAnnotationsNoPermission(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, names.NewModelTag(s.uuid)).Return(errors.New("boom"))
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.uuid)).Return(errors.New("boom"))
 
 	results := s.annotationsAPI.Set(context.Background(), params.AnnotationsSet{
 		Annotations: []params.EntityAnnotations{{
@@ -158,7 +158,7 @@ func (s *annotationSuite) TestSetAnnotationsNoPermission(c *gc.C) {
 func (s *annotationSuite) TestSetAnnotationsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, names.NewModelTag(s.uuid)).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.uuid)).Return(nil)
 	s.annotationService.EXPECT().SetAnnotations(gomock.Any(), annotations.ID{
 		Kind: annotations.KindModel,
 		Name: s.uuid,
@@ -185,7 +185,7 @@ func (s *annotationSuite) TestSetAnnotationsBrokenBehaviour(c *gc.C) {
 	// Essentially, it fails on the first error and doesn't continue to set the
 	// then entity annotation. There is no rollback mechanism in place.
 
-	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, names.NewModelTag(s.uuid)).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.uuid)).Return(nil)
 	s.annotationService.EXPECT().SetAnnotations(gomock.Any(), annotations.ID{
 		Kind: annotations.KindModel,
 		Name: s.uuid,
