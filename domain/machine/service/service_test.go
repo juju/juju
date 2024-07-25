@@ -578,20 +578,6 @@ func (s *serviceSuite) TestGetMachineParentUUIDMachineHasNoParent(c *gc.C) {
 	c.Check(parentUUID, gc.Equals, "")
 }
 
-// TestGetMachineParentUUIDGrandParentNotAllowed asserts that the state layer
-// returns a GrandParentNotAllowed Error if a machine is found with the given
-// machineName but has a grandparent, and that error is preserved and passed on
-// to the service layer to be handled there.
-func (s *serviceSuite) TestGetMachineParentUUIDGrandParentNotAllowed(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-
-	s.state.EXPECT().GetMachineParentUUID(gomock.Any(), cmachine.Name("666")).Return("", machineerrors.GrandParentNotAllowed)
-
-	parentUUID, err := NewService(s.state).GetMachineParentUUID(context.Background(), cmachine.Name("666"))
-	c.Check(err, jc.ErrorIs, machineerrors.GrandParentNotAllowed)
-	c.Check(parentUUID, gc.Equals, "")
-}
-
 // TestMachineShouldRebootOrShutdownDoNothing asserts that the reboot action is preserved from the state
 // layer through the service layer.
 func (s *serviceSuite) TestMachineShouldRebootOrShutdownDoNothing(c *gc.C) {

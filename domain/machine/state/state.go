@@ -107,10 +107,11 @@ VALUES ($M.machine_uuid, $M.net_node_uuid, $M.name, $M.life_id)
 		return errors.Trace(err)
 	}
 
-	// Prepare query for associating parent machine.
+	// Prepare query for associating/verifying parent machine.
 	var parentNameParam machineName
 	var associateParentStmt *sqlair.Statement
 	var associateParentParam machineParent
+	var parentQueryStmt *sqlair.Statement
 	if args.parentName != "" {
 		parentNameParam = machineName{Name: args.parentName}
 		associateParentParam = machineParent{MachineUUID: args.machineUUID}
@@ -119,6 +120,18 @@ INSERT INTO machine_parent (machine_uuid, parent_uuid)
 VALUES ($machineParent.machine_uuid, $machineParent.parent_uuid)
 `
 		associateParentStmt, err = st.Prepare(associateParentQuery, associateParentParam)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		// Prepare query for verifying there's no grandparent.
+		outputMachineParent := machineParent{}
+		inputParentMachineUUID := machineUUID{}
+		parentQuery := `
+SELECT parent_uuid AS &machineParent.parent_uuid
+FROM   machine_parent 
+WHERE  machine_uuid = $machineUUID.uuid`
+		parentQueryStmt, err = st.Prepare(parentQuery, outputMachineParent, inputParentMachineUUID)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -158,6 +171,21 @@ VALUES ($machineParent.machine_uuid, $machineParent.parent_uuid)
 			}
 			if err != nil {
 				return errors.Annotatef(err, "querying parent machine %q for machine %q", args.parentName, mName)
+			}
+
+			// Protect against a grandparent
+			machineParentUUID := machineUUID{}
+			machineParentUUID.UUID = machineUUIDout.UUID
+			machineParent := machineParent{}
+			err = tx.Query(ctx, parentQueryStmt, machineParentUUID).Get(&machineParent)
+			// No error means we found a grandparent.
+			if err == nil {
+				return errors.Annotatef(machineerrors.GrandParentNotSupported, "machine %q", mName)
+			}
+			if !errors.Is(err, sqlair.ErrNoRows) {
+				// Return error if the query failed for any reason other than not
+				// found.
+				return errors.Annotatef(err, "querying for grandparent UUID for machine %q", mName)
 			}
 
 			// Run query to associate parent machine.
@@ -634,19 +662,6 @@ FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 		}
 
 		parentUUID = parentUUIDParam.ParentUUID
-
-		// Protect against a grandparent
-		machineUUIDoutput.UUID = parentUUID
-		err = tx.Query(ctx, parentQueryStmt, machineUUIDoutput).Get(&parentUUIDParam)
-		// No error means we found a grandparent.
-		if err == nil {
-			return errors.Annotatef(machineerrors.GrandParentNotAllowed, "machine %q", mName)
-		}
-		if !errors.Is(err, sqlair.ErrNoRows) {
-			// Return error if the query failed for any reason other than not
-			// found.
-			return errors.Annotatef(err, "querying for grandparent UUID for machine %q", mName)
-		}
 
 		return nil
 	})

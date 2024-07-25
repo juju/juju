@@ -34,8 +34,4 @@ const (
 	// MachineHasNoParent describes an error that occurs when a machine has no
 	// parent.
 	MachineHasNoParent = errors.ConstError("machine has no parent")
-
-	// GrandParentNotAllowed describes an error that occurs when a parent is
-	// detected for a parent of a machine.
-	GrandParentNotAllowed = errors.ConstError("grandparent not allowed")
 )
