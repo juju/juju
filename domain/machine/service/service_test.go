@@ -645,12 +645,10 @@ func (s *serviceSuite) TestMarkMachineForRemovalSuccess(c *gc.C) {
 func (s *serviceSuite) TestMarkMachineForRemovalMachineNotFoundError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	// TODO(cderici): use machineerrors.MachineNotFound on rebase after #17759
-	// lands.
-	s.state.EXPECT().MarkMachineForRemoval(gomock.Any(), cmachine.Name("666")).Return(errors.NotFound)
+	s.state.EXPECT().MarkMachineForRemoval(gomock.Any(), cmachine.Name("666")).Return(machineerrors.MachineNotFound)
 
 	err := NewService(s.state).MarkMachineForRemoval(context.Background(), cmachine.Name("666"))
-	c.Check(err, jc.ErrorIs, errors.NotFound)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestMarkMachineForRemovalError asserts that an error coming from the state
