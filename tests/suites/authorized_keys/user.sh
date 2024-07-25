@@ -27,6 +27,10 @@ run_user_ssh_keys() {
 	# Import the ssh keys for tlm from Github.
 	juju import-ssh-key gh:tlm
 	check_contains "$(juju ssh-keys --full)" "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHxsBSstfw6+55P/YPS8PyH6m58hxt3q2RK2OP1P6J/2"
+
+	# Import the ssh keys for wallyworld from Launchpad
+	juju import-ssh-key lp:wallyworld
+	check_contains "$(juju ssh-keys --full)" "ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA4OrXnYsxashjP64y5heB1jCgCERz4cTExsqY6n1ANFXP8AlIxLYHx/g4EE1of/DQ0+uDtimQjJfhvwoglmNkOW4WdWQtaFr1qhMivtSDXEnXI7RZQue9xqH6B3u8yweMqMjqr5mLqJ5eY1HEoFtLBh3tHPHKNM62w/Eb2LLCD2JblbuHmFvLnwxGWNp0jMU69DE/bDvKtmOx4idXBGnqTImOCcDTaNy1srSEiJIprwYqJSOXO61pIs9COQVG1EOadqqvgBE0koITMFPPIWm4dBxbh2DREVFSZIz6DuwPwWXaNk8YqcGH5bU4Y7o6I0iUyVrKT4yG0AjMNc1BaEocGQ=="
 }
 
 test_user_ssh_keys() {
