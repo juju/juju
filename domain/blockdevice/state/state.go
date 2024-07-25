@@ -109,7 +109,7 @@ WHERE  machine.name = $M.name
 		return "", 0, errors.Annotatef(err, "looking up UUID for machine %q", machineId)
 	}
 	if len(result) == 0 {
-		return "", 0, fmt.Errorf("machine %q not found%w", machineId, errors.Hide(machineerrors.NotFound))
+		return "", 0, fmt.Errorf("machine %q not found%w", machineId, errors.Hide(machineerrors.MachineNotFound))
 	}
 	machineLife, ok := result["life_id"].(int64)
 	if !ok {

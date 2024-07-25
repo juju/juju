@@ -61,17 +61,94 @@ func (s *stateSuite) TestCreateMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var (
-		machineID string
+		machineName string
 	)
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
-		err := tx.QueryRowContext(ctx, "SELECT name FROM machine").Scan(&machineID)
+		err := tx.QueryRowContext(ctx, "SELECT name FROM machine").Scan(&machineName)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		return nil
 	})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(machineID, gc.Equals, "666")
+	c.Assert(machineName, gc.Equals, "666")
+}
+
+// TestCreateMachineAlreadyExists asserts that a MachineAlreadyExists error is
+// returned when the machine already exists.
+func (s *stateSuite) TestCreateMachineAlreadyExists(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Check(err, jc.ErrorIs, machineerrors.MachineAlreadyExists)
+}
+
+// TestCreateMachineWithParentSuccess asserts the happy path of
+// CreateMachineWithParent at the state layer.
+func (s *stateSuite) TestCreateMachineWithParentSuccess(c *gc.C) {
+	// Create the parent first
+	err := s.state.CreateMachine(context.Background(), "666", "3", "1")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create the machine with the created parent
+	err = s.state.CreateMachineWithParent(context.Background(), "667", "666", "4", "2")
+	c.Check(err, jc.ErrorIsNil)
+
+	// Make sure the newly created machine with parent has been created.
+	var (
+		machineName string
+	)
+	parentStmt := `
+SELECT  name 
+FROM    machine
+        LEFT JOIN machine_parent AS parent
+	ON        parent.machine_uuid = machine.uuid
+WHERE   parent.parent_uuid = 1
+	`
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		err := tx.QueryRowContext(ctx, parentStmt).Scan(&machineName)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(machineName, gc.Equals, "667")
+}
+
+// TestCreateMachineWithParentNotFound asserts that a NotFound error is returned
+// when the parent machine is not found.
+func (s *stateSuite) TestCreateMachineWithParentNotFound(c *gc.C) {
+	err := s.state.CreateMachineWithParent(context.Background(), "667", "666", "4", "2")
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestCreateMachineWithparentAlreadyExists asserts that a MachineAlreadyExists
+// error is returned when the machine to be created already exists.
+func (s *stateSuite) TestCreateMachineWithParentAlreadyExists(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.CreateMachineWithParent(context.Background(), "666", "357", "4", "2")
+	c.Check(err, jc.ErrorIs, machineerrors.MachineAlreadyExists)
+}
+
+// TestGetMachineParentUUIDGrandParentNotAllowed asserts that a
+// GrandParentNotAllowed error is returned when a grandparent is detected for a
+// machine.
+func (s *stateSuite) TestCreateMachineWithGrandParentNotAllowed(c *gc.C) {
+	// Create the parent machine first.
+	err := s.state.CreateMachine(context.Background(), "666", "1", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create the machine with the created parent.
+	err = s.state.CreateMachineWithParent(context.Background(), "667", "666", "2", "456")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create the machine with the created parent.
+	err = s.state.CreateMachineWithParent(context.Background(), "668", "667", "3", "789")
+	c.Assert(err, jc.ErrorIs, machineerrors.GrandParentNotSupported)
 }
 
 // TestDeleteMachine asserts the happy path of DeleteMachine at the state layer.
@@ -194,7 +271,7 @@ func (s *stateSuite) TestGetMachineLifeSuccess(c *gc.C) {
 // machine is not found.
 func (s *stateSuite) TestGetMachineLifeNotFound(c *gc.C) {
 	_, err := s.state.GetMachineLife(context.Background(), "666")
-	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 func (s *stateSuite) TestListAllMachines(c *gc.C) {
@@ -266,7 +343,7 @@ func (s *stateSuite) TestGetMachineStatusSuccessWithData(c *gc.C) {
 // when the machine is not found.
 func (s *stateSuite) TestGetMachineStatusNotFoundError(c *gc.C) {
 	_, err := s.state.GetMachineStatus(context.Background(), "666")
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestGetMachineStatusNotSetError asserts that a StatusNotSet error is returned
@@ -316,7 +393,7 @@ func (s *stateSuite) TestSetMachineStatusSuccessWithData(c *gc.C) {
 // when the machine is not found.
 func (s *stateSuite) TestSetMachineStatusNotFoundError(c *gc.C) {
 	err := s.state.SetMachineStatus(context.Background(), "666", status.StatusInfo{})
-	c.Assert(err, jc.ErrorIs, errors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestMachineStatusValues asserts the keys and values in the
@@ -435,7 +512,7 @@ func (s *stateSuite) TestSetMachineLifeSuccess(c *gc.C) {
 // provided machine doesn't exist.
 func (s *stateSuite) TestSetMachineLifeNotFoundError(c *gc.C) {
 	err := s.state.SetMachineLife(context.Background(), "666", life.Dead)
-	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestListAllMachinesEmpty asserts that AllMachineNames returns an empty list
@@ -494,5 +571,39 @@ WHERE name = $1;
 // machine is not found.
 func (s *stateSuite) TestIsControllerNotFound(c *gc.C) {
 	_, err := s.state.IsMachineController(context.Background(), "666")
-	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestGetMachineParentUUIDSuccess asserts the happy path of
+// GetMachineParentUUID at the state layer.
+func (s *stateSuite) TestGetMachineParentUUIDSuccess(c *gc.C) {
+	// Create the parent machine first.
+	err := s.state.CreateMachine(context.Background(), "666", "1", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Create the machine with the created parent.
+	err = s.state.CreateMachineWithParent(context.Background(), "667", "666", "2", "456")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get the parent UUID of the machine.
+	parentUUID, err := s.state.GetMachineParentUUID(context.Background(), "667")
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(parentUUID, gc.Equals, "123")
+}
+
+// TestGetMachineParentUUIDNotFound asserts that a NotFound error is returned
+// when the machine is not found.
+func (s *stateSuite) TestGetMachineParentUUIDNotFound(c *gc.C) {
+	_, err := s.state.GetMachineParentUUID(context.Background(), "666")
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestGetMachineParentUUIDNoParent asserts that a NotFound error is returned
+// when the machine has no parent.
+func (s *stateSuite) TestGetMachineParentUUIDNoParent(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.state.GetMachineParentUUID(context.Background(), "666")
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineHasNoParent)
 }

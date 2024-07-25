@@ -91,17 +91,17 @@ func (s *serviceSuite) TestAuthorisedKeysForMachineNoControllerKeys(c *gc.C) {
 
 // TestAuthorisedKeysForMachineNotFound is asserting that if we ask for
 // authorised keys for a machine that doesn't exist we get back a
-// [machineerrors.NotFound] error.
+// [machineerrors.MachineNotFound] error.
 func (s *serviceSuite) TestAuthorisedKeysForMachineNotFound(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.state.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).Return(nil, machineerrors.NotFound)
+	s.state.EXPECT().AuthorisedKeysForMachine(gomock.Any(), coremachine.Name("0")).Return(nil, machineerrors.MachineNotFound)
 
 	_, err := NewService(s.controllerKeyProvider, s.state).GetAuthorisedKeysForMachine(
 		context.Background(),
 		coremachine.Name("0"),
 	)
-	c.Check(err, jc.ErrorIs, machineerrors.NotFound)
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
 }
 
 // TestGetInitialAuthorisedKeysForContainerSuccess tests the happy path for
