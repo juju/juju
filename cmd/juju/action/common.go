@@ -37,9 +37,11 @@ import (
 var logger = loggo.GetLogger("juju.cmd.juju.action")
 
 const (
+	unitSep      = "/"
+	leaderSuffix = "leader"
 	// leaderSnippet is a regular expression for unit ID-like syntax that is used
 	// to indicate the current leader for an application.
-	leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
+	leaderSnippet = "(" + names.ApplicationSnippet + ")" + unitSep + leaderSuffix
 )
 
 var (
