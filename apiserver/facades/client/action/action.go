@@ -69,22 +69,22 @@ func newActionAPI(
 	}, nil
 }
 
-func (a *ActionAPI) checkCanRead() error {
-	return a.authorizer.HasPermission(permission.ReadAccess, a.model.ModelTag())
+func (a *ActionAPI) checkCanRead(ctx context.Context) error {
+	return a.authorizer.HasPermission(ctx, permission.ReadAccess, a.model.ModelTag())
 }
 
-func (a *ActionAPI) checkCanWrite() error {
-	return a.authorizer.HasPermission(permission.WriteAccess, a.model.ModelTag())
+func (a *ActionAPI) checkCanWrite(ctx context.Context) error {
+	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.model.ModelTag())
 }
 
-func (a *ActionAPI) checkCanAdmin() error {
-	return a.authorizer.HasPermission(permission.AdminAccess, a.model.ModelTag())
+func (a *ActionAPI) checkCanAdmin(ctx context.Context) error {
+	return a.authorizer.HasPermission(ctx, permission.AdminAccess, a.model.ModelTag())
 }
 
 // Actions takes a list of ActionTags, and returns the full Action for
 // each ID.
 func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.ActionResults, error) {
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}
 
@@ -122,7 +122,7 @@ func (a *ActionAPI) Actions(ctx context.Context, arg params.Entities) (params.Ac
 
 // Cancel attempts to cancel enqueued Actions from running.
 func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.ActionResults, error) {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}
 
@@ -172,7 +172,7 @@ func (a *ActionAPI) Cancel(ctx context.Context, arg params.Entities) (params.Act
 // services.
 func (a *ActionAPI) ApplicationsCharmsActions(ctx context.Context, args params.Entities) (params.ApplicationsCharmActionsResults, error) {
 	result := params.ApplicationsCharmActionsResults{Results: make([]params.ApplicationCharmActionsResult, len(args.Entities))}
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 

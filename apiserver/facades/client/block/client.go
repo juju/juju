@@ -40,19 +40,19 @@ var getState = func(st *state.State, m *state.Model) blockAccess {
 	return stateShim{st, m}
 }
 
-func (a *API) checkCanRead() error {
-	err := a.authorizer.HasPermission(permission.ReadAccess, a.access.ModelTag())
+func (a *API) checkCanRead(ctx context.Context) error {
+	err := a.authorizer.HasPermission(ctx, permission.ReadAccess, a.access.ModelTag())
 	return err
 }
 
-func (a *API) checkCanWrite() error {
-	err := a.authorizer.HasPermission(permission.WriteAccess, a.access.ModelTag())
+func (a *API) checkCanWrite(ctx context.Context) error {
+	err := a.authorizer.HasPermission(ctx, permission.WriteAccess, a.access.ModelTag())
 	return err
 }
 
 // List implements Block.List().
 func (a *API) List(ctx context.Context) (params.BlockResults, error) {
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return params.BlockResults{}, err
 	}
 
@@ -85,7 +85,7 @@ func convertBlock(b state.Block) params.BlockResult {
 
 // SwitchBlockOn implements Block.SwitchBlockOn().
 func (a *API) SwitchBlockOn(ctx context.Context, args params.BlockSwitchParams) params.ErrorResult {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}
 
@@ -95,7 +95,7 @@ func (a *API) SwitchBlockOn(ctx context.Context, args params.BlockSwitchParams) 
 
 // SwitchBlockOff implements Block.SwitchBlockOff().
 func (a *API) SwitchBlockOff(ctx context.Context, args params.BlockSwitchParams) params.ErrorResult {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return params.ErrorResult{Error: apiservererrors.ServerError(err)}
 	}
 

@@ -75,7 +75,7 @@ func (s *appCharmInfoSuite) TestPermissionDenied(c *gc.C) {
 
 	authorizer := facademocks.NewMockAuthorizer(ctrl)
 	authorizer.EXPECT().AuthController().Return(false)
-	authorizer.EXPECT().HasPermission(permission.ReadAccess, modelTag).
+	authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, modelTag).
 		Return(errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission))
 
 	// Make the ApplicationCharmInfo call

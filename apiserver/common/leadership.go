@@ -90,7 +90,7 @@ type LeadershipPinning struct {
 func (a *LeadershipPinning) PinnedLeadership(ctx context.Context) (params.PinnedLeadershipResult, error) {
 	result := params.PinnedLeadershipResult{}
 
-	err := a.authorizer.HasPermission(permission.ReadAccess, a.modelTag)
+	err := a.authorizer.HasPermission(ctx, permission.ReadAccess, a.modelTag)
 	if err != nil {
 		return result, errors.Trace(err)
 	}

@@ -178,9 +178,9 @@ func (s *findToolsSuite) TestFindToolsIAAS(c *gc.C) {
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
 		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
 		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
-		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
+		authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{MajorVersion: 2}).
 			Return(simpleStreams, nil),
@@ -244,9 +244,9 @@ func (s *findToolsSuite) assertFindToolsCAASReleased(c *gc.C, wantArch, expectAr
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
 		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
 		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
-		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
+		authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		toolsFinder.EXPECT().FindAgents(gomock.Any(), common.FindAgentsParams{MajorVersion: 2, Arch: wantArch}).
 			Return(simpleStreams, nil),
@@ -335,9 +335,9 @@ func (s *findToolsSuite) TestFindToolsCAASNonReleased(c *gc.C) {
 	gomock.InOrder(
 		authorizer.EXPECT().AuthClient().Return(true),
 		backend.EXPECT().ControllerTag().Return(coretesting.ControllerTag),
-		authorizer.EXPECT().HasPermission(permission.SuperuserAccess, coretesting.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, coretesting.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
 		backend.EXPECT().ModelTag().Return(coretesting.ModelTag),
-		authorizer.EXPECT().HasPermission(permission.WriteAccess, coretesting.ModelTag).Return(nil),
+		authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, coretesting.ModelTag).Return(nil),
 
 		toolsFinder.EXPECT().FindAgents(gomock.Any(),
 			common.FindAgentsParams{MajorVersion: 2, AgentStream: envtools.DevelStream}).

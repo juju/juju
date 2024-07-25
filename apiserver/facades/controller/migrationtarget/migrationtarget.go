@@ -153,12 +153,12 @@ func NewAPI(
 	}, nil
 }
 
-func checkAuth(authorizer facade.Authorizer, st *state.State) error {
+func checkAuth(ctx context.Context, authorizer facade.Authorizer, st *state.State) error {
 	if !authorizer.AuthClient() {
 		return errors.Trace(apiservererrors.ErrPerm)
 	}
 
-	return authorizer.HasPermission(permission.SuperuserAccess, st.ControllerTag())
+	return authorizer.HasPermission(ctx, permission.SuperuserAccess, st.ControllerTag())
 }
 
 // Prechecks ensure that the target controller is ready to accept a

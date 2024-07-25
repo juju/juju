@@ -110,6 +110,7 @@ func (t TokenEntity) Tag() names.Tag {
 
 // SubjectPermissions implements PermissionDelegator
 func (p *PermissionDelegator) SubjectPermissions(
+	_ context.Context,
 	e authentication.Entity,
 	subject names.Tag,
 ) (a permission.Access, err error) {

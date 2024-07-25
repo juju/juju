@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -226,7 +227,7 @@ func sendError(w http.ResponseWriter, errToSend error) error {
 type tagKindAuthorizer []string
 
 // Authorize is part of the httpcontext.Authorizer interface.
-func (a tagKindAuthorizer) Authorize(authInfo authentication.AuthInfo) error {
+func (a tagKindAuthorizer) Authorize(_ context.Context, authInfo authentication.AuthInfo) error {
 	tagKind := authInfo.Entity.Tag().Kind()
 	for _, kind := range a {
 		if tagKind == kind {
@@ -239,7 +240,7 @@ func (a tagKindAuthorizer) Authorize(authInfo authentication.AuthInfo) error {
 type controllerAuthorizer struct{}
 
 // Authorize is part of the httpcontext.Authorizer interface.
-func (controllerAuthorizer) Authorize(authInfo authentication.AuthInfo) error {
+func (controllerAuthorizer) Authorize(_ context.Context, authInfo authentication.AuthInfo) error {
 	if authInfo.Controller {
 		return nil
 	}
@@ -251,7 +252,7 @@ type controllerAdminAuthorizer struct {
 }
 
 // Authorize is part of the httpcontext.Authorizer interface.
-func (a controllerAdminAuthorizer) Authorize(authInfo authentication.AuthInfo) error {
+func (a controllerAdminAuthorizer) Authorize(ctx context.Context, authInfo authentication.AuthInfo) error {
 	userTag, ok := authInfo.Entity.Tag().(names.UserTag)
 	if !ok {
 		return errors.Errorf("%s is not a user", names.ReadableString(authInfo.Entity.Tag()))
@@ -262,7 +263,7 @@ func (a controllerAdminAuthorizer) Authorize(authInfo authentication.AuthInfo) e
 			if entity.String() != userTag.String() {
 				return permission.NoAccess, fmt.Errorf("expected entity %q got %q", userTag.String(), entity.String())
 			}
-			return authInfo.SubjectPermissions(subject)
+			return authInfo.SubjectPermissions(ctx, subject)
 		},
 		userTag, permission.SuperuserAccess, a.controllerTag,
 	)

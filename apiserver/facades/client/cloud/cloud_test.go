@@ -56,6 +56,7 @@ func (s *cloudSuite) setup(c *gc.C, userTag names.UserTag) *gomock.Controller {
 	s.credentialValidator = mocks.NewMockCredentialValidator(ctrl)
 
 	api, err := cloud.NewCloudAPI(
+		stdcontext.Background(),
 		coretesting.ControllerTag, "dummy",
 		s.cloudService, s.cloudAccessService, s.credService,
 		s.authorizer, loggertesting.WrapCheckLog(c))

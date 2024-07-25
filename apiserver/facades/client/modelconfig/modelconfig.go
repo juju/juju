@@ -58,40 +58,40 @@ func NewModelConfigAPI(
 	}, nil
 }
 
-func (c *ModelConfigAPI) checkCanWrite() error {
-	return c.auth.HasPermission(permission.WriteAccess, c.backend.ModelTag())
+func (c *ModelConfigAPI) checkCanWrite(ctx context.Context) error {
+	return c.auth.HasPermission(ctx, permission.WriteAccess, c.backend.ModelTag())
 }
 
-func (c *ModelConfigAPI) isControllerAdmin() error {
-	return c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+func (c *ModelConfigAPI) isControllerAdmin(ctx context.Context) error {
+	return c.auth.HasPermission(ctx, permission.SuperuserAccess, c.backend.ControllerTag())
 }
 
-func (c *ModelConfigAPI) canReadModel() error {
-	err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+func (c *ModelConfigAPI) canReadModel(ctx context.Context) error {
+	err := c.auth.HasPermission(ctx, permission.SuperuserAccess, c.backend.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	} else if err == nil {
 		return nil
 	}
 
-	err = c.auth.HasPermission(permission.AdminAccess, c.backend.ModelTag())
+	err = c.auth.HasPermission(ctx, permission.AdminAccess, c.backend.ModelTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	} else if err == nil {
 		return nil
 	}
 
-	return c.auth.HasPermission(permission.ReadAccess, c.backend.ModelTag())
+	return c.auth.HasPermission(ctx, permission.ReadAccess, c.backend.ModelTag())
 }
 
-func (c *ModelConfigAPI) isModelAdmin() (bool, error) {
-	err := c.auth.HasPermission(permission.SuperuserAccess, c.backend.ControllerTag())
+func (c *ModelConfigAPI) isModelAdmin(ctx context.Context) (bool, error) {
+	err := c.auth.HasPermission(ctx, permission.SuperuserAccess, c.backend.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return false, errors.Trace(err)
 	} else if err == nil {
 		return true, nil
 	}
-	err = c.auth.HasPermission(permission.AdminAccess, c.backend.ModelTag())
+	err = c.auth.HasPermission(ctx, permission.AdminAccess, c.backend.ModelTag())
 	return err == nil, err
 }
 
@@ -99,11 +99,11 @@ func (c *ModelConfigAPI) isModelAdmin() (bool, error) {
 // model-config CLI command.
 func (c *ModelConfigAPI) ModelGet(ctx context.Context) (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	if err := c.canReadModel(); err != nil {
+	if err := c.canReadModel(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 
-	isAdmin, err := c.isModelAdmin()
+	isAdmin, err := c.isModelAdmin(ctx)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -144,14 +144,14 @@ func (c *ModelConfigAPI) ModelGet(ctx context.Context) (params.ModelConfigResult
 // ModelSet implements the server-side part of the
 // set-model-config CLI command.
 func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) error {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanWrite(ctx); err != nil {
 		return err
 	}
 
 	if err := c.check.ChangeAllowed(ctx); err != nil {
 		return errors.Trace(err)
 	}
-	isAdmin, err := c.isModelAdmin()
+	isAdmin, err := c.isModelAdmin(ctx)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -167,7 +167,7 @@ func (c *ModelConfigAPI) ModelSet(ctx context.Context, args params.ModelSet) err
 	}
 
 	isLoggingAdmin := true
-	err = c.isControllerAdmin()
+	err = c.isControllerAdmin(ctx)
 	if errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		isLoggingAdmin = false
 	} else if err != nil {
@@ -231,7 +231,7 @@ func LogTracingValidator(isAdmin bool) config.ValidatorFunc {
 
 // ModelUnset implements the server-side part of the set-model-config CLI command.
 func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset) error {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanWrite(ctx); err != nil {
 		return err
 	}
 	if err := c.check.ChangeAllowed(ctx); err != nil {
@@ -252,7 +252,7 @@ func (c *ModelConfigAPI) ModelUnset(ctx context.Context, args params.ModelUnset)
 
 // GetModelConstraints returns the constraints for the model.
 func (c *ModelConfigAPI) GetModelConstraints(ctx context.Context) (params.GetConstraintsResults, error) {
-	if err := c.canReadModel(); err != nil {
+	if err := c.canReadModel(ctx); err != nil {
 		return params.GetConstraintsResults{}, err
 	}
 
@@ -265,7 +265,7 @@ func (c *ModelConfigAPI) GetModelConstraints(ctx context.Context) (params.GetCon
 
 // SetModelConstraints sets the constraints for the model.
 func (c *ModelConfigAPI) SetModelConstraints(ctx context.Context, args params.SetConstraints) error {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanWrite(ctx); err != nil {
 		return err
 	}
 
@@ -278,7 +278,7 @@ func (c *ModelConfigAPI) SetModelConstraints(ctx context.Context, args params.Se
 // Sequences returns the model's sequence names and next values.
 func (c *ModelConfigAPI) Sequences(ctx context.Context) (params.ModelSequencesResult, error) {
 	result := params.ModelSequencesResult{}
-	if err := c.canReadModel(); err != nil {
+	if err := c.canReadModel(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -299,7 +299,7 @@ func (s *ModelConfigAPIV3) GetModelSecretBackend(struct{}) {}
 // returning [params.CodeModelNotFound] if the model does not exist.
 func (s *ModelConfigAPI) GetModelSecretBackend(ctx context.Context) (params.StringResult, error) {
 	result := params.StringResult{}
-	if err := s.auth.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelID.String())); err != nil {
+	if err := s.auth.HasPermission(ctx, permission.ReadAccess, names.NewModelTag(s.modelID.String())); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -321,7 +321,7 @@ func (s *ModelConfigAPIV3) SetModelSecretBackend(_, _ struct{}) {}
 // returning [params.CodeSecretBackendNotFound] if the secret backend does not exist,
 // returning [params.CodeSecretBackendNotValid] if the secret backend name is not valid.
 func (s *ModelConfigAPI) SetModelSecretBackend(ctx context.Context, arg params.SetModelSecretBackendArg) (params.ErrorResult, error) {
-	if err := s.auth.HasPermission(permission.WriteAccess, names.NewModelTag(s.modelID.String())); err != nil {
+	if err := s.auth.HasPermission(ctx, permission.WriteAccess, names.NewModelTag(s.modelID.String())); err != nil {
 		return params.ErrorResult{}, errors.Trace(err)
 	}
 	err := s.modelSecretBackendService.SetModelSecretBackend(ctx, arg.SecretBackendName)

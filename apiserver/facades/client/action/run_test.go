@@ -136,7 +136,7 @@ func (s *runSuite) TestRunMachineAndApplication(c *gc.C) {
 			Parallel:       &parallel,
 			ExecutionGroup: &executionGroup,
 		})
-	op, err := s.client.EnqueueOperation(arg)
+	op, err := s.client.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.Actions, gc.HasLen, 3)
 
@@ -193,7 +193,7 @@ func (s *runSuite) TestRunApplicationWorkload(c *gc.C) {
 			Parallel:        &parallel,
 			ExecutionGroup:  &executionGroup,
 		})
-	op, err := s.client.EnqueueOperation(arg)
+	op, err := s.client.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.Actions, gc.HasLen, 2)
 
@@ -239,7 +239,7 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 			Parallel:       &parallel,
 			ExecutionGroup: &executionGroup,
 		})
-	op, err := s.client.EnqueueOperation(arg)
+	op, err := s.client.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.Actions, gc.HasLen, 3)
 

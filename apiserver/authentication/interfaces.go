@@ -61,7 +61,7 @@ type AuthParams struct {
 type PermissionDelegator interface {
 	// SubjectPermissions returns the permission the entity has for the
 	// specified subject.
-	SubjectPermissions(entity Entity, subject names.Tag) (permission.Access, error)
+	SubjectPermissions(ctx context.Context, entity Entity, subject names.Tag) (permission.Access, error)
 
 	// PermissionError is a helper implemented by the Authenticator for
 	// returning the appropriate error when an authenticated entity is missing
@@ -80,7 +80,7 @@ type EntityAuthenticator interface {
 //
 // If this returns an error, the handler should return StatusForbidden.
 type Authorizer interface {
-	Authorize(AuthInfo) error
+	Authorize(context.Context, AuthInfo) error
 }
 
 // Entity represents a user, machine, or unit that might be
@@ -126,10 +126,10 @@ type RequestAuthenticator interface {
 // SubjectPermissions is a convenience wrapper around the AuthInfo permissions
 // delegator. errors.NotImplemented is returned if the permission delegator
 // on this AuthInfo is nil.
-func (a *AuthInfo) SubjectPermissions(subject names.Tag) (permission.Access, error) {
+func (a *AuthInfo) SubjectPermissions(ctx context.Context, subject names.Tag) (permission.Access, error) {
 	if a.Delegator == nil {
 		return permission.NoAccess, fmt.Errorf("permissions delegator %w", errors.NotImplemented)
 	}
 
-	return a.Delegator.SubjectPermissions(a.Entity, subject)
+	return a.Delegator.SubjectPermissions(ctx, a.Entity, subject)
 }

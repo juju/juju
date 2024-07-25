@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -71,7 +72,7 @@ func (fa FakeAuthorizer) GetAuthTag() names.Tag {
 
 // HasPermission returns true if the logged in user is admin or has a name equal to
 // the pre-set admin tag.
-func (fa FakeAuthorizer) HasPermission(operation permission.Access, target names.Tag) error {
+func (fa FakeAuthorizer) HasPermission(ctx context.Context, operation permission.Access, target names.Tag) error {
 	if fa.Tag.Kind() == names.UserTagKind {
 		ut := fa.Tag.(names.UserTag)
 		emptyTag := names.UserTag{}
@@ -143,7 +144,7 @@ func (fa FakeAuthorizer) ConnectedModel() string {
 
 // EntityHasPermission returns true if the passed entity is admin or has a name equal to
 // the pre-set admin tag.
-func (fa FakeAuthorizer) EntityHasPermission(entity names.Tag, operation permission.Access, _ names.Tag) error {
+func (fa FakeAuthorizer) EntityHasPermission(ctx context.Context, entity names.Tag, operation permission.Access, _ names.Tag) error {
 	if entity.Kind() == names.UserTagKind && entity.Id() == "admin" {
 		return nil
 	}

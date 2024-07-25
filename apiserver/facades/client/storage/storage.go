@@ -69,8 +69,8 @@ func NewStorageAPI(
 	}
 }
 
-func (a *StorageAPI) checkCanRead() error {
-	err := a.authorizer.HasPermission(permission.SuperuserAccess, a.backend.ControllerTag())
+func (a *StorageAPI) checkCanRead(ctx stdcontext.Context) error {
+	err := a.authorizer.HasPermission(ctx, permission.SuperuserAccess, a.backend.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -78,18 +78,18 @@ func (a *StorageAPI) checkCanRead() error {
 	if err == nil {
 		return nil
 	}
-	return a.authorizer.HasPermission(permission.ReadAccess, a.backend.ModelTag())
+	return a.authorizer.HasPermission(ctx, permission.ReadAccess, a.backend.ModelTag())
 }
 
-func (a *StorageAPI) checkCanWrite() error {
-	return a.authorizer.HasPermission(permission.WriteAccess, a.backend.ModelTag())
+func (a *StorageAPI) checkCanWrite(ctx stdcontext.Context) error {
+	return a.authorizer.HasPermission(ctx, permission.WriteAccess, a.backend.ModelTag())
 }
 
 // StorageDetails retrieves and returns detailed information about desired
 // storage identified by supplied tags. If specified storage cannot be
 // retrieved, individual error is returned instead of storage information.
 func (a *StorageAPI) StorageDetails(ctx stdcontext.Context, entities params.Entities) (params.StorageDetailsResults, error) {
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return params.StorageDetailsResults{}, errors.Trace(err)
 	}
 	results := make([]params.StorageDetailsResult, len(entities.Entities))
@@ -116,7 +116,7 @@ func (a *StorageAPI) StorageDetails(ctx stdcontext.Context, entities params.Enti
 
 // ListStorageDetails returns storage matching a filter.
 func (a *StorageAPI) ListStorageDetails(ctx stdcontext.Context, filters params.StorageFilters) (params.StorageDetailsListResults, error) {
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return params.StorageDetailsListResults{}, errors.Trace(err)
 	}
 	results := params.StorageDetailsListResults{
@@ -170,7 +170,7 @@ func (a *StorageAPI) ListPools(
 	ctx stdcontext.Context,
 	filters params.StoragePoolFilters,
 ) (params.StoragePoolsResults, error) {
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return params.StoragePoolsResults{}, errors.Trace(err)
 	}
 
@@ -240,7 +240,7 @@ func (a *StorageAPI) CreatePool(ctx stdcontext.Context, p params.StoragePoolArgs
 // an independent list of volumes, or an error if the filter is invalid
 // or the volumes could not be listed.
 func (a *StorageAPI) ListVolumes(ctx stdcontext.Context, filters params.VolumeFilters) (params.VolumeDetailsListResults, error) {
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return params.VolumeDetailsListResults{}, errors.Trace(err)
 	}
 	results := params.VolumeDetailsListResults{
@@ -346,7 +346,7 @@ func (a *StorageAPI) ListFilesystems(ctx stdcontext.Context, filters params.File
 	results := params.FilesystemDetailsListResults{
 		Results: make([]params.FilesystemDetailsListResult, len(filters.Filters)),
 	}
-	if err := a.checkCanRead(); err != nil {
+	if err := a.checkCanRead(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 
@@ -446,7 +446,7 @@ func (a *StorageAPI) AddToUnit(ctx stdcontext.Context, args params.StoragesAddPa
 }
 
 func (a *StorageAPI) addToUnit(ctx stdcontext.Context, args params.StoragesAddParams) (params.AddStorageResults, error) {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return params.AddStorageResults{}, errors.Trace(err)
 	}
 
@@ -502,7 +502,7 @@ func (a *StorageAPI) Remove(ctx stdcontext.Context, args params.RemoveStorage) (
 }
 
 func (a *StorageAPI) remove(ctx stdcontext.Context, args params.RemoveStorage) (params.ErrorResults, error) {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
@@ -536,7 +536,7 @@ func (a *StorageAPI) DetachStorage(ctx stdcontext.Context, args params.StorageDe
 }
 
 func (a *StorageAPI) internalDetach(ctx stdcontext.Context, args params.StorageAttachmentIds, force *bool, maxWait *time.Duration) (params.ErrorResults, error) {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
@@ -602,7 +602,7 @@ func (a *StorageAPI) detachStorage(storageTag names.StorageTag, unitTag names.Un
 // Attach attaches existing storage instances to units.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPI) Attach(ctx stdcontext.Context, args params.StorageAttachmentIds) (params.ErrorResults, error) {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
@@ -633,7 +633,7 @@ func (a *StorageAPI) Attach(ctx stdcontext.Context, args params.StorageAttachmen
 // Import imports existing storage into the model.
 // A "CHANGE" block can block this operation.
 func (a *StorageAPI) Import(ctx stdcontext.Context, args params.BulkImportStorageParams) (params.ImportStorageResults, error) {
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return params.ImportStorageResults{}, errors.Trace(err)
 	}
 
@@ -767,7 +767,7 @@ func (a *StorageAPI) RemovePool(ctx stdcontext.Context, p params.StoragePoolDele
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 
@@ -789,7 +789,7 @@ func (a *StorageAPI) UpdatePool(ctx stdcontext.Context, p params.StoragePoolArgs
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(p.Pools)),
 	}
-	if err := a.checkCanWrite(); err != nil {
+	if err := a.checkCanWrite(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 	service, _, err := a.storageMetadata()

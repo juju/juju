@@ -55,8 +55,8 @@ func internalFacade(
 	}, nil
 }
 
-func (facade *Facade) checkIsModelAdmin() error {
-	err := facade.authorizer.HasPermission(permission.SuperuserAccess, facade.backend.ControllerTag())
+func (facade *Facade) checkIsModelAdmin(ctx stdcontext.Context) error {
+	err := facade.authorizer.HasPermission(ctx, permission.SuperuserAccess, facade.backend.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -65,13 +65,13 @@ func (facade *Facade) checkIsModelAdmin() error {
 		return nil
 	}
 
-	return facade.authorizer.HasPermission(permission.AdminAccess, facade.backend.ModelTag())
+	return facade.authorizer.HasPermission(ctx, permission.AdminAccess, facade.backend.ModelTag())
 }
 
 // PublicAddress reports the preferred public network address for one
 // or more entities. Machines and units are supported.
 func (facade *Facade) PublicAddress(ctx stdcontext.Context, args params.Entities) (params.SSHAddressResults, error) {
-	if err := facade.checkIsModelAdmin(); err != nil {
+	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHAddressResults{}, errors.Trace(err)
 	}
 
@@ -82,7 +82,7 @@ func (facade *Facade) PublicAddress(ctx stdcontext.Context, args params.Entities
 // PrivateAddress reports the preferred private network address for one or
 // more entities. Machines and units are supported.
 func (facade *Facade) PrivateAddress(ctx stdcontext.Context, args params.Entities) (params.SSHAddressResults, error) {
-	if err := facade.checkIsModelAdmin(); err != nil {
+	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHAddressResults{}, errors.Trace(err)
 	}
 
@@ -94,7 +94,7 @@ func (facade *Facade) PrivateAddress(ctx stdcontext.Context, args params.Entitie
 // entity in args. The result is sorted with public addresses first.
 // Machines and units are supported as entity types.
 func (facade *Facade) AllAddresses(ctx stdcontext.Context, args params.Entities) (params.SSHAddressesResults, error) {
-	if err := facade.checkIsModelAdmin(); err != nil {
+	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHAddressesResults{}, errors.Trace(err)
 	}
 
@@ -183,7 +183,7 @@ func (facade *Facade) getAddressPerEntity(args params.Entities, addressGetter fu
 // PublicKeys returns the public SSH hosts for one or more
 // entities. Machines and units are supported.
 func (facade *Facade) PublicKeys(ctx stdcontext.Context, args params.Entities) (params.SSHPublicKeysResults, error) {
-	if err := facade.checkIsModelAdmin(); err != nil {
+	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHPublicKeysResults{}, errors.Trace(err)
 	}
 
@@ -199,7 +199,7 @@ func (facade *Facade) PublicKeys(ctx stdcontext.Context, args params.Entities) (
 			if err != nil {
 				out.Results[i].Error = apiservererrors.ServerError(err)
 			} else {
-				out.Results[i].PublicKeys = []string(keys)
+				out.Results[i].PublicKeys = keys
 			}
 		}
 	}
@@ -209,7 +209,7 @@ func (facade *Facade) PublicKeys(ctx stdcontext.Context, args params.Entities) (
 // Proxy returns whether SSH connections should be proxied through the
 // controller hosts for the model associated with the API connection.
 func (facade *Facade) Proxy(ctx stdcontext.Context) (params.SSHProxyResult, error) {
-	if err := facade.checkIsModelAdmin(); err != nil {
+	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return params.SSHProxyResult{}, errors.Trace(err)
 	}
 	config, err := facade.modelConfigService.ModelConfig(ctx)
@@ -224,7 +224,7 @@ func (facade *Facade) Proxy(ctx stdcontext.Context) (params.SSHProxyResult, erro
 func (facade *Facade) ModelCredentialForSSH(ctx stdcontext.Context) (params.CloudSpecResult, error) {
 	var result params.CloudSpecResult
 
-	if err := facade.checkIsModelAdmin(); err != nil {
+	if err := facade.checkIsModelAdmin(ctx); err != nil {
 		return result, err
 	}
 

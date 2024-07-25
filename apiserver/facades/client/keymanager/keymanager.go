@@ -39,18 +39,18 @@ type KeyManagerAPI struct {
 	logger        corelogger.Logger
 }
 
-func (api *KeyManagerAPI) checkCanRead(sshUser string) error {
-	if err := api.checkCanWrite(sshUser); err == nil {
+func (api *KeyManagerAPI) checkCanRead(ctx context.Context, sshUser string) error {
+	if err := api.checkCanWrite(ctx, sshUser); err == nil {
 		return nil
 	} else if err != apiservererrors.ErrPerm {
 		return errors.Trace(err)
 	}
-	err := api.authorizer.HasPermission(permission.ReadAccess, api.model.ModelTag())
+	err := api.authorizer.HasPermission(ctx, permission.ReadAccess, api.model.ModelTag())
 	return err
 }
 
-func (api *KeyManagerAPI) checkCanWrite(sshUser string) error {
-	ok, err := common.HasModelAdmin(api.authorizer, api.controllerTag, api.model.ModelTag())
+func (api *KeyManagerAPI) checkCanWrite(ctx context.Context, sshUser string) error {
+	ok, err := common.HasModelAdmin(ctx, api.authorizer, api.controllerTag, api.model.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -81,7 +81,7 @@ func (api *KeyManagerAPI) ListKeys(ctx context.Context, arg params.ListSSHKeys) 
 
 	results := transform.Slice(arg.Entities.Entities, func(entity params.Entity) params.StringsResult {
 		// NOTE: entity.Tag isn't a tag, but a username.
-		if err := api.checkCanRead(entity.Tag); err != nil {
+		if err := api.checkCanRead(ctx, entity.Tag); err != nil {
 			return params.StringsResult{Error: apiservererrors.ServerError(err)}
 		}
 		// All keys are global, no need to look up the user.
@@ -148,7 +148,7 @@ func (api *KeyManagerAPI) currentKeyDataForAdd(ctx context.Context) (keys []stri
 
 // AddKeys adds new authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) AddKeys(ctx context.Context, arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(arg.User); err != nil {
+	if err := api.checkCanWrite(ctx, arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	if err := api.check.ChangeAllowed(ctx); err != nil {
@@ -240,7 +240,7 @@ func runSSHKeyImport(keyIds []string) map[string][]importedSSHKey {
 
 // ImportKeys imports new authorised ssh keys from the specified key ids for the specified user.
 func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(arg.User); err != nil {
+	if err := api.checkCanWrite(ctx, arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	if err := api.check.ChangeAllowed(ctx); err != nil {
@@ -334,7 +334,7 @@ func (api *KeyManagerAPI) currentKeyDataForDelete(ctx context.Context) (keyDataF
 
 // DeleteKeys deletes the authorised ssh keys for the specified user.
 func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserSSHKeys) (params.ErrorResults, error) {
-	if err := api.checkCanWrite(arg.User); err != nil {
+	if err := api.checkCanWrite(ctx, arg.User); err != nil {
 		return params.ErrorResults{}, apiservererrors.ServerError(err)
 	}
 	if err := api.check.RemoveAllowed(ctx); err != nil {

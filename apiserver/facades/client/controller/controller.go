@@ -191,8 +191,8 @@ func NewControllerAPI(
 	}, nil
 }
 
-func (c *ControllerAPI) checkIsSuperUser() error {
-	return c.authorizer.HasPermission(permission.SuperuserAccess, c.controllerTag)
+func (c *ControllerAPI) checkIsSuperUser(ctx context.Context) error {
+	return c.authorizer.HasPermission(ctx, permission.SuperuserAccess, c.controllerTag)
 }
 
 // ControllerVersion returns the version information associated with this
@@ -231,7 +231,7 @@ func (c *ControllerAPI) IdentityProviderURL(ctx context.Context) (params.StringR
 // MongoVersion allows the introspection of the mongo version per controller
 func (c *ControllerAPI) MongoVersion(ctx context.Context) (params.StringResult, error) {
 	result := params.StringResult{}
-	if err := c.checkIsSuperUser(); err != nil {
+	if err := c.checkIsSuperUser(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 	version, err := c.state.MongoVersion()
@@ -399,7 +399,7 @@ func (c *ControllerAPI) DashboardConnectionInfo(ctx context.Context) (params.Das
 // models in the controller.
 func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, error) {
 	result := params.UserModelList{}
-	if err := c.checkIsSuperUser(); err != nil {
+	if err := c.checkIsSuperUser(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -461,7 +461,7 @@ func (c *ControllerAPI) AllModels(ctx context.Context) (params.UserModelList, er
 // list.
 func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBlockInfoList, error) {
 	results := params.ModelBlockInfoList{}
-	if err := c.checkIsSuperUser(); err != nil {
+	if err := c.checkIsSuperUser(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 	blocks, err := c.state.AllBlocksForController()
@@ -509,7 +509,7 @@ func (c *ControllerAPI) ListBlockedModels(ctx context.Context) (params.ModelBloc
 // [github.com/juju/juju/apiserver/facades/client/modelconfig.ModelConfigAPI.ModelGet]
 func (c *ControllerAPIv11) ModelConfig(ctx context.Context) (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	if err := c.checkIsSuperUser(); err != nil {
+	if err := c.checkIsSuperUser(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -540,7 +540,7 @@ func (c *ControllerAPIv11) ModelConfig(ctx context.Context) (params.ModelConfigR
 // directly.
 func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedModelConfigsResults, error) {
 	result := params.HostedModelConfigsResults{}
-	if err := c.checkIsSuperUser(); err != nil {
+	if err := c.checkIsSuperUser(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -590,7 +590,7 @@ func (c *ControllerAPI) HostedModelConfigs(ctx context.Context) (params.HostedMo
 
 // RemoveBlocks removes all the blocks in the controller.
 func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBlocksArgs) error {
-	if err := c.checkIsSuperUser(); err != nil {
+	if err := c.checkIsSuperUser(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -604,7 +604,7 @@ func (c *ControllerAPI) RemoveBlocks(ctx context.Context, args params.RemoveBloc
 // controller. The returned AllWatcherId should be used with Next on the
 // AllModelWatcher endpoint to receive deltas.
 func (c *ControllerAPI) WatchAllModels(ctx context.Context) (params.AllWatcherId, error) {
-	if err := c.checkIsSuperUser(); err != nil {
+	if err := c.checkIsSuperUser(ctx); err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
 	return params.AllWatcherId{}, errors.NotImplementedf("WatchAllModels")
@@ -614,7 +614,7 @@ func (c *ControllerAPI) WatchAllModels(ctx context.Context) (params.AllWatcherId
 // This method is superuser access only, and watches all models in the
 // controller.
 func (c *ControllerAPI) WatchAllModelSummaries(ctx context.Context) (params.SummaryWatcherID, error) {
-	if err := c.checkIsSuperUser(); err != nil {
+	if err := c.checkIsSuperUser(ctx); err != nil {
 		return params.SummaryWatcherID{}, errors.Trace(err)
 	}
 	// TODO(dqlite) - implement me
@@ -641,7 +641,7 @@ func (c *ControllerAPI) WatchModelSummaries(ctx context.Context) (params.Summary
 // have on the controller.
 func (c *ControllerAPI) GetControllerAccess(ctx context.Context, req params.Entities) (params.UserAccessResults, error) {
 	results := params.UserAccessResults{}
-	err := c.authorizer.HasPermission(permission.SuperuserAccess, c.controllerTag)
+	err := c.authorizer.HasPermission(ctx, permission.SuperuserAccess, c.controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return results, errors.Trace(err)
 	}
@@ -686,7 +686,7 @@ func (c *ControllerAPI) InitiateMigration(ctx context.Context, reqArgs params.In
 	out := params.InitiateMigrationResults{
 		Results: make([]params.InitiateMigrationResult, len(reqArgs.Specs)),
 	}
-	if err := c.checkIsSuperUser(); err != nil {
+	if err := c.checkIsSuperUser(ctx); err != nil {
 		return out, errors.Trace(err)
 	}
 
@@ -792,7 +792,7 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 		return result, nil
 	}
 
-	err := c.authorizer.HasPermission(permission.SuperuserAccess, c.controllerTag)
+	err := c.authorizer.HasPermission(ctx, permission.SuperuserAccess, c.controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -833,7 +833,7 @@ func (c *ControllerAPI) ModifyControllerAccess(ctx context.Context, args params.
 // settings. Only some settings can be changed after bootstrap.
 // Settings that aren't specified in the params are left unchanged.
 func (c *ControllerAPI) ConfigSet(ctx context.Context, args params.ControllerConfigSet) error {
-	if err := c.checkIsSuperUser(); err != nil {
+	if err := c.checkIsSuperUser(ctx); err != nil {
 		return errors.Trace(err)
 	}
 

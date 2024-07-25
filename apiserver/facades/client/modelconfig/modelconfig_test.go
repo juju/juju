@@ -358,7 +358,7 @@ func (s *modelSecretBackendSuite) TestGetModelSecretBackendFailedPermissionDenie
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, names.NewModelTag(s.modelID.String())).Return(
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.modelID.String())).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission),
 	)
 
@@ -371,7 +371,7 @@ func (s *modelSecretBackendSuite) TestGetModelSecretBackendFailedModelNotFound(c
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, names.NewModelTag(s.modelID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.modelID.String())).Return(nil)
 	s.mockModelSecretBackendService.EXPECT().GetModelSecretBackend(gomock.Any()).Return("", modelerrors.NotFound)
 
 	result, err := facade.GetModelSecretBackend(context.Background())
@@ -384,7 +384,7 @@ func (s *modelSecretBackendSuite) TestGetModelSecretBackend(c *gc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.ReadAccess, names.NewModelTag(s.modelID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.ReadAccess, names.NewModelTag(s.modelID.String())).Return(nil)
 	s.mockModelSecretBackendService.EXPECT().GetModelSecretBackend(gomock.Any()).Return("myvault", nil)
 
 	result, err := facade.GetModelSecretBackend(context.Background())
@@ -396,7 +396,7 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackendFailedPermissionDenie
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(
 		errors.WithType(apiservererrors.ErrPerm, authentication.ErrorEntityMissingPermission),
 	)
 
@@ -409,7 +409,7 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackendFailedModelNotFound(c
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
 	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault").Return(modelerrors.NotFound)
 
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
@@ -424,7 +424,7 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackendFailedSecretBackendNo
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
 	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault").Return(secretbackenderrors.NotFound)
 
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
@@ -439,7 +439,7 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackendFailedSecretBackendNo
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
 	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault").Return(secretbackenderrors.NotValid)
 
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{
@@ -454,7 +454,7 @@ func (s *modelSecretBackendSuite) TestSetModelSecretBackend(c *gc.C) {
 	facade, ctrl := s.setup(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.WriteAccess, names.NewModelTag(s.modelID.String())).Return(nil)
 	s.mockModelSecretBackendService.EXPECT().SetModelSecretBackend(gomock.Any(), "myvault").Return(nil)
 
 	result, err := facade.SetModelSecretBackend(context.Background(), params.SetModelSecretBackendArg{

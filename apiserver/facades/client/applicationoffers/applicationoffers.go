@@ -96,7 +96,7 @@ func (api *OffersAPIv5) Offer(ctx context.Context, all params.AddApplicationOffe
 			continue
 		}
 
-		if err := api.checkAdmin(apiUser, modelInfo.UUID, backend); err != nil {
+		if err := api.checkAdmin(ctx, apiUser, modelInfo.UUID, backend); err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
@@ -177,7 +177,7 @@ func (api *OffersAPIv5) ModifyOfferAccess(ctx context.Context, args params.Modif
 		return result, nil
 	}
 
-	err := api.Authorizer.HasPermission(permission.SuperuserAccess, api.ControllerModel.ControllerTag())
+	err := api.Authorizer.HasPermission(ctx, permission.SuperuserAccess, api.ControllerModel.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return result, errors.Trace(err)
 	}
@@ -198,13 +198,13 @@ func (api *OffersAPIv5) ModifyOfferAccess(ctx context.Context, args params.Modif
 			result.Results[i].Error = apiservererrors.ServerError(models[i].err)
 			continue
 		}
-		err = api.modifyOneOfferAccess(user, models[i].model.UUID(), isControllerAdmin, arg)
+		err = api.modifyOneOfferAccess(ctx, user, models[i].model.UUID(), isControllerAdmin, arg)
 		result.Results[i].Error = apiservererrors.ServerError(err)
 	}
 	return result, nil
 }
 
-func (api *OffersAPIv5) modifyOneOfferAccess(user names.UserTag, modelUUID string, isControllerAdmin bool, arg params.ModifyOfferAccess) error {
+func (api *OffersAPIv5) modifyOneOfferAccess(ctx context.Context, user names.UserTag, modelUUID string, isControllerAdmin bool, arg params.ModifyOfferAccess) error {
 	backend, releaser, err := api.StatePool.Get(modelUUID)
 	if err != nil {
 		return errors.Trace(err)
@@ -223,7 +223,7 @@ func (api *OffersAPIv5) modifyOneOfferAccess(user names.UserTag, modelUUID strin
 
 	canModifyOffer := isControllerAdmin
 	if !canModifyOffer {
-		err = api.Authorizer.HasPermission(permission.AdminAccess, names.NewModelTag(modelUUID))
+		err = api.Authorizer.HasPermission(ctx, permission.AdminAccess, names.NewModelTag(modelUUID))
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			return errors.Trace(err)
 		}
@@ -425,7 +425,7 @@ func (api *OffersAPIv5) GetConsumeDetails(ctx context.Context, args params.Consu
 	// Prefer args user if provided.
 	if args.UserTag != "" {
 		// Only controller admins can get consume details for another user.
-		err := api.checkControllerAdmin()
+		err := api.checkControllerAdmin(ctx)
 		if err != nil {
 			return params.ConsumeOfferDetailsResults{}, errors.Trace(err)
 		}
@@ -488,7 +488,7 @@ func (api *OffersAPIv5) getConsumeDetails(ctx context.Context, user names.UserTa
 			continue
 		}
 
-		err = api.checkAdmin(user, modelInfo.UUID, backend)
+		err = api.checkAdmin(ctx, user, modelInfo.UUID, backend)
 		if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 			results[i].Error = apiservererrors.ServerError(err)
 			continue
@@ -496,7 +496,7 @@ func (api *OffersAPIv5) getConsumeDetails(ctx context.Context, user names.UserTa
 		isAdmin := err == nil
 		if !isAdmin {
 			appOffer := names.NewApplicationOfferTag(offer.OfferUUID)
-			err := api.Authorizer.EntityHasPermission(user, permission.ConsumeAccess, appOffer)
+			err := api.Authorizer.EntityHasPermission(ctx, user, permission.ConsumeAccess, appOffer)
 			if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 				results[i].Error = apiservererrors.ServerError(err)
 				continue
@@ -506,7 +506,7 @@ func (api *OffersAPIv5) getConsumeDetails(ctx context.Context, user names.UserTa
 				// Jaas has already checked permissions of args.UserTag in their side, so we don't need to check it again.
 				// But as a TODO, we need to set the ConsumeOfferMacaroon's expiry time to 0 to force go to
 				// discharge flow once they got the macaroon.
-				err := api.checkControllerAdmin()
+				err := api.checkControllerAdmin(ctx)
 				if err != nil {
 					results[i].Error = apiservererrors.ServerError(err)
 					continue
@@ -617,7 +617,7 @@ func (api *OffersAPIv5) DestroyOffers(ctx context.Context, args params.DestroyAp
 			continue
 		}
 
-		if err := api.checkAdmin(user, modelInfo.UUID, backend); err != nil {
+		if err := api.checkAdmin(ctx, user, modelInfo.UUID, backend); err != nil {
 			result[i].Error = apiservererrors.ServerError(err)
 			continue
 		}

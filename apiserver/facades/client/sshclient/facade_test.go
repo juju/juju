@@ -90,8 +90,8 @@ func (s *facadeSuite) TestNonAuthUserDenied(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
-		s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(apiservererrors.ErrPerm),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(apiservererrors.ErrPerm),
 	)
 
 	facade, err := sshclient.InternalFacade(
@@ -125,7 +125,7 @@ func (s *facadeSuite) TestSuperUserAuth(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil),
 	)
 
 	machine0 := NewMockSSHMachine(ctrl)
@@ -167,7 +167,7 @@ func (s *facadeSuite) TestPublicAddress(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil),
 	)
 
 	machine0 := NewMockSSHMachine(ctrl)
@@ -212,7 +212,7 @@ func (s *facadeSuite) TestPrivateAddress(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil),
 	)
 
 	machine0 := NewMockSSHMachine(ctrl)
@@ -257,7 +257,7 @@ func (s *facadeSuite) TestAllAddresses(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil),
 	)
 
 	machine0Addresses := network.SpaceAddresses{
@@ -335,7 +335,7 @@ func (s *facadeSuite) TestPublicKeys(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil),
 	)
 
 	machine0 := NewMockSSHMachine(ctrl)
@@ -383,7 +383,7 @@ func (s *facadeSuite) TestProxyTrue(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil),
 	)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(false, map[string]any{
@@ -418,7 +418,7 @@ func (s *facadeSuite) TestProxyFalse(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil),
 	)
 
 	s.modelConfigService.EXPECT().ModelConfig(gomock.Any()).Return(config.New(false, map[string]any{
@@ -454,8 +454,8 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNotAuthorized(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
-		s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(apiservererrors.ErrPerm),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(apiservererrors.ErrPerm),
 	)
 
 	facade, err := sshclient.InternalFacade(
@@ -485,8 +485,8 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedNonCAASModel(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
-		s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(nil),
 		s.backend.EXPECT().Model().Return(s.model, nil),
 		s.model.EXPECT().Type().Return(state.ModelTypeIAAS),
 	)
@@ -529,8 +529,8 @@ func (s *facadeSuite) TestModelCredentialForSSHFailedBadCredential(c *gc.C) {
 
 	gomock.InOrder(
 		s.authorizer.EXPECT().AuthClient().Return(true),
-		s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
-		s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission),
+		s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(nil),
 		s.backend.EXPECT().Model().Return(s.model, nil),
 		s.model.EXPECT().Type().Return(state.ModelTypeCAAS),
 		s.backend.EXPECT().CloudSpec(gomock.Any()).Return(cloudSpec, nil),
@@ -558,8 +558,8 @@ func (s *facadeSuite) TestModelCredentialForSSH(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(nil)
 
 	s.assertModelCredentialForSSH(c)
 }
@@ -568,8 +568,8 @@ func (s *facadeSuite) TestModelCredentialForSSHAdminAccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.AdminAccess, testing.ModelTag).Return(nil)
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.AdminAccess, testing.ModelTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(authentication.ErrorEntityMissingPermission)
 
 	s.assertModelCredentialForSSH(c)
 }
@@ -578,7 +578,7 @@ func (s *facadeSuite) TestModelCredentialForSSHSuperuserAccess(c *gc.C) {
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.authorizer.EXPECT().HasPermission(permission.SuperuserAccess, testing.ControllerTag).Return(nil)
+	s.authorizer.EXPECT().HasPermission(gomock.Any(), permission.SuperuserAccess, testing.ControllerTag).Return(nil)
 
 	s.assertModelCredentialForSSH(c)
 }

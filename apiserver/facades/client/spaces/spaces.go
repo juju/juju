@@ -111,7 +111,7 @@ func newAPIWithBacking(cfg apiConfig) (*API, error) {
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *API) CreateSpaces(ctx stdcontext.Context, args params.CreateSpacesParams) (results params.ErrorResults, err error) {
-	err = api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	err = api.auth.HasPermission(ctx, permission.AdminAccess, api.backing.ModelTag())
 	if err != nil {
 		return results, err
 	}
@@ -170,7 +170,7 @@ func (api *API) createOneSpace(ctx context.Context, args params.CreateSpaceParam
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *API) ListSpaces(ctx stdcontext.Context) (results params.ListSpacesResults, err error) {
-	err = api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	err = api.auth.HasPermission(ctx, permission.ReadAccess, api.backing.ModelTag())
 	if err != nil {
 		return results, err
 	}
@@ -210,7 +210,7 @@ func (api *API) ListSpaces(ctx stdcontext.Context) (results params.ListSpacesRes
 
 // ShowSpace shows the spaces for a set of given entities.
 func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (params.ShowSpaceResults, error) {
-	err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	err := api.auth.HasPermission(ctx, permission.ReadAccess, api.backing.ModelTag())
 	if err != nil {
 		return params.ShowSpaceResults{}, err
 	}
@@ -284,7 +284,7 @@ func (api *API) ShowSpace(ctx stdcontext.Context, entities params.Entities) (par
 
 // ReloadSpaces refreshes spaces from substrate
 func (api *API) ReloadSpaces(ctx stdcontext.Context) error {
-	err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	err := api.auth.HasPermission(ctx, permission.AdminAccess, api.backing.ModelTag())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -351,7 +351,7 @@ func (api *API) applicationsBoundToSpace(spaceID string, allSpaces network.Space
 // ensureSpacesAreMutable checks that the current user
 // is allowed to edit the Space topology.
 func (api *API) ensureSpacesAreMutable(ctx stdcontext.Context) error {
-	err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	err := api.auth.HasPermission(ctx, permission.AdminAccess, api.backing.ModelTag())
 	if err != nil {
 		return err
 	}

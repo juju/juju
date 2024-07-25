@@ -23,20 +23,20 @@ import (
 func Register(requiredMigrationFacadeVersions facades.FacadeVersions) func(registry facade.FacadeRegistry) {
 	return func(registry facade.FacadeRegistry) {
 		registry.MustRegister("MigrationTarget", 1, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-			return newFacadeV1(ctx)
+			return newFacadeV1(stdCtx, ctx)
 		}, reflect.TypeOf((*APIV1)(nil)))
 		registry.MustRegister("MigrationTarget", 2, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-			return newFacadeV2(ctx)
+			return newFacadeV2(stdCtx, ctx)
 		}, reflect.TypeOf((*APIV2)(nil)))
 		registry.MustRegister("MigrationTarget", 3, func(stdCtx context.Context, ctx facade.ModelContext) (facade.Facade, error) {
-			return newFacade(ctx, requiredMigrationFacadeVersions)
+			return newFacade(stdCtx, ctx, requiredMigrationFacadeVersions)
 		}, reflect.TypeOf((*API)(nil)))
 	}
 }
 
 // newFacadeV1 is used for APIV1 registration.
-func newFacadeV1(ctx facade.ModelContext) (*APIV1, error) {
-	api, err := newFacade(ctx, facades.FacadeVersions{})
+func newFacadeV1(stdCtx context.Context, ctx facade.ModelContext) (*APIV1, error) {
+	api, err := newFacade(stdCtx, ctx, facades.FacadeVersions{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -44,8 +44,8 @@ func newFacadeV1(ctx facade.ModelContext) (*APIV1, error) {
 }
 
 // newFacadeV2 is used for APIV2 registration.
-func newFacadeV2(ctx facade.ModelContext) (*APIV2, error) {
-	api, err := newFacade(ctx, facades.FacadeVersions{})
+func newFacadeV2(stdCtx context.Context, ctx facade.ModelContext) (*APIV2, error) {
+	api, err := newFacade(stdCtx, ctx, facades.FacadeVersions{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -53,10 +53,10 @@ func newFacadeV2(ctx facade.ModelContext) (*APIV2, error) {
 }
 
 // newFacade is used for API registration.
-func newFacade(ctx facade.ModelContext, facadeVersions facades.FacadeVersions) (*API, error) {
+func newFacade(stdCtx context.Context, ctx facade.ModelContext, facadeVersions facades.FacadeVersions) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
-	if err := checkAuth(auth, st); err != nil {
+	if err := checkAuth(stdCtx, auth, st); err != nil {
 		return nil, errors.Trace(err)
 	}
 

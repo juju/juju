@@ -59,7 +59,7 @@ func (h *AuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if h.Authorizer != nil {
-		if err := h.Authorizer.Authorize(authInfo); err != nil {
+		if err := h.Authorizer.Authorize(req.Context(), authInfo); err != nil {
 			http.Error(w,
 				fmt.Sprintf("authorization failed: %s", err),
 				http.StatusForbidden,

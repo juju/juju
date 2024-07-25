@@ -72,8 +72,8 @@ type ClientV6 struct {
 	*Client
 }
 
-func (c *Client) checkCanRead() error {
-	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+func (c *Client) checkCanRead(ctx context.Context) error {
+	err := c.api.auth.HasPermission(ctx, permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -82,11 +82,11 @@ func (c *Client) checkCanRead() error {
 		return nil
 	}
 
-	return c.api.auth.HasPermission(permission.ReadAccess, c.api.stateAccessor.ModelTag())
+	return c.api.auth.HasPermission(ctx, permission.ReadAccess, c.api.stateAccessor.ModelTag())
 }
 
-func (c *Client) checkCanWrite() error {
-	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+func (c *Client) checkCanWrite(ctx context.Context) error {
+	err := c.api.auth.HasPermission(ctx, permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -95,11 +95,11 @@ func (c *Client) checkCanWrite() error {
 		return nil
 	}
 
-	return c.api.auth.HasPermission(permission.WriteAccess, c.api.stateAccessor.ModelTag())
+	return c.api.auth.HasPermission(ctx, permission.WriteAccess, c.api.stateAccessor.ModelTag())
 }
 
-func (c *Client) checkIsAdmin() error {
-	err := c.api.auth.HasPermission(permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
+func (c *Client) checkIsAdmin(ctx context.Context) error {
+	err := c.api.auth.HasPermission(ctx, permission.SuperuserAccess, c.api.stateAccessor.ControllerTag())
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return errors.Trace(err)
 	}
@@ -108,7 +108,7 @@ func (c *Client) checkIsAdmin() error {
 		return nil
 	}
 
-	return c.api.auth.HasPermission(permission.AdminAccess, c.api.stateAccessor.ModelTag())
+	return c.api.auth.HasPermission(ctx, permission.AdminAccess, c.api.stateAccessor.ModelTag())
 }
 
 // NewFacade creates a Client facade to handle API requests.
@@ -232,7 +232,7 @@ func (c *Client) WatchAll(ctx context.Context) (params.AllWatcherId, error) {
 // FindTools returns a List containing all tools matching the given parameters.
 // TODO(juju 3.1) - remove, used by 2.9 client only
 func (c *Client) FindTools(ctx context.Context, args params.FindToolsParams) (params.FindToolsResult, error) {
-	if err := c.checkCanWrite(); err != nil {
+	if err := c.checkCanWrite(ctx); err != nil {
 		return params.FindToolsResult{}, err
 	}
 	model, err := c.modelInfoService.GetModelInfo(ctx)

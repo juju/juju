@@ -30,7 +30,7 @@ func (api *APIBase) getConfig(
 	args params.ApplicationGet,
 	describe func(settings charm.Settings, config *charm.Config) map[string]interface{},
 ) (params.ApplicationGetResults, error) {
-	if err := api.checkCanRead(); err != nil {
+	if err := api.checkCanRead(ctx); err != nil {
 		return params.ApplicationGetResults{}, err
 	}
 

@@ -4,6 +4,7 @@
 package client_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -88,7 +89,7 @@ func checkStatusInfo(c *gc.C, obtained []params.DetailedStatus, expected []statu
 }
 
 func (s *statusHistoryTestSuite) TestSizeRequired(c *gc.C) {
-	r := s.api.StatusHistory(params.StatusHistoryRequests{
+	r := s.api.StatusHistory(context.Background(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Tag:    "unit-unit-1",
 			Kind:   status.KindUnit.String(),
@@ -100,7 +101,7 @@ func (s *statusHistoryTestSuite) TestSizeRequired(c *gc.C) {
 
 func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
 	now := time.Now()
-	r := s.api.StatusHistory(params.StatusHistoryRequests{
+	r := s.api.StatusHistory(context.Background(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Tag:    "unit-unit-1",
 			Kind:   status.KindUnit.String(),
@@ -110,7 +111,7 @@ func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
 	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: Size and Date together not valid")
 
 	yesterday := time.Hour * 24
-	r = s.api.StatusHistory(params.StatusHistoryRequests{
+	r = s.api.StatusHistory(context.Background(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Tag:    "unit-unit-1",
 			Kind:   status.KindUnit.String(),
@@ -119,7 +120,7 @@ func (s *statusHistoryTestSuite) TestNoConflictingFilters(c *gc.C) {
 	c.Assert(r.Results, gc.HasLen, 1)
 	c.Assert(r.Results[0].Error.Message, gc.Equals, "cannot validate status history filter: Size and Delta together not valid")
 
-	r = s.api.StatusHistory(params.StatusHistoryRequests{
+	r = s.api.StatusHistory(context.Background(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Tag:    "unit-unit-1",
 			Kind:   status.KindUnit.String(),
@@ -140,7 +141,7 @@ func (s *statusHistoryTestSuite) TestStatusHistoryApplication(c *gc.C) {
 			Message: "running",
 		},
 	})
-	h := s.api.StatusHistory(params.StatusHistoryRequests{
+	h := s.api.StatusHistory(context.Background(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Tag:    "application-app",
 			Kind:   status.KindApplication.String(),
@@ -167,7 +168,7 @@ func (s *statusHistoryTestSuite) TestStatusHistoryUnitOnly(c *gc.C) {
 			Status: status.Idle,
 		},
 	})
-	h := s.api.StatusHistory(params.StatusHistoryRequests{
+	h := s.api.StatusHistory(context.Background(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Tag:    "unit-unit-0",
 			Kind:   status.KindWorkload.String(),
@@ -197,7 +198,7 @@ func (s *statusHistoryTestSuite) TestStatusHistoryAgentOnly(c *gc.C) {
 			Status: status.Idle,
 		},
 	})
-	h := s.api.StatusHistory(params.StatusHistoryRequests{
+	h := s.api.StatusHistory(context.Background(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Tag:    "unit-unit-0",
 			Kind:   status.KindUnitAgent.String(),
@@ -231,7 +232,7 @@ func (s *statusHistoryTestSuite) TestStatusHistoryCombined(c *gc.C) {
 			Status: status.Idle,
 		},
 	})
-	h := s.api.StatusHistory(params.StatusHistoryRequests{
+	h := s.api.StatusHistory(context.Background(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Tag:    "unit-unit-0",
 			Kind:   status.KindUnit.String(),
@@ -258,7 +259,7 @@ func (s *statusHistoryTestSuite) TestStatusHistoryModelOnly(c *gc.C) {
 			Message: "invalid creds",
 		},
 	})
-	h := s.api.StatusHistory(params.StatusHistoryRequests{
+	h := s.api.StatusHistory(context.Background(), params.StatusHistoryRequests{
 		Requests: []params.StatusHistoryRequest{{
 			Tag:    "model-deadbeef-0bad-400d-8000-4b1d0d06f00d",
 			Kind:   status.KindModel.String(),

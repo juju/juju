@@ -67,8 +67,8 @@ type API struct {
 	networkService              NetworkService
 }
 
-func (api *API) checkCanRead() error {
-	return api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+func (api *API) checkCanRead(ctx context.Context) error {
+	return api.authorizer.HasPermission(ctx, permission.ReadAccess, api.backing.ModelTag())
 }
 
 // newAPIWithBacking creates a new server-side Subnets API facade with
@@ -99,7 +99,7 @@ func newAPIWithBacking(
 // zone is unusable, unavailable, or deprecated the Available
 // field will be false.
 func (api *API) AllZones(ctx stdcontext.Context) (params.ZoneResults, error) {
-	if err := api.checkCanRead(); err != nil {
+	if err := api.checkCanRead(ctx); err != nil {
 		return params.ZoneResults{}, err
 	}
 	invalidator, err := api.credentialInvalidatorGetter()
@@ -113,7 +113,7 @@ func (api *API) AllZones(ctx stdcontext.Context) (params.ZoneResults, error) {
 // ListSubnets returns the matching subnets after applying
 // optional filters.
 func (api *API) ListSubnets(ctx stdcontext.Context, args params.SubnetsFilters) (results params.ListSubnetsResults, err error) {
-	if err := api.checkCanRead(); err != nil {
+	if err := api.checkCanRead(ctx); err != nil {
 		return params.ListSubnetsResults{}, err
 	}
 
@@ -158,7 +158,7 @@ func (api *API) ListSubnets(ctx stdcontext.Context, args params.SubnetsFilters) 
 func (api *API) SubnetsByCIDR(ctx stdcontext.Context, arg params.CIDRParams) (params.SubnetsResults, error) {
 	result := params.SubnetsResults{}
 
-	if err := api.checkCanRead(); err != nil {
+	if err := api.checkCanRead(ctx); err != nil {
 		return result, err
 	}
 

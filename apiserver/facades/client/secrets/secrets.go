@@ -41,16 +41,16 @@ type SecretsAPIV1 struct {
 	*SecretsAPI
 }
 
-func (s *SecretsAPI) checkCanRead() error {
-	return s.authorizer.HasPermission(permission.ReadAccess, names.NewModelTag(s.modelUUID))
+func (s *SecretsAPI) checkCanRead(ctx context.Context) error {
+	return s.authorizer.HasPermission(ctx, permission.ReadAccess, names.NewModelTag(s.modelUUID))
 }
 
-func (s *SecretsAPI) checkCanWrite() error {
-	return s.authorizer.HasPermission(permission.WriteAccess, names.NewModelTag(s.modelUUID))
+func (s *SecretsAPI) checkCanWrite(ctx context.Context) error {
+	return s.authorizer.HasPermission(ctx, permission.WriteAccess, names.NewModelTag(s.modelUUID))
 }
 
-func (s *SecretsAPI) checkCanAdmin() error {
-	isAdmin, err := common.HasModelAdmin(s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
+func (s *SecretsAPI) checkCanAdmin(ctx context.Context) error {
+	isAdmin, err := common.HasModelAdmin(ctx, s.authorizer, names.NewControllerTag(s.controllerUUID), names.NewModelTag(s.modelUUID))
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -66,11 +66,11 @@ func (s *SecretsAPI) checkCanAdmin() error {
 func (s *SecretsAPI) ListSecrets(ctx context.Context, arg params.ListSecretsArgs) (params.ListSecretResults, error) {
 	result := params.ListSecretResults{}
 	if arg.ShowSecrets {
-		if err := s.checkCanAdmin(); err != nil {
+		if err := s.checkCanAdmin(ctx); err != nil {
 			return result, errors.Trace(err)
 		}
 	} else {
-		if err := s.checkCanRead(); err != nil {
+		if err := s.checkCanRead(ctx); err != nil {
 			return result, errors.Trace(err)
 		}
 	}
@@ -235,7 +235,7 @@ func (s *SecretsAPI) CreateSecrets(ctx context.Context, args params.CreateSecret
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Args)),
 	}
-	if err := s.checkCanWrite(); err != nil {
+	if err := s.checkCanWrite(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
@@ -307,7 +307,7 @@ func (s *SecretsAPI) UpdateSecrets(ctx context.Context, args params.UpdateUserSe
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Args)),
 	}
-	if err := s.checkCanWrite(); err != nil {
+	if err := s.checkCanWrite(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 	for i, arg := range args.Args {
@@ -367,7 +367,7 @@ func (s *SecretsAPI) RemoveSecrets(ctx context.Context, args params.DeleteSecret
 		return result, nil
 	}
 
-	if err := s.checkCanWrite(); err != nil {
+	if err := s.checkCanWrite(ctx); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -416,7 +416,7 @@ func (s *SecretsAPI) secretsGrantRevoke(ctx context.Context, arg params.GrantRev
 		return results, errors.New("must specify either URI or name")
 	}
 
-	if err := s.checkCanWrite(); err != nil {
+	if err := s.checkCanWrite(ctx); err != nil {
 		return results, errors.Trace(err)
 	}
 

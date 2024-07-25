@@ -4,6 +4,7 @@
 package imagemetadatamanager_test
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/names/v5"
@@ -59,7 +60,9 @@ func (s *baseImageMetadataSuite) setupAPI(c *gc.C) (*gomock.Controller, *MockMod
 	modelConfigService := NewMockModelConfigService(ctrl)
 
 	var err error
-	s.api, err = imagemetadatamanager.CreateAPI(s.state, modelConfigService,
+	s.api, err = imagemetadatamanager.CreateAPI(
+		context.Background(),
+		s.state, modelConfigService,
 		func() (environs.Environ, error) {
 			return &mockEnviron{}, nil
 		}, s.resources, s.authorizer)

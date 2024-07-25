@@ -120,7 +120,7 @@ func (s *actionSuite) TestActions(c *gc.C) {
 			{Receiver: s.mysqlUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{"baz": true}},
 		}}
 
-	r, err := s.action.EnqueueOperation(arg)
+	r, err := s.action.EnqueueOperation(context.Background(), arg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Actions, gc.HasLen, len(arg.Actions))
 
@@ -175,7 +175,7 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 		}},
 	}
 
-	results, err := s.action.EnqueueOperation(tests)
+	results, err := s.action.EnqueueOperation(context.Background(), tests)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Actions, gc.HasLen, 4)
 	for _, res := range results.Actions {
@@ -198,7 +198,7 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	c.Assert(cancelled.Results, gc.HasLen, 2)
 
 	// Assert the Actions are all in the expected state.
-	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(context.Background(), params.OperationQueryArgs{
 		Units: []string{
 			s.wordpressUnit.Name(),
 			s.mysqlUnit.Name(),
@@ -233,7 +233,7 @@ func (s *actionSuite) TestAbort(c *gc.C) {
 		}},
 	}
 
-	results, err := s.action.EnqueueOperation(tests)
+	results, err := s.action.EnqueueOperation(context.Background(), tests)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Actions, gc.HasLen, 1)
 	c.Assert(results.Actions[0].Error, gc.IsNil)
@@ -261,7 +261,7 @@ func (s *actionSuite) TestAbort(c *gc.C) {
 	c.Assert(cancelled.Results[0].Status, gc.Equals, params.ActionAborting)
 
 	// Assert the Actions are all in the expected state.
-	operations, err := s.action.ListOperations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(context.Background(), params.OperationQueryArgs{
 		Units: []string{s.wordpressUnit.Name()},
 	})
 	c.Assert(err, jc.ErrorIsNil)

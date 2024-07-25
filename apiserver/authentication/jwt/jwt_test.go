@@ -103,15 +103,15 @@ func (s *loginTokenSuite) TestUsesLoginToken(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(authInfo.Entity.Tag().String(), gc.Equals, "user-fred")
-	perm, err := authInfo.SubjectPermissions(modelTag)
+	perm, err := authInfo.SubjectPermissions(context.Background(), modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.WriteAccess)
 
-	perm, err = authInfo.SubjectPermissions(testing.ControllerTag)
+	perm, err = authInfo.SubjectPermissions(context.Background(), testing.ControllerTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.LoginAccess)
 
-	perm, err = authInfo.SubjectPermissions(applicationOfferTag)
+	perm, err = authInfo.SubjectPermissions(context.Background(), applicationOfferTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.ConsumeAccess)
 }
@@ -147,7 +147,7 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *gc.C) {
 	badUser := jwt.TokenEntity{
 		User: names.NewUserTag("wallyworld"),
 	}
-	perm, err := authInfo.Delegator.SubjectPermissions(badUser, modelTag)
+	perm, err := authInfo.Delegator.SubjectPermissions(context.Background(), badUser, modelTag)
 	c.Assert(err, jc.ErrorIs, apiservererrors.ErrPerm)
 	c.Assert(err, jc.ErrorIs, authentication.ErrorEntityMissingPermission)
 	c.Assert(perm, gc.Equals, permission.NoAccess)
@@ -155,7 +155,7 @@ func (s *loginTokenSuite) TestPermissionsForDifferentEntity(c *gc.C) {
 	badUser = jwt.TokenEntity{
 		User: names.NewUserTag(common.EveryoneTagName),
 	}
-	perm, err = authInfo.Delegator.SubjectPermissions(badUser, modelTag)
+	perm, err = authInfo.Delegator.SubjectPermissions(context.Background(), badUser, modelTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.NoAccess)
 }
@@ -183,7 +183,7 @@ func (s *loginTokenSuite) TestControllerSuperuser(c *gc.C) {
 
 	c.Assert(authInfo.Entity.Tag().String(), gc.Equals, "user-fred")
 
-	perm, err := authInfo.SubjectPermissions(testing.ControllerTag)
+	perm, err := authInfo.SubjectPermissions(context.Background(), testing.ControllerTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(perm, gc.Equals, permission.SuperuserAccess)
 }

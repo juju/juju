@@ -32,7 +32,15 @@ var (
 )
 
 // PublishRelationChange applies the relation change event to the specified backend.
-func PublishRelationChange(auth authoriser, backend Backend, modelID model.UUID, relationTag, applicationTag names.Tag, change params.RemoteRelationChangeEvent) error {
+func PublishRelationChange(
+	ctx context.Context,
+	auth authoriser,
+	backend Backend,
+	modelID model.UUID,
+	relationTag,
+	applicationTag names.Tag,
+	change params.RemoteRelationChangeEvent,
+) error {
 	logger.Debugf("publish into model %s change for %v on %v: %#v", modelID, relationTag, applicationTag, &change)
 
 	dyingOrDead := change.Life != "" && change.Life != life.Alive
@@ -47,7 +55,7 @@ func PublishRelationChange(auth authoriser, backend Backend, modelID model.UUID,
 		return errors.Trace(err)
 	}
 
-	if err := handleSuspendedRelation(auth, backend, names.NewModelTag(modelID.String()), change, rel, dyingOrDead); err != nil {
+	if err := handleSuspendedRelation(ctx, auth, backend, names.NewModelTag(modelID.String()), change, rel, dyingOrDead); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -108,30 +116,31 @@ func PublishRelationChange(auth authoriser, backend Backend, modelID model.UUID,
 }
 
 type authoriser interface {
-	EntityHasPermission(entity names.Tag, operation permission.Access, target names.Tag) error
+	EntityHasPermission(ctx context.Context, entity names.Tag, operation permission.Access, target names.Tag) error
 }
 
 // CheckCanConsume checks consume permission for a user on an offer connection.
-func CheckCanConsume(auth authoriser, controllerTag, modelTag names.Tag, oc OfferConnection) (bool, error) {
+func CheckCanConsume(ctx context.Context, auth authoriser, controllerTag, modelTag names.Tag, oc OfferConnection) (bool, error) {
 	user := names.NewUserTag(oc.UserName())
-	err := auth.EntityHasPermission(user, permission.SuperuserAccess, controllerTag)
+	err := auth.EntityHasPermission(ctx, user, permission.SuperuserAccess, controllerTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return false, errors.Trace(err)
 	} else if err == nil {
 		return true, nil
 	}
 
-	err = auth.EntityHasPermission(user, permission.AdminAccess, modelTag)
+	err = auth.EntityHasPermission(ctx, user, permission.AdminAccess, modelTag)
 	if err != nil && !errors.Is(err, authentication.ErrorEntityMissingPermission) {
 		return false, errors.Trace(err)
 	} else if err == nil {
 		return true, nil
 	}
-	err = auth.EntityHasPermission(user, permission.ConsumeAccess, names.NewApplicationOfferTag(oc.OfferUUID()))
+	err = auth.EntityHasPermission(ctx, user, permission.ConsumeAccess, names.NewApplicationOfferTag(oc.OfferUUID()))
 	return err == nil, err
 }
 
 func handleSuspendedRelation(
+	ctx context.Context,
 	auth authoriser,
 	backend Backend,
 	modelTag names.Tag,
@@ -158,7 +167,7 @@ func handleSuspendedRelation(
 				return errors.Trace(err)
 			}
 			if err == nil {
-				ok, err := CheckCanConsume(auth, backend.ControllerTag(), modelTag, oc)
+				ok, err := CheckCanConsume(ctx, auth, backend.ControllerTag(), modelTag, oc)
 				if err != nil {
 					return errors.Trace(err)
 				}

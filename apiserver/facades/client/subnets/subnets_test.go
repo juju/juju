@@ -81,7 +81,7 @@ func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 	s.mockBacking = subnets.NewMockBacking(ctrl)
 
 	s.mockAuthorizer = facademocks.NewMockAuthorizer(ctrl)
-	s.mockAuthorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	s.mockAuthorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	s.mockAuthorizer.EXPECT().AuthClient().Return(true)
 
 	s.mockBacking.EXPECT().ModelTag().Return(names.NewModelTag("123"))

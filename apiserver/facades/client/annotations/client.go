@@ -30,19 +30,19 @@ type API struct {
 	annotationService AnnotationService
 }
 
-func (api *API) checkCanRead() error {
-	return api.authorizer.HasPermission(permission.ReadAccess, api.modelTag)
+func (api *API) checkCanRead(ctx context.Context) error {
+	return api.authorizer.HasPermission(ctx, permission.ReadAccess, api.modelTag)
 }
 
-func (api *API) checkCanWrite() error {
-	return api.authorizer.HasPermission(permission.WriteAccess, api.modelTag)
+func (api *API) checkCanWrite(ctx context.Context) error {
+	return api.authorizer.HasPermission(ctx, permission.WriteAccess, api.modelTag)
 }
 
 // Get returns annotations for given entities.
 // If annotations cannot be retrieved for a given entity, an error is returned.
 // Each entity is treated independently and, hence, will fail or succeed independently.
 func (api *API) Get(ctx context.Context, args params.Entities) params.AnnotationsGetResults {
-	if err := api.checkCanRead(); err != nil {
+	if err := api.checkCanRead(ctx); err != nil {
 		result := make([]params.AnnotationsGetResult, len(args.Entities))
 		for i := range result {
 			result[i].Error = params.ErrorResult{Error: apiservererrors.ServerError(err)}
@@ -65,7 +65,7 @@ func (api *API) Get(ctx context.Context, args params.Entities) params.Annotation
 
 // Set stores annotations for given entities
 func (api *API) Set(ctx context.Context, args params.AnnotationsSet) params.ErrorResults {
-	if err := api.checkCanWrite(); err != nil {
+	if err := api.checkCanWrite(ctx); err != nil {
 		errorResults := make([]params.ErrorResult, len(args.Annotations))
 		for i := range errorResults {
 			errorResults[i].Error = apiservererrors.ServerError(err)

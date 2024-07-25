@@ -23,7 +23,7 @@ import (
 // non-Dead hosted models, then an error with the code
 // params.CodeHasHostedModels will be transmitted.
 func (c *ControllerAPI) DestroyController(ctx context.Context, args params.DestroyControllerArgs) error {
-	err := c.authorizer.HasPermission(permission.SuperuserAccess, c.controllerTag)
+	err := c.authorizer.HasPermission(ctx, permission.SuperuserAccess, c.controllerTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
