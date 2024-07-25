@@ -6,6 +6,7 @@ package charms_test
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/url"
 
 	"github.com/juju/errors"
@@ -52,10 +53,11 @@ func (s *charmsSuite) SetUpTest(c *gc.C) {
 
 	var err error
 	s.api, err = charms.NewFacade(context.Background(), facadetest.ModelContext{
-		Auth_:           s.auth,
-		State_:          s.ControllerModel(c).State(),
-		Logger_:         loggertesting.WrapCheckLog(c),
-		ServiceFactory_: s.DefaultModelServiceFactory(c),
+		Auth_:               s.auth,
+		State_:              s.ControllerModel(c).State(),
+		Logger_:             loggertesting.WrapCheckLog(c),
+		ServiceFactory_:     s.DefaultModelServiceFactory(c),
+		CharmhubHTTPClient_: &http.Client{},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }
