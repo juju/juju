@@ -23,6 +23,10 @@ run_user_ssh_keys() {
 	# Remove the SSH key by comment
 	juju remove-ssh-key isgreat@juju.is
 	check_not_contains "$(juju ssh-keys)" "${fingerprint}"
+
+	# Import the ssh keys for tlm from Github.
+	juju import-ssh-key gh:tlm
+	check_contains "$(juju ssh-keys --full)" "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHxsBSstfw6+55P/YPS8PyH6m58hxt3q2RK2OP1P6J/2"
 }
 
 test_user_ssh_keys() {
