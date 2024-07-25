@@ -1174,7 +1174,7 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		if thisErr == nil {
 			return false
 		}
-		return !ignoreNotFoundError || !errors.Is(thisErr, errors.NotFound)
+		return !ignoreNotFoundError || !(errors.Is(thisErr, errors.NotFound) || errors.Is(thisErr, modelerrors.NotFound))
 	}
 	cfg, err := model.Config()
 	if shouldErr(err) {
@@ -1205,31 +1205,11 @@ func (m *ModelManagerAPI) getModelInfo(ctx context.Context, tag names.ModelTag, 
 		modelAdmin = err == nil
 	}
 
-	users, err := model.Users()
-	if shouldErr(err) {
-		return params.ModelInfo{}, errors.Trace(err)
-	}
-	if err == nil {
-		for _, user := range users {
-			if !modelAdmin && m.authCheck(user.UserTag) != nil {
-				// The authenticated user is neither the controller
-				// superuser, a model administrator, nor the model user, so
-				// has no business knowing about the model user.
-				continue
-			}
-
-			userInfo, err := common.ModelUserInfo(user, model)
-			if err != nil {
-				return params.ModelInfo{}, errors.Trace(err)
-			}
-			info.Users = append(info.Users, userInfo)
-		}
-
-		if len(info.Users) == 0 {
-			// No users, which means the authenticated user doesn't
-			// have access to the model.
-			return params.ModelInfo{}, errors.Trace(apiservererrors.ErrPerm)
-		}
+	info.Users, err = common.ModelUserInfo(ctx, m.accessService, m.apiUser, tag)
+	if errors.Is(err, accesserrors.PermissionNotValid) {
+		return params.ModelInfo{}, errors.Annotate(apiservererrors.ErrPerm, "getting model user info")
+	} else if shouldErr(err) {
+		return params.ModelInfo{}, errors.Annotate(err, "getting model user info")
 	}
 
 	canSeeMachinesAndSecrets := modelAdmin

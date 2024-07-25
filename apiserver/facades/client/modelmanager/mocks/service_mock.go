@@ -47,6 +47,45 @@ func (m *MockAccessService) EXPECT() *MockAccessServiceMockRecorder {
 	return m.recorder
 }
 
+// GetModelUsers mocks base method.
+func (m *MockAccessService) GetModelUsers(arg0 context.Context, arg1 string, arg2 model.UUID) ([]access.ModelUserInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetModelUsers", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]access.ModelUserInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetModelUsers indicates an expected call of GetModelUsers.
+func (mr *MockAccessServiceMockRecorder) GetModelUsers(arg0, arg1, arg2 any) *MockAccessServiceGetModelUsersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetModelUsers", reflect.TypeOf((*MockAccessService)(nil).GetModelUsers), arg0, arg1, arg2)
+	return &MockAccessServiceGetModelUsersCall{Call: call}
+}
+
+// MockAccessServiceGetModelUsersCall wrap *gomock.Call
+type MockAccessServiceGetModelUsersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockAccessServiceGetModelUsersCall) Return(arg0 []access.ModelUserInfo, arg1 error) *MockAccessServiceGetModelUsersCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockAccessServiceGetModelUsersCall) Do(f func(context.Context, string, model.UUID) ([]access.ModelUserInfo, error)) *MockAccessServiceGetModelUsersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockAccessServiceGetModelUsersCall) DoAndReturn(f func(context.Context, string, model.UUID) ([]access.ModelUserInfo, error)) *MockAccessServiceGetModelUsersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetUserByName mocks base method.
 func (m *MockAccessService) GetUserByName(arg0 context.Context, arg1 string) (user.User, error) {
 	m.ctrl.T.Helper()

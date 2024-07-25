@@ -15,8 +15,10 @@ import (
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
 	corelogger "github.com/juju/juju/core/logger"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/rpc/params"
@@ -37,6 +39,13 @@ type AccessService interface {
 	// ReadUserAccessForTarget returns the access level that the
 	// input user has been on the input target entity.
 	ReadUserAccessForTarget(ctx context.Context, subject string, target permission.ID) (permission.UserAccess, error)
+
+	// GetModelUsers will retrieve basic information about all users with
+	// permissions on the given model UUID.
+	// If the model cannot be found it will return modelerrors.NotFound.
+	// If no permissions can be found on the model it will return
+	// accesserrors.PermissionNotValid.
+	GetModelUsers(ctx context.Context, apiUser string, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -44,7 +53,6 @@ type AccessService interface {
 type UserManagerAPI struct {
 	state          *state.State
 	accessService  AccessService
-	pool           *state.StatePool
 	authorizer     facade.Authorizer
 	check          *common.BlockChecker
 	apiUserTag     names.UserTag
@@ -58,7 +66,6 @@ type UserManagerAPI struct {
 func NewAPI(
 	state *state.State,
 	accessService AccessService,
-	pool *state.StatePool,
 	authorizer facade.Authorizer,
 	check *common.BlockChecker,
 	apiUserTag names.UserTag,
@@ -70,7 +77,6 @@ func NewAPI(
 	return &UserManagerAPI{
 		state:          state,
 		accessService:  accessService,
-		pool:           pool,
 		authorizer:     authorizer,
 		check:          check,
 		apiUserTag:     apiUserTag,
@@ -410,30 +416,20 @@ func (api *UserManagerAPI) ModelUserInfo(ctx context.Context, args params.Entiti
 
 func (api *UserManagerAPI) modelUserInfo(ctx context.Context, modelTag names.ModelTag) ([]params.ModelUserInfoResult, error) {
 	var results []params.ModelUserInfoResult
-	model, closer, err := api.pool.GetModel(modelTag.Id())
-	if err != nil {
-		return results, errors.Trace(err)
-	}
-	defer closer.Release()
-	if err := api.checkCanRead(ctx, model.ModelTag()); err != nil {
+	if err := api.checkCanRead(ctx, modelTag); err != nil {
 		return results, err
 	}
 
-	users, err := model.Users()
+	modelUserInfo, err := common.ModelUserInfo(ctx, api.accessService, api.apiUserTag, modelTag)
 	if err != nil {
 		return results, errors.Trace(err)
 	}
 
-	for _, user := range users {
-		var result params.ModelUserInfoResult
-		userInfo, err := common.ModelUserInfo(user, model)
-		if err != nil {
-			result.Error = apiservererrors.ServerError(err)
-		} else {
-			userInfo.ModelTag = modelTag.String()
-			result.Result = &userInfo
-		}
-		results = append(results, result)
+	for i := range modelUserInfo {
+		modelUserInfo[i].ModelTag = modelTag.String()
+		results = append(results, params.ModelUserInfoResult{
+			Result: &modelUserInfo[i],
+		})
 	}
 	return results, nil
 }

@@ -130,6 +130,12 @@ type AccessService interface {
 	// user. An accesserrors.UserNeverAccessedModel error will be returned if
 	// there is no record of the user logging in to this model.
 	LastModelLogin(context.Context, string, coremodel.UUID) (time.Time, error)
+	// GetModelUsers will retrieve basic information about all users with
+	// permissions on the given model UUID.
+	// If the model cannot be found it will return modelerrors.NotFound.
+	// If no permissions can be found on the model it will return
+	// accesserrors.PermissionNotValid.
+	GetModelUsers(ctx context.Context, apiUser string, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
 }
 
 // NetworkService is the interface that is used to interact with the

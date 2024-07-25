@@ -20,15 +20,16 @@ import (
 	"github.com/juju/juju/apiserver/facade/facadetest"
 	"github.com/juju/juju/apiserver/facades/client/usermanager"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
+	"github.com/juju/juju/domain/access"
 	usererrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/domain/access/service"
 	"github.com/juju/juju/internal/auth"
 	"github.com/juju/juju/internal/testing/factory"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
 type userManagerSuite struct {
@@ -511,107 +512,89 @@ func (s *userManagerSuite) TestUserInfoNonControllerAdmin(c *gc.C) {
 	})
 }
 
-func (s *userManagerSuite) makeLocalModelUser(c *gc.C, username, displayname string) permission.UserAccess {
-	defer s.setUpAPI(c).Finish()
-
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-	// factory.MakeUser will create an ModelUser for a local user by default.
-	user := f.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
-	modelUser, err := s.ControllerModel(c).State().UserAccess(user.UserTag(), s.ControllerModel(c).ModelTag())
-	c.Assert(err, jc.ErrorIsNil)
-	return modelUser
-}
-
 func (s *userManagerSuite) TestModelUsersInfo(c *gc.C) {
+	defer s.setUpAPI(c).Finish()
 	testAdmin := jujutesting.AdminUser
 	model := s.ControllerModel(c)
-	st := model.State()
 	owner, err := s.ControllerModel(c).State().UserAccess(testAdmin, model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
 
-	f, release := s.NewFactory(c, s.ControllerModelUUID())
-	defer release()
-
-	localUser1 := s.makeLocalModelUser(c, "ralphdoe", "Ralph Doe")
-	localUser2 := s.makeLocalModelUser(c, "samsmith", "Sam Smith")
-	remoteUser1 := f.MakeModelUser(c, &factory.ModelUserParams{User: "bobjohns@ubuntuone", DisplayName: "Bob Johns", Access: permission.WriteAccess})
-	remoteUser2 := f.MakeModelUser(c, &factory.ModelUserParams{User: "nicshaw@idprovider", DisplayName: "Nic Shaw", Access: permission.WriteAccess})
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", coremodel.UUID(model.UUID())).Return(
+		[]access.ModelUserInfo{{
+			Name:           owner.UserName,
+			DisplayName:    owner.DisplayName,
+			Access:         permission.AdminAccess,
+			LastModelLogin: time.Time{},
+		}, {
+			Name:           "ralphdoe",
+			DisplayName:    "Ralph Doe",
+			Access:         permission.AdminAccess,
+			LastModelLogin: time.Time{},
+		}, {
+			Name:           "samsmith",
+			DisplayName:    "Sam Smith",
+			Access:         permission.AdminAccess,
+			LastModelLogin: time.Time{},
+		}, {
+			Name:           "bobjohns@ubuntuone",
+			DisplayName:    "Bob Johns",
+			Access:         permission.WriteAccess,
+			LastModelLogin: time.Time{},
+		}, {
+			Name:           "nicshaw@idprovider",
+			DisplayName:    "Nic Shaw",
+			Access:         permission.WriteAccess,
+			LastModelLogin: time.Time{},
+		}}, nil,
+	)
 
 	results, err := s.api.ModelUserInfo(context.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: model.ModelTag().String(),
 	}}})
 	c.Assert(err, jc.ErrorIsNil)
-	var expected params.ModelUserInfoResults
-	for _, r := range []struct {
-		user permission.UserAccess
-		info *params.ModelUserInfo
-	}{
-		{
-			owner,
-			&params.ModelUserInfo{
+
+	expected := params.ModelUserInfoResults{
+		Results: []params.ModelUserInfoResult{{
+			Result: &params.ModelUserInfo{
 				ModelTag:    model.ModelTag().String(),
 				UserName:    owner.UserName,
 				DisplayName: owner.DisplayName,
 				Access:      "admin",
 			},
 		}, {
-			localUser1,
-			&params.ModelUserInfo{
+			Result: &params.ModelUserInfo{
 				ModelTag:    model.ModelTag().String(),
 				UserName:    "ralphdoe",
 				DisplayName: "Ralph Doe",
 				Access:      "admin",
 			},
 		}, {
-			localUser2,
-			&params.ModelUserInfo{
+			Result: &params.ModelUserInfo{
 				ModelTag:    model.ModelTag().String(),
 				UserName:    "samsmith",
 				DisplayName: "Sam Smith",
 				Access:      "admin",
 			},
 		}, {
-			remoteUser1,
-			&params.ModelUserInfo{
+			Result: &params.ModelUserInfo{
 				ModelTag:    model.ModelTag().String(),
 				UserName:    "bobjohns@ubuntuone",
 				DisplayName: "Bob Johns",
 				Access:      "write",
 			},
 		}, {
-			remoteUser2,
-			&params.ModelUserInfo{
+			Result: &params.ModelUserInfo{
 				ModelTag:    model.ModelTag().String(),
 				UserName:    "nicshaw@idprovider",
 				DisplayName: "Nic Shaw",
 				Access:      "write",
 			},
-		},
-	} {
-		r.info.LastConnection = lastConnPointer(c, r.user, st)
-		expected.Results = append(expected.Results, params.ModelUserInfoResult{Result: r.info})
+		}},
 	}
 
 	sort.Sort(ByUserName(expected.Results))
 	sort.Sort(ByUserName(results.Results))
 	c.Assert(results, jc.DeepEquals, expected)
-}
-
-func lastConnPointer(c *gc.C, modelUser permission.UserAccess, st *state.State) *time.Time {
-	model, err := st.Model()
-	if err != nil {
-		c.Fatal(err)
-	}
-
-	lastConn, err := model.LastModelConnection(modelUser.UserTag)
-	if err != nil {
-		if state.IsNeverConnectedError(err) {
-			return nil
-		}
-		c.Fatal(err)
-	}
-	return &lastConn
 }
 
 // ByUserName implements sort.Interface for []params.ModelUserInfoResult based on
@@ -1025,7 +1008,6 @@ func (s *userManagerSuite) setUpAPI(c *gc.C) *gomock.Controller {
 	s.api, err = usermanager.NewAPI(
 		ctx.State(),
 		s.accessService,
-		ctx.StatePool(),
 		ctx.Auth(),
 		common.NewBlockChecker(ctx.State()),
 		ctx.Auth().GetAuthTag().(names.UserTag),

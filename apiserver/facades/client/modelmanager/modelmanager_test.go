@@ -99,22 +99,6 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	dummyCloud := cloud.Cloud{
-		Name:      "dummy",
-		Type:      "dummy",
-		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
-		Regions: []cloud.Region{
-			{Name: "dummy-region"},
-			{Name: "qux"},
-		},
-	}
-
-	mockK8sCloud := cloud.Cloud{
-		Name:      "k8s-cloud",
-		Type:      "kubernetes",
-		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
-	}
-
 	controllerModel := &mockModel{
 		owner: names.NewUserTag("admin"),
 		life:  state.Alive,
@@ -130,7 +114,6 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 			userName: "add-model",
 			access:   permission.AdminAccess,
 		}, {
-
 			userName: "otheruser",
 			access:   permission.WriteAccess,
 		}},
@@ -205,6 +188,25 @@ func (s *modelManagerSuite) SetUpTest(c *gc.C) {
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: names.NewUserTag("admin"),
+	}
+
+}
+
+func (s *modelManagerSuite) setUpAPI(c *gc.C) {
+	dummyCloud := cloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		Regions: []cloud.Region{
+			{Name: "dummy-region"},
+			{Name: "qux"},
+		},
+	}
+
+	mockK8sCloud := cloud.Cloud{
+		Name:      "k8s-cloud",
+		Type:      "kubernetes",
+		AuthTypes: []cloud.AuthType{cloud.UserPassAuthType},
 	}
 
 	newBroker := func(_ stdcontext.Context, args environs.OpenParams) (caas.Broker, error) {
@@ -317,9 +319,15 @@ func getModelArgsFor(c *gc.C, mockState *mockState) state.ModelArgs {
 }
 
 func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
-	now := time.Now()
-	s.setUpMocks(c)
-	s.accessService.EXPECT().LastModelLogin(gomock.Any(), "user-admin", gomock.Any()).Return(now, nil).Times(3)
+	defer s.setUpMocks(c).Finish()
+	s.setUpAPI(c)
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "user-admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-admin",
@@ -382,6 +390,15 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.setUpAPI(c)
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "user-admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-admin",
@@ -400,6 +417,7 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloud(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
+	s.setUpAPI(c)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-admin",
@@ -410,6 +428,15 @@ func (s *modelManagerSuite) TestCreateModelArgsWithCloudNotFound(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateModelDefaultRegion(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.setUpAPI(c)
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "user-admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-admin",
@@ -430,6 +457,15 @@ func (s *modelManagerSuite) TestCreateModelDefaultCredentialAdminNoDomain(c *gc.
 }
 
 func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, ownerTag string) {
+	defer s.setUpMocks(c).Finish()
+	s.setUpAPI(c)
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        ownerTag,
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: ownerTag,
@@ -444,6 +480,15 @@ func (s *modelManagerSuite) testCreateModelDefaultCredentialAdmin(c *gc.C, owner
 }
 
 func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.setUpAPI(c)
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "user-bob",
+			DisplayName: "Bob",
+			Access:      permission.ReadAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:     "foo",
 		OwnerTag: "user-bob",
@@ -456,6 +501,7 @@ func (s *modelManagerSuite) TestCreateModelEmptyCredentialNonAdmin(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) {
+	s.setUpAPI(c)
 	cld := s.cloudService.clouds["dummy"]
 	cld.AuthTypes = nil
 	s.cloudService.clouds["dummy"] = cld
@@ -468,6 +514,7 @@ func (s *modelManagerSuite) TestCreateModelNoDefaultCredentialNonAdmin(c *gc.C) 
 }
 
 func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
+	s.setUpAPI(c)
 	s.st.SetErrors(nil, errors.NotFoundf("credential"))
 	args := params.ModelCreateArgs{
 		Name:               "foo",
@@ -479,7 +526,15 @@ func (s *modelManagerSuite) TestCreateModelUnknownCredential(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
-	s.setUpMocks(c)
+	defer s.setUpMocks(c).Finish()
+	s.setUpAPI(c)
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "user-admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	args := params.ModelCreateArgs{
 		Name:               "foo",
 		OwnerTag:           "user-admin",
@@ -504,9 +559,6 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"LatestMigration",
 	)
 	s.caasBroker.CheckCallNames(c, "Create")
-
-	// Check that Model.LastModelLogin is called just twice
-	s.accessService.EXPECT().LastModelLogin(gomock.Any(), "user-admin", gomock.Any()).Times(3)
 
 	// We cannot predict the UUID, because it's generated,
 	// so we just extract it and ensure that it's not the
@@ -543,6 +595,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestCreateCAASModelNamespaceClash(c *gc.C) {
+	s.setUpAPI(c)
 	args := params.ModelCreateArgs{
 		Name:               "existing-ns",
 		OwnerTag:           "user-admin",
@@ -556,6 +609,7 @@ func (s *modelManagerSuite) TestCreateCAASModelNamespaceClash(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {
+	s.setUpAPI(c)
 	results, err := s.api.ModelDefaultsForClouds(stdcontext.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewCloudTag("dummy").String()}},
 	})
@@ -580,6 +634,7 @@ func (s *modelManagerSuite) TestModelDefaults(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestSetModelDefaults(c *gc.C) {
+	s.setUpAPI(c)
 	params := params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{
 			Config: map[string]interface{}{
@@ -621,12 +676,14 @@ func (s *modelManagerSuite) assertBlocked(c *gc.C, err error, msg string) {
 }
 
 func (s *modelManagerSuite) TestBlockChangesSetModelDefaults(c *gc.C) {
+	s.setUpAPI(c)
 	s.blockAllChanges(c, "TestBlockChangesSetModelDefaults")
 	_, err := s.api.SetModelDefaults(stdcontext.Background(), params.SetModelDefaults{})
 	s.assertBlocked(c, err, "TestBlockChangesSetModelDefaults")
 }
 
 func (s *modelManagerSuite) TestUnsetModelDefaults(c *gc.C) {
+	s.setUpAPI(c)
 	args := params.UnsetModelDefaults{
 		Keys: []params.ModelUnsetKeys{{
 			Keys: []string{"attr"},
@@ -652,6 +709,7 @@ func (s *modelManagerSuite) TestUnsetModelDefaults(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestBlockUnsetModelDefaults(c *gc.C) {
+	s.setUpAPI(c)
 	s.blockAllChanges(c, "TestBlockUnsetModelDefaults")
 	args := params.UnsetModelDefaults{
 		Keys: []params.ModelUnsetKeys{{
@@ -662,6 +720,7 @@ func (s *modelManagerSuite) TestBlockUnsetModelDefaults(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
+	s.setUpAPI(c)
 	// It's okay to unset a non-existent attribute.
 	args := params.UnsetModelDefaults{
 		Keys: []params.ModelUnsetKeys{{
@@ -673,6 +732,7 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsMissing(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestModelDefaultsAsNormalUser(c *gc.C) {
+	s.setUpAPI(c)
 	s.setAPIUser(c, names.NewUserTag("charlie"))
 	got, err := s.api.ModelDefaultsForClouds(stdcontext.Background(), params.Entities{
 		Entities: []params.Entity{{Tag: names.NewCloudTag("dummy").String()}},
@@ -682,6 +742,7 @@ func (s *modelManagerSuite) TestModelDefaultsAsNormalUser(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestSetModelDefaultsAsNormalUser(c *gc.C) {
+	s.setUpAPI(c)
 	s.setAPIUser(c, names.NewUserTag("charlie"))
 	got, err := s.api.SetModelDefaults(stdcontext.Background(), params.SetModelDefaults{
 		Config: []params.ModelDefaultValues{{
@@ -708,6 +769,7 @@ func (s *modelManagerSuite) TestSetModelDefaultsAsNormalUser(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
+	s.setUpAPI(c)
 	s.setAPIUser(c, names.NewUserTag("charlie"))
 	got, err := s.api.UnsetModelDefaults(stdcontext.Background(), params.UnsetModelDefaults{
 		Keys: []params.ModelUnsetKeys{{
@@ -729,9 +791,8 @@ func (s *modelManagerSuite) TestUnsetModelDefaultsAsNormalUser(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
-	ctrl := s.setUpMocks(c)
-	defer ctrl.Finish()
-
+	defer s.setUpMocks(c).Finish()
+	s.setUpAPI(c)
 	api, err := modelmanager.NewModelManagerAPI(
 		context.Background(),
 		s.st, s.modelExporter, s.ctlrSt,
@@ -744,7 +805,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 			CredentialService:    apiservertesting.ConstCredentialGetter(nil),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		state.NoopConfigSchemaSource,
@@ -782,6 +843,7 @@ func (s *modelManagerSuite) TestDumpModel(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
+	s.setUpAPI(c)
 	s.st.SetErrors(errors.NotFoundf("boom"))
 	tag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f000")
 	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: tag.String()}}}
@@ -799,6 +861,7 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModelUsers(c *gc.C) {
+	s.setUpAPI(c)
 	models := params.DumpModelRequest{Entities: []params.Entity{{Tag: s.st.ModelTag().String()}}}
 	for _, user := range []names.UserTag{
 		names.NewUserTag("otheruser"),
@@ -815,6 +878,7 @@ func (s *modelManagerSuite) TestDumpModelUsers(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModelsDB(c *gc.C) {
+	s.setUpAPI(c)
 	results := s.api.DumpModelsDB(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
 	}, {
@@ -838,6 +902,7 @@ func (s *modelManagerSuite) TestDumpModelsDB(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModelsDBMissingModel(c *gc.C) {
+	s.setUpAPI(c)
 	s.st.SetErrors(errors.NotFoundf("boom"))
 	tag := names.NewModelTag("deadbeef-0bad-400d-8000-4b1d0d06f000")
 	models := params.Entities{Entities: []params.Entity{{Tag: tag.String()}}}
@@ -857,6 +922,7 @@ func (s *modelManagerSuite) TestDumpModelsDBMissingModel(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestDumpModelsDBUsers(c *gc.C) {
+	s.setUpAPI(c)
 	models := params.Entities{Entities: []params.Entity{{Tag: s.st.ModelTag().String()}}}
 	for _, user := range []names.UserTag{
 		names.NewUserTag("otheruser"),
@@ -873,13 +939,19 @@ func (s *modelManagerSuite) TestDumpModelsDBUsers(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestAddModelCanCreateModel(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.setUpAPI(c)
 	addModelUser := names.NewUserTag("add-model")
 
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.accessService = mocks.NewMockAccessService(ctrl)
 	as := s.accessService.EXPECT()
 	as.ReadUserAccessLevelForTarget(gomock.Any(), addModelUser.Id(), gomock.AssignableToTypeOf(permission.ID{})).Return(permission.AddModelAccess, nil)
+	as.GetModelUsers(gomock.Any(), "add-model", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "add-model",
+			DisplayName: "Addy McModel",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	s.setAPIUser(c, addModelUser)
 	_, err := s.api.CreateModel(stdcontext.Background(), createArgs(addModelUser))
@@ -887,13 +959,11 @@ func (s *modelManagerSuite) TestAddModelCanCreateModel(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	s.setUpAPI(c)
 	addModelUser := names.NewUserTag("add-model")
 
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
-	s.accessService = mocks.NewMockAccessService(ctrl)
-	as := s.accessService.EXPECT()
-	as.ReadUserAccessLevelForTarget(gomock.Any(), addModelUser.Id(), gomock.AssignableToTypeOf(permission.ID{})).Return(permission.AddModelAccess, nil)
+	s.accessService.EXPECT().ReadUserAccessLevelForTarget(gomock.Any(), addModelUser.Id(), gomock.AssignableToTypeOf(permission.ID{})).Return(permission.AddModelAccess, nil)
 
 	s.setAPIUser(c, addModelUser)
 	nonAdminUser := names.NewUserTag("non-admin")
@@ -902,11 +972,12 @@ func (s *modelManagerSuite) TestAddModelCantCreateModelForSomeoneElse(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestUpdatedModel(c *gc.C) {
-	ctrl := gomock.NewController(c)
-	defer ctrl.Finish()
+	defer s.setUpMocks(c).Finish()
+	s.setUpAPI(c)
 	as := s.accessService.EXPECT()
 	modelUUID := modeltesting.GenModelUUID(c).String()
 	testUser := names.NewUserTag("foobar")
+	external := false
 	updateArgs := access.UpdatePermissionArgs{
 		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
@@ -915,10 +986,11 @@ func (s *modelManagerSuite) TestUpdatedModel(c *gc.C) {
 			},
 			Access: permission.WriteAccess,
 		},
-		AddUser: false,
-		ApiUser: jujutesting.AdminUser.Id(),
-		Change:  permission.Grant,
-		Subject: testUser.Id(),
+		AddUser:  true,
+		External: &external,
+		ApiUser:  jujutesting.AdminUser.Id(),
+		Change:   permission.Grant,
+		Subject:  testUser.Id(),
 	}
 	as.UpdatePermission(gomock.Any(), updateArgs).Return(nil)
 
@@ -1045,7 +1117,7 @@ func (s *modelManagerStateSuite) TestNewAPIAcceptsClient(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1074,7 +1146,7 @@ func (s *modelManagerStateSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1092,6 +1164,13 @@ func (s *modelManagerStateSuite) createArgsForVersion(c *gc.C, owner names.UserT
 
 func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
@@ -1104,6 +1183,13 @@ func (s *modelManagerStateSuite) TestUserCanCreateModel(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestAdminCanCreateModelForSomeoneElse(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	s.setAPIUser(c, jujutesting.AdminUser)
 	owner := names.NewUserTag("external@remote")
@@ -1173,6 +1259,13 @@ func (s *modelManagerStateSuite) TestCreateModelValidatesConfig(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "add-model",
+			DisplayName: "Addy McModel",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	admin := jujutesting.AdminUser
 	s.setAPIUser(c, admin)
@@ -1183,7 +1276,6 @@ func (s *modelManagerStateSuite) TestCreateModelSameAgentVersion(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestCreateModelBadAgentVersion(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-
 	err := s.ControllerModel(c).State().SetModelAgentVersion(coretesting.FakeVersionNumber, nil, false, stubUpgrader{})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1280,6 +1372,13 @@ func (s *modelManagerStateSuite) TestNonAdminModelManager(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	// TODO(perrito666) this test is not valid until we have
 	// proper controller permission since the only users that
@@ -1310,7 +1409,7 @@ func (s *modelManagerStateSuite) TestDestroyOwnModel(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1349,6 +1448,13 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 	// usefulness until proper controller permissions are in place.
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 	m, err := s.modelmanager.CreateModel(stdcontext.Background(), createArgs(owner))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1375,7 +1481,7 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1401,6 +1507,13 @@ func (s *modelManagerStateSuite) TestAdminDestroysOtherModel(c *gc.C) {
 
 func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.accessService.EXPECT().GetModelUsers(gomock.Any(), "admin", gomock.Any()).Return(
+		[]access.ModelUserInfo{{
+			Name:        "admin",
+			DisplayName: "Admin",
+			Access:      permission.AdminAccess,
+		}}, nil,
+	)
 
 	owner := names.NewUserTag("admin")
 	s.setAPIUser(c, owner)
@@ -1428,7 +1541,7 @@ func (s *modelManagerStateSuite) TestDestroyModelErrors(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1532,7 +1645,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 			CredentialService:    serviceFactory.Credential(),
 			ModelService:         nil,
 			ModelDefaultsService: nil,
-			AccessService:        nil,
+			AccessService:        s.accessService,
 			ObjectStore:          &mockObjectStore{},
 		},
 		s.ConfigSchemaSourceGetter(c),
@@ -1575,6 +1688,7 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
+	s.setUpAPI(c)
 	// Check that we don't err out immediately if a model errs.
 	results, err := s.api.ModelStatus(stdcontext.Background(), params.Entities{Entities: []params.Entity{{
 		Tag: "bad-tag",
@@ -1604,6 +1718,7 @@ func (s *modelManagerSuite) TestModelStatus(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestChangeModelCredential(c *gc.C) {
+	s.setUpAPI(c)
 	s.st.model.setCloudCredentialF = func(tag names.CloudCredentialTag) (bool, error) { return true, nil }
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 	results, err := s.api.ChangeModelCredential(stdcontext.Background(), params.ChangeModelCredentialsParams{
@@ -1617,6 +1732,7 @@ func (s *modelManagerSuite) TestChangeModelCredential(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestChangeModelCredentialBulkUninterrupted(c *gc.C) {
+	s.setUpAPI(c)
 	s.st.model.setCloudCredentialF = func(tag names.CloudCredentialTag) (bool, error) { return true, nil }
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 	// Check that we don't err out immediately if a model errs.
@@ -1645,6 +1761,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialBulkUninterrupted(c *gc.C) 
 }
 
 func (s *modelManagerSuite) TestChangeModelCredentialUnauthorisedUser(c *gc.C) {
+	s.setUpAPI(c)
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 	apiUser := names.NewUserTag("bob@remote")
 	s.setAPIUser(c, apiUser)
@@ -1660,6 +1777,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialUnauthorisedUser(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestChangeModelCredentialGetModelFail(c *gc.C) {
+	s.setUpAPI(c)
 	s.st.SetErrors(errors.New("getting model"))
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 
@@ -1675,6 +1793,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialGetModelFail(c *gc.C) {
 }
 
 func (s *modelManagerSuite) TestChangeModelCredentialNotUpdated(c *gc.C) {
+	s.setUpAPI(c)
 	s.st.model.setCloudCredentialF = func(tag names.CloudCredentialTag) (bool, error) { return false, nil }
 	credentialTag := names.NewCloudCredentialTag("foo/bob/bar").String()
 	results, err := s.api.ChangeModelCredential(stdcontext.Background(), params.ChangeModelCredentialsParams{

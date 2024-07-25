@@ -4,43 +4,54 @@
 package common
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names/v5"
 
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/domain/access"
 	"github.com/juju/juju/rpc/params"
-	"github.com/juju/juju/state"
 )
 
-type modelConnectionAbleBackend interface {
-	LastModelConnection(names.UserTag) (time.Time, error)
+type accessService interface {
+	// GetModelUsers will retrieve basic information about all users with
+	// permissions on the given model UUID.
+	// If the model cannot be found it will return modelerrors.NotFound.
+	// If no permissions can be found on the model it will return
+	// accesserrors.PermissionNotValid.
+	GetModelUsers(ctx context.Context, apiUser string, modelUUID coremodel.UUID) ([]access.ModelUserInfo, error)
 }
 
-// ModelUserInfo converts permission.UserAccess to params.ModelUserInfo.
-func ModelUserInfo(user permission.UserAccess, st modelConnectionAbleBackend) (params.ModelUserInfo, error) {
-	access, err := StateToParamsUserAccessPermission(user.Access)
+// ModelUserInfo gets model user info from the accessService and converts it
+// into params.ModelUserInfo.
+func ModelUserInfo(ctx context.Context, service accessService, apiUser names.UserTag, modelTag names.ModelTag) ([]params.ModelUserInfo, error) {
+	userInfo, err := service.GetModelUsers(ctx, apiUser.Id(), coremodel.UUID(modelTag.Id()))
 	if err != nil {
-		return params.ModelUserInfo{}, errors.Trace(err)
+		return nil, err
 	}
 
-	userLastConn, err := st.LastModelConnection(user.UserTag)
-	if err != nil && !state.IsNeverConnectedError(err) {
-		return params.ModelUserInfo{}, errors.Trace(err)
+	modelUserInfo := make([]params.ModelUserInfo, len(userInfo))
+	for i, mi := range userInfo {
+		var lastModelLogin *time.Time
+		if !mi.LastModelLogin.IsZero() {
+			lmi := mi.LastModelLogin
+			lastModelLogin = &lmi
+		}
+		accessType, err := StateToParamsUserAccessPermission(mi.Access)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		modelUserInfo[i] = params.ModelUserInfo{
+			UserName:       mi.Name,
+			DisplayName:    mi.DisplayName,
+			LastConnection: lastModelLogin,
+			Access:         accessType,
+		}
 	}
-	var lastConn *time.Time
-	if err == nil {
-		lastConn = &userLastConn
-	}
-
-	userInfo := params.ModelUserInfo{
-		UserName:       user.UserName,
-		DisplayName:    user.DisplayName,
-		LastConnection: lastConn,
-		Access:         access,
-	}
-	return userInfo, nil
+	return modelUserInfo, nil
 }
 
 // StateToParamsUserAccessPermission converts permission.Access to params.AccessPermission.
@@ -55,5 +66,4 @@ func StateToParamsUserAccessPermission(descriptionAccess permission.Access) (par
 	}
 
 	return "", errors.NotValidf("model access permission %q", descriptionAccess)
-
 }

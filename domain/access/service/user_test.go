@@ -19,6 +19,7 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 
+	coremodel "github.com/juju/juju/core/model"
 	modeltesting "github.com/juju/juju/core/model/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/user"
@@ -29,19 +30,19 @@ import (
 )
 
 type userServiceSuite struct {
-	state *MockUserState
+	state *MockState
 }
 
 var _ = gc.Suite(&userServiceSuite{})
 
 func (s *userServiceSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
-	s.state = NewMockUserState(ctrl)
+	s.state = NewMockState(ctrl)
 	return ctrl
 }
 
-func (s *userServiceSuite) service() *UserService {
-	return NewUserService(s.state)
+func (s *userServiceSuite) service() *Service {
+	return NewService(s.state)
 }
 
 // TestAddUserNameNotValid is testing that if we try and add a user with a
@@ -494,7 +495,7 @@ func FuzzGetUser(f *testing.F) {
 
 	f.Fuzz(func(t *testing.T, username string) {
 		ctrl := gomock.NewController(t)
-		state := NewMockUserState(ctrl)
+		state := NewMockState(ctrl)
 		defer ctrl.Finish()
 
 		state.EXPECT().GetUserByName(gomock.Any(), username).Return(
@@ -504,7 +505,7 @@ func FuzzGetUser(f *testing.F) {
 			nil,
 		).AnyTimes()
 
-		usr, err := NewUserService(state).GetUserByName(context.Background(), username)
+		usr, err := NewService(state).GetUserByName(context.Background(), username)
 		if err != nil && !errors.Is(err, usererrors.UserNameNotValid) {
 			t.Errorf("unexpected error %v when fuzzing GetUser with %q",
 				err, username,
@@ -561,6 +562,42 @@ func (s *userServiceSuite) TestLastModelLoginBadUUID(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	_, err := s.service().LastModelLogin(context.Background(), "name", "bad-uuid")
 	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+}
+
+func (s *userServiceSuite) TestGetModelUsers(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.state.EXPECT().GetModelUsers(gomock.Any(), "apiUser", coremodel.UUID(jujutesting.ModelTag.Id())).Return(nil, nil)
+
+	_, err := NewService(s.state).GetModelUsers(
+		context.Background(),
+		"apiUser",
+		coremodel.UUID(jujutesting.ModelTag.Id()),
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *userServiceSuite) TestGetModelUsersApiUserError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state).GetModelUsers(
+		context.Background(),
+		"",
+		coremodel.UUID(jujutesting.ModelTag.Id()),
+	)
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, gc.ErrorMatches, "empty apiUser not valid", gc.Commentf("%+v", err))
+}
+
+func (s *userServiceSuite) TestGetModelUsersModelUUIDError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	_, err := NewService(s.state).GetModelUsers(
+		context.Background(),
+		"apiUser",
+		coremodel.UUID("bad-model-tag"),
+	)
+	c.Assert(err, jc.ErrorIs, jujuerrors.NotValid)
+	c.Assert(err, gc.ErrorMatches, `uuid "bad-model-tag" not valid`, gc.Commentf("%+v", err))
 }
 
 type stringerNotEmpty struct{}
