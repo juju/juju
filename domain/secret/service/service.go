@@ -106,6 +106,12 @@ type State interface {
 	GetSecretsRevisionExpiryChanges(
 		ctx context.Context, appOwners domainsecret.ApplicationOwners, unitOwners domainsecret.UnitOwners, revisionUUIDs ...string,
 	) ([]domainsecret.ExpiryInfo, error)
+
+	// Methods for loading secrets to be exported.
+	AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantParams, error)
+	AllSecretConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
+	AllSecretRemoteConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error)
+	AllRemoteSecrets(ctx context.Context) ([]domainsecret.RemoteSecretInfo, error)
 }
 
 // WatcherFactory describes methods for creating watchers.

@@ -170,6 +170,9 @@ type ConsumerInfo struct {
 
 // RemoteSecret holds information about a cross model secret.
 type RemoteSecret struct {
-	URI *secrets.URI
-	ConsumerInfo
+	URI             *secrets.URI
+	Label           string
+	CurrentRevision int
+	LatestRevision  int
+	Accessor        SecretAccessor
 }

@@ -1754,7 +1754,7 @@ func (st State) GetSecretValue(
 SELECT (*) AS (&secretContent.*)
 FROM   secret_content sc
        JOIN secret_revision rev ON sc.revision_uuid = rev.uuid
-WHERE  rev.secret_id = $secretRevision.secret_id 
+WHERE  rev.secret_id = $secretRevision.secret_id
 AND    rev.revision = $secretRevision.revision`
 
 	contentQueryStmt, err := st.Prepare(contentQuery, secretContent{}, secretRevision{})
@@ -2001,12 +2001,24 @@ ON CONFLICT(secret_id, unit_uuid) DO UPDATE SET
 	// We might be saving a tracked revision for a remote secret
 	// before we have been notified of a revision change.
 	// So we might need to insert the parent secret URI.
+	secretRef := secretID{ID: uri.ID}
 	insertRemoteSecretQuery := `
 INSERT INTO secret (id)
 VALUES ($secretID.id)
 ON CONFLICT DO NOTHING`
 
-	insertRemoteSecretStmt, err := st.Prepare(insertRemoteSecretQuery, secretID{})
+	insertRemoteSecretStmt, err := st.Prepare(insertRemoteSecretQuery, secretRef)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	remoteRef := remoteSecret{SecretID: uri.ID, LatestRevision: md.CurrentRevision}
+	insertRemoteSecretReferenceQuery := `
+INSERT INTO secret_reference (secret_id, latest_revision)
+VALUES ($remoteSecret.secret_id, $remoteSecret.latest_revision)
+ON CONFLICT DO NOTHING`
+
+	insertRemoteSecretReferenceStmt, err := st.Prepare(insertRemoteSecretReferenceQuery, remoteRef)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -2024,11 +2036,15 @@ ON CONFLICT DO NOTHING`
 		}
 
 		if !isLocal {
-			// Ensure a remote secret parent URI is recorded. This will normally
-			// be done by the watcher but it may not have fired yet.
-			err = tx.Query(ctx, insertRemoteSecretStmt, secretID{ID: uri.ID}).Run()
+			// Ensure a remote secret parent URI and revision is recorded.
+			// This will normally be done by the watcher but it may not have fired yet.
+			err = tx.Query(ctx, insertRemoteSecretStmt, secretRef).Run()
 			if err != nil {
-				return errors.Annotatef(err, "inserting secret reference for %q", uri)
+				return errors.Annotatef(err, "inserting remote secret reference for %q", uri)
+			}
+			err = tx.Query(ctx, insertRemoteSecretReferenceStmt, remoteRef).Run()
+			if err != nil {
+				return errors.Annotatef(err, "inserting remote secret revision for %q", uri)
 			}
 		}
 
@@ -2053,6 +2069,43 @@ ON CONFLICT DO NOTHING`
 		return nil
 	})
 	return errors.Trace(err)
+}
+
+// AllSecretConsumers loads all local secret consumers keyed by secret id.
+func (st State) AllSecretConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := `
+SELECT suc.secret_id AS &secretUnitConsumerInfo.secret_id,
+       suc.label AS &secretUnitConsumerInfo.label,
+       suc.current_revision AS &secretUnitConsumerInfo.current_revision,
+       u.name AS &secretUnitConsumerInfo.unit_name
+FROM   secret_unit_consumer suc
+       JOIN secret_metadata sm ON sm.secret_id = suc.secret_id
+       JOIN unit u ON u.uuid = suc.unit_uuid
+`
+
+	queryStmt, err := st.Prepare(query, secretUnitConsumerInfo{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var dbSecretConsumers secretUnitConsumerInfos
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, queryStmt).GetAll(&dbSecretConsumers)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotate(err, "querying secret consumers")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	consumers := dbSecretConsumers.toSecretConsumersBySecret()
+	return consumers, nil
 }
 
 // GetSecretRemoteConsumer returns the secret consumer info from a cross model consumer
@@ -2180,6 +2233,40 @@ ON CONFLICT(secret_id, unit_name) DO UPDATE SET
 	return errors.Trace(err)
 }
 
+// AllSecretRemoteConsumers loads all secret remote consumers keyed by secret id.
+func (st State) AllSecretRemoteConsumers(ctx context.Context) (map[string][]domainsecret.ConsumerInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := `
+SELECT suc.secret_id AS &secretUnitConsumerInfo.secret_id,
+       suc.current_revision AS &secretUnitConsumerInfo.current_revision,
+       suc.unit_name AS &secretUnitConsumerInfo.unit_name
+FROM   secret_remote_unit_consumer suc
+`
+
+	queryStmt, err := st.Prepare(query, secretUnitConsumerInfo{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var dbSecretConsumers secretUnitConsumerInfos
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, queryStmt).GetAll(&dbSecretConsumers)
+		if err != nil && !errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotate(err, "querying secret remote consumers")
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	consumers := dbSecretConsumers.toSecretConsumersBySecret()
+	return consumers, nil
+}
+
 // UpdateRemoteSecretRevision records the latest revision
 // of the specified cross model secret.
 func (st State) UpdateRemoteSecretRevision(ctx context.Context, uri *coresecrets.URI, latestRevision int) error {
@@ -2227,6 +2314,47 @@ ON CONFLICT(secret_id) DO UPDATE SET
 		return nil
 	})
 	return errors.Trace(err)
+}
+
+// AllRemoteSecrets returns consumer info for secrets stored in
+// an external model.
+func (st State) AllRemoteSecrets(ctx context.Context) ([]domainsecret.RemoteSecretInfo, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	q := `
+SELECT suc.secret_id AS &secretUnitConsumerInfo.secret_id,
+       suc.source_model_uuid AS &secretUnitConsumerInfo.source_model_uuid,
+       suc.label AS &secretUnitConsumerInfo.label,
+       suc.current_revision AS &secretUnitConsumerInfo.current_revision,
+       sr.latest_revision AS &secretUnitConsumerInfo.latest_revision,
+       u.name AS &secretUnitConsumerInfo.unit_name
+FROM   secret_unit_consumer suc
+       JOIN unit u ON u.uuid = suc.unit_uuid
+       JOIN secret_reference sr ON sr.secret_id = suc.secret_id
+`
+
+	stmt, err := st.Prepare(q, secretUnitConsumerInfo{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var dbSecretConsumers secretUnitConsumerInfos
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err := tx.Query(ctx, stmt).GetAll(&dbSecretConsumers)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			// No secrets found.
+			return nil
+		}
+		return errors.Trace(err)
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	secrets := dbSecretConsumers.toRemoteSecrets()
+	return secrets, nil
 }
 
 // GrantAccess grants access to the secret for the specified subject with the specified scope.
@@ -2611,6 +2739,41 @@ AND    subject_type_id != $M.remote_application_type`
 		return nil, errors.Trace(err)
 	}
 	return accessors.toSecretGrants(accessScopes)
+}
+
+// AllSecretGrants returns access details for all local secrets, keyed on secret id.
+func (st State) AllSecretGrants(ctx context.Context) (map[string][]domainsecret.GrantParams, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	query := `
+SELECT (sp.*) AS (&secretAccessor.*),
+       (sp.*) AS (&secretAccessScope.*)
+FROM   v_secret_permission sp
+`
+
+	selectStmt, err := st.Prepare(query, secretAccessor{}, secretAccessScope{})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var (
+		accessors    secretAccessors
+		accessScopes secretAccessScopes
+	)
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		err = tx.Query(ctx, selectStmt).GetAll(&accessors, &accessScopes)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return errors.Annotate(err, "looking up secret grants")
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return accessors.toSecretGrantsBySecret(accessScopes)
 }
 
 type (
@@ -3413,7 +3576,7 @@ func (st State) getSecretsRotationChanges(
 	}
 
 	q := `
-SELECT 
+SELECT
        sro.secret_id AS &secretRotationChange.secret_id,
        sro.next_rotation_time AS &secretRotationChange.next_rotation_time,
        MAX(sr.revision) AS &secretRotationChange.revision
@@ -3608,7 +3771,7 @@ func (st State) getSecretsRevisionExpiryChanges(
 	}
 
 	q := `
-SELECT 
+SELECT
        sr.secret_id AS &secretRevisionExpireChange.secret_id,
        sre.revision_uuid AS &secretRevisionExpireChange.revision_uuid,
        sre.expire_time AS &secretRevisionExpireChange.expire_time,

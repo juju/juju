@@ -100,3 +100,22 @@ type ExpiryInfo struct {
 	RevisionID      string
 	NextTriggerTime time.Time
 }
+
+// ConsumerInfo holds information about a secret consumer.
+type ConsumerInfo struct {
+	SubjectTypeID   GrantSubjectType
+	SubjectID       string
+	Label           string
+	CurrentRevision int
+}
+
+// RemoteSecretInfo holds information about a remote secret
+// for a given consumer.
+type RemoteSecretInfo struct {
+	URI             *secrets.URI
+	SubjectTypeID   GrantSubjectType
+	SubjectID       string
+	Label           string
+	CurrentRevision int
+	LatestRevision  int
+}

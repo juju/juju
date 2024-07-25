@@ -197,17 +197,13 @@ func backendSecrets(uri1, uri2, uri3, uri4 *secrets.URI, nextRotate, expire, tim
 			uri3.ID: nil,
 		},
 		RemoteSecrets: []service.RemoteSecret{{
-			URI: uri4,
-			ConsumerInfo: service.ConsumerInfo{
-				SecretConsumerMetadata: secrets.SecretConsumerMetadata{
-					Label:           "mylabel",
-					CurrentRevision: 1,
-					LatestRevision:  666,
-				},
-				Accessor: service.SecretAccessor{
-					Kind: "unit",
-					ID:   "mariadb/0",
-				},
+			URI:             uri4,
+			Label:           "mylabel",
+			CurrentRevision: 1,
+			LatestRevision:  666,
+			Accessor: service.SecretAccessor{
+				Kind: "unit",
+				ID:   "mariadb/0",
 			},
 		}},
 	}

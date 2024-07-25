@@ -15,6 +15,18 @@ const (
 	RoleManage
 )
 
+// String implements fmt.Stringer.
+func (r Role) String() string {
+	switch r {
+	case RoleView:
+		return string(coresecrets.RoleView)
+	case RoleManage:
+		return string(coresecrets.RoleManage)
+	default:
+		return string(coresecrets.RoleNone)
+	}
+}
+
 // MarshallRole converts a secret role to a db role id.
 func MarshallRole(role coresecrets.SecretRole) Role {
 	switch role {
@@ -75,7 +87,7 @@ func (s GrantSubjectType) String() string {
 	case SubjectModel:
 		return "model"
 	case SubjectRemoteApplication:
-		return "remote application"
+		return "remote-application"
 	}
 	return ""
 }
