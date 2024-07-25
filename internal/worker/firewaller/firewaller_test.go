@@ -145,7 +145,7 @@ func (s *firewallerBaseSuite) ensureMocks(c *gc.C, ctrl *gomock.Controller) {
 
 	// Initial event.
 	if s.withModelFirewaller {
-		s.firewaller.EXPECT().ModelFirewallRules(gomock.Any()).AnyTimes().DoAndReturn(func() (firewall.IngressRules, error) {
+		s.firewaller.EXPECT().ModelFirewallRules(gomock.Any()).AnyTimes().DoAndReturn(func(context.Context) (firewall.IngressRules, error) {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			return s.modelIngressRules, nil
