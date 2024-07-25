@@ -5,6 +5,7 @@ package testing
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -50,4 +51,65 @@ func DumpTable(c *gc.C, db *sql.DB, table string) {
 
 	writer.Flush()
 	fmt.Fprintln(os.Stdout)
+}
+
+// DumpTablesJSON prints the named tables to stdout in a JSON format. This is
+// intended as a debugging tool for state tests. It is not intended for use in
+// production code.
+func DumpTablesJSON(c *gc.C, db *sql.DB, tableNames ...string) {
+	for _, tableName := range tableNames {
+		query := fmt.Sprintf("SELECT * FROM %s", tableName)
+		table := &tableData{
+			tableName: tableName,
+		}
+
+		rows, err := db.Query(query)
+		if err != nil {
+			// Soft fail, most likely the table doesn't exist
+			fmt.Println(err)
+			continue
+		}
+
+		columns, err := rows.Columns()
+		c.Assert(err, jc.ErrorIsNil)
+		table.columnNames = columns
+
+		for rows.Next() {
+			row := make([]any, len(columns))
+			for i := range row {
+				row[i] = new(any)
+			}
+			err = rows.Scan(row...)
+			c.Assert(err, jc.ErrorIsNil)
+			table.rows = append(table.rows, row)
+		}
+
+		printJSON(c, table)
+	}
+
+}
+
+// tableData is an intermediate representation of an arbitrary table, ready to
+// be processed for printing.
+type tableData struct {
+	tableName   string
+	columnNames []string
+	rows        [][]any
+}
+
+func printJSON(c *gc.C, table *tableData) {
+	fmt.Printf("***** TABLE %q *****\n", table.tableName)
+	stdout := json.NewEncoder(os.Stdout)
+
+	for _, row := range table.rows {
+		jsonRow := map[string]any{}
+		for i, columnName := range table.columnNames {
+			jsonRow[columnName] = row[i]
+		}
+
+		stdout.SetIndent("", "  ")
+		err := stdout.Encode(jsonRow)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+	fmt.Println()
 }
