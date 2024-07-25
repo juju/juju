@@ -13,7 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	apiservererrors "github.com/juju/juju/apiserver/errors"
+	"github.com/juju/juju/apiserver/common"
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	coremachine "github.com/juju/juju/core/machine"
@@ -49,28 +49,16 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-// TestNewKeyUpdaterAPIRefusesNonMachineAgent is checking that if we try and
-// setup the facade with a non machine entity the facade fails to construct with
-// [apiservererrors.ErrPerm] error.
-func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIRefusesNonMachineAgent(c *gc.C) {
-	anAuthoriser := s.authorizer
-	anAuthoriser.Tag = names.NewUnitTag("ubuntu/1")
-	endPoint, err := newKeyUpdaterAPI(
-		anAuthoriser, s.keyUpdaterService, s.watcherRegistry,
-	)
-	c.Check(endPoint, gc.IsNil)
-	c.Check(err, gc.ErrorMatches, "permission denied")
-	c.Check(err, jc.ErrorIs, apiservererrors.ErrPerm)
+func (s *authorisedKeysSuite) getCanRead() (common.AuthFunc, error) {
+	return s.authorizer.AuthOwner, nil
 }
 
 // TestWatchAuthorisedKeysNothing is asserting that it is not an error to watch
 // authorised keys for zero entities.
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
-	endPoint, err := newKeyUpdaterAPI(
-		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	endPoint := newKeyUpdaterAPI(
+		s.getCanRead, s.keyUpdaterService, s.watcherRegistry,
 	)
-	c.Assert(err, jc.ErrorIsNil)
-	// Not an error to watch nothing
 	results, err := endPoint.WatchAuthorisedKeys(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 0)
@@ -82,10 +70,9 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysNothing(c *gc.C) {
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	endPoint, err := newKeyUpdaterAPI(
-		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	endPoint := newKeyUpdaterAPI(
+		s.getCanRead, s.keyUpdaterService, s.watcherRegistry,
 	)
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -127,11 +114,11 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 			{NotifyWatcherId: "1"},
 			{Error: &params.Error{
 				Code:    params.CodeUnauthorized,
-				Message: "does not have permission to read authorised keys for \"machine-40\"",
+				Message: "\"machine-40\" does not have permission to read authorized keys",
 			}},
 			{Error: &params.Error{
 				Code:    params.CodeUnauthorized,
-				Message: "does not have permission to read authorised keys for \"machine-42\"",
+				Message: "\"machine-42\" does not have permission to read authorized keys",
 			}},
 		},
 	})
@@ -140,10 +127,9 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 // TestAuthorisedKeysForNoone is asserting that if we ask for authorised keys
 // for zero machines we back an empty result with no errors.
 func (s *authorisedKeysSuite) TestAuthorisedKeysForNone(c *gc.C) {
-	endPoint, err := newKeyUpdaterAPI(
-		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	endPoint := newKeyUpdaterAPI(
+		s.getCanRead, s.keyUpdaterService, s.watcherRegistry,
 	)
-	c.Assert(err, jc.ErrorIsNil)
 	// Not an error to watch nothing
 	results, err := endPoint.AuthorisedKeys(context.Background(), params.Entities{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -155,10 +141,9 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNone(c *gc.C) {
 // authenticated for we back unauthorised errors.
 func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	endPoint, err := newKeyUpdaterAPI(
-		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	endPoint := newKeyUpdaterAPI(
+		s.getCanRead, s.keyUpdaterService, s.watcherRegistry,
 	)
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -192,10 +177,9 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 // authorised keys for a non machine enitity we get back a
 // [params.CodeTagKindNotSupported] error.
 func (s *authorisedKeysSuite) TestAuthorisedKeysForNonMachineEntity(c *gc.C) {
-	endPoint, err := newKeyUpdaterAPI(
-		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	endPoint := newKeyUpdaterAPI(
+		s.getCanRead, s.keyUpdaterService, s.watcherRegistry,
 	)
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -219,10 +203,9 @@ func (s *authorisedKeysSuite) TestAuthorisedKeysForNonMachineEntity(c *gc.C) {
 // watch  authorised keys for a non machine enitity we get back a
 // [params.CodeTagKindNotSupported] error.
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeysForNonMachineEntity(c *gc.C) {
-	endPoint, err := newKeyUpdaterAPI(
-		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	endPoint := newKeyUpdaterAPI(
+		s.getCanRead, s.keyUpdaterService, s.watcherRegistry,
 	)
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{
@@ -246,10 +229,9 @@ func (s *authorisedKeysSuite) TestWatchAuthorisedKeysForNonMachineEntity(c *gc.C
 // authorised keys for a machine that doesn't exist
 func (s *authorisedKeysSuite) TestAuthorisedKeysForNotFoundMachine(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	endPoint, err := newKeyUpdaterAPI(
-		s.authorizer, s.keyUpdaterService, s.watcherRegistry,
+	endPoint := newKeyUpdaterAPI(
+		s.getCanRead, s.keyUpdaterService, s.watcherRegistry,
 	)
-	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.Entities{
 		Entities: []params.Entity{

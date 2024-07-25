@@ -39,9 +39,9 @@ func makeKeyUpdaterAPI(
 	getCanRead := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	return &KeyUpdaterAPI{
-		getCanRead:        getCanRead,
-		keyUpdaterService: ctx.ServiceFactory().KeyUpdater(),
-		watcherRegistry:   ctx.WatcherRegistry(),
-	}, nil
+	return newKeyUpdaterAPI(
+		getCanRead,
+		ctx.ServiceFactory().KeyUpdater(),
+		ctx.WatcherRegistry(),
+	), nil
 }

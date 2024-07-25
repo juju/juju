@@ -28,6 +28,20 @@ type KeyUpdaterAPI struct {
 	watcherRegistry   facade.WatcherRegistry
 }
 
+// newKeyUpdaterAPI constructs a new [KeyUpdaterAPI] for use in the Juju facade
+// model.
+func newKeyUpdaterAPI(
+	getCanRead common.GetAuthFunc,
+	keyUpdaterService KeyUpdaterService,
+	watcherRegistry facade.WatcherRegistry,
+) *KeyUpdaterAPI {
+	return &KeyUpdaterAPI{
+		getCanRead:        getCanRead,
+		keyUpdaterService: keyUpdaterService,
+		watcherRegistry:   watcherRegistry,
+	}
+}
+
 // WatchAuthorisedKeys starts a watcher to track changes to the authorised ssh
 // keys for the specified machines.
 // The following param error codes can be expected:
