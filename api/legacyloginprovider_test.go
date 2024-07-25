@@ -5,6 +5,7 @@ package api_test
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -47,6 +48,21 @@ func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 }
 
+func (s *legacyLoginProviderSuite) TestLegacyProviderWithNilTag(c *gc.C) {
+	info := s.APIInfo(c)
+	password := jujutesting.AdminSecret
+
+	lp := api.NewLegacyLoginProvider(nil, password, "", nil, nil, nil)
+	_, err := api.Open(&api.Info{
+		Addrs:          info.Addrs,
+		ControllerUUID: info.ControllerUUID,
+		CACert:         info.CACert,
+	}, api.DialOpts{
+		LoginProvider: lp,
+	})
+	c.Assert(err, gc.ErrorMatches, `failed to authenticate request: unauthorized \(unauthorized access\)`)
+}
+
 // A separate suite for tests that don't need to connect to a controller.
 type legacyLoginProviderBasicSuite struct {
 	coretesting.BaseSuite
@@ -63,6 +79,25 @@ func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeader(c *gc.C) {
 	header.Add(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
 	lp := api.NewLegacyLoginProvider(
 		userTag,
+		password,
+		nonce,
+		[]macaroon.Slice{},
+		nil,
+		nil,
+	)
+	got, err := lp.AuthHeader()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(got, gc.DeepEquals, header)
+}
+
+func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeaderWithNilTag(c *gc.C) {
+	password := "test-password"
+	nonce := "test-nonce"
+	header := http.Header{}
+	header.Add(params.MachineNonceHeader, nonce)
+	header.Add(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
+	lp := api.NewLegacyLoginProvider(
+		nil,
 		password,
 		nonce,
 		[]macaroon.Slice{},

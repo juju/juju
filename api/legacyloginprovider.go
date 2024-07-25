@@ -40,7 +40,7 @@ func NewLegacyLoginProvider(
 	cookieURL *url.URL,
 ) *legacyLoginProvider {
 	return &legacyLoginProvider{
-		userInfo:     tagToString(tag),
+		tag:          tag,
 		password:     password,
 		nonce:        nonce,
 		macaroons:    macaroons,
@@ -49,19 +49,11 @@ func NewLegacyLoginProvider(
 	}
 }
 
-// tagToString returns the value of a tag's String method, or "" if the tag is nil.
-func tagToString(tag names.Tag) string {
-	if tag == nil {
-		return ""
-	}
-	return tag.String()
-}
-
 // legacyLoginProvider provides the default juju login provider that
 // authenticates the entity with the given name and password or macaroons. The
 // nonce should be empty unless logging in as a machine agent.
 type legacyLoginProvider struct {
-	userInfo     string
+	tag          names.Tag
 	password     string
 	nonce        string
 	macaroons    []macaroon.Slice
@@ -74,11 +66,11 @@ type legacyLoginProvider struct {
 // The header will also include any macaroons as cookies.
 func (p *legacyLoginProvider) AuthHeader() (http.Header, error) {
 	var requestHeader http.Header
-	if p.userInfo != "" {
+	if p.tag != nil {
 		// Note that password may be empty here; we still
 		// want to pass the tag along. An empty password
 		// indicates that we're using macaroon authentication.
-		requestHeader = jujuhttp.BasicAuthHeader(p.userInfo, p.password)
+		requestHeader = jujuhttp.BasicAuthHeader(p.tag.String(), p.password)
 	} else {
 		requestHeader = make(http.Header)
 	}
@@ -140,9 +132,12 @@ func (p *legacyLoginProvider) addCookiesToHeader(h http.Header) error {
 // It authenticates as the entity with the given name and password
 // or macaroons. Subsequent requests on the state will act as that entity.
 func (p *legacyLoginProvider) Login(ctx context.Context, caller base.APICaller) (*LoginResultParams, error) {
-	var result params.LoginResult
+	var authTag string
+	if p.tag != nil {
+		authTag = p.tag.String()
+	}
 	request := &params.LoginRequest{
-		AuthTag:       p.userInfo,
+		AuthTag:       authTag,
 		Credentials:   p.password,
 		Nonce:         p.nonce,
 		Macaroons:     p.macaroons,
@@ -164,6 +159,7 @@ func (p *legacyLoginProvider) Login(ctx context.Context, caller base.APICaller) 
 			httpbakery.MacaroonsForURL(p.bakeryClient.Jar, p.cookieURL)...,
 		)
 	}
+	var result params.LoginResult
 	err := caller.APICall("Admin", 3, "", "Login", request, &result)
 	if err != nil {
 		if !params.IsRedirect(err) {
@@ -256,6 +252,6 @@ func (p *legacyLoginProvider) Login(ctx context.Context, caller base.APICaller) 
 	// Edge case for username/password login. Ensure the result has a tag set.
 	// Currently no tag is returned when performing a login as a machine rather than a user.
 	// Ideally the server would respond with the tag used as part of the request.
-	err = loginResult.EnsureTag(p.userInfo)
-	return loginResult, err
+	loginResult.EnsureTag(p.tag)
+	return loginResult, nil
 }

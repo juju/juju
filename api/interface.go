@@ -149,15 +149,10 @@ type LoginResultParams struct {
 // EnsureTag should be used when a login provider needs to ensure
 // a login result has a tag set, particularly in cases where the
 // server doesn't return a user identity.
-func (l *LoginResultParams) EnsureTag(tagStr string) error {
-	if l.tag == nil && tagStr != "" {
-		tag, err := names.ParseTag(tagStr)
-		if err != nil {
-			return err
-		}
+func (l *LoginResultParams) EnsureTag(tag names.Tag) {
+	if l.tag == nil {
 		l.tag = tag
 	}
-	return nil
 }
 
 // NewLoginResultParams constructs a LoginResultParams from a Juju login response.
