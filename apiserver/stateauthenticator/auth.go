@@ -225,7 +225,7 @@ func (a *Authenticator) checkCreds(
 		// For now we'll leave it as is, but we should fix this.
 		userTag := entity.Tag().(names.UserTag)
 
-		err = a.authContext.accessService.UpdateLastModelLogin(ctx, userTag.Name(), coremodel.UUID(modelUUID))
+		err = a.authContext.accessService.UpdateLastModelLogin(ctx, userTag.Id(), coremodel.UUID(modelUUID))
 		if err != nil {
 			logger.Warningf("updating last login time for %v, %v", userTag, err)
 		}

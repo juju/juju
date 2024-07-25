@@ -7,6 +7,10 @@ import (
 	"github.com/juju/errors"
 )
 
+// EveryoneTagName represents a special user that is has the base permission
+// level of all external users.
+const EveryoneTagName = "everyone@external"
+
 // AccessSpec defines the attributes that can be set when adding a new
 // access.
 type AccessSpec struct {

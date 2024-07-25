@@ -136,7 +136,7 @@ func (h *registerUserHandler) processPost(
 	}
 
 	// Decrypt the ciphertext with the user's activation key (if it has one).
-	sealer, err := userService.SetPasswordWithActivationKey(req.Context(), userTag.Name(), loginRequest.Nonce, loginRequest.PayloadCiphertext)
+	sealer, err := userService.SetPasswordWithActivationKey(req.Context(), userTag.Id(), loginRequest.Nonce, loginRequest.PayloadCiphertext)
 	if err != nil {
 		if errors.Is(err, usererrors.ActivationKeyNotValid) {
 			return names.UserTag{}, nil, errors.NotValidf("activation key")

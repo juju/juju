@@ -52,6 +52,13 @@ func (s *userServiceSuite) TestAddUserNameNotValid(c *gc.C) {
 	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
 }
 
+// TestAddUserExternalUser is testing that if we try and add an external user we
+// get an error.
+func (s *userServiceSuite) TestAddUserExternalUser(c *gc.C) {
+	_, _, err := s.service().AddUser(context.Background(), AddUserArg{Name: "alastair@external"})
+	c.Assert(err, jc.ErrorIs, usererrors.UserNameNotValid)
+}
+
 // TestAddUserAlreadyExists is testing that we cannot add a user with a username
 // that already exists and is active. We expect that in this case we should
 // receive an error back that satisfies usererrors.AlreadyExists.

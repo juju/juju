@@ -20,37 +20,6 @@ import (
 	internaldatabase "github.com/juju/juju/internal/database"
 )
 
-// AddUser is responsible for registering a new user in the system at bootstrap
-// time. Sometimes it is required that we are need to register the existence of a
-// user for ownership purposes but may not necessarily want to have local
-// controller authentication for the user. The user created by this function is
-// owned by itself.
-//
-// If the username passed to this function is invalid an error satisfying
-// [github.com/juju/juju/domain/access/errors.UsernameNotValid] is returned.
-func AddUser(name string, access permission.AccessSpec) (user.UUID, internaldatabase.BootstrapOpt) {
-	if !names.IsValidUser(name) {
-		return "", bootstrapErr(errors.Annotatef(usererrors.UserNameNotValid, "%q", name))
-	}
-
-	uuid, err := user.NewUUID()
-	if err != nil {
-		return "", bootstrapErr(
-			fmt.Errorf("generating bootstrap user %q uuid: %w", name, err))
-	}
-
-	return uuid, func(ctx context.Context, controller, model database.TxnRunner) error {
-		err := controller.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-			return state.AddUser(ctx, tx, uuid, name, "", uuid, access)
-		})
-
-		if err != nil {
-			return fmt.Errorf("adding bootstrap user %q: %w", name, err)
-		}
-		return nil
-	}
-}
-
 // AddUserWithPassword is responsible for adding a new user in the system at
 // bootstrap time with an associated authentication password. The user created
 // by this function is owned by itself.

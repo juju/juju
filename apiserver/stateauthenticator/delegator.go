@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 )
 
 // PermissionDelegator implements authentication.PermissionDelegator
@@ -35,11 +36,13 @@ func (p *PermissionDelegator) SubjectPermissions(
 		return permission.NoAccess, errors.Trace(err)
 	}
 
-	access, err := p.AccessService.ReadUserAccessForTarget(ctx, userID, permissionID)
-	if err != nil {
+	access, err := p.AccessService.ReadUserAccessLevelForTargetAddingMissingUser(ctx, userID, permissionID)
+	if errors.Is(err, accesserrors.AccessNotFound) {
+		return permission.NoAccess, accesserrors.PermissionNotFound
+	} else if err != nil {
 		return permission.NoAccess, errors.Trace(err)
 	}
-	return access.Access, nil
+	return access, nil
 }
 
 func (p *PermissionDelegator) PermissionError(_ names.Tag, _ permission.Access) error {

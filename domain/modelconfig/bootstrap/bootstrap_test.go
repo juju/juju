@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
-	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
+	accessstate "github.com/juju/juju/domain/access/state"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	"github.com/juju/juju/domain/model"
@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/domain/modeldefaults"
 	schematesting "github.com/juju/juju/domain/schema/testing"
 	"github.com/juju/juju/environs/config"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 )
 
 type bootstrapSuite struct {
@@ -49,8 +50,15 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.ModelSuite.SetUpTest(c)
 
 	controllerUUID := s.SeedControllerUUID(c)
-	userID, fn := userbootstrap.AddUser(
+	userID, err := coreuser.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	accessState := accessstate.NewState(s.ControllerSuite.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = accessState.AddUser(
+		context.Background(), userID,
 		coreuser.AdminUserName,
+		coreuser.AdminUserName,
+		false,
+		userID,
 		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
 			Target: permission.ID{
@@ -59,11 +67,10 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 			},
 		},
 	)
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.ControllerSuite.NoopTxnRunner())
 	c.Assert(err, jc.ErrorIsNil)
 
 	cloudName := "test"
-	fn = cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
+	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
 		Name:      cloudName,
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},

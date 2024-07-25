@@ -45,6 +45,7 @@ func (st *UserState) AddUser(
 	uuid user.UUID,
 	name string,
 	displayName string,
+	external bool,
 	creatorUUID user.UUID,
 	permission permission.AccessSpec,
 ) error {
@@ -54,7 +55,7 @@ func (st *UserState) AddUser(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		return errors.Trace(AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission))
+		return errors.Trace(AddUserWithPermission(ctx, tx, uuid, name, displayName, external, creatorUUID, permission))
 	})
 }
 
@@ -102,7 +103,7 @@ func (st *UserState) AddUserWithActivationKey(
 	}
 
 	return db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
-		err = AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission)
+		err = AddUserWithPermission(ctx, tx, uuid, name, displayName, false, creatorUUID, permission)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -619,7 +620,7 @@ func AddUserWithPassword(
 	passwordHash string,
 	salt []byte,
 ) error {
-	err := AddUser(ctx, tx, uuid, name, displayName, creatorUUID, permission)
+	err := AddUserWithPermission(ctx, tx, uuid, name, displayName, false, creatorUUID, permission)
 	if err != nil {
 		return errors.Annotatef(err, "adding user with uuid %q", uuid)
 	}
@@ -627,8 +628,7 @@ func AddUserWithPassword(
 	return errors.Trace(setPasswordHash(ctx, tx, name, passwordHash, salt))
 }
 
-// AddUser adds a new user to the database, enables the user and adds the
-// given permission for the user.
+// AddUser adds a new user to the database and enables the user.
 // If the user already exists an error that satisfies
 // accesserrors.UserAlreadyExists will be returned. If the creator does not
 // exist an error that satisfies accesserrors.UserCreatorUUIDNotFound will
@@ -639,31 +639,28 @@ func AddUser(
 	uuid user.UUID,
 	name string,
 	displayName string,
+	external bool,
 	creatorUuid user.UUID,
-	access permission.AccessSpec,
 ) error {
-	permissionUUID, err := internaluuid.NewUUID()
-	if err != nil {
-		return errors.Annotate(err, "generating permission UUID")
+	user := dbUser{
+		UUID:        uuid.String(),
+		Name:        name,
+		DisplayName: displayName,
+		External:    external,
+		CreatorUUID: creatorUuid.String(),
+		CreatedAt:   time.Now(),
 	}
 
 	addUserQuery := `
-INSERT INTO user (uuid, name, display_name, created_by_uuid, created_at) 
-VALUES      ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_at)`
+INSERT INTO user (uuid, name, display_name, external, created_by_uuid, created_at) 
+VALUES           ($dbUser.*)`
 
-	insertAddUserStmt, err := sqlair.Prepare(addUserQuery, sqlair.M{})
+	insertAddUserStmt, err := sqlair.Prepare(addUserQuery, user)
 	if err != nil {
 		return errors.Annotate(err, "preparing add user query")
 	}
 
-	m := sqlair.M{
-		"uuid":            uuid.String(),
-		"name":            name,
-		"display_name":    displayName,
-		"created_by_uuid": creatorUuid.String(),
-		"created_at":      time.Now(),
-	}
-	err = tx.Query(ctx, insertAddUserStmt, m).Run()
+	err = tx.Query(ctx, insertAddUserStmt, user).Run()
 	if internaldatabase.IsErrConstraintUnique(err) {
 		return errors.Annotatef(accesserrors.UserAlreadyExists, "adding user %q", name)
 	} else if internaldatabase.IsErrConstraintForeignKey(err) {
@@ -674,18 +671,46 @@ VALUES      ($M.uuid, $M.name, $M.display_name, $M.created_by_uuid, $M.created_a
 
 	enableUserQuery := `
 INSERT INTO user_authentication (user_uuid, disabled)
-VALUES ($M.uuid, false)
+VALUES ($dbUser.uuid, false)
 `
 
-	enableUserStmt, err := sqlair.Prepare(enableUserQuery, sqlair.M{})
+	enableUserStmt, err := sqlair.Prepare(enableUserQuery, user)
 	if err != nil {
 		return errors.Annotate(err, "preparing enable user query")
 	}
 
-	if err := tx.Query(ctx, enableUserStmt, m).Run(); err != nil {
+	if err := tx.Query(ctx, enableUserStmt, user).Run(); err != nil {
 		return errors.Annotatef(err, "enabling user %q", name)
 	}
 
+	return nil
+}
+
+// AddUserWithPermission adds a new user to the database, enables the user and adds the
+// given permission for the user.
+// If the user already exists an error that satisfies
+// accesserrors.UserAlreadyExists will be returned. If the creator does not
+// exist an error that satisfies accesserrors.UserCreatorUUIDNotFound will
+// be returned.
+func AddUserWithPermission(
+	ctx context.Context,
+	tx *sqlair.TX,
+	uuid user.UUID,
+	name string,
+	displayName string,
+	external bool,
+	creatorUuid user.UUID,
+	access permission.AccessSpec,
+) error {
+	err := AddUser(ctx, tx, uuid, name, displayName, external, creatorUuid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	permissionUUID, err := internaluuid.NewUUID()
+	if err != nil {
+		return errors.Annotate(err, "generating permission UUID")
+	}
 	err = AddUserPermission(ctx, tx, AddUserPermissionArgs{
 		PermissionUUID: permissionUUID.String(),
 		UserUUID:       uuid.String(),

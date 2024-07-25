@@ -16,7 +16,7 @@ import (
 // database.
 type dbUser struct {
 	// UUID is the unique identifier for the user.
-	UUID coreuser.UUID `db:"uuid"`
+	UUID string `db:"uuid"`
 
 	// Name is the username of the user.
 	Name string `db:"name"`
@@ -24,11 +24,14 @@ type dbUser struct {
 	// DisplayName is a user-friendly name represent the user as.
 	DisplayName string `db:"display_name"`
 
+	// External indicates if the user has a non-local domain.
+	External bool `db:"external"`
+
 	// Removed indicates if the user has been removed.
 	Removed bool `db:"removed"`
 
 	// CreatorUUID is the associated user that created this user.
-	CreatorUUID coreuser.UUID `db:"created_by_uuid"`
+	CreatorUUID string `db:"created_by_uuid"`
 
 	// CreatorName is the name of the user that created this user.
 	CreatorName string `db:"created_by_name"`
@@ -52,10 +55,10 @@ type dbUser struct {
 // toCoreUser converts the state user to a core user.
 func (u dbUser) toCoreUser() coreuser.User {
 	return coreuser.User{
-		UUID:        u.UUID,
+		UUID:        coreuser.UUID(u.UUID),
 		Name:        u.Name,
 		DisplayName: u.DisplayName,
-		CreatorUUID: u.CreatorUUID,
+		CreatorUUID: coreuser.UUID(u.CreatorUUID),
 		CreatorName: u.CreatorName,
 		CreatedAt:   u.CreatedAt,
 		LastLogin:   u.LastLogin,
@@ -80,6 +83,9 @@ type dbPermissionUser struct {
 
 	// DisplayName is a user-friendly name represent the user as.
 	DisplayName string `db:"display_name"`
+
+	// External indicates if the user is not a local user.
+	External bool `db:"external"`
 
 	// CreatorName is the name of the user that created this user.
 	CreatorName string `db:"created_by_name"`
@@ -154,7 +160,7 @@ type userUUID struct {
 type permInOut struct {
 	Name    string `db:"name"`
 	GrantOn string `db:"grant_on"`
-	Access  string `db:"access"`
+	Access  string `db:"access_type"`
 }
 
 // dbModelAccess is a struct used to record a users logging in to a particular
@@ -180,3 +186,6 @@ type dbModelExists struct {
 type loginTime struct {
 	Time time.Time `db:"time"`
 }
+
+// dbEveryoneExternal represents the permissions of the everyone@external user.
+type dbEveryoneExternal dbPermission

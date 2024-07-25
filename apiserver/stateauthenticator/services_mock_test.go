@@ -189,41 +189,41 @@ func (c *MockAccessServiceGetUserByNameCall) DoAndReturn(f func(context.Context,
 	return c
 }
 
-// ReadUserAccessForTarget mocks base method.
-func (m *MockAccessService) ReadUserAccessForTarget(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.UserAccess, error) {
+// ReadUserAccessLevelForTargetAddingMissingUser mocks base method.
+func (m *MockAccessService) ReadUserAccessLevelForTargetAddingMissingUser(arg0 context.Context, arg1 string, arg2 permission.ID) (permission.Access, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadUserAccessForTarget", arg0, arg1, arg2)
-	ret0, _ := ret[0].(permission.UserAccess)
+	ret := m.ctrl.Call(m, "ReadUserAccessLevelForTargetAddingMissingUser", arg0, arg1, arg2)
+	ret0, _ := ret[0].(permission.Access)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ReadUserAccessForTarget indicates an expected call of ReadUserAccessForTarget.
-func (mr *MockAccessServiceMockRecorder) ReadUserAccessForTarget(arg0, arg1, arg2 any) *MockAccessServiceReadUserAccessForTargetCall {
+// ReadUserAccessLevelForTargetAddingMissingUser indicates an expected call of ReadUserAccessLevelForTargetAddingMissingUser.
+func (mr *MockAccessServiceMockRecorder) ReadUserAccessLevelForTargetAddingMissingUser(arg0, arg1, arg2 any) *MockAccessServiceReadUserAccessLevelForTargetAddingMissingUserCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadUserAccessForTarget", reflect.TypeOf((*MockAccessService)(nil).ReadUserAccessForTarget), arg0, arg1, arg2)
-	return &MockAccessServiceReadUserAccessForTargetCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadUserAccessLevelForTargetAddingMissingUser", reflect.TypeOf((*MockAccessService)(nil).ReadUserAccessLevelForTargetAddingMissingUser), arg0, arg1, arg2)
+	return &MockAccessServiceReadUserAccessLevelForTargetAddingMissingUserCall{Call: call}
 }
 
-// MockAccessServiceReadUserAccessForTargetCall wrap *gomock.Call
-type MockAccessServiceReadUserAccessForTargetCall struct {
+// MockAccessServiceReadUserAccessLevelForTargetAddingMissingUserCall wrap *gomock.Call
+type MockAccessServiceReadUserAccessLevelForTargetAddingMissingUserCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockAccessServiceReadUserAccessForTargetCall) Return(arg0 permission.UserAccess, arg1 error) *MockAccessServiceReadUserAccessForTargetCall {
+func (c *MockAccessServiceReadUserAccessLevelForTargetAddingMissingUserCall) Return(arg0 permission.Access, arg1 error) *MockAccessServiceReadUserAccessLevelForTargetAddingMissingUserCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockAccessServiceReadUserAccessForTargetCall) Do(f func(context.Context, string, permission.ID) (permission.UserAccess, error)) *MockAccessServiceReadUserAccessForTargetCall {
+func (c *MockAccessServiceReadUserAccessLevelForTargetAddingMissingUserCall) Do(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockAccessServiceReadUserAccessLevelForTargetAddingMissingUserCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockAccessServiceReadUserAccessForTargetCall) DoAndReturn(f func(context.Context, string, permission.ID) (permission.UserAccess, error)) *MockAccessServiceReadUserAccessForTargetCall {
+func (c *MockAccessServiceReadUserAccessLevelForTargetAddingMissingUserCall) DoAndReturn(f func(context.Context, string, permission.ID) (permission.Access, error)) *MockAccessServiceReadUserAccessLevelForTargetAddingMissingUserCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

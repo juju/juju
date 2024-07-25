@@ -12,7 +12,6 @@ import (
 	jujutxn "github.com/juju/txn/v3"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/apiserver/facade"
@@ -134,7 +133,7 @@ func (api *OffersAPIv5) makeAddOfferArgsFromParams(user names.UserTag, backend B
 		ApplicationDescription: addOfferParams.ApplicationDescription,
 		Endpoints:              addOfferParams.Endpoints,
 		Owner:                  user.Id(),
-		HasRead:                []string{common.EveryoneTagName},
+		HasRead:                []string{permission.EveryoneTagName},
 	}
 	if result.OfferName == "" {
 		result.OfferName = result.ApplicationName

@@ -133,7 +133,7 @@ func (u *LocalUserAuthenticator) Authenticate(
 	// We believe we've got a password, so we'll try to authenticate with it.
 	// This will check the user service for the user, ensuring that the user
 	// isn't disabled or deleted.
-	user, err := u.UserService.GetUserByAuth(ctx, userTag.Name(), auth.NewPassword(authParams.Credentials))
+	user, err := u.UserService.GetUserByAuth(ctx, userTag.Id(), auth.NewPassword(authParams.Credentials))
 	if errors.Is(err, usererrors.UserNotFound) || errors.Is(err, usererrors.UserUnauthorized) {
 		logger.Debugf("user %s not found", userTag.String())
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
@@ -181,7 +181,7 @@ func (u *LocalUserAuthenticator) authenticateMacaroons(ctx context.Context, user
 	}
 
 	// We've got a valid macaroon, so we can return the user.
-	user, err := u.UserService.GetUserByName(ctx, userTag.Name())
+	user, err := u.UserService.GetUserByName(ctx, userTag.Id())
 	if errors.Is(err, usererrors.UserNotFound) || errors.Is(err, usererrors.UserUnauthorized) {
 		logger.Debugf("user %s not found", userTag.String())
 		return nil, errors.Trace(apiservererrors.ErrUnauthorized)
@@ -199,7 +199,7 @@ func (u *LocalUserAuthenticator) handleDischargeRequiredError(ctx context.Contex
 	logger.Debugf("local-login macaroon authentication failed: %v", cause)
 
 	// The root keys for these macaroons are stored in MongoDB.
-	// Expire the documents after after a set amount of time.
+	// Expire the documents after a set amount of time.
 	expiryTime := u.Clock.Now().Add(localLoginExpiryTime)
 	bakery, err := u.Bakery.ExpireStorageAfter(localLoginExpiryTime)
 	if err != nil {

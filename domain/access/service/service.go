@@ -34,6 +34,7 @@ type UserState interface {
 		uuid user.UUID,
 		name string,
 		displayName string,
+		external bool,
 		creatorUUID user.UUID,
 		permission permission.AccessSpec,
 	) error
@@ -163,6 +164,13 @@ type PermissionState interface {
 	// ReadUserAccessLevelForTarget returns the subject's (user) access level
 	// for the given user on the given target.
 	ReadUserAccessLevelForTarget(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
+
+	// ReadUserAccessLevelForTargetAddingMissingUser returns the user access level for
+	// the given user on the given target. If the user is external and does not yet
+	// exist, it is created. An accesserrors.AccessNotFound error is returned if no
+	// access can be found for this user, and (only in the case of external users),
+	// the everyone@external user.
+	ReadUserAccessLevelForTargetAddingMissingUser(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
 
 	// ReadAllUserAccessForUser returns a slice of the user access the given
 	// subject's (user) has for any access type.

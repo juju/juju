@@ -54,27 +54,27 @@ func (s *userStateSuite) SetUpTest(c *gc.C) {
 func (s *userStateSuite) TestSingletonActiveUser(c *gc.C) {
 	err := s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, "123", "bob", "Bob", true, "123", time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, "123", "bob", "Bob", false, true, "123", time.Now())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, "124", "bob", "Bob", true, "123", time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, "124", "bob", "Bob", false, true, "123", time.Now())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, "125", "bob", "Bob", true, "123", time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, "125", "bob", "Bob", false, true, "123", time.Now())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -82,9 +82,9 @@ func (s *userStateSuite) TestSingletonActiveUser(c *gc.C) {
 	// Insert the first non-removed (active) Bob user.
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, "126", "bob", "Bob", false, "123", time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, "126", "bob", "Bob", false, false, "123", time.Now())
 		return err
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -93,9 +93,9 @@ func (s *userStateSuite) TestSingletonActiveUser(c *gc.C) {
 	// up the constraint.
 	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO user (uuid, name, display_name, removed, created_by_uuid, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, "127", "bob", "Bob", false, "123", time.Now())
+			INSERT INTO user (uuid, name, display_name, external, removed, created_by_uuid, created_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, "127", "bob", "Bob", false, false, "123", time.Now())
 		return err
 	})
 	c.Assert(database.IsErrConstraintUnique(err), jc.IsTrue)
@@ -166,7 +166,7 @@ func (s *userStateSuite) TestAddUser(c *gc.C) {
 	loginAccess := s.controllerLoginAccess()
 	err = st.AddUser(
 		context.Background(), adminUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		adminUUID, loginAccess,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -197,7 +197,7 @@ func (s *userStateSuite) TestAddUserAlreadyExists(c *gc.C) {
 
 	err = st.AddUser(
 		context.Background(), adminUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -208,7 +208,7 @@ func (s *userStateSuite) TestAddUserAlreadyExists(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddUser(
 		context.Background(), adminCloneUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		adminCloneUUID,
 		s.controllerLoginAccess(),
 	)
@@ -229,7 +229,7 @@ func (s *userStateSuite) TestAddUserCreatorNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = st.AddUser(
 		context.Background(), adminUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		nonExistingUUID,
 		s.controllerLoginAccess(),
 	)
@@ -304,7 +304,7 @@ func (s *userStateSuite) TestGetRemovedUser(c *gc.C) {
 
 	err = st.AddUser(
 		context.Background(), adminUUID,
-		"admin", "admin",
+		"admin", "admin", false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -397,6 +397,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -409,6 +410,7 @@ func (s *userStateSuite) TestGetRemovedUserByName(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), userToRemoveUUID,
 		"userToRemove", "userToRemove",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -435,6 +437,7 @@ func (s *userStateSuite) TestGetUserByNameMultipleUsers(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -659,6 +662,7 @@ func (s *userStateSuite) TestRemoveUser(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -671,6 +675,7 @@ func (s *userStateSuite) TestRemoveUser(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), userToRemoveUUID,
 		"userToRemove", "userToRemove",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -1045,6 +1050,7 @@ func (s *userStateSuite) TestGetActivationKeyNotFound(c *gc.C) {
 	err = st.AddUser(
 		context.Background(), adminUUID,
 		"admin", "admin",
+		false,
 		adminUUID,
 		s.controllerLoginAccess(),
 	)
@@ -1228,7 +1234,14 @@ func (s *userStateSuite) TestGetUserUUIDByName(c *gc.C) {
 	uuid, err := user.NewUUID()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = st.AddUser(context.Background(), uuid, "dnuof", "", uuid, s.controllerLoginAccess())
+	err = st.AddUser(
+		context.Background(),
+		uuid,
+		"dnuof", "",
+		false,
+		uuid,
+		s.controllerLoginAccess(),
+	)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.TxnRunner().Txn(context.Background(),

@@ -21,8 +21,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/permission"
-	accesserrors "github.com/juju/juju/domain/access/errors"
-	"github.com/juju/juju/domain/access/service"
+	"github.com/juju/juju/domain/access"
 )
 
 // MacaroonSuite wraps a ApiServerSuite with macaroon authentication
@@ -88,11 +87,14 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 	}
 
 	accessService := s.ControllerServiceFactory(c).Access()
-	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
-		Name:        username,
-		DisplayName: "Remote User",
-		CreatorUUID: s.AdminUserUUID,
-		Permission: permission.AccessSpec{
+	external := true
+	err := accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
+		Subject:  username,
+		Change:   permission.Grant,
+		External: &external,
+		AddUser:  true,
+		ApiUser:  "admin",
+		AccessSpec: permission.AccessSpec{
 			Target: permission.ID{
 				ObjectType: permission.Model,
 				Key:        s.ControllerModelUUID(),
@@ -105,30 +107,25 @@ func (s *MacaroonSuite) AddModelUser(c *gc.C, username string) {
 
 // AddControllerUser is a convenience function that adds
 // a controller user with the specified access.
-func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, access permission.Access) {
+func (s *MacaroonSuite) AddControllerUser(c *gc.C, username string, accessLevel permission.Access) {
 	accessService := s.ControllerServiceFactory(c).Access()
 	perm := permission.AccessSpec{
-		Access: access,
+		Access: accessLevel,
 		Target: permission.ID{
 			ObjectType: permission.Controller,
 			Key:        s.ControllerUUID,
 		},
 	}
 
-	_, _, err := accessService.AddUser(context.Background(), service.AddUserArg{
-		Name:        username,
-		DisplayName: "User Name",
-		CreatorUUID: s.AdminUserUUID,
-		Permission:  perm,
+	external := true
+	err := accessService.UpdatePermission(context.Background(), access.UpdatePermissionArgs{
+		Subject:    username,
+		Change:     permission.Grant,
+		External:   &external,
+		AddUser:    true,
+		ApiUser:    "admin",
+		AccessSpec: perm,
 	})
-
-	// If we created this user prior, just add the controller permission.
-	if errors.Is(err, accesserrors.UserAlreadyExists) {
-		_, err = accessService.CreatePermission(context.Background(), permission.UserAccessSpec{
-			AccessSpec: perm,
-			User:       username,
-		})
-	}
 
 	c.Assert(err, jc.ErrorIsNil)
 }

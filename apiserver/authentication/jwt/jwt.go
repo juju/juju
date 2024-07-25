@@ -16,7 +16,6 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
 	apiservererrors "github.com/juju/juju/apiserver/errors"
 	"github.com/juju/juju/core/permission"
 )
@@ -114,7 +113,7 @@ func (p *PermissionDelegator) SubjectPermissions(
 	e authentication.Entity,
 	subject names.Tag,
 ) (a permission.Access, err error) {
-	if e.Tag().Id() == common.EveryoneTagName {
+	if e.Tag().Id() == permission.EveryoneTagName {
 		// JWT auth process does not support everyone@external.
 		// The everyone@external will be never included in the JWT token at least for now.
 		return permission.NoAccess, nil

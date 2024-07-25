@@ -43,6 +43,7 @@ func (s *bootstrapSuite) TestInsertInitialControllerConfig(c *gc.C) {
 		context.Background(), userUUID,
 		"fred",
 		"test user",
+		false,
 		userUUID,
 		permission.AccessSpec{
 			Access: permission.SuperuserAccess,

@@ -42,9 +42,12 @@ type AccessService interface {
 	// given name on the given model.
 	UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error
 
-	// ReadUserAccessForTarget returns the access that
-	// the input user subject has for the input target.
-	ReadUserAccessForTarget(ctx context.Context, subject string, target permission.ID) (permission.UserAccess, error)
+	// ReadUserAccessLevelForTargetAddingMissingUser returns the user access level for
+	// the given user on the given target. If the user is external and does not yet
+	// exist, it is created. An accesserrors.AccessNotFound error is returned if no
+	// access can be found for this user, and (only in the case of external users),
+	// the everyone@external user.
+	ReadUserAccessLevelForTargetAddingMissingUser(ctx context.Context, subject string, target permission.ID) (permission.Access, error)
 }
 
 type MacaroonService interface {

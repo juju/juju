@@ -15,12 +15,13 @@ import (
 	"github.com/juju/juju/core/permission"
 	coreuser "github.com/juju/juju/core/user"
 	jujuversion "github.com/juju/juju/core/version"
-	userbootstrap "github.com/juju/juju/domain/access/bootstrap"
+	accessstate "github.com/juju/juju/domain/access/state"
 	cloudbootstrap "github.com/juju/juju/domain/cloud/bootstrap"
 	credentialbootstrap "github.com/juju/juju/domain/credential/bootstrap"
 	"github.com/juju/juju/domain/model"
 	"github.com/juju/juju/domain/model/state/testing"
 	schematesting "github.com/juju/juju/domain/schema/testing"
+	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -36,21 +37,29 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.ControllerSuite.SetUpTest(c)
 
 	controllerUUID := s.SeedControllerUUID(c)
-	uuid, fn := userbootstrap.AddUser(
+
+	var err error
+	s.adminUserUUID, err = coreuser.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+	accessState := accessstate.NewState(s.TxnRunnerFactory(), loggertesting.WrapCheckLog(c))
+	err = accessState.AddUser(
+		context.Background(), s.adminUserUUID,
 		coreuser.AdminUserName,
+		coreuser.AdminUserName,
+		false,
+		s.adminUserUUID,
 		permission.AccessSpec{
 			Access: permission.SuperuserAccess,
 			Target: permission.ID{
 				ObjectType: permission.Controller,
 				Key:        controllerUUID,
 			},
-		})
-	err := fn(context.Background(), s.ControllerTxnRunner(), s.NoopTxnRunner())
+		},
+	)
 	c.Assert(err, jc.ErrorIsNil)
-	s.adminUserUUID = uuid
 
 	s.cloudName = "test"
-	fn = cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
+	fn := cloudbootstrap.InsertCloud(coreuser.AdminUserName, cloud.Cloud{
 		Name:      s.cloudName,
 		Type:      "ec2",
 		AuthTypes: cloud.AuthTypes{cloud.EmptyAuthType},

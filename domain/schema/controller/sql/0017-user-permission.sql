@@ -127,3 +127,15 @@ SELECT
 FROM v_permission AS p
 INNER JOIN controller ON p.grant_on = controller.uuid
 WHERE p.object_type = 'controller';
+
+-- The permissions for the special user everyone@external.
+CREATE VIEW v_everyone_external AS
+SELECT
+    p.uuid,
+    p.grant_on,
+    p.grant_to,
+    p.access_type,
+    p.object_type
+FROM v_permission AS p
+INNER JOIN user AS u ON p.grant_to = u.uuid
+WHERE u.name = 'everyone@external';

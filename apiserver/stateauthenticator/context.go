@@ -54,11 +54,14 @@ type AccessService interface {
 	// given name.
 	UpdateLastModelLogin(ctx context.Context, name string, modelUUID coremodel.UUID) error
 
-	// ReadUserAccessForTarget returns the access that
-	// the input user subject has for the input target.
-	ReadUserAccessForTarget(
+	// ReadUserAccessLevelForTargetAddingMissingUser returns the user access level for
+	// the given user on the given target. If the user is external and does not yet
+	// exist, it is created. An accesserrors.AccessNotFound error is returned if no
+	// access can be found for this user, and (only in the case of external users),
+	// the everyone@external user.
+	ReadUserAccessLevelForTargetAddingMissingUser(
 		ctx context.Context, subject string, target corepermission.ID,
-	) (corepermission.UserAccess, error)
+	) (corepermission.Access, error)
 }
 
 // AgentAuthenticatorFactory is a factory for creating authenticators, which

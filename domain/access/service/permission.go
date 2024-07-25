@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/credential"
 	corepermission "github.com/juju/juju/core/permission"
 	"github.com/juju/juju/domain/access"
+	accesserrors "github.com/juju/juju/domain/access/errors"
 	"github.com/juju/juju/internal/uuid"
 )
 
@@ -67,6 +68,25 @@ func (s *PermissionService) ReadUserAccessForTarget(ctx context.Context, subject
 	}
 	userAccess, err := s.st.ReadUserAccessForTarget(ctx, subject, target)
 	return userAccess, errors.Trace(err)
+}
+
+// ReadUserAccessLevelForTargetAddingMissingUser returns the user access level for
+// the given user on the given target. If the user does not exist, it is
+// created. A NotValid error is returned if the subject (user) string is empty,
+// or the target is not valid. Any errors from the state layer are passed
+// through.
+func (s *PermissionService) ReadUserAccessLevelForTargetAddingMissingUser(ctx context.Context, subject string, target corepermission.ID) (corepermission.Access, error) {
+	if subject == "" {
+		return "", errors.Trace(errors.NotValidf("empty subject"))
+	}
+	if err := target.Validate(); err != nil {
+		return "", errors.Trace(err)
+	}
+	accessLevel, err := s.st.ReadUserAccessLevelForTargetAddingMissingUser(ctx, subject, target)
+	if errors.Is(err, accesserrors.UserNotFound) {
+		return accessLevel, errors.Trace(err)
+	}
+	return accessLevel, errors.Trace(err)
 }
 
 // ReadUserAccessLevelForTarget returns the user access level for the
