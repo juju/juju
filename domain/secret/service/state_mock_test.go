@@ -43,6 +43,162 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 	return m.recorder
 }
 
+// AllRemoteSecrets mocks base method.
+func (m *MockState) AllRemoteSecrets(arg0 context.Context) ([]secret.RemoteSecretInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllRemoteSecrets", arg0)
+	ret0, _ := ret[0].([]secret.RemoteSecretInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllRemoteSecrets indicates an expected call of AllRemoteSecrets.
+func (mr *MockStateMockRecorder) AllRemoteSecrets(arg0 any) *MockStateAllRemoteSecretsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRemoteSecrets", reflect.TypeOf((*MockState)(nil).AllRemoteSecrets), arg0)
+	return &MockStateAllRemoteSecretsCall{Call: call}
+}
+
+// MockStateAllRemoteSecretsCall wrap *gomock.Call
+type MockStateAllRemoteSecretsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAllRemoteSecretsCall) Return(arg0 []secret.RemoteSecretInfo, arg1 error) *MockStateAllRemoteSecretsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAllRemoteSecretsCall) Do(f func(context.Context) ([]secret.RemoteSecretInfo, error)) *MockStateAllRemoteSecretsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAllRemoteSecretsCall) DoAndReturn(f func(context.Context) ([]secret.RemoteSecretInfo, error)) *MockStateAllRemoteSecretsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AllSecretConsumers mocks base method.
+func (m *MockState) AllSecretConsumers(arg0 context.Context) (map[string][]secret.ConsumerInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllSecretConsumers", arg0)
+	ret0, _ := ret[0].(map[string][]secret.ConsumerInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllSecretConsumers indicates an expected call of AllSecretConsumers.
+func (mr *MockStateMockRecorder) AllSecretConsumers(arg0 any) *MockStateAllSecretConsumersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSecretConsumers", reflect.TypeOf((*MockState)(nil).AllSecretConsumers), arg0)
+	return &MockStateAllSecretConsumersCall{Call: call}
+}
+
+// MockStateAllSecretConsumersCall wrap *gomock.Call
+type MockStateAllSecretConsumersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAllSecretConsumersCall) Return(arg0 map[string][]secret.ConsumerInfo, arg1 error) *MockStateAllSecretConsumersCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAllSecretConsumersCall) Do(f func(context.Context) (map[string][]secret.ConsumerInfo, error)) *MockStateAllSecretConsumersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAllSecretConsumersCall) DoAndReturn(f func(context.Context) (map[string][]secret.ConsumerInfo, error)) *MockStateAllSecretConsumersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AllSecretGrants mocks base method.
+func (m *MockState) AllSecretGrants(arg0 context.Context) (map[string][]secret.GrantParams, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllSecretGrants", arg0)
+	ret0, _ := ret[0].(map[string][]secret.GrantParams)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllSecretGrants indicates an expected call of AllSecretGrants.
+func (mr *MockStateMockRecorder) AllSecretGrants(arg0 any) *MockStateAllSecretGrantsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSecretGrants", reflect.TypeOf((*MockState)(nil).AllSecretGrants), arg0)
+	return &MockStateAllSecretGrantsCall{Call: call}
+}
+
+// MockStateAllSecretGrantsCall wrap *gomock.Call
+type MockStateAllSecretGrantsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAllSecretGrantsCall) Return(arg0 map[string][]secret.GrantParams, arg1 error) *MockStateAllSecretGrantsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAllSecretGrantsCall) Do(f func(context.Context) (map[string][]secret.GrantParams, error)) *MockStateAllSecretGrantsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAllSecretGrantsCall) DoAndReturn(f func(context.Context) (map[string][]secret.GrantParams, error)) *MockStateAllSecretGrantsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// AllSecretRemoteConsumers mocks base method.
+func (m *MockState) AllSecretRemoteConsumers(arg0 context.Context) (map[string][]secret.ConsumerInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllSecretRemoteConsumers", arg0)
+	ret0, _ := ret[0].(map[string][]secret.ConsumerInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllSecretRemoteConsumers indicates an expected call of AllSecretRemoteConsumers.
+func (mr *MockStateMockRecorder) AllSecretRemoteConsumers(arg0 any) *MockStateAllSecretRemoteConsumersCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSecretRemoteConsumers", reflect.TypeOf((*MockState)(nil).AllSecretRemoteConsumers), arg0)
+	return &MockStateAllSecretRemoteConsumersCall{Call: call}
+}
+
+// MockStateAllSecretRemoteConsumersCall wrap *gomock.Call
+type MockStateAllSecretRemoteConsumersCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateAllSecretRemoteConsumersCall) Return(arg0 map[string][]secret.ConsumerInfo, arg1 error) *MockStateAllSecretRemoteConsumersCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateAllSecretRemoteConsumersCall) Do(f func(context.Context) (map[string][]secret.ConsumerInfo, error)) *MockStateAllSecretRemoteConsumersCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateAllSecretRemoteConsumersCall) DoAndReturn(f func(context.Context) (map[string][]secret.ConsumerInfo, error)) *MockStateAllSecretRemoteConsumersCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ChangeSecretBackend mocks base method.
 func (m *MockState) ChangeSecretBackend(arg0 context.Context, arg1 *secrets.URI, arg2 int, arg3 *secrets.ValueRef, arg4 secrets.SecretData) error {
 	m.ctrl.T.Helper()

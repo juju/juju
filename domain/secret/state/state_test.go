@@ -1100,6 +1100,68 @@ func (s *stateSuite) TestListCharmSecretsApplicationOrUnit(c *gc.C) {
 	c.Assert(revs[0].CreateTime, jc.Almost, now)
 }
 
+func (s *stateSuite) TestAllSecretConsumers(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		ValueRef:  &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
+		AutoPrune: ptr(true),
+	}
+	sp2 := domainsecret.UpsertSecretParams{
+		Data: map[string]string{"foo": "bar"},
+	}
+	ctx := context.Background()
+	uri := coresecrets.NewURI().WithSource(s.modelUUID)
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+	uri2 := coresecrets.NewURI().WithSource(s.modelUUID)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/1", sp2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:           "my label",
+		CurrentRevision: 666,
+	}
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+	consumer = &coresecrets.SecretConsumerMetadata{
+		Label:           "my label2",
+		CurrentRevision: 668,
+	}
+	err = st.SaveSecretConsumer(ctx, uri2, "mysql/1", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+	consumer = &coresecrets.SecretConsumerMetadata{
+		Label:           "my label3",
+		CurrentRevision: 667,
+	}
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/1", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.AllSecretConsumers(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, map[string][]domainsecret.ConsumerInfo{
+		uri.ID: {{
+			SubjectTypeID:   domainsecret.SubjectUnit,
+			SubjectID:       "mysql/0",
+			Label:           "my label",
+			CurrentRevision: 666,
+		}, {
+			SubjectTypeID:   domainsecret.SubjectUnit,
+			SubjectID:       "mysql/1",
+			Label:           "my label3",
+			CurrentRevision: 667,
+		}},
+		uri2.ID: {{
+			SubjectTypeID:   domainsecret.SubjectUnit,
+			SubjectID:       "mysql/1",
+			Label:           "my label2",
+			CurrentRevision: 668,
+		}}},
+	)
+}
+
 func (s *stateSuite) TestSaveSecretConsumer(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
@@ -1266,7 +1328,7 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModel(c *gc.C) {
 }
 
 // TestSaveSecretConsumerDifferentModelFirstTime is the same as
-// TestSaveSecretConsumerDifferentModel bu there's no remote revision
+// TestSaveSecretConsumerDifferentModel but there's no remote revision
 // recorded yet.
 func (s *stateSuite) TestSaveSecretConsumerDifferentModelFirstTime(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
@@ -1287,6 +1349,64 @@ func (s *stateSuite) TestSaveSecretConsumerDifferentModelFirstTime(c *gc.C) {
 	got, _, err := st.GetSecretConsumer(ctx, uri, "mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(got, jc.DeepEquals, consumer)
+
+	var latest int
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		row := tx.QueryRowContext(ctx, `
+			SELECT latest_revision FROM secret_reference WHERE secret_id = ?
+		`, uri.ID)
+		if err := row.Scan(&latest); err != nil {
+			return err
+		}
+		return row.Err()
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(latest, gc.Equals, 666)
+}
+
+func (s *stateSuite) TestAllRemoteSecrets(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	uri := coresecrets.NewURI().WithSource("some-other-model")
+
+	// Save the remote secret and its latest revision.
+	err := st.UpdateRemoteSecretRevision(context.Background(), uri, 666)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctx := context.Background()
+	consumer := &coresecrets.SecretConsumerMetadata{
+		Label:           "my label",
+		CurrentRevision: 1,
+	}
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/0", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer = &coresecrets.SecretConsumerMetadata{
+		Label:           "my label2",
+		CurrentRevision: 2,
+	}
+	err = st.SaveSecretConsumer(ctx, uri, "mysql/1", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.AllRemoteSecrets(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, []domainsecret.RemoteSecretInfo{{
+		URI:             uri,
+		SubjectTypeID:   domainsecret.SubjectUnit,
+		SubjectID:       "mysql/0",
+		Label:           "my label",
+		CurrentRevision: 1,
+		LatestRevision:  666,
+	}, {
+		URI:             uri,
+		SubjectTypeID:   domainsecret.SubjectUnit,
+		SubjectID:       "mysql/1",
+		Label:           "my label2",
+		CurrentRevision: 2,
+		LatestRevision:  666,
+	}})
 }
 
 func (s *stateSuite) TestGetSecretConsumerFirstTime(c *gc.C) {
@@ -1919,6 +2039,62 @@ func (s *stateSuite) TestSaveSecretRemoteConsumer(c *gc.C) {
 	c.Assert(latest, gc.Equals, 1)
 }
 
+func (s *stateSuite) TestAllSecretRemoteConsumers(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		ValueRef:  &coresecrets.ValueRef{BackendID: "some-backend", RevisionID: "some-revision"},
+		AutoPrune: ptr(true),
+	}
+	sp2 := domainsecret.UpsertSecretParams{
+		Data: map[string]string{"foo": "bar"},
+	}
+	ctx := context.Background()
+	uri := coresecrets.NewURI().WithSource(s.modelUUID)
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+	uri2 := coresecrets.NewURI().WithSource(s.modelUUID)
+	err = st.CreateCharmUnitSecret(ctx, 1, uri2, "mysql/1", sp2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	consumer := &coresecrets.SecretConsumerMetadata{
+		CurrentRevision: 666,
+	}
+	err = st.SaveSecretRemoteConsumer(ctx, uri, "remote-app/0", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+	consumer = &coresecrets.SecretConsumerMetadata{
+		CurrentRevision: 668,
+	}
+	err = st.SaveSecretRemoteConsumer(ctx, uri2, "remote-app/1", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+	consumer = &coresecrets.SecretConsumerMetadata{
+		CurrentRevision: 667,
+	}
+	err = st.SaveSecretRemoteConsumer(ctx, uri, "remote-app/1", consumer)
+	c.Assert(err, jc.ErrorIsNil)
+
+	got, err := st.AllSecretRemoteConsumers(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(got, jc.DeepEquals, map[string][]domainsecret.ConsumerInfo{
+		uri.ID: {{
+			SubjectTypeID:   domainsecret.SubjectUnit,
+			SubjectID:       "remote-app/0",
+			CurrentRevision: 666,
+		}, {
+			SubjectTypeID:   domainsecret.SubjectUnit,
+			SubjectID:       "remote-app/1",
+			CurrentRevision: 667,
+		}},
+		uri2.ID: {{
+			SubjectTypeID:   domainsecret.SubjectUnit,
+			SubjectID:       "remote-app/1",
+			CurrentRevision: 668,
+		}}},
+	)
+}
+
 func (s *stateSuite) TestSaveSecretRemoteConsumerMarksObsolete(c *gc.C) {
 	st := newSecretState(c, s.TxnRunnerFactory())
 
@@ -2534,6 +2710,76 @@ func (s *stateSuite) TestGetSecretGrantsModel(c *gc.C) {
 		SubjectID:     "mysql/0",
 		RoleID:        domainsecret.RoleView,
 	}})
+}
+
+func (s *stateSuite) TestAllSecretGrants(c *gc.C) {
+	st := newSecretState(c, s.TxnRunnerFactory())
+
+	s.setupUnits(c, "mysql")
+
+	sp := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar"},
+	}
+	sp2 := domainsecret.UpsertSecretParams{
+		Data: coresecrets.SecretData{"foo": "bar2"},
+	}
+	ctx := context.Background()
+	uri := coresecrets.NewURI()
+	uri2 := coresecrets.NewURI()
+	err := st.CreateUserSecret(ctx, 1, uri, sp)
+	c.Assert(err, jc.ErrorIsNil)
+	err = st.CreateCharmApplicationSecret(ctx, 1, uri2, "mysql", sp2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/1",
+		RoleID:        domainsecret.RoleManage,
+	}
+	err = st.GrantAccess(ctx, uri, p)
+	c.Assert(err, jc.ErrorIsNil)
+
+	p2 := domainsecret.GrantParams{
+		ScopeTypeID:   domainsecret.ScopeRelation,
+		ScopeID:       "mysql:db mediawiki:db",
+		SubjectTypeID: domainsecret.SubjectUnit,
+		SubjectID:     "mysql/0",
+		RoleID:        domainsecret.RoleView,
+	}
+	err = st.GrantAccess(ctx, uri, p2)
+	c.Assert(err, jc.ErrorIsNil)
+
+	g, err := st.AllSecretGrants(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(g, jc.DeepEquals, map[string][]domainsecret.GrantParams{
+		uri.ID: {{
+			ScopeTypeID:   domainsecret.ScopeModel,
+			ScopeID:       s.modelUUID,
+			SubjectTypeID: domainsecret.SubjectModel,
+			SubjectID:     s.modelUUID,
+			RoleID:        domainsecret.RoleManage,
+		}, {
+			ScopeTypeID:   domainsecret.ScopeRelation,
+			ScopeID:       "mysql:db mediawiki:db",
+			SubjectTypeID: domainsecret.SubjectUnit,
+			SubjectID:     "mysql/1",
+			RoleID:        domainsecret.RoleManage,
+		}, {
+			ScopeTypeID:   domainsecret.ScopeRelation,
+			ScopeID:       "mysql:db mediawiki:db",
+			SubjectTypeID: domainsecret.SubjectUnit,
+			SubjectID:     "mysql/0",
+			RoleID:        domainsecret.RoleView,
+		}},
+		uri2.ID: {{
+			ScopeTypeID:   domainsecret.ScopeApplication,
+			ScopeID:       "mysql",
+			SubjectTypeID: domainsecret.SubjectApplication,
+			SubjectID:     "mysql",
+			RoleID:        domainsecret.RoleManage,
+		}}})
 }
 
 func (s *stateSuite) TestRevokeAccess(c *gc.C) {

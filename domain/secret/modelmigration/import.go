@@ -224,15 +224,11 @@ func (i *importOperation) Execute(ctx context.Context, model description.Model) 
 			return errors.Annotate(err, "invalid remote secret consumer")
 		}
 		allSecrets.RemoteSecrets[j] = service.RemoteSecret{
-			URI: &secrets.URI{ID: secret.ID(), SourceUUID: secret.SourceUUID()},
-			ConsumerInfo: service.ConsumerInfo{
-				SecretConsumerMetadata: secrets.SecretConsumerMetadata{
-					Label:           secret.Label(),
-					CurrentRevision: secret.CurrentRevision(),
-					LatestRevision:  secret.LatestRevision(),
-				},
-				Accessor: accessor,
-			},
+			URI:             &secrets.URI{ID: secret.ID(), SourceUUID: secret.SourceUUID()},
+			Label:           secret.Label(),
+			CurrentRevision: secret.CurrentRevision(),
+			LatestRevision:  secret.LatestRevision(),
+			Accessor:        accessor,
 		}
 	}
 

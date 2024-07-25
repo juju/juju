@@ -161,6 +161,15 @@ type secretRemoteUnitConsumer struct {
 	CurrentRevision int    `db:"current_revision"`
 }
 
+type secretUnitConsumerInfo struct {
+	SecretID        string `db:"secret_id"`
+	SourceModelID   string `db:"source_model_uuid"`
+	UnitName        string `db:"unit_name"`
+	Label           string `db:"label"`
+	CurrentRevision int    `db:"current_revision"`
+	LatestRevision  int    `db:"latest_revision"`
+}
+
 type remoteSecret struct {
 	SecretID       string `db:"secret_id"`
 	LatestRevision int    `db:"latest_revision"`
@@ -392,6 +401,37 @@ func (rows secretUnitConsumers) toSecretConsumers() []*coresecrets.SecretConsume
 	return result
 }
 
+type secretUnitConsumerInfos []secretUnitConsumerInfo
+
+func (rows secretUnitConsumerInfos) toRemoteSecrets() []domainsecret.RemoteSecretInfo {
+	result := make([]domainsecret.RemoteSecretInfo, len(rows))
+	for i, row := range rows {
+		result[i] = domainsecret.RemoteSecretInfo{
+			URI:             &coresecrets.URI{ID: row.SecretID, SourceUUID: row.SourceModelID},
+			SubjectTypeID:   domainsecret.SubjectUnit,
+			SubjectID:       row.UnitName,
+			Label:           row.Label,
+			CurrentRevision: row.CurrentRevision,
+			LatestRevision:  row.LatestRevision,
+		}
+	}
+	return result
+}
+
+func (rows secretUnitConsumerInfos) toSecretConsumersBySecret() map[string][]domainsecret.ConsumerInfo {
+	result := make(map[string][]domainsecret.ConsumerInfo, len(rows))
+	for _, row := range rows {
+		info := domainsecret.ConsumerInfo{
+			SubjectTypeID:   domainsecret.SubjectUnit,
+			SubjectID:       row.UnitName,
+			Label:           row.Label,
+			CurrentRevision: row.CurrentRevision,
+		}
+		result[row.SecretID] = append(result[row.SecretID], info)
+	}
+	return result
+}
+
 type secretAccessors []secretAccessor
 
 type secretAccessScopes []secretAccessScope
@@ -410,6 +450,25 @@ func (rows secretAccessors) toSecretGrants(scopes secretAccessScopes) ([]domains
 			ScopeTypeID:   scopes[i].ScopeTypeID,
 			ScopeID:       scopes[i].ScopeID,
 		}
+	}
+	return result, nil
+}
+
+func (rows secretAccessors) toSecretGrantsBySecret(scopes secretAccessScopes) (map[string][]domainsecret.GrantParams, error) {
+	if len(rows) != len(scopes) {
+		// Should never happen.
+		return nil, errors.New("row length mismatch composing grant results")
+	}
+	result := make(map[string][]domainsecret.GrantParams, len(rows))
+	for i, row := range rows {
+		params := domainsecret.GrantParams{
+			SubjectTypeID: row.SubjectTypeID,
+			SubjectID:     row.SubjectID,
+			RoleID:        row.RoleID,
+			ScopeTypeID:   scopes[i].ScopeTypeID,
+			ScopeID:       scopes[i].ScopeID,
+		}
+		result[row.SecretID] = append(result[row.SecretID], params)
 	}
 	return result, nil
 }

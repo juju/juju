@@ -275,10 +275,6 @@ type SecretConsumerMetadata struct {
 	// CurrentRevision is current revision the
 	// consumer wants to read.
 	CurrentRevision int
-
-	// TODO(secrets) - this will be removed
-	// LatestRevision is the latest secret revision.
-	LatestRevision int
 }
 
 // SecretRevisionInfo holds info used to read a secret vale.
