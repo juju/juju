@@ -69,7 +69,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			results[i].Error = apiservererrors.ParamsError(
+			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeTagInvalid,
 				"cannot parse tag %q",
 				entity.Tag,
@@ -78,7 +78,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 		}
 
 		if tag.Kind() != names.MachineTagKind {
-			results[i].Error = apiservererrors.ParamsError(
+			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeTagKindNotSupported,
 				"tag %q unsupported, can only accept tags of kind %q",
 				tag, names.MachineTagKind,
@@ -87,7 +87,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 		}
 
 		if !canRead(tag) {
-			results[i].Error = apiservererrors.ParamsError(
+			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeUnauthorized,
 				"%q does not have permission to read authorized keys",
 				tag,
@@ -99,7 +99,7 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 		keysWatcher, err := api.keyUpdaterService.WatchAuthorisedKeysForMachine(ctx, machineId)
 		switch {
 		case errors.Is(err, errors.NotValid):
-			results[i].Error = apiservererrors.ParamsError(
+			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeMachineInvalidID,
 				"invalid machine name %q",
 				machineId,
@@ -168,7 +168,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 	for i, entity := range arg.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			results[i].Error = apiservererrors.ParamsError(
+			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeTagInvalid,
 				"cannot parse tag %q",
 				entity.Tag,
@@ -177,7 +177,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 		}
 
 		if tag.Kind() != names.MachineTagKind {
-			results[i].Error = apiservererrors.ParamsError(
+			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeTagKindNotSupported,
 				"tag %q unsupported, can only accept tags of kind %q",
 				tag, names.MachineTagKind,
@@ -186,7 +186,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 		}
 
 		if !canRead(tag) {
-			results[i].Error = apiservererrors.ParamsError(
+			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeUnauthorized,
 				"does not have permission to read authorised keys for %q",
 				tag,
@@ -199,14 +199,14 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 
 		switch {
 		case errors.Is(err, errors.NotValid):
-			results[i].Error = apiservererrors.ParamsError(
+			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeMachineInvalidID,
 				"invalid machine name %q",
 				machineName,
 			)
 			continue
 		case errors.Is(err, machineerrors.NotFound):
-			results[i].Error = apiservererrors.ParamsError(
+			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeMachineNotFound,
 				"machine %q does not exist",
 				machineName,

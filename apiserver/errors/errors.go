@@ -74,9 +74,9 @@ var singletonErrorCodes = map[errors.ConstError]string{
 	ErrActionNotAvailable:                        params.CodeActionNotAvailable,
 }
 
-// ParamsError is responsible for constructing a [params.Error] with the given
+// ParamsErrorf is responsible for constructing a [params.Error] with the given
 // code and formatted error message.
-func ParamsError(code string, format string, a ...any) *params.Error {
+func ParamsErrorf(code string, format string, a ...any) *params.Error {
 	return &params.Error{
 		Code:    code,
 		Message: fmt.Sprintf(format, a...),

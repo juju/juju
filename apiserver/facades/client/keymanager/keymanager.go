@@ -92,7 +92,7 @@ func (api *KeyManagerAPI) ListKeys(
 	for range arg.Entities.Entities {
 		if api.authedUser.Kind() != names.UserTagKind {
 			results = append(results, params.StringsResult{
-				Error: apiservererrors.ParamsError(
+				Error: apiservererrors.ParamsErrorf(
 					params.CodeTagKindNotSupported,
 					"authorised user %q unsupported, can only accept tags of kind %q",
 					api.authedUser, names.UserTagKind,
@@ -105,7 +105,7 @@ func (api *KeyManagerAPI) ListKeys(
 		switch {
 		case errors.Is(err, accesserrors.UserNameNotValid):
 			results = append(results, params.StringsResult{
-				Error: apiservererrors.ParamsError(
+				Error: apiservererrors.ParamsErrorf(
 					params.CodeUserInvalidName,
 					"invalid user name: %q",
 					api.authedUser.Id(),
@@ -114,7 +114,7 @@ func (api *KeyManagerAPI) ListKeys(
 			continue
 		case errors.Is(err, accesserrors.UserNotFound):
 			results = append(results, params.StringsResult{
-				Error: apiservererrors.ParamsError(
+				Error: apiservererrors.ParamsErrorf(
 					params.CodeUserNotFound,
 					"user %q does not exist",
 					api.authedUser.Id(),
@@ -132,7 +132,7 @@ func (api *KeyManagerAPI) ListKeys(
 		switch {
 		case errors.Is(err, accesserrors.UserNotFound):
 			results = append(results, params.StringsResult{
-				Error: apiservererrors.ParamsError(
+				Error: apiservererrors.ParamsErrorf(
 					params.CodeUserNotFound,
 					"user %q does not exist",
 					api.authedUser.Id(),
@@ -195,7 +195,7 @@ func (api *KeyManagerAPI) AddKeys(
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeTagKindNotSupported,
 						"authorised user %q unsupported, can only accept users of kind %q",
 						api.authedUser, names.UserTagKind,
@@ -211,7 +211,7 @@ func (api *KeyManagerAPI) AddKeys(
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeUserInvalidName,
 						"invalid user name: %q",
 						arg.User,
@@ -223,7 +223,7 @@ func (api *KeyManagerAPI) AddKeys(
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeUserNotFound,
 						"user %q does not exist",
 						arg.User,
@@ -244,7 +244,7 @@ func (api *KeyManagerAPI) AddKeys(
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeUserNotFound,
 						"user %q does not exist",
 						arg.User,
@@ -256,7 +256,7 @@ func (api *KeyManagerAPI) AddKeys(
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeUserKeyInvalidComment,
 						"one or more public keys to be added for user %q contains a restricted comment",
 						arg.User,
@@ -268,7 +268,7 @@ func (api *KeyManagerAPI) AddKeys(
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeUserKeyInvalidKey,
 						"one or more public keys to be added for user %q is invalid",
 						arg.User,
@@ -280,7 +280,7 @@ func (api *KeyManagerAPI) AddKeys(
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeUserKeyAlreadyExists,
 						"one or more public keys to be added for user %q already exist",
 						arg.User,
@@ -311,7 +311,7 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeTagKindNotSupported,
 						"authorised user %q unsupported, can only accept users of kind %q",
 						api.authedUser, names.UserTagKind,
@@ -331,7 +331,7 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeUserInvalidName,
 						"invalid user name: %q",
 						arg.User,
@@ -343,7 +343,7 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeUserNotFound,
 						"user %q does not exist",
 						arg.User,
@@ -363,7 +363,7 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 		keySourceURL, err := url.Parse(keySource)
 		if err != nil {
 			results = append(results, params.ErrorResult{
-				Error: apiservererrors.ParamsError(
+				Error: apiservererrors.ParamsErrorf(
 					params.CodeUserKeyInvalidKeySource,
 					"parsing key source url %q for public key importing on user %q",
 					keySource,
@@ -377,34 +377,34 @@ func (api *KeyManagerAPI) ImportKeys(ctx context.Context, arg params.ModifyUserS
 		err = api.keyManagerService.ImportPublicKeysForUser(ctx, user.UUID, keySourceURL)
 		switch {
 		case errors.Is(err, accesserrors.UserNotFound):
-			result.Error = apiservererrors.ParamsError(
+			result.Error = apiservererrors.ParamsErrorf(
 				params.CodeUserNotFound,
 				"user %q does not exist",
 				arg.User,
 			)
 		case errors.Is(err, keymanagererrors.InvalidPublicKey):
-			result.Error = apiservererrors.ParamsError(
+			result.Error = apiservererrors.ParamsErrorf(
 				params.CodeUserKeyInvalidKey,
 				"one or more public keys to be imported from %q for user %q is invalid",
 				keySource,
 				arg.User,
 			)
 		case errors.Is(err, keymanagererrors.ReservedCommentViolation):
-			result.Error = apiservererrors.ParamsError(
+			result.Error = apiservererrors.ParamsErrorf(
 				params.CodeUserKeyInvalidComment,
 				"one or more public keys to be imported from %q for user %q contains a restricted comment",
 				keySource,
 				arg.User,
 			)
 		case errors.Is(err, keymanagererrors.UnknownImportSource):
-			result.Error = apiservererrors.ParamsError(
+			result.Error = apiservererrors.ParamsErrorf(
 				params.CodeUserKeyUnknownKeySource,
 				"cannot import from key source %q for user %q, unknown source",
 				keySource,
 				arg.User,
 			)
 		case errors.Is(err, keymanagererrors.ImportSubjectNotFound):
-			result.Error = apiservererrors.ParamsError(
+			result.Error = apiservererrors.ParamsErrorf(
 				params.CodeUserKeySourceSubjectNotFound,
 				"cannot import from key source %q for user %q, subject not found",
 				keySource,
@@ -438,7 +438,7 @@ func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserS
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeTagKindNotSupported,
 						"authorised user %q unsupported, can only accept users of kind %q",
 						api.authedUser, names.UserTagKind,
@@ -458,7 +458,7 @@ func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserS
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeUserInvalidName,
 						"invalid user name: %q",
 						arg.User,
@@ -470,7 +470,7 @@ func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserS
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeUserNotFound,
 						"user %q does not exist",
 						arg.User,
@@ -491,7 +491,7 @@ func (api *KeyManagerAPI) DeleteKeys(ctx context.Context, arg params.ModifyUserS
 		return params.ErrorResults{
 			Results: []params.ErrorResult{
 				{
-					Error: apiservererrors.ParamsError(
+					Error: apiservererrors.ParamsErrorf(
 						params.CodeUserNotFound,
 						"user %q does not exist",
 						arg.User,
