@@ -160,7 +160,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	// is refactored we fall back to using the user-pass login provider
 	// with information from Info.
 	if loginProvider == nil {
-		loginProvider = NewUserpassLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, bakeryClient, CookieURLFromHost(host))
+		loginProvider = NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, bakeryClient, CookieURLFromHost(host))
 	}
 
 	st := &state{

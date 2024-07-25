@@ -20,21 +20,21 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type userPassLoginProviderSuite struct {
+type legacyLoginProviderSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = gc.Suite(&userPassLoginProviderSuite{})
+var _ = gc.Suite(&legacyLoginProviderSuite{})
 
-// TestUserPassLogin verifies that the username and password login provider
+// TestLegacyProviderLogin verifies that the legacy login provider
 // works for login and returns the password as the token.
-func (s *userPassLoginProviderSuite) TestUserPassLogin(c *gc.C) {
+func (s *legacyLoginProviderSuite) TestLegacyProviderLogin(c *gc.C) {
 	info := s.APIInfo(c)
 
 	username := names.NewUserTag("admin")
 	password := jujutesting.AdminSecret
 
-	lp := api.NewUserpassLoginProvider(username, password, "", nil, nil, nil)
+	lp := api.NewLegacyLoginProvider(username, password, "", nil, nil, nil)
 	apiState, err := api.Open(&api.Info{
 		Addrs:          info.Addrs,
 		ControllerUUID: info.ControllerUUID,
@@ -48,20 +48,20 @@ func (s *userPassLoginProviderSuite) TestUserPassLogin(c *gc.C) {
 }
 
 // A separate suite for tests that don't need to connect to a controller.
-type userPassLoginProviderBasicSuite struct {
+type legacyLoginProviderBasicSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&userPassLoginProviderBasicSuite{})
+var _ = gc.Suite(&legacyLoginProviderBasicSuite{})
 
-func (s *userPassLoginProviderBasicSuite) TestUserPassAuthHeader(c *gc.C) {
+func (s *legacyLoginProviderBasicSuite) TestLegacyProviderAuthHeader(c *gc.C) {
 	userTag := names.NewUserTag("bob")
 	password := "test-password"
 	nonce := "test-nonce"
 	header := jujuhttp.BasicAuthHeader(userTag.String(), password)
 	header.Add(params.MachineNonceHeader, nonce)
 	header.Add(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
-	lp := api.NewUserpassLoginProvider(
+	lp := api.NewLegacyLoginProvider(
 		userTag,
 		password,
 		nonce,

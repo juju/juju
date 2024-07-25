@@ -35,7 +35,7 @@ type clientCredentialsLoginProvider struct {
 }
 
 // AuthHeader implements the [LoginProvider.AuthHeader] method.
-// Returning an HTTP header with basic auth set.
+// It returns an HTTP header with basic auth set.
 func (p *clientCredentialsLoginProvider) AuthHeader() (http.Header, error) {
 	return jujuhttp.BasicAuthHeader(p.clientID, p.clientSecret), nil
 }

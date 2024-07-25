@@ -149,9 +149,9 @@ type LoginResultParams struct {
 // EnsureTag should be used when a login provider needs to ensure
 // a login result has a tag set, particularly in cases where the
 // server doesn't return a user identity.
-func (l *LoginResultParams) EnsureTag(tag string) error {
+func (l *LoginResultParams) EnsureTag(tagStr string) error {
 	if l.tag == nil {
-		tag, err := names.ParseTag(tag)
+		tag, err := names.ParseTag(tagStr)
 		if err != nil {
 			return err
 		}

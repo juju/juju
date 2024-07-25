@@ -121,7 +121,7 @@ type state struct {
 // TODO (alesstimec, wallyworld): This method should be removed and
 // a login provider should be used instead.
 func (st *state) Login(name names.Tag, password, nonce string, ms []macaroon.Slice) error {
-	lp := NewUserpassLoginProvider(name, password, nonce, ms, st.bakeryClient, st.cookieURL)
+	lp := NewLegacyLoginProvider(name, password, nonce, ms, st.bakeryClient, st.cookieURL)
 	result, err := lp.Login(context.Background(), st)
 	if err != nil {
 		return errors.Trace(err)

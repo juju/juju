@@ -13,7 +13,6 @@ import (
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/bakery"
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
 	"github.com/juju/errors"
-	"github.com/juju/names/v5"
 	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/rpc/params"
@@ -84,11 +83,7 @@ func (doer httpRequestDoer) Do(req *http.Request) (*http.Response, error) {
 // AuthHTTPRequest adds Juju auth info (username, password, nonce, macaroons)
 // to the given HTTP request, suitable for sending to a Juju API server.
 func AuthHTTPRequest(req *http.Request, info *Info) error {
-	var tag names.Tag
-	if info.Tag != nil {
-		tag = info.Tag
-	}
-	lp := NewUserpassLoginProvider(tag, info.Password, info.Nonce, info.Macaroons, nil, nil)
+	lp := NewLegacyLoginProvider(info.Tag, info.Password, info.Nonce, info.Macaroons, nil, nil)
 	return authHTTPRequest(req, lp)
 }
 
