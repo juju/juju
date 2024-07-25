@@ -436,9 +436,9 @@ func (st *State) SetMachineLife(ctx context.Context, mName machine.Name, life li
 	})
 }
 
-// IsController returns whether the machine is a controller machine.
+// IsMachineController returns whether the machine is a controller machine.
 // It returns a NotFound if the given machine doesn't exist.
-func (st *State) IsController(ctx context.Context, mName machine.Name) (bool, error) {
+func (st *State) IsMachineController(ctx context.Context, mName machine.Name) (bool, error) {
 	db, err := st.DB()
 	if err != nil {
 		return false, errors.Trace(err)

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/machine"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc/params"
 	"github.com/juju/juju/state"
@@ -45,6 +44,9 @@ type MachineService interface {
 	// No error is returned if the provided machine doesn't exist, just nothing
 	// gets updated.
 	EnsureDeadMachine(ctx context.Context, machineName machine.Name) error
+	// IsMachineController returns whether the machine is a controller machine.
+	// It returns a NotFound if the given machine doesn't exist.
+	IsMachineController(context.Context, machine.Name) (bool, error)
 }
 
 // MachinerAPI implements the API used by the machiner worker.
@@ -57,11 +59,17 @@ type MachinerAPI struct {
 	*networkingcommon.NetworkConfigAPI
 
 	networkService          NetworkService
+	machineService          MachineService
 	st                      *state.State
 	controllerConfigService ControllerConfigService
 	auth                    facade.Authorizer
 	getCanModify            common.GetAuthFunc
 	getCanRead              common.GetAuthFunc
+}
+
+// MachinerAPI5 stubs out the Jobs() and SetMachineAddresses() methods.
+type MachinerAPIv5 struct {
+	*MachinerAPI
 }
 
 // NewMachinerAPIForState creates a new instance of the Machiner API.
@@ -96,6 +104,7 @@ func NewMachinerAPIForState(
 		APIAddresser:            common.NewAPIAddresser(ctrlSt, resources),
 		NetworkConfigAPI:        netConfigAPI,
 		networkService:          networkService,
+		machineService:          machineService,
 		st:                      st,
 		controllerConfigService: controllerConfigService,
 		auth:                    authorizer,
@@ -155,31 +164,66 @@ func (api *MachinerAPI) SetMachineAddresses(ctx context.Context, args params.Set
 	return results, nil
 }
 
-// Jobs returns the jobs assigned to the given entities.
-func (api *MachinerAPI) Jobs(ctx context.Context, args params.Entities) (params.JobsResults, error) {
-	result := params.JobsResults{
+// SetMachineAddresses is not supported in MachinerAPI at version 5.
+func (api *MachinerAPIv5) SetMachineAddresses(ctx context.Context, args params.SetMachinesAddresses) (params.ErrorResults, error) {
+	return params.ErrorResults{}, errors.NotSupported
+}
+
+// Jobs is not supported in MachinerAPI at version 5.
+// Deprecated: Jobs is being deprecated. Use IsController instead.
+func (api *MachinerAPIv5) Jobs(ctx context.Context, args params.Entities) (params.JobsResults, error) {
+	results := params.JobsResults{
 		Results: make([]params.JobsResult, len(args.Entities)),
 	}
 
-	canRead, err := api.getCanRead()
-	if err != nil {
-		return result, err
-	}
-
-	for i, agent := range args.Entities {
-		machine, err := api.getMachine(agent.Tag, canRead)
+	for i, entity := range args.Entities {
+		isController, err := api.machineService.IsMachineController(ctx, machine.Name(entity.Tag))
 		if err != nil {
-			result.Results[i].Error = apiservererrors.ServerError(err)
+			results.Results[i].Error = apiservererrors.ServerError(err)
 			continue
 		}
-		machineJobs := machine.Jobs()
-		jobs := make([]model.MachineJob, len(machineJobs))
-		for i, job := range machineJobs {
-			jobs[i] = job.ToParams()
+		jobs := []string{"host-units"}
+		if isController {
+			jobs = append(jobs, "api-server")
 		}
-		result.Results[i].Jobs = jobs
+
+		results.Results[i].Jobs = jobs
 	}
-	return result, nil
+	return results, nil
+}
+
+// IsController returns if the given machine is a controller machine.
+func (api *MachinerAPI) IsController(ctx context.Context, args params.Entities) (params.IsControllerResults, error) {
+	results := params.IsControllerResults{
+		Results: make([]params.IsControllerResult, len(args.Entities)),
+	}
+
+	for i, entity := range args.Entities {
+		result := params.IsControllerResult{}
+
+		// Assert that the entity is a machine.
+		machineTag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			// ParseMachineTag will return an InvalidTagError if the given
+			// entity is not a machine.
+			result.Error = apiservererrors.ServerError(err)
+			results.Results[i] = result
+			continue
+		}
+		machineName := machine.Name(machineTag.Id())
+
+		// Check if the machine is a controller by using the machine service.
+		isController, err := api.machineService.IsMachineController(ctx, machineName)
+		if err != nil {
+			result.Error = apiservererrors.ServerError(err)
+			results.Results[i] = result
+			continue
+		}
+
+		result.IsController = isController
+		results.Results[i] = result
+	}
+	return results, nil
 }
 
 // RecordAgentStartTime updates the agent start time field in the machine doc.

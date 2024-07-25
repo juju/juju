@@ -15,7 +15,6 @@ import (
 
 	watcher "github.com/juju/juju/core/watcher"
 	stateconverter "github.com/juju/juju/internal/worker/stateconverter"
-	params "github.com/juju/juju/rpc/params"
 	names "github.com/juju/names/v5"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -105,41 +104,41 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
 }
 
-// Jobs mocks base method.
-func (m *MockMachine) Jobs(arg0 context.Context) (*params.JobsResult, error) {
+// IsController mocks base method.
+func (m *MockMachine) IsController(arg0 context.Context, arg1 string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Jobs", arg0)
-	ret0, _ := ret[0].(*params.JobsResult)
+	ret := m.ctrl.Call(m, "IsController", arg0, arg1)
+	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Jobs indicates an expected call of Jobs.
-func (mr *MockMachineMockRecorder) Jobs(arg0 any) *MockMachineJobsCall {
+// IsController indicates an expected call of IsController.
+func (mr *MockMachineMockRecorder) IsController(arg0, arg1 any) *MockMachineIsControllerCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Jobs", reflect.TypeOf((*MockMachine)(nil).Jobs), arg0)
-	return &MockMachineJobsCall{Call: call}
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsController", reflect.TypeOf((*MockMachine)(nil).IsController), arg0, arg1)
+	return &MockMachineIsControllerCall{Call: call}
 }
 
-// MockMachineJobsCall wrap *gomock.Call
-type MockMachineJobsCall struct {
+// MockMachineIsControllerCall wrap *gomock.Call
+type MockMachineIsControllerCall struct {
 	*gomock.Call
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockMachineJobsCall) Return(arg0 *params.JobsResult, arg1 error) *MockMachineJobsCall {
+func (c *MockMachineIsControllerCall) Return(arg0 bool, arg1 error) *MockMachineIsControllerCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockMachineJobsCall) Do(f func(context.Context) (*params.JobsResult, error)) *MockMachineJobsCall {
+func (c *MockMachineIsControllerCall) Do(f func(context.Context, string) (bool, error)) *MockMachineIsControllerCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockMachineJobsCall) DoAndReturn(f func(context.Context) (*params.JobsResult, error)) *MockMachineJobsCall {
+func (c *MockMachineIsControllerCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockMachineIsControllerCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

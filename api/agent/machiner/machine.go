@@ -93,24 +93,24 @@ func (m *Machine) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	return common.Watch(ctx, m.client.facade, "Watch", m.tag)
 }
 
-// Jobs returns a list of jobs for the machine.
-func (m *Machine) Jobs(ctx context.Context) (*params.JobsResult, error) {
-	var results params.JobsResults
+// IsController returns true if the provided machine is a controller one.
+func (m *Machine) IsController(ctx context.Context, machineName string) (bool, error) {
+	var results params.IsControllerResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.Tag().String()}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall(ctx, "Jobs", args, &results)
+	err := m.client.facade.FacadeCall(ctx, "IsController", args, &results)
 	if err != nil {
-		return nil, errors.Annotate(err, "error from FacadeCall")
+		return false, errors.Annotate(err, "error from FacadeCall")
 	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	if n := len(results.Results); n != 1 {
+		return false, errors.Errorf("expected 1 result, got %d", n)
 	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
+	var errOut error
+	if err := results.Results[0].Error; err != nil {
+		errOut = err
 	}
-	return &result, nil
+	return results.Results[0].IsController, errOut
 }
 
 // SetObservedNetworkConfig sets the machine network config as observed on the

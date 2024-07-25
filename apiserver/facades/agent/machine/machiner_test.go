@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/agent/machine"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/testing"
@@ -270,24 +269,6 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 	err = s.machine1.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.machine1.MachineAddresses(), gc.HasLen, 0)
-}
-
-func (s *machinerSuite) TestJobs(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "machine-1"},
-		{Tag: "machine-0"},
-		{Tag: "machine-42"},
-	}}
-
-	result, err := s.machiner.Jobs(context.Background(), args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.JobsResults{
-		Results: []params.JobsResult{
-			{Jobs: []model.MachineJob{model.JobHostUnits}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {

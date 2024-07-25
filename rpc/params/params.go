@@ -792,10 +792,23 @@ type DeployerConnectionValues struct {
 	APIAddresses []string `json:"api-addresses"`
 }
 
+// IsControllerResult holds the result of an IsController call, which returns
+// whether a given machine is a controller machine.
+type IsControllerResult struct {
+	IsController bool   `json:"is-controller"`
+	Error        *Error `json:"error,omitempty"`
+}
+
+// IsControllerResults holds the result of a call to IsController
+type IsControllerResults struct {
+	Results []IsControllerResult `json:"results"`
+}
+
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.
+// Deprecated: Jobs is being deprecated. Use IsController instead.
 type JobsResult struct {
-	Jobs  []model.MachineJob `json:"jobs"`
-	Error *Error             `json:"error,omitempty"`
+	Jobs  []string `json:"jobs"`
+	Error *Error   `json:"error,omitempty"`
 }
 
 // JobsResults holds the result of a call to Jobs.

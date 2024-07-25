@@ -472,7 +472,7 @@ func (s *stateSuite) TestIsControllerSuccess(c *gc.C) {
 	err := s.state.CreateMachine(context.Background(), "666", "", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	isController, err := s.state.IsController(context.Background(), "666")
+	isController, err := s.state.IsMachineController(context.Background(), "666")
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(isController, gc.Equals, false)
 
@@ -485,7 +485,7 @@ WHERE name = $1;
 `
 	_, err = db.ExecContext(context.Background(), updateIsController, "666")
 	c.Assert(err, jc.ErrorIsNil)
-	isController, err = s.state.IsController(context.Background(), "666")
+	isController, err = s.state.IsMachineController(context.Background(), "666")
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(isController, gc.Equals, true)
 }
@@ -493,6 +493,6 @@ WHERE name = $1;
 // TestIsControllerNotFound asserts that a NotFound error is returned when the
 // machine is not found.
 func (s *stateSuite) TestIsControllerNotFound(c *gc.C) {
-	_, err := s.state.IsController(context.Background(), "666")
+	_, err := s.state.IsMachineController(context.Background(), "666")
 	c.Assert(err, jc.ErrorIs, machineerrors.NotFound)
 }

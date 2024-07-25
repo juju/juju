@@ -22775,7 +22775,7 @@
     {
         "Name": "Machiner",
         "Description": "MachinerAPI implements the API used by the machiner worker.",
-        "Version": 5,
+        "Version": 6,
         "AvailableTo": [
             "controller-machine-agent",
             "machine-agent",
@@ -22815,17 +22815,17 @@
                     },
                     "description": "EnsureDead calls EnsureDead on each given entity from state. It\nwill fail if the entity is not present. If it's Alive, nothing will\nhappen (see state/EnsureDead() for units or machines)."
                 },
-                "Jobs": {
+                "IsController": {
                     "type": "object",
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/JobsResults"
+                            "$ref": "#/definitions/IsControllerResults"
                         }
                     },
-                    "description": "Jobs returns the jobs assigned to the given entities."
+                    "description": "IsController returns if the given machine is a controller machine."
                 },
                 "Life": {
                     "type": "object",
@@ -23120,31 +23120,28 @@
                         "port"
                     ]
                 },
-                "JobsResult": {
+                "IsControllerResult": {
                     "type": "object",
                     "properties": {
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "jobs": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "is-controller": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "jobs"
+                        "is-controller"
                     ]
                 },
-                "JobsResults": {
+                "IsControllerResults": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/JobsResult"
+                                "$ref": "#/definitions/IsControllerResult"
                             }
                         }
                     },

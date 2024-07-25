@@ -11,12 +11,10 @@ import (
 	"go.uber.org/mock/gomock"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	loggertesting "github.com/juju/juju/internal/logger/testing"
 	"github.com/juju/juju/internal/worker/stateconverter"
 	"github.com/juju/juju/internal/worker/stateconverter/mocks"
-	"github.com/juju/juju/rpc/params"
 )
 
 var _ = gc.Suite(&converterSuite{})
@@ -63,8 +61,7 @@ func (s *converterSuite) TestHandle(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil)
 	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil)
-	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits, model.JobManageModel}}
-	s.machine.EXPECT().Jobs(gomock.Any()).Return(&jobs, nil)
+	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(true, nil)
 
 	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
@@ -79,8 +76,7 @@ func (s *converterSuite) TestHandleNotController(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil)
 	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil)
-	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits}}
-	s.machine.EXPECT().Jobs(gomock.Any()).Return(&jobs, nil)
+	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(false, nil)
 
 	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
@@ -93,10 +89,9 @@ func (s *converterSuite) TestHandleJobsError(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.machiner.EXPECT().Machine(gomock.Any(), gomock.Any()).Return(s.machine, nil).AnyTimes()
 	s.machine.EXPECT().Watch(gomock.Any()).Return(nil, nil).AnyTimes()
-	jobs := params.JobsResult{Jobs: []model.MachineJob{model.JobHostUnits, model.JobManageModel}}
-	s.machine.EXPECT().Jobs(gomock.Any()).Return(&jobs, nil)
+	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(true, nil)
 	expectedError := errors.New("foo")
-	s.machine.EXPECT().Jobs(gomock.Any()).Return(nil, expectedError)
+	s.machine.EXPECT().IsController(gomock.Any(), gomock.Any()).Return(false, expectedError)
 
 	conv := s.newConverter(c)
 	_, err := conv.SetUp(context.Background())
