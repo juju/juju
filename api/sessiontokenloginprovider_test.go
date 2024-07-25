@@ -128,7 +128,7 @@ func (s *sessionTokenLoginProviderSuite) TestSessionTokenLogin(c *gc.C) {
 }
 
 func (s *sessionTokenLoginProviderSuite) TestInvalidSessionTokenLogin(c *gc.C) {
-	info := api.Info{}
+	info := s.APIInfo(c)
 
 	expectedErr := &params.Error{
 		Message: "unauthorized",
@@ -178,7 +178,7 @@ func (s *sessionTokenLoginProviderBasicSuite) TestSessionTokenAuthHeader(c *gc.C
 		{
 			desc: "Empty session token returns error",
 			lp:   api.NewSessionTokenLoginProvider("", &output, nil),
-			err:  "login provider token not available",
+			err:  "login provider needs to be logged in",
 		},
 	}
 	for i, tC := range testCases {

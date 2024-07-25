@@ -150,7 +150,7 @@ type LoginResultParams struct {
 // a login result has a tag set, particularly in cases where the
 // server doesn't return a user identity.
 func (l *LoginResultParams) EnsureTag(tagStr string) error {
-	if l.tag == nil {
+	if l.tag == nil && tagStr != "" {
 		tag, err := names.ParseTag(tagStr)
 		if err != nil {
 			return err
