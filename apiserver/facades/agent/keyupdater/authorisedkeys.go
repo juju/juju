@@ -71,8 +71,9 @@ func (api *KeyUpdaterAPI) WatchAuthorisedKeys(ctx context.Context, arg params.En
 		if err != nil {
 			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeTagInvalid,
-				"cannot parse tag %q",
+				"cannot parse tag %q: %s",
 				entity.Tag,
+				err.Error(),
 			)
 			continue
 		}
@@ -160,7 +161,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 	canRead, err := api.getCanRead()
 	if err != nil {
 		return params.StringsResults{}, fmt.Errorf(
-			"checking can read status for key updater authorised keys: %w",
+			"checking can read for authorised keys: %w",
 			err,
 		)
 	}
@@ -170,8 +171,9 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 		if err != nil {
 			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeTagInvalid,
-				"cannot parse tag %q",
+				"cannot parse tag %q: %s",
 				entity.Tag,
+				err.Error(),
 			)
 			continue
 		}
@@ -188,7 +190,7 @@ func (api *KeyUpdaterAPI) AuthorisedKeys(
 		if !canRead(tag) {
 			results[i].Error = apiservererrors.ParamsErrorf(
 				params.CodeUnauthorized,
-				"does not have permission to read authorised keys for %q",
+				"no permission to read authorised keys for %q",
 				tag,
 			)
 			continue

@@ -163,11 +163,11 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 			{Result: []string{"key1", "key2"}},
 			{Error: &params.Error{
 				Code:    params.CodeUnauthorized,
-				Message: "does not have permission to read authorised keys for \"machine-40\"",
+				Message: "no permission to read authorised keys for \"machine-40\"",
 			}},
 			{Error: &params.Error{
 				Code:    params.CodeUnauthorized,
-				Message: "does not have permission to read authorised keys for \"machine-42\"",
+				Message: "no permission to read authorised keys for \"machine-42\"",
 			}},
 		},
 	})

@@ -256,10 +256,7 @@ WHERE user_id = $userId.user_id
 `, userId, publicKeyData{})
 
 	if err != nil {
-		return nil, fmt.Errorf(
-			"preparing select statement for getting public keys data of user %q: %w",
-			id, domain.CoerceError(err),
-		)
+		return nil, errors.Trace(err)
 	}
 
 	publicKeys := []publicKeyData{}
