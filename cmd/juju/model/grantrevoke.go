@@ -4,6 +4,7 @@
 package model
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/cmd/v4"
@@ -232,7 +233,7 @@ type GrantModelAPI interface {
 // GrantControllerAPI defines the API functions used by the grant command.
 type GrantControllerAPI interface {
 	Close() error
-	GrantController(user, access string) error
+	GrantController(ctx context.Context, user, access string) error
 }
 
 // GrantOfferAPI defines the API functions used by the grant command.
@@ -252,17 +253,17 @@ func (c *grantCommand) Run(ctx *cmd.Context) error {
 		}
 		return c.runForOffers()
 	}
-	return c.runForController()
+	return c.runForController(ctx)
 }
 
-func (c *grantCommand) runForController() error {
+func (c *grantCommand) runForController(ctx context.Context) error {
 	client, err := c.getControllerAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.GrantController(c.User, c.Access), block.BlockChange)
+	return block.ProcessBlockedError(client.GrantController(ctx, c.User, c.Access), block.BlockChange)
 }
 
 func (c *grantCommand) runForModel() error {
@@ -351,7 +352,7 @@ type RevokeModelAPI interface {
 // RevokeControllerAPI defines the API functions used by the revoke command.
 type RevokeControllerAPI interface {
 	Close() error
-	RevokeController(user, access string) error
+	RevokeController(ctx context.Context, user, access string) error
 }
 
 // RevokeOfferAPI defines the API functions used by the revoke command.
@@ -371,17 +372,17 @@ func (c *revokeCommand) Run(ctx *cmd.Context) error {
 		}
 		return c.runForOffers()
 	}
-	return c.runForController()
+	return c.runForController(ctx)
 }
 
-func (c *revokeCommand) runForController() error {
+func (c *revokeCommand) runForController(ctx context.Context) error {
 	client, err := c.getControllerAPI()
 	if err != nil {
 		return err
 	}
 	defer client.Close()
 
-	return block.ProcessBlockedError(client.RevokeController(c.User, c.Access), block.BlockChange)
+	return block.ProcessBlockedError(client.RevokeController(ctx, c.User, c.Access), block.BlockChange)
 }
 
 func (c *revokeCommand) runForModel() error {

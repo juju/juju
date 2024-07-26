@@ -52,21 +52,21 @@ type Environ interface {
 // instance poller.
 type Machine interface {
 	Id() string
-	InstanceId() (instance.Id, error)
-	SetProviderNetworkConfig(network.InterfaceInfos) (network.ProviderAddresses, bool, error)
-	InstanceStatus() (params.StatusResult, error)
-	SetInstanceStatus(status.Status, string, map[string]interface{}) error
+	InstanceId(ctx stdcontext.Context) (instance.Id, error)
+	SetProviderNetworkConfig(stdcontext.Context, network.InterfaceInfos) (network.ProviderAddresses, bool, error)
+	InstanceStatus(ctx stdcontext.Context) (params.StatusResult, error)
+	SetInstanceStatus(stdcontext.Context, status.Status, string, map[string]interface{}) error
 	String() string
 	Refresh(ctx stdcontext.Context) error
-	Status() (params.StatusResult, error)
+	Status(ctx stdcontext.Context) (params.StatusResult, error)
 	Life() life.Value
-	IsManual() (bool, error)
+	IsManual(ctx stdcontext.Context) (bool, error)
 }
 
 // FacadeAPI specifies the api-server methods needed by the instance
 // poller.
 type FacadeAPI interface {
-	WatchModelMachines() (watcher.StringsWatcher, error)
+	WatchModelMachines(ctx stdcontext.Context) (watcher.StringsWatcher, error)
 	Machine(ctx stdcontext.Context, tag names.MachineTag) (Machine, error)
 }
 
@@ -181,7 +181,10 @@ func (u *updaterWorker) Wait() error {
 }
 
 func (u *updaterWorker) loop() error {
-	watch, err := u.config.Facade.WatchModelMachines()
+	ctx, cancel := u.scopedContext()
+	defer cancel()
+
+	watch, err := u.config.Facade.WatchModelMachines(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -207,17 +210,17 @@ func (u *updaterWorker) loop() error {
 
 			for i := range ids {
 				tag := names.NewMachineTag(ids[i])
-				if err := u.queueMachineForPolling(stdcontext.TODO(), tag); err != nil {
+				if err := u.queueMachineForPolling(ctx, tag); err != nil {
 					return err
 				}
 			}
 		case <-shortPollTimer.Chan():
-			if err := u.pollGroupMembers(shortPollGroup); err != nil {
+			if err := u.pollGroupMembers(ctx, shortPollGroup); err != nil {
 				return err
 			}
 			shortPollTimer.Reset(ShortPoll)
 		case <-longPollTimer.Chan():
-			if err := u.pollGroupMembers(longPollGroup); err != nil {
+			if err := u.pollGroupMembers(ctx, longPollGroup); err != nil {
 				return err
 			}
 			longPollTimer.Reset(LongPoll)
@@ -271,18 +274,18 @@ func (u *updaterWorker) queueMachineForPolling(ctx stdcontext.Context, tag names
 
 	// We don't poll manual machines, instead we're setting the status to 'running'
 	// as we don't have any better information from the provider, see lp:1678981
-	isManual, err := m.IsManual()
+	isManual, err := m.IsManual(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if isManual {
-		machineStatus, err := m.InstanceStatus()
+		machineStatus, err := m.InstanceStatus(ctx)
 		if err != nil {
 			return errors.Trace(err)
 		}
 		if status.Status(machineStatus.Status) != status.Running {
-			if err = m.SetInstanceStatus(status.Running, "Manually provisioned machine", nil); err != nil {
+			if err = m.SetInstanceStatus(ctx, status.Running, "Manually provisioned machine", nil); err != nil {
 				u.config.Logger.Errorf("cannot set instance status on %q: %v", m, err)
 				return err
 			}
@@ -325,7 +328,7 @@ func (u *updaterWorker) lookupPolledMachine(tag names.MachineTag) (*pollGroupEnt
 	return nil, invalidPollGroup
 }
 
-func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
+func (u *updaterWorker) pollGroupMembers(ctx stdcontext.Context, groupType pollGroupType) error {
 	// Build a list of instance IDs to pass as a query to the provider.
 	var instList []instance.Id
 	now := u.config.Clock.Now()
@@ -334,7 +337,7 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 			continue // we shouldn't poll this entry yet
 		}
 
-		if err := u.resolveInstanceID(entry); err != nil {
+		if err := u.resolveInstanceID(ctx, entry); err != nil {
 			if params.IsCodeNotProvisioned(err) {
 				// machine not provisioned yet; bump its poll
 				// interval and re-try later (or as soon as we
@@ -352,7 +355,6 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 		return nil
 	}
 
-	ctx := stdcontext.Background()
 	infoList, err := u.config.Environ.Instances(u.callContextFunc(ctx), instList)
 	if err != nil {
 		switch errors.Cause(err) {
@@ -401,7 +403,7 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 			nics = netList[idx]
 		}
 
-		if err := u.processOneInstance(instList[idx], info, nics, groupType); err != nil {
+		if err := u.processOneInstance(ctx, instList[idx], info, nics, groupType); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -410,7 +412,9 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 }
 
 func (u *updaterWorker) processOneInstance(
-	id instance.Id, info instances.Instance, nics network.InterfaceInfos, groupType pollGroupType,
+	ctx stdcontext.Context,
+	id instance.Id, info instances.Instance,
+	nics network.InterfaceInfos, groupType pollGroupType,
 ) error {
 	entry := u.instanceIDToGroupEntry[id]
 
@@ -427,12 +431,12 @@ func (u *updaterWorker) processOneInstance(
 		return nil
 	}
 
-	providerStatus, providerAddrCount, err := u.processProviderInfo(entry, info, nics)
+	providerStatus, providerAddrCount, err := u.processProviderInfo(ctx, entry, info, nics)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	machineStatus, err := entry.m.Status()
+	machineStatus, err := entry.m.Status(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -441,12 +445,12 @@ func (u *updaterWorker) processOneInstance(
 	return nil
 }
 
-func (u *updaterWorker) resolveInstanceID(entry *pollGroupEntry) error {
+func (u *updaterWorker) resolveInstanceID(ctx stdcontext.Context, entry *pollGroupEntry) error {
 	if entry.instanceID != "" {
 		return nil // already resolved
 	}
 
-	instID, err := entry.m.InstanceId()
+	instID, err := entry.m.InstanceId(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "retrieving instance ID for machine %q", entry.m.Id())
 	}
@@ -461,9 +465,11 @@ func (u *updaterWorker) resolveInstanceID(entry *pollGroupEntry) error {
 // the *instance* status and the number of provider addresses currently
 // known for the machine.
 func (u *updaterWorker) processProviderInfo(
-	entry *pollGroupEntry, info instances.Instance, providerInterfaces network.InterfaceInfos,
+	ctx stdcontext.Context,
+	entry *pollGroupEntry, info instances.Instance,
+	providerInterfaces network.InterfaceInfos,
 ) (status.Status, int, error) {
-	curStatus, err := entry.m.InstanceStatus()
+	curStatus, err := entry.m.InstanceStatus(ctx)
 	if err != nil {
 		// This should never occur since the machine is provisioned. If
 		// it does occur, report an unknown status to move the machine to
@@ -485,7 +491,7 @@ func (u *updaterWorker) processProviderInfo(
 		u.config.Logger.Infof("machine %q (instance ID %q) instance status changed from %q to %q",
 			entry.m.Id(), entry.instanceID, curInstStatus, providerStatus)
 
-		if err = entry.m.SetInstanceStatus(providerStatus.Status, providerStatus.Message, nil); err != nil {
+		if err = entry.m.SetInstanceStatus(ctx, providerStatus.Status, providerStatus.Message, nil); err != nil {
 			u.config.Logger.Errorf("cannot set instance status on %q: %v", entry.m, err)
 			return status.Unknown, -1, errors.Trace(err)
 		}
@@ -506,7 +512,7 @@ func (u *updaterWorker) processProviderInfo(
 
 	// Check whether the provider addresses for this machine need to be
 	// updated.
-	addrCount, err := u.syncProviderAddresses(entry, providerInterfaces)
+	addrCount, err := u.syncProviderAddresses(ctx, entry, providerInterfaces)
 	if err != nil {
 		return status.Unknown, -1, err
 	}
@@ -519,9 +525,10 @@ func (u *updaterWorker) processProviderInfo(
 //
 // The call returns the count of provider addresses for the machine.
 func (u *updaterWorker) syncProviderAddresses(
+	ctx stdcontext.Context,
 	entry *pollGroupEntry, providerIfaceList network.InterfaceInfos,
 ) (int, error) {
-	addrs, modified, err := entry.m.SetProviderNetworkConfig(providerIfaceList)
+	addrs, modified, err := entry.m.SetProviderNetworkConfig(ctx, providerIfaceList)
 	if err != nil {
 		return -1, errors.Trace(err)
 	} else if modified {
@@ -569,6 +576,10 @@ func (u *updaterWorker) maybeSwitchPollGroup(
 	if curGroup == shortPollGroup {
 		entry.bumpShortPollInterval(u.config.Clock)
 	}
+}
+
+func (u *updaterWorker) scopedContext() (stdcontext.Context, stdcontext.CancelFunc) {
+	return stdcontext.WithCancel(u.catacomb.Context(stdcontext.Background()))
 }
 
 func isPartialOrNoInstancesError(err error) bool {

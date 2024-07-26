@@ -57,7 +57,7 @@ func (c *Client) BestFacadeVersion() int {
 
 // Prechecks checks that the target controller is able to accept the
 // model being migrated.
-func (c *Client) Prechecks(model coremigration.ModelInfo) error {
+func (c *Client) Prechecks(ctx context.Context, model coremigration.ModelInfo) error {
 	// The model description is marshalled into YAML (description package does
 	// not support JSON) to prevent potential issues with
 	// marshalling/unmarshalling on the target API controller.
@@ -85,27 +85,27 @@ func (c *Client) Prechecks(model coremigration.ModelInfo) error {
 		FacadeVersions:         versions,
 		ModelDescription:       serialised,
 	}
-	return errors.Trace(c.caller.FacadeCall(context.TODO(), "Prechecks", args, nil))
+	return errors.Trace(c.caller.FacadeCall(ctx, "Prechecks", args, nil))
 }
 
 // Import takes a serialized model and imports it into the target
 // controller.
-func (c *Client) Import(bytes []byte) error {
+func (c *Client) Import(ctx context.Context, bytes []byte) error {
 	serialized := params.SerializedModel{Bytes: bytes}
-	return errors.Trace(c.caller.FacadeCall(context.TODO(), "Import", serialized, nil))
+	return errors.Trace(c.caller.FacadeCall(ctx, "Import", serialized, nil))
 }
 
 // Abort removes all data relating to a previously imported model.
-func (c *Client) Abort(modelUUID string) error {
+func (c *Client) Abort(ctx context.Context, modelUUID string) error {
 	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
-	return errors.Trace(c.caller.FacadeCall(context.TODO(), "Abort", args, nil))
+	return errors.Trace(c.caller.FacadeCall(ctx, "Abort", args, nil))
 }
 
 // Activate marks a migrated model as being ready to use.
-func (c *Client) Activate(modelUUID string, sourceInfo coremigration.SourceControllerInfo, relatedModels []string) error {
+func (c *Client) Activate(ctx context.Context, modelUUID string, sourceInfo coremigration.SourceControllerInfo, relatedModels []string) error {
 	if c.caller.BestAPIVersion() < 2 {
 		args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
-		return errors.Trace(c.caller.FacadeCall(context.TODO(), "Activate", args, nil))
+		return errors.Trace(c.caller.FacadeCall(ctx, "Activate", args, nil))
 	}
 	args := params.ActivateModelArgs{
 		ModelTag: names.NewModelTag(modelUUID).String(),
@@ -117,7 +117,7 @@ func (c *Client) Activate(modelUUID string, sourceInfo coremigration.SourceContr
 		args.SourceCACert = sourceInfo.CACert
 		args.CrossModelUUIDs = relatedModels
 	}
-	return errors.Trace(c.caller.FacadeCall(context.TODO(), "Activate", args, nil))
+	return errors.Trace(c.caller.FacadeCall(ctx, "Activate", args, nil))
 }
 
 // UploadCharm sends the content to the API server using an HTTP post in order
@@ -251,10 +251,10 @@ func (c *Client) OpenLogTransferStream(ctx context.Context, modelUUID string) (b
 // LatestLogTime asks the target controller for the time of the latest
 // log record it has seen. This can be used to make the log transfer
 // restartable.
-func (c *Client) LatestLogTime(modelUUID string) (time.Time, error) {
+func (c *Client) LatestLogTime(ctx context.Context, modelUUID string) (time.Time, error) {
 	var result time.Time
 	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
-	err := c.caller.FacadeCall(context.TODO(), "LatestLogTime", args, &result)
+	err := c.caller.FacadeCall(ctx, "LatestLogTime", args, &result)
 	if err != nil {
 		return time.Time{}, errors.Trace(err)
 	}
@@ -265,19 +265,19 @@ func (c *Client) LatestLogTime(modelUUID string) (time.Time, error) {
 // tags for a model's resources. This prevents the resources from
 // being destroyed if the source controller is destroyed after the
 // model is migrated away.
-func (c *Client) AdoptResources(modelUUID string) error {
+func (c *Client) AdoptResources(ctx context.Context, modelUUID string) error {
 	args := params.AdoptResourcesArgs{
 		ModelTag:                names.NewModelTag(modelUUID).String(),
 		SourceControllerVersion: jujuversion.Current,
 	}
-	return errors.Trace(c.caller.FacadeCall(context.TODO(), "AdoptResources", args, nil))
+	return errors.Trace(c.caller.FacadeCall(ctx, "AdoptResources", args, nil))
 }
 
 // CACert returns the CA certificate associated with
 // the connection.
-func (c *Client) CACert() (string, error) {
+func (c *Client) CACert(ctx context.Context) (string, error) {
 	var result params.BytesResult
-	err := c.caller.FacadeCall(context.TODO(), "CACert", nil, &result)
+	err := c.caller.FacadeCall(ctx, "CACert", nil, &result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -286,10 +286,10 @@ func (c *Client) CACert() (string, error) {
 
 // CheckMachines compares the machines in state with the ones reported
 // by the provider and reports any discrepancies.
-func (c *Client) CheckMachines(modelUUID string) ([]error, error) {
+func (c *Client) CheckMachines(ctx context.Context, modelUUID string) ([]error, error) {
 	var result params.ErrorResults
 	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
-	err := c.caller.FacadeCall(context.TODO(), "CheckMachines", args, &result)
+	err := c.caller.FacadeCall(ctx, "CheckMachines", args, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -41,7 +41,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		NewFacade: func(base.APICaller, names.Tag, names.Tag) (singular.Facade, error) {
 			return nil, errors.NotImplementedf("NewFacade")
 		},
-		NewWorker: func(config singular.FlagConfig) (worker.Worker, error) {
+		NewWorker: func(ctx context.Context, config singular.FlagConfig) (worker.Worker, error) {
 			return nil, errors.NotImplementedf("NewWorker")
 		},
 	}
@@ -97,7 +97,7 @@ func (s *ManifoldSuite) TestOutputBadWorker(c *gc.C) {
 
 func (s *ManifoldSuite) TestOutputBadResult(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{})
-	fix := newFixture(c)
+	fix := newFixture()
 	fix.Run(c, func(flag *singular.FlagWorker, _ *testclock.Clock, _ func()) {
 		var out interface{}
 		err := manifold.Output(flag, &out)
@@ -108,7 +108,7 @@ func (s *ManifoldSuite) TestOutputBadResult(c *gc.C) {
 
 func (s *ManifoldSuite) TestOutputSuccess(c *gc.C) {
 	manifold := singular.Manifold(singular.ManifoldConfig{})
-	fix := newFixture(c)
+	fix := newFixture()
 	fix.Run(c, func(flag *singular.FlagWorker, _ *testclock.Clock, _ func()) {
 		var out engine.Flag
 		err := manifold.Output(flag, &out)
@@ -164,7 +164,7 @@ func (s *ManifoldSuite) TestStartNewWorkerError(c *gc.C) {
 	s.config.NewFacade = func(base.APICaller, names.Tag, names.Tag) (singular.Facade, error) {
 		return expectFacade, nil
 	}
-	s.config.NewWorker = func(config singular.FlagConfig) (worker.Worker, error) {
+	s.config.NewWorker = func(ctx context.Context, config singular.FlagConfig) (worker.Worker, error) {
 		c.Check(config.Facade, gc.Equals, expectFacade)
 		err := config.Validate()
 		c.Check(err, jc.ErrorIsNil)
@@ -186,7 +186,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	s.config.NewFacade = func(base.APICaller, names.Tag, names.Tag) (singular.Facade, error) {
 		return &fakeFacade{}, nil
 	}
-	s.config.NewWorker = func(_ singular.FlagConfig) (worker.Worker, error) {
+	s.config.NewWorker = func(_ context.Context, _ singular.FlagConfig) (worker.Worker, error) {
 		return expectWorker, nil
 	}
 	manifold := singular.Manifold(s.config)
@@ -213,7 +213,7 @@ func (s *ManifoldSuite) TestWorkerBouncesOnRefresh(c *gc.C) {
 	s.config.NewFacade = func(base.APICaller, names.Tag, names.Tag) (singular.Facade, error) {
 		return &fakeFacade{}, nil
 	}
-	s.config.NewWorker = func(_ singular.FlagConfig) (worker.Worker, error) {
+	s.config.NewWorker = func(_ context.Context, _ singular.FlagConfig) (worker.Worker, error) {
 		return errWorker, nil
 	}
 

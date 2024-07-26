@@ -95,7 +95,7 @@ func (s *ApplicationWorkerSuite) TestLifeNotFound(c *gc.C) {
 
 	gomock.InOrder(
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(brokerApp),
-		facade.EXPECT().Life("test").DoAndReturn(func(appName string) (life.Value, error) {
+		facade.EXPECT().Life(gomock.Any(), "test").DoAndReturn(func(ctx context.Context, appName string) (life.Value, error) {
 			close(done)
 			return "", errors.NotFoundf("test charm")
 		}),
@@ -121,10 +121,10 @@ func (s *ApplicationWorkerSuite) TestLifeDead(c *gc.C) {
 
 	gomock.InOrder(
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
-		facade.EXPECT().Life("test").Return(life.Dead, nil),
-		ops.EXPECT().AppDying("test", app, life.Dead, facade, unitFacade, s.logger).Return(nil),
-		ops.EXPECT().AppDead("test", app, broker, facade, unitFacade, clk, s.logger).
-			DoAndReturn(func(_ string, _ caas.Application, _ caasapplicationprovisioner.CAASBroker,
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Dead, nil),
+		ops.EXPECT().AppDying(gomock.Any(), "test", app, life.Dead, facade, unitFacade, s.logger).Return(nil),
+		ops.EXPECT().AppDead(gomock.Any(), "test", app, broker, facade, unitFacade, clk, s.logger).
+			DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ caasapplicationprovisioner.CAASBroker,
 				_ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade,
 				_ clock.Clock, _ logger.Logger) error {
 				close(done)
@@ -157,24 +157,24 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 	appChan := make(chan struct{}, 1)
 	appReplicasChan := make(chan struct{}, 1)
 
-	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
+	ops.EXPECT().RefreshApplicationStatus(gomock.Any(), "test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 
 		ops.EXPECT().CheckCharmFormat(gomock.Any(), "test", gomock.Any(), gomock.Any()).Return(true, nil),
 
-		facade.EXPECT().SetPassword("test", gomock.Any()).Return(nil),
+		facade.EXPECT().SetPassword(gomock.Any(), "test", gomock.Any()).Return(nil),
 
-		unitFacade.EXPECT().WatchApplicationScale("test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
-		unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
-		facade.EXPECT().WatchUnits("test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+		unitFacade.EXPECT().WatchApplicationScale(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
+		unitFacade.EXPECT().WatchApplicationTrustHash(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
+		facade.EXPECT().WatchUnits(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
 
 		// handleChange
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
-		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
-		facade.EXPECT().WatchProvisioningInfo("test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(nil, nil),
+		facade.EXPECT().WatchProvisioningInfo(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		ops.EXPECT().AppAlive(gomock.Any(), "test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).Return(nil),
 		app.EXPECT().Watch(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
@@ -183,53 +183,53 @@ func (s *ApplicationWorkerSuite) TestWorker(c *gc.C) {
 		}),
 
 		// scaleChan fired
-		ops.EXPECT().EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.NotFound),
-		ops.EXPECT().EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.ConstError("try again")),
-		ops.EXPECT().EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, v life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
+		ops.EXPECT().EnsureScale(gomock.Any(), "test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.NotFound),
+		ops.EXPECT().EnsureScale(gomock.Any(), "test", app, life.Alive, facade, unitFacade, s.logger).Return(errors.ConstError("try again")),
+		ops.EXPECT().EnsureScale(gomock.Any(), "test", app, life.Alive, facade, unitFacade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, v life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
 			trustChan <- nil
 			return nil
 		}),
 
 		// trustChan fired
-		ops.EXPECT().EnsureTrust("test", app, unitFacade, s.logger).Return(errors.NotFound),
-		ops.EXPECT().EnsureTrust("test", app, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
+		ops.EXPECT().EnsureTrust(gomock.Any(), "test", app, unitFacade, s.logger).Return(errors.NotFound),
+		ops.EXPECT().EnsureTrust(gomock.Any(), "test", app, unitFacade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
 			appUnitsChan <- nil
 			return nil
 		}),
 
 		// appUnitsChan fired
-		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).Return(errors.NotFound),
-		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).Return(errors.ConstError("try again")),
-		ops.EXPECT().ReconcileDeadUnitScale("test", app, facade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ caasapplicationprovisioner.CAASProvisionerFacade, _ logger.Logger) error {
+		ops.EXPECT().ReconcileDeadUnitScale(gomock.Any(), "test", app, facade, s.logger).Return(errors.NotFound),
+		ops.EXPECT().ReconcileDeadUnitScale(gomock.Any(), "test", app, facade, s.logger).Return(errors.ConstError("try again")),
+		ops.EXPECT().ReconcileDeadUnitScale(gomock.Any(), "test", app, facade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ caasapplicationprovisioner.CAASProvisionerFacade, _ logger.Logger) error {
 			appChan <- struct{}{}
 			return nil
 		}),
 
 		// appChan fired
-		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
+		ops.EXPECT().UpdateState(gomock.Any(), "test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
 			appReplicasChan <- struct{}{}
 			return nil, nil
 		}),
 		// appReplicasChan fired
-		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
+		ops.EXPECT().UpdateState(gomock.Any(), "test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
 			provisioningInfoChan <- struct{}{}
 			return nil, nil
 		}),
 
 		// provisioningInfoChan fired
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 		ops.EXPECT().AppAlive(gomock.Any(), "test", app, gomock.Any(), gomock.Any(), facade, clk, s.logger).DoAndReturn(func(_ context.Context, s1 string, _ caas.Application, s2 string, ac *caas.ApplicationConfig, _ caasapplicationprovisioner.CAASProvisionerFacade, c clock.Clock, _ logger.Logger) error {
 			provisioningInfoChan <- struct{}{}
 			return nil
 		}),
-		facade.EXPECT().Life("test").Return(life.Dying, nil),
-		ops.EXPECT().AppDying("test", app, life.Dying, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, v life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Dying, nil),
+		ops.EXPECT().AppDying(gomock.Any(), "test", app, life.Dying, facade, unitFacade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, v life.Value, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) error {
 			provisioningInfoChan <- struct{}{}
 			return nil
 		}),
-		facade.EXPECT().Life("test").Return(life.Dead, nil),
-		ops.EXPECT().AppDying("test", app, life.Dead, facade, unitFacade, s.logger).Return(nil),
-		ops.EXPECT().AppDead("test", app, broker, facade, unitFacade, clk, s.logger).DoAndReturn(func(_ string, _ caas.Application, c1 caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, c2 clock.Clock, _ logger.Logger) error {
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Dead, nil),
+		ops.EXPECT().AppDying(gomock.Any(), "test", app, life.Dead, facade, unitFacade, s.logger).Return(nil),
+		ops.EXPECT().AppDead(gomock.Any(), "test", app, broker, facade, unitFacade, clk, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, c1 caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, c2 clock.Clock, _ logger.Logger) error {
 			close(done)
 			return nil
 		}),
@@ -260,23 +260,23 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 	appChan := make(chan struct{}, 1)
 	appReplicasChan := make(chan struct{}, 1)
 
-	ops.EXPECT().RefreshApplicationStatus("test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
+	ops.EXPECT().RefreshApplicationStatus(gomock.Any(), "test", app, gomock.Any(), facade, s.logger).Return(nil).AnyTimes()
 
 	gomock.InOrder(
 		broker.EXPECT().Application("test", caas.DeploymentStateful).Return(app),
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 
 		ops.EXPECT().CheckCharmFormat(gomock.Any(), "test", gomock.Any(), gomock.Any()).Return(true, nil),
 
-		unitFacade.EXPECT().WatchApplicationScale("test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
-		unitFacade.EXPECT().WatchApplicationTrustHash("test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
-		facade.EXPECT().WatchUnits("test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
+		unitFacade.EXPECT().WatchApplicationScale(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(scaleChan), nil),
+		unitFacade.EXPECT().WatchApplicationTrustHash(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(trustChan), nil),
+		facade.EXPECT().WatchUnits(gomock.Any(), "test").Return(watchertest.NewMockStringsWatcher(appUnitsChan), nil),
 
 		// handleChange
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
-		facade.EXPECT().ProvisioningState("test").Return(&params.CAASApplicationProvisioningState{Scaling: true, ScaleTarget: 1}, nil),
-		facade.EXPECT().SetProvisioningState("test", params.CAASApplicationProvisioningState{}).Return(nil),
-		facade.EXPECT().WatchProvisioningInfo("test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(&params.CAASApplicationProvisioningState{Scaling: true, ScaleTarget: 1}, nil),
+		facade.EXPECT().SetProvisioningState(gomock.Any(), "test", params.CAASApplicationProvisioningState{}).Return(nil),
+		facade.EXPECT().WatchProvisioningInfo(gomock.Any(), "test").Return(watchertest.NewMockNotifyWatcher(provisioningInfoChan), nil),
 		app.EXPECT().Watch(gomock.Any()).Return(watchertest.NewMockNotifyWatcher(appChan), nil),
 		app.EXPECT().WatchReplicas().DoAndReturn(func() (watcher.NotifyWatcher, error) {
 			appChan <- struct{}{}
@@ -284,26 +284,26 @@ func (s *ApplicationWorkerSuite) TestWorkerStatusOnly(c *gc.C) {
 		}),
 
 		// appChan fired
-		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
+		ops.EXPECT().UpdateState(gomock.Any(), "test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
 			appReplicasChan <- struct{}{}
 			return nil, nil
 		}),
 		// appReplicasChan fired
-		ops.EXPECT().UpdateState("test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
+		ops.EXPECT().UpdateState(gomock.Any(), "test", app, gomock.Any(), broker, facade, unitFacade, s.logger).DoAndReturn(func(_ context.Context, _ string, _ caas.Application, _ map[string]status.StatusInfo, _ caasapplicationprovisioner.CAASBroker, _ caasapplicationprovisioner.CAASProvisionerFacade, _ caasapplicationprovisioner.CAASUnitProvisionerFacade, _ logger.Logger) (map[string]status.StatusInfo, error) {
 			provisioningInfoChan <- struct{}{}
 			return nil, nil
 		}),
 
 		// provisioningInfoChan fired
-		facade.EXPECT().Life("test").DoAndReturn(func(_ string) (life.Value, error) {
+		facade.EXPECT().Life(gomock.Any(), "test").DoAndReturn(func(_ context.Context, _ string) (life.Value, error) {
 			provisioningInfoChan <- struct{}{}
 			return life.Alive, nil
 		}),
-		facade.EXPECT().Life("test").DoAndReturn(func(_ string) (life.Value, error) {
+		facade.EXPECT().Life(gomock.Any(), "test").DoAndReturn(func(_ context.Context, _ string) (life.Value, error) {
 			provisioningInfoChan <- struct{}{}
 			return life.Dying, nil
 		}),
-		facade.EXPECT().Life("test").DoAndReturn(func(_ string) (life.Value, error) {
+		facade.EXPECT().Life(gomock.Any(), "test").DoAndReturn(func(_ context.Context, _ string) (life.Value, error) {
 			provisioningInfoChan <- struct{}{}
 			close(done)
 			return life.Dead, nil

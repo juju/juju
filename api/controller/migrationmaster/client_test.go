@@ -57,7 +57,7 @@ func (s *ClientSuite) TestWatch(c *gc.C) {
 		return expectWatch
 	}
 	client := migrationmaster.NewClient(apiCaller, newWatcher)
-	w, err := client.Watch()
+	w, err := client.Watch(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(w, gc.Equals, expectWatch)
 	stub.CheckCalls(c, []jujutesting.StubCall{{FuncName: "MigrationMaster.Watch", Args: []interface{}{"", nil}}})
@@ -68,7 +68,7 @@ func (s *ClientSuite) TestWatchCallError(c *gc.C) {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.Watch()
+	_, err := client.Watch(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -104,7 +104,7 @@ func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	status, err := client.MigrationStatus()
+	status, err := client.MigrationStatus(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	// Extract macaroons so we can compare them separately
 	// (as they can't be compared using DeepEquals due to 'UnmarshaledAs')
@@ -133,7 +133,7 @@ func (s *ClientSuite) TestSetPhase(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.SetPhase(migration.QUIESCE)
+	err := client.SetPhase(context.Background(), migration.QUIESCE)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedArg := params.SetMigrationPhaseArgs{Phase: "QUIESCE"}
 	stub.CheckCalls(c, []jujutesting.StubCall{
@@ -146,7 +146,7 @@ func (s *ClientSuite) TestSetPhaseError(c *gc.C) {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.SetPhase(migration.QUIESCE)
+	err := client.SetPhase(context.Background(), migration.QUIESCE)
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -157,7 +157,7 @@ func (s *ClientSuite) TestSetStatusMessage(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.SetStatusMessage("foo")
+	err := client.SetStatusMessage(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 	expectedArg := params.SetMigrationStatusMessageArgs{Message: "foo"}
 	stub.CheckCalls(c, []jujutesting.StubCall{
@@ -170,7 +170,7 @@ func (s *ClientSuite) TestSetStatusMessageError(c *gc.C) {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.SetStatusMessage("foo")
+	err := client.SetStatusMessage(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -189,7 +189,7 @@ func (s *ClientSuite) TestModelInfoWithoutModelDescription(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	model, err := client.ModelInfo()
+	model, err := client.ModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	stub.CheckCalls(c, []jujutesting.StubCall{
@@ -227,7 +227,7 @@ func (s *ClientSuite) TestModelInfoWithModelDescription(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	model, err := client.ModelInfo()
+	model, err := client.ModelInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	stub.CheckCalls(c, []jujutesting.StubCall{
@@ -257,7 +257,7 @@ func (s *ClientSuite) TestSourceControllerInfo(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	info, relatedModels, err := client.SourceControllerInfo()
+	info, relatedModels, err := client.SourceControllerInfo(context.Background())
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.SourceControllerInfo", Args: []interface{}{"", nil}},
 	})
@@ -278,7 +278,7 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.Prechecks()
+	err := client.Prechecks(context.Background())
 	c.Check(err, gc.ErrorMatches, "blam")
 	expectedArg := params.PrechecksArgs{}
 	stub.CheckCalls(c, []jujutesting.StubCall{
@@ -294,7 +294,7 @@ func (s *ClientSuite) TestProcessRelations(c *gc.C) {
 	})
 
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.ProcessRelations("foo")
+	err := client.ProcessRelations(context.Background(), "foo")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -303,7 +303,7 @@ func (s *ClientSuite) TestProcessRelationsError(c *gc.C) {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.ProcessRelations("foo")
+	err := client.ProcessRelations(context.Background(), "foo")
 	c.Assert(err, gc.ErrorMatches, "blam")
 }
 
@@ -370,7 +370,7 @@ func (s *ClientSuite) TestExport(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	out, err := client.Export()
+	out, err := client.Export(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.Export", Args: []interface{}{"", nil}},
@@ -442,7 +442,7 @@ func (s *ClientSuite) TestExportError(c *gc.C) {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.Export()
+	_, err := client.Export(context.Background())
 	c.Assert(err, gc.ErrorMatches, "blam")
 }
 
@@ -479,7 +479,7 @@ func (s *ClientSuite) TestReap(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.Reap()
+	err := client.Reap(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.Reap", Args: []interface{}{"", nil}},
@@ -491,7 +491,7 @@ func (s *ClientSuite) TestReapError(c *gc.C) {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	err := client.Reap()
+	err := client.Reap(context.Background())
 	c.Assert(err, gc.ErrorMatches, "blam")
 }
 
@@ -512,7 +512,7 @@ func (s *ClientSuite) TestWatchMinionReports(c *gc.C) {
 		return expectWatch
 	}
 	client := migrationmaster.NewClient(apiCaller, newWatcher)
-	w, err := client.WatchMinionReports()
+	w, err := client.WatchMinionReports(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(w, gc.Equals, expectWatch)
 	stub.CheckCalls(c, []jujutesting.StubCall{{FuncName: "MigrationMaster.WatchMinionReports", Args: []interface{}{"", nil}}})
@@ -523,7 +523,7 @@ func (s *ClientSuite) TestWatchMinionReportsError(c *gc.C) {
 		return errors.New("boom")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.WatchMinionReports()
+	_, err := client.WatchMinionReports(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 
@@ -553,7 +553,7 @@ func (s *ClientSuite) TestMinionReports(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	out, err := client.MinionReports()
+	out, err := client.MinionReports(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	stub.CheckCalls(c, []jujutesting.StubCall{
 		{FuncName: "MigrationMaster.MinionReports", Args: []interface{}{"", nil}},
@@ -577,7 +577,7 @@ func (s *ClientSuite) TestMinionReportsFailedCall(c *gc.C) {
 		return errors.New("blam")
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.MinionReports()
+	_, err := client.MinionReports(context.Background())
 	c.Assert(err, gc.ErrorMatches, "blam")
 }
 
@@ -590,7 +590,7 @@ func (s *ClientSuite) TestMinionReportsInvalidPhase(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.MinionReports()
+	_, err := client.MinionReports(context.Background())
 	c.Assert(err, gc.ErrorMatches, `invalid phase: "BLARGH"`)
 }
 
@@ -604,7 +604,7 @@ func (s *ClientSuite) TestMinionReportsBadUnknownTag(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.MinionReports()
+	_, err := client.MinionReports(context.Background())
 	c.Assert(err, gc.ErrorMatches, `processing unknown agents: "carl" is not a valid tag`)
 }
 
@@ -618,7 +618,7 @@ func (s *ClientSuite) TestMinionReportsBadFailedTag(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	_, err := client.MinionReports()
+	_, err := client.MinionReports(context.Background())
 	c.Assert(err, gc.ErrorMatches, `processing failed agents: "dave" is not a valid tag`)
 }
 
@@ -634,7 +634,7 @@ func (s *ClientSuite) TestMinionReportTimeout(c *gc.C) {
 		return nil
 	})
 	client := migrationmaster.NewClient(apiCaller, nil)
-	timeout, err := client.MinionReportTimeout()
+	timeout, err := client.MinionReportTimeout(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(timeout, gc.Equals, 30*time.Second)
 }

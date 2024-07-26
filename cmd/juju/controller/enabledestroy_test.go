@@ -4,6 +4,8 @@
 package controller_test
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/cmd/v4/cmdtesting"
 	jc "github.com/juju/testing/checkers"
@@ -62,7 +64,7 @@ func (f *fakeRemoveBlocksAPI) Close() error {
 	return nil
 }
 
-func (f *fakeRemoveBlocksAPI) RemoveBlocks() error {
+func (f *fakeRemoveBlocksAPI) RemoveBlocks(ctx context.Context) error {
 	f.called = true
 	return f.err
 }

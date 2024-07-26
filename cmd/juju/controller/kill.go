@@ -147,7 +147,7 @@ func (c *killCommand) Run(ctx *cmd.Context) error {
 
 	// Attempt to destroy the controller and all models and storage.
 	destroyStorage := true
-	err = api.DestroyController(controller.DestroyControllerParams{
+	err = api.DestroyController(ctx, controller.DestroyControllerParams{
 		DestroyModels:  true,
 		DestroyStorage: &destroyStorage,
 	})
@@ -205,7 +205,7 @@ func (c *killCommand) DirectDestroyRemaining(
 	controllerCloudSpec cloudspec.CloudSpec) {
 
 	hasErrors := false
-	hostedConfig, err := api.HostedModelConfigs()
+	hostedConfig, err := api.HostedModelConfigs(ctx)
 	if err != nil {
 		hasErrors = true
 		logger.Warningf("unable to retrieve hosted model config: %v", err)

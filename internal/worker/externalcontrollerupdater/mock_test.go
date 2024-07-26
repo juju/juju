@@ -4,6 +4,8 @@
 package externalcontrollerupdater_test
 
 import (
+	"context"
+
 	"github.com/juju/testing"
 	tomb "gopkg.in/tomb.v2"
 
@@ -18,12 +20,12 @@ type mockExternalControllerUpdaterClient struct {
 	info    crossmodel.ControllerInfo
 }
 
-func (m *mockExternalControllerUpdaterClient) WatchExternalControllers() (watcher.StringsWatcher, error) {
+func (m *mockExternalControllerUpdaterClient) WatchExternalControllers(ctx context.Context) (watcher.StringsWatcher, error) {
 	m.MethodCall(m, "WatchExternalControllers")
 	return m.watcher, m.NextErr()
 }
 
-func (m *mockExternalControllerUpdaterClient) ExternalControllerInfo(controllerUUID string) (*crossmodel.ControllerInfo, error) {
+func (m *mockExternalControllerUpdaterClient) ExternalControllerInfo(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error) {
 	m.MethodCall(m, "ExternalControllerInfo", controllerUUID)
 	copied := m.info
 	copied.Addrs = make([]string, len(m.info.Addrs))
@@ -31,7 +33,7 @@ func (m *mockExternalControllerUpdaterClient) ExternalControllerInfo(controllerU
 	return &copied, m.NextErr()
 }
 
-func (m *mockExternalControllerUpdaterClient) SetExternalControllerInfo(info crossmodel.ControllerInfo) error {
+func (m *mockExternalControllerUpdaterClient) SetExternalControllerInfo(ctx context.Context, info crossmodel.ControllerInfo) error {
 	m.MethodCall(m, "SetExternalControllerInfo", info)
 	return m.NextErr()
 }
@@ -47,12 +49,12 @@ func (m *mockExternalControllerWatcherClient) Close() error {
 	return m.NextErr()
 }
 
-func (m *mockExternalControllerWatcherClient) WatchControllerInfo() (watcher.NotifyWatcher, error) {
+func (m *mockExternalControllerWatcherClient) WatchControllerInfo(ctx context.Context) (watcher.NotifyWatcher, error) {
 	m.MethodCall(m, "WatchControllerInfo")
 	return m.watcher, m.NextErr()
 }
 
-func (m *mockExternalControllerWatcherClient) ControllerInfo() (*crosscontroller.ControllerInfo, error) {
+func (m *mockExternalControllerWatcherClient) ControllerInfo(ctx context.Context) (*crosscontroller.ControllerInfo, error) {
 	m.MethodCall(m, "ControllerInfo")
 	copied := m.info
 	copied.Addrs = make([]string, len(m.info.Addrs))

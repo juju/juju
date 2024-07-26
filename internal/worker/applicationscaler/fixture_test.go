@@ -4,6 +4,7 @@
 package applicationscaler_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/testing"
@@ -22,7 +23,7 @@ type fixture struct {
 	testing.Stub
 }
 
-func newFixture(c *gc.C, callErrors ...error) *fixture {
+func newFixture(callErrors ...error) *fixture {
 	fix := &fixture{}
 	fix.SetErrors(callErrors...)
 	return fix
@@ -67,7 +68,7 @@ func newFacade(stub *testing.Stub) *stubFacade {
 }
 
 // Watch is part of the applicationscaler.Facade interface.
-func (facade *stubFacade) Watch() (watcher.StringsWatcher, error) {
+func (facade *stubFacade) Watch(context.Context) (watcher.StringsWatcher, error) {
 	facade.stub.AddCall("Watch")
 	err := facade.stub.NextErr()
 	if err != nil {
@@ -77,8 +78,8 @@ func (facade *stubFacade) Watch() (watcher.StringsWatcher, error) {
 }
 
 // Rescale is part of the applicationscaler.Facade interface.
-func (facade *stubFacade) Rescale(serviceNames []string) error {
-	facade.stub.AddCall("Rescale", serviceNames)
+func (facade *stubFacade) Rescale(ctx context.Context, applicationNames []string) error {
+	facade.stub.AddCall("Rescale", applicationNames)
 	return facade.stub.NextErr()
 }
 

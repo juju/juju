@@ -26,13 +26,13 @@ type Client interface {
 // (including addition) of applications in the
 // model, and fetching their details.
 type CAASFirewallerAPI interface {
-	WatchApplications() (watcher.StringsWatcher, error)
+	WatchApplications(context.Context) (watcher.StringsWatcher, error)
 	WatchApplication(context.Context, string) (watcher.NotifyWatcher, error)
-	WatchOpenedPorts() (watcher.StringsWatcher, error)
-	GetOpenedPorts(appName string) (network.GroupedPortRanges, error)
+	WatchOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error)
+	GetOpenedPorts(ctx context.Context, appName string) (network.GroupedPortRanges, error)
 
-	IsExposed(string) (bool, error)
-	ApplicationConfig(string) (config.ConfigAttributes, error)
+	IsExposed(context.Context, string) (bool, error)
+	ApplicationConfig(context.Context, string) (config.ConfigAttributes, error)
 
 	ApplicationCharmInfo(ctx context.Context, appName string) (*charmscommon.CharmInfo, error)
 }
@@ -40,5 +40,5 @@ type CAASFirewallerAPI interface {
 // LifeGetter provides an interface for getting the
 // lifecycle state value for an application.
 type LifeGetter interface {
-	Life(string) (life.Value, error)
+	Life(context.Context, string) (life.Value, error)
 }

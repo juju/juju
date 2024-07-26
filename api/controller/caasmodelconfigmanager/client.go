@@ -42,9 +42,9 @@ func NewClient(caller base.APICaller, options ...Option) (*Client, error) {
 }
 
 // WatchControllerConfig provides a watcher for changes on controller config.
-func (c *Client) WatchControllerConfig() (watcher.StringsWatcher, error) {
+func (c *Client) WatchControllerConfig(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	if err := c.facade.FacadeCall(context.TODO(), "WatchControllerConfig", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchControllerConfig", nil, &result); err != nil {
 		return nil, err
 	}
 	if result.Error != nil {

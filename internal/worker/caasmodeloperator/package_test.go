@@ -9,4 +9,4 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-func TestHandlerSuite(t *testing.T) { gc.TestingT(t) }
+func TestPackage(t *testing.T) { gc.TestingT(t) }

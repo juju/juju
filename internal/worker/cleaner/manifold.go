@@ -46,7 +46,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 }
 
 // start is a StartFunc for a Worker manifold.
-func (config ManifoldConfig) start(context context.Context, getter dependency.Getter) (worker.Worker, error) {
+func (config ManifoldConfig) start(ctx context.Context, getter dependency.Getter) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -55,7 +55,7 @@ func (config ManifoldConfig) start(context context.Context, getter dependency.Ge
 		return nil, errors.Trace(err)
 	}
 	api := cleaner.NewAPI(apiCaller)
-	w, err := NewCleaner(api, config.Clock, config.Logger)
+	w, err := NewCleaner(ctx, api, config.Clock, config.Logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

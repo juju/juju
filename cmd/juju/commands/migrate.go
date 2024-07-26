@@ -4,6 +4,7 @@
 package commands
 
 import (
+	"context"
 	"strings"
 
 	"github.com/go-macaroon-bakery/macaroon-bakery/v3/httpbakery"
@@ -44,8 +45,8 @@ type migrateCommand struct {
 }
 
 type migrateAPI interface {
-	InitiateMigration(spec controller.MigrationSpec) (string, error)
-	IdentityProviderURL() (string, error)
+	InitiateMigration(ctx context.Context, spec controller.MigrationSpec) (string, error)
+	IdentityProviderURL(ctx context.Context) (string, error)
 	Close() error
 }
 
@@ -133,7 +134,7 @@ func (c *migrateCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	spec.ModelUUID = uuids[0]
-	if err := c.checkMigrationFeasibility(spec); err != nil {
+	if err := c.checkMigrationFeasibility(ctx, spec); err != nil {
 		return errors.Trace(err)
 	}
 	controllerName, err := c.ControllerName()
@@ -145,7 +146,7 @@ func (c *migrateCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer func() { _ = api.Close() }()
-	id, err := api.InitiateMigration(*spec)
+	id, err := api.InitiateMigration(ctx, *spec)
 	if err != nil {
 		return err
 	}
@@ -247,7 +248,7 @@ func (c *migrateCommand) getTargetControllerMacaroons() ([]macaroon.Slice, error
 	return httpbakery.MacaroonsForURL(jar, api.CookieURL()), nil
 }
 
-func (c *migrateCommand) checkMigrationFeasibility(spec *controller.MigrationSpec) error {
+func (c *migrateCommand) checkMigrationFeasibility(ctx context.Context, spec *controller.MigrationSpec) error {
 	var (
 		srcUsers, dstUsers set.Strings
 		srcControllerName  string
@@ -273,12 +274,12 @@ func (c *migrateCommand) checkMigrationFeasibility(spec *controller.MigrationSpe
 		if srcControllerName, err = c.ControllerName(); err != nil {
 			return err
 		}
-		srcIdentityURL, err := c.getIdentityProviderURL(srcControllerName)
+		srcIdentityURL, err := c.getIdentityProviderURL(ctx, srcControllerName)
 		if err != nil {
 			return errors.Annotate(err, "looking up source controller identity provider URL")
 		}
 
-		dstIdentityURL, err := c.getIdentityProviderURL(c.targetController)
+		dstIdentityURL, err := c.getIdentityProviderURL(ctx, c.targetController)
 		if err != nil {
 			return errors.Annotate(err, "looking up target controller identity provider URL")
 		}
@@ -325,14 +326,14 @@ users to the destination controller or remove them from the current model:
 	return nil
 }
 
-func (c *migrateCommand) getIdentityProviderURL(controllerName string) (string, error) {
+func (c *migrateCommand) getIdentityProviderURL(ctx context.Context, controllerName string) (string, error) {
 	api, err := c.getMigrationAPI(controllerName)
 	if err != nil {
 		return "", err
 	}
 	defer api.Close()
 
-	return api.IdentityProviderURL()
+	return api.IdentityProviderURL(ctx)
 }
 
 func (c *migrateCommand) getModelUsers(modelTag names.ModelTag) (set.Strings, error) {

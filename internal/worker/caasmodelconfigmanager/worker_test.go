@@ -155,7 +155,7 @@ func (s *workerSuite) TestWorkerTokenRefreshRequired(c *gc.C) {
 
 	controllerConfigChangedChan := make(chan []string, 1)
 	w := startWorker(
-		s.facade.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.StringsWatcher, error) {
+		s.facade.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 			controllerConfigChangedChan <- []string{controller.CAASImageRepo}
 			return watchertest.NewMockStringsWatcher(controllerConfigChangedChan), nil
 		}),
@@ -218,7 +218,7 @@ func (s *workerSuite) TestWorkerTokenRefreshNotRequiredThenRetry(c *gc.C) {
 
 	controllerConfigChangedChan := make(chan []string, 1)
 	w := startWorker(
-		s.facade.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.StringsWatcher, error) {
+		s.facade.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 			controllerConfigChangedChan <- []string{controller.CAASImageRepo}
 			return watchertest.NewMockStringsWatcher(controllerConfigChangedChan), nil
 		}),
@@ -285,7 +285,7 @@ func (s *workerSuite) TestWorkerNoOpsForPublicRepo(c *gc.C) {
 
 	controllerConfigChangedChan := make(chan []string, 1)
 	w := startWorker(
-		s.facade.EXPECT().WatchControllerConfig().DoAndReturn(func() (watcher.StringsWatcher, error) {
+		s.facade.EXPECT().WatchControllerConfig(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 			controllerConfigChangedChan <- []string{controller.CAASImageRepo}
 			return watchertest.NewMockStringsWatcher(controllerConfigChangedChan), nil
 		}),

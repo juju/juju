@@ -43,9 +43,9 @@ func NewAPI(caller base.APICaller, newWatcher NewWatcherFunc, options ...Option)
 
 // Watch returns a StringsWatcher that delivers the names of applications
 // that may need to be rescaled.
-func (api *API) Watch() (watcher.StringsWatcher, error) {
+func (api *API) Watch(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := api.caller.FacadeCall(context.TODO(), "Watch", nil, &result)
+	err := api.caller.FacadeCall(ctx, "Watch", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -59,7 +59,7 @@ func (api *API) Watch() (watcher.StringsWatcher, error) {
 // Rescale requests that all supplied application names be rescaled to
 // their minimum configured sizes. It returns the first error it
 // encounters.
-func (api *API) Rescale(applications []string) error {
+func (api *API) Rescale(ctx context.Context, applications []string) error {
 	args := params.Entities{
 		Entities: make([]params.Entity, len(applications)),
 	}
@@ -71,7 +71,7 @@ func (api *API) Rescale(applications []string) error {
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.ErrorResults
-	err := api.caller.FacadeCall(context.TODO(), "Rescale", args, &results)
+	err := api.caller.FacadeCall(ctx, "Rescale", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

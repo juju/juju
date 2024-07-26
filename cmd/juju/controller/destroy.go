@@ -145,12 +145,12 @@ var destroySysMsgDetails = `
 // that the destroy command calls.
 type destroyControllerAPI interface {
 	Close() error
-	HostedModelConfigs() ([]controllerapi.HostedConfig, error)
-	CloudSpec(names.ModelTag) (environscloudspec.CloudSpec, error)
-	DestroyController(controllerapi.DestroyControllerParams) error
-	ListBlockedModels() ([]params.ModelBlockInfo, error)
+	HostedModelConfigs(context.Context) ([]controllerapi.HostedConfig, error)
+	CloudSpec(context.Context, names.ModelTag) (environscloudspec.CloudSpec, error)
+	DestroyController(context.Context, controllerapi.DestroyControllerParams) error
+	ListBlockedModels(context.Context) ([]params.ModelBlockInfo, error)
 	ModelStatus(ctx context.Context, models ...names.ModelTag) ([]base.ModelStatus, error)
-	AllModels() ([]base.UserModel, error)
+	AllModels(context.Context) ([]base.UserModel, error)
 	ControllerConfig(context.Context) (controller.Config, error)
 }
 
@@ -315,7 +315,7 @@ func (c *destroyCommand) Run(ctx *cmd.Context) error {
 			modelTimeout = &c.modelTimeout
 		}
 
-		err = api.DestroyController(controllerapi.DestroyControllerParams{
+		err = api.DestroyController(ctx, controllerapi.DestroyControllerParams{
 			DestroyModels:  c.destroyModels,
 			DestroyStorage: destroyStorage,
 			Force:          force,
@@ -484,7 +484,7 @@ func (c *destroyCommand) ensureUserFriendlyErrorLog(destroyErr error, ctx *cmd.C
 	if params.IsCodeOperationBlocked(destroyErr) {
 		logger.Errorf(destroyControllerBlockedMsg)
 		if api != nil {
-			models, err := api.ListBlockedModels()
+			models, err := api.ListBlockedModels(ctx)
 			out := &bytes.Buffer{}
 			if err == nil {
 				var info interface{}
@@ -685,7 +685,7 @@ func (c *destroyCommandBase) getControllerEnvironFromAPI(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloudSpec, err := api.CloudSpec(names.NewModelTag(cfg.UUID()))
+	cloudSpec, err := api.CloudSpec(ctx, names.NewModelTag(cfg.UUID()))
 	if err != nil {
 		return nil, errors.Annotate(err, "getting cloud spec from API")
 	}

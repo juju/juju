@@ -265,18 +265,18 @@ func (c *MockCrossModelSecretsClientGetRemoteSecretContentInfoCall) DoAndReturn(
 }
 
 // GetSecretAccessScope mocks base method.
-func (m *MockCrossModelSecretsClient) GetSecretAccessScope(arg0 *secrets.URI, arg1 string, arg2 int) (string, error) {
+func (m *MockCrossModelSecretsClient) GetSecretAccessScope(arg0 context.Context, arg1 *secrets.URI, arg2 string, arg3 int) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSecretAccessScope", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "GetSecretAccessScope", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSecretAccessScope indicates an expected call of GetSecretAccessScope.
-func (mr *MockCrossModelSecretsClientMockRecorder) GetSecretAccessScope(arg0, arg1, arg2 any) *MockCrossModelSecretsClientGetSecretAccessScopeCall {
+func (mr *MockCrossModelSecretsClientMockRecorder) GetSecretAccessScope(arg0, arg1, arg2, arg3 any) *MockCrossModelSecretsClientGetSecretAccessScopeCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretAccessScope", reflect.TypeOf((*MockCrossModelSecretsClient)(nil).GetSecretAccessScope), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSecretAccessScope", reflect.TypeOf((*MockCrossModelSecretsClient)(nil).GetSecretAccessScope), arg0, arg1, arg2, arg3)
 	return &MockCrossModelSecretsClientGetSecretAccessScopeCall{Call: call}
 }
 
@@ -292,13 +292,13 @@ func (c *MockCrossModelSecretsClientGetSecretAccessScopeCall) Return(arg0 string
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockCrossModelSecretsClientGetSecretAccessScopeCall) Do(f func(*secrets.URI, string, int) (string, error)) *MockCrossModelSecretsClientGetSecretAccessScopeCall {
+func (c *MockCrossModelSecretsClientGetSecretAccessScopeCall) Do(f func(context.Context, *secrets.URI, string, int) (string, error)) *MockCrossModelSecretsClientGetSecretAccessScopeCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockCrossModelSecretsClientGetSecretAccessScopeCall) DoAndReturn(f func(*secrets.URI, string, int) (string, error)) *MockCrossModelSecretsClientGetSecretAccessScopeCall {
+func (c *MockCrossModelSecretsClientGetSecretAccessScopeCall) DoAndReturn(f func(context.Context, *secrets.URI, string, int) (string, error)) *MockCrossModelSecretsClientGetSecretAccessScopeCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

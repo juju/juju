@@ -4,6 +4,7 @@
 package worker
 
 import (
+	"context"
 	"errors"
 	"math/rand"
 	"time"
@@ -37,7 +38,7 @@ type periodicWorker struct {
 
 // PeriodicWorkerCall represents the callable to be passed
 // to the periodic worker to be run every elapsed period.
-type PeriodicWorkerCall func(stop <-chan struct{}) error
+type PeriodicWorkerCall func(context.Context) error
 
 // PeriodicTimer is an interface for the timer that periodicworker
 // will use to handle the calls.
@@ -93,14 +94,17 @@ func NewPeriodicWorker(call PeriodicWorkerCall, period time.Duration, timerFunc 
 }
 
 func (w *periodicWorker) run(call PeriodicWorkerCall, period time.Duration) error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	timer := w.newTimer(0)
-	stop := w.tomb.Dying()
+
 	for {
 		select {
-		case <-stop:
+		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-timer.CountDown():
-			if err := call(stop); err != nil {
+			if err := call(ctx); err != nil {
 				if err == ErrKilled {
 					return tomb.ErrDying
 				}
@@ -109,6 +113,10 @@ func (w *periodicWorker) run(call PeriodicWorkerCall, period time.Duration) erro
 		}
 		timer.Reset(nextPeriod(period, w.jitter))
 	}
+}
+
+func (w *periodicWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.tomb.Context(context.Background()))
 }
 
 var nextPeriod = func(period time.Duration, jitter float64) time.Duration {

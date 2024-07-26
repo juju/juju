@@ -28,12 +28,12 @@ import (
 // need for the worker. It's more than a little raw, but we'll survive.
 type Facade interface {
 	environs.EnvironConfigGetter
-	ModelInfo() (params.UndertakerModelInfoResult, error)
-	WatchModelResources() (watcher.NotifyWatcher, error)
-	WatchModel() (watcher.NotifyWatcher, error)
-	ProcessDyingModel() error
-	RemoveModel() error
-	SetStatus(status status.Status, message string, data map[string]interface{}) error
+	ModelInfo(context.Context) (params.UndertakerModelInfoResult, error)
+	WatchModelResources(context.Context) (watcher.NotifyWatcher, error)
+	WatchModel(context.Context) (watcher.NotifyWatcher, error)
+	ProcessDyingModel(context.Context) error
+	RemoveModel(context.Context) error
+	SetStatus(ctx context.Context, status status.Status, message string, data map[string]interface{}) error
 }
 
 // Config holds the resources and configuration necessary to run an
@@ -113,7 +113,10 @@ func (u *Undertaker) run() (errOut error) {
 		}
 	}()
 
-	modelWatcher, err := u.config.Facade.WatchModel()
+	ctx, cancel := u.scopedContext()
+	defer cancel()
+
+	modelWatcher, err := u.config.Facade.WatchModel(ctx)
 	if errors.Is(err, errors.NotFound) {
 		// If model already gone, exit early.
 		return nil
@@ -131,7 +134,7 @@ func (u *Undertaker) run() (errOut error) {
 		return u.catacomb.ErrDying()
 	}
 
-	result, err := u.config.Facade.ModelInfo()
+	result, err := u.config.Facade.ModelInfo(ctx)
 	if errors.Is(err, errors.NotFound) {
 		// If model already gone, exit early.
 		return nil
@@ -142,9 +145,6 @@ func (u *Undertaker) run() (errOut error) {
 	}
 	info := result.Result
 
-	ctx, cancel := context.WithCancel(u.catacomb.Context(context.Background()))
-	defer cancel()
-
 	// Watch for changes to model destroy values, if so, cancel the context
 	// and restart the worker.
 	err = u.catacomb.Add(worker.NewSimpleWorker(func(ctx context.Context) error {
@@ -154,7 +154,7 @@ func (u *Undertaker) run() (errOut error) {
 				return nil
 
 			case <-modelWatcher.Changes():
-				result, err := u.config.Facade.ModelInfo()
+				result, err := u.config.Facade.ModelInfo(ctx)
 				if errors.Is(err, errors.NotFound) || err != nil || result.Error != nil {
 					continue
 				}
@@ -212,13 +212,14 @@ func (u *Undertaker) cleanDestroy(ctx context.Context, info params.UndertakerMod
 		// checking the emptiness criteria before
 		// attempting to remove the model.
 		if err := u.setStatus(
+			ctx,
 			status.Destroying,
 			"cleaning up cloud resources",
 		); err != nil {
 			return errors.Trace(err)
 		}
 		// Wait for the model to become empty.
-		if err := u.processDyingModel(ctx, info); err != nil {
+		if err := u.processDyingModel(ctx); err != nil {
 			u.config.Logger.Errorf("destroy model failed: %v", err)
 			return fmt.Errorf("proccesing model death: %w", err)
 		}
@@ -257,7 +258,7 @@ func (u *Undertaker) cleanDestroy(ctx context.Context, info params.UndertakerMod
 	}
 
 	// Finally, the model is going to be dead, and be removed.
-	if err := u.config.Facade.RemoveModel(); err != nil {
+	if err := u.config.Facade.RemoveModel(ctx); err != nil {
 		u.config.Logger.Errorf("remove model failed: %v", err)
 		return errors.Annotate(err, "cannot remove model")
 	}
@@ -285,6 +286,7 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 		// checking the emptiness criteria before
 		// attempting to remove the model.
 		if err := u.setStatus(
+			ctx,
 			status.Destroying,
 			"cleaning up cloud resources",
 		); err != nil {
@@ -295,7 +297,7 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 			proccessCancel()
 		})
 		defer processTimer.Stop()
-		if err := u.processDyingModel(proccessCtx, info); err != nil && !errors.Is(err, context.Canceled) {
+		if err := u.processDyingModel(proccessCtx); err != nil && !errors.Is(err, context.Canceled) {
 			proccessCancel()
 			u.config.Logger.Errorf("destroy model failed: %v", err)
 			return fmt.Errorf("proccesing model death: %w", err)
@@ -350,25 +352,25 @@ func (u *Undertaker) forceDestroy(ctx context.Context, info params.UndertakerMod
 	}
 
 	// Finally, the model is going to be dead, and be removed.
-	if err := u.config.Facade.RemoveModel(); err != nil {
+	if err := u.config.Facade.RemoveModel(ctx); err != nil {
 		u.config.Logger.Errorf("remove model failed: %v", err)
 		return errors.Annotate(err, "cannot remove model")
 	}
 	return nil
 }
 
-func (u *Undertaker) environ() (environs.CloudDestroyer, error) {
-	modelConfig, err := u.config.Facade.ModelConfig(context.TODO())
+func (u *Undertaker) environ(ctx context.Context) (environs.CloudDestroyer, error) {
+	modelConfig, err := u.config.Facade.ModelConfig(ctx)
 	if err != nil {
 		return nil, errors.Annotate(err, "retrieving model config")
 	}
 
-	cloudSpec, err := u.config.Facade.CloudSpec(context.TODO())
+	cloudSpec, err := u.config.Facade.CloudSpec(ctx)
 	if err != nil {
 		return nil, errors.Annotatef(err, "retrieving cloud spec for model %q (%s)", modelConfig.Name(), modelConfig.UUID())
 	}
 
-	environ, err := u.config.NewCloudDestroyerFunc(context.TODO(), environs.OpenParams{
+	environ, err := u.config.NewCloudDestroyerFunc(ctx, environs.OpenParams{
 		Cloud:  cloudSpec,
 		Config: modelConfig,
 	})
@@ -379,7 +381,7 @@ func (u *Undertaker) environ() (environs.CloudDestroyer, error) {
 }
 
 func (u *Undertaker) invokeDestroyEnviron(callCtx environscontext.ProviderCallContext) error {
-	environ, err := u.environ()
+	environ, err := u.environ(callCtx)
 	if err != nil {
 		return err
 	}
@@ -391,6 +393,7 @@ func (u *Undertaker) destroyEnviron(ctx context.Context, info params.UndertakerM
 	// Now the model is known to be hosted and dying, we can tidy up any
 	// provider resources it might have used.
 	if err := u.setStatus(
+		ctx,
 		status.Destroying, "tearing down cloud environment",
 	); err != nil {
 		return errors.Trace(err)
@@ -441,12 +444,12 @@ out:
 	return fmt.Errorf("process destroy environ: %w", destroyErr)
 }
 
-func (u *Undertaker) setStatus(modelStatus status.Status, message string) error {
-	return u.config.Facade.SetStatus(modelStatus, message, nil)
+func (u *Undertaker) setStatus(ctx context.Context, modelStatus status.Status, message string) error {
+	return u.config.Facade.SetStatus(ctx, modelStatus, message, nil)
 }
 
-func (u *Undertaker) processDyingModel(ctx context.Context, info params.UndertakerModelInfo) error {
-	watch, err := u.config.Facade.WatchModelResources()
+func (u *Undertaker) processDyingModel(ctx context.Context) error {
+	watch, err := u.config.Facade.WatchModelResources(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -461,7 +464,7 @@ func (u *Undertaker) processDyingModel(ctx context.Context, info params.Undertak
 			u.config.Logger.Debugf("processDyingModel timed out")
 			return errors.Annotatef(ctx.Err(), "process dying model")
 		case <-watch.Changes():
-			err := u.config.Facade.ProcessDyingModel()
+			err := u.config.Facade.ProcessDyingModel(ctx)
 			if err == nil {
 				u.config.Logger.Debugf("processDyingModel done")
 				// ProcessDyingModel succeeded. We're free to
@@ -473,6 +476,7 @@ func (u *Undertaker) processDyingModel(ctx context.Context, info params.Undertak
 			}
 			// Retry once there are changes to the model's resources.
 			_ = u.setStatus(
+				ctx,
 				status.Destroying,
 				fmt.Sprintf("attempt %d to destroy model failed (will retry):  %v", attempt, err),
 			)
@@ -481,4 +485,8 @@ func (u *Undertaker) processDyingModel(ctx context.Context, info params.Undertak
 		}
 		attempt++
 	}
+}
+
+func (u *Undertaker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(u.catacomb.Context(context.Background()))
 }

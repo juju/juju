@@ -32,7 +32,7 @@ import (
 // CrossModelSecretsClient gets secret content from a cross model controller.
 type CrossModelSecretsClient interface {
 	GetRemoteSecretContentInfo(ctx context.Context, uri *coresecrets.URI, revision int, refresh, peek bool, sourceControllerUUID, appToken string, unitId int, macs macaroon.Slice) (*secrets.ContentParams, *secretsprovider.ModelBackendConfig, int, bool, error)
-	GetSecretAccessScope(uri *coresecrets.URI, appToken string, unitId int) (string, error)
+	GetSecretAccessScope(ctx context.Context, uri *coresecrets.URI, appToken string, unitId int) (string, error)
 	Close() error
 }
 
@@ -441,7 +441,7 @@ func (s *SecretsManagerAPI) getRemoteSecretContent(ctx context.Context, uri *cor
 		consumerInfo = &coresecrets.SecretConsumerMetadata{}
 	}
 
-	scopeToken, err := extClient.GetSecretAccessScope(uri, token, unitId)
+	scopeToken, err := extClient.GetSecretAccessScope(ctx, uri, token, unitId)
 	if err != nil {
 		if errors.Is(err, errors.NotFound) {
 			return nil, nil, false, apiservererrors.ErrPerm

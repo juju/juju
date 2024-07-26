@@ -118,7 +118,7 @@ func (c *Client) PublishRelationChange(ctx context.Context, change params.Remote
 
 	apiCall := func() error {
 		var results params.ErrorResults
-		if err := c.facade.FacadeCall(context.TODO(), "PublishRelationChanges", args, &results); err != nil {
+		if err := c.facade.FacadeCall(ctx, "PublishRelationChanges", args, &results); err != nil {
 			return errors.Trace(err)
 		}
 		err := results.OneError()
@@ -156,7 +156,7 @@ func (c *Client) PublishIngressNetworkChange(ctx context.Context, change params.
 
 	apiCall := func() error {
 		var results params.ErrorResults
-		if err := c.facade.FacadeCall(context.TODO(), "PublishIngressNetworkChanges", args, &results); err != nil {
+		if err := c.facade.FacadeCall(ctx, "PublishIngressNetworkChanges", args, &results); err != nil {
 			return errors.Trace(err)
 		}
 		return results.OneError()
@@ -202,7 +202,7 @@ func (c *Client) RegisterRemoteRelations(ctx context.Context, relations ...param
 	apiCall := func() error {
 		// Reset the results struct before each api call.
 		results = params.RegisterRemoteRelationResults{}
-		err := c.facade.FacadeCall(context.TODO(), "RegisterRemoteRelations", args, &results)
+		err := c.facade.FacadeCall(ctx, "RegisterRemoteRelations", args, &results)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -273,7 +273,7 @@ func (c *Client) WatchRelationChanges(ctx context.Context, relationToken, applic
 	apiCall := func() error {
 		// Reset the results struct before each api call.
 		results = params.RemoteRelationWatchResults{}
-		if err := c.facade.FacadeCall(context.TODO(), "WatchRelationChanges", args, &results); err != nil {
+		if err := c.facade.FacadeCall(ctx, "WatchRelationChanges", args, &results); err != nil {
 			return errors.Trace(err)
 		}
 		if len(results.Results) != 1 {
@@ -328,7 +328,7 @@ func (c *Client) WatchEgressAddressesForRelation(ctx context.Context, remoteRela
 	apiCall := func() error {
 		// Reset the results struct before each api call.
 		results = params.StringsWatchResults{}
-		if err := c.facade.FacadeCall(context.TODO(), "WatchEgressAddressesForRelations", args, &results); err != nil {
+		if err := c.facade.FacadeCall(ctx, "WatchEgressAddressesForRelations", args, &results); err != nil {
 			return errors.Trace(err)
 		}
 		if len(results.Results) != 1 {
@@ -381,7 +381,7 @@ func (c *Client) WatchRelationSuspendedStatus(ctx context.Context, arg params.Re
 	apiCall := func() error {
 		// Reset the results struct before each api call.
 		results = params.RelationStatusWatchResults{}
-		if err := c.facade.FacadeCall(context.TODO(), "WatchRelationsSuspendedStatus", args, &results); err != nil {
+		if err := c.facade.FacadeCall(ctx, "WatchRelationsSuspendedStatus", args, &results); err != nil {
 			return errors.Trace(err)
 		}
 		if len(results.Results) != 1 {
@@ -434,7 +434,7 @@ func (c *Client) WatchOfferStatus(ctx context.Context, arg params.OfferArg) (wat
 	apiCall := func() error {
 		// Reset the results struct before each api call.
 		results = params.OfferStatusWatchResults{}
-		if err := c.facade.FacadeCall(context.TODO(), "WatchOfferStatus", args, &results); err != nil {
+		if err := c.facade.FacadeCall(ctx, "WatchOfferStatus", args, &results); err != nil {
 			return errors.Trace(err)
 		}
 		if len(results.Results) != 1 {
@@ -497,7 +497,7 @@ func (c *Client) WatchConsumedSecretsChanges(ctx context.Context, applicationTok
 	apiCall := func() error {
 		// Reset the results struct before each api call.
 		results = params.SecretRevisionWatchResults{}
-		if err := c.facade.FacadeCall(context.TODO(), "WatchConsumedSecretsChanges", args, &results); err != nil {
+		if err := c.facade.FacadeCall(ctx, "WatchConsumedSecretsChanges", args, &results); err != nil {
 			return params.TranslateWellKnownError(err)
 		}
 		if len(results.Results) != 1 {

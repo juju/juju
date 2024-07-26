@@ -35,9 +35,9 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 
 // WatchApplicationsWithPendingCharms emits the application names that
 // reference a charm that is pending to be downloaded.
-func (c *Client) WatchApplicationsWithPendingCharms() (watcher.StringsWatcher, error) {
+func (c *Client) WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall(context.TODO(), "WatchApplicationsWithPendingCharms", nil, &result)
+	err := c.facade.FacadeCall(ctx, "WatchApplicationsWithPendingCharms", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -51,7 +51,7 @@ func (c *Client) WatchApplicationsWithPendingCharms() (watcher.StringsWatcher, e
 // DownloadApplicationCharms iterates the list of provided applications and
 // downloads any referenced charms that have not yet been persisted to the
 // blob store.
-func (c *Client) DownloadApplicationCharms(applications []names.ApplicationTag) error {
+func (c *Client) DownloadApplicationCharms(ctx context.Context, applications []names.ApplicationTag) error {
 	args := params.Entities{
 		Entities: make([]params.Entity, len(applications)),
 	}
@@ -60,7 +60,7 @@ func (c *Client) DownloadApplicationCharms(applications []names.ApplicationTag) 
 	}
 
 	var res params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "DownloadApplicationCharms", args, &res)
+	err := c.facade.FacadeCall(ctx, "DownloadApplicationCharms", args, &res)
 	if err != nil {
 		return errors.Trace(err)
 	}

@@ -33,8 +33,8 @@ type facadeShim struct {
 func (s facadeShim) Machine(ctx context.Context, tag names.MachineTag) (Machine, error) {
 	return s.api.Machine(ctx, tag)
 }
-func (s facadeShim) WatchModelMachines() (watcher.StringsWatcher, error) {
-	return s.api.WatchModelMachines()
+func (s facadeShim) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error) {
+	return s.api.WatchModelMachines(ctx)
 }
 
 var errNetworkingNotSupported = errors.NotSupportedf("networking")

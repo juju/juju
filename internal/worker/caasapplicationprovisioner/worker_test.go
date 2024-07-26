@@ -4,6 +4,7 @@
 package caasapplicationprovisioner_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -53,14 +54,14 @@ func (s *CAASApplicationSuite) TestWorkerStart(c *gc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	runner := mocks.NewMockRunner(ctrl)
 
-	facade.EXPECT().WatchApplications().DoAndReturn(func() (watcher.StringsWatcher, error) {
+	facade.EXPECT().WatchApplications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		appChan <- []string{"test"}
 		return watchertest.NewMockStringsWatcher(appChan), nil
 	})
-	facade.EXPECT().ProvisionerConfig().Return(params.CAASApplicationProvisionerConfig{
+	facade.EXPECT().ProvisionerConfig(gomock.Any()).Return(params.CAASApplicationProvisionerConfig{
 		UnmanagedApplications: params.Entities{},
 	}, nil)
-	facade.EXPECT().Life("test").Return(life.Alive, nil)
+	facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil)
 	runner.EXPECT().Worker("test", gomock.Any()).Return(nil, errors.NotFoundf(""))
 	runner.EXPECT().StartWorker("test", gomock.Any()).DoAndReturn(
 		func(_ string, startFunc func() (worker.Worker, error)) error {
@@ -125,14 +126,14 @@ func (s *CAASApplicationSuite) TestWorkerStartUnmanaged(c *gc.C) {
 	facade := mocks.NewMockCAASProvisionerFacade(ctrl)
 	runner := mocks.NewMockRunner(ctrl)
 
-	facade.EXPECT().WatchApplications().DoAndReturn(func() (watcher.StringsWatcher, error) {
+	facade.EXPECT().WatchApplications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 		appChan <- []string{"test"}
 		return watchertest.NewMockStringsWatcher(appChan), nil
 	})
-	facade.EXPECT().ProvisionerConfig().Return(params.CAASApplicationProvisionerConfig{
+	facade.EXPECT().ProvisionerConfig(gomock.Any()).Return(params.CAASApplicationProvisionerConfig{
 		UnmanagedApplications: params.Entities{Entities: []params.Entity{{Tag: "application-test"}}},
 	}, nil)
-	facade.EXPECT().Life("test").Return(life.Alive, nil)
+	facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil)
 	runner.EXPECT().Worker("test", gomock.Any()).Return(nil, errors.NotFoundf(""))
 	runner.EXPECT().StartWorker("test", gomock.Any()).DoAndReturn(
 		func(_ string, startFunc func() (worker.Worker, error)) error {
@@ -206,11 +207,11 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 	var notifyWorker = &mockNotifyWorker{Worker: workertest.NewErrorWorker(nil)}
 
 	gomock.InOrder(
-		facade.EXPECT().WatchApplications().DoAndReturn(func() (watcher.StringsWatcher, error) {
+		facade.EXPECT().WatchApplications(gomock.Any()).DoAndReturn(func(context.Context) (watcher.StringsWatcher, error) {
 			return watchertest.NewMockStringsWatcher(appChan), nil
 		}),
-		facade.EXPECT().ProvisionerConfig().Return(params.CAASApplicationProvisionerConfig{}, nil),
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		facade.EXPECT().ProvisionerConfig(gomock.Any()).Return(params.CAASApplicationProvisionerConfig{}, nil),
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 		runner.EXPECT().Worker("test", gomock.Any()).Return(nil, errors.NotFoundf("")),
 		runner.EXPECT().StartWorker("test", gomock.Any()).DoAndReturn(
 			func(_ string, startFunc func() (worker.Worker, error)) error {
@@ -219,16 +220,16 @@ func (s *CAASApplicationSuite) TestWorkerStartOnceNotify(c *gc.C) {
 			},
 		),
 
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 		runner.EXPECT().Worker("test", gomock.Any()).Return(notifyWorker, nil),
 
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 		runner.EXPECT().Worker("test", gomock.Any()).Return(notifyWorker, nil),
 
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 		runner.EXPECT().Worker("test", gomock.Any()).Return(notifyWorker, nil),
 
-		facade.EXPECT().Life("test").Return(life.Alive, nil),
+		facade.EXPECT().Life(gomock.Any(), "test").Return(life.Alive, nil),
 		runner.EXPECT().Worker("test", gomock.Any()).DoAndReturn(
 			func(_ string, abort <-chan struct{}) (worker.Worker, error) {
 				close(done)

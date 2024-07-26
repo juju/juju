@@ -38,12 +38,12 @@ func (s *Application) Watch(ctx context.Context) (watcher.NotifyWatcher, error) 
 
 // ExposeInfo returns a flag to indicate whether an application is exposed
 // as well as any endpoint-specific expose settings (if present).
-func (s *Application) ExposeInfo() (bool, map[string]params.ExposedEndpoint, error) {
+func (s *Application) ExposeInfo(ctx context.Context) (bool, map[string]params.ExposedEndpoint, error) {
 	var results params.ExposeInfoResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	err := s.client.facade.FacadeCall(context.TODO(), "GetExposeInfo", args, &results)
+	err := s.client.facade.FacadeCall(ctx, "GetExposeInfo", args, &results)
 	if err != nil {
 		return false, nil, err
 	}

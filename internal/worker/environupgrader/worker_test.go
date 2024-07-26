@@ -331,19 +331,19 @@ func (f *mockFacade) setCurrent(v int) {
 	f.current = v
 }
 
-func (f *mockFacade) ModelEnvironVersion(tag names.ModelTag) (int, error) {
+func (f *mockFacade) ModelEnvironVersion(ctx context.Context, tag names.ModelTag) (int, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.MethodCall(f, "ModelEnvironVersion", tag)
 	return f.current, f.NextErr()
 }
 
-func (f *mockFacade) ModelTargetEnvironVersion(tag names.ModelTag) (int, error) {
+func (f *mockFacade) ModelTargetEnvironVersion(ctx context.Context, tag names.ModelTag) (int, error) {
 	f.MethodCall(f, "ModelTargetEnvironVersion", tag)
 	return f.target, f.NextErr()
 }
 
-func (f *mockFacade) SetModelEnvironVersion(tag names.ModelTag, v int) error {
+func (f *mockFacade) SetModelEnvironVersion(ctx context.Context, tag names.ModelTag, v int) error {
 	f.MethodCall(f, "SetModelEnvironVersion", tag, v)
 	return f.NextErr()
 }
@@ -361,7 +361,7 @@ func (f *mockFacade) WatchModelEnvironVersion(_ context.Context, tag names.Model
 
 var nilData map[string]interface{}
 
-func (f *mockFacade) SetModelStatus(tag names.ModelTag, status status.Status, info string, data map[string]interface{}) error {
+func (f *mockFacade) SetModelStatus(ctx context.Context, tag names.ModelTag, status status.Status, info string, data map[string]interface{}) error {
 	f.MethodCall(f, "SetModelStatus", tag, status, info, data)
 	return f.NextErr()
 }

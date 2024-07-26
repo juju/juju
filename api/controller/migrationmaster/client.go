@@ -56,9 +56,9 @@ type Client struct {
 
 // Watch returns a watcher which reports when a migration is active
 // for the model associated with the API connection.
-func (c *Client) Watch() (watcher.NotifyWatcher, error) {
+func (c *Client) Watch(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := c.caller.FacadeCall(context.TODO(), "Watch", nil, &result)
+	err := c.caller.FacadeCall(ctx, "Watch", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -70,10 +70,10 @@ func (c *Client) Watch() (watcher.NotifyWatcher, error) {
 
 // MigrationStatus returns the details and progress of the latest
 // model migration.
-func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
+func (c *Client) MigrationStatus(ctx context.Context) (migration.MigrationStatus, error) {
 	var empty migration.MigrationStatus
 	var status params.MasterMigrationStatus
-	err := c.caller.FacadeCall(context.TODO(), "MigrationStatus", nil, &status)
+	err := c.caller.FacadeCall(ctx, "MigrationStatus", nil, &status)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -123,26 +123,26 @@ func (c *Client) MigrationStatus() (migration.MigrationStatus, error) {
 }
 
 // SetPhase updates the phase of the currently active model migration.
-func (c *Client) SetPhase(phase migration.Phase) error {
+func (c *Client) SetPhase(ctx context.Context, phase migration.Phase) error {
 	args := params.SetMigrationPhaseArgs{
 		Phase: phase.String(),
 	}
-	return c.caller.FacadeCall(context.TODO(), "SetPhase", args, nil)
+	return c.caller.FacadeCall(ctx, "SetPhase", args, nil)
 }
 
 // SetStatusMessage sets a human readable message regarding the
 // progress of a migration.
-func (c *Client) SetStatusMessage(message string) error {
+func (c *Client) SetStatusMessage(ctx context.Context, message string) error {
 	args := params.SetMigrationStatusMessageArgs{
 		Message: message,
 	}
-	return c.caller.FacadeCall(context.TODO(), "SetStatusMessage", args, nil)
+	return c.caller.FacadeCall(ctx, "SetStatusMessage", args, nil)
 }
 
 // ModelInfo return basic information about the model to migrated.
-func (c *Client) ModelInfo() (migration.ModelInfo, error) {
+func (c *Client) ModelInfo(ctx context.Context) (migration.ModelInfo, error) {
 	var info params.MigrationModelInfo
-	err := c.caller.FacadeCall(context.TODO(), "ModelInfo", nil, &info)
+	err := c.caller.FacadeCall(ctx, "ModelInfo", nil, &info)
 	if err != nil {
 		return migration.ModelInfo{}, errors.Trace(err)
 	}
@@ -175,9 +175,9 @@ func (c *Client) ModelInfo() (migration.ModelInfo, error) {
 
 // SourceControllerInfo returns connection information about the source controller
 // and uuids of any other hosted models involved in cross model relations.
-func (c *Client) SourceControllerInfo() (migration.SourceControllerInfo, []string, error) {
+func (c *Client) SourceControllerInfo(ctx context.Context) (migration.SourceControllerInfo, []string, error) {
 	var info params.MigrationSourceInfo
-	err := c.caller.FacadeCall(context.TODO(), "SourceControllerInfo", nil, &info)
+	err := c.caller.FacadeCall(ctx, "SourceControllerInfo", nil, &info)
 	if err != nil {
 		return migration.SourceControllerInfo{}, nil, errors.Trace(err)
 	}
@@ -195,17 +195,17 @@ func (c *Client) SourceControllerInfo() (migration.SourceControllerInfo, []strin
 
 // Prechecks verifies that the source controller and model are healthy
 // and able to participate in a migration.
-func (c *Client) Prechecks() error {
-	return c.caller.FacadeCall(context.TODO(), "Prechecks", params.PrechecksArgs{}, nil)
+func (c *Client) Prechecks(ctx context.Context) error {
+	return c.caller.FacadeCall(ctx, "Prechecks", params.PrechecksArgs{}, nil)
 }
 
 // Export returns a serialized representation of the model associated
 // with the API connection. The charms used by the model are also
 // returned.
-func (c *Client) Export() (migration.SerializedModel, error) {
+func (c *Client) Export(ctx context.Context) (migration.SerializedModel, error) {
 	var empty migration.SerializedModel
 	var serialized params.SerializedModel
-	err := c.caller.FacadeCall(context.TODO(), "Export", nil, &serialized)
+	err := c.caller.FacadeCall(ctx, "Export", nil, &serialized)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
@@ -235,12 +235,12 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 
 // ProcessRelations runs a series of processes to ensure that the relations
 // of a given model are correct after a migrated model.
-func (c *Client) ProcessRelations(controllerAlias string) error {
+func (c *Client) ProcessRelations(ctx context.Context, controllerAlias string) error {
 	param := params.ProcessRelations{
 		ControllerAlias: controllerAlias,
 	}
 	var result params.ErrorResult
-	err := c.caller.FacadeCall(context.TODO(), "ProcessRelations", param, &result)
+	err := c.caller.FacadeCall(ctx, "ProcessRelations", param, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -269,15 +269,15 @@ func (c *Client) OpenResource(ctx context.Context, application, name string) (io
 
 // Reap removes the documents for the model associated with the API
 // connection.
-func (c *Client) Reap() error {
-	return c.caller.FacadeCall(context.TODO(), "Reap", nil, nil)
+func (c *Client) Reap(ctx context.Context) error {
+	return c.caller.FacadeCall(ctx, "Reap", nil, nil)
 }
 
 // WatchMinionReports returns a watcher which reports when a migration
 // minion has made a report for the current migration phase.
-func (c *Client) WatchMinionReports() (watcher.NotifyWatcher, error) {
+func (c *Client) WatchMinionReports(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := c.caller.FacadeCall(context.TODO(), "WatchMinionReports", nil, &result)
+	err := c.caller.FacadeCall(ctx, "WatchMinionReports", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -289,11 +289,11 @@ func (c *Client) WatchMinionReports() (watcher.NotifyWatcher, error) {
 
 // MinionReports returns details of the reports made by migration
 // minions to the controller for the current migration phase.
-func (c *Client) MinionReports() (migration.MinionReports, error) {
+func (c *Client) MinionReports(ctx context.Context) (migration.MinionReports, error) {
 	var in params.MinionReports
 	var out migration.MinionReports
 
-	err := c.caller.FacadeCall(context.TODO(), "MinionReports", nil, &in)
+	err := c.caller.FacadeCall(ctx, "MinionReports", nil, &in)
 	if err != nil {
 		return out, errors.Trace(err)
 	}
@@ -324,11 +324,11 @@ func (c *Client) MinionReports() (migration.MinionReports, error) {
 
 // MinionReportTimeout returns the maximum duration that the migration master
 // worker should wait for minions to report on a migration phase.
-func (c *Client) MinionReportTimeout() (time.Duration, error) {
+func (c *Client) MinionReportTimeout(ctx context.Context) (time.Duration, error) {
 	var timeout time.Duration
 
 	var res params.StringResult
-	err := c.caller.FacadeCall(context.TODO(), "MinionReportTimeout", nil, &res)
+	err := c.caller.FacadeCall(ctx, "MinionReportTimeout", nil, &res)
 	if err != nil {
 		return timeout, errors.Trace(err)
 	}

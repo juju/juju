@@ -4,6 +4,8 @@
 package crosscontroller_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -36,7 +38,7 @@ func (s *CrossControllerSuite) TestControllerInfo(c *gc.C) {
 		c.Check(arg, gc.IsNil)
 		c.Assert(result, gc.FitsTypeOf, &params.ControllerAPIInfoResults{})
 		*(result.(*params.ControllerAPIInfoResults)) = params.ControllerAPIInfoResults{
-			[]params.ControllerAPIInfoResult{{
+			Results: []params.ControllerAPIInfoResult{{
 				Addresses: []string{"foo"},
 				CACert:    "bar",
 			}},
@@ -44,7 +46,7 @@ func (s *CrossControllerSuite) TestControllerInfo(c *gc.C) {
 		return nil
 	})
 	client := crosscontroller.NewClient(apiCaller)
-	info, err := client.ControllerInfo()
+	info, err := client.ControllerInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &crosscontroller.ControllerInfo{
 		Addrs:  []string{"foo"},
@@ -55,14 +57,14 @@ func (s *CrossControllerSuite) TestControllerInfo(c *gc.C) {
 func (s *CrossControllerSuite) TestControllerInfoError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		*(result.(*params.ControllerAPIInfoResults)) = params.ControllerAPIInfoResults{
-			[]params.ControllerAPIInfoResult{{
+			Results: []params.ControllerAPIInfoResult{{
 				Error: &params.Error{Message: "boom"},
 			}},
 		}
 		return nil
 	})
 	client := crosscontroller.NewClient(apiCaller)
-	info, err := client.ControllerInfo()
+	info, err := client.ControllerInfo(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(info, gc.IsNil)
 }
@@ -76,14 +78,14 @@ func (s *CrossControllerSuite) TestWatchExternalControllers(c *gc.C) {
 		c.Check(arg, gc.IsNil)
 		c.Assert(result, gc.FitsTypeOf, &params.NotifyWatchResults{})
 		*(result.(*params.NotifyWatchResults)) = params.NotifyWatchResults{
-			[]params.NotifyWatchResult{{
+			Results: []params.NotifyWatchResult{{
 				Error: &params.Error{Message: "boom"},
 			}},
 		}
 		return nil
 	})
 	client := crosscontroller.NewClient(apiCaller)
-	w, err := client.WatchControllerInfo()
+	w, err := client.WatchControllerInfo(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 	c.Assert(w, gc.IsNil)
 }

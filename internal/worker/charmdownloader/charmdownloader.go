@@ -4,6 +4,7 @@
 package charmdownloader
 
 import (
+	"context"
 	"strings"
 
 	"github.com/juju/errors"
@@ -64,9 +65,9 @@ func NewCharmDownloader(cfg Config) (worker.Worker, error) {
 	return cd, nil
 }
 
-func (cd *CharmDownloader) setup() error {
+func (cd *CharmDownloader) setup(ctx context.Context) error {
 	var err error
-	cd.appWatcher, err = cd.charmDownloaderAPI.WatchApplicationsWithPendingCharms()
+	cd.appWatcher, err = cd.charmDownloaderAPI.WatchApplicationsWithPendingCharms(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -79,7 +80,10 @@ func (cd *CharmDownloader) setup() error {
 }
 
 func (cd *CharmDownloader) loop() error {
-	if err := cd.setup(); err != nil {
+	ctx, cancel := cd.scopedContext()
+	defer cancel()
+
+	if err := cd.setup(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -102,7 +106,7 @@ func (cd *CharmDownloader) loop() error {
 			}
 
 			cd.logger.Debugf("triggering asynchronous download of charms for the following applications: %v", strings.Join(changes, ", "))
-			if err := cd.charmDownloaderAPI.DownloadApplicationCharms(appTags); err != nil {
+			if err := cd.charmDownloaderAPI.DownloadApplicationCharms(ctx, appTags); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -117,4 +121,9 @@ func (cd *CharmDownloader) Kill() {
 // Wait is part of the worker.Worker interface.
 func (cd *CharmDownloader) Wait() error {
 	return cd.catacomb.Wait()
+}
+
+func (cd *CharmDownloader) scopedContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(cd.catacomb.Context(context.Background()))
+	return cd.catacomb.Context(ctx), cancel
 }

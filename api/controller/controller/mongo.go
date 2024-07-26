@@ -12,9 +12,9 @@ import (
 )
 
 // MongoVersion returns the mongo version associated with the state session.
-func (c *Client) MongoVersion() (string, error) {
+func (c *Client) MongoVersion(ctx context.Context) (string, error) {
 	var result params.StringResult
-	err := c.facade.FacadeCall(context.TODO(), "MongoVersion", nil, &result)
+	err := c.facade.FacadeCall(ctx, "MongoVersion", nil, &result)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

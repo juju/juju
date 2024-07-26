@@ -61,7 +61,7 @@ func (s *workerSuite) initConfig(c *gc.C) *gomock.Controller {
 
 	s.appsWatcher = watchertest.NewMockStringsWatcher(s.applicationChanges)
 	s.firewallerAPI = mocks.NewMockCAASFirewallerAPI(ctrl)
-	s.firewallerAPI.EXPECT().WatchApplications().AnyTimes().Return(s.appsWatcher, nil)
+	s.firewallerAPI.EXPECT().WatchApplications(gomock.Any()).AnyTimes().Return(s.appsWatcher, nil)
 
 	s.lifeGetter = mocks.NewMockLifeGetter(ctrl)
 	s.broker = mocks.NewMockCAASBroker(ctrl)
@@ -147,23 +147,23 @@ func (s *workerSuite) TestStartStop(c *gc.C) {
 		Manifest: &charm.Manifest{Bases: []charm.Base{{}}}, // bases make it a v2 charm
 	}
 	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app1").Return(charmInfo, nil)
-	s.lifeGetter.EXPECT().Life("app1").Return(life.Alive, nil)
+	s.lifeGetter.EXPECT().Life(gomock.Any(), "app1").Return(life.Alive, nil)
 	// Added app1's worker to catacomb.
 	app1Worker.EXPECT().Wait().Return(nil)
 
 	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app2").Return(charmInfo, nil)
-	s.lifeGetter.EXPECT().Life("app2").Return(life.Alive, nil)
+	s.lifeGetter.EXPECT().Life(gomock.Any(), "app2").Return(life.Alive, nil)
 	// Added app2's worker to catacomb.
 	app2Worker.EXPECT().Wait().Return(nil)
 
 	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app1").Return(charmInfo, nil)
-	s.lifeGetter.EXPECT().Life("app1").Return(life.Value(""), errors.NotFoundf("%q", "app1"))
+	s.lifeGetter.EXPECT().Life(gomock.Any(), "app1").Return(life.Value(""), errors.NotFoundf("%q", "app1"))
 	// Stopped app1's worker because it's removed.
 	app1Worker.EXPECT().Kill()
 	app1Worker.EXPECT().Wait().Return(nil)
 
 	s.firewallerAPI.EXPECT().ApplicationCharmInfo(gomock.Any(), "app2").Return(charmInfo, nil)
-	s.lifeGetter.EXPECT().Life("app2").Return(life.Dead, nil)
+	s.lifeGetter.EXPECT().Life(gomock.Any(), "app2").Return(life.Dead, nil)
 	// Stopped app2's worker because it's dead.
 	app2Worker.EXPECT().Kill()
 	app2Worker.EXPECT().Wait().Return(nil)

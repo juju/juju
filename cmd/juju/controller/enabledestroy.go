@@ -4,6 +4,8 @@
 package controller
 
 import (
+	"context"
+
 	"github.com/juju/cmd/v4"
 	"github.com/juju/errors"
 
@@ -24,7 +26,7 @@ type enableDestroyController struct {
 
 type removeBlocksAPI interface {
 	Close() error
-	RemoveBlocks() error
+	RemoveBlocks(ctx context.Context) error
 }
 
 var enableDestroyDoc = `
@@ -63,5 +65,5 @@ func (c *enableDestroyController) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	defer client.Close()
-	return errors.Trace(client.RemoveBlocks())
+	return errors.Trace(client.RemoveBlocks(ctx))
 }

@@ -17,11 +17,11 @@ type Facade interface {
 
 	// Watch returns a StringsWatcher reporting names of
 	// applications which may have insufficient units.
-	Watch() (watcher.StringsWatcher, error)
+	Watch(context.Context) (watcher.StringsWatcher, error)
 
 	// Rescale scales up any named application observed to be
 	// running too few units.
-	Rescale(applications []string) error
+	Rescale(ctx context.Context, applications []string) error
 }
 
 // Config defines a worker's dependencies.
@@ -58,12 +58,12 @@ type handler struct {
 
 // SetUp is part of the watcher.StringsHandler interface.
 func (handler *handler) SetUp(ctx context.Context) (watcher.StringsWatcher, error) {
-	return handler.config.Facade.Watch()
+	return handler.config.Facade.Watch(ctx)
 }
 
 // Handle is part of the watcher.StringsHandler interface.
 func (handler *handler) Handle(ctx context.Context, applications []string) error {
-	return handler.config.Facade.Rescale(applications)
+	return handler.config.Facade.Rescale(ctx, applications)
 }
 
 // TearDown is part of the watcher.StringsHandler interface.

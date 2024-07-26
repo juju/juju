@@ -161,7 +161,7 @@ func (c *configCommand) Init(args []string) error {
 type controllerAPI interface {
 	Close() error
 	ControllerConfig(context.Context) (controller.Config, error)
-	ConfigSet(map[string]interface{}) error
+	ConfigSet(context.Context, map[string]interface{}) error
 }
 
 func (c *configCommand) getAPI() (controllerAPI, error) {
@@ -190,14 +190,14 @@ func (c *configCommand) Run(ctx *cmd.Context) error {
 		case config.GetOne:
 			err = c.getConfig(client, ctx)
 		case config.SetArgs:
-			err = c.setConfig(client, c.configBase.ValsToSet)
+			err = c.setConfig(ctx, client, c.configBase.ValsToSet)
 		case config.SetFile:
 			var attrs config.Attrs
 			attrs, err = c.configBase.ReadFile(ctx)
 			if err != nil {
 				return errors.Trace(err)
 			}
-			err = c.setConfig(client, attrs)
+			err = c.setConfig(ctx, client, attrs)
 		default:
 			err = c.getAllConfig(client, ctx)
 		}
@@ -245,7 +245,7 @@ func (c *configCommand) getConfig(client controllerAPI, ctx *cmd.Context) error 
 }
 
 // setConfig sets config values from the provided config.Attrs.
-func (c *configCommand) setConfig(client controllerAPI, attrs config.Attrs) error {
+func (c *configCommand) setConfig(ctx context.Context, client controllerAPI, attrs config.Attrs) error {
 	store := c.ClientStore()
 	controllerName, err := store.CurrentController()
 	if err != nil {
@@ -291,7 +291,7 @@ func (c *configCommand) setConfig(client controllerAPI, attrs config.Attrs) erro
 		}
 	}
 
-	return errors.Trace(client.ConfigSet(values))
+	return errors.Trace(client.ConfigSet(ctx, values))
 }
 
 // ConfigDetailsUpdatable gets information about the controller config
@@ -331,7 +331,7 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	w := output.Wrapper{tw}
+	w := output.Wrapper{TabWriter: tw}
 
 	valueNames := make(set.Strings)
 	for name := range controllerConfig {

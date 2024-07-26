@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"context"
 	stdcontext "context"
 	"os"
 	"path/filepath"
@@ -79,7 +80,7 @@ var _ = gc.Suite(&MachineSuite{})
 // should strive to remove outbound calls to external services.
 type noopRevisionUpdater struct{}
 
-func (noopRevisionUpdater) UpdateLatestRevisions() error {
+func (noopRevisionUpdater) UpdateLatestRevisions(context.Context) error {
 	return nil
 }
 

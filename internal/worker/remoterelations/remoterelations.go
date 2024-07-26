@@ -72,57 +72,57 @@ type RemoteModelRelationsFacade interface {
 type RemoteRelationsFacade interface {
 	// ImportRemoteEntity adds an entity to the remote entities collection
 	// with the specified opaque token.
-	ImportRemoteEntity(entity names.Tag, token string) error
+	ImportRemoteEntity(ctx context.Context, entity names.Tag, token string) error
 
 	// SaveMacaroon saves the macaroon for the entity.
-	SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error
+	SaveMacaroon(ctx context.Context, entity names.Tag, mac *macaroon.Macaroon) error
 
 	// ExportEntities allocates unique, remote entity IDs for the
 	// given entities in the local model.
-	ExportEntities([]names.Tag) ([]params.TokenResult, error)
+	ExportEntities(context.Context, []names.Tag) ([]params.TokenResult, error)
 
 	// GetToken returns the token associated with the entity with the given tag.
-	GetToken(names.Tag) (string, error)
+	GetToken(context.Context, names.Tag) (string, error)
 
 	// Relations returns information about the relations
 	// with the specified keys in the local model.
-	Relations(keys []string) ([]params.RemoteRelationResult, error)
+	Relations(ctx context.Context, keys []string) ([]params.RemoteRelationResult, error)
 
 	// RemoteApplications returns the current state of the remote applications with
 	// the specified names in the local model.
-	RemoteApplications(names []string) ([]params.RemoteApplicationResult, error)
+	RemoteApplications(ctx context.Context, names []string) ([]params.RemoteApplicationResult, error)
 
 	// WatchLocalRelationChanges returns a watcher that notifies of changes to the
 	// local units in the relation with the given key.
-	WatchLocalRelationChanges(relationKey string) (apiwatcher.RemoteRelationWatcher, error)
+	WatchLocalRelationChanges(ctx context.Context, relationKey string) (apiwatcher.RemoteRelationWatcher, error)
 
 	// WatchRemoteApplications watches for addition, removal and lifecycle
 	// changes to remote applications known to the local model.
-	WatchRemoteApplications() (watcher.StringsWatcher, error)
+	WatchRemoteApplications(ctx context.Context) (watcher.StringsWatcher, error)
 
 	// WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
 	// each specified application in the local model, and returns the watcher IDs
 	// and initial values, or an error if the application's relations could not be
 	// watched.
-	WatchRemoteApplicationRelations(application string) (watcher.StringsWatcher, error)
+	WatchRemoteApplicationRelations(ctx context.Context, application string) (watcher.StringsWatcher, error)
 
 	// ConsumeRemoteRelationChange consumes a change to settings originating
 	// from the remote/offering side of a relation.
-	ConsumeRemoteRelationChange(change params.RemoteRelationChangeEvent) error
+	ConsumeRemoteRelationChange(ctx context.Context, change params.RemoteRelationChangeEvent) error
 
 	// ControllerAPIInfoForModel returns the controller api info for a model.
-	ControllerAPIInfoForModel(modelUUID string) (*api.Info, error)
+	ControllerAPIInfoForModel(ctx context.Context, modelUUID string) (*api.Info, error)
 
 	// SetRemoteApplicationStatus sets the status for the specified remote application.
-	SetRemoteApplicationStatus(applicationName string, status status.Status, message string) error
+	SetRemoteApplicationStatus(ctx context.Context, applicationName string, status status.Status, message string) error
 
 	// UpdateControllerForModel ensures that there is an external controller record
 	// for the input info, associated with the input model ID.
-	UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error
+	UpdateControllerForModel(ctx context.Context, controller crossmodel.ControllerInfo, modelUUID string) error
 
 	// ConsumeRemoteSecretChanges updates the local model with secret revision  changes
 	// originating from the remote/offering model.
-	ConsumeRemoteSecretChanges(changes []watcher.SecretRevisionChange) error
+	ConsumeRemoteSecretChanges(ctx context.Context, changes []watcher.SecretRevisionChange) error
 }
 
 type newRemoteRelationsFacadeFunc func(*api.Info) (RemoteModelRelationsFacadeCloser, error)
@@ -221,7 +221,10 @@ func (w *Worker) Wait() error {
 }
 
 func (w *Worker) loop() (err error) {
-	changes, err := w.config.RelationsFacade.WatchRemoteApplications()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	changes, err := w.config.RelationsFacade.WatchRemoteApplications(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -236,7 +239,7 @@ func (w *Worker) loop() (err error) {
 			if !ok {
 				return errors.New("change channel closed")
 			}
-			err = w.handleApplicationChanges(applicationIds)
+			err = w.handleApplicationChanges(ctx, applicationIds)
 			if err != nil {
 				return err
 			}
@@ -244,7 +247,7 @@ func (w *Worker) loop() (err error) {
 	}
 }
 
-func (w *Worker) handleApplicationChanges(applicationIds []string) error {
+func (w *Worker) handleApplicationChanges(ctx context.Context, applicationIds []string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -256,7 +259,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 	logger.Debugf("processing remote application changes for: %s", applicationIds)
 
 	// Fetch the current state of each of the remote applications that have changed.
-	results, err := w.config.RelationsFacade.RemoteApplications(applicationIds)
+	results, err := w.config.RelationsFacade.RemoteApplications(ctx, applicationIds)
 	if err != nil {
 		return errors.Annotate(err, "querying remote applications")
 	}
@@ -349,4 +352,8 @@ func (w *Worker) Report() map[string]interface{} {
 	}
 	result["workers"] = saasWorkers
 	return result
+}
+
+func (w *Worker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

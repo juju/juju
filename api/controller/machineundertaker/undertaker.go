@@ -48,10 +48,10 @@ func NewAPI(caller base.APICaller, newWatcher NewWatcherFunc, options ...Option)
 
 // AllMachineRemovals returns all the machines that have been marked
 // ready to clean up.
-func (api *API) AllMachineRemovals() ([]names.MachineTag, error) {
+func (api *API) AllMachineRemovals(ctx context.Context) ([]names.MachineTag, error) {
 	var results params.EntitiesResults
 	args := wrapEntities(api.modelTag)
-	err := api.facade.FacadeCall(context.TODO(), "AllMachineRemovals", &args, &results)
+	err := api.facade.FacadeCall(ctx, "AllMachineRemovals", &args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -75,10 +75,10 @@ func (api *API) AllMachineRemovals() ([]names.MachineTag, error) {
 
 // GetProviderInterfaceInfo gets the provider details for all of the
 // interfaces for one machine.
-func (api *API) GetProviderInterfaceInfo(machine names.MachineTag) ([]network.ProviderInterfaceInfo, error) {
+func (api *API) GetProviderInterfaceInfo(ctx context.Context, machine names.MachineTag) ([]network.ProviderInterfaceInfo, error) {
 	var result params.ProviderInterfaceInfoResults
 	args := wrapEntities(machine)
-	err := api.facade.FacadeCall(context.TODO(), "GetMachineProviderInterfaceInfo", &args, &result)
+	err := api.facade.FacadeCall(ctx, "GetMachineProviderInterfaceInfo", &args, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,17 +100,17 @@ func (api *API) GetProviderInterfaceInfo(machine names.MachineTag) ([]network.Pr
 
 // CompleteRemoval finishes the removal of the machine in the database
 // after any provider resources are cleaned up.
-func (api *API) CompleteRemoval(machine names.MachineTag) error {
+func (api *API) CompleteRemoval(ctx context.Context, machine names.MachineTag) error {
 	args := wrapEntities(machine)
-	return api.facade.FacadeCall(context.TODO(), "CompleteMachineRemovals", &args, nil)
+	return api.facade.FacadeCall(ctx, "CompleteMachineRemovals", &args, nil)
 }
 
 // WatchMachineRemovals registers to be notified when a machine
 // removal is requested.
-func (api *API) WatchMachineRemovals() (watcher.NotifyWatcher, error) {
+func (api *API) WatchMachineRemovals(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := wrapEntities(api.modelTag)
-	err := api.facade.FacadeCall(context.TODO(), "WatchMachineRemovals", &args, &results)
+	err := api.facade.FacadeCall(ctx, "WatchMachineRemovals", &args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

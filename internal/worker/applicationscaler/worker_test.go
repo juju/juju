@@ -35,7 +35,7 @@ func (s *WorkerSuite) TestValidate(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestWatchError(c *gc.C) {
-	fix := newFixture(c, errors.New("zap ouch"))
+	fix := newFixture(errors.New("zap ouch"))
 	fix.Run(c, func(worker worker.Worker) {
 		err := worker.Wait()
 		c.Check(err, gc.ErrorMatches, "zap ouch")
@@ -44,7 +44,7 @@ func (s *WorkerSuite) TestWatchError(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestRescaleThenError(c *gc.C) {
-	fix := newFixture(c, nil, nil, errors.New("pew squish"))
+	fix := newFixture(nil, nil, errors.New("pew squish"))
 	fix.Run(c, func(worker worker.Worker) {
 		err := worker.Wait()
 		c.Check(err, gc.ErrorMatches, "pew squish")

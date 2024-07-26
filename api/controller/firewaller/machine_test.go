@@ -79,7 +79,7 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	id, err := m.InstanceId()
+	id, err := m.InstanceId(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Life(), gc.Equals, life.Alive)
 	c.Assert(id, gc.Equals, instance.Id("inst-666"))
@@ -116,7 +116,7 @@ func (s *machineSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.WatchUnits()
+	_, err = m.WatchUnits(context.Background())
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 	c.Assert(calls, gc.Equals, 2)
 }
@@ -151,7 +151,7 @@ func (s *machineSuite) TestIsManual(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := m.IsManual()
+	result, err := m.IsManual(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.IsTrue)
 	c.Assert(calls, gc.Equals, 2)
@@ -219,7 +219,7 @@ func (s *machineSuite) TestOpenedPortRanges(c *gc.C) {
 	m, err := client.Machine(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	byUnitAndCIDR, byUnitAndEndpoint, err := m.OpenedMachinePortRanges()
+	byUnitAndCIDR, byUnitAndEndpoint, err := m.OpenedMachinePortRanges(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(byUnitAndCIDR, jc.DeepEquals, map[names.UnitTag]network.GroupedPortRanges{

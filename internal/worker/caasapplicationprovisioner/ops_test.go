@@ -111,11 +111,11 @@ func (s *OpsSuite) TestEnsureTrust(c *gc.C) {
 	app := caasmocks.NewMockApplication(ctrl)
 
 	gomock.InOrder(
-		unitFacade.EXPECT().ApplicationTrust("test").Return(true, nil),
+		unitFacade.EXPECT().ApplicationTrust(gomock.Any(), "test").Return(true, nil),
 		app.EXPECT().Trust(true).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureTrust("test", app, unitFacade, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureTrust(context.Background(), "test", app, unitFacade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -222,9 +222,9 @@ func (s *OpsSuite) TestUpdateState(c *gc.C) {
 	}
 	gomock.InOrder(
 		app.EXPECT().Service().Return(service, nil),
-		unitFacade.EXPECT().UpdateApplicationService(updateServiceArg).Return(nil),
+		unitFacade.EXPECT().UpdateApplicationService(gomock.Any(), updateServiceArg).Return(nil),
 		app.EXPECT().Units().Return(units, nil),
-		facade.EXPECT().UpdateUnits(updateUnitsArg).Return(appUnitInfo, nil),
+		facade.EXPECT().UpdateUnits(gomock.Any(), updateUnitsArg).Return(appUnitInfo, nil),
 		broker.EXPECT().AnnotateUnit(gomock.Any(), "test", "a", names.NewUnitTag("test/0")).Return(nil),
 		broker.EXPECT().AnnotateUnit(gomock.Any(), "test", "b", names.NewUnitTag("test/1")).Return(nil),
 	)
@@ -235,7 +235,7 @@ func (s *OpsSuite) TestUpdateState(c *gc.C) {
 			Message: "same",
 		},
 	}
-	currentReportedStatus, err := caasapplicationprovisioner.AppOps.UpdateState("test", app, lastReportedStatus, broker, facade, unitFacade, s.logger)
+	currentReportedStatus, err := caasapplicationprovisioner.AppOps.UpdateState(context.Background(), "test", app, lastReportedStatus, broker, facade, unitFacade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(currentReportedStatus, jc.DeepEquals, map[string]status.StatusInfo{
 		"a": {Status: "active", Message: "different"},
@@ -261,11 +261,11 @@ func (s *OpsSuite) TestRefreshApplicationStatus(c *gc.C) {
 	}}
 	gomock.InOrder(
 		app.EXPECT().State().Return(appState, nil),
-		facade.EXPECT().Units("test").Return(units, nil),
-		facade.EXPECT().SetOperatorStatus("test", status.Waiting, "waiting for units to settle down", nil).Return(nil),
+		facade.EXPECT().Units(gomock.Any(), "test").Return(units, nil),
+		facade.EXPECT().SetOperatorStatus(gomock.Any(), "test", status.Waiting, "waiting for units to settle down", nil).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.RefreshApplicationStatus("test", app, appLife, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.RefreshApplicationStatus(context.Background(), "test", app, appLife, facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -321,17 +321,17 @@ func (s *OpsSuite) TestReconcileDeadUnitScale(c *gc.C) {
 		ScaleTarget: 0,
 	}
 	gomock.InOrder(
-		facade.EXPECT().Units("test").Return(units, nil),
-		facade.EXPECT().ProvisioningState("test").Return(&ps, nil),
-		facade.EXPECT().Life("test/0").Return(life.Alive, nil),
-		facade.EXPECT().Life("test/1").Return(life.Dead, nil),
+		facade.EXPECT().Units(gomock.Any(), "test").Return(units, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(&ps, nil),
+		facade.EXPECT().Life(gomock.Any(), "test/0").Return(life.Alive, nil),
+		facade.EXPECT().Life(gomock.Any(), "test/1").Return(life.Dead, nil),
 		app.EXPECT().Scale(1).Return(nil),
 		app.EXPECT().State().Return(appState, nil),
-		facade.EXPECT().RemoveUnit("test/1").Return(nil),
-		facade.EXPECT().SetProvisioningState("test", newPs).Return(nil),
+		facade.EXPECT().RemoveUnit(gomock.Any(), "test/1").Return(nil),
+		facade.EXPECT().SetProvisioningState(gomock.Any(), "test", newPs).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale("test", app, facade, s.logger)
+	err := caasapplicationprovisioner.AppOps.ReconcileDeadUnitScale(context.Background(), "test", app, facade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -354,15 +354,15 @@ func (s *OpsSuite) TestEnsureScaleAlive(c *gc.C) {
 	}}
 	unitsToDestroy := []string{"test/1"}
 	gomock.InOrder(
-		unitFacade.EXPECT().ApplicationScale("test").Return(1, nil),
-		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
-		facade.EXPECT().SetProvisioningState("test", ps).Return(nil),
-		facade.EXPECT().Units("test").Return(units, nil),
+		unitFacade.EXPECT().ApplicationScale(gomock.Any(), "test").Return(1, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(nil, nil),
+		facade.EXPECT().SetProvisioningState(gomock.Any(), "test", ps).Return(nil),
+		facade.EXPECT().Units(gomock.Any(), "test").Return(units, nil),
 		app.EXPECT().UnitsToRemove(gomock.Any(), 1).Return(unitsToDestroy, nil),
-		facade.EXPECT().DestroyUnits(unitsToDestroy).Return(nil),
+		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale(context.Background(), "test", app, life.Alive, facade, unitFacade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -385,14 +385,14 @@ func (s *OpsSuite) TestEnsureScaleAliveRetry(c *gc.C) {
 	}}
 	unitsToDestroy := []string{"test/1"}
 	gomock.InOrder(
-		unitFacade.EXPECT().ApplicationScale("test").Return(10, nil),
-		facade.EXPECT().ProvisioningState("test").Return(&ps, nil),
-		facade.EXPECT().Units("test").Return(units, nil),
+		unitFacade.EXPECT().ApplicationScale(gomock.Any(), "test").Return(10, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(&ps, nil),
+		facade.EXPECT().Units(gomock.Any(), "test").Return(units, nil),
 		app.EXPECT().UnitsToRemove(gomock.Any(), 1).Return(unitsToDestroy, nil),
-		facade.EXPECT().DestroyUnits(unitsToDestroy).Return(nil),
+		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Alive, facade, unitFacade, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale(context.Background(), "test", app, life.Alive, facade, unitFacade, s.logger)
 	c.Assert(err, gc.ErrorMatches, `try again`)
 }
 
@@ -415,14 +415,14 @@ func (s *OpsSuite) TestEnsureScaleDyingDead(c *gc.C) {
 	}}
 	unitsToDestroy := []string{"test/0", "test/1"}
 	gomock.InOrder(
-		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
-		facade.EXPECT().SetProvisioningState("test", ps).Return(nil),
-		facade.EXPECT().Units("test").Return(units, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(nil, nil),
+		facade.EXPECT().SetProvisioningState(gomock.Any(), "test", ps).Return(nil),
+		facade.EXPECT().Units(gomock.Any(), "test").Return(units, nil),
 		app.EXPECT().UnitsToRemove(gomock.Any(), 0).Return(unitsToDestroy, nil),
-		facade.EXPECT().DestroyUnits(unitsToDestroy).Return(nil),
+		facade.EXPECT().DestroyUnits(gomock.Any(), unitsToDestroy).Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.EnsureScale("test", app, life.Dead, facade, unitFacade, s.logger)
+	err := caasapplicationprovisioner.AppOps.EnsureScale(context.Background(), "test", app, life.Dead, facade, unitFacade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -541,11 +541,11 @@ func (s *OpsSuite) TestAppAlive(c *gc.C) {
 		CharmUser:    caas.RunAsDefault,
 	}
 	gomock.InOrder(
-		facade.EXPECT().ProvisioningInfo("test").Return(pi, nil),
+		facade.EXPECT().ProvisioningInfo(gomock.Any(), "test").Return(pi, nil),
 		facade.EXPECT().CharmInfo(gomock.Any(), "ch:my-app").Return(&charmInfo, nil),
 		app.EXPECT().Exists().Return(ds, nil),
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
-		facade.EXPECT().ApplicationOCIResources("test").Return(oci, nil),
+		facade.EXPECT().ApplicationOCIResources(gomock.Any(), "test").Return(oci, nil),
 		app.EXPECT().Ensure(gomock.Any()).DoAndReturn(func(config caas.ApplicationConfig) error {
 			c.Check(config, gc.DeepEquals, ensureParams)
 			return nil
@@ -570,16 +570,16 @@ func (s *OpsSuite) TestAppDying(c *gc.C) {
 	}
 	newPs := params.CAASApplicationProvisioningState{}
 	gomock.InOrder(
-		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
-		facade.EXPECT().SetProvisioningState("test", ps).Return(nil),
-		facade.EXPECT().Units("test").Return(nil, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(nil, nil),
+		facade.EXPECT().SetProvisioningState(gomock.Any(), "test", ps).Return(nil),
+		facade.EXPECT().Units(gomock.Any(), "test").Return(nil, nil),
 		app.EXPECT().Scale(0).Return(nil),
-		facade.EXPECT().SetProvisioningState("test", newPs).Return(nil),
-		facade.EXPECT().Units("test").Return(nil, nil),
-		facade.EXPECT().ProvisioningState("test").Return(nil, nil),
+		facade.EXPECT().SetProvisioningState(gomock.Any(), "test", newPs).Return(nil),
+		facade.EXPECT().Units(gomock.Any(), "test").Return(nil, nil),
+		facade.EXPECT().ProvisioningState(gomock.Any(), "test").Return(nil, nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppDying("test", app, life.Dying, facade, unitFacade, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppDying(context.Background(), "test", app, life.Dying, facade, unitFacade, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -603,11 +603,11 @@ func (s *OpsSuite) TestAppDead(c *gc.C) {
 		app.EXPECT().Exists().Return(caas.DeploymentState{}, nil),
 		app.EXPECT().Service().Return(nil, errors.NotFound),
 		app.EXPECT().Units().Return(nil, nil),
-		facade.EXPECT().UpdateUnits(updateUnitsArgs).Return(nil, nil),
-		facade.EXPECT().ClearApplicationResources("test").Return(nil),
+		facade.EXPECT().UpdateUnits(gomock.Any(), updateUnitsArgs).Return(nil, nil),
+		facade.EXPECT().ClearApplicationResources(gomock.Any(), "test").Return(nil),
 	)
 
-	err := caasapplicationprovisioner.AppOps.AppDead("test", app, broker, facade, unitFacade, clk, s.logger)
+	err := caasapplicationprovisioner.AppOps.AppDead(context.Background(), "test", app, broker, facade, unitFacade, clk, s.logger)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

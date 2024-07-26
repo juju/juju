@@ -38,9 +38,9 @@ func New(caller base.APICaller, options ...Option) *Client {
 
 // WatchExternalControllers watches for the addition and removal of external
 // controllers.
-func (c *Client) WatchExternalControllers() (watcher.StringsWatcher, error) {
+func (c *Client) WatchExternalControllers(ctx context.Context) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
-	err := c.facade.FacadeCall(context.TODO(), "WatchExternalControllers", nil, &results)
+	err := c.facade.FacadeCall(ctx, "WatchExternalControllers", nil, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -57,16 +57,16 @@ func (c *Client) WatchExternalControllers() (watcher.StringsWatcher, error) {
 }
 
 // ExternalControllerInfo returns the info for the external controller with the specified UUID.
-func (c *Client) ExternalControllerInfo(controllerUUID string) (*crossmodel.ControllerInfo, error) {
+func (c *Client) ExternalControllerInfo(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error) {
 	if !names.IsValidController(controllerUUID) {
 		return nil, errors.NotValidf("controller UUID %q", controllerUUID)
 	}
 	controllerTag := names.NewControllerTag(controllerUUID)
-	args := params.Entities{[]params.Entity{{
+	args := params.Entities{Entities: []params.Entity{{
 		Tag: controllerTag.String(),
 	}}}
 	var results params.ExternalControllerInfoResults
-	err := c.facade.FacadeCall(context.TODO(), "ExternalControllerInfo", args, &results)
+	err := c.facade.FacadeCall(ctx, "ExternalControllerInfo", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -87,7 +87,7 @@ func (c *Client) ExternalControllerInfo(controllerUUID string) (*crossmodel.Cont
 }
 
 // SetExternalControllerInfo saves the given controller info.
-func (c *Client) SetExternalControllerInfo(info crossmodel.ControllerInfo) error {
+func (c *Client) SetExternalControllerInfo(ctx context.Context, info crossmodel.ControllerInfo) error {
 	var results params.ErrorResults
 	args := params.SetExternalControllersInfoParams{
 		Controllers: []params.SetExternalControllerInfoParams{{
@@ -99,7 +99,7 @@ func (c *Client) SetExternalControllerInfo(info crossmodel.ControllerInfo) error
 			},
 		}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "SetExternalControllerInfo", args, &results)
+	err := c.facade.FacadeCall(ctx, "SetExternalControllerInfo", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

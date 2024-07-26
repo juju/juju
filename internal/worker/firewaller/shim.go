@@ -29,7 +29,7 @@ func NewFirewallerFacade(apiCaller base.APICaller) (FirewallerAPI, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &firewallerShim{facade}, nil
+	return &firewallerShim{Client: facade}, nil
 }
 
 type firewallerShim struct {
@@ -42,7 +42,7 @@ func (s *firewallerShim) Machine(ctx context.Context, tag names.MachineTag) (Mac
 
 func (s *firewallerShim) Unit(ctx context.Context, tag names.UnitTag) (Unit, error) {
 	u, err := s.Client.Unit(ctx, tag)
-	return &unitShim{u}, err
+	return &unitShim{Unit: u}, err
 }
 
 type unitShim struct {

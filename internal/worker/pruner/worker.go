@@ -17,7 +17,7 @@ import (
 
 // Facade represents an API that implements status history pruning.
 type Facade interface {
-	Prune(time.Duration, int) error
+	Prune(context.Context, time.Duration, int) error
 }
 
 // PrunerWorker prunes status history or action records at regular intervals.
@@ -96,7 +96,7 @@ func (w *PrunerWorker) Work(getPrunerConfig func(*config.Config) (time.Duration,
 			}
 
 		case <-timerCh:
-			err := w.config.Facade.Prune(maxAge, int(maxCollectionMB))
+			err := w.config.Facade.Prune(ctx, maxAge, int(maxCollectionMB))
 			if err != nil {
 				return errors.Trace(err)
 			}

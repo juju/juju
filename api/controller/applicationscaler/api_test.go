@@ -4,6 +4,8 @@
 package applicationscaler_test
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -31,7 +33,7 @@ func (s *APISuite) TestRescaleMethodName(c *gc.C) {
 	})
 	api := applicationscaler.NewAPI(caller, nil)
 
-	api.Rescale(nil)
+	api.Rescale(context.Background(), nil)
 	c.Check(called, jc.IsTrue)
 }
 
@@ -41,7 +43,7 @@ func (s *APISuite) TestRescaleBadArgs(c *gc.C) {
 	})
 	api := applicationscaler.NewAPI(caller, nil)
 
-	err := api.Rescale([]string{"good-name", "bad/name"})
+	err := api.Rescale(context.Background(), []string{"good-name", "bad/name"})
 	c.Check(err, gc.ErrorMatches, `application name "bad/name" not valid`)
 	c.Check(err, jc.ErrorIs, errors.NotValid)
 }
@@ -52,16 +54,16 @@ func (s *APISuite) TestRescaleConvertArgs(c *gc.C) {
 		called = true
 		c.Check(arg, gc.DeepEquals, params.Entities{
 			Entities: []params.Entity{{
-				"application-foo",
+				Tag: "application-foo",
 			}, {
-				"application-bar-baz",
+				Tag: "application-bar-baz",
 			}},
 		})
 		return nil
 	})
 	api := applicationscaler.NewAPI(caller, nil)
 
-	api.Rescale([]string{"foo", "bar-baz"})
+	api.Rescale(context.Background(), []string{"foo", "bar-baz"})
 	c.Check(called, jc.IsTrue)
 }
 
@@ -71,7 +73,7 @@ func (s *APISuite) TestRescaleCallError(c *gc.C) {
 	})
 	api := applicationscaler.NewAPI(caller, nil)
 
-	err := api.Rescale(nil)
+	err := api.Rescale(context.Background(), nil)
 	c.Check(err, gc.ErrorMatches, "snorble flip")
 }
 
@@ -80,19 +82,19 @@ func (s *APISuite) TestRescaleFirstError(c *gc.C) {
 		resultPtr, ok := result.(*params.ErrorResults)
 		c.Assert(ok, jc.IsTrue)
 		*resultPtr = params.ErrorResults{Results: []params.ErrorResult{{
-			nil,
+			Error: nil,
 		}, {
-			&params.Error{Message: "expect this error"},
+			Error: &params.Error{Message: "expect this error"},
 		}, {
-			&params.Error{Message: "not this one"},
+			Error: &params.Error{Message: "not this one"},
 		}, {
-			nil,
+			Error: nil,
 		}}}
 		return nil
 	})
 	api := applicationscaler.NewAPI(caller, nil)
 
-	err := api.Rescale(nil)
+	err := api.Rescale(context.Background(), nil)
 	c.Check(err, gc.ErrorMatches, "expect this error")
 }
 
@@ -102,7 +104,7 @@ func (s *APISuite) TestRescaleNoError(c *gc.C) {
 	})
 	api := applicationscaler.NewAPI(caller, nil)
 
-	err := api.Rescale(nil)
+	err := api.Rescale(context.Background(), nil)
 	c.Check(err, jc.ErrorIsNil)
 }
 
@@ -115,7 +117,7 @@ func (s *APISuite) TestWatchMethodName(c *gc.C) {
 	})
 	api := applicationscaler.NewAPI(caller, nil)
 
-	api.Watch()
+	api.Watch(context.Background())
 	c.Check(called, jc.IsTrue)
 }
 
@@ -128,7 +130,7 @@ func (s *APISuite) TestWatchError(c *gc.C) {
 	})
 	api := applicationscaler.NewAPI(caller, nil)
 
-	watcher, err := api.Watch()
+	watcher, err := api.Watch(context.Background())
 	c.Check(watcher, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "blam pow")
 	c.Check(called, jc.IsTrue)
@@ -153,7 +155,7 @@ func (s *APISuite) TestWatchSuccess(c *gc.C) {
 	}
 	api := applicationscaler.NewAPI(caller, newWatcher)
 
-	watcher, err := api.Watch()
+	watcher, err := api.Watch(context.Background())
 	c.Check(watcher, gc.Equals, expectWatcher)
 	c.Check(err, jc.ErrorIsNil)
 }

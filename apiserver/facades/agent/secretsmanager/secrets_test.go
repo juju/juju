@@ -682,7 +682,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 		CurrentRevision: 665,
 	}, nil)
 
-	s.remoteClient.EXPECT().GetSecretAccessScope(uri, "token", 0).Return("scope-token", nil)
+	s.remoteClient.EXPECT().GetSecretAccessScope(gomock.Any(), uri, "token", 0).Return("scope-token", nil)
 	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
 	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
 
@@ -750,7 +750,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerNoRe
 		CurrentRevision: 665,
 	}, nil)
 
-	s.remoteClient.EXPECT().GetSecretAccessScope(uri, "token", 0).Return("scope-token", nil)
+	s.remoteClient.EXPECT().GetSecretAccessScope(gomock.Any(), uri, "token", 0).Return("scope-token", nil)
 	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
 	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
 
@@ -818,7 +818,7 @@ func (s *SecretsManagerSuite) TestGetSecretContentCrossModelExistingConsumerRefr
 		CurrentRevision: 665,
 	}, nil)
 
-	s.remoteClient.EXPECT().GetSecretAccessScope(uri, "token", 0).Return("scope-token", nil)
+	s.remoteClient.EXPECT().GetSecretAccessScope(gomock.Any(), uri, "token", 0).Return("scope-token", nil)
 	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
 	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
 
@@ -896,7 +896,7 @@ func (s *SecretsManagerSuite) assertGetSecretContentCrossModelNewConsumer(c *gc.
 	s.leadership.EXPECT().LeadershipCheck("mariadb", "mariadb/0").Return(s.token)
 	s.secretService.EXPECT().ProcessCharmSecretConsumerLabel(gomock.Any(), "mariadb/0", uri, "", gomock.Any()).Return(uri, nil, nil)
 
-	s.remoteClient.EXPECT().GetSecretAccessScope(uri, "token", 0).Return("scope-token", nil)
+	s.remoteClient.EXPECT().GetSecretAccessScope(gomock.Any(), uri, "token", 0).Return("scope-token", nil)
 	s.crossModelState.EXPECT().GetRemoteEntity("scope-token").Return(scopeTag, nil)
 	s.crossModelState.EXPECT().GetMacaroon(scopeTag).Return(mac, nil)
 

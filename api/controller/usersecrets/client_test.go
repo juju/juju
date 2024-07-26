@@ -43,7 +43,7 @@ func (s *secretSuite) TestWatchRevisionsToPrune(c *gc.C) {
 		return nil
 	})
 	client := usersecrets.NewClient(apiCaller)
-	_, err := client.WatchRevisionsToPrune()
+	_, err := client.WatchRevisionsToPrune(context.Background())
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 

@@ -4,6 +4,7 @@
 package caasfirewaller_test
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -113,14 +114,14 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 
 	gomock.InOrder(
 		s.firewallerAPI.EXPECT().WatchApplication(gomock.Any(), s.appName).Return(s.appsWatcher, nil),
-		s.firewallerAPI.EXPECT().WatchOpenedPorts().Return(s.portsWatcher, nil),
+		s.firewallerAPI.EXPECT().WatchOpenedPorts(gomock.Any()).Return(s.portsWatcher, nil),
 		s.broker.EXPECT().Application(s.appName, caas.DeploymentStateful).Return(s.brokerApp),
 
 		// initial fetch.
-		s.firewallerAPI.EXPECT().GetOpenedPorts(s.appName).Return(network.GroupedPortRanges{}, nil),
+		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(network.GroupedPortRanges{}, nil),
 
 		// 1st triggerred by port change event.
-		s.firewallerAPI.EXPECT().GetOpenedPorts(s.appName).Return(gpr1, nil),
+		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(gpr1, nil),
 		s.brokerApp.EXPECT().UpdatePorts([]caas.ServicePort{
 			{
 				Name:       "1000-tcp",
@@ -131,10 +132,10 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 		}, false).Return(nil),
 
 		// 2nd triggerred by port change event, no UpdatePorts because no diff on the portchanges.
-		s.firewallerAPI.EXPECT().GetOpenedPorts(s.appName).Return(gpr1, nil),
+		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(gpr1, nil),
 
 		// 1rd triggerred by port change event.
-		s.firewallerAPI.EXPECT().GetOpenedPorts(s.appName).Return(gpr2, nil),
+		s.firewallerAPI.EXPECT().GetOpenedPorts(gomock.Any(), s.appName).Return(gpr2, nil),
 		s.brokerApp.EXPECT().UpdatePorts([]caas.ServicePort{
 			{
 				Name:       "1000-tcp",
@@ -150,7 +151,7 @@ func (s *appWorkerSuite) TestWorker(c *gc.C) {
 			},
 		}, false).Return(nil),
 
-		s.firewallerAPI.EXPECT().IsExposed(s.appName).DoAndReturn(func(_ string) (bool, error) {
+		s.firewallerAPI.EXPECT().IsExposed(gomock.Any(), s.appName).DoAndReturn(func(_ context.Context, _ string) (bool, error) {
 			close(done)
 			return false, nil
 		}),

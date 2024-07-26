@@ -33,7 +33,7 @@ type mockFacade struct {
 	modelChanges chan struct{}
 }
 
-func (mock *mockFacade) ModelInfo() (params.UndertakerModelInfoResult, error) {
+func (mock *mockFacade) ModelInfo(context.Context) (params.UndertakerModelInfoResult, error) {
 	mock.stub.AddCall("ModelInfo")
 	if err := mock.stub.NextErr(); err != nil {
 		return params.UndertakerModelInfoResult{}, err
@@ -41,7 +41,7 @@ func (mock *mockFacade) ModelInfo() (params.UndertakerModelInfoResult, error) {
 	return mock.info, nil
 }
 
-func (mock *mockFacade) WatchModelResources() (watcher.NotifyWatcher, error) {
+func (mock *mockFacade) WatchModelResources(context.Context) (watcher.NotifyWatcher, error) {
 	mock.stub.AddCall("WatchModelResources")
 	if mock.advance > 0 {
 		mock.clock.Advance(mock.advance)
@@ -60,18 +60,18 @@ func (mock *mockFacade) WatchModelResources() (watcher.NotifyWatcher, error) {
 	}, nil
 }
 
-func (mock *mockFacade) ProcessDyingModel() error {
+func (mock *mockFacade) ProcessDyingModel(context.Context) error {
 	mock.stub.AddCall("ProcessDyingModel")
 	time.Sleep(100 * time.Millisecond)
 	return mock.stub.NextErr()
 }
 
-func (mock *mockFacade) SetStatus(status status.Status, info string, data map[string]interface{}) error {
+func (mock *mockFacade) SetStatus(ctx context.Context, status status.Status, info string, data map[string]interface{}) error {
 	mock.stub.MethodCall(mock, "SetStatus", status, info, data)
 	return mock.stub.NextErr()
 }
 
-func (mock *mockFacade) RemoveModel() error {
+func (mock *mockFacade) RemoveModel(context.Context) error {
 	mock.stub.AddCall("RemoveModel")
 	time.Sleep(100 * time.Millisecond)
 	return mock.stub.NextErr()
@@ -91,7 +91,7 @@ func (mock *mockFacade) CloudSpec(_ context.Context) (cloudspec.CloudSpec, error
 	return cloudspec.CloudSpec{}, mock.stub.NextErr()
 }
 
-func (mock *mockFacade) WatchModel() (watcher.NotifyWatcher, error) {
+func (mock *mockFacade) WatchModel(context.Context) (watcher.NotifyWatcher, error) {
 	mock.stub.AddCall("WatchModel")
 	if err := mock.stub.NextErr(); err != nil {
 		return nil, err

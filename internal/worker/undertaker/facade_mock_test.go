@@ -123,18 +123,18 @@ func (c *MockFacadeModelConfigCall) DoAndReturn(f func(context.Context) (*config
 }
 
 // ModelInfo mocks base method.
-func (m *MockFacade) ModelInfo() (params.UndertakerModelInfoResult, error) {
+func (m *MockFacade) ModelInfo(arg0 context.Context) (params.UndertakerModelInfoResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ModelInfo")
+	ret := m.ctrl.Call(m, "ModelInfo", arg0)
 	ret0, _ := ret[0].(params.UndertakerModelInfoResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ModelInfo indicates an expected call of ModelInfo.
-func (mr *MockFacadeMockRecorder) ModelInfo() *MockFacadeModelInfoCall {
+func (mr *MockFacadeMockRecorder) ModelInfo(arg0 any) *MockFacadeModelInfoCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelInfo", reflect.TypeOf((*MockFacade)(nil).ModelInfo))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelInfo", reflect.TypeOf((*MockFacade)(nil).ModelInfo), arg0)
 	return &MockFacadeModelInfoCall{Call: call}
 }
 
@@ -150,29 +150,29 @@ func (c *MockFacadeModelInfoCall) Return(arg0 params.UndertakerModelInfoResult, 
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeModelInfoCall) Do(f func() (params.UndertakerModelInfoResult, error)) *MockFacadeModelInfoCall {
+func (c *MockFacadeModelInfoCall) Do(f func(context.Context) (params.UndertakerModelInfoResult, error)) *MockFacadeModelInfoCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeModelInfoCall) DoAndReturn(f func() (params.UndertakerModelInfoResult, error)) *MockFacadeModelInfoCall {
+func (c *MockFacadeModelInfoCall) DoAndReturn(f func(context.Context) (params.UndertakerModelInfoResult, error)) *MockFacadeModelInfoCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // ProcessDyingModel mocks base method.
-func (m *MockFacade) ProcessDyingModel() error {
+func (m *MockFacade) ProcessDyingModel(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProcessDyingModel")
+	ret := m.ctrl.Call(m, "ProcessDyingModel", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ProcessDyingModel indicates an expected call of ProcessDyingModel.
-func (mr *MockFacadeMockRecorder) ProcessDyingModel() *MockFacadeProcessDyingModelCall {
+func (mr *MockFacadeMockRecorder) ProcessDyingModel(arg0 any) *MockFacadeProcessDyingModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessDyingModel", reflect.TypeOf((*MockFacade)(nil).ProcessDyingModel))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessDyingModel", reflect.TypeOf((*MockFacade)(nil).ProcessDyingModel), arg0)
 	return &MockFacadeProcessDyingModelCall{Call: call}
 }
 
@@ -188,29 +188,29 @@ func (c *MockFacadeProcessDyingModelCall) Return(arg0 error) *MockFacadeProcessD
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeProcessDyingModelCall) Do(f func() error) *MockFacadeProcessDyingModelCall {
+func (c *MockFacadeProcessDyingModelCall) Do(f func(context.Context) error) *MockFacadeProcessDyingModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeProcessDyingModelCall) DoAndReturn(f func() error) *MockFacadeProcessDyingModelCall {
+func (c *MockFacadeProcessDyingModelCall) DoAndReturn(f func(context.Context) error) *MockFacadeProcessDyingModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // RemoveModel mocks base method.
-func (m *MockFacade) RemoveModel() error {
+func (m *MockFacade) RemoveModel(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveModel")
+	ret := m.ctrl.Call(m, "RemoveModel", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RemoveModel indicates an expected call of RemoveModel.
-func (mr *MockFacadeMockRecorder) RemoveModel() *MockFacadeRemoveModelCall {
+func (mr *MockFacadeMockRecorder) RemoveModel(arg0 any) *MockFacadeRemoveModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveModel", reflect.TypeOf((*MockFacade)(nil).RemoveModel))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveModel", reflect.TypeOf((*MockFacade)(nil).RemoveModel), arg0)
 	return &MockFacadeRemoveModelCall{Call: call}
 }
 
@@ -226,29 +226,29 @@ func (c *MockFacadeRemoveModelCall) Return(arg0 error) *MockFacadeRemoveModelCal
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeRemoveModelCall) Do(f func() error) *MockFacadeRemoveModelCall {
+func (c *MockFacadeRemoveModelCall) Do(f func(context.Context) error) *MockFacadeRemoveModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeRemoveModelCall) DoAndReturn(f func() error) *MockFacadeRemoveModelCall {
+func (c *MockFacadeRemoveModelCall) DoAndReturn(f func(context.Context) error) *MockFacadeRemoveModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // SetStatus mocks base method.
-func (m *MockFacade) SetStatus(arg0 status.Status, arg1 string, arg2 map[string]any) error {
+func (m *MockFacade) SetStatus(arg0 context.Context, arg1 status.Status, arg2 string, arg3 map[string]any) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetStatus indicates an expected call of SetStatus.
-func (mr *MockFacadeMockRecorder) SetStatus(arg0, arg1, arg2 any) *MockFacadeSetStatusCall {
+func (mr *MockFacadeMockRecorder) SetStatus(arg0, arg1, arg2, arg3 any) *MockFacadeSetStatusCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockFacade)(nil).SetStatus), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockFacade)(nil).SetStatus), arg0, arg1, arg2, arg3)
 	return &MockFacadeSetStatusCall{Call: call}
 }
 
@@ -264,30 +264,30 @@ func (c *MockFacadeSetStatusCall) Return(arg0 error) *MockFacadeSetStatusCall {
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeSetStatusCall) Do(f func(status.Status, string, map[string]any) error) *MockFacadeSetStatusCall {
+func (c *MockFacadeSetStatusCall) Do(f func(context.Context, status.Status, string, map[string]any) error) *MockFacadeSetStatusCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeSetStatusCall) DoAndReturn(f func(status.Status, string, map[string]any) error) *MockFacadeSetStatusCall {
+func (c *MockFacadeSetStatusCall) DoAndReturn(f func(context.Context, status.Status, string, map[string]any) error) *MockFacadeSetStatusCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchModel mocks base method.
-func (m *MockFacade) WatchModel() (watcher.Watcher[struct{}], error) {
+func (m *MockFacade) WatchModel(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchModel")
+	ret := m.ctrl.Call(m, "WatchModel", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchModel indicates an expected call of WatchModel.
-func (mr *MockFacadeMockRecorder) WatchModel() *MockFacadeWatchModelCall {
+func (mr *MockFacadeMockRecorder) WatchModel(arg0 any) *MockFacadeWatchModelCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModel", reflect.TypeOf((*MockFacade)(nil).WatchModel))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModel", reflect.TypeOf((*MockFacade)(nil).WatchModel), arg0)
 	return &MockFacadeWatchModelCall{Call: call}
 }
 
@@ -303,30 +303,30 @@ func (c *MockFacadeWatchModelCall) Return(arg0 watcher.Watcher[struct{}], arg1 e
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeWatchModelCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockFacadeWatchModelCall {
+func (c *MockFacadeWatchModelCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockFacadeWatchModelCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeWatchModelCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockFacadeWatchModelCall {
+func (c *MockFacadeWatchModelCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockFacadeWatchModelCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchModelResources mocks base method.
-func (m *MockFacade) WatchModelResources() (watcher.Watcher[struct{}], error) {
+func (m *MockFacade) WatchModelResources(arg0 context.Context) (watcher.Watcher[struct{}], error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchModelResources")
+	ret := m.ctrl.Call(m, "WatchModelResources", arg0)
 	ret0, _ := ret[0].(watcher.Watcher[struct{}])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchModelResources indicates an expected call of WatchModelResources.
-func (mr *MockFacadeMockRecorder) WatchModelResources() *MockFacadeWatchModelResourcesCall {
+func (mr *MockFacadeMockRecorder) WatchModelResources(arg0 any) *MockFacadeWatchModelResourcesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelResources", reflect.TypeOf((*MockFacade)(nil).WatchModelResources))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchModelResources", reflect.TypeOf((*MockFacade)(nil).WatchModelResources), arg0)
 	return &MockFacadeWatchModelResourcesCall{Call: call}
 }
 
@@ -342,13 +342,13 @@ func (c *MockFacadeWatchModelResourcesCall) Return(arg0 watcher.Watcher[struct{}
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockFacadeWatchModelResourcesCall) Do(f func() (watcher.Watcher[struct{}], error)) *MockFacadeWatchModelResourcesCall {
+func (c *MockFacadeWatchModelResourcesCall) Do(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockFacadeWatchModelResourcesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockFacadeWatchModelResourcesCall) DoAndReturn(f func() (watcher.Watcher[struct{}], error)) *MockFacadeWatchModelResourcesCall {
+func (c *MockFacadeWatchModelResourcesCall) DoAndReturn(f func(context.Context) (watcher.Watcher[struct{}], error)) *MockFacadeWatchModelResourcesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

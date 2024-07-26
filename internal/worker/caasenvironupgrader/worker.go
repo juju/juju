@@ -23,7 +23,7 @@ var _ logger = struct{}{}
 
 // Facade exposes capabilities required by the worker.
 type Facade interface {
-	SetModelStatus(names.ModelTag, status.Status, string, map[string]interface{}) error
+	SetModelStatus(context.Context, names.ModelTag, status.Status, string, map[string]interface{}) error
 }
 
 // Config holds the configuration and dependencies for a worker.
@@ -63,9 +63,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 	}
 	// There are no upgrade steps for a CAAS model.
 	// We just set the status to available and unlock the gate.
-	return jujuworker.NewSimpleWorker(func(context.Context) error {
+	return jujuworker.NewSimpleWorker(func(ctx context.Context) error {
 		setStatus := func(s status.Status, info string) error {
-			return config.Facade.SetModelStatus(config.ModelTag, s, info, nil)
+			return config.Facade.SetModelStatus(ctx, config.ModelTag, s, info, nil)
 		}
 		if err := setStatus(status.Available, ""); err != nil {
 			return errors.Trace(err)

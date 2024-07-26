@@ -4,6 +4,7 @@
 package externalcontrollerupdater
 
 import (
+	"context"
 	"io"
 	"reflect"
 	"time"
@@ -28,9 +29,9 @@ var logger = internallogger.GetLogger("juju.worker.externalcontrollerupdater")
 // to the local controller's external controller records, and obtaining and
 // updating their values. This will communicate only with the local controller.
 type ExternalControllerUpdaterClient interface {
-	WatchExternalControllers() (watcher.StringsWatcher, error)
-	ExternalControllerInfo(controllerUUID string) (*crossmodel.ControllerInfo, error)
-	SetExternalControllerInfo(crossmodel.ControllerInfo) error
+	WatchExternalControllers(ctx context.Context) (watcher.StringsWatcher, error)
+	ExternalControllerInfo(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
+	SetExternalControllerInfo(context.Context, crossmodel.ControllerInfo) error
 }
 
 // ExternalControllerWatcherClientCloser extends the ExternalControllerWatcherClient
@@ -45,8 +46,8 @@ type ExternalControllerWatcherClientCloser interface {
 // to and obtaining the current API information for a controller. This will
 // communicate with an external controller.
 type ExternalControllerWatcherClient interface {
-	WatchControllerInfo() (watcher.NotifyWatcher, error)
-	ControllerInfo() (*crosscontroller.ControllerInfo, error)
+	WatchControllerInfo(ctx context.Context) (watcher.NotifyWatcher, error)
+	ControllerInfo(ctx context.Context) (*crosscontroller.ControllerInfo, error)
 }
 
 // NewExternalControllerWatcherClientFunc is a function type that
@@ -91,9 +92,9 @@ type updaterWorker struct {
 	catacomb catacomb.Catacomb
 	runner   *worker.Runner
 
-	watchExternalControllers           func() (watcher.StringsWatcher, error)
-	externalControllerInfo             func(controllerUUID string) (*crossmodel.ControllerInfo, error)
-	setExternalControllerInfo          func(crossmodel.ControllerInfo) error
+	watchExternalControllers           func(ctx context.Context) (watcher.StringsWatcher, error)
+	externalControllerInfo             func(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
+	setExternalControllerInfo          func(context.Context, crossmodel.ControllerInfo) error
 	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc
 }
 
@@ -108,7 +109,10 @@ func (w *updaterWorker) Wait() error {
 }
 
 func (w *updaterWorker) loop() error {
-	watcher, err := w.watchExternalControllers()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	watcher, err := w.watchExternalControllers(ctx)
 	if err != nil {
 		return errors.Annotate(err, "watching external controllers")
 	}
@@ -171,6 +175,10 @@ func (w *updaterWorker) loop() error {
 	}
 }
 
+func (w *updaterWorker) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
+}
+
 // controllerWatcher is a worker that watches for changes to the external
 // controller with the given tag. The external controller must be known
 // to the local controller.
@@ -178,8 +186,8 @@ type controllerWatcher struct {
 	catacomb catacomb.Catacomb
 
 	tag                                names.ControllerTag
-	setExternalControllerInfo          func(crossmodel.ControllerInfo) error
-	externalControllerInfo             func(controllerUUID string) (*crossmodel.ControllerInfo, error)
+	setExternalControllerInfo          func(context.Context, crossmodel.ControllerInfo) error
+	externalControllerInfo             func(ctx context.Context, controllerUUID string) (*crossmodel.ControllerInfo, error)
 	newExternalControllerWatcherClient NewExternalControllerWatcherClientFunc
 }
 
@@ -199,8 +207,11 @@ func (w *controllerWatcher) Wait() error {
 }
 
 func (w *controllerWatcher) loop() error {
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
 	// We get the API info from the local controller initially.
-	info, err := w.externalControllerInfo(w.tag.Id())
+	info, err := w.externalControllerInfo(ctx, w.tag.Id())
 	if errors.Is(err, errors.NotFound) {
 		return nil
 	} else if err != nil {
@@ -223,7 +234,7 @@ func (w *controllerWatcher) loop() error {
 				CACert: info.CACert,
 				Tag:    names.NewUserTag(api.AnonymousUsername),
 			}
-			client, nw, err = w.connectAndWatch(apiInfo, w.catacomb.Dying())
+			client, nw, err = w.connectAndWatch(ctx, apiInfo)
 			if err == w.catacomb.ErrDying() {
 				return err
 			} else if err != nil {
@@ -240,7 +251,7 @@ func (w *controllerWatcher) loop() error {
 				return w.catacomb.ErrDying()
 			}
 
-			newInfo, err := client.ControllerInfo()
+			newInfo, err := client.ControllerInfo(ctx)
 			if err != nil {
 				return errors.Annotate(err, "getting external controller info")
 			}
@@ -252,7 +263,7 @@ func (w *controllerWatcher) loop() error {
 			// local controller and stop the existing notify watcher
 			// and set it to nil, so we'll restart it with the new
 			// addresses.
-			if err := w.setExternalControllerInfo(crossmodel.ControllerInfo{
+			if err := w.setExternalControllerInfo(ctx, crossmodel.ControllerInfo{
 				ControllerTag: w.tag,
 				Alias:         info.Alias,
 				Addrs:         newInfo.Addrs,
@@ -282,7 +293,7 @@ func (w *controllerWatcher) loop() error {
 // connectAndWatch connects to the specified controller and watches for changes.
 // It aborts if signalled, which prevents the watcher loop from blocking any shutdown
 // of the watcher the may be requested by the parent worker.
-func (w *controllerWatcher) connectAndWatch(apiInfo *api.Info, abort <-chan struct{}) (ExternalControllerWatcherClientCloser, watcher.NotifyWatcher, error) {
+func (w *controllerWatcher) connectAndWatch(ctx context.Context, apiInfo *api.Info) (ExternalControllerWatcherClientCloser, watcher.NotifyWatcher, error) {
 	type result struct {
 		client ExternalControllerWatcherClientCloser
 		nw     watcher.NotifyWatcher
@@ -295,7 +306,7 @@ func (w *controllerWatcher) connectAndWatch(apiInfo *api.Info, abort <-chan stru
 			errc <- errors.Annotate(err, "getting external controller client")
 			return
 		}
-		nw, err := client.WatchControllerInfo()
+		nw, err := client.WatchControllerInfo(ctx)
 		if err != nil {
 			errc <- errors.Annotate(err, "watching external controller")
 			return
@@ -303,11 +314,15 @@ func (w *controllerWatcher) connectAndWatch(apiInfo *api.Info, abort <-chan stru
 		donec <- result{client, nw}
 	}()
 	select {
-	case <-abort:
+	case <-ctx.Done():
 		return nil, nil, w.catacomb.ErrDying()
 	case err := <-errc:
 		return nil, nil, errors.Trace(err)
 	case r := <-donec:
 		return r.client, r.nw, nil
 	}
+}
+
+func (w *controllerWatcher) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(w.catacomb.Context(context.Background()))
 }

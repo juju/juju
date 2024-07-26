@@ -4,6 +4,8 @@
 package caasunitprovisioner_test
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -21,7 +23,7 @@ type unitprovisionerSuite struct {
 var _ = gc.Suite(&unitprovisionerSuite{})
 
 func newClient(f basetesting.APICallerFunc) *caasunitprovisioner.Client {
-	return caasunitprovisioner.NewClient(basetesting.BestVersionCaller{f, 1})
+	return caasunitprovisioner.NewClient(basetesting.BestVersionCaller{APICallerFunc: f, BestVersion: 1})
 }
 
 func (s *unitprovisionerSuite) TestWatchApplications(c *gc.C) {
@@ -38,7 +40,7 @@ func (s *unitprovisionerSuite) TestWatchApplications(c *gc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	watcher, err := client.WatchApplications()
+	watcher, err := client.WatchApplications(context.Background())
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
@@ -64,7 +66,7 @@ func (s *unitprovisionerSuite) TestWatchApplicationScale(c *gc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	watcher, err := client.WatchApplicationScale("gitlab")
+	watcher, err := client.WatchApplicationScale(context.Background(), "gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
@@ -90,7 +92,7 @@ func (s *unitprovisionerSuite) TestApplicationScale(c *gc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	scale, err := client.ApplicationScale("gitlab")
+	scale, err := client.ApplicationScale(context.Background(), "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(scale, gc.Equals, 5)
 }
@@ -117,7 +119,7 @@ func (s *unitprovisionerSuite) TestUpdateApplicationService(c *gc.C) {
 		}
 		return nil
 	})
-	err := client.UpdateApplicationService(params.UpdateApplicationServiceArg{
+	err := client.UpdateApplicationService(context.Background(), params.UpdateApplicationServiceArg{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		ProviderId:     "id",
 		Addresses:      []params.Address{{Value: "10.0.0.1"}},
@@ -136,7 +138,7 @@ func (s *unitprovisionerSuite) TestUpdateApplicationServiceCount(c *gc.C) {
 		}
 		return nil
 	})
-	err := client.UpdateApplicationService(params.UpdateApplicationServiceArg{
+	err := client.UpdateApplicationService(context.Background(), params.UpdateApplicationServiceArg{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		ProviderId:     "id",
 		Addresses:      []params.Address{{Value: "10.0.0.1"}},
@@ -165,7 +167,7 @@ func (s *unitprovisionerSuite) TestWatchApplicationTrustHash(c *gc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	watcher, err := client.WatchApplicationTrustHash("gitlab")
+	watcher, err := client.WatchApplicationTrustHash(context.Background(), "gitlab")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
@@ -191,7 +193,7 @@ func (s *unitprovisionerSuite) TestApplicationTrust(c *gc.C) {
 	})
 
 	client := caasunitprovisioner.NewClient(apiCaller)
-	trust, err := client.ApplicationTrust("gitlab")
+	trust, err := client.ApplicationTrust(context.Background(), "gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(trust, jc.IsTrue)
 }

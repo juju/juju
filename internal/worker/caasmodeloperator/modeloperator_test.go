@@ -59,7 +59,7 @@ func (b *dummyBroker) ModelOperatorExists(ctx context.Context) (bool, error) {
 	return b.modelOperatorExists(ctx)
 }
 
-func (a *dummyAPI) ModelOperatorProvisioningInfo() (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
+func (a *dummyAPI) ModelOperatorProvisioningInfo(ctx context.Context) (modeloperatorapi.ModelOperatorProvisioningInfo, error) {
 	if a.provInfo == nil {
 		return modeloperatorapi.ModelOperatorProvisioningInfo{}, nil
 	}
@@ -73,7 +73,7 @@ func (a *dummyAPI) WatchModelOperatorProvisioningInfo(ctx context.Context) (watc
 	return a.watchProvInfo()
 }
 
-func (a *dummyAPI) SetPassword(p string) error {
+func (a *dummyAPI) SetPassword(ctx context.Context, p string) error {
 	if a.setPassword == nil {
 		return nil
 	}

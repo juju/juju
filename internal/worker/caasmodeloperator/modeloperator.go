@@ -20,8 +20,8 @@ import (
 )
 
 type ModelOperatorAPI interface {
-	SetPassword(password string) error
-	ModelOperatorProvisioningInfo() (caasmodeloperator.ModelOperatorProvisioningInfo, error)
+	SetPassword(ctx context.Context, password string) error
+	ModelOperatorProvisioningInfo(context.Context) (caasmodeloperator.ModelOperatorProvisioningInfo, error)
 	WatchModelOperatorProvisioningInfo(context.Context) (watcher.NotifyWatcher, error)
 }
 
@@ -78,7 +78,7 @@ func (m *ModelOperatorManager) loop() error {
 		case <-m.catacomb.Dying():
 			return m.catacomb.ErrDying()
 		case <-watcher.Changes():
-			err := m.update(context.TODO())
+			err := m.update(ctx)
 			if err != nil {
 				return errors.Annotate(err, "failed to update model operator")
 			}
@@ -93,7 +93,7 @@ func (m *ModelOperatorManager) scopedContext() (context.Context, context.CancelF
 
 func (m *ModelOperatorManager) update(ctx context.Context) error {
 	m.logger.Debugf("gathering model operator provisioning information for model %s", m.modelUUID)
-	info, err := m.api.ModelOperatorProvisioningInfo()
+	info, err := m.api.ModelOperatorProvisioningInfo(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -127,7 +127,7 @@ func (m *ModelOperatorManager) update(ctx context.Context) error {
 		}
 	}
 	if setPassword {
-		err := m.api.SetPassword(password)
+		err := m.api.SetPassword(ctx, password)
 		if err != nil {
 			return errors.Annotate(err, "failed to set model api passwords")
 		}

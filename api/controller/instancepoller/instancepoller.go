@@ -55,9 +55,9 @@ var newStringsWatcher = apiwatcher.NewStringsWatcher
 
 // WatchModelMachines returns a StringsWatcher reporting changes to the
 // machine life or agent start timestamps.
-func (api *API) WatchModelMachines() (watcher.StringsWatcher, error) {
+func (api *API) WatchModelMachines(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := api.facade.FacadeCall(context.TODO(), "WatchModelMachineStartTimes", nil, &result)
+	err := api.facade.FacadeCall(ctx, "WatchModelMachineStartTimes", nil, &result)
 	if err != nil {
 		return nil, err
 	}

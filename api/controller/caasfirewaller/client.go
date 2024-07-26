@@ -53,7 +53,7 @@ func (c *Client) modelTag() (names.ModelTag, bool) {
 
 // WatchOpenedPorts returns a StringsWatcher that notifies of
 // changes to the opened ports for the current model.
-func (c *Client) WatchOpenedPorts() (watcher.StringsWatcher, error) {
+func (c *Client) WatchOpenedPorts(ctx context.Context) (watcher.StringsWatcher, error) {
 	modelTag, ok := c.modelTag()
 	if !ok {
 		return nil, errors.New("API connection is controller-only (should never happen)")
@@ -62,7 +62,7 @@ func (c *Client) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: modelTag.String()}},
 	}
-	if err := c.facade.FacadeCall(context.TODO(), "WatchOpenedPorts", args, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchOpenedPorts", args, &results); err != nil {
 		return nil, err
 	}
 	if len(results.Results) != 1 {
@@ -77,12 +77,12 @@ func (c *Client) WatchOpenedPorts() (watcher.StringsWatcher, error) {
 }
 
 // GetOpenedPorts returns all the opened ports for each given application.
-func (c *Client) GetOpenedPorts(appName string) (network.GroupedPortRanges, error) {
+func (c *Client) GetOpenedPorts(ctx context.Context, appName string) (network.GroupedPortRanges, error) {
 	arg := params.Entity{
 		Tag: names.NewApplicationTag(appName).String(),
 	}
 	var result params.ApplicationOpenedPortsResults
-	if err := c.facade.FacadeCall(context.TODO(), "GetOpenedPorts", arg, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "GetOpenedPorts", arg, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(result.Results) != 1 {
@@ -120,9 +120,9 @@ func entities(tags ...names.Tag) params.Entities {
 
 // WatchApplications returns a StringsWatcher that notifies of
 // changes to the lifecycles of CAAS applications in the current model.
-func (c *Client) WatchApplications() (watcher.StringsWatcher, error) {
+func (c *Client) WatchApplications(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	if err := c.facade.FacadeCall(context.TODO(), "WatchApplications", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchApplications", nil, &result); err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
@@ -144,7 +144,7 @@ func (c *Client) WatchApplication(ctx context.Context, appName string) (watcher.
 
 // Life returns the lifecycle state for the specified CAAS application
 // in the current model.
-func (c *Client) Life(appName string) (life.Value, error) {
+func (c *Client) Life(ctx context.Context, appName string) (life.Value, error) {
 	appTag, err := applicationTag(appName)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -152,7 +152,7 @@ func (c *Client) Life(appName string) (life.Value, error) {
 	args := entities(appTag)
 
 	var results params.LifeResults
-	if err := c.facade.FacadeCall(context.TODO(), "Life", args, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "Life", args, &results); err != nil {
 		return "", err
 	}
 	if n := len(results.Results); n != 1 {
@@ -165,12 +165,12 @@ func (c *Client) Life(appName string) (life.Value, error) {
 }
 
 // ApplicationConfig returns the config for the specified application.
-func (c *Client) ApplicationConfig(applicationName string) (config.ConfigAttributes, error) {
+func (c *Client) ApplicationConfig(ctx context.Context, applicationName string) (config.ConfigAttributes, error) {
 	var results params.ApplicationGetConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewApplicationTag(applicationName).String()}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "ApplicationsConfig", args, &results)
+	err := c.facade.FacadeCall(ctx, "ApplicationsConfig", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -182,7 +182,7 @@ func (c *Client) ApplicationConfig(applicationName string) (config.ConfigAttribu
 
 // IsExposed returns whether the specified CAAS application
 // in the current model is exposed.
-func (c *Client) IsExposed(appName string) (bool, error) {
+func (c *Client) IsExposed(ctx context.Context, appName string) (bool, error) {
 	appTag, err := applicationTag(appName)
 	if err != nil {
 		return false, errors.Trace(err)
@@ -190,7 +190,7 @@ func (c *Client) IsExposed(appName string) (bool, error) {
 	args := entities(appTag)
 
 	var results params.BoolResults
-	if err := c.facade.FacadeCall(context.TODO(), "IsExposed", args, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "IsExposed", args, &results); err != nil {
 		return false, err
 	}
 	if n := len(results.Results); n != 1 {

@@ -41,7 +41,7 @@ type ClientSuite struct {
 
 var _ = gc.Suite(&ClientSuite{})
 
-func (s *ClientSuite) getClientAndStub(c *gc.C) (*migrationtarget.Client, *jujutesting.Stub) {
+func (s *ClientSuite) getClientAndStub() (*migrationtarget.Client, *jujutesting.Stub) {
 	var stub jujutesting.Stub
 	apiCaller := apitesting.BestVersionCaller{APICallerFunc: apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		stub.AddCall(objType+"."+request, id, arg)
@@ -52,7 +52,7 @@ func (s *ClientSuite) getClientAndStub(c *gc.C) (*migrationtarget.Client, *jujut
 }
 
 func (s *ClientSuite) TestPrechecks(c *gc.C) {
-	client, stub := s.getClientAndStub(c)
+	client, stub := s.getClientAndStub()
 
 	ownerTag := names.NewUserTag("owner")
 	vers := version.MustParse("1.2.3")
@@ -62,7 +62,7 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	bytes, err := description.Serialize(modelDescription)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = client.Prechecks(coremigration.ModelInfo{
+	err = client.Prechecks(context.Background(), coremigration.ModelInfo{
 		UUID:                   "uuid",
 		Owner:                  ownerTag,
 		Name:                   "name",
@@ -91,9 +91,9 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 }
 
 func (s *ClientSuite) TestImport(c *gc.C) {
-	client, stub := s.getClientAndStub(c)
+	client, stub := s.getClientAndStub()
 
-	err := client.Import([]byte("foo"))
+	err := client.Import(context.Background(), []byte("foo"))
 
 	expectedArg := params.SerializedModel{Bytes: []byte("foo")}
 	stub.CheckCalls(c, []jujutesting.StubCall{
@@ -103,15 +103,15 @@ func (s *ClientSuite) TestImport(c *gc.C) {
 }
 
 func (s *ClientSuite) TestAbort(c *gc.C) {
-	client, stub := s.getClientAndStub(c)
+	client, stub := s.getClientAndStub()
 
 	uuid := "fake"
-	err := client.Abort(uuid)
+	err := client.Abort(context.Background(), uuid)
 	s.AssertModelCall(c, stub, names.NewModelTag(uuid), "Abort", err, true)
 }
 
 func (s *ClientSuite) TestActivate(c *gc.C) {
-	client, stub := s.getClientAndStub(c)
+	client, stub := s.getClientAndStub()
 
 	uuid := "fake"
 	sourceInfo := coremigration.SourceControllerInfo{
@@ -121,7 +121,7 @@ func (s *ClientSuite) TestActivate(c *gc.C) {
 		CACert:          "cacert",
 	}
 	relatedModels := []string{"related-model-uuid"}
-	err := client.Activate(uuid, sourceInfo, relatedModels)
+	err := client.Activate(context.Background(), uuid, sourceInfo, relatedModels)
 	expectedArg := params.ActivateModelArgs{
 		ModelTag:        names.NewModelTag(uuid).String(),
 		ControllerTag:   coretesting.ControllerTag.String(),
@@ -161,23 +161,23 @@ func (s *ClientSuite) TestLatestLogTime(c *gc.C) {
 		return nil
 	})
 	client := migrationtarget.NewClient(apiCaller)
-	result, err := client.LatestLogTime("fake")
+	result, err := client.LatestLogTime(context.Background(), "fake")
 
 	c.Assert(result, gc.Equals, t1)
 	s.AssertModelCall(c, &stub, names.NewModelTag("fake"), "LatestLogTime", err, false)
 }
 
 func (s *ClientSuite) TestLatestLogTimeError(c *gc.C) {
-	client, stub := s.getClientAndStub(c)
-	result, err := client.LatestLogTime("fake")
+	client, stub := s.getClientAndStub()
+	result, err := client.LatestLogTime(context.Background(), "fake")
 
 	c.Assert(result, gc.Equals, time.Time{})
 	s.AssertModelCall(c, stub, names.NewModelTag("fake"), "LatestLogTime", err, true)
 }
 
 func (s *ClientSuite) TestAdoptResources(c *gc.C) {
-	client, stub := s.getClientAndStub(c)
-	err := client.AdoptResources("the-model")
+	client, stub := s.getClientAndStub()
+	err := client.AdoptResources(context.Background(), "the-model")
 	c.Assert(err, gc.ErrorMatches, "boom")
 	stub.CheckCall(c, 0, "MigrationTarget.AdoptResources", "", params.AdoptResourcesArgs{
 		ModelTag:                "model-the-model",
@@ -198,7 +198,7 @@ func (s *ClientSuite) TestCheckMachines(c *gc.C) {
 		return nil
 	})
 	client := migrationtarget.NewClient(apiCaller)
-	results, err := client.CheckMachines("django")
+	results, err := client.CheckMachines(context.Background(), "django")
 	c.Assert(results, gc.HasLen, 2)
 	c.Assert(results[0], gc.ErrorMatches, "oops")
 	c.Assert(results[1], gc.ErrorMatches, "oh no")
@@ -333,7 +333,7 @@ func (s *ClientSuite) TestCACert(c *gc.C) {
 		return nil
 	}
 	client := migrationtarget.NewClient(apitesting.APICallerFunc(call))
-	r, err := client.CACert()
+	r, err := client.CACert(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r, gc.Equals, "foo cert")
 }

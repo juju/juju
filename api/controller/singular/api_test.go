@@ -4,6 +4,7 @@
 package singular_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
@@ -67,7 +68,7 @@ func (s *APISuite) TestClaimSuccess(c *gc.C) {
 	api, err := singular.NewAPI(apiCaller, machine123, coretesting.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = api.Claim(time.Minute)
+	err = api.Claim(context.Background(), time.Minute)
 	c.Check(err, jc.ErrorIsNil)
 	checkCall(c, stub, "Claim", params.SingularClaims{
 		Claims: []params.SingularClaim{{
@@ -89,7 +90,7 @@ func (s *APISuite) TestClaimDenied(c *gc.C) {
 	api, err := singular.NewAPI(apiCaller, machine123, coretesting.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = api.Claim(time.Hour)
+	err = api.Claim(context.Background(), time.Hour)
 	c.Check(err, gc.Equals, lease.ErrClaimDenied)
 	checkCall(c, stub, "Claim", params.SingularClaims{
 		Claims: []params.SingularClaim{{
@@ -111,7 +112,7 @@ func (s *APISuite) TestClaimError(c *gc.C) {
 	api, err := singular.NewAPI(apiCaller, machine123, coretesting.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = api.Claim(time.Second)
+	err = api.Claim(context.Background(), time.Second)
 	c.Check(err, gc.ErrorMatches, "zap pow splat oof")
 	checkCall(c, stub, "Claim", params.SingularClaims{
 		Claims: []params.SingularClaim{{
@@ -131,7 +132,7 @@ func (s *APISuite) TestWaitSuccess(c *gc.C) {
 	api, err := singular.NewAPI(apiCaller, machine123, coretesting.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = api.Wait()
+	err = api.Wait(context.Background())
 	c.Check(err, jc.ErrorIsNil)
 	checkCall(c, stub, "Wait", params.Entities{
 		Entities: []params.Entity{{
@@ -151,7 +152,7 @@ func (s *APISuite) TestWaitError(c *gc.C) {
 	api, err := singular.NewAPI(apiCaller, machine123, coretesting.ModelTag)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = api.Wait()
+	err = api.Wait(context.Background())
 	c.Check(err, gc.ErrorMatches, "crunch squelch")
 	checkCall(c, stub, "Wait", params.Entities{
 		Entities: []params.Entity{{

@@ -44,9 +44,9 @@ type ControllerInfo struct {
 }
 
 // ControllerInfo returns the remote controller's API information.
-func (c *Client) ControllerInfo() (*ControllerInfo, error) {
+func (c *Client) ControllerInfo(ctx context.Context) (*ControllerInfo, error) {
 	var results params.ControllerAPIInfoResults
-	if err := c.facade.FacadeCall(context.TODO(), "ControllerInfo", nil, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ControllerInfo", nil, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
@@ -64,9 +64,9 @@ func (c *Client) ControllerInfo() (*ControllerInfo, error) {
 
 // WatchControllerInfo returns a watcher that is notified when the remote
 // controller's API information changes.
-func (c *Client) WatchControllerInfo() (watcher.NotifyWatcher, error) {
+func (c *Client) WatchControllerInfo(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
-	if err := c.facade.FacadeCall(context.TODO(), "WatchControllerInfo", nil, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchControllerInfo", nil, &results); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {

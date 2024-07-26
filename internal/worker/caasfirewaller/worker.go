@@ -98,17 +98,17 @@ func (p *firewaller) Wait() error {
 }
 
 func (p *firewaller) loop() error {
+	ctx, cancel := p.scopedContext()
+	defer cancel()
+
 	logger := p.config.Logger
-	w, err := p.config.FirewallerAPI.WatchApplications()
+	w, err := p.config.FirewallerAPI.WatchApplications(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := p.catacomb.Add(w); err != nil {
 		return errors.Trace(err)
 	}
-
-	ctx, cancel := p.scopedContext()
-	defer cancel()
 
 	for {
 		select {
@@ -132,7 +132,7 @@ func (p *firewaller) loop() error {
 					continue
 				}
 
-				appLife, err := p.config.LifeGetter.Life(appName)
+				appLife, err := p.config.LifeGetter.Life(ctx, appName)
 				if errors.Is(err, errors.NotFound) || appLife == life.Dead {
 					w, ok := p.appWorkers[appName]
 					if ok {

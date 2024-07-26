@@ -89,7 +89,7 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 		return errors.Trace(err)
 	}
 
-	w.portsWatcher, err = w.firewallerAPI.WatchOpenedPorts()
+	w.portsWatcher, err = w.firewallerAPI.WatchOpenedPorts(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -102,7 +102,7 @@ func (w *applicationWorker) setUp(ctx context.Context) (err error) {
 	w.portMutator = app
 	w.serviceUpdater = app
 
-	if w.currentPorts, err = w.firewallerAPI.GetOpenedPorts(w.appName); err != nil {
+	if w.currentPorts, err = w.firewallerAPI.GetOpenedPorts(ctx, w.appName); err != nil {
 		return errors.Annotatef(err, "failed to get initial openned ports for application")
 	}
 
@@ -135,7 +135,7 @@ func (w *applicationWorker) loop() (err error) {
 			}
 			// We know this is a v2 charm at this point, because this child
 			// worker is only ever started for v2 charms.
-			if err := w.onApplicationChanged(); err != nil {
+			if err := w.onApplicationChanged(ctx); err != nil {
 				if strings.Contains(err.Error(), "unexpected EOF") {
 					return nil
 				}
@@ -149,7 +149,7 @@ func (w *applicationWorker) loop() (err error) {
 			/*
 				if !sets.NewString(changes...).Contains(w.appName){continue}
 			*/
-			if err := w.onPortChanged(); err != nil {
+			if err := w.onPortChanged(ctx); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -172,8 +172,8 @@ func toServicePorts(in network.GroupedPortRanges) []caas.ServicePort {
 	return out
 }
 
-func (w *applicationWorker) onPortChanged() error {
-	changedPortRanges, err := w.firewallerAPI.GetOpenedPorts(w.appName)
+func (w *applicationWorker) onPortChanged(ctx context.Context) error {
+	changedPortRanges, err := w.firewallerAPI.GetOpenedPorts(ctx, w.appName)
 	if err != nil {
 		return err
 	}
@@ -196,13 +196,13 @@ func (w *applicationWorker) onPortChanged() error {
 	return nil
 }
 
-func (w *applicationWorker) onApplicationChanged() (err error) {
+func (w *applicationWorker) onApplicationChanged(ctx context.Context) (err error) {
 	defer func() {
 		// Not found could be because the app got removed or there's
 		// no container service created yet as the app is still being set up.
 		if errors.Is(err, errors.NotFound) {
 			// Perhaps the app got removed while we were processing.
-			if _, err2 := w.lifeGetter.Life(w.appName); err2 != nil {
+			if _, err2 := w.lifeGetter.Life(ctx, w.appName); err2 != nil {
 				err = err2
 				return
 			}
@@ -212,7 +212,7 @@ func (w *applicationWorker) onApplicationChanged() (err error) {
 		}
 	}()
 
-	exposed, err := w.firewallerAPI.IsExposed(w.appName)
+	exposed, err := w.firewallerAPI.IsExposed(ctx, w.appName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -232,13 +232,13 @@ func (w *applicationWorker) scopedContext() (context.Context, context.CancelFunc
 	return context.WithCancel(w.catacomb.Context(context.Background()))
 }
 
-func exposeService(app ServiceUpdater) error {
+func exposeService(_ ServiceUpdater) error {
 	// TODO(sidecar): implement expose once it's modelled.
 	// app.UpdateService()
 	return nil
 }
 
-func unExposeService(app ServiceUpdater) error {
+func unExposeService(_ ServiceUpdater) error {
 	// TODO(sidecar): implement un-expose once it's modelled.
 	// app.UpdateService()
 	return nil

@@ -5,7 +5,6 @@ package firewaller
 
 import (
 	"context"
-	stdcontext "context"
 	"sort"
 	"time"
 
@@ -208,9 +207,9 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 	return fw, nil
 }
 
-func (fw *Firewaller) setUp() error {
+func (fw *Firewaller) setUp(ctx context.Context) error {
 	var err error
-	fw.machinesWatcher, err = fw.firewallerApi.WatchModelMachines()
+	fw.machinesWatcher, err = fw.firewallerApi.WatchModelMachines(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -218,7 +217,7 @@ func (fw *Firewaller) setUp() error {
 		return errors.Trace(err)
 	}
 
-	fw.portsWatcher, err = fw.firewallerApi.WatchOpenedPorts()
+	fw.portsWatcher, err = fw.firewallerApi.WatchOpenedPorts(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "failed to start ports watcher")
 	}
@@ -226,7 +225,7 @@ func (fw *Firewaller) setUp() error {
 		return errors.Trace(err)
 	}
 
-	fw.remoteRelationsWatcher, err = fw.remoteRelationsApi.WatchRemoteRelations()
+	fw.remoteRelationsWatcher, err = fw.remoteRelationsApi.WatchRemoteRelations(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -234,7 +233,7 @@ func (fw *Firewaller) setUp() error {
 		return errors.Trace(err)
 	}
 
-	fw.subnetWatcher, err = fw.firewallerApi.WatchSubnets()
+	fw.subnetWatcher, err = fw.firewallerApi.WatchSubnets(ctx)
 	if err != nil {
 		return errors.Annotatef(err, "failed to start subnet watcher")
 	}
@@ -243,7 +242,7 @@ func (fw *Firewaller) setUp() error {
 	}
 
 	if fw.environModelFirewaller != nil {
-		fw.modelFirewallWatcher, err = fw.firewallerApi.WatchModelFirewallRules()
+		fw.modelFirewallWatcher, err = fw.firewallerApi.WatchModelFirewallRules(ctx)
 		if err != nil {
 			return errors.Annotatef(err, "failed to start subnet watcher")
 		}
@@ -252,7 +251,7 @@ func (fw *Firewaller) setUp() error {
 		}
 	}
 
-	if fw.spaceInfos, err = fw.firewallerApi.AllSpaceInfos(); err != nil {
+	if fw.spaceInfos, err = fw.firewallerApi.AllSpaceInfos(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -264,7 +263,7 @@ func (fw *Firewaller) loop() error {
 	ctx, cancel := fw.scopedContext()
 	defer cancel()
 
-	if err := fw.setUp(); err != nil {
+	if err := fw.setUp(ctx); err != nil {
 		return errors.Trace(err)
 	}
 	var (
@@ -284,7 +283,7 @@ func (fw *Firewaller) loop() error {
 		case <-fw.catacomb.Dying():
 			return fw.catacomb.ErrDying()
 		case <-ensureModelFirewalls:
-			err := fw.flushModel()
+			err := fw.flushModel(ctx)
 			if errors.Is(err, errors.NotFound) {
 				ensureModelFirewalls = fw.clk.After(time.Second)
 			} else if err != nil {
@@ -382,7 +381,7 @@ func (fw *Firewaller) loop() error {
 func (fw *Firewaller) subnetsChanged(ctx context.Context) error {
 	// Refresh space topology
 	var err error
-	if fw.spaceInfos, err = fw.firewallerApi.AllSpaceInfos(); err != nil {
+	if fw.spaceInfos, err = fw.firewallerApi.AllSpaceInfos(ctx); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -455,7 +454,7 @@ func (fw *Firewaller) startMachine(ctx context.Context, tag names.MachineTag) er
 	} else if err != nil {
 		return errors.Annotate(err, "cannot watch machine units")
 	}
-	manual, err := m.IsManual()
+	manual, err := m.IsManual(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -464,7 +463,7 @@ func (fw *Firewaller) startMachine(ctx context.Context, tag names.MachineTag) er
 		fw.logger.Debugf("not watching manual %q", tag)
 		return nil
 	}
-	unitw, err := m.WatchUnits()
+	unitw, err := m.WatchUnits(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -538,7 +537,7 @@ func (fw *Firewaller) startUnit(ctx context.Context, unit Unit, machineTag names
 	unitd.machined = fw.machineds[machineTag]
 	unitd.machined.unitds[unitTag] = unitd
 	if fw.applicationids[applicationTag] == nil {
-		err := fw.startApplication(application)
+		err := fw.startApplication(ctx, application)
 		if err != nil {
 			delete(fw.unitds, unitTag)
 			delete(unitd.machined.unitds, unitTag)
@@ -557,8 +556,8 @@ func (fw *Firewaller) startUnit(ctx context.Context, unit Unit, machineTag names
 
 // startApplication creates a new data value for tracking details of the
 // application and starts watching the application for exposure changes.
-func (fw *Firewaller) startApplication(app Application) error {
-	exposed, exposedEndpoints, err := app.ExposeInfo()
+func (fw *Firewaller) startApplication(ctx context.Context, app Application) error {
+	exposed, exposedEndpoints, err := app.ExposeInfo(ctx)
 	if err != nil {
 		return err
 	}
@@ -635,7 +634,7 @@ func (fw *Firewaller) reconcileInstances(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		instanceId, err := m.InstanceId()
+		instanceId, err := m.InstanceId(ctx)
 		if errors.Is(err, errors.NotProvisioned) {
 			fw.logger.Errorf("Machine not yet provisioned: %v", err)
 			continue
@@ -643,7 +642,7 @@ func (fw *Firewaller) reconcileInstances(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		ctx := stdcontext.Background()
+		ctx := context.Background()
 		envInstances, err := fw.environInstances.Instances(fw.cloudCallContextFunc(ctx), []instance.Id{instanceId})
 		if err == environs.ErrNoInstances {
 			return nil
@@ -652,6 +651,11 @@ func (fw *Firewaller) reconcileInstances(ctx context.Context) error {
 			return err
 		}
 		machineId := machined.tag.Id()
+
+		if len(envInstances) == 0 {
+			fw.logger.Errorf("Instance not found for machine %v", machineId)
+			return nil
+		}
 
 		fwInstance, ok := envInstances[0].(instances.InstanceFirewaller)
 		if !ok {
@@ -696,7 +700,7 @@ func (fw *Firewaller) unitsChanged(ctx context.Context, change *unitsChange) err
 		}
 		var machineTag names.MachineTag
 		if unit != nil {
-			machineTag, err = unit.AssignedMachine()
+			machineTag, err = unit.AssignedMachine(ctx)
 			if params.IsCodeNotFound(err) {
 				continue
 			} else if err != nil && !params.IsCodeNotAssigned(err) {
@@ -750,7 +754,7 @@ func (fw *Firewaller) openedPortsChanged(ctx context.Context, machineTag names.M
 		return err
 	}
 
-	_, opendPortRangesByEndpoint, err := m.OpenedMachinePortRanges()
+	_, opendPortRangesByEndpoint, err := m.OpenedMachinePortRanges(ctx)
 	if err != nil {
 		return err
 	}
@@ -1033,7 +1037,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose firewall.IngressRules) 
 			delete(fw.globalIngressRuleRef, ruleName)
 		}
 	}
-	ctx := stdcontext.Background()
+	ctx := context.Background()
 	// Open and close the ports.
 	if len(toOpen) > 0 {
 		toOpen.Sort()
@@ -1054,16 +1058,15 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose firewall.IngressRules) 
 	return nil
 }
 
-func (fw *Firewaller) flushModel() error {
+func (fw *Firewaller) flushModel(ctx context.Context) error {
 	if fw.environModelFirewaller == nil {
 		return nil
 	}
-	want, err := fw.firewallerApi.ModelFirewallRules()
+	want, err := fw.firewallerApi.ModelFirewallRules(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	ctx := stdcontext.Background()
 	curr, err := fw.environModelFirewaller.ModelIngressRules(fw.cloudCallContextFunc(ctx))
 	if err != nil {
 		return errors.Trace(err)
@@ -1113,7 +1116,7 @@ func (fw *Firewaller) flushInstancePorts(ctx context.Context, machined *machineD
 		return err
 	}
 	machineId := machined.tag.Id()
-	instanceId, err := m.InstanceId()
+	instanceId, err := m.InstanceId(ctx)
 	if errors.Is(err, errors.NotProvisioned) {
 		// Not provisioned yet, so nothing to do for this instance
 		return nil
@@ -1339,7 +1342,7 @@ func (ad *applicationData) watchLoop(curExposed bool, curExposedEndpoints map[st
 			if !ok {
 				return errors.New("application watcher closed")
 			}
-			newExposed, newExposedEndpoints, err := ad.application.ExposeInfo()
+			newExposed, newExposedEndpoints, err := ad.application.ExposeInfo(ctx)
 			if err != nil {
 				if errors.Is(err, errors.NotFound) {
 					ad.fw.logger.Debugf("application(%q).IsExposed() returned NotFound: %v", ad.application.Name(), err)
@@ -1413,7 +1416,7 @@ func (ad *applicationData) scopedContext() (context.Context, context.CancelFunc)
 // relationLifeChanged manages the workers to process ingress changes for
 // the specified relation.
 func (fw *Firewaller) relationLifeChanged(ctx context.Context, tag names.RelationTag) error {
-	results, err := fw.remoteRelationsApi.Relations([]string{tag.Id()})
+	results, err := fw.remoteRelationsApi.Relations(ctx, []string{tag.Id()})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1444,7 +1447,7 @@ func (fw *Firewaller) relationLifeChanged(ctx context.Context, tag names.Relatio
 		return fw.forgetRelation(data)
 	}
 	if !known && !gone {
-		err := fw.startRelation(rel, rel.Endpoint.Role)
+		err := fw.startRelation(ctx, rel, rel.Endpoint.Role)
 		if err != nil {
 			return err
 		}
@@ -1478,8 +1481,8 @@ type remoteRelationData struct {
 
 // startRelation creates a new data value for tracking details of the
 // relation and starts watching the related models for subnets added or removed.
-func (fw *Firewaller) startRelation(rel *params.RemoteRelation, role charm.RelationRole) error {
-	remoteApps, err := fw.remoteRelationsApi.RemoteApplications([]string{rel.RemoteApplicationName})
+func (fw *Firewaller) startRelation(ctx context.Context, rel *params.RemoteRelation, role charm.RelationRole) error {
+	remoteApps, err := fw.remoteRelationsApi.RemoteApplications(ctx, []string{rel.RemoteApplicationName})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1563,7 +1566,7 @@ func (rd *remoteRelationData) requirerEndpointLoop(ctx context.Context) error {
 	rd.fw.logger.Debugf("starting requirer endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
 	// Now watch for updates to egress addresses so we can inform the offering
 	// model what firewall ingress to allow.
-	egressAddressWatcher, err := rd.fw.firewallerApi.WatchEgressAddressesForRelation(rd.tag)
+	egressAddressWatcher, err := rd.fw.firewallerApi.WatchEgressAddressesForRelation(ctx, rd.tag)
 	if err != nil {
 		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
 			return errors.Trace(err)
@@ -1622,11 +1625,11 @@ func (rd *remoteRelationData) ingressAddressWatcher(ctx context.Context) (watche
 	if rd.isOffer {
 		// On the offering side we watch the local model for ingress changes
 		// which will have been published from the consuming model.
-		return rd.fw.firewallerApi.WatchIngressAddressesForRelation(rd.tag)
+		return rd.fw.firewallerApi.WatchIngressAddressesForRelation(ctx, rd.tag)
 	} else {
 		// On the consuming side, if this is the provider end of the relation,
 		// we watch the remote model's egress changes to get our ingress changes.
-		apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(rd.remoteModelUUID)
+		apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(ctx, rd.remoteModelUUID)
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get api info for model %v", rd.remoteModelUUID)
 		}
@@ -1635,7 +1638,7 @@ func (rd *remoteRelationData) ingressAddressWatcher(ctx context.Context) (watche
 			return nil, errors.Annotate(err, "cannot open facade to remote model to watch ingress addresses")
 		}
 
-		mac, err := rd.fw.firewallerApi.MacaroonForRelation(rd.tag.Id())
+		mac, err := rd.fw.firewallerApi.MacaroonForRelation(ctx, rd.tag.Id())
 		if err != nil {
 			return nil, errors.Annotatef(err, "cannot get macaroon for %v", rd.tag.Id())
 		}
@@ -1669,11 +1672,11 @@ func (rd *remoteRelationData) updateProviderModel(ctx context.Context, cidrs []s
 		ingressRequired:     len(cidrs) > 0,
 	}
 
-	apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(rd.remoteModelUUID)
+	apiInfo, err := rd.fw.firewallerApi.ControllerAPIInfoForModel(ctx, rd.remoteModelUUID)
 	if err != nil {
 		return errors.Annotatef(err, "cannot get api info for model %v", rd.remoteModelUUID)
 	}
-	mac, err := rd.fw.firewallerApi.MacaroonForRelation(rd.tag.Id())
+	mac, err := rd.fw.firewallerApi.MacaroonForRelation(ctx, rd.tag.Id())
 	if params.IsCodeNotFound(err) {
 		// Relation has gone, nothing to do.
 		return nil
@@ -1703,7 +1706,7 @@ func (rd *remoteRelationData) updateProviderModel(ctx context.Context, cidrs []s
 	// mark the relation as in error. It's not an error that requires a
 	// worker restart though.
 	if params.IsCodeForbidden(err) {
-		return rd.fw.firewallerApi.SetRelationStatus(rd.tag.Id(), relation.Error, err.Error())
+		return rd.fw.firewallerApi.SetRelationStatus(ctx, rd.tag.Id(), relation.Error, err.Error())
 	}
 	return errors.Annotate(err, "cannot publish ingress network change")
 }
@@ -1782,6 +1785,9 @@ func (fw *Firewaller) startRelationPoller(relationKey, remoteAppName string,
 // pollLoop waits for a remote relation to be registered.
 // It does this by waiting for the relation and app tokens to be created.
 func (p *remoteRelationPoller) pollLoop() error {
+	ctx, cancel := p.scopedContext()
+	defer cancel()
+
 	p.fw.logger.Debugf("polling for relation %v on %v to be ready", p.relationTag, p.applicationTag)
 	for {
 		select {
@@ -1789,7 +1795,7 @@ func (p *remoteRelationPoller) pollLoop() error {
 			return p.catacomb.ErrDying()
 		case <-p.fw.clk.After(3 * time.Second):
 			// Relation is exported with the consuming model UUID.
-			relToken, err := p.fw.remoteRelationsApi.GetToken(p.relationTag)
+			relToken, err := p.fw.remoteRelationsApi.GetToken(ctx, p.relationTag)
 			if err != nil {
 				continue
 			}
@@ -1815,4 +1821,8 @@ func (p *remoteRelationPoller) Kill() {
 // Wait is part of the worker.Worker interface.
 func (p *remoteRelationPoller) Wait() error {
 	return p.catacomb.Wait()
+}
+
+func (p *remoteRelationPoller) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(p.catacomb.Context(context.Background()))
 }

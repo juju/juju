@@ -33,14 +33,14 @@ func NewAPI(caller base.APICaller, options ...Option) *API {
 }
 
 // Cleanup calls the server-side Cleanup method.
-func (api *API) Cleanup() error {
-	return api.facade.FacadeCall(context.TODO(), "Cleanup", nil, nil)
+func (api *API) Cleanup(ctx context.Context) error {
+	return api.facade.FacadeCall(ctx, "Cleanup", nil, nil)
 }
 
 // WatchCleanups calls the server-side WatchCleanups method.
-func (api *API) WatchCleanups() (watcher.NotifyWatcher, error) {
+func (api *API) WatchCleanups(ctx context.Context) (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := api.facade.FacadeCall(context.TODO(), "WatchCleanups", nil, &result)
+	err := api.facade.FacadeCall(ctx, "WatchCleanups", nil, &result)
 	if err != nil {
 		return nil, err
 	}

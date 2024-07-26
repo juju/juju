@@ -4,6 +4,8 @@
 package charmrevisionupdater_test
 
 import (
+	"context"
+
 	gc "gopkg.in/check.v1"
 
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -33,6 +35,6 @@ func (s *versionUpdaterSuite) TestUpdateRevisions(c *gc.C) {
 	})
 
 	client := charmrevisionupdater.NewClient(apiCaller)
-	err := client.UpdateLatestRevisions()
+	err := client.UpdateLatestRevisions(context.Background())
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

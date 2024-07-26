@@ -110,7 +110,7 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	u, err := client.Unit(context.Background(), tag)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := u.AssignedMachine()
+	m, err := u.AssignedMachine(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Id(), gc.Equals, "666")
 	c.Assert(calls, gc.Equals, 2)

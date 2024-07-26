@@ -34,34 +34,34 @@ import (
 )
 
 type CAASUnitProvisionerFacade interface {
-	ApplicationScale(string) (int, error)
-	WatchApplicationScale(string) (watcher.NotifyWatcher, error)
-	ApplicationTrust(string) (bool, error)
-	WatchApplicationTrustHash(string) (watcher.StringsWatcher, error)
-	UpdateApplicationService(arg params.UpdateApplicationServiceArg) error
+	ApplicationScale(context.Context, string) (int, error)
+	WatchApplicationScale(context.Context, string) (watcher.NotifyWatcher, error)
+	ApplicationTrust(context.Context, string) (bool, error)
+	WatchApplicationTrustHash(context.Context, string) (watcher.StringsWatcher, error)
+	UpdateApplicationService(ctx context.Context, arg params.UpdateApplicationServiceArg) error
 }
 
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
-	ProvisioningInfo(string) (api.ProvisioningInfo, error)
-	WatchApplications() (watcher.StringsWatcher, error)
-	SetPassword(string, string) error
-	Life(string) (life.Value, error)
+	ProvisioningInfo(context.Context, string) (api.ProvisioningInfo, error)
+	WatchApplications(context.Context) (watcher.StringsWatcher, error)
+	SetPassword(context.Context, string, string) error
+	Life(context.Context, string) (life.Value, error)
 	CharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
 	ApplicationCharmInfo(context.Context, string) (*charmscommon.CharmInfo, error)
-	SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error
-	Units(appName string) ([]params.CAASUnit, error)
-	ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error)
-	UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
+	SetOperatorStatus(ctx context.Context, appName string, status status.Status, message string, data map[string]interface{}) error
+	Units(ctx context.Context, appName string) ([]params.CAASUnit, error)
+	ApplicationOCIResources(ctx context.Context, appName string) (map[string]resources.DockerImageDetails, error)
+	UpdateUnits(ctx context.Context, arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
 	WatchApplication(ctx context.Context, appName string) (watcher.NotifyWatcher, error)
-	ClearApplicationResources(appName string) error
-	WatchUnits(application string) (watcher.StringsWatcher, error)
-	RemoveUnit(unitName string) error
-	WatchProvisioningInfo(string) (watcher.NotifyWatcher, error)
-	DestroyUnits(unitNames []string) error
-	ProvisioningState(string) (*params.CAASApplicationProvisioningState, error)
-	SetProvisioningState(string, params.CAASApplicationProvisioningState) error
-	ProvisionerConfig() (params.CAASApplicationProvisionerConfig, error)
+	ClearApplicationResources(ctx context.Context, appName string) error
+	WatchUnits(ctx context.Context, application string) (watcher.StringsWatcher, error)
+	RemoveUnit(ctx context.Context, unitName string) error
+	WatchProvisioningInfo(context.Context, string) (watcher.NotifyWatcher, error)
+	DestroyUnits(ctx context.Context, unitNames []string) error
+	ProvisioningState(context.Context, string) (*params.CAASApplicationProvisioningState, error)
+	SetProvisioningState(context.Context, string, params.CAASApplicationProvisioningState) error
+	ProvisionerConfig(context.Context) (params.CAASApplicationProvisionerConfig, error)
 }
 
 // CAASBroker exposes CAAS broker functionality to a worker.
@@ -146,7 +146,10 @@ func (p *provisioner) Wait() error {
 }
 
 func (p *provisioner) loop() error {
-	appWatcher, err := p.facade.WatchApplications()
+	ctx, cancel := p.scopedContext()
+	defer cancel()
+
+	appWatcher, err := p.facade.WatchApplications(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -154,7 +157,7 @@ func (p *provisioner) loop() error {
 		return errors.Trace(err)
 	}
 
-	config, err := p.facade.ProvisionerConfig()
+	config, err := p.facade.ProvisionerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -176,7 +179,7 @@ func (p *provisioner) loop() error {
 				return errors.New("app watcher closed channel")
 			}
 			for _, appName := range apps {
-				_, err := p.facade.Life(appName)
+				_, err := p.facade.Life(ctx, appName)
 				if err != nil && !errors.Is(err, errors.NotFound) {
 					return errors.Trace(err)
 				}
@@ -220,4 +223,8 @@ func (p *provisioner) loop() error {
 			}
 		}
 	}
+}
+
+func (p *provisioner) scopedContext() (context.Context, context.CancelFunc) {
+	return context.WithCancel(p.catacomb.Context(context.Background()))
 }

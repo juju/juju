@@ -42,12 +42,12 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 
 // ImportRemoteEntity adds an entity to the remote entities collection
 // with the specified opaque token.
-func (c *Client) ImportRemoteEntity(entity names.Tag, token string) error {
+func (c *Client) ImportRemoteEntity(ctx context.Context, entity names.Tag, token string) error {
 	args := params.RemoteEntityTokenArgs{Args: []params.RemoteEntityTokenArg{
 		{Tag: entity.String(), Token: token}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "ImportRemoteEntities", args, &results)
+	err := c.facade.FacadeCall(ctx, "ImportRemoteEntities", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -62,13 +62,13 @@ func (c *Client) ImportRemoteEntity(entity names.Tag, token string) error {
 }
 
 // ExportEntities allocates unique, remote entity IDs for the given entities in the local model.
-func (c *Client) ExportEntities(tags []names.Tag) ([]params.TokenResult, error) {
+func (c *Client) ExportEntities(ctx context.Context, tags []names.Tag) ([]params.TokenResult, error) {
 	args := params.Entities{Entities: make([]params.Entity, len(tags))}
 	for i, tag := range tags {
 		args.Entities[i].Tag = tag.String()
 	}
 	var results params.TokenResults
-	err := c.facade.FacadeCall(context.TODO(), "ExportEntities", args, &results)
+	err := c.facade.FacadeCall(ctx, "ExportEntities", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -79,12 +79,12 @@ func (c *Client) ExportEntities(tags []names.Tag) ([]params.TokenResult, error) 
 }
 
 // GetToken returns the token associated with the entity with the given tag for the specified model.
-func (c *Client) GetToken(tag names.Tag) (string, error) {
+func (c *Client) GetToken(ctx context.Context, tag names.Tag) (string, error) {
 	args := params.GetTokenArgs{Args: []params.GetTokenArg{
 		{Tag: tag.String()}},
 	}
 	var results params.StringResults
-	err := c.facade.FacadeCall(context.TODO(), "GetTokens", args, &results)
+	err := c.facade.FacadeCall(ctx, "GetTokens", args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -102,12 +102,12 @@ func (c *Client) GetToken(tag names.Tag) (string, error) {
 }
 
 // SaveMacaroon saves the macaroon for the entity.
-func (c *Client) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
+func (c *Client) SaveMacaroon(ctx context.Context, entity names.Tag, mac *macaroon.Macaroon) error {
 	args := params.EntityMacaroonArgs{Args: []params.EntityMacaroonArg{
 		{Tag: entity.String(), Macaroon: mac}},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "SaveMacaroons", args, &results)
+	err := c.facade.FacadeCall(ctx, "SaveMacaroons", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -123,13 +123,13 @@ func (c *Client) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
 
 // Relations returns information about the cross-model relations with the specified keys
 // in the local model.
-func (c *Client) Relations(keys []string) ([]params.RemoteRelationResult, error) {
+func (c *Client) Relations(ctx context.Context, keys []string) ([]params.RemoteRelationResult, error) {
 	args := params.Entities{Entities: make([]params.Entity, len(keys))}
 	for i, key := range keys {
 		args.Entities[i].Tag = names.NewRelationTag(key).String()
 	}
 	var results params.RemoteRelationResults
-	err := c.facade.FacadeCall(context.TODO(), "Relations", args, &results)
+	err := c.facade.FacadeCall(ctx, "Relations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -141,13 +141,13 @@ func (c *Client) Relations(keys []string) ([]params.RemoteRelationResult, error)
 
 // RemoteApplications returns the current state of the remote applications with
 // the specified names in the local model.
-func (c *Client) RemoteApplications(applications []string) ([]params.RemoteApplicationResult, error) {
+func (c *Client) RemoteApplications(ctx context.Context, applications []string) ([]params.RemoteApplicationResult, error) {
 	args := params.Entities{Entities: make([]params.Entity, len(applications))}
 	for i, applicationName := range applications {
 		args.Entities[i].Tag = names.NewApplicationTag(applicationName).String()
 	}
 	var results params.RemoteApplicationResults
-	err := c.facade.FacadeCall(context.TODO(), "RemoteApplications", args, &results)
+	err := c.facade.FacadeCall(ctx, "RemoteApplications", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -159,9 +159,9 @@ func (c *Client) RemoteApplications(applications []string) ([]params.RemoteAppli
 
 // WatchRemoteApplications returns a strings watcher that notifies of the addition,
 // removal, and lifecycle changes of remote applications in the model.
-func (c *Client) WatchRemoteApplications() (watcher.StringsWatcher, error) {
+func (c *Client) WatchRemoteApplications(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall(context.TODO(), "WatchRemoteApplications", nil, &result)
+	err := c.facade.FacadeCall(ctx, "WatchRemoteApplications", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -177,7 +177,7 @@ func (c *Client) WatchRemoteApplications() (watcher.StringsWatcher, error) {
 // relations that the specified remote application is involved in; and also
 // according to the entering, departing, and change of unit settings in
 // those relations.
-func (c *Client) WatchRemoteApplicationRelations(application string) (watcher.StringsWatcher, error) {
+func (c *Client) WatchRemoteApplicationRelations(ctx context.Context, application string) (watcher.StringsWatcher, error) {
 	if !names.IsValidApplication(application) {
 		return nil, errors.NotValidf("application name %q", application)
 	}
@@ -187,7 +187,7 @@ func (c *Client) WatchRemoteApplicationRelations(application string) (watcher.St
 	}
 
 	var results params.StringsWatchResults
-	err := c.facade.FacadeCall(context.TODO(), "WatchRemoteApplicationRelations", args, &results)
+	err := c.facade.FacadeCall(ctx, "WatchRemoteApplicationRelations", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -205,7 +205,7 @@ func (c *Client) WatchRemoteApplicationRelations(application string) (watcher.St
 // WatchLocalRelationChanges returns a watcher that emits
 // fully-expanded changes (suitable for shipping over to a different
 // controller) to the local units in the relation with the given key.
-func (c *Client) WatchLocalRelationChanges(relationKey string) (apiwatcher.RemoteRelationWatcher, error) {
+func (c *Client) WatchLocalRelationChanges(ctx context.Context, relationKey string) (apiwatcher.RemoteRelationWatcher, error) {
 	if !names.IsValidRelation(relationKey) {
 		return nil, errors.NotValidf("relation key %q", relationKey)
 	}
@@ -214,7 +214,7 @@ func (c *Client) WatchLocalRelationChanges(relationKey string) (apiwatcher.Remot
 		Entities: []params.Entity{{Tag: relationTag.String()}},
 	}
 	var results params.RemoteRelationWatchResults
-	err := c.facade.FacadeCall(context.TODO(), "WatchLocalRelationChanges", args, &results)
+	err := c.facade.FacadeCall(ctx, "WatchLocalRelationChanges", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -231,9 +231,9 @@ func (c *Client) WatchLocalRelationChanges(relationKey string) (apiwatcher.Remot
 
 // WatchRemoteRelations returns a strings watcher that notifies of the addition,
 // removal, and lifecycle changes of remote relations in the model.
-func (c *Client) WatchRemoteRelations() (watcher.StringsWatcher, error) {
+func (c *Client) WatchRemoteRelations(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := c.facade.FacadeCall(context.TODO(), "WatchRemoteRelations", nil, &result)
+	err := c.facade.FacadeCall(ctx, "WatchRemoteRelations", nil, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -246,12 +246,12 @@ func (c *Client) WatchRemoteRelations() (watcher.StringsWatcher, error) {
 
 // ConsumeRemoteRelationChange consumes a change to settings originating
 // from the remote/offering side of a relation.
-func (c *Client) ConsumeRemoteRelationChange(change params.RemoteRelationChangeEvent) error {
+func (c *Client) ConsumeRemoteRelationChange(ctx context.Context, change params.RemoteRelationChangeEvent) error {
 	args := params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{change},
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "ConsumeRemoteRelationChanges", args, &results)
+	err := c.facade.FacadeCall(ctx, "ConsumeRemoteRelationChanges", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -259,11 +259,11 @@ func (c *Client) ConsumeRemoteRelationChange(change params.RemoteRelationChangeE
 }
 
 // ControllerAPIInfoForModel retrieves the controller API info for the specified model.
-func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
+func (c *Client) ControllerAPIInfoForModel(ctx context.Context, modelUUID string) (*api.Info, error) {
 	modelTag := names.NewModelTag(modelUUID)
 	args := params.Entities{Entities: []params.Entity{{Tag: modelTag.String()}}}
 	var results params.ControllerAPIInfoResults
-	err := c.facade.FacadeCall(context.TODO(), "ControllerAPIInfoForModels", args, &results)
+	err := c.facade.FacadeCall(ctx, "ControllerAPIInfoForModels", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -282,12 +282,12 @@ func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) 
 }
 
 // SetRemoteApplicationStatus sets the status for the specified remote application.
-func (c *Client) SetRemoteApplicationStatus(applicationName string, status status.Status, message string) error {
+func (c *Client) SetRemoteApplicationStatus(ctx context.Context, applicationName string, status status.Status, message string) error {
 	args := params.SetStatus{Entities: []params.EntityStatusArgs{
 		{Tag: names.NewApplicationTag(applicationName).String(), Status: status.String(), Info: message},
 	}}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "SetRemoteApplicationsStatus", args, &results)
+	err := c.facade.FacadeCall(ctx, "SetRemoteApplicationsStatus", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -296,7 +296,7 @@ func (c *Client) SetRemoteApplicationStatus(applicationName string, status statu
 
 // UpdateControllerForModel ensures that there is an external controller record
 // for the input info, associated with the input model ID.
-func (c *Client) UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error {
+func (c *Client) UpdateControllerForModel(ctx context.Context, controller crossmodel.ControllerInfo, modelUUID string) error {
 	args := params.UpdateControllersForModelsParams{Changes: []params.UpdateControllerForModel{{
 		ModelTag: names.NewModelTag(modelUUID).String(),
 		Info: params.ExternalControllerInfo{
@@ -308,7 +308,7 @@ func (c *Client) UpdateControllerForModel(controller crossmodel.ControllerInfo, 
 	}}}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "UpdateControllersForModels", args, &results)
+	err := c.facade.FacadeCall(ctx, "UpdateControllersForModels", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -326,7 +326,7 @@ func (c *Client) UpdateControllerForModel(controller crossmodel.ControllerInfo, 
 
 // ConsumeRemoteSecretChanges updates the local model with secret revision  changes
 // originating from the remote/offering model.
-func (c *Client) ConsumeRemoteSecretChanges(changes []watcher.SecretRevisionChange) error {
+func (c *Client) ConsumeRemoteSecretChanges(ctx context.Context, changes []watcher.SecretRevisionChange) error {
 	if len(changes) == 0 {
 		return nil
 	}
@@ -340,7 +340,7 @@ func (c *Client) ConsumeRemoteSecretChanges(changes []watcher.SecretRevisionChan
 		}
 	}
 	var results params.ErrorResults
-	err := c.facade.FacadeCall(context.TODO(), "ConsumeRemoteSecretChanges", args, &results)
+	err := c.facade.FacadeCall(ctx, "ConsumeRemoteSecretChanges", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}

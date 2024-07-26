@@ -4,6 +4,8 @@
 package charmdownloader
 
 import (
+	"context"
+
 	"github.com/juju/names/v5"
 
 	"github.com/juju/juju/core/watcher"
@@ -11,6 +13,6 @@ import (
 
 // CharmDownloaderAPI describes the API exposed by the charm downloader facade.
 type CharmDownloaderAPI interface {
-	WatchApplicationsWithPendingCharms() (watcher.StringsWatcher, error)
-	DownloadApplicationCharms(applications []names.ApplicationTag) error
+	WatchApplicationsWithPendingCharms(ctx context.Context) (watcher.StringsWatcher, error)
+	DownloadApplicationCharms(ctx context.Context, applications []names.ApplicationTag) error
 }

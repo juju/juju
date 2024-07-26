@@ -34,10 +34,10 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 }
 
 // Prune calls "StatusHistory.Prune"
-func (s *Client) Prune(maxHistoryTime time.Duration, maxHistoryMB int) error {
+func (s *Client) Prune(ctx context.Context, maxHistoryTime time.Duration, maxHistoryMB int) error {
 	p := params.StatusHistoryPruneArgs{
 		MaxHistoryTime: maxHistoryTime,
 		MaxHistoryMB:   maxHistoryMB,
 	}
-	return s.facade.FacadeCall(context.TODO(), "Prune", p, nil)
+	return s.facade.FacadeCall(ctx, "Prune", p, nil)
 }

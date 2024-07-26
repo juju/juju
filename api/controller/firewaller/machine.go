@@ -32,12 +32,12 @@ func (m *Machine) Tag() names.MachineTag {
 
 // WatchUnits starts a StringsWatcher to watch all units assigned to
 // the machine.
-func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
+func (m *Machine) WatchUnits(ctx context.Context) (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall(context.TODO(), "WatchUnits", args, &results)
+	err := m.client.facade.FacadeCall(ctx, "WatchUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -54,12 +54,12 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 
 // InstanceId returns the provider specific instance id for this
 // machine, or a CodeNotProvisioned error, if not set.
-func (m *Machine) InstanceId() (instance.Id, error) {
+func (m *Machine) InstanceId(ctx context.Context) (instance.Id, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall(context.TODO(), "InstanceId", args, &results)
+	err := m.client.facade.FacadeCall(ctx, "InstanceId", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -82,12 +82,12 @@ func (m *Machine) Life() life.Value {
 }
 
 // IsManual returns true if the machine was manually provisioned.
-func (m *Machine) IsManual() (bool, error) {
+func (m *Machine) IsManual(ctx context.Context) (bool, error) {
 	var results params.BoolResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.client.facade.FacadeCall(context.TODO(), "AreManuallyProvisioned", args, &results)
+	err := m.client.facade.FacadeCall(ctx, "AreManuallyProvisioned", args, &results)
 	if err != nil {
 		return false, err
 	}
@@ -104,12 +104,12 @@ func (m *Machine) IsManual() (bool, error) {
 // OpenedMachinePortRanges queries the open port ranges for all units on this
 // machine and returns back two maps where keys are unit names and values are
 // open port range groupings by subnet CIDR and endpoint name.
-func (m *Machine) OpenedMachinePortRanges() (byUnitAndCIDR map[names.UnitTag]network.GroupedPortRanges, byUnitAndEndpoint map[names.UnitTag]network.GroupedPortRanges, err error) {
+func (m *Machine) OpenedMachinePortRanges(ctx context.Context) (byUnitAndCIDR map[names.UnitTag]network.GroupedPortRanges, byUnitAndEndpoint map[names.UnitTag]network.GroupedPortRanges, err error) {
 	var results params.OpenMachinePortRangesResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	if err = m.client.facade.FacadeCall(context.TODO(), "OpenedMachinePortRanges", args, &results); err != nil {
+	if err = m.client.facade.FacadeCall(ctx, "OpenedMachinePortRanges", args, &results); err != nil {
 		return nil, nil, err
 	}
 	if len(results.Results) != 1 {

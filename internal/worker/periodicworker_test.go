@@ -4,6 +4,7 @@
 package worker
 
 import (
+	"context"
 	"time"
 
 	jtesting "github.com/juju/testing"
@@ -26,7 +27,7 @@ var (
 
 func (s *periodicWorkerSuite) TestWait(c *gc.C) {
 	funcHasRun := make(chan struct{})
-	doWork := func(_ <-chan struct{}) error {
+	doWork := func(ctx context.Context) error {
 		funcHasRun <- struct{}{}
 		return errTest
 	}
@@ -73,7 +74,7 @@ func (s *periodicWorkerSuite) TestNextPeriodWithoutJitter(c *gc.C) {
 
 func (s *periodicWorkerSuite) TestWaitWithJitter(c *gc.C) {
 	funcHasRun := make(chan struct{}, 1)
-	doWork := func(_ <-chan struct{}) error {
+	doWork := func(ctx context.Context) error {
 		funcHasRun <- struct{}{}
 		return nil
 	}
@@ -121,7 +122,7 @@ func (s *periodicWorkerSuite) TestWaitWithJitter(c *gc.C) {
 // one call of the doWork function
 func (s *periodicWorkerSuite) TestWaitNil(c *gc.C) {
 	funcHasRun := make(chan struct{})
-	doWork := func(_ <-chan struct{}) error {
+	doWork := func(ctx context.Context) error {
 		funcHasRun <- struct{}{}
 		return nil
 	}
@@ -159,9 +160,9 @@ func (s *periodicWorkerSuite) TestKill(c *gc.C) {
 func runKillTest(c *gc.C, returnValue, expected error) {
 	ready := make(chan struct{})
 	doWorkNotification := make(chan struct{})
-	doWork := func(stopCh <-chan struct{}) error {
+	doWork := func(ctx context.Context) error {
 		close(ready)
-		<-stopCh
+		<-ctx.Done()
 		close(doWorkNotification)
 		return returnValue
 	}
@@ -191,7 +192,7 @@ func runKillTest(c *gc.C, returnValue, expected error) {
 // in a reasonable time
 func (s *periodicWorkerSuite) TestCallUntilKilled(c *gc.C) {
 	funcHasRun := make(chan struct{}, 5)
-	doWork := func(_ <-chan struct{}) error {
+	doWork := func(ctx context.Context) error {
 		funcHasRun <- struct{}{}
 		return nil
 	}

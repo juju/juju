@@ -4,6 +4,8 @@
 package secretsbackendmanager_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -41,7 +43,7 @@ func (s *SecretBackendsSuite) TestWatchSecretsRotationChanges(c *gc.C) {
 		return nil
 	})
 	client := secretsbackendmanager.NewClient(apiCaller)
-	_, err := client.WatchTokenRotationChanges()
+	_, err := client.WatchTokenRotationChanges(context.Background())
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }
 
@@ -56,13 +58,13 @@ func (s *SecretBackendsSuite) TestRotateBackendTokens(c *gc.C) {
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			[]params.ErrorResult{{
+			Results: []params.ErrorResult{{
 				Error: &params.Error{Message: "boom"},
 			}},
 		}
 		return nil
 	})
 	client := secretsbackendmanager.NewClient(apiCaller)
-	err := client.RotateBackendTokens("backend-id")
+	err := client.RotateBackendTokens(context.Background(), "backend-id")
 	c.Assert(err, gc.ErrorMatches, "boom")
 }

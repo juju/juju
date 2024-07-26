@@ -106,7 +106,7 @@ func (s *applicationSuite) TestExposeInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	app, err := u.Application()
 	c.Assert(err, jc.ErrorIsNil)
-	exposed, info, err := app.ExposeInfo()
+	exposed, info, err := app.ExposeInfo(context.Background())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(exposed, jc.IsTrue)
 	c.Assert(info, jc.DeepEquals, map[string]params.ExposedEndpoint{

@@ -56,9 +56,9 @@ func NewClient(caller base.APICaller, options ...Option) *Client {
 
 // WatchApplications returns a StringsWatcher that notifies of
 // changes to the lifecycles of CAAS applications in the current model.
-func (c *Client) WatchApplications() (watcher.StringsWatcher, error) {
+func (c *Client) WatchApplications(ctx context.Context) (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	if err := c.facade.FacadeCall(context.TODO(), "WatchApplications", nil, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchApplications", nil, &result); err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
@@ -69,13 +69,13 @@ func (c *Client) WatchApplications() (watcher.StringsWatcher, error) {
 }
 
 // SetPassword sets API password for the specified application.
-func (c *Client) SetPassword(appName string, password string) error {
+func (c *Client) SetPassword(ctx context.Context, appName string, password string) error {
 	var result params.ErrorResults
 	args := params.EntityPasswords{Changes: []params.EntityPassword{{
 		Tag:      names.NewApplicationTag(appName).String(),
 		Password: password,
 	}}}
-	err := c.facade.FacadeCall(context.TODO(), "SetPasswords", args, &result)
+	err := c.facade.FacadeCall(ctx, "SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (c *Client) SetPassword(appName string, password string) error {
 
 // Life returns the lifecycle state for the specified application
 // or unit in the current model.
-func (c *Client) Life(entityName string) (life.Value, error) {
+func (c *Client) Life(ctx context.Context, entityName string) (life.Value, error) {
 	var tag names.Tag
 	switch {
 	case names.IsValidApplication(entityName):
@@ -105,7 +105,7 @@ func (c *Client) Life(entityName string) (life.Value, error) {
 	}
 
 	var results params.LifeResults
-	if err := c.facade.FacadeCall(context.TODO(), "Life", args, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "Life", args, &results); err != nil {
 		return "", err
 	}
 	if n := len(results.Results); n != 1 {
@@ -117,7 +117,7 @@ func (c *Client) Life(entityName string) (life.Value, error) {
 	return results.Results[0].Life, nil
 }
 
-func (c *Client) WatchProvisioningInfo(applicationName string) (watcher.NotifyWatcher, error) {
+func (c *Client) WatchProvisioningInfo(ctx context.Context, applicationName string) (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: names.NewApplicationTag(applicationName).String()},
@@ -125,7 +125,7 @@ func (c *Client) WatchProvisioningInfo(applicationName string) (watcher.NotifyWa
 	}
 	var results params.NotifyWatchResults
 
-	if err := c.facade.FacadeCall(context.TODO(), "WatchProvisioningInfo", args, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchProvisioningInfo", args, &results); err != nil {
 		return nil, err
 	}
 
@@ -159,14 +159,14 @@ type ProvisioningInfo struct {
 }
 
 // ProvisioningInfo returns the info needed to provision an operator for an application.
-func (c *Client) ProvisioningInfo(applicationName string) (ProvisioningInfo, error) {
+func (c *Client) ProvisioningInfo(ctx context.Context, applicationName string) (ProvisioningInfo, error) {
 	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: names.NewApplicationTag(applicationName).String()},
 		},
 	}
 	var result params.CAASApplicationProvisioningInfoResults
-	if err := c.facade.FacadeCall(context.TODO(), "ProvisioningInfo", args, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ProvisioningInfo", args, &result); err != nil {
 		return ProvisioningInfo{}, err
 	}
 	if len(result.Results) != 1 {
@@ -250,12 +250,12 @@ func filesystemAttachmentFromParams(in params.KubernetesFilesystemAttachmentPara
 }
 
 // SetOperatorStatus updates the provisioning status of an operator.
-func (c *Client) SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error {
+func (c *Client) SetOperatorStatus(ctx context.Context, appName string, status status.Status, message string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{Entities: []params.EntityStatusArgs{
 		{Tag: names.NewApplicationTag(appName).String(), Status: status.String(), Info: message, Data: data},
 	}}
-	err := c.facade.FacadeCall(context.TODO(), "SetOperatorStatus", args, &result)
+	err := c.facade.FacadeCall(ctx, "SetOperatorStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -263,12 +263,12 @@ func (c *Client) SetOperatorStatus(appName string, status status.Status, message
 }
 
 // Units returns all the units for an Application.
-func (c *Client) Units(appName string) ([]params.CAASUnit, error) {
+func (c *Client) Units(ctx context.Context, appName string) ([]params.CAASUnit, error) {
 	args := params.Entities{Entities: []params.Entity{{
 		Tag: names.NewApplicationTag(appName).String(),
 	}}}
 	var result params.CAASUnitsResults
-	if err := c.facade.FacadeCall(context.TODO(), "Units", args, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "Units", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(result.Results) != 1 {
@@ -294,12 +294,12 @@ func (c *Client) Units(appName string) ([]params.CAASUnit, error) {
 }
 
 // ApplicationOCIResources returns all the OCI image resources for an application.
-func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.DockerImageDetails, error) {
+func (c *Client) ApplicationOCIResources(ctx context.Context, appName string) (map[string]resources.DockerImageDetails, error) {
 	args := params.Entities{Entities: []params.Entity{{
 		Tag: names.NewApplicationTag(appName).String(),
 	}}}
 	var result params.CAASApplicationOCIResourceResults
-	if err := c.facade.FacadeCall(context.TODO(), "ApplicationOCIResources", args, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ApplicationOCIResources", args, &result); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if len(result.Results) != 1 {
@@ -330,10 +330,10 @@ func (c *Client) ApplicationOCIResources(appName string) (map[string]resources.D
 
 // UpdateUnits updates the state model to reflect the state of the units
 // as reported by the cloud.
-func (c *Client) UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error) {
+func (c *Client) UpdateUnits(ctx context.Context, arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error) {
 	var result params.UpdateApplicationUnitResults
 	args := params.UpdateApplicationUnitArgs{Args: []params.UpdateApplicationUnits{arg}}
-	err := c.facade.FacadeCall(context.TODO(), "UpdateApplicationsUnits", args, &result)
+	err := c.facade.FacadeCall(ctx, "UpdateApplicationsUnits", args, &result)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -355,10 +355,10 @@ func (c *Client) WatchApplication(ctx context.Context, appName string) (watcher.
 
 // ClearApplicationResources clears the flag which indicates an
 // application still has resources in the cluster.
-func (c *Client) ClearApplicationResources(appName string) error {
+func (c *Client) ClearApplicationResources(ctx context.Context, appName string) error {
 	var result params.ErrorResults
 	args := params.Entities{Entities: []params.Entity{{Tag: names.NewApplicationTag(appName).String()}}}
-	if err := c.facade.FacadeCall(context.TODO(), "ClearApplicationsResources", args, &result); err != nil {
+	if err := c.facade.FacadeCall(ctx, "ClearApplicationsResources", args, &result); err != nil {
 		return errors.Trace(err)
 	}
 	if len(result.Results) != len(args.Entities) {
@@ -373,7 +373,7 @@ func (c *Client) ClearApplicationResources(appName string) error {
 // WatchUnits returns a StringsWatcher that notifies of
 // changes to the lifecycles of units of the specified
 // application in the current model.
-func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) {
+func (c *Client) WatchUnits(ctx context.Context, application string) (watcher.StringsWatcher, error) {
 	if !names.IsValidApplication(application) {
 		return nil, errors.NotValidf("application name %q", application)
 	}
@@ -383,7 +383,7 @@ func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) 
 	}
 
 	var results params.StringsWatchResults
-	if err := c.facade.FacadeCall(context.TODO(), "WatchUnits", args, &results); err != nil {
+	if err := c.facade.FacadeCall(ctx, "WatchUnits", args, &results); err != nil {
 		return nil, err
 	}
 	if n := len(results.Results); n != 1 {
@@ -397,7 +397,7 @@ func (c *Client) WatchUnits(application string) (watcher.StringsWatcher, error) 
 }
 
 // RemoveUnit removes the specified unit from the current model.
-func (c *Client) RemoveUnit(unitName string) error {
+func (c *Client) RemoveUnit(ctx context.Context, unitName string) error {
 	if !names.IsValidUnit(unitName) {
 		return errors.NotValidf("unit name %q", unitName)
 	}
@@ -405,7 +405,7 @@ func (c *Client) RemoveUnit(unitName string) error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: names.NewUnitTag(unitName).String()}},
 	}
-	err := c.facade.FacadeCall(context.TODO(), "Remove", args, &result)
+	err := c.facade.FacadeCall(ctx, "Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -418,7 +418,7 @@ func (c *Client) RemoveUnit(unitName string) error {
 
 // DestroyUnits is responsible for starting the process of destroying units
 // associated with this application.
-func (c *Client) DestroyUnits(unitNames []string) error {
+func (c *Client) DestroyUnits(ctx context.Context, unitNames []string) error {
 	args := params.DestroyUnitsParams{}
 	args.Units = make([]params.DestroyUnitParams, 0, len(unitNames))
 
@@ -430,7 +430,7 @@ func (c *Client) DestroyUnits(unitNames []string) error {
 	}
 	result := params.DestroyUnitResults{}
 
-	err := c.facade.FacadeCall(context.TODO(), "DestroyUnits", args, &result)
+	err := c.facade.FacadeCall(ctx, "DestroyUnits", args, &result)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -450,10 +450,10 @@ func (c *Client) DestroyUnits(unitNames []string) error {
 
 // ProvisioningState returns the current provisioning state for the CAAS application.
 // The result can be nil.
-func (c *Client) ProvisioningState(appName string) (*params.CAASApplicationProvisioningState, error) {
+func (c *Client) ProvisioningState(ctx context.Context, appName string) (*params.CAASApplicationProvisioningState, error) {
 	var result params.CAASApplicationProvisioningStateResult
 	args := params.Entity{Tag: names.NewApplicationTag(appName).String()}
-	err := c.facade.FacadeCall(context.TODO(), "ProvisioningState", args, &result)
+	err := c.facade.FacadeCall(ctx, "ProvisioningState", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -464,13 +464,13 @@ func (c *Client) ProvisioningState(appName string) (*params.CAASApplicationProvi
 }
 
 // SetProvisioningState sets the provisioning state for the CAAS application.
-func (c *Client) SetProvisioningState(appName string, state params.CAASApplicationProvisioningState) error {
+func (c *Client) SetProvisioningState(ctx context.Context, appName string, state params.CAASApplicationProvisioningState) error {
 	var result params.ErrorResult
 	args := params.CAASApplicationProvisioningStateArg{
 		Application:       params.Entity{Tag: names.NewApplicationTag(appName).String()},
 		ProvisioningState: state,
 	}
-	err := c.facade.FacadeCall(context.TODO(), "SetProvisioningState", args, &result)
+	err := c.facade.FacadeCall(ctx, "SetProvisioningState", args, &result)
 	if err != nil {
 		return err
 	}
@@ -481,9 +481,9 @@ func (c *Client) SetProvisioningState(appName string, state params.CAASApplicati
 }
 
 // ProvisionerConfig returns the provisoner's configuration.
-func (c *Client) ProvisionerConfig() (params.CAASApplicationProvisionerConfig, error) {
+func (c *Client) ProvisionerConfig(ctx context.Context) (params.CAASApplicationProvisionerConfig, error) {
 	var result params.CAASApplicationProvisionerConfigResult
-	err := c.facade.FacadeCall(context.TODO(), "ProvisionerConfig", nil, &result)
+	err := c.facade.FacadeCall(ctx, "ProvisionerConfig", nil, &result)
 	if err != nil {
 		return params.CAASApplicationProvisionerConfig{}, err
 	}

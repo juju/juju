@@ -27,10 +27,10 @@ func NewPruner(caller base.APICaller) *Facade {
 }
 
 // Prune prunes action entries by specified age and size.
-func (s *Facade) Prune(maxHistoryTime time.Duration, maxHistoryMB int) error {
+func (s *Facade) Prune(ctx context.Context, maxHistoryTime time.Duration, maxHistoryMB int) error {
 	p := params.ActionPruneArgs{
 		MaxHistoryTime: maxHistoryTime,
 		MaxHistoryMB:   maxHistoryMB,
 	}
-	return s.facade.FacadeCall(context.TODO(), "Prune", p, nil)
+	return s.facade.FacadeCall(ctx, "Prune", p, nil)
 }

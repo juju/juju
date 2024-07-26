@@ -58,12 +58,12 @@ func (m *Machine) Refresh(ctx context.Context) error {
 }
 
 // Status returns the machine status.
-func (m *Machine) Status() (params.StatusResult, error) {
+func (m *Machine) Status(ctx context.Context) (params.StatusResult, error) {
 	var results params.StatusResults
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
 	}}
-	err := m.facade.FacadeCall(context.TODO(), "Status", args, &results)
+	err := m.facade.FacadeCall(ctx, "Status", args, &results)
 	if err != nil {
 		return params.StatusResult{}, errors.Trace(err)
 	}
@@ -79,12 +79,12 @@ func (m *Machine) Status() (params.StatusResult, error) {
 }
 
 // IsManual returns whether the machine is manually provisioned.
-func (m *Machine) IsManual() (bool, error) {
+func (m *Machine) IsManual(ctx context.Context) (bool, error) {
 	var results params.BoolResults
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
 	}}
-	err := m.facade.FacadeCall(context.TODO(), "AreManuallyProvisioned", args, &results)
+	err := m.facade.FacadeCall(ctx, "AreManuallyProvisioned", args, &results)
 	if err != nil {
 		return false, errors.Trace(err)
 	}
@@ -100,12 +100,12 @@ func (m *Machine) IsManual() (bool, error) {
 }
 
 // InstanceId returns the machine's instance id.
-func (m *Machine) InstanceId() (instance.Id, error) {
+func (m *Machine) InstanceId(ctx context.Context) (instance.Id, error) {
 	var results params.StringResults
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
 	}}
-	err := m.facade.FacadeCall(context.TODO(), "InstanceId", args, &results)
+	err := m.facade.FacadeCall(ctx, "InstanceId", args, &results)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -121,12 +121,12 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 }
 
 // InstanceStatus returns the machine's instance status.
-func (m *Machine) InstanceStatus() (params.StatusResult, error) {
+func (m *Machine) InstanceStatus(ctx context.Context) (params.StatusResult, error) {
 	var results params.StatusResults
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: m.tag.String()},
 	}}
-	err := m.facade.FacadeCall(context.TODO(), "InstanceStatus", args, &results)
+	err := m.facade.FacadeCall(ctx, "InstanceStatus", args, &results)
 	if err != nil {
 		return params.StatusResult{}, errors.Trace(err)
 	}
@@ -142,12 +142,12 @@ func (m *Machine) InstanceStatus() (params.StatusResult, error) {
 }
 
 // SetInstanceStatus sets the instance status of the machine.
-func (m *Machine) SetInstanceStatus(status status.Status, message string, data map[string]interface{}) error {
+func (m *Machine) SetInstanceStatus(ctx context.Context, status status.Status, message string, data map[string]interface{}) error {
 	var result params.ErrorResults
 	args := params.SetStatus{Entities: []params.EntityStatusArgs{
 		{Tag: m.tag.String(), Status: status.String(), Info: message, Data: data},
 	}}
-	err := m.facade.FacadeCall(context.TODO(), "SetInstanceStatus", args, &result)
+	err := m.facade.FacadeCall(ctx, "SetInstanceStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (m *Machine) SetInstanceStatus(status status.Status, message string, data m
 }
 
 // SetProviderNetworkConfig updates the provider addresses for this machine.
-func (m *Machine) SetProviderNetworkConfig(ifList network.InterfaceInfos) (network.ProviderAddresses, bool, error) {
+func (m *Machine) SetProviderNetworkConfig(ctx context.Context, ifList network.InterfaceInfos) (network.ProviderAddresses, bool, error) {
 	var results params.SetProviderNetworkConfigResults
 	args := params.SetProviderNetworkConfig{
 		Args: []params.ProviderNetworkConfig{{
@@ -164,7 +164,7 @@ func (m *Machine) SetProviderNetworkConfig(ifList network.InterfaceInfos) (netwo
 		}},
 	}
 
-	err := m.facade.FacadeCall(context.TODO(), "SetProviderNetworkConfig", args, &results)
+	err := m.facade.FacadeCall(ctx, "SetProviderNetworkConfig", args, &results)
 	if err != nil {
 		return nil, false, err
 	}

@@ -30,7 +30,7 @@ const (
 
 type Facade interface {
 	ControllerConfig(context.Context) (controller.Config, error)
-	WatchControllerConfig() (watcher.StringsWatcher, error)
+	WatchControllerConfig(context.Context) (watcher.StringsWatcher, error)
 }
 
 type CAASBroker interface {
@@ -121,7 +121,10 @@ func (w *manager) Wait() error {
 }
 
 func (w *manager) loop() (err error) {
-	watcher, err := w.config.Facade.WatchControllerConfig()
+	ctx, cancel := w.scopedContext()
+	defer cancel()
+
+	watcher, err := w.config.Facade.WatchControllerConfig(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -148,9 +151,6 @@ func (w *manager) loop() (err error) {
 
 	signal := make(chan struct{})
 	close(signal)
-
-	ctx, cancel := w.scopedContext()
-	defer cancel()
 
 	for {
 		select {

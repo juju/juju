@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	watcher "github.com/juju/juju/core/watcher"
@@ -40,9 +41,9 @@ func (m *MockSecretBackendManagerFacade) EXPECT() *MockSecretBackendManagerFacad
 }
 
 // RotateBackendTokens mocks base method.
-func (m *MockSecretBackendManagerFacade) RotateBackendTokens(info ...string) error {
+func (m *MockSecretBackendManagerFacade) RotateBackendTokens(ctx context.Context, info ...string) error {
 	m.ctrl.T.Helper()
-	varargs := []any{}
+	varargs := []any{ctx}
 	for _, a := range info {
 		varargs = append(varargs, a)
 	}
@@ -52,9 +53,10 @@ func (m *MockSecretBackendManagerFacade) RotateBackendTokens(info ...string) err
 }
 
 // RotateBackendTokens indicates an expected call of RotateBackendTokens.
-func (mr *MockSecretBackendManagerFacadeMockRecorder) RotateBackendTokens(info ...any) *MockSecretBackendManagerFacadeRotateBackendTokensCall {
+func (mr *MockSecretBackendManagerFacadeMockRecorder) RotateBackendTokens(ctx any, info ...any) *MockSecretBackendManagerFacadeRotateBackendTokensCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RotateBackendTokens", reflect.TypeOf((*MockSecretBackendManagerFacade)(nil).RotateBackendTokens), info...)
+	varargs := append([]any{ctx}, info...)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RotateBackendTokens", reflect.TypeOf((*MockSecretBackendManagerFacade)(nil).RotateBackendTokens), varargs...)
 	return &MockSecretBackendManagerFacadeRotateBackendTokensCall{Call: call}
 }
 
@@ -70,30 +72,30 @@ func (c *MockSecretBackendManagerFacadeRotateBackendTokensCall) Return(arg0 erro
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretBackendManagerFacadeRotateBackendTokensCall) Do(f func(...string) error) *MockSecretBackendManagerFacadeRotateBackendTokensCall {
+func (c *MockSecretBackendManagerFacadeRotateBackendTokensCall) Do(f func(context.Context, ...string) error) *MockSecretBackendManagerFacadeRotateBackendTokensCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretBackendManagerFacadeRotateBackendTokensCall) DoAndReturn(f func(...string) error) *MockSecretBackendManagerFacadeRotateBackendTokensCall {
+func (c *MockSecretBackendManagerFacadeRotateBackendTokensCall) DoAndReturn(f func(context.Context, ...string) error) *MockSecretBackendManagerFacadeRotateBackendTokensCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
 
 // WatchTokenRotationChanges mocks base method.
-func (m *MockSecretBackendManagerFacade) WatchTokenRotationChanges() (watcher.SecretBackendRotateWatcher, error) {
+func (m *MockSecretBackendManagerFacade) WatchTokenRotationChanges(arg0 context.Context) (watcher.SecretBackendRotateWatcher, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "WatchTokenRotationChanges")
+	ret := m.ctrl.Call(m, "WatchTokenRotationChanges", arg0)
 	ret0, _ := ret[0].(watcher.SecretBackendRotateWatcher)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // WatchTokenRotationChanges indicates an expected call of WatchTokenRotationChanges.
-func (mr *MockSecretBackendManagerFacadeMockRecorder) WatchTokenRotationChanges() *MockSecretBackendManagerFacadeWatchTokenRotationChangesCall {
+func (mr *MockSecretBackendManagerFacadeMockRecorder) WatchTokenRotationChanges(arg0 any) *MockSecretBackendManagerFacadeWatchTokenRotationChangesCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchTokenRotationChanges", reflect.TypeOf((*MockSecretBackendManagerFacade)(nil).WatchTokenRotationChanges))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchTokenRotationChanges", reflect.TypeOf((*MockSecretBackendManagerFacade)(nil).WatchTokenRotationChanges), arg0)
 	return &MockSecretBackendManagerFacadeWatchTokenRotationChangesCall{Call: call}
 }
 
@@ -109,13 +111,13 @@ func (c *MockSecretBackendManagerFacadeWatchTokenRotationChangesCall) Return(arg
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockSecretBackendManagerFacadeWatchTokenRotationChangesCall) Do(f func() (watcher.SecretBackendRotateWatcher, error)) *MockSecretBackendManagerFacadeWatchTokenRotationChangesCall {
+func (c *MockSecretBackendManagerFacadeWatchTokenRotationChangesCall) Do(f func(context.Context) (watcher.SecretBackendRotateWatcher, error)) *MockSecretBackendManagerFacadeWatchTokenRotationChangesCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockSecretBackendManagerFacadeWatchTokenRotationChangesCall) DoAndReturn(f func() (watcher.SecretBackendRotateWatcher, error)) *MockSecretBackendManagerFacadeWatchTokenRotationChangesCall {
+func (c *MockSecretBackendManagerFacadeWatchTokenRotationChangesCall) DoAndReturn(f func(context.Context) (watcher.SecretBackendRotateWatcher, error)) *MockSecretBackendManagerFacadeWatchTokenRotationChangesCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
