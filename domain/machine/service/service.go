@@ -116,6 +116,14 @@ type State interface {
 
 	// ShouldRebootOrShutdown determines whether a machine should reboot or shutdown
 	ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error)
+
+	// MarkMachineForRemoval marks the given machine for removal.
+	// It returns a MachineNotFound error if the machine does not exist.
+	MarkMachineForRemoval(context.Context, coremachine.Name) error
+
+	// GetAllMachineRemovals returns the UUIDs of all of the machines that need
+	// to be removed but need provider-level cleanup.
+	GetAllMachineRemovals(context.Context) ([]string, error)
 }
 
 // Service provides the API for working with machines.
@@ -321,4 +329,20 @@ func (s *Service) GetMachineParentUUID(ctx context.Context, machineName coremach
 func (s *Service) ShouldRebootOrShutdown(ctx context.Context, uuid string) (machine.RebootAction, error) {
 	rebootRequired, err := s.st.ShouldRebootOrShutdown(ctx, uuid)
 	return rebootRequired, errors.Annotatef(err, "getting if the machine with uuid %q need to reboot or shutdown", uuid)
+}
+
+// MarkMachineForRemoval marks the given machine for removal.
+// It returns a MachineNotFound error if the machine does not exist.
+func (s *Service) MarkMachineForRemoval(ctx context.Context, machineName coremachine.Name) error {
+	return errors.Annotatef(s.st.MarkMachineForRemoval(ctx, machineName), "marking machine %q for removal", machineName)
+}
+
+// GetAllMachineRemovals returns the UUIDs of all of the machines that need to
+// be removed but need provider-level cleanup.
+func (s *Service) GetAllMachineRemovals(ctx context.Context) ([]string, error) {
+	removals, err := s.st.GetAllMachineRemovals(ctx)
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving all machines marked to be removed")
+	}
+	return removals, nil
 }

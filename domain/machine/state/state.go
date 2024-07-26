@@ -402,9 +402,7 @@ WHERE st.machine_uuid = $machineUUID.uuid`
 	}
 
 	// Transform the status data slice into a status.Data map.
-	statusDataResult := transform.SliceToMap(machineStatusWithAllData, func(d machineStatusWithData) (string, interface{}) {
-		return d.Key, d.Data
-	})
+	statusDataResult := transform.SliceToMap(machineStatusWithAllData, machineStatusWithData.dataMapTransformFunc)
 
 	machineStatus := status.StatusInfo{
 		Message: machineStatusWithAllData[0].Message,
@@ -433,9 +431,7 @@ func (st *State) SetMachineStatus(ctx context.Context, mName machine.Name, newSt
 	machineStatus.Status = fromCoreMachineStatusValue(newStatus.Status)
 	machineStatus.Message = newStatus.Message
 	machineStatus.Updated = newStatus.Since
-	machineStatusData := transform.MapToSlice(newStatus.Data, func(key string, value interface{}) []machineStatusWithData {
-		return []machineStatusWithData{{Key: key, Data: value.(string)}}
-	})
+	machineStatusData := transform.MapToSlice(newStatus.Data, dataSliceTransformFunc)
 
 	// Prepare query for machine uuid
 	machineNameParam := machineName{Name: mName}
@@ -605,10 +601,7 @@ func (st *State) AllMachineNames(ctx context.Context) ([]machine.Name, error) {
 	}
 
 	// Transform the results ([]machineName) into a slice of machine.Name.
-	machineNames := transform.Slice[machineName, machine.Name](
-		results,
-		func(r machineName) machine.Name { return r.Name },
-	)
+	machineNames := transform.Slice(results, machineName.nameSliceTransform)
 
 	return machineNames, nil
 }
@@ -666,4 +659,90 @@ FROM machine_parent WHERE machine_uuid = $machineUUID.uuid`
 		return nil
 	})
 	return parentUUID, errors.Annotatef(err, "getting parent UUID for machine %q", mName)
+}
+
+// MarkMachineForRemoval marks the specified machine for removal.
+// It returns NotFound if the machine does not exist.
+// TODO(cderici): use machineerrors.MachineNotFound on rebase after #17759
+// lands.
+// Idempotent.
+func (st *State) MarkMachineForRemoval(ctx context.Context, mName machine.Name) error {
+	db, err := st.DB()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prepare query for getting the machine UUID.
+	machineNameParam := machineName{Name: mName}
+	markForRemovalUUID := machineMarkForRemoval{}
+	machineUUIDQuery := `SELECT uuid AS &machineMarkForRemoval.machine_uuid FROM machine WHERE name = $machineName.name`
+	machineUUIDStmt, err := st.Prepare(machineUUIDQuery, machineNameParam, markForRemovalUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Prepare query for adding the machine to the machine_removals table.
+	markForRemovalUpdateQuery := `
+INSERT OR IGNORE INTO machine_removals (machine_uuid)
+VALUES ($machineMarkForRemoval.machine_uuid)`
+	markForRemovalStmt, err := st.Prepare(markForRemovalUpdateQuery, markForRemovalUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Query for the machine UUID.
+		err := tx.Query(ctx, machineUUIDStmt, machineNameParam).Get(&markForRemovalUUID)
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return errors.Annotatef(machineerrors.MachineNotFound, "machine %q", mName)
+		}
+		if err != nil {
+			return errors.Annotatef(err, "querying UUID for machine %q", mName)
+		}
+
+		// Run query for adding the machine to the removals table.
+		return tx.Query(ctx, markForRemovalStmt, markForRemovalUUID).Run()
+	})
+
+	return errors.Annotatef(err, "marking machine %q for removal", mName)
+}
+
+// GetAllMachineRemovals returns the UUIDs of all of the machines that need to
+// be removed but need provider-level cleanup.
+func (st *State) GetAllMachineRemovals(ctx context.Context) ([]string, error) {
+	db, err := st.DB()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Prepare query for uuids of all machines marked for removal.
+	markForRemovalParam := machineMarkForRemoval{}
+	machinesMarkedForRemovalQuery := `SELECT &machineMarkForRemoval.machine_uuid FROM machine_removals`
+	machinesMarkedForRemovalStmt, err := st.Prepare(machinesMarkedForRemovalQuery, markForRemovalParam)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var results []machineMarkForRemoval
+	err = db.Txn(ctx, func(ctx context.Context, tx *sqlair.TX) error {
+		// Run query to get all machines marked for removal.
+		err := tx.Query(ctx, machinesMarkedForRemovalStmt).GetAll(&results)
+		// No errors if there's no machine marked for removal.
+		if errors.Is(err, sqlair.ErrNoRows) {
+			return nil
+		}
+		return err
+	})
+
+	if err != nil {
+		return nil, errors.Annotate(err, "querying all machines marked for removal")
+	}
+
+	// Transform the results ([]machineUUID) into a slice of machine UUIDs.
+	machineUUIDs := transform.Slice(
+		results,
+		machineMarkForRemoval.uuidSliceTransform,
+	)
+
+	return machineUUIDs, nil
 }

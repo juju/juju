@@ -123,3 +123,13 @@ CREATE TABLE machine_status_data (
     REFERENCES machine (uuid),
     PRIMARY KEY (machine_uuid, "key")
 );
+
+-- machine_removals table is a table which represents machines that are marked
+-- for removal.
+-- Being added to this table means that the machine is marked for removal,
+CREATE TABLE machine_removals (
+    machine_uuid TEXT NOT NULL PRIMARY KEY,
+    CONSTRAINT fk_machine_removals_machine
+    FOREIGN KEY (machine_uuid)
+    REFERENCES machine (uuid)
+);

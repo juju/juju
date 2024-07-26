@@ -273,6 +273,45 @@ func (c *MockStateDeleteMachineCloudInstanceCall) DoAndReturn(f func(context.Con
 	return c
 }
 
+// GetAllMachineRemovals mocks base method.
+func (m *MockState) GetAllMachineRemovals(arg0 context.Context) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllMachineRemovals", arg0)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllMachineRemovals indicates an expected call of GetAllMachineRemovals.
+func (mr *MockStateMockRecorder) GetAllMachineRemovals(arg0 any) *MockStateGetAllMachineRemovalsCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllMachineRemovals", reflect.TypeOf((*MockState)(nil).GetAllMachineRemovals), arg0)
+	return &MockStateGetAllMachineRemovalsCall{Call: call}
+}
+
+// MockStateGetAllMachineRemovalsCall wrap *gomock.Call
+type MockStateGetAllMachineRemovalsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateGetAllMachineRemovalsCall) Return(arg0 []string, arg1 error) *MockStateGetAllMachineRemovalsCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateGetAllMachineRemovalsCall) Do(f func(context.Context) ([]string, error)) *MockStateGetAllMachineRemovalsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateGetAllMachineRemovalsCall) DoAndReturn(f func(context.Context) ([]string, error)) *MockStateGetAllMachineRemovalsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // GetInstanceStatus mocks base method.
 func (m *MockState) GetInstanceStatus(arg0 context.Context, arg1 machine.Name) (status.StatusInfo, error) {
 	m.ctrl.T.Helper()
@@ -698,6 +737,44 @@ func (c *MockStateIsMachineRebootRequiredCall) Do(f func(context.Context, string
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockStateIsMachineRebootRequiredCall) DoAndReturn(f func(context.Context, string) (bool, error)) *MockStateIsMachineRebootRequiredCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// MarkMachineForRemoval mocks base method.
+func (m *MockState) MarkMachineForRemoval(arg0 context.Context, arg1 machine.Name) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkMachineForRemoval", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MarkMachineForRemoval indicates an expected call of MarkMachineForRemoval.
+func (mr *MockStateMockRecorder) MarkMachineForRemoval(arg0, arg1 any) *MockStateMarkMachineForRemovalCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkMachineForRemoval", reflect.TypeOf((*MockState)(nil).MarkMachineForRemoval), arg0, arg1)
+	return &MockStateMarkMachineForRemovalCall{Call: call}
+}
+
+// MockStateMarkMachineForRemovalCall wrap *gomock.Call
+type MockStateMarkMachineForRemovalCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockStateMarkMachineForRemovalCall) Return(arg0 error) *MockStateMarkMachineForRemovalCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockStateMarkMachineForRemovalCall) Do(f func(context.Context, machine.Name) error) *MockStateMarkMachineForRemovalCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockStateMarkMachineForRemovalCall) DoAndReturn(f func(context.Context, machine.Name) error) *MockStateMarkMachineForRemovalCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

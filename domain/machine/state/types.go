@@ -93,6 +93,12 @@ type machineName struct {
 	Name machine.Name `db:"name"`
 }
 
+// machineMarkForRemoval represents the struct to be used for the columns of the
+// machine_removals table within the sqlair statements in the machine domain.
+type machineMarkForRemoval struct {
+	UUID string `db:"machine_uuid"`
+}
+
 // machineUUID represents the struct to be used for the machine_uuid column
 // within the sqlair statements in the machine domain.
 type machineUUID struct {
@@ -109,6 +115,30 @@ type machineIsController struct {
 type machineParent struct {
 	MachineUUID string `db:"machine_uuid"`
 	ParentUUID  string `db:"parent_uuid"`
+}
+
+// uuidSliceTransform is a function that is used to transform a slice of
+// machineUUID into a slice of string.
+func (s machineMarkForRemoval) uuidSliceTransform() string {
+	return s.UUID
+}
+
+// nameSliceTransform is a function that is used to transform a slice of
+// machineName into a slice of machine.Name.
+func (s machineName) nameSliceTransform() machine.Name {
+	return s.Name
+}
+
+// dataMapTransformFunc is a function that is used to transform a slice of
+// machineStatusWithData into a map.
+func (s machineStatusWithData) dataMapTransformFunc() (string, interface{}) {
+	return s.Key, s.Data
+}
+
+// dataSliceTransformFunc is a function that is used to transform a map into a
+// slice of machineStatusWithData.
+func dataSliceTransformFunc(key string, value interface{}) []machineStatusWithData {
+	return []machineStatusWithData{{Key: key, Data: value.(string)}}
 }
 
 // toCoreMachineStatusValue converts an internal status used by machines (per

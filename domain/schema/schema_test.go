@@ -321,6 +321,7 @@ func (s *schemaSuite) TestModelTables(c *gc.C) {
 		"machine_requires_reboot",
 		"machine_status",
 		"machine_status_data",
+		"machine_removals",
 
 		// Charm
 		"charm",

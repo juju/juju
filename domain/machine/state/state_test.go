@@ -607,3 +607,95 @@ func (s *stateSuite) TestGetMachineParentUUIDNoParent(c *gc.C) {
 	_, err = s.state.GetMachineParentUUID(context.Background(), "666")
 	c.Assert(err, jc.ErrorIs, machineerrors.MachineHasNoParent)
 }
+
+// TestMarkMachineForRemovalSuccess asserts the happy path of
+// MarkMachineForRemoval at the state layer.
+func (s *stateSuite) TestMarkMachineForRemovalSuccess(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.MarkMachineForRemoval(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+
+	var machineUUID string
+	err = s.TxnRunner().StdTxn(context.Background(), func(ctx context.Context, tx *sql.Tx) error {
+		return tx.QueryRowContext(ctx, "SELECT machine_uuid FROM machine_removals WHERE machine_uuid=?", "123").Scan(&machineUUID)
+	})
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(machineUUID, gc.Equals, "123")
+}
+
+// TestMarkMachineForRemovalSuccessIdempotent asserts that marking a machine for
+// removal multiple times is idempotent.
+func (s *stateSuite) TestMarkMachineForRemovalSuccessIdempotent(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.MarkMachineForRemoval(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+
+	err = s.state.MarkMachineForRemoval(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+
+	machines, err := s.state.GetAllMachineRemovals(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(machines[0], gc.Equals, "123")
+}
+
+// TestMarkMachineForRemovalNotFound asserts that a NotFound error is returned
+// when the machine is not found.
+// TODO(cderici): use machineerrors.MachineNotFound on rebase after #17759
+// lands.
+func (s *stateSuite) TestMarkMachineForRemovalNotFound(c *gc.C) {
+	err := s.state.MarkMachineForRemoval(context.Background(), "666")
+	c.Assert(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestGetAllMachineRemovalsSuccess asserts the happy path of
+// GetAllMachineRemovals at the state layer.
+func (s *stateSuite) TestGetAllMachineRemovalsSuccess(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.MarkMachineForRemoval(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+
+	machines, err := s.state.GetAllMachineRemovals(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 1)
+	c.Assert(machines[0], gc.Equals, "123")
+}
+
+// TestGetAllMachineRemovalsEmpty asserts that GetAllMachineRemovals returns an
+// empty list if there are no machines marked for removal.
+func (s *stateSuite) TestGetAllMachineRemovalsEmpty(c *gc.C) {
+	machines, err := s.state.GetAllMachineRemovals(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 0)
+}
+
+// TestGetSomeMachineRemovals asserts the happy path of GetAllMachineRemovals at
+// the state layer for a subset of machines.
+func (s *stateSuite) TestGetSomeMachineRemovals(c *gc.C) {
+	err := s.state.CreateMachine(context.Background(), "666", "1", "123")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.CreateMachine(context.Background(), "667", "2", "124")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.CreateMachine(context.Background(), "668", "3", "125")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.MarkMachineForRemoval(context.Background(), "666")
+	c.Check(err, jc.ErrorIsNil)
+
+	err = s.state.MarkMachineForRemoval(context.Background(), "668")
+	c.Check(err, jc.ErrorIsNil)
+
+	machines, err := s.state.GetAllMachineRemovals(context.Background())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(machines, gc.HasLen, 2)
+	c.Assert(machines[0], gc.Equals, "123")
+	c.Assert(machines[1], gc.Equals, "125")
+}

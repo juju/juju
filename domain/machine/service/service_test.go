@@ -627,3 +627,63 @@ func (s *serviceSuite) TestMachineShouldRebootOrShutdownError(c *gc.C) {
 	c.Check(err, jc.ErrorIs, rErr)
 	c.Assert(err, gc.ErrorMatches, `getting if the machine with uuid "u-u-i-d" need to reboot or shutdown: boom`)
 }
+
+// TestMarkMachineForRemovalSuccess asserts the happy path of the
+// MarkMachineForRemoval service.
+func (s *serviceSuite) TestMarkMachineForRemovalSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().MarkMachineForRemoval(gomock.Any(), cmachine.Name("666")).Return(nil)
+
+	err := NewService(s.state).MarkMachineForRemoval(context.Background(), cmachine.Name("666"))
+	c.Check(err, jc.ErrorIsNil)
+}
+
+// TestMarkMachineForRemovalMachineNotFoundError asserts that the state layer
+// returns a MachineNotFound Error if a machine is not found, and that error is
+// preserved and passed on to the service layer to be handled there.
+func (s *serviceSuite) TestMarkMachineForRemovalMachineNotFoundError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().MarkMachineForRemoval(gomock.Any(), cmachine.Name("666")).Return(machineerrors.MachineNotFound)
+
+	err := NewService(s.state).MarkMachineForRemoval(context.Background(), cmachine.Name("666"))
+	c.Check(err, jc.ErrorIs, machineerrors.MachineNotFound)
+}
+
+// TestMarkMachineForRemovalError asserts that an error coming from the state
+// layer is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestMarkMachineForRemovalError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().MarkMachineForRemoval(gomock.Any(), cmachine.Name("666")).Return(rErr)
+
+	err := NewService(s.state).MarkMachineForRemoval(context.Background(), cmachine.Name("666"))
+	c.Check(err, jc.ErrorIs, rErr)
+}
+
+// TestGetAllMachineRemovalsSuccess asserts the happy path of the
+// GetAllMachineRemovals service.
+func (s *serviceSuite) TestGetAllMachineRemovalsSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.state.EXPECT().GetAllMachineRemovals(gomock.Any()).Return([]string{"666"}, nil)
+
+	machineRemovals, err := NewService(s.state).GetAllMachineRemovals(context.Background())
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(machineRemovals, gc.DeepEquals, []string{"666"})
+}
+
+// TestGetAllMachineRemovalsError asserts that an error coming from the state
+// layer is preserved, passed over to the service layer to be maintained there.
+func (s *serviceSuite) TestGetAllMachineRemovalsError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	rErr := errors.New("boom")
+	s.state.EXPECT().GetAllMachineRemovals(gomock.Any()).Return(nil, rErr)
+
+	machineRemovals, err := NewService(s.state).GetAllMachineRemovals(context.Background())
+	c.Check(err, jc.ErrorIs, rErr)
+	c.Check(machineRemovals, gc.IsNil)
+}
