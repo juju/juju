@@ -14,6 +14,7 @@ import (
 	"github.com/juju/mgo/v3/txn"
 	jujutxn "github.com/juju/txn/v3"
 
+	objectstoreerrors "github.com/juju/juju/domain/objectstore/errors"
 	internallogger "github.com/juju/juju/internal/logger"
 	"github.com/juju/juju/internal/mongo"
 )
@@ -63,15 +64,15 @@ func New(
 func (s *binaryStorage) Add(ctx context.Context, r io.Reader, metadata Metadata) (resultErr error) {
 	// Add the binary file to storage.
 	path := fmt.Sprintf("tools/%s-%s", metadata.Version, metadata.SHA256)
-	if err := s.managedStorage.Put(context.TODO(), path, r, metadata.Size); err != nil {
+	if err := s.managedStorage.Put(ctx, path, r, metadata.Size); err != nil && !errors.Is(err, objectstoreerrors.ErrHashAlreadyExists) {
 		return errors.Annotate(err, "cannot store binary file")
 	}
 	defer func() {
 		if resultErr == nil {
 			return
 		}
-		err := s.managedStorage.Remove(context.TODO(), path)
-		if err != nil {
+		err := s.managedStorage.Remove(ctx, path)
+		if err != nil && !errors.Is(err, objectstoreerrors.ErrNotFound) {
 			logger.Errorf("failed to remove binary blob: %v", err)
 		}
 	}()

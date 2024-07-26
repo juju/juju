@@ -90,6 +90,11 @@ func (s *binaryStorageSuite) TestAddReplaces(c *gc.C) {
 	s.testAdd(c, "def")
 }
 
+func (s *binaryStorageSuite) TestAddMultiple(c *gc.C) {
+	s.testAdd(c, "abc")
+	s.testAdd(c, "abc")
+}
+
 func (s *binaryStorageSuite) testAdd(c *gc.C, content string) {
 	r := bytes.NewReader([]byte(content))
 	addedMetadata := binarystorage.Metadata{
